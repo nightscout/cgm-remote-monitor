@@ -1,0 +1,23 @@
+body {fill: #fff; background: #000; color: #808080 }
+
+#chart svg {
+    height: 400px;
+}
+
+.nvd3 .nv-axis line {
+    stroke: #808080;
+}
+
+.nvd3 .nv-axis.nv-y path.domain {
+    stroke: #808080;
+    stroke-opacity: 1;
+}
+
+.nvd3 .nv-axis.nv-x path.domain {
+    stroke: #808080;
+    stroke-opacity: 1;
+}
+
+.tick {
+    opacity: 1;
+}
