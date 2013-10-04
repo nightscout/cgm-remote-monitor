@@ -1,5 +1,5 @@
-@import "//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/css/bootstrap-combined.no-icons.min.css";
 @import "//netdna.bootstrapcdn.com/font-awesome/3.2.1/css/font-awesome.css";
+@import "//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/css/bootstrap-combined.no-icons.min.css";
 @import "http://fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic";
 @import "http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800";
 
@@ -32,24 +32,6 @@ p.lead {
 p {
     font-size: 18px;
     line-height: 24px;
-}
-
-/* Video pitch and Action */
-.pitch {
-    padding: 2.5% 0%;
-}
-.order {
-    padding: 2% 0%;
-}
-.actions {
-    background-color: #343434;
-    padding: 3%, 0%;
-}
-.video, .thermoeter, .order, .social, .statistics {
-    text-align: center;
-}
-.statistics h3, .statistics p {
-    color: white;
 }
 
 /* Marketing Copy and Footer */
