@@ -33,6 +33,7 @@ var server = require('http').createServer(function serverCreator(request, respon
 //Setup socket io for data and message transmission
 var io = require('socket.io').listen(server);
 
+//Default to 36 data points
 var historyLength = 12 * 3;
 
 var clients = [];
@@ -40,7 +41,7 @@ var clients = [];
 //Initialize last ACK to 1 hour ago
 var lastAckTime = Date.now() - 3600000;
 
-//Reload the csv file every refresh_rate minutes
+//Reloads the csv file
 function update() {
 
     fs.readFile('Dexcom.csv', 'utf-8', function fileReader(error, data) {
@@ -52,6 +53,7 @@ function update() {
             var latest = lines.length - 1;
             var actual = [];
 
+            //Only get the most recent sgv data points
             for (var i = latest; i > latest - historyLength; i--) {
                 lines[i] = lines[i].split(",");
                 actual.unshift({x: new Date(lines[i][10]).getTime(), y: lines[i][1]});

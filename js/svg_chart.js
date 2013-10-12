@@ -12,14 +12,17 @@ var data = [
 ];
 
 var chart;
+var rangeIndex = 1;
+var hours = [3, 6, 12, 24];
 
 nv.addGraph(function () {
     chart = nv.models.scatterChart();
 
     var now = Date.now();
 
+    chart.showLegend(false);
+
     chart.xAxis
-        .orient("bottom")
         .tickValues([now])
         .axisLabel('Time(min)')
         .tickFormat(function (d) {
@@ -27,27 +30,30 @@ nv.addGraph(function () {
         });
 
     chart.yAxis
-        //.orient("right")
-        .tickValues([80, 180]);
-        //.axisLabel('mg/dL');
+        .tickValues([80, 180])
+        .axisLabel('mg/dL');
 
     chart.forceY([40,300]);
 
-    //var y = d3.scale.log()
-    //chart.yScale(y)
-
     d3.select('#chart').on("click", function () {
-        socket.emit('update', 6);
+        socket.emit('update', hours[rangeIndex]);
+        rangeIndex = rangeIndex + 1 > 3 ? 0 : rangeIndex + 1;
     });
 
     nv.utils.windowResize(chart.update);
 
+    chart.tooltipContent(function(key, x, y) {return y + " mg/dL (" + key + ")" + "\n@" + x;});
+    chart.tooltipXContent(null);
+    chart.tooltipYContent(null);
+
     return chart;
 });
 
-function redraw() {
+function refresh() {
 
     var newTime = new Date();
+
+    chart.forceX(newTime - hours[rangeIndex - 1]*3600*1000);
 
     d3.select('#chart svg')
         .datum(data)
@@ -57,44 +63,21 @@ function redraw() {
     chart.xAxis
         .tickValues([newTime.getTime()]);
 
-    chart.tooltipContent(function(key, x, y) {return y + " mg/dL (" + key + ")";});
-
-    $('#currentBG').text(data[0].values[data[0].values.length - 1].y + " mg/dL");
     $('#currentTime').text(d3.time.format("%H:%M")(newTime));
+    if(data[0].values.length) { $('#currentBG').text(data[0].values[data[0].values.length - 1].y + " mg/dL"); }
 }
 
-//If io server exists, connect, else use mock data
-if(typeof(io) !== "undefined") {
-    var socket = io.connect();
-    socket.on('connect', function () {
-        socket.emit('test', "C --> S: Client Connected.");
-        console.log("Client connected.");
-    });
-    socket.on('sgv', function (d) {
-        if(d.length > 1) {
-            data[0].values = d[0].map(function(obj) { return {x: new Date(obj.x), y: obj.y} });
-            data[1].values = d[1].map(function(obj) { return {x: new Date(obj.x), y: obj.y} });
-            redraw();
-            console.log("SGV data received.");
-            socket.emit('test', "C --> S: Client received data as: " + d);
-        }
-    });
+var socket = io.connect();
 
-} else {
-    data[0].values = getMockSGVData();
-    data[1].values = getMockPredictedData();
-    setInterval(function () {
-        var sgv = data[0].values;
-        var nextSVG = new Date(sgv[sgv.length - 1].x);
-        var nextValue = sgv[sgv.length - 1].y;
-        nextSVG.setTime(nextSVG.getTime() + 1000*60*5);
-        sgv.shift();
-        sgv.push({x:nextSVG, y: nextValue + Math.floor(Math.random()*10 - 5)});
-        var predicted = data[1].values;
-        var nextP = new Date(predicted[predicted.length - 1].x);
-        nextP.setTime(nextP.getTime() + 1000*60*5);
-        predicted.shift();
-        predicted.push({x:nextP, y: nextValue + Math.floor(Math.random()*10 - 5)});
-        redraw();
-    }, 2000);
-}
+socket.on('connect', function () {
+    console.log("Client connected.");
+    refresh()
+});
+
+socket.on('sgv', function (d) {
+    if(d.length > 1) {
+        data[0].values = d[0].map(function(obj) { return {x: new Date(obj.x), y: obj.y} });
+        data[1].values = d[1].map(function(obj) { return {x: new Date(obj.x), y: obj.y} });
+        refresh();
+    }
+});
