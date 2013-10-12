@@ -4,18 +4,19 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NightScout</title>
-    <link rel="stylesheet" type="text/css" href="http://nvd3.org/src/nv.d3.css">
+    <link rel="stylesheet" type="text/css" href="css/svg_scatter_chart.css">
     <link rel="stylesheet" type="text/css" href="css/fonts.css">
     <link rel="stylesheet" type="text/css" href="css/buttons.css">
     <link rel="stylesheet" type="text/css" href="css/svg_chart.css">
     <script src="/socket.io/socket.io.js"></script>
-    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
-    <script src="http://nvd3.org/nv.d3.js"></script>
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script src="js/nv_d3_scatter.js"></script>
     <script src="https://d396qusza40orc.cloudfront.net/startup%2Fcode%2Fjquery.js"></script>
     <script src="https://d396qusza40orc.cloudfront.net/startup%2Fcode%2Fbootstrap.js"></script>
     <script src="js/svg_chart.js"></script>
 </head>
 <body>
+
 <!-- Mobile-friendly navbar. -->
 <div class="navbar navbar-inverse navbar-fixed-top">
     <div class="navbar-inner">
@@ -42,7 +43,7 @@
     <div class="row-fluid heading">
         <div class="span12">
             <h1><div id="currentBG">???</div></h1>
-            <h1><div class="bgButton" id="bgButton" hidden="true" onclick="ackAlarm()"><div id="alertingCurrentBG">???</div></div></h1>
+            <h1><div class="bgButton" id="bgButton" hidden="true" onclick="stopAlarm()">???</div></h1>
         </div>
     </div>
     <div class ="row-fluid subheading">
@@ -57,44 +58,47 @@
             </div>
         </div>
     </div>
-    <div class="bgButton" onclick="testFunction()">test</div>
 </div>
+<audio id="audio" loop><source src="audio/alarm.ogg" type="audio/ogg"/></audio>
+<audio id="audio2" loop><source src="audio/alarm2.ogg" type="audio/ogg"/></audio>
 </body>
+<script>
+    socket.on('connect', function () {
+        console.log("Client connected to server.")
+    });
+    socket.on('alarm', function() {
+        generateAlarm(alarmSound);
+    });
+    socket.on('urgent_alarm', function() {
+        generateAlarm(urgentAlarmSound);
+    });
+
+    //Load alarms
+    var alarmSound = document.getElementById('audio');
+    var urgentAlarmSound = document.getElementById('audio2');
+
+    //Get labels for updating
+    var currentBG = $('#currentBG');
+    var bgButton =  $('#bgButton');
+
+    function generateAlarm(alarmType) {
+        alarmType.load();
+        alarmType.play();
+        var element = document.getElementById("bgButton");
+        element.hidden = "";
+        var element1 = document.getElementById("currentBG");
+        element1.hidden = "true";
+        $('#bgButton').text($('#currentBG').text());
+    }
+
+    function stopAlarm() {
+        var element = document.getElementById("bgButton");
+        element.hidden = "true";
+        element = document.getElementById("currentBG");
+        element.hidden = "";
+        alarmSound.pause();
+        urgentAlarmSound.pause();
+        socket.emit('ack', Date.now());
+    }
+</script>
 </html>
-        <script>
-            var socket = io.connect();
-            socket.on('connect', function () {
-                console.log("HTML connected to client.")
-            });
-            function ackAlarm() {
-                var element = document.getElementById("bgButton");
-                element.hidden = "true";
-                element = document.getElementById("currentBG");
-                element.hidden = "";
-                socket.emit("alarmACK", "C --> S: true");
-                console.log("alarmACK'd");
-                alarm_sound.pause();
-            }
-            function testFunction() {
-                alarm_sound.load();
-                alarm_sound.play();
-                var element = document.getElementById("bgButton");
-                element.hidden = element.hidden == true ? "" : "true";
-                if (element.hidden != true) alarm_sound.play();
-                else alarm_sound.pause();
-                var element1 = document.getElementById("currentBG");
-                element1.hidden = element1.hidden == "" ? "true" : "";
-                $('#bgButton').text($('#currentBG').text());
-            }
-
-            var urgent_alarm_sound = new Audio();
-            urgent_alarm_sound.setAttribute("src","alarm2.mp3");
-            urgent_alarm_sound.load();
-
-            var alarm_sound = new Audio();
-            alarm_sound.setAttribute("src","alarm.mp3");
-            alarm_sound.setAttribute("loop",true);
-            alarm_sound.load();
-            alarm_sound.play();
-
-        </script>
