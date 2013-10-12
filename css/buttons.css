@@ -28,3 +28,9 @@
     -moz-box-shadow: none;
     -webkit-box-shadow: none;
 }
+
+.button {
+    text-align: center;
+    background: #ababab;
+    margin: 10px auto;
+}
