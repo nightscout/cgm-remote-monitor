@@ -12,7 +12,6 @@
 
     html {
         height: 75%;
-        margin: 0px;
     }
 
     body {
@@ -112,7 +111,7 @@
     var updateTransistionMS = 750; // milliseconds
     var brush;
     var clip;
-    var FOCUS_DATA_RANGE_MS = 10800000;  // 3 hours of actual data
+    var FOCUS_DATA_RANGE_MS = 12600000;  // 3.5 hours of actual data
 
     // create svg and g to contain the chart contents
     var charts = d3.select("#chartContainer").append("svg")
@@ -188,8 +187,18 @@
 
     // function to call when context chart is brushed
     function brushed() {
+        var brushExtent = brush.extent();
 
-        xScale.domain(brush.empty() ? xScale2.domain() : brush.extent());
+        // ensure that brush extent is fixed at 3.5 hours
+        if(brushExtent[1].getTime() - brushExtent[0].getTime() != FOCUS_DATA_RANGE_MS) {
+            if(brushExtent[0].getTime() + FOCUS_DATA_RANGE_MS > d3.extent(data, dateFn)[1].getTime()) {
+                d3.select(".brush").transition().duration(updateTransistionMS).call(brush.extent([new Date(brushExtent[1].getTime() - FOCUS_DATA_RANGE_MS), brushExtent[1]]));
+            } else {
+                d3.select(".brush").transition().duration(updateTransistionMS).call(brush.extent([brushExtent[0], new Date(brushExtent[0].getTime() + FOCUS_DATA_RANGE_MS)]));
+            }
+        }
+
+        xScale.domain(brush.extent());
 
         // bind up the focus chart data to an array of circles
         var focusCircles = focus.selectAll("circle").data(data, dateFn);
@@ -197,18 +206,19 @@
         // if already existing then transition each circle to its new position
         focusCircles.transition()
                 .attr("cx", function (d) { return xScale(d.date); })
-                .attr("cy", function (d) { return yScale(d.sgv);  });
+                .attr("cy", function (d) { return yScale(d.sgv);  })
+                .attr("fill", function (d) { return d.color;      });
 
         // if new circle then just display
         focusCircles.enter().append("circle")
                 .attr("cx", function (d) { return xScale(d.date); })
                 .attr("cy", function (d) { return yScale(d.sgv);  })
+                .attr("fill", function (d) { return d.color;      })
                 .attr("r", 3);
 
         focusCircles.exit()
                 .remove();
 
-        //TODO make this a function since used 3 times
         var now = Date.now();
         focus.select(".now-line")
                 .transition()
@@ -229,11 +239,11 @@
     // called for initial update and updates for resize
     function updateChart(init) {
 
-        // clear brush when updating to avoid the queueing of data
-        d3.select(".brush").call(brush.clear());
-
         // get current time
         var now = Date.now();
+
+        // get current data range
+        var dataRange = d3.extent(data, dateFn);
 
         // get the entire container height and width subtracting the padding
         var chartWidth = (document.getElementById('chartContainer')
@@ -245,6 +255,9 @@
         // get the height of each chart based on its container size ratio
         var focusHeight = chartHeight * .7;
         var contextHeight = chartHeight * .2;
+
+        // get current brush extent
+        var oldBrushExtent = brush.extent();
 
         // only redraw chart if chart size has changed
         if ((prevChartWidth != chartWidth) || (prevChartHeight != chartHeight)) {
@@ -280,10 +293,15 @@
 
                 context.append("g")
                         .attr("class", "x brush")
-                        .call(brush)
+                        .call(d3.svg.brush().x(xScale2).on("brush", brushed))
                         .selectAll("rect")
                         .attr("y", chartHeight - contextHeight)
                         .attr("height", contextHeight);
+
+                // disable resizing of brush
+                d3.select(".x.brush").select(".background").style("cursor", "move");
+                d3.select(".x.brush").select(".resize.e").style("cursor", "move");
+                d3.select(".x.brush").select(".resize.w").style("cursor", "move");
 
                 // create a clipPath for when brushing
                 clip = charts.append("defs")
@@ -306,9 +324,9 @@
                 // add a y-axis line that shows the high bg threshold
                 focus.append("line")
                         .attr("class", "high-line")
-                        .attr("x1", xScale(d3.extent(data, dateFn)[0]))
+                        .attr("x1", xScale(dataRange[0]))
                         .attr("y1", yScale(180))
-                        .attr("x2", xScale(d3.extent(data, dateFn)[1]))
+                        .attr("x2", xScale(dataRange[1]))
                         .attr("y2", yScale(180))
                         .style("stroke-dasharray", ("3, 3"))
                         .attr("stroke", "grey");
@@ -316,16 +334,44 @@
                 // add a y-axis line that shows the low bg threshold
                 focus.append("line")
                         .attr("class", "low-line")
-                        .attr("x1", xScale(d3.extent(data, dateFn)[0]))
+                        .attr("x1", xScale(dataRange[0]))
                         .attr("y1", yScale(80))
-                        .attr("x2", xScale(d3.extent(data, dateFn)[1]))
+                        .attr("x2", xScale(dataRange[1]))
                         .attr("y2", yScale(80))
                         .style("stroke-dasharray", ("3, 3"))
                         .attr("stroke", "grey");
-            } else {
 
-                // if focus is in context when resizing, then need to refresh its domain
-                xScale.domain([new Date(now - FOCUS_DATA_RANGE_MS), d3.extent(data, dateFn)[1]]);
+                // add a line that marks the current time
+                context.append("line")
+                        .attr("class", "now-line")
+                        .attr("x1", xScale(new Date(now)))
+                        .attr("y1", yScale2(30))
+                        .attr("x2", xScale(new Date(now)))
+                        .attr("y2", yScale2(400))
+                        .style("stroke-dasharray", ("3, 3"))
+                        .attr("stroke", "grey");
+
+                // add a y-axis line that shows the high bg threshold
+                context.append("line")
+                        .attr("class", "high-line")
+                        .attr("x1", xScale(dataRange[0]))
+                        .attr("y1", yScale2(180))
+                        .attr("x2", xScale(dataRange[1]))
+                        .attr("y2", yScale2(180))
+                        .style("stroke-dasharray", ("3, 3"))
+                        .attr("stroke", "grey");
+
+                // add a y-axis line that shows the low bg threshold
+                context.append("line")
+                        .attr("class", "low-line")
+                        .attr("x1", xScale(dataRange[0]))
+                        .attr("y1", yScale2(80))
+                        .attr("x2", xScale(dataRange[1]))
+                        .attr("y2", yScale2(80))
+                        .style("stroke-dasharray", ("3, 3"))
+                        .attr("stroke", "grey");
+
+            } else {
 
                 // for subsequent updates use a transition to animate the axis to the new position
                 var focusTransition = focus.transition().duration(updateTransistionMS);
@@ -349,59 +395,57 @@
                         .attr("width", chartWidth)
                         .attr("height", chartHeight);
 
-                // reset brush location and clear
+                // reset brush location, clear current, and redraw old
                 context.select(".x.brush")
                         .selectAll("rect")
                         .attr("y", chartHeight - contextHeight)
                         .attr("height", contextHeight);
                 d3.select(".brush").call(brush.clear());
+                d3.select(".brush").transition().duration(updateTransistionMS).call(brush.extent(oldBrushExtent));
+                brushed();
 
                 // transition high line to correct location
                 focus.select(".high-line")
                         .transition()
                         .duration(updateTransistionMS)
-                        .attr("x1", xScale(new Date(now - FOCUS_DATA_RANGE_MS)))
+                        .attr("x1", xScale(brush.extent()[0]))
                         .attr("y1", yScale(180))
-                        .attr("x2", xScale(d3.extent(data, dateFn)[1]))
+                        .attr("x2", xScale(dataRange[1]))
                         .attr("y2", yScale(180));
 
                 // transition low line to correct location
                 focus.select(".low-line")
                         .transition()
                         .duration(updateTransistionMS)
-                        .attr("x1", xScale(new Date(now - FOCUS_DATA_RANGE_MS)))
+                        .attr("x1", xScale(brush.extent()[0]))
                         .attr("y1", yScale(80))
-                        .attr("x2", xScale(d3.extent(data, dateFn)[1]))
+                        .attr("x2", xScale(dataRange[1]))
                         .attr("y2", yScale(80));
+
+                // transition high line to correct location
+                context.select(".high-line")
+                        .transition()
+                        .duration(updateTransistionMS)
+                        .attr("x1", xScale2(dataRange[0]))
+                        .attr("y1", yScale2(180))
+                        .attr("x2", xScale2(dataRange[1]))
+                        .attr("y2", yScale2(180));
+
+                // transition low line to correct location
+                context.select(".low-line")
+                        .transition()
+                        .duration(updateTransistionMS)
+                        .attr("x1", xScale2(dataRange[0]))
+                        .attr("y1", yScale2(80))
+                        .attr("x2", xScale2(dataRange[1]))
+                        .attr("y2", yScale2(80));
             }
         }
 
-        //Update domains
-        xScale.domain([new Date(now - FOCUS_DATA_RANGE_MS), d3.extent(data, dateFn)[1]]);
-        xScale2.domain(d3.extent(data, dateFn));
+        // update domain
+        xScale2.domain(dataRange);
 
-        // bind up the focus chart data to an array of circles
-        var focusCircles = focus.selectAll("circle")
-                .data(data);
-
-        // if already existing then transition each circle to its new position
-        focusCircles.transition()
-                .duration(updateTransistionMS)
-                .attr("cx", function (d) { return xScale(d.date); })
-                .attr("cy", function (d) { return yScale(d.sgv);  })
-                .attr("fill", function (d) { return d.color;      })
-                .attr("r", 3);
-
-        // if new circle then just display
-        focusCircles.enter().append("circle")
-                .attr("cx", function (d) { return xScale(d.date); })
-                .attr("cy", function (d) { return yScale(d.sgv);  })
-                .attr("fill", function (d) { return d.color;      })
-                .attr("r", 3);
-
-        focusCircles.exit()
-                .remove();
-
+        // update now line on charts
         focus.select(".now-line")
                 .transition()
                 .duration(updateTransistionMS)
@@ -410,9 +454,13 @@
                 .attr("x2", xScale(new Date(now)))
                 .attr("y2", yScale(400));
 
-        // update x axis domain
-        focus.select(".x")
-                .call(xAxis);
+        context.select(".now-line")
+                .transition()
+                .duration(updateTransistionMS)
+                .attr("x1", xScale2(new Date(now)))
+                .attr("y1", yScale2(30))
+                .attr("x2", xScale2(new Date(now)))
+                .attr("y2", yScale2(400));
 
         // bind up the context chart data to an array of circles
         var contextCircles = context.selectAll("circle")
@@ -439,8 +487,12 @@
         context.select(".x")
                 .call(xAxis2);
 
-        // add clipping path so that data stays with axis
-        focusCircles.attr("clip-path", "url(#clip)");
+        // update brush and focus chart with recent data
+        d3.select(".brush")
+                .transition()
+                .duration(updateTransistionMS)
+                .call(brush.extent([new Date(dataRange[1].getTime() - FOCUS_DATA_RANGE_MS), dataRange[1]]));
+        brushed();
     }
 
     // look for resize but use timer to only call the update script when a resize stops
@@ -474,7 +526,6 @@
                 initializeCharts();
             }
             else {
-                updateChart(false);
                 updateChart(false);
             }
         }
