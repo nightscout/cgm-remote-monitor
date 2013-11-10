@@ -111,6 +111,9 @@ function update() {
     });
 }
 
+// immediately read file
+update();
+
 var sensorReadID = setInterval(update, refresh_rate);
 
 io.sockets.on('connection', function (socket) {
