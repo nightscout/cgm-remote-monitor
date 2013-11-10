@@ -33,8 +33,8 @@ var server = require('http').createServer(function serverCreator(request, respon
 //Setup socket io for data and message transmission
 var io = require('socket.io').listen(server);
 
-//Default to 36 data points
-var historyLength = 12 * 3;
+//Default to 576 data points which is 2 days of data assuming that out of range does not occur
+var historyLength = 576;
 
 var clients = [];
 
@@ -54,26 +54,26 @@ function update() {
             var actual = [];
 
             //Only get the most recent sgv data points
-            for (var i = latest; i > latest - historyLength; i--) {
+            for (var i = latest; i > latest - historyLength && lines[i]; i--) {
                 lines[i] = lines[i].split(",");
                 actual.unshift({x: new Date(lines[i][10]).getTime(), y: lines[i][1]});
-    }
+            }
 
             //Predict using AR model
             var predicted = [];
             var actual_len = actual.length - 1;
             var lastValidReadingTime = actual[actual_len].x;
             var elapsed_min = (actual[actual_len].x - actual[actual_len].x) / 60000;
-            var BG_REF = 100;
+            var BG_REF = 140;
             var y = Math.log(actual[actual_len].y / BG_REF);
 
             if (elapsed_min < 5.1) {
-                y = [y, Math.log(actual[actual_len].y / BG_REF)];
+                y = [Math.log(actual[actual_len - 1].y / BG_REF), y];
             } else {
                 y = [y, y];
             }
 
-            var n = 12 * 4;                             //Predict 4 hour ahead
+            var n = 12 * 0.5;                             //Predict 1/2 hour ahead
             var AR = [-0.723, 1.716];                   //AR calculation constants
             var dt = actual[actual_len].x;
             for (i = 0; i <= n; i++) {
@@ -87,7 +87,7 @@ function update() {
 
             //Remove measured points that don't lie within the time range
             while(actual.length > 0 && actual[0].x < Date.now() - historyLength * 5 * 60 * 1000) { actual.shift(); }
-            while(predicted.length > 0 && predicted[0].x < Date.now() - n * 5 * 60 * 1000) { predicted.shift(); }
+            //while(predicted.length > 0 && predicted[0].x < Date.now() - n * 5 * 60 * 1000) { predicted.shift(); }
 
             bgData = [actual, predicted];
             io.sockets.emit("sgv", bgData);
