@@ -108,8 +108,11 @@
     var xScale, xScale2, yScale, yScale2;
     var prevChartWidth = 0;
     var prevChartHeight = 0;
-    var updateTransistionMS = 750; // milliseconds
+    var UPDATE_TRANS_MS = 750; // milliseconds
     var brush;
+    var BRUSH_TIMEOUT = 300000;  // 5 minutes in ms
+    var brushTimer;
+    var brushInProgress = false;
     var clip;
     var FOCUS_DATA_RANGE_MS = 12600000;  // 3.5 hours of actual data
 
@@ -185,16 +188,45 @@
         updateChart(true);
     }
 
+    function clearBrush() {
+
+        // get current time range
+        var dataRange = d3.extent(data, dateFn);
+
+        // update brush and focus chart with recent data
+        d3.select(".brush")
+                .transition()
+                .duration(UPDATE_TRANS_MS)
+                .call(brush.extent([new Date(dataRange[1].getTime() - FOCUS_DATA_RANGE_MS), dataRange[1]]));
+        brushed(true);
+
+        // clear user brush tracking
+        brushInProgress = false;
+    }
+
     // function to call when context chart is brushed
-    function brushed() {
+    function brushed(skipTimer) {
+
+        if (!skipTimer) {
+            // set a timer to reset focus chart to real-time data
+            clearTimeout(brushTimer);
+            brushTimer = setTimeout(clearBrush, BRUSH_TIMEOUT);
+            brushInProgress = true;
+        }
+        
         var brushExtent = brush.extent();
 
         // ensure that brush extent is fixed at 3.5 hours
-        if(brushExtent[1].getTime() - brushExtent[0].getTime() != FOCUS_DATA_RANGE_MS) {
-            if(brushExtent[0].getTime() + FOCUS_DATA_RANGE_MS > d3.extent(data, dateFn)[1].getTime()) {
-                d3.select(".brush").transition().duration(updateTransistionMS).call(brush.extent([new Date(brushExtent[1].getTime() - FOCUS_DATA_RANGE_MS), brushExtent[1]]));
+        if (brushExtent[1].getTime() - brushExtent[0].getTime() != FOCUS_DATA_RANGE_MS) {
+            var updateBrush = d3.select(".brush").transition().duration(UPDATE_TRANS_MS);
+
+            // ensure that brush updating is with the time range
+            if (brushExtent[0].getTime() + FOCUS_DATA_RANGE_MS > d3.extent(data, dateFn)[1].getTime()) {
+                updateBrush
+                        .call(brush.extent([new Date(brushExtent[1].getTime() - FOCUS_DATA_RANGE_MS), brushExtent[1]]));
             } else {
-                d3.select(".brush").transition().duration(updateTransistionMS).call(brush.extent([brushExtent[0], new Date(brushExtent[0].getTime() + FOCUS_DATA_RANGE_MS)]));
+                updateBrush
+                        .call(brush.extent([brushExtent[0], new Date(brushExtent[0].getTime() + FOCUS_DATA_RANGE_MS)]));
             }
         }
 
@@ -222,7 +254,7 @@
         var now = Date.now();
         focus.select(".now-line")
                 .transition()
-                .duration(updateTransistionMS)
+                .duration(UPDATE_TRANS_MS)
                 .attr("x1", xScale(new Date(now)))
                 .attr("y1", yScale(30))
                 .attr("x2", xScale(new Date(now)))
@@ -257,7 +289,7 @@
         var contextHeight = chartHeight * .2;
 
         // get current brush extent
-        var oldBrushExtent = brush.extent();
+        var currentBrushExtent = brush.extent();
 
         // only redraw chart if chart size has changed
         if ((prevChartWidth != chartWidth) || (prevChartHeight != chartHeight)) {
@@ -374,7 +406,7 @@
             } else {
 
                 // for subsequent updates use a transition to animate the axis to the new position
-                var focusTransition = focus.transition().duration(updateTransistionMS);
+                var focusTransition = focus.transition().duration(UPDATE_TRANS_MS);
 
                 focusTransition.select(".x")
                         .attr("transform", "translate(0," + focusHeight + ")")
@@ -384,7 +416,7 @@
                         .attr("transform", "translate(" + chartWidth + ", 0)")
                         .call(yAxis);
 
-                var contextTransition = context.transition().duration(updateTransistionMS);
+                var contextTransition = context.transition().duration(UPDATE_TRANS_MS);
 
                 contextTransition.select(".x")
                         .attr("transform", "translate(0," + chartHeight + ")")
@@ -401,31 +433,30 @@
                         .attr("y", chartHeight - contextHeight)
                         .attr("height", contextHeight);
                 d3.select(".brush").call(brush.clear());
-                d3.select(".brush").transition().duration(updateTransistionMS).call(brush.extent(oldBrushExtent));
-                brushed();
+                d3.select(".brush").transition().duration(UPDATE_TRANS_MS).call(brush.extent(currentBrushExtent));
 
                 // transition high line to correct location
                 focus.select(".high-line")
                         .transition()
-                        .duration(updateTransistionMS)
-                        .attr("x1", xScale(brush.extent()[0]))
+                        .duration(UPDATE_TRANS_MS)
+                        .attr("x1", xScale(currentBrushExtent[0]))
                         .attr("y1", yScale(180))
-                        .attr("x2", xScale(dataRange[1]))
+                        .attr("x2", xScale(currentBrushExtent[1]))
                         .attr("y2", yScale(180));
 
                 // transition low line to correct location
                 focus.select(".low-line")
                         .transition()
-                        .duration(updateTransistionMS)
-                        .attr("x1", xScale(brush.extent()[0]))
+                        .duration(UPDATE_TRANS_MS)
+                        .attr("x1", xScale(currentBrushExtent[0]))
                         .attr("y1", yScale(80))
-                        .attr("x2", xScale(dataRange[1]))
+                        .attr("x2", xScale(currentBrushExtent[1]))
                         .attr("y2", yScale(80));
 
                 // transition high line to correct location
                 context.select(".high-line")
                         .transition()
-                        .duration(updateTransistionMS)
+                        .duration(UPDATE_TRANS_MS)
                         .attr("x1", xScale2(dataRange[0]))
                         .attr("y1", yScale2(180))
                         .attr("x2", xScale2(dataRange[1]))
@@ -434,7 +465,7 @@
                 // transition low line to correct location
                 context.select(".low-line")
                         .transition()
-                        .duration(updateTransistionMS)
+                        .duration(UPDATE_TRANS_MS)
                         .attr("x1", xScale2(dataRange[0]))
                         .attr("y1", yScale2(80))
                         .attr("x2", xScale2(dataRange[1]))
@@ -448,7 +479,7 @@
         // update now line on charts
         focus.select(".now-line")
                 .transition()
-                .duration(updateTransistionMS)
+                .duration(UPDATE_TRANS_MS)
                 .attr("x1", xScale(new Date(now)))
                 .attr("y1", yScale(30))
                 .attr("x2", xScale(new Date(now)))
@@ -456,7 +487,7 @@
 
         context.select(".now-line")
                 .transition()
-                .duration(updateTransistionMS)
+                .duration(UPDATE_TRANS_MS)
                 .attr("x1", xScale2(new Date(now)))
                 .attr("y1", yScale2(30))
                 .attr("x2", xScale2(new Date(now)))
@@ -468,7 +499,7 @@
 
         // if already existing then transition each circle to its new position
         contextCircles.transition()
-                .duration(updateTransistionMS)
+                .duration(UPDATE_TRANS_MS)
                 .attr("cx", function (d) { return xScale2(d.date); })
                 .attr("cy", function (d) { return yScale2(d.sgv);  })
                 .attr("fill", function (d) { return d.color;       });
@@ -487,12 +518,17 @@
         context.select(".x")
                 .call(xAxis2);
 
-        // update brush and focus chart with recent data
-        d3.select(".brush")
-                .transition()
-                .duration(updateTransistionMS)
-                .call(brush.extent([new Date(dataRange[1].getTime() - FOCUS_DATA_RANGE_MS), dataRange[1]]));
-        brushed();
+        // only if a user brush is not active, update brush and focus chart with recent data
+        // else, just transition brush
+        var updateBrush = d3.select(".brush").transition().duration(UPDATE_TRANS_MS);
+        if (!brushInProgress) {
+            updateBrush
+                    .call(brush.extent([new Date(dataRange[1].getTime() - FOCUS_DATA_RANGE_MS), dataRange[1]]));
+            brushed(true);
+        } else {
+            updateBrush
+                    .call(brush.extent([currentBrushExtent[0], currentBrushExtent[1]]));
+        }
     }
 
     // look for resize but use timer to only call the update script when a resize stops
