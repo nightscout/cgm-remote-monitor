@@ -39,14 +39,20 @@
         display: block;
     }
 
+    .open {
+        stroke-width: 10;
+
+    }
+
     .grid path, .axis line {
         stroke: #808080;
         stroke-opacity: .25;
     }
 
     .brush .extent {
-        stroke: #fff;
-        fill-opacity: .125;
+        stroke: #ffffff;
+        stroke-opacity: .2;
+        fill-opacity: .025;
         shape-rendering: crispEdges;
     }
 
@@ -98,9 +104,9 @@
 <script>
     var padding = {
         top: 20,
-        right: 40,
+        right: 10,
         bottom: 30,
-        left: 40
+        left: 10
     };
 
     var data = [];
@@ -188,6 +194,16 @@
         updateChart(true);
     }
 
+    // get the desired opacity for context chart based on the brush extent
+    function highlightBrushPoints(data) {
+        if(data.date.getTime() >= brush.extent()[0].getTime() && data.date.getTime() <= brush.extent()[1].getTime()) {
+            return 1
+        } else {
+            return 0.2
+        }
+    }
+
+    // clears the current user brush and resets to the current real time data
     function updateBrushToNow() {
 
         // get current time range
@@ -250,6 +266,13 @@
         focusCircles.exit()
                 .remove();
 
+        // transition open line to new location
+        focus.select(".open")
+                .attr("x1", xScale2(brush.extent()[0]))
+                .attr("y1", yScale(30))
+                .attr("x2", xScale2(brush.extent()[1]))
+                .attr("y2", yScale(30));
+
         var now = Date.now();
         focus.select(".now-line")
                 .transition()
@@ -265,6 +288,11 @@
 
         // add clipping path so that data stays within axis
         focusCircles.attr("clip-path", "url(#clip)");
+
+        // update the opacity of the context data points to brush extent
+        context.selectAll("circle")
+                .data(data)
+                .style("opacity", function (d) { return highlightBrushPoints(d) });
     }
 
     // called for initial update and updates for resize
@@ -326,8 +354,8 @@
                         .attr("class", "x brush")
                         .call(d3.svg.brush().x(xScale2).on("brush", brushed))
                         .selectAll("rect")
-                        .attr("y", chartHeight - contextHeight)
-                        .attr("height", contextHeight);
+                        .attr("y", focusHeight)
+                        .attr("height", chartHeight - focusHeight);
 
                 // disable resizing of brush
                 d3.select(".x.brush").select(".background").style("cursor", "move");
@@ -371,6 +399,11 @@
                         .attr("y2", yScale(80))
                         .style("stroke-dasharray", ("3, 3"))
                         .attr("stroke", "grey");
+
+                // add a y-axis line that opens up the brush extent from the context to the focus
+                focus.append("line")
+                        .attr("class", "open")
+                        .attr("stroke", "black");
 
                 // add a line that marks the current time
                 context.append("line")
@@ -426,12 +459,16 @@
                         .attr("width", chartWidth)
                         .attr("height", chartHeight);
 
-                // reset brush location, clear current, and redraw old
+                // reset brush location
                 context.select(".x.brush")
                         .selectAll("rect")
-                        .attr("y", chartHeight - contextHeight)
-                        .attr("height", contextHeight);
+                        .attr("y", focusHeight)
+                        .attr("height", chartHeight - focusHeight);
+
+                // clear current brush
                 d3.select(".brush").call(brush.clear());
+
+                // redraw old brush with new dimensions
                 d3.select(".brush").transition().duration(UPDATE_TRANS_MS).call(brush.extent(currentBrushExtent));
 
                 // transition high line to correct location
@@ -451,6 +488,15 @@
                         .attr("y1", yScale(80))
                         .attr("x2", xScale(currentBrushExtent[1]))
                         .attr("y2", yScale(80));
+
+                // transition open line to correct location
+                focus.select(".open")
+                        .transition()
+                        .duration(UPDATE_TRANS_MS)
+                        .attr("x1", xScale2(currentBrushExtent[0]))
+                        .attr("y1", yScale(30))
+                        .attr("x2", xScale2(currentBrushExtent[1]))
+                        .attr("y2", yScale(30));
 
                 // transition high line to correct location
                 context.select(".high-line")
@@ -492,31 +538,6 @@
                 .attr("x2", xScale2(new Date(now)))
                 .attr("y2", yScale2(400));
 
-        // bind up the context chart data to an array of circles
-        var contextCircles = context.selectAll("circle")
-                .data(data);
-
-        // if already existing then transition each circle to its new position
-        contextCircles.transition()
-                .duration(UPDATE_TRANS_MS)
-                .attr("cx", function (d) { return xScale2(d.date); })
-                .attr("cy", function (d) { return yScale2(d.sgv);  })
-                .attr("fill", function (d) { return d.color;       });
-
-        // if new circle then just display
-        contextCircles.enter().append("circle")
-                .attr("cx", function (d)   { return xScale2(d.date); })
-                .attr("cy", function (d)   { return yScale2(d.sgv);  })
-                .attr("fill", function (d) { return d.color;         })
-                .attr("r", 2);
-
-        contextCircles.exit()
-                .remove();
-
-        // update x axis domain
-        context.select(".x")
-                .call(xAxis2);
-
         // only if a user brush is not active, update brush and focus chart with recent data
         // else, just transition brush
         var updateBrush = d3.select(".brush").transition().duration(UPDATE_TRANS_MS);
@@ -527,7 +548,35 @@
         } else {
             updateBrush
                     .call(brush.extent([currentBrushExtent[0], currentBrushExtent[1]]));
+            brushed(true);
         }
+
+        // bind up the context chart data to an array of circles
+        var contextCircles = context.selectAll("circle")
+                .data(data);
+
+        // if already existing then transition each circle to its new position
+        contextCircles.transition()
+                .duration(UPDATE_TRANS_MS)
+                .attr("cx", function (d) { return xScale2(d.date); })
+                .attr("cy", function (d) { return yScale2(d.sgv);  })
+                .attr("fill", function (d) { return d.color;       })
+                .style("opacity", function (d)   { return highlightBrushPoints(d) });
+
+        // if new circle then just display
+        contextCircles.enter().append("circle")
+                .attr("cx", function (d)   { return xScale2(d.date); })
+                .attr("cy", function (d)   { return yScale2(d.sgv);  })
+                .attr("fill", function (d) { return d.color;         })
+                .style("opacity", function (d)   { return highlightBrushPoints(d) })
+                .attr("r", 2);
+
+        contextCircles.exit()
+                .remove();
+
+        // update x axis domain
+        context.select(".x")
+                .call(xAxis2);
     }
 
     // look for resize but use timer to only call the update script when a resize stops

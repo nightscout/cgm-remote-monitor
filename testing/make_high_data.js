@@ -17,7 +17,7 @@ for(var i = 0; i < TIME_PERIOD_HRS * DATA_PER_HR; i++) {
 fs.writeFile("../Dexcom.csv", data);
 
 function makedata() {
-    currentBG -= 10;
+    currentBG -= 1;
     currentTime += FIVE_MINS_IN_MS;
     data += "1," + currentBG + ",,,,,,,,," + new Date(currentTime).toString() + ",,,,\n";
     fs.writeFile("../Dexcom.csv", data);
