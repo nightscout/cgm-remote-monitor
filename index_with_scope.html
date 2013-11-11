@@ -188,7 +188,7 @@
         updateChart(true);
     }
 
-    function clearBrush() {
+    function updateBrushToNow() {
 
         // get current time range
         var dataRange = d3.extent(data, dateFn);
@@ -210,7 +210,7 @@
         if (!skipTimer) {
             // set a timer to reset focus chart to real-time data
             clearTimeout(brushTimer);
-            brushTimer = setTimeout(clearBrush, BRUSH_TIMEOUT);
+            brushTimer = setTimeout(updateBrushToNow, BRUSH_TIMEOUT);
             brushInProgress = true;
         }
         
