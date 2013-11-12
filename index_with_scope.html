@@ -39,11 +39,9 @@
         display: block;
     }
 
-    .open {
-        stroke-width: 10;
-
+    .open-right, .open-left {
+        shape-rendering: crispEdges;
     }
-
     .grid path, .axis line {
         stroke: #808080;
         stroke-opacity: .25;
@@ -51,9 +49,8 @@
 
     .brush .extent {
         stroke: #ffffff;
-        stroke-opacity: .2;
-        fill-opacity: .025;
-        shape-rendering: crispEdges;
+        stroke-opacity: 0;
+        fill-opacity: 0;
     }
 
 </style>
@@ -114,6 +111,8 @@
     var xScale, xScale2, yScale, yScale2;
     var prevChartWidth = 0;
     var prevChartHeight = 0;
+    var focusHeight;
+    var contextHeight;
     var UPDATE_TRANS_MS = 750; // milliseconds
     var brush;
     var BRUSH_TIMEOUT = 300000;  // 5 minutes in ms
@@ -229,7 +228,7 @@
             brushTimer = setTimeout(updateBrushToNow, BRUSH_TIMEOUT);
             brushInProgress = true;
         }
-        
+
         var brushExtent = brush.extent();
 
         // ensure that brush extent is fixed at 3.5 hours
@@ -266,12 +265,26 @@
         focusCircles.exit()
                 .remove();
 
-        // transition open line to new location
-        focus.select(".open")
+        // transition open-top line to correct location
+        focus.select(".open-top")
                 .attr("x1", xScale2(brush.extent()[0]))
                 .attr("y1", yScale(30))
                 .attr("x2", xScale2(brush.extent()[1]))
                 .attr("y2", yScale(30));
+
+        // transition open-left line to correct location
+        focus.select(".open-left")
+                .attr("x1", xScale2(brush.extent()[0]))
+                .attr("y1", focusHeight)
+                .attr("x2", xScale2(brush.extent()[0]))
+                .attr("y2", prevChartHeight);
+
+        // transition open-right line to correct location
+        focus.select(".open-right")
+                .attr("x1", xScale2(brush.extent()[1]))
+                .attr("y1", focusHeight)
+                .attr("x2", xScale2(brush.extent()[1]))
+                .attr("y2", prevChartHeight);
 
         var now = Date.now();
         focus.select(".now-line")
@@ -312,8 +325,8 @@
                 .getBoundingClientRect().height) - padding.top - padding.bottom;
 
         // get the height of each chart based on its container size ratio
-        var focusHeight = chartHeight * .7;
-        var contextHeight = chartHeight * .2;
+        focusHeight = chartHeight * .7;
+        contextHeight = chartHeight * .2;
 
         // get current brush extent
         var currentBrushExtent = brush.extent();
@@ -402,8 +415,19 @@
 
                 // add a y-axis line that opens up the brush extent from the context to the focus
                 focus.append("line")
-                        .attr("class", "open")
-                        .attr("stroke", "black");
+                        .attr("class", "open-top")
+                        .attr("stroke", "black")
+                        .attr("stroke-width", 2);
+
+                // add a x-axis line that closes the the brush container on left side
+                focus.append("line")
+                        .attr("class", "open-left")
+                        .attr("stroke", "white");
+
+                // add a x-axis line that closes the the brush container on right side
+                focus.append("line")
+                        .attr("class", "open-right")
+                        .attr("stroke", "white");
 
                 // add a line that marks the current time
                 context.append("line")
@@ -489,14 +513,32 @@
                         .attr("x2", xScale(currentBrushExtent[1]))
                         .attr("y2", yScale(80));
 
-                // transition open line to correct location
-                focus.select(".open")
+                // transition open-top line to correct location
+                focus.select(".open-top")
                         .transition()
                         .duration(UPDATE_TRANS_MS)
                         .attr("x1", xScale2(currentBrushExtent[0]))
                         .attr("y1", yScale(30))
                         .attr("x2", xScale2(currentBrushExtent[1]))
                         .attr("y2", yScale(30));
+
+                // transition open-left line to correct location
+                focus.select(".open-left")
+                        .transition()
+                        .duration(UPDATE_TRANS_MS)
+                        .attr("x1", xScale2(currentBrushExtent[0]))
+                        .attr("y1", focusHeight)
+                        .attr("x2", xScale2(currentBrushExtent[0]))
+                        .attr("y2", chartHeight);
+
+                // transition open-right line to correct location
+                focus.select(".open-right")
+                        .transition()
+                        .duration(UPDATE_TRANS_MS)
+                        .attr("x1", xScale2(currentBrushExtent[1]))
+                        .attr("y1", focusHeight)
+                        .attr("x2", xScale2(currentBrushExtent[1]))
+                        .attr("y2", chartHeight);
 
                 // transition high line to correct location
                 context.select(".high-line")
