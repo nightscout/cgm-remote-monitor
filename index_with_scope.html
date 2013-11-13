@@ -5,7 +5,6 @@
 <link rel="stylesheet" type="text/css" href="css/buttons.css">
 <script src="/socket.io/socket.io.js"></script>
 <script src="js/d3.v3.min.js"></script>
-<script src="/socket.io/socket.io.js"></script>
 <script src="https://d396qusza40orc.cloudfront.net/startup%2Fcode%2Fjquery.js"></script>
 <script src="https://d396qusza40orc.cloudfront.net/startup%2Fcode%2Fbootstrap.js"></script>
 <style>
@@ -44,7 +43,7 @@
     }
     .grid path, .axis line {
         stroke: #808080;
-        stroke-opacity: .25;
+        stroke-opacity: 1;
     }
 
     .brush .extent {
@@ -105,7 +104,8 @@
         bottom: 30,
         left: 10
     };
-
+    var opacity = {current: 1, DAY: 1, NIGHT: 0.5};
+    var now = Date.now();
     var data = [];
     var dateFn = function (d) { return new Date(d.date) };
     var xScale, xScale2, yScale, yScale2;
@@ -155,13 +155,13 @@
                 .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale = d3.scale.log()
-                .domain([30, 400]);
+                .domain([30, 420]);
 
         xScale2 = d3.time.scale()
                 .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale2 = d3.scale.log()
-                .domain([30, 400]);
+                .domain([36, 420]);
 
         xAxis = d3.svg.axis()
                 .scale(xScale)
@@ -195,7 +195,7 @@
 
     // get the desired opacity for context chart based on the brush extent
     function highlightBrushPoints(data) {
-        if(data.date.getTime() >= brush.extent()[0].getTime() && data.date.getTime() <= brush.extent()[1].getTime()) {
+        if (data.date.getTime() >= brush.extent()[0].getTime() && data.date.getTime() <= brush.extent()[1].getTime()) {
             return 1
         } else {
             return 0.2
@@ -286,14 +286,13 @@
                 .attr("x2", xScale2(brush.extent()[1]))
                 .attr("y2", prevChartHeight);
 
-        var now = Date.now();
         focus.select(".now-line")
                 .transition()
                 .duration(UPDATE_TRANS_MS)
                 .attr("x1", xScale(new Date(now)))
-                .attr("y1", yScale(30))
+                .attr("y1", yScale(36))
                 .attr("x2", xScale(new Date(now)))
-                .attr("y2", yScale(400));
+                .attr("y2", yScale(420));
 
         // update x axis
         focus.select(".x.axis")
@@ -310,9 +309,6 @@
 
     // called for initial update and updates for resize
     function updateChart(init) {
-
-        // get current time
-        var now = Date.now();
 
         // get current data range
         var dataRange = d3.extent(data, dateFn);
@@ -387,9 +383,9 @@
                 focus.append("line")
                         .attr("class", "now-line")
                         .attr("x1", xScale(new Date(now)))
-                        .attr("y1", yScale(40))
+                        .attr("y1", yScale(36))
                         .attr("x2", xScale(new Date(now)))
-                        .attr("y2", yScale(400))
+                        .attr("y2", yScale(420))
                         .style("stroke-dasharray", ("3, 3"))
                         .attr("stroke", "grey");
 
@@ -433,9 +429,9 @@
                 context.append("line")
                         .attr("class", "now-line")
                         .attr("x1", xScale(new Date(now)))
-                        .attr("y1", yScale2(30))
+                        .attr("y1", yScale2(36))
                         .attr("x2", xScale(new Date(now)))
-                        .attr("y2", yScale2(400))
+                        .attr("y2", yScale2(420))
                         .style("stroke-dasharray", ("3, 3"))
                         .attr("stroke", "grey");
 
@@ -563,22 +559,13 @@
         // update domain
         xScale2.domain(dataRange);
 
-        // update now line on charts
-        focus.select(".now-line")
-                .transition()
-                .duration(UPDATE_TRANS_MS)
-                .attr("x1", xScale(new Date(now)))
-                .attr("y1", yScale(30))
-                .attr("x2", xScale(new Date(now)))
-                .attr("y2", yScale(400));
-
         context.select(".now-line")
                 .transition()
                 .duration(UPDATE_TRANS_MS)
                 .attr("x1", xScale2(new Date(now)))
-                .attr("y1", yScale2(30))
+                .attr("y1", yScale2(36))
                 .attr("x2", xScale2(new Date(now)))
-                .attr("y2", yScale2(400));
+                .attr("y2", yScale2(420));
 
         // only if a user brush is not active, update brush and focus chart with recent data
         // else, just transition brush
@@ -637,16 +624,28 @@
     var isInitialData = false;
     var socket = io.connect();
 
-    socket.on('connect', function () {
-        console.log("Client connected.");
+    socket.on('now', function (d) {
+        now = d;
+        var dateTime = new Date(now);
+        $('#currentTime').text(d3.time.format("%H:%M")(dateTime));
+
+        // Dim the screen by reducing the opacity when at nighttime
+        if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7 )) {
+            $("body").css({"opacity": opacity.NIGHT});
+        } else {
+            $("body").css({"opacity": opacity.DAY});
+        }
     });
 
     socket.on('sgv', function (d) {
-        if(d.length > 1) {
-            $('#currentTime').text(d3.time.format("%H:%M")(new Date()));
-            if(d[0].length) { $('#currentBG').text(d[0][d[0].length - 1].y + "mg/dL"); }
-            data = d[0].map(function(obj) { return {date: new Date(obj.x), sgv: obj.y, color: "gray"} });
-            data = data.concat(d[1].map(function(obj) { return {date: new Date(obj.x + 1000), sgv: obj.y, color: "blue"} }));
+        if (d.length > 1) {
+            // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
+            if (d[0].length) {
+                $('#currentBG').text(d[0][d[0].length - 1].y + "mg/dL");
+                $('#bgButton').text(d[0][d[0].length - 1].y + "mg/dL");
+            }
+            data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: "gray"} });
+            data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x + 1000), sgv: obj.y, color: "blue"} }));
             if (!isInitialData) {
                 isInitialData = true;
                 initializeCharts();
