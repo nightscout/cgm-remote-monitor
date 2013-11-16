@@ -5,6 +5,8 @@ The server reads a local csv file which is intended to be data from a physical C
 becomes available.  The data is then displayed graphically and blood glucose values are predicted 4 hours ahead using a autoregressive 
 second order model.  Alarms are generated for high and low values, which can be cleared by any watcher of the data.
 
+![Output sample](https://raw.github.com/rnpenguin/cgm/master/images/demo.gif)
+
 
 License
 ===
