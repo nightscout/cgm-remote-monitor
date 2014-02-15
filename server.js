@@ -89,8 +89,9 @@ var ONE_MINUTE = 60000;
 var FIVE_MINUTES = 300000;
 var FORTY_MINUTES = 2400000;
 var TWO_DAYS = 172800000;
-var MONGODB_URL = "XX";
-var MONGODB_COLLECTION = "XX"
+var DB = require('database_configuration.json');
+var DB_URL = DB.url;
+var DB_COLLECTION = DB.collection;
 
 function update() {
 
@@ -98,9 +99,9 @@ function update() {
 
     cgmData = [];
     var earliest_data = now - TWO_DAYS;
-    mongoClient.connect(MONGODB_URL, function (err, db) {
+    mongoClient.connect(DB_URL, function (err, db) {
         if (err) throw err;
-        var collection = db.collection(MONGODB_COLLECTION);
+        var collection = db.collection(DB_COLLECTION);
 
         collection.find({"date": {"$gte": earliest_data}}).toArray(function(err, results) {
             results.forEach(function(element, index, array) {
