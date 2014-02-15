@@ -1,7 +1,7 @@
 .bgButton {
      background: #ff2035;
      color: #000000;
-     width: 200px;
+     width: auto;
      margin: 3px auto;
      border: 2px solid #DDD;
      border-right: 2px solid #ccc;
