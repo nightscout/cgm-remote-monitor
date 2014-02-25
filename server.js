@@ -89,7 +89,7 @@ var ONE_MINUTE = 60000;
 var FIVE_MINUTES = 300000;
 var FORTY_MINUTES = 2400000;
 var TWO_DAYS = 172800000;
-var DB = require('database_configuration.json');
+var DB = require('./database_configuration.json');
 var DB_URL = DB.url;
 var DB_COLLECTION = DB.collection;
 
