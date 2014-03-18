@@ -1,10 +1,13 @@
 <!DOCTYPE html>
+<head>
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
 <title>NightScout</title>
 <link rel='stylesheet' type='text/css' href='css/fonts.css'>
 <link rel='stylesheet' type='text/css' href='css/buttons.css'>
+    <link rel='stylesheet' type='text/css' href='css/dropdown.css'>
 <script src='/socket.io/socket.io.js'></script>
 <script src='js/d3.v3.min.js'></script>
+    <script src='js/dropdown.js'></script>
 <script src='//code.jquery.com/jquery-1.10.2.min.js'></script>
 <style>
 
@@ -74,16 +77,51 @@
 
     .span1{width: 20%; float: left; padding-top: 3%; line-height: 50%;}
 
-    .span2{width: 40%; margin-left: 35%}
+        .span2{
+            width: 40%;
+        }
+
+        .span3 {
+            width: 30%;
+        }
+
+        #silenceBtn {
+            font-size: 200%;
+            display:none;
+        }
+
+        .alarm-status {
+            display: none;
+        }
+
+        .alarm-status img {
+            position: relative;
+            top: 12px;
+        }
 
 </style>
+</head>
 <body>
-<html>
 <div class='container'>
     <div class='row-fluid heading'>
         <div class='span1' style='font-size: 400%'>
             <span id='currentTime'>???</span><br>
             <span style='font-size: 35%'><span id='watchers'>0</span> watcher(s)</span>
+        </div>
+        <div class="span3">
+            <div id="regularMuted" class="alarm-status"><img src="images/mute.png" width="32" height="32" alt="Silenced"/>Regular alarm</div>
+            <div id="urgentMuted" class="alarm-status"><img src="images/mute.png" width="32" height="32" alt="Silenced"/>Urgent alarm</div>
+            <ul class="dropdown-menu" id="silenceBtn">
+                <li><a href="#">Silence ..</a>
+                    <ul id="snooze-times-list">
+                        <li><a href="#" data-snooze-time="900000">15 minutes</a></li>
+                        <li><a href="#" data-snooze-time="1800000">30 minutes</a></li>
+                        <li><a href="#" data-snooze-time="3600000">60 minutes</a></li>
+                        <li><a href="#" data-snooze-time="5400000">90 minutes</a></li>
+                        <li><a href="#" data-snooze-time="7200000">120 minutes</a></li>
+                    </ul>
+                </li>
+            </ul>
         </div>
         <div class='span2' style='font-size: 800%'>
             <div id='noButton'>
@@ -100,7 +138,6 @@
         <div id='chartContainer'></div>
     </div>
 </div>
-</html>
 <audio id='audio' loop><source src='audio/alarm.ogg' type='audio/ogg'/></audio>
 <audio id='audio2' loop><source src='audio/alarm2.ogg' type='audio/ogg'/></audio>
 </body>
@@ -690,10 +727,10 @@
         console.log('Client connected to server.')
     });
     socket.on('alarm', function() {
-        generateAlarm(alarmSound);
+    generateAlarm("regular");
     });
     socket.on('urgent_alarm', function() {
-        generateAlarm(urgentAlarmSound);
+    generateAlarm("urgent");
     });
     socket.on('clear_alarm', function() {
         if (alarmInProgress) {
@@ -713,10 +750,59 @@
     // alarm state
     var alarmInProgress = false;
 
+    var DEFAULT_SILENCE_TIME = 60000;
+
+    var Alarm = function(type, sound, statusEl) {
+        this.type = type;
+        this.silencedAt = null;
+        this.silenceTime = DEFAULT_SILENCE_TIME;
+        this.sound = sound;
+        this.statusEl = statusEl;
+    };
+
+    var alarms = {
+        regular: new Alarm("Regular", alarmSound, $("#regularMuted")),
+        urgent: new Alarm("Urgent", urgentAlarmSound, $("#urgentMuted"))
+    };
+
+    $(function() {
+
+        silenceDropdown = new Dropdown(".dropdown-menu");
+
+        $("#snooze-times-list").find("a").click(function() {
+            var type = $("#silenceBtn").data("type");
+            alarms[type].silencedAt = new Date();
+            if ($(this).data("snooze-time")) {
+                alarms[type].silenceTime = $(this).data("snooze-time");
+            } else {
+                alarms[type].silenceTime = DEFAULT_SILENCE_TIME;
+            }
+            alarms[type].statusEl.show();
+            stopAlarm(true);
+        });
+    });
+
     function generateAlarm(alarmType) {
+        var isSilent = false;
+        var alarm = alarms[alarmType];
+        if (alarm.silencedAt != null) {
+            var timeSinceSilenced = new Date() - alarm.silencedAt;
+            if (timeSinceSilenced < alarm.silenceTime) {
+                console.log(alarm.type + " alarm has been silenced. Silent for next " + Math.floor((alarm.silenceTime - timeSinceSilenced) / 60000) + " minutes");
+                isSilent = true;
+            } else {
+                alarm.silencedAt = null;
+            }
+        }
         alarmInProgress = true;
-        alarmType.load();
-        alarmType.play();
+        if (!isSilent) {
+            alarm.sound.load();
+            alarm.sound.play();
+            alarm.statusEl.hide();
+            $("#silenceBtn").data("type", alarmType).show();
+        } else {
+            alarm.statusEl.show();
+        }
         var element = document.getElementById('bgButton');
         element.hidden = '';
         var element1 = document.getElementById('noButton');
@@ -732,6 +818,7 @@
         element.hidden = '';
         alarmSound.pause();
         urgentAlarmSound.pause();
+        $("#silenceBtn").hide();
 
         // only emit ack if client invoke by button press
         if (isClient) {

@@ -1,0 +1,43 @@
+.dropdown-menu {
+    font-size: 200%;
+}
+
+.dropdown-menu li {
+    float: left;
+    list-style: none;
+}
+
+.dropdown-menu li a {
+    display: block;
+    background: #324143;
+    padding: 5px 12px;
+    text-decoration: none;
+    color: #EAFFED;
+    white-space: nowrap
+}
+
+.dropdown-menu li a:hover {
+    background: #24313C
+}
+
+.dropdown-menu li ul {
+    margin: 0;
+    padding: 0;
+    position: absolute;
+    visibility: hidden;
+}
+
+.dropdown-menu li ul li {
+    float: none;
+    display: inline
+}
+
+.dropdown-menu li ul li a {
+    width: auto;
+    background: #BBBBBB;
+    color: #24313C
+}
+
+.dropdown-menu li ul li a:hover {
+    background: #EEEEFF;
+}
