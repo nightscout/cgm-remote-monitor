@@ -134,6 +134,12 @@ function loadData() {
         actual.sort(function(a, b) {
             return a.x - b.x;
         });
+        
+        // sgv less than or equal to 10 means error code
+        // or warm up period code, so ignore
+        actual = actual.filter(function (a) {
+            return a.y > 10;
+        })
     }
 
     var actualLength = actual.length - 1;
