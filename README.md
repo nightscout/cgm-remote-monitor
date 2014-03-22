@@ -14,6 +14,7 @@ Clone this repo then install dependencies into the root of the project:
 
 ```bash
 $ npm install
+$ bower install
 ```
 
 Usage
