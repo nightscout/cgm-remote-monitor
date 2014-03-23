@@ -622,22 +622,18 @@
         $('#watchers').text(watchers);
     });
 
-    $('#testAlarms').click(function() {
-        console.info("testing alarms");
+    $('#testAlarms').click(function(event) {
+        event.preventDefault();
         testAlarm(alarmSound);
         testAlarm(urgentAlarmSound);
     });
 
     function testAlarm(alarmType) {
-        console.info("testing " + alarmType.id);
         alarmType.load();
-        console.info("loaded " + alarmType.id);
         alarmType.play();
-        console.info("played " + alarmType.id);
         setTimeout(function() {
             alarmType.pause();
-            console.info("paused " + alarmType.id);
-        }, 3000);
+        }, 4000);
     }
 
 
