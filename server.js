@@ -101,6 +101,23 @@ DB.collection = DB.collection || process.env.CUSTOMCONNSTR_mongo_collection;
 var DB_URL = DB.url;
 var DB_COLLECTION = DB.collection;
 
+var dir2Char = {
+  'NONE': '&#8700;',
+  'DoubleUp': '&#8648;',
+  'SingleUp': '&#8593;',
+  'FortyFiveUp': '&#8599;',
+  'Flat': '&#8594;',
+  'FortyFiveDown': '&#8600;',
+  'SingleDown': '&#8595;',
+  'DoubleDown': '&#8650;',
+  'NOT COMPUTABLE': '-',
+  'RATE OUT OF RANGE': '&#8622;'
+};
+
+function directionToChar(direction) {
+  return dir2Char[direction] || '-';
+}
+
 var Alarm = function(_typeName, _threshold) {
     this.typeName = _typeName;
     this.silenceTime = FORTY_MINUTES;
@@ -139,6 +156,7 @@ function update() {
                     obj.y = element.sgv;
                     obj.x = element.date;
                     obj.d = element.dateString;
+                    obj.direction = directionToChar(element.direction);
                     cgmData.push(obj);
                 }
             });

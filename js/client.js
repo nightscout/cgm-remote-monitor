@@ -574,8 +574,11 @@
         if (d.length > 1) {
             // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
             if (d[0].length) {
-                $('#currentBG').text(d[0][d[0].length - 1].y);
-                $('#bgValue').text(d[0][d[0].length - 1].y);
+                var current = d[0][d[0].length - 1];
+                var secsSinceLast = (Date.now() - new Date(current.x).getTime()) / 1000;
+                $('.container .currentBG').text(current.y);
+                $('.container .currentDirection').html(current.direction);
+                $('.container .current').toggleClass('high', current.y > 180).toggleClass('low', current.y < 70)
             }
             data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'grey'} });
             data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'blue'} }));
@@ -618,6 +621,25 @@
         console.log('number of clients has changed to ' + watchers);
         $('#watchers').text(watchers);
     });
+
+    $('#testAlarms').click(function() {
+        console.info("testing alarms");
+        testAlarm(alarmSound);
+        testAlarm(urgentAlarmSound);
+    });
+
+    function testAlarm(alarmType) {
+        console.info("testing " + alarmType.id);
+        alarmType.load();
+        console.info("loaded " + alarmType.id);
+        alarmType.play();
+        console.info("played " + alarmType.id);
+        setTimeout(function() {
+            alarmType.pause();
+            console.info("paused " + alarmType.id);
+        }, 3000);
+    }
+
 
     // load alarms
     var alarmSound = document.getElementById('audio');

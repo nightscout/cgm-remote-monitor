@@ -127,3 +127,9 @@ body {
 #silenceBtn {
     font-size: 200%;
 }
+
+#testAlarms {
+  font-size: 20%;
+  color: blue;
+  text-decoration: none;
+}
