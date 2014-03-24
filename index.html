@@ -4,6 +4,7 @@
         <meta name='viewport' content='width=device-width, initial-scale=1.0'>
         <title>NightScout</title>
         <link rel='stylesheet' type='text/css' href='css/main.css'>
+        <link rel='stylesheet' type='text/css' href='css/dropdown.css'>
     </head>
     <body>
         <div class='container'>
@@ -11,16 +12,24 @@
                 <div class='span1' style='font-size: 400%'>
                     <span id='currentTime'>???</span><br>
                     <span style='font-size: 35%'><span id='watchers'>0</span> watcher(s)</span>
+                    <a href="#" id="test">raise urgent</a>
                 </div>
-                <div class='span2' style='font-size: 800%'>
-                    <div id='noButton'>
+                <div class='span2'>
+                    <div id='noButton' style='font-size: 800%' hidden='true'>
                         <span id='currentBG'>???</span>
                         <span style='font-size: 20%'>mg/dL</span>
                     </div>
-                    <div class='bgButton' id='bgButton' hidden='true'>
+                    <div class='bgButton' id='bgButton' style='font-size: 800%'>
                         <span id='bgValue'>???</span>
                         <span style='font-size: 20%'>mg/dL</span>
                     </div>
+                    <ul class="dropdown-menu" id="silenceBtn">
+                        <li><a href="#" data-snooze-time="1200000">Silence for 20 minutes</a></li>
+                        <li><a href="#" data-snooze-time="1800000">Silence for 30 minutes</a></li>
+                        <li><a href="#" data-snooze-time="2400000">Silence for 40 minutes</a></li>
+                        <li><a href="#" data-snooze-time="3000000">Silence for 50 minutes</a></li>
+                        <li><a href="#" data-snooze-time="3600000">Silence for 60 minutes</a></li>
+                    </ul>
                 </div>
             </div>
             <div class='row-fluid section1'>
@@ -32,6 +41,7 @@
         <script src='/socket.io/socket.io.js'></script>
         <script src='/bower_components/d3/d3.min.js'></script>
         <script src='/bower_components/jquery/dist/jquery.min.js'></script>
+        <script src='js/dropdown.js'></script>
         <script src='/js/client.js'></script>
     </body>
 </html>

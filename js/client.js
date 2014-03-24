@@ -538,9 +538,16 @@
         }, 100);
     };
 
-    $('#bgButton').click(function() {
-        stopAlarm(true)
+    var silenceDropdown = new Dropdown(".dropdown-menu");
+
+    $('#bgButton').click(function(e) {
+        silenceDropdown.open(e);
     });
+
+    $("#silenceBtn").find("a").click(function() {
+        stopAlarm(true, $(this).data("snooze-time"));
+    });
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -591,9 +598,13 @@
         console.log('Client connected to server.')
     });
     socket.on('alarm', function() {
+        console.log("Alarm raised!");
+        currentAlarmType = 'alarm';
         generateAlarm(alarmSound);
     });
     socket.on('urgent_alarm', function() {
+        console.log("Urgent alarm raised!");
+        currentAlarmType = 'urgent_alarm';
         generateAlarm(urgentAlarmSound);
     });
     socket.on('clear_alarm', function() {
@@ -613,6 +624,7 @@
 
     // alarm state
     var alarmInProgress = false;
+    var currentAlarmType = null;
 
     function generateAlarm(alarmType) {
         alarmInProgress = true;
@@ -625,7 +637,7 @@
         $('#bgValue').text($('#currentBG').text());
     }
 
-    function stopAlarm(isClient) {
+    function stopAlarm(isClient, silenceTime) {
         alarmInProgress = false;
         var element = document.getElementById('bgButton');
         element.hidden = 'true';
@@ -636,7 +648,7 @@
 
         // only emit ack if client invoke by button press
         if (isClient) {
-            socket.emit('ack', Date.now());
+            socket.emit('ack', currentAlarmType, silenceTime);
         }
     }
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

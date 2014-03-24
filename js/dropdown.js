@@ -1,9 +1,8 @@
 function Dropdown(el) {
     this.ddmenuitem = 0;
 
-    var $el = $(el), that = this;
-    $el.find('>li').bind('mouseover', function(e) { that.open(e); });
-    $el.find('>li').bind('mouseout', function() { that.close(); });
+    this.$el = $(el);
+    var that = this;
 
     $(document).click(function() { that.close(); });
 }
@@ -17,7 +16,8 @@ Dropdown.prototype.close = function () {
 
 Dropdown.prototype.open = function (e) {
     this.close();
-    this.ddmenuitem = $(e.currentTarget).find('ul').eq(0).css('visibility', 'visible');
+    this.ddmenuitem = $(this.$el).css('visibility', 'visible');
+    e.stopPropagation();
 };
 
 
