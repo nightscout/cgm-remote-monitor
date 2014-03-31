@@ -19,7 +19,10 @@
         brushTimer,
         brushInProgress = false,
         clip,
-        FOCUS_DATA_RANGE_MS = 12600000;  // 3.5 hours of actual data
+        FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
+        audio = document.getElementById('audio'),
+        alarmInProgress = false;
+
 
     // create svg and g to contain the chart contents
     var charts = d3.select('#chartContainer').append('svg')
@@ -624,17 +627,13 @@
 
     $('#testAlarms').click(function(event) {
         event.preventDefault();
-        testAlarm(alarmSound);
-        testAlarm(urgentAlarmSound);
-    });
-
-    function testAlarm(alarmType) {
-        alarmType.load();
-        alarmType.play();
+        audio.src = 'audio/alarm.mp3';
+        audio.load();
+        audio.play();
         setTimeout(function() {
-            alarmType.pause();
+            audio.pause();
         }, 4000);
-    }
+    });
 
 
     // load alarms
@@ -647,8 +646,9 @@
 
     function generateAlarm(alarmType) {
         alarmInProgress = true;
-        alarmType.load();
-        alarmType.play();
+        audio.src = 'audio/' + file;
+        audio.load();
+        audio.play();
         var element = document.getElementById('bgButton');
         element.hidden = '';
         var element1 = document.getElementById('noButton');
@@ -662,8 +662,7 @@
         element.hidden = 'true';
         element = document.getElementById('noButton');
         element.hidden = '';
-        alarmSound.pause();
-        urgentAlarmSound.pause();
+        audio.pause();
 
         // only emit ack if client invoke by button press
         if (isClient) {
