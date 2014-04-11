@@ -28,9 +28,10 @@ The data being uploaded from the server to the client is from a MongoDB server s
 More questions?
 ---------------
 
-Feel free to [post an issue][issues].
+Feel free to [post an issue][issues], but read the [wiki][wiki] first.
 
 [issues]: https://github.com/rnpenguin/cgm-remote-monitor/issues
+[wiki]: https://github.com/rnpenguin/cgm-remote-monitor/wiki
 
 License
 ---------------
