@@ -136,6 +136,15 @@ function update() {
     return update;
 }
 
+function emitAlarm(alarmType) {
+    var alarm = alarms[alarmType];
+    if (now > alarm.lastAckTime + alarm.silenceTime) {
+        io.sockets.emit(alarmType);
+    } else {
+        console.log(alarm.typeName + " alarm is silenced for " + Math.floor((alarm.silenceTime - (now - alarm.lastAckTime)) / 60000) + " minutes more");
+    }
+}
+
 function loadData() {
 
     var treatment = [];
@@ -196,20 +205,10 @@ function loadData() {
             avgLoss += 1 / 6 * Math.pow(log10(predicted[i].y / 120), 2);
         }
 
-        // iterate through alarms, testing if threshold for any is reached and if it is then raise corresponding alarm
-        for(var alarmType in alarms)
-        {
-            if(alarms.hasOwnProperty(alarmType))
-            {
-                var alarm = alarms[alarmType];
-                if (avgLoss > alarm.threshold) {
-                    if (now > alarm.lastAckTime + alarm.silenceTime) {
-                        io.sockets.emit(alarmType);
-                    }  else {
-                        console.log(alarm.typeName + " alarm is silenced for " + Math.floor((alarm.silenceTime - (now - alarm.lastAckTime)) / 60000) + " minutes more");
-                    }
-                }
-            }
+        if (avgLoss > alarms['urgent_alarm'].threshold) {
+            emitAlarm('urgent_alarm');
+        } else if (avgLoss > alarms['alarm'].threshold) {
+            emitAlarm('alarm');
         }
     }
 }
