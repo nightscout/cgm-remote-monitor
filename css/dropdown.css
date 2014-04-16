@@ -1,0 +1,27 @@
+.dropdown-menu {
+    font-size: 200%;
+    margin: 0;
+    padding: 0;
+    position: absolute;
+    visibility: hidden;
+}
+
+.dropdown-menu li {
+    list-style: none;
+    float: none;
+    display: inline
+}
+
+.dropdown-menu li a {
+    display: block;
+    padding: 5px 12px;
+    text-decoration: none;
+    white-space: nowrap;
+    width: auto;
+    background: #BBBBBB;
+    color: #24313C
+}
+
+.dropdown-menu li a:hover {
+    background: #EEEEFF;
+}
