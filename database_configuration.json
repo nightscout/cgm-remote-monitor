@@ -1,4 +1,4 @@
 {
-    "url": "YOUR_MONGODB_URL",
-    "collection": "YOUR_COLLECTION_NAME"
+    "url": null,
+    "collection": null
 }
