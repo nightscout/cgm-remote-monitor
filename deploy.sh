@@ -79,6 +79,7 @@ fi
 ##################################################################################################################################
 
 npm install --production --silent
+npm install bower
 ./node_modules/.bin/bower install
 
 # Post deployment stub
