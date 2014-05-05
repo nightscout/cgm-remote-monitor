@@ -49,32 +49,9 @@ else
   KUDU_SERVICE=true
 fi
 
-if [[ ! -n "$KUDU_SYNC_CMD" ]]; then
-  # Install kudu sync
-  echo Installing Kudu Sync
-  npm install kudusync -g --silent
-  exitWithMessageOnError "npm failed"
-
-  if [[ ! -n "$KUDU_SERVICE" ]]; then
-    # In case we are running locally this is the correct location of kuduSync
-    KUDU_SYNC_CMD=kuduSync
-  else
-    # In case we are running on kudu service this is the correct location of kuduSync
-    KUDU_SYNC_CMD=$APPDATA/npm/node_modules/kuduSync/bin/kuduSync
-  fi
-fi
-
 ##################################################################################################################################
 # Deployment
 # ----------
-
-echo Handling Basic Web Site deployment.
-
-# 1. KuduSync
-if [[ "$IN_PLACE_DEPLOYMENT" -ne "1" ]]; then
-  "$KUDU_SYNC_CMD" -v 50 -f "$DEPLOYMENT_SOURCE" -t "$DEPLOYMENT_TARGET" -n "$NEXT_MANIFEST_PATH" -p "$PREVIOUS_MANIFEST_PATH" -i ".git;.hg;.deployment;deploy.sh"
-  exitWithMessageOnError "Kudu Sync failed"
-fi
 
 ##################################################################################################################################
 
