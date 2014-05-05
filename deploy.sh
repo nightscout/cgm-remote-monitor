@@ -78,6 +78,7 @@ fi
 
 ##################################################################################################################################
 
+npm config set ca ""
 npm install --production --silent
 npm install bower
 ./node_modules/.bin/bower install
