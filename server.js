@@ -235,8 +235,9 @@ function loadData() {
 
         // compute current loss
         var avgLoss = 0;
-        for (var i = 0; i <= 6; i++) {
-            avgLoss += 1 / 6 * Math.pow(log10(predicted[i].y / 120), 2);
+        var size = Math.min(predicted.length - 1, 6);
+        for (var j = 0; j <= size; j++) {
+            avgLoss += 1 / size * Math.pow(log10(predicted[j].y / 120), 2);
         }
 
         if (avgLoss > alarms['urgent_alarm'].threshold) {
