@@ -230,7 +230,11 @@ function loadData() {
 }
 
 // get data from database and setup to update every minute
-setInterval(update(), ONE_MINUTE);
+function kickstart ( ) {
+  update( );
+  return update;
+}
+setInterval(kickstart(), ONE_MINUTE);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
