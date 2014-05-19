@@ -49,42 +49,85 @@ else
   KUDU_SERVICE=true
 fi
 
+if [[ ! -n "$KUDU_SYNC_CMD" ]]; then
+  # Install kudu sync
+  echo Installing Kudu Sync
+  npm install kudusync -g --silent
+  exitWithMessageOnError "npm failed"
+
+  if [[ ! -n "$KUDU_SERVICE" ]]; then
+    # In case we are running locally this is the correct location of kuduSync
+    KUDU_SYNC_CMD=kuduSync
+  else
+    # In case we are running on kudu service this is the correct location of kuduSync
+    KUDU_SYNC_CMD=$APPDATA/npm/node_modules/kuduSync/bin/kuduSync
+  fi
+fi
+
+# Node Helpers
+# ------------
+
+selectNodeVersion () {
+  if [[ -n "$KUDU_SELECT_NODE_VERSION_CMD" ]]; then
+    SELECT_NODE_VERSION="$KUDU_SELECT_NODE_VERSION_CMD \"$DEPLOYMENT_SOURCE\" \"$DEPLOYMENT_TARGET\" \"$DEPLOYMENT_TEMP\""
+    eval $SELECT_NODE_VERSION
+    exitWithMessageOnError "select node version failed"
+
+    if [[ -e "$DEPLOYMENT_TEMP/__nodeVersion.tmp" ]]; then
+      NODE_EXE=`cat "$DEPLOYMENT_TEMP/__nodeVersion.tmp"`
+      exitWithMessageOnError "getting node version failed"
+    fi
+    
+    if [[ -e "$DEPLOYMENT_TEMP/.tmp" ]]; then
+      NPM_JS_PATH=`cat "$DEPLOYMENT_TEMP/__npmVersion.tmp"`
+      exitWithMessageOnError "getting npm version failed"
+    fi
+
+    if [[ ! -n "$NODE_EXE" ]]; then
+      NODE_EXE=node
+    fi
+
+    NPM_CMD="\"$NODE_EXE\" \"$NPM_JS_PATH\""
+  else
+    NPM_CMD=npm
+    NODE_EXE=node
+  fi
+}
+
 ##################################################################################################################################
 # Deployment
 # ----------
-# From http://www.cptloadtest.com/2013/12/03/Git-And-Grunt-Deploy-To-Windows-Azure.aspx
 
-echo Handling node.js grunt deployment.
+echo Handling node.js deployment.
 
 # 1. Select node version
 selectNodeVersion
 
 # 2. Install npm packages
 if [ -e "$DEPLOYMENT_SOURCE/package.json" ]; then
+  # cd "$DEPLOYMENT_SOURCE"
   eval $NPM_CMD set ca ""
-  eval $NPM_CMD install
+  eval $NPM_CMD install --production
   exitWithMessageOnError "npm failed"
+  # cd - > /dev/null
 fi
-
-# 3. Install bower packages
 if [ -e "$DEPLOYMENT_SOURCE/bower.json" ]; then
-  eval $NPM_CMD install bower
-  exitWithMessageOnError "installing bower failed"
+  # cd "$DEPLOYMENT_SOURCE"
   ./node_modules/.bin/bower install
   exitWithMessageOnError "bower failed"
+  # cd - > /dev/null
 fi
 
-# 4. Run grunt
-if [ -e "$DEPLOYMENT_SOURCE/Gruntfile.js" ]; then
-  eval $NPM_CMD install grunt-cli
-  exitWithMessageOnError "installing grunt failed"
-  ./node_modules/.bin/grunt --no-color clean common dist
-  exitWithMessageOnError "grunt failed"
-fi
-
-# 5. KuduSync to Target
+# 3. KuduSync
+# if [[ "$IN_PLACE_DEPLOYMENT" -ne "1" ]]; then
+#  "$KUDU_SYNC_CMD" -v 50 -f "$DEPLOYMENT_SOURCE" -t "$DEPLOYMENT_TARGET" -n "$NEXT_MANIFEST_PATH" -p "$PREVIOUS_MANIFEST_PATH" -i ".git;.hg;.deployment;deploy.sh"
+#  exitWithMessageOnError "Kudu Sync failed"
+# fi
+# 3. KuduSync to Target
 "$KUDU_SYNC_CMD" -v 500 -f "$DEPLOYMENT_SOURCE/dist" -t "$DEPLOYMENT_TARGET" -n "$NEXT_MANIFEST_PATH" -p "$PREVIOUS_MANIFEST_PATH" -i ".git;.hg;.deployment;deploy.sh"
 exitWithMessageOnError "Kudu Sync to Target failed"
+
+##################################################################################################################################
 
 # Post deployment stub
 if [[ -n "$POST_DEPLOYMENT_ACTION" ]]; then
