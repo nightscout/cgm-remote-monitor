@@ -10,6 +10,9 @@ and blood glucose values are predicted 0.5 hours ahead using a
 autoregressive second order model.  Alarms are generated for high and
 low values, which can be cleared by any watcher of the data.
 
+Community maintained fork of the
+[original cgm-remote-monitor](https://github.com/rnpenguin/cgm-remote-monitor).
+
 Install
 ---------------
 
@@ -38,11 +41,14 @@ ready, just host your web app on your service of choice.
 
 ### Environment
 You can use the default null `database_configuration.json`
-config if you set the following environment variables.  (Hosting
-providers often make this easy todo.)
+config if you set the following environment variables instead.
+(Hosting providers often make this easy, and this allows you to avoid
+editing anything.)
 
-* `CUSTOMCONNSTR_mongo_collection`
-* `CUSTOMCONNSTR_mongo`
+* `CUSTOMCONNSTR_mongo` - the mongo connection string, corresponds to
+  `DB.url`.
+* `CUSTOMCONNSTR_mongo_collection` - the mongo collection to use,
+   corresponds to `DB.collection`.
 
 Easy to emulate on the commandline:
 
