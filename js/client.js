@@ -163,6 +163,7 @@
         xScale.domain(brush.extent());
 
         // bind up the focus chart data to an array of circles
+        // selects all our data into data and uses date function to get current max date 
         var focusCircles = focus.selectAll('circle').data(data, dateFn);
 
         // if already existing then transition each circle to its new position
