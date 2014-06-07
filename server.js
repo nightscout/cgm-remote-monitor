@@ -231,6 +231,8 @@ function loadData() {
 
 // get data from database and setup to update every minute
 function kickstart ( ) {
+  //TODO: test server to see how data is stored (timestamps, entry values, etc)
+  //TODO: check server settings to configure alerts, entry units, etc
   update( );
   return update;
 }
