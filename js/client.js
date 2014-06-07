@@ -579,7 +579,26 @@
             if (d[0].length) {
                 var current = d[0][d[0].length - 1];
                 var secsSinceLast = (Date.now() - new Date(current.x).getTime()) / 1000;
-                $('.container .currentBG').text(current.y);
+                var currentBG = current.y;
+
+                //TODO: currently these are filtered on the server
+                //TODO: use icons for these magic values
+                switch (current.y) {
+                    case 0:  currentBG = '??0'; break; //None
+                    case 1:  currentBG = '?SN'; break; //SENSOR_NOT_ACTIVE
+                    case 2:  currentBG = '??2'; break; //MINIMAL_DEVIATION
+                    case 3:  currentBG = '?NA'; break; //NO_ANTENNA
+                    case 5:  currentBG = '?NC'; break; //SENSOR_NOT_CALIBRATED
+                    case 6:  currentBG = '?CD'; break; //COUNTS_DEVIATION
+                    case 7:  currentBG = '??7'; break; //?
+                    case 8:  currentBG = '??8'; break; //?
+                    case 9:  currentBG = '?AD'; break; //ABSOLUTE_DEVIATION
+                    case 10: currentBG = '?PD'; break; //POWER_DEVIATION
+                    case 12: currentBG = '?RF'; break; //BAD_RF
+                }
+
+                $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+                $('.container .currentBG').text(currentBG);
                 $('.container .currentDirection').html(current.direction);
                 $('.container .current').toggleClass('high', current.y > 180).toggleClass('low', current.y < 70)
             }
@@ -669,7 +688,32 @@
             socket.emit('ack', currentAlarmType, silenceTime);
         }
     }
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    function timeAgo(offset) {
+        var parts = {},
+            MINUTE = 60,
+            HOUR = 3600,
+            DAY = 86400,
+            WEEK = 604800;
+
+        if (offset <= MINUTE)              parts = { lablel: 'now' };
+        if (offset <= MINUTE * 2)          parts = { label: '1 min ago' };
+        else if (offset < (MINUTE * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE)), label: 'mins' };
+        else if (offset < (HOUR * 2))      parts = { label: '1 hr ago' };
+        else if (offset < (HOUR * 24))     parts = { value: Math.round(Math.abs(offset / HOUR)), label: 'hrs' };
+        else if (offset < DAY)             parts = { label: '1 day ago' };
+        else if (offset < (DAY * 7))       parts = { value: Math.round(Math.abs(offset / DAY)), label: 'day' };
+        else if (offset < (WEEK * 52))     parts = { value: Math.round(Math.abs(offset / WEEK)), label: 'week' };
+        else                               parts = { label: 'a long time ago' };
+
+        if (parts.value)
+          return parts.value + ' ' + parts.label + ' ago';
+        else
+          return parts.label;
+
+    }
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //draw a compact visualization of a treatment (carbs, insulin)
