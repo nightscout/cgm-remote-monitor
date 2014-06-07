@@ -85,7 +85,7 @@ body {
 
 .span1{width: 20%; float: left; padding-top: 3%; line-height: 50%;}
 
-.span2{width: 40%; margin-left: 35%}
+.span2{margin-left: 35%; float: right;}
 
 .bgButton {
   background: #ff2035;
@@ -124,8 +124,8 @@ body {
   margin: 10px auto;
 }
 
-#silenceBtn {
-    font-size: 200%;
+#silenceBtn, #silenceBtn * {
+  font-size: 60%;
 }
 
 #testAlarms {
