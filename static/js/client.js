@@ -36,6 +36,8 @@
 
     var useMetricBg = true; // true means use mmol/L, false means mg/dL
 
+    var useMetricBg = true; // true means use mmol/L, false means mg/dL
+
     // create svg and g to contain the chart contents
     var charts = d3.select('#chartContainer').append('svg')
         .append('g')
