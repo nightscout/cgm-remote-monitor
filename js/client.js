@@ -1,12 +1,12 @@
-(function () {
+(function() {
     "use strict";
 
     var treatments,
-        padding = { top: 20, right: 10, bottom: 30, left: 10 },
-        opacity = { current: 1, DAY: 1, NIGHT: 0.5 },
+        padding = { top: 20, right: 10, bottom: 30, left: 10},
+        opacity = {current: 1, DAY: 1, NIGHT: 0.5},
         now = Date.now(),
         data = [],
-        dateFn = function (d) { return new Date(d.date) },
+        dateFn = function (d) { return new Date(d.date)},
         xScale, xScale2, yScale, yScale2,
         xAxis, yAxis, xAxis2, yAxis2,
         prevChartWidth = 0,
@@ -20,8 +20,6 @@
         brushInProgress = false,
         clip,
         FOCUS_DATA_RANGE_MS = 12600000;  // 3.5 hours of actual data
-
-    var useMetricBg = true; // true means use mmol/L, false means mg/dL
 
     // create svg and g to contain the chart contents
     var charts = d3.select('#chartContainer').append('svg')
@@ -49,14 +47,6 @@
     context.append('g')
         .attr('class', 'y axis');
 
-    // lixgbg: Convert mg/dL BG value to metric mmol
-    function scaleBg(bg) {
-        if (useMetricBg) {
-            return (Math.round((bg / 18) * 10) / 10).toFixed(1);
-        } else
-            return bg;
-    }
-
     // initial setup of chart when data is first made available
     function initializeCharts() {
 
@@ -65,14 +55,13 @@
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale = d3.scale.log()
-        /*.domain([30, 420]);*/
-            .domain([scaleBg(30), scaleBg(420)]);
+            .domain([30, 420]);
 
         xScale2 = d3.time.scale()
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale2 = d3.scale.log()
-            .domain([scaleBg(36), scaleBg(420)]);
+            .domain([36, 420]);
 
         xAxis = d3.svg.axis()
             .scale(xScale)
@@ -82,8 +71,7 @@
         yAxis = d3.svg.axis()
             .scale(yScale)
             .tickFormat(d3.format('d'))
-            /*.tickValues([scaleBg(40), scaleBg(60), scaleBg(80), scaleBg(120), scaleBg(180), scaleBg(300), scaleBg(400)])*/
-            .tickValues([2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0])
+            .tickValues([40, 60, 80, 120, 180, 300, 400])
             .orient('left');
 
         xAxis2 = d3.svg.axis()
@@ -94,8 +82,7 @@
         yAxis2 = d3.svg.axis()
             .scale(yScale2)
             .tickFormat(d3.format('d'))
-            /*.tickValues([scaleBg(40), scaleBg(60), scaleBg(80), scaleBg(120), scaleBg(180), scaleBg(300), scaleBg(400)])*/
-            .tickValues([2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0])
+            .tickValues([40, 60, 80, 120, 180, 300, 400])
             .orient('right');
 
         // setup a brush
@@ -138,7 +125,7 @@
         // update the opacity of the context data points to brush extent
         context.selectAll('circle')
             .data(data)
-            .style('opacity', function (d) { return 1; });
+            .style('opacity', function(d) {return 1;} );
     }
 
     function brushEnded() {
@@ -176,21 +163,20 @@
         xScale.domain(brush.extent());
 
         // bind up the focus chart data to an array of circles
-        // selects all our data into data and uses date function to get current max date 
         var focusCircles = focus.selectAll('circle').data(data, dateFn);
 
         // if already existing then transition each circle to its new position
         focusCircles.transition()
             .duration(UPDATE_TRANS_MS)
             .attr('cx', function (d) { return xScale(d.date); })
-            .attr('cy', function (d) { return yScale(d.sgv); })
-            .attr('fill', function (d) { return d.color; });
+            .attr('cy', function (d) { return yScale(d.sgv);  })
+            .attr('fill', function (d) { return d.color;      });
 
         // if new circle then just display
         focusCircles.enter().append('circle')
             .attr('cx', function (d) { return xScale(d.date); })
-            .attr('cy', function (d) { return yScale(d.sgv); })
-            .attr('fill', function (d) { return d.color; })
+            .attr('cy', function (d) { return yScale(d.sgv);  })
+            .attr('fill', function (d) { return d.color;      })
             .attr('r', 3);
 
         focusCircles.exit()
@@ -203,14 +189,14 @@
         var bubbleSize = prevChartWidth < 400 ? 4 : (prevChartWidth < 600 ? 3 : 2);
         focus.selectAll('circle')
             .data(treatments)
-            .each(function (d) { drawTreatment(d, bubbleSize, true) });
+            .each(function (d) { drawTreatment(d, bubbleSize, true)});
 
         // transition open-top line to correct location
         focus.select('.open-top')
             .attr('x1', xScale2(brush.extent()[0]))
-            .attr('y1', yScale(scaleBg(30)))
+            .attr('y1', yScale(30))
             .attr('x2', xScale2(brush.extent()[1]))
-            .attr('y2', yScale(scaleBg(30)));
+            .attr('y2', yScale(30));
 
         // transition open-left line to correct location
         focus.select('.open-left')
@@ -230,9 +216,9 @@
             .transition()
             .duration(UPDATE_TRANS_MS)
             .attr('x1', xScale(new Date(now)))
-            .attr('y1', yScale(scaleBg(36)))
+            .attr('y1', yScale(36))
             .attr('x2', xScale(new Date(now)))
-            .attr('y2', yScale(scaleBg(420)));
+            .attr('y2', yScale(420));
 
         // update x axis
         focus.select('.x.axis')
@@ -318,9 +304,9 @@
                 focus.append('line')
                     .attr('class', 'now-line')
                     .attr('x1', xScale(new Date(now)))
-                    .attr('y1', yScale(scaleBg(36)))
+                    .attr('y1', yScale(36))
                     .attr('x2', xScale(new Date(now)))
-                    .attr('y2', yScale(scaleBg(420)))
+                    .attr('y2', yScale(420))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -328,9 +314,9 @@
                 focus.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(scaleBg(180)))
+                    .attr('y1', yScale(180))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(scaleBg(180)))
+                    .attr('y2', yScale(180))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -338,9 +324,9 @@
                 focus.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(scaleBg(80)))
+                    .attr('y1', yScale(80))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(scaleBg(80)))
+                    .attr('y2', yScale(80))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -364,9 +350,9 @@
                 context.append('line')
                     .attr('class', 'now-line')
                     .attr('x1', xScale(new Date(now)))
-                    .attr('y1', yScale2(scaleBg(36)))
+                    .attr('y1', yScale2(36))
                     .attr('x2', xScale(new Date(now)))
-                    .attr('y2', yScale2(scaleBg(420)))
+                    .attr('y2', yScale2(420))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -374,9 +360,9 @@
                 context.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(180)))
+                    .attr('y1', yScale2(180))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(180)))
+                    .attr('y2', yScale2(180))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -384,9 +370,9 @@
                 context.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(80)))
+                    .attr('y1', yScale2(80))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(80)))
+                    .attr('y2', yScale2(80))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -431,27 +417,27 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(180)))
+                    .attr('y1', yScale(180))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(180)));
+                    .attr('y2', yScale(180));
 
                 // transition low line to correct location
                 focus.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(80)))
+                    .attr('y1', yScale(80))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(80)));
+                    .attr('y2', yScale(80));
 
                 // transition open-top line to correct location
                 focus.select('.open-top')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(30)))
+                    .attr('y1', yScale(30))
                     .attr('x2', xScale2(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(30)));
+                    .attr('y2', yScale(30));
 
                 // transition open-left line to correct location
                 focus.select('.open-left')
@@ -476,18 +462,18 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(180)))
+                    .attr('y1', yScale2(180))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(180)));
+                    .attr('y2', yScale2(180));
 
                 // transition low line to correct location
                 context.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(80)))
+                    .attr('y1', yScale2(80))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(80)));
+                    .attr('y2', yScale2(80));
             }
         }
 
@@ -498,9 +484,9 @@
             .transition()
             .duration(UPDATE_TRANS_MS)
             .attr('x1', xScale2(new Date(now)))
-            .attr('y1', yScale2(scaleBg(36)))
+            .attr('y1', yScale2(36))
             .attr('x2', xScale2(new Date(now)))
-            .attr('y2', yScale2(scaleBg(420)));
+            .attr('y2', yScale2(420));
 
         // only if a user brush is not active, update brush and focus chart with recent data
         // else, just transition brush
@@ -523,16 +509,16 @@
         contextCircles.transition()
             .duration(UPDATE_TRANS_MS)
             .attr('cx', function (d) { return xScale2(d.date); })
-            .attr('cy', function (d) { return yScale2(d.sgv); })
-            .attr('fill', function (d) { return d.color; })
-            .style('opacity', function (d) { return highlightBrushPoints(d) });
+            .attr('cy', function (d) { return yScale2(d.sgv);  })
+            .attr('fill', function (d) { return d.color;       })
+            .style('opacity', function (d)   { return highlightBrushPoints(d) });
 
         // if new circle then just display
         contextCircles.enter().append('circle')
-            .attr('cx', function (d) { return xScale2(d.date); })
-            .attr('cy', function (d) { return yScale2(d.sgv); })
-            .attr('fill', function (d) { return d.color; })
-            .style('opacity', function (d) { return highlightBrushPoints(d) })
+            .attr('cx', function (d)   { return xScale2(d.date); })
+            .attr('cy', function (d)   { return yScale2(d.sgv);  })
+            .attr('fill', function (d) { return d.color;         })
+            .style('opacity', function (d)   { return highlightBrushPoints(d) })
             .attr('r', 2);
 
         contextCircles.exit()
@@ -554,11 +540,11 @@
 
     var silenceDropdown = new Dropdown(".dropdown-menu");
 
-    $('#bgButton').click(function (e) {
+    $('#bgButton').click(function(e) {
         silenceDropdown.open(e);
     });
 
-    $("#silenceBtn").find("a").click(function () {
+    $("#silenceBtn").find("a").click(function() {
         stopAlarm(true, $(this).data("snooze-time"));
     });
 
@@ -573,14 +559,13 @@
     socket.on('now', function (d) {
         now = d;
         var dateTime = new Date(now);
-        // lixgbg old: $('#currentTime').text(d3.time.format('%I:%M%p')(dateTime));
-        $('#currentTime').text(d3.time.format('%H:%M')(dateTime));
+        $('#currentTime').text(d3.time.format('%I:%M%p')(dateTime));
 
         // Dim the screen by reducing the opacity when at nighttime
-        if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7)) {
-            $('body').css({ 'opacity': opacity.NIGHT });
+        if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7 )) {
+            $('body').css({'opacity': opacity.NIGHT});
         } else {
-            $('body').css({ 'opacity': opacity.DAY });
+            $('body').css({'opacity': opacity.DAY});
         }
     });
 
@@ -588,15 +573,12 @@
         if (d.length > 1) {
             // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
             if (d[0].length) {
-                // lixgbg old: $('#currentBG').text(d[0][d[0].length - 1].y);
-                // lixgbg old: $('#bgValue').text(d[0][d[0].length - 1].y);
-                var bg = scaleBg(d[0][d[0].length - 1].y);
-                $('#currentBG').text(bg);
-                $('#bgValue').text(bg);
+                $('#currentBG').text(d[0][d[0].length - 1].y);
+                $('#bgValue').text(d[0][d[0].length - 1].y);
             }
-            data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'grey'} });
-            data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'blue'} }));
-            data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'red'} }));
+            data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'grey'} });
+            data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'blue'} }));
+            data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'red'} }));
             treatments = d[3];
             if (!isInitialData) {
                 isInitialData = true;
@@ -615,23 +597,23 @@
     socket.on('connect', function () {
         console.log('Client connected to server.')
     });
-    socket.on('alarm', function () {
+    socket.on('alarm', function() {
         console.log("Alarm raised!");
         currentAlarmType = 'alarm';
         generateAlarm(alarmSound);
     });
-    socket.on('urgent_alarm', function () {
+    socket.on('urgent_alarm', function() {
         console.log("Urgent alarm raised!");
         currentAlarmType = 'urgent_alarm';
         generateAlarm(urgentAlarmSound);
     });
-    socket.on('clear_alarm', function () {
+    socket.on('clear_alarm', function() {
         if (alarmInProgress) {
             console.log('clearing alarm');
             stopAlarm();
         }
     });
-    socket.on('clients', function (watchers) {
+    socket.on('clients', function(watchers) {
         console.log('number of clients has changed to ' + watchers);
         $('#watchers').text(watchers);
     });
@@ -707,7 +689,7 @@
             .data(arc_data)
             .enter()
             .append('g')
-            .attr('transform', 'translate(' + xScale(treatment.x) + ', ' + yScale(scaleBg(treatment.y)) + ')');
+            .attr('transform', 'translate(' + xScale(treatment.x) + ', ' + yScale(treatment.y) + ')');
 
         var arcs = treatmentDots.append('path')
             .attr('class', 'path')
