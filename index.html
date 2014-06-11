@@ -9,14 +9,16 @@
     <body>
         <div class='container'>
             <div class='row-fluid heading'>
-                <div class='span1' style='font-size: 400%'>
-                    <span id='currentTime'>???</span><br>
-                    <span style='font-size: 35%'><span id='watchers'>0</span> watcher(s)</span>
+                <div class='span1' style='font-size: 600%'>
+                    <div id='currentTime'>---</div>
+                    <div style='font-size: 25%; line-height: 300%'>
+                        <span id='lastEntry'>---</span>
+                    </div>
                 </div>
-                <div class='span2'>
-                    <div id='noButton' style='font-size: 800%'>
-                        <span id='currentBG'>???</span>
-                        <span style='font-size: 20%'>mg/dL</span>
+                <div class='span2 current' style='font-size: 900%'>
+                    <div id='noButton'>
+                        <span class='currentBG'>---</span>
+                        <span class="currentDirection">-</span><a id="testAlarms" href="#">&#10003;&#9834;</a>
                     </div>
                     <div class='bgButton' id='bgButton' style='font-size: 800%' hidden='true'>
                         <span id='bgValue'>???</span>
@@ -35,8 +37,7 @@
                 <div id='chartContainer'></div>
             </div>
         </div>
-        <audio id='audio' loop><source src='audio/alarm.ogg' type='audio/ogg'/></audio>
-        <audio id='audio2' loop><source src='audio/alarm2.ogg' type='audio/ogg'/></audio>
+        <audio id='audio' loop src='audio/alarm.mp3' type='audio/mp3'></audio>
         <script src='/socket.io/socket.io.js'></script>
         <script src='/bower_components/d3/d3.min.js'></script>
         <script src='/bower_components/jquery/dist/jquery.min.js'></script>

@@ -19,7 +19,10 @@
         brushTimer,
         brushInProgress = false,
         clip,
-        FOCUS_DATA_RANGE_MS = 12600000;  // 3.5 hours of actual data
+        FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
+        audio = document.getElementById('audio'),
+        alarmInProgress = false;
+
 
     // create svg and g to contain the chart contents
     var charts = d3.select('#chartContainer').append('svg')
@@ -574,8 +577,30 @@
         if (d.length > 1) {
             // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
             if (d[0].length) {
-                $('#currentBG').text(d[0][d[0].length - 1].y);
-                $('#bgValue').text(d[0][d[0].length - 1].y);
+                var current = d[0][d[0].length - 1];
+                var secsSinceLast = (Date.now() - new Date(current.x).getTime()) / 1000;
+                var currentBG = current.y;
+
+                //TODO: currently these are filtered on the server
+                //TODO: use icons for these magic values
+                switch (current.y) {
+                    case 0:  currentBG = '??0'; break; //None
+                    case 1:  currentBG = '?SN'; break; //SENSOR_NOT_ACTIVE
+                    case 2:  currentBG = '??2'; break; //MINIMAL_DEVIATION
+                    case 3:  currentBG = '?NA'; break; //NO_ANTENNA
+                    case 5:  currentBG = '?NC'; break; //SENSOR_NOT_CALIBRATED
+                    case 6:  currentBG = '?CD'; break; //COUNTS_DEVIATION
+                    case 7:  currentBG = '??7'; break; //?
+                    case 8:  currentBG = '??8'; break; //?
+                    case 9:  currentBG = '?AD'; break; //ABSOLUTE_DEVIATION
+                    case 10: currentBG = '?PD'; break; //POWER_DEVIATION
+                    case 12: currentBG = '?RF'; break; //BAD_RF
+                }
+
+                $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+                $('.container .currentBG').text(currentBG);
+                $('.container .currentDirection').html(current.direction);
+                $('.container .current').toggleClass('high', current.y > 180).toggleClass('low', current.y < 70)
             }
             data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'grey'} });
             data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'blue'} }));
@@ -619,6 +644,17 @@
         $('#watchers').text(watchers);
     });
 
+    $('#testAlarms').click(function(event) {
+        event.preventDefault();
+        audio.src = 'audio/alarm.mp3';
+        audio.load();
+        audio.play();
+        setTimeout(function() {
+            audio.pause();
+        }, 4000);
+    });
+
+
     // load alarms
     var alarmSound = document.getElementById('audio');
     var urgentAlarmSound = document.getElementById('audio2');
@@ -629,8 +665,9 @@
 
     function generateAlarm(alarmType) {
         alarmInProgress = true;
-        alarmType.load();
-        alarmType.play();
+        audio.src = 'audio/' + file;
+        audio.load();
+        audio.play();
         var element = document.getElementById('bgButton');
         element.hidden = '';
         var element1 = document.getElementById('noButton');
@@ -644,15 +681,39 @@
         element.hidden = 'true';
         element = document.getElementById('noButton');
         element.hidden = '';
-        alarmSound.pause();
-        urgentAlarmSound.pause();
+        audio.pause();
 
         // only emit ack if client invoke by button press
         if (isClient) {
             socket.emit('ack', currentAlarmType, silenceTime);
         }
     }
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    function timeAgo(offset) {
+        var parts = {},
+            MINUTE = 60,
+            HOUR = 3600,
+            DAY = 86400,
+            WEEK = 604800;
+
+        if (offset <= MINUTE)              parts = { lablel: 'now' };
+        if (offset <= MINUTE * 2)          parts = { label: '1 min ago' };
+        else if (offset < (MINUTE * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE)), label: 'mins' };
+        else if (offset < (HOUR * 2))      parts = { label: '1 hr ago' };
+        else if (offset < (HOUR * 24))     parts = { value: Math.round(Math.abs(offset / HOUR)), label: 'hrs' };
+        else if (offset < DAY)             parts = { label: '1 day ago' };
+        else if (offset < (DAY * 7))       parts = { value: Math.round(Math.abs(offset / DAY)), label: 'day' };
+        else if (offset < (WEEK * 52))     parts = { value: Math.round(Math.abs(offset / WEEK)), label: 'week' };
+        else                               parts = { label: 'a long time ago' };
+
+        if (parts.value)
+          return parts.value + ' ' + parts.label + ' ago';
+        else
+          return parts.label;
+
+    }
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //draw a compact visualization of a treatment (carbs, insulin)
