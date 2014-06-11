@@ -1,4 +1,4 @@
-(function() {
+(function () {
     "use strict";
 
     var retrospectivePredictor = true,
@@ -8,7 +8,7 @@
         opacity = {current: 1, DAY: 1, NIGHT: 0.8},
         now = Date.now(),
         data = [],
-        dateFn = function (d) { return new Date(d.date)},
+        dateFn = function (d) { return new Date(d.date) },
         xScale, xScale2, yScale, yScale2,
         xAxis, yAxis, xAxis2, yAxis2,
         prevChartWidth = 0,
@@ -31,6 +31,8 @@
         alarmSound = 'alarm.mp3',
         urgentAlarmSound = 'alarm2.mp3';
 
+
+    var useMetricBg = true; // true means use mmol/L, false means mg/dL
 
     var useMetricBg = true; // true means use mmol/L, false means mg/dL
 
@@ -240,13 +242,13 @@
             .transition()
             .duration(UPDATE_TRANS_MS)
             .attr('cx', function (d) { return xScale(d.date); })
-            .attr('cy', function (d) { return scaleBg(yScale(d.sgv)); })
+            .attr('cy', function (d) { return yScale(scaleBg(d.sgv)); })
             .attr('fill', function (d) { return d.color; });
 
         // if new circle then just display
         focusCircles.enter().append('circle')
             .attr('cx', function (d) { return xScale(d.date); })
-            .attr('cy', function (d) { return scaleBg(yScale(d.sgv)); })
+            .attr('cy', function (d) { return yScale(scaleBg(d.sgv)); })
             .attr('fill', function (d) { return d.color; })
             .attr('r', 3);
 
