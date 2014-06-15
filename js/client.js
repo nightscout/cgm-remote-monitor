@@ -106,7 +106,7 @@
         if (data.date.getTime() >= brush.extent()[0].getTime() && data.date.getTime() <= brush.extent()[1].getTime()) {
             return 1;
         } else {
-            return 0.4;
+            return 0.5;
         }
     }
 
