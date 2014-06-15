@@ -2,8 +2,8 @@
     "use strict";
 
     var treatments,
-        padding = { top: 20, right: 10, bottom: 30, left: 10},
-        opacity = {current: 1, DAY: 1, NIGHT: 0.5},
+        padding = {top: 20, right: 10, bottom: 80, left: 10},
+        opacity = {current: 1, DAY: 1, NIGHT: 0.8},
         now = Date.now(),
         data = [],
         dateFn = function (d) { return new Date(d.date)},
@@ -21,7 +21,10 @@
         clip,
         FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
         audio = document.getElementById('audio'),
-        alarmInProgress = false;
+        alarmInProgress = false,
+        currentAlarmType = null,
+        alarmSound = 'alarm.mp3',
+        urgentAlarmSound = 'alarm2.mp3';
 
 
     // create svg and g to contain the chart contents
@@ -101,9 +104,9 @@
     // get the desired opacity for context chart based on the brush extent
     function highlightBrushPoints(data) {
         if (data.date.getTime() >= brush.extent()[0].getTime() && data.date.getTime() <= brush.extent()[1].getTime()) {
-            return 1
+            return 1;
         } else {
-            return 0.2
+            return 0.5;
         }
     }
 
@@ -654,16 +657,7 @@
         }, 4000);
     });
 
-
-    // load alarms
-    var alarmSound = document.getElementById('audio');
-    var urgentAlarmSound = document.getElementById('audio2');
-
-    // alarm state
-    var alarmInProgress = false;
-    var currentAlarmType = null;
-
-    function generateAlarm(alarmType) {
+    function generateAlarm(file) {
         alarmInProgress = true;
         audio.src = 'audio/' + file;
         audio.load();
@@ -672,7 +666,7 @@
         element.hidden = '';
         var element1 = document.getElementById('noButton');
         element1.hidden = 'true';
-        $('#bgValue').text($('#currentBG').text());
+        $('.container .currentBG').text();
     }
 
     function stopAlarm(isClient, silenceTime) {
@@ -685,7 +679,7 @@
 
         // only emit ack if client invoke by button press
         if (isClient) {
-            socket.emit('ack', currentAlarmType, silenceTime);
+            socket.emit('ack', currentAlarmType || 'alarm', silenceTime);
         }
     }
 
