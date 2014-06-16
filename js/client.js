@@ -65,7 +65,6 @@
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale = d3.scale.log()
-        /*.domain([30, 420]);*/
             .domain([scaleBg(30), scaleBg(420)]);
 
         xScale2 = d3.time.scale()
