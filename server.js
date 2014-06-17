@@ -22,6 +22,7 @@ var now = new Date().getTime();
 var fs = require('fs');
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
+var api = require('./lib/api');
 var cgmData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -39,6 +40,14 @@ var server = require('http').createServer(function serverCreator(request, respon
       request.with_collection = with_collection;
       pebble.pebble(request, response);
       return;
+    }
+    
+    // API Test
+    if (url.path.indexOf('/api/lastSgv') === 0) {
+        request.with_collection = with_collection;
+        //api.api(request, response);
+        api.lastSgv(request, response);
+        return;
     }
 
     // Serve file using node-static
