@@ -22,6 +22,7 @@ var now = new Date().getTime();
 var fs = require('fs');
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
+var api = require('./lib/api');
 var cgmData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -39,6 +40,14 @@ var server = require('http').createServer(function serverCreator(request, respon
       request.with_collection = with_collection;
       pebble.pebble(request, response);
       return;
+    }
+    
+    // API Test
+    if (url.path.indexOf('/api/lastSgv') === 0) {
+        request.with_collection = with_collection;
+        //api.api(request, response);
+        api.lastSgv(request, response);
+        return;
     }
 
     // Serve file using node-static
@@ -101,6 +110,23 @@ DB.collection = DB.collection || process.env.CUSTOMCONNSTR_mongo_collection;
 var DB_URL = DB.url;
 var DB_COLLECTION = DB.collection;
 
+var dir2Char = {
+  'NONE': '&#8700;',
+  'DoubleUp': '&#8648;',
+  'SingleUp': '&#8593;',
+  'FortyFiveUp': '&#8599;',
+  'Flat': '&#8594;',
+  'FortyFiveDown': '&#8600;',
+  'SingleDown': '&#8595;',
+  'DoubleDown': '&#8650;',
+  'NOT COMPUTABLE': '-',
+  'RATE OUT OF RANGE': '&#8622;'
+};
+
+function directionToChar(direction) {
+  return dir2Char[direction] || '-';
+}
+
 var Alarm = function(_typeName, _threshold) {
     this.typeName = _typeName;
     this.silenceTime = FORTY_MINUTES;
@@ -139,6 +165,7 @@ function update() {
                     obj.y = element.sgv;
                     obj.x = element.date;
                     obj.d = element.dateString;
+                    obj.direction = directionToChar(element.direction);
                     cgmData.push(obj);
                 }
             });
@@ -217,8 +244,9 @@ function loadData() {
 
         // compute current loss
         var avgLoss = 0;
-        for (var i = 0; i <= 6; i++) {
-            avgLoss += 1 / 6 * Math.pow(log10(predicted[i].y / 120), 2);
+        var size = Math.min(predicted.length - 1, 6);
+        for (var j = 0; j <= size; j++) {
+            avgLoss += 1 / size * Math.pow(log10(predicted[j].y / 120), 2);
         }
 
         if (avgLoss > alarms['urgent_alarm'].threshold) {
@@ -231,6 +259,8 @@ function loadData() {
 
 // get data from database and setup to update every minute
 function kickstart ( ) {
+  //TODO: test server to see how data is stored (timestamps, entry values, etc)
+  //TODO: check server settings to configure alerts, entry units, etc
   update( );
   return update;
 }
