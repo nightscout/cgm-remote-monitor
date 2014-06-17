@@ -92,11 +92,14 @@ body {
 
 .span2{margin-left: 35%; float: right;}
 
-.bgButton {
+#noButton {
+  padding: 2px;
+}
+
+#bgButton {
   background: #ff2035;
   color: #000000;
   width: auto;
-  margin: 3px auto;
   border: 2px solid #DDD;
   border-right: 2px solid #ccc;
   border-bottom: 2px solid #ccc;
@@ -113,10 +116,11 @@ body {
   -ms-user-select: none;
   user-select: none;
   cursor: default;
+  margin-right: 37px;
 }
 
 .bgButton:active {
-  margin: 10px auto;
+  background: #850406;
   border: 2px solid #999;
   box-shadow: none;
   -moz-box-shadow: none;
@@ -130,7 +134,7 @@ body {
 }
 
 #silenceBtn, #silenceBtn * {
-  font-size: 60%;
+  font-size: 70%;
 }
 
 #testAlarms {
