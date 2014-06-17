@@ -361,9 +361,9 @@
                 context.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(180))
+                    .attr('y1', yScale2(230))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(180))
+                    .attr('y2', yScale2(230))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -371,9 +371,9 @@
                 context.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(80))
+                    .attr('y1', yScale2(90))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(80))
+                    .attr('y2', yScale2(90))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -418,18 +418,18 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(180))
+                    .attr('y1', yScale(230))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(180));
+                    .attr('y2', yScale(230));
 
                 // transition low line to correct location
                 focus.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(80))
+                    .attr('y1', yScale(90))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(80));
+                    .attr('y2', yScale(90));
 
                 // transition open-top line to correct location
                 focus.select('.open-top')
