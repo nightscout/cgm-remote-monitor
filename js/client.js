@@ -26,6 +26,7 @@
         alarmSound = 'alarm.mp3',
         urgentAlarmSound = 'alarm2.mp3';
 
+    var useMetricBg = true; // true means use mmol/L, false means mg/dL
 
     // create svg and g to contain the chart contents
     var charts = d3.select('#chartContainer').append('svg')
@@ -42,6 +43,14 @@
     // create the y axis container
     focus.append('g')
         .attr('class', 'y axis');
+
+// lixgbg: Convert mg/dL BG value to metric mmol
+    function scaleBg(bg) {
+        if (useMetricBg) {
+            return (Math.round((by / 18) * 10) / 10).toFixed(1);
+        } else
+            return bg;
+    }
 
     var context = charts.append('g');
 
