@@ -79,7 +79,7 @@
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale2 = d3.scale.log()
-            .domain([36, 420]);
+            .domain([scaleBg(36), scaleBg(420)]);
 
         xAxis = d3.svg.axis()
             .scale(xScale)
@@ -215,9 +215,9 @@
         // transition open-top line to correct location
         focus.select('.open-top')
             .attr('x1', xScale2(brush.extent()[0]))
-            .attr('y1', yScale(30))
+            .attr('y1', yScale(scaleBg(30)))
             .attr('x2', xScale2(brush.extent()[1]))
-            .attr('y2', yScale(30));
+            .attr('y2', yScale(scaleBg(30)));
 
         // transition open-left line to correct location
         focus.select('.open-left')
@@ -237,9 +237,9 @@
             .transition()
             .duration(UPDATE_TRANS_MS)
             .attr('x1', xScale(new Date(now)))
-            .attr('y1', yScale(36))
+            .attr('y1', yScale(scaleBg(36)))
             .attr('x2', xScale(new Date(now)))
-            .attr('y2', yScale(420));
+            .attr('y2', yScale(scaleBg(420)));
 
         // update x axis
         focus.select('.x.axis')
