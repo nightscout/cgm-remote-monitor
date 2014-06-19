@@ -25,7 +25,7 @@ var pebble = require('./lib/pebble');
 var cgmData = [];
 //kate
 
-    var useMetricBg = true; // true means use mmol/L, false means mg/dL
+   // var useMetricBg = true; // true means use mmol/L, false means mg/dL
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -58,12 +58,6 @@ var server = require('http').createServer(function serverCreator(request, respon
     });
 }).listen(PORT);
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-function scaleBg(bg) {
-        if (useMetricBg) {
-            return (Math.round((by / 18) * 10) / 10).toFixed(1);
-        } else
-            return bg;
-    }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // setup socket io for data and message transmission
@@ -163,7 +157,7 @@ function update() {
             results.forEach(function(element, index, array) {
                 if (element) {
                     var obj = {};
-                    obj.y = element.sgv(scalebg);
+                    obj.y = element.sgv(Math.round((by / 18) * 10) / 10).toFixed(1);
     
                     obj.x = element.date;
                     obj.d = element.dateString;
