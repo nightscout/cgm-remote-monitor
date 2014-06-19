@@ -157,7 +157,7 @@ function update() {
             results.forEach(function(element, index, array) {
                 if (element) {
                     var obj = {};
-                    obj.y = element.sgv(Math.round((by / 18) * 10) / 10).toFixed(1);
+                    obj.y = element.sgv;
     
                     obj.x = element.date;
                     obj.d = element.dateString;
