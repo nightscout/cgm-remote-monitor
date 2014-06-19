@@ -58,6 +58,12 @@ var server = require('http').createServer(function serverCreator(request, respon
     });
 }).listen(PORT);
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+function scaleBg(bg) {
+        if (useMetricBg) {
+            return (Math.round((by / 18) * 10) / 10).toFixed(1);
+        } else
+            return bg;
+    }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // setup socket io for data and message transmission
@@ -157,7 +163,7 @@ function update() {
             results.forEach(function(element, index, array) {
                 if (element) {
                     var obj = {};
-                    obj.y = (element.sgv/18.toFixed(1));
+                    obj.y = element.sgv(scalebg);
     
                     obj.x = element.date;
                     obj.d = element.dateString;
