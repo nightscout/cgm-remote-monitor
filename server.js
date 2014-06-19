@@ -157,7 +157,8 @@ function update() {
             results.forEach(function(element, index, array) {
                 if (element) {
                     var obj = {};
-                    obj.y = element.sgv/18;
+                    obj.y = (element.sgv/18.toFixed(1));
+    
                     obj.x = element.date;
                     obj.d = element.dateString;
                     obj.direction = directionToChar(element.direction);
