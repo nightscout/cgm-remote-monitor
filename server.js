@@ -32,8 +32,7 @@ var PORT = process.env.PORT || 1337;
 var server = require('http').createServer(function serverCreator(request, response) {
     var nodeStatic = require('node-static');
     //serve .mp3s as .mp3.gz files + cache for 1 year
-    //var staticServer = new nodeStatic.Server(".", { cache:29030400, gzip:/^\/mp3/, headers: {'Content-Encoding':'gzip'} }); 
-    var staticServer = new nodeStatic.Server(".", { cache:29030400, gzip:true });
+    var staticServer = new nodeStatic.Server(".", { cache:29030400, gzip:/^\/mp3/, headers: {'Content-Encoding':'gzip'} }); 
     var sys = require("sys");
     
     // Grab the URL requested by the client and parse any query options
