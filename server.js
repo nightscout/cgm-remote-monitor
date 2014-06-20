@@ -31,8 +31,9 @@ var cgmData = [];
 var PORT = process.env.PORT || 1337;
 var server = require('http').createServer(function serverCreator(request, response) {
     var nodeStatic = require('node-static');
-    var staticServer = new nodeStatic.Server(".");
+    var staticServer = new nodeStatic.Server(".", { cache:29030400, gzip:/^\/mp3/ }); //serve .mp3s as .mp3.gz files + cache for 1 year
     var sys = require("sys");
+    
     // Grab the URL requested by the client and parse any query options
     var url = require('url').parse(request.url, true);
     if (url.path.indexOf('/pebble') === 0) {
@@ -40,6 +41,21 @@ var server = require('http').createServer(function serverCreator(request, respon
       pebble.pebble(request, response);
       return;
     }
+    
+    // Define the files you want the browser to cache
+    /*var hostname = request.headers.host;
+    var cf = c.newCache([
+        'http://'+hostname+'/audio/alarm.mp3',
+        'http://'+hostname+'/audio/alarm2.mp3'
+    ]);
+    //console.log( 'http://'+hostname+'/audio/alarm.mp3');
+    
+    // Send the HTML5 nightscout.appcache file
+    if(request.url.match(/nightscout\.appcache$/)){
+        console.log( 'http://'+hostname+'/nightscout\.appcache')
+        response.writeHead(200, {'Content-Type': 'text/cache-manifest'});
+        return response.end(cf);
+    } */
 
     // Serve file using node-static
     staticServer.serve(request, response, function clientHandler(err) {
