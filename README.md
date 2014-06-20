@@ -1,6 +1,10 @@
 cgm-remote-monitor (a.k.a. NightScout)
 ======================================
 
+[![Build Status](https://travis-ci.org/brianhanifin/cgm-remote-monitor.png)](https://travis-ci.org/brianhanifin/cgm-remote-monitor)
+[![Gitter chat](https://badges.gitter.im/brianhanifin/cgm-remote-monitor.png)](https://gitter.im/brianhanifin/cgm-remote-monitor)
+[![Dependency Status](https://david-dm.org/brianhanifin/cgm-remote-monitor.png)](https://david-dm.org/brianhanifin/cgm-remote-monitor)
+
 This acts as a web-based CGM (Continuous Glucose Montinor) to allow
 multiple caregivers to remotely view a patients glucose data in
 realtime.  The server reads a MongoDB which is intended to be data
