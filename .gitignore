@@ -3,5 +3,4 @@ node_modules/
 
 .idea/
 *.iml
-database_configuration.json
-/database_configuration.json
+my.env
