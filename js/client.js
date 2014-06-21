@@ -173,7 +173,7 @@
             }
         }
 
-        // get slice of data so that concatenation of predictions do interfere with subsequent updates
+        // get slice of data so that concatenation of predictions do not interfere with subsequent updates
         var focusData = data.slice();
 
         var element = document.getElementById('bgButton').hidden == '';
