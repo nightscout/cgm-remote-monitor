@@ -594,7 +594,8 @@
             // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
             if (d[0].length) {
                 var bg = scaleBg(d[0][d[0].length - 1].y);
-                var current = d[0][d[0].length - 1];
+                $('#currentBG').text(bg);
+                $('#bgValue').text(bg);
                 var secsSinceLast = (Date.now() - new Date(current.x).getTime()) / 1000;
                 var currentBG = current.y;
 
