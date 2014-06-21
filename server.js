@@ -23,6 +23,10 @@ var fs = require('fs');
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
 var cgmData = [];
+//kate
+
+   // var useMetricBg = true; // true means use mmol/L, false means mg/dL
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -154,6 +158,7 @@ function update() {
                 if (element) {
                     var obj = {};
                     obj.y = element.sgv;
+    
                     obj.x = element.date;
                     obj.d = element.dateString;
                     obj.direction = directionToChar(element.direction);
