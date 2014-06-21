@@ -20,6 +20,7 @@
 var patientData = [];
 var now = new Date().getTime();
 var fs = require('fs');
+var c = require("appcache-node");
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
 var cgmData = [];
@@ -31,14 +32,45 @@ var cgmData = [];
 var PORT = process.env.PORT || 1337;
 var server = require('http').createServer(function serverCreator(request, response) {
     var nodeStatic = require('node-static');
-    var staticServer = new nodeStatic.Server(".");
+    //enable gzip compression and cache for 30 days
+    var staticServer = new nodeStatic.Server(".", { cache:2592000, gzip:true }); 
     var sys = require("sys");
+    
     // Grab the URL requested by the client and parse any query options
     var url = require('url').parse(request.url, true);
     if (url.path.indexOf('/pebble') === 0) {
       request.with_collection = with_collection;
       pebble.pebble(request, response);
       return;
+    }
+    
+    // Define the files you want the browser to cache
+    var hostname = request.headers.host;
+    var cf = c.newCache([
+        'http://'+hostname+'/audio/alarm.mp3',
+        'http://'+hostname+'/audio/alarm2.mp3',
+        'http://'+hostname+'/audio/alarm.mp3.gz',
+        'http://'+hostname+'/audio/alarm2.mp3.gz',
+        'http://'+hostname+'/css/dropdown.css',
+        'http://'+hostname+'/css/main.css',
+        'http://'+hostname+'/js/client.js',
+        'http://'+hostname+'/js/dropdown.js',
+        'http://'+hostname+'/favicon.ico',
+        'http://'+hostname+'/socket.io/socket.io.js',
+        'http://'+hostname+'/bower_components/d3/d3.min.js',
+        'http://'+hostname+'/bower_components/jquery/dist/jquery.min.js',
+        'http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800',
+        'http://fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic',
+        '',
+        'NETWORK:',
+        '*'
+    ]);
+    
+    // Send the HTML5 nightscout.appcache file
+    if(request.url.match(/nightscout\.appcache$/)){
+        console.log( 'http://'+hostname+'/nightscout\.appcache')
+        response.writeHead(200, {'Content-Type': 'text/cache-manifest'});
+        return response.end(cf);
     }
 
     // Serve file using node-static
