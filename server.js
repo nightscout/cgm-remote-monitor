@@ -20,6 +20,7 @@
 var patientData = [];
 var now = new Date().getTime();
 var fs = require('fs');
+var c = require("appcache-node");
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
 var cgmData = [];
@@ -44,19 +45,28 @@ var server = require('http').createServer(function serverCreator(request, respon
     }
     
     // Define the files you want the browser to cache
-    /*var hostname = request.headers.host;
+    var hostname = request.headers.host;
     var cf = c.newCache([
         'http://'+hostname+'/audio/alarm.mp3',
-        'http://'+hostname+'/audio/alarm2.mp3'
+        'http://'+hostname+'/audio/alarm2.mp3',
+        'http://'+hostname+'/audio/alarm.mp3.gz',
+        'http://'+hostname+'/audio/alarm2.mp3.gz',
+        'http://'+hostname+'/css/dropdown.css',
+        'http://'+hostname+'/css/main.css',
+        'http://'+hostname+'/js/client.js',
+        'http://'+hostname+'/js/dropdown.js',
+        'http://'+hostname+'/favicon.ico',
+        '',
+        'NETWORK:',
+        '*'
     ]);
-    //console.log( 'http://'+hostname+'/audio/alarm.mp3');
     
     // Send the HTML5 nightscout.appcache file
     if(request.url.match(/nightscout\.appcache$/)){
         console.log( 'http://'+hostname+'/nightscout\.appcache')
         response.writeHead(200, {'Content-Type': 'text/cache-manifest'});
         return response.end(cf);
-    } */
+    }
 
     // Serve file using node-static
     staticServer.serve(request, response, function clientHandler(err) {
