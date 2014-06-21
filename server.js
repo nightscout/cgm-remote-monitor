@@ -56,6 +56,11 @@ var server = require('http').createServer(function serverCreator(request, respon
         'http://'+hostname+'/js/client.js',
         'http://'+hostname+'/js/dropdown.js',
         'http://'+hostname+'/favicon.ico',
+        'http://'+hostname+'/socket.io/socket.io.js',
+        'http://'+hostname+'/bower_components/d3/d3.min.js',
+        'http://'+hostname+'/bower_components/jquery/dist/jquery.min.js',
+        'http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800',
+        'http://fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic',
         '',
         'NETWORK:',
         '*'
