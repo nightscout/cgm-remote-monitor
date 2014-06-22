@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html manifest="nightscout.appcache">
     <head>
         <meta name='viewport' content='width=device-width, initial-scale=1.0'>
         <title>NightScout</title>
@@ -9,25 +9,25 @@
     <body>
         <div class='container'>
             <div class='row-fluid heading'>
-                <div class='span1' style='font-size: 400%'>
-                    <span id='currentTime'>???</span><br>
-                    <span style='font-size: 35%'><span id='watchers'>0</span> watcher(s)</span>
-                </div>
-                <div class='span2'>
-                    <div id='noButton' style='font-size: 800%'>
-                        <span id='currentBG'>???</span>
-                        <span style='font-size: 20%'>mg/dL</span>
+                <div class='span1' style='font-size: 600%'>
+                    <div id='currentTime'>---</div>
+                    <div style='font-size: 25%; line-height: 300%'>
+                        <span id='lastEntry'>---</span>
                     </div>
-                    <div class='bgButton' id='bgButton' style='font-size: 800%' hidden='true'>
-                        <span id='bgValue'>???</span>
-                        <span style='font-size: 20%'>mg/dL</span>
+                </div>
+                <div class='span2 current' style='font-size: 900%'>
+                    <div id='noButton'>
+                        <span class='currentBG'>---</span>
+                        <span class="currentDirection">-</span><a id="testAlarms" href="#">&#10003;&#9834;</a>
+                    </div>
+                    <div id='bgButton' hidden='true'>
+                        <span class='currentBG'>---</span>
+                        <span class="currentDirection">-</span>
                     </div>
                     <ul class="dropdown-menu" id="silenceBtn">
-                        <li><a href="#" data-snooze-time="1200000">Silence for 20 minutes</a></li>
                         <li><a href="#" data-snooze-time="1800000">Silence for 30 minutes</a></li>
-                        <li><a href="#" data-snooze-time="2400000">Silence for 40 minutes</a></li>
-                        <li><a href="#" data-snooze-time="3000000">Silence for 50 minutes</a></li>
                         <li><a href="#" data-snooze-time="3600000">Silence for 60 minutes</a></li>
+                        <li><a href="#" data-snooze-time="5400000">Silence for 90 minutes</a></li>
                     </ul>
                 </div>
             </div>
@@ -35,8 +35,7 @@
                 <div id='chartContainer'></div>
             </div>
         </div>
-        <audio id='audio' loop><source src='audio/alarm.ogg' type='audio/ogg'/></audio>
-        <audio id='audio2' loop><source src='audio/alarm2.ogg' type='audio/ogg'/></audio>
+        <audio id='audio' loop src='audio/alarm.mp3' type='audio/mp3'></audio>
         <script src='/socket.io/socket.io.js'></script>
         <script src='/bower_components/d3/d3.min.js'></script>
         <script src='/bower_components/jquery/dist/jquery.min.js'></script>
