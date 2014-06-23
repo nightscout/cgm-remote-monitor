@@ -20,6 +20,7 @@
 var patientData = [];
 var now = new Date().getTime();
 var fs = require('fs');
+var c = require("appcache-node");
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
 var cgmData = [];
@@ -31,14 +32,45 @@ var cgmData = [];
 var PORT = process.env.PORT || 1337;
 var server = require('http').createServer(function serverCreator(request, response) {
     var nodeStatic = require('node-static');
-    var staticServer = new nodeStatic.Server(".");
+    //enable gzip compression and cache for 30 days
+    var staticServer = new nodeStatic.Server(".", { cache:2592000, gzip:true }); 
     var sys = require("sys");
+    
     // Grab the URL requested by the client and parse any query options
     var url = require('url').parse(request.url, true);
     if (url.path.indexOf('/pebble') === 0) {
       request.with_collection = with_collection;
       pebble.pebble(request, response);
       return;
+    }
+    
+    // Define the files you want the browser to cache
+    var hostname = request.headers.host;
+    var cf = c.newCache([
+        'http://'+hostname+'/audio/alarm.mp3',
+        'http://'+hostname+'/audio/alarm2.mp3',
+        'http://'+hostname+'/audio/alarm.mp3.gz',
+        'http://'+hostname+'/audio/alarm2.mp3.gz',
+        'http://'+hostname+'/css/dropdown.css',
+        'http://'+hostname+'/css/main.css',
+        'http://'+hostname+'/js/client.js',
+        'http://'+hostname+'/js/dropdown.js',
+        'http://'+hostname+'/favicon.ico',
+        'http://'+hostname+'/socket.io/socket.io.js',
+        'http://'+hostname+'/bower_components/d3/d3.min.js',
+        'http://'+hostname+'/bower_components/jquery/dist/jquery.min.js',
+        'http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800',
+        'http://fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic',
+        '',
+        'NETWORK:',
+        '*'
+    ]);
+    
+    // Send the HTML5 nightscout.appcache file
+    if(request.url.match(/nightscout\.appcache$/)){
+        console.log( 'http://'+hostname+'/nightscout\.appcache')
+        response.writeHead(200, {'Content-Type': 'text/cache-manifest'});
+        return response.end(cf);
     }
 
     // Serve file using node-static
@@ -101,6 +133,23 @@ DB.collection = DB.collection || process.env.CUSTOMCONNSTR_mongo_collection;
 var DB_URL = DB.url;
 var DB_COLLECTION = DB.collection;
 
+var dir2Char = {
+  'NONE': '&#8700;',
+  'DoubleUp': '&#8648;',
+  'SingleUp': '&#8593;',
+  'FortyFiveUp': '&#8599;',
+  'Flat': '&#8594;',
+  'FortyFiveDown': '&#8600;',
+  'SingleDown': '&#8595;',
+  'DoubleDown': '&#8650;',
+  'NOT COMPUTABLE': '-',
+  'RATE OUT OF RANGE': '&#8622;'
+};
+
+function directionToChar(direction) {
+  return dir2Char[direction] || '-';
+}
+
 var Alarm = function(_typeName, _threshold) {
     this.typeName = _typeName;
     this.silenceTime = FORTY_MINUTES;
@@ -139,6 +188,7 @@ function update() {
                     obj.y = element.sgv;
                     obj.x = element.date;
                     obj.d = element.dateString;
+                    obj.direction = directionToChar(element.direction);
                     cgmData.push(obj);
                 }
             });
@@ -217,8 +267,9 @@ function loadData() {
 
         // compute current loss
         var avgLoss = 0;
-        for (var i = 0; i <= 6; i++) {
-            avgLoss += 1 / 6 * Math.pow(log10(predicted[i].y / 120), 2);
+        var size = Math.min(predicted.length - 1, 6);
+        for (var j = 0; j <= size; j++) {
+            avgLoss += 1 / size * Math.pow(log10(predicted[j].y / 120), 2);
         }
 
         if (avgLoss > alarms['urgent_alarm'].threshold) {
@@ -231,6 +282,8 @@ function loadData() {
 
 // get data from database and setup to update every minute
 function kickstart ( ) {
+  //TODO: test server to see how data is stored (timestamps, entry values, etc)
+  //TODO: check server settings to configure alerts, entry units, etc
   update( );
   return update;
 }
