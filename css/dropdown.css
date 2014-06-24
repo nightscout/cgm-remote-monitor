@@ -4,22 +4,23 @@
     padding: 0;
     position: absolute;
     visibility: hidden;
+    right: 8px;
 }
 
 .dropdown-menu li {
     list-style: none;
     float: none;
-    display: inline
+    display: inline;
 }
 
 .dropdown-menu li a {
     display: block;
-    padding: 5px 12px;
     text-decoration: none;
     white-space: nowrap;
     width: auto;
     background: #BBBBBB;
-    color: #24313C
+    color: #24313C;
+    padding: 2px 10px;
 }
 
 .dropdown-menu li a:hover {
