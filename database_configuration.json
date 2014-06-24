@@ -1,4 +1,4 @@
 {
-    "url": null,
-    "collection": null
+    "url": "mongodb://dexcomG4:dexcomG4@ds031088.mongolab.com:31088/dexcomcgm",
+    "collection": "dexcomcollection"
 }
