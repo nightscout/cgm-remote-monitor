@@ -29,27 +29,29 @@ var cgmData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // setup http server
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+var THIRTY_DAYS = 2592000;
 var PORT = process.env.PORT || 1337;
 var server = require('http').createServer(function serverCreator(request, response) {
+    var sys = require("sys");
+    
     var nodeStatic = require('node-static');
     //enable gzip compression and cache for 30 days
-    var staticServer = new nodeStatic.Server(".", { cache:2592000, gzip:true }); 
-    /*
+    //var staticServer = new nodeStatic.Server(".", { cache:THIRTY_DAYS, gzip:true }); 
     var now = new Date();
-    var expires =  new Date(now.getTime() + (1000 * 2592000));
+    var expires =  new Date(now.getTime() + (1000 * THIRTY_DAYS));
     var staticServer = new nodeStatic.Server(".", {
         gzip: true,
         headers: {
-            "cache-control": "public, max-age=2592000",
+            "cache-control": "public, max-age=" + THIRTY_DAYS,
             "expires" : expires,
             "Arr-Disable-Session-Affinity": "True"
         }
-    }); 
-    */
-    var sys = require("sys");
+    });
     
     // Grab the URL requested by the client and parse any query options
     var url = require('url').parse(request.url, true);
+    
+    // Return pebble API
     if (url.path.indexOf('/pebble') === 0) {
       request.with_collection = with_collection;
       pebble.pebble(request, response);
