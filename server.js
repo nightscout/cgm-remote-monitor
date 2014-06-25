@@ -54,7 +54,6 @@ function getAppCache(req) {
         'http://'+hostname+'/js/client.js',
         'http://'+hostname+'/js/dropdown.js',
         'http://'+hostname+'/favicon.ico',
-        'http://'+hostname+'/socket.io/socket.io.js',
         'http://'+hostname+'/bower_components/d3/d3.min.js',
         'http://'+hostname+'/bower_components/jquery/dist/jquery.min.js',
         'http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800',
@@ -81,20 +80,7 @@ var now = new Date();
 var expires =  new Date(now.getTime() + (1000 * THIRTY_DAYS));
 
 var app = express();
-//var http = require('http').Server(app);
 app.set('title', 'Nightscout');
-
-// define static server
-var server = express.static(__dirname);
-app.use(function(req, res, next) {
-    res.set({
-        "Cache-Control": "public, max-age=" + THIRTY_DAYS,
-        "Expires": expires,
-        "Arr-Disable-Session-Affinity": "True"
-    });
-    
-    next();
-});
 
 // serve the pebble JSON
 app.get("/pebble", function(req, res) {
@@ -105,6 +91,19 @@ app.get("/pebble", function(req, res) {
 app.use("/nightscout.appcache", function(req, res) {
     res.set('Content-Type', 'text/cache-manifest');
     res.end(getAppCache(req));
+});
+
+// define static server
+var staticDir = __dirname + '/static/';
+var server = express.static(staticDir);
+app.use(function(req, res, next) {
+    res.set({
+        "Cache-Control": "public, max-age=" + THIRTY_DAYS,
+        "Expires": expires,
+        "Arr-Disable-Session-Affinity": "True"
+    });
+    
+    next();
 });
 
 // serve the static content
@@ -120,7 +119,6 @@ var server = app.listen(PORT);
 // setup socket io for data and message transmission
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 var io = require('socket.io').listen(server);
-//var io = require('socket.io').listen(http);
 
 // reduce logging
 io.set('log level', 0);
