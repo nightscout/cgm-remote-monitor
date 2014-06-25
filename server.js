@@ -20,37 +20,35 @@
 var patientData = [];
 var now = new Date().getTime();
 var fs = require('fs');
-var c = require("appcache-node");
+var express = require('express');
+var appcache = require("appcache-node");
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
 var cgmData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// setup http server
+// define helper functions
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-var PORT = process.env.PORT || 1337;
-var server = require('http').createServer(function serverCreator(request, response) {
-    var nodeStatic = require('node-static');
-    //enable gzip compression and cache for 30 days
-    var staticServer = new nodeStatic.Server(".", { cache:2592000, gzip:true }); 
-    var sys = require("sys");
-    
-    // Grab the URL requested by the client and parse any query options
-    var url = require('url').parse(request.url, true);
-    if (url.path.indexOf('/pebble') === 0) {
-      request.with_collection = with_collection;
-      pebble.pebble(request, response);
-      return;
+function errorHandler(err, req, res, next) {
+    if (err) {
+        // Log the error
+        var msg = "Error serving " + request.url + " - " + err.message;
+        sys.error(msg);
+        console.log(msg);
+
+        // Respond to the client
+        res.status(err.status);
+        res.render('error', { error: err });
     }
-    
-    // Define the files you want the browser to cache
-    var hostname = request.headers.host;
-    var cf = c.newCache([
+}
+
+function getAppCache(req) {
+     // Define the files you want the browser to cache
+    var hostname = req.headers.host;
+    return appcache.newCache([
         'http://'+hostname+'/audio/alarm.mp3',
         'http://'+hostname+'/audio/alarm2.mp3',
-        'http://'+hostname+'/audio/alarm.mp3.gz',
-        'http://'+hostname+'/audio/alarm2.mp3.gz',
         'http://'+hostname+'/css/dropdown.css',
         'http://'+hostname+'/css/main.css',
         'http://'+hostname+'/js/client.js',
@@ -65,32 +63,64 @@ var server = require('http').createServer(function serverCreator(request, respon
         'NETWORK:',
         '*'
     ]);
-    
-    // Send the HTML5 nightscout.appcache file
-    if(request.url.match(/nightscout\.appcache$/)){
-        console.log( 'http://'+hostname+'/nightscout\.appcache')
-        response.writeHead(200, {'Content-Type': 'text/cache-manifest'});
-        return response.end(cf);
-    }
+}
 
-    // Serve file using node-static
-    staticServer.serve(request, response, function clientHandler(err) {
-        if (err) {
-            // Log the error
-            sys.error("Error serving " + request.url + " - " + err.message);
+function writePebbleJSON(req, res) {
+    req.with_collection = with_collection;
+    pebble.pebble(req, res);
+    return;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-            // Respond to the client
-            response.writeHead(err.status, err.headers);
-            response.end('Error 404 - file not found');
-        }
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// setup http server
+////////////////////////////////////////////////////////////////////////////////////////////////////
+var PORT = process.env.PORT || 1337;
+var THIRTY_DAYS = 2592000;
+var now = new Date();
+var expires =  new Date(now.getTime() + (1000 * THIRTY_DAYS));
+
+var app = express();
+//var http = require('http').Server(app);
+app.set('title', 'Nightscout');
+
+// define static server
+var server = express.static(__dirname);
+app.use(function(req, res, next) {
+    res.set({
+        "Cache-Control": "public, max-age=" + THIRTY_DAYS,
+        "Expires": expires,
+        "Arr-Disable-Session-Affinity": "True"
     });
-}).listen(PORT);
+    
+    next();
+});
+
+// serve the pebble JSON
+app.get("/pebble", function(req, res) {
+    writePebbleJSON(req, res);
+});
+
+// send the HTML5 app cache file
+app.use("/nightscout.appcache", function(req, res) {
+    res.set('Content-Type', 'text/cache-manifest');
+    res.end(getAppCache(req));
+});
+
+// serve the static content
+app.use(server);
+
+// handle errors
+app.use(errorHandler);
+
+var server = app.listen(PORT);
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // setup socket io for data and message transmission
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 var io = require('socket.io').listen(server);
+//var io = require('socket.io').listen(http);
 
 // reduce logging
 io.set('log level', 0);
