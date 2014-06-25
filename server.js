@@ -33,7 +33,8 @@ var PORT = process.env.PORT || 1337;
 var server = require('http').createServer(function serverCreator(request, response) {
     var nodeStatic = require('node-static');
     //enable gzip compression and cache for 30 days
-    //var staticServer = new nodeStatic.Server(".", { cache:2592000, gzip:true }); 
+    var staticServer = new nodeStatic.Server(".", { cache:2592000, gzip:true }); 
+    /*
     var now = new Date();
     var expires =  new Date(now.getTime() + (1000 * 2592000));
     var staticServer = new nodeStatic.Server(".", {
@@ -44,6 +45,7 @@ var server = require('http').createServer(function serverCreator(request, respon
             "Arr-Disable-Session-Affinity": "True"
         }
     }); 
+    */
     var sys = require("sys");
     
     // Grab the URL requested by the client and parse any query options
@@ -59,14 +61,11 @@ var server = require('http').createServer(function serverCreator(request, respon
     var cf = c.newCache([
         'http://'+hostname+'/audio/alarm.mp3',
         'http://'+hostname+'/audio/alarm2.mp3',
-        'http://'+hostname+'/audio/alarm.mp3.gz',
-        'http://'+hostname+'/audio/alarm2.mp3.gz',
         'http://'+hostname+'/css/dropdown.css',
         'http://'+hostname+'/css/main.css',
         'http://'+hostname+'/js/client.js',
         'http://'+hostname+'/js/dropdown.js',
         'http://'+hostname+'/favicon.ico',
-        'http://'+hostname+'/socket.io/socket.io.js',
         'http://'+hostname+'/bower_components/d3/d3.min.js',
         'http://'+hostname+'/bower_components/jquery/dist/jquery.min.js',
         'http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800',
