@@ -82,6 +82,17 @@ var expires =  new Date(now.getTime() + (1000 * THIRTY_DAYS));
 var app = express();
 app.set('title', 'Nightscout');
 
+// serve the pebble JSON
+app.get("/pebble", function(req, res) {
+    writePebbleJSON(req, res);
+});
+
+// send the HTML5 app cache file
+app.use("/nightscout.appcache", function(req, res) {
+    res.set('Content-Type', 'text/cache-manifest');
+    res.end(getAppCache(req));
+});
+
 // define static server
 var staticDir = __dirname + '/static/';
 var server = express.static(staticDir);
@@ -93,17 +104,6 @@ app.use(function(req, res, next) {
     });
     
     next();
-});
-
-// serve the pebble JSON
-app.get("/pebble", function(req, res) {
-    writePebbleJSON(req, res);
-});
-
-// send the HTML5 app cache file
-app.use("/nightscout.appcache", function(req, res) {
-    res.set('Content-Type', 'text/cache-manifest');
-    res.end(getAppCache(req));
 });
 
 // serve the static content
