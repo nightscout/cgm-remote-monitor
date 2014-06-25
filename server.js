@@ -81,7 +81,6 @@ var now = new Date();
 var expires =  new Date(now.getTime() + (1000 * THIRTY_DAYS));
 
 var app = express();
-//var http = require('http').Server(app);
 app.set('title', 'Nightscout');
 
 // define static server
@@ -120,7 +119,6 @@ var server = app.listen(PORT);
 // setup socket io for data and message transmission
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 var io = require('socket.io').listen(server);
-//var io = require('socket.io').listen(http);
 
 // reduce logging
 io.set('log level', 0);
