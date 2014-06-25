@@ -33,7 +33,17 @@ var PORT = process.env.PORT || 1337;
 var server = require('http').createServer(function serverCreator(request, response) {
     var nodeStatic = require('node-static');
     //enable gzip compression and cache for 30 days
-    var staticServer = new nodeStatic.Server(".", { cache:2592000, gzip:true }); 
+    //var staticServer = new nodeStatic.Server(".", { cache:2592000, gzip:true }); 
+    var now = new Date();
+    var expires =  new Date(now.getTime() + (1000 * 2592000));
+    var staticServer = new nodeStatic.Server(".", {
+        gzip: true,
+        headers: {
+            "cache-control": "public, max-age=2592000",
+            "expires" : expires,
+            "Arr-Disable-Session-Affinity": "True"
+        }
+    }); 
     var sys = require("sys");
     
     // Grab the URL requested by the client and parse any query options
