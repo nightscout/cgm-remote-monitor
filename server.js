@@ -83,7 +83,8 @@ var app = express();
 app.set('title', 'Nightscout');
 
 // define static server
-var server = express.static(__dirname);
+var staticDir = __dirname + '/static/';
+var server = express.static(staticDir);
 app.use(function(req, res, next) {
     res.set({
         "Cache-Control": "public, max-age=" + THIRTY_DAYS,
