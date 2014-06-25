@@ -269,6 +269,7 @@ function loadData() {
         var avgLoss = 0;
         var size = Math.min(predicted.length - 1, 6);
         for (var j = 0; j <= size; j++) {
+// hello from Betty
             avgLoss += 1 / size * Math.pow(log10(predicted[j].y / 120), 2);
         }
 
