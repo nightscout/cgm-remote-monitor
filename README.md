@@ -59,13 +59,13 @@ Easy to emulate on the commandline:
 ```bash
 echo 'CUSTOMCONNSTR_mongo="mongodb://sally:sallypass@mymongohost.com/db"' >> my.env
 echo 'CUSTOMCONNSTR_mongo_collection="sallyCGMCollection"' >> my.env
-source my.env
-export CUSTOMCONNSTR_mongo
-export CUSTOMCONNSTR_mongo_collection
 ```
 
 From now on you can run using
 ```bash
+source my.env
+export CUSTOMCONNSTR_mongo
+export CUSTOMCONNSTR_mongo_collection
 node server.js
 ```
 
