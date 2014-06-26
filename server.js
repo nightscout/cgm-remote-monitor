@@ -36,7 +36,6 @@ var THIRTY_DAYS = 2592000;
 var now = new Date();
 var expires =  new Date(now.getTime() + (1000 * THIRTY_DAYS));
 expires = dateformat(expires, "GMT:ddd, d mmm yyyy HH:MM:ss Z");
-console.log(expires);
 
 var app = express();
 app.set('title', 'Nightscout');
@@ -50,7 +49,7 @@ var staticDir = __dirname + '/static/';
 var server = express.static(staticDir);
 app.use(function(req, res, next) {
     res.set({
-        "Cache-Control": "public, max-age=" + THIRTY_DAYS,
+        "Cache-Control": "max-age=" + THIRTY_DAYS,
         "Expires": expires,
         "Arr-Disable-Session-Affinity": "True"
     });
@@ -96,6 +95,7 @@ function getAppCache(req) {
         'http://'+hostname+'/favicon.ico',
         'http://'+hostname+'/bower_components/d3/d3.min.js',
         'http://'+hostname+'/bower_components/jquery/dist/jquery.min.js',
+        'http://'+hostname+'/socket.io/socket.io.js',
         'http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800',
         'http://fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic',
         '',
