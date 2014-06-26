@@ -35,7 +35,7 @@ var PORT = process.env.PORT || 1337;
 var THIRTY_DAYS = 2592000;
 var now = new Date();
 var expires =  new Date(now.getTime() + (1000 * THIRTY_DAYS));
-expires = dateformat(expires, "GMT:ddd, mmm d yyyy HH:MM:ss Z");
+expires = dateformat(expires, "GMT:ddd, d mmm yyyy HH:MM:ss Z");
 console.log(expires);
 
 var app = express();
