@@ -20,6 +20,7 @@
 var patientData = [];
 var now = new Date().getTime();
 var fs = require('fs');
+var dateformat = require('dateformat');
 var express = require('express');
 var appcache = require("appcache-node");
 var mongoClient = require('mongodb').MongoClient;
@@ -28,7 +29,46 @@ var cgmData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// define helper functions
+// setup http server
+////////////////////////////////////////////////////////////////////////////////////////////////////
+var PORT = process.env.PORT || 1337;
+var THIRTY_DAYS = 2592000;
+var now = new Date();
+var expires =  new Date(now.getTime() + (1000 * THIRTY_DAYS));
+expires = dateformat(expires, "GMT:ddd mmm dS yyyy HH:MM:ss Z");
+console.log(expires);
+
+var app = express();
+app.set('title', 'Nightscout');
+
+// serve special URLs
+app.get("/pebble", servePebble);                                     // Pebble API
+app.use("/nightscout.appcache", serveAppcache);     // HTML5 Application Cache
+
+// define static server
+var staticDir = __dirname + '/static/';
+var server = express.static(staticDir);
+app.use(function(req, res, next) {
+    res.set({
+        "Cache-Control": "public, max-age=" + THIRTY_DAYS,
+        "Expires": expires,
+        "Arr-Disable-Session-Affinity": "True"
+    });
+    
+    next();
+});
+
+// serve the static content
+app.use(server);
+
+// handle errors
+app.use(errorHandler);
+
+var server = app.listen(PORT);
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// server helper functions
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 function errorHandler(err, req, res, next) {
     if (err) {
@@ -64,55 +104,16 @@ function getAppCache(req) {
     ]);
 }
 
-function writePebbleJSON(req, res) {
+function serveAppcache(req, res) {
+    res.set('Content-Type', 'text/cache-manifest');
+    res.end(getAppCache(req));
+}
+
+function servePebble(req, res) {
     req.with_collection = with_collection;
     pebble.pebble(req, res);
     return;
 }
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// setup http server
-////////////////////////////////////////////////////////////////////////////////////////////////////
-var PORT = process.env.PORT || 1337;
-var THIRTY_DAYS = 2592000;
-var now = new Date();
-var expires =  new Date(now.getTime() + (1000 * THIRTY_DAYS));
-
-var app = express();
-app.set('title', 'Nightscout');
-
-// serve the pebble JSON
-app.get("/pebble", function(req, res) {
-    writePebbleJSON(req, res);
-});
-
-// send the HTML5 app cache file
-app.use("/nightscout.appcache", function(req, res) {
-    res.set('Content-Type', 'text/cache-manifest');
-    res.end(getAppCache(req));
-});
-
-// define static server
-var staticDir = __dirname + '/static/';
-var server = express.static(staticDir);
-app.use(function(req, res, next) {
-    res.set({
-        "Cache-Control": "public, max-age=" + THIRTY_DAYS,
-        "Expires": expires,
-        "Arr-Disable-Session-Affinity": "True"
-    });
-    
-    next();
-});
-
-// serve the static content
-app.use(server);
-
-// handle errors
-app.use(errorHandler);
-
-var server = app.listen(PORT);
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
