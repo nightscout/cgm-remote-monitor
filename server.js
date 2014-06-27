@@ -42,7 +42,7 @@ app.set('title', 'Nightscout');
 
 // serve special URLs
 app.get("/pebble", servePebble);                                     // Pebble API
-app.use("/nightscout.appcache", serveAppcache);     // HTML5 Application Cache
+app.get("/nightscout.appcache", serveAppcache);      // HTML5 Application Cache
 
 // define static server
 var staticDir = __dirname + '/static/';
@@ -97,7 +97,6 @@ function getAppCache(req) {
         'http://'+hostname+'/favicon.ico',
         'http://'+hostname+'/bower_components/d3/d3.min.js',
         'http://'+hostname+'/bower_components/jquery/dist/jquery.min.js',
-        'http://'+hostname+'/socket.io/socket.io.js',
         'http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800',
         'http://fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic',
         '',
