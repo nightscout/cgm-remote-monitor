@@ -52,6 +52,7 @@ app.use(function(req, res, next) {
         "Cache-Control": "max-age=" + THIRTY_DAYS,
         "Expires": expires,
         "Vary": "Accept-Encoding",
+        "Accept-Ranges": "none",
         "Arr-Disable-Session-Affinity": "True"
     });
     
