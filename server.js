@@ -84,9 +84,8 @@ function errorHandler(err, req, res, next) {
     }
 }
 
-function getAppCache(req) {
+function getAppCache() {
      // Define the files you want the browser to cache
-    var hostname = req.headers.host;
     return appcache.newCache([
         'audio/alarm.mp3',
         'audio/alarm2.mp3',
