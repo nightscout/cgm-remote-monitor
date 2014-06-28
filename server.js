@@ -88,15 +88,13 @@ function getAppCache(req) {
      // Define the files you want the browser to cache
     var hostname = req.headers.host;
     return appcache.newCache([
-        'http://'+hostname+'/audio/alarm.mp3',
-        'http://'+hostname+'/audio/alarm2.mp3',
-        'http://'+hostname+'/css/dropdown.css',
-        'http://'+hostname+'/css/main.css',
-        'http://'+hostname+'/js/client.js',
-        'http://'+hostname+'/js/dropdown.js',
-        'http://'+hostname+'/favicon.ico',
-        'http://'+hostname+'/bower_components/d3/d3.min.js',
-        'http://'+hostname+'/bower_components/jquery/dist/jquery.min.js',
+        'audio/alarm.mp3',
+        'audio/alarm2.mp3',
+        /* 'css/dropdown.css',
+        'css/main.css',
+        'js/client.js',
+        'js/dropdown.js', */
+        '/favicon.ico',
         'http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800',
         'http://fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic',
         '',
