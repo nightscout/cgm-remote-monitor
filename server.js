@@ -75,7 +75,7 @@ function errorHandler(err, req, res, next) {
     if (err) {
         // Log the error
         var msg = "Error serving " + request.url + " - " + err.message;
-        sys.error(msg);
+        require("sys").error(msg);
         console.log(msg);
 
         // Respond to the client
