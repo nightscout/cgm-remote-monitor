@@ -20,55 +20,12 @@
 var patientData = [];
 var now = new Date().getTime();
 var fs = require('fs');
+var dateformat = require('dateformat');
 var express = require('express');
 var appcache = require("appcache-node");
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
 var cgmData = [];
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// define helper functions
-////////////////////////////////////////////////////////////////////////////////////////////////////
-function errorHandler(err, req, res, next) {
-    if (err) {
-        // Log the error
-        var msg = "Error serving " + request.url + " - " + err.message;
-        sys.error(msg);
-        console.log(msg);
-
-        // Respond to the client
-        res.status(err.status);
-        res.render('error', { error: err });
-    }
-}
-
-function getAppCache(req) {
-     // Define the files you want the browser to cache
-    var hostname = req.headers.host;
-    return appcache.newCache([
-        'http://'+hostname+'/audio/alarm.mp3',
-        'http://'+hostname+'/audio/alarm2.mp3',
-        'http://'+hostname+'/css/dropdown.css',
-        'http://'+hostname+'/css/main.css',
-        'http://'+hostname+'/js/client.js',
-        'http://'+hostname+'/js/dropdown.js',
-        'http://'+hostname+'/favicon.ico',
-        'http://'+hostname+'/bower_components/d3/d3.min.js',
-        'http://'+hostname+'/bower_components/jquery/dist/jquery.min.js',
-        'http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800',
-        'http://fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic',
-        '',
-        'NETWORK:',
-        '*'
-    ]);
-}
-
-function writePebbleJSON(req, res) {
-    req.with_collection = with_collection;
-    pebble.pebble(req, res);
-    return;
-}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -78,32 +35,28 @@ var PORT = process.env.PORT || 1337;
 var THIRTY_DAYS = 2592000;
 var now = new Date();
 var expires =  new Date(now.getTime() + (1000 * THIRTY_DAYS));
+expires = dateformat(expires, "GMT:ddd, d mmm yyyy HH:MM:ss Z");
 
 var app = express();
 app.set('title', 'Nightscout');
+
+// serve special URLs
+app.get("/pebble", servePebble);                                     // Pebble API
+app.get("/nightscout.appcache", serveAppcache);      // HTML5 Application Cache
 
 // define static server
 var staticDir = __dirname + '/static/';
 var server = express.static(staticDir);
 app.use(function(req, res, next) {
     res.set({
-        "Cache-Control": "public, max-age=" + THIRTY_DAYS,
+        "Cache-Control": "max-age=" + THIRTY_DAYS,
         "Expires": expires,
+        "Vary": "Accept-Encoding",
+        "Accept-Ranges": "none",
         "Arr-Disable-Session-Affinity": "True"
     });
     
     next();
-});
-
-// serve the pebble JSON
-app.get("/pebble", function(req, res) {
-    writePebbleJSON(req, res);
-});
-
-// send the HTML5 app cache file
-app.use("/nightscout.appcache", function(req, res) {
-    res.set('Content-Type', 'text/cache-manifest');
-    res.end(getAppCache(req));
 });
 
 // serve the static content
@@ -113,6 +66,52 @@ app.use(server);
 app.use(errorHandler);
 
 var server = app.listen(PORT);
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// server helper functions
+////////////////////////////////////////////////////////////////////////////////////////////////////
+function errorHandler(err, req, res, next) {
+    if (err) {
+        // Log the error
+        var msg = "Error serving " + request.url + " - " + err.message;
+        require("sys").error(msg);
+        console.log(msg);
+
+        // Respond to the client
+        res.status(err.status);
+        res.render('error', { error: err });
+    }
+}
+
+function getAppCache() {
+     // Define the files you want the browser to cache
+    return appcache.newCache([
+        'audio/alarm.mp3',
+        'audio/alarm2.mp3',
+        /* 'css/dropdown.css',
+        'css/main.css',
+        'js/client.js',
+        'js/dropdown.js', */
+        '/favicon.ico',
+        '//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800',
+        '//fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic',
+        '',
+        'NETWORK:',
+        '*'
+    ]);
+}
+
+function serveAppcache(req, res) {
+    res.set('Content-Type', 'text/cache-manifest');
+    res.end(getAppCache(req));
+}
+
+function servePebble(req, res) {
+    req.with_collection = with_collection;
+    pebble.pebble(req, res);
+    return;
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
