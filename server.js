@@ -34,15 +34,15 @@ var cgmData = [];
 var PORT = process.env.PORT || 1337;
 var THIRTY_DAYS = 2592000;
 var now = new Date();
-var expires =  new Date(now.getTime() + (1000 * THIRTY_DAYS));
-expires = dateformat(expires, "GMT:ddd, d mmm yyyy HH:MM:ss Z");
 
 var app = express();
 app.set('title', 'Nightscout');
 
 // serve special URLs
-app.get("/pebble", servePebble);                                     // Pebble API
-app.get("/nightscout.appcache", serveAppcache);      // HTML5 Application Cache
+// Pebble API
+app.get("/pebble", servePebble);
+// HTML5 Application Cache
+app.get("/nightscout.appcache", serveAppcache);
 
 // define static server
 var staticDir = __dirname + '/static/';
