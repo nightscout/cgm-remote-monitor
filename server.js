@@ -78,10 +78,6 @@ function getAppCache() {
     return appcache.newCache([
         'audio/alarm.mp3',
         'audio/alarm2.mp3',
-        /* 'css/dropdown.css',
-        'css/main.css',
-        'js/client.js',
-        'js/dropdown.js', */
         '/favicon.ico',
         '//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800',
         '//fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic',
