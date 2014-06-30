@@ -200,7 +200,7 @@
                     .css('text-decoration','none');
             }
             $('#currentTime')
-                .text(d3.time.format('%I:%M%p')(brushExtent[1]))
+                .text(d3.time.format('%I:%M%p')(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
                 .css('text-decoration','line-through');
         } else if (retrospectivePredictor) {
             // if the brush comes back into the current time range then it should reset to the current time and sg
