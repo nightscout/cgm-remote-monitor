@@ -177,6 +177,7 @@
         var focusData = data.slice();
 
         var element = document.getElementById('bgButton').hidden == '';
+        var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
         // predict for retrospective data
         if (retrospectivePredictor && brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
@@ -205,6 +206,7 @@
         } else if (retrospectivePredictor) {
             // if the brush comes back into the current time range then it should reset to the current time and sg
             var dateTime = new Date(now);
+            nowDate = dateTime;
             $('#currentTime')
                 .text(d3.time.format('%I:%M%p')(dateTime))
                 .css('text-decoration','none');
@@ -272,9 +274,9 @@
         focus.select('.now-line')
             .transition()
             .duration(UPDATE_TRANS_MS)
-            .attr('x1', xScale(new Date(brushExtent[1].getTime() - THIRTY_MINS_IN_MS)))
+            .attr('x1', xScale(nowDate))
             .attr('y1', yScale(36))
-            .attr('x2', xScale(new Date(brushExtent[1].getTime() - THIRTY_MINS_IN_MS)))
+            .attr('x2', xScale(nowDate))
             .attr('y2', yScale(420));
 
         // update x axis
