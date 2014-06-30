@@ -1,5 +1,7 @@
 (function() {
     "use strict";
+    
+    alert("test1");
 
     var retrospectivePredictor = true,
         latestSGV,
