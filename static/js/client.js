@@ -700,20 +700,25 @@
 
 
     $('#testAlarms').click(function(event) {
+        d3.select('.audio.alarms audio').each(function (data, i) {
+          var audio = this;
+          audio.load();
+          audio.play();
+          setTimeout(function() {
+              audio.pause();
+          }, 4000);
+        });
         event.preventDefault();
-        audio.src = 'audio/alarm.mp3';
-        audio.load();
-        audio.play();
-        setTimeout(function() {
-            audio.pause();
-        }, 4000);
     });
 
     function generateAlarm(file) {
         alarmInProgress = true;
-        audio.src = 'audio/' + file;
-        audio.load();
-        audio.play();
+        var selector = '.audio.alarms audio.' + file;
+        d3.select(selector).each(function (d, i) {
+          var audio = this;
+          audio.play();
+          $(this).addClass('playing');
+        });
         var element = document.getElementById('bgButton');
         element.hidden = '';
         var element1 = document.getElementById('noButton');
@@ -727,7 +732,11 @@
         element.hidden = 'true';
         element = document.getElementById('noButton');
         element.hidden = '';
-        audio.pause();
+        d3.select('audio.playing').each(function (d, i) {
+          var audio = this;
+          audio.pause();
+          $(this).removeClass('playing');
+        });
 
         // only emit ack if client invoke by button press
         if (isClient) {
