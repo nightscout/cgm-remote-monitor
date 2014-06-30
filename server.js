@@ -46,18 +46,7 @@ app.get("/nightscout.appcache", serveAppcache);
 
 // define static server
 var staticDir = __dirname + '/static/';
-var server = express.static(staticDir);
-app.use(function(req, res, next) {
-    res.set({
-        "Cache-Control": "max-age=" + THIRTY_DAYS,
-        "Expires": expires,
-        "Vary": "Accept-Encoding",
-        "Accept-Ranges": "none",
-        "Arr-Disable-Session-Affinity": "True"
-    });
-    
-    next();
-});
+var server = express.static(staticDir, {maxAge: THIRTY_DAYS * 1000});
 
 // serve the static content
 app.use(server);
