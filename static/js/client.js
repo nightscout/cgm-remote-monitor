@@ -697,11 +697,7 @@
             stopAlarm();
         }
     });
-    // TODO: this is dead code, maybe delete and remove from server
-    socket.on('clients', function(watchers) {
-        console.log('number of clients has changed to ' + watchers);
-        $('#watchers').text(watchers);
-    });
+
 
     $('#testAlarms').click(function(event) {
         event.preventDefault();
