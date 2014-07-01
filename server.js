@@ -20,7 +20,7 @@
 var patientData = [];
 var now = new Date().getTime();
 var fs = require('fs');
-var c = require("appcache-node");
+var express = require('express');
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
 var cgmData = [];
@@ -30,61 +30,50 @@ var cgmData = [];
 // setup http server
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 var PORT = process.env.PORT || 1337;
-var server = require('http').createServer(function serverCreator(request, response) {
-    var nodeStatic = require('node-static');
-    //enable gzip compression and cache for 30 days
-    var staticServer = new nodeStatic.Server(".", { cache:2592000, gzip:true }); 
-    var sys = require("sys");
-    
-    // Grab the URL requested by the client and parse any query options
-    var url = require('url').parse(request.url, true);
-    if (url.path.indexOf('/pebble') === 0) {
-      request.with_collection = with_collection;
-      pebble.pebble(request, response);
-      return;
-    }
-    
-    // Define the files you want the browser to cache
-    var hostname = request.headers.host;
-    var cf = c.newCache([
-        'http://'+hostname+'/audio/alarm.mp3',
-        'http://'+hostname+'/audio/alarm2.mp3',
-        'http://'+hostname+'/audio/alarm.mp3.gz',
-        'http://'+hostname+'/audio/alarm2.mp3.gz',
-        'http://'+hostname+'/css/dropdown.css',
-        'http://'+hostname+'/css/main.css',
-        'http://'+hostname+'/js/client.js',
-        'http://'+hostname+'/js/dropdown.js',
-        'http://'+hostname+'/favicon.ico',
-        'http://'+hostname+'/socket.io/socket.io.js',
-        'http://'+hostname+'/bower_components/d3/d3.min.js',
-        'http://'+hostname+'/bower_components/jquery/dist/jquery.min.js',
-        'http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800',
-        'http://fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic',
-        '',
-        'NETWORK:',
-        '*'
-    ]);
-    
-    // Send the HTML5 nightscout.appcache file
-    if(request.url.match(/nightscout\.appcache$/)){
-        console.log( 'http://'+hostname+'/nightscout\.appcache')
-        response.writeHead(200, {'Content-Type': 'text/cache-manifest'});
-        return response.end(cf);
-    }
+var THIRTY_DAYS = 2592000;
+var now = new Date();
+var STATIC_DIR = __dirname + '/static/';
 
-    // Serve file using node-static
-    staticServer.serve(request, response, function clientHandler(err) {
-        if (err) {
-            // Log the error
-            sys.error("Error serving " + request.url + " - " + err.message);
+var app = express();
+app.set('title', 'Nightscout');
 
-            // Respond to the client
-            response.writeHead(err.status, err.headers);
-            response.end('Error 404 - file not found');
-        }
-    });
-}).listen(PORT);
+// serve special URLs
+// Pebble API
+app.get("/pebble", servePebble);
+
+// define static server
+var server = express.static(STATIC_DIR, {maxAge: THIRTY_DAYS * 1000});
+
+// serve the static content
+app.use(server);
+
+// handle errors
+app.use(errorHandler);
+
+var server = app.listen(PORT);
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// server helper functions
+////////////////////////////////////////////////////////////////////////////////////////////////////
+function errorHandler(err, req, res, next) {
+    if (err) {
+        // Log the error
+        var msg = "Error serving " + request.url + " - " + err.message;
+        require("sys").error(msg);
+        console.log(msg);
+
+        // Respond to the client
+        res.status(err.status);
+        res.render('error', { error: err });
+    }
+}
+
+function servePebble(req, res) {
+    req.with_collection = with_collection;
+    pebble.pebble(req, res);
+    return;
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

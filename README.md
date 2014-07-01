@@ -1,9 +1,8 @@
 cgm-remote-monitor (a.k.a. NightScout)
 ======================================
 
-[![Build Status](https://travis-ci.org/brianhanifin/cgm-remote-monitor.png)](https://travis-ci.org/brianhanifin/cgm-remote-monitor)
-[![Gitter chat](https://badges.gitter.im/brianhanifin/cgm-remote-monitor.png)](https://gitter.im/brianhanifin/cgm-remote-monitor)
-[![Dependency Status](https://david-dm.org/brianhanifin/cgm-remote-monitor.png)](https://david-dm.org/brianhanifin/cgm-remote-monitor)
+[![Build Status](https://travis-ci.org/nightscout/cgm-remote-monitor.png)](https://travis-ci.org/nightscout/cgm-remote-monitor)
+[![Dependency Status](https://david-dm.org/nightscout/cgm-remote-monitor.png)](https://david-dm.org/nightscout/cgm-remote-monitor)
 
 This acts as a web-based CGM (Continuous Glucose Montinor) to allow
 multiple caregivers to remotely view a patients glucose data in
@@ -59,13 +58,13 @@ Easy to emulate on the commandline:
 ```bash
 echo 'CUSTOMCONNSTR_mongo="mongodb://sally:sallypass@mymongohost.com/db"' >> my.env
 echo 'CUSTOMCONNSTR_mongo_collection="sallyCGMCollection"' >> my.env
-source my.env
-export CUSTOMCONNSTR_mongo
-export CUSTOMCONNSTR_mongo_collection
 ```
 
 From now on you can run using
 ```bash
+source my.env
+export CUSTOMCONNSTR_mongo
+export CUSTOMCONNSTR_mongo_collection
 node server.js
 ```
 

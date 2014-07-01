@@ -177,6 +177,7 @@
         var focusData = data.slice();
 
         var element = document.getElementById('bgButton').hidden == '';
+        var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
         // predict for retrospective data
         if (retrospectivePredictor && brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
@@ -200,11 +201,12 @@
                     .css('text-decoration','none');
             }
             $('#currentTime')
-                .text(d3.time.format('%I:%M%p')(brushExtent[1]))
+                .text(d3.time.format('%I:%M%p')(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
                 .css('text-decoration','line-through');
         } else if (retrospectivePredictor) {
             // if the brush comes back into the current time range then it should reset to the current time and sg
             var dateTime = new Date(now);
+            nowDate = dateTime;
             $('#currentTime')
                 .text(d3.time.format('%I:%M%p')(dateTime))
                 .css('text-decoration','none');
@@ -272,9 +274,9 @@
         focus.select('.now-line')
             .transition()
             .duration(UPDATE_TRANS_MS)
-            .attr('x1', xScale(new Date(brushExtent[1].getTime() - THIRTY_MINS_IN_MS)))
+            .attr('x1', xScale(nowDate))
             .attr('y1', yScale(36))
-            .attr('x2', xScale(new Date(brushExtent[1].getTime() - THIRTY_MINS_IN_MS)))
+            .attr('x2', xScale(nowDate))
             .attr('y2', yScale(420));
 
         // update x axis
@@ -697,27 +699,27 @@
             stopAlarm();
         }
     });
-    // TODO: this is dead code, maybe delete and remove from server
-    socket.on('clients', function(watchers) {
-        console.log('number of clients has changed to ' + watchers);
-        $('#watchers').text(watchers);
-    });
+
 
     $('#testAlarms').click(function(event) {
+        d3.select('.audio.alarms audio').each(function (data, i) {
+          var audio = this;
+          audio.play();
+          setTimeout(function() {
+              audio.pause();
+          }, 4000);
+        });
         event.preventDefault();
-        audio.src = 'audio/alarm.mp3';
-        audio.load();
-        audio.play();
-        setTimeout(function() {
-            audio.pause();
-        }, 4000);
     });
 
     function generateAlarm(file) {
         alarmInProgress = true;
-        audio.src = 'audio/' + file;
-        audio.load();
-        audio.play();
+        var selector = '.audio.alarms audio.' + file;
+        d3.select(selector).each(function (d, i) {
+          var audio = this;
+          audio.play();
+          $(this).addClass('playing');
+        });
         var element = document.getElementById('bgButton');
         element.hidden = '';
         var element1 = document.getElementById('noButton');
@@ -731,7 +733,11 @@
         element.hidden = 'true';
         element = document.getElementById('noButton');
         element.hidden = '';
-        audio.pause();
+        d3.select('audio.playing').each(function (d, i) {
+          var audio = this;
+          audio.pause();
+          $(this).removeClass('playing');
+        });
 
         // only emit ack if client invoke by button press
         if (isClient) {
