@@ -6,9 +6,7 @@
     "postinstall": "node node_modules/bower/bin/bower install"
   },
   "dependencies": {
-    "appcache-node": "^0.2.0",
     "bower": "~1.3.2",
-    "dateformat": "^1.0.8-1.2.3",
     "express": "^4.4.4",
     "mongodb": "1.3.20",
     "socket.io": "~0.9.16"
