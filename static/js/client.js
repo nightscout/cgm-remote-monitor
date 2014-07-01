@@ -704,7 +704,6 @@
     $('#testAlarms').click(function(event) {
         d3.select('.audio.alarms audio').each(function (data, i) {
           var audio = this;
-          audio.load();
           audio.play();
           setTimeout(function() {
               audio.pause();
