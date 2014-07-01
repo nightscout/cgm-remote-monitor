@@ -20,7 +20,6 @@
 var patientData = [];
 var now = new Date().getTime();
 var fs = require('fs');
-var dateformat = require('dateformat');
 var express = require('express');
 var appcache = require("appcache-node");
 var mongoClient = require('mongodb').MongoClient;
