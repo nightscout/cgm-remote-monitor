@@ -1,9 +1,11 @@
 (function() {
     "use strict";
 
-    var treatments,
-        padding = { top: 20, right: 10, bottom: 30, left: 10},
-        opacity = {current: 1, DAY: 1, NIGHT: 0.5},
+    var retrospectivePredictor = true,
+        latestSGV,
+        treatments,
+        padding = {top: 20, right: 10, bottom: 80, left: 10},
+        opacity = {current: 1, DAY: 1, NIGHT: 0.8},
         now = Date.now(),
         data = [],
         dateFn = function (d) { return new Date(d.date)},
@@ -19,7 +21,16 @@
         brushTimer,
         brushInProgress = false,
         clip,
-        FOCUS_DATA_RANGE_MS = 12600000;  // 3.5 hours of actual data
+        TWENTY_FIVE_MINS_IN_MS = 1500000,
+        THIRTY_MINS_IN_MS = 1800000,
+        FORTY_TWO_MINS_IN_MS = 2520000,
+        FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
+        audio = document.getElementById('audio'),
+        alarmInProgress = false,
+        currentAlarmType = null,
+        alarmSound = 'alarm.mp3',
+        urgentAlarmSound = 'alarm2.mp3';
+
 
     // create svg and g to contain the chart contents
     var charts = d3.select('#chartContainer').append('svg')
@@ -98,9 +109,9 @@
     // get the desired opacity for context chart based on the brush extent
     function highlightBrushPoints(data) {
         if (data.date.getTime() >= brush.extent()[0].getTime() && data.date.getTime() <= brush.extent()[1].getTime()) {
-            return 1
+            return 1;
         } else {
-            return 0.2
+            return 0.5;
         }
     }
 
@@ -152,22 +163,69 @@
 
             // ensure that brush updating is with the time range
             if (brushExtent[0].getTime() + FOCUS_DATA_RANGE_MS > d3.extent(data, dateFn)[1].getTime()) {
+                brushExtent[0] = new Date(brushExtent[1].getTime() - FOCUS_DATA_RANGE_MS);
                 d3.select('.brush')
-                    .call(brush.extent([new Date(brushExtent[1].getTime() - FOCUS_DATA_RANGE_MS), brushExtent[1]]));
+                    .call(brush.extent([brushExtent[0], brushExtent[1]]));
             } else {
+                brushExtent[1] = new Date(brushExtent[0].getTime() + FOCUS_DATA_RANGE_MS);
                 d3.select('.brush')
-                    .call(brush.extent([brushExtent[0], new Date(brushExtent[0].getTime() + FOCUS_DATA_RANGE_MS)]));
+                    .call(brush.extent([brushExtent[0], brushExtent[1]]));
             }
+        }
+
+        // get slice of data so that concatenation of predictions do not interfere with subsequent updates
+        var focusData = data.slice();
+
+        var element = document.getElementById('bgButton').hidden == '';
+        var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
+
+        // predict for retrospective data
+        if (retrospectivePredictor && brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
+            // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
+            var nowData = data.filter(function(d) {
+                return d.date.getTime() >= brushExtent[1].getTime() - FORTY_TWO_MINS_IN_MS &&
+                    d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS
+            });
+            if (nowData.length > 1) {
+                var prediction = predictAR(nowData);
+                focusData = focusData.concat(prediction);
+                var focusPoint = nowData[nowData.length - 1];
+                $('.container .currentBG')
+                    .text((focusPoint.sgv))
+                    .css('text-decoration','line-through');
+                $('.container .currentDirection')
+                    .html(focusPoint.direction)
+            } else {
+                $('.container .currentBG')
+                    .text("---")
+                    .css('text-decoration','none');
+            }
+            $('#currentTime')
+                .text(d3.time.format('%I:%M%p')(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
+                .css('text-decoration','line-through');
+        } else if (retrospectivePredictor) {
+            // if the brush comes back into the current time range then it should reset to the current time and sg
+            var dateTime = new Date(now);
+            nowDate = dateTime;
+            $('#currentTime')
+                .text(d3.time.format('%I:%M%p')(dateTime))
+                .css('text-decoration','none');
+            $('.container .currentBG')
+                .text(latestSGV.y)
+                .css('text-decoration','none');
+            $('.container .currentDirection')
+                .html(latestSGV.direction);
         }
 
         xScale.domain(brush.extent());
 
         // bind up the focus chart data to an array of circles
         // selects all our data into data and uses date function to get current max date 
-        var focusCircles = focus.selectAll('circle').data(data, dateFn);
+        var focusCircles = focus.selectAll('circle').data(focusData, dateFn);
 
         // if already existing then transition each circle to its new position
-        focusCircles.transition()
+        focusCircles
+            .transition()
             .duration(UPDATE_TRANS_MS)
             .attr('cx', function (d) { return xScale(d.date); })
             .attr('cy', function (d) { return yScale(d.sgv);  })
@@ -216,9 +274,9 @@
         focus.select('.now-line')
             .transition()
             .duration(UPDATE_TRANS_MS)
-            .attr('x1', xScale(new Date(now)))
+            .attr('x1', xScale(nowDate))
             .attr('y1', yScale(36))
-            .attr('x2', xScale(new Date(now)))
+            .attr('x2', xScale(nowDate))
             .attr('y2', yScale(420));
 
         // update x axis
@@ -574,10 +632,33 @@
         if (d.length > 1) {
             // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
             if (d[0].length) {
-                $('#currentBG').text(d[0][d[0].length - 1].y);
-                $('#bgValue').text(d[0][d[0].length - 1].y);
+                var current = d[0][d[0].length - 1];
+                latestSGV = current;
+                var secsSinceLast = (Date.now() - new Date(current.x).getTime()) / 1000;
+                var currentBG = current.y;
+
+                //TODO: currently these are filtered on the server
+                //TODO: use icons for these magic values
+                switch (current.y) {
+                    case 0:  currentBG = '??0'; break; //None
+                    case 1:  currentBG = '?SN'; break; //SENSOR_NOT_ACTIVE
+                    case 2:  currentBG = '??2'; break; //MINIMAL_DEVIATION
+                    case 3:  currentBG = '?NA'; break; //NO_ANTENNA
+                    case 5:  currentBG = '?NC'; break; //SENSOR_NOT_CALIBRATED
+                    case 6:  currentBG = '?CD'; break; //COUNTS_DEVIATION
+                    case 7:  currentBG = '??7'; break; //?
+                    case 8:  currentBG = '??8'; break; //?
+                    case 9:  currentBG = '?AD'; break; //ABSOLUTE_DEVIATION
+                    case 10: currentBG = '?PD'; break; //POWER_DEVIATION
+                    case 12: currentBG = '?RF'; break; //BAD_RF
+                }
+
+                $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+                $('.container .currentBG').text(currentBG);
+                $('.container .currentDirection').html(current.direction);
+                $('.container .current').toggleClass('high', current.y > 180).toggleClass('low', current.y < 70)
             }
-            data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'grey'} });
+            data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, direction: obj.direction, color: 'grey'} });
             data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'blue'} }));
             data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'red'} }));
             treatments = d[3];
@@ -602,11 +683,15 @@
         console.log("Alarm raised!");
         currentAlarmType = 'alarm';
         generateAlarm(alarmSound);
+        brushInProgress = false;
+        updateChart(false);
     });
     socket.on('urgent_alarm', function() {
         console.log("Urgent alarm raised!");
         currentAlarmType = 'urgent_alarm';
         generateAlarm(urgentAlarmSound);
+        brushInProgress = false;
+        updateChart(false);
     });
     socket.on('clear_alarm', function() {
         if (alarmInProgress) {
@@ -614,28 +699,32 @@
             stopAlarm();
         }
     });
-    socket.on('clients', function(watchers) {
-        console.log('number of clients has changed to ' + watchers);
-        $('#watchers').text(watchers);
+
+
+    $('#testAlarms').click(function(event) {
+        d3.select('.audio.alarms audio').each(function (data, i) {
+          var audio = this;
+          audio.play();
+          setTimeout(function() {
+              audio.pause();
+          }, 4000);
+        });
+        event.preventDefault();
     });
 
-    // load alarms
-    var alarmSound = document.getElementById('audio');
-    var urgentAlarmSound = document.getElementById('audio2');
-
-    // alarm state
-    var alarmInProgress = false;
-    var currentAlarmType = null;
-
-    function generateAlarm(alarmType) {
+    function generateAlarm(file) {
         alarmInProgress = true;
-        alarmType.load();
-        alarmType.play();
+        var selector = '.audio.alarms audio.' + file;
+        d3.select(selector).each(function (d, i) {
+          var audio = this;
+          audio.play();
+          $(this).addClass('playing');
+        });
         var element = document.getElementById('bgButton');
         element.hidden = '';
         var element1 = document.getElementById('noButton');
         element1.hidden = 'true';
-        $('#bgValue').text($('#currentBG').text());
+        $('.container .currentBG').text();
     }
 
     function stopAlarm(isClient, silenceTime) {
@@ -644,14 +733,43 @@
         element.hidden = 'true';
         element = document.getElementById('noButton');
         element.hidden = '';
-        alarmSound.pause();
-        urgentAlarmSound.pause();
+        d3.select('audio.playing').each(function (d, i) {
+          var audio = this;
+          audio.pause();
+          $(this).removeClass('playing');
+        });
 
         // only emit ack if client invoke by button press
         if (isClient) {
-            socket.emit('ack', currentAlarmType, silenceTime);
+            socket.emit('ack', currentAlarmType || 'alarm', silenceTime);
+            brushed(false);
         }
     }
+
+    function timeAgo(offset) {
+        var parts = {},
+            MINUTE = 60,
+            HOUR = 3600,
+            DAY = 86400,
+            WEEK = 604800;
+
+        if (offset <= MINUTE)              parts = { lablel: 'now' };
+        if (offset <= MINUTE * 2)          parts = { label: '1 min ago' };
+        else if (offset < (MINUTE * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE)), label: 'mins' };
+        else if (offset < (HOUR * 2))      parts = { label: '1 hr ago' };
+        else if (offset < (HOUR * 24))     parts = { value: Math.round(Math.abs(offset / HOUR)), label: 'hrs' };
+        else if (offset < DAY)             parts = { label: '1 day ago' };
+        else if (offset < (DAY * 7))       parts = { value: Math.round(Math.abs(offset / DAY)), label: 'day' };
+        else if (offset < (WEEK * 52))     parts = { value: Math.round(Math.abs(offset / WEEK)), label: 'week' };
+        else                               parts = { label: 'a long time ago' };
+
+        if (parts.value)
+          return parts.value + ' ' + parts.label + ' ago';
+        else
+          return parts.label;
+
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -717,5 +835,40 @@
                 })
                 .text(function (d) { return d.element; })
         }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // function to predict
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    function predictAR(actual) {
+        var ONE_MINUTE = 60 * 1000;
+        var FIVE_MINUTES = 5 * ONE_MINUTE;
+        var predicted = [];
+        var BG_REF = 140;
+        var BG_MIN = 36;
+        var BG_MAX = 400;
+        if (actual.length < 2) {
+            var y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[0].sgv / BG_REF)];
+        } else {
+            var elapsedMins = (actual[1].date - actual[0].date) / ONE_MINUTE;
+            if (elapsedMins < 5.1) {
+                y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[1].sgv / BG_REF)];
+            } else {
+                y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[0].sgv / BG_REF)];
+            }
+        }
+        var n = 20;
+        var AR = [-0.723, 1.716];
+        var dt = actual[1].date.getTime();
+        for (var i = 0; i <= n; i++) {
+            y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
+            dt = dt + FIVE_MINUTES;
+            predicted[i] = {
+                date: new Date(dt+3000),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp(y[1])))),
+                color: 'blue'
+            };
+        }
+        return predicted;
     }
 })();

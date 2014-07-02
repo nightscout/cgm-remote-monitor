@@ -1,6 +1,9 @@
 cgm-remote-monitor (a.k.a. NightScout)
 ======================================
 
+[![Build Status](https://travis-ci.org/nightscout/cgm-remote-monitor.png)](https://travis-ci.org/nightscout/cgm-remote-monitor)
+[![Dependency Status](https://david-dm.org/nightscout/cgm-remote-monitor.png)](https://david-dm.org/nightscout/cgm-remote-monitor)
+
 This acts as a web-based CGM (Continuous Glucose Montinor) to allow
 multiple caregivers to remotely view a patients glucose data in
 realtime.  The server reads a MongoDB which is intended to be data
@@ -59,7 +62,10 @@ echo 'CUSTOMCONNSTR_mongo_collection="sallyCGMCollection"' >> my.env
 
 From now on you can run using
 ```bash
-$ env $(cat my.env) PORT=1337 node server.js
+source my.env
+export CUSTOMCONNSTR_mongo
+export CUSTOMCONNSTR_mongo_collection
+node server.js
 ```
 
 Your hosting provider probably has a way to set these through their
