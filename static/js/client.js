@@ -205,7 +205,7 @@
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
                 $('.container .currentBG')
-                    .text((focusPoint.sgv))
+                    .text(focusPoint.sgv)
                     .css('text-decoration','line-through');
                 $('.container .currentDirection')
                     .html(focusPoint.direction)
@@ -225,7 +225,7 @@
                 .text(d3.time.format('%I:%M%p')(dateTime))
                 .css('text-decoration','none');
             $('.container .currentBG')
-                .text(latestSGV.y)
+                .text(scaleBg(latestSGV.y))
                 .css('text-decoration','none');
             $('.container .currentDirection')
                 .html(latestSGV.direction);
@@ -242,13 +242,13 @@
             .transition()
             .duration(UPDATE_TRANS_MS)
             .attr('cx', function (d) { return xScale(d.date); })
-            .attr('cy', function (d) { return yScale(scaleBg(d.sgv)); })
+            .attr('cy', function (d) { return yScale(d.sgv); })
             .attr('fill', function (d) { return d.color; });
 
         // if new circle then just display
         focusCircles.enter().append('circle')
             .attr('cx', function (d) { return xScale(d.date); })
-            .attr('cy', function (d) { return yScale(scaleBg(d.sgv)); })
+            .attr('cy', function (d) { return yScale(d.sgv); })
             .attr('fill', function (d) { return d.color; })
             .attr('r', 3);
 
