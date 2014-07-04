@@ -23,7 +23,6 @@ var fs = require('fs');
 var express = require('express');
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
-var api = require('./lib/api');
 var cgmData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -39,7 +38,7 @@ var app = express();
 app.set('title', 'Nightscout');
 
 // BASIC API
-app.get("/api/v1/settings", api.getSettings);
+app.use("/api/v1", require('./lib/api'));
 
 // Pebble API
 app.get("/pebble", servePebble);
