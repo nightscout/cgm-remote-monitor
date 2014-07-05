@@ -24,13 +24,11 @@ var DB = require('./database_configuration.json'),
     DB_SETTINGS_COLLECTION = process.env.CUSTOMCONNSTR_mongo_settings_collection || 'settings';
 
 function with_collection(name) {
-    console.info("creating with_collection for name:", name);
     return function(fn) {
         mongoClient.connect(DB_URL, function (err, db) {
             if (err)
                 fn(err, null);
             else {
-                console.info("try to connect to collection name:", name);
                 var collection = db.collection(name);
                 fn(null, collection);
             }
