@@ -15,6 +15,39 @@
 // the Dexcom SGV data.
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// DB Connection setup and utils
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var DB = require('./database_configuration.json'),
+    DB_URL = DB.url || process.env.CUSTOMCONNSTR_mongo,
+    DB_COLLECTION = DB.collection || process.env.CUSTOMCONNSTR_mongo_collection,
+    DB_SETTINGS_COLLECTION = process.env.CUSTOMCONNSTR_mongo_settings_collection || 'settings';
+
+function with_collection(name) {
+    console.info("creating with_collection for name:", name);
+    return function(fn) {
+        mongoClient.connect(DB_URL, function (err, db) {
+            if (err)
+                fn(err, null);
+            else {
+                console.info("try to connect to collection name:", name);
+                var collection = db.collection(name);
+                fn(null, collection);
+            }
+        });
+    }
+}
+
+function with_entries_collection() {
+    return with_collection(DB_COLLECTION);
+}
+
+function with_settings_collection() {
+    return with_collection(DB_SETTINGS_COLLECTION);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // local variables
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 var patientData = [];
@@ -23,7 +56,7 @@ var fs = require('fs');
 var express = require('express');
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
-var api = require('./lib/api')(with_collection);
+var api = require('./lib/api')(with_entries_collection(), with_settings_collection());
 var cgmData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -62,7 +95,7 @@ var server = app.listen(PORT);
 function errorHandler(err, req, res, next) {
     if (err) {
         // Log the error
-        var msg = "Error serving " + request.url + " - " + err.message;
+        var msg = "Error serving " + req.url + " - " + err.message;
         require("sys").error(msg);
         console.log(msg);
 
@@ -73,7 +106,7 @@ function errorHandler(err, req, res, next) {
 }
 
 function servePebble(req, res) {
-    req.with_collection = with_collection;
+    req.with_entries_collection = with_entries_collection();
     pebble.pebble(req, res);
     return;
 }
@@ -112,18 +145,12 @@ io.sockets.on('connection', function (socket) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // data handling functions
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-var TZ_OFFSET_PATIENT = 8;
-var TZ_OFFSET_SERVER = new Date().getTimezoneOffset() / 60;
-var ONE_HOUR = 3600000;
-var ONE_MINUTE = 60000;
-var FIVE_MINUTES = 300000;
-var FORTY_MINUTES = 2400000;
-var TWO_DAYS = 172800000;
-var DB = require('./database_configuration.json');
-DB.url = DB.url || process.env.CUSTOMCONNSTR_mongo;
-DB.collection = DB.collection || process.env.CUSTOMCONNSTR_mongo_collection;
-var DB_URL = DB.url;
-var DB_COLLECTION = DB.collection;
+
+var ONE_HOUR = 3600000,
+    ONE_MINUTE = 60000,
+    FIVE_MINUTES = 300000,
+    FORTY_MINUTES = 2400000,
+    TWO_DAYS = 172800000;
 
 var dir2Char = {
   'NONE': '&#8700;',
@@ -154,14 +181,6 @@ var alarms = {
     "alarm" : new Alarm("Regular", 0.05),
     "urgent_alarm": new Alarm("Urgent", 0.10)
 };
-
-function with_collection (fn) {
-  mongoClient.connect(DB_URL, function (err, db) {
-      if (err) throw err;
-      var collection = db.collection(DB_COLLECTION);
-      fn(err, collection);
-  });
-}
 
 function update() {
 
