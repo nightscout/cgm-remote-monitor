@@ -5,4 +5,8 @@ node_modules/
 *.iml
 my.env
 
+*.env
+static/bower_components/
+.*.sw?
+
 .vagrant
