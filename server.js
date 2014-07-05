@@ -23,6 +23,7 @@ var fs = require('fs');
 var express = require('express');
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
+var api = require('./lib/api')(with_collection);
 var cgmData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -37,7 +38,9 @@ var STATIC_DIR = __dirname + '/static/';
 var app = express();
 app.set('title', 'Nightscout');
 
-// serve special URLs
+// BASIC API
+app.use("/api/v1", api);
+
 // Pebble API
 app.get("/pebble", servePebble);
 
