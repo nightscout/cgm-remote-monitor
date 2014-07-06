@@ -18,10 +18,12 @@
 // DB Connection setup and utils
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+var env = require('./env')( );
 var DB = require('./database_configuration.json'),
-    DB_URL = DB.url || process.env.CUSTOMCONNSTR_mongo,
-    DB_COLLECTION = DB.collection || process.env.CUSTOMCONNSTR_mongo_collection,
-    DB_SETTINGS_COLLECTION = process.env.CUSTOMCONNSTR_mongo_settings_collection || 'settings';
+    DB_URL = DB.url || env.mongo,
+    DB_COLLECTION = DB.collection || env.mongo_collection,
+    DB_SETTINGS_COLLECTION = env.settings_collection
+    ;
 
 function with_collection(name) {
     return function(fn) {
@@ -54,14 +56,14 @@ var fs = require('fs');
 var express = require('express');
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
-var api = require('./lib/api')(with_entries_collection(), with_settings_collection());
+var api = require('./lib/api')(env, with_entries_collection(), with_settings_collection());
 var cgmData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // setup http server
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-var PORT = process.env.PORT || 1337;
+var PORT = env.PORT;
 var THIRTY_DAYS = 2592000;
 var now = new Date();
 var STATIC_DIR = __dirname + '/static/';
@@ -69,8 +71,11 @@ var STATIC_DIR = __dirname + '/static/';
 var app = express();
 app.set('title', 'Nightscout');
 
-// BASIC API
-app.use("/api/v1", api);
+if (env.api_secret) {
+  // BASIC API
+  console.log("API_SECRET", env.api_secret);
+  app.use("/api/v1", api);
+}
 
 // Pebble API
 app.get("/pebble", servePebble);
@@ -85,6 +90,7 @@ app.use(server);
 app.use(errorHandler);
 
 var server = app.listen(PORT);
+console.log('listening', PORT);
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
