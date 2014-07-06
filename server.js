@@ -52,11 +52,9 @@ function with_settings_collection() {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 var patientData = [];
 var now = new Date().getTime();
-var fs = require('fs');
 var express = require('express');
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
-var api = require('./lib/api')(env, with_entries_collection(), with_settings_collection());
 var cgmData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -74,6 +72,7 @@ app.set('title', 'Nightscout');
 if (env.api_secret) {
   // BASIC API
   console.log("API_SECRET", env.api_secret);
+  var api = require('./lib/api')(env, with_entries_collection(), with_settings_collection());
   app.use("/api/v1", api);
 }
 
