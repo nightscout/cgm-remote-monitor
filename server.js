@@ -22,7 +22,7 @@ var env = require('./env')( );
 var DB = require('./database_configuration.json'),
     DB_URL = DB.url || env.mongo,
     DB_COLLECTION = DB.collection || env.mongo_collection,
-    DB_SETTINGS_COLLECTION = 'settings'//env.settings_collection
+    DB_SETTINGS_COLLECTION = env.settings_collection
 ;
 
 console.log(DB_COLLECTION);
