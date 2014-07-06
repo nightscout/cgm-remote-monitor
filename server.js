@@ -19,14 +19,41 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var env = require('./env')( );
+var mongoClient = require('mongodb').MongoClient;
 var DB = require('./database_configuration.json'),
     DB_URL = DB.url || env.mongo,
     DB_COLLECTION = DB.collection || env.mongo_collection,
-    DB_SETTINGS_COLLECTION = env.settings_collection
-;
+    DB_SETTINGS_COLLECTION = env.settings_collection;
 
 console.log(DB_COLLECTION);
 console.log(DB_SETTINGS_COLLECTION);
+
+function initCollection(name, document) {
+    mongoClient.connect(DB_URL, function (err, db) {
+        if (err) throw err;
+        console.log("Initializing collection: "+ name);
+
+        // Create the collection, this will not overwrite the existing collection.
+        db.createCollection(name, function(err, collection, name, next) {
+            if (err) next();
+        });
+
+        // Populate the default data when present.
+        if (document) {
+            var collection = db.collection(name);
+            collection.count(function(err, count) {
+                if (!err && count === 0) {
+                    // Populate the collection with the supplied document.
+                    console.log('Polulate ' + name + ' with ' + JSON.stringify(document));
+                    db.collection(name).insert(document, function(err, records) {
+                    if (err) throw err;
+                        console.log("Record added as "+records[0]._id);
+                    });
+                }
+            });
+        }
+    });
+}
 
 function with_collection(name) {
     return function(fn) {
@@ -42,10 +69,16 @@ function with_collection(name) {
 }
 
 function with_entries_collection() {
+    initCollection(DB_COLLECTION);  // We could simplify setup if we create the collection instead of the user.
     return with_collection(DB_COLLECTION);
 }
 
 function with_settings_collection() {
+    initCollection(DB_SETTINGS_COLLECTION, {
+        units: "mg/dl",
+        theme: "subdued",
+        websockets: false
+    });
     return with_collection(DB_SETTINGS_COLLECTION);
 }
 
@@ -56,7 +89,6 @@ function with_settings_collection() {
 var patientData = [];
 var now = new Date().getTime();
 var express = require('express');
-var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
 var cgmData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////

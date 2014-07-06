@@ -5,7 +5,7 @@ function config ( ) {
 
   env.PORT = process.env.PORT || 1337;
   env.mongo = process.env.MONGO_CONNECTION || process.env.CUSTOMCONNSTR_mongo;
-  env.mongo_collection = process.env.CUSTOMCONNSTR_mongo_collection;
+  env.mongo_collection = process.env.CUSTOMCONNSTR_mongo_collection || 'entries';
   env.settings_collection = process.env.CUSTOMCONNSTR_mongo_settings_collection || 'settings';
   var shasum = crypto.createHash('sha1');
   var useSecret = (process.env.API_SECRET && process.env.API_SECRET.length > 0);
