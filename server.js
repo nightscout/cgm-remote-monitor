@@ -22,20 +22,23 @@ var env = require('./env')( );
 var DB = require('./database_configuration.json'),
     DB_URL = DB.url || env.mongo,
     DB_COLLECTION = DB.collection || env.mongo_collection,
-    DB_SETTINGS_COLLECTION = env.settings_collection
-    ;
+    DB_SETTINGS_COLLECTION = 'settings'//env.settings_collection
+;
+
+console.log(DB_COLLECTION);
+console.log(DB_SETTINGS_COLLECTION);
 
 function with_collection(name) {
     return function(fn) {
         mongoClient.connect(DB_URL, function (err, db) {
-            if (err)
+            if (err) {
                 fn(err, null);
-            else {
+            } else {
                 var collection = db.collection(name);
                 fn(null, collection);
             }
         });
-    }
+    };
 }
 
 function with_entries_collection() {
@@ -69,14 +72,14 @@ var STATIC_DIR = __dirname + '/static/';
 var app = express();
 app.set('title', 'Nightscout');
 
+// Only allow access to the API if API_SECRET is set on the server.
 if (env.api_secret) {
-  // BASIC API
   console.log("API_SECRET", env.api_secret);
   var api = require('./lib/api')(env, with_entries_collection(), with_settings_collection());
   app.use("/api/v1", api);
 }
 
-// Pebble API
+// pebble data
 app.get("/pebble", servePebble);
 
 // define static server
