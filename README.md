@@ -1,6 +1,6 @@
 cgm-remote-monitor (a.k.a. NightScout)
 ======================================
-
+ 
 [![Build Status](https://travis-ci.org/nightscout/cgm-remote-monitor.png)](https://travis-ci.org/nightscout/cgm-remote-monitor)
 [![Dependency Status](https://david-dm.org/nightscout/cgm-remote-monitor.png)](https://david-dm.org/nightscout/cgm-remote-monitor)
 
