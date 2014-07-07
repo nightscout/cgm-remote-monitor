@@ -24,6 +24,9 @@ var DB = require('./database_configuration.json'),
     DB_URL = DB.url || env.mongo,
     DB_COLLECTION = DB.collection || env.mongo_collection,
     DB_SETTINGS_COLLECTION = env.settings_collection;
+var DEFAULT_SETTINGS_JSON = {
+        "units": "mg/dl"
+}; // possible future settings: "theme": "subdued", "websockets": false
 
 console.log(DB_COLLECTION);
 console.log(DB_SETTINGS_COLLECTION);
@@ -75,11 +78,7 @@ function with_entries_collection() {
 }
 
 function with_settings_collection() {
-    initCollection(DB_SETTINGS_COLLECTION, {
-        units: "mg/dl",
-        theme: "subdued",
-        websockets: false
-    });
+    initCollection(DB_SETTINGS_COLLECTION, DEFAULT_SETTINGS_JSON);
     return with_collection(DB_SETTINGS_COLLECTION);
 }
 
