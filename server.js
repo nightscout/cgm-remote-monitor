@@ -28,6 +28,7 @@ var DB = require('./database_configuration.json'),
 console.log(DB_COLLECTION);
 console.log(DB_SETTINGS_COLLECTION);
 
+// Initialize the collection by creating it (if it does not exist) and optionally populate it with initial data.
 function initCollection(name, document) {
     mongoClient.connect(DB_URL, function (err, db) {
         if (err) throw err;
@@ -44,7 +45,7 @@ function initCollection(name, document) {
             collection.count(function(err, count) {
                 if (!err && count === 0) {
                     // Populate the collection with the supplied document.
-                    console.log('Polulate ' + name + ' with ' + JSON.stringify(document));
+                    console.log('Populate ' + name + ' with ' + JSON.stringify(document));
                     db.collection(name).insert(document, function(err, records) {
                     if (err) throw err;
                         console.log("Record added as "+records[0]._id);
@@ -69,7 +70,7 @@ function with_collection(name) {
 }
 
 function with_entries_collection() {
-    initCollection(DB_COLLECTION);  // We could simplify setup if we create the collection instead of the user.
+    initCollection(DB_COLLECTION);
     return with_collection(DB_COLLECTION);
 }
 
@@ -121,7 +122,7 @@ var server = express.static(STATIC_DIR, {maxAge: THIRTY_DAYS * 1000});
 app.use(server);
 
 // handle errors
-app.use(errorHandler);
+//app.use(errorHandler);
 
 var server = app.listen(PORT);
 console.log('listening', PORT);
@@ -139,7 +140,8 @@ function errorHandler(err, req, res, next) {
 
         // Respond to the client
         res.status(err.status);
-        res.render('error', { error: err });
+        res.send('error', { error: err });
+        //res.render('error', { error: err }); // causes a problem with api errors. any ideas on how to fix this?
     }
 }
 
