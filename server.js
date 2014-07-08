@@ -108,9 +108,12 @@ app.set('title', appInfo);
 
 // Only allow access to the API if API_SECRET is set on the server.
 if (env.api_secret) {
+    // Force
+    app.get('/api/v1', forceSSL);
+    
     console.log("API_SECRET", env.api_secret);
     var api = require('./lib/api')(env, with_entries_collection(), with_settings_collection());
-    app.use("/api/v1", api);
+    app.use('/api/v1', api);
 }
 
 // pebble data
@@ -123,27 +126,54 @@ var server = express.static(STATIC_DIR, {maxAge: THIRTY_DAYS * 1000});
 app.use(server);
 
 // handle errors
-//app.use(errorHandler);
+app.use(errorHandler);
 
 var server = app.listen(PORT);
 console.log('listening', PORT);
+   
+function forceSSL(req, res, next) {
+    // Determine if we are running on localhost (e.g. a development environment).
+    var localhost = isLocalhost(req);
+    var notLocalhost = (localhost === false);
+
+    // Are we currently secure?
+    var insecure = (req.secure === false);
+
+    // If we are not secure and not running on the localhost...
+    if (insecure && notLocalhost) {
+        // Redirect the user to the Secure URL.
+        var secureUrl = 'https://' + req.hostname + req.url;
+        console.log(secureUrl);
+        res.redirect(secureUrl);
+    }
+
+    next();
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // server helper functions
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 function errorHandler(err, req, res, next) {
-    if (err) {
-        // Log the error
-        var msg = "Error serving " + req.url + " - " + err.message;
-        require("sys").error(msg);
-        console.log(msg);
+    // Display full errors on localhost (for developers use).
+    if (isLocalhost(req) === false) {
+        if (err) {
+            // Log the error
+            var msg = "Error serving " + req.url + " - " + err.message;
+            require("sys").error(msg);
+            console.log(msg);
 
-        // Respond to the client
-        res.status(err.status);
-        res.send('error', { error: err });
-        //res.render('error', { error: err }); // causes a problem with api errors. any ideas on how to fix this?
+            // Respond to the client
+            res.status(err.status);
+            res.send('error', { error: err });
+            //res.render('error', { error: err }); // causes a problem with api errors. any ideas on how to fix this?
+        }
     }
+}
+
+// Determine if the user is browsing from http://localhost.
+function isLocalhost(req) {
+    return (req.hostname === 'localhost');
 }
 
 function servePebble(req, res) {
