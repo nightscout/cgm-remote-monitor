@@ -116,8 +116,10 @@ if (env.api_secret) {
     app.use('/api/v1', api);
 }
 
+app.use('/test', forceSSL);
+
 // pebble data
-app.get("/pebble", servePebble);
+app.get('/pebble', servePebble);
 
 // define static server
 var server = express.static(STATIC_DIR, {maxAge: THIRTY_DAYS * 1000});
@@ -138,13 +140,25 @@ function forceSSL(req, res, next) {
 
     // Are we currently secure?
     var insecure = (req.secure === false);
+    
+    // Redirect the user to the Secure URL.
+    var secureUrl = 'https://' + req.hostname + req.baseUrl;
+    
+    //res.send(require('util').inspect(req));
+
 
     // If we are not secure and not running on the localhost...
     if (insecure && notLocalhost) {
-        // Redirect the user to the Secure URL.
-        var secureUrl = 'https://' + req.hostname + req.url;
         console.log(secureUrl);
         res.redirect(secureUrl);
+    } else {
+        // send debug info
+        res.json({
+        "localhost": localhost,
+        "notLocalhost": notLocalhost,
+        "insecure": insecure,
+        "secureUrl": secureUrl
+        });
     }
 
     next();
