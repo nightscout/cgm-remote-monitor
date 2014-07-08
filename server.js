@@ -161,31 +161,17 @@ function isLocalhost(req) {
 }
    
 function requireSSL(req, res, next) {
-    //console.log('requireSSL');
-    // Determine if we are running on localhost (e.g. a development environment).
-    var localhost = isLocalhost(req);
-
     // Are we currently secure?
-    var secure = req.secure;// || (req.headers('x-forwarded-proto') === 'https');
-    var insecure = (secure === false);
+    var secure = req.secure;
     
-    // Define the user to the Secure version of the current URL.
-    var url =  req.url || req.baseUrl;
-    var secureUrl = 'https://' + req.hostname + url;
-    
-    //console.log(JSON.stringify({"secure":secure, "insecure":insecure, "localhost":localhost, "secureUrl":secureUrl}));
-    
-    // If we are not secure and not running on the localhost...
-    if (localhost) {
-        next();
+    // If we are not secure display a warming. message.
+    if (secure === false) {
+        // Define the user to the Secure version of the current URL.
+        var secureUrl = 'https://' + req.hostname + req.baseUrl + req.url;
+        console.log('WARNING: To encrypt your data, please use ' + secureUrl + '.');
+        next(); //res.status(401).send('<h1>HTTPS Required.</h1>SSL ecryption is required to secure your data. ( Use this URL instead: ' + secureUrl + ' )');
     } else {
-        if (insecure) {
-            console.log('HTTPS is recommended to secure your data.');
-            next();
-            //res.status(401).send('<h1>HTTPS Required.</h1>SSL ecryption is required to secure your data. ( Use this URL instead: ' + secureUrl + ' )');
-        } else {
-            next();
-        }
+        next();
     }
 
 }
