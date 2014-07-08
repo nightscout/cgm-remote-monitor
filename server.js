@@ -108,16 +108,6 @@ app.set('title', appInfo);
 
 // Only allow access to the API if API_SECRET is set on the server.
 if (env.api_secret) {
-    // If API is not on HTTPS already redirect to HTTPS, unless we are running on locahost.
-    app.get('/api/v1/*',function(req,res){  
-        var runningLocal = (req.hostname === 'localhost');
-        if (req.secure || runningLocal === false) {
-            var secureUrl = 'https://' + req.hostname + req.url;
-            console.log(secureUrl);
-            res.redirect(secureUrl);
-        }
-    });
-    
     console.log("API_SECRET", env.api_secret);
     var api = require('./lib/api')(env, with_entries_collection(), with_settings_collection());
     app.use("/api/v1", api);
