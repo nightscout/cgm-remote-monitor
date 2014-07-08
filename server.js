@@ -105,12 +105,18 @@ var STATIC_DIR = __dirname + '/static/';
 var app = express();
 var appInfo = package.name + ' ' + package.version;
 app.set('title', appInfo);
+app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
 
 // Only allow access to the API if API_SECRET is set on the server.
 if (env.api_secret) {
     console.log("API_SECRET", env.api_secret);
+    
+    // Display an error when you're not using SSL.
+    app.use('/api/v1', requireSSL);
+    
+    // Handle API requests.
     var api = require('./lib/api')(env, with_entries_collection(), with_settings_collection());
-    app.use('/api/v1', api);
+    app.use('/api/v1', api); 
 }
 
 // pebble data
@@ -152,6 +158,36 @@ function errorHandler(err, req, res, next) {
 // Determine if the user is browsing from http://localhost.
 function isLocalhost(req) {
     return (req.hostname === 'localhost');
+}
+   
+function requireSSL(req, res, next) {
+    //console.log('requireSSL');
+    // Determine if we are running on localhost (e.g. a development environment).
+    var localhost = isLocalhost(req);
+
+    // Are we currently secure?
+    var secure = req.secure;// || (req.headers('x-forwarded-proto') === 'https');
+    var insecure = (secure === false);
+    
+    // Define the user to the Secure version of the current URL.
+    var url =  req.url || req.baseUrl;
+    var secureUrl = 'https://' + req.hostname + url;
+    
+    //console.log(JSON.stringify({"secure":secure, "insecure":insecure, "localhost":localhost, "secureUrl":secureUrl}));
+    
+    // If we are not secure and not running on the localhost...
+    if (localhost) {
+        next();
+    } else {
+        if (insecure) {
+            console.log('HTTPS is recommended to secure your data.');
+            next();
+            //res.status(401).send('<h1>HTTPS Required.</h1>SSL ecryption is required to secure your data. ( Use this URL instead: ' + secureUrl + ' )');
+        } else {
+            next();
+        }
+    }
+
 }
 
 function servePebble(req, res) {
