@@ -108,14 +108,10 @@ app.set('title', appInfo);
 
 // Only allow access to the API if API_SECRET is set on the server.
 if (env.api_secret) {
-    // Force SSL
-    //app.get('/api/v1', forceSSL);
-    
     console.log("API_SECRET", env.api_secret);
     var api = require('./lib/api')(env, with_entries_collection(), with_settings_collection());
     app.use('/api/v1', api);
 }
-app.use('/test', forceSSL);
 
 // pebble data
 app.get('/pebble', servePebble);
@@ -131,37 +127,6 @@ app.use(errorHandler);
 
 var server = app.listen(PORT);
 console.log('listening', PORT);
-   
-function forceSSL(req, res, next) {
-    // Determine if we are running on localhost (e.g. a development environment).
-    var localhost = isLocalhost(req);
-    var notLocalhost = (localhost === false);
-
-    // Are we currently secure?
-    var insecure = (req.secure === false);
-    
-    // Redirect the user to the Secure URL.
-    var secureUrl = 'https://' + req.hostname + req.baseUrl;
-    
-    //res.send(require('util').inspect(req));
-
-
-    // If we are not secure and not running on the localhost...
-    if (insecure && notLocalhost) {
-        console.log(secureUrl);
-        //res.redirect(secureUrl);
-    } else {
-        // send debug info
-        res.json({
-        "localhost": localhost,
-        "notLocalhost": notLocalhost,
-        "insecure": insecure,
-        "secureUrl": secureUrl
-        });
-    }
-
-    next();
-}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
