@@ -29,8 +29,8 @@ var DEFAULT_SETTINGS_JSON = {
         "units": "mg/dl"
 }; // possible future settings: "theme": "subdued", "websockets": false
 
-console.log(DB_COLLECTION);
-console.log(DB_SETTINGS_COLLECTION);
+//console.log(DB_COLLECTION);
+//console.log(DB_SETTINGS_COLLECTION);
 
 // Initialize the collection by creating it (if it does not exist) and optionally populate it with initial data.
 function initCollection(name, document) {
@@ -83,7 +83,6 @@ function with_settings_collection() {
     return with_collection(DB_SETTINGS_COLLECTION);
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // local variables
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -128,8 +127,11 @@ var server = express.static(STATIC_DIR, {maxAge: THIRTY_DAYS * 1000});
 // serve the static content
 app.use(server);
 
-// handle errors
-app.use(errorHandler);
+// Handle errors with express's errorhandler, to display more readable error messages.
+var errorhandler = require('errorhandler');
+//if (process.env.NODE_ENV === 'development') {
+  app.use(errorhandler());
+//}
 
 var server = app.listen(PORT);
 console.log('listening', PORT);
@@ -138,23 +140,6 @@ console.log('listening', PORT);
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // server helper functions
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-function errorHandler(err, req, res, next) {
-    // Display full errors on localhost (for developers use).
-    if (isLocalhost(req) === false) {
-        if (err) {
-            // Log the error
-            var msg = "Error serving " + req.url + " - " + err.message;
-            require("sys").error(msg);
-            console.log(msg);
-
-            // Respond to the client
-            res.status(err.status);
-            res.send('error', { error: err });
-            //res.render('error', { error: err }); // causes a problem with api errors. any ideas on how to fix this?
-        }
-    }
-}
-
 // Determine if the user is browsing from http://localhost.
 function isLocalhost(req) {
     return (req.hostname === 'localhost');
