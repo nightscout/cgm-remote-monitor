@@ -21,20 +21,16 @@
 var env = require('./env')( );
 var package = require('./package.json');
 var mongoClient = require('mongodb').MongoClient;
-var DB = require('./database_configuration.json'),
-    DB_URL = DB.url || env.mongo,
-    DB_COLLECTION = DB.collection || env.mongo_collection,
-    DB_SETTINGS_COLLECTION = env.settings_collection;
 var DEFAULT_SETTINGS_JSON = {
         "units": "mg/dl"
 }; // possible future settings: "theme": "subdued", "websockets": false
 
-//console.log(DB_COLLECTION);
-//console.log(DB_SETTINGS_COLLECTION);
+//console.log(env.mongo_collection);
+//console.log(env.settings_collection);
 
 // Initialize the collection by creating it (if it does not exist) and optionally populate it with initial data.
 function initCollection(name, document) {
-    mongoClient.connect(DB_URL, function (err, db) {
+    mongoClient.connect(env.mongo, function (err, db) {
         if (err) throw err;
         console.log("Initializing collection: "+ name);
 
@@ -62,7 +58,7 @@ function initCollection(name, document) {
 
 function with_collection(name) {
     return function(fn) {
-        mongoClient.connect(DB_URL, function (err, db) {
+        mongoClient.connect(env.mongo, function (err, db) {
             if (err) {
                 fn(err, null);
             } else {
@@ -74,13 +70,13 @@ function with_collection(name) {
 }
 
 function with_entries_collection() {
-    initCollection(DB_COLLECTION);
-    return with_collection(DB_COLLECTION);
+    initCollection(env.mongo_collection);
+    return with_collection(env.mongo_collection);
 }
 
 function with_settings_collection() {
-    initCollection(DB_SETTINGS_COLLECTION, DEFAULT_SETTINGS_JSON);
-    return with_collection(DB_SETTINGS_COLLECTION);
+    initCollection(env.settings_collection, DEFAULT_SETTINGS_JSON);
+    return with_collection(env.settings_collection);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -246,9 +242,9 @@ function update() {
 
     cgmData = [];
     var earliest_data = now - TWO_DAYS;
-    mongoClient.connect(DB_URL, function (err, db) {
+    mongoClient.connect(env.mongo, function (err, db) {
         if (err) throw err;
-        var collection = db.collection(DB_COLLECTION);
+        var collection = db.collection(env.mongo_collection);
 
         collection.find({"date": {"$gte": earliest_data}}).toArray(function(err, results) {
             results.forEach(function(element, index, array) {

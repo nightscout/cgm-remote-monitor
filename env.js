@@ -1,7 +1,17 @@
 
 var env = { };
 var crypto = require('crypto');
+// Module to constrain all config and environment parsing to one spot.
 function config ( ) {
+
+  /*
+   * First inspect a bunch of environment variables:
+   *   * PORT - serve http on this port
+   *   * MONGO_CONNECTION, CUSTOMCONNSTR_mongo - mongodb://... uri
+   *   * CUSTOMCONNSTR_mongo_collection - name of mongo collection with "svg" documents
+   *   * CUSTOMCONNSTR_mongo_settings_collection - name of mongo collection to store configurable settings
+   *   * API_SECRET - if defined, this passphrase is fed to a sha1 hash digest, the hex output is used to create a single-use token for API authorization
+   */
 
   env.PORT = process.env.PORT || 1337;
   env.mongo = process.env.MONGO_CONNECTION || process.env.CUSTOMCONNSTR_mongo;
@@ -10,10 +20,21 @@ function config ( ) {
   var shasum = crypto.createHash('sha1');
   var useSecret = (process.env.API_SECRET && process.env.API_SECRET.length > 0);
   env.api_secret = null;
+  // if a passphrase was provided, get the hex digest to mint a single token
   if (useSecret) {
     shasum.update(process.env.API_SECRET);
     env.api_secret = shasum.digest('hex');
   }
+  // TODO: clean up a bit
+  // Some people prefer to use a json configuration file instead.
+  // This allows a provided json config to override environment variables
+  var DB = require('./database_configuration.json'),
+    DB_URL = DB.url ? DB.url : env.mongo,
+    DB_COLLECTION = DB.collection ? DB.collection : env.mongo_collection,
+    DB_SETTINGS_COLLECTION = DB.settings_collection ? DB.settings_collection : env.settings_collection;
+  env.mongo = DB_URL;
+  env.mongo_collection = DB_COLLECTION;
+  env.settings_collection = DB_SETTINGS_COLLECTION;
   return env;
 }
 module.exports = config;
