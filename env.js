@@ -11,6 +11,9 @@ function config ( ) {
    *   * CUSTOMCONNSTR_mongo_collection - name of mongo collection with "svg" documents
    *   * CUSTOMCONNSTR_mongo_settings_collection - name of mongo collection to store configurable settings
    *   * API_SECRET - if defined, this passphrase is fed to a sha1 hash digest, the hex output is used to create a single-use token for API authorization
+   *   * NIGHTSCOUT_STATIC_FILES - the "base directory" to use for serving
+   *     static files over http.  Default value is the included `static`
+   *     directory.
    */
 
   env.PORT = process.env.PORT || 1337;
@@ -35,6 +38,8 @@ function config ( ) {
   env.mongo = DB_URL;
   env.mongo_collection = DB_COLLECTION;
   env.settings_collection = DB_SETTINGS_COLLECTION;
+  var STATIC_FILES = __dirname + '/static/';
+  env.static_files = process.env.NIGHTSCOUT_STATIC_FILES || STATIC_FILES;
   return env;
 }
 module.exports = config;
