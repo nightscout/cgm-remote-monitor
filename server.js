@@ -157,7 +157,7 @@ function requireSSL(req, res, next) {
 }
 
 function servePebble(req, res) {
-    req.with_entries_collection = with_entries_collection();
+    req.with_entries = with_entries_collection();
     pebble.pebble(req, res);
     return;
 }
