@@ -20,6 +20,8 @@
 
 var env = require('./env')( );
 var package = require('./package.json');
+var store = require('./lib/storage')(env);
+var pebble = require('./lib/pebble');
 var mongoClient = require('mongodb').MongoClient;
 var DEFAULT_SETTINGS_JSON = {
         "units": "mg/dl"
@@ -70,23 +72,19 @@ function with_collection(name) {
 }
 
 function with_entries_collection() {
-    initCollection(env.mongo_collection);
+    // initCollection(env.mongo_collection);
     return with_collection(env.mongo_collection);
 }
 
 function with_settings_collection() {
-    initCollection(env.settings_collection, DEFAULT_SETTINGS_JSON);
+    // initCollection(env.settings_collection, DEFAULT_SETTINGS_JSON);
     return with_collection(env.settings_collection);
 }
 
 ///////////////////////////////////////////////////
 // local variables
 ///////////////////////////////////////////////////
-var patientData = [];
-var now = new Date().getTime();
 var express = require('express');
-var pebble = require('./lib/pebble');
-var cgmData = [];
 
 ///////////////////////////////////////////////////
 // api and json object variables
@@ -134,8 +132,16 @@ var errorhandler = require('errorhandler');
   app.use(errorhandler());
 //}
 
-var server = app.listen(PORT);
-console.log('listening', PORT);
+store(function ready ( ) {
+  var server = app.listen(PORT);
+  console.log('listening', PORT);
+
+  ///////////////////////////////////////////////////
+  // setup socket io for data and message transmission
+  ///////////////////////////////////////////////////
+  var websocket = require('./lib/websocket');
+  var io = websocket(env, server, store);
+});
 
 ///////////////////////////////////////////////////
 // server helper functions
@@ -157,15 +163,12 @@ function requireSSL(req, res, next) {
 }
 
 function servePebble(req, res) {
-    req.with_entries = with_entries_collection();
+    req.with_entries = store.with_collection(env.mongo_collection);
     pebble.pebble(req, res);
     return;
 }
 ///////////////////////////////////////////////////
-
-///////////////////////////////////////////////////
-// setup socket io for data and message transmission
-///////////////////////////////////////////////////
+/*
 var io = require('socket.io').listen(server);
 
 // reduce logging
@@ -239,27 +242,24 @@ function update() {
 
     cgmData = [];
     var earliest_data = now - TWO_DAYS;
-    mongoClient.connect(env.mongo, function (err, db) {
-        if (err) throw err;
-        var collection = db.collection(env.mongo_collection);
+    store(function ( ) {
+      var collection = store.collection(env.mongo_collection);
 
-        collection.find({"date": {"$gte": earliest_data}}).toArray(function(err, results) {
-            results.forEach(function(element, index, array) {
-                if (element) {
-                    var obj = {};
-                    obj.y = element.sgv;
-                    obj.x = element.date;
-                    obj.d = element.dateString;
-                    obj.direction = directionToChar(element.direction);
-                    cgmData.push(obj);
-                }
-            });
-            db.close();
-        });
+      collection.find({"date": {"$gte": earliest_data}}).toArray(function(err, results) {
+          results.forEach(function(element, index, array) {
+              if (element) {
+                  var obj = {};
+                  obj.y = element.sgv;
+                  obj.x = element.date;
+                  obj.d = element.dateString;
+                  obj.direction = directionToChar(element.direction);
+                  cgmData.push(obj);
+              }
+          });
+          // all done, do loadData
+          loadData( );
+      });
     });
-
-    // wait for database read to complete, 5 secs has proven to be more than enough
-    setTimeout(loadData, 5000);
 
     return update;
 }
@@ -273,6 +273,8 @@ function emitAlarm(alarmType) {
     }
 }
 
+*/
+/*
 function loadData() {
 
     var treatment = [];
@@ -353,10 +355,6 @@ setInterval(kickstart(), ONE_MINUTE);
 
 ///////////////////////////////////////////////////
 
-///////////////////////////////////////////////////
-// helper functions
-///////////////////////////////////////////////////
-
-function log10(val) { return Math.log(val) / Math.LN10; }
+*/
 
 ///////////////////////////////////////////////////
