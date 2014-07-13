@@ -22,29 +22,8 @@ var env = require('./env')( );
 var package = require('./package.json');
 var store = require('./lib/storage')(env);
 var pebble = require('./lib/pebble');
-var mongoClient = require('mongodb').MongoClient;
-//console.log(env.mongo_collection);
-//console.log(env.settings_collection);
-
-// Initialize the collection by creating it (if it does not exist) and optionally populate it with initial data.
-
-function with_collection(name) {
-    return function(fn) {
-        mongoClient.connect(env.mongo, function (err, db) {
-            if (err) {
-                fn(err, null);
-            } else {
-                var collection = db.collection(name);
-                fn(null, collection);
-            }
-        });
-    };
-}
 
 
-///////////////////////////////////////////////////
-// local variables
-///////////////////////////////////////////////////
 var express = require('express');
 
 ///////////////////////////////////////////////////
@@ -68,6 +47,7 @@ app.enable('trust proxy'); // Allows req.secure test on heroku https connections
 
 // Only allow access to the API if API_SECRET is set on the server.
 if (env.api_secret) {
+    var requireSSL = require('./lib/middleware/require-ssl')( );
     console.log("API_SECRET", env.api_secret);
     
     // Display an error when you're not using SSL.
@@ -106,21 +86,6 @@ store(function ready ( ) {
 ///////////////////////////////////////////////////
 // server helper functions
 ///////////////////////////////////////////////////
-function requireSSL(req, res, next) {
-    // Are we currently secure?
-    var secure = req.secure;
-    
-    // If we are not secure display a warming. message.
-    if (secure === false) {
-        // Define the user to the Secure version of the current URL.
-        var secureUrl = 'https://' + req.hostname + req.baseUrl + req.url;
-        console.log('WARNING: To encrypt your data, please use ' + secureUrl + '.');
-        next(); //res.status(401).send('<h1>HTTPS Required.</h1>SSL ecryption is required to secure your data. ( Use this URL instead: ' + secureUrl + ' )');
-    } else {
-        next();
-    }
-
-}
 
 function servePebble(req, res) {
     req.with_entries = store.with_collection(env.mongo_collection);
