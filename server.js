@@ -23,10 +23,6 @@ var package = require('./package.json');
 var store = require('./lib/storage')(env);
 var pebble = require('./lib/pebble');
 var mongoClient = require('mongodb').MongoClient;
-var DEFAULT_SETTINGS_JSON = {
-        "units": "mg/dl"
-}; // possible future settings: "theme": "subdued", "websockets": false
-
 //console.log(env.mongo_collection);
 //console.log(env.settings_collection);
 
