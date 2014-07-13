@@ -29,6 +29,23 @@ Clone this repo then install dependencies into the root of the project:
 $ npm install
 ```
 
+### Vagrant install
+
+Optionally, use [Vagrant](https://www.vagrantup.com/) with the
+included `Vagrantfile` and `setup.sh` to install OS and node packages to
+a virtual machine.
+
+```bash
+host$ vagrant up
+host$ vagrant ssh
+vm$ setup.sh
+```
+
+The setup script will install OS packages then run `npm install`.
+
+The Vagrant VM serves to your host machine only on 192.168.33.10, you can access
+the web interface on [http://192.168.33.10:1337](http://192.168.33.10:1337)
+
 Usage
 ---------------
 
