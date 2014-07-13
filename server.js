@@ -30,7 +30,7 @@ var express = require('express');
 ///////////////////////////////////////////////////
 var entries = require('./lib/entries')(env.mongo_collection, store);
 var settings = require('./lib/settings')(env.settings_collection, store);
-var api = require('./lib/api')(env, store, entries, settings);
+var api = require('./lib/api')(env, entries, settings);
 var pebble = require('./lib/pebble');
 ///////////////////////////////////////////////////
 
