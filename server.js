@@ -21,7 +21,6 @@
 var env = require('./env')( );
 var package = require('./package.json');
 var store = require('./lib/storage')(env);
-var pebble = require('./lib/pebble');
 
 
 var express = require('express');
@@ -32,6 +31,7 @@ var express = require('express');
 var entries = require('./lib/entries')(env.mongo_collection, store);
 var settings = require('./lib/settings')(env.settings_collection, store);
 var api = require('./lib/api')(env, store, entries, settings);
+var pebble = require('./lib/pebble');
 ///////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////
@@ -58,7 +58,7 @@ if (env.api_secret) {
 }
 
 // pebble data
-app.get('/pebble', servePebble);
+app.get('/pebble', pebble(entries));
 
 // define static server
 var staticFiles = express.static(env.static_files, {maxAge: THIRTY_DAYS * 1000});
@@ -83,15 +83,4 @@ store(function ready ( ) {
   var io = websocket(env, server, store);
 });
 
-///////////////////////////////////////////////////
-// server helper functions
-///////////////////////////////////////////////////
-
-function servePebble(req, res) {
-    req.with_entries = store.with_collection(env.mongo_collection);
-    pebble.pebble(req, res);
-    return;
-}
-
-///////////////////////////////////////////////////
 ///////////////////////////////////////////////////
