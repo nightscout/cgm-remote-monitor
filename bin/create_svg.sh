@@ -12,11 +12,11 @@ UNIX=$(date +%s $OPTS)
 
 (
 cat <<EOF
-{ "sgv": $SGV,
-  "device": "test",
+{ "sgv": "$SGV",
+  "device": "xxx-test-device",
   "direction": "$DIRECTION",
   "dateString": "$ISO",
-  "date": "$UNIX"
+  "date": $UNIX
 }
 EOF
 ) | tr -d '\n'
