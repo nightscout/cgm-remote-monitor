@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SVG=$1
+SGV=$1
 DIRECTION=$2
 AT=$3
 OPTS=""
@@ -12,7 +12,7 @@ UNIX=$(date +%s $OPTS)
 
 (
 cat <<EOF
-{ "svg": $SVG,
+{ "sgv": $SGV,
   "device": "test",
   "direction": "$DIRECTION",
   "dateString": "$ISO",
