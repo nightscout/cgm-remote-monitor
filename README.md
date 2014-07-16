@@ -15,7 +15,7 @@ low values, which can be cleared by any watcher of the data.
 
 Community maintained fork of the
 [original cgm-remote-monitor](https://github.com/rnpenguin/cgm-remote-monitor).
-
+[ ![Codeship Status for tcdoyle/cgm-remote-monitor](https://www.codeship.io/projects/cbab3a70-ef11-0131-2d9d-7ec4d0f43279/status)](https://www.codeship.io/projects/26952)
 Install
 ---------------
 
