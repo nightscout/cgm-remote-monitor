@@ -8,7 +8,7 @@ function config ( ) {
    * First inspect a bunch of environment variables:
    *   * PORT - serve http on this port
    *   * MONGO_CONNECTION, CUSTOMCONNSTR_mongo - mongodb://... uri
-   *   * CUSTOMCONNSTR_mongo_collection - name of mongo collection with "svg" documents
+   *   * CUSTOMCONNSTR_mongo_collection - name of mongo collection with "sgv" documents
    *   * CUSTOMCONNSTR_mongo_settings_collection - name of mongo collection to store configurable settings
    *   * API_SECRET - if defined, this passphrase is fed to a sha1 hash digest, the hex output is used to create a single-use token for API authorization
    *   * NIGHTSCOUT_STATIC_FILES - the "base directory" to use for serving

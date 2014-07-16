@@ -37,6 +37,8 @@
     "express": "^4.5.1",
     "mongodb": "^1.4.7",
     "socket.io": "^0.9.17",
-    "express-extension-to-accept": "0.0.2"
+    "express-extension-to-accept": "0.0.2",
+    "event-stream": "~3.1.5",
+    "sgvdata": "0.0.2"
   }
 }
