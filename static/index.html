@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html manifest="nightscout.appcache">
+<html>
     <head>
         <meta name='viewport' content='width=device-width, initial-scale=1.0'>
         <title>NightScout</title>
-        <link rel='stylesheet' type='text/css' href='css/main.css'>
-        <link rel='stylesheet' type='text/css' href='css/dropdown.css'>
+        <link rel='stylesheet' type='text/css' href='/css/main.css'>
+        <link rel='stylesheet' type='text/css' href='/css/dropdown.css'>
     </head>
     <body>
         <div class='container'>
@@ -28,6 +28,7 @@
                         <li><a href="#" data-snooze-time="1800000">Silence for 30 minutes</a></li>
                         <li><a href="#" data-snooze-time="3600000">Silence for 60 minutes</a></li>
                         <li><a href="#" data-snooze-time="5400000">Silence for 90 minutes</a></li>
+                        <li><a href="#" data-snooze-time="7200000">Silence for 120 minutes</a></li>
                     </ul>
                 </div>
             </div>
@@ -35,11 +36,14 @@
                 <div id='chartContainer'></div>
             </div>
         </div>
-        <audio id='audio' loop src='audio/alarm.mp3' type='audio/mp3'></audio>
+        <div class="audio alarms">
+        <audio src='/audio/alarm.mp3' preload="auto" loop="true" class="alarm mp3" type='audio/mp3'></audio>
+        <audio src='/audio/alarm2.mp3' preload="auto" loop="true" class="urgent alarm2 mp3" type='audio/mp3'></audio>
+        </div>
         <script src='/socket.io/socket.io.js'></script>
         <script src='/bower_components/d3/d3.min.js'></script>
         <script src='/bower_components/jquery/dist/jquery.min.js'></script>
-        <script src='js/dropdown.js'></script>
-        <script src='/js/client.js'></script>
+        <script src='/js/dropdown.js'></script>
+        <script src='/js/client.js?a'></script>
     </body>
 </html>
