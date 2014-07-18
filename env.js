@@ -1,3 +1,4 @@
+'use strict';
 
 var env = { };
 var crypto = require('crypto');
