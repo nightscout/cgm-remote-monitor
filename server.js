@@ -30,7 +30,7 @@ var express = require('express');
 ///////////////////////////////////////////////////
 var entries = require('./lib/entries')(env.mongo_collection, store);
 var settings = require('./lib/settings')(env.settings_collection, store);
-var api = require('./lib/api')(env, entries, settings);
+var api = require('./lib/api/')(env, entries, settings);
 var pebble = require('./lib/pebble');
 ///////////////////////////////////////////////////
 
@@ -45,17 +45,10 @@ var appInfo = package.name + ' ' + package.version;
 app.set('title', appInfo);
 app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
 
-// Only allow access to the API if API_SECRET is set on the server.
 if (env.api_secret) {
-    var requireSSL = require('./lib/middleware/require-ssl')( );
     console.log("API_SECRET", env.api_secret);
-    
-    // Display an error when you're not using SSL.
-    app.use('/api/v1', requireSSL);
-    
-    // Handle API requests.
-    app.use('/api/v1', api); 
 }
+app.use('/api/v1', api);
 
 // pebble data
 app.get('/pebble', pebble(entries));
