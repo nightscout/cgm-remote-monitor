@@ -6,4 +6,4 @@ services:
   - mongodb
 before_script:
   - sleep 10
-  - mongo mongo_travis
+  - echo mongo mongo_travis
