@@ -40,5 +40,8 @@
     "express-extension-to-accept": "0.0.2",
     "event-stream": "~3.1.5",
     "sgvdata": "0.0.2"
+  },
+  "devDependencies": {
+    "supertest": "~0.13.0"
   }
 }
