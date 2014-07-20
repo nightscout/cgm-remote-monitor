@@ -19,8 +19,8 @@
 // DB Connection setup and utils
 ///////////////////////////////////////////////////
 
-var env = require('./env')( );
 var software = require('./package.json');
+var env = require('./env')( );
 var store = require('./lib/storage')(env);
 
 

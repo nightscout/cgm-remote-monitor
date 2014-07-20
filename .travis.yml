@@ -7,3 +7,5 @@ services:
 before_script:
   - sleep 10
   - echo mongo mongo_travis
+script:
+  - make test
