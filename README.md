@@ -3,6 +3,7 @@ cgm-remote-monitor (a.k.a. NightScout)
 
 [![Build Status](https://travis-ci.org/nightscout/cgm-remote-monitor.png)](https://travis-ci.org/nightscout/cgm-remote-monitor)
 [![Dependency Status](https://david-dm.org/nightscout/cgm-remote-monitor.png)](https://david-dm.org/nightscout/cgm-remote-monitor)
+[![Gitter chat](https://badges.gitter.im/nightscout.png)](https://gitter.im/nightscout)
 
 This acts as a web-based CGM (Continuous Glucose Montinor) to allow
 multiple caregivers to remotely view a patients glucose data in
