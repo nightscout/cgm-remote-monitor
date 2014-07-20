@@ -1,6 +1,6 @@
 {
   "name": "Nightscout",
-  "version": "0.1.20140718",
+  "version": "0.1.20140719",
   "description": "Nightscout acts as a web-based CGM (Continuous Glucose Montinor) to allow multiple caregivers to remotely view a patients glucose data in realtime.",
   "license": "MIT",
   "author": "Nightscout Team",
@@ -25,6 +25,7 @@
   },
   "scripts": {
     "start": "node server.js",
+    "test": "make test",
     "postinstall": "node node_modules/bower/bin/bower install"
   },
   "engines": {
@@ -40,5 +41,10 @@
     "mongodb": "^1.4.7",
     "sgvdata": "0.0.2",
     "socket.io": "^0.9.17"
+  },
+  "devDependencies": {
+    "supertest": "~0.13.0",
+    "should": "~4.0.4",
+    "mocha": "~1.20.1"
   }
 }
