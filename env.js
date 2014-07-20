@@ -28,7 +28,10 @@ function config ( ) {
   // if a passphrase was provided, get the hex digest to mint a single token
   if (useSecret) {
     if (process.env.API_SECRET.length < consts.MIN_PASSPHRASE_LENGTH) {
-      console.error("API_SECRET should be at least", consts.MIN_PASSPHRASE_LENGTH, "characters");
+      var msg = ["API_SECRET should be at least", consts.MIN_PASSPHRASE_LENGTH, "characters"];
+      var err = new Error(msg.join(' '));
+      // console.error(err);
+      throw err;
       process.exit(1);
     }
     shasum.update(process.env.API_SECRET);

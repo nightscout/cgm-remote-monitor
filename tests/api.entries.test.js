@@ -31,7 +31,7 @@ describe('Entries REST api', function ( ) {
       .get('/entries/.json')
       .expect(200)
       .end(function (err, res)  {
-        console.log('body', res.body);
+        // console.log('body', res.body);
         res.body.length.should.equal(30);
         done( );
       });
@@ -57,7 +57,7 @@ describe('Entries REST api', function ( ) {
         .send(load('json'))
         .expect(201)
         .end(function (err, res)  {
-          console.log(res.body);
+          // console.log(res.body);
           res.body.length.should.equal(30);
           done( );
           // console.log('err', err, 'res', res);
