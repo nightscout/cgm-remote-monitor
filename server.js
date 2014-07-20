@@ -13,13 +13,14 @@
 
 // Description: Basic web server to display data from Dexcom G4.  Requires a database that contains
 // the Dexcom SGV data.
+'use strict';
 
 ///////////////////////////////////////////////////
 // DB Connection setup and utils
 ///////////////////////////////////////////////////
 
+var software = require('./package.json');
 var env = require('./env')( );
-var package = require('./package.json');
 var store = require('./lib/storage')(env);
 
 
@@ -41,7 +42,7 @@ var PORT = env.PORT;
 var THIRTY_DAYS = 2592000;
 
 var app = express();
-var appInfo = package.name + ' ' + package.version;
+var appInfo = software.name + ' ' + software.version;
 app.set('title', appInfo);
 app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
 
