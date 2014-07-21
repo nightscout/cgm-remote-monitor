@@ -142,3 +142,6 @@ body {
   color: blue;
   text-decoration: none;
 }
+.BatteryCheck {
+  display: none;
+}
