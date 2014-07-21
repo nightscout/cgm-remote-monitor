@@ -655,6 +655,7 @@
 
                 $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
                 if (current.battery){
+                    $('.BatteryCheck').show();
                     $('#battery').text(current.battery);
                 }
                 else {
