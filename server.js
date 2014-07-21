@@ -178,6 +178,7 @@ function update() {
                     obj.x = element.date;
                     obj.d = element.dateString;
                     obj.direction = directionToChar(element.direction);
+                    obj.battery = element.battery;
                     cgmData.push(obj);
                 }
             });
