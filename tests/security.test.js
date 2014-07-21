@@ -31,7 +31,7 @@ describe('API_SECRET', function ( ) {
   });
   */
   after(function (done) {
-    this.archive( ).remove({ }, done);
+    scope.archive( ).remove({ }, done);
   });
 
   it('should work fine absent', function (done) {
