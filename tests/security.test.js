@@ -1,3 +1,4 @@
+'use strict';
 
 var request = require('supertest');
 var should = require('should');
@@ -7,19 +8,21 @@ describe('API_SECRET', function ( ) {
   var api = require('../lib/api/');
   api.should.be.ok;
 
+  var scope = this;
   function setup_app (env, fn) {
     var ctx = { };
     ctx.wares = require('../lib/middleware/')(env);
     ctx.store = require('../lib/storage')(env);
     ctx.archive = require('../lib/entries')(env.mongo_collection, ctx.store);
     ctx.settings = require('../lib/settings')(env.settings_collection, ctx.store);
-    var self = this;
+
     ctx.store(function ( ) {
       ctx.app = api(env, ctx.wares, ctx.archive, ctx.settings);
-      self.app = ctx.app;
+      scope.app = ctx.app;
       ctx.archive.create(load('json'), fn);
+      scope.archive = ctx.archive;
     });
-    this.archive = ctx.archive;
+
     return ctx;
   }
   /*
