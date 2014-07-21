@@ -654,8 +654,14 @@
                 }
 
                 $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
-                $('#battery').text(current.battery);
+                if (current.battery){
+                    $('#battery').text(current.battery);
+                }
+                else {
+                    $('.BatteryCheck').hide();
+                }
                 $('.container .currentBG').text(currentBG);
+                
                 $('.container .currentDirection').html(current.direction);
                 $('.container .current').toggleClass('high', current.y > 180).toggleClass('low', current.y < 70)
             }
