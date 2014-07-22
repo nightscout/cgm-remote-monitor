@@ -161,6 +161,10 @@ body {
   font-size: 70%;
 }
 
+.alarms {
+    display: none;
+}
+
 #testAlarms {
   font-size: 20%;
   color: blue;
