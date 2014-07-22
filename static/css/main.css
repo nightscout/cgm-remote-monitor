@@ -67,6 +67,12 @@ body {
   fill-opacity: 0;
 }
 
+@media (max-width: 815px) {    
+  body {
+    font-size: 80%;
+  }
+}
+
 @media (max-width: 768px) {
   body {
     font-size: 60%;
@@ -74,6 +80,12 @@ body {
 
   #chartContainer {
     font-size: 150%;
+  }
+}
+
+@media (max-width: 510px) {
+  body {
+    font-size: 50%;
   }
 }
 
