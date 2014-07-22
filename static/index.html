@@ -46,22 +46,24 @@
         </div>
 
         <div id="drawer">
-            <form action="/save-settings" method="post">
-                <h4>Global Settings</h4>
+            <form action="/save-settings" method="post" id="settings-form">
+                <!--
+                <h4>Server Defaults</h4>
                 <fieldset class="numbers">
                     <legend>Alert Range</legend>
                     <label for="alertHigh">High</label><input id="alertHigh" name="alertHigh" value="180" type="text">
                     <label for="alertLow">Low</label> <input id="alertLow" name="alertLow" value="80" type="text">
                 </fieldset>
+                -->
 
-                <h4>Local Preferences</h4>
-                <fieldset>
-                    <legend>Mesurement Units</legend>
-                    <input type="radio" name="units" id="mg-dl" value="mg/dl" checked><label for="mg-dl">mg/dl</label>
-                    <input type="radio" name="units" id="mmol" value="mmol"><label for="mmol">mmol</label>
+                <h4>Browser Preferences</h4>
+                <fieldset class="radio">
+                    <legend>Units</legend>
+                    <input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked><label for="mgdl-browser">mg/dl</label><br>
+                    <input type="radio" name="units-browser" id="mmol-browser" value="mmol"><label for="mmol-browser">mmol</label>
                 </fieldset>
 
-                <input type="submit" value="Save" />
+                <input type="submit" id="save" value="Save">
             </form>
         </div>
 
@@ -72,8 +74,48 @@
         <script src="/socket.io/socket.io.js"></script>
         <script src="/bower_components/d3/d3.min.js"></script>
         <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+        <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/js/dropdown.js"></script>
         <script src="/js/client.js?a"></script>
         <script src="/js/drawer.js"></script>
+        <script>
+$(function() {
+    var storage = $.localStorage;
+    var browserSettings = {
+        "units": storage.get("units")
+    };
+    if (browserSettings.units == "mmol") {
+        $('#mmol-browser').prop('checked', true);
+    } else {
+        $('#mgdl-browser').prop('checked', true);
+    }
+
+    $("input#save").click(function() {
+        var unitsBrowser = $("input:radio[name=units-browser]:checked").val();
+        storeInBrowser({
+            "units": unitsBrowser
+        });
+
+        /* var formAction = $("#settings-form").attr("action");
+        var alertHigh = $("input#alertHigh").val();
+        var alertLow = $("input#alertLow").val();
+        storeOnServer({
+            "alertHigh": alertHigh,
+            "alertLow": alertLow
+        }); */
+
+        event.preventDefault();
+    });
+
+    function storeInBrowser(json) {
+        if (json.units) storage.set("units", json.units);
+    }
+
+    function storeOnServer(json) {
+        alert("TO DO: add storeOnServer() logic.\n" + json.alertHigh + "\n" + json.alertLow);
+        // reference: http://code.tutsplus.com/tutorials/submit-a-form-without-page-refresh-using-jquery--net-59
+    }
+});
+        </script>
     </body>
 </html>
