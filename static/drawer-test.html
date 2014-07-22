@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+ 
+<html>
+    <head>
+        <title>Drawer Tutorial</title>
+        <script type="text/javascript" src="/bower_components/jquery/dist/jquery.min.js"></script>
+        <script>
+function openDrawer()  {
+    $("#main_page").animate({marginLeft: "-300px"}, 300);
+}
+function closeDrawer() {
+    $("#main_page").animate({marginLeft: "0px"}, 300);
+}	
+function toggleDrawer() {
+    if(drawerIsOpen) {
+        closeDrawer();
+        drawerIsOpen = false;
+    }  else {
+        openDrawer();
+        drawerIsOpen = true;
+    }
+}
+var drawerIsOpen = false;
+        </script>
+        <style>
+#main_page {
+    background: #000;
+    color: #fff;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    height: 100%;
+    width: 100%;
+    z-index: 2;
+}
+
+#drawer_element {
+    position: absolute;
+    top: 0px;
+    right: 0; 
+    width: 300px;
+    height: 100%;
+    background-color: blue;
+    z-index: 1;
+}
+        </style>
+    </head>
+    <body>
+<div id="main_page">
+    <h1>Main Page</h1>
+
+    <div style="float:right"><a href="javascript:toggleDrawer()">Toggle Drawer</a></div>
+</div>
+
+<div id="drawer_element">
+    <h2>drawer</h2>
+</div>
+    </body>
+</html>
