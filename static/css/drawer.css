@@ -1,6 +1,7 @@
 body {
     margin: 0;
     padding: 0;
+    overflow: none;
 }
 .row-fluid {
     margin: 0 8px;
@@ -8,27 +9,29 @@ body {
 
 .container {
     background: #000;
-    top: 0;
-    left: 0;
+    bottom: 0;
     height: 100%;
-    width: 100%;
+    left: 0;
     margin: 0;
+    width: 100%;
+    top: 45px;
     z-index: 2;
 }
 
 #drawer {
+    background-color: #666;
+    border-left: 1px solid #999;
+    box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
     color: #eee;
     display: none;
+    height: calc(100% - 45px);
+    overflow-y: auto;
     position: absolute;
-    top: 0px;
+    margin-top: 45px;
     right: -200px;
     width: 200px;
-    height: 100%;
-    background-color: #666;
+    top: 0;
     z-index: 1;
-
-    border-left: 1px solid #999;
-    box-shadow: inset 5px 0 5px 0 rgba(51, 51, 51, 0.8);
 }
 
 form {
