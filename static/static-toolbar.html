@@ -6,16 +6,27 @@
         <link rel="stylesheet" href="/css/main.css">
         <link rel="stylesheet" href="/css/dropdown.css">
         <link rel="stylesheet" href="/css/drawer.css">
+        <style>
+.container {
+    top: 45px;
+}
+
+#drawer {
+    box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
+    top: 45px;
+}
+
+        </style>
     </head>
     <body>
-        <div class="container" id="container">
-            <div id="toolbar">
-                <div id="buttonbar">
-                    <a id="testAlarms" title="Alarm Test / Smartphone Enable" href="#">&nbsp;</a>
-                    <a id="drawerToggle" title="Settings" href="#">&nbsp;</a>
-                </div>
-                <h1>Nightscout</h1>
+        <div id="toolbar">
+            <div id="buttonbar">
+                <a id="testAlarms" title="Alarm Test / Smartphone Enable" href="#">&nbsp;</a>
+                <a id="drawerToggle" title="Settings" href="#">&nbsp;</a>
             </div>
+            <h1>Nightscout</h1>
+        </div>
+        <div class="container" id="container">
             <div class="row-fluid heading">
                 <div class="span1" style="font-size: 600%">
                     <div id="currentTime">---</div>
