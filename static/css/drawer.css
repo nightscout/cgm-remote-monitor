@@ -47,6 +47,7 @@ display: block;
     float: left;
     width: 50px;
 }
+
 h1, h2, h3, h4 {
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
