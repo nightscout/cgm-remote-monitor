@@ -46,26 +46,28 @@
         </div>
 
         <div id="drawer">
-            <h4>Global Settings</h4>
-            <form action="/actions/settings/global" method="post">
-                <fieldset>
-                    <legend>Mesurement Units</legend>
-                    <input type="radio" name="units" id="mg-dl" value="mg/dl" checked><label for="mg-dl">mg/dl</label>
-                    <input type="radio" name="units" id="mmol" value="mmol"><label for="mmol">mmol</label>
-                </fieldset>
-                <input type="submit" value="Save" />
-            </form>
-            <h4>Local Preferences</h4>
-            <form action="/actions/settings/local" method="post">
-                <fieldset>
-                    <legend>Alert Range</legend>
-                    <div><label for="alertHigh">High</label><input id="alertHigh" name="alertHigh" value="180"></div>
-                    <div><label for="alertLow">Low</label> <input id="alertLow" name="alertLow" value="80"></div>
-                </fieldset>
-                <input type="submit" value="Save" />
-            </form>
+            <div id="drawer-content">
+                <h4>Global Settings</h4>
+                <form action="/actions/settings/global" method="post">
+                    <fieldset>
+                        <legend>Mesurement Units</legend>
+                        <input type="radio" name="units" id="mg-dl" value="mg/dl" checked><label for="mg-dl">mg/dl</label>
+                        <input type="radio" name="units" id="mmol" value="mmol"><label for="mmol">mmol</label>
+                    </fieldset>
+                    <input type="submit" value="Save" />
+                </form>
+                <h4>Local Preferences</h4>
+                <form action="/actions/settings/local" method="post">
+                    <fieldset>
+                        <legend>Alert Range</legend>
+                        <div><label for="alertHigh">High</label><input id="alertHigh" name="alertHigh" value="180"></div>
+                        <div><label for="alertLow">Low</label> <input id="alertLow" name="alertLow" value="80"></div>
+                    </fieldset>
+                    <input type="submit" value="Save" />
+                </form>
+            </div>
         </div>
-        
+
         <div class="audio alarms">
             <audio src="/audio/alarm.mp3" preload="auto" loop="true" class="alarm mp3" type="audio/mp3"></audio>
             <audio src="/audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>

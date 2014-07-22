@@ -2,11 +2,14 @@ body {
     margin: 0;
     padding: 0;
 }
-            
+.row-fluid {
+    margin: 0 8px;
+}
+
 .container {
     background: #000;
-    top: 0px;
-    left: 0px;
+    top: 0;
+    left: 0;
     height: 100%;
     width: 100%;
     margin: 0;
@@ -18,19 +21,27 @@ body {
     display: none;
     position: absolute;
     top: 0px;
-    right: -300px; 
-    width: 300px;
+    right: -200px;
+    width: 200px;
     height: 100%;
     background-color: #666;
     z-index: 1;
-    
-    border-left: 1px solid #ccc;
-    box-shadow: 5px 0px 5px  rgba(51, 51, 51, 0.8);
+
+    border-left: 1px solid #999;
+    box-shadow: inset 5px 0 5px 0 rgba(51, 51, 51, 0.8);
+}
+
+#drawer-content {
+    margin: 0;
+    padding: 0 10px;
+}
+h1, h2, h3, h4 {
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 #toolbar {
     background: url(/images/logo.png) no-repeat 3px 3px #333;
-    border-bottom: 1px solid #ccc;
+    border-bottom: 1px solid #999;
     top: 0;
     margin: 0;
     height: 44px;
@@ -40,16 +51,15 @@ body {
     margin-top: 0;
     margin-left: 42px;
     padding: 10px;
-    color: #fff;
+    color: #ccc;
     font-size: 16px;
     line-height: 22px;
-    text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.8);
 }
 #buttonbar {
     padding: 0;
     float: right;
     height: 44px;
-    width: 88px; 
+    width: 88px;
     opacity: 0.5;
 }
 #buttonbar a {
