@@ -168,7 +168,6 @@ function update() {
     now = Date.now();
 
     cgmData = [];
-    settingsData = [];
     var earliest_data = now - TWO_DAYS;
     mongoClient.connect(DB_URL, function (err, db) {
         if (err) throw err;
@@ -184,16 +183,8 @@ function update() {
                     obj.direction = directionToChar(element.direction);
                     cgmData.push(obj);
                 }
-		collection.find({"type": "settings"}).toArray(function(err, setresults) {
-			setresults.forEach(function(element, index, array) {
-				if (element) {
-					battery = element.battery;
-				}
-			});
-			//db.close();
-		});
             });
-            
+            db.close();
         });
     });
 
