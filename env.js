@@ -1,6 +1,8 @@
+'use strict';
 
 var env = { };
 var crypto = require('crypto');
+var consts = require('./lib/constants');
 // Module to constrain all config and environment parsing to one spot.
 function config ( ) {
 
@@ -25,6 +27,13 @@ function config ( ) {
   env.api_secret = null;
   // if a passphrase was provided, get the hex digest to mint a single token
   if (useSecret) {
+    if (process.env.API_SECRET.length < consts.MIN_PASSPHRASE_LENGTH) {
+      var msg = ["API_SECRET should be at least", consts.MIN_PASSPHRASE_LENGTH, "characters"];
+      var err = new Error(msg.join(' '));
+      // console.error(err);
+      throw err;
+      process.exit(1);
+    }
     shasum.update(process.env.API_SECRET);
     env.api_secret = shasum.digest('hex');
   }
