@@ -186,7 +186,7 @@ function update() {
                 }
             });
         });
-        collection.find({"type": "settings").toArray(function(err, setresults) {
+        collection.find({"type": "settings"}).toArray(function(err, setresults) {
             setresults.forEach(function(element2, index2, array2) {
                 if (element2) {
                     var obj2 = {};
