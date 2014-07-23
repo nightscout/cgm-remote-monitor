@@ -27,6 +27,7 @@
         THIRTY_MINS_IN_MS = 1800000,
         FORTY_TWO_MINS_IN_MS = 2520000,
         FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
+        FORMAT_TIME = '%I:%M%p', //alternate format '%H:%M'
         audio = document.getElementById('audio'),
         alarmInProgress = false,
         currentAlarmType = null,
@@ -231,14 +232,14 @@
                     .css('text-decoration','none');
             }
             $('#currentTime')
-                .text(d3.time.format('%I:%M%p')(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
+                .text(d3.time.format(FORMAT_TIME)(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
                 .css('text-decoration','line-through');
         } else if (retrospectivePredictor) {
             // if the brush comes back into the current time range then it should reset to the current time and sg
             var dateTime = new Date(now);
             nowDate = dateTime;
             $('#currentTime')
-                .text(d3.time.format('%I:%M%p')(dateTime))
+                .text(d3.time.format(FORMAT_TIME)(dateTime))
                 .css('text-decoration','none');
             $('.container .currentBG')
                 .text(scaleBg(latestSGV.y))
@@ -649,7 +650,7 @@
         now = d;
         var dateTime = new Date(now);
         // lixgbg old: $('#currentTime').text(d3.time.format('%I:%M%p')(dateTime));
-        $('#currentTime').text(d3.time.format('%H:%M')(dateTime));
+        $('#currentTime').text(d3.time.format(FORMAT_TIME)(dateTime));
 
         // Dim the screen by reducing the opacity when at nighttime
         if (browserSettings.nightMode) {
