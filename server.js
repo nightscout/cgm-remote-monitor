@@ -24,6 +24,8 @@ var express = require('express');
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
 var cgmData = [];
+//var uploaderSettings = [];
+var settingsData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -94,6 +96,7 @@ io.sockets.on('connection', function (socket) {
     io.sockets.emit("now", now);
     io.sockets.emit("sgv", patientData);
     io.sockets.emit("clients", ++watchers);
+    io.sockets.emit("settings",settingsData);
     socket.on('ack', function(alarmType, _silenceTime) {
         alarms[alarmType].lastAckTime = new Date().getTime();
         alarms[alarmType].silenceTime = _silenceTime ? _silenceTime : FORTY_MINUTES;
@@ -165,6 +168,7 @@ function update() {
     now = Date.now();
 
     cgmData = [];
+    settingsData = [];
     var earliest_data = now - TWO_DAYS;
     mongoClient.connect(DB_URL, function (err, db) {
         if (err) throw err;
@@ -178,10 +182,19 @@ function update() {
                     obj.x = element.date;
                     obj.d = element.dateString;
                     obj.direction = directionToChar(element.direction);
-                    obj.battery = element.battery;
                     cgmData.push(obj);
                 }
             });
+        //Get Settins Document    
+        collection.find({"type":"settings"}).toArray(function(err,results))    {
+            results.forEach(function(element,index,array) {
+                if (element){
+                    var obj = {};
+                    obj.battery = element.battery;
+                    settingsData.push(obj);
+                }
+            })
+        }
             db.close();
         });
     });
@@ -254,6 +267,7 @@ function loadData() {
         patientData = [actual, predicted, mbg, treatment];
         io.sockets.emit("now", now);
         io.sockets.emit("sgv", patientData);
+        io.sockets.emit("settings",settingsData);
 
         // compute current loss
         var avgLoss = 0;
