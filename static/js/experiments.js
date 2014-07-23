@@ -13,6 +13,7 @@ $(function() {
 	$(".iconToggle").on("click", function(){
 		var newIcon = $(this).find("img").attr("src");
 		$("#favicon").prop("href", newIcon);
+		$("#favicon").prop("original-title", newIcon);
 		event.preventDefault();
 	});
 });
