@@ -14,7 +14,7 @@ describe('Entries REST api', function ( ) {
     this.app.enable('api');
     var self = this;
     store(function ( ) {
-      self.app.use('/entries/', entries(self.app, self.wares, self.archive));
+      self.app.use('/', entries(self.app, self.wares, self.archive));
       self.archive.create(load('json'), done);
     });
   });
@@ -28,14 +28,24 @@ describe('Entries REST api', function ( ) {
   });
   it('/entries.json', function (done) {
     request(this.app)
-      .get('/entries/.json')
+      .get('/entries.json')
+      .expect(200)
+      .end(function (err, res)  {
+        // console.log('body', res.body);
+        res.body.length.should.equal(10);
+        done( );
+      });
+  });
+
+  it('/entries.json', function (done) {
+    request(this.app)
+      .get('/entries.json?count=30')
       .expect(200)
       .end(function (err, res)  {
         // console.log('body', res.body);
         res.body.length.should.equal(30);
         done( );
       });
-
   });
 
   it('/entries/current.json', function (done) {
