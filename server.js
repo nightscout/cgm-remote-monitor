@@ -184,7 +184,7 @@ function update() {
                     obj.direction = directionToChar(element.direction);
                     cgmData.push(obj);
                 }
-		collection.find({"type": "settings"}).toArray(function(err, setresults) {
+		collection.find({type: "settings"}).toArray(function(err, setresults) {
 			setresults.forEach(function(element, index, array) {
 				if (element) {
 					var setobj = {};
