@@ -54,6 +54,8 @@ app.use('/api/v1', api);
 // pebble data
 app.get('/pebble', pebble(entries));
 
+//app.get('/package.json', software);
+
 // define static server
 var staticFiles = express.static(env.static_files, {maxAge: THIRTY_DAYS * 1000});
 
