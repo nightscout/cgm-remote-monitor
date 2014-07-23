@@ -199,7 +199,7 @@ function update() {
     });
 
     // wait for database read to complete, 5 secs has proven to be more than enough
-    setTimeout(loadData, 5000);
+    setTimeout(loadData, 8000);
 
     return update;
 }
