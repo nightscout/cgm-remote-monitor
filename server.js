@@ -187,11 +187,11 @@ function update() {
             });
         });
         collection.find({"type": "settings"}).toArray(function(err, setresults) {
-            setresults.forEach(function(element2, index2, array2) {
-                if (element2) {
-                    var obj2 = {};
-                    obj2.battery = element2.battery;
-                    settingsData.push(obj2);
+            setresults.forEach(function(element, index, array) {
+                if (element) {
+                    var setobj = {};
+                    setobj.battery = element.battery;
+                    settingsData.push(setobj);
                 }
             });
         });
