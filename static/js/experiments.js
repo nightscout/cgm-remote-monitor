@@ -5,6 +5,7 @@ $(function() {
 	});
 	if (querystring.experiments) {
 		$(".experiments").show();
+		$("#drawerToggle").click();
 	} else {
 		$(".experiments").hide();
 	}
