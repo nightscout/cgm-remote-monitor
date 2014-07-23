@@ -266,7 +266,7 @@ function loadData() {
         patientData = [actual, predicted, mbg, treatment];
         io.sockets.emit("now", now);
         io.sockets.emit("sgv", patientData);
-        //io.sockets.emit("settings", settingsData);
+        io.sockets.emit("settings", settingsData);
 
         // compute current loss
         var avgLoss = 0;
