@@ -628,19 +628,19 @@
         }
     });
     
-    socket.on('settings', function (d) {
-        if (d.length > 1) {
-            if (d[0].length){
-                var settings = d[0][d[0].length-1];
-             if (settings.battery){
-                    $('.BatteryCheck').show();
-                    $('#battery').text(settings.battery);
-                }
-                else {
-                    $('.BatteryCheck').hide();
-                }   
-            }
-    });
+    //socket.on('settings', function (d) {
+        //if (d.length > 1) {
+            //if (d[0].length){
+                //var settings = d[0][d[0].length-1];
+             //if (settings.battery){
+                    //$('.BatteryCheck').show();
+                    //$('#battery').text(settings.battery);
+                //}
+                //else {
+                    //$('.BatteryCheck').hide();
+                //}   
+            //}
+    //});
 
     socket.on('sgv', function (d) {
         if (d.length > 1) {
