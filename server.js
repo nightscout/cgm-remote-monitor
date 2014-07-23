@@ -185,7 +185,7 @@ function update() {
                     cgmData.push(obj);
                 }
             });
-        //Get Settins Document    
+        //Get Settings Document    
         collection.find({"type":"settings"}).toArray(function(err,results))    {
             results.forEach(function(element,index,array) {
                 if (element){
@@ -193,7 +193,7 @@ function update() {
                     obj.battery = element.battery;
                     settingsData.push(obj);
                 }
-            })
+            });
         }
             db.close();
         });
