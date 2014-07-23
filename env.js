@@ -17,7 +17,10 @@ function config ( ) {
    *     static files over http.  Default value is the included `static`
    *     directory.
    */
+  var software = require('./package.json');
 
+  env.version = software.version;
+  env.name = software.name;
   env.PORT = process.env.PORT || 1337;
   env.mongo = process.env.MONGO_CONNECTION || process.env.CUSTOMCONNSTR_mongo;
   env.mongo_collection = process.env.CUSTOMCONNSTR_mongo_collection || 'entries';
