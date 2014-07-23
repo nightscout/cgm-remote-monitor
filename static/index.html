@@ -3,6 +3,7 @@
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>NightScout</title>
+        <link href="/icons/eyes.png" rel="icon" id="favicon" type="image/png" />
         <link rel="stylesheet" href="/css/main.css">
         <link rel="stylesheet" href="/css/dropdown.css">
         <link rel="stylesheet" href="/css/drawer.css">
@@ -65,11 +66,28 @@
                     <input type="radio" name="units-browser" id="mmol-browser" value="mmol"><label for="mmol-browser">mmol</label>
                 </fieldset>
                 <fieldset class="toggle">
-                    <legend>Night Mode <a class="tip fa fa-info-circle" original-title="This dims the page by 50% from 9pm - 7am.">&nbsp;</a></legend>
+                    <legend>Night Mode <a class="tip fa fa-info-circle" original-title="When enabled the page will be dimmed from 9pm - 7am.">&nbsp;</a></legend>
                     <input type="checkbox" name="nightmode-browser" id="nightmode-browser"><label for="nightmode-browser">Enable</label>
                 </fieldset>
 
                 <input type="submit" id="save" value="Save">
+
+                <div class="experiments">
+                    <hr>
+
+                    <h4>Experiments</h4>
+                    <fieldset style="text-align:center; vertical-align:middle;">
+                        <legend>Try a Favicon</legend>
+                        <a class="iconToggle" href="#"><img src="/icons/round.png" style="width:32px; height:32px"></a>
+                        <a class="iconToggle" href="#"><img src="/images/logo.png" style="width:32px; height:32px"></a>
+                        <a class="iconToggle" href="#"><img src="/icons/silhouette.png" style="width:32px; height:32px"></a>
+                        <a class="iconToggle" href="#"><img src="/icons/eyes.png" style="width:32px; height:32px"></a>
+                        <br />
+                        <a class="iconToggle" href="#"><img src="/icons/drop1.png" style="width:32px; height:32px"></a>
+                        <a class="iconToggle" href="#"><img src="/icons/drop2.png" style="width:32px; height:32px"></a>
+                        <a class="iconToggle" href="#"><img src="/icons/drop3.png" style="width:32px; height:32px"></a>
+                    </fieldset>
+                </div>
             </form>
         </div>
 
@@ -86,5 +104,6 @@
         <script src="/js/client.js"></script>
         <script src="/js/drawer.js"></script>
         <script src="/js/settings.js"></script>
+        <script src="/js/experiments.js"></script>
     </body>
 </html>
