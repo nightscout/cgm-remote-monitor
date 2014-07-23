@@ -36,10 +36,7 @@
         "units": storage.get("units"),
         "nightMode": storage.get("nightMode")
     };
-    var useMetricBg = false; // true means use mmol/L, false means mg/dLe
-    if (browserSettings.units == "mmol") {
-        useMetricBg = true;
-    }
+    // default nightmode to true
     if (typeof(browserSettings.nightMode) === 'undefined' || browserSettings.nightMode == null) {
         browserSettings.nightMode = true;
     }
@@ -72,10 +69,11 @@
 
     // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
-        if (useMetricBg) {
+        if (browserSettings.units == "mmol") {
             return (Math.round((bg / 18) * 10) / 10).toFixed(1);
-        } else
+        } else {
             return bg;
+        }
     }
 
     // initial setup of chart when data is first made available

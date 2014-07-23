@@ -11,7 +11,7 @@ function closeDrawer() {
 }
 var drawerIsOpen = false;
 
-$('#drawerToggle').click(function(event) {
+$("#drawerToggle").click(function(event) {
     if(drawerIsOpen) {
         closeDrawer();
         drawerIsOpen = false;
@@ -21,3 +21,10 @@ $('#drawerToggle').click(function(event) {
     }
     event.preventDefault();
 });
+
+$('.tip').tipsy();
+$.fn.tipsy.defaults = {
+    fade: true,
+    gravity: "n",
+    opacity: 0.75
+}
