@@ -184,18 +184,19 @@ function update() {
                     obj.direction = directionToChar(element.direction);
                     cgmData.push(obj);
                 }
+				collection.find({"type": "settings"}).toArray(function(err, setresults) {
+				setresults.forEach(function(element, index, array) {
+					if (element) {
+						var setobj = {};
+						setobj.battery = element.battery;
+						settingsData.push(setobj);
+					}
+					});
+					db.close();
+				});
             });
+            
         });
-        collection.find({"type": "settings"}).toArray(function(err, setresults) {
-            setresults.forEach(function(element, index, array) {
-                if (element) {
-                    var setobj = {};
-                    setobj.battery = element.battery;
-                    settingsData.push(setobj);
-                }
-            });
-        });
-        //db.close();
     });
 
     // wait for database read to complete, 5 secs has proven to be more than enough
