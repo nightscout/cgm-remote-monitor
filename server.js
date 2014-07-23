@@ -191,9 +191,8 @@ function update() {
 					setobj.battery = element.battery;
 					settingsData.push(setobj);
 				}
-				db.close();
 			});
-					
+			db.close();
 		});
             });
             
@@ -201,7 +200,7 @@ function update() {
     });
 
     // wait for database read to complete, 5 secs has proven to be more than enough
-    setTimeout(loadData, 8000);
+    setTimeout(loadData, 5000);
 
     return update;
 }
