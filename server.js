@@ -96,7 +96,7 @@ io.sockets.on('connection', function (socket) {
     io.sockets.emit("now", now);
     io.sockets.emit("sgv", patientData);
     io.sockets.emit("clients", ++watchers);
-    io.sockets.emit("settings",settingsData);
+    io.sockets.emit("settings", settingsData);
     socket.on('ack', function(alarmType, _silenceTime) {
         alarms[alarmType].lastAckTime = new Date().getTime();
         alarms[alarmType].silenceTime = _silenceTime ? _silenceTime : FORTY_MINUTES;
@@ -186,7 +186,7 @@ function update() {
                 }
             });
         //Get Settings Document    
-        collection.find({"type":"settings"}).toArray(function(err,results))    {
+        collection.find({"type": "settings"}).toArray(function(err, results) {
             results.forEach(function(element, index, array) {
                 if (element) {
                     var obj = {};
