@@ -13,7 +13,12 @@ $(function() {
 	$(".iconToggle").on("click", function(){
 		var newIcon = $(this).find("img").attr("src");
 		$("#favicon").prop("href", newIcon);
-		$("#favicon").prop("original-title", newIcon);
+		event.preventDefault();
+	});
+
+	$(".toolbarIconToggle").on("click", function(){
+		var newIcon = $(this).find("img").attr("src");
+		$("#toolbar").css({'background-image':'url('+newIcon+')'});
 		event.preventDefault();
 	});
 });
