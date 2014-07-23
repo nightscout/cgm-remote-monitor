@@ -33,11 +33,15 @@
 
     var storage = $.localStorage;
     var browserSettings = {
-        "units": storage.get("units")
+        "units": storage.get("units"),
+        "nightMode": storage.get("nightMode")
     };
     var useMetricBg = false; // true means use mmol/L, false means mg/dLe
     if (browserSettings.units == "mmol") {
         useMetricBg = true;
+    }
+    if (typeof(browserSettings.nightMode) === 'undefined' || browserSettings.nightMode == null) {
+        browserSettings.nightMode = true;
     }
 
     // create svg and g to contain the chart contents
@@ -640,10 +644,12 @@
         $('#currentTime').text(d3.time.format('%H:%M')(dateTime));
 
         // Dim the screen by reducing the opacity when at nighttime
-        if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7)) {
-            $('body').css({ 'opacity': opacity.NIGHT });
-        } else {
-            $('body').css({ 'opacity': opacity.DAY });
+        if (browserSettings.nightMode) {
+            if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7)) {
+                $('body').css({ 'opacity': opacity.NIGHT });
+            } else {
+                $('body').css({ 'opacity': opacity.DAY });
+            }
         }
     });
 
