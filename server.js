@@ -186,15 +186,14 @@ function update() {
                 }
             });
         //Get Settings Document    
-        //collection.find({"type":"settings"}).toArray(function(err,results))    {
-            //results.forEach(function(element, index, array) {
-                //if (element){
-                    //var obj = {};
-                    //obj.battery = element.battery;
-                    //settingsData.push(obj);
-                //}
-            //});
-        //}
+        collection.find({"type":"settings"}).toArray(function(err,results))    {
+            results.forEach(function(element, index, array) {
+                if (element) {
+                    var obj = {};
+                    obj.battery = element.battery;
+                    settingsData.push(obj);
+                }
+            });
             db.close();
         });
     });
