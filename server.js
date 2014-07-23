@@ -25,7 +25,7 @@ var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
 var cgmData = [];
 //var uploaderSettings = [];
-var settingsData = [];
+var battery;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -96,7 +96,7 @@ io.sockets.on('connection', function (socket) {
     io.sockets.emit("now", now);
     io.sockets.emit("sgv", patientData);
     io.sockets.emit("clients", ++watchers);
-    io.sockets.emit("settings", settingsData);
+    io.sockets.emit("settings", battery);
     socket.on('ack', function(alarmType, _silenceTime) {
         alarms[alarmType].lastAckTime = new Date().getTime();
         alarms[alarmType].silenceTime = _silenceTime ? _silenceTime : FORTY_MINUTES;
@@ -187,9 +187,7 @@ function update() {
 		collection.find({"type": "settings"}).toArray(function(err, setresults) {
 			setresults.forEach(function(element, index, array) {
 				if (element) {
-					var setobj = {};
-					setobj.battery = element.battery;
-					settingsData.push(setobj);
+					battery = element.battery;
 				}
 			});
 			db.close();
@@ -267,7 +265,7 @@ function loadData() {
         patientData = [actual, predicted, mbg, treatment];
         io.sockets.emit("now", now);
         io.sockets.emit("sgv", patientData);
-        io.sockets.emit("settings", settingsData);
+        io.sockets.emit("settings", battery);
 
         // compute current loss
         var avgLoss = 0;
