@@ -1,6 +1,8 @@
 (function () {
     "use strict";
 
+    var browserSettings = getBrowserSettings();
+
     var retrospectivePredictor = true,
         latestSGV,
         treatments,
@@ -31,14 +33,10 @@
         alarmSound = 'alarm.mp3',
         urgentAlarmSound = 'alarm2.mp3';
 
-    var storage = $.localStorage;
-    var browserSettings = {
-        "units": storage.get("units"),
-        "nightMode": storage.get("nightMode")
-    };
-    // default nightmode to true
-    if (typeof(browserSettings.nightMode) === 'undefined' || browserSettings.nightMode == null) {
-        browserSettings.nightMode = true;
+    // Tick Values
+    var tickValues = [40, 60, 80, 120, 180, 300, 400];
+    if (browserSettings.units == "mmol") {
+        var tickValues = [2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0];
     }
 
     // create svg and g to contain the chart contents
@@ -66,6 +64,20 @@
     // create the y axis container
     context.append('g')
         .attr('class', 'y axis');
+
+
+    function getBrowserSettings() {
+        var storage = $.localStorage;
+        var settings = {
+            "units": storage.get("units"),
+            "nightMode": storage.get("nightMode")
+        };
+        // default nightmode to true
+        if (typeof(settings.nightMode) === 'undefined' || settings.nightMode == null) {
+            settings.nightMode = true;
+        }
+        return settings;
+    }
 
     // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
@@ -100,8 +112,7 @@
         yAxis = d3.svg.axis()
             .scale(yScale)
             .tickFormat(d3.format('d'))
-            /*.tickValues([scaleBg(40), scaleBg(60), scaleBg(80), scaleBg(120), scaleBg(180), scaleBg(300), scaleBg(400)])*/
-            .tickValues([2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0])
+            .tickValues(tickValues)
             .orient('left');
 
         xAxis2 = d3.svg.axis()
@@ -112,8 +123,7 @@
         yAxis2 = d3.svg.axis()
             .scale(yScale2)
             .tickFormat(d3.format('d'))
-            /*.tickValues([scaleBg(40), scaleBg(60), scaleBg(80), scaleBg(120), scaleBg(180), scaleBg(300), scaleBg(400)])*/
-            .tickValues([2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0])
+            .tickValues(tickValues)
             .orient('right');
 
         // setup a brush
