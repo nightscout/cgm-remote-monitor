@@ -191,7 +191,7 @@ function update() {
                 if (element) {
                     var obj = {};
                     obj.battery = element.battery;
-                    settingsData.push(obj);
+                    //settingsData.push(obj);
                 }
             });
             db.close();
