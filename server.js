@@ -186,13 +186,13 @@ function update() {
                 }
             });
         //Get Settings Document    
-        collection.find({"type": "settings"}).toArray(function(err, results) {
-            results.forEach(function(element, index, array) {
-                //if (element) {
-                    //var obj = {};
-                    //obj.battery = element.battery;
-                    //settingsData.push(obj);
-                //}
+        collection.find({"type": "settings"}).toArray(function(err, results2) {
+            results2.forEach(function(element2, index2, array2) {
+                if (element2) {
+                    var obj2 = {};
+                    obj.battery = element2.battery;
+                    settingsData.push(obj2);
+                }
             });
             db.close();
         });
