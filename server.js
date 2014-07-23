@@ -190,7 +190,7 @@ function update() {
 					battery = element.battery;
 				}
 			});
-			db.close();
+			//db.close();
 		});
             });
             
