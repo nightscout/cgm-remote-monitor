@@ -185,13 +185,17 @@ function update() {
                     cgmData.push(obj);
                 }
             });
-        //Get Settings Document    
-        collection.find({"type": "settings"}).toArray(function(err, results2) {
-            results2.forEach(function(element2, index2, array2) {
-                
-            });
-            db.close();
         });
+        collection.find({"type": "settings").toArray(function(err, setresults) {
+            setresults.forEach(function(element, index, array) {
+                if (element) {
+                    var obj = {};
+                    obj.battery = element.battery;
+                    settingsData.push(obj);
+                }
+            });
+        });
+        db.close();
     });
 
     // wait for database read to complete, 5 secs has proven to be more than enough
