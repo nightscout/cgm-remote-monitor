@@ -195,7 +195,7 @@ function update() {
                 }
             });
         });
-        db.close();
+        //db.close();
     });
 
     // wait for database read to complete, 5 secs has proven to be more than enough
