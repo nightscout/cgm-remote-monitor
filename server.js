@@ -25,7 +25,7 @@ var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
 var cgmData = [];
 //var uploaderSettings = [];
-var battery;
+var settingsData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -96,7 +96,7 @@ io.sockets.on('connection', function (socket) {
     io.sockets.emit("now", now);
     io.sockets.emit("sgv", patientData);
     io.sockets.emit("clients", ++watchers);
-    io.sockets.emit("settings", battery);
+    io.sockets.emit("settings", settingsData);
     socket.on('ack', function(alarmType, _silenceTime) {
         alarms[alarmType].lastAckTime = new Date().getTime();
         alarms[alarmType].silenceTime = _silenceTime ? _silenceTime : FORTY_MINUTES;
@@ -168,6 +168,7 @@ function update() {
     now = Date.now();
 
     cgmData = [];
+    settingsData = [];
     var earliest_data = now - TWO_DAYS;
     mongoClient.connect(DB_URL, function (err, db) {
         if (err) throw err;
@@ -183,8 +184,20 @@ function update() {
                     obj.direction = directionToChar(element.direction);
                     cgmData.push(obj);
                 }
+		collection.find({"type": "settings"}).toArray(function(err, setresults) {
+			setresults.forEach(function(element, index, array) {
+				if (element) {
+					var setobj = {};
+					setobj.battery = element.battery;
+					settingsData.push(setobj);
+				}
+				
+			});
+			db.close();
+					
+		});
             });
-            db.close();
+            
         });
     });
 
@@ -256,7 +269,7 @@ function loadData() {
         patientData = [actual, predicted, mbg, treatment];
         io.sockets.emit("now", now);
         io.sockets.emit("sgv", patientData);
-        io.sockets.emit("settings", battery);
+        io.sockets.emit("settings", settingsData);
 
         // compute current loss
         var avgLoss = 0;
