@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>NightScout</title>
+		<link rel="stylesheet" href="/css/main.css">
+		<link rel="stylesheet" href="/css/dropdown.css">
+		<link rel="stylesheet" href="/css/drawer.css">
+		<style>
+		.container {
+			top: 0;
+		}
+		#drawer {
+			box-shadow: inset 5px 0 5px 0 rgba(50, 50, 50, 0.75);
+			top: 0;
+		}
+		</style>
+	</head>
+	<body>
+		<div class="container" id="container">
+			<div id="toolbar">
+				<div id="buttonbar">
+					<a id="testAlarms" title="Alarm Test / Smartphone Enable" href="#">&nbsp;</a>
+					<a id="drawerToggle" title="Settings" href="#">&nbsp;</a>
+				</div>
+				<h1>Nightscout</h1>
+			</div>
+			<div class="row-fluid heading">
+				<div class="span1" style="font-size: 600%">
+					<div id="currentTime">---</div>
+					<div style="font-size: 25%; line-height: 300%">
+						<span id="lastEntry">---</span>
+					</div>
+				</div>
+				<div class="span2 current" style="font-size: 900%">
+					<div id="noButton">
+						<span class="currentBG">---</span>
+						<span class="currentDirection">-</span>
+					</div>
+					<div id="bgButton" hidden="true">
+						<span class="currentBG">---</span>
+						<span class="currentDirection">-</span>
+					</div>
+					<ul class="dropdown-menu" id="silenceBtn">
+						<li><a href="#" data-snooze-time="1800000">Silence for 30 minutes</a></li>
+						<li><a href="#" data-snooze-time="3600000">Silence for 60 minutes</a></li>
+						<li><a href="#" data-snooze-time="5400000">Silence for 90 minutes</a></li>
+						<li><a href="#" data-snooze-time="7200000">Silence for 120 minutes</a></li>
+					</ul>
+				</div>
+			</div>
+			<div class="row-fluid section1">
+				<div id="chartContainer"></div>
+			</div>
+		</div>
+
+		<div id="drawer">
+			<form action="/save-settings" method="post">
+				<h4>Global Settings</h4>
+				<fieldset class="numbers">
+					<legend>Alert Range</legend>
+					<label for="alertHigh">High</label><input id="alertHigh" name="alertHigh" value="180" type="text">
+					<label for="alertLow">Low</label> <input id="alertLow" name="alertLow" value="80" type="text">
+				</fieldset>
+
+				<h4>Local Preferences</h4>
+				<fieldset>
+					<legend>Mesurement Units</legend>
+					<input type="radio" name="units" id="mg-dl" value="mg/dl" checked><label for="mg-dl">mg/dl</label>
+					<input type="radio" name="units" id="mmol" value="mmol"><label for="mmol">mmol</label>
+				</fieldset>
+
+				<input type="submit" value="Save" />
+			</form>
+		</div>
+
+		<div class="audio alarms">
+			<audio src="/audio/alarm.mp3" preload="auto" loop="true" class="alarm mp3" type="audio/mp3"></audio>
+			<audio src="/audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
+		</div>
+		<script src="/socket.io/socket.io.js"></script>
+		<script src="/bower_components/d3/d3.min.js"></script>
+		<script src="/bower_components/jquery/dist/jquery.min.js"></script>
+		<script src="/js/dropdown.js"></script>
+		<script src="/js/client.js?a"></script>
+		<script src="/js/drawer.js"></script>
+	</body>
+</html>

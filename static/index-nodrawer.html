@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+        <title>NightScout</title>
+        <link rel='stylesheet' type='text/css' href='/css/main.css'>
+        <link rel='stylesheet' type='text/css' href='/css/dropdown.css'>
+    </head>
+    <body>
+        <div class='container'>
+            <div class='row-fluid heading'>
+                <div class='span1' style='font-size: 600%'>
+                    <div id='currentTime'>---</div>
+                    <div style='font-size: 25%; line-height: 300%'>
+                        <span id='lastEntry'>---</span>
+                    </div>
+                </div>
+                <div class='span2 current' style='font-size: 900%'>
+                    <div id='noButton'>
+                        <span class='currentBG'>---</span>
+                        <span class="currentDirection">-</span><a id="testAlarms" href="#">&#10003;&#9834;</a>
+                    </div>
+                    <div id='bgButton' hidden='true'>
+                        <span class='currentBG'>---</span>
+                        <span class="currentDirection">-</span>
+                    </div>
+                    <ul class="dropdown-menu" id="silenceBtn">
+                        <li><a href="#" data-snooze-time="1800000">Silence for 30 minutes</a></li>
+                        <li><a href="#" data-snooze-time="3600000">Silence for 60 minutes</a></li>
+                        <li><a href="#" data-snooze-time="5400000">Silence for 90 minutes</a></li>
+                        <li><a href="#" data-snooze-time="7200000">Silence for 120 minutes</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class='row-fluid section1'>
+                <div id='chartContainer'></div>
+            </div>
+        </div>
+        <div class="audio alarms">
+        <audio src='/audio/alarm.mp3' preload="auto" loop="true" class="alarm mp3" type='audio/mp3'></audio>
+        <audio src='/audio/alarm2.mp3' preload="auto" loop="true" class="urgent alarm2 mp3" type='audio/mp3'></audio>
+        </div>
+        <script src='/socket.io/socket.io.js'></script>
+        <script src='/bower_components/d3/d3.min.js'></script>
+        <script src='/bower_components/jquery/dist/jquery.min.js'></script>
+        <script src='/js/dropdown.js'></script>
+        <script src='/js/client.js?a'></script>
+    </body>
+</html>

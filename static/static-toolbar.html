@@ -6,7 +6,17 @@
         <link rel="stylesheet" href="/css/main.css">
         <link rel="stylesheet" href="/css/dropdown.css">
         <link rel="stylesheet" href="/css/drawer.css">
-        <link rel="stylesheet" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css">
+        <style>
+.container {
+    top: 45px;
+}
+
+#drawer {
+    box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
+    top: 45px;
+}
+
+        </style>
     </head>
     <body>
         <div id="toolbar">
@@ -14,9 +24,8 @@
                 <a id="testAlarms" title="Alarm Test / Smartphone Enable" href="#">&nbsp;</a>
                 <a id="drawerToggle" title="Settings" href="#">&nbsp;</a>
             </div>
-            <h1>Nightscout <span class="version"></span> </h1>
+            <h1>Nightscout</h1>
         </div>
-
         <div class="container" id="container">
             <div class="row-fluid heading">
                 <div class="span1" style="font-size: 600%">
@@ -48,28 +57,22 @@
         </div>
 
         <div id="drawer">
-            <form action="/save-settings" method="post" id="settings-form">
-                <!--
-                <h4>Server Defaults</h4>
+            <form action="/save-settings" method="post">
+                <h4>Global Settings</h4>
                 <fieldset class="numbers">
                     <legend>Alert Range</legend>
                     <label for="alertHigh">High</label><input id="alertHigh" name="alertHigh" value="180" type="text">
                     <label for="alertLow">Low</label> <input id="alertLow" name="alertLow" value="80" type="text">
                 </fieldset>
-                -->
 
-                <h4>Browser Preferences</h4>
-                <fieldset class="radio">
-                    <legend>Units</legend>
-                    <input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked><label for="mgdl-browser">mg/dl</label><br>
-                    <input type="radio" name="units-browser" id="mmol-browser" value="mmol"><label for="mmol-browser">mmol</label>
-                </fieldset>
-                <fieldset class="toggle">
-                    <legend>Night Mode <a class="tip fa fa-info-circle" original-title="This dims the page by 50% from 9pm - 7am.">&nbsp;</a></legend>
-                    <input type="checkbox" name="nightmode-browser" id="nightmode-browser"><label for="nightmode-browser">Enable</label>
+                <h4>Local Preferences</h4>
+                <fieldset>
+                    <legend>Mesurement Units</legend>
+                    <input type="radio" name="units" id="mg-dl" value="mg/dl" checked><label for="mg-dl">mg/dl</label>
+                    <input type="radio" name="units" id="mmol" value="mmol"><label for="mmol">mmol</label>
                 </fieldset>
 
-                <input type="submit" id="save" value="Save">
+                <input type="submit" value="Save" />
             </form>
         </div>
 
@@ -80,11 +83,8 @@
         <script src="/socket.io/socket.io.js"></script>
         <script src="/bower_components/d3/d3.min.js"></script>
         <script src="/bower_components/jquery/dist/jquery.min.js"></script>
-        <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
-        <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
         <script src="/js/dropdown.js"></script>
-        <script src="/js/client.js"></script>
+        <script src="/js/client.js?a"></script>
         <script src="/js/drawer.js"></script>
-        <script src="/js/settings.js"></script>
     </body>
 </html>
