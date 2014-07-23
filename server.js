@@ -187,7 +187,7 @@ function update() {
             });
         //Get Settings Document    
         collection.find({"type":"settings"}).toArray(function(err,results))    {
-            results.forEach(function(element,index,array) {
+            results.forEach(function(element, index, array) {
                 if (element){
                     var obj = {};
                     obj.battery = element.battery;
@@ -267,7 +267,7 @@ function loadData() {
         patientData = [actual, predicted, mbg, treatment];
         io.sockets.emit("now", now);
         io.sockets.emit("sgv", patientData);
-        io.sockets.emit("settings",settingsData);
+        //io.sockets.emit("settings",settingsData);
 
         // compute current loss
         var avgLoss = 0;
