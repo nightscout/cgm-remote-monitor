@@ -742,7 +742,7 @@
     $('#testAlarms').click(function(event) {
         d3.select('.audio.alarms audio').each(function (data, i) {
           var audio = this;
-          audio.play();
+          playAlarm(audio);
           setTimeout(function() {
               audio.pause();
           }, 4000);
@@ -755,7 +755,7 @@
         var selector = '.audio.alarms audio.' + file;
         d3.select(selector).each(function (d, i) {
           var audio = this;
-          audio.play();
+          playAlarm(audio);
           $(this).addClass('playing');
         });
         var element = document.getElementById('bgButton');
@@ -763,6 +763,15 @@
         var element1 = document.getElementById('noButton');
         element1.hidden = 'true';
         $('.container .currentBG').text();
+    }
+
+    function playAlarm() {
+        // ?mute=true disables alarms to testers.
+        if (querystring.mute != "true") {
+            audio.play();
+        } else {
+            alert("Alarm has muted per your request.")
+        }
     }
 
     function stopAlarm(isClient, silenceTime) {

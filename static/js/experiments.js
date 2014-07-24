@@ -1,8 +1,4 @@
 $(function() {
-	var querystring = {};
-	location.search.substr(1).split("&").forEach(function(item) {
-		querystring[item.split("=")[0]] = item.split("=")[1]
-	});
 	if (querystring.experiments) {
 		$(".experiments").show();
 		$("#drawerToggle").click();

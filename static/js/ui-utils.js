@@ -1,11 +1,20 @@
 var drawerIsOpen = false;
 
-function openDrawer()  {
-	$("#container").animate({marginLeft: "-200px"}, 300);
-	$("#drawer").css("display", "block");
-	$("#drawer").animate({right: "0"}, 300);
-	drawerIsOpen = true;
+
+function getQueryParms() {
+	params = {};
+	location.search.substr(1).split("&").forEach(function(item) {
+		params[item.split("=")[0]] = item.split("=")[1]
+	});
+	return params;
 }
+
+function isTouch() {
+	try{ document.createEvent("TouchEvent"); return true; }
+	catch(e){ return false; }
+}
+
+
 function closeDrawer(callback) {
 	$("#container").animate({marginLeft: "0px"}, 300, callback);
 	$("#drawer").animate({right: "-200px"}, 300, function() {
@@ -13,18 +22,12 @@ function closeDrawer(callback) {
 	});
 	drawerIsOpen = false;
 }
-
-function openToolbar() {
-	$("#showToolbar").fadeOut(200, function() {
-		$("#toolbar").animate({marginTop: "-0px"}, 200);
-	});
+function openDrawer()  {
+	$("#container").animate({marginLeft: "-200px"}, 300);
+	$("#drawer").css("display", "block");
+	$("#drawer").animate({right: "0"}, 300);
+	drawerIsOpen = true;
 }
-function closeToolbar() {
-	$("#toolbar").animate({marginTop: "-44px"}, 200, function() {
-		$("#showToolbar").fadeIn().css("display", "block");
-	});
-}
-
 $("#drawerToggle").click(function(event) {
 	if(drawerIsOpen) {
 		closeDrawer();
@@ -36,6 +39,17 @@ $("#drawerToggle").click(function(event) {
 	event.preventDefault();
 });
 
+
+function closeToolbar() {
+	$("#toolbar").animate({marginTop: "-44px"}, 200, function() {
+		$("#showToolbar").fadeIn().css("display", "block");
+	});
+}
+function openToolbar() {
+	$("#showToolbar").fadeOut(200, function() {
+		$("#toolbar").animate({marginTop: "-0px"}, 200);
+	});
+}
 $("#hideToolbar").click(function(event) {
 	if (drawerIsOpen) {
 		closeDrawer(function() {
@@ -46,19 +60,16 @@ $("#hideToolbar").click(function(event) {
 	}
 	event.preventDefault();
 });
-
 $("#showToolbar").find("a").click(function(event) {
 	openToolbar();
 	event.preventDefault();
 });
 
-function isTouch() {
-	try{ document.createEvent("TouchEvent"); return true; }
-	catch(e){ return false; }
-}
-var notTouchScreen = (!isTouch());
+
+var querystring = getQueryParms();
 
 // Tooltips can remain in the way on touch screens.
+var notTouchScreen = (!isTouch());
 if (notTouchScreen) {
 	$('.tip').tipsy();
 } else {
@@ -70,6 +81,7 @@ $.fn.tipsy.defaults = {
 	gravity: "n",
 	opacity: 0.75
 }
+
 
 $(function() {
 	var storage = $.localStorage;
@@ -124,8 +136,10 @@ $(function() {
 		// reference: http://code.tutsplus.com/tutorials/submit-a-form-without-page-refresh-using-jquery--net-59
 	}
 
-	$.ajax('/api/v1/status.json', { success: function (xhr) {
-		$('.appName').text(xhr.name);
-		$('.version').text(xhr.version);
-	}});
+	$.ajax('/api/v1/status.json', {
+		success: function (xhr) {
+			$('.appName').text(xhr.name);
+			$('.version').text(xhr.version);
+		}
+	});
 });
