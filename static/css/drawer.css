@@ -34,6 +34,10 @@ body {
     z-index: 1;
 }
 
+#drawer i {
+    opacity: 0.6;
+}
+
 form {
     margin: 0;
     padding: 0 10px;
@@ -61,28 +65,45 @@ h1, h2, h3, h4 {
 }
 
 #toolbar h1 {
+    color: #ccc;
+    font-size: 16px;
     margin-top: 0;
     margin-left: 42px;
     padding: 10px;
-    color: #ccc;
-    font-size: 16px;
-    line-height: 22px;
 }
 #buttonbar {
     padding: 0;
     float: right;
     height: 44px;
-    width: 88px;
-    opacity: 0.5;
+    width: 136px;
+    opacity: 0.75;
+    vertical-align: middle;
 }
 #buttonbar a {
+    color: #ccc;
+    line-height: 44px;
+    font-size: 16px;
     float: left;
-    width: 44px;
     height: 44px;
+    width: 44px;
 }
-#drawerToggle {
-    background: url(/images/open.png) center center no-repeat;
+#buttonbar i {
+    padding-left: 12px;
 }
-#testAlarms {
-    background: url(/images/speaker.png) center center no-repeat;
+#showToolbar {
+    display: none;
+    position: absolute;
+    margin: 0 auto;
+    opacity: 0.5;
+    text-align: center;
+    top: 5px;
+    width: 100%;
+    z-index: 99;
+}
+#showToolbar a {
+    border: solid #fff 1px;
+    border-radius: 5px;
+    color: #fff;
+    margin: 0 auto;
+    padding: 2px;
 }
