@@ -31,7 +31,7 @@ var settingsData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // setup http server
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-var PORT = process.env.PORT || 1337;
+var PORT = process.env.PORT || 8888;
 var THIRTY_DAYS = 2592000;
 var now = new Date();
 var STATIC_DIR = __dirname + '/static/';
@@ -184,7 +184,7 @@ function update() {
                     cgmData.push(obj);
                 }
             });
-            db.close();
+            //db.close();
         });
       collection.find({"type":"settings"}).toArray(function(err, results) {
             results.forEach(function(element, index, array) {
@@ -202,7 +202,7 @@ function update() {
 
     // wait for database read to complete, 5 secs has proven to be more than enough
     setTimeout(loadData, 5000);
-
+    
     return update;
 }
 
