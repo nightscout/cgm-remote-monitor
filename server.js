@@ -186,6 +186,18 @@ function update() {
             });
             db.close();
         });
+      collection.find({"type":"settings"}).toArray(function(err, results) {
+            results.forEach(function(element, index, array) {
+                if (element) {
+                    var obj = {};
+                    obj.battery = element.battery;
+                    console.log(element.battery);
+                    settingsData.push(obj);
+                }
+            });
+            
+        });
+      
     });
 
     // wait for database read to complete, 5 secs has proven to be more than enough
@@ -291,3 +303,4 @@ setInterval(kickstart(), ONE_MINUTE);
 function log10(val) { return Math.log(val) / Math.LN10; }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+
