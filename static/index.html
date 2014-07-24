@@ -13,12 +13,12 @@
         <div id="toolbar">
             <div id="buttonbar">
                 <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
-                <a id="hideToolbar" class="tip" original-title="Hides the toolbar" href="#"><i class="icon-resize-full"></i></a>
+                <a id="hideToolbar" class="tip" original-title="Hides the toolbar" href="#"><i class="icon-angle-double-up"></i></a>
                 <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-sliders"></i></a>
             </div>
-            <h1>Nightscout <span class="version"></span> </h1>
+            <h1>Nightscout</h1>
         </div>
-        <div id="showToolbar"><a class="tip" original-title="Shows the toolbar" href="#"><i class="icon-resize-small"></i></a></div>
+        <div id="showToolbar"><a class="tip" original-title="Shows the toolbar" href="#"><i class="icon-angle-double-down"></i></a></div>
 
         <div class="container" id="container">
             <div class="row-fluid heading">
@@ -51,7 +51,7 @@
         </div>
 
         <div id="drawer">
-            <form action="/save-settings" method="post" id="settings-form">
+            <form id="settings-form">
                 <!--
                 <h4>Server Defaults</h4>
                 <fieldset class="numbers">
@@ -75,8 +75,6 @@
                 <input type="submit" id="save" value="Save">
 
                 <div class="experiments">
-                    <hr>
-
                     <h4>Experiments</h4>
                     <fieldset style="text-align:center; vertical-align:middle;">
                         <legend>Try a Favicon</legend>
@@ -100,6 +98,14 @@
                         <a class="toolbarIconToggle tip" href="#" original-title="logo1.png"><img src="/images/logo1.png" style="width:32px; height:32px"></a>
                         <a class="toolbarIconToggle tip" href="#" original-title="logo2.png"><img src="/images/logo2.png" style="width:32px; height:32px"></a>
                     </fieldset>
+                </div>
+
+                <div id="about">
+                    <span class="appName"></span>
+                    v<span class="version"></span>
+                    <a href="http://nightscout.info"><img src="http://img.shields.io/badge/discuss-nightscout-000000.svg" /></a>
+                    <a href="http://github.com/nightscout/cgm-remote-monitor"><img src="http://img.shields.io/badge/fork_me_on-github-blue.svg" /></a>
+                    <img src="http://img.shields.io/badge/license-mit-999999.svg" />
                 </div>
             </form>
         </div>

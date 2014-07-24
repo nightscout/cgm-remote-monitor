@@ -116,13 +116,16 @@ $(function() {
 		} else {
 			storage.set("nightMode", false)
 		}
+		event.preventDefault();
 	}
 
 	function storeOnServer(json) {
 		alert("TO DO: add storeOnServer() logic.\n" + json.alertHigh + "\n" + json.alertLow);
 		// reference: http://code.tutsplus.com/tutorials/submit-a-form-without-page-refresh-using-jquery--net-59
 	}
-$.ajax('/api/v1/status.json', { success: function (xhr) {
-	$('.version').text(xhr.version);
-}});
+
+	$.ajax('/api/v1/status.json', { success: function (xhr) {
+		$('.appName').text(xhr.name);
+		$('.version').text(xhr.version);
+	}});
 });

@@ -34,9 +34,12 @@ body {
     top: 0;
     z-index: 1;
 }
-
 #drawer i {
     opacity: 0.6;
+}
+#about {
+    margin-top: 1em;
+    text-align: center;
 }
 
 form {
@@ -108,4 +111,8 @@ h1, h2, h3, h4 {
     color: #fff;
     margin: 0 auto;
     padding: 2px;
+}
+.icon-angle-double-up {
+    font-size: 21px;
+    padding-left: 9px !important;
 }
