@@ -13,88 +13,28 @@
       "src": "fontawesome"
     },
     {
-      "uid": "98687378abd1faf8f6af97c254eb6cd6",
-      "css": "cog-alt",
-      "code": 59393,
-      "src": "fontawesome"
-    },
-    {
-      "uid": "5bb103cd29de77e0e06a52638527b575",
-      "css": "wrench",
-      "code": 59394,
-      "src": "fontawesome"
-    },
-    {
       "uid": "21b42d3c3e6be44c3cc3d73042faa216",
       "css": "sliders",
       "code": 59395,
       "src": "fontawesome"
     },
     {
-      "uid": "76857a03fbaa6857fe063b6c25aa98ed",
-      "css": "volume-up",
-      "code": 59403,
+      "uid": "63b3012c8cbe3654ba5bea598235aa3a",
+      "css": "angle-double-up",
+      "code": 59393,
       "src": "fontawesome"
     },
     {
-      "uid": "6364d85e960f23b9a843a506387e7970",
-      "css": "info-outline",
-      "code": 59399,
-      "src": "typicons"
-    },
-    {
-      "uid": "85fda3129wk4amvn25wrq843sbj3yzl0",
-      "css": "info",
-      "code": 59400,
-      "src": "typicons"
-    },
-    {
-      "uid": "4815ddddea76d90e367a9694a93b7e24",
-      "css": "resize-full",
-      "code": 59392,
-      "src": "iconic"
-    },
-    {
-      "uid": "b05c5a209b56e7ea6632a31e4bd0b41d",
-      "css": "resize-small",
-      "code": 59397,
-      "src": "iconic"
-    },
-    {
-      "uid": "15ba51cbb4d05e6fb88f03a31a7c711c",
-      "css": "info-circled-alt",
-      "code": 59398,
-      "src": "mfglabs"
-    },
-    {
-      "uid": "8489d61496923b1159b01d8a0a7b2df0",
-      "css": "volume-off",
-      "code": 59405,
-      "src": "elusive"
-    },
-    {
-      "uid": "5d9730dc93976d27eb07914eab50a507",
-      "css": "volume-down",
-      "code": 59406,
-      "src": "elusive"
+      "uid": "dfec4ffa849d8594c2e4b86f6320b8a6",
+      "css": "angle-double-down",
+      "code": 59394,
+      "src": "fontawesome"
     },
     {
       "uid": "b59b3b618699b467541f631edd5a02ed",
       "css": "volume",
       "code": 59402,
       "src": "elusive"
-    },
-    {
-      "uid": "012ff5762ccb18c16bdfdd6baf187406",
-      "css": "volume-up-1",
-      "code": 59404,
-      "src": "elusive"
-    },
-    {
-      "uid": "26aba7edd46944209b4961670675a813",
-      "css": "cog",
-      "code": 59396,
-      "src": "websymbols"
     }
   ]
 }
