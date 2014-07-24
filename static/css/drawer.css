@@ -24,6 +24,7 @@ body {
     box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
     color: #eee;
     display: none;
+    font-size: 16px;
     height: calc(100% - 45px);
     overflow-y: auto;
     position: absolute;
@@ -92,6 +93,7 @@ h1, h2, h3, h4 {
 }
 #showToolbar {
     display: none;
+    font-size: 16px;
     position: absolute;
     margin: 0 auto;
     opacity: 0.5;

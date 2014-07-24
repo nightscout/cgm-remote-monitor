@@ -92,7 +92,9 @@ $(function() {
 		event.preventDefault();
 
 		// reload
-		window.location = window.location;
+		var url = window.location.href;
+		url = url.replace(/#$/, ""); // stops # in url from stopping form submission
+		window.location = url;
 	});
 
 	function storeInBrowser(json) {
