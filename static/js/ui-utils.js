@@ -52,7 +52,19 @@ $("#showToolbar").find("a").click(function(event) {
 	event.preventDefault();
 });
 
-$('.tip').tipsy();
+function isTouch() {
+	try{ document.createEvent("TouchEvent"); return true; }
+	catch(e){ return false; }
+}
+var notTouchScreen = (!isTouch());
+
+// Tooltips can remain in the way on touch screens.
+if (notTouchScreen) {
+	$('.tip').tipsy();
+} else {
+	// Drawer info tips should be displayed on touchscreens.
+	$('#drawer').find(".tip").tipsy();
+}
 $.fn.tipsy.defaults = {
 	fade: true,
 	gravity: "n",
