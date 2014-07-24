@@ -765,7 +765,7 @@
         $('.container .currentBG').text();
     }
 
-    function playAlarm() {
+    function playAlarm(audio) {
         // ?mute=true disables alarms to testers.
         if (querystring.mute != "true") {
             audio.play();
