@@ -7,12 +7,6 @@
   "ascent": 850,
   "glyphs": [
     {
-      "uid": "e82cedfa1d5f15b00c5a81c9bd731ea2",
-      "css": "info-circled",
-      "code": 59401,
-      "src": "fontawesome"
-    },
-    {
       "uid": "21b42d3c3e6be44c3cc3d73042faa216",
       "css": "sliders",
       "code": 59395,
@@ -29,6 +23,12 @@
       "css": "angle-double-down",
       "code": 59394,
       "src": "fontawesome"
+    },
+    {
+      "uid": "3e02a8849305ac80a0e36302f461f265",
+      "css": "help-circled",
+      "code": 59392,
+      "src": "mfglabs"
     },
     {
       "uid": "b59b3b618699b467541f631edd5a02ed",
