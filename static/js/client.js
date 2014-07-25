@@ -1,8 +1,6 @@
 (function () {
     "use strict";
 
-    var browserSettings = getBrowserSettings();
-
     var retrospectivePredictor = true,
         latestSGV,
         treatments,
@@ -66,19 +64,6 @@
     context.append('g')
         .attr('class', 'y axis');
 
-
-    function getBrowserSettings() {
-        var storage = $.localStorage;
-        var settings = {
-            "units": storage.get("units"),
-            "nightMode": storage.get("nightMode")
-        };
-        // default nightmode to true
-        if (typeof(settings.nightMode) === 'undefined' || settings.nightMode == null) {
-            settings.nightMode = true;
-        }
-        return settings;
-    }
 
     // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
@@ -770,7 +755,8 @@
         if (querystring.mute != "true") {
             audio.play();
         } else {
-            alert("Alarm has muted per your request.")
+            // Disabled as this displays and alert every minute. :(
+            //alert("Alarm has muted per your request.");
         }
     }
 

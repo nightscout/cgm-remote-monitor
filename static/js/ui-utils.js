@@ -1,4 +1,97 @@
 var drawerIsOpen = false;
+var browserStorage = $.localStorage;
+var defaultSettings = {
+	"units": "mg/dl",
+	"nightMode": true
+}
+
+var app = {};
+$.ajax("/api/v1/status.json", {
+	success: function (xhr) {
+		app = {
+			"name": xhr.name,
+			"version": xhr.version,
+			"apiEnabled": xhr.apiEnabled  // This isn't defined yet.
+		}
+	}
+}).done(function() {
+	$(".appName").text(app.name);
+	$(".version").text(app.version);
+	if (app.apiEnabled) {
+		$(".serverSettings").show();
+	}
+});
+
+
+function getBrowserSettings(storage) {
+	var json = {
+		"units": storage.get("units"),
+		"nightMode": storage.get("nightMode")
+	};
+
+	// Default browser units to server units if undefined.
+	json.units = setDefault(json.units, serverSettings.units);
+	console.log("browserSettings.units: " + json.units);
+	if (json.units == "mmol") {
+		$("#mmol-browser").prop("checked", true);
+	} else {
+		$("#mgdl-browser").prop("checked", true);
+	}
+
+	json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
+	$("#nightmode-browser").prop("checked", json.nightMode);
+
+	return json;
+}
+function getServerSettings() {
+	var json = {
+		"units": Object()
+	};
+
+	json.units = setDefault(json.units, defaultSettings.units);
+	console.log("serverSettings.units: " + json.units);
+	if (json.units == "mmol") {
+		$("#mmol-server").prop("checked", true);
+	} else {
+		$("#mgdl-server").prop("checked", true);
+	}
+
+	return json;
+}
+function setDefault(variable, defaultValue) {
+	if (typeof(variable) === "object") {
+		return defaultValue;
+	}
+	return variable;
+}
+function jsonIsNotEmpty(json) {
+	var jsonAsString = JSON.stringify(json);
+	jsonAsString.replace(/\s/g, "");
+	return (jsonAsString != "{}")
+}
+function storeInBrowser(json, storage) {
+	if (json.units) storage.set("units", json.units);
+	if (json.nightMode == true) {
+		storage.set("nightMode", true)
+	} else {
+		storage.set("nightMode", false)
+	}
+	event.preventDefault();
+}
+function storeOnServer(json) {
+	if (jsonIsNotEmpty(json)) {
+		alert("TO DO: add storeOnServer() logic.");
+		// reference: http://code.tutsplus.com/tutorials/submit-a-form-without-page-refresh-using-jquery--net-59
+		//var dataString = "name="+ name + "&email=" + email + "&phone=" + phone;
+		//alert (dataString);return false;
+		/* $.ajax({
+		  type: "POST",
+		  url: "/api/v1/settings",
+		  data: json
+		});
+		*/
+	}
+}
 
 
 function getQueryParms() {
@@ -28,16 +121,6 @@ function openDrawer()  {
 	$("#drawer").animate({right: "0"}, 300);
 	drawerIsOpen = true;
 }
-$("#drawerToggle").click(function(event) {
-	if(drawerIsOpen) {
-		closeDrawer();
-		drawerIsOpen = false;
-	}  else {
-		openDrawer();
-		drawerIsOpen = true;
-	}
-	event.preventDefault();
-});
 
 
 function closeToolbar() {
@@ -50,6 +133,24 @@ function openToolbar() {
 		$("#toolbar").animate({marginTop: "-0px"}, 200);
 	});
 }
+
+
+var querystring = getQueryParms();
+var serverSettings = getServerSettings();
+var browserSettings = getBrowserSettings(browserStorage);
+
+
+$("#drawerToggle").click(function(event) {
+	if(drawerIsOpen) {
+		closeDrawer();
+		drawerIsOpen = false;
+	}  else {
+		openDrawer();
+		drawerIsOpen = true;
+	}
+	event.preventDefault();
+});
+
 $("#hideToolbar").click(function(event) {
 	if (drawerIsOpen) {
 		closeDrawer(function() {
@@ -65,81 +166,37 @@ $("#showToolbar").find("a").click(function(event) {
 	event.preventDefault();
 });
 
+$("input#save").click(function() {
+	storeInBrowser({
+		"units": $("input:radio[name=units-browser]:checked").val(),
+		"nightMode": $("#nightmode-browser").prop("checked")
+	}, browserStorage);
 
-var querystring = getQueryParms();
+	storeOnServer({
+		//"units": $("input:radio[name=units-server]:checked").val()
+	});
 
-// Tooltips can remain in the way on touch screens.
-var notTouchScreen = (!isTouch());
-if (notTouchScreen) {
-	$('.tip').tipsy();
-} else {
-	// Drawer info tips should be displayed on touchscreens.
-	$('#drawer').find(".tip").tipsy();
-}
-$.fn.tipsy.defaults = {
-	fade: true,
-	gravity: "n",
-	opacity: 0.75
-}
+	event.preventDefault();
+
+	// reload
+	var url = window.location.href;
+	url = url.replace(/#$/, ""); // stops # in url from stopping form submission
+	window.location = url;
+});
 
 
 $(function() {
-	var storage = $.localStorage;
-	var browserSettings = {
-		"units": storage.get("units"),
-		"nightMode": storage.get("nightMode")
-	};
-	if (browserSettings.units == "mmol") {
-		$('#mmol-browser').prop('checked', true);
+	// Tooltips can remain in the way on touch screens.
+	var notTouchScreen = (!isTouch());
+	if (notTouchScreen) {
+		$(".tip").tipsy();
 	} else {
-		$('#mgdl-browser').prop('checked', true);
+		// Drawer info tips should be displayed on touchscreens.
+		$("#drawer").find(".tip").tipsy();
 	}
-	if (typeof(browserSettings.nightMode) === 'undefined' || browserSettings.nightMode == null) {
-		browserSettings.nightMode = true;
+	$.fn.tipsy.defaults = {
+		fade: true,
+		gravity: "n",
+		opacity: 0.75
 	}
-	$('#nightmode-browser').prop('checked', browserSettings.nightMode);
-
-	$("input#save").click(function() {
-		storeInBrowser({
-			"units": $("input:radio[name=units-browser]:checked").val(),
-			"nightMode": $('#nightmode-browser').prop('checked')
-		});
-
-		/* var formAction = $("#settings-form").attr("action");
-		var alertHigh = $("input#alertHigh").val();
-		var alertLow = $("input#alertLow").val();
-		storeOnServer({
-			"alertHigh": alertHigh,
-			"alertLow": alertLow
-		}); */
-
-		event.preventDefault();
-
-		// reload
-		var url = window.location.href;
-		url = url.replace(/#$/, ""); // stops # in url from stopping form submission
-		window.location = url;
-	});
-
-	function storeInBrowser(json) {
-		if (json.units) storage.set("units", json.units);
-		if (json.nightMode == true) {
-			storage.set("nightMode", true)
-		} else {
-			storage.set("nightMode", false)
-		}
-		event.preventDefault();
-	}
-
-	function storeOnServer(json) {
-		alert("TO DO: add storeOnServer() logic.\n" + json.alertHigh + "\n" + json.alertLow);
-		// reference: http://code.tutsplus.com/tutorials/submit-a-form-without-page-refresh-using-jquery--net-59
-	}
-
-	$.ajax('/api/v1/status.json', {
-		success: function (xhr) {
-			$('.appName').text(xhr.name);
-			$('.version').text(xhr.version);
-		}
-	});
 });

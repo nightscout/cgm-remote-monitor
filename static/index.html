@@ -54,61 +54,56 @@
 
         <div id="drawer">
             <form id="settings-form">
-                <!--
-                <h4>Server Defaults</h4>
-                <fieldset class="numbers">
-                    <legend>Alert Range</legend>
-                    <label for="alertHigh">High</label><input id="alertHigh" name="alertHigh" value="180" type="text">
-                    <label for="alertLow">Low</label> <input id="alertLow" name="alertLow" value="80" type="text">
-                </fieldset>
-                -->
-
-                <h4>Browser Preferences</h4>
-                <fieldset class="radio">
-                    <legend>Units</legend>
-                    <input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked><label for="mgdl-browser">mg/dL</label><br />
-                    <input type="radio" name="units-browser" id="mmol-browser" value="mmol"><label for="mmol-browser">mmol/L</label>
-                </fieldset>
-                <fieldset class="toggle">
-                    <legend>Night Mode <a class="tip" original-title="When enabled the page will be dimmed from 10pm - 6am."><i class="icon-info-circled"></i></a></legend>
-                    <input type="checkbox" name="nightmode-browser" id="nightmode-browser"><label for="nightmode-browser">Enable</label>
+                <fieldset class="browserSettings">
+                    <legend>Settings</legend>
+                    <dl class="radio">
+                        <dt>Units</dt>
+                        <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label><br />
+                        <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label>
+                    </dl>
+                    <dl class="toggle">
+                        <dt>Night Mode <a class="tip" original-title="When enabled the page will be dimmed from 10pm - 6am."><i class="icon-info-circled"></i></a></dt>
+                        <dd><input type="checkbox" name="nightmode-browser" id="nightmode-browser" /><label for="nightmode-browser">Enable</label></dd>
+                    </dl>
                 </fieldset>
 
-                <input type="submit" id="save" value="Save">
+                <input type="submit" id="save" value="Save" />
 
-                <div class="experiments">
-                    <h4>Experiments</h4>
-                    <fieldset style="text-align:center; vertical-align:middle;">
-                        <legend>Try a Favicon</legend>
-                        <a class="iconToggle tip" href="#" original-title="round1.png"><img src="/images/round1.png" style="width:32px; height:32px"></a>
-                        <a class="iconToggle tip" href="#" original-title="round2.png"><img src="/images/round2.png" style="width:32px; height:32px"></a>
-                        <a class="iconToggle tip" href="#" original-title="round3.png"><img src="/images/round3.png" style="width:32px; height:32px"></a>
+                <fieldset class="experiments">
+                    <legend>Experiments</legend>
+                    <div style="text-align:center; vertical-align:middle;">
+                        <b>Try a New Favicon</b><br />
+                        <a class="iconToggle tip" href="#" original-title="round1.png"><img src="/images/round1.png" style="width:32px; height:32px" /></a>
+                        <a class="iconToggle tip" href="#" original-title="round2.png"><img src="/images/round2.png" style="width:32px; height:32px" /></a>
+                        <a class="iconToggle tip" href="#" original-title="round3.png"><img src="/images/round3.png" style="width:32px; height:32px" /></a>
                         <br />
-                        <a class="iconToggle tip" href="#" original-title="logo1.png"><img src="/images/logo1.png" style="width:32px; height:32px"></a>
-                        <a class="iconToggle tip" href="#" original-title="logo2.png"><img src="/images/logo2.png" style="width:32px; height:32px"></a>
+                        <a class="iconToggle tip" href="#" original-title="logo1.png"><img src="/images/logo1.png" style="width:32px; height:32px" /></a>
+                        <a class="iconToggle tip" href="#" original-title="logo2.png"><img src="/images/logo2.png" style="width:32px; height:32px" /></a>
                         <br />
-                        <a class="iconToggle tip" href="#" original-title="silhouette.png"><img src="/images/silhouette.png" style="width:32px; height:32px"></a>
-                        <a class="iconToggle tip" href="#" original-title="eyes.png"><img src="/images/eyes.png" style="width:32px; height:32px"></a>
+                        <a class="iconToggle tip" href="#" original-title="silhouette.png"><img src="/images/silhouette.png" style="width:32px; height:32px" /></a>
+                        <a class="iconToggle tip" href="#" original-title="eyes.png"><img src="/images/eyes.png" style="width:32px; height:32px" /></a>
                         <br />
-                        <a class="iconToggle tip" href="#" original-title="drop1.png"><img src="/images/drop1.png" style="width:32px; height:32px"></a>
-                        <a class="iconToggle tip" href="#" original-title="drop2.png"><img src="/images/drop2.png" style="width:32px; height:32px"></a>
-                        <a class="iconToggle tip" href="#" original-title="drop3.png"><img src="/images/drop3.png" style="width:32px; height:32px"></a>
-                    </fieldset>
+                        <a class="iconToggle tip" href="#" original-title="drop1.png"><img src="/images/drop1.png" style="width:32px; height:32px" /></a>
+                        <a class="iconToggle tip" href="#" original-title="drop2.png"><img src="/images/drop2.png" style="width:32px; height:32px" /></a>
+                        <a class="iconToggle tip" href="#" original-title="drop3.png"><img src="/images/drop3.png" style="width:32px; height:32px" /></a>
+                    </div>
 
-                    <fieldset style="text-align:center; vertical-align:middle;">
-                        <legend>Try a Toolbar Icon</legend>
-                        <a class="toolbarIconToggle tip" href="#" original-title="logo1.png"><img src="/images/logo1.png" style="width:32px; height:32px"></a>
-                        <a class="toolbarIconToggle tip" href="#" original-title="logo2.png"><img src="/images/logo2.png" style="width:32px; height:32px"></a>
-                    </fieldset>
-                </div>
+                    <div style="text-align:center; vertical-align:middle;">
+                        <b>Try a New Logo</b><br />
+                        <a class="toolbarIconToggle tip" href="#" original-title="logo1.png"><img src="/images/logo1.png" style="width:32px; height:32px" /></a>
+                        <a class="toolbarIconToggle tip" href="#" original-title="logo2.png"><img src="/images/logo2.png" style="width:32px; height:32px" /></a>
+                    </div>
+                </fieldset>
 
-                <div id="about">
-                    <span class="appName"></span>
-                    v<span class="version"></span>
+                <fieldset id="about">
+                    <legend>About</legend>
+                    <div class="appName"></div>
+                    <div>version <span class="version"></span></div>
+                    <br />
                     <a href="http://nightscout.info"><img src="http://img.shields.io/badge/discuss-nightscout-000000.svg" /></a>
                     <a href="http://github.com/nightscout/cgm-remote-monitor"><img src="http://img.shields.io/badge/fork_me-on_github-blue.svg" /></a>
                     <img src="http://img.shields.io/badge/license-mit-999999.svg" />
-                </div>
+                </fieldset>
             </form>
         </div>
 
