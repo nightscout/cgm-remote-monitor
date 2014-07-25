@@ -11,7 +11,7 @@ $.ajax("/api/v1/status.json", {
 		app = {
 			"name": xhr.name,
 			"version": xhr.version,
-			"apiEnabled": xhr.apiEnabled  // This isn't defined yet.
+			"apiEnabled": xhr.apiEnabled
 		}
 	}
 }).done(function() {
