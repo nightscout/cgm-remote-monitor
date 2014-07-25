@@ -1,14 +1,18 @@
 $(function() {
-	var querystring = {};
-	location.search.substr(1).split("&").forEach(function(item) {
-		querystring[item.split("=")[0]] = item.split("=")[1]
-	});
 	if (querystring.experiments) {
 		$(".experiments").show();
-		$("#drawerToggle").click();
+		if (!querystring.drawer) {
+			$("#drawerToggle").click();
+		}
 	} else {
 		$(".experiments").hide();
 	}
+
+	$(".glyphToggle").on("click", function(){
+		var newGlyph = $(this).find("i").attr("class");
+		$("#drawerToggle").find("i").prop("class", newGlyph);
+		event.preventDefault();
+	});
 
 	$(".iconToggle").on("click", function(){
 		var newIcon = $(this).find("img").attr("src");

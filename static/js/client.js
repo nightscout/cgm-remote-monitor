@@ -1,8 +1,6 @@
 (function () {
     "use strict";
 
-    var browserSettings = getBrowserSettings();
-
     var retrospectivePredictor = true,
         latestSGV,
         treatments,
@@ -66,19 +64,6 @@
     context.append('g')
         .attr('class', 'y axis');
 
-
-    function getBrowserSettings() {
-        var storage = $.localStorage;
-        var settings = {
-            "units": storage.get("units"),
-            "nightMode": storage.get("nightMode")
-        };
-        // default nightmode to true
-        if (typeof(settings.nightMode) === 'undefined' || settings.nightMode == null) {
-            settings.nightMode = true;
-        }
-        return settings;
-    }
 
     // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
@@ -742,7 +727,7 @@
     $('#testAlarms').click(function(event) {
         d3.select('.audio.alarms audio').each(function (data, i) {
           var audio = this;
-          audio.play();
+          playAlarm(audio);
           setTimeout(function() {
               audio.pause();
           }, 4000);
@@ -755,7 +740,7 @@
         var selector = '.audio.alarms audio.' + file;
         d3.select(selector).each(function (d, i) {
           var audio = this;
-          audio.play();
+          playAlarm(audio);
           $(this).addClass('playing');
         });
         var element = document.getElementById('bgButton');
@@ -763,6 +748,16 @@
         var element1 = document.getElementById('noButton');
         element1.hidden = 'true';
         $('.container .currentBG').text();
+    }
+
+    function playAlarm(audio) {
+        // ?mute=true disables alarms to testers.
+        if (querystring.mute != "true") {
+            audio.play();
+        } else {
+            // Disabled as this displays and alert every minute. :(
+            //alert("Alarm has muted per your request.");
+        }
     }
 
     function stopAlarm(isClient, silenceTime) {

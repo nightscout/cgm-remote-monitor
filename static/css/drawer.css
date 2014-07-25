@@ -46,22 +46,46 @@ form {
     margin: 0;
     padding: 0 10px;
 }
-fieldset.numbers input {
+
+.serverSettings {
+    display: none;
+}
+
+fieldset {
+    margin: 0.5em 0 1em 0;
+}
+legend {
+    font-size: 1.1em;
+}
+dl {
+    margin: 0 0 1em 0;
+}
+dl:last-child {
+    margin-bottom: 0;
+}
+dd {
+    margin-left: 0;
+}
+
+dd.numbers input {
     text-align: right;
     width: 50px;
 }
-fieldset.numbers label {
-display: block;
+dd.numbers label {
+    display: block;
     float: left;
     width: 50px;
 }
 
-h1, h2, h3, h4 {
+h1, legend,
+#about .appName,
+#about .version {
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    font-weight: bold;
 }
 
 #toolbar {
-    background: url(/images/logo1.png) no-repeat 3px 3px #333;
+    background: url(/images/logo2.png) no-repeat 3px 3px #333;
     border-bottom: 1px solid #999;
     top: 0;
     margin: 0;
@@ -115,4 +139,9 @@ h1, h2, h3, h4 {
 .icon-angle-double-up {
     font-size: 21px;
     padding-left: 9px !important;
+}
+
+.experiments a {
+    color: #fff;
+    font-size: 1.5em;
 }
