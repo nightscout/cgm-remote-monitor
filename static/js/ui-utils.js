@@ -218,7 +218,9 @@ $(function() {
 		opacity: 0.75
 	}
 
-	showNotification("test");
+	if (querystring.notify) {
+		showNotification(querystring.notify.replace("+", " "));
+	}
 
 	if (querystring.drawer) {
 		openDrawer();
