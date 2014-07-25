@@ -144,20 +144,24 @@ h1, legend,
     padding: 2px;
 }
 #notification {
-    top: 11px;
+    opacity: 0.75;
+    top: 7px;
     z-index: 99;
 }
 #notification a {
     background: #c00;
     border-radius: 5px;
     color: #fff;
-    opacity: 0.75;
-    padding: 5px;
+    display: block;
     height: 20px;
+    padding: 5px 0 5px 5px;
     text-decoration: none;
 }
 #notification span {
     margin-right: 10px;
+}
+#notification i {
+    opacity: 0.5;
 }
 
 .experiments a {
