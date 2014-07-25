@@ -140,3 +140,8 @@ h1, legend,
     font-size: 21px;
     padding-left: 9px !important;
 }
+
+.experiments a {
+    color: #fff;
+    font-size: 2em;
+}

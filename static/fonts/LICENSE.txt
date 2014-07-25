@@ -19,6 +19,33 @@ Font license info
    Homepage:  http://fortawesome.github.com/Font-Awesome/
 
 
+## Typicons
+
+   (c) Stephen Hutchings 2012
+
+   Author:    Stephen Hutchings
+   License:   SIL (http://scripts.sil.org/OFL)
+   Homepage:  http://typicons.com/
+
+
+## Entypo
+
+   Copyright (C) 2012 by Daniel Bruce
+
+   Author:    Daniel Bruce
+   License:   SIL (http://scripts.sil.org/OFL)
+   Homepage:  http://www.entypo.com
+
+
+## Web Symbols
+
+   Copyright (c) 2011 by Just Be Nice studio. All rights reserved.
+
+   Author:    Just Be Nice studio
+   License:   SIL (http://scripts.sil.org/OFL)
+   Homepage:  http://www.justbenicestudio.com/
+
+
 ## Elusive
 
    Copyright (C) 2013 by Aristeides Stathopoulos

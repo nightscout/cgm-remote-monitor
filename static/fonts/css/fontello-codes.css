@@ -3,4 +3,7 @@
 .icon-angle-double-up:before { content: '\e801'; } /* '' */
 .icon-angle-double-down:before { content: '\e802'; } /* '' */
 .icon-sliders:before { content: '\e803'; } /* '' */
+.icon-menu:before { content: '\e804'; } /* '' */
+.icon-menu-alt:before { content: '\e805'; } /* '' */
+.icon-cog:before { content: '\e806'; } /* '' */
 .icon-volume:before { content: '\e80a'; } /* '' */

@@ -21,6 +21,7 @@ function config ( ) {
 
   env.version = software.version;
   env.name = software.name;
+  env.DISPLAY_UNITS = process.env.DISPLAY_UNITS || 'mg/dl';
   env.PORT = process.env.PORT || 1337;
   env.mongo = process.env.MONGO_CONNECTION || process.env.CUSTOMCONNSTR_mongo;
   env.mongo_collection = process.env.CUSTOMCONNSTR_mongo_collection || 'entries';

@@ -25,6 +25,18 @@
       "src": "fontawesome"
     },
     {
+      "uid": "2cfb3f2b46b34a1790aec0aa846297b6",
+      "css": "menu-alt",
+      "code": 59397,
+      "src": "entypo"
+    },
+    {
+      "uid": "jh3jpcb1t1bcm80gidkadilh080aq79h",
+      "css": "menu",
+      "code": 59396,
+      "src": "typicons"
+    },
+    {
       "uid": "3e02a8849305ac80a0e36302f461f265",
       "css": "help-circled",
       "code": 59392,
@@ -35,6 +47,12 @@
       "css": "volume",
       "code": 59402,
       "src": "elusive"
+    },
+    {
+      "uid": "26aba7edd46944209b4961670675a813",
+      "css": "cog",
+      "code": 59398,
+      "src": "websymbols"
     }
   ]
 }
