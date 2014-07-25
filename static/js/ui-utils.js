@@ -116,10 +116,10 @@ function closeDrawer(callback) {
 	drawerIsOpen = false;
 }
 function openDrawer()  {
+	drawerIsOpen = true;
 	$("#container").animate({marginLeft: "-200px"}, 300);
 	$("#drawer").css("display", "block");
 	$("#drawer").animate({right: "0"}, 300);
-	drawerIsOpen = true;
 }
 
 
@@ -198,5 +198,9 @@ $(function() {
 		fade: true,
 		gravity: "n",
 		opacity: 0.75
+	}
+
+	if (querystring.drawer) {
+		openDrawer();
 	}
 });

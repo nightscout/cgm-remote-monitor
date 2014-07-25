@@ -1,7 +1,9 @@
 $(function() {
 	if (querystring.experiments) {
 		$(".experiments").show();
-		$("#drawerToggle").click();
+		if (!querystring.drawer) {
+			$("#drawerToggle").click();
+		}
 	} else {
 		$(".experiments").hide();
 	}

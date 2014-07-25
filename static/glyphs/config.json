@@ -7,12 +7,6 @@
   "ascent": 850,
   "glyphs": [
     {
-      "uid": "21b42d3c3e6be44c3cc3d73042faa216",
-      "css": "sliders",
-      "code": 59395,
-      "src": "fontawesome"
-    },
-    {
       "uid": "63b3012c8cbe3654ba5bea598235aa3a",
       "css": "angle-double-up",
       "code": 59393,
@@ -25,15 +19,9 @@
       "src": "fontawesome"
     },
     {
-      "uid": "2cfb3f2b46b34a1790aec0aa846297b6",
-      "css": "menu-alt",
-      "code": 59397,
-      "src": "entypo"
-    },
-    {
       "uid": "jh3jpcb1t1bcm80gidkadilh080aq79h",
       "css": "menu",
-      "code": 59396,
+      "code": 59395,
       "src": "typicons"
     },
     {
