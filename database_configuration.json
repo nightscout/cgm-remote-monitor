@@ -1,4 +1,4 @@
 {
-    "url":  "mongodb://<USER>:<PASSWORD>@ds050087.mongolab.com:50087/<DB>",
-    "collection": "<COLLECTION>"
+    "url":  "null",
+    "collection": "null"
 }
