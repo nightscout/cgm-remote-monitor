@@ -203,4 +203,8 @@ $(function() {
 	if (querystring.drawer) {
 		openDrawer();
 	}
+
+	if (querystring.toolbar == "false") {
+		closeToolbar();
+	}
 });
