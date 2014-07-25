@@ -755,8 +755,7 @@
         if (querystring.mute != "true") {
             audio.play();
         } else {
-            // Disabled as this displays and alert every minute. :(
-            //alert("Alarm has muted per your request.");
+            showNotification("Alarm is muted per your request. (?mute=true)");
         }
     }
 

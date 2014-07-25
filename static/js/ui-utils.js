@@ -123,6 +123,18 @@ function openDrawer()  {
 }
 
 
+function closeNotification() {
+	$("#notification").hide();
+	$("#notification").find("span").html("");
+}
+function showNotification(note)  {
+	$("#notification").hide();
+	$("#notification").find("span").html(note);
+	$("#notification").css("left", "calc(50% - " + ($("#notification").width() / 2) + "px)");
+	$("#notification").show();
+}
+
+
 function closeToolbar() {
 	$("#toolbar").animate({marginTop: "-44px"}, 200, function() {
 		$("#showToolbar").fadeIn().css("display", "block");
@@ -148,6 +160,11 @@ $("#drawerToggle").click(function(event) {
 		openDrawer();
 		drawerIsOpen = true;
 	}
+	event.preventDefault();
+});
+
+$("#notification").click(function(event) {
+	closeNotification();
 	event.preventDefault();
 });
 
@@ -178,9 +195,10 @@ $("input#save").click(function() {
 
 	event.preventDefault();
 
-	// reload
+	// reload for changes to take effect
+	// -- strip '#' so form submission does not fail
 	var url = window.location.href;
-	url = url.replace(/#$/, ""); // stops # in url from stopping form submission
+	url = url.replace(/#$/, "");
 	window.location = url;
 });
 
@@ -200,11 +218,14 @@ $(function() {
 		opacity: 0.75
 	}
 
+	showNotification("test");
+
 	if (querystring.drawer) {
 		openDrawer();
-	}
-
-	if (querystring.toolbar == "false") {
-		closeToolbar();
+	} else {
+		// drawer=true cancels out toolbar=false
+		if (querystring.toolbar == "false") {
+			closeToolbar();
+		}
 	}
 });

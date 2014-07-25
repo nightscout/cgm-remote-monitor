@@ -118,16 +118,23 @@ h1, legend,
 #buttonbar i {
     padding-left: 12px;
 }
-#showToolbar {
+.icon-angle-double-up {
+    font-size: 21px;
+    padding-left: 9px !important;
+}
+
+#showToolbar,
+#notification {
     display: none;
     font-size: 16px;
     position: absolute;
-    margin: 0 auto;
+}
+#showToolbar {
     opacity: 0.5;
     text-align: center;
     top: 5px;
     width: 100%;
-    z-index: 99;
+    z-index: 98;
 }
 #showToolbar a {
     border: solid #fff 1px;
@@ -136,9 +143,21 @@ h1, legend,
     margin: 0 auto;
     padding: 2px;
 }
-.icon-angle-double-up {
-    font-size: 21px;
-    padding-left: 9px !important;
+#notification {
+    top: 11px;
+    z-index: 99;
+}
+#notification a {
+    background: #c00;
+    border-radius: 5px;
+    color: #fff;
+    opacity: 0.75;
+    padding: 5px;
+    height: 20px;
+    text-decoration: none;
+}
+#notification span {
+    margin-right: 10px;
 }
 
 .experiments a {

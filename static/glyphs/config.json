@@ -19,6 +19,30 @@
       "src": "fontawesome"
     },
     {
+      "uid": "c709da589c923ba3c2ad48d9fc563e93",
+      "css": "cancel",
+      "code": 59399,
+      "src": "entypo"
+    },
+    {
+      "uid": "c759418c008e9562944080fee617fc76",
+      "css": "cancel-circled",
+      "code": 59401,
+      "src": "entypo"
+    },
+    {
+      "uid": "bf45c39702763f1803b550c36a0ceb12",
+      "css": "cancel-squared",
+      "code": 59400,
+      "src": "entypo"
+    },
+    {
+      "uid": "517522647a556192fbc78aa391b7b0c2",
+      "css": "cancel-circled-outline",
+      "code": 59396,
+      "src": "typicons"
+    },
+    {
       "uid": "jh3jpcb1t1bcm80gidkadilh080aq79h",
       "css": "menu",
       "code": 59395,
