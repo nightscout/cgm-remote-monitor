@@ -23,6 +23,8 @@ body {
   fill: #fff;
   background: #000;
   color: #808080;
+  margin: 10px 10px 0 10px;
+  padding: 0 0 0 0;
 }
 .heading, .subheading {
   font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
@@ -49,7 +51,8 @@ body {
 
 .container {
   overflow: hidden;
-  height: auto;
+  height: 90vh;
+  height: auto; /*fallback*/
   display: block;
 }
 
@@ -106,6 +109,7 @@ body {
 
 #noButton {
   padding: 2px;
+  margin-right: 40px;
 }
 
 #bgButton {
@@ -128,7 +132,7 @@ body {
   -ms-user-select: none;
   user-select: none;
   cursor: default;
-  margin-right: 37px;
+  margin-right: 40px;
 }
 
 .bgButton:active {
@@ -153,4 +157,8 @@ body {
   font-size: 20%;
   color: blue;
   text-decoration: none;
+}
+.disabled{
+  opacity: 0.8;
+  cursor: default;
 }

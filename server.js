@@ -14,6 +14,14 @@
 // Description: Basic web server to display data from Dexcom G4.  Requires a database that contains
 // the Dexcom SGV data.
 
+// Due to requests from Carolyn Kaplan
+// Changes: 
+//    Added a single user login from database
+//    Add custom alarm option.
+// Edited by narankhuu.b@gmail.com
+// Changes commented with // *** [Description] BEGIN (or END).
+
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // local variables
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -34,16 +42,118 @@ var THIRTY_DAYS = 2592000;
 var now = new Date();
 var STATIC_DIR = __dirname + '/static/';
 
+// *** [Included libs for login flow] BEGIN.
+var passport = require('passport');
+var LocalStrategy = require('passport-local').Strategy;
+var cookieParser = require('cookie-parser');
+var bodyParser = require('body-parser');
+var methodOverride = require('method-override');
+var session = require('express-session');
+var morgan = require('morgan');
+var cfg = {   //default cfg
+  reading_delay: 15, //in minutes
+  highest_threshold: 180,
+  lowest_threshold: 80,
+  observing_type: "auto"
+};
+
+passport.use(new LocalStrategy(
+  function(username, password, done) {
+    mongoClient.connect(DB_URL, function (err, db) {
+      if (err) { return done(err); }
+      db.collection("user").findOne({ username: username }, function (err, user) {
+        if (err) { return done(err); }
+        if (!user) {
+            return done(null, false, { message: 'Incorrect username.' });
+        }
+        if (user.password !== password) {
+          return done(null, false, { message: 'Incorrect password.' });
+        }
+        return done(null, user);
+      });
+    });
+  }
+));
+
+// *** [Included libs for login flow] END.
+
 var app = express();
 app.set('title', 'Nightscout');
 
+// *** [Setup for login flow] BEGIN
+app.set('views', __dirname + '/views');
+app.set('view engine', 'ejs');
+app.set('view options', { layout:false, root: __dirname + '/views' });
+app.use(cookieParser());
+app.use(bodyParser());
+app.use(methodOverride());
+app.use(session({ secret: 'keyboard mouse', resave: true, saveUninitialized: true }));
+app.use(passport.initialize());
+app.use(passport.session());
+app.use(morgan("combined")); 
+
+passport.serializeUser(function(user, done) { done(null, user); });
+passport.deserializeUser(function(user, done) { done(null, user); });
+
+
+app.get("/", function(req, res){
+  res.redirect('/login');
+});
+app.get("/status", function(req, res){
+  if (req.isAuthenticated()){
+    cfg.reading_delay = req.user.reading_delay;
+    cfg.highest_threshold = req.user.highest_threshold;
+    cfg.lowest_threshold = req.user.lowest_threshold;
+    cfg.observing_type = req.user.observing_type;
+    res.render("index", {"om": cfg.observing_type});
+  } else {
+    res.redirect("login");
+  }  
+});
+app.get("/settings", function(req,res){
+  if (req.isAuthenticated()){
+    res.render("settings", { "rd": req.user.reading_delay, "hg": req.user.highest_threshold, "lw": req.user.lowest_threshold });
+  } else {
+    res.redirect("login");
+  }
+});
+app.post("/update", function(req, res){
+  var strUpdate;
+  if (req.body.rd) { strUpdate = { "reading_delay" : req.body.rd }; req.user.reading_delay = req.body.rd; } 
+  if (req.body.hg) { strUpdate = { "highest_threshold": req.body.hg }; req.user.highest_threshold = req.body.hg; } 
+  if (req.body.lw) { strUpdate = { "lowest_threshold": req.body.lw }; req.user.lowest_threshold = req.body.lw; } 
+  if (req.body.om) { strUpdate = { "observing_type": req.body.om }; req.user.observing_type = req.body.om; } 
+  if (req.isAuthenticated()){
+    mongoClient.connect(DB_URL, function (err, db) {
+      if (err || !strUpdate) return res.json({"status":400, "error": err});
+      db.collection("user").update({ username: req.user.username }, {$set: strUpdate},  function (err, result) {
+        if (err) return res.json({"status": "400", "error": err });
+        return res.json({"status": "200"});
+      });
+    });
+  } else {
+    req.redirect("login");
+  }
+});
+app.get("/login", function(req, res){
+  res.render('login');
+});
+app.post('/login', passport.authenticate('local', { 
+  successRedirect: '/status', failureRedirect: '/login' 
+}));
+app.get('/logout', function(req, res){
+  req.logout();
+  res.redirect('/');
+});
+// *** [Setup for login flow] END
+
 // serve special URLs
 // Pebble API
-app.get("/pebble", servePebble);
+app.get("/pebble",servePebble);
+
 
 // define static server
 var server = express.static(STATIC_DIR, {maxAge: THIRTY_DAYS * 1000});
-
 // serve the static content
 app.use(server);
 
@@ -59,7 +169,7 @@ var server = app.listen(PORT);
 function errorHandler(err, req, res, next) {
     if (err) {
         // Log the error
-        var msg = "Error serving " + request.url + " - " + err.message;
+        var msg = "Error serving " + req.url + " - " + err.message;
         require("sys").error(msg);
         console.log(msg);
 
@@ -85,13 +195,15 @@ var io = require('socket.io').listen(server);
 io.set('log level', 0);
 
 //Windows Azure Web Sites does not currently support WebSockets, so use long-polling
+
 io.configure(function () {
     io.set('transports', ['xhr-polling']);
 });
 
+
 var watchers = 0;
 io.sockets.on('connection', function (socket) {
-    io.sockets.emit("now", now);
+    io.sockets.emit("now", [now, cfg]);
     io.sockets.emit("sgv", patientData);
     io.sockets.emit("clients", ++watchers);
     socket.on('ack', function(alarmType, _silenceTime) {
@@ -103,6 +215,8 @@ io.sockets.on('connection', function (socket) {
     socket.on('disconnect', function () {
         io.sockets.emit("clients", --watchers);
     });
+    //send config to client.
+    //io.sockets.emit("config", {"reading_delay": DELAY});
 });
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -195,6 +309,7 @@ function emitAlarm(alarmType) {
     var alarm = alarms[alarmType];
     if (now > alarm.lastAckTime + alarm.silenceTime) {
         io.sockets.emit(alarmType);
+        console.log(alarm.typeName + " is triggered" + JSON.stringify(alarm));
     } else {
         console.log(alarm.typeName + " alarm is silenced for " + Math.floor((alarm.silenceTime - (now - alarm.lastAckTime)) / 60000) + " minutes more");
     }
@@ -251,7 +366,7 @@ function loadData() {
 
         // consolidate and send the data to the client
         patientData = [actual, predicted, mbg, treatment];
-        io.sockets.emit("now", now);
+        io.sockets.emit("now", [now, cfg]);
         io.sockets.emit("sgv", patientData);
 
         // compute current loss
@@ -261,10 +376,17 @@ function loadData() {
             avgLoss += 1 / size * Math.pow(log10(predicted[j].y / 120), 2);
         }
 
-        if (avgLoss > alarms['urgent_alarm'].threshold) {
-            emitAlarm('urgent_alarm');
-        } else if (avgLoss > alarms['alarm'].threshold) {
-            emitAlarm('alarm');
+        if (cfg.observing_type === "auto") {
+          if (avgLoss > alarms['urgent_alarm'].threshold) {
+              emitAlarm('urgent_alarm');
+          } else if (avgLoss > alarms['alarm'].threshold) {
+              emitAlarm('alarm');
+          }
+        } else {
+          // *** [manual alarm]
+          if (predicted[0].y >= cfg.highest_threshold || predicted[0].y <= cfg.lowest_threshold){
+              emitAlarm('alarm'); 
+          }
         }
     }
 }

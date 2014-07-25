@@ -1,0 +1,120 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Settings</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="../bower_components/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <style type="text/css">
+    .txt-input {
+      background-color: #ccc; 
+      color:black;
+    }
+    </style>
+  </head>
+
+  <body style="background-color:black; color:#ccc;">
+    <br>
+    <form class="form-signin" role="form">
+    <div class="container">
+      <div class="row">
+       <div class="col-xs-10 col-xs-push-1 col-sm-6 col-sm-push-3" style="background: #303030; border-radius:10px;">
+          <div class="row">
+
+          </div>
+            <h2 class="form-signin-heading">Settings</h2>
+            <div class="alert" id="div-alert" role="alert" style="font-weight: bold;"></div>
+            <br>
+            <label>Reading value: (in minutes)</label>
+            <div class="row">
+              <div class="col-xs-6">
+                <input id="txt-rd" type="text" class="form-control txt-input" placeholder="Reading" value="<%= rd %>" autofocus>
+              </div>
+              <div class="col-xs-6">
+                <spam class="btn btn-md btn-primary btn-block" id="btn-rd">Update</span>
+              </div>
+            </div>
+            <br>
+
+            <label>Highest value:</label>
+            <div class="row">
+              <div class="col-xs-6">
+                <input id="txt-hg" type="text" class="form-control txt-input" placeholder="Highest" value="<%= hg %>">
+              </div>
+              <div class="col-xs-6">
+                <span class="btn btn-md btn-primary btn-block" id="btn-hg">Update</span>
+              </div>
+            </div>
+            <br>
+            <label>Lowest value:</label>
+            <div class="row">
+              <div class="col-xs-6">
+                <input id="txt-lw" type="text" class="form-control txt-input" placeholder="Lowest" value="<%= lw %>">
+              </div>
+              <div class="col-xs-6">
+                <span class="btn btn-md btn-primary btn-block" id="btn-lw">Update</span>
+              </div>
+            </div>
+            <br>
+            <div class="row">
+              <div class="col-xs-8 col-xs-push-2">
+                <span class="btn btn-md btn-default btn-block" id="btn-back">Back</span>
+              </div>
+            </div>
+            <br>
+        </div>
+      </div>
+    </div> <!-- /container -->
+    <br>
+    <script src='../bower_components/jquery/dist/jquery.min.js'></script>
+    <script type="text/javascript">
+    $(function() {
+      $("#btn-rd, #btn-hg, #btn-lw").click(function(e){
+        var id = e.target.id;
+        var suffix = id.substring(id.length-2, id.length);
+        var btn = $(e.target.id);
+        var txt = $("#txt-" + suffix);
+        var str, dt;
+        switch (suffix){ 
+          case "rd": { str = "Reading"; dt = { "rd": txt.val() }; } break;
+          case "hg": { str = "Highest"; dt = { "hg": txt.val() }; } break;
+          case "lw": { str = "Lowest"; dt = { "lw": txt.val() }; } break;
+        }
+
+        if (txt.val().length > 0){
+          btn.addClass("disabled");
+          setTimeout(function() { btn.removeClass("disabled"); }, 3000);
+          $.ajax({ type: "POST", url: "/update", data: dt })
+          .done(function( data ) {
+            if (data.status == "200"){
+              $("#div-alert").text(str + " value updated successfully.")
+              .removeClass("alert-danger").addClass("alert-success");
+            } else {
+              $("#div-alert").text("Database or server error, try again later!")
+              .removeClass("alert-success").addClass("alert-danger");  
+            }
+          }).fail(function(){
+            $("#div-alert").text(str + " value update failed!")
+            .removeClass("alert-success").addClass("alert-danger");
+          });
+        } else {
+          $("#div-alert").text(str + " value is required!")
+          .removeClass("alert-success").addClass("alert-danger");
+        }
+      })
+     
+      $("#btn-back").click(function(){ location.href="/status"; });
+    });
+    </script>
+  </body>
+</html>

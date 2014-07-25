@@ -29,9 +29,14 @@
         alarmInProgress = false,
         currentAlarmType = null,
         alarmSound = 'alarm.mp3',
-        urgentAlarmSound = 'alarm2.mp3';
-
-
+        urgentAlarmSound = 'alarm2.mp3',
+        //*** [custom user configuration defaults]  
+        cfg = {
+            reading_delay: 15, //in minute
+            highest_threshold: 180,
+            lowest_threshold: 80,
+            observing_type: "auto"
+        };
     // create svg and g to contain the chart contents
     var charts = d3.select('#chartContainer').append('svg')
         .append('g')
@@ -82,7 +87,7 @@
         yAxis = d3.svg.axis()
             .scale(yScale)
             .tickFormat(d3.format('d'))
-            .tickValues([40, 60, 80, 120, 180, 300, 400])
+            .tickValues([40, 60, cfg.lowest_threshold, 120, cfg.highest_threshold, 300, 400].sort())
             .orient('left');
 
         xAxis2 = d3.svg.axis()
@@ -93,7 +98,7 @@
         yAxis2 = d3.svg.axis()
             .scale(yScale2)
             .tickFormat(d3.format('d'))
-            .tickValues([40, 60, 80, 120, 180, 300, 400])
+            .tickValues([40, 60, cfg.lowest_threshold, 120, cfg.highest_threshold, 300, 400].sort())
             .orient('right');
 
         // setup a brush
@@ -373,9 +378,9 @@
                 focus.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(180))
+                    .attr('y1', yScale(cfg.highest_threshold))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(180))
+                    .attr('y2', yScale(cfg.highest_threshold))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -383,9 +388,9 @@
                 focus.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(80))
+                    .attr('y1', yScale(cfg.lowest_threshold))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(80))
+                    .attr('y2', yScale(cfg.lowest_threshold))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -419,9 +424,9 @@
                 context.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(180))
+                    .attr('y1', yScale2(cfg.highest_threshold))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(180))
+                    .attr('y2', yScale2(cfg.highest_threshold))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -429,9 +434,9 @@
                 context.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(80))
+                    .attr('y1', yScale2(cfg.lowest_threshold))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(80))
+                    .attr('y2', yScale2(cfg.lowest_threshold))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -476,18 +481,18 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(180))
+                    .attr('y1', yScale(cfg.highest_threshold))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(180));
+                    .attr('y2', yScale(cfg.highest_threshold));
 
                 // transition low line to correct location
                 focus.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(80))
+                    .attr('y1', yScale(cfg.lowest_threshold))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(80));
+                    .attr('y2', yScale(cfg.lowest_threshold));
 
                 // transition open-top line to correct location
                 focus.select('.open-top')
@@ -521,18 +526,18 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(180))
+                    .attr('y1', yScale2(cfg.highest_threshold))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(180));
+                    .attr('y2', yScale2(cfg.highest_threshold));
 
                 // transition low line to correct location
                 context.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(80))
+                    .attr('y1', yScale2(cfg.lowest_threshold))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(80));
+                    .attr('y2', yScale2(cfg.lowest_threshold));
             }
         }
 
@@ -616,7 +621,8 @@
     var socket = io.connect();
 
     socket.on('now', function (d) {
-        now = d;
+        now = d[0];
+        if (d[1]) cfg = d[1]; // *** [getting user configuration from server]
         var dateTime = new Date(now);
         $('#currentTime').text(d3.time.format('%I:%M%p')(dateTime));
 
@@ -656,7 +662,7 @@
                 $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
                 $('.container .currentBG').text(currentBG);
                 $('.container .currentDirection').html(current.direction);
-                $('.container .current').toggleClass('high', current.y > 180).toggleClass('low', current.y < 70)
+                $('.container .current').toggleClass('high', current.y > cfg.highest_threshold).toggleClass('low', current.y < cfg.lowest_threshold)
             }
             data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, direction: obj.direction, color: 'grey'} });
             data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'blue'} }));
@@ -747,13 +753,20 @@
     }
 
     function timeAgo(offset) {
+        // *** [custom toggle TIMER color to red]
+        if (offset > parseInt(cfg.reading_delay) * 60){
+            $("#currentTime").css("color","red");
+        } else {
+            $("#currentTime").css("color","#808080");
+        }
+
         var parts = {},
             MINUTE = 60,
             HOUR = 3600,
             DAY = 86400,
             WEEK = 604800;
 
-        if (offset <= MINUTE)              parts = { lablel: 'now' };
+        if (offset <= MINUTE)              parts = { label: 'now' };
         if (offset <= MINUTE * 2)          parts = { label: '1 min ago' };
         else if (offset < (MINUTE * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE)), label: 'mins' };
         else if (offset < (HOUR * 2))      parts = { label: '1 hr ago' };
@@ -871,4 +884,23 @@
         }
         return predicted;
     }
+
+    $("#btn-logout").click(function(){
+        location.href = "/logout";
+    });
+    $("#btn-settings").click(function(){
+        location.href = "/settings";
+    });
+    $("#btn-toggle").click(function(){
+        var om = ($("#btn-toggle").attr("src") === "../images/warning.png") ? "auto" : "manual";
+        
+        $.ajax({ type: "POST", url: "/update", data: {"om": om} })
+        .done(function( data ) {
+            if (data.status == "200") {
+                location.reload();    
+            } else {
+                alert("Database or server error!");
+            }
+        });
+     });
 })();
