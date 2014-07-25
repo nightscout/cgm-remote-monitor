@@ -24,6 +24,8 @@ var express = require('express');
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
 var cgmData = [];
+//var uploaderSettings = [];
+var settingsData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -94,6 +96,7 @@ io.sockets.on('connection', function (socket) {
     io.sockets.emit("now", now);
     io.sockets.emit("sgv", patientData);
     io.sockets.emit("clients", ++watchers);
+    io.sockets.emit("settings", settingsData);
     socket.on('ack', function(alarmType, _silenceTime) {
         alarms[alarmType].lastAckTime = new Date().getTime();
         alarms[alarmType].silenceTime = _silenceTime ? _silenceTime : FORTY_MINUTES;
@@ -181,13 +184,25 @@ function update() {
                     cgmData.push(obj);
                 }
             });
-            db.close();
+            //db.close();
         });
+      collection.find({"type":"settings"}).toArray(function(err, results) {
+            results.forEach(function(element, index, array) {
+                if (element) {
+                    var obj = {};
+                    obj.battery = element.battery;
+                    console.log(element.battery);
+                    settingsData.push(obj);
+                }
+            });
+            
+        });
+      
     });
 
     // wait for database read to complete, 5 secs has proven to be more than enough
     setTimeout(loadData, 5000);
-
+    
     return update;
 }
 
@@ -253,6 +268,7 @@ function loadData() {
         patientData = [actual, predicted, mbg, treatment];
         io.sockets.emit("now", now);
         io.sockets.emit("sgv", patientData);
+        io.sockets.emit("settings", settingsData);
 
         // compute current loss
         var avgLoss = 0;
@@ -287,3 +303,4 @@ setInterval(kickstart(), ONE_MINUTE);
 function log10(val) { return Math.log(val) / Math.LN10; }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+

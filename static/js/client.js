@@ -627,6 +627,17 @@
             $('body').css({'opacity': opacity.DAY});
         }
     });
+    
+    socket.on('settings', function (d) {
+        var settings = d[0];
+        if (settings.battery){
+          $('.BatteryCheck').show();
+          $('#battery').text(settings.battery);
+          }
+          else {
+            $('.BatteryCheck').hide();
+          }   
+    });
 
     socket.on('sgv', function (d) {
         if (d.length > 1) {
@@ -654,7 +665,9 @@
                 }
 
                 $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+                
                 $('.container .currentBG').text(currentBG);
+                
                 $('.container .currentDirection').html(current.direction);
                 $('.container .current').toggleClass('high', current.y > 180).toggleClass('low', current.y < 70)
             }
@@ -872,3 +885,4 @@
         return predicted;
     }
 })();
+
