@@ -11,7 +11,7 @@ $.ajax("/api/v1/status.json", {
 		app = {
 			"name": xhr.name,
 			"version": xhr.version,
-			"apiEnabled": xhr.apiEnabled  // This isn't defined yet.
+			"apiEnabled": xhr.apiEnabled
 		}
 	}
 }).done(function() {
@@ -31,7 +31,7 @@ function getBrowserSettings(storage) {
 
 	// Default browser units to server units if undefined.
 	json.units = setDefault(json.units, serverSettings.units);
-	console.log("browserSettings.units: " + json.units);
+	//console.log("browserSettings.units: " + json.units);
 	if (json.units == "mmol") {
 		$("#mmol-browser").prop("checked", true);
 	} else {
@@ -49,7 +49,7 @@ function getServerSettings() {
 	};
 
 	json.units = setDefault(json.units, defaultSettings.units);
-	console.log("serverSettings.units: " + json.units);
+	//console.log("serverSettings.units: " + json.units);
 	if (json.units == "mmol") {
 		$("#mmol-server").prop("checked", true);
 	} else {
@@ -110,6 +110,7 @@ function isTouch() {
 
 function closeDrawer(callback) {
 	$("#container").animate({marginLeft: "0px"}, 300, callback);
+	$("#chartContainer").animate({marginLeft: "0px"}, 300);
 	$("#drawer").animate({right: "-200px"}, 300, function() {
 		$("#drawer").css("display", "none");
 	});
@@ -118,20 +119,52 @@ function closeDrawer(callback) {
 function openDrawer()  {
 	drawerIsOpen = true;
 	$("#container").animate({marginLeft: "-200px"}, 300);
+	$("#chartContainer").animate({marginLeft: "-200px"}, 300);
 	$("#drawer").css("display", "block");
 	$("#drawer").animate({right: "0"}, 300);
 }
 
 
+function closeNotification() {
+	$("#notification").hide();
+	$("#notification").find("span").html("");
+}
+function showNotification(note)  {
+	$("#notification").hide();
+	$("#notification").find("span").html(note);
+	$("#notification").css("left", "calc(50% - " + ($("#notification").width() / 2) + "px)");
+	$("#notification").show();
+}
+
+
 function closeToolbar() {
+	stretchStatusForToolbar("close");
+
 	$("#toolbar").animate({marginTop: "-44px"}, 200, function() {
-		$("#showToolbar").fadeIn().css("display", "block");
+		$("#showToolbar").fadeIn(200);
 	});
 }
 function openToolbar() {
 	$("#showToolbar").fadeOut(200, function() {
-		$("#toolbar").animate({marginTop: "-0px"}, 200);
+		$("#toolbar").animate({marginTop: "0px"}, 200);
+
+		stretchStatusForToolbar("open");
 	});
+}
+function stretchStatusForToolbar(toolbarState){
+	// closed = up
+	if (toolbarState == "close") {
+		$(".status").css({
+			"font-size": "+125%"
+		});
+	}
+
+	// open = down
+	if (toolbarState == "open") {
+		$(".status").css({
+			"font-size": "-125%"
+		});
+	}
 }
 
 
@@ -148,6 +181,11 @@ $("#drawerToggle").click(function(event) {
 		openDrawer();
 		drawerIsOpen = true;
 	}
+	event.preventDefault();
+});
+
+$("#notification").click(function(event) {
+	closeNotification();
 	event.preventDefault();
 });
 
@@ -178,9 +216,10 @@ $("input#save").click(function() {
 
 	event.preventDefault();
 
-	// reload
+	// reload for changes to take effect
+	// -- strip '#' so form submission does not fail
 	var url = window.location.href;
-	url = url.replace(/#$/, ""); // stops # in url from stopping form submission
+	url = url.replace(/#$/, "");
 	window.location = url;
 });
 
@@ -200,7 +239,16 @@ $(function() {
 		opacity: 0.75
 	}
 
+	if (querystring.notify) {
+		showNotification(querystring.notify.replace("+", " "));
+	}
+
 	if (querystring.drawer) {
 		openDrawer();
+	} else {
+		// drawer=true cancels out toolbar=false
+		if (querystring.toolbar == "false") {
+			closeToolbar();
+		}
 	}
 });
