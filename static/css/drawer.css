@@ -113,13 +113,14 @@ h1, legend,
 #showToolbar {
     opacity: 0.5;
     text-align: center;
-    top: 5px;
+    top: 0px;
     width: 100%;
     z-index: 98;
 }
 #showToolbar a {
     border: solid #fff 1px;
-    border-radius: 5px;
+    border-radius: 0 0 5px 5px;
+    border-top: 0;
     color: #fff;
     margin: 0 auto;
     padding: 2px;

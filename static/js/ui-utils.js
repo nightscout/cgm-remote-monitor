@@ -140,16 +140,18 @@ function showNotification(note)  {
 function closeToolbar() {
 	stretchStatusForToolbar("close");
 
-	$("#toolbar").animate({marginTop: "-44px"}, 200, function() {
-		$("#showToolbar").fadeIn(200);
+	$("#showToolbar").css({top: "44px"});
+	$("#showToolbar").fadeIn(50, function() {
+		$("#showToolbar").animate({top: 0}, 200);
+		$("#toolbar").animate({marginTop: "-44px"}, 200);
 	});
 }
 function openToolbar() {
-	$("#showToolbar").fadeOut(200, function() {
-		$("#toolbar").animate({marginTop: "0px"}, 200);
+	$("#showToolbar").css({top: 0});
+	$("#showToolbar").animate({top: "44px"}, 200).fadeOut(200);
+	$("#toolbar").animate({marginTop: "0px"}, 200);
 
-		stretchStatusForToolbar("open");
-	});
+	stretchStatusForToolbar("open");
 }
 function stretchStatusForToolbar(toolbarState){
 	// closed = up
