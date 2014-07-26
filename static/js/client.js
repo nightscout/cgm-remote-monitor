@@ -1,6 +1,6 @@
 (function () {
     "use strict";
-
+ 
     var retrospectivePredictor = true,
         latestSGV,
         treatments,

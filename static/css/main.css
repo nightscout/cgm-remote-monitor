@@ -211,7 +211,8 @@ body {
         width: 100%;
     }
     #bgButton {
-        font-size: -200%;
+        font-size: 100%;
+        margin: 0.1em;
         width: auto;
     }
     .time {
