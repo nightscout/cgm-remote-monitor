@@ -136,6 +136,7 @@ body {
 
 #silenceBtn, #silenceBtn * {
   font-size: 70%;
+  z-index: 999;
 }
 
 .alarms {
