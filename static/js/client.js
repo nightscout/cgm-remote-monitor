@@ -30,7 +30,8 @@
         alarmInProgress = false,
         currentAlarmType = null,
         alarmSound = 'alarm.mp3',
-        urgentAlarmSound = 'alarm2.mp3';
+        urgentAlarmSound = 'alarm2.mp3',
+        WIDTH_TIME_HIDDEN = 600;
 
     // Tick Values
     var tickValues = [40, 60, 80, 120, 180, 300, 400];
@@ -199,7 +200,16 @@
         // get slice of data so that concatenation of predictions do not interfere with subsequent updates
         var focusData = data.slice();
 
+        if (alarmInProgress) {
+            if ($(window).width() > WIDTH_TIME_HIDDEN) {
+                $(".time").show();
+            } else {
+                $(".time").hide();
+            }
+        }
+
         var element = document.getElementById('bgButton').hidden == '';
+
         var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
         // predict for retrospective data
@@ -321,7 +331,7 @@
             .getBoundingClientRect().width) - padding.left - padding.right;
 
         var chartHeight = (document.getElementById('chartContainer')
-            .getBoundingClientRect().height) - padding.top - padding.bottom;    
+            .getBoundingClientRect().height) - padding.top - padding.bottom;
 
         // get the height of each chart based on its container size ratio
         focusHeight = chartHeight * .7;
@@ -755,6 +765,10 @@
         var element1 = document.getElementById('noButton');
         element1.hidden = 'true';
         $('.container .currentBG').text();
+
+        if ($(window).width() <= WIDTH_TIME_HIDDEN) {
+            $(".time").hide();
+        }
     }
 
     function playAlarm(audio) {
@@ -777,6 +791,8 @@
           audio.pause();
           $(this).removeClass('playing');
         });
+
+        $(".time").show();
 
         // only emit ack if client invoke by button press
         if (isClient) {

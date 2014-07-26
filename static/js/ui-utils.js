@@ -110,6 +110,7 @@ function isTouch() {
 
 function closeDrawer(callback) {
 	$("#container").animate({marginLeft: "0px"}, 300, callback);
+	$("#chartContainer").animate({marginLeft: "0px"}, 300);
 	$("#drawer").animate({right: "-200px"}, 300, function() {
 		$("#drawer").css("display", "none");
 	});
@@ -118,6 +119,7 @@ function closeDrawer(callback) {
 function openDrawer()  {
 	drawerIsOpen = true;
 	$("#container").animate({marginLeft: "-200px"}, 300);
+	$("#chartContainer").animate({marginLeft: "-200px"}, 300);
 	$("#drawer").css("display", "block");
 	$("#drawer").animate({right: "0"}, 300);
 }
