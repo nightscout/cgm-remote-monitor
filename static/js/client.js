@@ -25,7 +25,7 @@
         THIRTY_MINS_IN_MS = 1800000,
         FORTY_TWO_MINS_IN_MS = 2520000,
         FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
-        FORMAT_TIME = '%I:%M%p', //alternate format '%H:%M'
+        FORMAT_TIME = '%I:%M%', //alternate format '%H:%M'
         audio = document.getElementById('audio'),
         alarmInProgress = false,
         currentAlarmType = null,
@@ -64,6 +64,13 @@
     context.append('g')
         .attr('class', 'y axis');
 
+
+    // Remove leading zeros from the time (eg. 08:40 = 8:40) & lowercase the am/pm
+    function formatTime(time) {
+        time = d3.time.format(FORMAT_TIME)(time);
+        time = time.replace(/^0/, '').toLowerCase();
+        return time;
+    }
 
     // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
@@ -217,14 +224,14 @@
                     .css('text-decoration','none');
             }
             $('#currentTime')
-                .text(d3.time.format(FORMAT_TIME)(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
+                .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
                 .css('text-decoration','line-through');
         } else if (retrospectivePredictor) {
             // if the brush comes back into the current time range then it should reset to the current time and sg
             var dateTime = new Date(now);
             nowDate = dateTime;
             $('#currentTime')
-                .text(d3.time.format(FORMAT_TIME)(dateTime))
+                .text(formatTime(dateTime))
                 .css('text-decoration','none');
             $('.container .currentBG')
                 .text(scaleBg(latestSGV.y))
@@ -314,7 +321,7 @@
             .getBoundingClientRect().width) - padding.left - padding.right;
 
         var chartHeight = (document.getElementById('chartContainer')
-            .getBoundingClientRect().height) - padding.top - padding.bottom;
+            .getBoundingClientRect().height) - padding.top - padding.bottom;    
 
         // get the height of each chart based on its container size ratio
         focusHeight = chartHeight * .7;
@@ -635,7 +642,7 @@
         now = d;
         var dateTime = new Date(now);
         // lixgbg old: $('#currentTime').text(d3.time.format('%I:%M%p')(dateTime));
-        $('#currentTime').text(d3.time.format(FORMAT_TIME)(dateTime));
+        $('#currentTime').text(formatTime(dateTime));
 
         // Dim the screen by reducing the opacity when at nighttime
         if (browserSettings.nightMode) {

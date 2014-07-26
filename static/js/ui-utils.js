@@ -31,7 +31,7 @@ function getBrowserSettings(storage) {
 
 	// Default browser units to server units if undefined.
 	json.units = setDefault(json.units, serverSettings.units);
-	console.log("browserSettings.units: " + json.units);
+	//console.log("browserSettings.units: " + json.units);
 	if (json.units == "mmol") {
 		$("#mmol-browser").prop("checked", true);
 	} else {
@@ -49,7 +49,7 @@ function getServerSettings() {
 	};
 
 	json.units = setDefault(json.units, defaultSettings.units);
-	console.log("serverSettings.units: " + json.units);
+	//console.log("serverSettings.units: " + json.units);
 	if (json.units == "mmol") {
 		$("#mmol-server").prop("checked", true);
 	} else {
@@ -136,14 +136,33 @@ function showNotification(note)  {
 
 
 function closeToolbar() {
+	stretchStatusForToolbar("close");
+
 	$("#toolbar").animate({marginTop: "-44px"}, 200, function() {
-		$("#showToolbar").fadeIn().css("display", "block");
+		$("#showToolbar").fadeIn(200);
 	});
 }
 function openToolbar() {
 	$("#showToolbar").fadeOut(200, function() {
-		$("#toolbar").animate({marginTop: "-0px"}, 200);
+		$("#toolbar").animate({marginTop: "0px"}, 200);
+
+		stretchStatusForToolbar("open");
 	});
+}
+function stretchStatusForToolbar(toolbarState){
+	// closed = up
+	if (toolbarState == "close") {
+		$(".status").css({
+			"font-size": "+125%"
+		});
+	}
+
+	// open = down
+	if (toolbarState == "open") {
+		$(".status").css({
+			"font-size": "-125%"
+		});
+	}
 }
 
 
