@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nightscout BG NOW</title>
+  <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
+  <link rel='stylesheet' type='text/css' href='/css/main.css' />
+  <style type="text/css">
+    .center {
+      text-align: center;
+      padding: 0;
+      margin: 0;
+    }
+    h1 {
+      padding: 0;
+      margin: 0;
+      font-size: 3500%;
+    }
+    html, body {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+    }
+    html {
+    }
+    body {
+      font-size: 100%;
+      min-height: 100%;
+
+    }
+  </style>
+</head>
+<body>
+  <div class="center">
+    <h1 class="bgnow"></h1>
+  </div>
+  <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+  <script type="text/javascript">
+    function query ( ) {
+      console.log('query');
+      $.ajax('/api/v1/entries/current.json', { success: render });
+    }
+
+    function render (xhr) {
+      console.log('xhr', xhr);
+      $('.bgnow').text(xhr[0].sgv);
+    }
+
+    function init ( ) {
+      console.log('init');
+      query( );
+      setInterval(query, 1 * 60 * 1000);
+    }
+
+    init( );
+  </script>
+</body>
+</html>
+
