@@ -28,6 +28,11 @@
       min-height: 100%;
 
     }
+
+    .stale {
+      text-decoration: line-through;
+
+    }
   </style>
 </head>
 <body>
@@ -43,7 +48,12 @@
 
     function render (xhr) {
       console.log('xhr', xhr);
-      $('.bgnow').text(xhr[0].sgv);
+      var rec = xhr[0];
+      var last = new Date(rec.date);
+      var now = new Date( );
+      $('.bgnow').text(rec.sgv);
+      var threshold = 1000 * 60 * 13;
+      $('.bgnow').toggleClass('stale', (now - last > threshold));
     }
 
     function init ( ) {
