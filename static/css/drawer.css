@@ -124,6 +124,10 @@ h1, legend,
     margin: 0 auto;
     padding: 2px;
 }
+#notification,
+#notification * {
+    overflow: hidden;
+}
 #notification {
     opacity: 0.75;
     top: 4px;
