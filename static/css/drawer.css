@@ -1,0 +1,170 @@
+body {
+    margin: 0;
+    padding: 0;
+    overflow: none;
+}
+.row-fluid {
+    margin: 0 8px;
+}
+
+.container {
+    background: #000;
+    bottom: 0;
+    height: 100%;
+    left: 0;
+    margin: 0;
+    width: 100%;
+    top: 45px;
+    z-index: 2;
+}
+
+#drawer {
+    background-color: #666;
+    border-left: 1px solid #999;
+    box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
+    color: #eee;
+    display: none;
+    font-size: 16px;
+    height: calc(100% - 45px);
+    overflow-y: auto;
+    position: absolute;
+    margin-top: 45px;
+    right: -200px;
+    width: 200px;
+    top: 0;
+    z-index: 1;
+}
+#drawer i {
+    opacity: 0.6;
+}
+#about {
+    margin-top: 1em;
+    text-align: center;
+}
+
+form {
+    margin: 0;
+    padding: 0 10px;
+}
+
+.serverSettings {
+    display: none;
+}
+
+fieldset {
+    margin: 0.5em 0 1em 0;
+}
+legend {
+    font-size: 1.1em;
+}
+dl {
+    margin: 0 0 1em 0;
+}
+dl:last-child {
+    margin-bottom: 0;
+}
+dd {
+    margin-left: 0;
+}
+
+dd.numbers input {
+    text-align: right;
+    width: 50px;
+}
+dd.numbers label {
+    display: block;
+    float: left;
+    width: 50px;
+}
+
+h1, legend,
+#about .appName,
+#about .version {
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    font-weight: bold;
+}
+
+#toolbar {
+    background: url(/images/logo2.png) no-repeat 3px 3px #333;
+    border-bottom: 1px solid #999;
+    top: 0;
+    margin: 0;
+    height: 44px;
+}
+
+#toolbar h1 {
+    color: #ccc;
+    font-size: 16px;
+    margin-top: 0;
+    margin-left: 42px;
+    padding: 10px;
+}
+#buttonbar {
+    padding: 0;
+    float: right;
+    height: 44px;
+    width: 136px;
+    opacity: 0.75;
+    vertical-align: middle;
+}
+#buttonbar a {
+    color: #ccc;
+    line-height: 44px;
+    font-size: 16px;
+    float: left;
+    height: 44px;
+    width: 44px;
+}
+#buttonbar i {
+    padding-left: 12px;
+}
+.icon-angle-double-up {
+    font-size: 21px;
+    padding-left: 9px !important;
+}
+
+#showToolbar,
+#notification {
+    display: none;
+    font-size: 16px;
+    position: absolute;
+}
+#showToolbar {
+    opacity: 0.5;
+    text-align: center;
+    top: 5px;
+    width: 100%;
+    z-index: 98;
+}
+#showToolbar a {
+    border: solid #fff 1px;
+    border-radius: 5px;
+    color: #fff;
+    margin: 0 auto;
+    padding: 2px;
+}
+#notification {
+    opacity: 0.75;
+    top: 7px;
+    z-index: 99;
+}
+#notification a {
+    background: #c00;
+    border-radius: 5px;
+    color: #fff;
+    display: block;
+    height: 20px;
+    padding: 5px 0 5px 5px;
+    text-decoration: none;
+}
+#notification span {
+    margin-right: 10px;
+}
+#notification i {
+    opacity: 0.5;
+}
+
+.experiments a {
+    color: #fff;
+    font-size: 1.5em;
+}
