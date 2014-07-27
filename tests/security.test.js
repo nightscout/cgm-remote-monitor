@@ -40,8 +40,32 @@ describe('API_SECRET', function ( ) {
     should.not.exist(env.api_secret);
     var ctx = setup_app(env,  function ( ) {
       ctx.app.enabled('api').should.be.false;
-      ping_status(ctx.app, done);
+      ping_status(ctx.app, again);
+      function again ( ) {
+        ping_authorized_endpoint(ctx.app, 404, done);
+      }
     });
+  });
+
+
+  it('should work fail set unauthorized', function (done) {
+    var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
+    delete process.env.API_SECRET;
+    process.env.API_SECRET = 'this is my long pass phrase';
+    var env = require('../env')( );
+    env.api_secret.should.equal(known);
+    var ctx = setup_app(env,  function ( ) {
+      // console.log(this.app.enabled('api'));
+      ctx.app.enabled('api').should.be.true;
+      // ping_status(ctx.app, done);
+      // ping_authorized_endpoint(ctx.app, 200, done);
+      ping_status(ctx.app, again);
+      function again ( ) {
+        ctx.app.api_secret = '';
+        ping_authorized_endpoint(ctx.app, 401, done);
+      }
+    });
+
   });
 
 
@@ -54,7 +78,13 @@ describe('API_SECRET', function ( ) {
     var ctx = setup_app(env,  function ( ) {
       // console.log(this.app.enabled('api'));
       ctx.app.enabled('api').should.be.true;
-      ping_status(ctx.app, done);
+      // ping_status(ctx.app, done);
+      // ping_authorized_endpoint(ctx.app, 200, done);
+      ping_status(ctx.app, again);
+      function again ( ) {
+        ctx.app.api_secret = env.api_secret;
+        ping_authorized_endpoint(ctx.app, 200, done);
+      }
     });
 
   });
@@ -72,11 +102,25 @@ describe('API_SECRET', function ( ) {
 
   function ping_status (app, fn) {
       request(app)
-        .get('/status/.json')
+        .get('/status.json')
         .expect(200)
         .end(function (err, res)  {
           // console.log(res.body);
           res.body.status.should.equal('ok');
+          fn( );
+          // console.log('err', err, 'res', res);
+        })
+  }
+
+  function ping_authorized_endpoint (app, fails, fn) {
+      request(app)
+        .get('/experiments/test')
+        .set('API-SECRET', app.api_secret || '')
+        .expect(fails)
+        .end(function (err, res)  {
+          if (fails < 400) {
+            res.body.status.should.equal('ok');
+          }
           fn( );
           // console.log('err', err, 'res', res);
         })
