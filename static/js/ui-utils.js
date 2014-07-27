@@ -2,7 +2,7 @@ var drawerIsOpen = false;
 var browserStorage = $.localStorage;
 var defaultSettings = {
 	"units": "mg/dl",
-	"nightMode": true
+	"nightMode": false
 }
 
 var app = {};
@@ -148,7 +148,7 @@ function openToolbar() {
 
 
 var querystring = getQueryParms();
-var serverSettings = getServerSettings();
+// var serverSettings = getServerSettings();
 var browserSettings = getBrowserSettings(browserStorage);
 
 
