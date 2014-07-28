@@ -97,7 +97,7 @@ function storeOnServer(json) {
 function getQueryParms() {
 	params = {};
 	location.search.substr(1).split("&").forEach(function(item) {
-		params[item.split("=")[0]] = item.split("=")[1]
+		params[item.split("=")[0]] = item.split("=")[1].replace(/[_\+]/g, " ");
 	});
 	return params;
 }
@@ -126,14 +126,22 @@ function openDrawer()  {
 
 
 function closeNotification() {
-	$("#notification").hide();
-	$("#notification").find("span").html("");
+	var notify = $("#notification");
+	notify.hide();
+	notify.find("span").html("");
 }
-function showNotification(note)  {
-	$("#notification").hide();
-	$("#notification").find("span").html(note);
-	$("#notification").css("left", "calc(50% - " + ($("#notification").width() / 2) + "px)");
-	$("#notification").show();
+function showNotification(note, type)  {
+	var notify = $("#notification");
+	notify.hide();
+
+	// Notification types: "info", "warn", "success", "urgent".
+	// - default: "urgent"
+	notify.removeClass("info warn urgent");
+	notify.addClass(type ? type : "urgent");
+
+	notify.find("span").html(note);
+	notify.css("left", "calc(50% - " + ($("#notification").width() / 2) + "px)");
+	notify.show();
 }
 
 
@@ -242,7 +250,7 @@ $(function() {
 	}
 
 	if (querystring.notify) {
-		showNotification(querystring.notify.replace("+", " "));
+		showNotification(querystring.notify, querystring.notifytype);
 	}
 
 	if (querystring.drawer) {

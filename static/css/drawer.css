@@ -126,13 +126,29 @@ h1, legend,
     padding: 2px;
 }
 #notification,
-#notification * {
+#notification a {
     overflow: hidden;
 }
 #notification {
     opacity: 0.75;
     top: 4px;
     z-index: 99;
+}
+#notification.info a {
+    background: #00f;
+    color: #fff;
+}
+#notification.warn a {
+    background: #cc0;
+    color: #000;
+}
+#notification.success a {
+    background: #090;
+    color: #fff;
+}
+#notification.urgent a {
+    background: #c00;
+    color: #fff;
 }
 #notification a {
     background: #c00;
@@ -147,7 +163,9 @@ h1, legend,
     margin-right: 0.25em;
 }
 #notification i {
+    float: right;
     opacity: 0.5;
+    vertical-align: top;
 }
 
 .experiments a {
