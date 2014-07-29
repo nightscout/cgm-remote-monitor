@@ -96,9 +96,11 @@ function storeOnServer(json) {
 
 function getQueryParms() {
 	params = {};
-	location.search.substr(1).split("&").forEach(function(item) {
-		params[item.split("=")[0]] = item.split("=")[1].replace(/[_\+]/g, " ");
-	});
+	if (location.search) {
+		location.search.substr(1).split("&").forEach(function(item) {
+			params[item.split("=")[0]] = item.split("=")[1].replace(/[_\+]/g, " ");
+		});
+	}
 	return params;
 }
 
