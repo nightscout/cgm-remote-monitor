@@ -843,7 +843,12 @@
             lastEntry.removeClass("urgent");
             lastEntry.addClass("warn");
         } else {
+<<<<<<< HEAD
             $("#lastEntry").lastEntry.removeClass("warn urgent");
+=======
+            $(".bgStatus").addClass("current");
+            $("#lastEntry").removeClass("warn urgent");
+>>>>>>> hotfix/0.3.2
         }
 
         if (parts.value)
