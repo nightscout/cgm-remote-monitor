@@ -46,13 +46,15 @@ var appInfo = software.name + ' ' + software.version;
 app.set('title', appInfo);
 app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
 
-if (env.api_secret) {
-    console.log("API_SECRET", env.api_secret);
-}
+//if (env.api_secret) {
+//    console.log("API_SECRET", env.api_secret);
+//}
 app.use('/api/v1', api);
 
 // pebble data
 app.get('/pebble', pebble(entries));
+
+//app.get('/package.json', software);
 
 // define static server
 var staticFiles = express.static(env.static_files, {maxAge: THIRTY_DAYS * 1000});
