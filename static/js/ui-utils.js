@@ -27,7 +27,7 @@ function getBrowserSettings(storage) {
 	var json = {
 		"units": storage.get("units"),
 		"nightMode": storage.get("nightMode"),
-		"patient": storage.get("patient")
+		"customTitle": storage.get("customTitle")
 	};
 
 	// Default browser units to server units if undefined.
@@ -42,9 +42,9 @@ function getBrowserSettings(storage) {
 	json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 	$("#nightmode-browser").prop("checked", json.nightMode);
 
-	if (json.patient) {
-		$("h1.patient").html(json.patient);
-		$("input#patient").prop("value", json.patient);
+	if (json.customTitle) {
+		$("h1.customTitle").html(json.customTitle);
+		$("input#customTitle").prop("value", json.customTitle);
 	}
 
 	return json;
@@ -82,7 +82,7 @@ function storeInBrowser(json, storage) {
 	} else {
 		storage.set("nightMode", false)
 	}
-	if (json.patient) storage.set("patient", json.patient);
+	if (json.customTitle) storage.set("customTitle", json.customTitle);
 	event.preventDefault();
 }
 function storeOnServer(json) {
@@ -247,7 +247,7 @@ $("input#save").click(function() {
 	storeInBrowser({
 		"units": $("input:radio[name=units-browser]:checked").val(),
 		"nightMode": $("#nightmode-browser").prop("checked"),
-		"patient": $("input#patient").prop("value")
+		"customTitle": $("input#customTitle").prop("value")
 	}, browserStorage);
 
 	storeOnServer({
