@@ -811,7 +811,7 @@
             WEEK = 604800;
 
         //offset = (MINUTE * MINUTES_SINCE_LAST_UPDATE_WARN) + 60
-        offset = (MINUTE * MINUTES_SINCE_LAST_UPDATE_URGENT) + 60
+        //offset = (MINUTE * MINUTES_SINCE_LAST_UPDATE_URGENT) + 60
 
         if (offset <= MINUTE)              parts = { label: 'now' };
         if (offset <= MINUTE * 2)          parts = { label: '1 min ago' };
