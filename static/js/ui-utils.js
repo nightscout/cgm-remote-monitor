@@ -26,7 +26,8 @@ $.ajax("/api/v1/status.json", {
 function getBrowserSettings(storage) {
 	var json = {
 		"units": storage.get("units"),
-		"nightMode": storage.get("nightMode")
+		"nightMode": storage.get("nightMode"),
+		"customTitle": storage.get("customTitle")
 	};
 
 	// Default browser units to server units if undefined.
@@ -40,6 +41,12 @@ function getBrowserSettings(storage) {
 
 	json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 	$("#nightmode-browser").prop("checked", json.nightMode);
+
+	if (json.customTitle) {
+		$("h1.customTitle").html(json.customTitle);
+		$("input#customTitle").prop("value", json.customTitle);
+		document.title = "Nightscout: " + json.customTitle;
+	}
 
 	return json;
 }
@@ -76,6 +83,7 @@ function storeInBrowser(json, storage) {
 	} else {
 		storage.set("nightMode", false)
 	}
+	if (json.customTitle) storage.set("customTitle", json.customTitle);
 	event.preventDefault();
 }
 function storeOnServer(json) {
@@ -239,7 +247,8 @@ $("#showToolbar").find("a").click(function(event) {
 $("input#save").click(function() {
 	storeInBrowser({
 		"units": $("input:radio[name=units-browser]:checked").val(),
-		"nightMode": $("#nightmode-browser").prop("checked")
+		"nightMode": $("#nightmode-browser").prop("checked"),
+		"customTitle": $("input#customTitle").prop("value")
 	}, browserStorage);
 
 	storeOnServer({

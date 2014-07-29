@@ -36,28 +36,38 @@ body {
 .bgStatus {
     float: right;
     font-size: 900%;
+    margin-right: 25px;
     text-align: center;
-    width: 40%;
+    text-decoration: line-through;
+}
+.bgStatus.current {
+    text-decoration: none;
 }
 .currentDirection {
-    font-family: monospace;
     font-weight: normal;
+    text-decoration: none !important;
 }
 .time {
     font-size: 600%;
+    margin-left: 25px;
     padding-top: 15px;
-    text-align: center;
-    width: 30%;
 }
 .timeOther {
     font-size: 25%;
-    text-align: center;
+    margin-left: 32px;
 }
 #lastEntry {
     background: #999;
     border-radius: 5px;
     color: #000;
     padding: 0.25em;
+}
+#lastEntry.warn {
+    background: #cc0;
+}
+#lastEntry.urgent {
+    background: #c00;
+    color: #000;
 }
 
 #chartContainer {
@@ -160,7 +170,28 @@ body {
 }
 
 
+/*
+@media (max-width: 1060px) {
+    body {
+        font-size: 70%;
+    }
 
+    #toolbar, #buttonbar {
+        font-size: 100%;
+    }
+
+    .status {
+        height: 130px;
+    }
+
+    #chartContainer {
+        top: calc(130px + 45px);
+    }
+    #chartContainer svg {
+        height: calc(100vh - (130px + 45px));
+    }
+}
+*/
 
 /* Large desktop */
 @media (min-width: 980px) {
@@ -175,23 +206,6 @@ body {
     }
 }
 
-@media (max-width: 1060px) {
-    body {
-        font-size: 70%;
-    }
-
-    .status {
-        height: 130px;
-    }
-
-    #chartContainer {
-        top: calc(130px + 45px);
-    }
-    #chartContainer svg {
-        height: calc(100vh - (130px + 45px));
-    }
-}
-
 @media (max-width: 768px) {
     #chartContainer {
         font-size: 150%;
@@ -201,7 +215,11 @@ body {
     }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 700px) {
+    body {
+        font-size: 70%;
+    }
+
     #notification {
         margin-top: 148px;
     }
@@ -234,8 +252,9 @@ body {
         width: 96vw;
     }
     .time {
-        margin-top: -1em;
         margin-bottom: 0.1em;
+        margin-top: -1em;
+        margin-left: 0;
         width: 100%;
     }
     #currentTime {
@@ -245,6 +264,7 @@ body {
     }
     .timeOther {
         display: inline;
+        margin-left: auto;
     }
 
     #chartContainer {

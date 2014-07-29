@@ -1,6 +1,6 @@
 (function () {
     "use strict";
- 
+
     var retrospectivePredictor = true,
         latestSGV,
         treatments,
@@ -31,7 +31,9 @@
         currentAlarmType = null,
         alarmSound = 'alarm.mp3',
         urgentAlarmSound = 'alarm2.mp3',
-        WIDTH_TIME_HIDDEN = 600;
+        WIDTH_TIME_HIDDEN = 600,
+        MINUTES_SINCE_LAST_UPDATE_WARN = 10,
+        MINUTES_SINCE_LAST_UPDATE_URGENT = 20;
 
     // Tick Values
     var tickValues = [40, 60, 80, 120, 180, 300, 400];
@@ -808,7 +810,10 @@
             DAY = 86400,
             WEEK = 604800;
 
-        if (offset <= MINUTE)              parts = { lablel: 'now' };
+        //offset = (MINUTE * MINUTES_SINCE_LAST_UPDATE_WARN) + 60
+        //offset = (MINUTE * MINUTES_SINCE_LAST_UPDATE_URGENT) + 60
+
+        if (offset <= MINUTE)              parts = { label: 'now' };
         if (offset <= MINUTE * 2)          parts = { label: '1 min ago' };
         else if (offset < (MINUTE * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE)), label: 'mins' };
         else if (offset < (HOUR * 2))      parts = { label: '1 hr ago' };
@@ -817,6 +822,20 @@
         else if (offset < (DAY * 7))       parts = { value: Math.round(Math.abs(offset / DAY)), label: 'day' };
         else if (offset < (WEEK * 52))     parts = { value: Math.round(Math.abs(offset / WEEK)), label: 'week' };
         else                               parts = { label: 'a long time ago' };
+
+        if (offset > (MINUTE * MINUTES_SINCE_LAST_UPDATE_URGENT)) {
+            var lastEntry = $("#lastEntry");
+            lastEntry.removeClass("warn");
+            lastEntry.addClass("urgent");
+
+            $(".bgStatus").removeClass("current");
+        } else if (offset > (MINUTE * MINUTES_SINCE_LAST_UPDATE_WARN)) {
+            var lastEntry = $("#lastEntry");
+            lastEntry.removeClass("urgent");
+            lastEntry.addClass("warn");
+        } else {
+            $(".bgStatus").addClass("current");
+        }
 
         if (parts.value)
           return parts.value + ' ' + parts.label + ' ago';
