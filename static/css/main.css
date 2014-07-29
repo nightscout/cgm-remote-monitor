@@ -44,18 +44,17 @@ body {
     text-decoration: none;
 }
 .currentDirection {
-    font-family: monospace;
     font-weight: normal;
+    text-decoration: none !important;
 }
 .time {
     font-size: 600%;
     margin-left: 25px;
     padding-top: 15px;
-    width: 30%;
 }
 .timeOther {
     font-size: 25%;
-    text-align: center;
+    margin-left: 32px;
 }
 #lastEntry {
     background: #999;
@@ -253,8 +252,9 @@ body {
         width: 96vw;
     }
     .time {
-        margin-top: -1em;
         margin-bottom: 0.1em;
+        margin-top: -1em;
+        margin-left: 0;
         width: 100%;
     }
     #currentTime {
@@ -264,6 +264,7 @@ body {
     }
     .timeOther {
         display: inline;
+        margin-left: auto;
     }
 
     #chartContainer {
