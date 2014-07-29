@@ -4,7 +4,7 @@
     var retrospectivePredictor = true,
         latestSGV,
         treatments,
-        padding = {top: 20, right: 10, bottom: 80, left: 10},
+        padding = {top: 10, right: 10, bottom: 20, left: 10},
         opacity = {current: 1, DAY: 1, NIGHT: 0.8},
         now = Date.now(),
         data = [],
@@ -39,6 +39,8 @@
         };
     // create svg and g to contain the chart contents
     var charts = d3.select('#chartContainer').append('svg')
+        //.attr("width",  $("#chartContainer").width() + "px")
+        //.attr("height",  $("#chartContainer").height() + "px")
         .append('g')
         .attr('class', 'chartContainer')
         .attr('transform', 'translate(' + padding.left + ',' + padding.top + ')');
@@ -195,13 +197,13 @@
                 var prediction = predictAR(nowData);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
-                $('.container .currentBG')
+                $('.currentBG')
                     .text((focusPoint.sgv))
                     .css('text-decoration','line-through');
-                $('.container .currentDirection')
+                $('.currentDirection')
                     .html(focusPoint.direction)
             } else {
-                $('.container .currentBG')
+                $('.currentBG')
                     .text("---")
                     .css('text-decoration','none');
             }
@@ -215,10 +217,10 @@
             $('#currentTime')
                 .text(d3.time.format('%I:%M%p')(dateTime))
                 .css('text-decoration','none');
-            $('.container .currentBG')
+            $('.currentBG')
                 .text(latestSGV.y)
                 .css('text-decoration','none');
-            $('.container .currentDirection')
+            $('.currentDirection')
                 .html(latestSGV.direction);
         }
 
@@ -299,13 +301,10 @@
         var dataRange = d3.extent(data, dateFn);
 
         // get the entire container height and width subtracting the padding
-        var chartWidth = (document.getElementById('chartContainer')
-            .getBoundingClientRect().width) - padding.left - padding.right;
 
-        var chartHeight = (document.getElementById('chartContainer')
-            .getBoundingClientRect().height) - padding.top - padding.bottom;
-
-        // get the height of each chart based on its container size ratio
+        var chartWidth = $("#chartContainer").width() - padding.left - padding.right;
+        var chartHeight = $("#chartContainer").height() - padding.top - padding.bottom;
+        
         focusHeight = chartHeight * .7;
         contextHeight = chartHeight * .2;
 
@@ -602,12 +601,6 @@
         }, 100);
     };
 
-    var silenceDropdown = new Dropdown(".dropdown-menu");
-
-    $('#bgButton').click(function(e) {
-        silenceDropdown.open(e);
-    });
-
     $("#silenceBtn").find("a").click(function() {
         stopAlarm(true, $(this).data("snooze-time"));
     });
@@ -660,9 +653,9 @@
                 }
 
                 $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
-                $('.container .currentBG').text(currentBG);
-                $('.container .currentDirection').html(current.direction);
-                $('.container .current').toggleClass('high', current.y > cfg.highest_threshold).toggleClass('low', current.y < cfg.lowest_threshold)
+                $('.currentBG').text(currentBG);
+                $('.currentDirection').html(current.direction);
+                $('.current').toggleClass('high', current.y > cfg.highest_threshold).toggleClass('low', current.y < cfg.lowest_threshold)
             }
             data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, direction: obj.direction, color: 'grey'} });
             data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'blue'} }));
@@ -709,6 +702,7 @@
 
     $('#testAlarms').click(function(event) {
         d3.select('.audio.alarms audio').each(function (data, i) {
+          $("#testAlarms img").attr("src", "../images/music.png");
           var audio = this;
           audio.play();
           setTimeout(function() {
@@ -730,7 +724,7 @@
         element.hidden = '';
         var element1 = document.getElementById('noButton');
         element1.hidden = 'true';
-        $('.container .currentBG').text();
+        $('.currentBG').text();
     }
 
     function stopAlarm(isClient, silenceTime) {

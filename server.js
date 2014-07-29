@@ -145,6 +145,9 @@ app.get('/logout', function(req, res){
   req.logout();
   res.redirect('/');
 });
+app.get("/test", function(req,res){
+  res.render("test",  {"om": cfg.observing_type});
+});
 // *** [Setup for login flow] END
 
 // serve special URLs

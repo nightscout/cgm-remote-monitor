@@ -1,34 +1,21 @@
 @import url("//fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic");
 @import url("//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800");
-
-/* Large desktop */
-@media (min-width: 980px) {
-  body {
-    padding-top: 20px;
-  }
-  .linediv-l {
-    border-right: 1px white solid;
-  }
-  .linedic-r {
-    border-left: 1px white solid;
-  }
-}
-
-html {
-  height: 75%;
-}
-
 body {
-  font-family: 'Open Sans', Helvetica, Arial, sans-serif;
-  fill: #fff;
-  background: #000;
-  color: #808080;
-  margin: 10px 10px 0 10px;
+  margin: 0 0 0 0;
   padding: 0 0 0 0;
+  font-family: 'Open Sans', Helvetica, Arial, sans-serif;
+    fill: #fff;
+    background: #000;
+    color: #808080;
 }
-.heading, .subheading {
-  font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
-  text-align: center;
+.main-wrapper{
+  margin: 0 0 0 0;
+  padding: 0 0 0 0;
+  position: absolute;
+  bottom:0;
+  right:0;
+  top:0;
+  left:0;
 }
 
 .axis path,
@@ -38,24 +25,10 @@ body {
   shape-rendering: crispEdges;
 }
 
-#chartContainer {
-  overflow: hidden;
-  width: 100%;
-  height: 100%;
-}
-
 #chartContainer svg {
   width: 100%;
   height: 100%;
 }
-
-.container {
-  overflow: hidden;
-  height: 90vh;
-  height: auto; /*fallback*/
-  display: block;
-}
-
 .open-right, .open-left {
   shape-rendering: crispEdges;
 }
@@ -70,46 +43,9 @@ body {
   fill-opacity: 0;
 }
 
-@media (max-width: 815px) {    
-  body {
-    font-size: 80%;
-  }
-}
-
-@media (max-width: 768px) {
-  body {
-    font-size: 60%;
-  }
-
-  #chartContainer {
-    font-size: 150%;
-  }
-}
-
-@media (max-width: 510px) {
-  body {
-    font-size: 50%;
-  }
-}
-
-@media (max-width: 480px) {
-  body {
-    font-size: 40%;
-  }
-  #chartContainer {
-    font-size: 150%;
-  }
-}
-
-[class*='span']{float:left;min-height:1px;}
-
-.span1{width: 20%; float: left; padding-top: 3%; line-height: 50%;}
-
-.span2{margin-left: 35%; float: right;}
-
 #noButton {
+  margin-top:10px;
   padding: 2px;
-  margin-right: 40px;
 }
 
 #bgButton {
@@ -132,7 +68,9 @@ body {
   -ms-user-select: none;
   user-select: none;
   cursor: default;
-  margin-right: 40px;
+  margin-top: 10px;
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
 .bgButton:active {
@@ -141,6 +79,9 @@ body {
   box-shadow: none;
   -moz-box-shadow: none;
   -webkit-box-shadow: none;
+  margin-top: 10px; 
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
 .button {
@@ -161,4 +102,49 @@ body {
 .disabled{
   opacity: 0.8;
   cursor: default;
+}
+@media (min-width: 980px) {
+  body {
+    padding-top: 20px;
+  }
+}
+
+@media (max-width: 815px) {    
+  body {
+    font-size: 80%;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    font-size: 60%;
+  }
+
+  #chartContainer {
+    font-size: 150%;
+  }
+}
+
+@media (max-width: 510px) {
+  body {
+    font-size: 60%;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    font-size: 60%;
+  }
+  #chartContainer {
+    font-size: 150%;
+  }
+}
+
+.dropdown-menu{
+  left:10px; 
+  margin:0 0 0 0; 
+  padding:0 0 0 0; 
+}
+.dropdown-menu li a:hover {
+    background: #EEEEFF;
 }
