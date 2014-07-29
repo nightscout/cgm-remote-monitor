@@ -37,7 +37,11 @@ body {
     float: right;
     font-size: 900%;
     text-align: center;
+    text-decoration: line-through;
     width: 40%;
+}
+.bgStatus.current {
+    text-decoration: none;
 }
 .currentDirection {
     font-family: monospace;

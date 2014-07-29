@@ -827,10 +827,14 @@
             var lastEntry = $("#lastEntry");
             lastEntry.removeClass("warn");
             lastEntry.addClass("urgent");
+
+            $(".bgStatus").removeClass("current");
         } else if (offset > (MINUTE * MINUTES_SINCE_LAST_UPDATE_WARN)) {
             var lastEntry = $("#lastEntry");
             lastEntry.removeClass("urgent");
             lastEntry.addClass("warn");
+        } else {
+            $(".bgStatus").addClass("current");
         }
 
         if (parts.value)
