@@ -59,6 +59,13 @@ body {
     color: #000;
     padding: 0.25em;
 }
+#lastEntry.warn {
+    background: #cc0;
+}
+#lastEntry.urgent {
+    background: #c00;
+    color: #000;
+}
 
 #chartContainer {
     background: #111;
