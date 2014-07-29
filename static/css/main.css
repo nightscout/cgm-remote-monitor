@@ -50,12 +50,14 @@ body {
     width: 30%;
 }
 .timeOther {
-    background: #fff;
+    font-size: 25%;
+    text-align: center;
+}
+#lastEntry {
+    background: #999;
     border-radius: 5px;
     color: #000;
-    font-size: 25%;
     padding: 0.25em;
-    text-align: center;
 }
 
 #chartContainer {
