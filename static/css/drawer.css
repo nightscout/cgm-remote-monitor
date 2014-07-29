@@ -21,6 +21,13 @@
     margin-top: 1em;
     text-align: center;
 }
+#about .links {
+    font-size: 0.75em;
+    margin-top: 0.5em;
+}
+#about a {
+    color: #fff;
+}
 
 form {
     margin: 0;
