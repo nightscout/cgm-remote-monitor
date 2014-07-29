@@ -98,24 +98,38 @@ h1, legend,
     padding: 0;
     float: right;
     height: 44px;
-    width: 136px;
+    width: 180px;
     opacity: 0.75;
     vertical-align: middle;
 }
-#buttonbar a {
-    color: #ccc;
-    font-size: 16px;
+#buttonbar div {
+    border-radius: 5px;
     float: left;
     height: 44px;
+    width: 44px;
+}
+#buttonbar a,
+#buttonbar i {
+    color: #ccc;
+    font-size: 16px;
+    height: 44px;
     line-height: 44px;
+}
+#buttonbar a {
+    float: left;
     text-decoration: none;
     width: 44px;
 }
 #buttonbar i {
     padding-left: 12px;
 }
+
+.icon-battery-25,
+.icon-battery-50,
+.icon-battery-75,
+.icon-battery-100,
 .icon-angle-double-up {
-    font-size: 21px;
+    font-size: 21px !important;
     padding-left: 9px !important;
 }
 
@@ -134,7 +148,6 @@ h1, legend,
 }
 #showToolbar a {
     border: solid #fff 1px;
-    border-radius: 0 0 5px 5px;
     border-top: 0;
     color: #fff;
     margin: 0 auto;
