@@ -162,22 +162,14 @@ body {
 
 
 
-/* Large desktop */
-@media (min-width: 980px) {
-    .content {
-        padding-top: 20px;
-    }
-    .linediv-l {
-        border-right: 1px white solid;
-    }
-    .linedic-r {
-        border-left: 1px white solid;
-    }
-}
 
 @media (max-width: 1060px) {
     body {
         font-size: 70%;
+    }
+
+    #toolbar, #buttonbar {
+        font-size: 100%;
     }
 
     .status {
@@ -189,6 +181,19 @@ body {
     }
     #chartContainer svg {
         height: calc(100vh - (130px + 45px));
+    }
+}
+
+/* Large desktop */
+@media (min-width: 980px) {
+    .content {
+        padding-top: 20px;
+    }
+    .linediv-l {
+        border-right: 1px white solid;
+    }
+    .linedic-r {
+        border-left: 1px white solid;
     }
 }
 
