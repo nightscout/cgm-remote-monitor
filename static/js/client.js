@@ -727,16 +727,20 @@
         console.log('Client connected to server.')
     });
     socket.on('alarm', function () {
-        console.log("Alarm raised!");
-        currentAlarmType = 'alarm';
-        if (browserSettings.alarmHigh) generateAlarm(alarmSound);
+        if (browserSettings.alarmHigh) {
+            console.log("Alarm raised!");
+            currentAlarmType = 'alarm';
+            generateAlarm(alarmSound);
+        }
         brushInProgress = false;
         updateChart(false);
     });
     socket.on('urgent_alarm', function () {
-        console.log("Urgent alarm raised!");
-        currentAlarmType = 'urgent_alarm';
-        if (browserSettings.alarmLow) generateAlarm(urgentAlarmSound);
+        if (browserSettings.alarmLow) {
+            console.log("Urgent alarm raised!");
+            currentAlarmType = 'urgent_alarm';
+            generateAlarm(urgentAlarmSound);
+        }
         brushInProgress = false;
         updateChart(false);
     });
