@@ -1,32 +1,88 @@
 @import url("//fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic");
 @import url("//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800");
+@import url("/glyphs/css/fontello.css");
 
-/* Large desktop */
-@media (min-width: 980px) {
-  body {
-    padding-top: 20px;
-  }
-  .linediv-l {
-    border-right: 1px white solid;
-  }
-  .linedic-r {
-    border-left: 1px white solid;
-  }
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
 }
-
-html {
-  height: 75%;
-}
-
 body {
-  font-family: 'Open Sans', Helvetica, Arial, sans-serif;
-  fill: #fff;
-  background: #000;
-  color: #808080;
+    font-family: 'Open Sans', Helvetica, Arial, sans-serif;
+    fill: #fff;
+    background: #000;
+    color: #808080;
 }
-.heading, .subheading {
-  font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
-  text-align: center;
+
+.container {
+    bottom: 0;
+    display: block;
+    height: 100%;
+    left: 0;
+    margin: 0;
+    padding: 0;
+    top: 45px;
+    width: 100%;
+    z-index: 2;
+}
+
+.status {
+    font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
+    height: 180px;
+    vertical-align: middle;
+}
+
+.bgStatus {
+    float: right;
+    font-size: 900%;
+    margin-right: 25px;
+    text-align: center;
+    text-decoration: line-through;
+}
+.bgStatus.current {
+    text-decoration: none;
+}
+.currentDirection {
+    font-weight: normal;
+    text-decoration: none !important;
+}
+.time {
+    font-size: 600%;
+    margin-left: 25px;
+    padding-top: 15px;
+}
+.timeOther {
+    font-size: 25%;
+    margin-left: 32px;
+}
+#lastEntry {
+    background: #999;
+    border-radius: 5px;
+    color: #000;
+    padding: 0.25em;
+}
+#lastEntry.warn {
+    background: #cc0;
+}
+#lastEntry.urgent {
+    background: #c00;
+    color: #000;
+}
+
+#chartContainer {
+    background: #111;
+    bottom:0;
+    display: block;
+    height:auto;
+    left:0;
+    position:absolute;
+    right:0;
+    top: calc(180px + 45px);
+}
+#chartContainer svg {
+    height: calc(100vh - (180px + 45px));
+    width: 100%;
 }
 
 .axis path,
@@ -34,23 +90,6 @@ body {
   fill: none;
   stroke: #ffffff;
   shape-rendering: crispEdges;
-}
-
-#chartContainer {
-  overflow: hidden;
-  width: 100%;
-  height: 100%;
-}
-
-#chartContainer svg {
-  width: 100%;
-  height: 100%;
-}
-
-.container {
-  overflow: hidden;
-  height: auto;
-  display: block;
 }
 
 .open-right, .open-left {
@@ -67,78 +106,177 @@ body {
   fill-opacity: 0;
 }
 
-@media (max-width: 768px) {
-  body {
-    font-size: 60%;
-  }
-
-  #chartContainer {
-    font-size: 150%;
-  }
-}
-
-@media (max-width: 480px) {
-  body {
-    font-size: 40%;
-  }
-  #chartContainer {
-    font-size: 150%;
-  }
-}
-
-[class*='span']{float:left;min-height:1px;}
-
-.span1{width: 20%; float: left; padding-top: 3%; line-height: 50%;}
-
-.span2{margin-left: 35%; float: right;}
 
 #noButton {
   padding: 2px;
 }
 
+#bgButton,
+#silenceBtn {
+    z-index: 999;
+}
+
 #bgButton {
-  background: #ff2035;
-  color: #000000;
-  width: auto;
-  border: 2px solid #DDD;
-  border-right: 2px solid #ccc;
-  border-bottom: 2px solid #ccc;
-  border-radius: 5px;
-  -moz-border-radius: 5px;
-  -webkit-border-radius: 5px;
-  box-shadow: 2px 4px 6px #ddd;
-  -moz-box-shadow: 2px 2px 4px #ddd;
-  -webkit-box-shadow: 2px 2px 4px #ddd;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  -khtml-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  cursor: default;
-  margin-right: 37px;
+    background: #ff2035;
+    border: 2px solid #DDD;
+    border-right: 2px solid #ccc;
+    border-bottom: 2px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 2px 4px 6px #ddd;
+    color: #000000;
+    cursor: default;
+    font-size: 75%;
+    margin-top: 15px;
+    margin-right: 37px;
+    width: auto;
+
+    user-select: none;
+    -moz-border-radius: 5px;
+    -webkit-border-radius: 5px;
+    -moz-box-shadow: 2px 2px 4px #ddd;
+    -webkit-box-shadow: 2px 2px 4px #ddd;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 }
 
 .bgButton:active {
-  background: #850406;
-  border: 2px solid #999;
-  box-shadow: none;
-  -moz-box-shadow: none;
-  -webkit-box-shadow: none;
+    background: #850406;
+    border: 2px solid #999;
+    box-shadow: none;
+
+    -moz-box-shadow: none;
+    -webkit-box-shadow: none;
 }
 
 .button {
-  text-align: center;
-  background: #ababab;
-  margin: 10px auto;
+    text-align: center;
+    background: #ababab;
+    margin: 10px auto;
 }
 
 #silenceBtn, #silenceBtn * {
-  font-size: 70%;
+    font-size: 70%;
+}
+
+.alarms {
+    display: none;
 }
 
 #testAlarms {
-  font-size: 20%;
-  color: blue;
-  text-decoration: none;
+    font-size: 20%;
+}
+
+
+/*
+@media (max-width: 1060px) {
+    body {
+        font-size: 70%;
+    }
+
+    #toolbar, #buttonbar {
+        font-size: 100%;
+    }
+
+    .status {
+        height: 130px;
+    }
+
+    #chartContainer {
+        top: calc(130px + 45px);
+    }
+    #chartContainer svg {
+        height: calc(100vh - (130px + 45px));
+    }
+}
+*/
+
+/* Large desktop */
+@media (min-width: 980px) {
+    .content {
+        padding-top: 20px;
+    }
+    .linediv-l {
+        border-right: 1px white solid;
+    }
+    .linedic-r {
+        border-left: 1px white solid;
+    }
+}
+
+@media (max-width: 768px) {
+    #chartContainer {
+        font-size: 150%;
+    }
+    .bgStatus {
+        width: 50%;
+    }
+}
+
+@media (max-width: 700px) {
+    body {
+        font-size: 70%;
+    }
+
+    #notification {
+        margin-top: 148px;
+    }
+
+    .status {
+        text-align: center;
+        margin-bottom: 0;
+        height: 152px;
+    }
+
+    /* Unremark to test alert/silence button + menu. */
+    /* #noButton {display:none;}
+    #bgButton {display:block;} */
+
+    .bgStatus {
+        float: none;
+        margin: 0 auto;
+        text-align: center;
+        width: 100vw;
+    }
+    #bgButton {
+        font-size: 120%;
+        height: 142px;
+        margin-top: 1vw;
+        width: 98vw;
+    }
+    .dropdown-menu {
+        font-size: 60% !important;
+        margin-left: 2vw;
+        width: 96vw;
+    }
+    .time {
+        margin-bottom: 0.1em;
+        margin-top: -1em;
+        margin-left: 0;
+        width: 100%;
+    }
+    #currentTime {
+        display: inline;
+        font-size: 25%;
+        font-weight: bold;
+    }
+    .timeOther {
+        display: inline;
+        margin-left: auto;
+    }
+
+    #chartContainer {
+        top: calc(152px + 45px);
+    }
+    #chartContainer svg {
+        height: calc(100vh - (152px + 45px));
+    }
+}
+
+@media (max-width: 480px) {
+  #chartContainer {
+      font-size: 150%;
+  }
 }
