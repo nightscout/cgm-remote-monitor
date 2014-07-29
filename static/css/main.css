@@ -171,9 +171,7 @@ body {
 }
 
 
-
-
-
+/*
 @media (max-width: 1060px) {
     body {
         font-size: 70%;
@@ -194,6 +192,7 @@ body {
         height: calc(100vh - (130px + 45px));
     }
 }
+*/
 
 /* Large desktop */
 @media (min-width: 980px) {
@@ -218,6 +217,10 @@ body {
 }
 
 @media (max-width: 600px) {
+    body {
+        font-size: 70%;
+    }
+    
     #notification {
         margin-top: 148px;
     }
