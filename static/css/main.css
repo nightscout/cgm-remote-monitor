@@ -36,9 +36,9 @@ body {
 .bgStatus {
     float: right;
     font-size: 900%;
+    margin-right: 25px;
     text-align: center;
     text-decoration: line-through;
-    width: 40%;
 }
 .bgStatus.current {
     text-decoration: none;
@@ -49,8 +49,8 @@ body {
 }
 .time {
     font-size: 600%;
+    margin-left: 25px;
     padding-top: 15px;
-    text-align: center;
     width: 30%;
 }
 .timeOther {
@@ -216,11 +216,11 @@ body {
     }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 700px) {
     body {
         font-size: 70%;
     }
-    
+
     #notification {
         margin-top: 148px;
     }
