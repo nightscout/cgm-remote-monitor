@@ -2,7 +2,7 @@ var drawerIsOpen = false;
 var browserStorage = $.localStorage;
 var defaultSettings = {
 	"units": "mg/dl",
-	"nightMode": true
+	"nightMode": false
 }
 
 var app = {};
@@ -96,9 +96,11 @@ function storeOnServer(json) {
 
 function getQueryParms() {
 	params = {};
-	location.search.substr(1).split("&").forEach(function(item) {
-		params[item.split("=")[0]] = item.split("=")[1]
-	});
+	if (location.search) {
+		location.search.substr(1).split("&").forEach(function(item) {
+			params[item.split("=")[0]] = item.split("=")[1].replace(/[_\+]/g, " ");
+		});
+	}
 	return params;
 }
 
@@ -126,30 +128,40 @@ function openDrawer()  {
 
 
 function closeNotification() {
-	$("#notification").hide();
-	$("#notification").find("span").html("");
+	var notify = $("#notification");
+	notify.hide();
+	notify.find("span").html("");
 }
-function showNotification(note)  {
-	$("#notification").hide();
-	$("#notification").find("span").html(note);
-	$("#notification").css("left", "calc(50% - " + ($("#notification").width() / 2) + "px)");
-	$("#notification").show();
+function showNotification(note, type)  {
+	var notify = $("#notification");
+	notify.hide();
+
+	// Notification types: "info", "warn", "success", "urgent".
+	// - default: "urgent"
+	notify.removeClass("info warn urgent");
+	notify.addClass(type ? type : "urgent");
+
+	notify.find("span").html(note);
+	notify.css("left", "calc(50% - " + ($("#notification").width() / 2) + "px)");
+	notify.show();
 }
 
 
 function closeToolbar() {
 	stretchStatusForToolbar("close");
 
-	$("#toolbar").animate({marginTop: "-44px"}, 200, function() {
-		$("#showToolbar").fadeIn(200);
+	$("#showToolbar").css({top: "44px"});
+	$("#showToolbar").fadeIn(50, function() {
+		$("#showToolbar").animate({top: 0}, 200);
+		$("#toolbar").animate({marginTop: "-44px"}, 200);
 	});
 }
 function openToolbar() {
-	$("#showToolbar").fadeOut(200, function() {
-		$("#toolbar").animate({marginTop: "0px"}, 200);
+	$("#showToolbar").css({top: 0});
+	$("#showToolbar").animate({top: "44px"}, 200).fadeOut(200);
+	$("#toolbar").animate({marginTop: "0px"}, 200);
 
-		stretchStatusForToolbar("open");
-	});
+	stretchStatusForToolbar("open");
 }
 function stretchStatusForToolbar(toolbarState){
 	// closed = up
@@ -169,8 +181,28 @@ function stretchStatusForToolbar(toolbarState){
 
 
 var querystring = getQueryParms();
-var serverSettings = getServerSettings();
+// var serverSettings = getServerSettings();
 var browserSettings = getBrowserSettings(browserStorage);
+
+function Dropdown(el) {
+	this.ddmenuitem = 0;
+
+	this.$el = $(el);
+	var that = this;
+
+	$(document).click(function() { that.close(); });
+}
+Dropdown.prototype.close = function () {
+	if (this.ddmenuitem) {
+		this.ddmenuitem.css('visibility', 'hidden');
+		this.ddmenuitem = 0;
+	}
+};
+Dropdown.prototype.open = function (e) {
+	this.close();
+	this.ddmenuitem = $(this.$el).css('visibility', 'visible');
+	e.stopPropagation();
+};
 
 
 $("#drawerToggle").click(function(event) {
@@ -240,7 +272,7 @@ $(function() {
 	}
 
 	if (querystring.notify) {
-		showNotification(querystring.notify.replace("+", " "));
+		showNotification(querystring.notify, querystring.notifytype);
 	}
 
 	if (querystring.drawer) {

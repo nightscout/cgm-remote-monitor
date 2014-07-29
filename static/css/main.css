@@ -51,6 +51,13 @@ body {
 }
 .timeOther {
     font-size: 25%;
+    text-align: center;
+}
+#lastEntry {
+    background: #999;
+    border-radius: 5px;
+    color: #000;
+    padding: 0.25em;
 }
 
 #chartContainer {
@@ -204,16 +211,27 @@ body {
         margin-bottom: 0;
         height: 152px;
     }
+
+    /* Unremark to test alert/silence button + menu. */
+    /* #noButton {display:none;}
+    #bgButton {display:block;} */
+
     .bgStatus {
         float: none;
         margin: 0 auto;
         text-align: center;
-        width: 100%;
+        width: 100vw;
     }
     #bgButton {
-        font-size: 100%;
-        margin: 0.2em;
-        width: auto;
+        font-size: 120%;
+        height: 142px;
+        margin-top: 1vw;
+        width: 98vw;
+    }
+    .dropdown-menu {
+        font-size: 60% !important;
+        margin-left: 2vw;
+        width: 96vw;
     }
     .time {
         margin-top: -1em;
