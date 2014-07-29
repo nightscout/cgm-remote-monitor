@@ -50,7 +50,12 @@ body {
     width: 30%;
 }
 .timeOther {
+    background: #fff;
+    border-radius: 5px;
+    color: #000;
     font-size: 25%;
+    padding: 0.25em;
+    text-align: center;
 }
 
 #chartContainer {
