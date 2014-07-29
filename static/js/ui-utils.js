@@ -45,6 +45,7 @@ function getBrowserSettings(storage) {
 	if (json.customTitle) {
 		$("h1.customTitle").html(json.customTitle);
 		$("input#customTitle").prop("value", json.customTitle);
+		document.title = "Nightscout: " + json.customTitle;
 	}
 
 	return json;
