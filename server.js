@@ -18,7 +18,7 @@
 // Changes: 
 //    Added a single user login from database
 //    Add custom alarm option.
-// Edited by narankhuu.b@gmail.com
+//    Fixed layout of status page.
 // Changes commented with // *** [Description] BEGIN (or END).
 
 
@@ -144,9 +144,6 @@ app.post('/login', passport.authenticate('local', {
 app.get('/logout', function(req, res){
   req.logout();
   res.redirect('/');
-});
-app.get("/test", function(req,res){
-  res.render("test",  {"om": cfg.observing_type});
 });
 // *** [Setup for login flow] END
 
