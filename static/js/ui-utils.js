@@ -26,7 +26,8 @@ $.ajax("/api/v1/status.json", {
 function getBrowserSettings(storage) {
 	var json = {
 		"units": storage.get("units"),
-		"nightMode": storage.get("nightMode")
+		"nightMode": storage.get("nightMode"),
+		"patient": storage.get("patient")
 	};
 
 	// Default browser units to server units if undefined.
@@ -40,6 +41,11 @@ function getBrowserSettings(storage) {
 
 	json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 	$("#nightmode-browser").prop("checked", json.nightMode);
+
+	if (json.patient) {
+		$("h1.patient").html(json.patient);
+		$("input#patient").prop("value", json.patient);
+	}
 
 	return json;
 }
@@ -76,6 +82,7 @@ function storeInBrowser(json, storage) {
 	} else {
 		storage.set("nightMode", false)
 	}
+	if (json.patient) storage.set("patient", json.patient);
 	event.preventDefault();
 }
 function storeOnServer(json) {
@@ -239,7 +246,8 @@ $("#showToolbar").find("a").click(function(event) {
 $("input#save").click(function() {
 	storeInBrowser({
 		"units": $("input:radio[name=units-browser]:checked").val(),
-		"nightMode": $("#nightmode-browser").prop("checked")
+		"nightMode": $("#nightmode-browser").prop("checked"),
+		"patient": $("input#patient").prop("value")
 	}, browserStorage);
 
 	storeOnServer({
