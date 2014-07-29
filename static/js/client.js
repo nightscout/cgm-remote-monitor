@@ -843,7 +843,7 @@
             lastEntry.removeClass("urgent");
             lastEntry.addClass("warn");
         } else {
-            $(".bgStatus").addClass("current");
+            $("#lastEntry").lastEntry.removeClass("warn urgent");
         }
 
         if (parts.value)
