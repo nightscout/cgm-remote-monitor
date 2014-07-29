@@ -115,7 +115,7 @@ describe('API_SECRET', function ( ) {
   function ping_authorized_endpoint (app, fails, fn) {
       request(app)
         .get('/experiments/test')
-        .set('API-SECRET', app.api_secret || '')
+        .set('api-secret', app.api_secret || '')
         .expect(fails)
         .end(function (err, res)  {
           if (fails < 400) {
