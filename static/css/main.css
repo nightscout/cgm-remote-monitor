@@ -168,30 +168,6 @@ body {
     font-size: 20%;
 }
 
-
-/*
-@media (max-width: 1060px) {
-    body {
-        font-size: 70%;
-    }
-
-    #toolbar, #buttonbar {
-        font-size: 100%;
-    }
-
-    .status {
-        height: 130px;
-    }
-
-    #chartContainer {
-        top: calc(130px + 45px);
-    }
-    #chartContainer svg {
-        height: calc(100vh - (130px + 45px));
-    }
-}
-*/
-
 /* Large desktop */
 @media (min-width: 980px) {
     .content {
@@ -234,10 +210,16 @@ body {
     #bgButton {display:block;} */
 
     .bgStatus {
+        font-size: 900%;
         float: none;
         margin: 0 auto;
+        padding: 0;
         text-align: center;
         width: 100vw;
+    }
+    .status.toolbarClosed .bgStatus {
+        font-size: 990%;
+        margin-top: 10px;
     }
     #bgButton {
         font-size: 120%;
