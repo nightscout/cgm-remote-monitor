@@ -41,6 +41,12 @@
         var tickValues = [2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0];
     }
 
+    var futureOpacity = d3.scale.linear( )
+      .domain([11 * 60 * 1000, 30 * 60 * 1000])
+      .range([.8, 0])
+      ;
+
+
     // create svg and g to contain the chart contents
     var charts = d3.select('#chartContainer').append('svg')
         .append('g')
@@ -135,6 +141,7 @@
     // get the desired opacity for context chart based on the brush extent
     function highlightBrushPoints(data) {
         if (data.date.getTime() >= brush.extent()[0].getTime() && data.date.getTime() <= brush.extent()[1].getTime()) {
+            return futureOpacity(data.date - latestSGV.x);
             return 1;
         } else {
             return 0.5;
@@ -271,6 +278,7 @@
             .attr('cx', function (d) { return xScale(d.date); })
             .attr('cy', function (d) { return yScale(d.sgv); })
             .attr('fill', function (d) { return d.color; })
+            .attr('opacity', function (d) { return futureOpacity(d.date - latestSGV.x); })
             .attr('r', 3);
 
         focusCircles.exit()
