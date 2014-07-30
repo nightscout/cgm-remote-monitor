@@ -51,10 +51,16 @@ body {
     font-size: 900%;
     margin-right: 25px;
     text-align: center;
-    text-decoration: line-through;
     white-space: nowrap;
 }
-.bgStatus.current {
+.bgStatus .currentBG {
+    text-decoration: line-through;
+}
+.bgStatus.current .currentBG {
+    text-decoration: none;
+}
+.currentDirection {
+    font-weight: normal;
     text-decoration: none;
 }
 
@@ -63,10 +69,6 @@ body {
 
 }
 
-.currentDirection {
-    font-weight: normal;
-    text-decoration: none !important;
-}
 .time {
     font-size: 600%;
     padding-top: 15px;
