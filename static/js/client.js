@@ -835,6 +835,7 @@
             lastEntry.addClass("warn");
         } else {
             $(".bgStatus").addClass("current");
+            $("#lastEntry").removeClass("warn urgent");
         }
 
         if (parts.value)
