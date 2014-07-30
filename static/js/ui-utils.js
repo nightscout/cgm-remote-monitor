@@ -174,16 +174,12 @@ function openToolbar() {
 function stretchStatusForToolbar(toolbarState){
 	// closed = up
 	if (toolbarState == "close") {
-		$(".status").css({
-			"font-size": "+125%"
-		});
+		$(".status").addClass("toolbarClosed");
 	}
 
 	// open = down
 	if (toolbarState == "open") {
-		$(".status").css({
-			"font-size": "-125%"
-		});
+		$(".status").removeClass("toolbarClosed");
 	}
 }
 
