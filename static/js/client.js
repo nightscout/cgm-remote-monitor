@@ -922,6 +922,8 @@
         var BG_REF = 140;
         var BG_MIN = 36;
         var BG_MAX = 400;
+        // these are the one sigma limits for the first 13 prediction interval uncertainties (65 minutes)
+        var cone = [0.020, 0.041, 0.061, 0.081, 0.099, 0.116, 0.132, 0.146, 0.159, 0.171, 0.182, 0.192, 0.201];
         if (actual.length < 2) {
             var y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[0].sgv / BG_REF)];
         } else {
@@ -932,15 +934,20 @@
                 y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[0].sgv / BG_REF)];
             }
         }
-        var n = 20;
+        var n = 6;
         var AR = [-0.723, 1.716];
         var dt = actual[1].date.getTime();
         for (var i = 0; i <= n; i++) {
             y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
             dt = dt + FIVE_MINUTES;
-            predicted[i] = {
-                date: new Date(dt+3000),
-                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp(y[1])))),
+            predicted[i * 2] = {
+                date: new Date(dt + 3000),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] - 3 * cone[i]))))),
+                color: 'blue'
+            };
+            predicted[i * 2 + 1] = {
+                date: new Date(dt + 1200),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] + 3 * cone[i]))))),
                 color: 'blue'
             };
         }
