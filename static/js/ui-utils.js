@@ -313,5 +313,5 @@ $(function() {
 		}
 	}
 
-	$("#loader").fadeOut(1500);
+	setTimeout(function(){$("#loader").fadeOut(1500)}, 2000);
 });
