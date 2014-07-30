@@ -15,6 +15,19 @@ body {
     color: #808080;
 }
 
+
+/* BEGIN: Dolphin/Stock Android Browser Fix */
+@media (max-width: 700px) {
+    .bgStatus {
+        width: 100% !important;
+    }
+}
+#chartContainer {
+    top: 225px; /*(toolbar height + status height)*/
+}
+/* END: Dolphin/Stock Android Browser Fix */
+
+
 .container {
     bottom: 0;
     display: block;
@@ -33,15 +46,6 @@ body {
     vertical-align: middle;
 }
 
-/* Dolphin/Stock Android Browser Fix */
-@media (max-width: 700px) {
-    .bgStatus {
-        width: 100% !important;
-    }
-}
-#chartContainer {
-    top: 225px; /*calc(45px + 180px) (toolbar height + status height)*/
-}
 .bgStatus {
     float: right;
     font-size: 900%;
@@ -65,12 +69,14 @@ body {
 }
 .time {
     font-size: 600%;
-    margin-left: 25px;
     padding-top: 15px;
+}
+.timebox {
+    text-align: center;
+    width: 250px;
 }
 .timeOther {
     font-size: 25%;
-    margin-left: 32px;
 }
 #lastEntry {
     background: #999;
@@ -97,6 +103,7 @@ body {
 #chartContainer svg {
     height: calc(100vh - (180px + 45px));
     width: 100%;
+    top: calc(45px + 180px);
 }
 
 .axis path,
@@ -252,6 +259,10 @@ body {
         margin-top: -1em;
         margin-left: 0;
         width: 100%;
+    }
+    .timebox {
+        text-align: none;
+        width: auto;
     }
     #currentTime {
         display: inline;
