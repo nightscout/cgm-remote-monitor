@@ -53,9 +53,7 @@ function getBrowserSettings(storage) {
 	if (json.customTitle) {
 		$("h1.customTitle").html(json.customTitle);
 		$("input#customTitle").prop("value", json.customTitle);
-
-		var isDefaultTitle = (document.title.toLowerCase().trim() == "nightscout") ? true : false;
-		if (isDefaultTitle == false) document.title = "Nightscout: " + json.customTitle;
+		document.title = "Nightscout: " + json.customTitle;
 	}
 
 	return json;
@@ -288,8 +286,6 @@ $("input#save").click(function() {
 
 
 $(function() {
-	$("#loader").fadeOut(1500);
-
 	// Tooltips can remain in the way on touch screens.
 	var notTouchScreen = (!isTouch());
 	if (notTouchScreen) {
