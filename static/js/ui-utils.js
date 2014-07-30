@@ -286,6 +286,8 @@ $("input#save").click(function() {
 
 
 $(function() {
+	$("#loader").fadeOut(1500);
+
 	// Tooltips can remain in the way on touch screens.
 	var notTouchScreen = (!isTouch());
 	if (notTouchScreen) {

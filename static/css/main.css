@@ -15,6 +15,22 @@ body {
     color: #808080;
 }
 
+#loader {
+    background: rgba(0, 0, 0, 0.75);
+    bottom: 0;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+}
+#loader img {
+    left: calc(50% - (192px/2));
+    position: absolute;
+    top: calc(50% - (192px/2));
+    width: 192px;
+    z-index: 100;
+}
+
 .container {
     bottom: 0;
     display: block;
@@ -112,7 +128,7 @@ body {
 
 #bgButton,
 #silenceBtn {
-    z-index: 999;
+    z-index: 99;
 }
 
 #bgButton {
