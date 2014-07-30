@@ -313,5 +313,6 @@ $(function() {
 		}
 	}
 
-	setTimeout(function(){$("#loader").fadeOut(1500)}, 2000);
+	//setTimeout(function(){$("#loader").fadeOut(1500)}, 2000);
+	$("#loader").fadeOut(1500);
 });
