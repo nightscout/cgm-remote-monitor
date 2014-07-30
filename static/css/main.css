@@ -33,16 +33,32 @@ body {
     vertical-align: middle;
 }
 
+/* Dolphin/Stock Android Browser Fix */
+@media (max-width: 700px) {
+    .bgStatus {
+        width: 100% !important;
+    }
+}
+#chartContainer {
+    top: 225px; /*calc(45px + 180px) (toolbar height + status height)*/
+}
 .bgStatus {
     float: right;
     font-size: 900%;
     margin-right: 25px;
     text-align: center;
     text-decoration: line-through;
+    white-space: nowrap;
 }
 .bgStatus.current {
     text-decoration: none;
 }
+
+.status.toolbarClosed .bgStatus {
+    font-size:990%;
+
+}
+
 .currentDirection {
     font-weight: normal;
     text-decoration: none !important;
@@ -77,7 +93,6 @@ body {
     left:0;
     position:absolute;
     right:0;
-    top: calc(180px + 45px);
 }
 #chartContainer svg {
     height: calc(100vh - (180px + 45px));
