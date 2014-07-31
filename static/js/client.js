@@ -225,7 +225,8 @@
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
             var nowData = data.filter(function(d) {
                 return d.date.getTime() >= brushExtent[1].getTime() - FORTY_TWO_MINS_IN_MS &&
-                    d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS
+                    d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS &&
+                    d.color != 'none';
             });
             if (nowData.length > 1) {
                 var prediction = predictAR(nowData);
@@ -246,6 +247,12 @@
                 .css('text-decoration','line-through');
         } else if (retrospectivePredictor) {
             // if the brush comes back into the current time range then it should reset to the current time and sg
+            var nowData = data.filter(function(d) {
+                return d.color != 'none';
+            });
+            nowData = [nowData[nowData.length - 2], nowData[nowData.length - 1] ];
+            var prediction = predictAR(nowData);
+            focusData = focusData.concat(prediction);
             var dateTime = new Date(now);
             nowDate = dateTime;
             $('#currentTime')
@@ -943,10 +950,9 @@
                 y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[0].sgv / BG_REF)];
             }
         }
-        var n = CONE.length;
         var AR = [-0.723, 1.716];
         var dt = actual[1].date.getTime();
-        for (var i = 0; i <= n; i++) {
+        for (var i = 0; i < CONE.length; i++) {
             y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
             dt = dt + FIVE_MINUTES;
             // Add 2000 ms so not same point as SG
