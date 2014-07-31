@@ -42,8 +42,8 @@
     }
 
     var futureOpacity = d3.scale.linear( )
-      .domain([11 * 60 * 1000, 30 * 60 * 1000])
-      .range([.8, 0])
+      .domain([40 * 60 * 1000, 60 * 60 * 1000])
+      .range([0.8, 0.4])
       ;
 
 
