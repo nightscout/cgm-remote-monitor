@@ -666,7 +666,6 @@
     socket.on('now', function (d) {
         now = d;
         var dateTime = new Date(now);
-        // lixgbg old: $('#currentTime').text(d3.time.format('%I:%M%p')(dateTime));
         $('#currentTime').text(formatTime(dateTime));
 
         // Dim the screen by reducing the opacity when at nighttime
@@ -713,8 +712,11 @@
                 $('.container .current').toggleClass('high', current.y > 180).toggleClass('low', current.y < 70)
             }
             data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), direction: obj.direction, color: 'grey'} });
-            // TODO: this is a kludge to advance the time as data become stale (using color = 'none'), shouldn't have to send this and just
-            // use xScale.domain function with 2 days before now as x0 and 30 minutes from now for x1
+            // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
+            // This shouldn't have to be sent and can be fixed by using xScale.domain([x0,x1]) function with
+            // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
+            // required to happen when "now" event is sent from websocket.js every minute.  When fixed,
+            // remove all "color != 'none'" code
             data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'none'} }));
             data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'red'} }));
 
