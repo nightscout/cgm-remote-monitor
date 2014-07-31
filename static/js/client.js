@@ -42,9 +42,8 @@
     }
 
     var futureOpacity = d3.scale.linear( )
-      .domain([40 * 60 * 1000, 60 * 60 * 1000])
-      .range([0.8, 0.4])
-      ;
+        .domain([40 * 60 * 1000, 60 * 60 * 1000])
+        .range([0.8, 0.4]);
 
 
     // create svg and g to contain the chart contents
@@ -708,7 +707,9 @@
                 $('.container .current').toggleClass('high', current.y > 180).toggleClass('low', current.y < 70)
             }
             data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), direction: obj.direction, color: 'grey'} });
-            data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'blue'} }));
+            // TODO: this is a kludge to advance the time as data become stale (using color = 'none'), shouldn't have to send this and just
+            // use xScale.domain function with 2 days before now as x0 and 30 minutes from now for x1
+            data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'none'} }));
             data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'red'} }));
 
             treatments = d[3];
