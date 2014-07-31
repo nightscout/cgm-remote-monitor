@@ -64,6 +64,22 @@ body {
     text-decoration: none;
 }
 
+.arrow {
+    font-size: 0.75em;
+    vertical-align: middle;
+}
+.arrow i {
+    background: red;
+    display: block;
+    width: 50px;
+}
+.arrow-up {
+    transform: rotate(0);
+}
+.arrow-down {
+    transform: rotate(180deg);
+}
+
 .status.toolbarClosed .bgStatus {
     font-size:990%;
 

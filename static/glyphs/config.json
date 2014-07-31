@@ -7,6 +7,24 @@
   "ascent": 850,
   "glyphs": [
     {
+      "uid": "2a6740fc2f9d0edea54205963f662594",
+      "css": "spin1",
+      "code": 59406,
+      "src": "fontelico"
+    },
+    {
+      "uid": "9bd60140934a1eb9236fd7a8ab1ff6ba",
+      "css": "spin2",
+      "code": 59408,
+      "src": "fontelico"
+    },
+    {
+      "uid": "9bc2902722abb366a213a052ade360bc",
+      "css": "spin3",
+      "code": 59404,
+      "src": "fontelico"
+    },
+    {
       "uid": "63b3012c8cbe3654ba5bea598235aa3a",
       "css": "angle-double-up",
       "code": 59393,
@@ -16,6 +34,18 @@
       "uid": "dfec4ffa849d8594c2e4b86f6320b8a6",
       "css": "angle-double-down",
       "code": 59394,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "720f98e7580b7987c8dc542513d1d440",
+      "css": "arrow",
+      "code": 59405,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "cda0cdcfd38f5f1d9255e722dad42012",
+      "css": "spin4",
+      "code": 59403,
       "src": "fontawesome"
     },
     {
