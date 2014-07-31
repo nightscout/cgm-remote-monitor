@@ -2,7 +2,7 @@ var drawerIsOpen = false;
 var browserStorage = $.localStorage;
 var defaultSettings = {
 	"units": "mg/dl",
-	"nightMode": true
+	"nightMode": false
 }
 
 var app = {};
@@ -26,12 +26,13 @@ $.ajax("/api/v1/status.json", {
 function getBrowserSettings(storage) {
 	var json = {
 		"units": storage.get("units"),
-		"nightMode": storage.get("nightMode")
+		"nightMode": storage.get("nightMode"),
+		"customTitle": storage.get("customTitle")
 	};
 
 	// Default browser units to server units if undefined.
 	json.units = setDefault(json.units, serverSettings.units);
-	console.log("browserSettings.units: " + json.units);
+	//console.log("browserSettings.units: " + json.units);
 	if (json.units == "mmol") {
 		$("#mmol-browser").prop("checked", true);
 	} else {
@@ -41,6 +42,12 @@ function getBrowserSettings(storage) {
 	json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 	$("#nightmode-browser").prop("checked", json.nightMode);
 
+	if (json.customTitle) {
+		$("h1.customTitle").html(json.customTitle);
+		$("input#customTitle").prop("value", json.customTitle);
+		document.title = "Nightscout: " + json.customTitle;
+	}
+
 	return json;
 }
 function getServerSettings() {
@@ -49,7 +56,7 @@ function getServerSettings() {
 	};
 
 	json.units = setDefault(json.units, defaultSettings.units);
-	console.log("serverSettings.units: " + json.units);
+	//console.log("serverSettings.units: " + json.units);
 	if (json.units == "mmol") {
 		$("#mmol-server").prop("checked", true);
 	} else {
@@ -76,6 +83,7 @@ function storeInBrowser(json, storage) {
 	} else {
 		storage.set("nightMode", false)
 	}
+	if (json.customTitle) storage.set("customTitle", json.customTitle);
 	event.preventDefault();
 }
 function storeOnServer(json) {
@@ -96,9 +104,11 @@ function storeOnServer(json) {
 
 function getQueryParms() {
 	params = {};
-	location.search.substr(1).split("&").forEach(function(item) {
-		params[item.split("=")[0]] = item.split("=")[1]
-	});
+	if (location.search) {
+		location.search.substr(1).split("&").forEach(function(item) {
+			params[item.split("=")[0]] = item.split("=")[1].replace(/[_\+]/g, " ");
+		});
+	}
 	return params;
 }
 
@@ -110,6 +120,7 @@ function isTouch() {
 
 function closeDrawer(callback) {
 	$("#container").animate({marginLeft: "0px"}, 300, callback);
+	$("#chartContainer").animate({marginLeft: "0px"}, 300);
 	$("#drawer").animate({right: "-200px"}, 300, function() {
 		$("#drawer").css("display", "none");
 	});
@@ -118,38 +129,84 @@ function closeDrawer(callback) {
 function openDrawer()  {
 	drawerIsOpen = true;
 	$("#container").animate({marginLeft: "-200px"}, 300);
+	$("#chartContainer").animate({marginLeft: "-200px"}, 300);
 	$("#drawer").css("display", "block");
 	$("#drawer").animate({right: "0"}, 300);
 }
 
 
 function closeNotification() {
-	$("#notification").hide();
-	$("#notification").find("span").html("");
+	var notify = $("#notification");
+	notify.hide();
+	notify.find("span").html("");
 }
-function showNotification(note)  {
-	$("#notification").hide();
-	$("#notification").find("span").html(note);
-	$("#notification").css("left", "calc(50% - " + ($("#notification").width() / 2) + "px)");
-	$("#notification").show();
+function showNotification(note, type)  {
+	var notify = $("#notification");
+	notify.hide();
+
+	// Notification types: "info", "warn", "success", "urgent".
+	// - default: "urgent"
+	notify.removeClass("info warn urgent");
+	notify.addClass(type ? type : "urgent");
+
+	notify.find("span").html(note);
+	notify.css("left", "calc(50% - " + ($("#notification").width() / 2) + "px)");
+	notify.show();
 }
 
 
 function closeToolbar() {
-	$("#toolbar").animate({marginTop: "-44px"}, 200, function() {
-		$("#showToolbar").fadeIn().css("display", "block");
+	stretchStatusForToolbar("close");
+
+	$("#showToolbar").css({top: "44px"});
+	$("#showToolbar").fadeIn(50, function() {
+		$("#showToolbar").animate({top: 0}, 200);
+		$("#toolbar").animate({marginTop: "-44px"}, 200);
 	});
 }
 function openToolbar() {
-	$("#showToolbar").fadeOut(200, function() {
-		$("#toolbar").animate({marginTop: "-0px"}, 200);
-	});
+	$("#showToolbar").css({top: 0});
+	$("#showToolbar").animate({top: "44px"}, 200).fadeOut(200);
+	$("#toolbar").animate({marginTop: "0px"}, 200);
+
+	stretchStatusForToolbar("open");
+}
+function stretchStatusForToolbar(toolbarState){
+	// closed = up
+	if (toolbarState == "close") {
+		$(".status").addClass("toolbarClosed");
+	}
+
+	// open = down
+	if (toolbarState == "open") {
+		$(".status").removeClass("toolbarClosed");
+	}
 }
 
 
 var querystring = getQueryParms();
-var serverSettings = getServerSettings();
+// var serverSettings = getServerSettings();
 var browserSettings = getBrowserSettings(browserStorage);
+
+function Dropdown(el) {
+	this.ddmenuitem = 0;
+
+	this.$el = $(el);
+	var that = this;
+
+	$(document).click(function() { that.close(); });
+}
+Dropdown.prototype.close = function () {
+	if (this.ddmenuitem) {
+		this.ddmenuitem.css('visibility', 'hidden');
+		this.ddmenuitem = 0;
+	}
+};
+Dropdown.prototype.open = function (e) {
+	this.close();
+	this.ddmenuitem = $(this.$el).css('visibility', 'visible');
+	e.stopPropagation();
+};
 
 
 $("#drawerToggle").click(function(event) {
@@ -186,7 +243,8 @@ $("#showToolbar").find("a").click(function(event) {
 $("input#save").click(function() {
 	storeInBrowser({
 		"units": $("input:radio[name=units-browser]:checked").val(),
-		"nightMode": $("#nightmode-browser").prop("checked")
+		"nightMode": $("#nightmode-browser").prop("checked"),
+		"customTitle": $("input#customTitle").prop("value")
 	}, browserStorage);
 
 	storeOnServer({
@@ -219,7 +277,7 @@ $(function() {
 	}
 
 	if (querystring.notify) {
-		showNotification(querystring.notify.replace("+", " "));
+		showNotification(querystring.notify, querystring.notifytype);
 	}
 
 	if (querystring.drawer) {

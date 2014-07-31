@@ -1,23 +1,3 @@
-body {
-    margin: 0;
-    padding: 0;
-    overflow: none;
-}
-.row-fluid {
-    margin: 0 8px;
-}
-
-.container {
-    background: #000;
-    bottom: 0;
-    height: 100%;
-    left: 0;
-    margin: 0;
-    width: 100%;
-    top: 45px;
-    z-index: 2;
-}
-
 #drawer {
     background-color: #666;
     border-left: 1px solid #999;
@@ -39,7 +19,15 @@ body {
 }
 #about {
     margin-top: 1em;
-    text-align: center;
+}
+#about div {
+    font-size: 0.75em;
+}
+#about .links {
+    margin-top: 0.5em;
+}
+#about a {
+    color: #fff;
 }
 
 form {
@@ -80,8 +68,15 @@ dd.numbers label {
 h1, legend,
 #about .appName,
 #about .version {
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
     font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+#about .appName {
+    font-size: 1em;
+}
+#about .version {
+    font-size: 1.25em;
+    margin-left: 0.25em;
 }
 
 #toolbar {
@@ -103,50 +98,89 @@ h1, legend,
     padding: 0;
     float: right;
     height: 44px;
-    width: 136px;
+    width: 180px;
     opacity: 0.75;
     vertical-align: middle;
 }
-#buttonbar a {
-    color: #ccc;
-    line-height: 44px;
-    font-size: 16px;
+#buttonbar div {
+    border-radius: 5px;
     float: left;
     height: 44px;
+    width: 44px;
+}
+#buttonbar a,
+#buttonbar i {
+    color: #ccc;
+    font-size: 16px;
+    height: 44px;
+    line-height: 44px;
+}
+#buttonbar a {
+    float: left;
+    text-decoration: none;
     width: 44px;
 }
 #buttonbar i {
     padding-left: 12px;
 }
+
+.icon-battery-25,
+.icon-battery-50,
+.icon-battery-75,
+.icon-battery-100,
 .icon-angle-double-up {
-    font-size: 21px;
+    font-size: 21px !important;
     padding-left: 9px !important;
 }
 
 #showToolbar,
 #notification {
     display: none;
-    font-size: 16px;
+    font-size: 14px;
     position: absolute;
 }
 #showToolbar {
     opacity: 0.5;
     text-align: center;
-    top: 5px;
+    top: 0px;
     width: 100%;
     z-index: 98;
 }
 #showToolbar a {
     border: solid #fff 1px;
     border-radius: 5px;
+    border-top: 0;
     color: #fff;
     margin: 0 auto;
     padding: 2px;
 }
+
+
+
+#notification,
+#notification a {
+    overflow: hidden;
+}
 #notification {
     opacity: 0.75;
-    top: 7px;
+    top: 4px;
     z-index: 99;
+}
+#notification.info a {
+    background: #00f;
+    color: #fff;
+}
+#notification.warn a {
+    background: #cc0;
+    color: #000;
+}
+#notification.success a {
+    background: #090;
+    color: #fff;
+}
+#notification.urgent a {
+    background: #c00;
+    color: #fff;
 }
 #notification a {
     background: #c00;
@@ -154,14 +188,16 @@ h1, legend,
     color: #fff;
     display: block;
     height: 20px;
-    padding: 5px 0 5px 5px;
+    padding: 0.5em;
     text-decoration: none;
 }
 #notification span {
-    margin-right: 10px;
+    margin-right: 0.25em;
 }
 #notification i {
+    float: right;
     opacity: 0.5;
+    vertical-align: top;
 }
 
 .experiments a {

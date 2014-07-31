@@ -25,12 +25,15 @@
         THIRTY_MINS_IN_MS = 1800000,
         FORTY_TWO_MINS_IN_MS = 2520000,
         FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
-        FORMAT_TIME = '%I:%M%p', //alternate format '%H:%M'
+        FORMAT_TIME = '%I:%M%', //alternate format '%H:%M'
         audio = document.getElementById('audio'),
         alarmInProgress = false,
         currentAlarmType = null,
         alarmSound = 'alarm.mp3',
-        urgentAlarmSound = 'alarm2.mp3';
+        urgentAlarmSound = 'alarm2.mp3',
+        WIDTH_TIME_HIDDEN = 600,
+        MINUTES_SINCE_LAST_UPDATE_WARN = 10,
+        MINUTES_SINCE_LAST_UPDATE_URGENT = 20;
 
     // Tick Values
     var tickValues = [40, 60, 80, 120, 180, 300, 400];
@@ -64,6 +67,13 @@
     context.append('g')
         .attr('class', 'y axis');
 
+
+    // Remove leading zeros from the time (eg. 08:40 = 8:40) & lowercase the am/pm
+    function formatTime(time) {
+        time = d3.time.format(FORMAT_TIME)(time);
+        time = time.replace(/^0/, '').toLowerCase();
+        return time;
+    }
 
     // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
@@ -192,7 +202,16 @@
         // get slice of data so that concatenation of predictions do not interfere with subsequent updates
         var focusData = data.slice();
 
+        if (alarmInProgress) {
+            if ($(window).width() > WIDTH_TIME_HIDDEN) {
+                $(".time").show();
+            } else {
+                $(".time").hide();
+            }
+        }
+
         var element = document.getElementById('bgButton').hidden == '';
+
         var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
         // predict for retrospective data
@@ -217,14 +236,14 @@
                     .css('text-decoration','none');
             }
             $('#currentTime')
-                .text(d3.time.format(FORMAT_TIME)(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
+                .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
                 .css('text-decoration','line-through');
         } else if (retrospectivePredictor) {
             // if the brush comes back into the current time range then it should reset to the current time and sg
             var dateTime = new Date(now);
             nowDate = dateTime;
             $('#currentTime')
-                .text(d3.time.format(FORMAT_TIME)(dateTime))
+                .text(formatTime(dateTime))
                 .css('text-decoration','none');
             $('.container .currentBG')
                 .text(scaleBg(latestSGV.y))
@@ -635,7 +654,7 @@
         now = d;
         var dateTime = new Date(now);
         // lixgbg old: $('#currentTime').text(d3.time.format('%I:%M%p')(dateTime));
-        $('#currentTime').text(d3.time.format(FORMAT_TIME)(dateTime));
+        $('#currentTime').text(formatTime(dateTime));
 
         // Dim the screen by reducing the opacity when at nighttime
         if (browserSettings.nightMode) {
@@ -748,6 +767,10 @@
         var element1 = document.getElementById('noButton');
         element1.hidden = 'true';
         $('.container .currentBG').text();
+
+        if ($(window).width() <= WIDTH_TIME_HIDDEN) {
+            $(".time").hide();
+        }
     }
 
     function playAlarm(audio) {
@@ -771,6 +794,8 @@
           $(this).removeClass('playing');
         });
 
+        $(".time").show();
+
         // only emit ack if client invoke by button press
         if (isClient) {
             socket.emit('ack', currentAlarmType || 'alarm', silenceTime);
@@ -785,7 +810,10 @@
             DAY = 86400,
             WEEK = 604800;
 
-        if (offset <= MINUTE)              parts = { lablel: 'now' };
+        //offset = (MINUTE * MINUTES_SINCE_LAST_UPDATE_WARN) + 60
+        //offset = (MINUTE * MINUTES_SINCE_LAST_UPDATE_URGENT) + 60
+
+        if (offset <= MINUTE)              parts = { label: 'now' };
         if (offset <= MINUTE * 2)          parts = { label: '1 min ago' };
         else if (offset < (MINUTE * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE)), label: 'mins' };
         else if (offset < (HOUR * 2))      parts = { label: '1 hr ago' };
@@ -794,6 +822,21 @@
         else if (offset < (DAY * 7))       parts = { value: Math.round(Math.abs(offset / DAY)), label: 'day' };
         else if (offset < (WEEK * 52))     parts = { value: Math.round(Math.abs(offset / WEEK)), label: 'week' };
         else                               parts = { label: 'a long time ago' };
+
+        if (offset > (MINUTE * MINUTES_SINCE_LAST_UPDATE_URGENT)) {
+            var lastEntry = $("#lastEntry");
+            lastEntry.removeClass("warn");
+            lastEntry.addClass("urgent");
+
+            $(".bgStatus").removeClass("current");
+        } else if (offset > (MINUTE * MINUTES_SINCE_LAST_UPDATE_WARN)) {
+            var lastEntry = $("#lastEntry");
+            lastEntry.removeClass("urgent");
+            lastEntry.addClass("warn");
+        } else {
+            $(".bgStatus").addClass("current");
+            $("#lastEntry").removeClass("warn urgent");
+        }
 
         if (parts.value)
           return parts.value + ' ' + parts.label + ' ago';
