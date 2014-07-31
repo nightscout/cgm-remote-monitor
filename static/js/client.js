@@ -1,8 +1,7 @@
 (function () {
     "use strict";
 
-    var retrospectivePredictor = true,
-        latestSGV,
+    var latestSGV,
         treatments,
         padding = { top: 20, right: 10, bottom: 30, left: 10 },
         opacity = {current: 1, DAY: 1, NIGHT: 0.5},
@@ -23,7 +22,9 @@
         clip,
         TWENTY_FIVE_MINS_IN_MS = 1500000,
         THIRTY_MINS_IN_MS = 1800000,
+        FORTY_MINS_IN_MS = 2400000,
         FORTY_TWO_MINS_IN_MS = 2520000,
+        SIXTY_MINS_IN_MS = 3600000,
         FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
         FORMAT_TIME = '%I:%M%', //alternate format '%H:%M'
         audio = document.getElementById('audio'),
@@ -42,9 +43,8 @@
     }
 
     var futureOpacity = d3.scale.linear( )
-        .domain([40 * 60 * 1000, 60 * 60 * 1000])
+        .domain([FORTY_MINS_IN_MS, SIXTY_MINS_IN_MS])
         .range([0.8, 0.4]);
-
 
     // create svg and g to contain the chart contents
     var charts = d3.select('#chartContainer').append('svg')
@@ -217,11 +217,10 @@
         }
 
         var element = document.getElementById('bgButton').hidden == '';
-
         var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
         // predict for retrospective data
-        if (retrospectivePredictor && brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
+        if (brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
             var nowData = data.filter(function(d) {
                 return d.date.getTime() >= brushExtent[1].getTime() - FORTY_TWO_MINS_IN_MS &&
@@ -245,12 +244,12 @@
             $('#currentTime')
                 .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
                 .css('text-decoration','line-through');
-        } else if (retrospectivePredictor) {
+        } else {
             // if the brush comes back into the current time range then it should reset to the current time and sg
             var nowData = data.filter(function(d) {
                 return d.color != 'none';
             });
-            nowData = [nowData[nowData.length - 2], nowData[nowData.length - 1] ];
+            nowData = [nowData[nowData.length - 2], nowData[nowData.length - 1]];
             var prediction = predictAR(nowData);
             focusData = focusData.concat(prediction);
             var dateTime = new Date(now);
