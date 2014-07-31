@@ -43,8 +43,8 @@
     }
 
     var futureOpacity = d3.scale.linear( )
-        .domain([FORTY_MINS_IN_MS, SIXTY_MINS_IN_MS])
-        .range([0.8, 0.4]);
+        .domain([TWENTY_FIVE_MINS_IN_MS, SIXTY_MINS_IN_MS])
+        .range([0.8, 0.1]);
 
     // create svg and g to contain the chart contents
     var charts = d3.select('#chartContainer').append('svg')
