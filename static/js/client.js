@@ -942,21 +942,21 @@
                 y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[0].sgv / BG_REF)];
             }
         }
-        var n = 6;
+        var n = CONE.length;
         var AR = [-0.723, 1.716];
         var dt = actual[1].date.getTime();
         for (var i = 0; i <= n; i++) {
             y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
             dt = dt + FIVE_MINUTES;
-            // Add 1200 ms so not same point as SG
+            // Add 2000 ms so not same point as SG
             predicted[i * 2] = {
-                date: new Date(dt + 1200),
+                date: new Date(dt + 2000),
                 sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] - 3 * CONE[i]))))),
                 color: 'blue'
             };
-            // Add 3000 ms so not same point as SG
+            // Add 4000 ms so not same point as SG
             predicted[i * 2 + 1] = {
-                date: new Date(dt + 3000),
+                date: new Date(dt + 4000),
                 sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] + 3 * CONE[i]))))),
                 color: 'blue'
             };
