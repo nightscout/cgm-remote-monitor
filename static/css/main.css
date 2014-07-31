@@ -15,22 +15,6 @@ body {
     color: #808080;
 }
 
-#loader {
-    background: rgba(0, 0, 0, 0.9);
-    bottom: 0;
-    left: 0;
-    position: absolute;
-    right: 0;
-    top: 0;
-}
-#loader img {
-    left: calc(50% - (192px/2));
-    position: absolute;
-    top: calc(50% - (192px/2));
-    width: 192px;
-    z-index: 100;
-}
-
 
 /* BEGIN: Dolphin/Stock Android Browser Fix */
 @media (max-width: 700px) {
