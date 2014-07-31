@@ -13,235 +13,70 @@
 
 // Description: Basic web server to display data from Dexcom G4.  Requires a database that contains
 // the Dexcom SGV data.
+'use strict';
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// local variables
-////////////////////////////////////////////////////////////////////////////////////////////////////
-var patientData = [];
-var now = new Date().getTime();
-var fs = require('fs');
-var mongoClient = require('mongodb').MongoClient;
+///////////////////////////////////////////////////
+// DB Connection setup and utils
+///////////////////////////////////////////////////
+
+var software = require('./package.json');
+var env = require('./env')( );
+var store = require('./lib/storage')(env);
+
+
+var express = require('express');
+
+///////////////////////////////////////////////////
+// api and json object variables
+///////////////////////////////////////////////////
+var entries = require('./lib/entries')(env.mongo_collection, store);
+var settings = require('./lib/settings')(env.settings_collection, store);
+var api = require('./lib/api/')(env, entries, settings);
 var pebble = require('./lib/pebble');
-var cgmData = [];
-////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////
 // setup http server
-////////////////////////////////////////////////////////////////////////////////////////////////////
-var PORT = process.env.PORT || 1337;
-var server = require('http').createServer(function serverCreator(request, response) {
-    var nodeStatic = require('node-static');
-    var staticServer = new nodeStatic.Server(".");
-    var sys = require("sys");
-    // Grab the URL requested by the client and parse any query options
-    var url = require('url').parse(request.url, true);
-    if (url.path.indexOf('/pebble') === 0) {
-      request.with_collection = with_collection;
-      pebble.pebble(request, response);
-      return;
-    }
+///////////////////////////////////////////////////
+var PORT = env.PORT;
+var THIRTY_DAYS = 2592000;
 
-    // Serve file using node-static
-    staticServer.serve(request, response, function clientHandler(err) {
-        if (err) {
-            // Log the error
-            sys.error("Error serving " + request.url + " - " + err.message);
+var app = express();
+var appInfo = software.name + ' ' + software.version;
+app.set('title', appInfo);
+app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
 
-            // Respond to the client
-            response.writeHead(err.status, err.headers);
-            response.end('Error 404 - file not found');
-        }
-    });
-}).listen(PORT);
-////////////////////////////////////////////////////////////////////////////////////////////////////
+//if (env.api_secret) {
+//    console.log("API_SECRET", env.api_secret);
+//}
+app.use('/api/v1', api);
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// setup socket io for data and message transmission
-////////////////////////////////////////////////////////////////////////////////////////////////////
-var io = require('socket.io').listen(server);
+// pebble data
+app.get('/pebble', pebble(entries));
 
-// reduce logging
-io.set('log level', 0);
+//app.get('/package.json', software);
 
-//Windows Azure Web Sites does not currently support WebSockets, so use long-polling
-io.configure(function () {
-    io.set('transports', ['xhr-polling']);
+// define static server
+var staticFiles = express.static(env.static_files, {maxAge: THIRTY_DAYS * 1000});
+
+// serve the static content
+app.use(staticFiles);
+
+// Handle errors with express's errorhandler, to display more readable error messages.
+var errorhandler = require('errorhandler');
+//if (process.env.NODE_ENV === 'development') {
+  app.use(errorhandler());
+//}
+
+store(function ready ( ) {
+  var server = app.listen(PORT);
+  console.log('listening', PORT);
+
+  ///////////////////////////////////////////////////
+  // setup socket io for data and message transmission
+  ///////////////////////////////////////////////////
+  var websocket = require('./lib/websocket');
+  var io = websocket(env, server, entries);
 });
 
-var watchers = 0;
-io.sockets.on('connection', function (socket) {
-    io.sockets.emit("now", now);
-    io.sockets.emit("sgv", patientData);
-    io.sockets.emit("clients", ++watchers);
-    socket.on('ack', function(alarmType, _silenceTime) {
-        alarms[alarmType].lastAckTime = new Date().getTime();
-        alarms[alarmType].silenceTime = _silenceTime ? _silenceTime : FORTY_MINUTES;
-        io.sockets.emit("clear_alarm", true);
-        console.log("alarm cleared");
-    });
-    socket.on('disconnect', function () {
-        io.sockets.emit("clients", --watchers);
-    });
-});
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// data handling functions
-////////////////////////////////////////////////////////////////////////////////////////////////////
-var TZ_OFFSET_PATIENT = 8;
-var TZ_OFFSET_SERVER = new Date().getTimezoneOffset() / 60;
-var ONE_HOUR = 3600000;
-var ONE_MINUTE = 60000;
-var FIVE_MINUTES = 300000;
-var FORTY_MINUTES = 2400000;
-var TWO_DAYS = 172800000;
-var DB = require('./database_configuration.json');
-DB.url = DB.url || process.env.CUSTOMCONNSTR_mongo;
-DB.collection = DB.collection || process.env.CUSTOMCONNSTR_mongo_collection;
-var DB_URL = DB.url;
-var DB_COLLECTION = DB.collection;
-
-var Alarm = function(_typeName, _threshold) {
-    this.typeName = _typeName;
-    this.silenceTime = FORTY_MINUTES;
-    this.lastAckTime = 0;
-    this.threshold = _threshold;
-};
-
-// list of alarms with their thresholds
-var alarms = {
-    "alarm" : new Alarm("Regular", 0.05),
-    "urgent_alarm": new Alarm("Urgent", 0.10)
-};
-
-function with_collection (fn) {
-  mongoClient.connect(DB_URL, function (err, db) {
-      if (err) throw err;
-      var collection = db.collection(DB_COLLECTION);
-      fn(err, collection);
-  });
-}
-
-function update() {
-
-    now = Date.now();
-
-    cgmData = [];
-    var earliest_data = now - TWO_DAYS;
-    mongoClient.connect(DB_URL, function (err, db) {
-        if (err) throw err;
-        var collection = db.collection(DB_COLLECTION);
-
-        collection.find({"date": {"$gte": earliest_data}}).toArray(function(err, results) {
-            results.forEach(function(element, index, array) {
-                if (element) {
-                    var obj = {};
-                    obj.y = element.sgv;
-                    obj.x = element.date;
-                    obj.d = element.dateString;
-                    cgmData.push(obj);
-                }
-            });
-            db.close();
-        });
-    });
-
-    // wait for database read to complete, 5 secs has proven to be more than enough
-    setTimeout(loadData, 5000);
-
-    return update;
-}
-
-function emitAlarm(alarmType) {
-    var alarm = alarms[alarmType];
-    if (now > alarm.lastAckTime + alarm.silenceTime) {
-        io.sockets.emit(alarmType);
-    } else {
-        console.log(alarm.typeName + " alarm is silenced for " + Math.floor((alarm.silenceTime - (now - alarm.lastAckTime)) / 60000) + " minutes more");
-    }
-}
-
-function loadData() {
-
-    var treatment = [];
-    var mbg = [];
-
-    var actual = [];
-    if (cgmData) {
-        actual = cgmData.slice();
-        actual.sort(function(a, b) {
-            return a.x - b.x;
-        });
-        
-        // sgv less than or equal to 10 means error code
-        // or warm up period code, so ignore
-        actual = actual.filter(function (a) {
-            return a.y > 10;
-        })
-    }
-
-    var actualLength = actual.length - 1;
-
-    if (actualLength > 1) {
-        // predict using AR model
-        var predicted = [];
-        var lastValidReadingTime = actual[actualLength].x;
-        var elapsedMins = (actual[actualLength].x - actual[actualLength - 1].x) / ONE_MINUTE;
-        var BG_REF = 140;
-        var BG_MIN = 36;
-        var BG_MAX = 400;
-        var y = Math.log(actual[actualLength].y / BG_REF);
-        if (elapsedMins < 5.1) {
-            y = [Math.log(actual[actualLength - 1].y / BG_REF), y];
-        } else {
-            y = [y, y];
-        }
-        var n = Math.ceil(12 * (1 / 2 + (now - lastValidReadingTime) / ONE_HOUR));
-        var AR = [-0.723, 1.716];
-        var dt = actual[actualLength].x;
-        for (i = 0; i <= n; i++) {
-            y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
-            dt = dt + FIVE_MINUTES;
-            predicted[i] = {
-                x: dt,
-                y: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp(y[1]))))
-            };
-        }
-
-        //TODO: need to consider when data being sent has less than the 2 day minimum
-
-        // consolidate and send the data to the client
-        patientData = [actual, predicted, mbg, treatment];
-        io.sockets.emit("now", now);
-        io.sockets.emit("sgv", patientData);
-
-        // compute current loss
-        var avgLoss = 0;
-        for (var i = 0; i <= 6; i++) {
-            avgLoss += 1 / 6 * Math.pow(log10(predicted[i].y / 120), 2);
-        }
-
-        if (avgLoss > alarms['urgent_alarm'].threshold) {
-            emitAlarm('urgent_alarm');
-        } else if (avgLoss > alarms['alarm'].threshold) {
-            emitAlarm('alarm');
-        }
-    }
-}
-
-// get data from database and setup to update every minute
-function kickstart ( ) {
-  update( );
-  return update;
-}
-setInterval(kickstart(), ONE_MINUTE);
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// helper functions
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-function log10(val) { return Math.log(val) / Math.LN10; }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////

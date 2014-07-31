@@ -1,0 +1,291 @@
+@import url("//fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic");
+@import url("//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800");
+@import url("/glyphs/css/fontello.css");
+
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+body {
+    font-family: 'Open Sans', Helvetica, Arial, sans-serif;
+    fill: #fff;
+    background: #000;
+    color: #808080;
+}
+
+
+/* BEGIN: Dolphin/Stock Android Browser Fix */
+@media (max-width: 700px) {
+    .bgStatus {
+        width: 100% !important;
+    }
+}
+#chartContainer {
+    top: 225px; /*(toolbar height + status height)*/
+}
+/* END: Dolphin/Stock Android Browser Fix */
+
+
+.container {
+    bottom: 0;
+    display: block;
+    height: 100%;
+    left: 0;
+    margin: 0;
+    padding: 0;
+    top: 45px;
+    width: 100%;
+    z-index: 2;
+}
+
+.status {
+    font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
+    height: 180px;
+    vertical-align: middle;
+}
+
+.bgStatus {
+    float: right;
+    font-size: 900%;
+    margin-right: 25px;
+    text-align: center;
+    white-space: nowrap;
+}
+.bgStatus .currentBG {
+    text-decoration: line-through;
+}
+.bgStatus.current .currentBG {
+    text-decoration: none;
+}
+.currentDirection {
+    font-weight: normal;
+    text-decoration: none;
+}
+
+.status.toolbarClosed .bgStatus {
+    font-size:990%;
+
+}
+
+.time {
+    font-size: 600%;
+    padding-top: 15px;
+}
+.timebox {
+    text-align: center;
+    width: 250px;
+}
+.timeOther {
+    font-size: 25%;
+}
+#lastEntry {
+    background: #999;
+    border-radius: 5px;
+    color: #000;
+    padding: 0.25em;
+}
+#lastEntry.warn {
+    background: #cc0 !important;
+}
+#lastEntry.urgent {
+    background: #c00 !important;
+}
+
+#chartContainer {
+    background: #111;
+    bottom:0;
+    display: block;
+    height:auto;
+    left:0;
+    position:absolute;
+    right:0;
+}
+#chartContainer svg {
+    height: calc(100vh - (180px + 45px));
+    width: 100%;
+    top: calc(45px + 180px);
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #ffffff;
+  shape-rendering: crispEdges;
+}
+
+.open-right, .open-left {
+  shape-rendering: crispEdges;
+}
+.grid path, .axis line {
+  stroke: #808080;
+  stroke-opacity: 1;
+}
+
+.brush .extent {
+  stroke: #ffffff;
+  stroke-opacity: 0;
+  fill-opacity: 0;
+}
+
+
+#noButton {
+  padding: 2px;
+}
+
+#bgButton,
+#silenceBtn {
+    z-index: 999;
+}
+
+#bgButton {
+    background: #ff2035;
+    border: 2px solid #DDD;
+    border-right: 2px solid #ccc;
+    border-bottom: 2px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 2px 4px 6px #ddd;
+    color: #000000;
+    cursor: default;
+    font-size: 75%;
+    margin-top: 15px;
+    margin-right: 37px;
+    width: auto;
+
+    user-select: none;
+    -moz-border-radius: 5px;
+    -webkit-border-radius: 5px;
+    -moz-box-shadow: 2px 2px 4px #ddd;
+    -webkit-box-shadow: 2px 2px 4px #ddd;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.bgButton:active {
+    background: #850406;
+    border: 2px solid #999;
+    box-shadow: none;
+
+    -moz-box-shadow: none;
+    -webkit-box-shadow: none;
+}
+
+.button {
+    text-align: center;
+    background: #ababab;
+    margin: 10px auto;
+}
+
+#silenceBtn, #silenceBtn * {
+    font-size: 70%;
+}
+
+.alarms {
+    display: none;
+}
+
+#testAlarms {
+    font-size: 20%;
+}
+
+/* Large desktop */
+@media (min-width: 980px) {
+    .content {
+        padding-top: 20px;
+    }
+    .linediv-l {
+        border-right: 1px white solid;
+    }
+    .linedic-r {
+        border-left: 1px white solid;
+    }
+}
+
+@media (max-width: 768px) {
+    #chartContainer {
+        font-size: 150%;
+    }
+    .bgStatus {
+        width: 50%;
+    }
+}
+
+@media (max-width: 700px) {
+    body {
+        font-size: 70%;
+    }
+
+    #notification {
+        margin-top: 148px;
+    }
+
+    .status {
+        text-align: center;
+        margin-bottom: 0;
+        height: 152px;
+    }
+
+    /* Unremark to test alert/silence button + menu. */
+    /* #noButton {display:none;}
+    #bgButton {display:block;} */
+
+    .bgStatus {
+        font-size: 900%;
+        float: none;
+        margin: 0 auto;
+        padding: 0;
+        text-align: center;
+        width: 100vw;
+    }
+    .status.toolbarClosed .bgStatus {
+        font-size: 990%;
+        margin-top: 10px;
+    }
+    #bgButton {
+        font-size: 120%;
+        height: 142px;
+        margin-top: 1vw;
+        width: 98vw;
+    }
+    .dropdown-menu {
+        font-size: 60% !important;
+        margin-left: 2vw;
+        width: 96vw;
+    }
+    .time {
+        margin-bottom: 0.1em;
+        margin-top: -1em;
+        margin-left: 0;
+        width: 100%;
+    }
+    .timebox {
+        text-align: none;
+        width: auto;
+    }
+    #currentTime {
+        display: inline;
+        font-size: 25%;
+        font-weight: bold;
+    }
+    .timeOther {
+        display: inline;
+        margin-left: auto;
+    }
+
+    #chartContainer {
+        top: calc(152px + 45px);
+    }
+    #chartContainer svg {
+        height: calc(100vh - (152px + 45px));
+    }
+}
+
+@media (max-width: 480px) {
+  #chartContainer {
+      font-size: 150%;
+  }
+}
