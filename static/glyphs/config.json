@@ -7,6 +7,48 @@
   "ascent": 850,
   "glyphs": [
     {
+      "uid": "19ed8cb0d5075906fc8b8d6ede7fb71c",
+      "css": ".notdef",
+      "code": 59392,
+      "src": "custom_icons",
+      "selected": false,
+      "svg": {
+        "path": "M296.9 715.8V621.1H202.1V715.8H296.9ZM390.6 605.5V510.7H202.1V605.5H390.6ZM296.9 496.1V401.4H202.1V496.1H296.9ZM390.6 385.7V291H296.9Q256.8 291 229.5 318.4 202.1 346.7 202.1 385.7H390.6ZM0 799.8V206.1H593.8V799.8H0Z",
+        "width": 0
+      },
+      "search": [
+        ".notdef"
+      ]
+    },
+    {
+      "uid": "5155ec28e9113ef427861f17948cdc91",
+      "css": "arrow",
+      "code": 59407,
+      "src": "custom_icons",
+      "selected": true,
+      "svg": {
+        "path": "M93.8 799.8V346.7H0L140.6 206.1 281.3 346.7H187.5V799.8H93.8Z",
+        "width": 296.875
+      },
+      "search": [
+        "A"
+      ]
+    },
+    {
+      "uid": "e464a75491f6a3b5806188555d31e51e",
+      "css": "arrow-2x",
+      "code": 59409,
+      "src": "custom_icons",
+      "selected": true,
+      "svg": {
+        "path": "M93.8 799.8V346.7H0L140.6 206.1 281.3 346.7H187.5V799.8H93.8ZM375 799.8V346.7H281.3L421.9 206.1 562.5 346.7H468.8V799.8H375Z",
+        "width": 578.125
+      },
+      "search": [
+        "B"
+      ]
+    },
+    {
       "uid": "2a6740fc2f9d0edea54205963f662594",
       "css": "spin1",
       "code": 59406,
@@ -38,7 +80,7 @@
     },
     {
       "uid": "720f98e7580b7987c8dc542513d1d440",
-      "css": "arrow",
+      "css": "arrow-1",
       "code": 59405,
       "src": "fontawesome"
     },

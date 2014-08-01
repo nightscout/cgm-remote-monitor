@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>NightScout</title>
+<style>
+@import url("./glyphs/css/fontello.css");
+
+body {
+	background: #111;
+	color: #999;
+	font-size: 900%;
+}
+
+.bgStatus {
+	background: red;
+	float: right;
+	margin-right: 25px;
+	text-align: center;
+	white-space: nowrap;
+}
+
+.arrow {
+	font-size: 0.75em;
+	vertical-align: middle;
+}
+.arrow i {
+	background: #333;
+	display: block;
+	height: 1.39em;
+	width: 1.39em;
+}
+.arrow-up {
+	transform: rotate(0deg);
+	-ms-transform: rotate(0deg);
+	-webkit-transform: rotate(0deg);
+}
+.arrow-45up {
+	transform: rotate(45deg);
+	-ms-transform: rotate(45deg);
+	-webkit-transform: rotate(45deg);
+}
+.arrow-flat {
+	transform: rotate(90deg);
+	-ms-transform: rotate(90deg);
+	-webkit-transform: rotate(90deg);
+}
+.arrow-45down {
+	transform: rotate(135deg);
+	-ms-transform: rotate(135deg);
+	-webkit-transform: rotate(135deg);
+}
+.arrow-down {
+	transform: rotate(180deg);
+	-ms-transform: rotate(180deg);
+	-webkit-transform: rotate(180deg);
+}
+</style>
+	</head>
+	<body>
+
+<div class="bgStatus current">
+	<div id="noButton">
+		<span class="currentBG">194</span>
+		<div class="arrow">
+			<i class="icon-arrow arrow-flat"></i>
+		</div>
+	</div>
+</div>
+
+<div class="arrow">
+	<i class="icon-arrow-2x arrow-up"></i>
+	<i class="icon-arrow arrow-up"></i>
+	<i class="icon-arrow arrow-45up"></i>
+	<i class="icon-arrow arrow-flat"></i>
+	<i class="icon-arrow arrow-45down"></i>
+	<i class="icon-arrow arrow-down"></i>
+	<i class="icon-arrow-2x arrow-down"></i>
+</div>
+
+<script src="./bower_components/jquery/dist/jquery.min.js"></script>
+
+<script>
+function rotateArrow(direction) {
+	console.log("arrow-" + direction);
+	var demoArrow = $("#bgStatus .icon-arrow");
+	demoArrow.removeClass("arrow-up arrow-45up arrow-flat arrow-45down arrow-down")
+	demoArrow.addClass("arrow-" + direction);
+}
+
+$(function() {
+	//rotateArrow("up");
+	//rotateArrow("45up");
+	//rotateArrow("flat");
+	//rotateArrow("45down");
+	//rotateArrow("down");
+});
+</script>
+	</body>
+</html>

@@ -5,8 +5,7 @@
         <title>NightScout</title>
         <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
         <link rel="stylesheet" type="text/css" href="/css/main.css" />
-        <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-        <link rel="stylesheet" type="text/css" href="/css/drawer.css" />
+        <link rel="stylesheet" type="text/css" href="/css/ui.css" />
         <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
     </head>
     <body>
@@ -31,12 +30,17 @@
                 <div class="bgStatus current">
                     <div id="noButton">
                         <span class="currentBG">---</span>
-                        <span class="currentDirection">-</span>
-                        <span class="arrow"><i class="icon-arrow arrow-down"></i></a>
+                        <div class="arrow">
+                            <i class="icon-arrow arrow-up"></i>
+                        </div>
+                        <!-- <span class="currentDirection">-</span> -->
                     </div>
                     <div id="bgButton" hidden="true">
                         <span class="currentBG">---</span>
-                        <span class="currentDirection">-</span>
+                        <div class="arrow">
+                            <i class="icon-arrow arrow-up"></i>
+                        </div>
+                        <!-- <span class="currentDirection">-</span> -->
                     </div>
                     <ul class="dropdown-menu" id="silenceBtn">
                         <li><a href="#" data-snooze-time="1800000">Silence for 30 minutes</a></li>

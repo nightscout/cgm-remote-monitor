@@ -1,3 +1,29 @@
+.dropdown-menu {
+    font-size: 200%;
+    margin: 0;
+    padding: 0;
+    position: absolute;
+    visibility: hidden;
+    right: 8px;
+}
+.dropdown-menu li {
+    list-style: none;
+    float: none;
+    display: inline;
+}
+.dropdown-menu li a {
+    display: block;
+    text-decoration: none;
+    white-space: nowrap;
+    width: auto;
+    background: #BBBBBB;
+    color: #24313C;
+    padding: 2px 10px;
+}
+.dropdown-menu li a:hover {
+    background: #EEEEFF;
+}
+
 #drawer {
     background-color: #666;
     border-left: 1px solid #999;
@@ -198,6 +224,42 @@ h1, legend,
     float: right;
     opacity: 0.5;
     vertical-align: top;
+}
+
+.arrow {
+    color: #999;
+    font-size: 0.75em;
+    vertical-align: middle;
+}
+.arrow i {
+    background: #333;
+    display: block;
+    width: 1.39em;
+}
+.arrow-up {
+    transform: rotate(0deg);
+    -ms-transform: rotate(0deg);
+    -webkit-transform: rotate(0deg);
+}
+.arrow-45up {
+    transform: rotate(45deg);
+    -ms-transform: rotate(45deg);
+    -webkit-transform: rotate(45deg);
+}
+.arrow-flat {
+    transform: rotate(90deg);
+    -ms-transform: rotate(90deg);
+    -webkit-transform: rotate(90deg);
+}
+.arrow-45down {
+    transform: rotate(135deg);
+    -ms-transform: rotate(135deg);
+    -webkit-transform: rotate(135deg);
+}
+.arrow-down {
+    transform: rotate(180deg);
+    -ms-transform: rotate(180deg);
+    -webkit-transform: rotate(180deg);
 }
 
 .experiments a {
