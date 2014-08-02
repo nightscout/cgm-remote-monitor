@@ -1,0 +1,120 @@
+<TaskerData sr="" dvi="1" tv="4.4u1m">
+<Profile sr="prof21" ve="2">
+<cdate>1402986624873</cdate>
+<edate>1406937046140</edate>
+<id>21</id>
+<mid0>6</mid0>
+<nme>Nightscout Notification</nme>
+<pri>10</pri>
+<Time sr="con0">
+<fh>-1</fh>
+<fm>-1</fm>
+<rep>2</rep>
+<repval>5</repval>
+<th>-1</th>
+<tm>-1</tm>
+</Time>
+</Profile>
+<Task sr="task6">
+<cdate>1406867730368</cdate>
+<edate>1406937012398</edate>
+<id>6</id>
+<nme>Nightscout Get Last Entry</nme>
+<pri>10</pri>
+<Action sr="act0" ve="6">
+<code>3092</code>
+<Bundle sr="arg0">
+<Vals sr="val">
+<bundle_header>API_SECRET 2394a9661a9089208c1c9c65ccac85a91da6a859</bundle_header>
+<bundle_header-type>java.lang.String</bundle_header-type>
+<bundle_param></bundle_param>
+<bundle_param-type>java.lang.String</bundle_param-type>
+<com.freehaha.restask.BASICAUTH></com.freehaha.restask.BASICAUTH>
+<com.freehaha.restask.BASICAUTH-type>java.lang.String</com.freehaha.restask.BASICAUTH-type>
+<com.freehaha.restask.BODY></com.freehaha.restask.BODY>
+<com.freehaha.restask.BODY-type>java.lang.String</com.freehaha.restask.BODY-type>
+<com.freehaha.restask.CERT></com.freehaha.restask.CERT>
+<com.freehaha.restask.CERT-type>java.lang.String</com.freehaha.restask.CERT-type>
+<com.freehaha.restask.CERTPATH>empty</com.freehaha.restask.CERTPATH>
+<com.freehaha.restask.CERTPATH-type>java.lang.String</com.freehaha.restask.CERTPATH-type>
+<com.freehaha.restask.CUSTOMBODY>n</com.freehaha.restask.CUSTOMBODY>
+<com.freehaha.restask.CUSTOMBODY-type>java.lang.String</com.freehaha.restask.CUSTOMBODY-type>
+<com.freehaha.restask.CUSTOMECERT>n</com.freehaha.restask.CUSTOMECERT>
+<com.freehaha.restask.CUSTOMECERT-type>java.lang.String</com.freehaha.restask.CUSTOMECERT-type>
+<com.freehaha.restask.HOST>https://{domain}/api/v1/entries/current</com.freehaha.restask.HOST>
+<com.freehaha.restask.HOST-type>java.lang.String</com.freehaha.restask.HOST-type>
+<com.freehaha.restask.RESPONSE>%rtres</com.freehaha.restask.RESPONSE>
+<com.freehaha.restask.RESPONSE-type>java.lang.String</com.freehaha.restask.RESPONSE-type>
+<com.freehaha.restask.RETCODE>%rtcode</com.freehaha.restask.RETCODE>
+<com.freehaha.restask.RETCODE-type>java.lang.String</com.freehaha.restask.RETCODE-type>
+<com.freehaha.restask.SYNCCALL>y</com.freehaha.restask.SYNCCALL>
+<com.freehaha.restask.SYNCCALL-type>java.lang.String</com.freehaha.restask.SYNCCALL-type>
+<com.freehaha.restask.TIMEOUT>30</com.freehaha.restask.TIMEOUT>
+<com.freehaha.restask.TIMEOUT-type>java.lang.String</com.freehaha.restask.TIMEOUT-type>
+<com.freehaha.restask.TYPE>GET</com.freehaha.restask.TYPE>
+<com.freehaha.restask.TYPE-type>java.lang.String</com.freehaha.restask.TYPE-type>
+<com.twofortyfouram.locale.intent.extra.BLURB>REST call</com.twofortyfouram.locale.intent.extra.BLURB>
+<com.twofortyfouram.locale.intent.extra.BLURB-type>java.lang.String</com.twofortyfouram.locale.intent.extra.BLURB-type>
+<net.dinglisch.android.tasker.RELEVANT_VARIABLES>&lt;StringArray sr=""&gt;&lt;_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES0&gt;%rtcode
+Response code&lt;/_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES0&gt;&lt;_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES1&gt;%rtres
+Response body&lt;/_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES1&gt;&lt;/StringArray&gt;</net.dinglisch.android.tasker.RELEVANT_VARIABLES>
+<net.dinglisch.android.tasker.RELEVANT_VARIABLES-type>[Ljava.lang.String;</net.dinglisch.android.tasker.RELEVANT_VARIABLES-type>
+<net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>com.freehaha.restask.TYPE com.freehaha.restask.HOST com.freehaha.restask.TIMEOUT com.freehaha.restask.BASICAUTH com.freehaha.restask.CUSTOMBODY com.freehaha.restask.BODY com.freehaha.restask.CUSTOMECERT com.freehaha.restask.CERTPATH com.freehaha.restask.SYNCCALL bundle_param bundle_header</net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>
+<net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS-type>java.lang.String</net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS-type>
+<net.dinglisch.android.tasker.subbundled>true</net.dinglisch.android.tasker.subbundled>
+<net.dinglisch.android.tasker.subbundled-type>java.lang.Boolean</net.dinglisch.android.tasker.subbundled-type>
+</Vals>
+</Bundle>
+<Str sr="arg1" ve="3">com.freehaha.restask</Str>
+<Str sr="arg2" ve="3">RESTask</Str>
+<Int sr="arg3" val="30"/>
+</Action>
+<Action sr="act1" ve="6">
+<code>548</code>
+<on>false</on>
+<Str sr="arg0" ve="3">%rtres</Str>
+<Int sr="arg1" val="0"/>
+</Action>
+<Action sr="act2" ve="6">
+<code>590</code>
+<Str sr="arg0" ve="3">%rtres</Str>
+<Str sr="arg1" ve="3"/>
+<Int sr="arg2" val="0"/>
+</Action>
+<Action sr="act3" ve="6">
+<code>547</code>
+<Str sr="arg0" ve="3">%nsBg</Str>
+<Str sr="arg1" ve="3">%rtres5</Str>
+<Int sr="arg2" val="0"/>
+<Int sr="arg3" val="0"/>
+</Action>
+<Action sr="act4" ve="6">
+<code>547</code>
+<Str sr="arg0" ve="3">%nsDirection</Str>
+<Str sr="arg1" ve="3">%rtres6</Str>
+<Int sr="arg2" val="0"/>
+<Int sr="arg3" val="0"/>
+</Action>
+<Action sr="act5" ve="6">
+<code>547</code>
+<Str sr="arg0" ve="3">%nsTime</Str>
+<Str sr="arg1" ve="3">%rtres2</Str>
+<Int sr="arg2" val="0"/>
+<Int sr="arg3" val="0"/>
+</Action>
+<Action sr="act6" ve="6">
+<code>523</code>
+<Str sr="arg0" ve="3">Nightscout</Str>
+<Str sr="arg1" ve="3">%nsBg %nsDirection @ %nsTime</Str>
+<Img sr="arg2" ve="2">
+<nme>hd_ab_device_access_time</nme>
+</Img>
+<Int sr="arg3" val="1"/>
+<Int sr="arg4" val="0"/>
+<Int sr="arg5" val="5"/>
+</Action>
+<Img sr="icn" ve="2">
+<uri>https://raw.githubusercontent.com/nightscout/ns-remote-monitor/master/static/images/round1.png</uri>
+</Img>
+</Task>
+</TaskerData>
