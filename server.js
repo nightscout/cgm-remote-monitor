@@ -74,7 +74,8 @@ store(function ready ( ) {
 
   if (env.MQTT_MONITOR) {
     var mqtt = require('./lib/mqtt')(env);
-    mqtt.entries.pipe(mqtt.every(entries));
+    var es = require('event-stream');
+    es.pipeline(mqtt.entries, entries.map( ), mqtt.every(entries));
   }
 
   ///////////////////////////////////////////////////
