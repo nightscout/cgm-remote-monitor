@@ -40,7 +40,8 @@
     "express-extension-to-accept": "0.0.2",
     "mongodb": "^1.4.7",
     "sgvdata": "0.0.2",
-    "socket.io": "^0.9.17"
+    "socket.io": "^0.9.17",
+    "mqtt": "~0.3.11"
   },
   "devDependencies": {
     "supertest": "~0.13.0",

@@ -21,6 +21,7 @@ function config ( ) {
 
   env.version = software.version;
   env.name = software.name;
+  env.MQTT_MONITOR = process.env.MQTT_MONITOR || null;
   env.DISPLAY_UNITS = process.env.DISPLAY_UNITS || 'mg/dl';
   env.PORT = process.env.PORT || 1337;
   env.mongo = process.env.MONGO_CONNECTION || process.env.CUSTOMCONNSTR_mongo;
