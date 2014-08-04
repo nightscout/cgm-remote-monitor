@@ -2,6 +2,8 @@ var drawerIsOpen = false;
 var browserStorage = $.localStorage;
 var defaultSettings = {
 	"units": "mg/dl",
+	"alarmHigh": true,
+	"alarmLow": true,
 	"nightMode": false
 }
 
@@ -24,28 +26,40 @@ $.ajax("/api/v1/status.json", {
 
 
 function getBrowserSettings(storage) {
-	var json = {
-		"units": storage.get("units"),
-		"nightMode": storage.get("nightMode"),
-		"customTitle": storage.get("customTitle")
-	};
+	var json = {};
+	try {
+		var json = {
+			"units": storage.get("units"),
+			"alarmHigh": storage.get("alarmHigh"),
+			"alarmLow": storage.get("alarmLow"),
+			"nightMode": storage.get("nightMode"),
+			"customTitle": storage.get("customTitle")
+		};
 
-	// Default browser units to server units if undefined.
-	json.units = setDefault(json.units, serverSettings.units);
-	//console.log("browserSettings.units: " + json.units);
-	if (json.units == "mmol") {
-		$("#mmol-browser").prop("checked", true);
-	} else {
-		$("#mgdl-browser").prop("checked", true);
+		// Default browser units to server units if undefined.
+		json.units = setDefault(json.units, serverSettings.units);
+		if (json.units == "mmol") {
+			$("#mmol-browser").prop("checked", true);
+		} else {
+			$("#mgdl-browser").prop("checked", true);
+		}
+
+		json.alarmHigh = setDefault(json.alarmHigh, defaultSettings.alarmHigh);
+		$("#alarmhigh-browser").prop("checked", json.alarmHigh);
+		json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
+		$("#alarmlow-browser").prop("checked", json.alarmLow);
+
+		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
+		$("#nightmode-browser").prop("checked", json.nightMode);
+
+		if (json.customTitle) {
+			$("h1.customTitle").html(json.customTitle);
+			$("input#customTitle").prop("value", json.customTitle);
+			document.title = "Nightscout: " + json.customTitle;
+		}
 	}
-
-	json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
-	$("#nightmode-browser").prop("checked", json.nightMode);
-
-	if (json.customTitle) {
-		$("h1.customTitle").html(json.customTitle);
-		$("input#customTitle").prop("value", json.customTitle);
-		document.title = "Nightscout: " + json.customTitle;
+	catch(err) {
+		showLocalstorageError();
 	}
 
 	return json;
@@ -78,6 +92,16 @@ function jsonIsNotEmpty(json) {
 }
 function storeInBrowser(json, storage) {
 	if (json.units) storage.set("units", json.units);
+	if (json.alarmHigh == true) {
+		storage.set("alarmHigh", true)
+	} else {
+		storage.set("alarmHigh", false)
+	}
+	if (json.alarmLow == true) {
+		storage.set("alarmLow", true)
+	} else {
+		storage.set("alarmLow", false)
+	}
 	if (json.nightMode == true) {
 		storage.set("nightMode", true)
 	} else {
@@ -154,6 +178,12 @@ function showNotification(note, type)  {
 	notify.show();
 }
 
+function showLocalstorageError() {
+	var msg = "<b>Settings are disabled.</b><br /><br />Please enable cookies so you may customize your Nightscout site."
+	$(".browserSettings").html("<legend>Settings</legend>"+msg+"");
+	$("#save").hide();
+}
+
 
 function closeToolbar() {
 	stretchStatusForToolbar("close");
@@ -174,16 +204,12 @@ function openToolbar() {
 function stretchStatusForToolbar(toolbarState){
 	// closed = up
 	if (toolbarState == "close") {
-		$(".status").css({
-			"font-size": "+125%"
-		});
+		$(".status").addClass("toolbarClosed");
 	}
 
 	// open = down
 	if (toolbarState == "open") {
-		$(".status").css({
-			"font-size": "-125%"
-		});
+		$(".status").removeClass("toolbarClosed");
 	}
 }
 
@@ -247,6 +273,8 @@ $("#showToolbar").find("a").click(function(event) {
 $("input#save").click(function() {
 	storeInBrowser({
 		"units": $("input:radio[name=units-browser]:checked").val(),
+		"alarmHigh": $("#alarmhigh-browser").prop("checked"),
+		"alarmLow": $("#alarmlow-browser").prop("checked"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
 		"customTitle": $("input#customTitle").prop("value")
 	}, browserStorage);

@@ -239,7 +239,7 @@
             } else {
                 $('.container .currentBG')
                     .text("---")
-                    .css('text-decoration','none');
+                    .css('text-decoration','');
             }
             $('#currentTime')
                 .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
@@ -256,10 +256,10 @@
             nowDate = dateTime;
             $('#currentTime')
                 .text(formatTime(dateTime))
-                .css('text-decoration','none');
+                .css('text-decoration','');
             $('.container .currentBG')
                 .text(scaleBg(latestSGV.y))
-                .css('text-decoration','none');
+                .css('text-decoration','');
             $('.container .currentDirection')
                 .html(latestSGV.direction);
         }
@@ -709,7 +709,12 @@
                 $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
                 $('.container .currentBG').text(currentBG);
                 $('.container .currentDirection').html(current.direction);
-                $('.container .current').toggleClass('high', current.y > 180).toggleClass('low', current.y < 70)
+                if (browserSettings.alarmHigh) {
+                    $('.container .current').toggleClass('high', current.y > 180);
+                }
+                if (browserSettings.alarmLow) {
+                    $('.container .current').toggleClass('low', current.y < 70);
+                }
             }
             data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), direction: obj.direction, color: 'grey'} });
             // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
@@ -739,16 +744,20 @@
         console.log('Client connected to server.')
     });
     socket.on('alarm', function () {
-        console.log("Alarm raised!");
-        currentAlarmType = 'alarm';
-        generateAlarm(alarmSound);
+        if (browserSettings.alarmHigh) {
+            console.log("Alarm raised!");
+            currentAlarmType = 'alarm';
+            generateAlarm(alarmSound);
+        }
         brushInProgress = false;
         updateChart(false);
     });
     socket.on('urgent_alarm', function () {
-        console.log("Urgent alarm raised!");
-        currentAlarmType = 'urgent_alarm';
-        generateAlarm(urgentAlarmSound);
+        if (browserSettings.alarmLow) {
+            console.log("Urgent alarm raised!");
+            currentAlarmType = 'urgent_alarm';
+            generateAlarm(urgentAlarmSound);
+        }
         brushInProgress = false;
         updateChart(false);
     });
