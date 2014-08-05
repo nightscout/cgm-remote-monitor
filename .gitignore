@@ -1,6 +1,10 @@
 bower_components/
 node_modules/
 
+config.js
+config.json
+database_configuration.json
+
 .idea/
 *.iml
 my.env
