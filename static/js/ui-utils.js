@@ -26,34 +26,40 @@ $.ajax("/api/v1/status.json", {
 
 
 function getBrowserSettings(storage) {
-	var json = {
-		"units": storage.get("units"),
-		"alarmHigh": storage.get("alarmHigh"),
-		"alarmLow": storage.get("alarmLow"),
-		"nightMode": storage.get("nightMode"),
-		"customTitle": storage.get("customTitle")
-	};
+	var json = {};
+	try {
+		var json = {
+			"units": storage.get("units"),
+			"alarmHigh": storage.get("alarmHigh"),
+			"alarmLow": storage.get("alarmLow"),
+			"nightMode": storage.get("nightMode"),
+			"customTitle": storage.get("customTitle")
+		};
 
-	// Default browser units to server units if undefined.
-	json.units = setDefault(json.units, serverSettings.units);
-	if (json.units == "mmol") {
-		$("#mmol-browser").prop("checked", true);
-	} else {
-		$("#mgdl-browser").prop("checked", true);
+		// Default browser units to server units if undefined.
+		json.units = setDefault(json.units, serverSettings.units);
+		if (json.units == "mmol") {
+			$("#mmol-browser").prop("checked", true);
+		} else {
+			$("#mgdl-browser").prop("checked", true);
+		}
+
+		json.alarmHigh = setDefault(json.alarmHigh, defaultSettings.alarmHigh);
+		$("#alarmhigh-browser").prop("checked", json.alarmHigh);
+		json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
+		$("#alarmlow-browser").prop("checked", json.alarmLow);
+
+		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
+		$("#nightmode-browser").prop("checked", json.nightMode);
+
+		if (json.customTitle) {
+			$("h1.customTitle").html(json.customTitle);
+			$("input#customTitle").prop("value", json.customTitle);
+			document.title = "Nightscout: " + json.customTitle;
+		}
 	}
-
-	json.alarmHigh = setDefault(json.alarmHigh, defaultSettings.alarmHigh);
-	$("#alarmhigh-browser").prop("checked", json.alarmHigh);
-	json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
-	$("#alarmlow-browser").prop("checked", json.alarmLow);
-
-	json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
-	$("#nightmode-browser").prop("checked", json.nightMode);
-
-	if (json.customTitle) {
-		$("h1.customTitle").html(json.customTitle);
-		$("input#customTitle").prop("value", json.customTitle);
-		document.title = "Nightscout: " + json.customTitle;
+	catch(err) {
+		showLocalstorageError();
 	}
 
 	return json;
@@ -170,6 +176,12 @@ function showNotification(note, type)  {
 	notify.find("span").html(note);
 	notify.css("left", "calc(50% - " + ($("#notification").width() / 2) + "px)");
 	notify.show();
+}
+
+function showLocalstorageError() {
+	var msg = "<b>Settings are disabled.</b><br /><br />Please enable cookies so you may customize your Nightscout site."
+	$(".browserSettings").html("<legend>Settings</legend>"+msg+"");
+	$("#save").hide();
 }
 
 
