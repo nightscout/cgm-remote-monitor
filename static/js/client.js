@@ -1,12 +1,14 @@
-(function() {
+(function () {
     "use strict";
 
-    var treatments,
-        padding = { top: 20, right: 10, bottom: 30, left: 10},
+    var retrospectivePredictor = true,
+        latestSGV,
+        treatments,
+        padding = { top: 20, right: 10, bottom: 30, left: 10 },
         opacity = {current: 1, DAY: 1, NIGHT: 0.5},
         now = Date.now(),
         data = [],
-        dateFn = function (d) { return new Date(d.date)},
+        dateFn = function (d) { return new Date(d.date) },
         xScale, xScale2, yScale, yScale2,
         xAxis, yAxis, xAxis2, yAxis2,
         prevChartWidth = 0,
@@ -19,7 +21,25 @@
         brushTimer,
         brushInProgress = false,
         clip,
-        FOCUS_DATA_RANGE_MS = 12600000;  // 3.5 hours of actual data
+        TWENTY_FIVE_MINS_IN_MS = 1500000,
+        THIRTY_MINS_IN_MS = 1800000,
+        FORTY_TWO_MINS_IN_MS = 2520000,
+        FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
+        FORMAT_TIME = '%I:%M%', //alternate format '%H:%M'
+        audio = document.getElementById('audio'),
+        alarmInProgress = false,
+        currentAlarmType = null,
+        alarmSound = 'alarm.mp3',
+        urgentAlarmSound = 'alarm2.mp3',
+        WIDTH_TIME_HIDDEN = 600,
+        MINUTES_SINCE_LAST_UPDATE_WARN = 10,
+        MINUTES_SINCE_LAST_UPDATE_URGENT = 20;
+
+    // Tick Values
+    var tickValues = [40, 60, 80, 120, 180, 300, 400];
+    if (browserSettings.units == "mmol") {
+        var tickValues = [2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0];
+    }
 
     // create svg and g to contain the chart contents
     var charts = d3.select('#chartContainer').append('svg')
@@ -47,6 +67,23 @@
     context.append('g')
         .attr('class', 'y axis');
 
+
+    // Remove leading zeros from the time (eg. 08:40 = 8:40) & lowercase the am/pm
+    function formatTime(time) {
+        time = d3.time.format(FORMAT_TIME)(time);
+        time = time.replace(/^0/, '').toLowerCase();
+        return time;
+    }
+
+    // lixgbg: Convert mg/dL BG value to metric mmol
+    function scaleBg(bg) {
+        if (browserSettings.units == "mmol") {
+            return (Math.round((bg / 18) * 10) / 10).toFixed(1);
+        } else {
+            return bg;
+        }
+    }
+
     // initial setup of chart when data is first made available
     function initializeCharts() {
 
@@ -55,13 +92,13 @@
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale = d3.scale.log()
-            .domain([30, 420]);
+            .domain([scaleBg(30), scaleBg(420)]);
 
         xScale2 = d3.time.scale()
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale2 = d3.scale.log()
-            .domain([36, 420]);
+            .domain([scaleBg(36), scaleBg(420)]);
 
         xAxis = d3.svg.axis()
             .scale(xScale)
@@ -71,7 +108,7 @@
         yAxis = d3.svg.axis()
             .scale(yScale)
             .tickFormat(d3.format('d'))
-            .tickValues([40, 60, 80, 120, 180, 300, 400])
+            .tickValues(tickValues)
             .orient('left');
 
         xAxis2 = d3.svg.axis()
@@ -82,7 +119,7 @@
         yAxis2 = d3.svg.axis()
             .scale(yScale2)
             .tickFormat(d3.format('d'))
-            .tickValues([40, 60, 80, 120, 180, 300, 400])
+            .tickValues(tickValues)
             .orient('right');
 
         // setup a brush
@@ -98,9 +135,9 @@
     // get the desired opacity for context chart based on the brush extent
     function highlightBrushPoints(data) {
         if (data.date.getTime() >= brush.extent()[0].getTime() && data.date.getTime() <= brush.extent()[1].getTime()) {
-            return 1
+            return 1;
         } else {
-            return 0.2
+            return 0.5;
         }
     }
 
@@ -125,7 +162,7 @@
         // update the opacity of the context data points to brush extent
         context.selectAll('circle')
             .data(data)
-            .style('opacity', function(d) {return 1;} );
+            .style('opacity', function (d) { return 1; });
     }
 
     function brushEnded() {
@@ -152,32 +189,88 @@
 
             // ensure that brush updating is with the time range
             if (brushExtent[0].getTime() + FOCUS_DATA_RANGE_MS > d3.extent(data, dateFn)[1].getTime()) {
+                brushExtent[0] = new Date(brushExtent[1].getTime() - FOCUS_DATA_RANGE_MS);
                 d3.select('.brush')
-                    .call(brush.extent([new Date(brushExtent[1].getTime() - FOCUS_DATA_RANGE_MS), brushExtent[1]]));
+                    .call(brush.extent([brushExtent[0], brushExtent[1]]));
             } else {
+                brushExtent[1] = new Date(brushExtent[0].getTime() + FOCUS_DATA_RANGE_MS);
                 d3.select('.brush')
-                    .call(brush.extent([brushExtent[0], new Date(brushExtent[0].getTime() + FOCUS_DATA_RANGE_MS)]));
+                    .call(brush.extent([brushExtent[0], brushExtent[1]]));
             }
+        }
+
+        // get slice of data so that concatenation of predictions do not interfere with subsequent updates
+        var focusData = data.slice();
+
+        if (alarmInProgress) {
+            if ($(window).width() > WIDTH_TIME_HIDDEN) {
+                $(".time").show();
+            } else {
+                $(".time").hide();
+            }
+        }
+
+        var element = document.getElementById('bgButton').hidden == '';
+
+        var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
+
+        // predict for retrospective data
+        if (retrospectivePredictor && brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
+            // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
+            var nowData = data.filter(function(d) {
+                return d.date.getTime() >= brushExtent[1].getTime() - FORTY_TWO_MINS_IN_MS &&
+                    d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS
+            });
+            if (nowData.length > 1) {
+                var prediction = predictAR(nowData);
+                focusData = focusData.concat(prediction);
+                var focusPoint = nowData[nowData.length - 1];
+                $('.container .currentBG')
+                    .text(focusPoint.sgv)
+                    .css('text-decoration','line-through');
+                $('.container .currentDirection')
+                    .html(focusPoint.direction)
+            } else {
+                $('.container .currentBG')
+                    .text("---")
+                    .css('text-decoration','');
+            }
+            $('#currentTime')
+                .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
+                .css('text-decoration','line-through');
+        } else if (retrospectivePredictor) {
+            // if the brush comes back into the current time range then it should reset to the current time and sg
+            var dateTime = new Date(now);
+            nowDate = dateTime;
+            $('#currentTime')
+                .text(formatTime(dateTime))
+                .css('text-decoration','');
+            $('.container .currentBG')
+                .text(scaleBg(latestSGV.y))
+                .css('text-decoration','');
+            $('.container .currentDirection')
+                .html(latestSGV.direction);
         }
 
         xScale.domain(brush.extent());
 
         // bind up the focus chart data to an array of circles
-        // selects all our data into data and uses date function to get current max date 
-        var focusCircles = focus.selectAll('circle').data(data, dateFn);
+        // selects all our data into data and uses date function to get current max date
+        var focusCircles = focus.selectAll('circle').data(focusData, dateFn);
 
         // if already existing then transition each circle to its new position
-        focusCircles.transition()
+        focusCircles
+            .transition()
             .duration(UPDATE_TRANS_MS)
             .attr('cx', function (d) { return xScale(d.date); })
-            .attr('cy', function (d) { return yScale(d.sgv);  })
-            .attr('fill', function (d) { return d.color;      });
+            .attr('cy', function (d) { return yScale(d.sgv); })
+            .attr('fill', function (d) { return d.color; });
 
         // if new circle then just display
         focusCircles.enter().append('circle')
             .attr('cx', function (d) { return xScale(d.date); })
-            .attr('cy', function (d) { return yScale(d.sgv);  })
-            .attr('fill', function (d) { return d.color;      })
+            .attr('cy', function (d) { return yScale(d.sgv); })
+            .attr('fill', function (d) { return d.color; })
             .attr('r', 3);
 
         focusCircles.exit()
@@ -190,14 +283,14 @@
         var bubbleSize = prevChartWidth < 400 ? 4 : (prevChartWidth < 600 ? 3 : 2);
         focus.selectAll('circle')
             .data(treatments)
-            .each(function (d) { drawTreatment(d, bubbleSize, true)});
+            .each(function (d) { drawTreatment(d, bubbleSize, true) });
 
         // transition open-top line to correct location
         focus.select('.open-top')
             .attr('x1', xScale2(brush.extent()[0]))
-            .attr('y1', yScale(30))
+            .attr('y1', yScale(scaleBg(30)))
             .attr('x2', xScale2(brush.extent()[1]))
-            .attr('y2', yScale(30));
+            .attr('y2', yScale(scaleBg(30)));
 
         // transition open-left line to correct location
         focus.select('.open-left')
@@ -216,10 +309,10 @@
         focus.select('.now-line')
             .transition()
             .duration(UPDATE_TRANS_MS)
-            .attr('x1', xScale(new Date(now)))
-            .attr('y1', yScale(36))
-            .attr('x2', xScale(new Date(now)))
-            .attr('y2', yScale(420));
+            .attr('x1', xScale(nowDate))
+            .attr('y1', yScale(scaleBg(36)))
+            .attr('x2', xScale(nowDate))
+            .attr('y2', yScale(scaleBg(420)));
 
         // update x axis
         focus.select('.x.axis')
@@ -305,9 +398,9 @@
                 focus.append('line')
                     .attr('class', 'now-line')
                     .attr('x1', xScale(new Date(now)))
-                    .attr('y1', yScale(36))
+                    .attr('y1', yScale(scaleBg(36)))
                     .attr('x2', xScale(new Date(now)))
-                    .attr('y2', yScale(420))
+                    .attr('y2', yScale(scaleBg(420)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -315,9 +408,9 @@
                 focus.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(180))
+                    .attr('y1', yScale(scaleBg(180)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(180))
+                    .attr('y2', yScale(scaleBg(180)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -325,9 +418,9 @@
                 focus.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(80))
+                    .attr('y1', yScale(scaleBg(80)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(80))
+                    .attr('y2', yScale(scaleBg(80)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -351,9 +444,9 @@
                 context.append('line')
                     .attr('class', 'now-line')
                     .attr('x1', xScale(new Date(now)))
-                    .attr('y1', yScale2(36))
+                    .attr('y1', yScale2(scaleBg(36)))
                     .attr('x2', xScale(new Date(now)))
-                    .attr('y2', yScale2(420))
+                    .attr('y2', yScale2(scaleBg(420)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -361,9 +454,9 @@
                 context.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(180))
+                    .attr('y1', yScale2(scaleBg(180)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(180))
+                    .attr('y2', yScale2(scaleBg(180)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -371,9 +464,9 @@
                 context.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(80))
+                    .attr('y1', yScale2(scaleBg(80)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(80))
+                    .attr('y2', yScale2(scaleBg(80)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -418,27 +511,27 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(180))
+                    .attr('y1', yScale(scaleBg(180)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(180));
+                    .attr('y2', yScale(scaleBg(180)));
 
                 // transition low line to correct location
                 focus.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(80))
+                    .attr('y1', yScale(scaleBg(80)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(80));
+                    .attr('y2', yScale(scaleBg(80)));
 
                 // transition open-top line to correct location
                 focus.select('.open-top')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(currentBrushExtent[0]))
-                    .attr('y1', yScale(30))
+                    .attr('y1', yScale(scaleBg(30)))
                     .attr('x2', xScale2(currentBrushExtent[1]))
-                    .attr('y2', yScale(30));
+                    .attr('y2', yScale(scaleBg(30)));
 
                 // transition open-left line to correct location
                 focus.select('.open-left')
@@ -463,18 +556,18 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(180))
+                    .attr('y1', yScale2(scaleBg(180)))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(180));
+                    .attr('y2', yScale2(scaleBg(180)));
 
                 // transition low line to correct location
                 context.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(80))
+                    .attr('y1', yScale2(scaleBg(80)))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(80));
+                    .attr('y2', yScale2(scaleBg(80)));
             }
         }
 
@@ -485,9 +578,9 @@
             .transition()
             .duration(UPDATE_TRANS_MS)
             .attr('x1', xScale2(new Date(now)))
-            .attr('y1', yScale2(36))
+            .attr('y1', yScale2(scaleBg(36)))
             .attr('x2', xScale2(new Date(now)))
-            .attr('y2', yScale2(420));
+            .attr('y2', yScale2(scaleBg(420)));
 
         // only if a user brush is not active, update brush and focus chart with recent data
         // else, just transition brush
@@ -510,16 +603,16 @@
         contextCircles.transition()
             .duration(UPDATE_TRANS_MS)
             .attr('cx', function (d) { return xScale2(d.date); })
-            .attr('cy', function (d) { return yScale2(d.sgv);  })
-            .attr('fill', function (d) { return d.color;       })
-            .style('opacity', function (d)   { return highlightBrushPoints(d) });
+            .attr('cy', function (d) { return yScale2(d.sgv); })
+            .attr('fill', function (d) { return d.color; })
+            .style('opacity', function (d) { return highlightBrushPoints(d) });
 
         // if new circle then just display
         contextCircles.enter().append('circle')
-            .attr('cx', function (d)   { return xScale2(d.date); })
-            .attr('cy', function (d)   { return yScale2(d.sgv);  })
-            .attr('fill', function (d) { return d.color;         })
-            .style('opacity', function (d)   { return highlightBrushPoints(d) })
+            .attr('cx', function (d) { return xScale2(d.date); })
+            .attr('cy', function (d) { return yScale2(d.sgv); })
+            .attr('fill', function (d) { return d.color; })
+            .style('opacity', function (d) { return highlightBrushPoints(d) })
             .attr('r', 2);
 
         contextCircles.exit()
@@ -541,11 +634,11 @@
 
     var silenceDropdown = new Dropdown(".dropdown-menu");
 
-    $('#bgButton').click(function(e) {
+    $('#bgButton').click(function (e) {
         silenceDropdown.open(e);
     });
 
-    $("#silenceBtn").find("a").click(function() {
+    $("#silenceBtn").find("a").click(function () {
         stopAlarm(true, $(this).data("snooze-time"));
     });
 
@@ -560,13 +653,16 @@
     socket.on('now', function (d) {
         now = d;
         var dateTime = new Date(now);
-        $('#currentTime').text(d3.time.format('%I:%M%p')(dateTime));
+        // lixgbg old: $('#currentTime').text(d3.time.format('%I:%M%p')(dateTime));
+        $('#currentTime').text(formatTime(dateTime));
 
         // Dim the screen by reducing the opacity when at nighttime
-        if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7 )) {
-            $('body').css({'opacity': opacity.NIGHT});
-        } else {
-            $('body').css({'opacity': opacity.DAY});
+        if (browserSettings.nightMode) {
+            if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7)) {
+                $('body').css({ 'opacity': opacity.NIGHT });
+            } else {
+                $('body').css({ 'opacity': opacity.DAY });
+            }
         }
     });
 
@@ -574,12 +670,39 @@
         if (d.length > 1) {
             // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
             if (d[0].length) {
-                $('#currentBG').text(d[0][d[0].length - 1].y);
-                $('#bgValue').text(d[0][d[0].length - 1].y);
+                var current = d[0][d[0].length - 1];
+                latestSGV = current;
+                var secsSinceLast = (Date.now() - new Date(current.x).getTime()) / 1000;
+                var currentBG = current.y;
+
+                //TODO: currently these are filtered on the server
+                //TODO: use icons for these magic values
+                switch (current.y) {
+                    case 0:  currentBG = '??0'; break; //None
+                    case 1:  currentBG = '?SN'; break; //SENSOR_NOT_ACTIVE
+                    case 2:  currentBG = '??2'; break; //MINIMAL_DEVIATION
+                    case 3:  currentBG = '?NA'; break; //NO_ANTENNA
+                    case 5:  currentBG = '?NC'; break; //SENSOR_NOT_CALIBRATED
+                    case 6:  currentBG = '?CD'; break; //COUNTS_DEVIATION
+                    case 7:  currentBG = '??7'; break; //?
+                    case 8:  currentBG = '??8'; break; //?
+                    case 9:  currentBG = '?AD'; break; //ABSOLUTE_DEVIATION
+                    case 10: currentBG = '?PD'; break; //POWER_DEVIATION
+                    case 12: currentBG = '?RF'; break; //BAD_RF
+                    default:
+                      currentBG = scaleBg(currentBG);
+                    break;
+                }
+
+                $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+                $('.container .currentBG').text(currentBG);
+                $('.container .currentDirection').html(current.direction);
+                $('.container .current').toggleClass('high', current.y > 180).toggleClass('low', current.y < 70)
             }
-            data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'grey'} });
-            data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'blue'} }));
-            data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'red'} }));
+            data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), direction: obj.direction, color: 'grey'} });
+            data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'blue'} }));
+            data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'red'} }));
+
             treatments = d[3];
             if (!isInitialData) {
                 isInitialData = true;
@@ -598,44 +721,65 @@
     socket.on('connect', function () {
         console.log('Client connected to server.')
     });
-    socket.on('alarm', function() {
+    socket.on('alarm', function () {
         console.log("Alarm raised!");
         currentAlarmType = 'alarm';
         generateAlarm(alarmSound);
+        brushInProgress = false;
+        updateChart(false);
     });
-    socket.on('urgent_alarm', function() {
+    socket.on('urgent_alarm', function () {
         console.log("Urgent alarm raised!");
         currentAlarmType = 'urgent_alarm';
         generateAlarm(urgentAlarmSound);
+        brushInProgress = false;
+        updateChart(false);
     });
-    socket.on('clear_alarm', function() {
+    socket.on('clear_alarm', function () {
         if (alarmInProgress) {
             console.log('clearing alarm');
             stopAlarm();
         }
     });
-    socket.on('clients', function(watchers) {
-        console.log('number of clients has changed to ' + watchers);
-        $('#watchers').text(watchers);
+
+
+    $('#testAlarms').click(function(event) {
+        d3.select('.audio.alarms audio').each(function (data, i) {
+          var audio = this;
+          playAlarm(audio);
+          setTimeout(function() {
+              audio.pause();
+          }, 4000);
+        });
+        event.preventDefault();
     });
 
-    // load alarms
-    var alarmSound = document.getElementById('audio');
-    var urgentAlarmSound = document.getElementById('audio2');
-
-    // alarm state
-    var alarmInProgress = false;
-    var currentAlarmType = null;
-
-    function generateAlarm(alarmType) {
+    function generateAlarm(file) {
         alarmInProgress = true;
-        alarmType.load();
-        alarmType.play();
+        var selector = '.audio.alarms audio.' + file;
+        d3.select(selector).each(function (d, i) {
+          var audio = this;
+          playAlarm(audio);
+          $(this).addClass('playing');
+        });
         var element = document.getElementById('bgButton');
         element.hidden = '';
         var element1 = document.getElementById('noButton');
         element1.hidden = 'true';
-        $('#bgValue').text($('#currentBG').text());
+        $('.container .currentBG').text();
+
+        if ($(window).width() <= WIDTH_TIME_HIDDEN) {
+            $(".time").hide();
+        }
+    }
+
+    function playAlarm(audio) {
+        // ?mute=true disables alarms to testers.
+        if (querystring.mute != "true") {
+            audio.play();
+        } else {
+            showNotification("Alarm is muted per your request. (?mute=true)");
+        }
     }
 
     function stopAlarm(isClient, silenceTime) {
@@ -644,14 +788,63 @@
         element.hidden = 'true';
         element = document.getElementById('noButton');
         element.hidden = '';
-        alarmSound.pause();
-        urgentAlarmSound.pause();
+        d3.select('audio.playing').each(function (d, i) {
+          var audio = this;
+          audio.pause();
+          $(this).removeClass('playing');
+        });
+
+        $(".time").show();
 
         // only emit ack if client invoke by button press
         if (isClient) {
-            socket.emit('ack', currentAlarmType, silenceTime);
+            socket.emit('ack', currentAlarmType || 'alarm', silenceTime);
+            brushed(false);
         }
     }
+
+    function timeAgo(offset) {
+        var parts = {},
+            MINUTE = 60,
+            HOUR = 3600,
+            DAY = 86400,
+            WEEK = 604800;
+
+        //offset = (MINUTE * MINUTES_SINCE_LAST_UPDATE_WARN) + 60
+        //offset = (MINUTE * MINUTES_SINCE_LAST_UPDATE_URGENT) + 60
+
+        if (offset <= MINUTE)              parts = { label: 'now' };
+        if (offset <= MINUTE * 2)          parts = { label: '1 min ago' };
+        else if (offset < (MINUTE * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE)), label: 'mins' };
+        else if (offset < (HOUR * 2))      parts = { label: '1 hr ago' };
+        else if (offset < (HOUR * 24))     parts = { value: Math.round(Math.abs(offset / HOUR)), label: 'hrs' };
+        else if (offset < DAY)             parts = { label: '1 day ago' };
+        else if (offset < (DAY * 7))       parts = { value: Math.round(Math.abs(offset / DAY)), label: 'day' };
+        else if (offset < (WEEK * 52))     parts = { value: Math.round(Math.abs(offset / WEEK)), label: 'week' };
+        else                               parts = { label: 'a long time ago' };
+
+        if (offset > (MINUTE * MINUTES_SINCE_LAST_UPDATE_URGENT)) {
+            var lastEntry = $("#lastEntry");
+            lastEntry.removeClass("warn");
+            lastEntry.addClass("urgent");
+
+            $(".bgStatus").removeClass("current");
+        } else if (offset > (MINUTE * MINUTES_SINCE_LAST_UPDATE_WARN)) {
+            var lastEntry = $("#lastEntry");
+            lastEntry.removeClass("urgent");
+            lastEntry.addClass("warn");
+        } else {
+            $(".bgStatus").addClass("current");
+            $("#lastEntry").removeClass("warn urgent");
+        }
+
+        if (parts.value)
+          return parts.value + ' ' + parts.label + ' ago';
+        else
+          return parts.label;
+
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -690,7 +883,7 @@
             .data(arc_data)
             .enter()
             .append('g')
-            .attr('transform', 'translate(' + xScale(treatment.x) + ', ' + yScale(treatment.y) + ')');
+            .attr('transform', 'translate(' + xScale(treatment.x) + ', ' + yScale(scaleBg(treatment.y)) + ')');
 
         var arcs = treatmentDots.append('path')
             .attr('class', 'path')
@@ -717,5 +910,40 @@
                 })
                 .text(function (d) { return d.element; })
         }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // function to predict
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    function predictAR(actual) {
+        var ONE_MINUTE = 60 * 1000;
+        var FIVE_MINUTES = 5 * ONE_MINUTE;
+        var predicted = [];
+        var BG_REF = 140;
+        var BG_MIN = 36;
+        var BG_MAX = 400;
+        if (actual.length < 2) {
+            var y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[0].sgv / BG_REF)];
+        } else {
+            var elapsedMins = (actual[1].date - actual[0].date) / ONE_MINUTE;
+            if (elapsedMins < 5.1) {
+                y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[1].sgv / BG_REF)];
+            } else {
+                y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[0].sgv / BG_REF)];
+            }
+        }
+        var n = 20;
+        var AR = [-0.723, 1.716];
+        var dt = actual[1].date.getTime();
+        for (var i = 0; i <= n; i++) {
+            y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
+            dt = dt + FIVE_MINUTES;
+            predicted[i] = {
+                date: new Date(dt+3000),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp(y[1])))),
+                color: 'blue'
+            };
+        }
+        return predicted;
     }
 })();
