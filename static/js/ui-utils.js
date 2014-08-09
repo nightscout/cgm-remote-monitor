@@ -4,7 +4,8 @@ var defaultSettings = {
 	"units": "mg/dl",
 	"alarmHigh": true,
 	"alarmLow": true,
-	"nightMode": false
+	"nightMode": false,
+	"theme": "default"
 }
 
 var app = {};
@@ -33,7 +34,10 @@ function getBrowserSettings(storage) {
 			"alarmHigh": storage.get("alarmHigh"),
 			"alarmLow": storage.get("alarmLow"),
 			"nightMode": storage.get("nightMode"),
-			"customTitle": storage.get("customTitle")
+			"customTitle": storage.get("customTitle"),
+			"theme": storage.get("theme"),
+			"targetTop": parseInt(storage.get("targetTop")),
+			"targetBottom": parseInt(storage.get("targetBottom"))
 		};
 
 		// Default browser units to server units if undefined.
@@ -57,6 +61,15 @@ function getBrowserSettings(storage) {
 			$("input#customTitle").prop("value", json.customTitle);
 			document.title = "Nightscout: " + json.customTitle;
 		}
+
+        if (json.theme == "default") {
+            $("#theme-default-browser").prop("checked", true);
+        } else {
+            $("#theme-colors-browser").prop("checked", true);
+        }
+
+        if (json.targetTop) $("#targetTop").prop("value", json.targetTop);
+        if (json.targetBottom) $("#targetBottom").prop("value", json.targetBottom);
 	}
 	catch(err) {
 		showLocalstorageError();
@@ -108,6 +121,9 @@ function storeInBrowser(json, storage) {
 		storage.set("nightMode", false)
 	}
 	if (json.customTitle) storage.set("customTitle", json.customTitle);
+    if (json.theme) storage.set("theme", json.theme);
+    if (json.targetTop) storage.set("targetTop", json.targetTop);
+    if (json.targetBottom) storage.set("targetBottom", json.targetBottom);
 	event.preventDefault();
 }
 function storeOnServer(json) {
@@ -276,7 +292,10 @@ $("input#save").click(function() {
 		"alarmHigh": $("#alarmhigh-browser").prop("checked"),
 		"alarmLow": $("#alarmlow-browser").prop("checked"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
-		"customTitle": $("input#customTitle").prop("value")
+		"customTitle": $("input#customTitle").prop("value"),
+		"theme": $("input:radio[name=theme-browser]:checked").val(),
+		"targetTop": $("input#targetTop").prop("value"),
+		"targetBottom": $("input#targetBottom").prop("value")
 	}, browserStorage);
 
 	storeOnServer({
