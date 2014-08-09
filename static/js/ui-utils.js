@@ -6,7 +6,7 @@ var defaultSettings = {
 	"alarmLow": true,
 	"nightMode": false,
 	"theme": "default"
-}
+};
 
 var app = {};
 $.ajax("/api/v1/status.json", {
