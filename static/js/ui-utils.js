@@ -62,10 +62,10 @@ function getBrowserSettings(storage) {
 			document.title = "Nightscout: " + json.customTitle;
 		}
 
-        if (json.theme == "default") {
-            $("#theme-default-browser").prop("checked", true);
-        } else {
+        if (json.theme == "colors") {
             $("#theme-colors-browser").prop("checked", true);
+        } else {
+            $("#theme-default-browser").prop("checked", true);
         }
 
         if (json.targetTop) $("#targetTop").prop("value", json.targetTop);
