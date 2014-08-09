@@ -698,8 +698,9 @@
                 }
 
                 $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
-                $('.container .currentBG').text(currentBG);
-                $('.container .currentDirection').html(current.direction);
+                var color = sgvToColor(currentBG);
+                $('.container .currentBG').text(currentBG).css({color: color});
+                $('.container .currentDirection').html(current.direction).css({color: color});
                 if (browserSettings.alarmHigh) {
                     $('.container .current').toggleClass('high', current.y > targetTop);
                 }
@@ -709,19 +710,7 @@
             }
 
             data = d[0].map(function (obj) {
-                var color = 'grey';
-
-                if (browserSettings.theme == "colors") {
-                    if (obj.y > targetTop) {
-                        color = 'yellow';
-                    } else if (obj.y >= targetBottom && obj.y <= targetTop) {
-                        color = 'green';
-                    } else if (obj.y < targetBottom) {
-                        color = 'red';
-                    }
-                }
-
-                return { date: new Date(obj.x), sgv: scaleBg(obj.y), direction: obj.direction, color: color}
+                return { date: new Date(obj.x), sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y)}
             });
             data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'blue'} }));
             data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'red'} }));
@@ -736,6 +725,22 @@
             }
         }
     });
+
+    function sgvToColor(sgv) {
+        var color = 'grey';
+
+        if (browserSettings.theme == "colors") {
+            if (sgv > targetTop) {
+                color = 'yellow';
+            } else if (sgv >= targetBottom && sgv <= targetTop) {
+                color = 'green';
+            } else if (sgv < targetBottom) {
+                color = 'red';
+            }
+        }
+
+        return color;
+    }
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
