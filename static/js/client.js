@@ -712,16 +712,12 @@
                 var color = 'grey';
 
                 if (browserSettings.theme == "colors") {
-                    switch (true) {
-                        case (obj.y > targetTop):
-                            color = 'yellow';
-                            break;
-                        case (obj.y >= targetBottom && obj.y <= targetTop):
-                            color = 'green';
-                            break;
-                        case (obj.y < targetBottom):
-                            color = 'red';
-                            break;
+                    if (obj.y > targetTop) {
+                        color = 'yellow';
+                    } else if (obj.y >= targetBottom && obj.y <= targetTop) {
+                        color = 'green';
+                    } else if (obj.y < targetBottom) {
+                        color = 'red';
                     }
                 }
 
