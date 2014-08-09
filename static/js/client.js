@@ -41,8 +41,13 @@
         var tickValues = [2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0];
     }
 
-    var targetTop = browserSettings.targetTop || 180,
-        targetBottom = browserSettings.targetBottom || 80;
+    var targetTop = targetInMGDL(browserSettings.targetTop) || 180,
+        targetBottom = targetInMGDL(browserSettings.targetBottom) || 80;
+
+    function targetInMGDL(target) {
+        if (!target) return null
+        return browserSettings.units == "mmol" ? target * 18 : target;
+    }
 
     // create svg and g to contain the chart contents
     var charts = d3.select('#chartContainer').append('svg')
