@@ -124,7 +124,7 @@
                     <fieldset>
                         <label for="regularInput"><br>Glucose Reading</label>
                         <input type="number" id="glucoseValue" />
-                        <label for="">Glucose Measurement Method:</label>
+                        <label for=""><br>Glucose Measurement Method:</label>
                         <label for="regularRadio">
                             <input type="radio" name="radios" id="sensor" value="Sensor" onclick="setMethodResult(this.value)" />
                             <span><br>Sensor</span>
@@ -134,16 +134,16 @@
                             <span><br>Meter</span>
                         </label>
                     </fieldset>
-                    <label for="regularInput">Carbs Given (mass in grams)</label>
+                    <label for="regularInput"><br>Carbs Given (mass in grams):<br></label>
                     <input type="number" step="any" min="0" id="carbsGiven" />
                     <br>
-                    <label for="regularInput">Insulin Given (units - pump calculated)</label>
+                    <label for="regularInput"><br>Insulin Given (units):<br></label>
                     <input type="number" step="any" min="0" id="insulinGiven" />
                     <br>
                     <!-- Label and textarea -->
-                    <label for="regularTextarea">Additional Notes, Comments:</label>
+                    <label for="regularTextarea"><br>Additional Notes, Comments:<br></label>
                     <textarea id="notes"></textarea>
-                    <button type="submit" class="full-width button">Submit Form</button>                     
+                    <button type="submit" class="full-width button"<br>>Submit Form</button>                     
                 </fieldset>
             </form>
         </div>
