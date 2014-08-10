@@ -105,7 +105,22 @@
 
         <div id="treatmentDrawer">
             <form id="settings-form">
-
+                <fieldset class="treatmentData">
+                    <legend>Log a Treatment</legend>                    
+                    <dl>
+                        <dt>Entered By:</dt>
+                        <dd><input type="text" id="customTitle" value="Nightscout" /></dd>
+                    </dl>                 
+                    <label for="selectList">Event Type:</label>
+                    <select id="eventType">
+                        <option value="BG Check">Blood Glucose Check</option>
+                        <option value="Snack Bolus">Snack Bolus</option>
+                        <option value="Meal Bolus">Meal Bolus</option>
+                        <option value="Correction Bolus">Correction Bolus</option>
+                        <option value="Food Correction">Food Correction</option>
+                        <option value="Question">Note or Question to Parents</option>
+                    </select>                     
+                </fieldset>
             </form>
         </div>
 
