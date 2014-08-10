@@ -251,7 +251,7 @@ $("#drawerToggle").click(function(event) {
 });
 
 $("#treatmentDrawerToggle").click(function(event) {
-	if(drawerIsOpen) {
+	if(treatmentDrawerIsOpen) {
 		closeTreatmentDrawer();
 		treatmentDrawerIsOpen = false;
 	}  else {
