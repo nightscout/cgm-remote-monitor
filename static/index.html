@@ -16,7 +16,7 @@
                 <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
                 <a id="hideToolbar" class="tip" original-title="Hides the toolbar" href="#"><i class="icon-angle-double-up"></i></a>
                 <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-cog"></i></a>
-                <a id="treatmentDrawerToggle" class="tip" original-title="Treatments" href="#"><i class="icon-cog"></i></a>
+                <a id="treatmentDrawerToggle" class="tip" original-title="Treatments" href="#"><i class="icon-plus"></i></a>
             </div>
             <h1 class="customTitle">Nightscout</h1>
         </div>
@@ -104,14 +104,14 @@
         </div>
 
         <div id="treatmentDrawer">
-            <form id="settings-form">
+            <form id="treatment-form">
                 <fieldset class="treatmentData">
                     <legend>Log a Treatment</legend>                    
                     <dl>
                         <dt>Entered By:</dt>
-                        <dd><input type="text" id="customTitle" value="" /></dd>
+                        <dd><input type="text" id="enteredBy" value="" /></dd>
                     </dl>                 
-                    <label for="selectList">Event Type:</label>
+                    <label for="eventType">Event Type:</label>
                     <select id="eventType">
                         <option value="BG Check">Blood Glucose Check</option>
                         <option value="Snack Bolus">Snack Bolus</option>
@@ -124,24 +124,24 @@
                     <fieldset>
                         <legend>Glucose Reading</legend>
                         <input type="number" step="any" id="glucoseValue" />
-                        <label for=""><br>Measurement Method:<br></label>
-                        <label for="regularRadio">
+                        <label><br>Measurement Method:<br></label>
+                        <label for="sensor">
                             <input type="radio" name="radios" id="sensor" value="Sensor" onclick="setMethodResult(this.value)" />
                             <span>Sensor<br></span>
                         </label>
-                        <label for="secondRegularRadio">
+                        <label for="meter">
                             <input type="radio" name="radios" id="meter" value="Finger" onclick="setMethodResult(this.value)" />
                             <span>Meter</span>
                         </label>
                     </fieldset>
-                    <label for="regularInput">Carbs Given (mass in grams):<br></label>
+                    <label for="carbsGiven">Carbs Given (mass in grams):<br></label>
                     <input type="number" step="any" min="0" id="carbsGiven" />
                     <br>
-                    <label for="regularInput"><br>Insulin Given (units):<br></label>
+                    <label for="insulinGiven"><br>Insulin Given (units):<br></label>
                     <input type="number" step="any" min="0" id="insulinGiven" />
                     <br>
                     <!-- Label and textarea -->
-                    <label for="regularTextarea"><br>Additional Notes, Comments:<br></label>
+                    <label for="notes"><br>Additional Notes, Comments:<br></label>
                     <textarea id="notes"></textarea><br>
                     <button type="submit">Submit Form</button>                     
                 </fieldset>
