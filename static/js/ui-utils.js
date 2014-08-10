@@ -245,6 +245,12 @@ Dropdown.prototype.open = function (e) {
 
 
 $("#drawerToggle").click(function(event) {
+    //close other drawers
+    if(treatmentDrawerIsOpen) {
+		closeTreatmentDrawer();
+		treatmentDrawerIsOpen = false;
+	} 
+
 	if(drawerIsOpen) {
 		closeDrawer();
 		drawerIsOpen = false;
@@ -256,6 +262,12 @@ $("#drawerToggle").click(function(event) {
 });
 
 $("#treatmentDrawerToggle").click(function(event) {
+    //close other drawers
+    if(drawerIsOpen) {
+		closeDrawer();
+		drawerIsOpen = false;
+	}
+
 	if(treatmentDrawerIsOpen) {
 		closeTreatmentDrawer();
 		treatmentDrawerIsOpen = false;
