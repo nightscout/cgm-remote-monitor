@@ -250,6 +250,17 @@ $("#drawerToggle").click(function(event) {
 	event.preventDefault();
 });
 
+$("#treatmentDrawerToggle").click(function(event) {
+	if(drawerIsOpen) {
+		closeTreatmentDrawer();
+		treatmentDrawerIsOpen = false;
+	}  else {
+		openTreatmentDrawer();
+		treatmentDrawerIsOpen = true;
+	}
+	event.preventDefault();
+});
+
 $("#notification").click(function(event) {
 	closeNotification();
 	event.preventDefault();
