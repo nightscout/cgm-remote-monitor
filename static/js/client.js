@@ -949,7 +949,7 @@
                 color: 'blue'
             };
             predicted.forEach(function (d) {
-                if (d.sgv < 15)
+                if (d.sgv < BG_MIN)
                     d.color = "transparent";
             })
         }
