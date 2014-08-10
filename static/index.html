@@ -120,19 +120,30 @@
                         <option value="Food Correction">Food Correction</option>
                         <option value="Question">Note or Question to Parents</option>
                     </select>
-                    <label for="regularInput"><br>Glucose Reading (mg/dL)</label>
-                    <input type="number" id="glucoseValue" />
+
                     <fieldset>
-                        <label for="">Glucose Measurement Method</label><br>
+                        <label for="regularInput"><br>Glucose Reading (mg/dL)</label>
+                        <input type="number" id="glucoseValue" />
+                        <label for="">Glucose Measurement Method:</label>
                         <label for="regularRadio">
                             <input type="radio" name="radios" id="sensor" value="Sensor" onclick="setMethodResult(this.value)" />
-                            <span>Sensor</span>
+                            <span><br>Sensor</span>
                         </label>
                         <label for="secondRegularRadio">
                             <input type="radio" name="radios" id="meter" value="Finger" onclick="setMethodResult(this.value)" />
-                            <span>Meter</span>
+                            <span><br>Meter</span>
                         </label>
-                    </fieldset>                     
+                    </fieldset>
+                    <label for="regularInput">Carbs Given (mass in grams)</label>
+                    <input type="number" step="any" min="0" id="carbsGiven" />
+                    <br>
+                    <label for="regularInput">Insulin Given (units - pump calculated)</label>
+                    <input type="number" step="any" min="0" id="insulinGiven" />
+                    <br>
+                    <!-- Label and textarea -->
+                    <label for="regularTextarea">Additional Notes, Comments:</label>
+                    <textarea id="notes"></textarea>
+                    <button type="submit" class="full-width button">Submit Form</button>                     
                 </fieldset>
             </form>
         </div>
