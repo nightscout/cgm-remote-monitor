@@ -119,7 +119,20 @@
                         <option value="Correction Bolus">Correction Bolus</option>
                         <option value="Food Correction">Food Correction</option>
                         <option value="Question">Note or Question to Parents</option>
-                    </select>                     
+                    </select>
+                    <label for="regularInput">Glucose Reading (mg/dL)</label>
+                    <input type="number" id="glucoseValue" />
+                    <fieldset>
+                        <label for="">Glucose Measurement Method</label>
+                        <label for="regularRadio">
+                            <input type="radio" name="radios" id="sensor" value="Sensor" onclick="setMethodResult(this.value)" />
+                            <span>Sensor</span>
+                        </label>
+                        <label for="secondRegularRadio">
+                            <input type="radio" name="radios" id="meter" value="Finger" onclick="setMethodResult(this.value)" />
+                            <span>Meter</span>
+                        </label>
+                    </fieldset>                     
                 </fieldset>
             </form>
         </div>
