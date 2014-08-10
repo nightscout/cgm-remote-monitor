@@ -124,17 +124,17 @@
                     <fieldset>
                         <legend>Glucose Reading</legend>
                         <input type="number" id="glucoseValue" />
-                        <label for=""><br>Glucose Measurement Method:</label>
+                        <label for=""><br>Glucose Measurement Method:<br></label>
                         <label for="regularRadio">
                             <input type="radio" name="radios" id="sensor" value="Sensor" onclick="setMethodResult(this.value)" />
-                            <span><br>Sensor</span>
+                            <span>Sensor</span>
                         </label>
                         <label for="secondRegularRadio">
                             <input type="radio" name="radios" id="meter" value="Finger" onclick="setMethodResult(this.value)" />
-                            <span><br>Meter</span>
+                            <span>Meter</span>
                         </label>
                     </fieldset>
-                    <label for="regularInput"><br>Carbs Given (mass in grams):<br></label>
+                    <label for="regularInput">Carbs Given (mass in grams):<br></label>
                     <input type="number" step="any" min="0" id="carbsGiven" />
                     <br>
                     <label for="regularInput"><br>Insulin Given (units):<br></label>
