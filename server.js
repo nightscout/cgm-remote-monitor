@@ -31,7 +31,8 @@ var express = require('express');
 ///////////////////////////////////////////////////
 var entries = require('./lib/entries')(env.mongo_collection, store);
 var settings = require('./lib/settings')(env.settings_collection, store);
-var api = require('./lib/api/')(env, entries, settings);
+var treatments = require('./lib/treatments')(env.treatments_collection, store);
+var api = require('./lib/api/')(env, entries, settings, treatments);
 var pebble = require('./lib/pebble');
 ///////////////////////////////////////////////////
 
