@@ -1,5 +1,6 @@
 var drawerIsOpen = false;
 var treatmentDrawerIsOpen = false;
+var bgCheckMethod = "Not Selected";
 var browserStorage = $.localStorage;
 var defaultSettings = {
 	"units": "mg/dl",
@@ -211,6 +212,10 @@ function stretchStatusForToolbar(toolbarState){
 	if (toolbarState == "open") {
 		$(".status").removeClass("toolbarClosed");
 	}
+}
+
+function setMethodResult(selectedMethod) {
+            bgCheckMethod = selectedMethod;
 }
 
 
