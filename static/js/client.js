@@ -702,6 +702,11 @@
             data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), direction: obj.direction, color: 'grey'} });
             data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'blue'} }));
             data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'red'} }));
+            
+            data.forEach(function (d) {
+                if (d.sgv < 39)
+                    d.color = "transparent";
+            })
 
             treatments = d[3];
             if (!isInitialData) {
