@@ -948,6 +948,10 @@
                 sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp(y[1])))),
                 color: 'blue'
             };
+            predicted.forEach(function (d) {
+                if (d.sgv < 15)
+                    d.color = "transparent";
+            })
         }
         return predicted;
     }
