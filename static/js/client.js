@@ -704,8 +704,10 @@
 
                 $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
                 var color = sgvToColor(currentBG);
-                $('.container .currentBG').text(currentBG).css({color: color});
-                $('.container .currentDirection').html(current.direction).css({color: color});
+                $('.container .currentBG').text(currentBG);
+                $('.container .currentDirection').html(current.direction);
+                $('.container #noButton .currentBG').css({color: color});
+                $('.container #noButton .currentDirection').css({color: color});
                 if (browserSettings.alarmHigh) {
                     $('.container .current').toggleClass('high', current.y > targetTop);
                 }
