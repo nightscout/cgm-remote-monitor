@@ -17,6 +17,26 @@
 #drawer i {
     opacity: 0.6;
 }
+
+#treatmentDrawer {
+    background-color: #666;
+    border-left: 1px solid #999;
+    box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
+    color: #eee;
+    display: none;
+    font-size: 16px;
+    height: calc(100% - 45px);
+    overflow-y: auto;
+    position: absolute;
+    margin-top: 45px;
+    right: -200px;
+    width: 400px;
+    top: 0;
+    z-index: 1;
+}
+#treatmentDrawer i {
+    opacity: 0.6;
+}
 #about {
     margin-top: 1em;
 }

@@ -1,4 +1,5 @@
 var drawerIsOpen = false;
+var treatmentDrawerIsOpen = false;
 var browserStorage = $.localStorage;
 var defaultSettings = {
 	"units": "mg/dl",
@@ -132,12 +133,29 @@ function closeDrawer(callback) {
 	});
 	drawerIsOpen = false;
 }
+
 function openDrawer()  {
 	drawerIsOpen = true;
 	$("#container").animate({marginLeft: "-200px"}, 300);
 	$("#chartContainer").animate({marginLeft: "-200px"}, 300);
 	$("#drawer").css("display", "block");
 	$("#drawer").animate({right: "0"}, 300);
+}
+
+function closeTreatmentDrawer(callback) {
+	$("#container").animate({marginLeft: "0px"}, 500, callback);
+	$("#chartContainer").animate({marginLeft: "0px"}, 500);
+	$("#treatmentDrawer").animate({right: "-200px"}, 500, function() {
+		$("#treatmentDrawer").css("display", "none");
+	});
+	treatmentDrawerIsOpen = false;
+}
+function openTreatmentDrawer()  {
+	treatmentDrawerIsOpen = true;
+	$("#container").animate({marginLeft: "-200px"}, 500);
+	$("#chartContainer").animate({marginLeft: "-200px"}, 500);
+	$("#treatmentDrawer").css("display", "block");
+	$("#treatmentDrawer").animate({right: "0"}, 500);
 }
 
 
