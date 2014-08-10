@@ -10,3 +10,4 @@ static/bower_components/
 .*.sw?
 
 .vagrant
+/iisnode
