@@ -232,7 +232,7 @@ function treatmentSubmit() {
             var sensor = document.getElementById("sensor").value;
             var meter = document.getElementById("meter").value;
 
-            var ok = window.confirm('Please verify that the data entered is correct: ' + '\nEntered By: ' + enteredBy + '\nEvent type: ' + eventType + '\nBlood glucose: ' + glucoseValue + '\nMethod: ' + method + '\nCarbs Given: ' + carbsGiven + '\nInsulin Given: ' + insulinGiven + '\nNotes: ' + notes);
+            var ok = window.confirm('Please verify that the data entered is correct: ' + '\nEntered By: ' + enteredBy + '\nEvent type: ' + eventType + '\nBlood glucose: ' + glucoseValue + '\nMethod: ' + bgCheckMethod + '\nCarbs Given: ' + carbsGiven + '\nInsulin Given: ' + insulinGiven + '\nNotes: ' + notes);
         }
 
 
