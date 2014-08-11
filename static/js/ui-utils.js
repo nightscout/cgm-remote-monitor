@@ -233,34 +233,6 @@ function treatmentSubmit() {
             var meter = document.getElementById("meter").value;
 
             var ok = window.confirm('Please verify that the data entered is correct: ' + '\nEntered By: ' + enteredBy + '\nEvent type: ' + eventType + '\nBlood glucose: ' + glucoseValue + '\nMethod: ' + method + '\nCarbs Given: ' + carbsGiven + '\nInsulin Given: ' + insulinGiven + '\nNotes: ' + notes);
-
-            //if (ok) {
-
-            //    //this will wire to NS api, soon
-            //    var client = new WindowsAzure.MobileServiceClient(
-            //           "https://someazuremobileservice",
-            //           "boguskey"
-            //       );
-
-            //    var datatable = client.getTable('EventLog');
-
-            //    datatable.insert({
-            //        enteredBy: enteredBy,
-            //        eventType: eventType,
-            //        glucoseValue: glucoseValue,
-            //        method: method,
-            //        carbsGiven: carbsGiven,
-            //        insulinGiven: insulinGiven,
-            //        notes: notes
-            //    }).done(function (result) {
-            //        //reload
-            //        
-            //    }, function (err) {
-            //        alert("Error: Could not send data, please resubmit.");
-            //    });
-            //}
-
-            return false;
         }
 
 
