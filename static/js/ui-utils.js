@@ -233,6 +233,8 @@ function treatmentSubmit() {
             var meter = document.getElementById("meter").value;
 
             var ok = window.confirm('Please verify that the data entered is correct: ' + '\nEntered By: ' + enteredBy + '\nEvent type: ' + eventType + '\nBlood glucose: ' + glucoseValue + '\nMethod: ' + bgCheckMethod + '\nCarbs Given: ' + carbsGiven + '\nInsulin Given: ' + insulinGiven + '\nNotes: ' + notes);
+            
+            //post to mongocollection
         }
 
 
