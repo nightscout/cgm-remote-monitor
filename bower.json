@@ -1,9 +1,8 @@
 {
   "name": "nightscout",
-  "version": "0.3.6",
+  "version": "0.3.5",
   "dependencies": {
     "d3": "3.4.3",
-    "dc.js":""1.4.0",
     "jquery": "2.1.0",
     "jQuery-Storage-API": "~1.7.2",
     "tipsy-jmalonzo": "~1.0.1",
