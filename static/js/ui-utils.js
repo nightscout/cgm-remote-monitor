@@ -57,7 +57,7 @@ function getBrowserSettings(storage) {
 		$("#nightmode-browser").prop("checked", json.nightMode);
 
 		if (json.customTitle) {
-			$("h1.customTitle").html(json.customTitle);
+			$("h1.customTitle").text(json.customTitle);
 			$("input#customTitle").prop("value", json.customTitle);
 			document.title = "Nightscout: " + json.customTitle;
 		}
