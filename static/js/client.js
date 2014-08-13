@@ -3,6 +3,7 @@
 
     var retrospectivePredictor = true,
         latestSGV,
+        errorCode,
         treatments,
         padding = { top: 20, right: 10, bottom: 30, left: 10 },
         opacity = {current: 1, DAY: 1, NIGHT: 0.5},
@@ -40,6 +41,10 @@
     if (browserSettings.units == "mmol") {
         var tickValues = [2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0];
     }
+
+    //TODO: get these from the config
+    var targetTop = 180,
+        targetBottom = 80;
 
     // create svg and g to contain the chart contents
     var charts = d3.select('#chartContainer').append('svg')
@@ -238,18 +243,63 @@
             $('#currentTime')
                 .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
                 .css('text-decoration','line-through');
-        } else if (retrospectivePredictor) {
+
+            $('#lastEntry').text("RETRO").removeClass('current');
+
+            $('.container #noButton .currentBG').css({color: 'grey'});
+            $('.container #noButton .currentDirection').css({color: 'grey'});
+
+        } else {
             // if the brush comes back into the current time range then it should reset to the current time and sg
             var dateTime = new Date(now);
             nowDate = dateTime;
             $('#currentTime')
                 .text(formatTime(dateTime))
-                .css('text-decoration','');
-            $('.container .currentBG')
-                .text(scaleBg(latestSGV.y))
-                .css('text-decoration','');
-            $('.container .currentDirection')
-                .html(latestSGV.direction);
+                .css('text-decoration', '');
+
+            if (errorCode) {
+                var errorDisplay;
+
+                switch (errorCode) {
+                    case 0:  errorDisplay = '??0'; break; //None
+                    case 1:  errorDisplay = '?SN'; break; //SENSOR_NOT_ACTIVE
+                    case 2:  errorDisplay = '??2'; break; //MINIMAL_DEVIATION
+                    case 3:  errorDisplay = '?NA'; break; //NO_ANTENNA
+                    case 5:  errorDisplay = '?NC'; break; //SENSOR_NOT_CALIBRATED
+                    case 6:  errorDisplay = '?CD'; break; //COUNTS_DEVIATION
+                    case 7:  errorDisplay = '??7'; break; //?
+                    case 8:  errorDisplay = '??8'; break; //?
+                    case 9:  errorDisplay = '&#8987;'; break; //ABSOLUTE_DEVIATION
+                    case 10: errorDisplay = '???'; break; //POWER_DEVIATION
+                    case 12: errorDisplay = '?RF'; break; //BAD_RF
+                    default: errorDisplay = '?' + parseInt(errorCode) + '?'; break;
+                }
+
+                $('#lastEntry').text("CGM ERROR").removeClass('current').addClass("urgent");
+
+                $('.container .currentBG').html(errorDisplay)
+                    .css('text-decoration', '');
+                $('.container .currentDirection').html('✖');
+
+                var color = sgvToColor(errorCode);
+                $('.container #noButton .currentBG').css({color: color});
+                $('.container #noButton .currentDirection').css({color: color});
+
+            } else {
+
+                var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
+                $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+
+                $('.container .currentBG')
+                    .text(scaleBg(latestSGV.y))
+                    .css('text-decoration', '');
+                $('.container .currentDirection')
+                    .html(latestSGV.direction);
+
+                var color = sgvToColor(latestSGV.y);
+                $('.container #noButton .currentBG').css({color: color});
+                $('.container #noButton .currentDirection').css({color: color});
+            }
         }
 
         xScale.domain(brush.extent());
@@ -408,9 +458,9 @@
                 focus.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(scaleBg(180)))
+                    .attr('y1', yScale(scaleBg(targetTop)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(scaleBg(180)))
+                    .attr('y2', yScale(scaleBg(targetTop)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -418,9 +468,9 @@
                 focus.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(scaleBg(80)))
+                    .attr('y1', yScale(scaleBg(targetBottom)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(scaleBg(80)))
+                    .attr('y2', yScale(scaleBg(targetBottom)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -454,9 +504,9 @@
                 context.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(180)))
+                    .attr('y1', yScale2(scaleBg(targetTop)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(180)))
+                    .attr('y2', yScale2(scaleBg(targetTop)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -464,9 +514,9 @@
                 context.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(80)))
+                    .attr('y1', yScale2(scaleBg(targetBottom)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(80)))
+                    .attr('y2', yScale2(scaleBg(targetBottom)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -511,18 +561,18 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(180)))
+                    .attr('y1', yScale(scaleBg(targetTop)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(180)));
+                    .attr('y2', yScale(scaleBg(targetTop)));
 
                 // transition low line to correct location
                 focus.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(80)))
+                    .attr('y1', yScale(scaleBg(targetBottom)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(80)));
+                    .attr('y2', yScale(scaleBg(targetBottom)));
 
                 // transition open-top line to correct location
                 focus.select('.open-top')
@@ -556,18 +606,18 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(180)))
+                    .attr('y1', yScale2(scaleBg(targetTop)))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(180)));
+                    .attr('y2', yScale2(scaleBg(targetTop)));
 
                 // transition low line to correct location
                 context.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(80)))
+                    .attr('y1', yScale2(scaleBg(targetBottom)))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(80)));
+                    .attr('y2', yScale2(scaleBg(targetBottom)));
             }
         }
 
@@ -668,38 +718,24 @@
 
     socket.on('sgv', function (d) {
         if (d.length > 1) {
+            errorCode = d.length >= 5 ? d[4] : undefined;
+
             // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
             if (d[0].length) {
-                var current = d[0][d[0].length - 1];
-                latestSGV = current;
-                var secsSinceLast = (Date.now() - new Date(current.x).getTime()) / 1000;
-                var currentBG = current.y;
+                latestSGV = d[0][d[0].length - 1];
 
-                //TODO: currently these are filtered on the server
-                //TODO: use icons for these magic values
-                switch (current.y) {
-                    case 0:  currentBG = '??0'; break; //None
-                    case 1:  currentBG = '?SN'; break; //SENSOR_NOT_ACTIVE
-                    case 2:  currentBG = '??2'; break; //MINIMAL_DEVIATION
-                    case 3:  currentBG = '?NA'; break; //NO_ANTENNA
-                    case 5:  currentBG = '?NC'; break; //SENSOR_NOT_CALIBRATED
-                    case 6:  currentBG = '?CD'; break; //COUNTS_DEVIATION
-                    case 7:  currentBG = '??7'; break; //?
-                    case 8:  currentBG = '??8'; break; //?
-                    case 9:  currentBG = '?AD'; break; //ABSOLUTE_DEVIATION
-                    case 10: currentBG = '?PD'; break; //POWER_DEVIATION
-                    case 12: currentBG = '?RF'; break; //BAD_RF
-                    default:
-                      currentBG = scaleBg(currentBG);
-                    break;
+                //TODO: alarmHigh/alarmLow probably shouldn't be here
+                if (browserSettings.alarmHigh) {
+                    $('.container .current').toggleClass('high', latestSGV.y > 180);
                 }
-
-                $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
-                $('.container .currentBG').text(currentBG);
-                $('.container .currentDirection').html(current.direction);
-                $('.container .current').toggleClass('high', current.y > 180).toggleClass('low', current.y < 70)
+                if (browserSettings.alarmLow) {
+                    $('.container .current').toggleClass('low', latestSGV.y < 70);
+                }
             }
-            data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), direction: obj.direction, color: 'grey'} });
+
+            data = d[0].map(function (obj) {
+                return { date: new Date(obj.x), sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y)}
+            });
             data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'blue'} }));
             data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'red'} }));
 
@@ -713,6 +749,22 @@
             }
         }
     });
+
+    function sgvToColor(sgv) {
+        var color = 'grey';
+
+        if (browserSettings.theme == "colors") {
+            if (sgv > targetTop) {
+                color = 'yellow';
+            } else if (sgv >= targetBottom && sgv <= targetTop) {
+                color = 'green';
+            } else if (sgv < targetBottom) {
+                color = 'red';
+            }
+        }
+
+        return color;
+    }
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -722,16 +774,20 @@
         console.log('Client connected to server.')
     });
     socket.on('alarm', function () {
-        console.log("Alarm raised!");
-        currentAlarmType = 'alarm';
-        generateAlarm(alarmSound);
+        if (browserSettings.alarmHigh) {
+            console.log("Alarm raised!");
+            currentAlarmType = 'alarm';
+            generateAlarm(alarmSound);
+        }
         brushInProgress = false;
         updateChart(false);
     });
     socket.on('urgent_alarm', function () {
-        console.log("Urgent alarm raised!");
-        currentAlarmType = 'urgent_alarm';
-        generateAlarm(urgentAlarmSound);
+        if (browserSettings.alarmLow) {
+            console.log("Urgent alarm raised!");
+            currentAlarmType = 'urgent_alarm';
+            generateAlarm(urgentAlarmSound);
+        }
         brushInProgress = false;
         updateChart(false);
     });

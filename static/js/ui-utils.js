@@ -2,8 +2,11 @@ var drawerIsOpen = false;
 var browserStorage = $.localStorage;
 var defaultSettings = {
 	"units": "mg/dl",
-	"nightMode": false
-}
+	"alarmHigh": true,
+	"alarmLow": true,
+	"nightMode": false,
+	"theme": "default"
+};
 
 var app = {};
 $.ajax("/api/v1/status.json", {
@@ -26,29 +29,42 @@ $.ajax("/api/v1/status.json", {
 function getBrowserSettings(storage) {
 	var json = {};
 	try {
-		json = {
+		var json = {
 			"units": storage.get("units"),
+			"alarmHigh": storage.get("alarmHigh"),
+			"alarmLow": storage.get("alarmLow"),
 			"nightMode": storage.get("nightMode"),
-			"customTitle": storage.get("customTitle")
+			"customTitle": storage.get("customTitle"),
+			"theme": storage.get("theme")
 		};
 
 		// Default browser units to server units if undefined.
 		json.units = setDefault(json.units, serverSettings.units);
-		//console.log("browserSettings.units: " + json.units);
 		if (json.units == "mmol") {
 			$("#mmol-browser").prop("checked", true);
 		} else {
 			$("#mgdl-browser").prop("checked", true);
 		}
 
+		json.alarmHigh = setDefault(json.alarmHigh, defaultSettings.alarmHigh);
+		$("#alarmhigh-browser").prop("checked", json.alarmHigh);
+		json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
+		$("#alarmlow-browser").prop("checked", json.alarmLow);
+
 		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 		$("#nightmode-browser").prop("checked", json.nightMode);
 
 		if (json.customTitle) {
-			$("h1.customTitle").html(json.customTitle);
+			$("h1.customTitle").text(json.customTitle);
 			$("input#customTitle").prop("value", json.customTitle);
 			document.title = "Nightscout: " + json.customTitle;
 		}
+
+        if (json.theme == "colors") {
+            $("#theme-colors-browser").prop("checked", true);
+        } else {
+            $("#theme-default-browser").prop("checked", true);
+        }
 	}
 	catch(err) {
 		showLocalstorageError();
@@ -84,13 +100,24 @@ function jsonIsNotEmpty(json) {
 }
 function storeInBrowser(json, storage) {
 	if (json.units) storage.set("units", json.units);
+	if (json.alarmHigh == true) {
+		storage.set("alarmHigh", true)
+	} else {
+		storage.set("alarmHigh", false)
+	}
+	if (json.alarmLow == true) {
+		storage.set("alarmLow", true)
+	} else {
+		storage.set("alarmLow", false)
+	}
 	if (json.nightMode == true) {
 		storage.set("nightMode", true)
 	} else {
 		storage.set("nightMode", false)
 	}
 	if (json.customTitle) storage.set("customTitle", json.customTitle);
-	event.preventDefault();
+    if (json.theme) storage.set("theme", json.theme);
+    event.preventDefault();
 }
 function storeOnServer(json) {
 	if (jsonIsNotEmpty(json)) {
@@ -255,8 +282,11 @@ $("#showToolbar").find("a").click(function(event) {
 $("input#save").click(function() {
 	storeInBrowser({
 		"units": $("input:radio[name=units-browser]:checked").val(),
+		"alarmHigh": $("#alarmhigh-browser").prop("checked"),
+		"alarmLow": $("#alarmlow-browser").prop("checked"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
-		"customTitle": $("input#customTitle").prop("value")
+		"customTitle": $("input#customTitle").prop("value"),
+        "theme": $("input:radio[name=theme-browser]:checked").val()
 	}, browserStorage);
 
 	storeOnServer({
