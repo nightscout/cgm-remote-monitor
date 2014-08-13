@@ -42,6 +42,10 @@
         var tickValues = [2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0];
     }
 
+    //TODO: get these from the config
+    var targetTop = 180,
+        targetBottom = 80;
+
     // create svg and g to contain the chart contents
     var charts = d3.select('#chartContainer').append('svg')
         .append('g')
@@ -242,6 +246,9 @@
 
             $('#lastEntry').text("RETRO").removeClass('current');
 
+            $('.container #noButton .currentBG').css({color: 'grey'});
+            $('.container #noButton .currentDirection').css({color: 'grey'});
+
         } else {
             // if the brush comes back into the current time range then it should reset to the current time and sg
             var dateTime = new Date(now);
@@ -273,6 +280,11 @@
                 $('.container .currentBG').html(errorDisplay)
                     .css('text-decoration', '');
                 $('.container .currentDirection').html('✖');
+
+                var color = sgvToColor(errorCode);
+                $('.container #noButton .currentBG').css({color: color});
+                $('.container #noButton .currentDirection').css({color: color});
+
             } else {
 
                 var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
@@ -283,6 +295,10 @@
                     .css('text-decoration', '');
                 $('.container .currentDirection')
                     .html(latestSGV.direction);
+
+                var color = sgvToColor(latestSGV.y);
+                $('.container #noButton .currentBG').css({color: color});
+                $('.container #noButton .currentDirection').css({color: color});
             }
         }
 
@@ -442,9 +458,9 @@
                 focus.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(scaleBg(180)))
+                    .attr('y1', yScale(scaleBg(targetTop)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(scaleBg(180)))
+                    .attr('y2', yScale(scaleBg(targetTop)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -452,9 +468,9 @@
                 focus.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(scaleBg(80)))
+                    .attr('y1', yScale(scaleBg(targetBottom)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(scaleBg(80)))
+                    .attr('y2', yScale(scaleBg(targetBottom)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -488,9 +504,9 @@
                 context.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(180)))
+                    .attr('y1', yScale2(scaleBg(targetTop)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(180)))
+                    .attr('y2', yScale2(scaleBg(targetTop)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -498,9 +514,9 @@
                 context.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(80)))
+                    .attr('y1', yScale2(scaleBg(targetBottom)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(80)))
+                    .attr('y2', yScale2(scaleBg(targetBottom)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -545,18 +561,18 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(180)))
+                    .attr('y1', yScale(scaleBg(targetTop)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(180)));
+                    .attr('y2', yScale(scaleBg(targetTop)));
 
                 // transition low line to correct location
                 focus.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(80)))
+                    .attr('y1', yScale(scaleBg(targetBottom)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(80)));
+                    .attr('y2', yScale(scaleBg(targetBottom)));
 
                 // transition open-top line to correct location
                 focus.select('.open-top')
@@ -590,18 +606,18 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(180)))
+                    .attr('y1', yScale2(scaleBg(targetTop)))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(180)));
+                    .attr('y2', yScale2(scaleBg(targetTop)));
 
                 // transition low line to correct location
                 context.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(80)))
+                    .attr('y1', yScale2(scaleBg(targetBottom)))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(80)));
+                    .attr('y2', yScale2(scaleBg(targetBottom)));
             }
         }
 
@@ -717,7 +733,9 @@
                 }
             }
 
-            data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), direction: obj.direction, color: 'grey'} });
+            data = d[0].map(function (obj) {
+                return { date: new Date(obj.x), sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y)}
+            });
             data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'blue'} }));
             data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'red'} }));
 
@@ -731,6 +749,22 @@
             }
         }
     });
+
+    function sgvToColor(sgv) {
+        var color = 'grey';
+
+        if (browserSettings.theme == "colors") {
+            if (sgv > targetTop) {
+                color = 'yellow';
+            } else if (sgv >= targetBottom && sgv <= targetTop) {
+                color = 'green';
+            } else if (sgv < targetBottom) {
+                color = 'red';
+            }
+        }
+
+        return color;
+    }
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
