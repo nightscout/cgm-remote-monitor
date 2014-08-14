@@ -25,7 +25,7 @@
         THIRTY_MINS_IN_MS = 1800000,
         FORTY_TWO_MINS_IN_MS = 2520000,
         FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
-        FORMAT_TIME = '%I:%M%', //alternate format '%H:%M'
+        FORMAT_TIME = '%H:%M%', //alternate format '%H:%M'
         audio = document.getElementById('audio'),
         alarmInProgress = false,
         currentAlarmType = null,
@@ -71,7 +71,7 @@
     // Remove leading zeros from the time (eg. 08:40 = 8:40) & lowercase the am/pm
     function formatTime(time) {
         time = d3.time.format(FORMAT_TIME)(time);
-        time = time.replace(/^0/, '').toLowerCase();
+//        time = time.replace(/^0/, '').toLowerCase();
         return time;
     }
 
