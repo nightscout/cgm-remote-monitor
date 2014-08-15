@@ -2,6 +2,7 @@
     "use strict";
 
     var latestSGV,
+        errorCode,
         treatments,
         padding = { top: 20, right: 10, bottom: 30, left: 10 },
         opacity = {current: 1, DAY: 1, NIGHT: 0.5},
@@ -41,6 +42,10 @@
     if (browserSettings.units == "mmol") {
         var tickValues = [2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0];
     }
+
+    //TODO: get these from the config
+    var targetTop = 180,
+        targetBottom = 80;
 
     var futureOpacity = d3.scale.linear( )
         .domain([TWENTY_FIVE_MINS_IN_MS, SIXTY_MINS_IN_MS])
@@ -141,7 +146,6 @@
     function highlightBrushPoints(data) {
         if (data.date.getTime() >= brush.extent()[0].getTime() && data.date.getTime() <= brush.extent()[1].getTime()) {
             return futureOpacity(data.date - latestSGV.x);
-            return 1;
         } else {
             return 0.5;
         }
@@ -244,6 +248,12 @@
             $('#currentTime')
                 .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
                 .css('text-decoration','line-through');
+
+            $('#lastEntry').text("RETRO").removeClass('current');
+
+            $('.container #noButton .currentBG').css({color: 'grey'});
+            $('.container #noButton .currentDirection').css({color: 'grey'});
+
         } else {
             // if the brush comes back into the current time range then it should reset to the current time and sg
             var nowData = data.filter(function(d) {
@@ -256,12 +266,51 @@
             nowDate = dateTime;
             $('#currentTime')
                 .text(formatTime(dateTime))
-                .css('text-decoration','');
-            $('.container .currentBG')
-                .text(scaleBg(latestSGV.y))
-                .css('text-decoration','');
-            $('.container .currentDirection')
-                .html(latestSGV.direction);
+                .css('text-decoration', '');
+
+            if (errorCode) {
+                var errorDisplay;
+
+                switch (errorCode) {
+                    case 0:  errorDisplay = '??0'; break; //None
+                    case 1:  errorDisplay = '?SN'; break; //SENSOR_NOT_ACTIVE
+                    case 2:  errorDisplay = '??2'; break; //MINIMAL_DEVIATION
+                    case 3:  errorDisplay = '?NA'; break; //NO_ANTENNA
+                    case 5:  errorDisplay = '?NC'; break; //SENSOR_NOT_CALIBRATED
+                    case 6:  errorDisplay = '?CD'; break; //COUNTS_DEVIATION
+                    case 7:  errorDisplay = '??7'; break; //?
+                    case 8:  errorDisplay = '??8'; break; //?
+                    case 9:  errorDisplay = '&#8987;'; break; //ABSOLUTE_DEVIATION
+                    case 10: errorDisplay = '???'; break; //POWER_DEVIATION
+                    case 12: errorDisplay = '?RF'; break; //BAD_RF
+                    default: errorDisplay = '?' + parseInt(errorCode) + '?'; break;
+                }
+
+                $('#lastEntry').text("CGM ERROR").removeClass('current').addClass("urgent");
+
+                $('.container .currentBG').html(errorDisplay)
+                    .css('text-decoration', '');
+                $('.container .currentDirection').html('✖');
+
+                var color = sgvToColor(errorCode);
+                $('.container #noButton .currentBG').css({color: color});
+                $('.container #noButton .currentDirection').css({color: color});
+
+            } else {
+
+                var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
+                $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+
+                $('.container .currentBG')
+                    .text(scaleBg(latestSGV.y))
+                    .css('text-decoration', '');
+                $('.container .currentDirection')
+                    .html(latestSGV.direction);
+
+                var color = sgvToColor(latestSGV.y);
+                $('.container #noButton .currentBG').css({color: color});
+                $('.container #noButton .currentDirection').css({color: color});
+            }
         }
 
         xScale.domain(brush.extent());
@@ -569,18 +618,18 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(180)))
+                    .attr('y1', yScale2(scaleBg(targetTop)))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(180)));
+                    .attr('y2', yScale2(scaleBg(targetTop)));
 
                 // transition low line to correct location
                 context.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(80)))
+                    .attr('y1', yScale2(scaleBg(targetBottom)))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(80)));
+                    .attr('y2', yScale2(scaleBg(targetBottom)));
             }
         }
 
@@ -680,43 +729,23 @@
 
     socket.on('sgv', function (d) {
         if (d.length > 1) {
+            errorCode = d.length >= 5 ? d[4] : undefined;
+
             // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
             if (d[0].length) {
-                var current = d[0][d[0].length - 1];
-                latestSGV = current;
-                var secsSinceLast = (Date.now() - new Date(current.x).getTime()) / 1000;
-                var currentBG = current.y;
+                latestSGV = d[0][d[0].length - 1];
 
-                //TODO: currently these are filtered on the server
-                //TODO: use icons for these magic values
-                switch (current.y) {
-                    case 0:  currentBG = '??0'; break; //None
-                    case 1:  currentBG = '?SN'; break; //SENSOR_NOT_ACTIVE
-                    case 2:  currentBG = '??2'; break; //MINIMAL_DEVIATION
-                    case 3:  currentBG = '?NA'; break; //NO_ANTENNA
-                    case 5:  currentBG = '?NC'; break; //SENSOR_NOT_CALIBRATED
-                    case 6:  currentBG = '?CD'; break; //COUNTS_DEVIATION
-                    case 7:  currentBG = '??7'; break; //?
-                    case 8:  currentBG = '??8'; break; //?
-                    case 9:  currentBG = '?AD'; break; //ABSOLUTE_DEVIATION
-                    case 10: currentBG = '?PD'; break; //POWER_DEVIATION
-                    case 12: currentBG = '?RF'; break; //BAD_RF
-                    default:
-                      currentBG = scaleBg(currentBG);
-                    break;
-                }
-
-                $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
-                $('.container .currentBG').text(currentBG);
-                $('.container .currentDirection').html(current.direction);
+                //TODO: alarmHigh/alarmLow probably shouldn't be here
                 if (browserSettings.alarmHigh) {
-                    $('.container .current').toggleClass('high', current.y > 180);
+                    $('.container .current').toggleClass('high', latestSGV.y > 180);
                 }
                 if (browserSettings.alarmLow) {
-                    $('.container .current').toggleClass('low', current.y < 70);
+                    $('.container .current').toggleClass('low', latestSGV.y < 70);
                 }
             }
-            data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), direction: obj.direction, color: 'grey'} });
+            data = d[0].map(function (obj) {
+                return { date: new Date(obj.x), sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y)}
+            });
             // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
             // This shouldn't have to be sent and can be fixed by using xScale.domain([x0,x1]) function with
             // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
@@ -735,6 +764,22 @@
             }
         }
     });
+
+    function sgvToColor(sgv) {
+        var color = 'grey';
+
+        if (browserSettings.theme == "colors") {
+            if (sgv > targetTop) {
+                color = 'yellow';
+            } else if (sgv >= targetBottom && sgv <= targetTop) {
+                color = 'green';
+            } else if (sgv < targetBottom) {
+                color = 'red';
+            }
+        }
+
+        return color;
+    }
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -771,11 +816,11 @@
 
     $('#testAlarms').click(function(event) {
         d3.select('.audio.alarms audio').each(function (data, i) {
-          var audio = this;
-          playAlarm(audio);
-          setTimeout(function() {
-              audio.pause();
-          }, 4000);
+            var audio = this;
+            playAlarm(audio);
+            setTimeout(function() {
+                audio.pause();
+            }, 4000);
         });
         event.preventDefault();
     });
@@ -784,9 +829,9 @@
         alarmInProgress = true;
         var selector = '.audio.alarms audio.' + file;
         d3.select(selector).each(function (d, i) {
-          var audio = this;
-          playAlarm(audio);
-          $(this).addClass('playing');
+            var audio = this;
+            playAlarm(audio);
+            $(this).addClass('playing');
         });
         var element = document.getElementById('bgButton');
         element.hidden = '';
@@ -815,9 +860,9 @@
         element = document.getElementById('noButton');
         element.hidden = '';
         d3.select('audio.playing').each(function (d, i) {
-          var audio = this;
-          audio.pause();
-          $(this).removeClass('playing');
+            var audio = this;
+            audio.pause();
+            $(this).removeClass('playing');
         });
 
         $(".time").show();
@@ -865,9 +910,9 @@
         }
 
         if (parts.value)
-          return parts.value + ' ' + parts.label + ' ago';
+            return parts.value + ' ' + parts.label + ' ago';
         else
-          return parts.label;
+            return parts.label;
 
     }
 
@@ -968,13 +1013,13 @@
             // Add 2000 ms so not same point as SG
             predicted[i * 2] = {
                 date: new Date(dt + 2000),
-                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] - 3 * CONE[i]))))),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] - 2 * CONE[i]))))),
                 color: 'blue'
             };
             // Add 4000 ms so not same point as SG
             predicted[i * 2 + 1] = {
                 date: new Date(dt + 4000),
-                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] + 3 * CONE[i]))))),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] + 2 * CONE[i]))))),
                 color: 'blue'
             };
         }
