@@ -2,6 +2,7 @@ var drawerIsOpen = false;
 var browserStorage = $.localStorage;
 var defaultSettings = {
 	"units": "mg/dl",
+	"timef": "12hr",
 	"nightMode": false
 }
 
@@ -28,6 +29,7 @@ function getBrowserSettings(storage) {
 	try {
 		json = {
 			"units": storage.get("units"),
+			"timef": storage.get("timef"),
 			"nightMode": storage.get("nightMode"),
 			"customTitle": storage.get("customTitle")
 		};
@@ -39,6 +41,15 @@ function getBrowserSettings(storage) {
 			$("#mmol-browser").prop("checked", true);
 		} else {
 			$("#mgdl-browser").prop("checked", true);
+		}
+
+		// Default browser timef to server timef if undefined.
+		json.timef = setDefault(json.timef, serverSettings.timef);
+		//console.log("browserSettings.timef: " + json.timef);
+		if (json.timef == "12hr") {
+			$("#hr12-browser").prop("checked", true);
+		} else {
+			$("#hr24-browser").prop("checked", true);
 		}
 
 		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
@@ -58,7 +69,8 @@ function getBrowserSettings(storage) {
 }
 function getServerSettings() {
 	var json = {
-		"units": Object()
+		"units": Object(),
+		"timef": Object()
 	};
 
 	json.units = setDefault(json.units, defaultSettings.units);
@@ -67,6 +79,13 @@ function getServerSettings() {
 		$("#mmol-server").prop("checked", true);
 	} else {
 		$("#mgdl-server").prop("checked", true);
+	}
+	json.timef = setDefault(json.timef, defaultSettings.timef);
+	//console.log("serverSettings.timef: " + json.timef);
+	if (json.timef == "12hr") {
+		$("#hr12-server").prop("checked", true);
+	} else {
+		$("#hr24-server").prop("checked", true);
 	}
 
 	return json;
@@ -84,6 +103,7 @@ function jsonIsNotEmpty(json) {
 }
 function storeInBrowser(json, storage) {
 	if (json.units) storage.set("units", json.units);
+	if (json.timef) storage.set("timef", json.timef);
 	if (json.nightMode == true) {
 		storage.set("nightMode", true)
 	} else {
@@ -255,6 +275,7 @@ $("#showToolbar").find("a").click(function(event) {
 $("input#save").click(function() {
 	storeInBrowser({
 		"units": $("input:radio[name=units-browser]:checked").val(),
+		"timef": $("input:radio[name=time-browser]:checked").val(),
 		"nightMode": $("#nightmode-browser").prop("checked"),
 		"customTitle": $("input#customTitle").prop("value")
 	}, browserStorage);
