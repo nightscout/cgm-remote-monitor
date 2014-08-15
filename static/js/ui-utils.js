@@ -4,8 +4,9 @@ var defaultSettings = {
 	"units": "mg/dl",
 	"alarmHigh": true,
 	"alarmLow": true,
-	"nightMode": false
-}
+	"nightMode": false,
+	"theme": "default"
+};
 
 var app = {};
 $.ajax("/api/v1/status.json", {
@@ -33,7 +34,8 @@ function getBrowserSettings(storage) {
 			"alarmHigh": storage.get("alarmHigh"),
 			"alarmLow": storage.get("alarmLow"),
 			"nightMode": storage.get("nightMode"),
-			"customTitle": storage.get("customTitle")
+			"customTitle": storage.get("customTitle"),
+			"theme": storage.get("theme")
 		};
 
 		// Default browser units to server units if undefined.
@@ -57,6 +59,12 @@ function getBrowserSettings(storage) {
 			$("input#customTitle").prop("value", json.customTitle);
 			document.title = "Nightscout: " + json.customTitle;
 		}
+
+        if (json.theme == "colors") {
+            $("#theme-colors-browser").prop("checked", true);
+        } else {
+            $("#theme-default-browser").prop("checked", true);
+        }
 	}
 	catch(err) {
 		showLocalstorageError();
@@ -108,7 +116,8 @@ function storeInBrowser(json, storage) {
 		storage.set("nightMode", false)
 	}
 	if (json.customTitle) storage.set("customTitle", json.customTitle);
-	event.preventDefault();
+    if (json.theme) storage.set("theme", json.theme);
+    event.preventDefault();
 }
 function storeOnServer(json) {
 	if (jsonIsNotEmpty(json)) {
@@ -276,7 +285,8 @@ $("input#save").click(function() {
 		"alarmHigh": $("#alarmhigh-browser").prop("checked"),
 		"alarmLow": $("#alarmlow-browser").prop("checked"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
-		"customTitle": $("input#customTitle").prop("value")
+		"customTitle": $("input#customTitle").prop("value"),
+        "theme": $("input:radio[name=theme-browser]:checked").val()
 	}, browserStorage);
 
 	storeOnServer({
