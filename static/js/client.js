@@ -730,6 +730,7 @@
         console.log("Alarm raised!");
         currentAlarmType = 'alarm';
         generateAlarm(alarmSound);
+		alert("GenAlarm");
         brushInProgress = false;
         updateChart(false);
     });
@@ -737,6 +738,7 @@
         console.log("Urgent alarm raised!");
         currentAlarmType = 'urgent_alarm';
         generateAlarm(urgentAlarmSound);
+		alert("GenUrgentAlarm");
         brushInProgress = false;
         updateChart(false);
     });
