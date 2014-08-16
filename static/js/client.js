@@ -271,7 +271,7 @@
             if (errorCode) {
                 var errorDisplay;
 
-                switch (errorCode) {
+                switch (parseInt(errorCode)) {
                     case 0:  errorDisplay = '??0'; break; //None
                     case 1:  errorDisplay = '?SN'; break; //SENSOR_NOT_ACTIVE
                     case 2:  errorDisplay = '??2'; break; //MINIMAL_DEVIATION
