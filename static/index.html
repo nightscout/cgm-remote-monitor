@@ -4,7 +4,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>NightScout</title>
         <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
-        <link rel="stylesheet" type="text/css" href="/css/main.css" />
+        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.3.3" />
         <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
         <link rel="stylesheet" type="text/css" href="/css/drawer.css" />
         <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
@@ -81,6 +81,11 @@
                         <dt>Custom Title</dt>
                         <dd><input type="text" id="customTitle" value="Nightscout" /></dd>
                     </dl>
+                    <dl class="radio">
+                        <dt>Theme</dt>
+                        <dd><input type="radio" name="theme-browser" id="theme-default-browser" value="default" checked /><label for="theme-default-browser">Default</label><br />
+                        <dd><input type="radio" name="theme-browser" id="theme-colors-browser" value="colors" /><label for="theme-colors-browser">Colors</label>
+                    </dl>
                 </fieldset>
 
                 <input type="submit" id="save" value="Save" />
@@ -118,7 +123,7 @@
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
         <script src="/js/ui-utils.js"></script>
-        <script src="/js/client.js"></script>
+        <script src="/js/client.js?v=0.3.3"></script>
         <script src="/js/experiments.js"></script>
     </body>
 </html>

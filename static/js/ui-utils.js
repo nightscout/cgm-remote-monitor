@@ -4,8 +4,9 @@ var defaultSettings = {
 	"units": "mg/dl",
 	"alarmHigh": true,
 	"alarmLow": true,
-	"nightMode": false
-}
+	"nightMode": false,
+	"theme": "default"
+};
 
 var app = {};
 $.ajax("/api/v1/status.json", {
@@ -26,34 +27,47 @@ $.ajax("/api/v1/status.json", {
 
 
 function getBrowserSettings(storage) {
-	var json = {
-		"units": storage.get("units"),
-		"alarmHigh": storage.get("alarmHigh"),
-		"alarmLow": storage.get("alarmLow"),
-		"nightMode": storage.get("nightMode"),
-		"customTitle": storage.get("customTitle")
-	};
+	var json = {};
+	try {
+		var json = {
+			"units": storage.get("units"),
+			"alarmHigh": storage.get("alarmHigh"),
+			"alarmLow": storage.get("alarmLow"),
+			"nightMode": storage.get("nightMode"),
+			"customTitle": storage.get("customTitle"),
+			"theme": storage.get("theme")
+		};
 
-	// Default browser units to server units if undefined.
-	json.units = setDefault(json.units, serverSettings.units);
-	if (json.units == "mmol") {
-		$("#mmol-browser").prop("checked", true);
-	} else {
-		$("#mgdl-browser").prop("checked", true);
+		// Default browser units to server units if undefined.
+		json.units = setDefault(json.units, serverSettings.units);
+		if (json.units == "mmol") {
+			$("#mmol-browser").prop("checked", true);
+		} else {
+			$("#mgdl-browser").prop("checked", true);
+		}
+
+		json.alarmHigh = setDefault(json.alarmHigh, defaultSettings.alarmHigh);
+		$("#alarmhigh-browser").prop("checked", json.alarmHigh);
+		json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
+		$("#alarmlow-browser").prop("checked", json.alarmLow);
+
+		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
+		$("#nightmode-browser").prop("checked", json.nightMode);
+
+		if (json.customTitle) {
+			$("h1.customTitle").text(json.customTitle);
+			$("input#customTitle").prop("value", json.customTitle);
+			document.title = "Nightscout: " + json.customTitle;
+		}
+
+        if (json.theme == "colors") {
+            $("#theme-colors-browser").prop("checked", true);
+        } else {
+            $("#theme-default-browser").prop("checked", true);
+        }
 	}
-
-	json.alarmHigh = setDefault(json.alarmHigh, defaultSettings.alarmHigh);
-	$("#alarmhigh-browser").prop("checked", json.alarmHigh);
-	json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
-	$("#alarmlow-browser").prop("checked", json.alarmLow);
-
-	json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
-	$("#nightmode-browser").prop("checked", json.nightMode);
-
-	if (json.customTitle) {
-		$("h1.customTitle").html(json.customTitle);
-		$("input#customTitle").prop("value", json.customTitle);
-		document.title = "Nightscout: " + json.customTitle;
+	catch(err) {
+		showLocalstorageError();
 	}
 
 	return json;
@@ -102,7 +116,8 @@ function storeInBrowser(json, storage) {
 		storage.set("nightMode", false)
 	}
 	if (json.customTitle) storage.set("customTitle", json.customTitle);
-	event.preventDefault();
+    if (json.theme) storage.set("theme", json.theme);
+    event.preventDefault();
 }
 function storeOnServer(json) {
 	if (jsonIsNotEmpty(json)) {
@@ -170,6 +185,12 @@ function showNotification(note, type)  {
 	notify.find("span").html(note);
 	notify.css("left", "calc(50% - " + ($("#notification").width() / 2) + "px)");
 	notify.show();
+}
+
+function showLocalstorageError() {
+	var msg = "<b>Settings are disabled.</b><br /><br />Please enable cookies so you may customize your Nightscout site."
+	$(".browserSettings").html("<legend>Settings</legend>"+msg+"");
+	$("#save").hide();
 }
 
 
@@ -264,7 +285,8 @@ $("input#save").click(function() {
 		"alarmHigh": $("#alarmhigh-browser").prop("checked"),
 		"alarmLow": $("#alarmlow-browser").prop("checked"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
-		"customTitle": $("input#customTitle").prop("value")
+		"customTitle": $("input#customTitle").prop("value"),
+        "theme": $("input:radio[name=theme-browser]:checked").val()
 	}, browserStorage);
 
 	storeOnServer({
