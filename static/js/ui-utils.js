@@ -251,22 +251,22 @@ function treatmentSubmit() {
     data.enteredBy = document.getElementById("enteredBy").value;
     data.eventType = document.getElementById("eventType").value;
     data.glucoseValue = document.getElementById("glucoseValue").value;
-
+    data.glucoseType = bgCheckMethod;
     data.carbsGiven = document.getElementById("carbsGiven").value;
     data.insulinGiven = document.getElementById("insulinGiven").value;
-    data.glucoseType = bgCheckMethod;
-
     data.notes = document.getElementById("notes").value;
 
-    data.sensor = document.getElementById("sensor").value;
-    data.meter = document.getElementById("meter").value;
+    //data.sensor = document.getElementById("sensor").value;
+    //data.meter = document.getElementById("meter").value;
 
     var ok = window.confirm('Please verify that the data entered is correct: ' + '\nEntered By: ' + data.enteredBy + '\nEvent type: ' + data.eventType + '\nBlood glucose: ' + data.glucoseValue + '\nMethod: ' + data.glucoseType + '\nCarbs Given: ' + data.carbsGiven + '\nInsulin Given: ' + data.insulinGiven + '\nNotes: ' + data.notes);
+          
+    var dataJson = JSON.stringify(data);    
             
     var xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/v1/treatments/", true);
     xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');  
-    xhr.send(JSON.stringify(data));
+    xhr.send(dataJson);
 }
 
 
