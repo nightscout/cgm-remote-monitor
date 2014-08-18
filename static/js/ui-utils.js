@@ -261,7 +261,7 @@ function treatmentSubmit() {
     data.sensor = document.getElementById("sensor").value;
     data.meter = document.getElementById("meter").value;
 
-    var ok = window.confirm('Please verify that the data entered is correct: ' + '\nEntered By: ' + data.enteredBy + '\nEvent type: ' + data.eventType + '\nBlood glucose: ' + data.glucoseValue + '\nMethod: ' + data.bgCheckMethod + '\nCarbs Given: ' + data.carbsGiven + '\nInsulin Given: ' + data.insulinGiven + '\nNotes: ' + data.notes);
+    var ok = window.confirm('Please verify that the data entered is correct: ' + '\nEntered By: ' + data.enteredBy + '\nEvent type: ' + data.eventType + '\nBlood glucose: ' + data.glucoseValue + '\nMethod: ' + data.glucoseType + '\nCarbs Given: ' + data.carbsGiven + '\nInsulin Given: ' + data.insulinGiven + '\nNotes: ' + data.notes);
             
     var xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/v1/treatments/", true);
