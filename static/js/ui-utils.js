@@ -260,13 +260,15 @@ function treatmentSubmit() {
     //data.meter = document.getElementById("meter").value;
 
     var ok = window.confirm('Please verify that the data entered is correct: ' + '\nEntered By: ' + data.enteredBy + '\nEvent type: ' + data.eventType + '\nBlood glucose: ' + data.glucoseValue + '\nMethod: ' + data.glucoseType + '\nCarbs Given: ' + data.carbsGiven + '\nInsulin Given: ' + data.insulinGiven + '\nNotes: ' + data.notes);
-          
-    var dataJson = JSON.stringify(data);    
+    if (ok) {
             
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/v1/treatments/", true);
-    xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');  
-    xhr.send(dataJson);
+        var dataJson = JSON.stringify(data);    
+            
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/v1/treatments/", true);
+        xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');  
+        xhr.send(dataJson);
+    }
 }
 
 
