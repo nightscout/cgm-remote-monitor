@@ -247,22 +247,27 @@ function setMethodResult(selectedMethod) {
 
 function treatmentSubmit() {
 
-            var enteredBy = document.getElementById("enteredBy").value;
-            var eventType = document.getElementById("eventType").value;
-            var glucoseValue = document.getElementById("glucoseValue").value;
+    var data;
+    data.enteredBy = document.getElementById("enteredBy").value;
+    data.eventType = document.getElementById("eventType").value;
+    data.glucoseValue = document.getElementById("glucoseValue").value;
 
-            var carbsGiven = document.getElementById("carbsGiven").value;
-            var insulinGiven = document.getElementById("insulinGiven").value;
+    data.carbsGiven = document.getElementById("carbsGiven").value;
+    data.insulinGiven = document.getElementById("insulinGiven").value;
+    data.glucoseType = bgCheckMethod;
 
-            var notes = document.getElementById("notes").value;
+    data.notes = document.getElementById("notes").value;
 
-            var sensor = document.getElementById("sensor").value;
-            var meter = document.getElementById("meter").value;
+    data.sensor = document.getElementById("sensor").value;
+    data.meter = document.getElementById("meter").value;
 
-            var ok = window.confirm('Please verify that the data entered is correct: ' + '\nEntered By: ' + enteredBy + '\nEvent type: ' + eventType + '\nBlood glucose: ' + glucoseValue + '\nMethod: ' + bgCheckMethod + '\nCarbs Given: ' + carbsGiven + '\nInsulin Given: ' + insulinGiven + '\nNotes: ' + notes);
+    var ok = window.confirm('Please verify that the data entered is correct: ' + '\nEntered By: ' + enteredBy + '\nEvent type: ' + eventType + '\nBlood glucose: ' + glucoseValue + '\nMethod: ' + bgCheckMethod + '\nCarbs Given: ' + carbsGiven + '\nInsulin Given: ' + insulinGiven + '\nNotes: ' + notes);
             
-            //post to mongocollection
-        }
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/v1/treatments/", true);
+    xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');  
+    xhr.send(JSON.stringify(data));
+}
 
 
 var querystring = getQueryParms();
