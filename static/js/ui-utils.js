@@ -247,7 +247,7 @@ function setMethodResult(selectedMethod) {
 
 function treatmentSubmit() {
 
-    var data;
+    var data = new Object();
     data.enteredBy = document.getElementById("enteredBy").value;
     data.eventType = document.getElementById("eventType").value;
     data.glucoseValue = document.getElementById("glucoseValue").value;
