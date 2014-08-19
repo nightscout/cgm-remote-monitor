@@ -69,12 +69,22 @@
                         <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label>
                     </dl>
                     <dl class="toggle">
+                        <dt>Enable Alarms <a class="tip" original-title="When enabled the an alarm will sound."><i class="icon-help-circled"></i></a></dt>
+                        <dd><input type="checkbox" name="alarmhigh-browser" id="alarmhigh-browser" /><label for="alarmhigh-browser">High Alarm</label></dd>
+                        <dd><input type="checkbox" name="alarmlow-browser" id="alarmlow-browser" /><label for="alarmlow-browser">Low Alarm</label></dd>
+                    </dl>
+                    <dl class="toggle">
                         <dt>Night Mode <a class="tip" original-title="When enabled the page will be dimmed from 10pm - 6am."><i class="icon-help-circled"></i></a></dt>
                         <dd><input type="checkbox" name="nightmode-browser" id="nightmode-browser" /><label for="nightmode-browser">Enable</label></dd>
                     </dl>
                     <dl>
                         <dt>Custom Title</dt>
                         <dd><input type="text" id="customTitle" value="Nightscout" /></dd>
+                    </dl>
+                    <dl class="radio">
+                        <dt>Theme</dt>
+                        <dd><input type="radio" name="theme-browser" id="theme-default-browser" value="default" checked /><label for="theme-default-browser">Default</label><br />
+                        <dd><input type="radio" name="theme-browser" id="theme-colors-browser" value="colors" /><label for="theme-colors-browser">Colors</label>
                     </dl>
                 </fieldset>
 
