@@ -772,7 +772,7 @@
             if (sgv > targetTop) {
                 color = 'yellow';
             } else if (sgv >= targetBottom && sgv <= targetTop) {
-                color = 'green';
+                color = '#4cff00';
             } else if (sgv < targetBottom) {
                 color = 'red';
             }
@@ -1007,6 +1007,10 @@
         }
         var AR = [-0.723, 1.716];
         var dt = actual[1].date.getTime();
+        var predictedColor = 'blue';
+        if (browserSettings.theme == "colors") {
+            predictedColor = 'cyan';
+        }
         for (var i = 0; i < CONE.length; i++) {
             y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
             dt = dt + FIVE_MINUTES;
@@ -1014,13 +1018,13 @@
             predicted[i * 2] = {
                 date: new Date(dt + 2000),
                 sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] - 2 * CONE[i]))))),
-                color: 'blue'
+                color: predictedColor
             };
             // Add 4000 ms so not same point as SG
             predicted[i * 2 + 1] = {
                 date: new Date(dt + 4000),
                 sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] + 2 * CONE[i]))))),
-                color: 'blue'
+                color: predictedColor
             };
         }
         return predicted;
