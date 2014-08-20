@@ -315,6 +315,14 @@ $("input#save").click(function() {
 	storeOnServer({
 		//"units": $("input:radio[name=units-server]:checked").val()
 	});
+	var lowAlarm = $("#lowMg").prop("value");
+	var highAlarm = $("#hiMg").prop("value");
+
+	var d = new Date();
+    d.setTime(d.getTime() + (2*24*60*60*1000));
+    var expires = "expires="+d.toGMTString()+"; path=/";
+    document.cookie = "lowAlarm=" + lowAlarm + "; " + expires;
+    document.cookie = "highAlarm=" + highAlarm + "; " + expires;
 
 	event.preventDefault();
 
