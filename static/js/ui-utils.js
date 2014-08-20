@@ -357,7 +357,7 @@ $(function() {
 
 // Convert mmol <--> mgdl //
 $("#lowMg").change(function() {
-	var MgtoMm = $("lowMg").val();
+	var MgtoMm = $("lowMg").text();
 	alert("LowMg"+MgtoMm);
 	$("lowMm").val((MgtoMm/18.0192).toFixed(1));
 });
