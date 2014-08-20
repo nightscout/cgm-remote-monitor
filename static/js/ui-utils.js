@@ -306,7 +306,7 @@ $("input#save").click(function() {
 	storeInBrowser({
 		"units": $("input:radio[name=units-browser]:checked").val(),
 		"timef": $("input:radio[name=time-browser]:checked").val(),
-		"lowAlarm": $("#logMg").prop("value"),
+		"lowAlarm": $("#lowMg").prop("value"),
 		"highAlarm": $("#hiMg").prop("value"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
 		"customTitle": $("input#customTitle").prop("value")
