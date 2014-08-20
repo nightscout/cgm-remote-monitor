@@ -3,6 +3,8 @@ var browserStorage = $.localStorage;
 var defaultSettings = {
 	"units": "mg/dl",
 	"timef": "12hr",
+	"lowAlarm": 80,
+	"highAlarm": 180,
 	"nightMode": false
 }
 
@@ -30,6 +32,8 @@ function getBrowserSettings(storage) {
 		json = {
 			"units": storage.get("units"),
 			"timef": storage.get("timef"),
+			"lowAlarm": storage.get("lowAlarm"),
+			"highAlarm": storage.get("highAlarm"),
 			"nightMode": storage.get("nightMode"),
 			"customTitle": storage.get("customTitle")
 		};
@@ -52,6 +56,17 @@ function getBrowserSettings(storage) {
 			$("#hr24-browser").prop("checked", true);
 		}
 
+		json.lowAlarm = setDefault(json.lowAlarm, serverSettings.lowAlarm);
+		json.highAlarm = setDefault(json.highAlarm, serverSettings.highAlarm);
+
+		$("#logMg").html(json.lowAlarm);
+		$("#hiMg").html(json.highAlarm);
+
+		var MgtoMm = (json.lowAlarm / 18.019).toFixed(1);
+		$("#logMm").html(MgtoMm);
+		var MgtoMm = (json.highAlarm / 18.019).toFixed(1);
+		$("#hiMm").html(MgtoMm);
+
 		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 		$("#nightmode-browser").prop("checked", json.nightMode);
 
@@ -70,7 +85,9 @@ function getBrowserSettings(storage) {
 function getServerSettings() {
 	var json = {
 		"units": Object(),
-		"timef": Object()
+		"timef": Object(),
+		"lowAlarm": Object(),
+		"highAlarm": Object()
 	};
 
 	json.units = setDefault(json.units, defaultSettings.units);
@@ -88,6 +105,17 @@ function getServerSettings() {
 		$("#hr24-server").prop("checked", true);
 	}
 
+	json.lowAlarm = setDefault(json.lowAlarm, defaultSettings.lowAlarm);
+	json.highAlarm = setDefault(json.highAlarm, defaultSettings.highAlarm);
+
+	$("#logMg").html(json.lowAlarm);
+	$("#hiMg").html(json.highAlarm);
+
+	var MgtoMm = (json.lowAlarm / 18.019).toFixed(1);
+	$("#logMm").html(MgtoMm);
+	var MgtoMm = (json.highAlarm / 18.019).toFixed(1);
+	$("#hiMm").html(MgtoMm);
+
 	return json;
 }
 function setDefault(variable, defaultValue) {
@@ -104,6 +132,8 @@ function jsonIsNotEmpty(json) {
 function storeInBrowser(json, storage) {
 	if (json.units) storage.set("units", json.units);
 	if (json.timef) storage.set("timef", json.timef);
+	if (json.lowAlarm) storage.set("lowAlarm", json.lowAlarm);
+	if (json.highAlarm) storage.set("highAlarm", json.highAlarm);
 	if (json.nightMode == true) {
 		storage.set("nightMode", true)
 	} else {
@@ -276,6 +306,8 @@ $("input#save").click(function() {
 	storeInBrowser({
 		"units": $("input:radio[name=units-browser]:checked").val(),
 		"timef": $("input:radio[name=time-browser]:checked").val(),
+		"lowAlarm": $("#logMg").prop("value"),
+		"highAlarm": $("#hiMg").prop("value"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
 		"customTitle": $("input#customTitle").prop("value")
 	}, browserStorage);
@@ -321,4 +353,14 @@ $(function() {
 			closeToolbar();
 		}
 	}
+});
+
+// Convert mmol <--> mgdl //
+$("#lowMg").change(function() {
+	var MgtoMm = $("lowMg").val();
+	$("lowMm").val((MgtoMm/18.0192).toFixed(1));
+});
+$("#hiMg").change(function() {
+	var MgtoMm = $("hiMg").val();
+	$("hiMm").val((MgtoMm/18.0192).toFixed(1));
 });
