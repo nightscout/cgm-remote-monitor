@@ -65,13 +65,18 @@
                     <legend>Settings</legend>
                     <dl class="radio">
                         <dt>Units</dt>
-                        <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label><br />
-                        <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label>
+                        <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label><br /></dd>
+                        <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label></dd>
+                    </dl>
+                    <dl>
+                        <dt>Thresholds (mg/dl / mmol)</dt>
+                        <dd><input type="text" id="lowMg" value="80" /><label for="lowMg">Low</label><input type="text" id="lowMm" value="4.4" /></dd>
+                        <dd><input type="text" id="highMg" value="180" /><label for="highMg">High</label><input type="text" id="highMm" value="10" /></dd>
                     </dl>
                     <dl class="radio">
                         <dt>Time</dt>
-                        <dd><input type="radio" name="time-browser" id="hr12-browser" value="12hr" checked /><label for="hr12-browser">12Hr</label><br />
-                        <dd><input type="radio" name="time-browser" id="hr24-browser" value="24hr" /><label for="hr24-browser">24Hr</label>
+                        <dd><input type="radio" name="time-browser" id="hr12-browser" value="12hr" checked /><label for="hr12-browser">12Hr</label><br /></dd>
+                        <dd><input type="radio" name="time-browser" id="hr24-browser" value="24hr" /><label for="hr24-browser">24Hr</label></dd>
                     </dl>
                     <dl class="toggle">
                         <dt>Night Mode <a class="tip" original-title="When enabled the page will be dimmed from 10pm - 6am."><i class="icon-help-circled"></i></a></dt>
