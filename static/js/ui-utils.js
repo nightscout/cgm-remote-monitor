@@ -59,11 +59,11 @@ function getBrowserSettings(storage) {
 		json.lowAlarm = setDefault(json.lowAlarm, serverSettings.lowAlarm);
 		json.highAlarm = setDefault(json.highAlarm, serverSettings.highAlarm);
 
-		$("#logMg").html(json.lowAlarm);
+		$("#lowMg").html(json.lowAlarm);
 		$("#hiMg").html(json.highAlarm);
 
 		var MgtoMm = (json.lowAlarm / 18.019).toFixed(1);
-		$("#logMm").html(MgtoMm);
+		$("#lowMm").html(MgtoMm);
 		var MgtoMm = (json.highAlarm / 18.019).toFixed(1);
 		$("#hiMm").html(MgtoMm);
 
@@ -108,11 +108,11 @@ function getServerSettings() {
 	json.lowAlarm = setDefault(json.lowAlarm, defaultSettings.lowAlarm);
 	json.highAlarm = setDefault(json.highAlarm, defaultSettings.highAlarm);
 
-	$("#logMg").html(json.lowAlarm);
+	$("#lowMg").html(json.lowAlarm);
 	$("#hiMg").html(json.highAlarm);
 
 	var MgtoMm = (json.lowAlarm / 18.019).toFixed(1);
-	$("#logMm").html(MgtoMm);
+	$("#lowMm").html(MgtoMm);
 	var MgtoMm = (json.highAlarm / 18.019).toFixed(1);
 	$("#hiMm").html(MgtoMm);
 
