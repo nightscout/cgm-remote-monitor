@@ -364,3 +364,11 @@ $("#hiMg").change(function() {
 	var MgtoMm = $("#hiMg").val();
 	$("#hiMm").val((MgtoMm/18.0192).toFixed(1));
 });
+$("#lowMm").change(function() {
+	var MmtoMg = $("#lowMm").val();
+	$("#lowMg").val((MmtoMg*18.0192).toFixed(0));
+});
+$("#hiMm").change(function() {
+	var MmtoMg = $("#hiMm").val();
+	$("#hiMg").val((MmtoMg*18.0192).toFixed(0));
+});
