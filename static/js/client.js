@@ -36,7 +36,7 @@
         MINUTES_SINCE_LAST_UPDATE_URGENT = 20;
 
     // Tick Values
-    var tickValues = [40, 60, 80, 120, 180, 300, 400];
+    var tickValues = [40, 60, 80, 120, 200, 300, 400];
     if (browserSettings.units == "mmol") {
         var tickValues = [2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0];
     }
