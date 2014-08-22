@@ -418,9 +418,9 @@
                 focus.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(scaleBg(80)))
+                    .attr('y1', yScale(scaleBg(90)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(scaleBg(80)))
+                    .attr('y2', yScale(scaleBg(90)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
