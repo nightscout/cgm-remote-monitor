@@ -41,13 +41,19 @@ function config ( ) {
     shasum.update(process.env.API_SECRET);
     env.api_secret = shasum.digest('hex');
   }
+
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.
   // This allows a provided json config to override environment variables
-  var DB = require('./database_configuration.json'),
-    DB_URL = DB.url ? DB.url : env.mongo,
-    DB_COLLECTION = DB.collection ? DB.collection : env.mongo_collection,
-    DB_SETTINGS_COLLECTION = DB.settings_collection ? DB.settings_collection : env.settings_collection;
+
+  // TODO: drop support for database_configuration.json in favor of config.js/config.json
+
+  var DB = optional('./database_configuration.json'),
+    CONFIG = optional('./config'),
+    DB_URL = DB && DB.url || (CONFIG && CONFIG.mongo && CONFIG.mongo.uri) || env.mongo,
+    DB_COLLECTION = DB && DB.collection || (CONFIG && CONFIG.mongo && CONFIG.mongo.entriesCollection) || env.mongo_collection,
+    DB_SETTINGS_COLLECTION = DB && DB.settings_collection || (CONFIG && CONFIG.mongo && CONFIG.mongo.settingsCollection) || env.settings_collection;
+
   env.mongo = DB_URL;
   env.mongo_collection = DB_COLLECTION;
   env.settings_collection = DB_SETTINGS_COLLECTION;
@@ -55,4 +61,10 @@ function config ( ) {
   env.static_files = process.env.NIGHTSCOUT_STATIC_FILES || STATIC_FILES;
   return env;
 }
+
+function optional(name) {
+    var opt = null; try { opt = require(name) } catch (e) { }
+    return opt;
+}
+
 module.exports = config;
