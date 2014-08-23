@@ -13,6 +13,8 @@ body {
     fill: #fff;
     background: #000;
     color: #808080;
+    overflow:hidden;
+    
 }
 
 
@@ -27,11 +29,10 @@ body {
 }
 /* END: Dolphin/Stock Android Browser Fix */
 
-
 .container {
     bottom: 0;
     display: block;
-    height: 100%;
+    height: calc(100%-45px);
     left: 0;
     margin: 0;
     padding: 0;
