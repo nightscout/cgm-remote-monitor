@@ -40,7 +40,6 @@ var pebble = require('./lib/pebble');
 // setup http server
 ///////////////////////////////////////////////////
 var PORT = env.PORT;
-var THIRTY_DAYS = 2592000;
 
 var app = express();
 var appInfo = software.name + ' ' + software.version;
@@ -58,7 +57,8 @@ app.get('/pebble', pebble(entries));
 //app.get('/package.json', software);
 
 // define static server
-var staticFiles = express.static(env.static_files, {maxAge: THIRTY_DAYS * 1000});
+//TODO: JC - changed cache to 1 hour from 30d ays to bypass cache hell until we have a real solution
+var staticFiles = express.static(env.static_files, {maxAge: 60 * 60 * 1000});
 
 // serve the static content
 app.use(staticFiles);
