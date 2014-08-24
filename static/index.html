@@ -137,13 +137,13 @@
                         <legend>Glucose Reading</legend>
                         <input type="number" step="any" id="glucoseValue" />
                         <label><br>Measurement Method:<br></label>
-                        <label for="sensor">
-                            <input type="radio" name="radios" id="sensor" value="Sensor" onclick="setMethodResult(this.value)" />
-                            <span>Sensor<br></span>
-                        </label>
                         <label for="meter">
-                            <input type="radio" name="radios" id="meter" value="Finger" onclick="setMethodResult(this.value)" />
+                            <input type="radio" name="glucoseType" id="meter" value="Finger"/>
                             <span>Meter</span>
+                        </label>
+                        <label for="sensor">
+                            <input type="radio" name="glucoseType" id="sensor" value="Sensor"/>
+                            <span>Sensor<br></span>
                         </label>
                     </fieldset>
                     <label for="carbsGiven">Carbs Given (mass in grams):<br></label>

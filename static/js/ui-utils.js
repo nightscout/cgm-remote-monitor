@@ -1,6 +1,5 @@
 var drawerIsOpen = false;
 var treatmentDrawerIsOpen = false;
-var bgCheckMethod = "Not Selected";
 var browserStorage = $.localStorage;
 var defaultSettings = {
 	"units": "mg/dl",
@@ -184,6 +183,14 @@ function openTreatmentDrawer()  {
 	$("#chartContainer").animate({marginLeft: "-200px"}, 400);
 	$("#treatmentDrawer").css("display", "block");
 	$("#treatmentDrawer").animate({right: "0"}, 400);
+
+	$('#enteredBy').val(browserStorage.get("enteredBy") || '');
+	$('#eventType').val('BG Check');
+	$('#glucoseValue').val('');
+	$('#meter').prop('checked', true)
+	$('#carbsGiven').val('');
+	$('#insulinGiven').val('');
+	$('#notes').val('');
 }
 
 
@@ -241,33 +248,30 @@ function stretchStatusForToolbar(toolbarState){
 	}
 }
 
-function setMethodResult(selectedMethod) {
-            bgCheckMethod = selectedMethod;
-}
-
-function treatmentSubmit() {
+function treatmentSubmit(event) {
 
     var data = new Object();
     data.enteredBy = document.getElementById("enteredBy").value;
     data.eventType = document.getElementById("eventType").value;
-    data.glucoseValue = document.getElementById("glucoseValue").value;
-    data.glucoseType = bgCheckMethod;
-    data.carbsGiven = document.getElementById("carbsGiven").value;
-    data.insulinGiven = document.getElementById("insulinGiven").value;
+    data.glucose = document.getElementById("glucoseValue").value;
+    data.glucoseType = $('#treatment-form input[name=glucoseType]:checked').val();
+    data.carbs = document.getElementById("carbsGiven").value;
+    data.insulin = document.getElementById("insulinGiven").value;
     data.notes = document.getElementById("notes").value;
 
-    //data.sensor = document.getElementById("sensor").value;
-    //data.meter = document.getElementById("meter").value;
+    var dataJson = JSON.stringify(data, null, " ");
 
-    var ok = window.confirm('Please verify that the data entered is correct: ' + '\nEntered By: ' + data.enteredBy + '\nEvent type: ' + data.eventType + '\nBlood glucose: ' + data.glucoseValue + '\nMethod: ' + data.glucoseType + '\nCarbs Given: ' + data.carbsGiven + '\nInsulin Given: ' + data.insulinGiven + '\nNotes: ' + data.notes);
-    if (ok) {
-            
-        var dataJson = JSON.stringify(data, null, " ");    
-            
-        var xhr = new XMLHttpRequest();
-        xhr.open("POST", "/api/v1/treatments/", true);
-        xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');  
-        xhr.send(dataJson);
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/v1/treatments/", true);
+    xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+    xhr.send(dataJson);
+
+    browserStorage.set("enteredBy", data.enteredBy);
+
+    closeTreatmentDrawer();
+
+    if (event) {
+        event.preventDefault();
     }
 }
 
@@ -330,6 +334,8 @@ $("#treatmentDrawerToggle").click(function(event) {
 	}
 	event.preventDefault();
 });
+
+$("#treatmentDrawer button").click(treatmentSubmit);
 
 $("#notification").click(function(event) {
 	closeNotification();
