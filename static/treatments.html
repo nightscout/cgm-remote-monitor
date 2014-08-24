@@ -83,7 +83,7 @@
                 <td>{{treatment.created_at | date:'short'}}</td>
                 <td>{{treatment.eventType}}</td>
                 <td>{{glucoseDisplay(treatment)}}</td>
-                <td>{{treatment.insulin}}</td>
+                <td>{{treatment.insulin | number: 2}}</td>
                 <td>{{treatment.carbs}}</td>
                 <td>{{treatment.enteredBy}}</td>
                 <td>{{treatment.notes}}</td>
