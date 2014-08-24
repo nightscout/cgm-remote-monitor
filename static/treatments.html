@@ -43,6 +43,13 @@
 
             startUpdateCycle();
 
+            $scope.glucoseDisplay = function(treatment) {
+                if (treatment.glucose)
+                    return treatment.glucose + (treatment.glucoseType ? ' (' + treatment.glucoseType + ')' : '');
+                else
+                    return '';
+            }
+
         });
 
         app.service('visibility', function visibility($rootScope) {
@@ -75,9 +82,9 @@
             <tr ng-repeat="treatment in treatments">
                 <td>{{treatment.created_at | date:'short'}}</td>
                 <td>{{treatment.eventType}}</td>
-                <td>{{treatment.glucoseValue}}</td>
-                <td>{{treatment.insulinGiven}}</td>
-                <td>{{treatment.carbsGiven}}</td>
+                <td>{{glucoseDisplay(treatment)}}</td>
+                <td>{{treatment.insulin}}</td>
+                <td>{{treatment.carbs}}</td>
                 <td>{{treatment.enteredBy}}</td>
                 <td>{{treatment.notes}}</td>
             </tr>
