@@ -39,7 +39,6 @@
     "express": "^4.6.1",
     "express-extension-to-accept": "0.0.2",
     "mongodb": "^1.4.7",
-    "moment": "2.8.1",
     "sgvdata": "0.0.2",
     "socket.io": "^0.9.17"
   },

@@ -136,7 +136,7 @@ body {
 
 #bgButton,
 #silenceBtn {
-    z-index: 99;
+    z-index: 999;
 }
 
 #bgButton {

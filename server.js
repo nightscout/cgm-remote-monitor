@@ -31,8 +31,7 @@ var express = require('express');
 ///////////////////////////////////////////////////
 var entries = require('./lib/entries')(env.mongo_collection, store);
 var settings = require('./lib/settings')(env.settings_collection, store);
-var treatments = require('./lib/treatments')(env.treatments_collection, store);
-var api = require('./lib/api/')(env, entries, settings, treatments);
+var api = require('./lib/api/')(env, entries, settings);
 var pebble = require('./lib/pebble');
 ///////////////////////////////////////////////////
 
@@ -40,6 +39,7 @@ var pebble = require('./lib/pebble');
 // setup http server
 ///////////////////////////////////////////////////
 var PORT = env.PORT;
+var THIRTY_DAYS = 2592000;
 
 var app = express();
 var appInfo = software.name + ' ' + software.version;
@@ -57,8 +57,7 @@ app.get('/pebble', pebble(entries));
 //app.get('/package.json', software);
 
 // define static server
-//TODO: JC - changed cache to 1 hour from 30d ays to bypass cache hell until we have a real solution
-var staticFiles = express.static(env.static_files, {maxAge: 60 * 60 * 1000});
+var staticFiles = express.static(env.static_files, {maxAge: THIRTY_DAYS * 1000});
 
 // serve the static content
 app.use(staticFiles);
@@ -77,7 +76,7 @@ store(function ready ( ) {
   // setup socket io for data and message transmission
   ///////////////////////////////////////////////////
   var websocket = require('./lib/websocket');
-  var io = websocket(env, server, entries, treatments);
+  var io = websocket(env, server, entries);
 });
 
 ///////////////////////////////////////////////////

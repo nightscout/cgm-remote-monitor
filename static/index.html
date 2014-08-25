@@ -1,9 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <link rel="apple-touch-icon" href="/images/logomobile.png">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>NightScout</title>
         <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
         <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.3.3" />
@@ -18,7 +16,6 @@
                 <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
                 <a id="hideToolbar" class="tip" original-title="Hides the toolbar" href="#"><i class="icon-angle-double-up"></i></a>
                 <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-cog"></i></a>
-                <a id="treatmentDrawerToggle" class="tip" original-title="Treatments" href="#"><i class="icon-plus"></i></a>
             </div>
             <h1 class="customTitle">Nightscout</h1>
         </div>
@@ -72,22 +69,12 @@
                         <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label>
                     </dl>
                     <dl class="toggle">
-                        <dt>Enable Alarms <a class="tip" original-title="When enabled the an alarm will sound."><i class="icon-help-circled"></i></a></dt>
-                        <dd><input type="checkbox" name="alarmhigh-browser" id="alarmhigh-browser" /><label for="alarmhigh-browser">High Alarm</label></dd>
-                        <dd><input type="checkbox" name="alarmlow-browser" id="alarmlow-browser" /><label for="alarmlow-browser">Low Alarm</label></dd>
-                    </dl>
-                    <dl class="toggle">
                         <dt>Night Mode <a class="tip" original-title="When enabled the page will be dimmed from 10pm - 6am."><i class="icon-help-circled"></i></a></dt>
                         <dd><input type="checkbox" name="nightmode-browser" id="nightmode-browser" /><label for="nightmode-browser">Enable</label></dd>
                     </dl>
                     <dl>
                         <dt>Custom Title</dt>
                         <dd><input type="text" id="customTitle" value="Nightscout" /></dd>
-                    </dl>
-                    <dl class="radio">
-                        <dt>Theme</dt>
-                        <dd><input type="radio" name="theme-browser" id="theme-default-browser" value="default" checked /><label for="theme-default-browser">Default</label><br />
-                        <dd><input type="radio" name="theme-browser" id="theme-colors-browser" value="colors" /><label for="theme-colors-browser">Colors</label>
                     </dl>
                 </fieldset>
 
@@ -112,52 +99,6 @@
                         <a href="http://www.nightscout.info">Community</a><br />
                     </div>
                 </fieldset>
-            </form>
-        </div>
-
-        <div id="treatmentDrawer">
-            <form id="treatment-form" onsubmit="return treatmentSubmit();">
-                <fieldset class="treatmentData">
-                    <legend>Log a Treatment</legend>
-                    <dl>
-                        <dt>Entered By:</dt>
-                        <dd><input type="text" id="enteredBy" value="" /></dd>
-                    </dl>                 
-                    <label for="eventType">Event Type:</label>
-                    <select id="eventType">
-                        <option value="BG Check">Blood Glucose Check</option>
-                        <option value="Snack Bolus">Snack Bolus</option>
-                        <option value="Meal Bolus">Meal Bolus</option>
-                        <option value="Correction Bolus">Correction Bolus</option>
-                        <option value="Food Correction">Food Correction</option>
-                        <option value="Question">Note or Question to Parents</option>
-                    </select>
-
-                    <fieldset>
-                        <legend>Glucose Reading</legend>
-                        <input type="number" step="any" id="glucoseValue" />
-                        <label><br>Measurement Method:<br></label>
-                        <label for="meter">
-                            <input type="radio" name="glucoseType" id="meter" value="Finger"/>
-                            <span>Meter</span>
-                        </label>
-                        <label for="sensor">
-                            <input type="radio" name="glucoseType" id="sensor" value="Sensor"/>
-                            <span>Sensor<br></span>
-                        </label>
-                    </fieldset>
-                    <label for="carbsGiven">Carbs Given (mass in grams):<br></label>
-                    <input type="number" step="any" min="0" id="carbsGiven" />
-                    <br>
-                    <label for="insulinGiven"><br>Insulin Given (units):<br></label>
-                    <input type="number" step="any" min="0" id="insulinGiven" />
-                    <br>
-                    <!-- Label and textarea -->
-                    <label for="notes"><br>Additional Notes, Comments:<br></label>
-                    <textarea id="notes"></textarea><br>
-                    <button type="submit">Submit Form</button>
-                </fieldset>
-                <a href="/treatments.html" target="treatments">View all treatments</a>
             </form>
         </div>
 
