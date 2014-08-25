@@ -172,15 +172,15 @@ function openDrawer()  {
 function closeTreatmentDrawer(callback) {
 	$("#container").animate({marginLeft: "0px"}, 400, callback);
 	$("#chartContainer").animate({marginLeft: "0px"}, 400);
-	$("#treatmentDrawer").animate({right: "-200px"}, 400, function() {
+	$("#treatmentDrawer").animate({right: "-300px"}, 400, function() {
 		$("#treatmentDrawer").css("display", "none");
 	});
 	treatmentDrawerIsOpen = false;
 }
 function openTreatmentDrawer()  {
 	treatmentDrawerIsOpen = true;
-	$("#container").animate({marginLeft: "-200px"}, 400);
-	$("#chartContainer").animate({marginLeft: "-200px"}, 400);
+	$("#container").animate({marginLeft: "-300px"}, 400);
+	$("#chartContainer").animate({marginLeft: "-300px"}, 400);
 	$("#treatmentDrawer").css("display", "block");
 	$("#treatmentDrawer").animate({right: "0"}, 400);
 

@@ -6,7 +6,9 @@
     <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
     <link rel="stylesheet" href="/bower_components/bootstrap/dist/css/bootstrap.min.css">
     <style type="text/css">
-
+        table tr td {
+            white-space: nowrap;
+        }
     </style>
     <script src="/bower_components/angularjs/angular.min.js"></script>
     <script type="text/javascript">
@@ -65,7 +67,7 @@
 </head>
 <body ng-app="ns-treatments">
 <div class="container" ng-controller="TreatmentsController">
-    <h1>Nightscout Treatments</h1>
+    <h3>Nightscout: Treatments</h3>
     <table class="table table-striped table-hover">
         <thead>
             <tr>
