@@ -428,8 +428,9 @@
           });
             
             treatCircles.attr('clip-path', 'url(#clip)');
-        } catch (err)
-        { }
+        } catch (err) {
+            console.error(err);
+        }
     }
 
     // called for initial update and updates for resize
@@ -805,13 +806,13 @@
             data.forEach(function (d) {
                 if (d.sgv < 39)
                     d.color = "transparent";
-            })
+            });
 
             treatments = d[3];
             treatments.forEach(function (d) {
+                d.created_at = new Date(d.created_at);
+            });
 
-                    d.created_at = new Date(d.created_at);
-            })
             if (!isInitialData) {
                 isInitialData = true;
                 initializeCharts();
