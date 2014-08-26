@@ -261,14 +261,26 @@ function treatmentSubmit(event) {
 
     var dataJson = JSON.stringify(data, null, " ");
 
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/v1/treatments/", true);
-    xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-    xhr.send(dataJson);
+    var ok = window.confirm(
+            'Please verify that the data entered is correct: ' +
+            '\nEntered By: ' + data.enteredBy +
+            '\nEvent type: ' + data.eventType +
+            '\nBlood glucose: ' + data.glucose +
+            '\nMethod: ' + data.glucoseType +
+            '\nCarbs Given: ' + data.carbs +
+            '\nInsulin Given: ' + data.insulin +
+            '\nNotes: ' + data.notes);
 
-    browserStorage.set("enteredBy", data.enteredBy);
+    if (ok) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/v1/treatments/", true);
+        xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+        xhr.send(dataJson);
 
-    closeTreatmentDrawer();
+        browserStorage.set("enteredBy", data.enteredBy);
+
+        closeTreatmentDrawer();
+    }
 
     if (event) {
         event.preventDefault();
