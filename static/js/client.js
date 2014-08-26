@@ -42,7 +42,9 @@
     if (browserSettings.units == "mmol") {
         var tickValues = [2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0];
     }
-
+    var div = d3.select("body").append("div")
+      .attr("class", "tooltip")
+      .style("opacity", 0);
     //TODO: get these from the config
     var targetTop = 180,
         targetBottom = 80;
@@ -102,7 +104,7 @@
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale = d3.scale.log()
-            .domain([scaleBg(30), scaleBg(420)]);
+            .domain([scaleBg(30), scaleBg(510)]);
 
         xScale2 = d3.time.scale()
             .domain(d3.extent(data, function (d) { return d.date; }));
@@ -382,6 +384,52 @@
 
         // add clipping path so that data stays within axis
         focusCircles.attr('clip-path', 'url(#clip)');
+
+        try {
+            // bind up the focus chart data to an array of circles
+            var treatCircles = focus.selectAll('rect').data(treatments);
+
+            // if already existing then transition each circle to its new position
+            treatCircles.transition()
+                  .duration(UPDATE_TRANS_MS)
+                  .attr('x', function (d) { return xScale(new Date(d.created_at)); })
+                  .attr('y', function (d) { return yScale(500); })
+                  .attr("width", 15)
+                  .attr("height", 15)
+                  .attr("rx", 6)
+                  .attr("ry", 6)
+                  .attr('stroke-width', 2)
+                  .attr('stroke', function (d) { return "white"; })
+                  .attr('fill', function (d) { return "grey"; })
+
+
+            // if new circle then just display
+            treatCircles.enter().append('rect')
+                  .attr('x', function (d) { return xScale(d.created_at); })
+                  .attr('y', function (d) { return yScale(500); })
+                  .attr('fill', function (d) { return "grey"; })
+                  .on("mouseover", function (d) {
+                      div.transition()
+                  .duration(200)
+                  .style("opacity", .9);
+                      div.html("<strong>Time:</strong> " + formatTime(d.created_at) + "<br/>" + "<strong>Treatment type:</strong> " + d.eventType + "<br/>" + "<strong>Carbs:</strong> " + d.carbs + "<br/>" +
+                  "<strong>Insulin:</strong> " + d.insulin + "<br/>" +
+                  "<strong>BG:</strong> " + d.glucose + "<br/>" +
+                  "<strong>Test method:</strong> " + d.glucoseType + "<br/>" +
+                  "<strong>Entered by:</strong> " + d.enteredBy + "<br/>" +
+                  "<strong>Notes:</strong> " + d.notes)
+                  .style("left", (d3.event.pageX) + "px")
+                  .style("top", (d3.event.pageY - 28) + "px");
+                  })
+          .on("mouseout", function (d) {
+              div.transition()
+                  .duration(500)
+                  .style("opacity", 0);
+          });
+            
+            treatCircles.attr('clip-path', 'url(#clip)');
+        } catch (err)
+        { }
     }
 
     // called for initial update and updates for resize
@@ -760,6 +808,10 @@
             })
 
             treatments = d[3];
+            treatments.forEach(function (d) {
+
+                    d.created_at = new Date(d.created_at);
+            })
             if (!isInitialData) {
                 isInitialData = true;
                 initializeCharts();
