@@ -40,6 +40,7 @@
     "express-extension-to-accept": "0.0.2",
     "mongodb": "^1.4.7",
     "moment": "2.8.1",
+    "pushover-notifications": "0.2.0",
     "sgvdata": "0.0.2",
     "socket.io": "^0.9.17"
   },

@@ -26,12 +26,13 @@ var store = require('./lib/storage')(env);
 
 var express = require('express');
 
+var pushover = require('./lib/pushover')(env);
 ///////////////////////////////////////////////////
 // api and json object variables
 ///////////////////////////////////////////////////
 var entries = require('./lib/entries')(env.mongo_collection, store);
 var settings = require('./lib/settings')(env.settings_collection, store);
-var treatments = require('./lib/treatments')(env.treatments_collection, store);
+var treatments = require('./lib/treatments')(env.treatments_collection, store, pushover);
 var api = require('./lib/api/')(env, entries, settings, treatments);
 var pebble = require('./lib/pebble');
 ///////////////////////////////////////////////////
