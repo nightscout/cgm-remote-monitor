@@ -42,7 +42,9 @@
     if (browserSettings.units == "mmol") {
         var tickValues = [2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0];
     }
-
+    var div = d3.select("body").append("div")
+      .attr("class", "tooltip")
+      .style("opacity", 0);
     //TODO: get these from the config
     var targetTop = 180,
         targetBottom = 80;
@@ -102,7 +104,7 @@
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale = d3.scale.log()
-            .domain([scaleBg(30), scaleBg(420)]);
+            .domain([scaleBg(30), scaleBg(510)]);
 
         xScale2 = d3.time.scale()
             .domain(d3.extent(data, function (d) { return d.date; }));
@@ -342,10 +344,11 @@
         d3.selectAll('.path').remove();
 
         // add treatment bubbles
-        var bubbleSize = prevChartWidth < 400 ? 4 : (prevChartWidth < 600 ? 3 : 2);
-        focus.selectAll('circle')
-            .data(treatments)
-            .each(function (d) { drawTreatment(d, bubbleSize, true) });
+        //
+        //var bubbleSize = prevChartWidth < 400 ? 4 : (prevChartWidth < 600 ? 3 : 2);
+        //focus.selectAll('circle')
+        //    .data(treatments)
+        //    .each(function (d) { drawTreatment(d, bubbleSize, true) });
 
         // transition open-top line to correct location
         focus.select('.open-top')
@@ -382,6 +385,59 @@
 
         // add clipping path so that data stays within axis
         focusCircles.attr('clip-path', 'url(#clip)');
+
+        try {
+            // bind up the focus chart data to an array of circles
+            var treatCircles = focus.selectAll('rect').data(treatments);
+
+            // if already existing then transition each circle to its new position
+            treatCircles.transition()
+                  .duration(UPDATE_TRANS_MS)
+                  .attr('x', function (d) { return xScale(new Date(d.created_at)); })
+                  .attr('y', function (d) { return yScale(500); })
+                  .attr("width", 15)
+                  .attr("height", 15)
+                  .attr("rx", 6)
+                  .attr("ry", 6)
+                  .attr('stroke-width', 2)
+                  .attr('stroke', function (d) { return "white"; })
+                  .attr('fill', function (d) { return "grey"; })
+
+
+            // if new circle then just display
+            treatCircles.enter().append('rect')
+                  .attr('x', function (d) { return xScale(d.created_at); })
+                  .attr('y', function (d) { return yScale(500); })
+                  .attr("width", 15)
+                  .attr("height", 15)
+                  .attr("rx", 6)
+                  .attr("ry", 6)
+                  .attr('stroke-width', 2)
+                  .attr('stroke', function (d) { return "white"; })
+                  .attr('fill', function (d) { return "grey"; })
+                  .on("mouseover", function (d) {
+                      div.transition()
+                  .duration(200)
+                  .style("opacity", .9);
+                      div.html("<strong>Time:</strong> " + formatTime(d.created_at) + "<br/>" + "<strong>Treatment type:</strong> " + d.eventType + "<br/>" + "<strong>Carbs:</strong> " + d.carbs + "<br/>" +
+                  "<strong>Insulin:</strong> " + d.insulin + "<br/>" +
+                  "<strong>BG:</strong> " + d.glucose + "<br/>" +
+                  "<strong>Test method:</strong> " + d.glucoseType + "<br/>" +
+                  "<strong>Entered by:</strong> " + d.enteredBy + "<br/>" +
+                  "<strong>Notes:</strong> " + d.notes)
+                  .style("left", (d3.event.pageX) + "px")
+                  .style("top", (d3.event.pageY - 28) + "px");
+                  })
+          .on("mouseout", function (d) {
+              div.transition()
+                  .duration(500)
+                  .style("opacity", 0);
+          });
+            
+            treatCircles.attr('clip-path', 'url(#clip)');
+        } catch (err) {
+            console.error(err);
+        }
     }
 
     // called for initial update and updates for resize
@@ -757,9 +813,13 @@
             data.forEach(function (d) {
                 if (d.sgv < 39)
                     d.color = "transparent";
-            })
+            });
 
             treatments = d[3];
+            treatments.forEach(function (d) {
+                d.created_at = new Date(d.created_at);
+            });
+
             if (!isInitialData) {
                 isInitialData = true;
                 initializeCharts();
@@ -927,91 +987,64 @@
     //draw a compact visualization of a treatment (carbs, insulin)
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     function drawTreatment(treatment, scale, showValues) {
+        var carbs = treatment.carbs;
+        var insulin = treatment.insulin;
+        var CR = treatment.CR;
 
-        if (!treatment.CR) {
-            //plot a simple treatment point
-            console.info("plotting treatment", treatment);
-            var treatmentDots = focus.selectAll('treatment-dot')
-                .data(treatment)
-                .enter()
-                .append('g')
-                .attr('transform', 'translate(' + xScale(treatment.x) + ', ' + yScale(scaleBg(300)) + ')');
+        var R1 = Math.sqrt(Math.min(carbs, insulin * CR)) / scale,
+            R2 = Math.sqrt(Math.max(carbs, insulin * CR)) / scale,
+            R3 = R2 + 8 / scale;
 
-            //TODO: some d3 magic to get the treatments to display and show a tooltip
-        } else {
-            var carbs = treatment.carbs;
-            var insulin = treatment.insulin;
-            var CR = treatment.CR;
+        var arc_data = [
+            { 'element': '', 'color': '#9c4333', 'start': -1.5708, 'end': 1.5708, 'inner': 0, 'outer': R1 },
+            { 'element': '', 'color': '#d4897b', 'start': -1.5708, 'end': 1.5708, 'inner': R1, 'outer': R2 },
+            { 'element': '', 'color': 'transparent', 'start': -1.5708, 'end': 1.5708, 'inner': R2, 'outer': R3 },
+            { 'element': '', 'color': '#3d53b7', 'start': 1.5708, 'end': 4.7124, 'inner': 0, 'outer': R1 },
+            { 'element': '', 'color': '#5d72c9', 'start': 1.5708, 'end': 4.7124, 'inner': R1, 'outer': R2 },
+            { 'element': '', 'color': 'transparent', 'start': 1.5708, 'end': 4.7124, 'inner': R2, 'outer': R3 }
+        ];
 
-            var R1 = Math.sqrt(Math.min(carbs, insulin * CR)) / scale,
-                R2 = Math.sqrt(Math.max(carbs, insulin * CR)) / scale,
-                R3 = R2 + 8 / scale;
+        if (carbs < insulin * CR) arc_data[1].color = 'transparent';
+        if (carbs > insulin * CR) arc_data[4].color = 'transparent';
+        if (carbs > 0) arc_data[2].element = Math.round(carbs) + ' g';
+        if (insulin > 0) arc_data[5].element = Math.round(insulin * 10) / 10 + ' U';
 
-            var arc_data = [
-                { 'element': '', 'color': '#9c4333', 'start': -1.5708, 'end': 1.5708, 'inner': 0, 'outer': R1 },
-                { 'element': '', 'color': '#d4897b', 'start': -1.5708, 'end': 1.5708, 'inner': R1, 'outer': R2 },
-                { 'element': '', 'color': 'transparent', 'start': -1.5708, 'end': 1.5708, 'inner': R2, 'outer': R3 },
-                { 'element': '', 'color': '#3d53b7', 'start': 1.5708, 'end': 4.7124, 'inner': 0, 'outer': R1 },
-                { 'element': '', 'color': '#5d72c9', 'start': 1.5708, 'end': 4.7124, 'inner': R1, 'outer': R2 },
-                { 'element': '', 'color': 'transparent', 'start': 1.5708, 'end': 4.7124, 'inner': R2, 'outer': R3 }
-            ];
+        var arc = d3.svg.arc()
+            .innerRadius(function (d) { return 5 * d.inner; })
+            .outerRadius(function (d) { return 5 * d.outer; })
+            .endAngle(function (d) { return d.start; })
+            .startAngle(function (d) { return d.end; });
 
-            if (carbs < insulin * CR) arc_data[1].color = 'transparent';
-            if (carbs > insulin * CR) arc_data[4].color = 'transparent';
-            if (carbs > 0) arc_data[2].element = Math.round(carbs) + ' g';
-            if (insulin > 0) arc_data[5].element = Math.round(insulin * 10) / 10 + ' U';
+        var treatmentDots = focus.selectAll('treatment-dot')
+            .data(arc_data)
+            .enter()
+            .append('g')
+            .attr('transform', 'translate(' + xScale(treatment.x) + ', ' + yScale(scaleBg(treatment.y)) + ')');
 
-            var arc = d3.svg.arc()
-                .innerRadius(function (d) {
-                    return 5 * d.inner;
-                })
-                .outerRadius(function (d) {
-                    return 5 * d.outer;
-                })
-                .endAngle(function (d) {
-                    return d.start;
-                })
-                .startAngle(function (d) {
-                    return d.end;
-                });
+        var arcs = treatmentDots.append('path')
+            .attr('class', 'path')
+            .attr('fill', function (d, i) { return d.color; })
+            .attr('id', function (d, i) { return 's' + i; })
+            .attr('d', arc);
 
-            var treatmentDots = focus.selectAll('treatment-dot')
-                .data(arc_data)
-                .enter()
-                .append('g')
-                .attr('transform', 'translate(' + xScale(treatment.x) + ', ' + yScale(scaleBg(treatment.y)) + ')');
 
-            var arcs = treatmentDots.append('path')
+        // labels for carbs and insulin
+        if (showValues) {
+            var label = treatmentDots.append('g')
                 .attr('class', 'path')
-                .attr('fill', function (d, i) {
-                    return d.color;
+                .attr('id', 'label')
+                .style('fill', 'white');
+            label.append('text')
+                .style('font-size', 30 / scale)
+                .style('font-family', 'Arial')
+                .attr('text-anchor', 'middle')
+                .attr('dy', '.35em')
+                .attr('transform', function (d) {
+                    d.outerRadius = d.outerRadius * 2.1;
+                    d.innerRadius = d.outerRadius * 2.1;
+                    return 'translate(' + arc.centroid(d) + ')';
                 })
-                .attr('id', function (d, i) {
-                    return 's' + i;
-                })
-                .attr('d', arc);
-
-
-            // labels for carbs and insulin
-            if (showValues) {
-                var label = treatmentDots.append('g')
-                    .attr('class', 'path')
-                    .attr('id', 'label')
-                    .style('fill', 'white');
-                label.append('text')
-                    .style('font-size', 30 / scale)
-                    .style('font-family', 'Arial')
-                    .attr('text-anchor', 'middle')
-                    .attr('dy', '.35em')
-                    .attr('transform', function (d) {
-                        d.outerRadius = d.outerRadius * 2.1;
-                        d.innerRadius = d.outerRadius * 2.1;
-                        return 'translate(' + arc.centroid(d) + ')';
-                    })
-                    .text(function (d) {
-                        return d.element;
-                    })
-            }
+                .text(function (d) { return d.element; })
         }
     }
 
