@@ -408,6 +408,12 @@
             treatCircles.enter().append('rect')
                   .attr('x', function (d) { return xScale(d.created_at); })
                   .attr('y', function (d) { return yScale(500); })
+                  .attr("width", 15)
+                  .attr("height", 15)
+                  .attr("rx", 6)
+                  .attr("ry", 6)
+                  .attr('stroke-width', 2)
+                  .attr('stroke', function (d) { return "white"; })
                   .attr('fill', function (d) { return "grey"; })
                   .on("mouseover", function (d) {
                       div.transition()
