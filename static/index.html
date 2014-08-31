@@ -119,19 +119,24 @@
             <form id="treatment-form" onsubmit="return treatmentSubmit();">
                 <fieldset class="treatmentData">
                     <legend>Log a Treatment</legend>
-                    <dl>
-                        <dt>Entered By:</dt>
-                        <dd><input type="text" id="enteredBy" value="" /></dd>
-                    </dl>                 
-                    <label for="eventType">Event Type:</label>
-                    <select id="eventType">
-                        <option value="BG Check">Blood Glucose Check</option>
-                        <option value="Snack Bolus">Snack Bolus</option>
-                        <option value="Meal Bolus">Meal Bolus</option>
-                        <option value="Correction Bolus">Correction Bolus</option>
-                        <option value="Food Correction">Food Correction</option>
-                        <option value="Question">Note or Question to Parents</option>
-                    </select>
+                    <label for="enteredBy" class="left-column">
+                        <span>Entered By:</span>
+                        <input type="text" id="enteredBy" value="" />
+                    </label>
+                    <label for="eventType" class="left-column">
+                        <span>Event Type:</span>
+                        <select id="eventType">
+                            <option value="BG Check">BG Check</option>
+                            <option value="Snack Bolus">Snack Bolus</option>
+                            <option value="Meal Bolus">Meal Bolus</option>
+                            <option value="Correction Bolus">Correction Bolus</option>
+                            <option value="Carb Correction">Carb Correction</option>
+                            <option value="Question">Note or Question</option>
+                            <option value="Exercise">Exercise</option>
+                            <option value="Site Change">Pump Site Change</option>
+                            <option value="D.A.D. Alert">D.A.D. Alert</option>
+                        </select>
+                    </label>
 
                     <fieldset>
                         <legend>Glucose Reading</legend>
@@ -146,12 +151,14 @@
                             <span>Sensor<br></span>
                         </label>
                     </fieldset>
-                    <label for="carbsGiven">Carbs Given (mass in grams):<br></label>
-                    <input type="number" step="any" min="0" id="carbsGiven" />
-                    <br>
-                    <label for="insulinGiven"><br>Insulin Given (units):<br></label>
-                    <input type="number" step="any" min="0" id="insulinGiven" />
-                    <br>
+                    <label for="carbsGiven" class="left-column short-label">
+                        <span>Carbs Given:</span>
+                        <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" />
+                    </label>
+                    <label for="insulinGiven" class="left-column short-label">
+                        <span>Insulin Given:</span>
+                        <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units"/>
+                    </label>
                     <!-- Label and textarea -->
                     <label for="notes"><br>Additional Notes, Comments:<br></label>
                     <textarea id="notes"></textarea><br>

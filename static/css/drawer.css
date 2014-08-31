@@ -42,6 +42,32 @@
   color: white;
 }
 
+#treatmentDrawer input {
+  box-sizing: border-box;
+}
+
+#treatmentDrawer label.left-column {
+  display: block;
+  width: 100%;
+}
+
+#treatmentDrawer label.left-column span {
+  width: 110px;
+  display: inline-block;
+}
+
+#treatmentDrawer label.left-column input, #treatmentDrawer label.left-column select {
+  width: 140px;
+}
+
+#treatmentDrawer #glucoseValue {
+  width: 230px;
+}
+
+#treatmentDrawer #notes {
+  width: 250px;
+}
+
 #about {
     margin-top: 1em;
 }
@@ -117,7 +143,7 @@ h1, legend,
     font-size: 16px;
     margin-top: 0;
     margin-left: 42px;
-    padding: 10px;
+    padding-top: 10px;
 }
 #buttonbar {
     padding: 0;

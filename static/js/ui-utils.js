@@ -186,7 +186,7 @@ function openTreatmentDrawer()  {
 
 	$('#enteredBy').val(browserStorage.get("enteredBy") || '');
 	$('#eventType').val('BG Check');
-	$('#glucoseValue').val('');
+	$('#glucoseValue').val('').attr('placeholder', 'Value in ' + browserSettings.units);
 	$('#meter').prop('checked', true)
 	$('#carbsGiven').val('');
 	$('#insulinGiven').val('');
