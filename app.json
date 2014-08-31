@@ -1,0 +1,13 @@
+{
+  "name": "CGM Remote Monitor",
+  "repository": "https://github.com/nightscout/cgm-remote-monitor",
+  "env": {
+    "MONGO_COLLECTION": {
+      "description": "The mongo collection to connect to.",
+      "value": "nightscout"
+    }
+  },
+  "addons": [
+    "mongolab"
+  ]
+}

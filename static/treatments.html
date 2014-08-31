@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nightscout: Treatments</title>
+    <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
+    <link rel="stylesheet" href="/bower_components/bootstrap/dist/css/bootstrap.min.css">
+    <style type="text/css">
+        table tr td {
+            white-space: nowrap;
+        }
+    </style>
+    <script src="/bower_components/angularjs/angular.min.js"></script>
+    <script type="text/javascript">
+        'use strict';
+
+        var app = angular.module('ns-treatments', []);
+
+        app.controller('TreatmentsController', function ($scope, $http, $timeout, visibility) {
+            var pageIsHidden = false;
+
+            function update() {
+                console.info("update called");
+                if (pageIsHidden) {
+                    console.info('Not updating, since page is hidden');
+                } else {
+                    console.info('Updating, since page is visible');
+                    $http.get('/api/v1/treatments').success(function(treatments) {
+                        console.info("got treatments", treatments);
+                        $scope.treatments = treatments;
+                    });
+                }
+            }
+
+            $scope.$on('visibilityChanged', function(event, isHidden) {
+                console.info('changed pageIsHidden to ' + isHidden);
+                pageIsHidden = isHidden;
+                if (!pageIsHidden) update();
+            });
+
+            function startUpdateCycle() {
+                update();
+                $timeout(startUpdateCycle, 20 * 1000);
+            }
+
+            startUpdateCycle();
+
+            $scope.glucoseDisplay = function(treatment) {
+                if (treatment.glucose)
+                    return treatment.glucose + (treatment.glucoseType ? ' (' + treatment.glucoseType + ')' : '');
+                else
+                    return '';
+            }
+
+        });
+
+        app.service('visibility', function visibility($rootScope) {
+            function visibilityChanged() {
+                $rootScope.$broadcast('visibilityChanged', !!(document.hidden || document.webkitHidden || document.mozHidden || document.msHidden));
+            }
+
+            document.addEventListener('webkitvisibilitychange', visibilityChanged);
+        });
+
+    </script>
+
+</head>
+<body ng-app="ns-treatments">
+<div class="container" ng-controller="TreatmentsController">
+    <h3>Nightscout: Treatments</h3>
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <td>Time</td>
+                <td>Event Type</td>
+                <td>BG</td>
+                <td>Insulin</td>
+                <td>Carbs</td>
+                <td>Entered By</td>
+                <td>Notes</td>
+            </tr>
+        </thead>
+        <tbody>
+            <tr ng-repeat="treatment in treatments">
+                <td>{{treatment.created_at | date:'short'}}</td>
+                <td>{{treatment.eventType}}</td>
+                <td>{{glucoseDisplay(treatment)}}</td>
+                <td>{{treatment.insulin | number: 2}}</td>
+                <td>{{treatment.carbs}}</td>
+                <td>{{treatment.enteredBy}}</td>
+                <td>{{treatment.notes}}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>
+
