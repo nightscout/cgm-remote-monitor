@@ -23,9 +23,12 @@ function config ( ) {
   env.name = software.name;
   env.DISPLAY_UNITS = process.env.DISPLAY_UNITS || 'mg/dl';
   env.PORT = process.env.PORT || 1337;
-  env.mongo = process.env.MONGO_CONNECTION || process.env.CUSTOMCONNSTR_mongo;
-  env.mongo_collection = process.env.CUSTOMCONNSTR_mongo_collection || 'entries';
+  env.mongo = process.env.MONGO_CONNECTION || process.env.CUSTOMCONNSTR_mongo || process.env.MONGOLAB_URI;
+  env.mongo_collection = process.env.CUSTOMCONNSTR_mongo_collection || process.env.MONGO_COLLECTION || 'entries';
   env.settings_collection = process.env.CUSTOMCONNSTR_mongo_settings_collection || 'settings';
+  env.treatments_collection = process.env.CUSTOMCONNSTR_mongo_treatments_collection || 'treatments';
+  env.devicestatus_collection = process.env.CUSTOMCONNSTR_mongo_devicestatus_collection || 'devicestatus';
+
   var shasum = crypto.createHash('sha1');
   var useSecret = (process.env.API_SECRET && process.env.API_SECRET.length > 0);
   env.api_secret = null;
@@ -41,6 +44,11 @@ function config ( ) {
     shasum.update(process.env.API_SECRET);
     env.api_secret = shasum.digest('hex');
   }
+
+  // For pushing notifications to Pushover.
+  env.pushover_api_token = process.env.PUSHOVER_API_TOKEN;
+  env.pushover_user_key = process.env.PUSHOVER_USER_KEY || process.env.PUSHOVER_GROUP_KEY;
+
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.
   // This allows a provided json config to override environment variables
@@ -53,6 +61,7 @@ function config ( ) {
   env.settings_collection = DB_SETTINGS_COLLECTION;
   var STATIC_FILES = __dirname + '/static/';
   env.static_files = process.env.NIGHTSCOUT_STATIC_FILES || STATIC_FILES;
+
   return env;
 }
 module.exports = config;
