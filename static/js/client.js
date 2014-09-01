@@ -419,12 +419,13 @@
                       div.transition()
                   .duration(200)
                   .style("opacity", .9);
-                      div.html("<strong>Time:</strong> " + formatTime(d.created_at) + "<br/>" + "<strong>Treatment type:</strong> " + d.eventType + "<br/>" + "<strong>Carbs:</strong> " + d.carbs + "<br/>" +
-                  "<strong>Insulin:</strong> " + d.insulin + "<br/>" +
-                  "<strong>BG:</strong> " + d.glucose + "<br/>" +
-                  "<strong>Test method:</strong> " + d.glucoseType + "<br/>" +
-                  "<strong>Entered by:</strong> " + d.enteredBy + "<br/>" +
-                  "<strong>Notes:</strong> " + d.notes)
+                      div.html("<strong>Time:</strong> " + formatTime(d.created_at) + "<br/>" + "<strong>Treatment type:</strong> " + d.eventType + "<br/>" +
+                          (d.carbs ? "<strong>Carbs:</strong> " + d.carbs + "<br/>" : '') +
+                          (d.insulin ? "<strong>Insulin:</strong> " + d.insulin + "<br/>" : '') +
+                          (d.glucose ? "<strong>BG:</strong> " + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + "<br/>" : '') +
+                          (d.enteredBy ? "<strong>Entered by:</strong> " + d.enteredBy + "<br/>" : '') +
+                          (d.notes ? "<strong>Notes:</strong> " + d.notes : '')
+                      )
                   .style("left", (d3.event.pageX) + "px")
                   .style("top", (d3.event.pageY - 28) + "px");
                   })
