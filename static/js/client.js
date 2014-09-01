@@ -70,7 +70,14 @@
 
     // Remove leading zeros from the time (eg. 08:40 = 8:40) & lowercase the am/pm
     function formatTime(time) {
-        time = d3.time.format(FORMAT_TIME)(time);
+		var dateFormat = FORMAT_TIME;
+		if(browserSettings.dateFormat){
+			if(browserSettings.dateFormat == "24"){
+				dateFormat = '%H:%M';
+			}
+		}
+		
+        time = d3.time.format(dateFormat)(time);
         time = time.replace(/^0/, '').toLowerCase();
         return time;
     }
