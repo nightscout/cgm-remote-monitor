@@ -416,9 +416,7 @@
                   .attr('stroke', function (d) { return "white"; })
                   .attr('fill', function (d) { return "grey"; })
                   .on("mouseover", function (d) {
-                      div.transition()
-                  .duration(200)
-                  .style("opacity", .9);
+                      div.transition().duration(200).style("opacity", .9);
                       div.html("<strong>Time:</strong> " + formatTime(d.created_at) + "<br/>" + "<strong>Treatment type:</strong> " + d.eventType + "<br/>" +
                           (d.carbs ? "<strong>Carbs:</strong> " + d.carbs + "<br/>" : '') +
                           (d.insulin ? "<strong>Insulin:</strong> " + d.insulin + "<br/>" : '') +
@@ -426,8 +424,8 @@
                           (d.enteredBy ? "<strong>Entered by:</strong> " + d.enteredBy + "<br/>" : '') +
                           (d.notes ? "<strong>Notes:</strong> " + d.notes : '')
                       )
-                  .style("left", (d3.event.pageX) + "px")
-                  .style("top", (d3.event.pageY - 28) + "px");
+                      .style("left", (d3.event.pageX) + "px")
+                      .style("top", (d3.event.pageY - 28) + "px");
                   })
           .on("mouseout", function (d) {
               div.transition()
