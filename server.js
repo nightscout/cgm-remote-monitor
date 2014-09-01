@@ -33,7 +33,8 @@ var pushover = require('./lib/pushover')(env);
 var entries = require('./lib/entries')(env.mongo_collection, store);
 var settings = require('./lib/settings')(env.settings_collection, store);
 var treatments = require('./lib/treatments')(env.treatments_collection, store, pushover);
-var api = require('./lib/api/')(env, entries, settings, treatments);
+var devicestatus = require('./lib/devicestatus')(env.devicestatus_collection, store);
+var api = require('./lib/api/')(env, entries, settings, treatments, devicestatus);
 var pebble = require('./lib/pebble');
 ///////////////////////////////////////////////////
 
@@ -53,7 +54,7 @@ app.enable('trust proxy'); // Allows req.secure test on heroku https connections
 app.use('/api/v1', api);
 
 // pebble data
-app.get('/pebble', pebble(entries));
+app.get('/pebble', pebble(entries, devicestatus));
 
 //app.get('/package.json', software);
 
