@@ -271,7 +271,9 @@
             .attr('cx', function (d) { return xScale(d.date); })
             .attr('cy', function (d) { return yScale(d.sgv); })
             .attr('fill', function (d) { return d.color; })
-            .attr('r', 3);
+            .attr('r', 3)
+            .append('svg:title')
+            .text(function(d) { return d.sgv; });
 
         focusCircles.exit()
             .remove();
