@@ -136,7 +136,7 @@ h1, legend,
 #showToolbar,
 #notification {
     display: none;
-    font-size: 16px;
+    font-size: 14px;
     position: absolute;
 }
 #showToolbar {
@@ -148,11 +148,15 @@ h1, legend,
 }
 #showToolbar a {
     border: solid #fff 1px;
+    border-radius: 5px;
     border-top: 0;
     color: #fff;
     margin: 0 auto;
     padding: 2px;
 }
+
+
+
 #notification,
 #notification a {
     overflow: hidden;

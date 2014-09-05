@@ -15,6 +15,19 @@ body {
     color: #808080;
 }
 
+
+/* BEGIN: Dolphin/Stock Android Browser Fix */
+@media (max-width: 700px) {
+    .bgStatus {
+        width: 100% !important;
+    }
+}
+#chartContainer {
+    top: 225px; /*(toolbar height + status height)*/
+}
+/* END: Dolphin/Stock Android Browser Fix */
+
+
 .container {
     bottom: 0;
     display: block;
@@ -38,32 +51,40 @@ body {
     font-size: 900%;
     margin-right: 25px;
     text-align: center;
+    white-space: nowrap;
+}
+.bgStatus .currentBG {
     text-decoration: line-through;
 }
-.bgStatus.current {
+.bgStatus.current .currentBG {
     text-decoration: none;
 }
 .currentDirection {
     font-weight: normal;
-    text-decoration: none !important;
+    text-decoration: none;
 }
+
+.status.toolbarClosed .bgStatus {
+    font-size:990%;
+
+}
+
 .time {
     font-size: 600%;
-    margin-left: 25px;
     padding-top: 15px;
+}
+.timebox {
+    text-align: center;
+    width: 250px;
 }
 .timeOther {
     font-size: 25%;
-    margin-left: 32px;
 }
 #lastEntry {
     background: #999;
     border-radius: 5px;
     color: #000;
     padding: 0.25em;
-}
-#lastEntry.current {
-    background: #999;
 }
 #lastEntry.warn {
     background: #cc0 !important;
@@ -80,11 +101,11 @@ body {
     left:0;
     position:absolute;
     right:0;
-    top: calc(180px + 45px);
 }
 #chartContainer svg {
     height: calc(100vh - (180px + 45px));
     width: 100%;
+    top: calc(45px + 180px);
 }
 
 .axis path,
@@ -171,30 +192,6 @@ body {
     font-size: 20%;
 }
 
-
-/*
-@media (max-width: 1060px) {
-    body {
-        font-size: 70%;
-    }
-
-    #toolbar, #buttonbar {
-        font-size: 100%;
-    }
-
-    .status {
-        height: 130px;
-    }
-
-    #chartContainer {
-        top: calc(130px + 45px);
-    }
-    #chartContainer svg {
-        height: calc(100vh - (130px + 45px));
-    }
-}
-*/
-
 /* Large desktop */
 @media (min-width: 980px) {
     .content {
@@ -237,10 +234,16 @@ body {
     #bgButton {display:block;} */
 
     .bgStatus {
+        font-size: 900%;
         float: none;
         margin: 0 auto;
+        padding: 0;
         text-align: center;
         width: 100vw;
+    }
+    .status.toolbarClosed .bgStatus {
+        font-size: 990%;
+        margin-top: 10px;
     }
     #bgButton {
         font-size: 120%;
@@ -258,6 +261,10 @@ body {
         margin-top: -1em;
         margin-left: 0;
         width: 100%;
+    }
+    .timebox {
+        text-align: none;
+        width: auto;
     }
     #currentTime {
         display: inline;

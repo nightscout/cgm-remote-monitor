@@ -233,7 +233,7 @@
             } else {
                 $('.container .currentBG')
                     .text("---")
-                    .css('text-decoration','none');
+                    .css('text-decoration','');
             }
             $('#currentTime')
                 .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
@@ -244,10 +244,10 @@
             nowDate = dateTime;
             $('#currentTime')
                 .text(formatTime(dateTime))
-                .css('text-decoration','none');
+                .css('text-decoration','');
             $('.container .currentBG')
                 .text(scaleBg(latestSGV.y))
-                .css('text-decoration','none');
+                .css('text-decoration','');
             $('.container .currentDirection')
                 .html(latestSGV.direction);
         }
@@ -835,6 +835,7 @@
             lastEntry.addClass("warn");
         } else {
             $(".bgStatus").addClass("current");
+            $("#lastEntry").removeClass("warn urgent");
         }
 
         if (parts.value)
