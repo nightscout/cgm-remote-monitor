@@ -30,7 +30,7 @@ function config ( ) {
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
 
-  env.enable = process.env.ENABLE || '';
+  env.enable = readENV('ENABLE');
 
   var shasum = crypto.createHash('sha1');
 
