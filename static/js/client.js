@@ -395,7 +395,7 @@
             treatCircles.transition()
                   .duration(UPDATE_TRANS_MS)
                   .attr('x', function (d) { return xScale(new Date(d.created_at)); })
-                  .attr('y', function (d) { return yScale(500); })
+                  .attr('y', function (d) { return yScale(scaleBg(500)); })
                   .attr("width", 15)
                   .attr("height", 15)
                   .attr("rx", 6)
@@ -408,7 +408,7 @@
             // if new circle then just display
             treatCircles.enter().append('rect')
                   .attr('x', function (d) { return xScale(d.created_at); })
-                  .attr('y', function (d) { return yScale(500); })
+                  .attr('y', function (d) { return yScale(scaleBg(500)); })
                   .attr("width", 15)
                   .attr("height", 15)
                   .attr("rx", 6)
