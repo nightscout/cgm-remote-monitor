@@ -2,6 +2,9 @@ var drawerIsOpen = false;
 var browserStorage = $.localStorage;
 var defaultSettings = {
 	"units": "mg/dl",
+	"timef": "12hr",
+	"lowAlarm": 80,
+	"highAlarm": 180,
 	"nightMode": false
 }
 
@@ -28,6 +31,9 @@ function getBrowserSettings(storage) {
 	try {
 		json = {
 			"units": storage.get("units"),
+			"timef": storage.get("timef"),
+			"lowAlarm": storage.get("lowAlarm"),
+			"highAlarm": storage.get("highAlarm"),
 			"nightMode": storage.get("nightMode"),
 			"customTitle": storage.get("customTitle")
 		};
@@ -40,6 +46,26 @@ function getBrowserSettings(storage) {
 		} else {
 			$("#mgdl-browser").prop("checked", true);
 		}
+
+		// Default browser timef to server timef if undefined.
+		json.timef = setDefault(json.timef, serverSettings.timef);
+		//console.log("browserSettings.timef: " + json.timef);
+		if (json.timef == "12hr") {
+			$("#hr12-browser").prop("checked", true);
+		} else {
+			$("#hr24-browser").prop("checked", true);
+		}
+
+		json.lowAlarm = setDefault(json.lowAlarm, serverSettings.lowAlarm);
+		json.highAlarm = setDefault(json.highAlarm, serverSettings.highAlarm);
+
+		$("#lowMg").html(json.lowAlarm);
+		$("#hiMg").html(json.highAlarm);
+
+		var MgtoMm = (json.lowAlarm / 18.019).toFixed(1);
+		$("#lowMm").html(MgtoMm);
+		var MgtoMm = (json.highAlarm / 18.019).toFixed(1);
+		$("#hiMm").html(MgtoMm);
 
 		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 		$("#nightmode-browser").prop("checked", json.nightMode);
@@ -58,7 +84,10 @@ function getBrowserSettings(storage) {
 }
 function getServerSettings() {
 	var json = {
-		"units": Object()
+		"units": Object(),
+		"timef": Object(),
+		"lowAlarm": Object(),
+		"highAlarm": Object()
 	};
 
 	json.units = setDefault(json.units, defaultSettings.units);
@@ -68,6 +97,24 @@ function getServerSettings() {
 	} else {
 		$("#mgdl-server").prop("checked", true);
 	}
+	json.timef = setDefault(json.timef, defaultSettings.timef);
+	//console.log("serverSettings.timef: " + json.timef);
+	if (json.timef == "12hr") {
+		$("#hr12-server").prop("checked", true);
+	} else {
+		$("#hr24-server").prop("checked", true);
+	}
+
+	json.lowAlarm = setDefault(json.lowAlarm, defaultSettings.lowAlarm);
+	json.highAlarm = setDefault(json.highAlarm, defaultSettings.highAlarm);
+
+	$("#lowMg").html(json.lowAlarm);
+	$("#hiMg").html(json.highAlarm);
+
+	var MgtoMm = (json.lowAlarm / 18.019).toFixed(1);
+	$("#lowMm").html(MgtoMm);
+	var MgtoMm = (json.highAlarm / 18.019).toFixed(1);
+	$("#hiMm").html(MgtoMm);
 
 	return json;
 }
@@ -84,6 +131,9 @@ function jsonIsNotEmpty(json) {
 }
 function storeInBrowser(json, storage) {
 	if (json.units) storage.set("units", json.units);
+	if (json.timef) storage.set("timef", json.timef);
+	if (json.lowAlarm) storage.set("lowAlarm", json.lowAlarm);
+	if (json.highAlarm) storage.set("highAlarm", json.highAlarm);
 	if (json.nightMode == true) {
 		storage.set("nightMode", true)
 	} else {
@@ -255,6 +305,9 @@ $("#showToolbar").find("a").click(function(event) {
 $("input#save").click(function() {
 	storeInBrowser({
 		"units": $("input:radio[name=units-browser]:checked").val(),
+		"timef": $("input:radio[name=time-browser]:checked").val(),
+		"lowAlarm": $("#lowMg").prop("value"),
+		"highAlarm": $("#hiMg").prop("value"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
 		"customTitle": $("input#customTitle").prop("value")
 	}, browserStorage);
@@ -300,4 +353,22 @@ $(function() {
 			closeToolbar();
 		}
 	}
+});
+
+// Convert mmol <--> mgdl //
+$("#lowMg").change(function() {
+	var MgtoMm = $("#lowMg").val();
+	$("#lowMm").val((MgtoMm/18.0192).toFixed(1));
+});
+$("#hiMg").change(function() {
+	var MgtoMm = $("#hiMg").val();
+	$("#hiMm").val((MgtoMm/18.0192).toFixed(1));
+});
+$("#lowMm").change(function() {
+	var MmtoMg = $("#lowMm").val();
+	$("#lowMg").val((MmtoMg*18.0192).toFixed(0));
+});
+$("#hiMm").change(function() {
+	var MmtoMg = $("#hiMm").val();
+	$("#hiMg").val((MmtoMg*18.0192).toFixed(0));
 });

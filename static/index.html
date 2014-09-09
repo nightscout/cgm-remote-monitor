@@ -65,8 +65,18 @@
                     <legend>Settings</legend>
                     <dl class="radio">
                         <dt>Units</dt>
-                        <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label><br />
-                        <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label>
+                        <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label><br /></dd>
+                        <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label></dd>
+                    </dl>
+                    <dl>
+                        <dt>Thresholds<br>(mg/dl / mmol)</dt>
+                        <dd><label for="lowMg">Low</label> &nbsp;<input type="text" id="lowMg" value="80" size="3" /> / <input type="text" id="lowMm" value="4.4" size="3" /></dd>
+                        <dd><label for="hiMg">High</label> <input type="text" id="hiMg" value="180" size="3" /> / <input type="text" id="hiMm" value="10.0" size="3" /></dd>
+                    </dl>
+                    <dl class="radio">
+                        <dt>Time</dt>
+                        <dd><input type="radio" name="time-browser" id="hr12-browser" value="12hr" checked /><label for="hr12-browser">12Hr</label><br /></dd>
+                        <dd><input type="radio" name="time-browser" id="hr24-browser" value="24hr" /><label for="hr24-browser">24Hr</label></dd>
                     </dl>
                     <dl class="toggle">
                         <dt>Night Mode <a class="tip" original-title="When enabled the page will be dimmed from 10pm - 6am."><i class="icon-help-circled"></i></a></dt>
@@ -103,8 +113,8 @@
         </div>
 
         <div class="audio alarms">
-            <audio src="/audio/alarm.mp3" preload="auto" loop="true" class="alarm mp3" type="audio/mp3"></audio>
-            <audio src="/audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
+            <audio src="/audio/alarm.mp3" preload="auto" loop class="alarm mp3" type="audio/mp3"></audio>
+            <audio src="/audio/alarm2.mp3" preload="auto" loop class="urgent alarm2 mp3" type="audio/mp3"></audio>
         </div>
         <script src="/socket.io/socket.io.js"></script>
         <script src="/api/v1/status.js"></script>

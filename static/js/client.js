@@ -25,7 +25,6 @@
         THIRTY_MINS_IN_MS = 1800000,
         FORTY_TWO_MINS_IN_MS = 2520000,
         FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
-        FORMAT_TIME = '%I:%M%', //alternate format '%H:%M'
         audio = document.getElementById('audio'),
         alarmInProgress = false,
         currentAlarmType = null,
@@ -39,6 +38,10 @@
     var tickValues = [40, 60, 80, 120, 180, 300, 400];
     if (browserSettings.units == "mmol") {
         var tickValues = [2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0];
+    }
+    var FORMAT_TIME = '%I:%M%';
+    if (browserSettings.timef == "24hr") {
+        var FORMAT_TIME = '%H:%M%'; //alternate format '%H:%M'
     }
 
     // create svg and g to contain the chart contents
@@ -71,7 +74,9 @@
     // Remove leading zeros from the time (eg. 08:40 = 8:40) & lowercase the am/pm
     function formatTime(time) {
         time = d3.time.format(FORMAT_TIME)(time);
-        time = time.replace(/^0/, '').toLowerCase();
+	    if (browserSettings.timef == "12hr") {
+	        time = time.replace(/^0/, '').toLowerCase();
+		}
         return time;
     }
 
@@ -698,6 +703,7 @@
                 $('.container .currentBG').text(currentBG);
                 $('.container .currentDirection').html(current.direction);
                 $('.container .current').toggleClass('high', current.y > 180).toggleClass('low', current.y < 70)
+				
             }
             data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), direction: obj.direction, color: 'grey'} });
             data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'blue'} }));
