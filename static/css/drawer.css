@@ -146,10 +146,9 @@ h1, legend,
     padding-top: 10px;
 }
 #buttonbar {
-    padding: 0;
+    padding-right: 10px;
     float: right;
     height: 44px;
-    width: 190px;
     opacity: 0.75;
     vertical-align: middle;
 }

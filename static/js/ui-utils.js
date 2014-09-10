@@ -15,7 +15,8 @@ $.ajax("/api/v1/status.json", {
 		app = {
 			"name": xhr.name,
 			"version": xhr.version,
-			"apiEnabled": xhr.apiEnabled
+			"apiEnabled": xhr.apiEnabled,
+			"careportalEnabled": xhr.careportalEnabled
 		}
 	}
 }).done(function() {
@@ -24,6 +25,7 @@ $.ajax("/api/v1/status.json", {
 	if (app.apiEnabled) {
 		$(".serverSettings").show();
 	}
+	$("#treatmentDrawerToggle").toggle(app.careportalEnabled);
 });
 
 
