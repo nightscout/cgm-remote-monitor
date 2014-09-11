@@ -8,8 +8,5 @@ my.env
 *.env
 static/bower_components/
 .*.sw?
-.DS_Store
 
 .vagrant
-/iisnode
-/web.config

@@ -21,41 +21,26 @@ function config ( ) {
 
   env.version = software.version;
   env.name = software.name;
-
-  env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
-  env.PORT = readENV('PORT', 1337);
-  env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI');
-  env.mongo_collection = readENV('MONGO_COLLECTION', 'entries');
-  env.settings_collection = readENV('MONGO_SETTINGS_COLLECTION', 'settings');
-  env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
-  env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
-
-  env.enable = readENV('ENABLE');
-
+  env.DISPLAY_UNITS = process.env.DISPLAY_UNITS || 'mg/dl';
+  env.PORT = process.env.PORT || 1337;
+  env.mongo = process.env.MONGO_CONNECTION || process.env.CUSTOMCONNSTR_mongo;
+  env.mongo_collection = process.env.CUSTOMCONNSTR_mongo_collection || 'entries';
+  env.settings_collection = process.env.CUSTOMCONNSTR_mongo_settings_collection || 'settings';
   var shasum = crypto.createHash('sha1');
-
-  /////////////////////////////////////////////////////////////////
-  // A little ugly, but we don't want to read the secret into a var
-  /////////////////////////////////////////////////////////////////
-  var useSecret = (readENV('API_SECRET') && readENV('API_SECRET').length > 0);
+  var useSecret = (process.env.API_SECRET && process.env.API_SECRET.length > 0);
   env.api_secret = null;
   // if a passphrase was provided, get the hex digest to mint a single token
   if (useSecret) {
-    if (readENV('API_SECRET').length < consts.MIN_PASSPHRASE_LENGTH) {
+    if (process.env.API_SECRET.length < consts.MIN_PASSPHRASE_LENGTH) {
       var msg = ["API_SECRET should be at least", consts.MIN_PASSPHRASE_LENGTH, "characters"];
       var err = new Error(msg.join(' '));
       // console.error(err);
       throw err;
       process.exit(1);
     }
-    shasum.update(readENV('API_SECRET'));
+    shasum.update(process.env.API_SECRET);
     env.api_secret = shasum.digest('hex');
   }
-
-  // For pushing notifications to Pushover.
-  env.pushover_api_token = readENV('PUSHOVER_API_TOKEN');
-  env.pushover_user_key = readENV('PUSHOVER_USER_KEY') || readENV('PUSHOVER_GROUP_KEY');
-
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.
   // This allows a provided json config to override environment variables
@@ -66,19 +51,8 @@ function config ( ) {
   env.mongo = DB_URL;
   env.mongo_collection = DB_COLLECTION;
   env.settings_collection = DB_SETTINGS_COLLECTION;
-  env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
-
+  var STATIC_FILES = __dirname + '/static/';
+  env.static_files = process.env.NIGHTSCOUT_STATIC_FILES || STATIC_FILES;
   return env;
 }
-
-function readENV(varName, defaultValue) {
-    //for some reason Azure uses this prefix, maybe there is a good reason
-    var value = process.env['CUSTOMCONNSTR_' + varName]
-        || process.env['CUSTOMCONNSTR_' + varName.toLowerCase()]
-        || process.env[varName]
-        || process.env[varName.toLowerCase()];
-
-    return value || defaultValue;
-}
-
 module.exports = config;
