@@ -24,34 +24,28 @@ $.ajax("/api/v1/status.json", {
 
 
 function getBrowserSettings(storage) {
-	var json = {};
-	try {
-		json = {
-			"units": storage.get("units"),
-			"nightMode": storage.get("nightMode"),
-			"customTitle": storage.get("customTitle")
-		};
+	var json = {
+		"units": storage.get("units"),
+		"nightMode": storage.get("nightMode"),
+		"customTitle": storage.get("customTitle")
+	};
 
-		// Default browser units to server units if undefined.
-		json.units = setDefault(json.units, serverSettings.units);
-		//console.log("browserSettings.units: " + json.units);
-		if (json.units == "mmol") {
-			$("#mmol-browser").prop("checked", true);
-		} else {
-			$("#mgdl-browser").prop("checked", true);
-		}
-
-		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
-		$("#nightmode-browser").prop("checked", json.nightMode);
-
-		if (json.customTitle) {
-			$("h1.customTitle").html(json.customTitle);
-			$("input#customTitle").prop("value", json.customTitle);
-			document.title = "Nightscout: " + json.customTitle;
-		}
+	// Default browser units to server units if undefined.
+	json.units = setDefault(json.units, serverSettings.units);
+	//console.log("browserSettings.units: " + json.units);
+	if (json.units == "mmol") {
+		$("#mmol-browser").prop("checked", true);
+	} else {
+		$("#mgdl-browser").prop("checked", true);
 	}
-	catch(err) {
-		showLocalstorageError();
+
+	json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
+	$("#nightmode-browser").prop("checked", json.nightMode);
+
+	if (json.customTitle) {
+		$("h1.customTitle").html(json.customTitle);
+		$("input#customTitle").prop("value", json.customTitle);
+		document.title = "Nightscout: " + json.customTitle;
 	}
 
 	return json;
@@ -158,12 +152,6 @@ function showNotification(note, type)  {
 	notify.find("span").html(note);
 	notify.css("left", "calc(50% - " + ($("#notification").width() / 2) + "px)");
 	notify.show();
-}
-
-function showLocalstorageError() {
-	var msg = "<b>Settings are disabled.</b><br /><br />Please enable cookies so you may customize your Nightscout site."
-	$(".browserSettings").html("<legend>Settings</legend>"+msg+"");
-	$("#save").hide();
 }
 
 

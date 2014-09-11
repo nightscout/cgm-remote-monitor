@@ -233,7 +233,7 @@
             } else {
                 $('.container .currentBG')
                     .text("---")
-                    .css('text-decoration','');
+                    .css('text-decoration','none');
             }
             $('#currentTime')
                 .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
@@ -244,10 +244,10 @@
             nowDate = dateTime;
             $('#currentTime')
                 .text(formatTime(dateTime))
-                .css('text-decoration','');
+                .css('text-decoration','none');
             $('.container .currentBG')
                 .text(scaleBg(latestSGV.y))
-                .css('text-decoration','');
+                .css('text-decoration','none');
             $('.container .currentDirection')
                 .html(latestSGV.direction);
         }
