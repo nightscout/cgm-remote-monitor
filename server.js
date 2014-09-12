@@ -26,12 +26,15 @@ var store = require('./lib/storage')(env);
 
 var express = require('express');
 
+var pushover = require('./lib/pushover')(env);
 ///////////////////////////////////////////////////
 // api and json object variables
 ///////////////////////////////////////////////////
 var entries = require('./lib/entries')(env.mongo_collection, store);
 var settings = require('./lib/settings')(env.settings_collection, store);
-var api = require('./lib/api/')(env, entries, settings);
+var treatments = require('./lib/treatments')(env.treatments_collection, store, pushover);
+var devicestatus = require('./lib/devicestatus')(env.devicestatus_collection, store);
+var api = require('./lib/api/')(env, entries, settings, treatments, devicestatus);
 var pebble = require('./lib/pebble');
 ///////////////////////////////////////////////////
 
@@ -39,7 +42,6 @@ var pebble = require('./lib/pebble');
 // setup http server
 ///////////////////////////////////////////////////
 var PORT = env.PORT;
-var THIRTY_DAYS = 2592000;
 
 var app = express();
 var appInfo = software.name + ' ' + software.version;
@@ -52,12 +54,13 @@ app.enable('trust proxy'); // Allows req.secure test on heroku https connections
 app.use('/api/v1', api);
 
 // pebble data
-app.get('/pebble', pebble(entries));
+app.get('/pebble', pebble(entries, devicestatus));
 
 //app.get('/package.json', software);
 
 // define static server
-var staticFiles = express.static(env.static_files, {maxAge: THIRTY_DAYS * 1000});
+//TODO: JC - changed cache to 1 hour from 30d ays to bypass cache hell until we have a real solution
+var staticFiles = express.static(env.static_files, {maxAge: 60 * 60 * 1000});
 
 // serve the static content
 app.use(staticFiles);
@@ -76,7 +79,7 @@ store(function ready ( ) {
   // setup socket io for data and message transmission
   ///////////////////////////////////////////////////
   var websocket = require('./lib/websocket');
-  var io = websocket(env, server, entries);
+  var io = websocket(env, server, entries, treatments);
 });
 
 ///////////////////////////////////////////////////
