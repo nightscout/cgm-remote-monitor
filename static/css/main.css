@@ -44,6 +44,7 @@ body {
     font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
     height: 180px;
     vertical-align: middle;
+    clear: both;
 }
 
 .bgStatus {
