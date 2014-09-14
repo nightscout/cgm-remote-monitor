@@ -40,8 +40,9 @@
     // Tick Values
     var tickValues = [40, 60, 80, 120, 180, 300, 400];
     if (browserSettings.units == "mmol") {
-        var tickValues = [2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0];
+        tickValues = [2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0];
     }
+
     var div = d3.select("body").append("div")
       .attr("class", "tooltip")
       .style("opacity", 0);
@@ -394,20 +395,20 @@
             treatCircles.transition()
                   .duration(UPDATE_TRANS_MS)
                   .attr('x', function (d) { return xScale(new Date(d.created_at)); })
-                  .attr('y', function (d) { return yScale(500); })
+                  .attr('y', function (d) { return yScale(scaleBg(500)); })
                   .attr("width", 15)
                   .attr("height", 15)
                   .attr("rx", 6)
                   .attr("ry", 6)
                   .attr('stroke-width', 2)
                   .attr('stroke', function (d) { return "white"; })
-                  .attr('fill', function (d) { return "grey"; })
+                  .attr('fill', function (d) { return "grey"; });
 
 
             // if new circle then just display
             treatCircles.enter().append('rect')
                   .attr('x', function (d) { return xScale(d.created_at); })
-                  .attr('y', function (d) { return yScale(500); })
+                  .attr('y', function (d) { return yScale(scaleBg(500)); })
                   .attr("width", 15)
                   .attr("height", 15)
                   .attr("rx", 6)
@@ -799,18 +800,18 @@
                 }
             }
             data = d[0].map(function (obj) {
-                return { date: new Date(obj.x), sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y)}
+                return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y)}
             });
             // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
             // This shouldn't have to be sent and can be fixed by using xScale.domain([x0,x1]) function with
             // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
             // required to happen when "now" event is sent from websocket.js every minute.  When fixed,
             // remove all "color != 'none'" code
-            data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'none'} }));
-            data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), sgv: scaleBg(obj.y), color: 'red'} }));
+            data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'none'} }));
+            data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red'} }));
             
             data.forEach(function (d) {
-                if (d.sgv < 39)
+                if (d.y < 39)
                     d.color = "transparent";
             });
 
@@ -1054,9 +1055,9 @@
         var ONE_MINUTE = 60 * 1000;
         var FIVE_MINUTES = 5 * ONE_MINUTE;
         var predicted = [];
-        var BG_REF = 140;
-        var BG_MIN = 36;
-        var BG_MAX = 400;
+        var BG_REF = scaleBg(140);
+        var BG_MIN = scaleBg(36);
+        var BG_MAX = scaleBg(400);
         // these are the one sigma limits for the first 13 prediction interval uncertainties (65 minutes)
         var CONE = [0.020, 0.041, 0.061, 0.081, 0.099, 0.116, 0.132, 0.146, 0.159, 0.171, 0.182, 0.192, 0.201];
         if (actual.length < 2) {
