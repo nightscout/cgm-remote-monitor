@@ -260,7 +260,7 @@
         } else {
             // if the brush comes back into the current time range then it should reset to the current time and sg
             var nowData = data.filter(function(d) {
-                return d.color != 'none';
+                return d.color != 'none' && d.color != 'red';
             });
             nowData = [nowData[nowData.length - 2], nowData[nowData.length - 1]];
             var prediction = predictAR(nowData);
