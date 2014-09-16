@@ -17,6 +17,57 @@
 #drawer i {
     opacity: 0.6;
 }
+
+#treatmentDrawer {
+    background-color: #666;
+    border-left: 1px solid #999;
+    box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
+    color: #eee;
+    display: none;
+    font-size: 16px;
+    height: calc(100% - 45px);
+    overflow-y: auto;
+    position: absolute;
+    margin-top: 45px;
+    right: -200px;
+    width: 300px;
+    top: 0;
+    z-index: 1;
+}
+#treatmentDrawer i {
+    opacity: 0.6;
+}
+
+#treatmentDrawer a {
+  color: white;
+}
+
+#treatmentDrawer input {
+  box-sizing: border-box;
+}
+
+#treatmentDrawer label.left-column {
+  display: block;
+  width: 100%;
+}
+
+#treatmentDrawer label.left-column span {
+  width: 110px;
+  display: inline-block;
+}
+
+#treatmentDrawer label.left-column input, #treatmentDrawer label.left-column select {
+  width: 140px;
+}
+
+#treatmentDrawer #glucoseValue {
+  width: 230px;
+}
+
+#treatmentDrawer #notes {
+  width: 250px;
+}
+
 #about {
     margin-top: 1em;
 }
@@ -92,15 +143,15 @@ h1, legend,
     font-size: 16px;
     margin-top: 0;
     margin-left: 42px;
-    padding: 10px;
+    padding-top: 10px;
 }
 #buttonbar {
-    padding: 0;
+    padding-right: 10px;
     float: right;
     height: 44px;
-    width: 180px;
     opacity: 0.75;
     vertical-align: middle;
+    width: 20ex;
 }
 #buttonbar div {
     border-radius: 5px;
@@ -118,7 +169,7 @@ h1, legend,
 #buttonbar a {
     float: left;
     text-decoration: none;
-    width: 44px;
+    width: 34px;
 }
 #buttonbar i {
     padding-left: 12px;
