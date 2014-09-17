@@ -349,7 +349,7 @@
             .attr('cy', function (d) { return yScale(d.sgv); })
             .attr('fill', function (d) { return d.color; })
             .attr('opacity', function (d) { return futureOpacity(d.date - latestSGV.x); })
-            .attr('r', 3);
+            .attr('r', function(d) { if (d.type == 'mbg') return 6; else return 3;});
 
         focusCircles.exit()
             .remove();
@@ -744,7 +744,7 @@
             .attr('cy', function (d) { return yScale2(d.sgv); })
             .attr('fill', function (d) { return d.color; })
             .style('opacity', function (d) { return highlightBrushPoints(d) })
-            .attr('r', 2);
+            .attr('r', function(d) { if (d.type == 'mbg') return 4; else return 2;});
 
         contextCircles.exit()
             .remove();
