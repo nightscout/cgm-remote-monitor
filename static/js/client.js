@@ -238,9 +238,16 @@
                 var prediction = predictAR(nowData);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
-                $('.container .currentBG')
-                    .text(focusPoint.sgv)
-                    .css('text-decoration','line-through');
+
+                //in this case the SGV is scaled
+                if (focusPoint.sgv < scaleBg(40))
+                    $('.container .currentBG').text('LOW');
+                else if (focusPoint.sgv > scaleBg(400))
+                    $('.container .currentBG').text('HIGH');
+                else
+                    $('.container .currentBG').text(focusPoint.sgv);
+
+                $('.container .currentBG').css('text-decoration','line-through');
                 $('.container .currentDirection')
                     .html(focusPoint.direction)
             } else {
@@ -304,9 +311,15 @@
                 var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
                 $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
 
-                $('.container .currentBG')
-                    .text(scaleBg(latestSGV.y))
-                    .css('text-decoration', '');
+                //in this case the SGV is unscaled
+                if (latestSGV.y < 40)
+                    $('.container .currentBG').text('LOW');
+                else if (latestSGV.y > 400)
+                    $('.container .currentBG').text('HIGH');
+                else
+                    $('.container .currentBG').text(scaleBg(latestSGV.y));
+
+                $('.container .currentBG').css('text-decoration', '');
                 $('.container .currentDirection')
                     .html(latestSGV.direction);
 
