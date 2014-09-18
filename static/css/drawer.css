@@ -147,10 +147,11 @@ h1, legend,
 }
 #buttonbar {
     padding-right: 10px;
-    float: right;
     height: 44px;
     opacity: 0.75;
     vertical-align: middle;
+    position: absolute;
+    right: 0;
 }
 #buttonbar div {
     border-radius: 5px;
