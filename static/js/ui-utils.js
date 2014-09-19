@@ -15,6 +15,7 @@ $.ajax("/api/v1/status.json", {
 		app = {
 			"name": xhr.name,
 			"version": xhr.version,
+			"head": xhr.head,
 			"apiEnabled": xhr.apiEnabled,
 			"careportalEnabled": xhr.careportalEnabled
 		}
@@ -22,6 +23,7 @@ $.ajax("/api/v1/status.json", {
 }).done(function() {
 	$(".appName").text(app.name);
 	$(".version").text(app.version);
+	$(".head").text(app.head);
 	if (app.apiEnabled) {
 		$(".serverSettings").show();
 	}
