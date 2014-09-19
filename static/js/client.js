@@ -232,15 +232,22 @@
             var nowData = data.filter(function(d) {
                 return d.date.getTime() >= brushExtent[1].getTime() - FORTY_TWO_MINS_IN_MS &&
                     d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS &&
-                    d.color != 'none';
+                    d.type == 'sgv';
             });
             if (nowData.length > 1) {
                 var prediction = predictAR(nowData);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
-                $('.container .currentBG')
-                    .text(focusPoint.sgv)
-                    .css('text-decoration','line-through');
+
+                //in this case the SGV is scaled
+                if (focusPoint.sgv < scaleBg(40))
+                    $('.container .currentBG').text('LOW');
+                else if (focusPoint.sgv > scaleBg(400))
+                    $('.container .currentBG').text('HIGH');
+                else
+                    $('.container .currentBG').text(focusPoint.sgv);
+
+                $('.container .currentBG').css('text-decoration','line-through');
                 $('.container .currentDirection')
                     .html(focusPoint.direction)
             } else {
@@ -260,7 +267,7 @@
         } else {
             // if the brush comes back into the current time range then it should reset to the current time and sg
             var nowData = data.filter(function(d) {
-                return d.color != 'none' && d.color != 'red';
+                return d.type == 'sgv';
             });
             nowData = [nowData[nowData.length - 2], nowData[nowData.length - 1]];
             var prediction = predictAR(nowData);
@@ -304,9 +311,15 @@
                 var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
                 $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
 
-                $('.container .currentBG')
-                    .text(scaleBg(latestSGV.y))
-                    .css('text-decoration', '');
+                //in this case the SGV is unscaled
+                if (latestSGV.y < 40)
+                    $('.container .currentBG').text('LOW');
+                else if (latestSGV.y > 400)
+                    $('.container .currentBG').text('HIGH');
+                else
+                    $('.container .currentBG').text(scaleBg(latestSGV.y));
+
+                $('.container .currentBG').css('text-decoration', '');
                 $('.container .currentDirection')
                     .html(latestSGV.direction);
 
@@ -336,7 +349,7 @@
             .attr('cy', function (d) { return yScale(d.sgv); })
             .attr('fill', function (d) { return d.color; })
             .attr('opacity', function (d) { return futureOpacity(d.date - latestSGV.x); })
-            .attr('r', 3);
+            .attr('r', function(d) { if (d.type == 'mbg') return 6; else return 3;});
 
         focusCircles.exit()
             .remove();
@@ -731,7 +744,7 @@
             .attr('cy', function (d) { return yScale2(d.sgv); })
             .attr('fill', function (d) { return d.color; })
             .style('opacity', function (d) { return highlightBrushPoints(d) })
-            .attr('r', 2);
+            .attr('r', function(d) { if (d.type == 'mbg') return 4; else return 2;});
 
         contextCircles.exit()
             .remove();
@@ -800,15 +813,17 @@
                 }
             }
             data = d[0].map(function (obj) {
-                return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y)}
+                return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
             });
             // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
             // This shouldn't have to be sent and can be fixed by using xScale.domain([x0,x1]) function with
             // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
             // required to happen when "now" event is sent from websocket.js every minute.  When fixed,
             // remove all "color != 'none'" code
-            data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'none'} }));
-            data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red'} }));
+            data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'none', type: 'server-forecast'} }));
+
+            //Add MBG's also, pretend they are SGV's
+            data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg'} }));
             
             data.forEach(function (d) {
                 if (d.y < 39)
@@ -1092,6 +1107,7 @@
                 color: predictedColor
             };
             predicted.forEach(function (d) {
+                d.type = 'forecast';
                 if (d.sgv < BG_MIN)
                     d.color = "transparent";
             })
