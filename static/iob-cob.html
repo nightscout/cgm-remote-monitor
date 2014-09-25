@@ -31,6 +31,10 @@
                         $scope.treatments = treatments.slice(0, 500);
                         $scope.iobTotal = iobTotal(treatments.slice(0, 100));
                     });
+                    $http.get('/api/v1/profile').success(function(profile) {
+                        $scope.profile = profile.slice(0, 500);
+			console.info(profile);
+                    });
                 }
             }
 
@@ -72,15 +76,23 @@
 
             $scope.iob = function(treatment) {
 
-                var dia=3;
-                var peak=75;
-                var sens=175;
+                var dia=$scope.profile[0].dia;
+                if (dia == 3) {
+                    var peak=75;
+                } else {
+                    console.warn('DIA of ' + dia + 'not supported');
+                }
+                var sens=$scope.profile[0].sens;
                 var curtime=new Date();
 
                 if (treatment.insulin) {
                     var bolustime=new Date(treatment.created_at);
                     var minago=(curtime-bolustime)/1000/60;
 
+                    if (minago < 0) { 
+                        var iobcontrib=0;
+                        var activitycontrib=0;
+                    }
                     if (minago < peak) {
                         var x = minago/5+1;
                         var iobcontrib=treatment.insulin*(1-0.001852*x*x+0.001852*x);
