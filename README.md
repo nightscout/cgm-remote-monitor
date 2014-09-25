@@ -102,7 +102,9 @@ License
 [agpl-3]: http://www.gnu.org/licenses/agpl-3.0.txt
 
     cgm-remote-monitor - web app to broadcast cgm readings
-    Copyright (C) 2014 Ben West, Nightscout contributors
+    Copyright (C) 2014 Nightscout contributors.  See the COPYRIGHT file
+    at the root directory of this distribution and at
+    https://github.com/nightscout/cgm-remote-monitor/blob/master/COPYRIGHT
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published
