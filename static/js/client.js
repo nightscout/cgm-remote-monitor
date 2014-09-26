@@ -642,18 +642,18 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(240)))
+                    .attr('y1', yScale(scaleBg(targetTop)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(240)));
+                    .attr('y2', yScale(scaleBg(targetTop)));
 
                 // transition low line to correct location
                 focus.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(70)))
+                    .attr('y1', yScale(scaleBg(targetBottom)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(70)));
+                    .attr('y2', yScale(scaleBg(targetBottom)));
 
                 // transition open-top line to correct location
                 focus.select('.open-top')
@@ -806,10 +806,10 @@
 
                 //TODO: alarmHigh/alarmLow probably shouldn't be here
                 if (browserSettings.alarmHigh) {
-                    $('.container .current').toggleClass('high', latestSGV.y > 240);
+                    $('.container .current').toggleClass('high', latestSGV.y > targetTop);
                 }
                 if (browserSettings.alarmLow) {
-                    $('.container .current').toggleClass('low', latestSGV.y < 70);
+                    $('.container .current').toggleClass('low', latestSGV.y < targetBottom);
                 }
             }
             data = d[0].map(function (obj) {
