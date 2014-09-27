@@ -47,7 +47,7 @@
       .attr("class", "tooltip")
       .style("opacity", 0);
     //TODO: get these from the config
-    var targetTop = 180,
+    var targetTop = 150,
         targetBottom = 80;
 
     var futureOpacity = d3.scale.linear( )
@@ -95,6 +95,10 @@
         } else {
             return bg;
         }
+    }
+
+    function rawIsigToRawBg(rawIsig, scale, intercept, slope, adjust) {
+       return scale*(rawIsig-intercept)/slope;
     }
 
     // initial setup of chart when data is first made available
@@ -191,7 +195,7 @@
         if (!skipTimer) {
             // set a timer to reset focus chart to real-time data
             clearTimeout(brushTimer);
-            brushTimer = setTimeout(updateBrushToNow, BRUSH_TIMEOUT);
+            brushTimer = setTimeout(updateBrushToNonywayw, BRUSH_TIMEOUT);
             brushInProgress = true;
         }
 
@@ -539,9 +543,9 @@
                 focus.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(scaleBg(180)))
+                    .attr('y1', yScale(scaleBg(150)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(scaleBg(180)))
+                    .attr('y2', yScale(scaleBg(150)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -585,9 +589,9 @@
                 context.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(180)))
+                    .attr('y1', yScale2(scaleBg(150)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(180)))
+                    .attr('y2', yScale2(scaleBg(150)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -642,9 +646,9 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(180)))
+                    .attr('y1', yScale(scaleBg(150)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(180)));
+                    .attr('y2', yScale(scaleBg(150)));
 
                 // transition low line to correct location
                 focus.select('.low-line')
@@ -803,6 +807,7 @@
             // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
             if (d[0].length) {
                 latestSGV = d[0][d[0].length - 1];
+                console.log(latestSGV.rawIsig);
 
                 //TODO: alarmHigh/alarmLow probably shouldn't be here
                 if (browserSettings.alarmHigh) {
@@ -815,6 +820,13 @@
             data = d[0].map(function (obj) {
                 return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
             });
+            var temp = d[0].map(function (obj) {
+                   var rawBg = rawIsigToRawBg(obj.rawIsig, obj.scale, obj.intercept, obj.slope);
+                   console.log("rawBg: " + rawBg);
+                   return { date: new Date(obj.x+60*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'sgv'}
+            });
+            data.concat(data, temp);
+
             // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
             // This shouldn't have to be sent and can be fixed by using xScale.domain([x0,x1]) function with
             // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
