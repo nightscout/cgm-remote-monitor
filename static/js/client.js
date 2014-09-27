@@ -195,7 +195,7 @@
         if (!skipTimer) {
             // set a timer to reset focus chart to real-time data
             clearTimeout(brushTimer);
-            brushTimer = setTimeout(updateBrushToNonywayw, BRUSH_TIMEOUT);
+            brushTimer = setTimeout(updateBrushToNon, BRUSH_TIMEOUT);
             brushInProgress = true;
         }
 
@@ -807,7 +807,6 @@
             // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
             if (d[0].length) {
                 latestSGV = d[0][d[0].length - 1];
-                console.log(latestSGV.rawIsig);
 
                 //TODO: alarmHigh/alarmLow probably shouldn't be here
                 if (browserSettings.alarmHigh) {
@@ -817,15 +816,17 @@
                     $('.container .current').toggleClass('low', latestSGV.y < 70);
                 }
             }
-            data = d[0].map(function (obj) {
+            var temp0 = d[0].map(function (obj) {
                 return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
             });
-            var temp = d[0].map(function (obj) {
+            var temp1 = d[0].map(function (obj) {
                    var rawBg = rawIsigToRawBg(obj.rawIsig, obj.scale, obj.intercept, obj.slope);
-                   console.log("rawBg: " + rawBg);
-                   return { date: new Date(obj.x+60*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'sgv'}
+                   //console.log("rawBg: " + rawBg);
+                   // TODO: figure out how to make this work, preferably without offsetting the date: value.
+                   return { date: new Date(obj.x+3*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'sgv'}
             });
-            data.concat(data, temp);
+            data = [];
+            data = data.concat(temp0, temp1)
 
             // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
             // This shouldn't have to be sent and can be fixed by using xScale.domain([x0,x1]) function with
