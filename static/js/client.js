@@ -98,7 +98,8 @@
     }
 
     function rawIsigToRawBg(rawIsig, scale, intercept, slope, adjust) {
-       return scale*(rawIsig-intercept)/slope;
+        if (slope == 0 || rawIsig == 0 || scale ==0 ) return 0;
+        else return scale*(rawIsig-intercept)/slope;
     }
 
     // initial setup of chart when data is first made available
@@ -195,7 +196,7 @@
         if (!skipTimer) {
             // set a timer to reset focus chart to real-time data
             clearTimeout(brushTimer);
-            brushTimer = setTimeout(updateBrushToNon, BRUSH_TIMEOUT);
+            brushTimer = setTimeout(updateBrushToNow, BRUSH_TIMEOUT);
             brushInProgress = true;
         }
 
@@ -817,13 +818,14 @@
                 }
             }
             var temp0 = d[0].map(function (obj) {
-                return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
+                var rawBg = rawIsigToRawBg(obj.rawIsig, obj.scale, obj.intercept, obj.slope);
+                //console.log("rawBg: " + rawBg);
+                // TODO: figure out how to make this work without offsetting the date: value.
+                //if(obj.slope <= 0) return [];
+                return { date: new Date(obj.x+3*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'sgv'}
             });
             var temp1 = d[0].map(function (obj) {
-                   var rawBg = rawIsigToRawBg(obj.rawIsig, obj.scale, obj.intercept, obj.slope);
-                   //console.log("rawBg: " + rawBg);
-                   // TODO: figure out how to make this work, preferably without offsetting the date: value.
-                   return { date: new Date(obj.x+3*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'sgv'}
+                return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
             });
             data = [];
             data = data.concat(temp0, temp1)
