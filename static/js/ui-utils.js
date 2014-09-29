@@ -5,6 +5,8 @@ var defaultSettings = {
 	"units": "mg/dl",
 	"alarmHigh": true,
 	"alarmLow": true,
+	"targetTop" : 180,
+	"targetBottom" : 80,
 	"nightMode": false,
 	"theme": "default"
 };
@@ -38,6 +40,8 @@ function getBrowserSettings(storage) {
 			"units": storage.get("units"),
 			"alarmHigh": storage.get("alarmHigh"),
 			"alarmLow": storage.get("alarmLow"),
+			"targetTop" : storage.get("targetTop"),
+			"targetBottom" : storage.get("targetBottom"),
 			"nightMode": storage.get("nightMode"),
 			"customTitle": storage.get("customTitle"),
 			"theme": storage.get("theme")
@@ -56,6 +60,11 @@ function getBrowserSettings(storage) {
 		json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
 		$("#alarmlow-browser").prop("checked", json.alarmLow);
 
+		json.targetTop = setDefault(json.targetTop, defaultSettings.targetTop);
+		$("#targetTop-browser").prop("checked", json.targetTop);
+		json.targetBottom = setDefault(json.targetBottom, defaultSettings.targetBottom);
+		$("#targetBottom-browser").prop("checked", json.targetBottom);
+		
 		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 		$("#nightmode-browser").prop("checked", json.nightMode);
 
@@ -114,6 +123,22 @@ function storeInBrowser(json, storage) {
 		storage.set("alarmLow", true)
 	} else {
 		storage.set("alarmLow", false)
+	}
+	if (json.targetTop == 250) {
+		storage.set("targetTop", 250)
+	} else if (json.targetTop == 220) {
+		storage.set("targetTop", 220)
+	}
+	} else {
+		storage.set("targetTop", 180)
+	}
+	if (json.targetBottom == 70) {
+		storage.set("targetBottom", 70)
+	} else if (json.targetBottom == 100) {
+		storage.set("targetBottom", 100)
+	}
+	} else {
+		storage.set("targetBottom", 80)
 	}
 	if (json.nightMode == true) {
 		storage.set("nightMode", true)
