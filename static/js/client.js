@@ -47,8 +47,8 @@
       .attr("class", "tooltip")
       .style("opacity", 0);
     //TODO: get these from the config
-    var targetTop = 'targetTop-browser',
-        targetBottom = 'targetBottom-browser';
+    var targetTop = browserSettings.targetTop,
+        targetBottom = browserSettings.targetBottom;
 
     var futureOpacity = d3.scale.linear( )
         .domain([TWENTY_FIVE_MINS_IN_MS, SIXTY_MINS_IN_MS])
