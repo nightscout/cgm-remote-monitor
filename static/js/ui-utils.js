@@ -5,8 +5,8 @@ var defaultSettings = {
 	"units": "mg/dl",
 	"alarmHigh": true,
 	"alarmLow": true,
-	"targetTop"= 180,
-	"targetBottom"= 80,
+	"targetTop": 180,
+	"targetBottom": 80,
 	"nightMode": false,
 	"theme": "default"
 };
@@ -100,7 +100,38 @@ function getServerSettings() {
 	}
 
 	return json;
+	var json = {
+		"targetTop": Object()
+	};
+
+	json.targetTop = setDefault(json.targeTop, defaultSettings.targetTop);
+	//console.log("serverSettings.units: " + json.units);
+	if (json.targetTop == 180) {
+		$("#targetTop180-server").prop("checked", true);
+	} else if {
+		$("#targetTop250-server").prop("checked", true);
+	} else {
+		$("#targetTop220-server").prop("checked", true);
+	}
+
+	return json;
+	var json = {
+		"targetBottom": Object()
+	};
+
+	json.targetBottom = setDefault(json.targetBottom, defaultSettings.targetBottom);
+	//console.log("serverSettings.units: " + json.units);
+	if (json.units == 80) {
+		$("#targetBottom80-server").prop("checked", true);
+	} else if {
+		$("#targetBottom100-server").prop("checked", true);
+	} else {
+		$("#targetBottom70-server").prop("checked", true);
+	}
+
+	return json;
 }
+
 function setDefault(variable, defaultValue) {
 	if (typeof(variable) === "object") {
 		return defaultValue;
