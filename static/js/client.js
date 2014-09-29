@@ -98,7 +98,7 @@
     }
 
     function rawIsigToRawBg(rawIsig, scale, intercept, slope, adjust) {
-        if (slope == 0 || rawIsig == 0 || scale ==0 ) return 0;
+        if (slope == 0 || rawIsig == 0 || scale ==0  || slope == null || rawIsig == null || scale == null) return 0;
         else return scale*(rawIsig-intercept)/slope;
     }
 
