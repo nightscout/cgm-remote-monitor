@@ -124,22 +124,8 @@ function storeInBrowser(json, storage) {
 	} else {
 		storage.set("alarmLow", false)
 	}
-	if (json.targetTop == 250) {
-		storage.set("targetTop", 250)
-	} else if (json.targetTop == 220) {
-		storage.set("targetTop", 220)
-	}
-	} else {
-		storage.set("targetTop", 180)
-	}
-	if (json.targetBottom == 70) {
-		storage.set("targetBottom", 70)
-	} else if (json.targetBottom == 100) {
-		storage.set("targetBottom", 100)
-	}
-	} else {
-		storage.set("targetBottom", 80)
-	}
+	if (json.targetTop) storage.set("targetTop", json.targetTop);
+	if (json.targetBottom) storage.set("targetBottom", json.targetBottom);
 	if (json.nightMode == true) {
 		storage.set("nightMode", true)
 	} else {
