@@ -5,8 +5,8 @@ var defaultSettings = {
 	"units": "mg/dl",
 	"alarmHigh": true,
 	"alarmLow": true,
-	"targetTop" : 180,
-	"targetBottom" : 80,
+	"targetTop"= 180,
+	"targetBottom"= 80,
 	"nightMode": false,
 	"theme": "default"
 };
@@ -60,10 +60,10 @@ function getBrowserSettings(storage) {
 		json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
 		$("#alarmlow-browser").prop("checked", json.alarmLow);
 
-		json.targetTop = setDefault(json.targetTop, defaultSettings.targetTop);
-		$("#targetTop-browser").prop("checked", json.targetTop);
-		json.targetBottom = setDefault(json.targetBottom, defaultSettings.targetBottom);
-		$("#targetBottom-browser").prop("checked", json.targetBottom);
+		//json.targetTop = setDefault(json.targetTop, defaultSettings.targetTop);
+		//$("#targetTop-browser").prop("checked", json.targetTop);
+		//json.targetBottom = setDefault(json.targetBottom, defaultSettings.targetBottom);
+		//$("#targetBottom-browser").prop("checked", json.targetBottom);
 		
 		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 		$("#nightmode-browser").prop("checked", json.nightMode);
