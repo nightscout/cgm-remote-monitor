@@ -60,10 +60,10 @@ function getBrowserSettings(storage) {
 		json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
 		$("#alarmlow-browser").prop("checked", json.alarmLow);
 
-		//json.targetTop = setDefault(json.targetTop, defaultSettings.targetTop);
-		//$("#targetTop-browser").prop("checked", json.targetTop);
-		//json.targetBottom = setDefault(json.targetBottom, defaultSettings.targetBottom);
-		//$("#targetBottom-browser").prop("checked", json.targetBottom);
+		json.targetTop = setDefault(json.targetTop, defaultSettings.targetTop);
+		$("#targetTop180-browser").prop("checked", json.targetTop);
+		json.targetBottom = setDefault(json.targetBottom, defaultSettings.targetBottom);
+		$("#targetBottom80-browser").prop("checked", json.targetBottom);
 		
 		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 		$("#nightmode-browser").prop("checked", json.nightMode);
@@ -106,7 +106,7 @@ function getServerSettings() {
 
 	json.targetTop = setDefault(json.targeTop, defaultSettings.targetTop);
 	//console.log("serverSettings.units: " + json.units);
-	if (json.targetTop == 180) {
+	if (json.targetTop = 180) {
 		$("#targetTop180-server").prop("checked", true);
 	} else if {
 		$("#targetTop250-server").prop("checked", true);
@@ -121,7 +121,7 @@ function getServerSettings() {
 
 	json.targetBottom = setDefault(json.targetBottom, defaultSettings.targetBottom);
 	//console.log("serverSettings.units: " + json.units);
-	if (json.units == 80) {
+	if (json.targetBottom = 80) {
 		$("#targetBottom80-server").prop("checked", true);
 	} else if {
 		$("#targetBottom100-server").prop("checked", true);
