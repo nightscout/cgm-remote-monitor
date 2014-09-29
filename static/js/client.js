@@ -46,7 +46,7 @@
     var div = d3.select("body").append("div")
       .attr("class", "tooltip")
       .style("opacity", 0);
-    //TODO: get these from the config
+    //TODO: get these from the broswerSettings.targetTop and targetBottom
     var targetTop = 250,
         targetBottom = 70;
 
