@@ -4,6 +4,7 @@
     var latestSGV,
         errorCode,
         treatments,
+        profile,
         padding = { top: 20, right: 10, bottom: 30, left: 10 },
         opacity = {current: 1, DAY: 1, NIGHT: 0.5},
         now = Date.now(),
@@ -240,7 +241,7 @@
                     d.type == 'sgv';
             });
             if (nowData.length > 1) {
-                var prediction = predictAR(nowData);
+                var prediction = predictDIYPS(nowData, treatments, profile);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
 
@@ -275,7 +276,7 @@
                 return d.type == 'sgv';
             });
             nowData = [nowData[nowData.length - 2], nowData[nowData.length - 1]];
-            var prediction = predictAR(nowData);
+            var prediction = predictDIYPS(nowData, treatments, profile);
             focusData = focusData.concat(prediction);
             var dateTime = new Date(now);
             nowDate = dateTime;
@@ -850,6 +851,8 @@
                 d.created_at = new Date(d.created_at);
             });
 
+            profile = d[5][0];
+
             if (!isInitialData) {
                 isInitialData = true;
                 initializeCharts();
@@ -1081,14 +1084,16 @@
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // function to predict
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    function predictAR(actual) {
+    function predictDIYPS(actual, treatments, profile) {
         var ONE_MINUTE = 60 * 1000;
         var FIVE_MINUTES = 5 * ONE_MINUTE;
         var predicted = [];
         var BG_REF = scaleBg(140);
         var BG_MIN = scaleBg(36);
         var BG_MAX = scaleBg(400);
+        var predict_hr = 3;
         // these are the one sigma limits for the first 13 prediction interval uncertainties (65 minutes)
+        /*
         var CONE = [0.020, 0.041, 0.061, 0.081, 0.099, 0.116, 0.132, 0.146, 0.159, 0.171, 0.182, 0.192, 0.201];
         if (actual.length < 2) {
             var y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[0].sgv / BG_REF)];
@@ -1101,24 +1106,19 @@
             }
         }
         var AR = [-0.723, 1.716];
+        */
         var dt = actual[1].date.getTime();
         var predictedColor = 'blue';
         if (browserSettings.theme == "colors") {
-            predictedColor = 'cyan';
+            predictedColor = 'purple';
         }
-        for (var i = 0; i < CONE.length; i++) {
-            y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
+        var bgPred = bgPredictions(treatments, actual, predict_hr);
+        for (var i = 0; i < predict_hr*60/5-1; i++) {
             dt = dt + FIVE_MINUTES;
             // Add 2000 ms so not same point as SG
-            predicted[i * 2] = {
+            predicted[i] = {
                 date: new Date(dt + 2000),
-                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] - 2 * CONE[i]))))),
-                color: predictedColor
-            };
-            // Add 4000 ms so not same point as SG
-            predicted[i * 2 + 1] = {
-                date: new Date(dt + 4000),
-                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] + 2 * CONE[i]))))),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX,bgPred.predBgs[i+1].bg)),
                 color: predictedColor
             };
             predicted.forEach(function (d) {
@@ -1129,4 +1129,199 @@
         }
         return predicted;
     }
+
+
+    function iobTotal(treatments, time) {
+        //console.info("iobTotal called");
+        var iob= 0;
+        var activity = 0;
+        if (!treatments) return {};
+
+        treatments.forEach(function(treatment) {
+            var tIOB = iobCalc(treatment, time);
+            if (tIOB && tIOB.iobContrib) iob += tIOB.iobContrib;
+            if (tIOB && tIOB.activityContrib) activity += tIOB.activityContrib;
+        });
+        return {
+            iob: iob,
+            activity: activity
+        };
+    }
+
+    function cobTotal(treatments, time) {
+        //console.info("cobTotal called");
+        var cob=0;
+        if (!treatments) return {};
+        if (typeof time === 'undefined') {
+            var time = new Date();
+        }
+
+        var isDecaying = 0;
+        var lastDecayedBy = new Date("1/1/1970");
+        var carbs_hr = profile.carbs_hr;
+
+        treatments.forEach(function(treatment) {
+            if(treatment.carbs) {
+                var tCOB = cobCalc(treatment, lastDecayedBy, time);
+                if (tCOB) {
+                    lastDecayedBy = tCOB.decayedBy;
+                    if (tCOB.carbsleft) {
+                        var carbsleft = + tCOB.carbsleft;
+                    }
+                }
+
+                var decaysin_hr = (lastDecayedBy-time)/1000/60/60;
+                if (decaysin_hr > 0) {
+                    cob = Math.min(tCOB.initialCarbs, decaysin_hr * carbs_hr);
+                    isDecaying = tCOB.isDecaying;
+                }
+                else { 
+                    cob = 0;
+                }
+            }
+        });
+        var sens = profile.sens;
+        var carbratio = profile.carbratio;
+        var carbImpact = isDecaying*sens/carbratio*carbs_hr/60;
+        return {
+            decayedBy: lastDecayedBy,
+            isDecaying: isDecaying,
+            carbs_hr: carbs_hr,
+            carbImpact: carbImpact,
+            cob: cob
+        };
+    }
+
+    function bgPredictions(treatments, current, predict_hr) {
+        console.info("bgPredictions called");
+        var tick = 5;
+        var curtime=new Date();
+        var endtime=new Date();
+
+        var sgv=parseInt(current[1].sgv);
+        var bgi = sgv;
+        var initBg = {}, predBgs = [];
+        initBg.bg = sgv;
+        initBg.time = curtime;
+        predBgs.push(initBg);
+
+        var carbsDecaying = 0;
+        endtime.setHours(endtime.getHours() + predict_hr);
+
+        var treatments_r = treatments;
+
+        var t = new Date(curtime.getTime());
+        for (t.setMinutes(t.getMinutes() + tick); t < endtime; t.setMinutes(t.getMinutes() + tick)) {
+            var sens = profile.sens;
+            var carbratio = profile.carbratio;
+            var carbs_hr = profile.carbs_hr;
+            var carbImpact = cobTotal(treatments_r, t).carbImpact*tick;
+            var insulinImpact = iobTotal(treatments, t).activity*tick;
+            var totalImpact = carbImpact-insulinImpact;
+            bgi = bgi + totalImpact;
+            var time = new Date(t.getTime());
+            var predBg = {};
+            predBg.bg = bgi;
+            predBg.time = time;
+            predBgs.push(predBg);
+        }
+
+        var max = Math.round(Math.max(predBgs));
+        var min = Math.round(Math.min(predBgs));
+        return {
+            predBgs: predBgs,
+            max: max,
+            min: min,
+            sens: sens,
+            sgv: sgv
+        };
+    }
+
+
+    function cobCalc(treatment, lastDecayedBy, time) {
+
+        var carbs_hr = profile.carbs_hr;
+        var delay = 20;
+        var carbs_min = carbs_hr / 60;
+        var isDecaying = 0;        
+        var initialCarbs;
+
+        if (treatment.carbs) {
+            var carbTime = new Date(treatment.created_at);
+
+            var decayedBy = new Date(carbTime);
+            var minutesleft = (lastDecayedBy-carbTime)/1000/60;
+            decayedBy.setMinutes(decayedBy.getMinutes() + Math.max(delay,minutesleft) + treatment.carbs/carbs_min); 
+            if(delay > minutesleft) { 
+                initialCarbs = treatment.carbs; 
+            }
+            else { 
+                initialCarbs = treatment.carbs + minutesleft*carbs_min; 
+            }
+            var startDecay = new Date(carbTime);
+            startDecay.setMinutes(carbTime.getMinutes() + delay);
+            if (time < lastDecayedBy || time > startDecay) {
+                isDecaying = 1;
+            }
+            else {
+                isDecaying = 0;
+            }
+            return {
+                initialCarbs: initialCarbs,
+                decayedBy: decayedBy,
+                isDecaying: isDecaying,
+                carbTime: carbTime
+            };
+        }
+        else {
+            return '';
+        }
+    }
+
+    function iobCalc(treatment, time) {
+
+        var dia=profile.dia;
+        if (dia == 3) {
+            var peak=75;
+        } else {
+            console.warn('DIA of ' + dia + 'not supported');
+        }
+        var sens=profile.sens;
+        if (typeof time === 'undefined') {
+            var time = new Date();
+        }
+
+        if (treatment.insulin) {
+            var bolusTime=new Date(treatment.created_at);
+            var minAgo=(time-bolusTime)/1000/60;
+
+            if (minAgo < 0) { 
+                var iobContrib=0;
+                var activityContrib=0;
+            }
+            if (minAgo < peak) {
+                var x = minAgo/5+1;
+                var iobContrib=treatment.insulin*(1-0.001852*x*x+0.001852*x);
+                var activityContrib=sens*treatment.insulin*(2/dia/60/peak)*minAgo;
+
+            }
+            else if (minAgo < 180) {
+                var x = (minAgo-75)/5;
+                var iobContrib=treatment.insulin*(0.001323*x*x - .054233*x + .55556);
+                var activityContrib=sens*treatment.insulin*(2/dia/60-(minAgo-peak)*2/dia/60/(60*dia-peak));
+            }
+            else {
+                var iobContrib=0;
+                var activityContrib=0;
+            }
+            return {
+                iobContrib: iobContrib,
+                activityContrib: activityContrib
+            };
+        }
+        else {
+            return '';
+        }
+    }
+
 })();
