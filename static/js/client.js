@@ -48,13 +48,13 @@
       .style("opacity", 0);
     //TODO: get these from the broswerSettings.targetTop and browserSettings.targetBottom
     var targetTop = 180;
-    if (broswerSettings.targetTop <> 180) {
-        targetTop = browserSettings.targetTop;
-    }
-    var targetBottom = 100;
-    if (broswerSettings.targetBottom <> 100) {
-        targetBottom = broswerSettings.targetBottom;
-    }
+    //if (broswerSettings.targetTop <> 180) {
+    //    targetTop = browserSettings.targetTop;
+    //}
+    var targetBottom = 80;
+    //if (broswerSettings.targetBottom <> 80) {
+    //    targetBottom = broswerSettings.targetBottom;
+    //}
     
     var futureOpacity = d3.scale.linear( )
         .domain([TWENTY_FIVE_MINS_IN_MS, SIXTY_MINS_IN_MS])
