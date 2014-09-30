@@ -97,7 +97,7 @@
 
                 treatments.forEach(function(treatment) {
                     if(treatment.carbs) {
-                        var tCOB = $scope.cob(treatment, lastDecayedBy);
+                        var tCOB = $scope.cob(treatment, lastDecayedBy, time);
                         if (tCOB) {
                             lastDecayedBy = tCOB.decayedBy;
                             if (tCOB.carbsleft) {
@@ -115,31 +115,33 @@
                         }
                     }
                 });
+                var sens = $scope.profile[0].sens;
+                var carbratio = $scope.profile[0].carbratio;
+                var carbImpact = isDecaying*sens/carbratio*carbs_hr/60;
                 return {
                     decayedBy: lastDecayedBy,
                     isDecaying: isDecaying,
                     carbs_hr: carbs_hr,
+                    carbImpact: carbImpact,
                     cob: cob
                 };
             }
 
             function bgPredictions(treatments, current) {
                 //console.info("bgPredictions called");
-                var tick = 20;
+                var tick = 10;
                 var curtime=new Date();
                 var endtime=new Date();
 
-//console.info(current);
                 var sgv=parseInt(current.sgv);
                 var bgi = sgv;
                 var initBg = {}, predBgs = [];
                 initBg.bg = sgv;
                 initBg.time = curtime;
                 predBgs.push(initBg);
-//console.info(predBgs);
 
                 var carbsDecaying = 0;
-                endtime.setHours(endtime.getHours() + 3);
+                endtime.setHours(endtime.getHours() + 2);
 
                 var treatments_r = treatments;
                 treatments_r.reverse();
@@ -149,7 +151,7 @@
                     var sens = $scope.profile[0].sens;
                     var carbratio = $scope.profile[0].carbratio;
                     var carbs_hr = $scope.profile[0].carbs_hr;
-                    var carbImpact = cobTotal(treatments_r, t).isDecaying*tick*sens/carbratio*carbs_hr/60;
+                    var carbImpact = cobTotal(treatments_r, t).carbImpact*tick;
                     var insulinImpact = iobTotal(treatments, t).activity*tick;
                     var totalImpact = carbImpact-insulinImpact;
                     bgi = bgi + totalImpact;
@@ -157,11 +159,9 @@
                     var predBg = {};
                     predBg.bg = bgi;
                     predBg.time = time;
-//console.info(predBg);
                     predBgs.push(predBg);
                 }
 
-//console.info(predBgs);
                 var max = Math.round(Math.max(predBgs));
                 var min = Math.round(Math.min(predBgs));
                 return {
@@ -174,26 +174,33 @@
             }
 
 
-            $scope.cob = function(treatment, lastDecayedBy) {
+            $scope.cob = function(treatment, lastDecayedBy, time) {
 
                 var carbs_hr = $scope.profile[0].carbs_hr;
                 var delay = 20;
                 var carbs_min = carbs_hr / 60;
-                        
+                var isDecaying = 0;        
+                var initialCarbs;
 
                 if (treatment.carbs) {
                     var carbTime = new Date(treatment.created_at);
 
                     var decayedBy = new Date(carbTime);
                     var minutesleft = (lastDecayedBy-carbTime)/1000/60;
-                    decayedBy.setMinutes (decayedBy.getMinutes() + Math.max(delay,minutesleft) + treatment.carbs/carbs_min); 
+                    decayedBy.setMinutes(decayedBy.getMinutes() + Math.max(delay,minutesleft) + treatment.carbs/carbs_min); 
                     if(delay > minutesleft) { 
-                        var initialCarbs = treatment.carbs; 
-                        var isDecaying = 0;
+                        initialCarbs = treatment.carbs; 
                     }
                     else { 
-                        var initialCarbs = treatment.carbs + minutesleft*carbs_min; 
-                        var isDecaying = 1;
+                        initialCarbs = treatment.carbs + minutesleft*carbs_min; 
+                    }
+                    var startDecay = new Date(carbTime);
+                    startDecay.setMinutes(carbTime.getMinutes() + delay);
+                    if (time < lastDecayedBy || time > startDecay) {
+                        isDecaying = 1;
+                    }
+                    else {
+                        isDecaying = 0;
                     }
                     return {
                         initialCarbs: initialCarbs,
@@ -270,12 +277,13 @@
 <div class="container" ng-controller="TreatmentsController">
     <h3>Nightscout: IOB</h3>
     <p>Current SGV: {{bgPredictions.sgv | number: 0}} mg/dL</p>
-    <p>Carbs absorbed per hour: {{cobTotal.carbs_hr | number: 1}} g</p>
+    <p>Carbs absorbed per hour: {{cobTotal.carbs_hr | number: 0}} g</p>
     <p>Total COB: {{cobTotal.cob | number: 0}} g</p>
     <p>All carbs decayed by: {{cobTotal.decayedBy | date:'short'}}</p>
     <p>Total IOB: {{iobTotal.iob | number: 2}} U</p>
-    <p>Sensitivity/ISF: {{bgPredictions.sens | number: 0}} (mg/dL/U)</p>
+    <p>Sensitivity (ISF): {{bgPredictions.sens | number: 0}} (mg/dL/U)</p>
     <p>Current Insulin Activity (BG impact): {{iobTotal.activity | number: 2}} mg/dL/min ({{iobTotal.activity*5 | number: 2}} mg/dL per 5 min)</p>
+    <p>Current Carb - Insulin Impact: {{cobTotal.carbImpact + iobTotal.activity | number: 2}} mg/dL/min ({{(cobTotal.carbImpact + iobTotal.activity)*5 | number: 2}} mg/dL per 5 min)</p>
     <p>BG Predictions:</p>
     <ul>
         <li ng-repeat="pred in bgPredictions.predBgs">
