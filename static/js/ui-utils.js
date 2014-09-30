@@ -5,8 +5,8 @@ var defaultSettings = {
 	"units": "mg/dl",
 	"alarmHigh": true,
 	"alarmLow": true,
-	"targetTop" = 180,
-	"targetBottom" = 100,
+	"targetTop": 180,
+	"targetBottom": 100,
 	"nightMode": false,
 	"theme": "default"
 };
