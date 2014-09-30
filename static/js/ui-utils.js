@@ -5,8 +5,8 @@ var defaultSettings = {
 	"units": "mg/dl",
 	"alarmHigh": true,
 	"alarmLow": true,
-	//"targetTop": 180,
-	//"targetBottom": 80,
+	"targetTop" = 180,
+	"targetBottom" = 100,
 	"nightMode": false,
 	"theme": "default"
 };
@@ -40,8 +40,8 @@ function getBrowserSettings(storage) {
 			"units": storage.get("units"),
 			"alarmHigh": storage.get("alarmHigh"),
 			"alarmLow": storage.get("alarmLow"),
-			//"targetTop" : storage.get("targetTop"),
-			//"targetBottom" : storage.get("targetBottom"),
+			"targetTop" : storage.get("targetTop"),
+			"targetBottom" : storage.get("targetBottom"),
 			"nightMode": storage.get("nightMode"),
 			"customTitle": storage.get("customTitle"),
 			"theme": storage.get("theme")
@@ -60,10 +60,10 @@ function getBrowserSettings(storage) {
 		json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
 		$("#alarmlow-browser").prop("checked", json.alarmLow);
 
-		//json.targetTop = setDefault(json.targetTop, defaultSettings.targetTop);
-		//$("#targetTop180-browser").prop("checked", json.targetTop);
-		//json.targetBottom = setDefault(json.targetBottom, defaultSettings.targetBottom);
-		//$("#targetBottom80-browser").prop("checked", json.targetBottom);
+		json.targetTop = setDefault(json.targetTop, defaultSettings.targetTop);
+		$("#targetTop").prop("value", json.targetTop);
+		json.targetBottom = setDefault(json.targetBottom, defaultSettings.targetBottom);
+		$("#targetBottom").prop("value", json.targetBottom);
 		
 		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 		$("#nightmode-browser").prop("checked", json.nightMode);
@@ -100,35 +100,20 @@ function getServerSettings() {
 	}
 
 	return json;
+        
+        //Do we need to store top/bottom on server?
         //var json = {
 	//	"targetTop": Object()
 	//};
 
 	//json.targetTop = setDefault(json.targeTop, defaultSettings.targetTop);
-	//console.log("serverSettings.units: " + json.units);
-	//if (json.targetTop = 180) {
-	//	$("#targetTop180-server").prop("checked", true);
-	//} else if {
-	//	$("#targetTop250-server").prop("checked", true);
-	//} else {
-	//	$("#targetTop220-server").prop("checked", true);
-	//}
-
 	//return json;
+	
 	//var json = {
 	//	"targetBottom": Object()
 	//};
 
 	//json.targetBottom = setDefault(json.targetBottom, defaultSettings.targetBottom);
-	//console.log("serverSettings.units: " + json.units);
-	//if (json.targetBottom = 80) {
-	//	$("#targetBottom80-server").prop("checked", true);
-	//} else if {
-	//	$("#targetBottom100-server").prop("checked", true);
-	//} else {
-	//	$("#targetBottom70-server").prop("checked", true);
-	//}
-
 	//return json;
 }
 
@@ -155,8 +140,8 @@ function storeInBrowser(json, storage) {
 	} else {
 		storage.set("alarmLow", false)
 	}
-	//if (json.targetTop) storage.set("targetTop", json.targetTop);
-	//if (json.targetBottom) storage.set("targetBottom", json.targetBottom);
+	if (json.targetTop) storage.set("targetTop", json.targetTop);
+	if (json.targetBottom) storage.set("targetBottom", json.targetBottom);
 	if (json.nightMode == true) {
 		storage.set("nightMode", true)
 	} else {
@@ -420,6 +405,8 @@ $("input#save").click(function() {
 		"units": $("input:radio[name=units-browser]:checked").val(),
 		"alarmHigh": $("#alarmhigh-browser").prop("checked"),
 		"alarmLow": $("#alarmlow-browser").prop("checked"),
+		"targetTop": $("#targetTop").val(),
+		"targetBottom": $("#targetBottom").val(),
 		"nightMode": $("#nightmode-browser").prop("checked"),
 		"customTitle": $("input#customTitle").prop("value"),
         "theme": $("input:radio[name=theme-browser]:checked").val()
