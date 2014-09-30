@@ -40,8 +40,8 @@ function getBrowserSettings(storage) {
 			"units": storage.get("units"),
 			"alarmHigh": storage.get("alarmHigh"),
 			"alarmLow": storage.get("alarmLow"),
-			"targetTop" : storage.get("targetTop"),
-			"targetBottom" : storage.get("targetBottom"),
+			"targetTop": storage.get("targetTop"),
+			"targetBottom": storage.get("targetBottom"),
 			"nightMode": storage.get("nightMode"),
 			"customTitle": storage.get("customTitle"),
 			"theme": storage.get("theme")
@@ -61,9 +61,9 @@ function getBrowserSettings(storage) {
 		$("#alarmlow-browser").prop("checked", json.alarmLow);
 
 		json.targetTop = setDefault(json.targetTop, defaultSettings.targetTop);
-		$("#targetTop-browser").prop("number", json.targetTop);
+		$("#targetTop-browser").prop("value", json.targetTop);
 		json.targetBottom = setDefault(json.targetBottom, defaultSettings.targetBottom);
-		$("#targetBottom-browser").prop("number", json.targetBottom);
+		$("#targetBottom-browser").prop("value", json.targetBottom);
 		
 		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 		$("#nightmode-browser").prop("checked", json.nightMode);
@@ -99,21 +99,6 @@ function getServerSettings() {
 		$("#mgdl-server").prop("checked", true);
 	}
 
-	return json;
-        
-        //Do we need to store top/bottom on server?
-        var json = {
-		"targetTop": Object()
-	};
-
-	json.targetTop = setDefault(json.targeTop, defaultSettings.targetTop);
-	return json;
-	
-	var json = {
-		"targetBottom": Object()
-	};
-
-	json.targetBottom = setDefault(json.targetBottom, defaultSettings.targetBottom);
 	return json;
 }
 
