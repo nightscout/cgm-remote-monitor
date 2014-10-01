@@ -27,7 +27,8 @@
         FORTY_MINS_IN_MS = 2400000,
         FORTY_TWO_MINS_IN_MS = 2520000,
         SIXTY_MINS_IN_MS = 3600000,
-        FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
+        FOCUS_DATA_RANGE_MS = 18000000, // 4 hours of historical data
+        predict_hr = 1, // 1 hour of predictive data
         FORMAT_TIME = '%I:%M%', //alternate format '%H:%M'
         audio = document.getElementById('audio'),
         alarmInProgress = false,
@@ -39,7 +40,7 @@
         MINUTES_SINCE_LAST_UPDATE_URGENT = 20;
 
     // Tick Values
-    var tickValues = [40, 60, 80, 120, 180, 300, 400];
+    var tickValues = [40, 60, 80, 100, 125, 150, 200, 300, 400];
     if (browserSettings.units == "mmol") {
         tickValues = [2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0];
     }
@@ -52,7 +53,7 @@
         targetBottom = 80;
 
     var futureOpacity = d3.scale.linear( )
-        .domain([TWENTY_FIVE_MINS_IN_MS, SIXTY_MINS_IN_MS])
+        .domain([predict_hr * SIXTY_MINS_IN_MS, 2*predict_hr*SIXTY_MINS_IN_MS])
         .range([0.8, 0.1]);
 
     // create svg and g to contain the chart contents
@@ -1092,7 +1093,7 @@
         var BG_MAX = scaleBg(400);
         var predict_hr = 3;
         var dt = time.getTime();
-        var predictedColor = 'blue';
+        var predictedColor = 'purple';
         if (browserSettings.theme == "colors") {
             predictedColor = 'purple';
         }
