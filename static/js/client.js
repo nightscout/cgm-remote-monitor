@@ -241,7 +241,9 @@
                     d.type == 'sgv';
             });
             if (nowData.length > 1) {
-                var prediction = predictDIYPS(nowData, treatments, profile);
+            var time = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
+//console.info(time);
+                var prediction = predictDIYPS(nowData, treatments, profile, time);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
 
@@ -276,10 +278,11 @@
                 return d.type == 'sgv';
             });
             nowData = [nowData[nowData.length - 2], nowData[nowData.length - 1]];
-            var prediction = predictDIYPS(nowData, treatments, profile);
-            focusData = focusData.concat(prediction);
             var dateTime = new Date(now);
             nowDate = dateTime;
+//console.info(nowDate);
+            var prediction = predictDIYPS(nowData, treatments, profile, nowDate);
+            focusData = focusData.concat(prediction);
             $('#currentTime')
                 .text(formatTime(dateTime))
                 .css('text-decoration', '');
@@ -1084,7 +1087,7 @@
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // function to predict
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    function predictDIYPS(actual, treatments, profile) {
+    function predictDIYPS(actual, treatments, profile, time) {
         var ONE_MINUTE = 60 * 1000;
         var FIVE_MINUTES = 5 * ONE_MINUTE;
         var predicted = [];
@@ -1107,12 +1110,14 @@
         }
         var AR = [-0.723, 1.716];
         */
-        var dt = actual[1].date.getTime();
+        //var dt = actual[1].date.getTime();
+        var dt = time.getTime();
+//console.info(dt);
         var predictedColor = 'blue';
         if (browserSettings.theme == "colors") {
             predictedColor = 'purple';
         }
-        var bgPred = bgPredictions(treatments, actual, predict_hr);
+        var bgPred = bgPredictions(treatments, actual, predict_hr, time);
         for (var i = 0; i < predict_hr*60/5-1; i++) {
             dt = dt + FIVE_MINUTES;
             // Add 2000 ms so not same point as SG
@@ -1192,7 +1197,7 @@
         };
     }
 
-    function bgPredictions(treatments, current, predict_hr) {
+    function bgPredictions(treatments, current, predict_hr, time) {
         console.info("bgPredictions called");
         var tick = 5;
         var curtime=new Date();
@@ -1202,7 +1207,7 @@
         var bgi = sgv;
         var initBg = {}, predBgs = [];
         initBg.bg = sgv;
-        initBg.time = curtime;
+        initBg.time = time;
         predBgs.push(initBg);
 
         var carbsDecaying = 0;
@@ -1210,7 +1215,8 @@
 
         var treatments_r = treatments;
 
-        var t = new Date(curtime.getTime());
+//console.info(time);
+        var t = new Date(time.getTime());
         for (t.setMinutes(t.getMinutes() + tick); t < endtime; t.setMinutes(t.getMinutes() + tick)) {
             var sens = profile.sens;
             var carbratio = profile.carbratio;
