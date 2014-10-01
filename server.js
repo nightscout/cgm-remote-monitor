@@ -80,7 +80,7 @@ store(function ready ( ) {
   // setup socket io for data and message transmission
   ///////////////////////////////////////////////////
   var websocket = require('./lib/websocket');
-  var io = websocket(env, server, entries, treatments);
+  var io = websocket(env, server, entries, treatments, profile);
 });
 
 ///////////////////////////////////////////////////
