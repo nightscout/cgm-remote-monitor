@@ -242,8 +242,7 @@
             });
             if (nowData.length > 1) {
             var time = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
-//console.info(time);
-                var prediction = predictDIYPS(nowData, treatments, profile, time);
+                var prediction = predictDIYPS(nowData, treatments.slice(treatments.length-100, treatments.length), profile, time);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
 
@@ -280,7 +279,6 @@
             nowData = [nowData[nowData.length - 2], nowData[nowData.length - 1]];
             var dateTime = new Date(now);
             nowDate = dateTime;
-//console.info(nowDate);
             var prediction = predictDIYPS(nowData, treatments, profile, nowDate);
             focusData = focusData.concat(prediction);
             $('#currentTime')
@@ -823,9 +821,6 @@
             }
             var temp0 = d[0].map(function (obj) {
                 var rawBg = rawIsigToRawBg(obj.rawIsig, obj.scale, obj.intercept, obj.slope);
-                //console.log("rawBg: " + rawBg);
-                // TODO: figure out how to make this work without offsetting the date: value.
-                //if(obj.slope <= 0) return [];
                 return { date: new Date(obj.x+3*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'sgv'}
             });
             var temp1 = d[0].map(function (obj) {
@@ -1088,6 +1083,7 @@
     // function to predict
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     function predictDIYPS(actual, treatments, profile, time) {
+        var tick = 1;
         var ONE_MINUTE = 60 * 1000;
         var FIVE_MINUTES = 5 * ONE_MINUTE;
         var predicted = [];
@@ -1095,31 +1091,14 @@
         var BG_MIN = scaleBg(36);
         var BG_MAX = scaleBg(400);
         var predict_hr = 3;
-        // these are the one sigma limits for the first 13 prediction interval uncertainties (65 minutes)
-        /*
-        var CONE = [0.020, 0.041, 0.061, 0.081, 0.099, 0.116, 0.132, 0.146, 0.159, 0.171, 0.182, 0.192, 0.201];
-        if (actual.length < 2) {
-            var y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[0].sgv / BG_REF)];
-        } else {
-            var elapsedMins = (actual[1].date - actual[0].date) / ONE_MINUTE;
-            if (elapsedMins < 5.1) {
-                y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[1].sgv / BG_REF)];
-            } else {
-                y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[0].sgv / BG_REF)];
-            }
-        }
-        var AR = [-0.723, 1.716];
-        */
-        //var dt = actual[1].date.getTime();
         var dt = time.getTime();
-//console.info(dt);
         var predictedColor = 'blue';
         if (browserSettings.theme == "colors") {
             predictedColor = 'purple';
         }
         var bgPred = bgPredictions(treatments, actual, predict_hr, time);
-        for (var i = 0; i < predict_hr*60/5-1; i++) {
-            dt = dt + FIVE_MINUTES;
+        for (var i = 0; i < predict_hr*60/tick-1; i++) {
+            dt = dt + tick*ONE_MINUTE;
             // Add 2000 ms so not same point as SG
             predicted[i] = {
                 date: new Date(dt + 2000),
@@ -1137,15 +1116,16 @@
 
 
     function iobTotal(treatments, time) {
-        //console.info("iobTotal called");
         var iob= 0;
         var activity = 0;
         if (!treatments) return {};
 
         treatments.forEach(function(treatment) {
-            var tIOB = iobCalc(treatment, time);
-            if (tIOB && tIOB.iobContrib) iob += tIOB.iobContrib;
-            if (tIOB && tIOB.activityContrib) activity += tIOB.activityContrib;
+            if(treatment.created_at < time) {
+                var tIOB = iobCalc(treatment, time);
+                if (tIOB && tIOB.iobContrib) iob += tIOB.iobContrib;
+                if (tIOB && tIOB.activityContrib) activity += tIOB.activityContrib;
+            }
         });
         return {
             iob: iob,
@@ -1154,7 +1134,6 @@
     }
 
     function cobTotal(treatments, time) {
-        //console.info("cobTotal called");
         var cob=0;
         if (!treatments) return {};
         if (typeof time === 'undefined') {
@@ -1166,7 +1145,7 @@
         var carbs_hr = profile.carbs_hr;
 
         treatments.forEach(function(treatment) {
-            if(treatment.carbs) {
+            if(treatment.carbs && treatment.date < time) {
                 var tCOB = cobCalc(treatment, lastDecayedBy, time);
                 if (tCOB) {
                     lastDecayedBy = tCOB.decayedBy;
@@ -1199,9 +1178,9 @@
 
     function bgPredictions(treatments, current, predict_hr, time) {
         console.info("bgPredictions called");
-        var tick = 5;
-        var curtime=new Date();
-        var endtime=new Date();
+        var tick = 1;
+        //var curtime=new Date();
+        var endtime=new Date(time);
 
         var sgv=parseInt(current[1].sgv);
         var bgi = sgv;
@@ -1213,15 +1192,14 @@
         var carbsDecaying = 0;
         endtime.setHours(endtime.getHours() + predict_hr);
 
-        var treatments_r = treatments;
 
-//console.info(time);
         var t = new Date(time.getTime());
         for (t.setMinutes(t.getMinutes() + tick); t < endtime; t.setMinutes(t.getMinutes() + tick)) {
             var sens = profile.sens;
             var carbratio = profile.carbratio;
             var carbs_hr = profile.carbs_hr;
-            var carbImpact = cobTotal(treatments_r, t).carbImpact*tick;
+            var cTotal = cobTotal(treatments, t);
+            var carbImpact = cTotal.carbImpact*tick;
             var insulinImpact = iobTotal(treatments, t).activity*tick;
             var totalImpact = carbImpact-insulinImpact;
             bgi = bgi + totalImpact;
