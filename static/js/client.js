@@ -243,7 +243,7 @@
             });
             if (nowData.length > 1) {
             var time = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
-                var prediction = predictDIYPS(nowData, treatments.slice(treatments.length-100, treatments.length), profile, time);
+                var prediction = predictDIYPS(nowData, treatments.slice(treatments.length-100, treatments.length), profile, time, nowData);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
 
@@ -274,13 +274,13 @@
 
         } else {
             // if the brush comes back into the current time range then it should reset to the current time and sg
-            var nowData = data.filter(function(d) {
+            var sgvData = data.filter(function(d) {
                 return d.type == 'sgv';
             });
-            nowData = [nowData[nowData.length - 2], nowData[nowData.length - 1]];
+            nowData = [sgvData[sgvData.length - 2], sgvData[sgvData.length - 1]];
             var dateTime = new Date(now);
             nowDate = dateTime;
-            var prediction = predictDIYPS(nowData, treatments, profile, nowDate);
+            var prediction = predictDIYPS(nowData, treatments, profile, nowDate, sgvData);
             focusData = focusData.concat(prediction);
             $('#currentTime')
                 .text(formatTime(dateTime))
@@ -822,7 +822,7 @@
             }
             var temp0 = d[0].map(function (obj) {
                 var rawBg = rawIsigToRawBg(obj.rawIsig, obj.scale, obj.intercept, obj.slope);
-                return { date: new Date(obj.x+3*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'sgv'}
+                return { date: new Date(obj.x-3*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'sgv'}
             });
             var temp1 = d[0].map(function (obj) {
                 return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
@@ -1083,7 +1083,7 @@
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // function to predict
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    function predictDIYPS(actual, treatments, profile, time) {
+    function predictDIYPS(actual, treatments, profile, time, recent) {
         var tick = 1;
         var ONE_MINUTE = 60 * 1000;
         var FIVE_MINUTES = 5 * ONE_MINUTE;
@@ -1097,12 +1097,17 @@
         if (browserSettings.theme == "colors") {
             predictedColor = 'purple';
         }
-        var bgPred = bgPredictions(treatments, actual, predict_hr, time);
+        var bgPred = bgPredictions(treatments, actual, predict_hr, time, recent);
+        var predUntil = new Date(dt);
+        predUntil.setHours(predUntil.getHours() + predict_hr);
         for (var i = 0; i < predict_hr*60/tick-1; i++) {
             dt = dt + tick*ONE_MINUTE;
-            // Add 2000 ms so not same point as SG
+            var date = new Date(dt - FIVE_MINUTES);
+            if (date > predUntil) { break; }
+            if (i+1 >= bgPred.predBgs.length) { break; }
             predicted[i] = {
-                date: new Date(dt + 2000),
+                // Add 2000 ms so not same point as SG
+                date: new Date(bgPred.predBgs[i+1].time.getTime() + 2000),
                 sgv: Math.max(BG_MIN, Math.min(BG_MAX,bgPred.predBgs[i+1].bg)),
                 color: predictedColor
             };
@@ -1177,19 +1182,101 @@
         };
     }
 
-    function bgPredictions(treatments, current, predict_hr, time) {
+    function sCurvePredict(recent) {
+
+        var ONE_MINUTE = 60 * 1000;
+        var FIVE_MINUTES = 5 * ONE_MINUTE;
+        var SIX_MINUTES = FIVE_MINUTES + ONE_MINUTE;
+        var sgv = recent[recent.length-1].sgv;
+        var trend=0, maxV=0, inflection=0, inflectionAgo=0;
+        // change represents the current direction
+        var change=recent[0].sgv-recent[1].sgv;
+        recent[0].v=change;
+        // working backward, for each data point, determine change (v), and identify the inflection point (maxV)
+        var breakout=0;
+        for (var i=1; i < recent.length; i++) {
+            var v=recent[i-1].sgv-recent[i].sgv;
+            var elapsed = recent[i-1].date.getTime()-recent[i].date.getTime();
+            if (elapsed > SIX_MINUTES) {
+                recent[i].v = v * FIVE_MINUTES / elapsed;
+            }
+            else {    
+                recent[i].v=v;
+            }
+
+            if(v * change > 0 && recent[i].sgv > 30 && breakout == 0) {
+                trend++;
+                // only calculate maxV halfway back through recent
+                if(Math.abs(v)>Math.abs(maxV) && i < recent.length/2) { maxV=v; }
+            }
+            // if the trend changes direction, break out
+            else{
+                breakout=1;
+            }
+        }
+        for (i=1; i <= trend; i++) {
+            v=recent[i].v;
+            if(v==maxV){
+                inflection=recent[i-1].sgv;
+                inflectionAgo=i-1;
+                break;
+            }
+        }
+        var predBgs = [];
+        var bgi = parseInt(recent[0].sgv);
+        var time = new Date(recent[0].date);
+        time.setSeconds(time.getSeconds()+1);
+
+        for (i=inflectionAgo*2; i <= recent.length/2; i++) {
+            if ( change * recent[i].v <= 0 ) {
+                break;
+            }
+            bgi = parseInt( bgi + recent[i].v );
+            time.setMinutes(time.getMinutes() + 5);
+            var predBg = {};
+            predBg.bg = bgi;
+            predBg.time = new Date(time);
+            predBgs.push(predBg);
+        }
+
+        return {
+            predBgs: predBgs
+        }
+    }
+
+    function bgPredictions(treatments, current, predict_hr, time, recent) {
         console.info("bgPredictions called");
         var tick = 1;
-        //var curtime=new Date();
+        var sgv;
         var endtime=new Date(time);
 
-        var sgv=parseInt(current[1].sgv);
-        var bgi = sgv;
-        var initBg = {}, predBgs = [];
-        initBg.bg = sgv;
-        initBg.time = time;
-        predBgs.push(initBg);
+        if (typeof recent !== 'undefined' && recent.length > 2) {
+            var sCurveRecent=recent.slice(recent.length-12, recent.length);
+            sCurveRecent.reverse();
+            var sCurvePred = sCurvePredict(sCurveRecent).predBgs;
+            predBgs = sCurvePred;
+            if (predBgs.length > 0) {
+                time = new Date(predBgs[predBgs.length-1].time);
+                sgv = predBgs[predBgs.length-1].bg;
+            }
+            else {
+                time = current[1].date;
+                sgv=parseInt(current[1].sgv);
+            }
+        }
+        else {
+            sgv=parseInt(current[1].sgv);
+            if (sgv < 30) {
+                var obj = latestSGV;
+                sgv = rawIsigToRawBg(obj.rawIsig, obj.scale, obj.intercept, obj.slope);
+            }
+            var initBg = {}, predBgs = [];
+            initBg.bg = sgv;
+            initBg.time = current[1].date;
+            predBgs.push(initBg);
+        }
 
+        var bgi = sgv;
         var carbsDecaying = 0;
         endtime.setHours(endtime.getHours() + predict_hr);
 
