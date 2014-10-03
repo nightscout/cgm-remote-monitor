@@ -47,11 +47,11 @@
       .attr("class", "tooltip")
       .style("opacity", 0);
     //TODO: get these from the broswerSettings.targetTop and browserSettings.targetBottom
-    var customTop = 180;
+    var customTop = 250;
     //if (browserSettings.targetTop <> 180) {
     //    customTop = browserSettings.targetTop;
     //}
-    var customBottom = 50;
+    var customBottom = 70;
     //if (browserSettings.targetBottom <> 50) {
     //    customBottom = browserSettings.targetBottom;
     //}
