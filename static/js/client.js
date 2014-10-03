@@ -46,16 +46,12 @@
     var div = d3.select("body").append("div")
       .attr("class", "tooltip")
       .style("opacity", 0);
-    //TODO: get these from the broswerSettings.targetTop and browserSettings.targetBottom
-    //var customTop = 250;
-    ///if (browserSettings.targetTop <> "") {
+
+    // Get values for High and Low from settings drawer. Default is 180 / 100 unless customized.
     var    customTop = browserSettings.targetTop;
-    //}
-    //var customBottom = 70;
-    //if (getbrowserSettings.targetBottom <> "") {
+
     var    customBottom = browserSettings.targetBottom;
-    //}
-    
+   
     var futureOpacity = d3.scale.linear( )
         .domain([TWENTY_FIVE_MINS_IN_MS, SIXTY_MINS_IN_MS])
         .range([0.8, 0.1]);
