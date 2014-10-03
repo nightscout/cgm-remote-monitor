@@ -48,11 +48,11 @@
       .style("opacity", 0);
     //TODO: get these from the broswerSettings.targetTop and browserSettings.targetBottom
     var targetTop = 180;
-    if (browserSettings.targetTop <> "180") {
+    if (browserSettings.targetTop <> 180) {
         targetTop = browserSettings.targetTop;
     }
     var targetBottom = 50;
-    if (browserSettings.targetBottom <> "50") {
+    if (browserSettings.targetBottom <> 50) {
         targetBottom = browserSettings.targetBottom;
     }
     
