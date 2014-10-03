@@ -390,8 +390,8 @@ $("input#save").click(function() {
 		"units": $("input:radio[name=units-browser]:checked").val(),
 		"alarmHigh": $("#alarmhigh-browser").prop("checked"),
 		"alarmLow": $("#alarmlow-browser").prop("checked"),
-		"targetTop": $("input#targetTop-browser").prop("number").val(),
-		"targetBottom": $("input#targetBottom-browser").prop("number").val(),
+		"targetTop": $("input#targetTop-browser").prop("value"),
+		"targetBottom": $("input#targetBottom-browser").prop("value"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
 		"customTitle": $("input#customTitle").prop("value"),
         "theme": $("input:radio[name=theme-browser]:checked").val()
