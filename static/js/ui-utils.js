@@ -6,7 +6,7 @@ var defaultSettings = {
 	"alarmHigh": true,
 	"alarmLow": true,
 	"targetTop": 180,
-	"targetBottom": 100,
+	"targetBottom": 50,
 	"nightMode": false,
 	"theme": "default"
 };
