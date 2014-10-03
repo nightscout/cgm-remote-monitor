@@ -61,9 +61,9 @@ function getBrowserSettings(storage) {
 		$("#alarmlow-browser").prop("checked", json.alarmLow);
 
 		json.targetTop = setDefault(json.targetTop, defaultSettings.targetTop);
-		$("input#targetTop-browser").prop("value", json.targetTop);
+		$("#targetTop-browser").prop("value", json.targetTop);
 		json.targetBottom = setDefault(json.targetBottom, defaultSettings.targetBottom);
-		$("input#targetBottom-browser").prop("value", json.targetBottom);
+		$("#targetBottom-browser").prop("value", json.targetBottom);
 		
 		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 		$("#nightmode-browser").prop("checked", json.nightMode);
