@@ -855,7 +855,7 @@
         var color = 'grey';
 
         if (browserSettings.theme == "colors") {
-            if (sgv > targetTop) {
+            if (sgv > customTop) {
                 color = 'yellow';
             } else if (sgv >= customBottom && sgv <= customTop) {
                 color = '#4cff00';
