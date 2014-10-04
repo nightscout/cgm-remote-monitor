@@ -239,7 +239,7 @@
         var lookback=2;
         if (brushExtent[1].getTime() - predict_hr * SIXTY_MINS_IN_MS < now && element != true) {
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
-            var plusFiveTime = (predict_hr * SIXTY_MINS_IN_MS) - 6*ONE_MIN_IN_MS;
+            var plusFiveTime = (predict_hr * SIXTY_MINS_IN_MS) - 5*ONE_MIN_IN_MS;
             var lookbackTime = (lookback+2)*FIVE_MINS_IN_MS + 2*ONE_MIN_IN_MS;
             var nowDataRaw = data.filter(function(d) {
                 return d.date.getTime() >= brushExtent[1].getTime() - plusFiveTime - lookbackTime &&
@@ -1122,10 +1122,12 @@
             var initial = actual[actual.length-1].sgv;
             var AR = [-0.723, 1.716];
             var dt = actual[lookback].date.getTime();
-            for (var i = 0; i < predict_hr*60/tick; i++) {
+            for (var i=0, j=0, k=0; i < predict_hr*60/tick; i++) {
                 if (i < ARpredict_hr*60/tick) {
                     y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
-                    dt = dt + tick*ONE_MINUTE;
+                    // j is the number of 5-minute intervals, because AR constants are fixed for 5m
+                    j = tick*i/5;
+                    dt = j + FIVE_MINUTES;
                     var sgv = Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1])))));
                     var delta = sgv - initial;
                 }
@@ -1136,7 +1138,7 @@
     }
 
     function predictDIYPS(actual, treatments, profile, time, recent, ARLookback) {
-        var tick = 5;
+        var tick = 1;
         var ONE_MINUTE = 60 * 1000;
         var FIVE_MINUTES = 5 * ONE_MINUTE;
         var predicted = [];
