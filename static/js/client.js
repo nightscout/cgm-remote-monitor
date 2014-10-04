@@ -27,8 +27,8 @@
         FORTY_MINS_IN_MS = 2400000,
         FORTY_TWO_MINS_IN_MS = 2520000,
         SIXTY_MINS_IN_MS = 3600000,
-        FOCUS_DATA_RANGE_MS = 18000000, // 4 hours of historical data
-        predict_hr = 1, // 1 hour of predictive data
+        FOCUS_DATA_RANGE_MS = 6 * SIXTY_MINS_IN_MS, // 6 hours of total historical + predicted data
+        predict_hr = 2, // 1 hour of predictive data
         FORMAT_TIME = '%I:%M%', //alternate format '%H:%M'
         audio = document.getElementById('audio'),
         alarmInProgress = false,
