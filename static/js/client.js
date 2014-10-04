@@ -233,10 +233,18 @@
         if (brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
             var lookbackTime = (lookback+1)*(FIVE_MINS_IN_MS + ONE_MIN_IN_MS);
-            var nowData = data.filter(function(d) {
+            var nowDataRaw = data.filter(function(d) {
                 return d.date.getTime() >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
                     d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS &&
                     d.type == 'sgv';
+            });
+            // sometimes nowDataRaw contains duplicates.  uniq it.
+            var lastDate = new Date("1/1/1970");
+            var nowData = nowDataRaw.filter(function(n) {
+                if ( (lastDate.getTime() + ONE_MIN_IN_MS) < n.date.getTime()) {
+                    lastDate = n.date;
+                    return n;
+                }
             });
             if (nowData.length > lookback) {
                 var prediction = predictAR(nowData, lookback);
@@ -1085,10 +1093,10 @@
         //var CONE = [0.030, 0.060, 0.090, 0.120, 0.140, 0.150, 0.160, 0.170, 0.180, 0.185, 0.190, 0.195, 0.200];
         // for testing
         //var CONE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-        if (actual.length < lookback) {
+        if (actual.length < lookback+1) {
             var y = [Math.log(actual[actual.length-1].sgv / BG_REF), Math.log(actual[actual.length-1].sgv / BG_REF)];
         } else {
-            var elapsedMins = (actual[lookback].date - actual[0].date) / ONE_MINUTE;
+            var elapsedMins = (actual[actual.length-1].date - actual[actual.length-1-lookback].date) / ONE_MINUTE;
             // construct a "5m ago" sgv offset from current sgv by the average change over the lookback interval
             var lookbackSgvChange = actual[lookback].sgv-actual[0].sgv;
             var fiveMinAgoSgv = actual[lookback].sgv - lookbackSgvChange/elapsedMins*5;
