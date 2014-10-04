@@ -22,6 +22,8 @@
         brushTimer,
         brushInProgress = false,
         clip,
+        ONE_MIN_IN_MS = 60000,
+        FIVE_MINS_IN_MS = 300000,
         TWENTY_FIVE_MINS_IN_MS = 1500000,
         THIRTY_MINS_IN_MS = 1800000,
         FORTY_MINS_IN_MS = 2400000,
@@ -234,16 +236,26 @@
         var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
         // predict for retrospective data
+        var lookback=2;
         if (brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
-            var nowData = data.filter(function(d) {
-                return d.date.getTime() >= brushExtent[1].getTime() - FORTY_TWO_MINS_IN_MS &&
+            var lookbackTime = (lookback+2)*FIVE_MINS_IN_MS + 2*ONE_MIN_IN_MS;
+            var nowDataRaw = data.filter(function(d) {
+                return d.date.getTime() >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
                     d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS &&
                     d.type == 'sgv';
             });
-            if (nowData.length > 1) {
-            var time = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
-                var prediction = predictDIYPS(nowData, treatments.slice(treatments.length-100, treatments.length), profile, time, nowData);
+            // sometimes nowDataRaw contains duplicates.  uniq it.
+            var lastDate = new Date("1/1/1970");
+            var nowData = nowDataRaw.filter(function(n) {
+                if ( (lastDate.getTime() + ONE_MIN_IN_MS) < n.date.getTime()) {
+                    lastDate = n.date;
+                    return n;
+                }
+            });
+            if (nowData.length > lookback) {
+                var time = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
+                var prediction = predictDIYPS(nowData, treatments.slice(treatments.length-100, treatments.length), profile, time, nowData, lookback);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
 
@@ -277,10 +289,12 @@
             var sgvData = data.filter(function(d) {
                 return d.type == 'sgv';
             });
-            nowData = [sgvData[sgvData.length - 2], sgvData[sgvData.length - 1]];
+            var x=lookback+1;
+            nowData = sgvData.slice(sgvData.length-x, sgvData.length);
+            //nowData = [sgvData[sgvData.length - 2], sgvData[sgvData.length - 1]];
             var dateTime = new Date(now);
             nowDate = dateTime;
-            var prediction = predictDIYPS(nowData, treatments, profile, nowDate, sgvData);
+            var prediction = predictDIYPS(nowData, treatments, profile, nowDate, sgvData, lookback);
             focusData = focusData.concat(prediction);
             $('#currentTime')
                 .text(formatTime(dateTime))
@@ -822,7 +836,7 @@
             }
             var temp0 = d[0].map(function (obj) {
                 var rawBg = rawIsigToRawBg(obj.rawIsig, obj.scale, obj.intercept, obj.slope);
-                return { date: new Date(obj.x-3*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'sgv'}
+                return { date: new Date(obj.x-3*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg'}
             });
             var temp1 = d[0].map(function (obj) {
                 return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
@@ -1083,7 +1097,7 @@
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // function to predict
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    function predictDIYPS(actual, treatments, profile, time, recent) {
+    function predictDIYPS(actual, treatments, profile, time, recent, ARLookback) {
         var tick = 1;
         var ONE_MINUTE = 60 * 1000;
         var FIVE_MINUTES = 5 * ONE_MINUTE;
