@@ -30,7 +30,7 @@
         //FORTY_TWO_MINS_IN_MS = 2520000,
         SIXTY_MINS_IN_MS = 3600000,
         FOCUS_DATA_RANGE_MS = 6 * SIXTY_MINS_IN_MS, // 6 hours of total historical + predicted data
-        predict_hr = 2, // 2 hour of predictive data
+        predict_hr = 3, // 3 hours of predictive data (should be smaller than predict_hr in predictDIYPS and websocket.js)
         FORMAT_TIME = '%I:%M%', //alternate format '%H:%M'
         audio = document.getElementById('audio'),
         alarmInProgress = false,
@@ -239,11 +239,11 @@
         var lookback=2;
         if (brushExtent[1].getTime() - predict_hr * SIXTY_MINS_IN_MS < now && element != true) {
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
-            var lookrForwardStartTime = (predict_hr * SIXTY_MINS_IN_MS) + FIVE_MINS_IN_MS;
+            var plusFiveTime = (predict_hr * SIXTY_MINS_IN_MS) - 6*ONE_MIN_IN_MS;
             var lookbackTime = (lookback+2)*FIVE_MINS_IN_MS + 2*ONE_MIN_IN_MS;
             var nowDataRaw = data.filter(function(d) {
-                return d.date.getTime() >= brushExtent[1].getTime() - lookrForwardStartTime - lookbackTime &&
-                    d.date.getTime() <= brushExtent[1].getTime() - lookrForwardStartTime &&
+                return d.date.getTime() >= brushExtent[1].getTime() - plusFiveTime - lookbackTime &&
+                    d.date.getTime() <= brushExtent[1].getTime() - plusFiveTime &&
                     d.type == 'sgv';
             });
             // sometimes nowDataRaw contains duplicates.  uniq it.
@@ -1096,23 +1096,60 @@
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // function to predict
+    // functions to predict
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    function predictDIYPS(actual, treatments, profile, time, recent, ARLookback) {
-        var tick = 1;
+
+    function predictARDeltas(actual, lookback, tick) {
+        var predict_hr = 4;
         var ONE_MINUTE = 60 * 1000;
         var FIVE_MINUTES = 5 * ONE_MINUTE;
-        var predicted = [];
+        var predictedDeltas = [];
         var BG_REF = scaleBg(140);
         var BG_MIN = scaleBg(36);
         var BG_MAX = scaleBg(400);
-        var predict_hr = 3;
+        var ARpredict_hr = 0.5;
+        //var ARpredict_ms = ARpredict_hr*60*60*1000;
+        if (actual.length < lookback+1) {
+            for (var i = 0; i < predict_hr/(tick*ONE_MINUTE); i++) {
+                predictedDeltas[i] = 0;
+            }
+        } else {
+            var elapsedMins = (actual[actual.length-1].date - actual[actual.length-1-lookback].date) / ONE_MINUTE;
+            // construct a "5m ago" sgv offset from current sgv by the average change over the lookback interval
+            var lookbackSgvChange = actual[lookback].sgv-actual[0].sgv;
+            var fiveMinAgoSgv = actual[lookback].sgv - lookbackSgvChange/elapsedMins*5;
+            var y = [Math.log(fiveMinAgoSgv / BG_REF), Math.log(actual[lookback].sgv / BG_REF)];
+            var initial = actual[actual.length-1].sgv;
+            var AR = [-0.723, 1.716];
+            var dt = actual[lookback].date.getTime();
+            for (var i = 0; i < predict_hr*60/tick; i++) {
+                if (i < ARpredict_hr*60/tick) {
+                    y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
+                    dt = dt + tick*ONE_MINUTE;
+                    var sgv = Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1])))));
+                    var delta = sgv - initial;
+                }
+                predictedDeltas[i] = delta;
+            }
+        }
+        return predictedDeltas;
+    }
+
+    function predictDIYPS(actual, treatments, profile, time, recent, ARLookback) {
+        var tick = 5;
+        var ONE_MINUTE = 60 * 1000;
+        var FIVE_MINUTES = 5 * ONE_MINUTE;
+        var predicted = [];
+        var BG_MIN = scaleBg(36);
+        var BG_MAX = scaleBg(400);
+        var predict_hr = 4;
         var dt = time.getTime();
         var predictedColor = 'purple';
         if (browserSettings.theme == "colors") {
             predictedColor = 'purple';
         }
-        var bgPred = bgPredictions(treatments, actual, predict_hr, time, recent);
+        var bgPred = bgPredictions(treatments, actual, predict_hr, time, recent, tick);
+        var predARDeltas = predictARDeltas(actual, ARLookback, tick);
         var predUntil = new Date(dt);
         predUntil.setHours(predUntil.getHours() + predict_hr);
         for (var i = 0; i < predict_hr*60/tick-1; i++) {
@@ -1120,10 +1157,15 @@
             var date = new Date(dt - FIVE_MINUTES);
             if (date > predUntil) { break; }
             if (i+1 >= bgPred.predBgs.length) { break; }
+            var predBg = bgPred.predBgs[i];
+            //if (dt < ARpredict_ms) {
+            if (i < predARDeltas.length) {
+                predBg.bg = predBg.bg + predARDeltas[i];
+            }
             predicted[i] = {
                 // Add 2000 ms so not same point as SG
-                date: new Date(bgPred.predBgs[i+1].time.getTime() + 2000),
-                sgv: Math.max(BG_MIN, Math.min(BG_MAX,bgPred.predBgs[i+1].bg)),
+                date: new Date(predBg.time.getTime() + 2000),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX,predBg.bg)),
                 color: predictedColor
             };
             predicted.forEach(function (d) {
@@ -1259,12 +1301,12 @@
         }
     }
 
-    function bgPredictions(treatments, current, predict_hr, time, recent) {
+    function bgPredictions(treatments, current, predict_hr, time, recent, tick) {
         console.info("bgPredictions called");
-        var tick = 1;
         var sgv;
         var endtime=new Date(time);
 
+        /*
         if (typeof recent !== 'undefined' && recent.length > 2) {
             var sCurveRecent=recent.slice(recent.length-12, recent.length);
             sCurveRecent.reverse();
@@ -1280,16 +1322,20 @@
             }
         }
         else {
-            sgv=parseInt(current[1].sgv);
+        */
+            sgv=parseInt(current[current.length-1].sgv);
             if (sgv < 30) {
                 var obj = latestSGV;
                 sgv = rawIsigToRawBg(obj.rawIsig, obj.scale, obj.intercept, obj.slope);
             }
+            var predBgs = [];
+            /*
             var initBg = {}, predBgs = [];
             initBg.bg = sgv;
             initBg.time = current[1].date;
             predBgs.push(initBg);
         }
+        */
 
         var bgi = sgv;
         var carbsDecaying = 0;
