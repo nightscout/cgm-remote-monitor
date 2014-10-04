@@ -1152,15 +1152,18 @@
         var predARDeltas = predictARDeltas(actual, ARLookback, tick);
         var predUntil = new Date(dt);
         predUntil.setHours(predUntil.getHours() + predict_hr);
+        var bgi = actual[actual.length-1].sgv;
         for (var i = 0; i < predict_hr*60/tick-1; i++) {
             dt = dt + tick*ONE_MINUTE;
             var date = new Date(dt - FIVE_MINUTES);
             if (date > predUntil) { break; }
             if (i+1 >= bgPred.predBgs.length) { break; }
             var predBg = bgPred.predBgs[i];
+            var predBgDelta = predBg.bg - bgi;
+            bgi = predBg.bg;
             //if (dt < ARpredict_ms) {
             if (i < predARDeltas.length) {
-                predBg.bg = predBg.bg + predARDeltas[i];
+                predBg.bg = predBg.bg + (predBgDelta + predARDeltas[i])/2;
             }
             predicted[i] = {
                 // Add 2000 ms so not same point as SG
