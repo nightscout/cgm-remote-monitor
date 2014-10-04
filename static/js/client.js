@@ -229,7 +229,7 @@
         var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
         // predict for retrospective data
-        var lookback = 1;
+        var lookback = 2;
         if (brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
             var lookbackTime = (lookback+2)*FIVE_MINS_IN_MS + 2*ONE_MIN_IN_MS;
