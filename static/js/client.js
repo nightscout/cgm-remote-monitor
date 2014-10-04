@@ -814,10 +814,10 @@
 
                 //TODO: alarmHigh/alarmLow probably shouldn't be here
                 if (browserSettings.alarmHigh) {
-                    $('.container .current').toggleClass('high', latestSGV.y > 180);
+                    $('.container .current').toggleClass('high', latestSGV.y > 140);
                 }
                 if (browserSettings.alarmLow) {
-                    $('.container .current').toggleClass('low', latestSGV.y < 70);
+                    $('.container .current').toggleClass('low', latestSGV.y < 55);
                 }
             }
             var temp0 = d[0].map(function (obj) {
