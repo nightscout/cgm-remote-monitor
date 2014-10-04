@@ -817,7 +817,7 @@
                     $('.container .current').toggleClass('high', latestSGV.y > 180);
                 }
                 if (browserSettings.alarmLow) {
-                    $('.container .current').toggleClass('low', latestSGV.y < 55);
+                    $('.container .current').toggleClass('low', latestSGV.y < 70);
                 }
             }
             var temp0 = d[0].map(function (obj) {
