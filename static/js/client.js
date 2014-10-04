@@ -232,7 +232,7 @@
         var lookback = 1;
         if (brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
-            var lookbackTime = (lookback+1)*FIVE_MINS_IN_MS + ONE_MIN_IN_MS;
+            var lookbackTime = (lookback+1)*(FIVE_MINS_IN_MS + ONE_MIN_IN_MS);
             var nowData = data.filter(function(d) {
                 return d.date.getTime() >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
                     d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS &&
