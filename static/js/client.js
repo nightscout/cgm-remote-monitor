@@ -24,13 +24,13 @@
         clip,
         ONE_MIN_IN_MS = 60000,
         FIVE_MINS_IN_MS = 300000,
-        TWENTY_FIVE_MINS_IN_MS = 1500000,
-        THIRTY_MINS_IN_MS = 1800000,
-        FORTY_MINS_IN_MS = 2400000,
-        FORTY_TWO_MINS_IN_MS = 2520000,
+        //TWENTY_FIVE_MINS_IN_MS = 1500000,
+        //THIRTY_MINS_IN_MS = 1800000,
+        //FORTY_MINS_IN_MS = 2400000,
+        //FORTY_TWO_MINS_IN_MS = 2520000,
         SIXTY_MINS_IN_MS = 3600000,
         FOCUS_DATA_RANGE_MS = 6 * SIXTY_MINS_IN_MS, // 6 hours of total historical + predicted data
-        predict_hr = 2, // 1 hour of predictive data
+        predict_hr = 2, // 2 hour of predictive data
         FORMAT_TIME = '%I:%M%', //alternate format '%H:%M'
         audio = document.getElementById('audio'),
         alarmInProgress = false,
@@ -233,16 +233,17 @@
         }
 
         var element = document.getElementById('bgButton').hidden == '';
-        var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
+        var nowDate = new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS);
 
         // predict for retrospective data
         var lookback=2;
-        if (brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
+        if (brushExtent[1].getTime() - predict_hr * SIXTY_MINS_IN_MS < now && element != true) {
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
+            var lookrForwardStartTime = (predict_hr * SIXTY_MINS_IN_MS) + FIVE_MINS_IN_MS;
             var lookbackTime = (lookback+2)*FIVE_MINS_IN_MS + 2*ONE_MIN_IN_MS;
             var nowDataRaw = data.filter(function(d) {
-                return d.date.getTime() >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
-                    d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS &&
+                return d.date.getTime() >= brushExtent[1].getTime() - lookrForwardStartTime - lookbackTime &&
+                    d.date.getTime() <= brushExtent[1].getTime() - lookrForwardStartTime &&
                     d.type == 'sgv';
             });
             // sometimes nowDataRaw contains duplicates.  uniq it.
@@ -254,7 +255,7 @@
                 }
             });
             if (nowData.length > lookback) {
-                var time = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
+                var time = new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS);
                 var prediction = predictDIYPS(nowData, treatments.slice(treatments.length-100, treatments.length), profile, time, nowData, lookback);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
@@ -276,7 +277,7 @@
                     .css('text-decoration','');
             }
             $('#currentTime')
-                .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
+                .text(formatTime(new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS)))
                 .css('text-decoration','line-through');
 
             $('#lastEntry').text("RETRO").removeClass('current');
