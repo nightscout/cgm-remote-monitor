@@ -29,7 +29,8 @@
         //FORTY_MINS_IN_MS = 2400000,
         //FORTY_TWO_MINS_IN_MS = 2520000,
         SIXTY_MINS_IN_MS = 3600000,
-        FOCUS_DATA_RANGE_MS = 6 * SIXTY_MINS_IN_MS, // 6 hours of total historical + predicted data
+        display_hr = 8,
+        FOCUS_DATA_RANGE_MS = display_hr * SIXTY_MINS_IN_MS, // 6 hours of total historical + predicted data
         predict_hr = 3, // 3 hours of predictive data (should be smaller than predict_hr in predictDIYPS and websocket.js)
         FORMAT_TIME = '%I:%M%', //alternate format '%H:%M'
         audio = document.getElementById('audio'),
@@ -124,7 +125,7 @@
 
         xAxis = d3.svg.axis()
             .scale(xScale)
-            .ticks(4)
+            .ticks(display_hr)
             .orient('top');
 
         yAxis = d3.svg.axis()
@@ -237,10 +238,19 @@
 
         // predict for retrospective data
         var lookback=2;
+        var retroLookback = 60;
+        var retroStart = FOCUS_DATA_RANGE_MS+(retroLookback/60)*SIXTY_MINS_IN_MS;
+        //var retroEnd = predict_hr*SIXTY_MINS_IN_MS + retroLookback/60*SIXTY_MINS_IN_MS;
+
         if (brushExtent[1].getTime() - predict_hr * SIXTY_MINS_IN_MS < now && element != true) {
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
             var plusFiveTime = (predict_hr * SIXTY_MINS_IN_MS) - 6*ONE_MIN_IN_MS;
             var lookbackTime = (lookback+2)*FIVE_MINS_IN_MS + 2*ONE_MIN_IN_MS;
+            var sgvData = data.filter(function(d) {
+                return d.date.getTime() >= brushExtent[1].getTime() - retroStart &&
+                    //d.date.getTime() <= brushExtent[1].getTime() - retroEnd &&
+                    d.type == 'sgv';
+            });
             var nowDataRaw = data.filter(function(d) {
                 return d.date.getTime() >= brushExtent[1].getTime() - plusFiveTime - lookbackTime &&
                     d.date.getTime() <= brushExtent[1].getTime() - plusFiveTime &&
@@ -256,7 +266,9 @@
             });
             if (nowData.length > lookback) {
                 var time = new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS);
-                var prediction = predictDIYPS(nowData, treatments.slice(treatments.length-100, treatments.length), profile, time, nowData, lookback);
+                var retroPrediction = retroPredictBgs(sgvData, treatments.slice(treatments.length-100, treatments.length), profile, retroLookback, lookback);
+                focusData = focusData.concat(retroPrediction);
+                var prediction = predictDIYPS(nowData, treatments.slice(treatments.length-100, treatments.length), profile, time, lookback);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
 
@@ -288,14 +300,18 @@
         } else {
             // if the brush comes back into the current time range then it should reset to the current time and sg
             var sgvData = data.filter(function(d) {
-                return d.type == 'sgv';
+                return d.date.getTime() >= brushExtent[1].getTime() - retroStart &&
+                    //d.date.getTime() <= brushExtent[1].getTime() - retroEnd &&
+                    d.type == 'sgv';
             });
             var x=lookback+1;
             nowData = sgvData.slice(sgvData.length-x, sgvData.length);
             //nowData = [sgvData[sgvData.length - 2], sgvData[sgvData.length - 1]];
             var dateTime = new Date(now);
             nowDate = dateTime;
-            var prediction = predictDIYPS(nowData, treatments, profile, nowDate, sgvData, lookback);
+            var retroPrediction = retroPredictBgs(sgvData, treatments.slice(treatments.length-100, treatments.length), profile, retroLookback, lookback);
+            focusData = focusData.concat(retroPrediction);
+            var prediction = predictDIYPS(nowData, treatments, profile, nowDate, lookback);
             focusData = focusData.concat(prediction);
             $('#currentTime')
                 .text(formatTime(dateTime))
@@ -835,15 +851,24 @@
                     $('.container .current').toggleClass('low', latestSGV.y < 70);
                 }
             }
-            var temp0 = d[0].map(function (obj) {
-                var rawBg = rawIsigToRawBg(obj.rawIsig, obj.scale, obj.intercept, obj.slope);
-                return { date: new Date(obj.x-3*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg'}
+
+            treatments = d[3];
+            treatments.forEach(function (d) {
+                d.created_at = new Date(d.created_at);
             });
+
+            profile = d[5][0];
+
             var temp1 = d[0].map(function (obj) {
+                var rawBg = rawIsigToRawBg(obj.rawIsig, obj.scale, obj.intercept, obj.slope);
+                return { date: new Date(obj.x-2*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg'}
+                //return { date: new Date(obj.x-2*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'none', type: 'rawbg'}
+            });
+            var temp2 = d[0].map(function (obj) {
                 return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
             });
             data = [];
-            data = data.concat(temp0, temp1)
+            data = data.concat(temp1, temp2)
 
             // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
             // This shouldn't have to be sent and can be fixed by using xScale.domain([x0,x1]) function with
@@ -859,13 +884,6 @@
                 if (d.y < 39)
                     d.color = "transparent";
             });
-
-            treatments = d[3];
-            treatments.forEach(function (d) {
-                d.created_at = new Date(d.created_at);
-            });
-
-            profile = d[5][0];
 
             if (!isInitialData) {
                 isInitialData = true;
@@ -1116,12 +1134,12 @@
         } else {
             var elapsedMins = (actual[actual.length-1].date - actual[actual.length-1-lookback].date) / ONE_MINUTE;
             // construct a "5m ago" sgv offset from current sgv by the average change over the lookback interval
-            var lookbackSgvChange = actual[lookback].sgv-actual[0].sgv;
-            var fiveMinAgoSgv = actual[lookback].sgv - lookbackSgvChange/elapsedMins*5;
-            var y = [Math.log(fiveMinAgoSgv / BG_REF), Math.log(actual[lookback].sgv / BG_REF)];
+            var lookbackSgvChange = actual[actual.length-1].sgv-actual[actual.length-1-lookback].sgv;
+            var fiveMinAgoSgv = actual[actual.length-1].sgv - lookbackSgvChange/elapsedMins*5;
+            var y = [Math.log(fiveMinAgoSgv / BG_REF), Math.log(actual[actual.length-1-lookback].sgv / BG_REF)];
             var initial = actual[actual.length-1].sgv;
             var AR = [-0.723, 1.716];
-            var dt = actual[lookback].date.getTime();
+            var dt = actual[actual.length-1-lookback].date.getTime();
             for (var i = 0; i < predict_hr*60/tick; i++) {
                 if (i < ARpredict_hr*60/tick) {
                     y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
@@ -1135,25 +1153,68 @@
         return predictedDeltas;
     }
 
-    function predictDIYPS(actual, treatments, profile, time, recent, ARLookback) {
+    // this function returns the BGs retrospectively predicted retroLookback minutes prior,
+    // based on full knowlege of all insulin and carbs taken before and after that
+    function retroPredictBgs(dataRaw, treatments, profile, retroLookback, ARLookback) {
+        // for each data point, we need to run predictDIYPS to get the retroLookback-minute-later rPredicted data point
+        // how far back to look for the starting point of each retrospective BG prediction
+        var predicted = [];
+        var n=parseInt(retroLookback/5)-1;
+        // sometimes data contains duplicates.  uniq it.
+        var lastDate = new Date("1/1/1970");
+        var data = dataRaw.filter(function(n) {
+            if ( (lastDate.getTime() + ONE_MIN_IN_MS) < n.date.getTime()) {
+                lastDate = n.date;
+                return n;
+            }
+        });
+
+        //data.filter(function(d) {
+            //d.date = new Date(d.x);
+            //d.sgv = scaleBg(d.y);
+        //});
+        for (var i=0; i < data.length; i++) {
+            var time = new Date(data[i].date);
+            var nowData = data.filter(function(d) {
+                return d.date.getTime() <= time.getTime();
+            });
+            var rPredBg = predictDIYPS(nowData, treatments, profile, time, ARLookback, retroLookback/60+0.5)[n];
+            predicted[i] = {
+                // Add 2000 ms so not same point as SG
+                date: new Date(rPredBg.date.getTime() + 2000),
+                sgv: rPredBg.sgv,
+                color: 'blue'
+            };
+            predicted.forEach(function (d) {
+                d.type = 'retro-forecast';
+            })
+        }
+        return predicted;
+    }
+
+    function predictDIYPS(actual, treatments, profile, time, ARLookback, predict_hr) {
         var tick = 5;
         var ONE_MINUTE = 60 * 1000;
         var FIVE_MINUTES = 5 * ONE_MINUTE;
         var predicted = [];
         var BG_MIN = scaleBg(36);
         var BG_MAX = scaleBg(400);
-        var predict_hr = 4;
+        if (typeof predict_hr === 'undefined') {
+            var predict_hr = 4;
+        }
         var dt = time.getTime();
         var predictedColor = 'purple';
         if (browserSettings.theme == "colors") {
             predictedColor = 'purple';
         }
-        var bgPred = bgPredictions(treatments, actual, predict_hr, time, recent, tick);
+        var bgPred = bgPredictions(treatments, actual, predict_hr, time, tick);
         var predARDeltas = predictARDeltas(actual, ARLookback, tick);
         var predUntil = new Date(dt);
-        predUntil.setHours(predUntil.getHours() + predict_hr);
+        predUntil.setMinutes(predUntil.getMinutes() + predict_hr*60);
         var bgi = actual[actual.length-1].sgv;
-        for (var i = 0; i < predict_hr*60/tick-1; i++) {
+        var j=predict_hr*60/tick-1;
+        for (var i = 0; i < j; i++) {
+        //for (var i = 0; i < predict_hr*60/tick-1; i++) {
             dt = dt + tick*ONE_MINUTE;
             var date = new Date(dt - FIVE_MINUTES);
             if (date > predUntil) { break; }
@@ -1161,7 +1222,6 @@
             var predBg = bgPred.predBgs[i];
             var predBgDelta = predBg.bg - bgi;
             bgi = predBg.bg;
-            //if (dt < ARpredict_ms) {
             if (i < predARDeltas.length) {
                 predBg.bg = predBg.bg + (predBgDelta + predARDeltas[i])/2;
             }
@@ -1242,107 +1302,20 @@
         };
     }
 
-    function sCurvePredict(recent) {
-
-        var ONE_MINUTE = 60 * 1000;
-        var FIVE_MINUTES = 5 * ONE_MINUTE;
-        var SIX_MINUTES = FIVE_MINUTES + ONE_MINUTE;
-        var sgv = recent[recent.length-1].sgv;
-        var trend=0, maxV=0, inflection=0, inflectionAgo=0;
-        // change represents the current direction
-        var change=recent[0].sgv-recent[1].sgv;
-        recent[0].v=change;
-        // working backward, for each data point, determine change (v), and identify the inflection point (maxV)
-        var breakout=0;
-        for (var i=1; i < recent.length; i++) {
-            var v=recent[i-1].sgv-recent[i].sgv;
-            var elapsed = recent[i-1].date.getTime()-recent[i].date.getTime();
-            if (elapsed > SIX_MINUTES) {
-                recent[i].v = v * FIVE_MINUTES / elapsed;
-            }
-            else {    
-                recent[i].v=v;
-            }
-
-            if(v * change > 0 && recent[i].sgv > 30 && breakout == 0) {
-                trend++;
-                // only calculate maxV halfway back through recent
-                if(Math.abs(v)>Math.abs(maxV) && i < recent.length/2) { maxV=v; }
-            }
-            // if the trend changes direction, break out
-            else{
-                breakout=1;
-            }
-        }
-        for (i=1; i <= trend; i++) {
-            v=recent[i].v;
-            if(v==maxV){
-                inflection=recent[i-1].sgv;
-                inflectionAgo=i-1;
-                break;
-            }
-        }
-        var predBgs = [];
-        var bgi = parseInt(recent[0].sgv);
-        var time = new Date(recent[0].date);
-        time.setSeconds(time.getSeconds()+1);
-
-        for (i=inflectionAgo*2; i <= recent.length/2; i++) {
-            if ( change * recent[i].v <= 0 ) {
-                break;
-            }
-            bgi = parseInt( bgi + recent[i].v );
-            time.setMinutes(time.getMinutes() + 5);
-            var predBg = {};
-            predBg.bg = bgi;
-            predBg.time = new Date(time);
-            predBgs.push(predBg);
-        }
-
-        return {
-            predBgs: predBgs
-        }
-    }
-
-    function bgPredictions(treatments, current, predict_hr, time, recent, tick) {
-        console.info("bgPredictions called");
+    function bgPredictions(treatments, current, predict_hr, time, tick) {
+        //console.info("bgPredictions called");
         var sgv;
         var endtime=new Date(time);
 
-        /*
-        if (typeof recent !== 'undefined' && recent.length > 2) {
-            var sCurveRecent=recent.slice(recent.length-12, recent.length);
-            sCurveRecent.reverse();
-            var sCurvePred = sCurvePredict(sCurveRecent).predBgs;
-            predBgs = sCurvePred;
-            if (predBgs.length > 0) {
-                time = new Date(predBgs[predBgs.length-1].time);
-                sgv = predBgs[predBgs.length-1].bg;
-            }
-            else {
-                time = current[1].date;
-                sgv=parseInt(current[1].sgv);
-            }
+        sgv=parseInt(current[current.length-1].sgv);
+        if (sgv < 30) {
+            var obj = latestSGV;
+            sgv = rawIsigToRawBg(obj.rawIsig, obj.scale, obj.intercept, obj.slope);
         }
-        else {
-        */
-            sgv=parseInt(current[current.length-1].sgv);
-            if (sgv < 30) {
-                var obj = latestSGV;
-                sgv = rawIsigToRawBg(obj.rawIsig, obj.scale, obj.intercept, obj.slope);
-            }
-            var predBgs = [];
-            /*
-            var initBg = {}, predBgs = [];
-            initBg.bg = sgv;
-            initBg.time = current[1].date;
-            predBgs.push(initBg);
-        }
-        */
-
+        var predBgs = [];
         var bgi = sgv;
         var carbsDecaying = 0;
-        endtime.setHours(endtime.getHours() + predict_hr);
+        endtime.setMinutes(endtime.getMinutes() + predict_hr*60);
 
 
         var t = new Date(time.getTime());
@@ -1461,3 +1434,4 @@
     }
 
 })();
+
