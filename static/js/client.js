@@ -266,9 +266,9 @@
             });
             if (nowData.length > lookback) {
                 var time = new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS);
-                var retroPrediction = retroPredictBgs(sgvData, treatments.slice(treatments.length-100, treatments.length), profile, retroLookback, lookback);
+                var retroPrediction = retroPredictBgs(sgvData, treatments.slice(treatments.length-200, treatments.length), profile, retroLookback, lookback);
                 focusData = focusData.concat(retroPrediction);
-                var prediction = predictDIYPS(nowData, treatments.slice(treatments.length-100, treatments.length), profile, time, lookback);
+                var prediction = predictDIYPS(nowData, treatments.slice(treatments.length-50, treatments.length), profile, time, lookback);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
 
@@ -309,7 +309,7 @@
             //nowData = [sgvData[sgvData.length - 2], sgvData[sgvData.length - 1]];
             var dateTime = new Date(now);
             nowDate = dateTime;
-            var retroPrediction = retroPredictBgs(sgvData, treatments.slice(treatments.length-100, treatments.length), profile, retroLookback, lookback);
+            var retroPrediction = retroPredictBgs(sgvData, treatments.slice(treatments.length-200, treatments.length), profile, retroLookback, lookback);
             focusData = focusData.concat(retroPrediction);
             var prediction = predictDIYPS(nowData, treatments, profile, nowDate, lookback);
             focusData = focusData.concat(prediction);
