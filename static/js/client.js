@@ -1211,7 +1211,7 @@
         var predARDeltas = predictARDeltas(actual, ARLookback, tick);
         var predUntil = new Date(dt);
         predUntil.setMinutes(predUntil.getMinutes() + predict_hr*60);
-        var bgi = actual[actual.length-1].sgv;
+        var bgi = parseInt(actual[actual.length-1].sgv);
         var j=predict_hr*60/tick-1;
         for (var i = 0; i < j; i++) {
         //for (var i = 0; i < predict_hr*60/tick-1; i++) {
@@ -1221,10 +1221,12 @@
             if (i+1 >= bgPred.predBgs.length) { break; }
             var predBg = bgPred.predBgs[i];
             var predBgDelta = predBg.bg - bgi;
-            bgi = predBg.bg;
+            if (i==0) { var predARDelta = predARDeltas[0]; }
+            else { predARDelta = predARDeltas[i]-predARDeltas[i-1]; }
             if (i < predARDeltas.length) {
-                predBg.bg = predBg.bg + (predBgDelta + predARDeltas[i])/2;
+                predBg.bg = bgi + (predBgDelta + predARDelta)/2;
             }
+            bgi = predBg.bg;
             predicted[i] = {
                 // Add 2000 ms so not same point as SG
                 date: new Date(predBg.time.getTime() + 2000),
