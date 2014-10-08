@@ -1136,7 +1136,7 @@
             // construct a "5m ago" sgv offset from current sgv by the average change over the lookback interval
             var lookbackSgvChange = actual[actual.length-1].sgv-actual[actual.length-1-lookback].sgv;
             var fiveMinAgoSgv = actual[actual.length-1].sgv - lookbackSgvChange/elapsedMins*5;
-            var y = [Math.log(fiveMinAgoSgv / BG_REF), Math.log(actual[actual.length-1-lookback].sgv / BG_REF)];
+            var y = [Math.log(fiveMinAgoSgv / BG_REF), Math.log(actual[actual.length-1].sgv / BG_REF)];
             var initial = actual[actual.length-1].sgv;
             var AR = [-0.723, 1.716];
             var dt = actual[actual.length-1-lookback].date.getTime();
