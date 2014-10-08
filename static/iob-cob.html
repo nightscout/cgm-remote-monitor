@@ -169,6 +169,7 @@
                     max: max,
                     min: min,
                     sens: sens,
+                    carbratio: carbratio,
                     sgv: sgv
                 };
             }
@@ -281,7 +282,9 @@
     <p>Total COB: {{cobTotal.cob | number: 0}} g</p>
     <p>All carbs decayed by: {{cobTotal.decayedBy | date:'short'}}</p>
     <p>Total IOB: {{iobTotal.iob | number: 2}} U</p>
-    <p>Sensitivity (ISF): {{bgPredictions.sens | number: 0}} (mg/dL/U)</p>
+    <p>Insulin sensitivity (ISF): {{bgPredictions.sens | number: 0}} (mg/dL/U)</p>
+    <p>Carb sensitivity: {{bgPredictions.sens/bgPredictions.carbratio | number: 0}} (mg/dL/g)</p>
+    <p>Carb (IC) ratio: {{bgPredictions.carbratio | number: 0}} (g/U)</p>
     <p>Current Insulin Activity (BG impact): {{-iobTotal.activity | number: 2}} mg/dL/min ({{-iobTotal.activity*5 | number: 2}} mg/dL per 5 min)</p>
     <p>Current Carb Impact: {{cobTotal.carbImpact | number: 0}} mg/dL/min ({{(cobTotal.carbImpact)*5 | number: 0}} mg/dL per 5 min)</p>
     <p>Current Carb - Insulin Impact: {{cobTotal.carbImpact - iobTotal.activity | number: 2}} mg/dL/min ({{(cobTotal.carbImpact - iobTotal.activity)*5 | number: 2}} mg/dL per 5 min)</p>
