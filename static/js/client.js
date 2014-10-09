@@ -1273,7 +1273,7 @@
         var carbs_hr = profile.carbs_hr;
 
         treatments.forEach(function(treatment) {
-            if(treatment.carbs && treatment.date < time) {
+            if(treatment.carbs && treatment.created_at < time) {
                 var tCOB = cobCalc(treatment, lastDecayedBy, time);
                 if (tCOB) {
                     lastDecayedBy = tCOB.decayedBy;
