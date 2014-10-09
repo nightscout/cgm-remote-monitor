@@ -47,7 +47,7 @@
       .attr("class", "tooltip")
       .style("opacity", 0);
 
-    // Get values for High and Low from settings drawer. Default is 180 / 100 unless customized.
+    // Get values for High and Low from settings drawer. Default is 180 / 80 unless customized.
     var    customTop = browserSettings.targetTop;
 
     var    customBottom = browserSettings.targetBottom;
