@@ -329,6 +329,14 @@
                 $('.container #noButton .currentBG').css({color: color});
                 $('.container #noButton .currentDirection').css({color: color});
             }
+            
+            //Alarm check for High/Low
+            if (browserSettings.alarmHigh) {
+                $('.container .current').toggleClass('high', latestSGV.y > customTop);
+            }
+            if (browserSettings.alarmLow) {
+                $('.container .current').toggleClass('low', latestSGV.y < customBottom);
+            }
         }
 
         xScale.domain(brush.extent());
@@ -807,12 +815,12 @@
                 latestSGV = d[0][d[0].length - 1];
 
                 //TODO: alarmHigh/alarmLow probably shouldn't be here
-                if (browserSettings.alarmHigh) {
-                    $('.container .current').toggleClass('high', latestSGV.y > customTop);
-                }
-                if (browserSettings.alarmLow) {
-                    $('.container .current').toggleClass('low', latestSGV.y < customBottom);
-                }
+                //if (browserSettings.alarmHigh) {
+                //    $('.container .current').toggleClass('high', latestSGV.y > customTop);
+                //}
+                //if (browserSettings.alarmLow) {
+                //    $('.container .current').toggleClass('low', latestSGV.y < customBottom);
+                //}
             }
             data = d[0].map(function (obj) {
                 return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
