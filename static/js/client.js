@@ -328,14 +328,15 @@
                 var color = sgvToColor(latestSGV.y);
                 $('.container #noButton .currentBG').css({color: color});
                 $('.container #noButton .currentDirection').css({color: color});
-            }
             
-            //Alarm check for High/Low moved from line 814. This needs fixed for custom high/low settings. customTop/customBottom
-            if (browserSettings.alarmHigh) {
-                $('.container .current').toggleClass('high', latestSGV.y > 250);
-            }
-            if (browserSettings.alarmLow) {
-                $('.container .current').toggleClass('low', latestSGV.y < 70);
+                //Alarm check for High/Low moved from line 814. 
+                //This needs fixed for custom high/low settings. customTop/customBottom
+                if (browserSettings.alarmHigh) {
+                    $('.container .current').toggleClass('high', latestSGV.y > 250);
+                }
+                if (browserSettings.alarmLow) {
+                    $('.container .current').toggleClass('low', latestSGV.y < 50);
+                }
             }
         }
 
