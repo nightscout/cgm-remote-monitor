@@ -335,7 +335,7 @@
                     $('.container .current').toggleClass('high', latestSGV.y > 250);
                 }
                 if (browserSettings.alarmLow) {
-                    $('.container .current').toggleClass('low', latestSGV.y < 50);
+                    $('.container .current').toggleClass('low', latestSGV.y < 70);
                 }
             }
         }
