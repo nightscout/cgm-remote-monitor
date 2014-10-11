@@ -47,7 +47,6 @@
       .attr("class", "tooltip")
       .style("opacity", 0);
     //TODO: get these from the config
-    //Modified values for Julia
     var targetTop = 300,
         targetBottom = 100;
 
