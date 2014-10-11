@@ -47,8 +47,9 @@
       .attr("class", "tooltip")
       .style("opacity", 0);
     //TODO: get these from the config
-    var targetTop = 180,
-        targetBottom = 80;
+    //Modified values for Julia
+    var targetTop = 300,
+        targetBottom = 100;
 
     var futureOpacity = d3.scale.linear( )
         .domain([TWENTY_FIVE_MINS_IN_MS, SIXTY_MINS_IN_MS])
