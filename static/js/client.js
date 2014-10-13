@@ -328,15 +328,6 @@
                 var color = sgvToColor(latestSGV.y);
                 $('.container #noButton .currentBG').css({color: color});
                 $('.container #noButton .currentDirection').css({color: color});
-            
-                //Alarm check for High/Low moved from line 814. 
-                //This needs fixed for custom high/low settings. customTop/customBottom
-                if (browserSettings.alarmHigh) {
-                    $('.container .current').toggleClass('high', latestSGV.y > 150);
-                }
-                if (browserSettings.alarmLow) {
-                    $('.container .current').toggleClass('low', latestSGV.y < 70);
-                }
             }
         }
 
@@ -815,13 +806,13 @@
             if (d[0].length) {
                 latestSGV = d[0][d[0].length - 1];
 
-                //TODO: alarmHigh/alarmLow probably shouldn't be here
-                //if (browserSettings.alarmHigh) {
-                //    $('.container .current').toggleClass('high', latestSGV.y > customTop);
-                //}
-                //if (browserSettings.alarmLow) {
-                //    $('.container .current').toggleClass('low', latestSGV.y < customBottom);
-                //}
+                //TODO: alarmHigh/alarmLow probably shouldn't be here and should use customTop and customBottom
+                if (browserSettings.alarmHigh) {
+                    $('.container .current').toggleClass('high', latestSGV.y > 150);
+                }
+                if (browserSettings.alarmLow) {
+                    $('.container .current').toggleClass('low', latestSGV.y < 70);
+                }
             }
             data = d[0].map(function (obj) {
                 return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
