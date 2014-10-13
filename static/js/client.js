@@ -332,7 +332,7 @@
                 //Alarm check for High/Low moved from line 814. 
                 //This needs fixed for custom high/low settings. customTop/customBottom
                 if (browserSettings.alarmHigh) {
-                    $('.container .current').toggleClass('high', latestSGV.y > 250);
+                    $('.container .current').toggleClass('high', latestSGV.y > 150);
                 }
                 if (browserSettings.alarmLow) {
                     $('.container .current').toggleClass('low', latestSGV.y < 70);
