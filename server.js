@@ -1,15 +1,22 @@
-// NightScout server file
-
-// NightScout is free software: you can redistribute it and/or modify it under the terms of the GNU
-// General Public License as published by the Free Software Foundation, either version 3 of the
-// License, or (at your option) any later version.
-
-// NightScout is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-// even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License along with NightScout.
-// If not, see <http://www.gnu.org/licenses/>.
+/*
+* cgm-remote-monitor - web app to broadcast cgm readings
+* Copyright (C) 2014 Nightscout contributors.  See the COPYRIGHT file
+* at the root directory of this distribution and at
+* https://github.com/nightscout/cgm-remote-monitor/blob/master/COPYRIGHT
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Affero General Public License as published
+* by the Free Software Foundation, either version 3 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU Affero General Public License for more details.
+*
+* You should have received a copy of the GNU Affero General Public License
+* along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 // Description: Basic web server to display data from Dexcom G4.  Requires a database that contains
 // the Dexcom SGV data.
@@ -26,12 +33,15 @@ var store = require('./lib/storage')(env);
 
 var express = require('express');
 
+var pushover = require('./lib/pushover')(env);
 ///////////////////////////////////////////////////
 // api and json object variables
 ///////////////////////////////////////////////////
 var entries = require('./lib/entries')(env.mongo_collection, store);
 var settings = require('./lib/settings')(env.settings_collection, store);
-var api = require('./lib/api/')(env, entries, settings);
+var treatments = require('./lib/treatments')(env.treatments_collection, store, pushover);
+var devicestatus = require('./lib/devicestatus')(env.devicestatus_collection, store);
+var api = require('./lib/api/')(env, entries, settings, treatments, devicestatus);
 var pebble = require('./lib/pebble');
 ///////////////////////////////////////////////////
 
@@ -39,7 +49,6 @@ var pebble = require('./lib/pebble');
 // setup http server
 ///////////////////////////////////////////////////
 var PORT = env.PORT;
-var THIRTY_DAYS = 2592000;
 
 var app = express();
 var appInfo = software.name + ' ' + software.version;
@@ -52,12 +61,13 @@ app.enable('trust proxy'); // Allows req.secure test on heroku https connections
 app.use('/api/v1', api);
 
 // pebble data
-app.get('/pebble', pebble(entries));
+app.get('/pebble', pebble(entries, devicestatus));
 
 //app.get('/package.json', software);
 
 // define static server
-var staticFiles = express.static(env.static_files, {maxAge: THIRTY_DAYS * 1000});
+//TODO: JC - changed cache to 1 hour from 30d ays to bypass cache hell until we have a real solution
+var staticFiles = express.static(env.static_files, {maxAge: 60 * 60 * 1000});
 
 // serve the static content
 app.use(staticFiles);
@@ -76,7 +86,7 @@ store(function ready ( ) {
   // setup socket io for data and message transmission
   ///////////////////////////////////////////////////
   var websocket = require('./lib/websocket');
-  var io = websocket(env, server, entries);
+  var io = websocket(env, server, entries, treatments);
 });
 
 ///////////////////////////////////////////////////
