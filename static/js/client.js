@@ -240,9 +240,9 @@
                 var focusPoint = nowData[nowData.length - 1];
 
                 //in this case the SGV is scaled
-                if (focusPoint.sgv < scaleBg(40))
+                if (focusPoint.y < 40)
                     $('.container .currentBG').text('LOW');
-                else if (focusPoint.sgv > scaleBg(400))
+                else if (focusPoint.y > 400)
                     $('.container .currentBG').text('HIGH');
                 else
                     $('.container .currentBG').text(focusPoint.sgv);
