@@ -851,12 +851,13 @@
     function sgvToColor(sgv) {
         var color = 'grey';
 
+        // Switched targetTop/Bottom to customHigh/Low
         if (browserSettings.theme == "colors") {
-            if (sgv > targetTop) {
+            if (sgv > customHigh) {
                 color = 'yellow';
-            } else if (sgv >= targetBottom && sgv <= targetTop) {
+            } else if (sgv >= customLow && sgv <= customHigh) {
                 color = '#4cff00';
-            } else if (sgv < targetBottom) {
+            } else if (sgv < customLow) {
                 color = 'red';
             }
         }
