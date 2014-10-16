@@ -389,7 +389,7 @@ $("input#save").click(function() {
 		"units": $("input:radio[name=units-browser]:checked").val(),
 		"alarmHigh": $("#alarmhigh-browser").prop("checked"),
 		"alarmLow": $("#alarmlow-browser").prop("checked"),
-		"customHigh":$("#customHigh-browser").prop("value"),
+		"customHigh":$("#customhigh-browser").prop("value"),
 		"customLow":$("#customlow-browser").prop("value"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
 		"customTitle": $("input#customTitle").prop("value"),
