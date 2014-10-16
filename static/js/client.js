@@ -272,9 +272,9 @@
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
 
-                var iob = iobTotal(treatments.slice(treatments.length-50, treatments.length)).iob;
-                var cob = cobTotal(treatments.slice(treatments.length-50, treatments.length)).cob;
-                $("h1.iobCob").text("IOB: " + iob + "COB: " + cob);
+                var iob = Math.round(iobTotal(treatments.slice(treatments.length-50, treatments.length), time).iob*10)/10;
+                var cob = Math.round(cobTotal(treatments.slice(treatments.length-50, treatments.length), time).cob);
+                $("h1.iobCob").text("IOB: " + iob + "U,  COB: " + cob + "g");
 
                 //in this case the SGV is scaled
                 if (focusPoint.sgv < scaleBg(40))
