@@ -46,10 +46,12 @@
     var div = d3.select("body").append("div")
       .attr("class", "tooltip")
       .style("opacity", 0);
-    //TODO: get these from the config
-    var targetTop = 180,
-        targetBottom = 80;
 
+    // Get values for High and Low from settings drawer. Default is 180 / 80 unless customized.
+    var    customTop = browserSettings.targetTop;
+
+    var    customBottom = browserSettings.targetBottom;
+   
     var futureOpacity = d3.scale.linear( )
         .domain([TWENTY_FIVE_MINS_IN_MS, SIXTY_MINS_IN_MS])
         .range([0.8, 0.1]);
@@ -539,9 +541,9 @@
                 focus.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(scaleBg(180)))
+                    .attr('y1', yScale(scaleBg(customTop)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(scaleBg(180)))
+                    .attr('y2', yScale(scaleBg(customTop)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -549,9 +551,9 @@
                 focus.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(scaleBg(80)))
+                    .attr('y1', yScale(scaleBg(customBottom)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(scaleBg(80)))
+                    .attr('y2', yScale(scaleBg(customBottom)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -585,9 +587,9 @@
                 context.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(180)))
+                    .attr('y1', yScale2(scaleBg(customTop)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(180)))
+                    .attr('y2', yScale2(scaleBg(customTop)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -595,9 +597,9 @@
                 context.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(80)))
+                    .attr('y1', yScale2(scaleBg(customBottom)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(80)))
+                    .attr('y2', yScale2(scaleBg(customBottom)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -642,18 +644,18 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(180)))
+                    .attr('y1', yScale(scaleBg(customTop)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(180)));
+                    .attr('y2', yScale(scaleBg(customTop)));
 
                 // transition low line to correct location
                 focus.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(80)))
+                    .attr('y1', yScale(scaleBg(customBottom)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(80)));
+                    .attr('y2', yScale(scaleBg(customBottom)));
 
                 // transition open-top line to correct location
                 focus.select('.open-top')
@@ -687,18 +689,18 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(targetTop)))
+                    .attr('y1', yScale2(scaleBg(customTop)))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(targetTop)));
+                    .attr('y2', yScale2(scaleBg(customTop)));
 
                 // transition low line to correct location
                 context.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(targetBottom)))
+                    .attr('y1', yScale2(scaleBg(customBottom)))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(targetBottom)));
+                    .attr('y2', yScale2(scaleBg(customBottom)));
             }
         }
 
@@ -804,9 +806,9 @@
             if (d[0].length) {
                 latestSGV = d[0][d[0].length - 1];
 
-                //TODO: alarmHigh/alarmLow probably shouldn't be here
+                //TODO: alarmHigh/alarmLow probably shouldn't be here and should use customTop and customBottom
                 if (browserSettings.alarmHigh) {
-                    $('.container .current').toggleClass('high', latestSGV.y > 180);
+                    $('.container .current').toggleClass('high', latestSGV.y > 250);
                 }
                 if (browserSettings.alarmLow) {
                     $('.container .current').toggleClass('low', latestSGV.y < 70);
@@ -849,11 +851,11 @@
         var color = 'grey';
 
         if (browserSettings.theme == "colors") {
-            if (sgv > targetTop) {
+            if (sgv > customTop) {
                 color = 'yellow';
-            } else if (sgv >= targetBottom && sgv <= targetTop) {
+            } else if (sgv >= customBottom && sgv <= customTop) {
                 color = '#4cff00';
-            } else if (sgv < targetBottom) {
+            } else if (sgv < customBottom) {
                 color = 'red';
             }
         }
