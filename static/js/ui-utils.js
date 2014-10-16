@@ -41,7 +41,7 @@ function getBrowserSettings(storage) {
 			"alarmHigh": storage.get("alarmHigh"),
 			"alarmLow": storage.get("alarmLow"),
 			"customHigh": storage.get("customHigh"),
-			"customlow": storage.get("customLow"),
+			"customLow": storage.get("customLow"),
 			"nightMode": storage.get("nightMode"),
 			"customTitle": storage.get("customTitle"),
 			"theme": storage.get("theme")
