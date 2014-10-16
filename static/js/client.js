@@ -852,9 +852,9 @@
         var color = 'grey';
 
         if (browserSettings.theme == "colors") {
-            if (sgv > customHigh) {
+            if (sgv > targetTop) {
                 color = 'yellow';
-            } else if (sgv >= customHigh && sgv <= targetBottom) {
+            } else if (sgv >= targetTop && sgv <= targetBottom) {
                 color = '#4cff00';
             } else if (sgv < targetBottom) {
                 color = 'red';
