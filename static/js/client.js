@@ -854,7 +854,7 @@
         if (browserSettings.theme == "colors") {
             if (sgv > targetTop) {
                 color = 'yellow';
-            } else if (sgv >= targetTop && sgv <= targetBottom) {
+            } else if (sgv >= targetBottom && sgv <= targetTop) {
                 color = '#4cff00';
             } else if (sgv < targetBottom) {
                 color = 'red';
