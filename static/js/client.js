@@ -272,6 +272,10 @@
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
 
+                var iob = iobTotal(treatments.slice(treatments.length-50, treatments.length)).iob;
+                var cob = cobTotal(treatments.slice(treatments.length-50, treatments.length)).cob;
+                $("h1.iobCob").text("IOB: " + iob + "COB: " + cob);
+
                 //in this case the SGV is scaled
                 if (focusPoint.sgv < scaleBg(40))
                     $('.container .currentBG').text('LOW');
@@ -301,18 +305,22 @@
             // if the brush comes back into the current time range then it should reset to the current time and sg
             var sgvData = data.filter(function(d) {
                 return d.date.getTime() >= brushExtent[1].getTime() - retroStart &&
-                    //d.date.getTime() <= brushExtent[1].getTime() - retroEnd &&
+                    d.color != 'transparent' &&
                     d.type == 'sgv';
             });
             var x=lookback+1;
             nowData = sgvData.slice(sgvData.length-x, sgvData.length);
-            //nowData = [sgvData[sgvData.length - 2], sgvData[sgvData.length - 1]];
             var dateTime = new Date(now);
             nowDate = dateTime;
             var retroPrediction = retroPredictBgs(sgvData, treatments.slice(treatments.length-200, treatments.length), profile, retroLookback, lookback);
             focusData = focusData.concat(retroPrediction);
             var prediction = predictDIYPS(nowData, treatments, profile, nowDate, lookback);
             focusData = focusData.concat(prediction);
+
+            var iob = Math.round(iobTotal(treatments.slice(treatments.length-50, treatments.length)).iob*10)/10;
+            var cob = Math.round(cobTotal(treatments.slice(treatments.length-50, treatments.length)).cob);
+            $("h1.iobCob").text("IOB: " + iob + "U,  COB: " + cob + "g");
+
             $('#currentTime')
                 .text(formatTime(dateTime))
                 .css('text-decoration', '');
@@ -388,7 +396,12 @@
             .attr('cy', function (d) { return yScale(d.sgv); })
             .attr('fill', function (d) { return d.color; })
             .attr('opacity', function (d) { return futureOpacity(d.date - latestSGV.x); })
-            .attr('r', function(d) { if (d.type == 'mbg') return 6; else return 3;});
+            .attr('r', function(d) {
+                if (d.type == 'mbg') return 6;
+                else if (d.type == 'rawbg') return 2;
+                else if (d.type == 'retro-forecast') return 2;
+                else return 3;
+            });
 
         focusCircles.exit()
             .remove();
@@ -1247,6 +1260,9 @@
         var iob= 0;
         var activity = 0;
         if (!treatments) return {};
+        if (typeof time === 'undefined') {
+            var time = new Date();
+        }
 
         treatments.forEach(function(treatment) {
             if(treatment.created_at < time) {
