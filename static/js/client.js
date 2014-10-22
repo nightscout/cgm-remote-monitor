@@ -268,13 +268,19 @@
                 var time = new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS);
                 var retroPrediction = retroPredictBgs(sgvData, treatments.slice(treatments.length-200, treatments.length), profile, retroLookback, lookback);
                 focusData = focusData.concat(retroPrediction);
-                var prediction = predictDIYPS(nowData, treatments.slice(treatments.length-50, treatments.length), profile, time, lookback);
+                var prediction = predictDIYPS(nowData, treatments.slice(treatments.length-200, treatments.length), profile, time, lookback);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
 
-                var iob = Math.round(iobTotal(treatments.slice(treatments.length-50, treatments.length), time).iob*10)/10;
-                var cob = Math.round(cobTotal(treatments.slice(treatments.length-50, treatments.length), time).cob);
-                $("h1.iobCob").text("IOB: " + iob + "U,  COB: " + cob + "g");
+                var iob = Math.round(iobTotal(treatments.slice(treatments.length-200, treatments.length), time).iob*10)/10;
+                var cob = Math.round(cobTotal(treatments.slice(treatments.length-200, treatments.length), time).cob);
+
+                var cTotal = cobTotal(treatments.slice(treatments.length-200, treatments.length), time);
+                var tick = 5;
+                var carbImpact = cTotal.carbImpact*tick;
+                var insulinImpact = iobTotal(treatments.slice(treatments.length-200, treatments.length), time).activity*tick;
+                var totalImpact = Math.round((carbImpact-insulinImpact)*10)/10;
+                $("h1.iobCob").text("IOB: " + iob + "U,  COB: " + cob + "g, BG Impact: " + totalImpact +"mg/dL/5m");
 
                 //in this case the SGV is scaled
                 if (focusPoint.sgv < scaleBg(40))
@@ -319,7 +325,13 @@
 
             var iob = Math.round(iobTotal(treatments.slice(treatments.length-50, treatments.length)).iob*10)/10;
             var cob = Math.round(cobTotal(treatments.slice(treatments.length-50, treatments.length)).cob);
-            $("h1.iobCob").text("IOB: " + iob + "U,  COB: " + cob + "g");
+
+            var cTotal = cobTotal(treatments.slice(treatments.length-200, treatments.length), time);
+            var tick = 5;
+            var carbImpact = cTotal.carbImpact*tick;
+            var insulinImpact = iobTotal(treatments.slice(treatments.length-200, treatments.length), time).activity*tick;
+            var totalImpact = Math.round((carbImpact-insulinImpact)*10)/10;
+            $("h1.iobCob").text("IOB: " + iob + "U,  COB: " + cob + "g, BG Impact: " + totalImpact +"mg/dL/5m");
 
             $('#currentTime')
                 .text(formatTime(dateTime))
@@ -1161,6 +1173,7 @@
                     var delta = sgv - initial;
                 }
                 predictedDeltas[i] = delta;
+                if (i > 0 && delta == predictedDeltas[i-1]) { return predictedDeltas; }
             }
         }
         return predictedDeltas;
@@ -1233,17 +1246,25 @@
             if (date > predUntil) { break; }
             if (i+1 >= bgPred.predBgs.length) { break; }
             var predBg = bgPred.predBgs[i];
-            var predBgDelta = predBg.bg - bgi;
-            if (i==0) { var predARDelta = predARDeltas[0]; }
-            else { predARDelta = predARDeltas[i]-predARDeltas[i-1]; }
-            if (i < predARDeltas.length) {
-                predBg.bg = bgi + (predBgDelta + predARDelta)/2;
+            if (i==0) {
+                var predBgDelta = predBg.bg - bgi;
+                var predARDelta = predARDeltas[0];
             }
-            bgi = predBg.bg;
+            else {
+                predBgDelta = bgPred.predBgs[i].bg - bgPred.predBgs[i-1].bg; 
+                predARDelta = predARDeltas[i]-predARDeltas[i-1];
+            }
+            if (i < predARDeltas.length) {
+                //bgi = bgi + (predBgDelta + predARDelta)/2;
+                bgi = bgi + ( predBgDelta*i + predARDelta*(4-i) )/4/2;
+            }
+            else {
+                bgi = bgi + predBgDelta;
+            }
             predicted[i] = {
                 // Add 2000 ms so not same point as SG
                 date: new Date(predBg.time.getTime() + 2000),
-                sgv: Math.max(BG_MIN, Math.min(BG_MAX,predBg.bg)),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX,bgi)),
                 color: predictedColor
             };
             predicted.forEach(function (d) {
