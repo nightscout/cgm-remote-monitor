@@ -6,8 +6,9 @@ var defaultSettings = {
 	"alarmHigh": true,
 	"alarmLow": true,
 	"nightMode": false,
+	"theme": "default",
 	"dateFormat": "12"
-}
+};
 
 var app = {};
 $.ajax("/api/v1/status.json", {
@@ -40,6 +41,7 @@ function getBrowserSettings(storage) {
 			"alarmLow": storage.get("alarmLow"),
 			"nightMode": storage.get("nightMode"),
 			"customTitle": storage.get("customTitle"),
+			"theme": storage.get("theme"),
 			"dateFormat": storage.get("dateFormat")
 		};
 
@@ -64,6 +66,12 @@ function getBrowserSettings(storage) {
 			$("input#customTitle").prop("value", json.customTitle);
 			document.title = "Nightscout: " + json.customTitle;
 		}
+
+        if (json.theme == "colors") {
+            $("#theme-colors-browser").prop("checked", true);
+        } else {
+            $("#theme-default-browser").prop("checked", true);
+        }
 		
 		json.dateFormat = setDefault(json.dateFormat, defaultSettings.dateFormat);
 		
@@ -123,6 +131,9 @@ function storeInBrowser(json, storage) {
 		storage.set("nightMode", false)
 	}
 	if (json.customTitle) storage.set("customTitle", json.customTitle);
+    if (json.theme) storage.set("theme", json.theme);
+    event.preventDefault();
+
 	if (json.dateFormat) storage.set("dateFormat", json.dateFormat);
 	event.preventDefault();
 }
@@ -382,6 +393,7 @@ $("input#save").click(function() {
 		"alarmLow": $("#alarmlow-browser").prop("checked"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
 		"customTitle": $("input#customTitle").prop("value"),
+        "theme": $("input:radio[name=theme-browser]:checked").val(),
 		"dateFormat": $("input:radio[name=dateformat-browser]:checked").val()
 	}, browserStorage);
 
