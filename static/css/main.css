@@ -76,7 +76,7 @@ body {
 }
 .timebox {
     text-align: center;
-    width: 250px;
+    width: 405px;
 }
 .timeOther {
     font-size: 25%;
@@ -204,6 +204,10 @@ div.tooltip {
 
 #testAlarms {
     font-size: 20%;
+}
+
+#currentTime{
+	padding: 0 0 10px 0;
 }
 
 /* Large desktop */
