@@ -33,6 +33,7 @@
                         var treatments_r = treatments.slice(0, 100);
                         treatments_r.reverse();
                         $scope.cobTotal = cobTotal(treatments_r);
+                        $scope.lookbackCarbs = lookbackCarbs(treatments_r);
                         $http.get('/api/v1/entries/current.json').success(function(current) {
                             $scope.current = current[0];
                 console.info(current[0]);
@@ -41,7 +42,7 @@
                     });
                     $http.get('/api/v1/profile').success(function(profile) {
                         $scope.profile = profile.slice(0, 500);
-			console.info(profile);
+			//console.info(profile);
                     });
                 }
             }
@@ -81,6 +82,24 @@
                     iob: iob,
                     activity: activity
                 };
+            }
+
+            function lookbackCarbs(treatments, time) {
+                if (!treatments) return {};
+                if (typeof time === 'undefined') {
+                    var time = new Date();
+                }
+                var lookbackHours = 8;
+                var startCounting = new Date();
+                startCounting = startCounting.setHours(startCounting.getHours() - lookbackHours);
+                var lookbackCarbs = 0;
+                treatments.forEach(function(treatment) {
+                    var carbTime = new Date(treatment.created_at);
+                    if(treatment.carbs && carbTime > startCounting && carbTime < time ) {
+                        lookbackCarbs = lookbackCarbs + parseInt(treatment.carbs);
+                    }
+                });
+                return { lookbackCarbs: lookbackCarbs };
             }
 
             function cobTotal(treatments, time) {
@@ -288,6 +307,7 @@
     <p>Current Insulin Activity (BG impact): {{-iobTotal.activity | number: 2}} mg/dL/min ({{-iobTotal.activity*5 | number: 2}} mg/dL per 5 min)</p>
     <p>Current Carb Impact: {{cobTotal.carbImpact | number: 0}} mg/dL/min ({{(cobTotal.carbImpact)*5 | number: 0}} mg/dL per 5 min)</p>
     <p>Current Carb - Insulin Impact: {{cobTotal.carbImpact - iobTotal.activity | number: 2}} mg/dL/min ({{(cobTotal.carbImpact - iobTotal.activity)*5 | number: 2}} mg/dL per 5 min)</p>
+    <p>Total Carbs Absorbed in last 8h: {{lookbackCarbs.lookbackCarbs - cobTotal.cob | number: 0}} g</p>
     <p>BG Predictions:</p>
     <ul>
         <li ng-repeat="pred in bgPredictions.predBgs">
