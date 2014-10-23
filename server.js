@@ -37,7 +37,7 @@ var pushover = require('./lib/pushover')(env);
 ///////////////////////////////////////////////////
 // api and json object variables
 ///////////////////////////////////////////////////
-var entries = require('./lib/entries')(env.mongo_collection, store);
+var entries = require('./lib/entries')(env.mongo_collection, store, pushover);
 var settings = require('./lib/settings')(env.settings_collection, store);
 var treatments = require('./lib/treatments')(env.treatments_collection, store, pushover);
 var devicestatus = require('./lib/devicestatus')(env.devicestatus_collection, store);
