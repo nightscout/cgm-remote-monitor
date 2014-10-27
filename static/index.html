@@ -20,6 +20,9 @@
                 <a id="treatmentDrawerToggle" class="tip" original-title="Treatments" href="#"><i class="icon-plus"></i></a>
             </div>
             <h1 class="customTitle">Nightscout</h1>
+            <div id="iob-cob">
+                <h1 class="iobCob">IOB: --  COB: --</h1>
+            </div>
         </div>
         <div id="notification">
             <a href="#"><span></span><i class="icon-cancel-circled"></i></a>
@@ -69,6 +72,11 @@
                         <dt>Units</dt>
                         <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label><br />
                         <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label>
+                    </dl>
+					<dl class="radio">
+                        <dt>Date format</dt>
+                        <dd><input type="radio" name="dateformat-browser" id="12-browser" value="12" checked /><label for="12-browser">12 hours</label><br />
+                        <dd><input type="radio" name="dateformat-browser" id="24-browser" value="24" /><label for="24-browser">24 hours</label>
                     </dl>
                     <dl class="toggle">
                         <dt>Enable Alarms <a class="tip" original-title="When enabled the an alarm will sound."><i class="icon-help-circled"></i></a></dt>
