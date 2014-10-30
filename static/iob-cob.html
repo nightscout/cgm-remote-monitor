@@ -33,7 +33,10 @@
                         var treatments_r = treatments.slice(0, 100);
                         treatments_r.reverse();
                         $scope.cobTotal = cobTotal(treatments_r);
-                        $scope.lookbackCarbs = lookbackCarbs(treatments_r);
+                        $scope.carbImpact = carbImpact($scope.cobTotal.carbImpact, $scope.iobTotal.activity);
+                        $scope.eightHourCarbs = lookbackCarbs(treatments_r, 8);
+                        $scope.threeHourCarbs = lookbackCarbs(treatments_r, 3);
+                        $scope.threeHourInsulin = lookbackInsulin(treatments_r, 3);
                         $http.get('/api/v1/entries/current.json').success(function(current) {
                             $scope.current = current[0];
                 console.info(current[0]);
@@ -84,12 +87,11 @@
                 };
             }
 
-            function lookbackCarbs(treatments, time) {
+            function lookbackCarbs(treatments, lookbackHours, time) {
                 if (!treatments) return {};
                 if (typeof time === 'undefined') {
                     var time = new Date();
                 }
-                var lookbackHours = 8;
                 var startCounting = new Date();
                 startCounting = startCounting.setHours(startCounting.getHours() - lookbackHours);
                 var lookbackCarbs = 0;
@@ -100,6 +102,23 @@
                     }
                 });
                 return { lookbackCarbs: lookbackCarbs };
+            }
+
+            function lookbackInsulin(treatments, lookbackHours, time) {
+                if (!treatments) return {};
+                if (typeof time === 'undefined') {
+                    var time = new Date();
+                }
+                var startCounting = new Date();
+                startCounting = startCounting.setHours(startCounting.getHours() - lookbackHours);
+                var lookbackInsulin = 0;
+                treatments.forEach(function(treatment) {
+                    var bolusTime = new Date(treatment.created_at);
+                    if(treatment.insulin && bolusTime > startCounting && bolusTime < time ) {
+                        lookbackInsulin = lookbackInsulin + parseFloat(treatment.insulin);
+                    }
+                });
+                return { lookbackInsulin: lookbackInsulin };
             }
 
             function cobTotal(treatments, time) {
@@ -144,6 +163,19 @@
                     carbImpact: carbImpact,
                     cob: cob
                 };
+            }
+
+            function carbImpact(rawCarbImpact, insulinImpact) {
+                var liverSensRatio = 1.0;
+                //var liverCarbImpactMax = 1;
+                //var liverCarbImpact = Math.min(liverCarbImpactMax, liverSensRatio*insulinImpact);
+                var liverCarbImpact = liverSensRatio*insulinImpact;
+                var netCarbImpact = Math.max(0, rawCarbImpact-liverCarbImpact);
+                var totalImpact = netCarbImpact - insulinImpact;
+                return {
+                    netCarbImpact: netCarbImpact,
+                    totalImpact: totalImpact
+                }
             }
 
             function bgPredictions(treatments, current) {
@@ -305,9 +337,11 @@
     <p>Carb sensitivity: {{bgPredictions.sens/bgPredictions.carbratio | number: 0}} (mg/dL/g)</p>
     <p>Carb (IC) ratio: {{bgPredictions.carbratio | number: 0}} (g/U)</p>
     <p>Current Insulin Activity (BG impact): {{-iobTotal.activity | number: 2}} mg/dL/min ({{-iobTotal.activity*5 | number: 2}} mg/dL per 5 min)</p>
-    <p>Current Carb Impact: {{cobTotal.carbImpact | number: 0}} mg/dL/min ({{(cobTotal.carbImpact)*5 | number: 0}} mg/dL per 5 min)</p>
-    <p>Current Carb - Insulin Impact: {{cobTotal.carbImpact - iobTotal.activity | number: 2}} mg/dL/min ({{(cobTotal.carbImpact - iobTotal.activity)*5 | number: 2}} mg/dL per 5 min)</p>
-    <p>Total Carbs Absorbed in last 8h: {{lookbackCarbs.lookbackCarbs - cobTotal.cob | number: 0}} g</p>
+    <p>Current Net Carb Impact: {{carbImpact.netCarbImpact | number: 2}} mg/dL/min ({{(carbImpact.netCarbImpact)*5 | number: 2}} mg/dL per 5 min)</p>
+    <p>Current Total Impact: {{carbImpact.totalImpact | number: 2}} mg/dL/min ({{(carbImpact.totalImpact)*5 | number: 2}} mg/dL per 5 min)</p>
+    <p>Total Carbs Absorbed in last 8h: {{eightHourCarbs.lookbackCarbs - cobTotal.cob | number: 0}} g</p>
+    <p>Total Carbs Eaten in last 3h: {{threeHourCarbs.lookbackCarbs | number: 0}} g</p>
+    <p>Total Insulin in last 3h: {{threeHourInsulin.lookbackInsulin | number: 1}} U</p>
     <p>BG Predictions:</p>
     <ul>
         <li ng-repeat="pred in bgPredictions.predBgs">

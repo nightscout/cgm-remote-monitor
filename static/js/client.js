@@ -279,14 +279,16 @@
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
 
-                var iob = Math.round(iobTotal(treatments.slice(treatments.length-200, treatments.length), time).iob*10)/10;
-                var cob = Math.round(cobTotal(treatments.slice(treatments.length-200, treatments.length), time).cob);
-
+                var iTotal = iobTotal(treatments.slice(treatments.length-200, treatments.length), time);
+                var iob = Math.round(iTotal.iob*10)/10;
                 var cTotal = cobTotal(treatments.slice(treatments.length-200, treatments.length), time);
+                var cob = Math.round(cTotal.cob);
+
                 var tick = 5;
-                var carbImpact = cTotal.carbImpact*tick;
-                var insulinImpact = iobTotal(treatments.slice(treatments.length-200, treatments.length), time).activity*tick;
-                var totalImpact = Math.round((carbImpact-insulinImpact)*10)/10;
+                var insulinImpact = iTotal.activity;
+                var rawCarbImpact = cTotal.rawCarbImpact;
+                var cImpact = carbImpact(rawCarbImpact, insulinImpact);
+                var totalImpact = Math.round((cImpact.totalImpact*tick)*10)/10;
                 $("h1.iobCob").text("IOB: " + iob + "U,  COB: " + cob + "g, BG Impact: " + totalImpact +"mg/dL/5m");
 
                 //in this case the SGV is scaled
@@ -330,14 +332,15 @@
             var prediction = predictDIYPS(nowData, treatments, profile, nowDate, lookback);
             focusData = focusData.concat(prediction);
 
-            var iob = Math.round(iobTotal(treatments.slice(treatments.length-50, treatments.length)).iob*10)/10;
-            var cob = Math.round(cobTotal(treatments.slice(treatments.length-50, treatments.length)).cob);
-
+            var iTotal = iobTotal(treatments.slice(treatments.length-200, treatments.length), time);
+            var iob = Math.round(iTotal.iob*10)/10;
             var cTotal = cobTotal(treatments.slice(treatments.length-200, treatments.length), time);
+            var cob = Math.round(cTotal.cob);
             var tick = 5;
-            var carbImpact = cTotal.carbImpact*tick;
-            var insulinImpact = iobTotal(treatments.slice(treatments.length-200, treatments.length), time).activity*tick;
-            var totalImpact = Math.round((carbImpact-insulinImpact)*10)/10;
+            var insulinImpact = iTotal.activity;
+            var rawCarbImpact = cTotal.rawCarbImpact;
+            var cImpact = carbImpact(rawCarbImpact, insulinImpact);
+            var totalImpact = Math.round((cImpact.totalImpact*tick)*10)/10;
             $("h1.iobCob").text("IOB: " + iob + "U,  COB: " + cob + "g, BG Impact: " + totalImpact +"mg/dL/5m");
 
             $('#currentTime')
@@ -1310,6 +1313,10 @@
     }
 
     function cobTotal(treatments, time) {
+        // TODO: figure out how to tune this.  I would've thought it'd be 1, but 5 works better.
+        var liverSensRatio = 5;
+        var sens = profile.sens;
+        var carbratio = profile.carbratio;
         var cob=0;
         if (!treatments) return {};
         if (typeof time === 'undefined') {
@@ -1323,14 +1330,22 @@
         treatments.forEach(function(treatment) {
             if(treatment.carbs && treatment.created_at < time) {
                 var tCOB = cobCalc(treatment, lastDecayedBy, time);
-                if (tCOB) {
-                    lastDecayedBy = tCOB.decayedBy;
-                    if (tCOB.carbsleft) {
-                        var carbsleft = + tCOB.carbsleft;
+                var decaysin_hr = (tCOB.decayedBy-time)/1000/60/60;
+                if (decaysin_hr > -1) {
+                    var iobStart = iobTotal(treatments, lastDecayedBy).iob;
+                    var iobEnd = iobTotal(treatments, tCOB.decayedBy).iob;
+                    var iobChange = iobStart-iobEnd;
+                    if (iobChange > 0) {
+                        var delayedCarbs = iobChange*liverSensRatio*sens/carbratio;
+                        var delayMinutes = delayedCarbs/carbs_hr*60;
+                        tCOB.decayedBy.setMinutes(tCOB.decayedBy.getMinutes() + delayMinutes);
                     }
                 }
 
-                var decaysin_hr = (lastDecayedBy-time)/1000/60/60;
+                if (tCOB) {
+                    lastDecayedBy = tCOB.decayedBy;
+                }
+
                 if (decaysin_hr > 0) {
                     cob = Math.min(tCOB.initialCarbs, decaysin_hr * carbs_hr);
                     isDecaying = tCOB.isDecaying;
@@ -1338,18 +1353,30 @@
                 else { 
                     cob = 0;
                 }
+
             }
         });
-        var sens = profile.sens;
-        var carbratio = profile.carbratio;
-        var carbImpact = isDecaying*sens/carbratio*carbs_hr/60;
+        var rawCarbImpact = isDecaying*sens/carbratio*carbs_hr/60;
         return {
             decayedBy: lastDecayedBy,
             isDecaying: isDecaying,
             carbs_hr: carbs_hr,
-            carbImpact: carbImpact,
+            rawCarbImpact: rawCarbImpact,
             cob: cob
         };
+    }
+
+    function carbImpact(rawCarbImpact, insulinImpact) {
+        var liverSensRatio = 1.0;
+        //var liverCarbImpactMax = 1;
+        //var liverCarbImpact = Math.min(liverCarbImpactMax, liverSensRatio*insulinImpact);
+        var liverCarbImpact = liverSensRatio*insulinImpact;
+        var netCarbImpact = Math.max(0, rawCarbImpact-liverCarbImpact);
+        var totalImpact = netCarbImpact - insulinImpact;
+        return {
+            netCarbImpact: netCarbImpact,
+            totalImpact: totalImpact
+        }
     }
 
     function bgPredictions(treatments, current, predict_hr, time, tick) {
@@ -1373,10 +1400,11 @@
             var sens = profile.sens;
             var carbratio = profile.carbratio;
             var carbs_hr = profile.carbs_hr;
+            var iTotal = iobTotal(treatments, t);
             var cTotal = cobTotal(treatments, t);
-            var carbImpact = cTotal.carbImpact*tick;
-            var insulinImpact = iobTotal(treatments, t).activity*tick;
-            var totalImpact = carbImpact-insulinImpact;
+            var insulinImpact = iTotal.activity;
+            var rawCarbImpact = cTotal.rawCarbImpact;
+            var totalImpact = carbImpact(rawCarbImpact, insulinImpact).totalImpact*tick;
             bgi = bgi + totalImpact;
             var time = new Date(t.getTime());
             var predBg = {};
