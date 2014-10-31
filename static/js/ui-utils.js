@@ -40,6 +40,7 @@ function getBrowserSettings(storage) {
 			"alarmHigh": storage.get("alarmHigh"),
 			"alarmLow": storage.get("alarmLow"),
 			"nightMode": storage.get("nightMode"),
+			"retroLookback": storage.get("retroLookback"),
 			"customTitle": storage.get("customTitle"),
 			"theme": storage.get("theme"),
 			"dateFormat": storage.get("dateFormat")
@@ -60,6 +61,10 @@ function getBrowserSettings(storage) {
 
 		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 		$("#nightmode-browser").prop("checked", json.nightMode);
+
+		if (typeof json.retroLookback !== 'undefined') {
+			$("input#retroLookback").prop("value", json.retroLookback);
+		}
 
 		if (json.customTitle) {
 			$("h1.customTitle").text(json.customTitle);
@@ -130,6 +135,7 @@ function storeInBrowser(json, storage) {
 	} else {
 		storage.set("nightMode", false)
 	}
+	if (json.retroLookback) storage.set("retroLookback", json.retroLookback);
 	if (json.customTitle) storage.set("customTitle", json.customTitle);
     if (json.theme) storage.set("theme", json.theme);
     event.preventDefault();
@@ -392,6 +398,7 @@ $("input#save").click(function() {
 		"alarmHigh": $("#alarmhigh-browser").prop("checked"),
 		"alarmLow": $("#alarmlow-browser").prop("checked"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
+		"retroLookback": $("input#retroLookback").prop("value"),
 		"customTitle": $("input#customTitle").prop("value"),
         "theme": $("input:radio[name=theme-browser]:checked").val(),
 		"dateFormat": $("input:radio[name=dateformat-browser]:checked").val()

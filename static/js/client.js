@@ -245,7 +245,7 @@
 
         // predict for retrospective data
         var lookback=2;
-        var retroLookback = 60;
+        var retroLookback = browserSettings.retroLookback;
         var retroStart = FOCUS_DATA_RANGE_MS+(retroLookback/60)*SIXTY_MINS_IN_MS;
         //var retroEnd = predict_hr*SIXTY_MINS_IN_MS + retroLookback/60*SIXTY_MINS_IN_MS;
 
@@ -273,8 +273,10 @@
             });
             if (nowData.length > lookback) {
                 var time = new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS);
-                var retroPrediction = retroPredictBgs(sgvData, treatments.slice(treatments.length-200, treatments.length), profile, retroLookback, lookback);
-                focusData = focusData.concat(retroPrediction);
+                if (retroLookback > 0) {
+                    var retroPrediction = retroPredictBgs(sgvData, treatments.slice(treatments.length-200, treatments.length), profile, retroLookback, lookback);
+                    focusData = focusData.concat(retroPrediction);
+                }
                 var prediction = predictDIYPS(nowData, treatments.slice(treatments.length-200, treatments.length), profile, time, lookback);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
@@ -327,8 +329,10 @@
             nowData = sgvData.slice(sgvData.length-x, sgvData.length);
             var dateTime = new Date(now);
             nowDate = dateTime;
-            var retroPrediction = retroPredictBgs(sgvData, treatments.slice(treatments.length-200, treatments.length), profile, retroLookback, lookback);
-            focusData = focusData.concat(retroPrediction);
+            if (retroLookback > 0) {
+                var retroPrediction = retroPredictBgs(sgvData, treatments.slice(treatments.length-200, treatments.length), profile, retroLookback, lookback);
+                focusData = focusData.concat(retroPrediction);
+            }
             var prediction = predictDIYPS(nowData, treatments, profile, nowDate, lookback);
             focusData = focusData.concat(prediction);
 
@@ -1338,6 +1342,7 @@
                     if (iobChange > 0) {
                         var delayedCarbs = iobChange*liverSensRatio*sens/carbratio;
                         var delayMinutes = delayedCarbs/carbs_hr*60;
+        //console.info("Adding " + delayMinutes + " minutes to decay of " + treatment.carbs + "g bolus at " + treatment.created_at);
                         cCalc.decayedBy.setMinutes(cCalc.decayedBy.getMinutes() + delayMinutes);
                     }
                 }
