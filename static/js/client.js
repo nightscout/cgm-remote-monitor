@@ -1329,26 +1329,26 @@
 
         treatments.forEach(function(treatment) {
             if(treatment.carbs && treatment.created_at < time) {
-                var tCOB = cobCalc(treatment, lastDecayedBy, time);
-                var decaysin_hr = (tCOB.decayedBy-time)/1000/60/60;
+                var cCalc = cobCalc(treatment, lastDecayedBy, time);
+                var decaysin_hr = (cCalc.decayedBy-time)/1000/60/60;
                 if (decaysin_hr > -1) {
                     var iobStart = iobTotal(treatments, lastDecayedBy).iob;
-                    var iobEnd = iobTotal(treatments, tCOB.decayedBy).iob;
+                    var iobEnd = iobTotal(treatments, cCalc.decayedBy).iob;
                     var iobChange = iobStart-iobEnd;
                     if (iobChange > 0) {
                         var delayedCarbs = iobChange*liverSensRatio*sens/carbratio;
                         var delayMinutes = delayedCarbs/carbs_hr*60;
-                        tCOB.decayedBy.setMinutes(tCOB.decayedBy.getMinutes() + delayMinutes);
+                        cCalc.decayedBy.setMinutes(cCalc.decayedBy.getMinutes() + delayMinutes);
                     }
                 }
 
-                if (tCOB) {
-                    lastDecayedBy = tCOB.decayedBy;
+                if (cCalc) {
+                    lastDecayedBy = cCalc.decayedBy;
                 }
 
                 if (decaysin_hr > 0) {
-                    cob = Math.min(tCOB.initialCarbs, decaysin_hr * carbs_hr);
-                    isDecaying = tCOB.isDecaying;
+                    cob = Math.min(cCalc.initialCarbs, decaysin_hr * carbs_hr);
+                    isDecaying = cCalc.isDecaying;
                 }
                 else { 
                     cob = 0;
