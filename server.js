@@ -92,6 +92,12 @@ store(function ready ( ) {
   var server = app.listen(PORT);
   console.log('listening', PORT);
 
+  if (env.MQTT_MONITOR) {
+    var mqtt = require('./lib/mqtt')(env);
+    var es = require('event-stream');
+    es.pipeline(mqtt.entries, entries.map( ), mqtt.every(entries));
+  }
+
   ///////////////////////////////////////////////////
   // setup socket io for data and message transmission
   ///////////////////////////////////////////////////
