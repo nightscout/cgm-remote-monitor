@@ -1317,8 +1317,7 @@
     }
 
     function cobTotal(treatments, time) {
-        // TODO: figure out how to tune this.  I would've thought it'd be 1, but 5 works better.
-        var liverSensRatio = 5;
+        var liverSensRatio = 1;
         var sens = profile.sens;
         var carbratio = profile.carbratio;
         var cob=0;
@@ -1335,15 +1334,15 @@
             if(treatment.carbs && treatment.created_at < time) {
                 var cCalc = cobCalc(treatment, lastDecayedBy, time);
                 var decaysin_hr = (cCalc.decayedBy-time)/1000/60/60;
-                if (decaysin_hr > -1) {
-                    var iobStart = iobTotal(treatments, lastDecayedBy).iob;
-                    var iobEnd = iobTotal(treatments, cCalc.decayedBy).iob;
-                    var iobChange = iobStart-iobEnd;
-                    if (iobChange > 0) {
-                        var delayedCarbs = iobChange*liverSensRatio*sens/carbratio;
-                        var delayMinutes = delayedCarbs/carbs_hr*60;
-        //console.info("Adding " + delayMinutes + " minutes to decay of " + treatment.carbs + "g bolus at " + treatment.created_at);
+                if (decaysin_hr > -10) {
+                    var actStart = iobTotal(treatments, lastDecayedBy).activity;
+                    var actEnd = iobTotal(treatments, cCalc.decayedBy).activity;
+                    var avgActivity = (actStart+actEnd)/2;
+                    var delayedCarbs = avgActivity*liverSensRatio*sens/carbratio;
+                    var delayMinutes = Math.round(delayedCarbs/carbs_hr*60);
+                    if (delayMinutes > 0) {
                         cCalc.decayedBy.setMinutes(cCalc.decayedBy.getMinutes() + delayMinutes);
+                        decaysin_hr = (cCalc.decayedBy-time)/1000/60/60;
                     }
                 }
 
@@ -1352,6 +1351,7 @@
                 }
 
                 if (decaysin_hr > 0) {
+            //console.info("Adding " + delayMinutes + " minutes to decay of " + treatment.carbs + "g bolus at " + treatment.created_at);
                     cob = Math.min(cCalc.initialCarbs, decaysin_hr * carbs_hr);
                     isDecaying = cCalc.isDecaying;
                 }
@@ -1373,9 +1373,9 @@
 
     function carbImpact(rawCarbImpact, insulinImpact) {
         var liverSensRatio = 1.0;
-        //var liverCarbImpactMax = 1;
-        //var liverCarbImpact = Math.min(liverCarbImpactMax, liverSensRatio*insulinImpact);
-        var liverCarbImpact = liverSensRatio*insulinImpact;
+        var liverCarbImpactMax = 1;
+        var liverCarbImpact = Math.min(liverCarbImpactMax, liverSensRatio*insulinImpact);
+        //var liverCarbImpact = liverSensRatio*insulinImpact;
         var netCarbImpact = Math.max(0, rawCarbImpact-liverCarbImpact);
         var totalImpact = netCarbImpact - insulinImpact;
         return {
