@@ -5,7 +5,7 @@
     color: #eee;
     display: none;
     font-size: 16px;
-    height: calc(100% - 45px);
+    height: 100%;
     overflow-y: auto;
     position: absolute;
     margin-top: 45px;
@@ -25,7 +25,7 @@
     color: #eee;
     display: none;
     font-size: 16px;
-    height: calc(100% - 45px);
+    height: 100%;
     overflow-y: auto;
     position: absolute;
     margin-top: 45px;
@@ -75,7 +75,8 @@
     font-size: 0.75em;
 }
 #about .links {
-    margin-top: 0.5em;
+    margin-top: 1em;
+    margin-bottom: 1em;
 }
 #about a {
     color: #fff;
@@ -144,21 +145,20 @@ h1, legend,
     margin-top: 0;
     margin-left: 42px;
     padding-top: 10px;
+    padding-right: 150px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
 }
 #buttonbar {
-    padding: 0;
-    float: right;
+    padding-right: 10px;
     height: 44px;
-    width: 190px;
     opacity: 0.75;
     vertical-align: middle;
+    position: absolute;
+    right: 0;
 }
-#buttonbar div {
-    border-radius: 5px;
-    float: left;
-    height: 44px;
-    width: 44px;
-}
+
 #buttonbar a,
 #buttonbar i {
     color: #ccc;
