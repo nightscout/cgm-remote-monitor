@@ -29,9 +29,9 @@
         FORTY_TWO_MINS_IN_MS = 2520000,
         SIXTY_MINS_IN_MS = 3600000,
         FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
-        FORMAT_TIME_12 = '%I:%M %p', //alternate format '%H:%M'
-		FORMAT_TIME_24 = '%H:%M%',
-		FORMAT_TIME_SCALE = '%I %p',
+        FORMAT_TIME_12 = '%I:%M',
+        FORMAT_TIME_24 = '%H:%M%',
+        FORMAT_TIME_SCALE = '%I %p',
         audio = document.getElementById('audio'),
         alarmInProgress = false,
         currentAlarmType = null,
@@ -87,30 +87,42 @@
 
     // Remove leading zeros from the time (eg. 08:40 = 8:40) & lowercase the am/pm
     function formatTime(time) {
-		var timeFormat = getTimeFormat();
+        var timeFormat = getTimeFormat();
         time = d3.time.format(timeFormat)(time);
-		if(timeFormat == FORMAT_TIME_12){
-			time = time.replace(/^0/, '').toLowerCase();
-		}
-        return time;
+        if(timeFormat == FORMAT_TIME_12){
+            time = time.replace(/^0/, '').toLowerCase();
+        }
+      return time;
     }
-	
-	function getTimeFormat(isForScale){
-		var timeFormat = FORMAT_TIME_12;
-		if(browserSettings.timeFormat){
-			if(browserSettings.timeFormat == "24"){
-				timeFormat = FORMAT_TIME_24;
-			}
-		}
-		
-		if(isForScale && (timeFormat == FORMAT_TIME_12)){
-			timeFormat = FORMAT_TIME_SCALE
-		}
-		
-		return timeFormat;
-	}
 
-    // lixgbg: Convert mg/dL BG value to metric mmol
+    function getTimeFormat(isForScale) {
+        var timeFormat = FORMAT_TIME_12;
+        if (browserSettings.timeFormat) {
+            if (browserSettings.timeFormat == "24") {
+                timeFormat = FORMAT_TIME_24;
+            }
+        }
+
+        if (isForScale && (timeFormat == FORMAT_TIME_12)) {
+            timeFormat = FORMAT_TIME_SCALE
+        }
+
+        return timeFormat;
+    }
+
+    var x2TickFormat = d3.time.format.multi([
+        [".%L", function(d) { return d.getMilliseconds(); }],
+        [":%S", function(d) { return d.getSeconds(); }],
+        ["%I:%M", function(d) { return d.getMinutes(); }],
+        [(getTimeFormat() == FORMAT_TIME_12) ? "%I %p": '%H:%M%', function(d) { return d.getHours(); }],
+        ["%a %d", function(d) { return d.getDay() && d.getDate() != 1; }],
+        ["%b %d", function(d) { return d.getDate() != 1; }],
+        ["%B", function(d) { return d.getMonth(); }],
+        ["%Y", function() { return true; }]
+    ]);
+
+
+  // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
         if (browserSettings.units == "mmol") {
             return (Math.round((bg / 18) * 10) / 10).toFixed(1);
@@ -137,7 +149,7 @@
 
         xAxis = d3.svg.axis()
             .scale(xScale)
-			.tickFormat(d3.time.format(getTimeFormat(true)))
+            .tickFormat(d3.time.format(getTimeFormat(true)))
             .ticks(4)
             .orient('top');
 
@@ -147,11 +159,11 @@
             .tickValues(tickValues)
             .orient('left');
 
-        xAxis2 = d3.svg.axis()
-            .scale(xScale2)
-			.tickFormat(d3.time.format(getTimeFormat(true)))
-            .ticks(4)
-            .orient('bottom');
+      xAxis2 = d3.svg.axis()
+          .scale(xScale2)
+          .tickFormat(x2TickFormat)
+          .ticks(4)
+          .orient('bottom');
 
         yAxis2 = d3.svg.axis()
             .scale(yScale2)
