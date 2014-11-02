@@ -29,7 +29,9 @@
         FORTY_TWO_MINS_IN_MS = 2520000,
         SIXTY_MINS_IN_MS = 3600000,
         FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
-        FORMAT_TIME = '%I:%M%', //alternate format '%H:%M'
+        FORMAT_TIME_12 = '%I:%M %p', //alternate format '%H:%M'
+		FORMAT_TIME_24 = '%H:%M%',
+		FORMAT_TIME_SCALE = '%I %p',
         audio = document.getElementById('audio'),
         alarmInProgress = false,
         currentAlarmType = null,
@@ -85,17 +87,28 @@
 
     // Remove leading zeros from the time (eg. 08:40 = 8:40) & lowercase the am/pm
     function formatTime(time) {
-		var dateFormat = FORMAT_TIME;
-		if(browserSettings.dateFormat){
-			if(browserSettings.dateFormat == "24"){
-				dateFormat = '%H:%M';
+		var timeFormat = getTimeFormat();
+        time = d3.time.format(timeFormat)(time);
+		if(timeFormat == FORMAT_TIME_12){
+			time = time.replace(/^0/, '').toLowerCase();
+		}
+        return time;
+    }
+	
+	function getTimeFormat(isForScale){
+		var timeFormat = FORMAT_TIME_12;
+		if(browserSettings.timeFormat){
+			if(browserSettings.timeFormat == "24"){
+				timeFormat = FORMAT_TIME_24;
 			}
 		}
 		
-        time = d3.time.format(dateFormat)(time);
-        time = time.replace(/^0/, '').toLowerCase();
-        return time;
-    }
+		if(isForScale && (timeFormat == FORMAT_TIME_12)){
+			timeFormat = FORMAT_TIME_SCALE
+		}
+		
+		return timeFormat;
+	}
 
     // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
@@ -124,6 +137,7 @@
 
         xAxis = d3.svg.axis()
             .scale(xScale)
+			.tickFormat(d3.time.format(getTimeFormat(true)))
             .ticks(4)
             .orient('top');
 
@@ -135,6 +149,7 @@
 
         xAxis2 = d3.svg.axis()
             .scale(xScale2)
+			.tickFormat(d3.time.format(getTimeFormat(true)))
             .ticks(4)
             .orient('bottom');
 
