@@ -7,7 +7,7 @@ var defaultSettings = {
 	"alarmLow": true,
 	"nightMode": false,
 	"theme": "default",
-	"dateFormat": "12"
+	"timeFormat": "12"
 };
 
 var app = {};
@@ -43,7 +43,7 @@ function getBrowserSettings(storage) {
 			"retroLookback": storage.get("retroLookback"),
 			"customTitle": storage.get("customTitle"),
 			"theme": storage.get("theme"),
-			"dateFormat": storage.get("dateFormat")
+			"timeFormat": storage.get("timeFormat")
 		};
 
 		// Default browser units to server units if undefined.
@@ -78,9 +78,9 @@ function getBrowserSettings(storage) {
             $("#theme-default-browser").prop("checked", true);
         }
 		
-		json.dateFormat = setDefault(json.dateFormat, defaultSettings.dateFormat);
+		json.timeFormat = setDefault(json.timeFormat, defaultSettings.timeFormat);
 		
-		if (json.dateFormat == "24") {
+		if (json.timeFormat == "24") {
 			$("#24-browser").prop("checked", true);
 		} else {
 			$("#12-browser").prop("checked", true);
@@ -140,7 +140,7 @@ function storeInBrowser(json, storage) {
     if (json.theme) storage.set("theme", json.theme);
     event.preventDefault();
 
-	if (json.dateFormat) storage.set("dateFormat", json.dateFormat);
+	if (json.timeFormat) storage.set("timeFormat", json.timeFormat);
 	event.preventDefault();
 }
 function storeOnServer(json) {
@@ -401,7 +401,7 @@ $("input#save").click(function() {
 		"retroLookback": $("input#retroLookback").prop("value"),
 		"customTitle": $("input#customTitle").prop("value"),
         "theme": $("input:radio[name=theme-browser]:checked").val(),
-		"dateFormat": $("input:radio[name=dateformat-browser]:checked").val()
+		"timeFormat": $("input:radio[name=timeformat-browser]:checked").val()
 	}, browserStorage);
 
 	storeOnServer({
