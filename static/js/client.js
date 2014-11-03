@@ -125,7 +125,7 @@
     ]);
 
 
-  // lixgbg: Convert mg/dL BG value to metric mmol
+    // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
         if (browserSettings.units == "mmol") {
             return (Math.round((bg / 18) * 10) / 10).toFixed(1);
