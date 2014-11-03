@@ -23,10 +23,14 @@ function config ( ) {
   if (readENV('SCM_GIT_EMAIL') == 'windowsazure' && readENV('ScmType') == 'GitHub') {
     git.cwd('/home/site/repository');
   }
-  git.short(function record_git_head (head) {
-    console.log("GIT HEAD", head);
-    env.head = head;
-  });
+  if (readENV('SCM_COMMIT_ID')) {
+    env.head = readENV('SCM_COMMIT_ID');
+  } else {
+    git.short(function record_git_head (head) {
+      console.log("GIT HEAD", head);
+      env.head = head;
+    });
+  }
   env.version = software.version;
   env.name = software.name;
 
