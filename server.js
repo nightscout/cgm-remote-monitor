@@ -27,7 +27,6 @@
 ///////////////////////////////////////////////////
 
 var env = require('./env')( );
-var store = require('./lib/storage')(env);
 
 ///////////////////////////////////////////////////
 
@@ -36,19 +35,10 @@ var store = require('./lib/storage')(env);
 ///////////////////////////////////////////////////
 var PORT = env.PORT;
 
-var bootevent = require('bootevent');
-bootevent( )
-  .acquire(function db (ctx, next) {
-    // initialize db connections
-    store( function ready ( ) {
-      console.log('storage system ready');
-      ctx.store = store;
-      next( );
-    });
-  })
-  .boot(function booted (ctx) {
+var bootevent = require('./lib/bootevent');
+bootevent(env).boot(function booted (ctx) {
     env.store = ctx.store;
-    var app = require('./app')(env);
+    var app = require('./app')(env, ctx);
     var server = app.listen(PORT);
     console.log('listening', PORT);
     ///////////////////////////////////////////////////

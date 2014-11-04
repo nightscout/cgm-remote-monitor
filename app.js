@@ -1,21 +1,15 @@
 
 var express = require('express');
-function create (env) {
-  var store = env.store;
-  var pushover = require('./lib/pushover')(env);
+function create (env, ctx) {
   ///////////////////////////////////////////////////
   // api and json object variables
   ///////////////////////////////////////////////////
-  var entries = require('./lib/entries')(env.mongo_collection, store);
-  var settings = require('./lib/settings')(env.settings_collection, store);
-  var treatments = require('./lib/treatments')(env.treatments_collection, store, pushover);
-  var devicestatus = require('./lib/devicestatus')(env.devicestatus_collection, store);
-  var api = require('./lib/api/')(env, entries, settings, treatments, devicestatus);
-  var pebble = require('./lib/pebble');
+  var api = require('./lib/api/')(env, ctx.entries, ctx.settings, ctx.treatments, ctx.devicestatus);
+  var pebble = ctx.pebble;
 
   var app = express();
-  app.entries = entries;
-  app.treatments = treatments;
+  app.entries = ctx.entries;
+  app.treatments = ctx.treatments;
   var appInfo = env.name + ' ' + env.version;
   app.set('title', appInfo);
   app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
@@ -27,7 +21,7 @@ function create (env) {
 
 
   // pebble data
-  app.get('/pebble', pebble(entries, devicestatus));
+  app.get('/pebble', pebble(ctx.entries, ctx.devicestatus));
 
   //app.get('/package.json', software);
 
