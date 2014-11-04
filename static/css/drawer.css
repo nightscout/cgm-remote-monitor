@@ -75,7 +75,8 @@
     font-size: 0.75em;
 }
 #about .links {
-    margin-top: 0.5em;
+    margin-top: 1em;
+    margin-bottom: 1em;
 }
 #about a {
     color: #fff;
