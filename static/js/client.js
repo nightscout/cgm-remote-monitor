@@ -1,14 +1,14 @@
-(function() {
+(function () {
     "use strict";
 
-    var retrospectivePredictor = true,
-        latestSGV,
+    var latestSGV,
+        errorCode,
         treatments,
-        padding = {top: 20, right: 10, bottom: 80, left: 10},
-        opacity = {current: 1, DAY: 1, NIGHT: 0.8},
+        padding = { top: 20, right: 10, bottom: 30, left: 10 },
+        opacity = {current: 1, DAY: 1, NIGHT: 0.5},
         now = Date.now(),
         data = [],
-        dateFn = function (d) { return new Date(d.date)},
+        dateFn = function (d) { return new Date(d.date) },
         xScale, xScale2, yScale, yScale2,
         xAxis, yAxis, xAxis2, yAxis2,
         prevChartWidth = 0,
@@ -23,14 +23,36 @@
         clip,
         TWENTY_FIVE_MINS_IN_MS = 1500000,
         THIRTY_MINS_IN_MS = 1800000,
+        FORTY_MINS_IN_MS = 2400000,
         FORTY_TWO_MINS_IN_MS = 2520000,
+        SIXTY_MINS_IN_MS = 3600000,
         FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
+        FORMAT_TIME = '%I:%M%', //alternate format '%H:%M'
         audio = document.getElementById('audio'),
         alarmInProgress = false,
         currentAlarmType = null,
         alarmSound = 'alarm.mp3',
-        urgentAlarmSound = 'alarm2.mp3';
+        urgentAlarmSound = 'alarm2.mp3',
+        WIDTH_TIME_HIDDEN = 600,
+        MINUTES_SINCE_LAST_UPDATE_WARN = 10,
+        MINUTES_SINCE_LAST_UPDATE_URGENT = 20;
 
+    // Tick Values
+    var tickValues = [40, 60, 80, 120, 180, 300, 400];
+    if (browserSettings.units == "mmol") {
+        tickValues = [2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0];
+    }
+
+    var div = d3.select("body").append("div")
+      .attr("class", "tooltip")
+      .style("opacity", 0);
+    //TODO: get these from the config
+    var targetTop = 180,
+        targetBottom = 80;
+
+    var futureOpacity = d3.scale.linear( )
+        .domain([TWENTY_FIVE_MINS_IN_MS, SIXTY_MINS_IN_MS])
+        .range([0.8, 0.1]);
 
     // create svg and g to contain the chart contents
     var charts = d3.select('#chartContainer').append('svg')
@@ -58,6 +80,23 @@
     context.append('g')
         .attr('class', 'y axis');
 
+
+    // Remove leading zeros from the time (eg. 08:40 = 8:40) & lowercase the am/pm
+    function formatTime(time) {
+        time = d3.time.format(FORMAT_TIME)(time);
+        time = time.replace(/^0/, '').toLowerCase();
+        return time;
+    }
+
+    // lixgbg: Convert mg/dL BG value to metric mmol
+    function scaleBg(bg) {
+        if (browserSettings.units == "mmol") {
+            return (Math.round((bg / 18) * 10) / 10).toFixed(1);
+        } else {
+            return bg;
+        }
+    }
+
     // initial setup of chart when data is first made available
     function initializeCharts() {
 
@@ -66,13 +105,13 @@
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale = d3.scale.log()
-            .domain([30, 420]);
+            .domain([scaleBg(30), scaleBg(510)]);
 
         xScale2 = d3.time.scale()
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale2 = d3.scale.log()
-            .domain([36, 420]);
+            .domain([scaleBg(36), scaleBg(420)]);
 
         xAxis = d3.svg.axis()
             .scale(xScale)
@@ -82,7 +121,7 @@
         yAxis = d3.svg.axis()
             .scale(yScale)
             .tickFormat(d3.format('d'))
-            .tickValues([40, 60, 80, 120, 180, 300, 400])
+            .tickValues(tickValues)
             .orient('left');
 
         xAxis2 = d3.svg.axis()
@@ -93,7 +132,7 @@
         yAxis2 = d3.svg.axis()
             .scale(yScale2)
             .tickFormat(d3.format('d'))
-            .tickValues([40, 60, 80, 120, 180, 300, 400])
+            .tickValues(tickValues)
             .orient('right');
 
         // setup a brush
@@ -109,7 +148,7 @@
     // get the desired opacity for context chart based on the brush extent
     function highlightBrushPoints(data) {
         if (data.date.getTime() >= brush.extent()[0].getTime() && data.date.getTime() <= brush.extent()[1].getTime()) {
-            return 1;
+            return futureOpacity(data.date - latestSGV.x);
         } else {
             return 0.5;
         }
@@ -136,7 +175,7 @@
         // update the opacity of the context data points to brush extent
         context.selectAll('circle')
             .data(data)
-            .style('opacity', function(d) {return 1;} );
+            .style('opacity', function (d) { return 1; });
     }
 
     function brushEnded() {
@@ -176,51 +215,124 @@
         // get slice of data so that concatenation of predictions do not interfere with subsequent updates
         var focusData = data.slice();
 
+        if (alarmInProgress) {
+            if ($(window).width() > WIDTH_TIME_HIDDEN) {
+                $(".time").show();
+            } else {
+                $(".time").hide();
+            }
+        }
+
         var element = document.getElementById('bgButton').hidden == '';
         var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
         // predict for retrospective data
-        if (retrospectivePredictor && brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
+        if (brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
             var nowData = data.filter(function(d) {
                 return d.date.getTime() >= brushExtent[1].getTime() - FORTY_TWO_MINS_IN_MS &&
-                    d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS
+                    d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS &&
+                    d.type == 'sgv';
             });
             if (nowData.length > 1) {
                 var prediction = predictAR(nowData);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
-                $('.container .currentBG')
-                    .text((focusPoint.sgv))
-                    .css('text-decoration','line-through');
+
+                //in this case the SGV is scaled
+                if (focusPoint.sgv < scaleBg(40))
+                    $('.container .currentBG').text('LOW');
+                else if (focusPoint.sgv > scaleBg(400))
+                    $('.container .currentBG').text('HIGH');
+                else
+                    $('.container .currentBG').text(focusPoint.sgv);
+
+                $('.container .currentBG').css('text-decoration','line-through');
                 $('.container .currentDirection')
                     .html(focusPoint.direction)
             } else {
                 $('.container .currentBG')
                     .text("---")
-                    .css('text-decoration','none');
+                    .css('text-decoration','');
             }
             $('#currentTime')
-                .text(d3.time.format('%I:%M%p')(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
+                .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
                 .css('text-decoration','line-through');
-        } else if (retrospectivePredictor) {
+
+            $('#lastEntry').text("RETRO").removeClass('current');
+
+            $('.container #noButton .currentBG').css({color: 'grey'});
+            $('.container #noButton .currentDirection').css({color: 'grey'});
+
+        } else {
             // if the brush comes back into the current time range then it should reset to the current time and sg
+            var nowData = data.filter(function(d) {
+                return d.type == 'sgv';
+            });
+            nowData = [nowData[nowData.length - 2], nowData[nowData.length - 1]];
+            var prediction = predictAR(nowData);
+            focusData = focusData.concat(prediction);
             var dateTime = new Date(now);
             nowDate = dateTime;
             $('#currentTime')
-                .text(d3.time.format('%I:%M%p')(dateTime))
-                .css('text-decoration','none');
-            $('.container .currentBG')
-                .text(latestSGV.y)
-                .css('text-decoration','none');
-            $('.container .currentDirection')
-                .html(latestSGV.direction);
+                .text(formatTime(dateTime))
+                .css('text-decoration', '');
+
+            if (errorCode) {
+                var errorDisplay;
+
+                switch (parseInt(errorCode)) {
+                    case 0:  errorDisplay = '??0'; break; //None
+                    case 1:  errorDisplay = '?SN'; break; //SENSOR_NOT_ACTIVE
+                    case 2:  errorDisplay = '??2'; break; //MINIMAL_DEVIATION
+                    case 3:  errorDisplay = '?NA'; break; //NO_ANTENNA
+                    case 5:  errorDisplay = '?NC'; break; //SENSOR_NOT_CALIBRATED
+                    case 6:  errorDisplay = '?CD'; break; //COUNTS_DEVIATION
+                    case 7:  errorDisplay = '??7'; break; //?
+                    case 8:  errorDisplay = '??8'; break; //?
+                    case 9:  errorDisplay = '&#8987;'; break; //ABSOLUTE_DEVIATION
+                    case 10: errorDisplay = '???'; break; //POWER_DEVIATION
+                    case 12: errorDisplay = '?RF'; break; //BAD_RF
+                    default: errorDisplay = '?' + parseInt(errorCode) + '?'; break;
+                }
+
+                $('#lastEntry').text("CGM ERROR").removeClass('current').addClass("urgent");
+
+                $('.container .currentBG').html(errorDisplay)
+                    .css('text-decoration', '');
+                $('.container .currentDirection').html('✖');
+
+                var color = sgvToColor(errorCode);
+                $('.container #noButton .currentBG').css({color: color});
+                $('.container #noButton .currentDirection').css({color: color});
+
+            } else {
+
+                var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
+                $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+
+                //in this case the SGV is unscaled
+                if (latestSGV.y < 40)
+                    $('.container .currentBG').text('LOW');
+                else if (latestSGV.y > 400)
+                    $('.container .currentBG').text('HIGH');
+                else
+                    $('.container .currentBG').text(scaleBg(latestSGV.y));
+
+                $('.container .currentBG').css('text-decoration', '');
+                $('.container .currentDirection')
+                    .html(latestSGV.direction);
+
+                var color = sgvToColor(latestSGV.y);
+                $('.container #noButton .currentBG').css({color: color});
+                $('.container #noButton .currentDirection').css({color: color});
+            }
         }
 
         xScale.domain(brush.extent());
 
         // bind up the focus chart data to an array of circles
-        // selects all our data into data and uses date function to get current max date 
+        // selects all our data into data and uses date function to get current max date
         var focusCircles = focus.selectAll('circle').data(focusData, dateFn);
 
         // if already existing then transition each circle to its new position
@@ -228,15 +340,16 @@
             .transition()
             .duration(UPDATE_TRANS_MS)
             .attr('cx', function (d) { return xScale(d.date); })
-            .attr('cy', function (d) { return yScale(d.sgv);  })
-            .attr('fill', function (d) { return d.color;      });
+            .attr('cy', function (d) { return yScale(d.sgv); })
+            .attr('fill', function (d) { return d.color; });
 
         // if new circle then just display
         focusCircles.enter().append('circle')
             .attr('cx', function (d) { return xScale(d.date); })
-            .attr('cy', function (d) { return yScale(d.sgv);  })
-            .attr('fill', function (d) { return d.color;      })
-            .attr('r', 3);
+            .attr('cy', function (d) { return yScale(d.sgv); })
+            .attr('fill', function (d) { return d.color; })
+            .attr('opacity', function (d) { return futureOpacity(d.date - latestSGV.x); })
+            .attr('r', function(d) { if (d.type == 'mbg') return 6; else return 3;});
 
         focusCircles.exit()
             .remove();
@@ -245,17 +358,18 @@
         d3.selectAll('.path').remove();
 
         // add treatment bubbles
-        var bubbleSize = prevChartWidth < 400 ? 4 : (prevChartWidth < 600 ? 3 : 2);
-        focus.selectAll('circle')
-            .data(treatments)
-            .each(function (d) { drawTreatment(d, bubbleSize, true)});
+        //
+        //var bubbleSize = prevChartWidth < 400 ? 4 : (prevChartWidth < 600 ? 3 : 2);
+        //focus.selectAll('circle')
+        //    .data(treatments)
+        //    .each(function (d) { drawTreatment(d, bubbleSize, true) });
 
         // transition open-top line to correct location
         focus.select('.open-top')
             .attr('x1', xScale2(brush.extent()[0]))
-            .attr('y1', yScale(30))
+            .attr('y1', yScale(scaleBg(30)))
             .attr('x2', xScale2(brush.extent()[1]))
-            .attr('y2', yScale(30));
+            .attr('y2', yScale(scaleBg(30)));
 
         // transition open-left line to correct location
         focus.select('.open-left')
@@ -275,9 +389,9 @@
             .transition()
             .duration(UPDATE_TRANS_MS)
             .attr('x1', xScale(nowDate))
-            .attr('y1', yScale(36))
+            .attr('y1', yScale(scaleBg(36)))
             .attr('x2', xScale(nowDate))
-            .attr('y2', yScale(420));
+            .attr('y2', yScale(scaleBg(420)));
 
         // update x axis
         focus.select('.x.axis')
@@ -285,6 +399,58 @@
 
         // add clipping path so that data stays within axis
         focusCircles.attr('clip-path', 'url(#clip)');
+
+        try {
+            // bind up the focus chart data to an array of circles
+            var treatCircles = focus.selectAll('rect').data(treatments);
+
+            // if already existing then transition each circle to its new position
+            treatCircles.transition()
+                  .duration(UPDATE_TRANS_MS)
+                  .attr('x', function (d) { return xScale(new Date(d.created_at)); })
+                  .attr('y', function (d) { return yScale(scaleBg(500)); })
+                  .attr("width", 15)
+                  .attr("height", 15)
+                  .attr("rx", 6)
+                  .attr("ry", 6)
+                  .attr('stroke-width', 2)
+                  .attr('stroke', function (d) { return "white"; })
+                  .attr('fill', function (d) { return "grey"; });
+
+
+            // if new circle then just display
+            treatCircles.enter().append('rect')
+                  .attr('x', function (d) { return xScale(d.created_at); })
+                  .attr('y', function (d) { return yScale(scaleBg(500)); })
+                  .attr("width", 15)
+                  .attr("height", 15)
+                  .attr("rx", 6)
+                  .attr("ry", 6)
+                  .attr('stroke-width', 2)
+                  .attr('stroke', function (d) { return "white"; })
+                  .attr('fill', function (d) { return "grey"; })
+                  .on("mouseover", function (d) {
+                      div.transition().duration(200).style("opacity", .9);
+                      div.html("<strong>Time:</strong> " + formatTime(d.created_at) + "<br/>" + "<strong>Treatment type:</strong> " + d.eventType + "<br/>" +
+                          (d.carbs ? "<strong>Carbs:</strong> " + d.carbs + "<br/>" : '') +
+                          (d.insulin ? "<strong>Insulin:</strong> " + d.insulin + "<br/>" : '') +
+                          (d.glucose ? "<strong>BG:</strong> " + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + "<br/>" : '') +
+                          (d.enteredBy ? "<strong>Entered by:</strong> " + d.enteredBy + "<br/>" : '') +
+                          (d.notes ? "<strong>Notes:</strong> " + d.notes : '')
+                      )
+                      .style("left", (d3.event.pageX) + "px")
+                      .style("top", (d3.event.pageY - 28) + "px");
+                  })
+          .on("mouseout", function (d) {
+              div.transition()
+                  .duration(500)
+                  .style("opacity", 0);
+          });
+            
+            treatCircles.attr('clip-path', 'url(#clip)');
+        } catch (err) {
+            console.error(err);
+        }
     }
 
     // called for initial update and updates for resize
@@ -363,9 +529,9 @@
                 focus.append('line')
                     .attr('class', 'now-line')
                     .attr('x1', xScale(new Date(now)))
-                    .attr('y1', yScale(36))
+                    .attr('y1', yScale(scaleBg(36)))
                     .attr('x2', xScale(new Date(now)))
-                    .attr('y2', yScale(420))
+                    .attr('y2', yScale(scaleBg(420)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -373,9 +539,9 @@
                 focus.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(180))
+                    .attr('y1', yScale(scaleBg(180)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(180))
+                    .attr('y2', yScale(scaleBg(180)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -383,9 +549,9 @@
                 focus.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(80))
+                    .attr('y1', yScale(scaleBg(80)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(80))
+                    .attr('y2', yScale(scaleBg(80)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -409,9 +575,9 @@
                 context.append('line')
                     .attr('class', 'now-line')
                     .attr('x1', xScale(new Date(now)))
-                    .attr('y1', yScale2(36))
+                    .attr('y1', yScale2(scaleBg(36)))
                     .attr('x2', xScale(new Date(now)))
-                    .attr('y2', yScale2(420))
+                    .attr('y2', yScale2(scaleBg(420)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -419,9 +585,9 @@
                 context.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(180))
+                    .attr('y1', yScale2(scaleBg(180)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(180))
+                    .attr('y2', yScale2(scaleBg(180)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -429,9 +595,9 @@
                 context.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(80))
+                    .attr('y1', yScale2(scaleBg(80)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(80))
+                    .attr('y2', yScale2(scaleBg(80)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -476,27 +642,27 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(180))
+                    .attr('y1', yScale(scaleBg(180)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(180));
+                    .attr('y2', yScale(scaleBg(180)));
 
                 // transition low line to correct location
                 focus.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(80))
+                    .attr('y1', yScale(scaleBg(80)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(80));
+                    .attr('y2', yScale(scaleBg(80)));
 
                 // transition open-top line to correct location
                 focus.select('.open-top')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(currentBrushExtent[0]))
-                    .attr('y1', yScale(30))
+                    .attr('y1', yScale(scaleBg(30)))
                     .attr('x2', xScale2(currentBrushExtent[1]))
-                    .attr('y2', yScale(30));
+                    .attr('y2', yScale(scaleBg(30)));
 
                 // transition open-left line to correct location
                 focus.select('.open-left')
@@ -521,18 +687,18 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(180))
+                    .attr('y1', yScale2(scaleBg(targetTop)))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(180));
+                    .attr('y2', yScale2(scaleBg(targetTop)));
 
                 // transition low line to correct location
                 context.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(80))
+                    .attr('y1', yScale2(scaleBg(targetBottom)))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(80));
+                    .attr('y2', yScale2(scaleBg(targetBottom)));
             }
         }
 
@@ -543,9 +709,9 @@
             .transition()
             .duration(UPDATE_TRANS_MS)
             .attr('x1', xScale2(new Date(now)))
-            .attr('y1', yScale2(36))
+            .attr('y1', yScale2(scaleBg(36)))
             .attr('x2', xScale2(new Date(now)))
-            .attr('y2', yScale2(420));
+            .attr('y2', yScale2(scaleBg(420)));
 
         // only if a user brush is not active, update brush and focus chart with recent data
         // else, just transition brush
@@ -568,17 +734,17 @@
         contextCircles.transition()
             .duration(UPDATE_TRANS_MS)
             .attr('cx', function (d) { return xScale2(d.date); })
-            .attr('cy', function (d) { return yScale2(d.sgv);  })
-            .attr('fill', function (d) { return d.color;       })
-            .style('opacity', function (d)   { return highlightBrushPoints(d) });
+            .attr('cy', function (d) { return yScale2(d.sgv); })
+            .attr('fill', function (d) { return d.color; })
+            .style('opacity', function (d) { return highlightBrushPoints(d) });
 
         // if new circle then just display
         contextCircles.enter().append('circle')
-            .attr('cx', function (d)   { return xScale2(d.date); })
-            .attr('cy', function (d)   { return yScale2(d.sgv);  })
-            .attr('fill', function (d) { return d.color;         })
-            .style('opacity', function (d)   { return highlightBrushPoints(d) })
-            .attr('r', 2);
+            .attr('cx', function (d) { return xScale2(d.date); })
+            .attr('cy', function (d) { return yScale2(d.sgv); })
+            .attr('fill', function (d) { return d.color; })
+            .style('opacity', function (d) { return highlightBrushPoints(d) })
+            .attr('r', function(d) { if (d.type == 'mbg') return 4; else return 2;});
 
         contextCircles.exit()
             .remove();
@@ -599,11 +765,11 @@
 
     var silenceDropdown = new Dropdown(".dropdown-menu");
 
-    $('#bgButton').click(function(e) {
+    $('#bgButton').click(function (e) {
         silenceDropdown.open(e);
     });
 
-    $("#silenceBtn").find("a").click(function() {
+    $("#silenceBtn").find("a").click(function () {
         stopAlarm(true, $(this).data("snooze-time"));
     });
 
@@ -618,50 +784,57 @@
     socket.on('now', function (d) {
         now = d;
         var dateTime = new Date(now);
-        $('#currentTime').text(d3.time.format('%I:%M%p')(dateTime));
+        $('#currentTime').text(formatTime(dateTime));
 
         // Dim the screen by reducing the opacity when at nighttime
-        if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7 )) {
-            $('body').css({'opacity': opacity.NIGHT});
-        } else {
-            $('body').css({'opacity': opacity.DAY});
+        if (browserSettings.nightMode) {
+            if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7)) {
+                $('body').css({ 'opacity': opacity.NIGHT });
+            } else {
+                $('body').css({ 'opacity': opacity.DAY });
+            }
         }
     });
 
     socket.on('sgv', function (d) {
         if (d.length > 1) {
+            errorCode = d.length >= 5 ? d[4] : undefined;
+
             // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
             if (d[0].length) {
-                var current = d[0][d[0].length - 1];
-                latestSGV = current;
-                var secsSinceLast = (Date.now() - new Date(current.x).getTime()) / 1000;
-                var currentBG = current.y;
+                latestSGV = d[0][d[0].length - 1];
 
-                //TODO: currently these are filtered on the server
-                //TODO: use icons for these magic values
-                switch (current.y) {
-                    case 0:  currentBG = '??0'; break; //None
-                    case 1:  currentBG = '?SN'; break; //SENSOR_NOT_ACTIVE
-                    case 2:  currentBG = '??2'; break; //MINIMAL_DEVIATION
-                    case 3:  currentBG = '?NA'; break; //NO_ANTENNA
-                    case 5:  currentBG = '?NC'; break; //SENSOR_NOT_CALIBRATED
-                    case 6:  currentBG = '?CD'; break; //COUNTS_DEVIATION
-                    case 7:  currentBG = '??7'; break; //?
-                    case 8:  currentBG = '??8'; break; //?
-                    case 9:  currentBG = '?AD'; break; //ABSOLUTE_DEVIATION
-                    case 10: currentBG = '?PD'; break; //POWER_DEVIATION
-                    case 12: currentBG = '?RF'; break; //BAD_RF
+                //TODO: alarmHigh/alarmLow probably shouldn't be here
+                if (browserSettings.alarmHigh) {
+                    $('.container .current').toggleClass('high', latestSGV.y > 180);
                 }
-
-                $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
-                $('.container .currentBG').text(currentBG);
-                $('.container .currentDirection').html(current.direction);
-                $('.container .current').toggleClass('high', current.y > 180).toggleClass('low', current.y < 70)
+                if (browserSettings.alarmLow) {
+                    $('.container .current').toggleClass('low', latestSGV.y < 70);
+                }
             }
-            data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, direction: obj.direction, color: 'grey'} });
-            data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'blue'} }));
-            data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'red'} }));
+            data = d[0].map(function (obj) {
+                return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
+            });
+            // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
+            // This shouldn't have to be sent and can be fixed by using xScale.domain([x0,x1]) function with
+            // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
+            // required to happen when "now" event is sent from websocket.js every minute.  When fixed,
+            // remove all "color != 'none'" code
+            data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'none', type: 'server-forecast'} }));
+
+            //Add MBG's also, pretend they are SGV's
+            data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg'} }));
+            
+            data.forEach(function (d) {
+                if (d.y < 39)
+                    d.color = "transparent";
+            });
+
             treatments = d[3];
+            treatments.forEach(function (d) {
+                d.created_at = new Date(d.created_at);
+            });
+
             if (!isInitialData) {
                 isInitialData = true;
                 initializeCharts();
@@ -671,6 +844,22 @@
             }
         }
     });
+
+    function sgvToColor(sgv) {
+        var color = 'grey';
+
+        if (browserSettings.theme == "colors") {
+            if (sgv > targetTop) {
+                color = 'yellow';
+            } else if (sgv >= targetBottom && sgv <= targetTop) {
+                color = '#4cff00';
+            } else if (sgv < targetBottom) {
+                color = 'red';
+            }
+        }
+
+        return color;
+    }
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -679,21 +868,25 @@
     socket.on('connect', function () {
         console.log('Client connected to server.')
     });
-    socket.on('alarm', function() {
-        console.log("Alarm raised!");
-        currentAlarmType = 'alarm';
-        generateAlarm(alarmSound);
+    socket.on('alarm', function () {
+        if (browserSettings.alarmHigh) {
+            console.log("Alarm raised!");
+            currentAlarmType = 'alarm';
+            generateAlarm(alarmSound);
+        }
         brushInProgress = false;
         updateChart(false);
     });
-    socket.on('urgent_alarm', function() {
-        console.log("Urgent alarm raised!");
-        currentAlarmType = 'urgent_alarm';
-        generateAlarm(urgentAlarmSound);
+    socket.on('urgent_alarm', function () {
+        if (browserSettings.alarmLow) {
+            console.log("Urgent alarm raised!");
+            currentAlarmType = 'urgent_alarm';
+            generateAlarm(urgentAlarmSound);
+        }
         brushInProgress = false;
         updateChart(false);
     });
-    socket.on('clear_alarm', function() {
+    socket.on('clear_alarm', function () {
         if (alarmInProgress) {
             console.log('clearing alarm');
             stopAlarm();
@@ -703,11 +896,11 @@
 
     $('#testAlarms').click(function(event) {
         d3.select('.audio.alarms audio').each(function (data, i) {
-          var audio = this;
-          audio.play();
-          setTimeout(function() {
-              audio.pause();
-          }, 4000);
+            var audio = this;
+            playAlarm(audio);
+            setTimeout(function() {
+                audio.pause();
+            }, 4000);
         });
         event.preventDefault();
     });
@@ -716,15 +909,28 @@
         alarmInProgress = true;
         var selector = '.audio.alarms audio.' + file;
         d3.select(selector).each(function (d, i) {
-          var audio = this;
-          audio.play();
-          $(this).addClass('playing');
+            var audio = this;
+            playAlarm(audio);
+            $(this).addClass('playing');
         });
         var element = document.getElementById('bgButton');
         element.hidden = '';
         var element1 = document.getElementById('noButton');
         element1.hidden = 'true';
         $('.container .currentBG').text();
+
+        if ($(window).width() <= WIDTH_TIME_HIDDEN) {
+            $(".time").hide();
+        }
+    }
+
+    function playAlarm(audio) {
+        // ?mute=true disables alarms to testers.
+        if (querystring.mute != "true") {
+            audio.play();
+        } else {
+            showNotification("Alarm is muted per your request. (?mute=true)");
+        }
     }
 
     function stopAlarm(isClient, silenceTime) {
@@ -734,10 +940,12 @@
         element = document.getElementById('noButton');
         element.hidden = '';
         d3.select('audio.playing').each(function (d, i) {
-          var audio = this;
-          audio.pause();
-          $(this).removeClass('playing');
+            var audio = this;
+            audio.pause();
+            $(this).removeClass('playing');
         });
+
+        $(".time").show();
 
         // only emit ack if client invoke by button press
         if (isClient) {
@@ -753,7 +961,10 @@
             DAY = 86400,
             WEEK = 604800;
 
-        if (offset <= MINUTE)              parts = { lablel: 'now' };
+        //offset = (MINUTE * MINUTES_SINCE_LAST_UPDATE_WARN) + 60
+        //offset = (MINUTE * MINUTES_SINCE_LAST_UPDATE_URGENT) + 60
+
+        if (offset <= MINUTE)              parts = { label: 'now' };
         if (offset <= MINUTE * 2)          parts = { label: '1 min ago' };
         else if (offset < (MINUTE * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE)), label: 'mins' };
         else if (offset < (HOUR * 2))      parts = { label: '1 hr ago' };
@@ -763,10 +974,25 @@
         else if (offset < (WEEK * 52))     parts = { value: Math.round(Math.abs(offset / WEEK)), label: 'week' };
         else                               parts = { label: 'a long time ago' };
 
+        if (offset > (MINUTE * MINUTES_SINCE_LAST_UPDATE_URGENT)) {
+            var lastEntry = $("#lastEntry");
+            lastEntry.removeClass("warn");
+            lastEntry.addClass("urgent");
+
+            $(".bgStatus").removeClass("current");
+        } else if (offset > (MINUTE * MINUTES_SINCE_LAST_UPDATE_WARN)) {
+            var lastEntry = $("#lastEntry");
+            lastEntry.removeClass("urgent");
+            lastEntry.addClass("warn");
+        } else {
+            $(".bgStatus").addClass("current");
+            $("#lastEntry").removeClass("warn urgent");
+        }
+
         if (parts.value)
-          return parts.value + ' ' + parts.label + ' ago';
+            return parts.value + ' ' + parts.label + ' ago';
         else
-          return parts.label;
+            return parts.label;
 
     }
 
@@ -808,7 +1034,7 @@
             .data(arc_data)
             .enter()
             .append('g')
-            .attr('transform', 'translate(' + xScale(treatment.x) + ', ' + yScale(treatment.y) + ')');
+            .attr('transform', 'translate(' + xScale(treatment.x) + ', ' + yScale(scaleBg(treatment.y)) + ')');
 
         var arcs = treatmentDots.append('path')
             .attr('class', 'path')
@@ -844,9 +1070,11 @@
         var ONE_MINUTE = 60 * 1000;
         var FIVE_MINUTES = 5 * ONE_MINUTE;
         var predicted = [];
-        var BG_REF = 140;
-        var BG_MIN = 36;
-        var BG_MAX = 400;
+        var BG_REF = scaleBg(140);
+        var BG_MIN = scaleBg(36);
+        var BG_MAX = scaleBg(400);
+        // these are the one sigma limits for the first 13 prediction interval uncertainties (65 minutes)
+        var CONE = [0.020, 0.041, 0.061, 0.081, 0.099, 0.116, 0.132, 0.146, 0.159, 0.171, 0.182, 0.192, 0.201];
         if (actual.length < 2) {
             var y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[0].sgv / BG_REF)];
         } else {
@@ -857,17 +1085,32 @@
                 y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[0].sgv / BG_REF)];
             }
         }
-        var n = 20;
         var AR = [-0.723, 1.716];
         var dt = actual[1].date.getTime();
-        for (var i = 0; i <= n; i++) {
+        var predictedColor = 'blue';
+        if (browserSettings.theme == "colors") {
+            predictedColor = 'cyan';
+        }
+        for (var i = 0; i < CONE.length; i++) {
             y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
             dt = dt + FIVE_MINUTES;
-            predicted[i] = {
-                date: new Date(dt+3000),
-                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp(y[1])))),
-                color: 'blue'
+            // Add 2000 ms so not same point as SG
+            predicted[i * 2] = {
+                date: new Date(dt + 2000),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] - 2 * CONE[i]))))),
+                color: predictedColor
             };
+            // Add 4000 ms so not same point as SG
+            predicted[i * 2 + 1] = {
+                date: new Date(dt + 4000),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] + 2 * CONE[i]))))),
+                color: predictedColor
+            };
+            predicted.forEach(function (d) {
+                d.type = 'forecast';
+                if (d.sgv < BG_MIN)
+                    d.color = "transparent";
+            })
         }
         return predicted;
     }
