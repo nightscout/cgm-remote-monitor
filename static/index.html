@@ -138,7 +138,9 @@
                             <option value="Meal Bolus">Meal Bolus</option>
                             <option value="Correction Bolus">Correction Bolus</option>
                             <option value="Carb Correction">Carb Correction</option>
-                            <option value="Question">Note or Question</option>
+                            <option value="Temp Basal">Temp Basal</option>
+                            <option value="Note">Note</option>
+                            <option value="Question">Question</option>
                             <option value="Exercise">Exercise</option>
                             <option value="Site Change">Pump Site Change</option>
                             <option value="Sensor Start">Dexcom Sensor Start</option>
@@ -168,8 +170,9 @@
                           <option value="0" selected="selected">NOW</option>
                           <option value="-5">5 Mins Ago</option>
                           <option value="-10">10 Mins Ag</option>
-                          <option value="-15">5 Mins Ag</option>
+                          <option value="-15">15 Mins Ag</option>
                           <option value="-20">20 Mins Ago</option>
+                          <option value="-30">30 Mins Ago</option>
                         </select>
                     </label>
                     <label for="insulinGiven" class="left-column short-label amount-when">
@@ -181,12 +184,22 @@
                           <option value="0" selected="selected">NOW</option>
                           <option value="-5">5 Mins Ago</option>
                           <option value="-10">10 Mins Ag</option>
-                          <option value="-15">5 Mins Ag</option>
+                          <option value="-15">15 Mins Ag</option>
                           <option value="-20">20 Mins Ago</option>
+                          <option value="-30">30 Mins Ago</option>
                         </select>
                     </label>
+                    <br/>
+                    <label for="duration" class="left-column short-label">
+                        <span>Duration:</span>
+                        <input type="number" step="any" min="0" id="duration" placeholder="in minutes"/>
+                    </label>
+                    <label for="percent" class="left-column short-label">
+                        <span>Percent:</span>
+                      <input type="number" step="any" min="0" id="percent" placeholder="+/- %"/>
+                    </label>
                     <!-- Label and textarea -->
-                    <label for="notes"><br>Additional Notes, Comments:<br></label>
+                    <label for="notes"><br/>Additional Notes, Comments:<br/></label>
                     <textarea id="notes"></textarea><br>
                     <button type="submit">Submit Form</button>
                 </fieldset>
