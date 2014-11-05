@@ -70,7 +70,7 @@
                         <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label><br />
                         <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label>
                     </dl>
-					<dl class="radio">
+                    <dl class="radio">
                         <dt>Date format</dt>
                         <dd><input type="radio" name="timeformat-browser" id="12-browser" value="12" checked /><label for="12-browser">12 hours</label><br />
                         <dd><input type="radio" name="timeformat-browser" id="24-browser" value="24" /><label for="24-browser">24 hours</label>
@@ -159,13 +159,31 @@
                             <span>Sensor<br></span>
                         </label>
                     </fieldset>
-                    <label for="carbsGiven" class="left-column short-label">
+                    <label for="carbsGiven" class="left-column short-label amount-when">
                         <span>Carbs Given:</span>
-                        <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" />
+                        <input type="number" step="any" min="0" id="carbsGiven" placeholder="in grams" />
+                        <select id="carbsWhen">
+                          <option value="+20">In 20 Mins</option>
+                          <option value="+10">In 10 Mins</option>
+                          <option value="0" selected="selected">NOW</option>
+                          <option value="-5">5 Mins Ago</option>
+                          <option value="-10">10 Mins Ag</option>
+                          <option value="-15">5 Mins Ag</option>
+                          <option value="-20">20 Mins Ago</option>
+                        </select>
                     </label>
-                    <label for="insulinGiven" class="left-column short-label">
+                    <label for="insulinGiven" class="left-column short-label amount-when">
                         <span>Insulin Given:</span>
-                        <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units"/>
+                        <input type="number" step="any" min="0" id="insulinGiven" placeholder="in units"/>
+                        <select id="insulinWhen">
+                          <option value="+20">In 20 Mins</option>
+                          <option value="+10">In 10 Mins</option>
+                          <option value="0" selected="selected">NOW</option>
+                          <option value="-5">5 Mins Ago</option>
+                          <option value="-10">10 Mins Ag</option>
+                          <option value="-15">5 Mins Ag</option>
+                          <option value="-20">20 Mins Ago</option>
+                        </select>
                     </label>
                     <!-- Label and textarea -->
                     <label for="notes"><br>Additional Notes, Comments:<br></label>

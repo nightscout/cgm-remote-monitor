@@ -60,6 +60,15 @@
   width: 140px;
 }
 
+#treatmentDrawer label.left-column.amount-when input {
+  width: 70px;
+}
+
+#treatmentDrawer label.left-column.amount-when select {
+  width: 65px;
+}
+
+
 #treatmentDrawer #glucoseValue {
   width: 230px;
 }
