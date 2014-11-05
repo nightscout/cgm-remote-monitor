@@ -4,7 +4,7 @@ function create (env, ctx) {
   ///////////////////////////////////////////////////
   // api and json object variables
   ///////////////////////////////////////////////////
-  var api = require('./lib/api/')(env, ctx.entries, ctx.settings, ctx.treatments, ctx.devicestatus);
+  var api = require('./lib/api/')(env, ctx.entries, ctx.settings, ctx.treatments, ctx.devicestatus, ctx.inputs);
   var pebble = ctx.pebble;
 
   var app = express();
