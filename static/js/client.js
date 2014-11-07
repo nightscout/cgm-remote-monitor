@@ -135,9 +135,13 @@
         }
     }
 
-    function rawIsigToRawBg(rawIsig, scale, intercept, slope, adjust) {
-        if (slope == 0 || rawIsig == 0 || scale ==0  || slope == null || rawIsig == null || scale == null) return 0;
-        else return scale*(rawIsig-intercept)/slope;
+    function rawIsigToRawBg(unfiltered, scale, intercept, slope, filtered, sgv) {
+        if (slope == 0 || unfiltered == 0 || scale ==0  || slope == null || unfiltered == null || scale == null) return 0;
+        else if (filtered == 0 || filtered == null || sgv == 0 || sgv == null) return scale*(unfiltered-intercept)/slope;
+        else {
+            var ratio = scale*(filtered-intercept)/slope / sgv;
+            return scale*(unfiltered-intercept)/slope / ratio;
+        }
     }
 
     // initial setup of chart when data is first made available
@@ -933,7 +937,7 @@
             cal = d[6][d[6].length-1];
 
             var temp1 = d[0].map(function (obj) {
-                var rawBg = rawIsigToRawBg(obj.unfiltered, cal.scale, cal.intercept, cal.slope);
+                var rawBg = rawIsigToRawBg(obj.unfiltered, cal.scale, cal.intercept, cal.slope, obj.filtered, obj.y);
                 return { date: new Date(obj.x-2*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg'}
             });
             var temp2 = d[0].map(function (obj) {
@@ -1421,7 +1425,7 @@
         sgv=parseInt(current[current.length-1].sgv);
         if (sgv < 30) {
             var obj = latestSGV;
-            sgv = rawIsigToRawBg(obj.rawIsig, obj.scale, obj.intercept, obj.slope);
+            sgv = rawIsigToRawBg(obj.rawIsig, obj.scale, obj.intercept, obj.slope, obj.filtered, obj.y);
         }
         var predBgs = [];
         var bgi = sgv;
