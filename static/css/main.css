@@ -206,6 +206,10 @@ div.tooltip {
     font-size: 20%;
 }
 
+#currentTime{
+	padding: 0 0 10px 0;
+}
+
 /* Large desktop */
 @media (min-width: 980px) {
     .content {
