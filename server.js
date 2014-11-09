@@ -39,13 +39,13 @@ var bootevent = require('./lib/bootevent');
 bootevent(env).boot(function booted (ctx) {
     env.store = ctx.store;
     var app = require('./app')(env, ctx);
-    var server = app.listen(PORT);
+    var server = ctx.server = app.listen(PORT);
     console.log('listening', PORT);
     ///////////////////////////////////////////////////
     // setup socket io for data and message transmission
     ///////////////////////////////////////////////////
-    var websocket = require('./lib/websocket');
-    var io = websocket(env, server, app.entries, app.treatments);
+    var websocket = ctx.websocket = require('./lib/websocket');
+    var io = ctx.websocket = websocket(env, ctx);
   })
 ;
 

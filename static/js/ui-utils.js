@@ -117,13 +117,31 @@ function storeInBrowser(json, storage) {
 	if (json.units) storage.set("units", json.units);
 	if (json.alarmHigh == true) {
 		storage.set("alarmHigh", true)
+    if (!$('.audio.alarms').find('.urgent').is('AUDIO')) {
+      $('.audio.alarms').append(new Audio).addClass('urgent alarm2 mp3')
+        .prop('preload', 'auto')
+        .prop('loop', true)
+        .prop('type', 'audio/mp3')
+        .prop('src', '/audio/alarm2.mp2')
+      ;
+    }
 	} else {
 		storage.set("alarmHigh", false)
+    $('.audio.alarms AUDIO.urgent').remove( );
 	}
 	if (json.alarmLow == true) {
 		storage.set("alarmLow", true)
+    if (!$('.audio.alarms').find('.alarm').is('AUDIO')) {
+      $('.audio.alarms').append(new Audio).addClass('alarm mp3')
+        .prop('preload', 'auto')
+        .prop('loop', true)
+        .prop('type', 'audio/mp3')
+        .prop('src', '/audio/alarm.mp3')
+        ;
+    }
 	} else {
 		storage.set("alarmLow", false)
+    $('.audio.alarms AUDIO.alarm').remove( );
 	}
 	if (json.nightMode == true) {
 		storage.set("nightMode", true)
@@ -426,6 +444,10 @@ $(function() {
 		opacity: 0.75
 	}
 
+	if (querystring.mute == "true") {
+    $('.audio.alarms AUDIO').remove( );
+  }
+
 	if (querystring.notify) {
 		showNotification(querystring.notify, querystring.notifytype);
 	}
@@ -438,4 +460,5 @@ $(function() {
 			closeToolbar();
 		}
 	}
+  storeInBrowser(browserSettings, browserStorage);
 });
