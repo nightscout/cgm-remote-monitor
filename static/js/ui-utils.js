@@ -1,9 +1,14 @@
 var drawerIsOpen = false;
+var treatmentDrawerIsOpen = false;
 var browserStorage = $.localStorage;
 var defaultSettings = {
 	"units": "mg/dl",
-	"nightMode": false
-}
+	"alarmHigh": true,
+	"alarmLow": true,
+	"nightMode": false,
+	"theme": "default",
+	"timeFormat": "12"
+};
 
 var app = {};
 $.ajax("/api/v1/status.json", {
@@ -11,43 +16,69 @@ $.ajax("/api/v1/status.json", {
 		app = {
 			"name": xhr.name,
 			"version": xhr.version,
-			"apiEnabled": xhr.apiEnabled
+			"head": xhr.head,
+			"apiEnabled": xhr.apiEnabled,
+			"careportalEnabled": xhr.careportalEnabled
 		}
 	}
 }).done(function() {
 	$(".appName").text(app.name);
 	$(".version").text(app.version);
+	$(".head").text(app.head);
 	if (app.apiEnabled) {
 		$(".serverSettings").show();
 	}
+	$("#treatmentDrawerToggle").toggle(app.careportalEnabled);
 });
 
 
 function getBrowserSettings(storage) {
 	var json = {};
 	try {
-		json = {
+		var json = {
 			"units": storage.get("units"),
+			"alarmHigh": storage.get("alarmHigh"),
+			"alarmLow": storage.get("alarmLow"),
 			"nightMode": storage.get("nightMode"),
-			"customTitle": storage.get("customTitle")
+			"customTitle": storage.get("customTitle"),
+			"theme": storage.get("theme"),
+			"timeFormat": storage.get("timeFormat")
 		};
 
 		// Default browser units to server units if undefined.
 		json.units = setDefault(json.units, serverSettings.units);
-		//console.log("browserSettings.units: " + json.units);
 		if (json.units == "mmol") {
 			$("#mmol-browser").prop("checked", true);
 		} else {
 			$("#mgdl-browser").prop("checked", true);
 		}
 
+		json.alarmHigh = setDefault(json.alarmHigh, defaultSettings.alarmHigh);
+		$("#alarmhigh-browser").prop("checked", json.alarmHigh);
+		json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
+		$("#alarmlow-browser").prop("checked", json.alarmLow);
+
 		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 		$("#nightmode-browser").prop("checked", json.nightMode);
 
 		if (json.customTitle) {
-			$("h1.customTitle").html(json.customTitle);
+			$("h1.customTitle").text(json.customTitle);
 			$("input#customTitle").prop("value", json.customTitle);
 			document.title = "Nightscout: " + json.customTitle;
+		}
+
+        if (json.theme == "colors") {
+            $("#theme-colors-browser").prop("checked", true);
+        } else {
+            $("#theme-default-browser").prop("checked", true);
+        }
+		
+		json.timeFormat = setDefault(json.timeFormat, defaultSettings.timeFormat);
+		
+		if (json.timeFormat == "24") {
+			$("#24-browser").prop("checked", true);
+		} else {
+			$("#12-browser").prop("checked", true);
 		}
 	}
 	catch(err) {
@@ -84,12 +115,26 @@ function jsonIsNotEmpty(json) {
 }
 function storeInBrowser(json, storage) {
 	if (json.units) storage.set("units", json.units);
+	if (json.alarmHigh == true) {
+		storage.set("alarmHigh", true)
+	} else {
+		storage.set("alarmHigh", false)
+	}
+	if (json.alarmLow == true) {
+		storage.set("alarmLow", true)
+	} else {
+		storage.set("alarmLow", false)
+	}
 	if (json.nightMode == true) {
 		storage.set("nightMode", true)
 	} else {
 		storage.set("nightMode", false)
 	}
 	if (json.customTitle) storage.set("customTitle", json.customTitle);
+    if (json.theme) storage.set("theme", json.theme);
+    event.preventDefault();
+
+	if (json.timeFormat) storage.set("timeFormat", json.timeFormat);
 	event.preventDefault();
 }
 function storeOnServer(json) {
@@ -132,12 +177,37 @@ function closeDrawer(callback) {
 	});
 	drawerIsOpen = false;
 }
+
 function openDrawer()  {
 	drawerIsOpen = true;
 	$("#container").animate({marginLeft: "-200px"}, 300);
 	$("#chartContainer").animate({marginLeft: "-200px"}, 300);
 	$("#drawer").css("display", "block");
 	$("#drawer").animate({right: "0"}, 300);
+}
+
+function closeTreatmentDrawer(callback) {
+	$("#container").animate({marginLeft: "0px"}, 400, callback);
+	$("#chartContainer").animate({marginLeft: "0px"}, 400);
+	$("#treatmentDrawer").animate({right: "-300px"}, 400, function() {
+		$("#treatmentDrawer").css("display", "none");
+	});
+	treatmentDrawerIsOpen = false;
+}
+function openTreatmentDrawer()  {
+	treatmentDrawerIsOpen = true;
+	$("#container").animate({marginLeft: "-300px"}, 400);
+	$("#chartContainer").animate({marginLeft: "-300px"}, 400);
+	$("#treatmentDrawer").css("display", "block");
+	$("#treatmentDrawer").animate({right: "0"}, 400);
+
+	$('#enteredBy').val(browserStorage.get("enteredBy") || '');
+	$('#eventType').val('BG Check');
+	$('#glucoseValue').val('').attr('placeholder', 'Value in ' + browserSettings.units);
+	$('#meter').prop('checked', true)
+	$('#carbsGiven').val('');
+	$('#insulinGiven').val('');
+	$('#notes').val('');
 }
 
 
@@ -195,6 +265,45 @@ function stretchStatusForToolbar(toolbarState){
 	}
 }
 
+function treatmentSubmit(event) {
+
+    var data = new Object();
+    data.enteredBy = document.getElementById("enteredBy").value;
+    data.eventType = document.getElementById("eventType").value;
+    data.glucose = document.getElementById("glucoseValue").value;
+    data.glucoseType = $('#treatment-form input[name=glucoseType]:checked').val();
+    data.carbs = document.getElementById("carbsGiven").value;
+    data.insulin = document.getElementById("insulinGiven").value;
+    data.notes = document.getElementById("notes").value;
+
+    var dataJson = JSON.stringify(data, null, " ");
+
+    var ok = window.confirm(
+            'Please verify that the data entered is correct: ' +
+            '\nEntered By: ' + data.enteredBy +
+            '\nEvent type: ' + data.eventType +
+            '\nBlood glucose: ' + data.glucose +
+            '\nMethod: ' + data.glucoseType +
+            '\nCarbs Given: ' + data.carbs +
+            '\nInsulin Given: ' + data.insulin +
+            '\nNotes: ' + data.notes);
+
+    if (ok) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/v1/treatments/", true);
+        xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+        xhr.send(dataJson);
+
+        browserStorage.set("enteredBy", data.enteredBy);
+
+        closeTreatmentDrawer();
+    }
+
+    if (event) {
+        event.preventDefault();
+    }
+}
+
 
 var querystring = getQueryParms();
 // var serverSettings = getServerSettings();
@@ -222,6 +331,12 @@ Dropdown.prototype.open = function (e) {
 
 
 $("#drawerToggle").click(function(event) {
+    //close other drawers
+    if(treatmentDrawerIsOpen) {
+		closeTreatmentDrawer();
+		treatmentDrawerIsOpen = false;
+	} 
+
 	if(drawerIsOpen) {
 		closeDrawer();
 		drawerIsOpen = false;
@@ -231,6 +346,25 @@ $("#drawerToggle").click(function(event) {
 	}
 	event.preventDefault();
 });
+
+$("#treatmentDrawerToggle").click(function(event) {
+    //close other drawers
+    if(drawerIsOpen) {
+		closeDrawer();
+		drawerIsOpen = false;
+	}
+
+	if(treatmentDrawerIsOpen) {
+		closeTreatmentDrawer();
+		treatmentDrawerIsOpen = false;
+	}  else {
+		openTreatmentDrawer();
+		treatmentDrawerIsOpen = true;
+	}
+	event.preventDefault();
+});
+
+$("#treatmentDrawer button").click(treatmentSubmit);
 
 $("#notification").click(function(event) {
 	closeNotification();
@@ -255,8 +389,12 @@ $("#showToolbar").find("a").click(function(event) {
 $("input#save").click(function() {
 	storeInBrowser({
 		"units": $("input:radio[name=units-browser]:checked").val(),
+		"alarmHigh": $("#alarmhigh-browser").prop("checked"),
+		"alarmLow": $("#alarmlow-browser").prop("checked"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
-		"customTitle": $("input#customTitle").prop("value")
+		"customTitle": $("input#customTitle").prop("value"),
+        "theme": $("input:radio[name=theme-browser]:checked").val(),
+		"timeFormat": $("input:radio[name=timeformat-browser]:checked").val()
 	}, browserStorage);
 
 	storeOnServer({
