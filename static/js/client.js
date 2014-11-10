@@ -21,13 +21,17 @@
         brushTimer,
         brushInProgress = false,
         clip,
+        ONE_MIN_IN_MS = 60000,
+        FIVE_MINS_IN_MS = 300000,
         TWENTY_FIVE_MINS_IN_MS = 1500000,
         THIRTY_MINS_IN_MS = 1800000,
         FORTY_MINS_IN_MS = 2400000,
         FORTY_TWO_MINS_IN_MS = 2520000,
         SIXTY_MINS_IN_MS = 3600000,
         FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
-        FORMAT_TIME = '%I:%M%', //alternate format '%H:%M'
+        FORMAT_TIME_12 = '%I:%M',
+        FORMAT_TIME_24 = '%H:%M%',
+        FORMAT_TIME_SCALE = '%I %p',
         audio = document.getElementById('audio'),
         alarmInProgress = false,
         currentAlarmType = null,
@@ -83,12 +87,42 @@
 
     // Remove leading zeros from the time (eg. 08:40 = 8:40) & lowercase the am/pm
     function formatTime(time) {
-        time = d3.time.format(FORMAT_TIME)(time);
-        time = time.replace(/^0/, '').toLowerCase();
-        return time;
+        var timeFormat = getTimeFormat();
+        time = d3.time.format(timeFormat)(time);
+        if(timeFormat == FORMAT_TIME_12){
+            time = time.replace(/^0/, '').toLowerCase();
+        }
+      return time;
     }
 
-    // lixgbg: Convert mg/dL BG value to metric mmol
+    function getTimeFormat(isForScale) {
+        var timeFormat = FORMAT_TIME_12;
+        if (browserSettings.timeFormat) {
+            if (browserSettings.timeFormat == "24") {
+                timeFormat = FORMAT_TIME_24;
+            }
+        }
+
+        if (isForScale && (timeFormat == FORMAT_TIME_12)) {
+            timeFormat = FORMAT_TIME_SCALE
+        }
+
+        return timeFormat;
+    }
+
+    var x2TickFormat = d3.time.format.multi([
+        [".%L", function(d) { return d.getMilliseconds(); }],
+        [":%S", function(d) { return d.getSeconds(); }],
+        ["%I:%M", function(d) { return d.getMinutes(); }],
+        [(getTimeFormat() == FORMAT_TIME_12) ? "%I %p": '%H:%M%', function(d) { return d.getHours(); }],
+        ["%a %d", function(d) { return d.getDay() && d.getDate() != 1; }],
+        ["%b %d", function(d) { return d.getDate() != 1; }],
+        ["%B", function(d) { return d.getMonth(); }],
+        ["%Y", function() { return true; }]
+    ]);
+
+
+  // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
         if (browserSettings.units == "mmol") {
             return (Math.round((bg / 18) * 10) / 10).toFixed(1);
@@ -115,6 +149,7 @@
 
         xAxis = d3.svg.axis()
             .scale(xScale)
+            .tickFormat(d3.time.format(getTimeFormat(true)))
             .ticks(4)
             .orient('top');
 
@@ -124,10 +159,11 @@
             .tickValues(tickValues)
             .orient('left');
 
-        xAxis2 = d3.svg.axis()
-            .scale(xScale2)
-            .ticks(4)
-            .orient('bottom');
+      xAxis2 = d3.svg.axis()
+          .scale(xScale2)
+          .tickFormat(x2TickFormat)
+          .ticks(4)
+          .orient('bottom');
 
         yAxis2 = d3.svg.axis()
             .scale(yScale2)
@@ -227,20 +263,37 @@
         var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
         // predict for retrospective data
+        var lookback = 2;
         if (brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
-            var nowData = data.filter(function(d) {
-                return d.date.getTime() >= brushExtent[1].getTime() - FORTY_TWO_MINS_IN_MS &&
+            var lookbackTime = (lookback+2)*FIVE_MINS_IN_MS + 2*ONE_MIN_IN_MS;
+            var nowDataRaw = data.filter(function(d) {
+                return d.date.getTime() >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
                     d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS &&
-                    d.color != 'none';
+                    d.type == 'sgv';
             });
-            if (nowData.length > 1) {
-                var prediction = predictAR(nowData);
+            // sometimes nowDataRaw contains duplicates.  uniq it.
+            var lastDate = new Date("1/1/1970");
+            var nowData = nowDataRaw.filter(function(n) {
+                if ( (lastDate.getTime() + ONE_MIN_IN_MS) < n.date.getTime()) {
+                    lastDate = n.date;
+                    return n;
+                }
+            });
+            if (nowData.length > lookback) {
+                var prediction = predictAR(nowData, lookback);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
-                $('.container .currentBG')
-                    .text(focusPoint.sgv)
-                    .css('text-decoration','line-through');
+
+                //in this case the SGV is scaled
+                if (focusPoint.y < 40)
+                    $('.container .currentBG').text('LOW');
+                else if (focusPoint.y > 400)
+                    $('.container .currentBG').text('HIGH');
+                else
+                    $('.container .currentBG').text(focusPoint.sgv);
+
+                $('.container .currentBG').css('text-decoration','line-through');
                 $('.container .currentDirection')
                     .html(focusPoint.direction)
             } else {
@@ -260,10 +313,12 @@
         } else {
             // if the brush comes back into the current time range then it should reset to the current time and sg
             var nowData = data.filter(function(d) {
-                return d.color != 'none';
+                return d.type == 'sgv';
             });
-            nowData = [nowData[nowData.length - 2], nowData[nowData.length - 1]];
-            var prediction = predictAR(nowData);
+            var x=lookback+1;
+            nowData = nowData.slice(nowData.length-x, nowData.length);
+            //nowData = [nowData[nowData.length - lookback-1], nowData[nowData.length - 1]];
+            var prediction = predictAR(nowData, lookback);
             focusData = focusData.concat(prediction);
             var dateTime = new Date(now);
             nowDate = dateTime;
@@ -304,9 +359,15 @@
                 var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
                 $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
 
-                $('.container .currentBG')
-                    .text(scaleBg(latestSGV.y))
-                    .css('text-decoration', '');
+                //in this case the SGV is unscaled
+                if (latestSGV.y < 40)
+                    $('.container .currentBG').text('LOW');
+                else if (latestSGV.y > 400)
+                    $('.container .currentBG').text('HIGH');
+                else
+                    $('.container .currentBG').text(scaleBg(latestSGV.y));
+
+                $('.container .currentBG').css('text-decoration', '');
                 $('.container .currentDirection')
                     .html(latestSGV.direction);
 
@@ -336,7 +397,9 @@
             .attr('cy', function (d) { return yScale(d.sgv); })
             .attr('fill', function (d) { return d.color; })
             .attr('opacity', function (d) { return futureOpacity(d.date - latestSGV.x); })
-            .attr('r', 3);
+            .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
+            .attr('stroke', function (d) { return "white"; })
+            .attr('r', function(d) { if (d.type == 'mbg') return 6; else return 3;});
 
         focusCircles.exit()
             .remove();
@@ -731,7 +794,9 @@
             .attr('cy', function (d) { return yScale2(d.sgv); })
             .attr('fill', function (d) { return d.color; })
             .style('opacity', function (d) { return highlightBrushPoints(d) })
-            .attr('r', 2);
+            .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
+            .attr('stroke', function (d) { return "white"; })
+            .attr('r', function(d) { if (d.type == 'mbg') return 4; else return 2;});
 
         contextCircles.exit()
             .remove();
@@ -800,15 +865,17 @@
                 }
             }
             data = d[0].map(function (obj) {
-                return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y)}
+                return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
             });
             // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
             // This shouldn't have to be sent and can be fixed by using xScale.domain([x0,x1]) function with
             // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
             // required to happen when "now" event is sent from websocket.js every minute.  When fixed,
             // remove all "color != 'none'" code
-            data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'none'} }));
-            data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red'} }));
+            data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'none', type: 'server-forecast'} }));
+
+            //Add MBG's also, pretend they are SGV's
+            data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg'} }));
             
             data.forEach(function (d) {
                 if (d.y < 39)
@@ -1051,7 +1118,7 @@
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // function to predict
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    function predictAR(actual) {
+    function predictAR(actual, lookback) {
         var ONE_MINUTE = 60 * 1000;
         var FIVE_MINUTES = 5 * ONE_MINUTE;
         var predicted = [];
@@ -1060,18 +1127,28 @@
         var BG_MAX = scaleBg(400);
         // these are the one sigma limits for the first 13 prediction interval uncertainties (65 minutes)
         var CONE = [0.020, 0.041, 0.061, 0.081, 0.099, 0.116, 0.132, 0.146, 0.159, 0.171, 0.182, 0.192, 0.201];
-        if (actual.length < 2) {
-            var y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[0].sgv / BG_REF)];
+        // these are modified to make the cone much blunter
+        //var CONE = [0.030, 0.060, 0.090, 0.120, 0.140, 0.150, 0.160, 0.170, 0.180, 0.185, 0.190, 0.195, 0.200];
+        // for testing
+        //var CONE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        if (actual.length < lookback+1) {
+            var y = [Math.log(actual[actual.length-1].sgv / BG_REF), Math.log(actual[actual.length-1].sgv / BG_REF)];
         } else {
-            var elapsedMins = (actual[1].date - actual[0].date) / ONE_MINUTE;
-            if (elapsedMins < 5.1) {
-                y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[1].sgv / BG_REF)];
+            var elapsedMins = (actual[actual.length-1].date - actual[actual.length-1-lookback].date) / ONE_MINUTE;
+            // construct a "5m ago" sgv offset from current sgv by the average change over the lookback interval
+            var lookbackSgvChange = actual[lookback].sgv-actual[0].sgv;
+            var fiveMinAgoSgv = actual[lookback].sgv - lookbackSgvChange/elapsedMins*5;
+            y = [Math.log(fiveMinAgoSgv / BG_REF), Math.log(actual[lookback].sgv / BG_REF)];
+            /*
+            if (elapsedMins < lookback * 5.1) {
+                y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[lookback].sgv / BG_REF)];
             } else {
-                y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[0].sgv / BG_REF)];
+                y = [Math.log(actual[lookback].sgv / BG_REF), Math.log(actual[lookback].sgv / BG_REF)];
             }
+            */
         }
         var AR = [-0.723, 1.716];
-        var dt = actual[1].date.getTime();
+        var dt = actual[lookback].date.getTime();
         var predictedColor = 'blue';
         if (browserSettings.theme == "colors") {
             predictedColor = 'cyan';
@@ -1092,6 +1169,7 @@
                 color: predictedColor
             };
             predicted.forEach(function (d) {
+                d.type = 'forecast';
                 if (d.sgv < BG_MIN)
                     d.color = "transparent";
             })
