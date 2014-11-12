@@ -423,6 +423,14 @@
                     $('.container .currentBG').text('HIGH');
                 else
                     $('.container .currentBG').text(scaleBg(latestSGV.y));
+                    var bgDelta = scaleBg(latestSGV.y-sgvData[sgvData.length-2].y);
+                    if (bgDelta < 0) {
+                        var bgDeltaString = bgDelta;
+                    }
+                    else {
+                        var bgDeltaString = "+" + bgDelta;
+                    }
+                    $('.container .currentDelta').text(bgDeltaString);
 
                 $('.container .currentBG').css('text-decoration', '');
                 $('.container .currentDirection')
@@ -431,6 +439,10 @@
                 var color = sgvToColor(latestSGV.y);
                 $('.container #noButton .currentBG').css({color: color});
                 $('.container #noButton .currentDirection').css({color: color});
+
+                var deltaColor = deltaToColor(bgDelta);
+                $('.container #noButton .currentDelta').css({color: deltaColor});
+                //$('.container #noButton .currentDirection').css({color: color});
             }
         }
 
@@ -971,6 +983,22 @@
         }
     });
 
+    function deltaToColor(delta) {
+        var color = 'grey';
+
+        if (browserSettings.theme == "colors") {
+            if (Math.abs(delta) > 10) {
+                color = 'red';
+            } else if (Math.abs(delta) > 5) {
+                color = 'yellow';
+            } else {
+                //color = '#4cff00';
+                color = 'grey';
+            }
+        }
+
+        return color;
+    }
     function sgvToColor(sgv) {
         var color = 'grey';
 

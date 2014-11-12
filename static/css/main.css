@@ -60,6 +60,10 @@ body {
 .bgStatus.current .currentBG {
     text-decoration: none;
 }
+.bgStatus.current .currentDelta {
+    font-size: 50%;
+    text-decoration: none;
+}
 .currentDirection {
     font-weight: normal;
     text-decoration: none;
