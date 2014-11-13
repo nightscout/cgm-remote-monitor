@@ -9,7 +9,7 @@ describe('Entries REST api', function ( ) {
     var env = require('../env')( );
     this.wares = require('../lib/middleware/')(env);
     var store = require('../lib/storage')(env);
-    this.archive = require('../lib/entries')(env.mongo_collection, store);
+    this.archive = require('../lib/entries').storage(env.mongo_collection, store);
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
