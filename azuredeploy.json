@@ -30,13 +30,39 @@
       ],
       "defaultValue": "0"
     },
-    "mongo_ConnectionString": {
+    "MONGO_CONNECTION": {
       "type": "string",
-      "defaultValue": "Mongo Connection String"
+      "defaultValue": "",
+      "required":"true"
     },
-    "mongo_collection" : {
+    "MONGO_COLLECTION" : {
       "type":"string",
-      "defaultValue": "Mongo Collection Name"
+      "defaultValue": "entries",
+      "required":"false"
+    },
+    "DISPLAY_UNITS" : {
+      "type":"string",
+      "defaultValue": ""
+    },
+    "MONGO_SETTINGS_COLLECTION":{
+      "type":"string",
+      "defaultValue":"settings"
+    },
+    "MONGO_TREATMENTS_COLLECTION":{
+      "type":"string",
+      "defaultValue":"treatments"
+    },
+    "MONGO_DEVICESTATUS_COLLECTION":{
+      "type":"string",
+      "defaultValue":"devicestatus"
+    },
+    "ENABLE":{
+      "type":"string",
+      "defaultValue":""
+    },
+    "API_SECRET":{
+      "type":"string",
+      "defaultValue":""
     },
     "repoUrl": {
       "type": "string"
@@ -82,15 +108,41 @@
             "[concat('Microsoft.Web/Sites/', parameters('siteName'))]"
           ],
           "properties": {
+            "appSettings":[
+            {
+              "name":"DISPLAY_UNITS",
+              "value":"[parameters('DISPLAY_UNITS')]"
+            },
+            {
+              "name":"MONGO_SETTINGS_COLLECTION",
+              "value":"[parameters('MONGO_SETTINGS_COLLECTION')]"
+            },
+            {
+              "name":"MONGO_TREATMENTS_COLLECTION",
+              "value":"[parameters('MONGO_TREATMENTS_COLLECTION')]"
+            },
+            {
+              "name":"MONGO_DEVICESTATUS_COLLECTION",
+              "value":"[parameters('MONGO_DEVICESTATUS_COLLECTION')]"
+            },
+            {
+              "name":"ENABLE",
+              "value":"[parameters('ENABLE')]"
+            },
+            {
+              "name":"API_SECRET",
+              "value":"[parameters('API_SECRET')]"
+            }
+            ],
             "connectionStrings": [
               {
-                "name": "mongo",
-                "ConnectionString" : "[parameters('mongo_ConnectionString')]",
+                "name": "MONGO_CONNECTION",
+                "ConnectionString" : "[parameters('MONGO_CONNECTION')]",
                 "type": "3"
               },
               {
-                "name": "mongo_collection",
-                "ConnectionString": "[parameters('mongo_collection')]",
+                "name": "MONGO_COLLECTION",
+                "ConnectionString": "[parameters('MONGO_COLLECTION')]",
                 "type": "3"
               }
             ]
