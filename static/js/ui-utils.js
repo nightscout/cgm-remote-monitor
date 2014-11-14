@@ -11,7 +11,7 @@ var defaultSettings = {
 };
 
 var app = {};
-$.ajax("/api/v1/status.json", {
+$.ajax("api/v1/status.json", {
 	success: function (xhr) {
 		app = {
 			"name": xhr.name,
@@ -296,7 +296,7 @@ function treatmentSubmit(event) {
 
     if (ok) {
         var xhr = new XMLHttpRequest();
-        xhr.open("POST", "/api/v1/treatments/", true);
+        xhr.open("POST", "api/v1/treatments/", true);
         xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
         xhr.send(dataJson);
 
