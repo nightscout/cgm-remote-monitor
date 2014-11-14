@@ -52,8 +52,10 @@ function config ( ) {
     env.ssl = {
       key: fs.readFileSync(env.SSL_KEY)
     , cert: fs.readFileSync(env.SSL_CERT)
-    , ca: fs.readFileSync(env.SSL_CA)
     };
+    if (env.SSL_CA) {
+      env.ca = fs.readFileSync(env.SSL_CA);
+    }
   }
 
   var shasum = crypto.createHash('sha1');
