@@ -4,7 +4,7 @@
   "env": {
     "MONGO_COLLECTION": {
       "description": "The mongo collection to connect to.",
-      "value": "nightscout"
+      "value": "entries"
     }
   },
   "addons": [
