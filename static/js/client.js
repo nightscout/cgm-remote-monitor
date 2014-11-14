@@ -276,6 +276,10 @@
         var nowDate = new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS);
 
         // predict for retrospective data
+        // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
+        // of data instead of 5, which eliminates the incorrect and misleading predictions generated when
+        // the dexcom switches from unfiltered to filtered at the start of a rapid rise or fall, while preserving
+        // almost identical predications at other times.
         var lookback=2;
         var retroLookback = browserSettings.retroLookback;
         var retroStart = FOCUS_DATA_RANGE_MS+(retroLookback/60)*SIXTY_MINS_IN_MS;
