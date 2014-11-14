@@ -32,13 +32,11 @@
     },
     "MONGO_CONNECTION": {
       "type": "string",
-      "defaultValue": "",
-      "required":"true"
+      "defaultValue": ""
     },
     "MONGO_COLLECTION" : {
       "type":"string",
-      "defaultValue": "entries",
-      "required":"false"
+      "defaultValue": "entries"
     },
     "DISPLAY_UNITS" : {
       "type":"string",
