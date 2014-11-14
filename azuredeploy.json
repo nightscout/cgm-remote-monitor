@@ -86,7 +86,7 @@
               {
                 "name": "mongo",
                 "value": "[parameters('mongo_ConnectionString')]"
-              }
+              },
               {
                 "name": "mongo_collection",
                 "value": "[parameters('mongo_collection')]"
