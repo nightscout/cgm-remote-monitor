@@ -85,13 +85,13 @@
             "connectionStrings": [
               {
                 "name": "mongo",
-                "value": "[parameters('mongo_ConnectionString')]",
-                "type": "custom"
+                "ConnectionString" : "[parameters('mongo_ConnectionString')]",
+                "type": "3"
               },
               {
                 "name": "mongo_collection",
-                "value": "[parameters('mongo_collection')]",
-                "type": "custom"
+                "ConnectionString": "[parameters('mongo_collection')]",
+                "type": "3"
               }
             ]
           }
