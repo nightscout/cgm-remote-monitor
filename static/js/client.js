@@ -29,7 +29,9 @@
         FORTY_TWO_MINS_IN_MS = 2520000,
         SIXTY_MINS_IN_MS = 3600000,
         FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
-        FORMAT_TIME = '%I:%M%', //alternate format '%H:%M'
+        FORMAT_TIME_12 = '%I:%M',
+        FORMAT_TIME_24 = '%H:%M%',
+        FORMAT_TIME_SCALE = '%I %p',
         audio = document.getElementById('audio'),
         alarmInProgress = false,
         currentAlarmType = null,
@@ -85,19 +87,42 @@
 
     // Remove leading zeros from the time (eg. 08:40 = 8:40) & lowercase the am/pm
     function formatTime(time) {
-		var dateFormat = FORMAT_TIME;
-		if(browserSettings.dateFormat){
-			if(browserSettings.dateFormat == "24"){
-				dateFormat = '%H:%M';
-			}
-		}
-		
-        time = d3.time.format(dateFormat)(time);
-        time = time.replace(/^0/, '').toLowerCase();
-        return time;
+        var timeFormat = getTimeFormat();
+        time = d3.time.format(timeFormat)(time);
+        if(timeFormat == FORMAT_TIME_12){
+            time = time.replace(/^0/, '').toLowerCase();
+        }
+      return time;
     }
 
-    // lixgbg: Convert mg/dL BG value to metric mmol
+    function getTimeFormat(isForScale) {
+        var timeFormat = FORMAT_TIME_12;
+        if (browserSettings.timeFormat) {
+            if (browserSettings.timeFormat == "24") {
+                timeFormat = FORMAT_TIME_24;
+            }
+        }
+
+        if (isForScale && (timeFormat == FORMAT_TIME_12)) {
+            timeFormat = FORMAT_TIME_SCALE
+        }
+
+        return timeFormat;
+    }
+
+    var x2TickFormat = d3.time.format.multi([
+        [".%L", function(d) { return d.getMilliseconds(); }],
+        [":%S", function(d) { return d.getSeconds(); }],
+        ["%I:%M", function(d) { return d.getMinutes(); }],
+        [(getTimeFormat() == FORMAT_TIME_12) ? "%I %p": '%H:%M%', function(d) { return d.getHours(); }],
+        ["%a %d", function(d) { return d.getDay() && d.getDate() != 1; }],
+        ["%b %d", function(d) { return d.getDate() != 1; }],
+        ["%B", function(d) { return d.getMonth(); }],
+        ["%Y", function() { return true; }]
+    ]);
+
+
+  // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
         if (browserSettings.units == "mmol") {
             return (Math.round((bg / 18) * 10) / 10).toFixed(1);
@@ -124,6 +149,7 @@
 
         xAxis = d3.svg.axis()
             .scale(xScale)
+            .tickFormat(d3.time.format(getTimeFormat(true)))
             .ticks(4)
             .orient('top');
 
@@ -133,10 +159,11 @@
             .tickValues(tickValues)
             .orient('left');
 
-        xAxis2 = d3.svg.axis()
-            .scale(xScale2)
-            .ticks(4)
-            .orient('bottom');
+      xAxis2 = d3.svg.axis()
+          .scale(xScale2)
+          .tickFormat(x2TickFormat)
+          .ticks(4)
+          .orient('bottom');
 
         yAxis2 = d3.svg.axis()
             .scale(yScale2)
@@ -236,6 +263,10 @@
         var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
         // predict for retrospective data
+        // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
+        // of data instead of 5, which eliminates the incorrect and misleading predictions generated when
+        // the dexcom switches from unfiltered to filtered at the start of a rapid rise or fall, while preserving
+        // almost identical predications at other times.
         var lookback = 2;
         if (brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
@@ -259,9 +290,9 @@
                 var focusPoint = nowData[nowData.length - 1];
 
                 //in this case the SGV is scaled
-                if (focusPoint.sgv < scaleBg(40))
+                if (focusPoint.y < 40)
                     $('.container .currentBG').text('LOW');
-                else if (focusPoint.sgv > scaleBg(400))
+                else if (focusPoint.y > 400)
                     $('.container .currentBG').text('HIGH');
                 else
                     $('.container .currentBG').text(focusPoint.sgv);
