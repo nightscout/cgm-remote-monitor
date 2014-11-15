@@ -49,7 +49,7 @@ body {
 
 .bgStatus {
     float: right;
-    font-size: 900%;
+    font-size: 800%;
     margin-right: 25px;
     text-align: center;
     white-space: nowrap;
@@ -57,7 +57,15 @@ body {
 .bgStatus .currentBG {
     text-decoration: line-through;
 }
+.bgStatus .currentDelta {
+    font-size: 35%;
+    text-decoration: line-through;
+}
 .bgStatus.current .currentBG {
+    text-decoration: none;
+}
+.bgStatus.current .currentDelta {
+    font-size: 35%;
     text-decoration: none;
 }
 .currentDirection {
