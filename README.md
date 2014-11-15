@@ -35,13 +35,15 @@ $ npm install
 ### Vagrant install
 
 Optionally, use [Vagrant](https://www.vagrantup.com/) with the
-included `Vagrantfile` and `setup.sh` to install OS and node packages to
-a virtual machine.
+included `Vagrantfile` and it will install OS and node packages to
+the virtual machine.
 
 ```bash
+# Add box if not already present
+host$ vagrant box add precise64 http://files.vagrantup.com/precise64.box
+
 host$ vagrant up
 host$ vagrant ssh
-vm$ setup.sh
 ```
 
 The setup script will install OS packages then run `npm install`.
