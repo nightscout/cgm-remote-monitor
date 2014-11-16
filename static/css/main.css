@@ -60,6 +60,9 @@ body {
 .bgStatus .currentDelta {
     font-size: 35%;
     text-decoration: line-through;
+    display: block;
+    position: relative;    
+    top: -20px;
 }
 .bgStatus.current .currentBG {
     text-decoration: none;
@@ -67,6 +70,9 @@ body {
 .bgStatus.current .currentDelta {
     font-size: 35%;
     text-decoration: none;
+    display: block;
+    position: relative;    
+    top: -20px;
 }
 .currentDirection {
     font-weight: normal;
