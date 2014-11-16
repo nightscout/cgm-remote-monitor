@@ -17,7 +17,8 @@
         prevChartHeight = 0,
         focusHeight,
         contextHeight,
-        UPDATE_TRANS_MS = 750, // milliseconds
+        // disabled, as the brush transitions are slow enough as it is
+        UPDATE_TRANS_MS = 0, // duration of update transitions (moving BG dots when you brush) in milliseconds 
         brush,
         BRUSH_TIMEOUT = 300000,  // 5 minutes in ms
         brushTimer,
@@ -214,7 +215,7 @@
             .transition()
             .duration(UPDATE_TRANS_MS)
             .call(brush.extent([new Date(dataRange[1].getTime() - FOCUS_DATA_RANGE_MS), dataRange[1]]));
-        brushed(true);
+        brushed(true, true);
 
         // clear user brush tracking
         brushInProgress = false;
@@ -228,6 +229,8 @@
     }
 
     function brushEnded() {
+        // when we're done brushing, re-run brushed() again with retroPredictions enabled
+        brushed(false, true);
         // update the opacity of the context data points to brush extent
         context.selectAll('circle')
             .data(data)
@@ -235,7 +238,8 @@
     }
 
     // function to call when context chart is brushed
-    function brushed(skipTimer) {
+    // if we're brushing, don't display retroPredictions, as they're too slow
+    function brushed(skipTimer, retroPredict) {
 
         if (!skipTimer) {
             // set a timer to reset focus chart to real-time data
@@ -309,7 +313,7 @@
             });
             if (nowData.length > lookback) {
                 var time = new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS);
-                if (retroLookback > 0) {
+                if (retroLookback > 0 && retroPredict) {
                     var retroPrediction = retroPredictBgs(sgvData, treatments.slice(treatments.length-200, treatments.length), profile, retroLookback, lookback);
                     focusData = focusData.concat(retroPrediction);
                 }
@@ -847,11 +851,11 @@
         if (!brushInProgress) {
             updateBrush
                 .call(brush.extent([new Date(dataRange[1].getTime() - FOCUS_DATA_RANGE_MS), dataRange[1]]));
-            brushed(true);
+            brushed(true, true);
         } else {
             updateBrush
                 .call(brush.extent([currentBrushExtent[0], currentBrushExtent[1]]));
-            brushed(true);
+            brushed(true, true);
         }
 
         // bind up the context chart data to an array of circles
@@ -1108,7 +1112,7 @@
         // only emit ack if client invoke by button press
         if (isClient) {
             socket.emit('ack', currentAlarmType || 'alarm', silenceTime);
-            brushed(false);
+            brushed(false, true);
         }
     }
 
