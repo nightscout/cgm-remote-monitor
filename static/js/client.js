@@ -131,7 +131,6 @@
             return bg;
         }
     }
-
     // initial setup of chart when data is first made available
     function initializeCharts() {
 
@@ -298,7 +297,12 @@
                     $('.container .currentBG').text('HIGH');
                 else
                     $('.container .currentBG').text(focusPoint.sgv);
+                    
+                
                     var retroDelta = scaleBg(focusPoint.y) - scaleBg(prevfocusPoint.y);
+                 if (browserSettings.units == "mmol") {
+                retroDelta = retroDelta.toFixed(1);
+            }
                     if (retroDelta < 0) {
                         var retroDeltaString = retroDelta;
                     }
@@ -308,12 +312,18 @@
                     else {
                         var retroDeltaString = "+/-0";
                     }
+                    
+                    if (browserSettings.units == "mmol") {
+                   var retroDeltaString = retroDeltaString + " mmol/L"
+                   }
+                   else {
+                   var retroDeltaString = retroDeltaString + " mg/dL"
+                   }
                     $('.container .currentDelta').text(retroDeltaString);
 
                 $('.container .currentBG').css('text-decoration','line-through');
+                $('.container .currentDirection').html(focusPoint.direction)
                 $('.container .currentDelta').css('text-decoration','line-through');
-                $('.container .currentDirection')
-                    .html(focusPoint.direction)
             } else {
                 $('.container .currentBG')
                     .text("---")
@@ -385,6 +395,10 @@
                 else
                     $('.container .currentBG').text(scaleBg(latestSGV.y));
 		        var bgDelta = scaleBg(latestSGV.y) - scaleBg(prevSGV.y);
+                    if (browserSettings.units == "mmol") {
+                bgDelta = bgDelta.toFixed(1);
+            }
+                    
                     if (bgDelta < 0) {
                         var bgDeltaString = bgDelta;
                     }
@@ -394,12 +408,17 @@
                     else {
                         var bgDeltaString = "+/-0";
                     }
+                   if (browserSettings.units == "mmol") {
+                   var bgDeltaString = bgDeltaString + " mmol/L"
+                   }
+                   else {
+                   var bgDeltaString = bgDeltaString + " mg/dL"
+                   }
                     $('.container .currentDelta').text(bgDeltaString);
 
                 $('.container .currentBG').css('text-decoration', '');
+                $('.container .currentDirection').html(latestSGV.direction);
                 $('.container .currentDelta').css('text-decoration','');
-                $('.container .currentDirection')
-                    .html(latestSGV.direction);
 
                 var color = sgvToColor(latestSGV.y);
                 $('.container #noButton .currentBG').css({color: color});
