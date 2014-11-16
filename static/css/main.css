@@ -49,7 +49,7 @@ body {
 
 .bgStatus {
     float: right;
-    font-size: 800%;
+    font-size: 750%;
     margin-right: 25px;
     text-align: center;
     white-space: nowrap;
@@ -58,7 +58,7 @@ body {
     text-decoration: line-through;
 }
 .bgStatus .currentDelta {
-    font-size: 30%;
+    font-size: 25%;
     text-decoration: line-through;
     display: block;
     position: relative;    
@@ -68,7 +68,7 @@ body {
     text-decoration: none;
 }
 .bgStatus.current .currentDelta {
-    font-size: 30%;
+    font-size: 25%;
     text-decoration: none;
     display: block;
     position: relative;    
@@ -80,7 +80,7 @@ body {
 }
 
 .status.toolbarClosed .bgStatus {
-    font-size:990%;
+    font-size:890%;
 
 }
 
@@ -266,7 +266,7 @@ div.tooltip {
     #bgButton {display:block;} */
 
     .bgStatus {
-        font-size: 900%;
+        font-size: 750%;
         float: none;
         margin: 0 auto;
         padding: 0;
@@ -274,7 +274,7 @@ div.tooltip {
         width: 100vw;
     }
     .status.toolbarClosed .bgStatus {
-        font-size: 990%;
+        font-size: 890%;
         margin-top: 10px;
     }
     #bgButton {
