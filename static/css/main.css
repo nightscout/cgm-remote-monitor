@@ -17,7 +17,7 @@ body {
 
 
 /* BEGIN: Dolphin/Stock Android Browser Fix */
-@media (max-width: 700px) {
+@media (max-width: 480px) {
     .bgStatus {
         width: 100% !important;
     }
@@ -246,7 +246,26 @@ div.tooltip {
     }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 800px) {
+  .bgStatus {
+    font-size: 600%;
+  }
+
+  .status.toolbarClosed .bgStatus {
+    font-size: 650%;
+  }
+  #bgButton {
+    font-size: 120%;
+  }
+  .dropdown-menu {
+    font-size: 60% !important;
+  }
+  #currentTime {
+    font-size: 85%;
+  }
+}
+
+@media (max-width: 480px) {
     body {
         font-size: 70%;
     }
