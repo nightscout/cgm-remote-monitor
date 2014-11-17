@@ -69,7 +69,7 @@ function getBrowserSettings(storage) {
 		if (json.customTitle) {
 			$("h1.customTitle").text(json.customTitle);
 			$("input#customTitle").prop("value", json.customTitle);
-			document.title = "Nightscout: " + json.customTitle;
+			document.title = json.customTitle + " - Nightscout";
 		}
 
         if (json.theme == "colors") {
