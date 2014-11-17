@@ -237,17 +237,13 @@ div.tooltip {
     }
 }
 
-@media (max-width: 768px) {
-    #chartContainer {
-        font-size: 150%;
-    }
-    .bgStatus {
-        width: 50%;
-    }
-}
-
 @media (max-width: 800px) {
+  #chartContainer {
+    font-size: 115%;
+  }
+
   .bgStatus {
+    width: 50%;
     font-size: 600%;
   }
 
@@ -289,6 +285,7 @@ div.tooltip {
 
   #chartContainer {
     top: 165px;
+    font-size: 80%;
   }
   #chartContainer svg {
     height: calc(100vh - 165px);
@@ -359,15 +356,10 @@ div.tooltip {
     }
 
     #chartContainer {
-        top: calc(152px + 45px);
+        font-size: 110%;
+        top: 210px;
     }
     #chartContainer svg {
-        height: calc(100vh - (152px + 45px));
+        height: calc(100vh - (210px));
     }
-}
-
-@media (max-width: 480px) {
-  #chartContainer {
-      font-size: 150%;
-  }
 }
