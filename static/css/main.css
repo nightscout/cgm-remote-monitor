@@ -17,7 +17,7 @@ body {
 
 
 /* BEGIN: Dolphin/Stock Android Browser Fix */
-@media (max-width: 480px) {
+@media (max-width: 400px) {
     .bgStatus {
         width: 100% !important;
     }
@@ -72,7 +72,7 @@ body {
     text-decoration: none;
     display: block;
     position: relative;    
-    top: -20px;
+    top: -10px;
 }
 .currentDirection {
     font-weight: normal;
@@ -265,7 +265,38 @@ div.tooltip {
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 700px) {
+  .bgStatus {
+    font-size: 500%;
+  }
+
+  .status.toolbarClosed .bgStatus {
+    font-size: 550%;
+  }
+  #bgButton {
+    font-size: 120%;
+  }
+  .dropdown-menu {
+    font-size: 60% !important;
+  }
+  #currentTime {
+    font-size: 65%;
+    padding: 0;
+  }
+  #lastEntry {
+    font-size: 65%;
+  }
+
+  #chartContainer {
+    top: 165px;
+  }
+  #chartContainer svg {
+    height: calc(100vh - 165px);
+  }
+
+}
+
+@media (max-width: 400px) {
     body {
         font-size: 70%;
     }
