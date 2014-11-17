@@ -109,8 +109,7 @@
             "appSettings":[
             {
               "name":"DISPLAY_UNITS",
-              "value":"[parameters('DISPLAY_UNITS')]",
-              "required":"true"
+              "value":"[parameters('DISPLAY_UNITS')]"
             },
             {
               "name":"MONGO_SETTINGS_COLLECTION",
