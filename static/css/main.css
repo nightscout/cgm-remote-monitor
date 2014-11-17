@@ -49,7 +49,7 @@ body {
 
 .bgStatus {
     float: right;
-    font-size: 700%;
+    font-size: 750%;
     margin-right: 25px;
     text-align: center;
     white-space: nowrap;
@@ -316,7 +316,7 @@ div.tooltip {
     #bgButton {display:block;} */
 
     .bgStatus {
-        font-size: 700%;
+        font-size: 750%;
         float: none;
         margin: 0 auto;
         padding: 0;
