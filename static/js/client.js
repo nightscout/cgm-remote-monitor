@@ -956,10 +956,18 @@
 
             cal = d[6][d[6].length-1];
 
-            var temp1 = d[0].map(function (obj) {
-                var rawBg = rawIsigToRawBg(obj.unfiltered, cal.scale, cal.intercept, cal.slope, obj.filtered, obj.y);
-                return { date: new Date(obj.x-2*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg'}
-            });
+            var temp1 = [ ];
+            if (cal) {
+              temp1 = d[0].map(function (obj) {
+                  var rawBg = rawIsigToRawBg(obj.unfiltered
+                    , cal.scale || [ ]
+                    , cal.intercept
+                    , cal.slope || [ ]
+                    , obj.filtered
+                    , obj.y);
+                  return { date: new Date(obj.x-2*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg'}
+              });
+            }
             var temp2 = d[0].map(function (obj) {
                 return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
             });
@@ -1461,7 +1469,7 @@
         sgv=parseInt(current[current.length-1].sgv);
         if (sgv < 30) {
             var obj = latestSGV;
-            sgv = rawIsigToRawBg(obj.rawIsig, obj.scale, obj.intercept, obj.slope, obj.filtered, obj.y);
+            sgv = rawIsigToRawBg(obj.rawIsig, obj.scale || [ ], obj.intercept, obj.slope, obj.filtered, obj.y);
         }
         var predBgs = [];
         var bgi = sgv;
