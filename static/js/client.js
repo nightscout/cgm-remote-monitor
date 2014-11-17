@@ -950,22 +950,32 @@
     // bgDelta and retroDelta to follow sgv color
     // instead of Scott Leibrand's wip/iob-cob settings below
 
+    // delta >= 10 = yellow
+    // delta <= -10 = red
+    // delta < 10 and > -10 = SGV color
+
     // function deltaToColor(delta) {
     //    var color = 'grey';
 
     //    if (browserSettings.theme == "colors") {
+    //        //if (Math.abs(delta) > 10) {
+    //        //    color = 'red';
     //        if (Math.abs(delta) > 10) {
-    //            color = 'red';
-    //        } else if (Math.abs(delta) > 5) {
     //            color = 'yellow';
+    //        //} else if (Math.abs(delta) > 5) {
+    //        //    color = 'yellow';
+    //        } else if (Math.abs(delta) < -10) {
+    //            color = 'red';
     //        } else {
     //            //color = '#4cff00';
-    //            color = 'grey';
+    //            //color = 'grey';
+    //            color = sgvToColor(sgv);
     //        }
     //    }
     //
     //    return color;
     // }
+
     function sgvToColor(sgv) {
         var color = 'grey';
 
