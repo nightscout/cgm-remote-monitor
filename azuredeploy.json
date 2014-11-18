@@ -31,8 +31,7 @@
       "defaultValue": "0"
     },
     "MONGO_CONNECTION": {
-      "type": "string",
-      "defaultValue": ""
+      "type": "string"
     },
     "MONGO_COLLECTION" : {
       "type":"string",
