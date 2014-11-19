@@ -13,3 +13,4 @@ v0.4.1 / 2014-09-12
  * Merge branch 'release/0.4.0' into dev
  * hack: only consider 'grey' sgv records
  * Added searching for MBG data from mongo query.
+ * Heroku
