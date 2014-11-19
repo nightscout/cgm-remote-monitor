@@ -37,30 +37,6 @@
       "type":"string",
       "defaultValue": "entries"
     },
-    "DISPLAY_UNITS" : {
-      "type":"string",
-      "defaultValue": ""
-    },
-    "MONGO_SETTINGS_COLLECTION":{
-      "type":"string",
-      "defaultValue":"settings"
-    },
-    "MONGO_TREATMENTS_COLLECTION":{
-      "type":"string",
-      "defaultValue":"treatments"
-    },
-    "MONGO_DEVICESTATUS_COLLECTION":{
-      "type":"string",
-      "defaultValue":"devicestatus"
-    },
-    "ENABLE":{
-      "type":"string",
-      "defaultValue":""
-    },
-    "API_SECRET":{
-      "type":"string",
-      "defaultValue":""
-    },
     "repoUrl": {
       "type": "string"
     },
@@ -108,27 +84,27 @@
             "appSettings":[
             {
               "name":"DISPLAY_UNITS",
-              "value":"[parameters('DISPLAY_UNITS')]"
+              "value":""
             },
             {
               "name":"MONGO_SETTINGS_COLLECTION",
-              "value":"[parameters('MONGO_SETTINGS_COLLECTION')]"
+              "value":"settigs"
             },
             {
               "name":"MONGO_TREATMENTS_COLLECTION",
-              "value":"[parameters('MONGO_TREATMENTS_COLLECTION')]"
+              "value":"treatments"
             },
             {
               "name":"MONGO_DEVICESTATUS_COLLECTION",
-              "value":"[parameters('MONGO_DEVICESTATUS_COLLECTION')]"
+              "value":"devicestatus"
             },
             {
               "name":"ENABLE",
-              "value":"[parameters('ENABLE')]"
+              "value":""
             },
             {
               "name":"API_SECRET",
-              "value":"[parameters('API_SECRET')]"
+              "value":""
             }
             ],
             "connectionStrings": [
