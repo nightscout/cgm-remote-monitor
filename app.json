@@ -6,6 +6,10 @@
       "description": "The mongo collection to connect to.",
       "value": "entries"
     }
+    "API_SECRET": {
+      "description": "User generated password required for REST API and other features (12 character minimum).",
+      "value": ""
+    }
   },
   "addons": [
     "mongolab"
