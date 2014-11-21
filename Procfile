@@ -1,1 +1,1 @@
-web: ./node_modules/.bin/forever server.js
+web: ./node_modules/.bin/forever start -c server.js
