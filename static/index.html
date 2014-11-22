@@ -6,9 +6,9 @@
         <link rel="apple-touch-icon" href="/images/logomobile.png">
         <title>NightScout</title>
         <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
-        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.5.0" />
+        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.5.1" />
         <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.5.0" />
+        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.5.1" />
         <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
     </head>
     <body>
@@ -34,10 +34,13 @@
                     <div id="noButton">
                         <span class="currentBG">---</span>
                         <span class="currentDirection">-</span>
+                        <span class="currentDelta">--</span>
+                        
                     </div>
                     <div id="bgButton" hidden="true">
                         <span class="currentBG">---</span>
                         <span class="currentDirection">-</span>
+                        <span class="currentDelta">--</span>
                     </div>
                     <ul class="dropdown-menu" id="silenceBtn">
                         <li><a href="#" data-snooze-time="1800000">Silence for 30 minutes</a></li>
@@ -67,13 +70,13 @@
                     <legend>Settings</legend>
                     <dl class="radio">
                         <dt>Units</dt>
-                        <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label><br />
-                        <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label>
+                        <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label></dd>
+                        <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label></dd>
                     </dl>
-					<dl class="radio">
+                    <dl class="radio">
                         <dt>Date format</dt>
-                        <dd><input type="radio" name="timeformat-browser" id="12-browser" value="12" checked /><label for="12-browser">12 hours</label><br />
-                        <dd><input type="radio" name="timeformat-browser" id="24-browser" value="24" /><label for="24-browser">24 hours</label>
+                        <dd><input type="radio" name="timeformat-browser" id="12-browser" value="12" checked /><label for="12-browser">12 hours</label></dd>
+                        <dd><input type="radio" name="timeformat-browser" id="24-browser" value="24" /><label for="24-browser">24 hours</label></dd>
                     </dl>
                     <dl class="toggle">
                         <dt>Enable Alarms <a class="tip" original-title="When enabled the an alarm will sound."><i class="icon-help-circled"></i></a></dt>
@@ -90,8 +93,8 @@
                     </dl>
                     <dl class="radio">
                         <dt>Theme</dt>
-                        <dd><input type="radio" name="theme-browser" id="theme-default-browser" value="default" checked /><label for="theme-default-browser">Default</label><br />
-                        <dd><input type="radio" name="theme-browser" id="theme-colors-browser" value="colors" /><label for="theme-colors-browser">Colors</label>
+                        <dd><input type="radio" name="theme-browser" id="theme-default-browser" value="default" checked /><label for="theme-default-browser">Default</label></dd>
+                        <dd><input type="radio" name="theme-browser" id="theme-colors-browser" value="colors" /><label for="theme-colors-browser">Colors</label></dd>
                     </dl>
                 </fieldset>
 
@@ -186,8 +189,8 @@
         <script src="/bower_components/jquery/dist/jquery.min.js"></script>
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
-        <script src="/js/ui-utils.js?v=0.5.0"></script>
-        <script src="/js/client.js?v=0.5.0"></script>
+        <script src="/js/ui-utils.js?v=0.5.1"></script>
+        <script src="/js/client.js?v=0.5.1"></script>
         <script src="/js/experiments.js"></script>
     </body>
 </html>
