@@ -1,3 +1,4 @@
+[![Stories in Ready](https://badge.waffle.io/nightscout/cgm-remote-monitor.png?label=ready&title=Ready)](https://waffle.io/nightscout/cgm-remote-monitor)
 cgm-remote-monitor (a.k.a. NightScout)
 ======================================
  
