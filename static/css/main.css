@@ -77,6 +77,7 @@ body {
 .currentDirection {
     font-weight: normal;
     text-decoration: none;
+    font-size: 80%;
 }
 
 .status.toolbarClosed .bgStatus {
