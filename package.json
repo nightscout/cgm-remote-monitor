@@ -44,7 +44,8 @@
     "sgvdata": "git://github.com/bewest/sgvdata.git#wip/protobuf",
     "socket.io": "^0.9.17",
     "mqtt": "~0.3.11",
-    "git-rev": "git://github.com/bewest/git-rev.git"
+    "git-rev": "git://github.com/bewest/git-rev.git",
+    "long": "~2.2.3"
   },
   "devDependencies": {
     "supertest": "~0.13.0",
