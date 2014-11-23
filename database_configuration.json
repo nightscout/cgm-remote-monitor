@@ -1,4 +1,4 @@
 {
-    "url": null,
-    "collection": null
+    "url": mongodb://website:website@ds052837.mongolab.com:52837/db_cgm,
+    "collection": col_cgm
 }
