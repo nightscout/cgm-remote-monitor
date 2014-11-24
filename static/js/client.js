@@ -373,6 +373,8 @@
 
                 $('.container .currentBG').html(errorDisplay)
                     .css('text-decoration', '');
+                $('.container .currentDelta').text('')
+                    .css('text-decoration','');
                 $('.container .currentDirection').html('✖');
 
                 var color = sgvToColor(errorCode);
