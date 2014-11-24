@@ -2,6 +2,7 @@
     "use strict";
 
     var latestSGV,
+        prevSGV,
         errorCode,
         treatments,
         padding = { top: 20, right: 10, bottom: 30, left: 10 },
@@ -130,7 +131,6 @@
             return bg;
         }
     }
-
     // initial setup of chart when data is first made available
     function initializeCharts() {
 
@@ -263,6 +263,10 @@
         var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
         // predict for retrospective data
+        // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
+        // of data instead of 5, which eliminates the incorrect and misleading predictions generated when
+        // the dexcom switches from unfiltered to filtered at the start of a rapid rise or fall, while preserving
+        // almost identical predications at other times.
         var lookback = 2;
         if (brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
@@ -284,6 +288,7 @@
                 var prediction = predictAR(nowData, lookback);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
+                var prevfocusPoint = nowData[nowData.length - 2];
 
                 //in this case the SGV is scaled
                 if (focusPoint.y < 40)
@@ -292,10 +297,28 @@
                     $('.container .currentBG').text('HIGH');
                 else
                     $('.container .currentBG').text(focusPoint.sgv);
+                    var retroDelta = scaleBg(focusPoint.y) - scaleBg(prevfocusPoint.y);
+                    if (browserSettings.units == "mmol") {
+                        retroDelta = retroDelta.toFixed(1);
+                    }
+                    if (retroDelta < 0) {
+                        var retroDeltaString = retroDelta;
+                    }
+                    else {
+                        var retroDeltaString = "+" + retroDelta;
+                    }
+                    if (browserSettings.units == "mmol") {
+                    var retroDeltaString = retroDeltaString + " mmol/L"
+                    }
+                    else {
+                    var retroDeltaString = retroDeltaString + " mg/dL"
+                    }
 
                 $('.container .currentBG').css('text-decoration','line-through');
-                $('.container .currentDirection')
-                    .html(focusPoint.direction)
+                $('.container .currentDelta')
+                    .text(retroDeltaString)
+                    .css('text-decoration','line-through');
+                $('.container .currentDirection').html(focusPoint.direction)
             } else {
                 $('.container .currentBG')
                     .text("---")
@@ -366,14 +389,40 @@
                     $('.container .currentBG').text('HIGH');
                 else
                     $('.container .currentBG').text(scaleBg(latestSGV.y));
+		            var bgDelta = scaleBg(latestSGV.y) - scaleBg(prevSGV.y);
+                    if (browserSettings.units == "mmol") {
+                        bgDelta = bgDelta.toFixed(1);
+                    }
+                    if (bgDelta < 0) {
+                        var bgDeltaString = bgDelta;
+                    }
+		            else {
+			            var bgDeltaString = "+" + bgDelta;
+		            }
+                    if (browserSettings.units == "mmol") {
+                        var bgDeltaString = bgDeltaString + " mmol/L"
+                    }
+                    else {
+                        var bgDeltaString = bgDeltaString + " mg/dL"
+                    }
 
                 $('.container .currentBG').css('text-decoration', '');
-                $('.container .currentDirection')
-                    .html(latestSGV.direction);
+                $('.container .currentDelta')
+                    .text(bgDeltaString)
+                    .css('text-decoration','');
+                $('.container .currentDirection').html(latestSGV.direction);
 
                 var color = sgvToColor(latestSGV.y);
                 $('.container #noButton .currentBG').css({color: color});
                 $('.container #noButton .currentDirection').css({color: color});
+
+                // bgDelta and retroDelta to follow sgv color
+                // instead of Scott Leibrand's wip/iob-cob settings below
+
+                // var deltaColor = deltaToColor(bgDelta);
+                // $('.container #noButton .currentDelta').css({color: deltaColor});
+
+                $('.container #noButton .currentDelta').css({color: color});
             }
         }
 
@@ -855,6 +904,7 @@
             // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
             if (d[0].length) {
                 latestSGV = d[0][d[0].length - 1];
+                prevSGV = d[0][d[0].length - 2];
 
                 //TODO: alarmHigh/alarmLow probably shouldn't be here
                 if (browserSettings.alarmHigh) {
@@ -896,6 +946,35 @@
             }
         }
     });
+
+    // bgDelta and retroDelta to follow sgv color
+    // instead of Scott Leibrand's wip/iob-cob settings below
+
+    // delta >= 10 = yellow
+    // delta <= -10 = red
+    // delta < 10 and > -10 = SGV color
+
+    // function deltaToColor(delta) {
+    //    var color = 'grey';
+
+    //    if (browserSettings.theme == "colors") {
+    //        //if (Math.abs(delta) > 10) {
+    //        //    color = 'red';
+    //        if (Math.abs(delta) > 10) {
+    //            color = 'yellow';
+    //        //} else if (Math.abs(delta) > 5) {
+    //        //    color = 'yellow';
+    //        } else if (Math.abs(delta) < -10) {
+    //            color = 'red';
+    //        } else {
+    //            //color = '#4cff00';
+    //            //color = 'grey';
+    //            color = sgvToColor(sgv);
+    //        }
+    //    }
+    //
+    //    return color;
+    // }
 
     function sgvToColor(sgv) {
         var color = 'grey';
