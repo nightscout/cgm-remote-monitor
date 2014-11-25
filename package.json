@@ -28,6 +28,16 @@
     "test": "make test",
     "postinstall": "node node_modules/bower/bin/bower install"
   },
+  "config": {
+    "blanket": {
+      "pattern": [
+        "tests", "lib", "server", "app", "static/js"
+      ],
+      "data-cover-never": [
+        "node_modules"
+      ]
+    }
+  },
   "engines": {
     "node": ">=0.10 <0.12"
   },

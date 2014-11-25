@@ -17,6 +17,9 @@ coveralls:
      ${TESTS} | ./coverall.sh
 
 coverhtml:
+	MONGO_CONNECTION=${MONGO_CONNECTION} \
+	CUSTOMCONNSTR_mongo_collection=${CUSTOMCONNSTR_mongo_collection} \
+	CUSTOMCONNSTR_mongo_settings_collection=${CUSTOMCONNSTR_mongo_settings_collection} \
 	./node_modules/.bin/mocha ${BLANKET} -R html-cov  ${TESTS} > tests/coverage.html
 
 test:
