@@ -44,6 +44,7 @@ body {
     font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
     height: 180px;
     vertical-align: middle;
+    clear: both;
 }
 
 .bgStatus {
@@ -203,6 +204,10 @@ div.tooltip {
 
 #testAlarms {
     font-size: 20%;
+}
+
+#currentTime{
+	padding: 0 0 10px 0;
 }
 
 /* Large desktop */

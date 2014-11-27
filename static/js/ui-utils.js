@@ -6,7 +6,8 @@ var defaultSettings = {
 	"alarmHigh": true,
 	"alarmLow": true,
 	"nightMode": false,
-	"theme": "default"
+	"theme": "default",
+	"timeFormat": "12"
 };
 
 var app = {};
@@ -15,6 +16,7 @@ $.ajax("/api/v1/status.json", {
 		app = {
 			"name": xhr.name,
 			"version": xhr.version,
+			"head": xhr.head,
 			"apiEnabled": xhr.apiEnabled,
 			"careportalEnabled": xhr.careportalEnabled
 		}
@@ -22,6 +24,7 @@ $.ajax("/api/v1/status.json", {
 }).done(function() {
 	$(".appName").text(app.name);
 	$(".version").text(app.version);
+	$(".head").text(app.head);
 	if (app.apiEnabled) {
 		$(".serverSettings").show();
 	}
@@ -38,7 +41,8 @@ function getBrowserSettings(storage) {
 			"alarmLow": storage.get("alarmLow"),
 			"nightMode": storage.get("nightMode"),
 			"customTitle": storage.get("customTitle"),
-			"theme": storage.get("theme")
+			"theme": storage.get("theme"),
+			"timeFormat": storage.get("timeFormat")
 		};
 
 		// Default browser units to server units if undefined.
@@ -68,6 +72,14 @@ function getBrowserSettings(storage) {
         } else {
             $("#theme-default-browser").prop("checked", true);
         }
+		
+		json.timeFormat = setDefault(json.timeFormat, defaultSettings.timeFormat);
+		
+		if (json.timeFormat == "24") {
+			$("#24-browser").prop("checked", true);
+		} else {
+			$("#12-browser").prop("checked", true);
+		}
 	}
 	catch(err) {
 		showLocalstorageError();
@@ -121,6 +133,9 @@ function storeInBrowser(json, storage) {
 	if (json.customTitle) storage.set("customTitle", json.customTitle);
     if (json.theme) storage.set("theme", json.theme);
     event.preventDefault();
+
+	if (json.timeFormat) storage.set("timeFormat", json.timeFormat);
+	event.preventDefault();
 }
 function storeOnServer(json) {
 	if (jsonIsNotEmpty(json)) {
@@ -378,7 +393,8 @@ $("input#save").click(function() {
 		"alarmLow": $("#alarmlow-browser").prop("checked"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
 		"customTitle": $("input#customTitle").prop("value"),
-        "theme": $("input:radio[name=theme-browser]:checked").val()
+        "theme": $("input:radio[name=theme-browser]:checked").val(),
+		"timeFormat": $("input:radio[name=timeformat-browser]:checked").val()
 	}, browserStorage);
 
 	storeOnServer({
