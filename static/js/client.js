@@ -2,6 +2,7 @@
     "use strict";
 
     var latestSGV,
+        prevSGV,
         errorCode,
         treatments,
         profile,
@@ -323,6 +324,7 @@
                 var prediction = predictDIYPS(nowData, treatments.slice(treatments.length-200, treatments.length), profile, time, lookback);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
+                var prevfocusPoint = nowData[nowData.length - 2];
 
                 var iTotal = iobTotal(treatments.slice(treatments.length-200, treatments.length), time);
                 var iob = Math.round(iTotal.iob*10)/10;
@@ -343,10 +345,28 @@
                     $('.container .currentBG').text('HIGH');
                 else
                     $('.container .currentBG').text(focusPoint.sgv);
+                    var retroDelta = scaleBg(focusPoint.y) - scaleBg(prevfocusPoint.y);
+                    if (browserSettings.units == "mmol") {
+                        retroDelta = retroDelta.toFixed(1);
+                    }
+                    if (retroDelta < 0) {
+                        var retroDeltaString = retroDelta;
+                    }
+                    else {
+                        var retroDeltaString = "+" + retroDelta;
+                    }
+                    if (browserSettings.units == "mmol") {
+                    var retroDeltaString = retroDeltaString + " mmol/L"
+                    }
+                    else {
+                    var retroDeltaString = retroDeltaString + " mg/dL"
+                    }
 
                 $('.container .currentBG').css('text-decoration','line-through');
-                $('.container .currentDirection')
-                    .html(focusPoint.direction)
+                $('.container .currentDelta')
+                    .text(retroDeltaString)
+                    .css('text-decoration','line-through');
+                $('.container .currentDirection').html(focusPoint.direction)
             } else {
                 $('.container .currentBG')
                     .text("---")
@@ -434,26 +454,42 @@
                     $('.container .currentBG').text('HIGH');
                 else
                     $('.container .currentBG').text(scaleBg(latestSGV.y));
-                    var bgDelta = scaleBg(latestSGV.y-sgvData[sgvData.length-2].y);
+                    //var bgDelta = scaleBg(latestSGV.y-sgvData[sgvData.length-2].y);
+		            var bgDelta = scaleBg(latestSGV.y) - scaleBg(prevSGV.y);
+                    if (browserSettings.units == "mmol") {
+                        bgDelta = bgDelta.toFixed(1);
+                    }
                     if (bgDelta < 0) {
                         var bgDeltaString = bgDelta;
                     }
-                    else {
-                        var bgDeltaString = "+" + bgDelta;
+		            else {
+			            var bgDeltaString = "+" + bgDelta;
+		            }
+                    if (browserSettings.units == "mmol") {
+                        var bgDeltaString = bgDeltaString + " mmol/L"
                     }
-                    $('.container .currentDelta').text(bgDeltaString);
+                    else {
+                        var bgDeltaString = bgDeltaString + " mg/dL"
+                    }
+                    //$('.container .currentDelta').text(bgDeltaString);
 
                 $('.container .currentBG').css('text-decoration', '');
-                $('.container .currentDirection')
-                    .html(latestSGV.direction);
+                $('.container .currentDelta')
+                    .text(bgDeltaString)
+                    .css('text-decoration','');
+                $('.container .currentDirection').html(latestSGV.direction);
 
                 var color = sgvToColor(latestSGV.y);
                 $('.container #noButton .currentBG').css({color: color});
                 $('.container #noButton .currentDirection').css({color: color});
 
-                var deltaColor = deltaToColor(bgDelta);
-                $('.container #noButton .currentDelta').css({color: deltaColor});
-                //$('.container #noButton .currentDirection').css({color: color});
+                // bgDelta and retroDelta to follow sgv color
+                // instead of Scott Leibrand's wip/iob-cob settings below
+
+                // var deltaColor = deltaToColor(bgDelta);
+                // $('.container #noButton .currentDelta').css({color: deltaColor});
+
+                $('.container #noButton .currentDelta').css({color: color});
             }
         }
 
@@ -940,6 +976,7 @@
             // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
             if (d[0].length) {
                 latestSGV = d[0][d[0].length - 1];
+                prevSGV = d[0][d[0].length - 2];
 
                 //TODO: alarmHigh/alarmLow probably shouldn't be here
                 if (browserSettings.alarmHigh) {
