@@ -138,7 +138,10 @@
 
     function rawIsigToRawBg(unfiltered, scale, intercept, slope, filtered, sgv) {
         if (slope == 0 || unfiltered == 0 || scale ==0  || slope == null || unfiltered == null || scale == null) return 0;
-        else if (filtered == 0 || filtered == null || sgv == 0 || sgv == null) return scale*(unfiltered-intercept)/slope;
+        else if (filtered == 0 || filtered == null || sgv < 30 || sgv == null) {
+            console.info("Skipping ratio adjustment for SGV " + sgv);
+            return scale*(unfiltered-intercept)/slope;
+        }
         else {
             var ratio = scale*(filtered-intercept)/slope / sgv;
             return scale*(unfiltered-intercept)/slope / ratio;
