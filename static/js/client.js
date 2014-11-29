@@ -1026,7 +1026,7 @@
 
 
     $('#testAlarms').click(function(event) {
-        d3.select('.audio.alarms audio').each(function (data, i) {
+        d3.selectAll('.audio.alarms audio').each(function () {
             var audio = this;
             playAlarm(audio);
             setTimeout(function() {
