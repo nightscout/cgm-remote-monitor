@@ -1391,7 +1391,7 @@
             }
             if (i < predARDeltas.length) {
                 //bgi = bgi + (predBgDelta + predARDelta)/2;
-                bgi = bgi + ( predBgDelta*i + predARDelta*(4-i) )/4/2;
+                bgi = bgi + ( predBgDelta*i + predARDelta*(4-i) )/4;
             }
             else {
                 bgi = bgi + predBgDelta;
