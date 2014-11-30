@@ -28,20 +28,30 @@
 
 var software = require('./package.json');
 var env = require('./env')( );
-var store = require('./lib/storage')(env);
+var pushover = require('./lib/pushover')(env);
+
+var entries = require('./lib/entries');
+var treatments = require('./lib/treatments');
+var devicestatus = require('./lib/devicestatus');
+
+var store = require('./lib/storage')(env, function() {
+    console.info("Mongo ready");
+    entries.ensureIndexes(env.mongo_collection, store);
+    treatments.ensureIndexes(env.treatments_collection, store);
+    devicestatus.ensureIndexes(env.devicestatus_collection, store);
+});
 
 
 var express = require('express');
 
-var pushover = require('./lib/pushover')(env);
 ///////////////////////////////////////////////////
 // api and json object variables
 ///////////////////////////////////////////////////
-var entries = require('./lib/entries')(env.mongo_collection, store);
+var entriesStorage = entries.storage(env.mongo_collection, store, pushover);
 var settings = require('./lib/settings')(env.settings_collection, store);
-var treatments = require('./lib/treatments')(env.treatments_collection, store, pushover);
-var devicestatus = require('./lib/devicestatus')(env.devicestatus_collection, store);
-var api = require('./lib/api/')(env, entries, settings, treatments, devicestatus);
+var treatmentsStorage = treatments.storage(env.treatments_collection, store, pushover);
+var devicestatusStorage = devicestatus.storage(env.devicestatus_collection, store);
+var api = require('./lib/api/')(env, entriesStorage, settings, treatmentsStorage, devicestatusStorage);
 var pebble = require('./lib/pebble');
 ///////////////////////////////////////////////////
 
@@ -61,7 +71,7 @@ app.enable('trust proxy'); // Allows req.secure test on heroku https connections
 app.use('/api/v1', api);
 
 // pebble data
-app.get('/pebble', pebble(entries, devicestatus));
+app.get('/pebble', pebble(entriesStorage, devicestatusStorage));
 
 //app.get('/package.json', software);
 
@@ -86,7 +96,7 @@ store(function ready ( ) {
   // setup socket io for data and message transmission
   ///////////////////////////////////////////////////
   var websocket = require('./lib/websocket');
-  var io = websocket(env, server, entries, treatments);
+  var io = websocket(env, server, entriesStorage, treatmentsStorage);
 });
 
 ///////////////////////////////////////////////////
