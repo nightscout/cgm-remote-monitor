@@ -57,7 +57,7 @@ body {
 .bgStatus .currentBG {
     text-decoration: line-through;
 }
-.bgStatus .currentDelta {
+.bgStatus .currentDetails {
     font-size: 25%;
     text-decoration: line-through;
     display: block;
@@ -67,7 +67,7 @@ body {
 .bgStatus.current .currentBG {
     text-decoration: none;
 }
-.bgStatus.current .currentDelta {
+.bgStatus.current .currentDetails {
     font-size: 25%;
     text-decoration: none;
     display: block;
