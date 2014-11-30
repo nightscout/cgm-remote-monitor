@@ -237,34 +237,6 @@ function showLocalstorageError() {
 }
 
 
-function closeToolbar() {
-	stretchStatusForToolbar("close");
-
-	$("#showToolbar").css({top: "44px"});
-	$("#showToolbar").fadeIn(50, function() {
-		$("#showToolbar").animate({top: 0}, 200);
-		$("#toolbar").animate({marginTop: "-44px"}, 200);
-	});
-}
-function openToolbar() {
-	$("#showToolbar").css({top: 0});
-	$("#showToolbar").animate({top: "44px"}, 200).fadeOut(200);
-	$("#toolbar").animate({marginTop: "0px"}, 200);
-
-	stretchStatusForToolbar("open");
-}
-function stretchStatusForToolbar(toolbarState){
-	// closed = up
-	if (toolbarState == "close") {
-		$(".status").addClass("toolbarClosed");
-	}
-
-	// open = down
-	if (toolbarState == "open") {
-		$(".status").removeClass("toolbarClosed");
-	}
-}
-
 function treatmentSubmit(event) {
 
     var data = new Object();
@@ -371,21 +343,6 @@ $("#notification").click(function(event) {
 	event.preventDefault();
 });
 
-$("#hideToolbar").click(function(event) {
-	if (drawerIsOpen) {
-		closeDrawer(function() {
-			closeToolbar();
-		});
-	} else {
-		closeToolbar();
-	}
-	event.preventDefault();
-});
-$("#showToolbar").find("a").click(function(event) {
-	openToolbar();
-	event.preventDefault();
-});
-
 $("input#save").click(function() {
 	storeInBrowser({
 		"units": $("input:radio[name=units-browser]:checked").val(),
@@ -393,7 +350,7 @@ $("input#save").click(function() {
 		"alarmLow": $("#alarmlow-browser").prop("checked"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
 		"customTitle": $("input#customTitle").prop("value"),
-        "theme": $("input:radio[name=theme-browser]:checked").val(),
+		"theme": $("input:radio[name=theme-browser]:checked").val(),
 		"timeFormat": $("input:radio[name=timeformat-browser]:checked").val()
 	}, browserStorage);
 
@@ -432,10 +389,5 @@ $(function() {
 
 	if (querystring.drawer) {
 		openDrawer();
-	} else {
-		// drawer=true cancels out toolbar=false
-		if (querystring.toolbar == "false") {
-			closeToolbar();
-		}
 	}
 });

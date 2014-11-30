@@ -80,11 +80,6 @@ body {
     font-size: 80%;
 }
 
-.status.toolbarClosed .bgStatus {
-    font-size:890%;
-
-}
-
 .time {
     font-size: 600%;
     padding-top: 15px;
@@ -248,9 +243,6 @@ div.tooltip {
     font-size: 600%;
   }
 
-  .status.toolbarClosed .bgStatus {
-    font-size: 650%;
-  }
   #bgButton {
     font-size: 120%;
   }
@@ -267,9 +259,6 @@ div.tooltip {
     font-size: 500%;
   }
 
-  .status.toolbarClosed .bgStatus {
-    font-size: 550%;
-  }
   #bgButton {
     font-size: 120%;
   }
@@ -320,10 +309,6 @@ div.tooltip {
         padding: 0;
         text-align: center;
         width: 100vw;
-    }
-    .status.toolbarClosed .bgStatus {
-        font-size: 890%;
-        margin-top: 10px;
     }
     #bgButton {
         font-size: 120%;
