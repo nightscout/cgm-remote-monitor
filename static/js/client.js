@@ -347,17 +347,22 @@
                     $('.container .currentBG').text('HIGH');
                 else
                     $('.container .currentBG').text(focusPoint.sgv);
-                    var retroDelta = scaleBg(focusPoint.y) - scaleBg(prevfocusPoint.y);
-                    if (browserSettings.units == "mmol") {
-                        retroDelta = retroDelta.toFixed(1);
-                    }
-                    if (retroDelta > 0) {
-                      retroDelta = "+" + retroDelta;
-                    }
+
+                var retroDelta = scaleBg(focusPoint.y) - scaleBg(prevfocusPoint.y);
+
+                if (retroDelta > 0) {
+                    retroDelta = "+" + retroDelta;
+                }
+
+                if (browserSettings.units == "mmol") {
+                    retroDelta = retroDelta.toFixed(1) + " mmol/L";
+                } else {
+                    retroDelta += " mg/dL";
+                }
 
                 $('.container .currentBG').css('text-decoration','line-through');
                 $('.container .currentDetails')
-                    .text("Δ " + retroDelta + ", BGI: " + totalImpact)
+                    .text(retroDelta + ", BGI: " + totalImpact)
                     .css('text-decoration','line-through');
                 $('.container .currentDirection').html(focusPoint.direction)
             } else {
@@ -453,18 +458,22 @@
                     $('.container .currentBG').text('HIGH');
                 else
                     $('.container .currentBG').text(scaleBg(latestSGV.y));
-                    //var bgDelta = scaleBg(latestSGV.y-sgvData[sgvData.length-2].y);
-                    var bgDelta = scaleBg(latestSGV.y) - scaleBg(prevSGV.y);
-                    if (browserSettings.units == "mmol") {
-                      bgDelta = bgDelta.toFixed(1);
-                    }
-                    if (bgDelta > 0) {
-                      bgDelta = "+" + bgDelta;
-                    }
+
+                var bgDelta = scaleBg(latestSGV.y) - scaleBg(prevSGV.y);
+
+                if (bgDelta > 0) {
+                    bgDelta = "+" + bgDelta;
+                }
+
+                if (browserSettings.units == "mmol") {
+                    bgDelta = bgDelta.toFixed(1) + " mmol/L";
+                } else {
+                    bgDelta += " mg/dL";
+                }
 
                 $('.container .currentBG').css('text-decoration', '');
                 $('.container .currentDetails')
-                    .text("Δ " + bgDelta + ", BGI: " + totalImpact)
+                    .text(bgDelta + ", BGI: " + totalImpact)
                     .css('text-decoration','');
                 $('.container .currentDirection').html(latestSGV.direction);
 
