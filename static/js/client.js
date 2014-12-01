@@ -336,7 +336,9 @@
                 var rawCarbImpact = cTotal.rawCarbImpact;
                 var cImpact = carbImpact(rawCarbImpact, insulinImpact);
                 var totalImpact = Math.round((cImpact.totalImpact*tick)*10)/10;
-                $("h1.iobCob").text("IOB: " + iob + "U,  COB: " + cob + "g, BG Impact: " + totalImpact +"mg/dL/5m");
+                if (totalImpact > 0) totalImpact = "+" + totalImpact;
+
+                $("h1.iobCob").text("IOB " + iob + "U,  COB " + cob + "g");
 
                 //in this case the SGV is scaled
                 if (focusPoint.y < 40)
@@ -345,33 +347,29 @@
                     $('.container .currentBG').text('HIGH');
                 else
                     $('.container .currentBG').text(focusPoint.sgv);
-                    var retroDelta = scaleBg(focusPoint.y) - scaleBg(prevfocusPoint.y);
-                    if (browserSettings.units == "mmol") {
-                        retroDelta = retroDelta.toFixed(1);
-                    }
-                    if (retroDelta < 0) {
-                        var retroDeltaString = retroDelta;
-                    }
-                    else {
-                        var retroDeltaString = "+" + retroDelta;
-                    }
-                    if (browserSettings.units == "mmol") {
-                    var retroDeltaString = retroDeltaString + " mmol/L"
-                    }
-                    else {
-                    var retroDeltaString = retroDeltaString + " mg/dL"
-                    }
+
+                var retroDelta = scaleBg(focusPoint.y) - scaleBg(prevfocusPoint.y);
+
+                if (retroDelta > 0) {
+                    retroDelta = "+" + retroDelta;
+                }
+
+                if (browserSettings.units == "mmol") {
+                    retroDelta = retroDelta.toFixed(1) + " mmol/L";
+                } else {
+                    retroDelta += " mg/dL";
+                }
 
                 $('.container .currentBG').css('text-decoration','line-through');
-                $('.container .currentDelta')
-                    .text(retroDeltaString)
+                $('.container .currentDetails')
+                    .text(retroDelta + ", BGI: " + totalImpact)
                     .css('text-decoration','line-through');
                 $('.container .currentDirection').html(focusPoint.direction)
             } else {
                 $('.container .currentBG')
                     .text("---")
                     .css('text-decoration','');
-                $('.container .currentDelta').text('');
+                $('.container .currentDetails').text('');
             }
             $('#currentTime')
                 .text(formatTime(new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS)))
@@ -380,7 +378,7 @@
             $('#lastEntry').text("RETRO").removeClass('current');
 
             $('.container #noButton .currentBG').css({color: 'grey'});
-            $('.container #noButton .currentDelta').css({color: 'grey'});
+            $('.container #noButton .currentDetails').css({color: 'grey'});
             $('.container #noButton .currentDirection').css({color: 'grey'});
 
         } else {
@@ -410,7 +408,9 @@
             var rawCarbImpact = cTotal.rawCarbImpact;
             var cImpact = carbImpact(rawCarbImpact, insulinImpact);
             var totalImpact = Math.round((cImpact.totalImpact*tick)*10)/10;
-            $("h1.iobCob").text("IOB: " + iob + "U,  COB: " + cob + "g, BG Impact: " + totalImpact +"mg/dL/5m");
+            if (totalImpact > 0) totalImpact = "+" + totalImpact;
+
+            $("h1.iobCob").text("IOB " + iob + "U,  COB " + cob + "g");
 
             $('#currentTime')
                 .text(formatTime(dateTime))
@@ -438,8 +438,8 @@
 
                 $('.container .currentBG').html(errorDisplay)
                     .css('text-decoration', '');
-                $('.container .currentDelta').text('')
-                    .css('text-decoration','');
+                $('.container .currentDetails').text('')
+                    .css('text-decoration', '');
                 $('.container .currentDirection').html('✖');
 
                 var color = sgvToColor(errorCode);
@@ -458,28 +458,22 @@
                     $('.container .currentBG').text('HIGH');
                 else
                     $('.container .currentBG').text(scaleBg(latestSGV.y));
-                    //var bgDelta = scaleBg(latestSGV.y-sgvData[sgvData.length-2].y);
-		            var bgDelta = scaleBg(latestSGV.y) - scaleBg(prevSGV.y);
-                    if (browserSettings.units == "mmol") {
-                        bgDelta = bgDelta.toFixed(1);
-                    }
-                    if (bgDelta < 0) {
-                        var bgDeltaString = bgDelta;
-                    }
-		            else {
-			            var bgDeltaString = "+" + bgDelta;
-		            }
-                    if (browserSettings.units == "mmol") {
-                        var bgDeltaString = bgDeltaString + " mmol/L"
-                    }
-                    else {
-                        var bgDeltaString = bgDeltaString + " mg/dL"
-                    }
-                    //$('.container .currentDelta').text(bgDeltaString);
+
+                var bgDelta = scaleBg(latestSGV.y) - scaleBg(prevSGV.y);
+
+                if (bgDelta > 0) {
+                    bgDelta = "+" + bgDelta;
+                }
+
+                if (browserSettings.units == "mmol") {
+                    bgDelta = bgDelta.toFixed(1) + " mmol/L";
+                } else {
+                    bgDelta += " mg/dL";
+                }
 
                 $('.container .currentBG').css('text-decoration', '');
-                $('.container .currentDelta')
-                    .text(bgDeltaString)
+                $('.container .currentDetails')
+                    .text(bgDelta + ", BGI: " + totalImpact)
                     .css('text-decoration','');
                 $('.container .currentDirection').html(latestSGV.direction);
 
@@ -491,9 +485,9 @@
                 // instead of Scott Leibrand's wip/iob-cob settings below
 
                 // var deltaColor = deltaToColor(bgDelta);
-                // $('.container #noButton .currentDelta').css({color: deltaColor});
+                // $('.container #noButton .currentDetails').css({color: deltaColor});
 
-                $('.container #noButton .currentDelta').css({color: color});
+                $('.container #noButton .currentDetails').css({color: color});
             }
         }
 
