@@ -318,17 +318,17 @@
             if (nowData.length > lookback) {
                 var time = new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS);
                 if (retroLookback > 0 && retroPredict) {
-                    var retroPrediction = retroPredictBgs(sgvData, treatments.slice(treatments.length-200, treatments.length), profile, retroLookback, lookback);
+                    var retroPrediction = retroPredictBgs(sgvData, treatments, profile, retroLookback, lookback);
                     focusData = focusData.concat(retroPrediction);
                 }
-                var prediction = predictDIYPS(nowData, treatments.slice(treatments.length-200, treatments.length), profile, time, lookback);
+                var prediction = predictDIYPS(nowData, treatments, profile, time, lookback);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
                 var prevfocusPoint = nowData[nowData.length - 2];
 
-                var iTotal = iobTotal(treatments.slice(treatments.length-200, treatments.length), time);
+                var iTotal = iobTotal(treatments, time);
                 var iob = Math.round(iTotal.iob*10)/10;
-                var cTotal = cobTotal(treatments.slice(treatments.length-200, treatments.length), time);
+                var cTotal = cobTotal(treatments, time);
                 var cob = Math.round(cTotal.cob);
 
                 var tick = 5;
@@ -393,15 +393,15 @@
             var dateTime = new Date(now);
             nowDate = dateTime;
             if (retroLookback > 0) {
-                var retroPrediction = retroPredictBgs(sgvData, treatments.slice(treatments.length-200, treatments.length), profile, retroLookback, lookback);
+                var retroPrediction = retroPredictBgs(sgvData, treatments, profile, retroLookback, lookback);
                 focusData = focusData.concat(retroPrediction);
             }
             var prediction = predictDIYPS(nowData, treatments, profile, nowDate, lookback);
             focusData = focusData.concat(prediction);
 
-            var iTotal = iobTotal(treatments.slice(treatments.length-200, treatments.length), time);
+            var iTotal = iobTotal(treatments, time);
             var iob = Math.round(iTotal.iob*10)/10;
-            var cTotal = cobTotal(treatments.slice(treatments.length-200, treatments.length), time);
+            var cTotal = cobTotal(treatments, time);
             var cob = Math.round(cTotal.cob);
             var tick = 5;
             var insulinImpact = iTotal.activity;
