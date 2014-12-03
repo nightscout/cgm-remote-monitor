@@ -184,29 +184,11 @@ h1, legend,
     padding-left: 9px !important;
 }
 
-#showToolbar,
 #notification {
     display: none;
     font-size: 14px;
     position: absolute;
 }
-#showToolbar {
-    opacity: 0.5;
-    text-align: center;
-    top: 0px;
-    width: 100%;
-    z-index: 98;
-}
-#showToolbar a {
-    border: solid #fff 1px;
-    border-radius: 5px;
-    border-top: 0;
-    color: #fff;
-    margin: 0 auto;
-    padding: 2px;
-}
-
-
 
 #notification,
 #notification a {
