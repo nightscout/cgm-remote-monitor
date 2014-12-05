@@ -60,6 +60,20 @@
   width: 140px;
 }
 
+#eventTime {
+
+}
+
+#eventTime > span {
+  width: 105px;
+  display: inline-block;
+}
+
+#eventTime > input {
+  margin-left: 114px;
+  width: 140px;
+}
+
 #treatmentDrawer #glucoseValue {
   width: 230px;
 }

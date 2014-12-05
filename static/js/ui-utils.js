@@ -202,6 +202,7 @@ function openTreatmentDrawer()  {
 	$("#treatmentDrawer").animate({right: "0"}, 400);
 
 	$('#enteredBy').val(browserStorage.get("enteredBy") || '');
+  $('#eventTimeValue').val(currentTime());
 	$('#eventType').val('BG Check');
 	$('#glucoseValue').val('').attr('placeholder', 'Value in ' + browserSettings.units);
 	$('#meter').prop('checked', true)
@@ -210,6 +211,26 @@ function openTreatmentDrawer()  {
 	$('#notes').val('');
 }
 
+function currentTime() {
+  var now = new Date();
+  var hours = now.getHours();
+  var minutes = now.getMinutes();
+
+  if (hours<10) hours = "0" + hours;
+  if (minutes<10) minutes = "0" + minutes;
+
+  return ""+ hours + ":" + minutes;
+}
+
+function formatTime(date) {
+  var hours = date.getHours();
+  var minutes = date.getMinutes();
+  var ampm = hours >= 12 ? 'pm' : 'am';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  minutes = minutes < 10 ? '0' + minutes : minutes;
+  return hours + ':' + minutes + ' ' + ampm;
+}
 
 function closeNotification() {
 	var notify = $("#notification");
@@ -246,18 +267,33 @@ function treatmentSubmit(event) {
     data.glucoseType = $('#treatment-form input[name=glucoseType]:checked').val();
     data.carbs = document.getElementById("carbsGiven").value;
     data.insulin = document.getElementById("insulinGiven").value;
+    data.preBolus = document.getElementById("preBolus").value;
     data.notes = document.getElementById("notes").value;
+
+    var eventTimeDisplay = '';
+    if ($('#treatment-form input[name=nowOrOther]:checked').val() != "now") {
+        var value = document.getElementById("eventTimeValue").value;
+        var eventTimeParts = value.split(':');
+        data.eventTime = new Date();
+        data.eventTime.setHours(eventTimeParts[0]);
+        data.eventTime.setMinutes(eventTimeParts[1]);
+        data.eventTime.setSeconds(0);
+        data.eventTime.setMilliseconds(0);
+        eventTimeDisplay = formatTime(data.eventTime);
+    }
 
     var dataJson = JSON.stringify(data, null, " ");
 
     var ok = window.confirm(
             'Please verify that the data entered is correct: ' +
             '\nEntered By: ' + data.enteredBy +
+            '\nEvent Time: ' + eventTimeDisplay +
             '\nEvent type: ' + data.eventType +
             '\nBlood glucose: ' + data.glucose +
             '\nMethod: ' + data.glucoseType +
             '\nCarbs Given: ' + data.carbs +
             '\nInsulin Given: ' + data.insulin +
+            '\nPre Bolus: ' + data.preBolus +
             '\nNotes: ' + data.notes);
 
     if (ok) {
@@ -337,6 +373,20 @@ $("#treatmentDrawerToggle").click(function(event) {
 });
 
 $("#treatmentDrawer button").click(treatmentSubmit);
+
+$("#eventTime input:radio").change(function (){
+  if ($("#othertime").attr("checked")) {
+    $("#eventTimeValue").focus();
+  }
+});
+
+$("#eventTimeValue").focus(function () {
+  $("#othertime").attr("checked", "checked");
+});
+
+$("#eventTimeValue").change(function () {
+  $("#othertime").attr("checked", "checked");
+});
 
 $("#notification").click(function(event) {
 	closeNotification();
