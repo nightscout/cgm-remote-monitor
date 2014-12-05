@@ -137,7 +137,9 @@
                             <option value="Meal Bolus">Meal Bolus</option>
                             <option value="Correction Bolus">Correction Bolus</option>
                             <option value="Carb Correction">Carb Correction</option>
-                            <option value="Question">Note or Question</option>
+                            <option value="Temp Basal">Temp Basal</option>
+                            <option value="Note">Note</option>
+                            <option value="Question">Question</option>
                             <option value="Exercise">Exercise</option>
                             <option value="Site Change">Pump Site Change</option>
                             <option value="Sensor Start">Dexcom Sensor Start</option>
@@ -148,7 +150,7 @@
                     <fieldset>
                         <legend>Glucose Reading</legend>
                         <input type="number" step="any" id="glucoseValue" />
-                        <label><br>Measurement Method:<br></label>
+                        <label><br>Method:</label>
                         <label for="meter">
                             <input type="radio" name="glucoseType" id="meter" value="Finger"/>
                             <span>Meter</span>
@@ -158,16 +160,45 @@
                             <span>Sensor<br></span>
                         </label>
                     </fieldset>
-                    <label for="carbsGiven" class="left-column short-label">
-                        <span>Carbs Given:</span>
-                        <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" />
+                    <label for="carbsGiven" class="left-column short-label amount-when">
+                        <span>Carbs:</span>
+                        <input type="number" step="any" min="0" id="carbsGiven" placeholder="in grams" />
+                        <select id="carbsWhen">
+                          <option value="+20m">In 20m</option>
+                          <option value="+10m">In 10m</option>
+                          <option value="0" selected="selected">NOW</option>
+                          <option value="-5m">5m Ago</option>
+                          <option value="-10m">10m Ago</option>
+                          <option value="-15m">15m Ago</option>
+                          <option value="-20m">20m Ago</option>
+                          <option value="-30m">30m Ago</option>
+                        </select>
                     </label>
-                    <label for="insulinGiven" class="left-column short-label">
-                        <span>Insulin Given:</span>
-                        <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units"/>
+                    <label for="insulinGiven" class="left-column short-label amount-when">
+                        <span>Insulin:</span>
+                        <input type="number" step="any" min="0" id="insulinGiven" placeholder="in units"/>
+                        <select id="insulinWhen">
+                          <option value="+20m">In 20m</option>
+                          <option value="+10m">In 10m</option>
+                          <option value="0" selected="selected">NOW</option>
+                          <option value="-5m">5m Ago</option>
+                          <option value="-10m">10m Ago</option>
+                          <option value="-15m">15m Ago</option>
+                          <option value="-20m">20m Ago</option>
+                          <option value="-30m">30m Ago</option>
+                        </select>
+                    </label>
+                    <br/>
+                    <label for="duration" class="left-column short-label">
+                        <span>Duration:</span>
+                        <input type="number" step="any" min="0" id="duration" placeholder="in minutes"/>
+                    </label>
+                    <label for="percent" class="left-column short-label">
+                        <span>Percent:</span>
+                      <input type="number" step="any" min="0" id="percent" placeholder="+/- %"/>
                     </label>
                     <!-- Label and textarea -->
-                    <label for="notes"><br>Additional Notes, Comments:<br></label>
+                    <label for="notes"><br/>Additional Notes, Comments:<br/></label>
                     <textarea id="notes"></textarea><br>
                     <button type="submit">Submit Form</button>
                 </fieldset>

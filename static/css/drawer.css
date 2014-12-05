@@ -52,13 +52,22 @@
 }
 
 #treatmentDrawer label.left-column span {
-  width: 110px;
+  width: 90px;
   display: inline-block;
 }
 
 #treatmentDrawer label.left-column input, #treatmentDrawer label.left-column select {
-  width: 140px;
+  width: 160px;
 }
+
+#treatmentDrawer label.left-column.amount-when input {
+  width: 70px;
+}
+
+#treatmentDrawer label.left-column.amount-when select {
+  width: 90px;
+}
+
 
 #treatmentDrawer #glucoseValue {
   width: 230px;

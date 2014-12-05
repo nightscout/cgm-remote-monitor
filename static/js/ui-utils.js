@@ -204,9 +204,13 @@ function openTreatmentDrawer()  {
 	$('#enteredBy').val(browserStorage.get("enteredBy") || '');
 	$('#eventType').val('BG Check');
 	$('#glucoseValue').val('').attr('placeholder', 'Value in ' + browserSettings.units);
-	$('#meter').prop('checked', true)
+	$('#meter').prop('checked', true);
 	$('#carbsGiven').val('');
+	$('#carbsWhen').val(0);
 	$('#insulinGiven').val('');
+	$('#insulinWhen').val(0);
+	$('#duration').val('');
+	$('#percent').val('');
 	$('#notes').val('');
 }
 
@@ -245,7 +249,11 @@ function treatmentSubmit(event) {
     data.glucose = document.getElementById("glucoseValue").value;
     data.glucoseType = $('#treatment-form input[name=glucoseType]:checked').val();
     data.carbs = document.getElementById("carbsGiven").value;
+    data.carbsWhen = document.getElementById("carbsWhen").value;
     data.insulin = document.getElementById("insulinGiven").value;
+    data.insulinWhen = document.getElementById("insulinWhen").value;
+    data.duration = document.getElementById("duration").value;
+    data.percent = document.getElementById("percent").value;
     data.notes = document.getElementById("notes").value;
 
     var dataJson = JSON.stringify(data, null, " ");
@@ -256,8 +264,10 @@ function treatmentSubmit(event) {
             '\nEvent type: ' + data.eventType +
             '\nBlood glucose: ' + data.glucose +
             '\nMethod: ' + data.glucoseType +
-            '\nCarbs Given: ' + data.carbs +
-            '\nInsulin Given: ' + data.insulin +
+            '\nCarbs: ' + data.carbs + (data.carbsWhen != 0 ? ' (' + data.carbsWhen + ')' : '') +
+            '\nInsulin: ' + data.insulin + (data.insulinWhen != 0 ? ' (' + data.insulinWhen + ')' : '') +
+            '\nDuration: ' + data.duration +
+            '\nPercent: ' + data.percent +
             '\nNotes: ' + data.notes);
 
     if (ok) {
@@ -381,7 +391,7 @@ $(function() {
 		fade: true,
 		gravity: "n",
 		opacity: 0.75
-	}
+	};
 
 	if (querystring.notify) {
 		showNotification(querystring.notify, querystring.notifytype);
