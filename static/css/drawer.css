@@ -154,7 +154,7 @@ h1, legend,
     position: absolute;
     top: 0;
     right: 0;
-    left: 110px;
+    left: 50px;
     margin-top: 0;
     margin-right: auto;
     margin-left: auto;
@@ -194,29 +194,11 @@ h1, legend,
     padding-left: 9px !important;
 }
 
-#showToolbar,
 #notification {
     display: none;
     font-size: 14px;
     position: absolute;
 }
-#showToolbar {
-    opacity: 0.5;
-    text-align: center;
-    top: 0px;
-    width: 100%;
-    z-index: 98;
-}
-#showToolbar a {
-    border: solid #fff 1px;
-    border-radius: 5px;
-    border-top: 0;
-    color: #fff;
-    margin: 0 auto;
-    padding: 2px;
-}
-
-
 
 #notification,
 #notification a {

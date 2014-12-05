@@ -16,6 +16,17 @@ and blood glucose values are predicted 0.5 hours ahead using a
 autoregressive second order model.  Alarms are generated for high and
 low values, which can be cleared by any watcher of the data.
 
+This branch (wip/iob-cob) is a work-in-progress that uses "DIYPS-lite"
+algorithms to predict BG up to 3 hours in advance by using user-entered
+insulin bolus and carb information.  The algorithm to do so requires
+knowledge of appropriate Insulin Sensitivity Factor (ISF), Insulin to
+Carb (IC) ratio, carb absorption rate (carbohydrates digested per hour),
+and Duration of Insulin Action (DIA).
+
+Currently, these parameters must be manually entered into a "profile"
+collection in mongodb.  They should look something like
+[this](https://gist.github.com/scottleibrand/1f205bdddc7d7efd1621)
+
 Community maintained fork of the
 [original cgm-remote-monitor](https://github.com/rnpenguin/cgm-remote-monitor).
 

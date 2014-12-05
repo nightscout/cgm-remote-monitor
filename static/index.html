@@ -15,20 +15,16 @@
         <div id="toolbar">
             <div id="buttonbar">
                 <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
-                <a id="hideToolbar" class="tip" original-title="Hides the toolbar" href="#"><i class="icon-angle-double-up"></i></a>
                 <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-cog"></i></a>
                 <a id="treatmentDrawerToggle" class="tip" original-title="Treatments" href="#"><i class="icon-plus"></i></a>
             </div>
             <h1 class="customTitle">Nightscout</h1>
             <div id="iob-cob">
-                <h1 class="iobCob">IOB: --  COB: --</h1>
-            </div>
+                <h1 class="iobCob">IOB -- COB --</h1>
+        </div>
         </div>
         <div id="notification">
             <a href="#"><span></span><i class="icon-cancel-circled"></i></a>
-        </div>
-        <div id="showToolbar">
-            <a class="tip" original-title="Open the toolbar" href="#"><i class="icon-angle-double-down"></i></a>
         </div>
 
         <div class="container" id="container">
@@ -36,12 +32,14 @@
                 <div class="bgStatus current">
                     <div id="noButton">
                         <span class="currentBG">---</span>
-                        <span class="currentDelta">--</span>
                         <span class="currentDirection">-</span>
+                        <span class="currentDetails">--</span>
+                        
                     </div>
                     <div id="bgButton" hidden="true">
                         <span class="currentBG">---</span>
                         <span class="currentDirection">-</span>
+                        <span class="currentDetails">--</span>
                     </div>
                     <ul class="dropdown-menu" id="silenceBtn">
                         <li><a href="#" data-snooze-time="1800000">Silence for 30 minutes</a></li>
@@ -71,13 +69,13 @@
                     <legend>Settings</legend>
                     <dl class="radio">
                         <dt>Units</dt>
-                        <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label><br />
-                        <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label>
+                        <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label></dd>
+                        <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label></dd>
                     </dl>
-					<dl class="radio">
+                    <dl class="radio">
                         <dt>Date format</dt>
-                        <dd><input type="radio" name="timeformat-browser" id="12-browser" value="12" checked /><label for="12-browser">12 hours</label><br />
-                        <dd><input type="radio" name="timeformat-browser" id="24-browser" value="24" /><label for="24-browser">24 hours</label>
+                        <dd><input type="radio" name="timeformat-browser" id="12-browser" value="12" checked /><label for="12-browser">12 hours</label></dd>
+                        <dd><input type="radio" name="timeformat-browser" id="24-browser" value="24" /><label for="24-browser">24 hours</label></dd>
                     </dl>
                     <dl class="toggle">
                         <dt>Enable Alarms <a class="tip" original-title="When enabled the an alarm will sound."><i class="icon-help-circled"></i></a></dt>
@@ -98,8 +96,8 @@
                     </dl>
                     <dl class="radio">
                         <dt>Theme</dt>
-                        <dd><input type="radio" name="theme-browser" id="theme-default-browser" value="default" checked /><label for="theme-default-browser">Default</label><br />
-                        <dd><input type="radio" name="theme-browser" id="theme-colors-browser" value="colors" /><label for="theme-colors-browser">Colors</label>
+                        <dd><input type="radio" name="theme-browser" id="theme-default-browser" value="default" checked /><label for="theme-default-browser">Default</label></dd>
+                        <dd><input type="radio" name="theme-browser" id="theme-colors-browser" value="colors" /><label for="theme-colors-browser">Colors</label></dd>
                     </dl>
                 </fieldset>
 
