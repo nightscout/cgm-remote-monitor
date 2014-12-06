@@ -100,7 +100,7 @@ body {
     display: block;
     height:auto;
     left:0;
-    position:inherit;
+    position:relative;
     right:0;
 }
 #chartContainer svg {
