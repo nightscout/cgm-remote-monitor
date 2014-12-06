@@ -201,7 +201,7 @@ function openTreatmentDrawer()  {
 	$("#treatmentDrawer").css("display", "block").animate({right: "0"}, 400);
 
 	$('#enteredBy').val(browserStorage.get("enteredBy") || '');
-  $("#nowtime").attr("checked", "checked");
+  $("#nowtime").prop('checked', true);
   $('#eventTimeValue').val(currentTime());
 	$('#eventType').val('BG Check');
 	$('#glucoseValue').val('').attr('placeholder', 'Value in ' + browserSettings.units);
