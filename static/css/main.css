@@ -49,7 +49,7 @@ body {
 
 .bgStatus {
     float: right;
-    font-size: 900%;
+    font-size: 1500%;
     margin-right: 25px;
     text-align: center;
     white-space: nowrap;
@@ -100,7 +100,7 @@ body {
     display: block;
     height:auto;
     left:0;
-    position:absolute;
+    position:inherit;
     right:0;
 }
 #chartContainer svg {
