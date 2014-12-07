@@ -3,6 +3,7 @@
 var env = { };
 var crypto = require('crypto');
 var consts = require('./lib/constants');
+var fs = require('fs');
 // Module to constrain all config and environment parsing to one spot.
 function config ( ) {
 
@@ -40,9 +41,23 @@ function config ( ) {
   env.mongo_collection = readENV('MONGO_COLLECTION', 'entries');
   env.settings_collection = readENV('MONGO_SETTINGS_COLLECTION', 'settings');
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
+  env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
 
   env.enable = readENV('ENABLE');
+  env.SSL_KEY = readENV('SSL_KEY');
+  env.SSL_CERT = readENV('SSL_CERT');
+  env.SSL_CA = readENV('SSL_CA');
+  env.ssl = false;
+  if (env.SSL_KEY && env.SSL_CERT) {
+    env.ssl = {
+      key: fs.readFileSync(env.SSL_KEY)
+    , cert: fs.readFileSync(env.SSL_CERT)
+    };
+    if (env.SSL_CA) {
+      env.ca = fs.readFileSync(env.SSL_CA);
+    }
+  }
 
   var shasum = crypto.createHash('sha1');
 
