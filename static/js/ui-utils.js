@@ -287,15 +287,15 @@ function treatmentSubmit(event) {
 
     var ok = window.confirm(
             'Please verify that the data entered is correct: ' +
-            '\nEntered By: ' + data.enteredBy +
-            '\nEvent Time: ' + eventTimeDisplay +
             '\nEvent type: ' + data.eventType +
             '\nBlood glucose: ' + data.glucose +
             '\nMethod: ' + data.glucoseType +
             '\nCarbs Given: ' + data.carbs +
             '\nInsulin Given: ' + data.insulin +
             '\nPre Bolus: ' + data.preBolus +
-            '\nNotes: ' + data.notes);
+            '\nNotes: ' + data.notes +
+            '\nEntered By: ' + data.enteredBy +
+            '\nEvent Time: ' + eventTimeDisplay);
 
     if (ok) {
         var xhr = new XMLHttpRequest();
