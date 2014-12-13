@@ -200,16 +200,16 @@ function openTreatmentDrawer()  {
 	$("#chartContainer").animate({marginLeft: "-300px"}, 400);
 	$("#treatmentDrawer").css("display", "block").animate({right: "0"}, 400);
 
-	$('#enteredBy').val(browserStorage.get("enteredBy") || '');
-  $("#nowtime").prop('checked', true);
-  $('#eventTimeValue').val(currentTime());
-	$('#eventType').val('BG Check');
+	$('#eventType').val('BG Check').focus();
 	$('#glucoseValue').val('').attr('placeholder', 'Value in ' + browserSettings.units);
 	$('#meter').prop('checked', true);
 	$('#carbsGiven').val('');
 	$('#insulinGiven').val('');
-  $('#preBolus').val(0);
+	$('#preBolus').val(0);
 	$('#notes').val('');
+	$('#enteredBy').val(browserStorage.get("enteredBy") || '');
+	$("#nowtime").prop('checked', true);
+	$('#eventTimeValue').val(currentTime());
 }
 
 function currentTime() {
@@ -382,10 +382,6 @@ $("#eventTime input:radio").change(function (){
 });
 
 $("#eventTimeValue").focus(function () {
-  $("#othertime").attr("checked", "checked");
-});
-
-$("#eventTimeValue").change(function () {
   $("#othertime").attr("checked", "checked");
 });
 
