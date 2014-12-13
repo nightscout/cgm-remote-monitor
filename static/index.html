@@ -125,22 +125,6 @@
             <form id="treatment-form" onsubmit="return treatmentSubmit();">
                 <fieldset class="treatmentData">
                     <legend>Log a Treatment</legend>
-                    <label for="enteredBy" class="left-column">
-                        <span>Entered By:</span>
-                        <input type="text" id="enteredBy" value="" />
-                    </label>
-                    <div id="eventTime">
-                      <span>Event Time:</span>
-                      <label for="nowtime">
-                        <input type="radio" name="nowOrOther" id="nowtime" value="now" checked="checked"/>
-                        <span>Now</span>
-                      </label>
-                      <label for="othertime">
-                        <input type="radio" name="nowOrOther" id="othertime" value="other"/>
-                        <span>Other</span>
-                      </label>
-                      <input type="time" id="eventTimeValue" name="eventTimeValue" value=""/>
-                    </div>
                     <label for="eventType" class="left-column">
                         <span>Event Type:</span>
                         <select id="eventType">
@@ -149,7 +133,8 @@
                             <option value="Meal Bolus">Meal Bolus</option>
                             <option value="Correction Bolus">Correction Bolus</option>
                             <option value="Carb Correction">Carb Correction</option>
-                            <option value="Question">Note or Question</option>
+                            <option value="Note">Note</option>
+                            <option value="Question">Question</option>
                             <option value="Exercise">Exercise</option>
                             <option value="Site Change">Pump Site Change</option>
                             <option value="Sensor Start">Dexcom Sensor Start</option>
@@ -178,7 +163,7 @@
                         <span>Insulin Given:</span>
                         <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units"/>
                     </label>
-                    <label for="preBolus" class="left-column short-label">
+                    <label for="preBolus" class="left-column short-label extra-space">
                         <span>Pre-Bolus:</span>
                         <select id="preBolus">
                             <option value="0">None</option>
@@ -189,10 +174,30 @@
                             <option value="60">60 Minutes</option>
                         </select>
                     </label>
+
                     <!-- Label and textarea -->
-                    <label for="notes"><br>Additional Notes, Comments:<br></label>
+                    <label for="notes" class="extra-space">Additional Notes, Comments:</label>
                     <textarea id="notes"></textarea><br>
-                    <button type="submit">Submit Form</button>
+
+                    <label for="enteredBy" class="left-column extra-space">
+                      <span>Entered By:</span>
+                      <input type="text" id="enteredBy" value="" />
+                    </label>
+
+                    <div id="eventTime">
+                      <span>Event Time:</span>
+                      <label for="nowtime">
+                        <input type="radio" name="nowOrOther" id="nowtime" value="now" checked="checked"/>
+                        <span>Now</span>
+                      </label>
+                      <label for="othertime">
+                        <input type="radio" name="nowOrOther" id="othertime" value="other"/>
+                        <span>Other</span>
+                      </label>
+                      <input type="time" id="eventTimeValue" name="eventTimeValue" value=""/>
+                    </div>
+
+                  <button type="submit">Submit Form</button>
                 </fieldset>
                 <a href="/treatments.html" target="treatments">View all treatments</a>
             </form>

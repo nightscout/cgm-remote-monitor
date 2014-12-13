@@ -60,6 +60,11 @@
   width: 140px;
 }
 
+#treatmentDrawer label.extra-space {
+  padding-top: 10px;
+  display: block;
+}
+
 #eventTime {
 
 }
