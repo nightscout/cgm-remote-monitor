@@ -371,6 +371,7 @@
                 $('.container .currentBG')
                     .text("---")
                     .css('text-decoration','');
+                $('.container .currentDelta').text('');
             }
             $('#currentTime')
                 .text(formatTime(new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS)))
@@ -379,6 +380,7 @@
             $('#lastEntry').text("RETRO").removeClass('current');
 
             $('.container #noButton .currentBG').css({color: 'grey'});
+            $('.container #noButton .currentDelta').css({color: 'grey'});
             $('.container #noButton .currentDirection').css({color: 'grey'});
 
         } else {
@@ -436,6 +438,8 @@
 
                 $('.container .currentBG').html(errorDisplay)
                     .css('text-decoration', '');
+                $('.container .currentDelta').text('')
+                    .css('text-decoration','');
                 $('.container .currentDirection').html('✖');
 
                 var color = sgvToColor(errorCode);
@@ -1105,7 +1109,7 @@
 
 
     $('#testAlarms').click(function(event) {
-        d3.select('.audio.alarms audio').each(function (data, i) {
+        d3.selectAll('.audio.alarms audio').each(function () {
             var audio = this;
             playAlarm(audio);
             setTimeout(function() {
