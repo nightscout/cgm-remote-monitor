@@ -874,8 +874,9 @@
         silenceDropdown.open(e);
     });
 
-    $("#silenceBtn").find("a").click(function () {
+    $("#silenceBtn").find("a").click(function (e) {
         stopAlarm(true, $(this).data("snooze-time"));
+        e.preventDefault();
     });
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
