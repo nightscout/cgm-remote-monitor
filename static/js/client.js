@@ -350,19 +350,20 @@
 
                 var retroDelta = scaleBg(focusPoint.y) - scaleBg(prevfocusPoint.y);
 
-                if (retroDelta > 0) {
-                    retroDelta = "+" + retroDelta;
+                var retroDeltaString;
+                if (browserSettings.units == "mmol") {
+                    retroDeltaString = retroDelta.toFixed(1) + " mmol/L";
+                } else {
+                    retroDeltaString = retroDelta + " mg/dL";
                 }
 
-                if (browserSettings.units == "mmol") {
-                    retroDelta = retroDelta.toFixed(1) + " mmol/L";
-                } else {
-                    retroDelta += " mg/dL";
+                if (retroDelta > 0) {
+                    retroDeltaString = "+" + retroDeltaString;
                 }
 
                 $('.container .currentBG').css('text-decoration','line-through');
                 $('.container .currentDetails')
-                    .text(retroDelta + ", BGI: " + totalImpact)
+                    .text(retroDeltaString + ", BGI: " + totalImpact)
                     .css('text-decoration','line-through');
                 $('.container .currentDirection').html(focusPoint.direction)
             } else {
@@ -460,20 +461,21 @@
                     $('.container .currentBG').text(scaleBg(latestSGV.y));
 
                 var bgDelta = scaleBg(latestSGV.y) - scaleBg(prevSGV.y);
-
-                if (bgDelta > 0) {
-                    bgDelta = "+" + bgDelta;
-                }
+                var bgDeltaString;
 
                 if (browserSettings.units == "mmol") {
-                    bgDelta = bgDelta.toFixed(1) + " mmol/L";
+                    bgDeltaString = bgDelta.toFixed(1) + " mmol/L";
                 } else {
-                    bgDelta += " mg/dL";
+                   bgDeltaString = bgDelta + " mg/dL";
+                }
+
+                if (bgDelta > 0) {
+                  bgDeltaString = "+" + bgDeltaString;
                 }
 
                 $('.container .currentBG').css('text-decoration', '');
                 $('.container .currentDetails')
-                    .text(bgDelta + ", BGI: " + totalImpact)
+                    .text(bgDeltaString + ", BGI: " + totalImpact)
                     .css('text-decoration','');
                 $('.container .currentDirection').html(latestSGV.direction);
 
