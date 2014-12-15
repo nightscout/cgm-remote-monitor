@@ -235,7 +235,7 @@ div.tooltip {
     padding-bottom: 20px;
   }
   html body .container .status {
-    font-size: 80%;
+    font-size: 70%;
   }
 
   html body #chartContainer {
@@ -280,10 +280,6 @@ div.tooltip {
 }
 
 @media (max-width: 700px) {
-  .bgStatus {
-    font-size: 500%;
-  }
-
   #bgButton {
     font-size: 120%;
   }
