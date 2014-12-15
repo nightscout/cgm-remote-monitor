@@ -50,9 +50,11 @@
     var div = d3.select("body").append("div")
       .attr("class", "tooltip")
       .style("opacity", 0);
-    //TODO: get these from the config
-    var targetTop = 180,
-        targetBottom = 80;
+    //TODO: get these from the config - Alarm doesnt work, but you can set lines with this from config.
+    var targetTop = 250,
+        targetBottom = 70,
+        customHigh = browserSettings.customHigh,
+        customLow = browserSettings.customLow;
 
     var futureOpacity = d3.scale.linear( )
         .domain([TWENTY_FIVE_MINS_IN_MS, SIXTY_MINS_IN_MS])
@@ -589,9 +591,9 @@
                 focus.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(scaleBg(180)))
+                    .attr('y1', yScale(scaleBg(customHigh)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(scaleBg(180)))
+                    .attr('y2', yScale(scaleBg(customHigh)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -599,9 +601,9 @@
                 focus.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(scaleBg(80)))
+                    .attr('y1', yScale(scaleBg(customLow)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(scaleBg(80)))
+                    .attr('y2', yScale(scaleBg(customLow)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -635,9 +637,9 @@
                 context.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(180)))
+                    .attr('y1', yScale2(scaleBg(customHigh)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(180)))
+                    .attr('y2', yScale2(scaleBg(customHigh)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -645,9 +647,9 @@
                 context.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(80)))
+                    .attr('y1', yScale2(scaleBg(customLow)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(80)))
+                    .attr('y2', yScale2(scaleBg(customLow)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -692,18 +694,18 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(180)))
+                    .attr('y1', yScale(scaleBg(customHigh)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(180)));
+                    .attr('y2', yScale(scaleBg(customHigh)));
 
                 // transition low line to correct location
                 focus.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(80)))
+                    .attr('y1', yScale(scaleBg(customLow)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(80)));
+                    .attr('y2', yScale(scaleBg(customLow)));
 
                 // transition open-top line to correct location
                 focus.select('.open-top')
@@ -732,23 +734,23 @@
                     .attr('x2', xScale2(currentBrushExtent[1]))
                     .attr('y2', chartHeight);
 
-                // transition high line to correct location
+                // transition high line to correct location - modified from targetTop to customHigh
                 context.select('.high-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(targetTop)))
+                    .attr('y1', yScale2(scaleBg(customHigh)))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(targetTop)));
+                    .attr('y2', yScale2(scaleBg(customHigh)));
 
-                // transition low line to correct location
+                // transition low line to correct location - modified from targetBottom to customLow
                 context.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(targetBottom)))
+                    .attr('y1', yScale2(scaleBg(customLow)))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(targetBottom)));
+                    .attr('y2', yScale2(scaleBg(customLow)));
             }
         }
 
@@ -857,11 +859,12 @@
                 latestSGV = d[0][d[0].length - 1];
 
                 //TODO: alarmHigh/alarmLow probably shouldn't be here
+                // customHigh/Low does not seem to override the alarm set of 180/80 must be another spot to edit?
                 if (browserSettings.alarmHigh) {
-                    $('.container .current').toggleClass('high', latestSGV.y > 180);
+                    $('.container .current').toggleClass('high', latestSGV.y > customHigh);
                 }
                 if (browserSettings.alarmLow) {
-                    $('.container .current').toggleClass('low', latestSGV.y < 70);
+                    $('.container .current').toggleClass('low', latestSGV.y < customLow);
                 }
             }
             data = d[0].map(function (obj) {
@@ -900,12 +903,13 @@
     function sgvToColor(sgv) {
         var color = 'grey';
 
+        // Switched targetTop/Bottom to customHigh/Low
         if (browserSettings.theme == "colors") {
-            if (sgv > targetTop) {
+            if (sgv > customHigh) {
                 color = 'yellow';
-            } else if (sgv >= targetBottom && sgv <= targetTop) {
+            } else if (sgv >= customLow && sgv <= customHigh) {
                 color = '#4cff00';
-            } else if (sgv < targetBottom) {
+            } else if (sgv < customLow) {
                 color = 'red';
             }
         }

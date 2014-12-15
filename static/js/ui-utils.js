@@ -5,6 +5,8 @@ var defaultSettings = {
 	"units": "mg/dl",
 	"alarmHigh": true,
 	"alarmLow": true,
+	"customHigh": 180,
+	"customLow": 80,
 	"nightMode": false,
 	"theme": "default",
 	"timeFormat": "12"
@@ -39,6 +41,8 @@ function getBrowserSettings(storage) {
 			"units": storage.get("units"),
 			"alarmHigh": storage.get("alarmHigh"),
 			"alarmLow": storage.get("alarmLow"),
+			"customHigh": storage.get("customHigh"),
+			"customLow": storage.get("customLow"),
 			"nightMode": storage.get("nightMode"),
 			"customTitle": storage.get("customTitle"),
 			"theme": storage.get("theme"),
@@ -57,6 +61,11 @@ function getBrowserSettings(storage) {
 		$("#alarmhigh-browser").prop("checked", json.alarmHigh);
 		json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
 		$("#alarmlow-browser").prop("checked", json.alarmLow);
+		
+		json.customHigh = setDefault(json.customHigh, defaultSettings.customHigh);
+		$("#customhigh-browser").prop("value", json.customHigh);
+		json.customLow = setDefault(json.customLow, defaultSettings.customLow);
+		$("#customlow-browser").prop("value", json.customLow);
 
 		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 		$("#nightmode-browser").prop("checked", json.nightMode);
@@ -125,6 +134,8 @@ function storeInBrowser(json, storage) {
 	} else {
 		storage.set("alarmLow", false)
 	}
+	if (json.customHigh) storage.set("customHigh", json.customHigh);
+	if (json.customLow) storage.set("customLow", json.customLow);
 	if (json.nightMode == true) {
 		storage.set("nightMode", true)
 	} else {
@@ -391,6 +402,8 @@ $("input#save").click(function() {
 		"units": $("input:radio[name=units-browser]:checked").val(),
 		"alarmHigh": $("#alarmhigh-browser").prop("checked"),
 		"alarmLow": $("#alarmlow-browser").prop("checked"),
+		"customHigh":$("#customhigh-browser").prop("value"),
+		"customLow":$("#customlow-browser").prop("value"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
 		"customTitle": $("input#customTitle").prop("value"),
         "theme": $("input:radio[name=theme-browser]:checked").val(),
