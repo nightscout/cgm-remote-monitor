@@ -79,13 +79,15 @@ function config ( ) {
   }
 
   env.thresholds = {
-    bg_high: parseInt(readENV('BG_HIGH')) || 240
-    , bg_target_top: parseInt(readENV('BG_TARGET_TOP')) || 180
-    , bg_target_bottom: parseInt(readENV('BG_TARGET_BOTTOM')) || 80
-    , bg_low: parseInt(readENV('BG_LOW')) || 55
+    bg_high: readIntENV('BG_HIGH', 240)
+    , bg_target_top: readIntENV('BG_TARGET_TOP', 180)
+    , bg_target_bottom: readIntENV('BG_TARGET_BOTTOM', 80)
+    , bg_low: readIntENV('BG_LOW', 55)
   };
 
-  env.alarm_types = readENV('ALARM_TYPES') || "simple";
+  //if any of the BG_* thresholds are set, default to "simple" otherwise default to "predict" to preserve current behavior
+  var thresholdsSet = readIntENV('BG_HIGH') || readIntENV('BG_TARGET_TOP') || readIntENV('BG_TARGET_BOTTOM') || readIntENV('BG_LOW');
+  env.alarm_types = readENV('ALARM_TYPES') || (thresholdsSet ? "simple" : "predict");
 
   // For pushing notifications to Pushover.
   env.pushover_api_token = readENV('PUSHOVER_API_TOKEN');
@@ -104,6 +106,10 @@ function config ( ) {
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
 
   return env;
+}
+
+function readIntENV(varName, defaultValue) {
+    return parseInt(readENV(varName)) || defaultValue;
 }
 
 function readENV(varName, defaultValue) {
