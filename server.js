@@ -1,15 +1,22 @@
-// NightScout server file
-
-// NightScout is free software: you can redistribute it and/or modify it under the terms of the GNU
-// General Public License as published by the Free Software Foundation, either version 3 of the
-// License, or (at your option) any later version.
-
-// NightScout is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-// even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License along with NightScout.
-// If not, see <http://www.gnu.org/licenses/>.
+/*
+* cgm-remote-monitor - web app to broadcast cgm readings
+* Copyright (C) 2014 Nightscout contributors.  See the COPYRIGHT file
+* at the root directory of this distribution and at
+* https://github.com/nightscout/cgm-remote-monitor/blob/master/COPYRIGHT
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Affero General Public License as published
+* by the Free Software Foundation, either version 3 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU Affero General Public License for more details.
+*
+* You should have received a copy of the GNU Affero General Public License
+* along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 // Description: Basic web server to display data from Dexcom G4.  Requires a database that contains
 // the Dexcom SGV data.
@@ -21,20 +28,30 @@
 
 var software = require('./package.json');
 var env = require('./env')( );
-var store = require('./lib/storage')(env);
+var pushover = require('./lib/pushover')(env);
+
+var entries = require('./lib/entries');
+var treatments = require('./lib/treatments');
+var devicestatus = require('./lib/devicestatus');
+
+var store = require('./lib/storage')(env, function() {
+    console.info("Mongo ready");
+    entries.ensureIndexes(env.mongo_collection, store);
+    treatments.ensureIndexes(env.treatments_collection, store);
+    devicestatus.ensureIndexes(env.devicestatus_collection, store);
+});
 
 
 var express = require('express');
 
-var pushover = require('./lib/pushover')(env);
 ///////////////////////////////////////////////////
 // api and json object variables
 ///////////////////////////////////////////////////
-var entries = require('./lib/entries')(env.mongo_collection, store);
+var entriesStorage = entries.storage(env.mongo_collection, store, pushover);
 var settings = require('./lib/settings')(env.settings_collection, store);
-var treatments = require('./lib/treatments')(env.treatments_collection, store, pushover);
-var devicestatus = require('./lib/devicestatus')(env.devicestatus_collection, store);
-var api = require('./lib/api/')(env, entries, settings, treatments, devicestatus);
+var treatmentsStorage = treatments.storage(env.treatments_collection, store, pushover);
+var devicestatusStorage = devicestatus.storage(env.devicestatus_collection, store);
+var api = require('./lib/api/')(env, entriesStorage, settings, treatmentsStorage, devicestatusStorage);
 var pebble = require('./lib/pebble');
 ///////////////////////////////////////////////////
 
@@ -54,7 +71,7 @@ app.enable('trust proxy'); // Allows req.secure test on heroku https connections
 app.use('/api/v1', api);
 
 // pebble data
-app.get('/pebble', pebble(entries, devicestatus));
+app.get('/pebble', pebble(entriesStorage, devicestatusStorage));
 
 //app.get('/package.json', software);
 
@@ -79,7 +96,7 @@ store(function ready ( ) {
   // setup socket io for data and message transmission
   ///////////////////////////////////////////////////
   var websocket = require('./lib/websocket');
-  var io = websocket(env, server, entries, treatments);
+  var io = websocket(env, server, entriesStorage, treatmentsStorage);
 });
 
 ///////////////////////////////////////////////////
