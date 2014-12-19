@@ -10,28 +10,6 @@ var defaultSettings = {
 	"timeFormat": "12"
 };
 
-var app = {};
-$.ajax("/api/v1/status.json", {
-	success: function (xhr) {
-		app = {
-			"name": xhr.name,
-			"version": xhr.version,
-			"head": xhr.head,
-			"apiEnabled": xhr.apiEnabled,
-			"careportalEnabled": xhr.careportalEnabled
-		}
-	}
-}).done(function() {
-	$(".appName").text(app.name);
-	$(".version").text(app.version);
-	$(".head").text(app.head);
-	if (app.apiEnabled) {
-		$(".serverSettings").show();
-	}
-	$("#treatmentDrawerToggle").toggle(app.careportalEnabled);
-});
-
-
 function getBrowserSettings(storage) {
 	var json = {};
 	try {
