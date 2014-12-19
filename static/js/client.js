@@ -1,91 +1,56 @@
 (function () {
     "use strict";
 
-    var latestSGV,
-        errorCode,
-        treatments,
-        padding = { top: 20, right: 10, bottom: 30, left: 10 },
-        opacity = {current: 1, DAY: 1, NIGHT: 0.5},
-        now = Date.now(),
-        data = [],
-        dateFn = function (d) { return new Date(d.date) },
-        xScale, xScale2, yScale, yScale2,
-        xAxis, yAxis, xAxis2, yAxis2,
-        prevChartWidth = 0,
-        prevChartHeight = 0,
-        focusHeight,
-        contextHeight,
-        UPDATE_TRANS_MS = 750, // milliseconds
-        brush,
-        BRUSH_TIMEOUT = 300000,  // 5 minutes in ms
-        brushTimer,
-        brushInProgress = false,
-        clip,
-        ONE_MIN_IN_MS = 60000,
-        FIVE_MINS_IN_MS = 300000,
-        TWENTY_FIVE_MINS_IN_MS = 1500000,
-        THIRTY_MINS_IN_MS = 1800000,
-        FORTY_MINS_IN_MS = 2400000,
-        FORTY_TWO_MINS_IN_MS = 2520000,
-        SIXTY_MINS_IN_MS = 3600000,
-        FOCUS_DATA_RANGE_MS = 12600000, // 3.5 hours of actual data
-        FORMAT_TIME_12 = '%I:%M',
-        FORMAT_TIME_24 = '%H:%M%',
-        FORMAT_TIME_SCALE = '%I %p',
-        audio = document.getElementById('audio'),
-        alarmInProgress = false,
-        currentAlarmType = null,
-        alarmSound = 'alarm.mp3',
-        urgentAlarmSound = 'alarm2.mp3',
-        WIDTH_TIME_HIDDEN = 600,
-        MINUTES_SINCE_LAST_UPDATE_WARN = 10,
-        MINUTES_SINCE_LAST_UPDATE_URGENT = 20;
+    var BRUSH_TIMEOUT = 300000 // 5 minutes in ms
+        , UPDATE_TRANS_MS = 750 // milliseconds
+        , ONE_MIN_IN_MS = 60000
+        , FIVE_MINS_IN_MS = 300000
+        , TWENTY_FIVE_MINS_IN_MS = 1500000
+        , THIRTY_MINS_IN_MS = 1800000
+        , SIXTY_MINS_IN_MS = 3600000
+        , FOCUS_DATA_RANGE_MS = 12600000 // 3.5 hours of actual data
+        , FORMAT_TIME_12 = '%I:%M'
+        , FORMAT_TIME_24 = '%H:%M%'
+        , FORMAT_TIME_SCALE = '%I %p'
+        , WIDTH_TIME_HIDDEN = 600
+        , MINUTES_SINCE_LAST_UPDATE_WARN = 10
+        , MINUTES_SINCE_LAST_UPDATE_URGENT = 20;
 
-    // Tick Values
-    var tickValues = [40, 60, 80, 120, 180, 300, 400];
-    if (browserSettings.units == "mmol") {
-        tickValues = [2.0, 3.0, 4.0, 6.0, 10.0, 15.0, 22.0];
-    }
+    var socket
+        , isInitialData = false
+        , latestSGV
+        , prevSGV
+        , errorCode
+        , treatments
+        , padding = { top: 20, right: 10, bottom: 30, left: 10 }
+        , opacity = {current: 1, DAY: 1, NIGHT: 0.5}
+        , now = Date.now()
+        , data = []
+        , audio = document.getElementById('audio')
+        , alarmInProgress = false
+        , currentAlarmType = null
+        , alarmSound = 'alarm.mp3'
+        , urgentAlarmSound = 'alarm2.mp3';
 
-    var div = d3.select("body").append("div")
-      .attr("class", "tooltip")
-      .style("opacity", 0);
-    //TODO: get these from the config
-    var targetTop = 180,
-        targetBottom = 80;
+    var targetTop
+        , targetBottom
+        , tickValues
+        , charts
+        , futureOpacity
+        , focus
+        , context
+        , xScale, xScale2, yScale, yScale2
+        , xAxis, yAxis, xAxis2, yAxis2
+        , prevChartWidth = 0
+        , prevChartHeight = 0
+        , focusHeight
+        , contextHeight
+        , dateFn = function (d) { return new Date(d.date) }
+        , brush
+        , brushTimer
+        , brushInProgress = false
+        , clip;
 
-    var futureOpacity = d3.scale.linear( )
-        .domain([TWENTY_FIVE_MINS_IN_MS, SIXTY_MINS_IN_MS])
-        .range([0.8, 0.1]);
-
-    // create svg and g to contain the chart contents
-    var charts = d3.select('#chartContainer').append('svg')
-        .append('g')
-        .attr('class', 'chartContainer')
-        .attr('transform', 'translate(' + padding.left + ',' + padding.top + ')');
-
-    var focus = charts.append('g');
-
-    // create the x axis container
-    focus.append('g')
-        .attr('class', 'x axis');
-
-    // create the y axis container
-    focus.append('g')
-        .attr('class', 'y axis');
-
-    var context = charts.append('g');
-
-    // create the x axis container
-    context.append('g')
-        .attr('class', 'x axis');
-
-    // create the y axis container
-    context.append('g')
-        .attr('class', 'y axis');
-
-
-    // Remove leading zeros from the time (eg. 08:40 = 8:40) & lowercase the am/pm
     function formatTime(time) {
         var timeFormat = getTimeFormat();
         time = d3.time.format(timeFormat)(time);
@@ -130,7 +95,6 @@
             return bg;
         }
     }
-
     // initial setup of chart when data is first made available
     function initializeCharts() {
 
@@ -184,7 +148,7 @@
     // get the desired opacity for context chart based on the brush extent
     function highlightBrushPoints(data) {
         if (data.date.getTime() >= brush.extent()[0].getTime() && data.date.getTime() <= brush.extent()[1].getTime()) {
-            return futureOpacity(data.date - latestSGV.x);
+            return futureOpacity(data.date.getTime() - latestSGV.x);
         } else {
             return 0.5;
         }
@@ -263,6 +227,10 @@
         var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
         // predict for retrospective data
+        // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
+        // of data instead of 5, which eliminates the incorrect and misleading predictions generated when
+        // the dexcom switches from unfiltered to filtered at the start of a rapid rise or fall, while preserving
+        // almost identical predications at other times.
         var lookback = 2;
         if (brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
@@ -284,6 +252,7 @@
                 var prediction = predictAR(nowData, lookback);
                 focusData = focusData.concat(prediction);
                 var focusPoint = nowData[nowData.length - 1];
+                var prevfocusPoint = nowData[nowData.length - 2];
 
                 //in this case the SGV is scaled
                 if (focusPoint.y < 40)
@@ -292,14 +261,33 @@
                     $('.container .currentBG').text('HIGH');
                 else
                     $('.container .currentBG').text(focusPoint.sgv);
+                    var retroDelta = scaleBg(focusPoint.y) - scaleBg(prevfocusPoint.y);
+                    if (browserSettings.units == "mmol") {
+                        retroDelta = retroDelta.toFixed(1);
+                    }
+                    if (retroDelta < 0) {
+                        var retroDeltaString = retroDelta;
+                    }
+                    else {
+                        var retroDeltaString = "+" + retroDelta;
+                    }
+                    if (browserSettings.units == "mmol") {
+                    var retroDeltaString = retroDeltaString + " mmol/L"
+                    }
+                    else {
+                    var retroDeltaString = retroDeltaString + " mg/dL"
+                    }
 
                 $('.container .currentBG').css('text-decoration','line-through');
-                $('.container .currentDirection')
-                    .html(focusPoint.direction)
+                $('.container .currentDelta')
+                    .text(retroDeltaString)
+                    .css('text-decoration','line-through');
+                $('.container .currentDirection').html(focusPoint.direction)
             } else {
                 $('.container .currentBG')
                     .text("---")
                     .css('text-decoration','');
+                $('.container .currentDelta').text('');
             }
             $('#currentTime')
                 .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
@@ -308,6 +296,7 @@
             $('#lastEntry').text("RETRO").removeClass('current');
 
             $('.container #noButton .currentBG').css({color: 'grey'});
+            $('.container #noButton .currentDelta').css({color: 'grey'});
             $('.container #noButton .currentDirection').css({color: 'grey'});
 
         } else {
@@ -348,6 +337,8 @@
 
                 $('.container .currentBG').html(errorDisplay)
                     .css('text-decoration', '');
+                $('.container .currentDelta').text('')
+                    .css('text-decoration','');
                 $('.container .currentDirection').html('✖');
 
                 var color = sgvToColor(errorCode);
@@ -366,14 +357,40 @@
                     $('.container .currentBG').text('HIGH');
                 else
                     $('.container .currentBG').text(scaleBg(latestSGV.y));
+		            var bgDelta = scaleBg(latestSGV.y) - scaleBg(prevSGV.y);
+                    if (browserSettings.units == "mmol") {
+                        bgDelta = bgDelta.toFixed(1);
+                    }
+                    if (bgDelta < 0) {
+                        var bgDeltaString = bgDelta;
+                    }
+		            else {
+			            var bgDeltaString = "+" + bgDelta;
+		            }
+                    if (browserSettings.units == "mmol") {
+                        var bgDeltaString = bgDeltaString + " mmol/L"
+                    }
+                    else {
+                        var bgDeltaString = bgDeltaString + " mg/dL"
+                    }
 
                 $('.container .currentBG').css('text-decoration', '');
-                $('.container .currentDirection')
-                    .html(latestSGV.direction);
+                $('.container .currentDelta')
+                    .text(bgDeltaString)
+                    .css('text-decoration','');
+                $('.container .currentDirection').html(latestSGV.direction);
 
                 var color = sgvToColor(latestSGV.y);
                 $('.container #noButton .currentBG').css({color: color});
                 $('.container #noButton .currentDirection').css({color: color});
+
+                // bgDelta and retroDelta to follow sgv color
+                // instead of Scott Leibrand's wip/iob-cob settings below
+
+                // var deltaColor = deltaToColor(bgDelta);
+                // $('.container #noButton .currentDelta').css({color: deltaColor});
+
+                $('.container #noButton .currentDelta').css({color: color});
             }
         }
 
@@ -389,14 +406,15 @@
             .duration(UPDATE_TRANS_MS)
             .attr('cx', function (d) { return xScale(d.date); })
             .attr('cy', function (d) { return yScale(d.sgv); })
-            .attr('fill', function (d) { return d.color; });
+            .attr('fill', function (d) { return d.color; })
+            .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); });
 
         // if new circle then just display
         focusCircles.enter().append('circle')
             .attr('cx', function (d) { return xScale(d.date); })
             .attr('cy', function (d) { return yScale(d.sgv); })
             .attr('fill', function (d) { return d.color; })
-            .attr('opacity', function (d) { return futureOpacity(d.date - latestSGV.x); })
+            .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); })
             .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
             .attr('stroke', function (d) { return "white"; })
             .attr('r', function(d) { if (d.type == 'mbg') return 6; else return 3;});
@@ -589,9 +607,9 @@
                 focus.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(scaleBg(180)))
+                    .attr('y1', yScale(scaleBg(targetTop)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(scaleBg(180)))
+                    .attr('y2', yScale(scaleBg(targetTop)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -599,9 +617,9 @@
                 focus.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(scaleBg(80)))
+                    .attr('y1', yScale(scaleBg(targetBottom)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(scaleBg(80)))
+                    .attr('y2', yScale(scaleBg(targetBottom)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -635,9 +653,9 @@
                 context.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(180)))
+                    .attr('y1', yScale2(scaleBg(targetTop)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(180)))
+                    .attr('y2', yScale2(scaleBg(targetTop)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -645,9 +663,9 @@
                 context.append('line')
                     .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(scaleBg(80)))
+                    .attr('y1', yScale2(scaleBg(targetBottom)))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(scaleBg(80)))
+                    .attr('y2', yScale2(scaleBg(targetBottom)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -692,18 +710,18 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(180)))
+                    .attr('y1', yScale(scaleBg(targetTop)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(180)));
+                    .attr('y2', yScale(scaleBg(targetTop)));
 
                 // transition low line to correct location
                 focus.select('.low-line')
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(80)))
+                    .attr('y1', yScale(scaleBg(targetBottom)))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(80)));
+                    .attr('y2', yScale(scaleBg(targetBottom)));
 
                 // transition open-top line to correct location
                 focus.select('.open-top')
@@ -806,97 +824,6 @@
             .call(xAxis2);
     }
 
-    // look for resize but use timer to only call the update script when a resize stops
-    var resizeTimer;
-    window.onresize = function () {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(function () {
-            updateChart(false);
-        }, 100);
-    };
-
-    var silenceDropdown = new Dropdown(".dropdown-menu");
-
-    $('#bgButton').click(function (e) {
-        silenceDropdown.open(e);
-    });
-
-    $("#silenceBtn").find("a").click(function () {
-        stopAlarm(true, $(this).data("snooze-time"));
-    });
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Client-side code to connect to server and handle incoming data
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    var isInitialData = false;
-    var socket = io.connect();
-
-    socket.on('now', function (d) {
-        now = d;
-        var dateTime = new Date(now);
-        $('#currentTime').text(formatTime(dateTime));
-
-        // Dim the screen by reducing the opacity when at nighttime
-        if (browserSettings.nightMode) {
-            if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7)) {
-                $('body').css({ 'opacity': opacity.NIGHT });
-            } else {
-                $('body').css({ 'opacity': opacity.DAY });
-            }
-        }
-    });
-
-    socket.on('sgv', function (d) {
-        if (d.length > 1) {
-            errorCode = d.length >= 5 ? d[4] : undefined;
-
-            // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
-            if (d[0].length) {
-                latestSGV = d[0][d[0].length - 1];
-
-                //TODO: alarmHigh/alarmLow probably shouldn't be here
-                if (browserSettings.alarmHigh) {
-                    $('.container .current').toggleClass('high', latestSGV.y > 180);
-                }
-                if (browserSettings.alarmLow) {
-                    $('.container .current').toggleClass('low', latestSGV.y < 70);
-                }
-            }
-            data = d[0].map(function (obj) {
-                return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
-            });
-            // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
-            // This shouldn't have to be sent and can be fixed by using xScale.domain([x0,x1]) function with
-            // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
-            // required to happen when "now" event is sent from websocket.js every minute.  When fixed,
-            // remove all "color != 'none'" code
-            data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'none', type: 'server-forecast'} }));
-
-            //Add MBG's also, pretend they are SGV's
-            data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg'} }));
-            
-            data.forEach(function (d) {
-                if (d.y < 39)
-                    d.color = "transparent";
-            });
-
-            treatments = d[3];
-            treatments.forEach(function (d) {
-                d.created_at = new Date(d.created_at);
-            });
-
-            if (!isInitialData) {
-                isInitialData = true;
-                initializeCharts();
-            }
-            else {
-                updateChart(false);
-            }
-        }
-    });
-
     function sgvToColor(sgv) {
         var color = 'grey';
 
@@ -912,50 +839,6 @@
 
         return color;
     }
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Alarms and Text handling
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    socket.on('connect', function () {
-        console.log('Client connected to server.')
-    });
-    socket.on('alarm', function () {
-        if (browserSettings.alarmHigh) {
-            console.log("Alarm raised!");
-            currentAlarmType = 'alarm';
-            generateAlarm(alarmSound);
-        }
-        brushInProgress = false;
-        updateChart(false);
-    });
-    socket.on('urgent_alarm', function () {
-        if (browserSettings.alarmLow) {
-            console.log("Urgent alarm raised!");
-            currentAlarmType = 'urgent_alarm';
-            generateAlarm(urgentAlarmSound);
-        }
-        brushInProgress = false;
-        updateChart(false);
-    });
-    socket.on('clear_alarm', function () {
-        if (alarmInProgress) {
-            console.log('clearing alarm');
-            stopAlarm();
-        }
-    });
-
-
-    $('#testAlarms').click(function(event) {
-        d3.select('.audio.alarms audio').each(function (data, i) {
-            var audio = this;
-            playAlarm(audio);
-            setTimeout(function() {
-                audio.pause();
-            }, 4000);
-        });
-        event.preventDefault();
-    });
 
     function generateAlarm(file) {
         alarmInProgress = true;
@@ -1047,8 +930,6 @@
             return parts.label;
 
     }
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //draw a compact visualization of a treatment (carbs, insulin)
@@ -1176,4 +1057,197 @@
         }
         return predicted;
     }
+
+    function init() {
+        var div = d3.select("body").append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+
+        targetTop = app.thresholds.bg_target_top;
+        targetBottom = app.thresholds.bg_target_bottom;
+
+        // Tick Values
+        tickValues = [40, 60, targetBottom, 120, targetTop, 300, 400];
+        if (browserSettings.units == "mmol") {
+            tickValues = [2.0, 3.0, Math.round(scaleBg(targetBottom)), 6.0, Math.round(scaleBg(targetTop)), 15.0, 22.0];
+        }
+
+        futureOpacity = d3.scale.linear( )
+            .domain([TWENTY_FIVE_MINS_IN_MS, SIXTY_MINS_IN_MS])
+            .range([0.8, 0.1]);
+
+        // create svg and g to contain the chart contents
+        charts = d3.select('#chartContainer').append('svg')
+            .append('g')
+            .attr('class', 'chartContainer')
+            .attr('transform', 'translate(' + padding.left + ',' + padding.top + ')');
+
+        focus = charts.append('g');
+
+        // create the x axis container
+        focus.append('g')
+            .attr('class', 'x axis');
+
+        // create the y axis container
+        focus.append('g')
+            .attr('class', 'y axis');
+
+        context = charts.append('g');
+
+        // create the x axis container
+        context.append('g')
+            .attr('class', 'x axis');
+
+        // create the y axis container
+        context.append('g')
+            .attr('class', 'y axis');
+
+        // look for resize but use timer to only call the update script when a resize stops
+        var resizeTimer;
+        window.onresize = function () {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function () {
+                updateChart(false);
+            }, 100);
+        };
+
+        var silenceDropdown = new Dropdown(".dropdown-menu");
+
+        $('#bgButton').click(function (e) {
+            silenceDropdown.open(e);
+        });
+
+        $("#silenceBtn").find("a").click(function (e) {
+            stopAlarm(true, $(this).data("snooze-time"));
+            e.preventDefault();
+        });
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Client-side code to connect to server and handle incoming data
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        socket = io.connect();
+
+        socket.on('now', function (d) {
+            now = d;
+            var dateTime = new Date(now);
+            $('#currentTime').text(formatTime(dateTime));
+
+            // Dim the screen by reducing the opacity when at nighttime
+            if (browserSettings.nightMode) {
+                if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7)) {
+                    $('body').css({ 'opacity': opacity.NIGHT });
+                } else {
+                    $('body').css({ 'opacity': opacity.DAY });
+                }
+            }
+        });
+
+        socket.on('sgv', function (d) {
+            if (d.length > 1) {
+                errorCode = d.length >= 5 ? d[4] : undefined;
+
+                // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
+                if (d[0].length) {
+                    latestSGV = d[0][d[0].length - 1];
+                    prevSGV = d[0][d[0].length - 2];
+                }
+                data = d[0].map(function (obj) {
+                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
+                });
+                // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
+                // This shouldn't have to be sent and can be fixed by using xScale.domain([x0,x1]) function with
+                // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
+                // required to happen when "now" event is sent from websocket.js every minute.  When fixed,
+                // remove all "color != 'none'" code
+                data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'none', type: 'server-forecast'} }));
+
+                //Add MBG's also, pretend they are SGV's
+                data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg'} }));
+
+                data.forEach(function (d) {
+                    if (d.y < 39)
+                        d.color = "transparent";
+                });
+
+                treatments = d[3];
+                treatments.forEach(function (d) {
+                    d.created_at = new Date(d.created_at);
+                });
+
+                if (!isInitialData) {
+                    isInitialData = true;
+                    initializeCharts();
+                }
+                else {
+                    updateChart(false);
+                }
+            }
+        });
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Alarms and Text handling
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        socket.on('connect', function () {
+            console.log('Client connected to server.')
+        });
+        socket.on('alarm', function () {
+            if (browserSettings.alarmHigh) {
+                console.log("Alarm raised!");
+                currentAlarmType = 'alarm';
+                generateAlarm(alarmSound);
+            }
+            brushInProgress = false;
+            updateChart(false);
+        });
+        socket.on('urgent_alarm', function () {
+            if (browserSettings.alarmLow) {
+                console.log("Urgent alarm raised!");
+                currentAlarmType = 'urgent_alarm';
+                generateAlarm(urgentAlarmSound);
+            }
+            brushInProgress = false;
+            updateChart(false);
+        });
+        socket.on('clear_alarm', function () {
+            if (alarmInProgress) {
+                console.log('clearing alarm');
+                stopAlarm();
+            }
+        });
+
+
+        $('#testAlarms').click(function(event) {
+            d3.selectAll('.audio.alarms audio').each(function () {
+                var audio = this;
+                playAlarm(audio);
+                setTimeout(function() {
+                    audio.pause();
+                }, 4000);
+            });
+            event.preventDefault();
+        });
+    }
+
+    var app = {};
+    $.ajax("/api/v1/status.json", {
+        success: function (xhr) {
+            app = { name: xhr.name
+                , version: xhr.version
+                , head: xhr.head
+                , apiEnabled: xhr.apiEnabled
+                , thresholds: xhr.thresholds
+                , careportalEnabled: xhr.careportalEnabled
+            };
+        }
+    }).done(function() {
+        $(".appName").text(app.name);
+        $(".version").text(app.version);
+        $(".head").text(app.head);
+        if (app.apiEnabled) {
+            $(".serverSettings").show();
+        }
+        $("#treatmentDrawerToggle").toggle(app.careportalEnabled);
+        init();
+    });
+
 })();
