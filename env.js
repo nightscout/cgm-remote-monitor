@@ -78,6 +78,15 @@ function config ( ) {
     env.api_secret = shasum.digest('hex');
   }
 
+  env.thresholds = {
+    bg_high: parseInt(readENV('BG_HIGH')) || 220
+    , bg_target_top: parseInt(readENV('BG_TARGET_TOP')) || 180
+    , bg_target_bottom: parseInt(readENV('BG_TARGET_BOTTOM')) || 80
+    , bg_low: parseInt(readENV('BG_LOW')) || 55
+  };
+
+  env.alarm_types = readENV('ALARM_TYPES') || "simple";
+
   // For pushing notifications to Pushover.
   env.pushover_api_token = readENV('PUSHOVER_API_TOKEN');
   env.pushover_user_key = readENV('PUSHOVER_USER_KEY') || readENV('PUSHOVER_GROUP_KEY');
