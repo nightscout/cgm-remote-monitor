@@ -79,7 +79,7 @@ function config ( ) {
   }
 
   env.thresholds = {
-    bg_high: readIntENV('BG_HIGH', 240)
+    bg_high: readIntENV('BG_HIGH', 260)
     , bg_target_top: readIntENV('BG_TARGET_TOP', 180)
     , bg_target_bottom: readIntENV('BG_TARGET_BOTTOM', 80)
     , bg_low: readIntENV('BG_LOW', 55)
