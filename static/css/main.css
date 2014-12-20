@@ -151,7 +151,7 @@ body {
 }
 
 #bgButton {
-    background: #ff2035;
+    background: yellow;
     border: 2px solid #DDD;
     border-right: 2px solid #ccc;
     border-bottom: 2px solid #ccc;
@@ -174,6 +174,10 @@ body {
     -khtml-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
+}
+
+#bgButton.urgent {
+  background: red;
 }
 
 .bgButton:active {
@@ -220,6 +224,37 @@ div.tooltip {
 	padding: 0 0 10px 0;
 }
 
+@media (max-height: 480px) {
+  html body #toolbar {
+    float: right;
+    height: auto;
+  }
+
+  #toolbar h1 {
+    display: none;
+  }
+
+  html body .container {
+    top: 15px;
+    padding-bottom: 20px;
+  }
+  html body .container .status {
+    font-size: 70%;
+  }
+
+  html body #bgButton {
+    font-size: 80%;
+  }
+
+
+  html body #chartContainer {
+    top: 130px;
+  }
+  html body #chartContainer svg {
+    height: calc(100vh - 130px);
+  }
+}
+
 /* Large desktop */
 @media (min-width: 980px) {
     .content {
@@ -240,7 +275,6 @@ div.tooltip {
 
   .bgStatus {
     width: 50%;
-    font-size: 600%;
   }
 
   #bgButton {
@@ -255,22 +289,11 @@ div.tooltip {
 }
 
 @media (max-width: 700px) {
-  .bgStatus {
-    font-size: 500%;
-  }
-
   #bgButton {
     font-size: 120%;
   }
   .dropdown-menu {
     font-size: 60% !important;
-  }
-  #currentTime {
-    font-size: 65%;
-    padding: 0;
-  }
-  #lastEntry {
-    font-size: 65%;
   }
 
   #chartContainer {
