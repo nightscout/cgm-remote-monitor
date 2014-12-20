@@ -220,6 +220,32 @@ div.tooltip {
 	padding: 0 0 10px 0;
 }
 
+@media (max-height: 480px) {
+  html body #toolbar {
+    float: right;
+    height: auto;
+  }
+
+  #toolbar h1 {
+    display: none;
+  }
+
+  html body .container {
+    top: 15px;
+    padding-bottom: 20px;
+  }
+  html body .container .status {
+    font-size: 70%;
+  }
+
+  html body #chartContainer {
+    top: 130px;
+  }
+  html body #chartContainer svg {
+    height: calc(100vh - 130px);
+  }
+}
+
 /* Large desktop */
 @media (min-width: 980px) {
     .content {
@@ -240,7 +266,6 @@ div.tooltip {
 
   .bgStatus {
     width: 50%;
-    font-size: 600%;
   }
 
   #bgButton {
@@ -255,10 +280,6 @@ div.tooltip {
 }
 
 @media (max-width: 700px) {
-  .bgStatus {
-    font-size: 500%;
-  }
-
   #bgButton {
     font-size: 120%;
   }
