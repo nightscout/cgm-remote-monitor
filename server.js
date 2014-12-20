@@ -47,7 +47,7 @@ var express = require('express');
 ///////////////////////////////////////////////////
 // api and json object variables
 ///////////////////////////////////////////////////
-var entriesStorage = entries.storage(env.mongo_collection, store, pushover);
+var entriesStorage = entries.storage(env.mongo_collection, store, pushover, env);
 var settings = require('./lib/settings')(env.settings_collection, store);
 var treatmentsStorage = treatments.storage(env.treatments_collection, store, pushover);
 var devicestatusStorage = devicestatus.storage(env.devicestatus_collection, store);
