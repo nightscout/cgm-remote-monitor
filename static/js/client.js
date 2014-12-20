@@ -35,7 +35,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , alarmSound = 'alarm.mp3'
         , urgentAlarmSound = 'alarm2.mp3';
 
-    var tickValues
+    var div
+        , tickValues
         , charts
         , futureOpacity
         , focus
@@ -1100,7 +1101,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
 
     function init() {
-        var div = d3.select("body").append("div")
+        div = d3.select("body").append("div")
             .attr("class", "tooltip")
             .style("opacity", 0);
 
