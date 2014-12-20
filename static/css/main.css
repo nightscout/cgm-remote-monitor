@@ -242,6 +242,11 @@ div.tooltip {
     font-size: 70%;
   }
 
+  html body #bgButton {
+    font-size: 80%;
+  }
+
+
   html body #chartContainer {
     top: 130px;
   }
@@ -289,13 +294,6 @@ div.tooltip {
   }
   .dropdown-menu {
     font-size: 60% !important;
-  }
-  #currentTime {
-    font-size: 65%;
-    padding: 0;
-  }
-  #lastEntry {
-    font-size: 65%;
   }
 
   #chartContainer {
