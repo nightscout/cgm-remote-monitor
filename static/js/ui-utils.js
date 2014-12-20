@@ -1,10 +1,13 @@
+"use strict";
+
 var drawerIsOpen = false;
 var treatmentDrawerIsOpen = false;
-var browserStorage = $.localStorage;
 var defaultSettings = {
 	"units": "mg/dl",
+	"alarmUrgentHigh": true,
 	"alarmHigh": true,
 	"alarmLow": true,
+	"alarmUrgentLow": true,
 	"nightMode": false,
 	"theme": "default",
 	"timeFormat": "12"
@@ -12,11 +15,22 @@ var defaultSettings = {
 
 function getBrowserSettings(storage) {
 	var json = {};
-	try {
+
+    function scaleBg(bg) {
+        if (json.units == "mmol") {
+            return (Math.round((bg / 18) * 10) / 10).toFixed(1);
+        } else {
+            return bg;
+        }
+    }
+
+    try {
 		var json = {
 			"units": storage.get("units"),
+			"alarmUrgentHigh": storage.get("alarmUrgentHigh"),
 			"alarmHigh": storage.get("alarmHigh"),
 			"alarmLow": storage.get("alarmLow"),
+			"alarmUrgentLow": storage.get("alarmUrgentLow"),
 			"nightMode": storage.get("nightMode"),
 			"customTitle": storage.get("customTitle"),
 			"theme": storage.get("theme"),
@@ -24,17 +38,21 @@ function getBrowserSettings(storage) {
 		};
 
 		// Default browser units to server units if undefined.
-		json.units = setDefault(json.units, serverSettings.units);
+		json.units = setDefault(json.units, app.units);
 		if (json.units == "mmol") {
 			$("#mmol-browser").prop("checked", true);
 		} else {
 			$("#mgdl-browser").prop("checked", true);
 		}
 
+        json.alarmUrgentHigh = setDefault(json.alarmUrgentHigh, defaultSettings.alarmUrgentHigh);
 		json.alarmHigh = setDefault(json.alarmHigh, defaultSettings.alarmHigh);
-		$("#alarmhigh-browser").prop("checked", json.alarmHigh);
 		json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
-		$("#alarmlow-browser").prop("checked", json.alarmLow);
+		json.alarmUrgentLow = setDefault(json.alarmUrgentLow, defaultSettings.alarmUrgentLow);
+		$("#alarm-urgenthigh-browser").prop("checked", json.alarmUrgentHigh).next().text('Urgent High Alarm (' + scaleBg(app.thresholds.bg_high) + ')');
+		$("#alarm-high-browser").prop("checked", json.alarmHigh).next().text('High Alarm (' + scaleBg(app.thresholds.bg_target_top) + ')');
+		$("#alarm-low-browser").prop("checked", json.alarmLow).next().text('Low Alarm (' + scaleBg(app.thresholds.bg_target_bottom) + ')');
+		$("#alarm-urgentlow-browser").prop("checked", json.alarmUrgentLow).next().text('Urgent Low Alarm (' + scaleBg(app.thresholds.bg_low) + ')');
 
 		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 		$("#nightmode-browser").prop("checked", json.nightMode);
@@ -60,79 +78,32 @@ function getBrowserSettings(storage) {
 		}
 	}
 	catch(err) {
+        console.error(err);
 		showLocalstorageError();
 	}
 
 	return json;
 }
-function getServerSettings() {
-	var json = {
-		"units": Object()
-	};
 
-	json.units = setDefault(json.units, defaultSettings.units);
-	//console.log("serverSettings.units: " + json.units);
-	if (json.units == "mmol") {
-		$("#mmol-server").prop("checked", true);
-	} else {
-		$("#mgdl-server").prop("checked", true);
-	}
-
-	return json;
-}
 function setDefault(variable, defaultValue) {
 	if (typeof(variable) === "object") {
 		return defaultValue;
 	}
 	return variable;
 }
-function jsonIsNotEmpty(json) {
-	var jsonAsString = JSON.stringify(json);
-	jsonAsString.replace(/\s/g, "");
-	return (jsonAsString != "{}")
-}
-function storeInBrowser(json, storage) {
-	if (json.units) storage.set("units", json.units);
-	if (json.alarmHigh == true) {
-		storage.set("alarmHigh", true)
-	} else {
-		storage.set("alarmHigh", false)
-	}
-	if (json.alarmLow == true) {
-		storage.set("alarmLow", true)
-	} else {
-		storage.set("alarmLow", false)
-	}
-	if (json.nightMode == true) {
-		storage.set("nightMode", true)
-	} else {
-		storage.set("nightMode", false)
-	}
-	if (json.customTitle) storage.set("customTitle", json.customTitle);
-    if (json.theme) storage.set("theme", json.theme);
-    event.preventDefault();
 
-	if (json.timeFormat) storage.set("timeFormat", json.timeFormat);
-	event.preventDefault();
-}
-function storeOnServer(json) {
-	if (jsonIsNotEmpty(json)) {
-		alert("TO DO: add storeOnServer() logic.");
-		// reference: http://code.tutsplus.com/tutorials/submit-a-form-without-page-refresh-using-jquery--net-59
-		//var dataString = "name="+ name + "&email=" + email + "&phone=" + phone;
-		//alert (dataString);return false;
-		/* $.ajax({
-		  type: "POST",
-		  url: "/api/v1/settings",
-		  data: json
-		});
-		*/
-	}
-}
+function storeInBrowser(data) {
 
+    for (var k in data) {
+        if (data.hasOwnProperty(k)) {
+            browserStorage.set(k, data[k]);
+        }
+    }
+
+}
 
 function getQueryParms() {
-	params = {};
+	var params = {};
 	if (location.search) {
 		location.search.substr(1).split("&").forEach(function(item) {
 			params[item.split("=")[0]] = item.split("=")[1].replace(/[_\+]/g, " ");
@@ -150,7 +121,7 @@ function isTouch() {
 function closeDrawer(callback) {
 	$("#container").animate({marginLeft: "0px"}, 300, callback);
 	$("#chartContainer").animate({marginLeft: "0px"}, 300);
-	$("#drawer").animate({right: "-200px"}, 300, function() {
+	$("#drawer").animate({right: "-300px"}, 300, function() {
 		$("#drawer").css("display", "none");
 	});
 	drawerIsOpen = false;
@@ -158,10 +129,9 @@ function closeDrawer(callback) {
 
 function openDrawer()  {
 	drawerIsOpen = true;
-	$("#container").animate({marginLeft: "-200px"}, 300);
-	$("#chartContainer").animate({marginLeft: "-200px"}, 300);
-	$("#drawer").css("display", "block");
-	$("#drawer").animate({right: "0"}, 300);
+	$("#container").animate({marginLeft: "-300px"}, 300);
+	$("#chartContainer").animate({marginLeft: "-300px"}, 300);
+	$("#drawer").css("display", "block").animate({right: "0"}, 300);
 }
 
 function closeTreatmentDrawer(callback) {
@@ -226,7 +196,7 @@ function showNotification(note, type)  {
 	notify.addClass(type ? type : "urgent");
 
 	notify.find("span").html(note);
-	notify.css("left", "calc(50% - " + ($("#notification").width() / 2) + "px)");
+	notify.css("left", "calc(50% - " + (notify.width() / 2) + "px)");
 	notify.show();
 }
 
@@ -239,7 +209,7 @@ function showLocalstorageError() {
 
 function treatmentSubmit(event) {
 
-    var data = new Object();
+    var data = {};
     data.enteredBy = document.getElementById("enteredBy").value;
     data.eventType = document.getElementById("eventType").value;
     data.glucose = document.getElementById("glucoseValue").value;
@@ -293,8 +263,6 @@ function treatmentSubmit(event) {
 
 
 var querystring = getQueryParms();
-// var serverSettings = getServerSettings();
-var browserSettings = getBrowserSettings(browserStorage);
 
 function Dropdown(el) {
 	this.ddmenuitem = 0;
@@ -368,19 +336,17 @@ $("#notification").click(function(event) {
 	event.preventDefault();
 });
 
-$("input#save").click(function() {
+$("input#save").click(function(event) {
 	storeInBrowser({
 		"units": $("input:radio[name=units-browser]:checked").val(),
-		"alarmHigh": $("#alarmhigh-browser").prop("checked"),
-		"alarmLow": $("#alarmlow-browser").prop("checked"),
+		"alarmUrgentHigh": $("#alarm-urgenthigh-browser").prop("checked"),
+		"alarmHigh": $("#alarm-high-browser").prop("checked"),
+		"alarmLow": $("#alarm-low-browser").prop("checked"),
+		"alarmUrgentLow": $("#alarm-urgentlow-browser").prop("checked"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
 		"customTitle": $("input#customTitle").prop("value"),
 		"theme": $("input:radio[name=theme-browser]:checked").val(),
 		"timeFormat": $("input:radio[name=timeformat-browser]:checked").val()
-	}, browserStorage);
-
-	storeOnServer({
-		//"units": $("input:radio[name=units-server]:checked").val()
 	});
 
 	event.preventDefault();
