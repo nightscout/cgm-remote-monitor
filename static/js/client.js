@@ -1255,7 +1255,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         //with predicted alarms, latestSGV may still be in target so to see if the alarm
         //  is for a LOW we can only check if it's <= the top of the target
         function isAlarmForLow() {
-            return latestSGV.y <= app.thresholds.bg_target_top;
+            return !!errorCode || latestSGV.y <= app.thresholds.bg_target_top;
         }
 
         socket.on('alarm', function () {
