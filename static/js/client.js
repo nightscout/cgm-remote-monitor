@@ -35,7 +35,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , alarmSound = 'alarm.mp3'
         , urgentAlarmSound = 'alarm2.mp3';
 
-    var div
+    var tooltip
         , tickValues
         , charts
         , futureOpacity
@@ -418,8 +418,30 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .attr('fill', function (d) { return d.color; })
             .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); })
             .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
-            .attr('stroke', function (d) { return "white"; })
-            .attr('r', function(d) { if (d.type == 'mbg') return 6; else return 3;});
+            .attr('stroke', function (d) {
+                var device = d.device && d.device.toLowerCase();
+                return (device == 'shugatrak' ? '#a4c2db' : 'white');
+            })
+            .attr('r', function(d) { if (d.type == 'mbg') return 6; else return 4;})
+            .on('mouseover', function (d) {
+                if (d.type != "sgv" && d.type != 'mbg') return;
+
+                var device = d.device && d.device.toLowerCase();
+                var bgType = (d.type == "sgv" ? 'CGM' : (device == 'dexcom' ? 'Calibration' : 'Meter'));
+
+                tooltip.transition().duration(200).style("opacity", .9);
+                tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
+                    (d.type == 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
+                    '<br/><strong>Time:</strong> ' + formatTime(d.date))
+                    .style("left", (d3.event.pageX) + "px")
+                    .style("top", (d3.event.pageY - 28) + "px");
+            })
+            .on('mouseout', function (d) {
+                if (d.type != "sgv" && d.type != 'mbg') return;
+                tooltip.transition()
+                    .duration(500)
+                    .style("opacity", 0);
+            });
 
         focusCircles.exit()
             .remove();
@@ -499,9 +521,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                   .attr('stroke-width', 2)
                   .attr('stroke', function (d) { return "white"; })
                   .attr('fill', function (d) { return "grey"; })
-                  .on("mouseover", function (d) {
-                      div.transition().duration(200).style("opacity", .9);
-                      div.html("<strong>Time:</strong> " + formatTime(d.created_at) + "<br/>" + "<strong>Treatment type:</strong> " + d.eventType + "<br/>" +
+                  .on('mouseover', function (d) {
+                      tooltip.transition().duration(200).style("opacity", .9);
+                      tooltip.html("<strong>Time:</strong> " + formatTime(d.created_at) + "<br/>" + "<strong>Treatment type:</strong> " + d.eventType + "<br/>" +
                           (d.carbs ? "<strong>Carbs:</strong> " + d.carbs + "<br/>" : '') +
                           (d.insulin ? "<strong>Insulin:</strong> " + d.insulin + "<br/>" : '') +
                           (d.glucose ? "<strong>BG:</strong> " + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + "<br/>" : '') +
@@ -511,11 +533,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                       .style("left", (d3.event.pageX) + "px")
                       .style("top", (d3.event.pageY - 28) + "px");
                   })
-          .on("mouseout", function (d) {
-              div.transition()
-                  .duration(500)
-                  .style("opacity", 0);
-          });
+                  .on('mouseout', function (d) {
+                      tooltip.transition()
+                          .duration(500)
+                          .style("opacity", 0);
+                  });
             
             treatCircles.attr('clip-path', 'url(#clip)');
         } catch (err) {
@@ -1101,7 +1123,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
 
     function init() {
-        div = d3.select("body").append("div")
+        tooltip = d3.select("body").append("div")
             .attr("class", "tooltip")
             .style("opacity", 0);
 
@@ -1218,7 +1240,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'none', type: 'server-forecast'} }));
 
                 //Add MBG's also, pretend they are SGV's
-                data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg'} }));
+                data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 
                 data.forEach(function (d) {
                     if (d.y < 39)
