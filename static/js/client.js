@@ -35,7 +35,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , alarmSound = 'alarm.mp3'
         , urgentAlarmSound = 'alarm2.mp3';
 
-    var div
+    var tooltip
         , tickValues
         , charts
         , futureOpacity
@@ -418,8 +418,30 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .attr('fill', function (d) { return d.color; })
             .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); })
             .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
-            .attr('stroke', function (d) { return "white"; })
-            .attr('r', function(d) { if (d.type == 'mbg') return 6; else return 3;});
+            .attr('stroke', function (d) {
+                var device = d.device && d.device.toLowerCase();
+                return (device == 'shugatrak' ? '#a4c2db' : 'white');
+            })
+            .attr('r', function(d) { if (d.type == 'mbg') return 6; else return 4;})
+            .on('mouseover', function (d) {
+                if (d.type != "sgv" && d.type != 'mbg') return;
+
+                var device = d.device && d.device.toLowerCase();
+                var bgType = (d.type == "sgv" ? 'CGM' : (device == 'dexcom' ? 'Calibration' : 'Meter'));
+
+                tooltip.transition().duration(200).style("opacity", .9);
+                tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
+                    (d.type == 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
+                    '<br/><strong>Time:</strong> ' + formatTime(d.date))
+                    .style("left", (d3.event.pageX) + "px")
+                    .style("top", (d3.event.pageY - 28) + "px");
+            })
+            .on('mouseout', function (d) {
+                if (d.type != "sgv" && d.type != 'mbg') return;
+                tooltip.transition()
+                    .duration(500)
+                    .style("opacity", 0);
+            });
 
         focusCircles.exit()
             .remove();
@@ -428,11 +450,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         d3.selectAll('.path').remove();
 
         // add treatment bubbles
-        //
-        //var bubbleSize = prevChartWidth < 400 ? 4 : (prevChartWidth < 600 ? 3 : 2);
-        //focus.selectAll('circle')
-        //    .data(treatments)
-        //    .each(function (d) { drawTreatment(d, bubbleSize, true) });
+
+        var bubbleSize = prevChartWidth < 400 ? 4 : (prevChartWidth < 600 ? 3 : 2);
+        focus.selectAll('circle')
+            .data(treatments)
+            .each(function (d) { drawTreatment(d, bubbleSize, true) });
+
 
         // transition open-top line to correct location
         focus.select('.open-top')
@@ -471,8 +494,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         focusCircles.attr('clip-path', 'url(#clip)');
 
         try {
+
+            //NOTE: treatments with insulin or carbs are drawn by drawTreatment()
+            //TODO: integrate with drawTreatment()
+
             // bind up the focus chart data to an array of circles
-            var treatCircles = focus.selectAll('rect').data(treatments);
+            var treatCircles = focus.selectAll('rect').data(treatments.filter(function(treatment) {
+                return !treatment.carbs && !treatment.insulin;
+            }));
 
             // if already existing then transition each circle to its new position
             treatCircles.transition()
@@ -499,11 +528,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                   .attr('stroke-width', 2)
                   .attr('stroke', function (d) { return "white"; })
                   .attr('fill', function (d) { return "grey"; })
-                  .on("mouseover", function (d) {
-                      div.transition().duration(200).style("opacity", .9);
-                      div.html("<strong>Time:</strong> " + formatTime(d.created_at) + "<br/>" + "<strong>Treatment type:</strong> " + d.eventType + "<br/>" +
-                          (d.carbs ? "<strong>Carbs:</strong> " + d.carbs + "<br/>" : '') +
-                          (d.insulin ? "<strong>Insulin:</strong> " + d.insulin + "<br/>" : '') +
+                  .on('mouseover', function (d) {
+                      tooltip.transition().duration(200).style("opacity", .9);
+                      tooltip.html("<strong>Time:</strong> " + formatTime(d.created_at) + "<br/>" + "<strong>Treatment type:</strong> " + d.eventType + "<br/>" +
                           (d.glucose ? "<strong>BG:</strong> " + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + "<br/>" : '') +
                           (d.enteredBy ? "<strong>Entered by:</strong> " + d.enteredBy + "<br/>" : '') +
                           (d.notes ? "<strong>Notes:</strong> " + d.notes : '')
@@ -511,11 +538,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                       .style("left", (d3.event.pageX) + "px")
                       .style("top", (d3.event.pageY - 28) + "px");
                   })
-          .on("mouseout", function (d) {
-              div.transition()
-                  .duration(500)
-                  .style("opacity", 0);
-          });
+                  .on('mouseout', function (d) {
+                      tooltip.transition()
+                          .duration(500)
+                          .style("opacity", 0);
+                  });
             
             treatCircles.attr('clip-path', 'url(#clip)');
         } catch (err) {
@@ -977,27 +1004,30 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     //draw a compact visualization of a treatment (carbs, insulin)
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     function drawTreatment(treatment, scale, showValues) {
-        var carbs = treatment.carbs;
-        var insulin = treatment.insulin;
-        var CR = treatment.CR;
+
+        if (!treatment.carbs && !treatment.insulin) return;
+
+        var CR = treatment.CR || 20;
+        var carbs = treatment.carbs || CR;
+        var insulin = treatment.insulin || 1;
 
         var R1 = Math.sqrt(Math.min(carbs, insulin * CR)) / scale,
             R2 = Math.sqrt(Math.max(carbs, insulin * CR)) / scale,
             R3 = R2 + 8 / scale;
 
         var arc_data = [
-            { 'element': '', 'color': '#9c4333', 'start': -1.5708, 'end': 1.5708, 'inner': 0, 'outer': R1 },
-            { 'element': '', 'color': '#d4897b', 'start': -1.5708, 'end': 1.5708, 'inner': R1, 'outer': R2 },
+            { 'element': '', 'color': 'white', 'start': -1.5708, 'end': 1.5708, 'inner': 0, 'outer': R1 },
+            /*{ 'element': '', 'color': '#d4897b', 'start': -1.5708, 'end': 1.5708, 'inner': R1, 'outer': R2 },*/
             { 'element': '', 'color': 'transparent', 'start': -1.5708, 'end': 1.5708, 'inner': R2, 'outer': R3 },
-            { 'element': '', 'color': '#3d53b7', 'start': 1.5708, 'end': 4.7124, 'inner': 0, 'outer': R1 },
-            { 'element': '', 'color': '#5d72c9', 'start': 1.5708, 'end': 4.7124, 'inner': R1, 'outer': R2 },
+            { 'element': '', 'color': '#0099ff', 'start': 1.5708, 'end': 4.7124, 'inner': 0, 'outer': R1 },
+            /*{ 'element': '', 'color': '#5d72c9', 'start': 1.5708, 'end': 4.7124, 'inner': R1, 'outer': R2 },*/
             { 'element': '', 'color': 'transparent', 'start': 1.5708, 'end': 4.7124, 'inner': R2, 'outer': R3 }
         ];
 
-        if (carbs < insulin * CR) arc_data[1].color = 'transparent';
-        if (carbs > insulin * CR) arc_data[4].color = 'transparent';
-        if (carbs > 0) arc_data[2].element = Math.round(carbs) + ' g';
-        if (insulin > 0) arc_data[5].element = Math.round(insulin * 10) / 10 + ' U';
+        if (!treatment.carbs) arc_data[0].color = 'transparent';
+        if (!treatment.insulin) arc_data[2].color = 'transparent';
+        if (treatment.carbs > 0) arc_data[1].element = Math.round(treatment.carbs) + ' g';
+        if (treatment.insulin > 0) arc_data[3].element = Math.round(treatment.insulin * 100) / 100 + ' U';
 
         var arc = d3.svg.arc()
             .innerRadius(function (d) { return 5 * d.inner; })
@@ -1009,8 +1039,24 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .data(arc_data)
             .enter()
             .append('g')
-            .attr('transform', 'translate(' + xScale(treatment.x) + ', ' + yScale(scaleBg(treatment.y)) + ')');
-
+            .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(scaleBg(treatment.glucose || 400)) + ')')
+            .on('mouseover', function () {
+                tooltip.transition().duration(200).style("opacity", .9);
+                tooltip.html("<strong>Time:</strong> " + formatTime(treatment.created_at) + "<br/>" + "<strong>Treatment type:</strong> " + treatment.eventType + "<br/>" +
+                        (treatment.carbs ? "<strong>Carbs:</strong> " + treatment.carbs + "<br/>" : '') +
+                        (treatment.insulin ? "<strong>Insulin:</strong> " + treatment.insulin + "<br/>" : '') +
+                        (treatment.glucose ? "<strong>BG:</strong> " + treatment.glucose + (treatment.glucoseType ? ' (' + treatment.glucoseType + ')': '') + "<br/>" : '') +
+                        (treatment.enteredBy ? "<strong>Entered by:</strong> " + treatment.enteredBy + "<br/>" : '') +
+                        (treatment.notes ? "<strong>Notes:</strong> " + treatment.notes : '')
+                )
+                .style("left", (d3.event.pageX) + "px")
+                .style("top", (d3.event.pageY - 28) + "px");
+            })
+            .on('mouseout', function () {
+                tooltip.transition()
+                    .duration(500)
+                    .style("opacity", 0);
+            });
         var arcs = treatmentDots.append('path')
             .attr('class', 'path')
             .attr('fill', function (d, i) { return d.color; })
@@ -1034,7 +1080,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     d.innerRadius = d.outerRadius * 2.1;
                     return 'translate(' + arc.centroid(d) + ')';
                 })
-                .text(function (d) { return d.element; })
+                .text(function (d) { return d.element; });
         }
     }
 
@@ -1101,7 +1147,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
 
     function init() {
-        div = d3.select("body").append("div")
+        tooltip = d3.select("body").append("div")
             .attr("class", "tooltip")
             .style("opacity", 0);
 
@@ -1218,7 +1264,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'none', type: 'server-forecast'} }));
 
                 //Add MBG's also, pretend they are SGV's
-                data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg'} }));
+                data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 
                 data.forEach(function (d) {
                     if (d.y < 39)
