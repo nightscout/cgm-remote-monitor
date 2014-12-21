@@ -17,7 +17,7 @@ body {
 
 
 /* BEGIN: Dolphin/Stock Android Browser Fix */
-@media (max-width: 700px) {
+@media (max-width: 400px) {
     .bgStatus {
         width: 100% !important;
     }
@@ -49,7 +49,7 @@ body {
 
 .bgStatus {
     float: right;
-    font-size: 900%;
+    font-size: 750%;
     margin-right: 25px;
     text-align: center;
     white-space: nowrap;
@@ -57,17 +57,27 @@ body {
 .bgStatus .currentBG {
     text-decoration: line-through;
 }
+.bgStatus .currentDelta {
+    font-size: 25%;
+    text-decoration: line-through;
+    display: block;
+    position: relative;    
+    top: -20px;
+}
 .bgStatus.current .currentBG {
     text-decoration: none;
+}
+.bgStatus.current .currentDelta {
+    font-size: 25%;
+    text-decoration: none;
+    display: block;
+    position: relative;    
+    top: -10px;
 }
 .currentDirection {
     font-weight: normal;
     text-decoration: none;
-}
-
-.status.toolbarClosed .bgStatus {
-    font-size:990%;
-
+    font-size: 80%;
 }
 
 .time {
@@ -141,7 +151,7 @@ body {
 }
 
 #bgButton {
-    background: #ff2035;
+    background: yellow;
     border: 2px solid #DDD;
     border-right: 2px solid #ccc;
     border-bottom: 2px solid #ccc;
@@ -164,6 +174,10 @@ body {
     -khtml-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
+}
+
+#bgButton.urgent {
+  background: red;
 }
 
 .bgButton:active {
@@ -210,6 +224,37 @@ div.tooltip {
 	padding: 0 0 10px 0;
 }
 
+@media (max-height: 480px) {
+  html body #toolbar {
+    float: right;
+    height: auto;
+  }
+
+  #toolbar h1 {
+    display: none;
+  }
+
+  html body .container {
+    top: 15px;
+    padding-bottom: 20px;
+  }
+  html body .container .status {
+    font-size: 70%;
+  }
+
+  html body #bgButton {
+    font-size: 80%;
+  }
+
+
+  html body #chartContainer {
+    top: 130px;
+  }
+  html body #chartContainer svg {
+    height: calc(100vh - 130px);
+  }
+}
+
 /* Large desktop */
 @media (min-width: 980px) {
     .content {
@@ -223,16 +268,45 @@ div.tooltip {
     }
 }
 
-@media (max-width: 768px) {
-    #chartContainer {
-        font-size: 150%;
-    }
-    .bgStatus {
-        width: 50%;
-    }
+@media (max-width: 800px) {
+  #chartContainer {
+    font-size: 115%;
+  }
+
+  .bgStatus {
+    width: 50%;
+  }
+
+  #bgButton {
+    font-size: 120%;
+  }
+  .dropdown-menu {
+    font-size: 60% !important;
+  }
+  #currentTime {
+    font-size: 85%;
+  }
 }
 
 @media (max-width: 700px) {
+  #bgButton {
+    font-size: 120%;
+  }
+  .dropdown-menu {
+    font-size: 60% !important;
+  }
+
+  #chartContainer {
+    top: 165px;
+    font-size: 80%;
+  }
+  #chartContainer svg {
+    height: calc(100vh - 165px);
+  }
+
+}
+
+@media (max-width: 400px) {
     body {
         font-size: 70%;
     }
@@ -252,16 +326,12 @@ div.tooltip {
     #bgButton {display:block;} */
 
     .bgStatus {
-        font-size: 900%;
+        font-size: 750%;
         float: none;
         margin: 0 auto;
         padding: 0;
         text-align: center;
         width: 100vw;
-    }
-    .status.toolbarClosed .bgStatus {
-        font-size: 990%;
-        margin-top: 10px;
     }
     #bgButton {
         font-size: 120%;
@@ -295,15 +365,10 @@ div.tooltip {
     }
 
     #chartContainer {
-        top: calc(152px + 45px);
+        font-size: 110%;
+        top: 210px;
     }
     #chartContainer svg {
-        height: calc(100vh - (152px + 45px));
+        height: calc(100vh - (210px));
     }
-}
-
-@media (max-width: 480px) {
-  #chartContainer {
-      font-size: 150%;
-  }
 }
