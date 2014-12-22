@@ -17,6 +17,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , FORMAT_TIME_24 = '%H:%M%'
         , FORMAT_TIME_SCALE = '%I %p'
         , WIDTH_TIME_HIDDEN = 500
+        , WIDTH_SMALL_DOTS = WIDTH_TIME_HIDDEN
+        , WIDTH_BIG_DOTS = 800
         , MINUTES_SINCE_LAST_UPDATE_WARN = 10
         , MINUTES_SINCE_LAST_UPDATE_URGENT = 20;
 
@@ -423,7 +425,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var device = d.device && d.device.toLowerCase();
                 return (device == 'shugatrak' ? '#a4c2db' : 'white');
             })
-            .attr('r', function(d) { if (d.type == 'mbg') return 6; else return 4;})
+            .attr('r', function(d) {
+                if (d.type == 'mbg')
+                    return 6;
+                else if ($(window).width() > WIDTH_BIG_DOTS)
+                    return 4;
+                else if ($(window).width() < WIDTH_SMALL_DOTS)
+                    return 2;
+                else
+                    return 3;
+            })
             .on('mouseover', function (d) {
                 if (d.type != "sgv" && d.type != 'mbg') return;
 
