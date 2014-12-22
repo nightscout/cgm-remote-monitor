@@ -8,6 +8,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , UPDATE_TRANS_MS = 750 // milliseconds
         , ONE_MIN_IN_MS = 60000
         , FIVE_MINS_IN_MS = 300000
+        , SIX_MINS_IN_MS =  360000
         , TWENTY_FIVE_MINS_IN_MS = 1500000
         , THIRTY_MINS_IN_MS = 1800000
         , SIXTY_MINS_IN_MS = 3600000
@@ -1000,6 +1001,22 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     }
 
+    function calcBGByTime(time) {
+        var closeBGs = data.filter(function(d) {
+            if (!d.y) return false;
+            else {
+                return Math.abs((new Date(d.date)).getTime() - time) <= SIX_MINS_IN_MS;
+            }
+        });
+
+        var totalBG = 0;
+        closeBGs.forEach(function(d) {
+            totalBG += d.y;
+        });
+
+        return totalBG ? (totalBG / closeBGs.length) : 400;
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //draw a compact visualization of a treatment (carbs, insulin)
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1017,15 +1034,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         var arc_data = [
             { 'element': '', 'color': 'white', 'start': -1.5708, 'end': 1.5708, 'inner': 0, 'outer': R1 },
-            /*{ 'element': '', 'color': '#d4897b', 'start': -1.5708, 'end': 1.5708, 'inner': R1, 'outer': R2 },*/
             { 'element': '', 'color': 'transparent', 'start': -1.5708, 'end': 1.5708, 'inner': R2, 'outer': R3 },
             { 'element': '', 'color': '#0099ff', 'start': 1.5708, 'end': 4.7124, 'inner': 0, 'outer': R1 },
-            /*{ 'element': '', 'color': '#5d72c9', 'start': 1.5708, 'end': 4.7124, 'inner': R1, 'outer': R2 },*/
             { 'element': '', 'color': 'transparent', 'start': 1.5708, 'end': 4.7124, 'inner': R2, 'outer': R3 }
         ];
 
-        if (!treatment.carbs) arc_data[0].color = 'transparent';
-        if (!treatment.insulin) arc_data[2].color = 'transparent';
+        arc_data[0].outlineOnly = !treatment.carbs;
+        arc_data[2].outlineOnly = !treatment.insulin;
+
         if (treatment.carbs > 0) arc_data[1].element = Math.round(treatment.carbs) + ' g';
         if (treatment.insulin > 0) arc_data[3].element = Math.round(treatment.insulin * 100) / 100 + ' U';
 
@@ -1039,7 +1055,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .data(arc_data)
             .enter()
             .append('g')
-            .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(scaleBg(treatment.glucose || 400)) + ')')
+            .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(scaleBg(treatment.glucose || calcBGByTime(treatment.created_at.getTime()))) + ')')
             .on('mouseover', function () {
                 tooltip.transition().duration(200).style("opacity", .9);
                 tooltip.html("<strong>Time:</strong> " + formatTime(treatment.created_at) + "<br/>" + "<strong>Treatment type:</strong> " + treatment.eventType + "<br/>" +
@@ -1059,7 +1075,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             });
         var arcs = treatmentDots.append('path')
             .attr('class', 'path')
-            .attr('fill', function (d, i) { return d.color; })
+            .attr('fill', function (d, i) { if (d.outlineOnly) return 'transparent'; else return d.color; })
+            .attr('stroke-width', function (d) {if (d.outlineOnly) return 1; else return 0; })
+            .attr('stroke', function (d) { return d.color; })
             .attr('id', function (d, i) { return 's' + i; })
             .attr('d', arc);
 
