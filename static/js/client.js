@@ -405,6 +405,17 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // selects all our data into data and uses date function to get current max date
         var focusCircles = focus.selectAll('circle').data(focusData, dateFn);
 
+        var focusDotRadius = function(d) {
+            if (d.type == 'mbg')
+                return 6;
+            else if ($(window).width() > WIDTH_BIG_DOTS)
+                return 4;
+            else if ($(window).width() < WIDTH_SMALL_DOTS)
+                return 2;
+            else
+                return 3;
+        };
+
         // if already existing then transition each circle to its new position
         focusCircles
             .transition()
@@ -412,6 +423,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .attr('cx', function (d) { return xScale(d.date); })
             .attr('cy', function (d) { return yScale(d.sgv); })
             .attr('fill', function (d) { return d.color; })
+            .attr('r', focusDotRadius)
             .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); });
 
         // if new circle then just display
@@ -425,16 +437,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var device = d.device && d.device.toLowerCase();
                 return (device == 'shugatrak' ? '#a4c2db' : 'white');
             })
-            .attr('r', function(d) {
-                if (d.type == 'mbg')
-                    return 6;
-                else if ($(window).width() > WIDTH_BIG_DOTS)
-                    return 4;
-                else if ($(window).width() < WIDTH_SMALL_DOTS)
-                    return 2;
-                else
-                    return 3;
-            })
+            .attr('r', focusDotRadius)
             .on('mouseover', function (d) {
                 if (d.type != "sgv" && d.type != 'mbg') return;
 
