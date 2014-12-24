@@ -501,6 +501,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .attr('x2', xScale(nowDate))
             .attr('y2', yScale(scaleBg(420)));
 
+        context.select('.now-line')
+            .transition()
+            .attr('x1', xScale2(new Date(brush.extent()[1]- THIRTY_MINS_IN_MS)))
+            .attr('y1', yScale2(scaleBg(36)))
+            .attr('x2', xScale2(new Date(brush.extent()[1]- THIRTY_MINS_IN_MS)))
+            .attr('y2', yScale2(scaleBg(420)));
+
         // update x axis
         focus.select('.x.axis')
             .call(xAxis);
@@ -851,14 +858,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         // update domain
         xScale2.domain(dataRange);
-
-        context.select('.now-line')
-            .transition()
-            .duration(UPDATE_TRANS_MS)
-            .attr('x1', xScale2(new Date(now)))
-            .attr('y1', yScale2(scaleBg(36)))
-            .attr('x2', xScale2(new Date(now)))
-            .attr('y2', yScale2(scaleBg(420)));
 
         // only if a user brush is not active, update brush and focus chart with recent data
         // else, just transition brush
