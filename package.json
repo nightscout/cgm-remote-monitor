@@ -51,7 +51,7 @@
     "mongodb": "^1.4.7",
     "moment": "2.8.1",
     "pushover-notifications": "0.2.0",
-    "sgvdata": "git://github.com/bewest/sgvdata.git#wip/protobuf",
+    "sgvdata": "git://github.com/ktind/sgvdata.git#wip/protobuf",
     "socket.io": "^0.9.17",
     "mqtt": "~0.3.11",
     "git-rev": "git://github.com/bewest/git-rev.git",
