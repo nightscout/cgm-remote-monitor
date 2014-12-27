@@ -57,7 +57,7 @@ body {
 .bgStatus .currentBG {
     text-decoration: line-through;
 }
-.bgStatus .currentDelta {
+.bgStatus .currentDetails {
     font-size: 25%;
     text-decoration: line-through;
     display: block;
@@ -67,7 +67,7 @@ body {
 .bgStatus.current .currentBG {
     text-decoration: none;
 }
-.bgStatus.current .currentDelta {
+.bgStatus.current .currentDetails {
     font-size: 25%;
     text-decoration: none;
     display: block;
@@ -226,8 +226,17 @@ div.tooltip {
     height: auto;
   }
 
-  #toolbar h1 {
+  #toolbar > h1 {
     display: none;
+  }
+
+  html body #iob-cob h1 {
+    left: 60px;
+    right: auto;
+  }
+
+  html body .time {
+    padding-top: 25px;
   }
 
   html body .container {
@@ -237,6 +246,11 @@ div.tooltip {
   html body .container .status {
     font-size: 70%;
   }
+
+  html body #bgButton {
+    font-size: 80%;
+  }
+
 
   html body #chartContainer {
     top: 130px;
@@ -285,13 +299,6 @@ div.tooltip {
   }
   .dropdown-menu {
     font-size: 60% !important;
-  }
-  #currentTime {
-    font-size: 65%;
-    padding: 0;
-  }
-  #lastEntry {
-    font-size: 65%;
   }
 
   #chartContainer {
