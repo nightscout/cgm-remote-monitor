@@ -202,7 +202,7 @@
     // get the desired opacity for context chart based on the brush extent
     function highlightBrushPoints(data) {
         if (data.date.getTime() >= brush.extent()[0].getTime() && data.date.getTime() <= brush.extent()[1].getTime()) {
-            return futureOpacity(data.date - latestSGV.x);
+            return futureOpacity(data.date.getTime() - latestSGV.x);
         } else {
             return 0.5;
         }
@@ -509,14 +509,15 @@
             .duration(UPDATE_TRANS_MS)
             .attr('cx', function (d) { return xScale(d.date); })
             .attr('cy', function (d) { return yScale(d.sgv); })
-            .attr('fill', function (d) { return d.color; });
+            .attr('fill', function (d) { return d.color; })
+            .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); });
 
         // if new circle then just display
         focusCircles.enter().append('circle')
             .attr('cx', function (d) { return xScale(d.date); })
             .attr('cy', function (d) { return yScale(d.sgv); })
             .attr('fill', function (d) { return d.color; })
-            .attr('opacity', function (d) { return futureOpacity(d.date - latestSGV.x); })
+            .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); })
             .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
             .attr('stroke', function (d) { return "white"; })
             .attr('r', function(d) {
@@ -946,8 +947,9 @@
         silenceDropdown.open(e);
     });
 
-    $("#silenceBtn").find("a").click(function () {
+    $("#silenceBtn").find("a").click(function (e) {
         stopAlarm(true, $(this).data("snooze-time"));
+        e.preventDefault();
     });
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
