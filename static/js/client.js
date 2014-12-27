@@ -435,7 +435,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
             .attr('stroke', function (d) {
                 var device = d.device && d.device.toLowerCase();
-                return (device == 'shugatrak' ? '#a4c2db' : 'white');
+                return (device == 'dexcom' ? 'white' : '#0099ff');
             })
             .attr('r', focusDotRadius)
             .on('mouseover', function (d) {
@@ -528,31 +528,21 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             // if already existing then transition each circle to its new position
             treatCircles.transition()
                   .duration(UPDATE_TRANS_MS)
-                  .attr('x', function (d) { return xScale(new Date(d.created_at)); })
-                  .attr('y', function (d) { return yScale(scaleBg(500)); })
-                  .attr("width", 15)
-                  .attr("height", 15)
-                  .attr("rx", 6)
-                  .attr("ry", 6)
-                  .attr('stroke-width', 2)
-                  .attr('stroke', function (d) { return "white"; })
-                  .attr('fill', function (d) { return "grey"; });
-
+                  .attr('cx', function (d) { return xScale(new Date(d.created_at)); })
+                  .attr('cy', function (d) { return yScale(scaleBg(d.glucose || calcBGByTime(d.created_at.getTime()))); });
 
             // if new circle then just display
-            treatCircles.enter().append('rect')
-                  .attr('x', function (d) { return xScale(d.created_at); })
-                  .attr('y', function (d) { return yScale(scaleBg(500)); })
-                  .attr("width", 15)
-                  .attr("height", 15)
-                  .attr("rx", 6)
-                  .attr("ry", 6)
+            treatCircles.enter().append('circle')
+                  .attr('cx', function (d) { return xScale(d.created_at); })
+                  .attr('cy', function (d) { return yScale(scaleBg(d.glucose || calcBGByTime(d.created_at.getTime()))); })
+                  .attr("r", 6)
                   .attr('stroke-width', 2)
-                  .attr('stroke', function (d) { return "white"; })
-                  .attr('fill', function (d) { return "grey"; })
+                  .attr('stroke', function (d) { return d.glucose ? 'grey' : 'white'; })
+                  .attr('fill', function (d) { return d.glucose ? 'red' : 'grey'; })
                   .on('mouseover', function (d) {
                       tooltip.transition().duration(200).style("opacity", .9);
-                      tooltip.html("<strong>Time:</strong> " + formatTime(d.created_at) + "<br/>" + "<strong>Treatment type:</strong> " + d.eventType + "<br/>" +
+                      tooltip.html("<strong>Time:</strong> " + formatTime(d.created_at) + "<br/>" +
+                          (d.eventType ? "<strong>Treatment type:</strong> " + d.eventType + "<br/>" : '') +
                           (d.glucose ? "<strong>BG:</strong> " + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + "<br/>" : '') +
                           (d.enteredBy ? "<strong>Entered by:</strong> " + d.enteredBy + "<br/>" : '') +
                           (d.notes ? "<strong>Notes:</strong> " + d.notes : '')
@@ -1027,7 +1017,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             totalBG += d.y;
         });
 
-        return totalBG ? (totalBG / closeBGs.length) : 400;
+        return totalBG ? (totalBG / closeBGs.length) : 450;
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
