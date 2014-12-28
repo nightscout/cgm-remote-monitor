@@ -389,6 +389,13 @@
                     d.color != 'transparent' &&
                     d.type == 'sgv';
             });
+            if (sgvData.length == 0) {
+                var sgvData = data.filter(function(d) {
+                    return d.date.getTime() >= brushExtent[1].getTime() - retroStart &&
+                    d.color != 'transparent' &&
+                    d.type == 'rawbg';
+                });
+            }
             var x=lookback+1;
             nowData = sgvData.slice(sgvData.length-x, sgvData.length);
             var dateTime = new Date(now);
@@ -1374,7 +1381,9 @@
         var predARDeltas = predictARDeltas(actual, ARLookback, tick);
         var predUntil = new Date(dt);
         predUntil.setMinutes(predUntil.getMinutes() + predict_hr*60);
-        var bgi = parseInt(actual[actual.length-1].sgv);
+        if (actual.length > 0) {
+            var bgi = parseInt(actual[actual.length-1].sgv);
+        }
         var j=predict_hr*60/tick-1;
         for (var i = 0; i < j; i++) {
         //for (var i = 0; i < predict_hr*60/tick-1; i++) {
@@ -1508,7 +1517,9 @@
         var sgv;
         var endtime=new Date(time);
 
-        sgv=parseInt(current[current.length-1].sgv);
+        if (current.length > 0) {
+            sgv=parseInt(current[current.length-1].sgv);
+        }
         if (sgv < 30) {
             var obj = latestSGV;
             sgv = rawIsigToRawBg(obj.rawIsig, obj.scale || [ ], obj.intercept, obj.slope, obj.filtered, obj.y);
