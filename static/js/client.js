@@ -994,8 +994,8 @@
                 d.created_at = new Date(d.created_at);
             });
 
-            profile = d[5][0];
-
+            profile = d[5];
+            
             cal = d[6][d[6].length-1];
 
             var temp1 = [ ];
@@ -1437,8 +1437,6 @@
 
     function cobTotal(treatments, time) {
         var liverSensRatio = 1;
-        var sens = profile.sens;
-        var carbratio = profile.carbratio;
         var cob=0;
         if (!treatments) return {};
         if (typeof time === 'undefined') {
@@ -1447,7 +1445,6 @@
 
         var isDecaying = 0;
         var lastDecayedBy = new Date("1/1/1970");
-        var carbs_hr = profile.carbs_hr;
 
         treatments.forEach(function(treatment) {
             if(treatment.carbs && treatment.created_at < time) {
@@ -1457,8 +1454,8 @@
                     var actStart = iobTotal(treatments, lastDecayedBy).activity;
                     var actEnd = iobTotal(treatments, cCalc.decayedBy).activity;
                     var avgActivity = (actStart+actEnd)/2;
-                    var delayedCarbs = avgActivity*liverSensRatio*sens/carbratio;
-                    var delayMinutes = Math.round(delayedCarbs/carbs_hr*60);
+                    var delayedCarbs = avgActivity*liverSensRatio*getSensitivity(treatment.created_at)/getCarbRatio(treatment.created_at);
+                    var delayMinutes = Math.round(delayedCarbs/getCarbAbsorptionRate(treatment.created_at)*60);
                     if (delayMinutes > 0) {
                         cCalc.decayedBy.setMinutes(cCalc.decayedBy.getMinutes() + delayMinutes);
                         decaysin_hr = (cCalc.decayedBy-time)/1000/60/60;
@@ -1471,7 +1468,7 @@
 
                 if (decaysin_hr > 0) {
             //console.info("Adding " + delayMinutes + " minutes to decay of " + treatment.carbs + "g bolus at " + treatment.created_at);
-                    cob = Math.min(cCalc.initialCarbs, decaysin_hr * carbs_hr);
+                    cob = Math.min(cCalc.initialCarbs, decaysin_hr * getCarbAbsorptionRate(treatment.created_at+delayMinutes));
                     isDecaying = cCalc.isDecaying;
                 }
                 else { 
@@ -1480,11 +1477,11 @@
 
             }
         });
-        var rawCarbImpact = isDecaying*sens/carbratio*carbs_hr/60;
+        var rawCarbImpact = isDecaying*getSensitivity(time)/getCarbRatio(time)*getCarbAbsorptionRate(time)/60;
         return {
             decayedBy: lastDecayedBy,
             isDecaying: isDecaying,
-            carbs_hr: carbs_hr,
+            carbs_hr: getCarbAbsorptionRate(time),
             rawCarbImpact: rawCarbImpact,
             cob: cob
         };
@@ -1521,9 +1518,6 @@
 
         var t = new Date(time.getTime());
         for (t.setMinutes(t.getMinutes() + tick); t < endtime; t.setMinutes(t.getMinutes() + tick)) {
-            var sens = profile.sens;
-            var carbratio = profile.carbratio;
-            var carbs_hr = profile.carbs_hr;
             var iTotal = iobTotal(treatments, t);
             var cTotal = cobTotal(treatments, t);
             var insulinImpact = iTotal.activity;
@@ -1543,7 +1537,7 @@
             predBgs: predBgs,
             max: max,
             min: min,
-            sens: sens,
+            sens: getSensitivity(time),
             sgv: sgv
         };
     }
@@ -1551,9 +1545,8 @@
 
     function cobCalc(treatment, lastDecayedBy, time) {
 
-        var carbs_hr = profile.carbs_hr;
         var delay = 20;
-        var carbs_min = carbs_hr / 60;
+        var carbs_min = getCarbAbsorptionRate(time) / 60;
         var isDecaying = 0;        
         var initialCarbs;
 
@@ -1591,13 +1584,15 @@
 
     function iobCalc(treatment, time) {
 
-        var dia=profile.dia;
+        var dia=getDIA(time);
+        var sens=getSensitivity(time);
+        
         if (dia == 3) {
             var peak=75;
         } else {
             console.warn('DIA of ' + dia + 'not supported');
         }
-        var sens=profile.sens;
+                
         if (typeof time === 'undefined') {
             var time = new Date();
         }
@@ -1634,6 +1629,68 @@
             return '';
         }
     }
+    
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // multiple profile support for predictions
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	function timeStringToSeconds(time) {
+		var split = time.split(":");
+		return parseInt(split[0])*3600 + parseInt(split[1])*60;
+	}
+	
+	function getProfileByTime(time) {
+		var returnProfile = profile[0];
+		
+		if (profile.length > 1) {
+			for (var pointer in profile) {
+				if (!profile.hasOwnProperty(pointer)) { continue; }
+				var prof = profile[pointer];
+				
+				if (prof.start) {
+					var start = timeStringToSeconds(prof.start);
+    				var end = timeStringToSeconds(prof.end);
+    				var timeAsDate = new Date(time);
+    				
+    				var now = timeAsDate.getHours()*3600 + timeAsDate.getMinutes()*60;
+    				    				
+    				if (now >= start && now <= end) {
+    					returnProfile = prof;
+    				}
+    			}
+    			else {
+    				// retain old behavior, where last profile is used if multiple are present, and no timestamps are configured
+    				returnProfile = prof;
+    			}
+    		}
+		}
+		
+		return returnProfile;
+	}
+	
+	function getDIA(time)
+	{
+		var prof = getProfileByTime(time);
+		return prof.dia;		
+	}
+	
+	function getSensitivity(time)
+	{
+		var prof = getProfileByTime(time);
+		return prof.sens;
+	}
+	
+	function getCarbRatio(time)
+	{
+		var prof = getProfileByTime(time);
+		return prof.carbratio;
+	}
+
+	function getCarbAbsorptionRate(time)
+	{
+		var prof = getProfileByTime(time);
+		return prof.carbs_hr;
+	}
 
 })();
 
