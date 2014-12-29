@@ -994,7 +994,7 @@
                 d.created_at = new Date(d.created_at);
             });
 
-            profile = d[5];
+            profile = d[5][0];
             
             cal = d[6][d[6].length-1];
 
@@ -1639,57 +1639,46 @@
 		return parseInt(split[0])*3600 + parseInt(split[1])*60;
 	}
 	
-	function getProfileByTime(time) {
-		var returnProfile = profile[0];
-		
-		if (profile.length > 1) {
-			for (var pointer in profile) {
-				if (!profile.hasOwnProperty(pointer)) { continue; }
-				var prof = profile[pointer];
-				
-				if (prof.start) {
-					var start = timeStringToSeconds(prof.start);
-    				var end = timeStringToSeconds(prof.end);
-    				var timeAsDate = new Date(time);
-    				
-    				var now = timeAsDate.getHours()*3600 + timeAsDate.getMinutes()*60;
+	function getValueByTime(time, valueContainer)
+	{
+		// If the container is an Array, assume it's a valid timestamped value container
+
+		var returnValue = valueContainer;
+
+		if( Object.prototype.toString.call(valueContainer) === '[object Object]' ) {
+			
+			var timeAsDate = new Date(time);
+			var timeAsSecondsFromMidnight = timeAsDate.getHours()*3600 + timeAsDate.getMinutes()*60;
     				    				
-    				if (now >= start && now <= end) {
-    					returnProfile = prof;
-    				}
-    			}
-    			else {
-    				// retain old behavior, where last profile is used if multiple are present, and no timestamps are configured
-    				returnProfile = prof;
-    			}
-    		}
+			for (var t in valueContainer) {
+				var startTime = timeStringToSeconds(t);
+				if (timeAsSecondsFromMidnight >= startTime) {
+					returnValue = valueContainer[t];
+				}
+			}			
 		}
 		
-		return returnProfile;
+		return returnValue;
 	}
 	
 	function getDIA(time)
 	{
-		var prof = getProfileByTime(time);
-		return prof.dia;		
+		return getValueByTime(time,profile.dia);
 	}
 	
 	function getSensitivity(time)
 	{
-		var prof = getProfileByTime(time);
-		return prof.sens;
+		return getValueByTime(time,profile.sens);
 	}
 	
 	function getCarbRatio(time)
 	{
-		var prof = getProfileByTime(time);
-		return prof.carbratio;
+		return getValueByTime(time,profile.carbratio);
 	}
 
 	function getCarbAbsorptionRate(time)
 	{
-		var prof = getProfileByTime(time);
-		return prof.carbs_hr;
+		return getValueByTime(time,profile.carbs_hr);
 	}
 
 })();
