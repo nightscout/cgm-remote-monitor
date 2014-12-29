@@ -1645,15 +1645,16 @@
 
 		var returnValue = valueContainer;
 
-		if( Object.prototype.toString.call(valueContainer) === '[object Object]' ) {
+		if( Object.prototype.toString.call(valueContainer) === '[object Array]' ) {
 			
 			var timeAsDate = new Date(time);
 			var timeAsSecondsFromMidnight = timeAsDate.getHours()*3600 + timeAsDate.getMinutes()*60;
     				    				
 			for (var t in valueContainer) {
-				var startTime = timeStringToSeconds(t);
+				var value = valueContainer[t];
+				var startTime = timeStringToSeconds(value.time);
 				if (timeAsSecondsFromMidnight >= startTime) {
-					returnValue = valueContainer[t];
+					returnValue = value.value;
 				}
 			}			
 		}
