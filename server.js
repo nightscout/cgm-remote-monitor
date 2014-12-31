@@ -83,7 +83,7 @@ store(function ready ( ) {
   console.log('listening', PORT);
 
   if (env.MQTT_MONITOR) {
-    var mqtt = require('./lib/mqtt')(env, entries);
+    var mqtt = require('./lib/mqtt')(env, entries, devicestatus);
     var es = require('event-stream');
     es.pipeline(mqtt.entries, entries.map( ), mqtt.every(entries));
   }
