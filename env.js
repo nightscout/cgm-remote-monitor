@@ -34,6 +34,9 @@ function config ( ) {
   env.PORT = readENV('PORT', 1337);
   env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI');
   env.mongo_collection = readENV('MONGO_COLLECTION', 'entries');
+  if (env.MQTT_MONITOR) {
+    env.mqtt_client_id = [env.mongo.split('/').pop( ), env.mongo_collection].join('.');
+  }
   env.settings_collection = readENV('MONGO_SETTINGS_COLLECTION', 'settings');
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
