@@ -995,6 +995,7 @@
             });
 
             profile = d[5][0];
+            preprocessSeconds(profile);
             
             cal = d[6][d[6].length-1];
 
@@ -1639,6 +1640,24 @@
 		return parseInt(split[0])*3600 + parseInt(split[1])*60;
 	}
 	
+	// preprocess the timestamps to seconds for a couple orders of magnitude faster operation
+	function preprocessSeconds(container)
+	{
+		for (var key in container) {
+			var value = container[key];
+			if( Object.prototype.toString.call(value) === '[object Array]' ) {
+				preprocessSeconds(value);
+			} else {
+				if (value.time) {
+					var sec = timeStringToSeconds(value.time);
+					if (sec) value.timeAsSeconds = sec;
+				}
+			}
+		}
+		container.timestampsPreProcessed = true;
+	}
+	
+	
 	function getValueByTime(time, valueContainer)
 	{
 		// If the container is an Array, assume it's a valid timestamped value container
@@ -1652,8 +1671,7 @@
     				    				
 			for (var t in valueContainer) {
 				var value = valueContainer[t];
-				var startTime = timeStringToSeconds(value.time);
-				if (timeAsSecondsFromMidnight >= startTime) {
+				if (timeAsSecondsFromMidnight >= value.timeAsSeconds) {
 					returnValue = value.value;
 				}
 			}			
