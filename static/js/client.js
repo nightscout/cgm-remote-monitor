@@ -1650,7 +1650,7 @@
 			} else {
 				if (value.time) {
 					var sec = timeStringToSeconds(value.time);
-					if (sec) value.timeAsSeconds = sec;
+					if (!isNaN(sec)) value.timeAsSeconds = sec;
 				}
 			}
 		}
