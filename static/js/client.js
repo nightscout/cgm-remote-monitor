@@ -1120,7 +1120,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .data(arc_data)
             .enter()
             .append('g')
-            .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(scaleBg(treatment.glucose || calcBGByTime(treatment.created_at.getTime()))) + ')')
+            .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(treatment.glucose || calcBGByTime(treatment.created_at.getTime())) + ')')
             .on('mouseover', function () {
                 tooltip.transition().duration(200).style('opacity', .9);
                 tooltip.html('<strong>Time:</strong> ' + formatTime(treatment.created_at) + '<br/>' + '<strong>Treatment type:</strong> ' + treatment.eventType + '<br/>' +
@@ -1330,8 +1330,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function cobTotal(treatments, time) {
         var liverSensRatio = 1;
-        var sens = profile.sens;
-        var carbratio = profile.carbratio;
         var cob=0;
         if (!treatments) return {};
         if (typeof time === 'undefined') {
@@ -1340,7 +1338,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         var isDecaying = 0;
         var lastDecayedBy = new Date("1/1/1970");
-        var carbs_hr = profile.carbs_hr;
 
         treatments.forEach(function(treatment) {
             if(treatment.carbs && treatment.created_at < time) {
@@ -1350,8 +1347,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     var actStart = iobTotal(treatments, lastDecayedBy).activity;
                     var actEnd = iobTotal(treatments, cCalc.decayedBy).activity;
                     var avgActivity = (actStart+actEnd)/2;
-                    var delayedCarbs = avgActivity*liverSensRatio*sens/carbratio;
-                    var delayMinutes = Math.round(delayedCarbs/carbs_hr*60);
+                    var delayedCarbs = avgActivity*liverSensRatio*getSensitivity(treatment.created_at)/getCarbRatio(treatment.created_at);
+                    var delayMinutes = Math.round(delayedCarbs/getCarbAbsorptionRate(treatment.created_at)*60);
                     if (delayMinutes > 0) {
                         cCalc.decayedBy.setMinutes(cCalc.decayedBy.getMinutes() + delayMinutes);
                         decaysin_hr = (cCalc.decayedBy-time)/1000/60/60;
@@ -1364,7 +1361,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
                 if (decaysin_hr > 0) {
             //console.info("Adding " + delayMinutes + " minutes to decay of " + treatment.carbs + "g bolus at " + treatment.created_at);
-                    cob = Math.min(cCalc.initialCarbs, decaysin_hr * carbs_hr);
+                    cob = Math.min(cCalc.initialCarbs, decaysin_hr * getCarbAbsorptionRate(treatment.created_at+delayMinutes));
                     isDecaying = cCalc.isDecaying;
                 }
                 else { 
@@ -1373,11 +1370,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
             }
         });
-        var rawCarbImpact = isDecaying*sens/carbratio*carbs_hr/60;
+        var rawCarbImpact = isDecaying*getSensitivity(time)/getCarbRatio(time)*getCarbAbsorptionRate(time)/60;
         return {
             decayedBy: lastDecayedBy,
             isDecaying: isDecaying,
-            carbs_hr: carbs_hr,
+            carbs_hr: getCarbAbsorptionRate(time),
             rawCarbImpact: rawCarbImpact,
             cob: cob
         };
@@ -1414,9 +1411,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         var t = new Date(time.getTime());
         for (t.setMinutes(t.getMinutes() + tick); t < endtime; t.setMinutes(t.getMinutes() + tick)) {
-            var sens = profile.sens;
-            var carbratio = profile.carbratio;
-            var carbs_hr = profile.carbs_hr;
             var iTotal = iobTotal(treatments, t);
             var cTotal = cobTotal(treatments, t);
             var insulinImpact = iTotal.activity;
@@ -1436,7 +1430,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             predBgs: predBgs,
             max: max,
             min: min,
-            sens: sens,
+            sens: getSensitivity(time),
             sgv: sgv
         };
     }
@@ -1444,9 +1438,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function cobCalc(treatment, lastDecayedBy, time) {
 
-        var carbs_hr = profile.carbs_hr;
         var delay = 20;
-        var carbs_min = carbs_hr / 60;
+        var carbs_min = getCarbAbsorptionRate(time) / 60;
         var isDecaying = 0;        
         var initialCarbs;
 
@@ -1484,13 +1477,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function iobCalc(treatment, time) {
 
-        var dia=profile.dia;
+        var dia=getDIA(time);
+        var sens=getSensitivity(time);
+
         if (dia == 3) {
             var peak=75;
         } else {
             console.warn('DIA of ' + dia + 'not supported');
         }
-        var sens=profile.sens;
+
         if (typeof time === 'undefined') {
             var time = new Date();
         }
@@ -1527,6 +1522,77 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             return '';
         }
     }
+
+
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // multiple profile support for predictions
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	function timeStringToSeconds(time) {
+		var split = time.split(":");
+		return parseInt(split[0])*3600 + parseInt(split[1])*60;
+	}
+	
+	// preprocess the timestamps to seconds for a couple orders of magnitude faster operation
+	function preprocessSeconds(container)
+	{
+		for (var key in container) {
+			var value = container[key];
+			if( Object.prototype.toString.call(value) === '[object Array]' ) {
+				preprocessSeconds(value);
+			} else {
+				if (value.time) {
+					var sec = timeStringToSeconds(value.time);
+					if (!isNaN(sec)) value.timeAsSeconds = sec;
+				}
+			}
+		}
+		container.timestampsPreProcessed = true;
+	}
+	
+	
+	function getValueByTime(time, valueContainer)
+	{
+		// If the container is an Array, assume it's a valid timestamped value container
+
+		var returnValue = valueContainer;
+
+		if( Object.prototype.toString.call(valueContainer) === '[object Array]' ) {
+			
+			var timeAsDate = new Date(time);
+			var timeAsSecondsFromMidnight = timeAsDate.getHours()*3600 + timeAsDate.getMinutes()*60;
+    				    				
+			for (var t in valueContainer) {
+				var value = valueContainer[t];
+				if (timeAsSecondsFromMidnight >= value.timeAsSeconds) {
+					returnValue = value.value;
+				}
+			}			
+		}
+		
+		return returnValue;
+	}
+	
+	function getDIA(time)
+	{
+		return getValueByTime(time,profile.dia);
+	}
+	
+	function getSensitivity(time)
+	{
+		return getValueByTime(time,profile.sens);
+	}
+	
+	function getCarbRatio(time)
+	{
+		return getValueByTime(time,profile.carbratio);
+	}
+
+	function getCarbAbsorptionRate(time)
+	{
+		return getValueByTime(time,profile.carbs_hr);
+	}
+
 
 
     function init() {
@@ -1654,6 +1720,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 });
 
                 profile = d[5][0];
+                preprocessSeconds(profile);
 
                 cal = d[6][d[6].length-1];
 
