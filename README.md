@@ -1,4 +1,4 @@
-cgm-remote-monitor (a.k.a. NightScout)
+cgm-remote-monitor (a.k.a. Nightscout)
 ======================================
  
 [![Build Status](https://travis-ci.org/nightscout/cgm-remote-monitor.png)](https://travis-ci.org/nightscout/cgm-remote-monitor)
@@ -7,12 +7,12 @@ cgm-remote-monitor (a.k.a. NightScout)
 
 [![Deploy to Heroku](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
 
-This acts as a web-based CGM (Continuous Glucose Montinor) to allow
-multiple caregivers to remotely view a patients glucose data in
-realtime.  The server reads a MongoDB which is intended to be data
+This acts as a web-based CGM (Continuous Glucose Monitor) to allow
+multiple caregivers to remotely view a patient's glucose data in
+real time.  The server reads a MongoDB which is intended to be data
 from a physical CGM, where it sends new SGV (sensor glucose values) as
 the data becomes available.  The data is then displayed graphically
-and blood glucose values are predicted 0.5 hours ahead using a
+and blood glucose values are predicted 0.5 hours ahead using an
 autoregressive second order model.  Alarms are generated for high and
 low values, which can be cleared by any watcher of the data.
 
@@ -93,8 +93,8 @@ More questions?
 
 Feel free to [post an issue][issues], but read the [wiki][wiki] first.
 
-[issues]: https://github.com/rnpenguin/cgm-remote-monitor/issues
-[wiki]: https://github.com/rnpenguin/cgm-remote-monitor/wiki
+[issues]: https://github.com/nightscout/cgm-remote-monitor/issues
+[wiki]: https://github.com/nightscout/cgm-remote-monitor/wiki
 
 License
 ---------------
@@ -102,9 +102,7 @@ License
 [agpl-3]: http://www.gnu.org/licenses/agpl-3.0.txt
 
     cgm-remote-monitor - web app to broadcast cgm readings
-    Copyright (C) 2014 Nightscout contributors.  See the COPYRIGHT file
-    at the root directory of this distribution and at
-    https://github.com/nightscout/cgm-remote-monitor/blob/master/COPYRIGHT
+    Copyright (C) 2015 The Nightscout Foundation, http://www.nightscoutfoundation.org.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published
