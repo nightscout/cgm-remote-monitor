@@ -262,28 +262,29 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var prevfocusPoint = nowData[nowData.length - 2];
 
                 //in this case the SGV is scaled
-                if (focusPoint.y < 40)
+                if (focusPoint.y < 40) {
                     $('.container .currentBG').text('LOW');
-                else if (focusPoint.y > 400)
+                } else if (focusPoint.y > 400) {
                     $('.container .currentBG').text('HIGH');
-                else
+                } else {
                     $('.container .currentBG').text(focusPoint.sgv);
-                    var retroDelta = scaleBg(focusPoint.y) - scaleBg(prevfocusPoint.y);
-                    if (browserSettings.units == 'mmol') {
-                        retroDelta = retroDelta.toFixed(1);
-                    }
-                    if (retroDelta < 0) {
-                        var retroDeltaString = retroDelta;
-                    }
-                    else {
-                        var retroDeltaString = '+' + retroDelta;
-                    }
-                    if (browserSettings.units == 'mmol') {
-                    var retroDeltaString = retroDeltaString + ' mmol/L'
-                    }
-                    else {
-                    var retroDeltaString = retroDeltaString + ' mg/dL'
-                    }
+                }
+
+                var retroDelta = scaleBg(focusPoint.y) - scaleBg(prevfocusPoint.y);
+                if (browserSettings.units == 'mmol') {
+                    retroDelta = retroDelta.toFixed(1);
+                }
+
+                var retroDeltaString = retroDelta;
+                if (retroDelta >= 0) {
+                    retroDeltaString = '+' + retroDelta;
+                }
+
+                if (browserSettings.units == 'mmol') {
+                    retroDeltaString = retroDeltaString + ' mmol/L'
+                } else {
+                    retroDeltaString = retroDeltaString + ' mg/dL'
+                }
 
                 $('.container .currentBG').css('text-decoration','line-through');
                 $('.container .currentDelta')
@@ -1058,7 +1059,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .append('g')
             .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(scaleBg(treatment.glucose || calcBGByTime(treatment.created_at.getTime()))) + ')')
             .on('mouseover', function () {
-                tooltip.transition().duration(200).style('opacity', .9);
+                tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
                 tooltip.html('<strong>Time:</strong> ' + formatTime(treatment.created_at) + '<br/>' + '<strong>Treatment type:</strong> ' + treatment.eventType + '<br/>' +
                         (treatment.carbs ? '<strong>Carbs:</strong> ' + treatment.carbs + '<br/>' : '') +
                         (treatment.insulin ? '<strong>Insulin:</strong> ' + treatment.insulin + '<br/>' : '') +
@@ -1071,7 +1072,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             })
             .on('mouseout', function () {
                 tooltip.transition()
-                    .duration(500)
+                    .duration(TOOLTIP_TRANS_MS)
                     .style('opacity', 0);
             });
         var arcs = treatmentDots.append('path')
