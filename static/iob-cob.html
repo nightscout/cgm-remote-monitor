@@ -1,0 +1,375 @@
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOB, COB, and BG Predictions - Nightscout</title>
+    <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
+    <link rel="stylesheet" href="/bower_components/bootstrap/dist/css/bootstrap.min.css">
+    <style type="text/css">
+        table tr td {
+            white-space: nowrap;
+        }
+    </style>
+    <script src="/bower_components/angularjs/angular.min.js"></script>
+    <script type="text/javascript">
+        'use strict';
+
+        var app = angular.module('ns-treatments', []);
+
+        app.controller('TreatmentsController', function ($scope, $http, $timeout, visibility) {
+            var pageIsHidden = false;
+
+            function update() {
+                console.info("update called");
+                if (pageIsHidden) {
+                    console.info('Not updating, since page is hidden');
+                } else {
+                    console.info('Updating, since page is visible');
+                    $http.get('/api/v1/treatments').success(function(treatments) {
+                        $scope.treatments = treatments.slice(0, 100);
+                        $scope.iobTotal = iobTotal(treatments.slice(0, 100));
+                        var treatments_r = treatments.slice(0, 100);
+                        treatments_r.reverse();
+                        $scope.cobTotal = cobTotal(treatments_r);
+                        $scope.carbImpact = carbImpact($scope.cobTotal.carbImpact, $scope.iobTotal.activity);
+                        $scope.eightHourCarbs = lookbackCarbs(treatments_r, 8);
+                        $scope.threeHourCarbs = lookbackCarbs(treatments_r, 3);
+                        $scope.threeHourInsulin = lookbackInsulin(treatments_r, 3);
+                        $http.get('/api/v1/entries/current.json').success(function(current) {
+                            $scope.current = current[0];
+                console.info(current[0]);
+                            $scope.bgPredictions = bgPredictions(treatments, current[0]);
+                        });
+                    });
+                    $http.get('/api/v1/profile').success(function(profile) {
+                        $scope.profile = profile.slice(0, 500);
+			//console.info(profile);
+                    });
+                }
+            }
+
+            $scope.$on('visibilityChanged', function(event, isHidden) {
+                console.info('changed pageIsHidden to ' + isHidden);
+                pageIsHidden = isHidden;
+                if (!pageIsHidden) update();
+            });
+
+            function startUpdateCycle() {
+                update();
+                $timeout(startUpdateCycle, 20 * 1000);
+            }
+
+            startUpdateCycle();
+
+            $scope.glucoseDisplay = function(treatment) {
+                if (treatment.glucose)
+                    return treatment.glucose + (treatment.glucoseType ? ' (' + treatment.glucoseType + ')' : '');
+                else
+                    return '';
+            }
+
+            function iobTotal(treatments, time) {
+                //console.info("iobTotal called");
+                var iob= 0;
+                var activity = 0;
+                if (!treatments) return {};
+
+                treatments.forEach(function(treatment) {
+                    var tIOB = $scope.iob(treatment, time);
+                    if (tIOB && tIOB.iobContrib) iob += tIOB.iobContrib;
+                    if (tIOB && tIOB.activityContrib) activity += tIOB.activityContrib;
+                });
+                return {
+                    iob: iob,
+                    activity: activity
+                };
+            }
+
+            function lookbackCarbs(treatments, lookbackHours, time) {
+                if (!treatments) return {};
+                if (typeof time === 'undefined') {
+                    var time = new Date();
+                }
+                var startCounting = new Date();
+                startCounting = startCounting.setHours(startCounting.getHours() - lookbackHours);
+                var lookbackCarbs = 0;
+                treatments.forEach(function(treatment) {
+                    var carbTime = new Date(treatment.created_at);
+                    if(treatment.carbs && carbTime > startCounting && carbTime < time ) {
+                        lookbackCarbs = lookbackCarbs + parseInt(treatment.carbs);
+                    }
+                });
+                return { lookbackCarbs: lookbackCarbs };
+            }
+
+            function lookbackInsulin(treatments, lookbackHours, time) {
+                if (!treatments) return {};
+                if (typeof time === 'undefined') {
+                    var time = new Date();
+                }
+                var startCounting = new Date();
+                startCounting = startCounting.setHours(startCounting.getHours() - lookbackHours);
+                var lookbackInsulin = 0;
+                treatments.forEach(function(treatment) {
+                    var bolusTime = new Date(treatment.created_at);
+                    if(treatment.insulin && bolusTime > startCounting && bolusTime < time ) {
+                        lookbackInsulin = lookbackInsulin + parseFloat(treatment.insulin);
+                    }
+                });
+                return { lookbackInsulin: lookbackInsulin };
+            }
+
+            function cobTotal(treatments, time) {
+                //console.info("cobTotal called");
+                var cob=0;
+                if (!treatments) return {};
+                if (typeof time === 'undefined') {
+                    var time = new Date();
+                }
+
+                var isDecaying = 0;
+                var lastDecayedBy = new Date("1/1/1970");
+                var carbs_hr = $scope.profile[0].carbs_hr;
+
+                treatments.forEach(function(treatment) {
+                    if(treatment.carbs) {
+                        var tCOB = $scope.cob(treatment, lastDecayedBy, time);
+                        if (tCOB) {
+                            lastDecayedBy = tCOB.decayedBy;
+                            if (tCOB.carbsleft) {
+                                var carbsleft = + tCOB.carbsleft;
+                            }
+                        }
+
+                        var decaysin_hr = (lastDecayedBy-time)/1000/60/60;
+                        if (decaysin_hr > 0) {
+                            cob = Math.min(tCOB.initialCarbs, decaysin_hr * carbs_hr);
+                            isDecaying = tCOB.isDecaying;
+                        }
+                        else { 
+                            cob = 0;
+                        }
+                    }
+                });
+                var sens = $scope.profile[0].sens;
+                var carbratio = $scope.profile[0].carbratio;
+                var carbImpact = isDecaying*sens/carbratio*carbs_hr/60;
+                return {
+                    decayedBy: lastDecayedBy,
+                    isDecaying: isDecaying,
+                    carbs_hr: carbs_hr,
+                    carbImpact: carbImpact,
+                    cob: cob
+                };
+            }
+
+            function carbImpact(rawCarbImpact, insulinImpact) {
+                var liverSensRatio = 1.0;
+                //var liverCarbImpactMax = 1;
+                //var liverCarbImpact = Math.min(liverCarbImpactMax, liverSensRatio*insulinImpact);
+                var liverCarbImpact = liverSensRatio*insulinImpact;
+                var netCarbImpact = Math.max(0, rawCarbImpact-liverCarbImpact);
+                var totalImpact = netCarbImpact - insulinImpact;
+                return {
+                    netCarbImpact: netCarbImpact,
+                    totalImpact: totalImpact
+                }
+            }
+
+            function bgPredictions(treatments, current) {
+                //console.info("bgPredictions called");
+                var tick = 10;
+                var curtime=new Date();
+                var endtime=new Date();
+
+                var sgv=parseInt(current.sgv);
+                var bgi = sgv;
+                var initBg = {}, predBgs = [];
+                initBg.bg = sgv;
+                initBg.time = curtime;
+                predBgs.push(initBg);
+
+                var carbsDecaying = 0;
+                endtime.setHours(endtime.getHours() + 2);
+
+                var treatments_r = treatments;
+                treatments_r.reverse();
+
+                var t = new Date(curtime.getTime());
+                for (t.setMinutes(t.getMinutes() + tick); t < endtime; t.setMinutes(t.getMinutes() + tick)) {
+                    var sens = $scope.profile[0].sens;
+                    var carbratio = $scope.profile[0].carbratio;
+                    var carbs_hr = $scope.profile[0].carbs_hr;
+                    var carbImpact = cobTotal(treatments_r, t).carbImpact*tick;
+                    var insulinImpact = iobTotal(treatments, t).activity*tick;
+                    var totalImpact = carbImpact-insulinImpact;
+                    bgi = bgi + totalImpact;
+                    var time = new Date(t.getTime());
+                    var predBg = {};
+                    predBg.bg = bgi;
+                    predBg.time = time;
+                    predBgs.push(predBg);
+                }
+
+                var max = Math.round(Math.max(predBgs));
+                var min = Math.round(Math.min(predBgs));
+                return {
+                    predBgs: predBgs,
+                    max: max,
+                    min: min,
+                    sens: sens,
+                    carbratio: carbratio,
+                    sgv: sgv
+                };
+            }
+
+
+            $scope.cob = function(treatment, lastDecayedBy, time) {
+
+                var carbs_hr = $scope.profile[0].carbs_hr;
+                var delay = 20;
+                var carbs_min = carbs_hr / 60;
+                var isDecaying = 0;        
+                var initialCarbs;
+
+                if (treatment.carbs) {
+                    var carbTime = new Date(treatment.created_at);
+
+                    var decayedBy = new Date(carbTime);
+                    var minutesleft = (lastDecayedBy-carbTime)/1000/60;
+                    decayedBy.setMinutes(decayedBy.getMinutes() + Math.max(delay,minutesleft) + treatment.carbs/carbs_min); 
+                    if(delay > minutesleft) { 
+                        initialCarbs = treatment.carbs; 
+                    }
+                    else { 
+                        initialCarbs = treatment.carbs + minutesleft*carbs_min; 
+                    }
+                    var startDecay = new Date(carbTime);
+                    startDecay.setMinutes(carbTime.getMinutes() + delay);
+                    if (time < lastDecayedBy || time > startDecay) {
+                        isDecaying = 1;
+                    }
+                    else {
+                        isDecaying = 0;
+                    }
+                    return {
+                        initialCarbs: initialCarbs,
+                        decayedBy: decayedBy,
+                        isDecaying: isDecaying,
+                        carbTime: carbTime
+                    };
+                }
+                else {
+                    return '';
+                }
+            }
+
+            $scope.iob = function(treatment, time) {
+
+                var dia=$scope.profile[0].dia;
+                if (dia == 3) {
+                    var peak=75;
+                } else {
+                    console.warn('DIA of ' + dia + 'not supported');
+                }
+                var sens=$scope.profile[0].sens;
+                if (typeof time === 'undefined') {
+                    var time = new Date();
+                }
+
+                if (treatment.insulin) {
+                    var bolusTime=new Date(treatment.created_at);
+                    var minAgo=(time-bolusTime)/1000/60;
+
+                    if (minAgo < 0) { 
+                        var iobContrib=0;
+                        var activityContrib=0;
+                    }
+                    if (minAgo < peak) {
+                        var x = minAgo/5+1;
+                        var iobContrib=treatment.insulin*(1-0.001852*x*x+0.001852*x);
+                        var activityContrib=sens*treatment.insulin*(2/dia/60/peak)*minAgo;
+
+                    }
+                    else if (minAgo < 180) {
+                        var x = (minAgo-75)/5;
+                        var iobContrib=treatment.insulin*(0.001323*x*x - .054233*x + .55556);
+                        var activityContrib=sens*treatment.insulin*(2/dia/60-(minAgo-peak)*2/dia/60/(60*dia-peak));
+                    }
+                    else {
+                        var iobContrib=0;
+                        var activityContrib=0;
+                    }
+                    return {
+                        iobContrib: iobContrib,
+                        activityContrib: activityContrib
+                    };
+                }
+                else {
+                    return '';
+                }
+            }
+
+        });
+
+        app.service('visibility', function visibility($rootScope) {
+            function visibilityChanged() {
+                $rootScope.$broadcast('visibilityChanged', !!(document.hidden || document.webkitHidden || document.mozHidden || document.msHidden));
+            }
+
+            document.addEventListener('webkitvisibilitychange', visibilityChanged);
+        });
+
+    </script>
+
+</head>
+<body ng-app="ns-treatments">
+<div class="container" ng-controller="TreatmentsController">
+    <h3>Nightscout: IOB</h3>
+    <p>Current SGV: {{bgPredictions.sgv | number: 0}} mg/dL</p>
+    <p>Carbs absorbed per hour: {{cobTotal.carbs_hr | number: 0}} g</p>
+    <p>Total COB: {{cobTotal.cob | number: 0}} g</p>
+    <p>All carbs decayed by: {{cobTotal.decayedBy | date:'short'}}</p>
+    <p>Total IOB: {{iobTotal.iob | number: 2}} U</p>
+    <p>Insulin sensitivity (ISF): {{bgPredictions.sens | number: 0}} (mg/dL/U)</p>
+    <p>Carb sensitivity: {{bgPredictions.sens/bgPredictions.carbratio | number: 0}} (mg/dL/g)</p>
+    <p>Carb (IC) ratio: {{bgPredictions.carbratio | number: 0}} (g/U)</p>
+    <p>Current Insulin Activity (BG impact): {{-iobTotal.activity | number: 2}} mg/dL/min ({{-iobTotal.activity*5 | number: 2}} mg/dL per 5 min)</p>
+    <p>Current Net Carb Impact: {{carbImpact.netCarbImpact | number: 2}} mg/dL/min ({{(carbImpact.netCarbImpact)*5 | number: 2}} mg/dL per 5 min)</p>
+    <p>Current Total Impact: {{carbImpact.totalImpact | number: 2}} mg/dL/min ({{(carbImpact.totalImpact)*5 | number: 2}} mg/dL per 5 min)</p>
+    <p>Total Carbs Absorbed in last 8h: {{eightHourCarbs.lookbackCarbs - cobTotal.cob | number: 0}} g</p>
+    <p>Total Carbs Eaten in last 3h: {{threeHourCarbs.lookbackCarbs | number: 0}} g</p>
+    <p>Total Insulin in last 3h: {{threeHourInsulin.lookbackInsulin | number: 1}} U</p>
+    <p>BG Predictions:</p>
+    <ul>
+        <li ng-repeat="pred in bgPredictions.predBgs">
+            {{ pred.time | date:'short'}}, {{pred.bg | number: 0}}
+        </li>
+    </ul>
+    <table class="table table-striped table-hover">
+        <thead>
+        <tr>
+            <td>Time</td>
+            <td>BG (mg/dL)</td>
+            <td>Insulin (U)</td>
+            <td>Carbs (g)</td>
+            <td>IOB (U)</td>
+            <td>Insulin Act. (mg/dL/min)</td>
+        </tr>
+        </thead>
+        <tbody>
+        <tr ng-repeat="treatment in treatments">
+            <td>{{treatment.created_at | date:'short'}}</td>
+            <td>{{glucoseDisplay(treatment)}}</td>
+            <td>{{treatment.insulin | number: 2}}</td>
+            <td>{{treatment.carbs}}</td>
+            <td>{{iob(treatment).iobContrib | number: 2}}</td>
+            <td>{{iob(treatment).activityContrib | number: 2}}</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

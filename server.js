@@ -50,8 +50,9 @@ var express = require('express');
 var entriesStorage = entries.storage(env.mongo_collection, store, pushover);
 var settings = require('./lib/settings')(env.settings_collection, store);
 var treatmentsStorage = treatments.storage(env.treatments_collection, store, pushover);
+var profile = require('./lib/profile')(env.profile_collection, store);
 var devicestatusStorage = devicestatus.storage(env.devicestatus_collection, store);
-var api = require('./lib/api/')(env, entriesStorage, settings, treatmentsStorage, devicestatusStorage);
+var api = require('./lib/api/')(env, entriesStorage, settings, treatmentsStorage, profile, devicestatusStorage);
 var pebble = require('./lib/pebble');
 ///////////////////////////////////////////////////
 
@@ -71,7 +72,7 @@ app.enable('trust proxy'); // Allows req.secure test on heroku https connections
 app.use('/api/v1', api);
 
 // pebble data
-app.get('/pebble', pebble(entriesStorage, devicestatusStorage));
+app.get('/pebble', pebble(entriesStorage, treatmentsStorage, devicestatusStorage));
 
 //app.get('/package.json', software);
 
@@ -88,15 +89,24 @@ var errorhandler = require('errorhandler');
   app.use(errorhandler());
 //}
 
+function create ( ) {
+  var transport = (env.ssl
+                ? require('https') : require('http'));
+  if (env.ssl) {
+    return transport.createServer(env.ssl, app);
+  }
+  return transport.createServer(app);
+}
+
 store(function ready ( ) {
-  var server = app.listen(PORT);
+  var server = create( ).listen(PORT);
   console.log('listening', PORT);
 
   ///////////////////////////////////////////////////
   // setup socket io for data and message transmission
   ///////////////////////////////////////////////////
   var websocket = require('./lib/websocket');
-  var io = websocket(env, server, entriesStorage, treatmentsStorage);
+  var io = websocket(env, server, entriesStorage, treatmentsStorage, profile);
 });
 
 ///////////////////////////////////////////////////
