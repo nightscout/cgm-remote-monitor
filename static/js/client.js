@@ -262,28 +262,29 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var prevfocusPoint = nowData[nowData.length - 2];
 
                 //in this case the SGV is scaled
-                if (focusPoint.y < 40)
+                if (focusPoint.y < 40) {
                     $('.container .currentBG').text('LOW');
-                else if (focusPoint.y > 400)
+                } else if (focusPoint.y > 400) {
                     $('.container .currentBG').text('HIGH');
-                else
+                } else {
                     $('.container .currentBG').text(focusPoint.sgv);
-                    var retroDelta = scaleBg(focusPoint.y) - scaleBg(prevfocusPoint.y);
-                    if (browserSettings.units == 'mmol') {
-                        retroDelta = retroDelta.toFixed(1);
-                    }
-                    if (retroDelta < 0) {
-                        var retroDeltaString = retroDelta;
-                    }
-                    else {
-                        var retroDeltaString = '+' + retroDelta;
-                    }
-                    if (browserSettings.units == 'mmol') {
-                    var retroDeltaString = retroDeltaString + ' mmol/L'
-                    }
-                    else {
-                    var retroDeltaString = retroDeltaString + ' mg/dL'
-                    }
+                }
+
+                var retroDelta = scaleBg(focusPoint.y) - scaleBg(prevfocusPoint.y);
+                if (browserSettings.units == 'mmol') {
+                    retroDelta = retroDelta.toFixed(1);
+                }
+
+                var retroDeltaString = retroDelta;
+                if (retroDelta >= 0) {
+                    retroDeltaString = '+' + retroDelta;
+                }
+
+                if (browserSettings.units == 'mmol') {
+                    retroDeltaString = retroDeltaString + ' mmol/L'
+                } else {
+                    retroDeltaString = retroDeltaString + ' mg/dL'
+                }
 
                 $('.container .currentBG').css('text-decoration','line-through');
                 $('.container .currentDelta')
@@ -526,12 +527,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             treatCircles.transition()
                   .duration(UPDATE_TRANS_MS)
                   .attr('cx', function (d) { return xScale(new Date(d.created_at)); })
-                  .attr('cy', function (d) { return yScale(scaleBg(d.glucose || calcBGByTime(d.created_at.getTime()))); });
+                  .attr('cy', function (d) { return yScale(scaledTreatmentBG(d)); });
 
             // if new circle then just display
             treatCircles.enter().append('circle')
                   .attr('cx', function (d) { return xScale(d.created_at); })
-                  .attr('cy', function (d) { return yScale(scaleBg(d.glucose || calcBGByTime(d.created_at.getTime()))); })
+                  .attr('cy', function (d) { return yScale(scaledTreatmentBG(d)); })
                   .attr('r', function () { return dotRadius('mbg'); })
                   .attr('stroke-width', 2)
                   .attr('stroke', function (d) { return d.glucose ? 'grey' : 'white'; })
@@ -1018,6 +1019,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return totalBG ? (totalBG / closeBGs.length) : 450;
     }
 
+    function scaledTreatmentBG(treatment) {
+        //TODO: store units in db per treatment, and use that for conversion, until then assume glucose doesn't need to be scaled
+        //      Care Portal treatment form does ask for the display units to be used
+        //      other option is to convert on entry, but then need to correctly identify/handel old data
+        return treatment.glucose || scaleBg(calcBGByTime(treatment.created_at.getTime()));
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //draw a compact visualization of a treatment (carbs, insulin)
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1056,9 +1064,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .data(arc_data)
             .enter()
             .append('g')
-            .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(scaleBg(treatment.glucose || calcBGByTime(treatment.created_at.getTime()))) + ')')
+            .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(scaledTreatmentBG(treatment)) + ')')
             .on('mouseover', function () {
-                tooltip.transition().duration(200).style('opacity', .9);
+                tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
                 tooltip.html('<strong>Time:</strong> ' + formatTime(treatment.created_at) + '<br/>' + '<strong>Treatment type:</strong> ' + treatment.eventType + '<br/>' +
                         (treatment.carbs ? '<strong>Carbs:</strong> ' + treatment.carbs + '<br/>' : '') +
                         (treatment.insulin ? '<strong>Insulin:</strong> ' + treatment.insulin + '<br/>' : '') +
@@ -1071,7 +1079,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             })
             .on('mouseout', function () {
                 tooltip.transition()
-                    .duration(500)
+                    .duration(TOOLTIP_TRANS_MS)
                     .style('opacity', 0);
             });
         var arcs = treatmentDots.append('path')
