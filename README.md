@@ -53,7 +53,7 @@ ready, just host your web app on your service of choice.
 |---|---|---|
 |MONGO_CONNECTION|*NONE*|Your mongo uri, for example: mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout|
 |MONGO_COLLECTION|`entries`|The collection used to store SGV, MBG, and CAL records from your CGM device|
-|MONGO_TREATMENTS_COLLECTION|`settings`|The collection used to store treatments entered in the Care Portal, see the `ENABLE` env var below|
+|MONGO_TREATMENTS_COLLECTION|`treatments`|The collection used to store treatments entered in the Care Portal, see the `ENABLE` env var below|
 |MONGO_DEVICESTATUS_COLLECTION|`devicestatus`|The collection used to store device status information such as uploader battery|
 |DISPLAY_UNITS|`mg/dl`|Supports `mg/dl` and `mmol`|
 |PORT|`1337`|The port that the node.js application will listen on|
