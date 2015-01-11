@@ -22,8 +22,10 @@ body {
         width: 100% !important;
     }
 }
+
+
 #chartContainer {
-    top: 225px; /*(toolbar height + status height)*/
+    top: 245px; /*(toolbar height + status height)*/
 }
 /* END: Dolphin/Stock Android Browser Fix */
 
@@ -67,7 +69,7 @@ body {
 .bgStatus.current .currentBG {
     text-decoration: none;
 }
-.bgStatus.current .currentDetails {
+.bgStatus.current .currentDetails, .iobCob {
     font-size: 25%;
     text-decoration: none;
     display: block;
