@@ -67,33 +67,34 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
 
 ### Environment
-#### Features/Labs
-|Env Variable|Default|Description|
-|---|---|---|
-|ENABLE|*NONE*|Used to enable optional features, currently supports: `careportal`|
-|API_SECRET|*NONE*|A secret pharse that must be at least 12 characters long, required tp enable `POST`s and `PUT`s; also required for the Care Portal |
-|BG_HIGH|`260`|must be set using mg/dl units; the high BG outside the target range that is considered urgent|
-|BG_TARGET_TOP|`180`|must be set using mg/dl units; the top of the target range, also used to draw the line on the chart|
-|BG_TARGET_BOTTOM|`80`|must be set using mg/dl units; the bottom of the target range, also used to draw the line on the chart|
-|BG_LOW|`55`|must be set using mg/dl units; the low BG outside the target range that is considered urgent|
-|ALARM_TYPES|`simple` if any `BG_`* ENV's are set, otherwise `predict`|currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's|
-|PUSHOVER_API_TOKEN|*NONE*|Used to enable pushover notifications for Care Portal treatments, this token is specific to the application you create from in [Pushover](https://pushover.net/) |
-|PUSHOVER_USER_KEY|*NONE*|Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site|
 
 #### Core
 |Env Variable|Default|Description|
 |---|---|---|
-|DISPLAY_UNITS|`mg/dl`|Choices: `mg/dl` and `mmol`.  Setting to `mmol` puts the entire server into `mmol` mode by default, no further settings needed.|
+|`DISPLAY_UNITS`|`mg/dl`|Choices: `mg/dl` and `mmol`.  Setting to `mmol` puts the entire server into `mmol` mode by default, no further settings needed.|
 |**Required**|---|---|
 |`MONGO_CONNECTION`|*NONE*|Your mongo uri, for example: `mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout`. **Required**|
 |**Optional**|---|not required most of time|
 |`MONGO_COLLECTION`|`entries`|The collection used to store SGV, MBG, and CAL records from your CGM device|
 |`MONGO_TREATMENTS_COLLECTION`|`treatments`|The collection used to store treatments entered in the Care Portal, see the `ENABLE` env var below|
-|MONGO_DEVICESTATUS_COLLECTION|`devicestatus`|The collection used to store device status information such as uploader battery|
-|PORT|`1337`|The port that the node.js application will listen on.|
-|SSL_KEY|*NONE*|Path to your ssl key file, so that ssl(https) can be enabled directly with in node.js|
-|SSL_CERT|*NONE*|Path to your ssl cert file, so that ssl(https) can be enabled directly with in node.js|
-|SSL_CA|*NONE*|Path to your ssl ca file, so that ssl(https) can be enabled directly with in node.js|
+|`MONGO_DEVICESTATUS_COLLECTION`|`devicestatus`|The collection used to store device status information such as uploader battery|
+|`PORT`|`1337`|The port that the node.js application will listen on.|
+|`SSL_KEY`|*NONE*|Path to your ssl key file, so that ssl(https) can be enabled directly with in node.js|
+|`SSL_CERT`|*NONE*|Path to your ssl cert file, so that ssl(https) can be enabled directly with in node.js|
+|`SSL_CA`|*NONE*|Path to your ssl ca file, so that ssl(https) can be enabled directly with in node.js|
+
+#### Features/Labs
+|Env Variable|Default|Description|
+|---|---|---|
+|`ENABLE`|*NONE*|Used to enable optional features, currently supports: `careportal`|
+|`API_SECRET`|*NONE*|A secret pharse that must be at least 12 characters long, required tp enable `POST`s and `PUT`s; also required for the Care Portal |
+|`BG_HIGH`|`260`|must be set using mg/dl units; the high BG outside the target range that is considered urgent|
+|`BG_TARGET_TOP`|`180`|must be set using mg/dl units; the top of the target range, also used to draw the line on the chart|
+|`BG_TARGET_BOTTOM`|`80`|must be set using mg/dl units; the bottom of the target range, also used to draw the line on the chart|
+|`BG_LOW`|`55`|must be set using mg/dl units; the low BG outside the target range that is considered urgent|
+|`ALARM_TYPES`|`simple` if any `BG_`* ENV's are set, otherwise `predict`|currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's|
+|`PUSHOVER_API_TOKEN`|*NONE*|Used to enable pushover notifications for Care Portal treatments, this token is specific to the application you create from in [Pushover](https://pushover.net/) |
+|`PUSHOVER_USER_KEY`|*NONE*|Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site|
 
 ## Setting environment variables
 Easy to emulate on the commandline:
