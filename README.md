@@ -46,17 +46,30 @@ ready, just host your web app on your service of choice.
 
 [mongodb]: https://mongolab.com
 [json]: https://github.com/rnpenguin/cgm-remote-monitor/blob/master/database_configuration.json
+[autoconfigure]: http://nightscout.github.io/pages/configure/
+[mongostring]: http://nightscout.github.io/pages/mongostring/
+[update-fork]: http://nightscout.github.io/pages/update-fork/
+
+### Updating my version?
+The easiest way to update your version of cgm-remote-monitor to our latest
+recommended version is to use the [update my fork tool][update-fork].  It even
+gives out stars if you are up to date.
+
+### What is my mongo string?
+
+Try the [what is my mongo string tool][mongostring] to get a good idea of your
+mongo string.  You can copy and paste the text in the gray box into your
+`MONGO_CONNECTION` environment variable.
+
+### Configure my uploader to match
+
+Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
+
 
 ### Environment
-
+#### Features/Labs
 |Env Variable|Default|Description|
 |---|---|---|
-|MONGO_CONNECTION|*NONE*|Your mongo uri, for example: mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout|
-|MONGO_COLLECTION|`entries`|The collection used to store SGV, MBG, and CAL records from your CGM device|
-|MONGO_TREATMENTS_COLLECTION|`treatments`|The collection used to store treatments entered in the Care Portal, see the `ENABLE` env var below|
-|MONGO_DEVICESTATUS_COLLECTION|`devicestatus`|The collection used to store device status information such as uploader battery|
-|DISPLAY_UNITS|`mg/dl`|Supports `mg/dl` and `mmol`|
-|PORT|`1337`|The port that the node.js application will listen on|
 |ENABLE|*NONE*|Used to enable optional features, currently supports: `careportal`|
 |API_SECRET|*NONE*|A secret pharse that must be at least 12 characters long, required tp enable `POST`s and `PUT`s; also required for the Care Portal |
 |BG_HIGH|`260`|must be set using mg/dl units; the high BG outside the target range that is considered urgent|
@@ -66,10 +79,23 @@ ready, just host your web app on your service of choice.
 |ALARM_TYPES|`simple` if any `BG_`* ENV's are set, otherwise `predict`|currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's|
 |PUSHOVER_API_TOKEN|*NONE*|Used to enable pushover notifications for Care Portal treatments, this token is specific to the application you create from in [Pushover](https://pushover.net/) |
 |PUSHOVER_USER_KEY|*NONE*|Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site|
+
+#### Core
+|Env Variable|Default|Description|
+|---|---|---|
+|DISPLAY_UNITS|`mg/dl`|Choices: `mg/dl` and `mmol`.  Setting to `mmol` puts the entire server into `mmol` mode by default, no further settings needed.|
+|**Required**|---|---|
+|`MONGO_CONNECTION`|*NONE*|Your mongo uri, for example: `mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout`. **Required**|
+|**Optional**|---|not required most of time|
+|`MONGO_COLLECTION`|`entries`|The collection used to store SGV, MBG, and CAL records from your CGM device|
+|`MONGO_TREATMENTS_COLLECTION`|`treatments`|The collection used to store treatments entered in the Care Portal, see the `ENABLE` env var below|
+|MONGO_DEVICESTATUS_COLLECTION|`devicestatus`|The collection used to store device status information such as uploader battery|
+|PORT|`1337`|The port that the node.js application will listen on.|
 |SSL_KEY|*NONE*|Path to your ssl key file, so that ssl(https) can be enabled directly with in node.js|
 |SSL_CERT|*NONE*|Path to your ssl cert file, so that ssl(https) can be enabled directly with in node.js|
 |SSL_CA|*NONE*|Path to your ssl ca file, so that ssl(https) can be enabled directly with in node.js|
 
+## Setting environment variables
 Easy to emulate on the commandline:
 
 ```bash
