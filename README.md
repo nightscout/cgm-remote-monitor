@@ -77,10 +77,10 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 #### Features/Labs
 
   * `ENABLE` - Used to enable optional features, currently supports: `careportal`
-  * `API_SECRET` - A secret pharse that must be at least 12 characters long, required to enable `POST` and `PUT`; also required for the Care Portal
+  * `API_SECRET` - A secret passphrase that must be at least 12 characters long, required to enable `POST` and `PUT`; also required for the Care Portal
   * `BG_HIGH` (`260`) - must be set using mg/dl units; the high BG outside the target range that is considered urgent
   * `BG_TARGET_TOP` (`180`) - must be set using mg/dl units; the top of the target range, also used to draw the line on the chart
-  *`BG_TARGET_BOTTOM` (`80`) - must be set using mg/dl units; the bottom of the target range, also used to draw the line on the chart
+  * `BG_TARGET_BOTTOM` (`80`) - must be set using mg/dl units; the bottom of the target range, also used to draw the line on the chart
   * `BG_LOW` (`55`) - must be set using mg/dl units; the low BG outside the target range that is considered urgent
   * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's
   * `PUSHOVER_API_TOKEN` - Used to enable pushover notifications for Care Portal treatments, this token is specific to the application you create from in [Pushover](https://pushover.net/)
