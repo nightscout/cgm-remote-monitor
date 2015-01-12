@@ -945,7 +945,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         bgButton.hide();
         var noButton = $('#noButton');
         noButton.show();
-        d3.select('audio.playing').each(function (d, i) {
+        d3.selectAll('audio.playing').each(function (d, i) {
             var audio = this;
             audio.pause();
             $(this).removeClass('playing');
