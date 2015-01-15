@@ -7,6 +7,7 @@ cgm-remote-monitor (a.k.a. Nightscout)
 [![Stories in  Ready](https://badge.waffle.io/nightscout/cgm-remote-monitor.png?label=ready&title=Ready)](https://waffle.io/nightscout/cgm-remote-monitor)
 [![Stories in Progress](https://badge.waffle.io/nightscout/cgm-remote-monitor.png?label=in+progress&title=In+Progress)](https://waffle.io/nightscout/cgm-remote-monitor)
 
+[![Deploy to Azure](http://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/)
 [![Deploy to Heroku](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
 
 This acts as a web-based CGM (Continuous Glucose Monitor) to allow
