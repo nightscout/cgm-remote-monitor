@@ -1,4 +1,4 @@
-cgm-remote-monitor (a.k.a. Nightscout)
+cgm-remote-monitor (a.k.a. Nightscout) 
 ======================================
 
 [![Build Status](https://travis-ci.org/nightscout/cgm-remote-monitor.png)](https://travis-ci.org/nightscout/cgm-remote-monitor)
