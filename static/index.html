@@ -4,18 +4,17 @@
         <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
         <meta name="apple-mobile-web-app-capable" content="yes">
         <link rel="apple-touch-icon" href="/images/logomobile.png">
-        <title>NightScout</title>
+        <title>Nightscout</title>
         <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
-        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.5.1" />
+        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.6.0" />
         <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.5.1" />
+        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.6.0" />
         <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
     </head>
     <body>
         <div id="toolbar">
             <div id="buttonbar">
                 <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
-                <a id="hideToolbar" class="tip" original-title="Hides the toolbar" href="#"><i class="icon-angle-double-up"></i></a>
                 <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-cog"></i></a>
                 <a id="treatmentDrawerToggle" class="tip" original-title="Treatments" href="#"><i class="icon-plus"></i></a>
             </div>
@@ -24,9 +23,6 @@
         <div id="notification">
             <a href="#"><span></span><i class="icon-cancel-circled"></i></a>
         </div>
-        <div id="showToolbar">
-            <a class="tip" original-title="Open the toolbar" href="#"><i class="icon-angle-double-down"></i></a>
-        </div>
 
         <div class="container" id="container">
             <div class="status">
@@ -34,10 +30,13 @@
                     <div id="noButton">
                         <span class="currentBG">---</span>
                         <span class="currentDirection">-</span>
+                        <span class="currentDelta">--</span>
+                        
                     </div>
                     <div id="bgButton" hidden="true">
                         <span class="currentBG">---</span>
                         <span class="currentDirection">-</span>
+                        <span class="currentDelta">--</span>
                     </div>
                     <ul class="dropdown-menu" id="silenceBtn">
                         <li><a href="#" data-snooze-time="1800000">Silence for 30 minutes</a></li>
@@ -67,18 +66,20 @@
                     <legend>Settings</legend>
                     <dl class="radio">
                         <dt>Units</dt>
-                        <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label><br />
-                        <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label>
+                        <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label></dd>
+                        <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label></dd>
                     </dl>
-					<dl class="radio">
+                    <dl class="radio">
                         <dt>Date format</dt>
-                        <dd><input type="radio" name="timeformat-browser" id="12-browser" value="12" checked /><label for="12-browser">12 hours</label><br />
-                        <dd><input type="radio" name="timeformat-browser" id="24-browser" value="24" /><label for="24-browser">24 hours</label>
+                        <dd><input type="radio" name="timeformat-browser" id="12-browser" value="12" checked /><label for="12-browser">12 hours</label></dd>
+                        <dd><input type="radio" name="timeformat-browser" id="24-browser" value="24" /><label for="24-browser">24 hours</label></dd>
                     </dl>
                     <dl class="toggle">
                         <dt>Enable Alarms <a class="tip" original-title="When enabled the an alarm will sound."><i class="icon-help-circled"></i></a></dt>
-                        <dd><input type="checkbox" name="alarmhigh-browser" id="alarmhigh-browser" /><label for="alarmhigh-browser">High Alarm</label></dd>
-                        <dd><input type="checkbox" name="alarmlow-browser" id="alarmlow-browser" /><label for="alarmlow-browser">Low Alarm</label></dd>
+                        <dd><input type="checkbox" id="alarm-urgenthigh-browser" /><label for="alarm-urgenthigh-browser">Urgent High Alarm</label></dd>
+                        <dd><input type="checkbox" id="alarm-high-browser" /><label for="alarm-high-browser">High Alarm</label></dd>
+                        <dd><input type="checkbox" id="alarm-low-browser" /><label for="alarm-low-browser">Low Alarm</label></dd>
+                        <dd><input type="checkbox" id="alarm-urgentlow-browser" /><label for="alarm-urgentlow-browser">Urgent Low Alarm</label></dd>
                     </dl>
                     <dl class="toggle">
                         <dt>Night Mode <a class="tip" original-title="When enabled the page will be dimmed from 10pm - 6am."><i class="icon-help-circled"></i></a></dt>
@@ -90,8 +91,8 @@
                     </dl>
                     <dl class="radio">
                         <dt>Theme</dt>
-                        <dd><input type="radio" name="theme-browser" id="theme-default-browser" value="default" checked /><label for="theme-default-browser">Default</label><br />
-                        <dd><input type="radio" name="theme-browser" id="theme-colors-browser" value="colors" /><label for="theme-colors-browser">Colors</label>
+                        <dd><input type="radio" name="theme-browser" id="theme-default-browser" value="default" checked /><label for="theme-default-browser">Default</label></dd>
+                        <dd><input type="radio" name="theme-browser" id="theme-colors-browser" value="colors" /><label for="theme-colors-browser">Colors</label></dd>
                     </dl>
                 </fieldset>
 
@@ -111,13 +112,17 @@
                     <div class="appName"></div>
                     <div>version <span class="version"></span></div>
                     <div>head <span class="head"></span></div>
+                    <p>
+                      <div>License: <a href="http://www.gnu.org/licenses/agpl.html" target="_blank">AGPL</a></div>
+                      <div>Copyright © 2015 <a href="http://www.nightscoutfoundation.org/" target="_blank">The Nightscout Foundation</a></div>
+                    </p>
                     <div class="links">
-                        <a href="https://github.com/nightscout/cgm-remote-monitor/releases">Release Notes</a><br />
-                        <a href="http://github.com/nightscout/cgm-remote-monitor">Open Source</a><br />
-                        <a href="http://www.nightscout.info">Community</a><br />
+                        <a href="https://github.com/nightscout/cgm-remote-monitor/releases" target="_blank">Release Notes</a><br />
+                        <a href="http://github.com/nightscout/cgm-remote-monitor" target="_blank">Open Source</a><br />
+                        <a href="http://www.nightscout.info" target="_blank">Nightscout Info</a><br />
+                        <a href="http://www.nightscoutfoundation.org/donations/" target="_blank">Help Support Nightscout</a><br />
+                        <a href="https://www.facebook.com/groups/cgminthecloud/" target="_blank">CGM in the Cloud</a><br />
                     </div>
-                    <div>License: <a href="http://www.gnu.org/licenses/agpl.html">AGPL</a></div>
-                    <div>Copyright © 2014 Nightscout contributors</div>
                 </fieldset>
             </form>
         </div>
@@ -126,10 +131,6 @@
             <form id="treatment-form" onsubmit="return treatmentSubmit();">
                 <fieldset class="treatmentData">
                     <legend>Log a Treatment</legend>
-                    <label for="enteredBy" class="left-column">
-                        <span>Entered By:</span>
-                        <input type="text" id="enteredBy" value="" />
-                    </label>
                     <label for="eventType" class="left-column">
                         <span>Event Type:</span>
                         <select id="eventType">
@@ -138,7 +139,8 @@
                             <option value="Meal Bolus">Meal Bolus</option>
                             <option value="Correction Bolus">Correction Bolus</option>
                             <option value="Carb Correction">Carb Correction</option>
-                            <option value="Question">Note or Question</option>
+                            <option value="Note">Note</option>
+                            <option value="Question">Question</option>
                             <option value="Exercise">Exercise</option>
                             <option value="Site Change">Pump Site Change</option>
                             <option value="Sensor Start">Dexcom Sensor Start</option>
@@ -167,10 +169,41 @@
                         <span>Insulin Given:</span>
                         <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units"/>
                     </label>
+                    <label for="preBolus" class="left-column short-label extra-space">
+                        <span>Eating in:</span>
+                        <select id="preBolus">
+                            <option value="0">Time in minutes</option>
+                            <option value="15">15 minutes</option>
+                            <option value="20">20 minutes</option>
+                            <option value="30">30 minutes</option>
+                            <option value="45">45 minutes</option>
+                            <option value="60">60 minutes</option>
+                        </select>
+                    </label>
+
                     <!-- Label and textarea -->
-                    <label for="notes"><br>Additional Notes, Comments:<br></label>
+                    <label for="notes" class="extra-space">Additional Notes, Comments:</label>
                     <textarea id="notes"></textarea><br>
-                    <button type="submit">Submit Form</button>
+
+                    <label for="enteredBy" class="left-column extra-space">
+                      <span>Entered By:</span>
+                      <input type="text" id="enteredBy" value="" />
+                    </label>
+
+                    <div id="eventTime">
+                      <span>Event Time:</span>
+                      <label for="nowtime">
+                        <input type="radio" name="nowOrOther" id="nowtime" value="now" checked="checked"/>
+                        <span>Now</span>
+                      </label>
+                      <label for="othertime">
+                        <input type="radio" name="nowOrOther" id="othertime" value="other"/>
+                        <span>Other</span>
+                      </label>
+                      <input type="time" id="eventTimeValue" name="eventTimeValue" value=""/>
+                    </div>
+
+                  <button type="submit">Submit Form</button>
                 </fieldset>
                 <a href="/treatments.html" target="treatments">View all treatments</a>
             </form>
@@ -186,8 +219,8 @@
         <script src="/bower_components/jquery/dist/jquery.min.js"></script>
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
-        <script src="/js/ui-utils.js?v=0.5.1"></script>
-        <script src="/js/client.js?v=0.5.1"></script>
+        <script src="/js/ui-utils.js?v=0.6.0"></script>
+        <script src="/js/client.js?v=0.6.0"></script>
         <script src="/js/experiments.js"></script>
     </body>
 </html>
