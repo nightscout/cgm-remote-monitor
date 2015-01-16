@@ -1,109 +1,109 @@
+"use strict";
+
 var drawerIsOpen = false;
-var browserStorage = $.localStorage;
+var treatmentDrawerIsOpen = false;
 var defaultSettings = {
 	"units": "mg/dl",
-	"nightMode": false
-}
-
-var app = {};
-$.ajax("/api/v1/status.json", {
-	success: function (xhr) {
-		app = {
-			"name": xhr.name,
-			"version": xhr.version,
-			"apiEnabled": xhr.apiEnabled
-		}
-	}
-}).done(function() {
-	$(".appName").text(app.name);
-	$(".version").text(app.version);
-	if (app.apiEnabled) {
-		$(".serverSettings").show();
-	}
-});
-
+	"alarmUrgentHigh": true,
+	"alarmHigh": true,
+	"alarmLow": true,
+	"alarmUrgentLow": true,
+	"nightMode": false,
+	"theme": "default",
+	"timeFormat": "12"
+};
 
 function getBrowserSettings(storage) {
-	var json = {
-		"units": storage.get("units"),
-		"nightMode": storage.get("nightMode"),
-		"customTitle": storage.get("customTitle")
-	};
+	var json = {};
 
-	// Default browser units to server units if undefined.
-	json.units = setDefault(json.units, serverSettings.units);
-	//console.log("browserSettings.units: " + json.units);
-	if (json.units == "mmol") {
-		$("#mmol-browser").prop("checked", true);
-	} else {
-		$("#mgdl-browser").prop("checked", true);
+    function scaleBg(bg) {
+        if (json.units == "mmol") {
+            return (Math.round((bg / 18) * 10) / 10).toFixed(1);
+        } else {
+            return bg;
+        }
+    }
+
+    try {
+		var json = {
+			"units": storage.get("units"),
+			"alarmUrgentHigh": storage.get("alarmUrgentHigh"),
+			"alarmHigh": storage.get("alarmHigh"),
+			"alarmLow": storage.get("alarmLow"),
+			"alarmUrgentLow": storage.get("alarmUrgentLow"),
+			"nightMode": storage.get("nightMode"),
+			"customTitle": storage.get("customTitle"),
+			"theme": storage.get("theme"),
+			"timeFormat": storage.get("timeFormat")
+		};
+
+		// Default browser units to server units if undefined.
+		json.units = setDefault(json.units, app.units);
+		if (json.units == "mmol") {
+			$("#mmol-browser").prop("checked", true);
+		} else {
+			$("#mgdl-browser").prop("checked", true);
+		}
+
+        json.alarmUrgentHigh = setDefault(json.alarmUrgentHigh, defaultSettings.alarmUrgentHigh);
+		json.alarmHigh = setDefault(json.alarmHigh, defaultSettings.alarmHigh);
+		json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
+		json.alarmUrgentLow = setDefault(json.alarmUrgentLow, defaultSettings.alarmUrgentLow);
+		$("#alarm-urgenthigh-browser").prop("checked", json.alarmUrgentHigh).next().text('Urgent High Alarm (' + scaleBg(app.thresholds.bg_high) + ')');
+		$("#alarm-high-browser").prop("checked", json.alarmHigh).next().text('High Alarm (' + scaleBg(app.thresholds.bg_target_top) + ')');
+		$("#alarm-low-browser").prop("checked", json.alarmLow).next().text('Low Alarm (' + scaleBg(app.thresholds.bg_target_bottom) + ')');
+		$("#alarm-urgentlow-browser").prop("checked", json.alarmUrgentLow).next().text('Urgent Low Alarm (' + scaleBg(app.thresholds.bg_low) + ')');
+
+		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
+		$("#nightmode-browser").prop("checked", json.nightMode);
+
+		if (json.customTitle) {
+			$("h1.customTitle").text(json.customTitle);
+			$("input#customTitle").prop("value", json.customTitle);
+			document.title = "Nightscout: " + json.customTitle;
+		}
+
+        if (json.theme == "colors") {
+            $("#theme-colors-browser").prop("checked", true);
+        } else {
+            $("#theme-default-browser").prop("checked", true);
+        }
+		
+		json.timeFormat = setDefault(json.timeFormat, defaultSettings.timeFormat);
+		
+		if (json.timeFormat == "24") {
+			$("#24-browser").prop("checked", true);
+		} else {
+			$("#12-browser").prop("checked", true);
+		}
 	}
-
-	json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
-	$("#nightmode-browser").prop("checked", json.nightMode);
-
-	if (json.customTitle) {
-		$("h1.customTitle").html(json.customTitle);
-		$("input#customTitle").prop("value", json.customTitle);
-		document.title = "Nightscout: " + json.customTitle;
+	catch(err) {
+        console.error(err);
+		showLocalstorageError();
 	}
 
 	return json;
 }
-function getServerSettings() {
-	var json = {
-		"units": Object()
-	};
 
-	json.units = setDefault(json.units, defaultSettings.units);
-	//console.log("serverSettings.units: " + json.units);
-	if (json.units == "mmol") {
-		$("#mmol-server").prop("checked", true);
-	} else {
-		$("#mgdl-server").prop("checked", true);
-	}
-
-	return json;
-}
 function setDefault(variable, defaultValue) {
 	if (typeof(variable) === "object") {
 		return defaultValue;
 	}
 	return variable;
 }
-function jsonIsNotEmpty(json) {
-	var jsonAsString = JSON.stringify(json);
-	jsonAsString.replace(/\s/g, "");
-	return (jsonAsString != "{}")
-}
-function storeInBrowser(json, storage) {
-	if (json.units) storage.set("units", json.units);
-	if (json.nightMode == true) {
-		storage.set("nightMode", true)
-	} else {
-		storage.set("nightMode", false)
-	}
-	if (json.customTitle) storage.set("customTitle", json.customTitle);
-	event.preventDefault();
-}
-function storeOnServer(json) {
-	if (jsonIsNotEmpty(json)) {
-		alert("TO DO: add storeOnServer() logic.");
-		// reference: http://code.tutsplus.com/tutorials/submit-a-form-without-page-refresh-using-jquery--net-59
-		//var dataString = "name="+ name + "&email=" + email + "&phone=" + phone;
-		//alert (dataString);return false;
-		/* $.ajax({
-		  type: "POST",
-		  url: "/api/v1/settings",
-		  data: json
-		});
-		*/
-	}
-}
 
+function storeInBrowser(data) {
+
+    for (var k in data) {
+        if (data.hasOwnProperty(k)) {
+            browserStorage.set(k, data[k]);
+        }
+    }
+
+}
 
 function getQueryParms() {
-	params = {};
+	var params = {};
 	if (location.search) {
 		location.search.substr(1).split("&").forEach(function(item) {
 			params[item.split("=")[0]] = item.split("=")[1].replace(/[_\+]/g, " ");
@@ -121,19 +121,65 @@ function isTouch() {
 function closeDrawer(callback) {
 	$("#container").animate({marginLeft: "0px"}, 300, callback);
 	$("#chartContainer").animate({marginLeft: "0px"}, 300);
-	$("#drawer").animate({right: "-200px"}, 300, function() {
+	$("#drawer").animate({right: "-300px"}, 300, function() {
 		$("#drawer").css("display", "none");
 	});
 	drawerIsOpen = false;
 }
+
 function openDrawer()  {
 	drawerIsOpen = true;
-	$("#container").animate({marginLeft: "-200px"}, 300);
-	$("#chartContainer").animate({marginLeft: "-200px"}, 300);
-	$("#drawer").css("display", "block");
-	$("#drawer").animate({right: "0"}, 300);
+	$("#container").animate({marginLeft: "-300px"}, 300);
+	$("#chartContainer").animate({marginLeft: "-300px"}, 300);
+	$("#drawer").css("display", "block").animate({right: "0"}, 300);
 }
 
+function closeTreatmentDrawer(callback) {
+	$("#container").animate({marginLeft: "0px"}, 400, callback);
+	$("#chartContainer").animate({marginLeft: "0px"}, 400);
+	$("#treatmentDrawer").animate({right: "-300px"}, 400, function() {
+		$("#treatmentDrawer").css("display", "none");
+	});
+	treatmentDrawerIsOpen = false;
+}
+function openTreatmentDrawer()  {
+	treatmentDrawerIsOpen = true;
+	$("#container").animate({marginLeft: "-300px"}, 400);
+	$("#chartContainer").animate({marginLeft: "-300px"}, 400);
+	$("#treatmentDrawer").css("display", "block").animate({right: "0"}, 400);
+
+	$('#eventType').val('BG Check').focus();
+	$('#glucoseValue').val('').attr('placeholder', 'Value in ' + browserSettings.units);
+	$('#meter').prop('checked', true);
+	$('#carbsGiven').val('');
+	$('#insulinGiven').val('');
+	$('#preBolus').val(0);
+	$('#notes').val('');
+	$('#enteredBy').val(browserStorage.get("enteredBy") || '');
+	$("#nowtime").prop('checked', true);
+	$('#eventTimeValue').val(currentTime());
+}
+
+function currentTime() {
+  var now = new Date();
+  var hours = now.getHours();
+  var minutes = now.getMinutes();
+
+  if (hours<10) hours = "0" + hours;
+  if (minutes<10) minutes = "0" + minutes;
+
+  return ""+ hours + ":" + minutes;
+}
+
+function formatTime(date) {
+  var hours = date.getHours();
+  var minutes = date.getMinutes();
+  var ampm = hours >= 12 ? 'pm' : 'am';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  minutes = minutes < 10 ? '0' + minutes : minutes;
+  return hours + ':' + minutes + ' ' + ampm;
+}
 
 function closeNotification() {
 	var notify = $("#notification");
@@ -150,47 +196,73 @@ function showNotification(note, type)  {
 	notify.addClass(type ? type : "urgent");
 
 	notify.find("span").html(note);
-	notify.css("left", "calc(50% - " + ($("#notification").width() / 2) + "px)");
+	notify.css("left", "calc(50% - " + (notify.width() / 2) + "px)");
 	notify.show();
 }
 
-
-function closeToolbar() {
-	stretchStatusForToolbar("close");
-
-	$("#showToolbar").css({top: "44px"});
-	$("#showToolbar").fadeIn(50, function() {
-		$("#showToolbar").animate({top: 0}, 200);
-		$("#toolbar").animate({marginTop: "-44px"}, 200);
-	});
+function showLocalstorageError() {
+	var msg = "<b>Settings are disabled.</b><br /><br />Please enable cookies so you may customize your Nightscout site."
+	$(".browserSettings").html("<legend>Settings</legend>"+msg+"");
+	$("#save").hide();
 }
-function openToolbar() {
-	$("#showToolbar").css({top: 0});
-	$("#showToolbar").animate({top: "44px"}, 200).fadeOut(200);
-	$("#toolbar").animate({marginTop: "0px"}, 200);
 
-	stretchStatusForToolbar("open");
-}
-function stretchStatusForToolbar(toolbarState){
-	// closed = up
-	if (toolbarState == "close") {
-		$(".status").css({
-			"font-size": "+125%"
-		});
-	}
 
-	// open = down
-	if (toolbarState == "open") {
-		$(".status").css({
-			"font-size": "-125%"
-		});
-	}
+function treatmentSubmit(event) {
+
+    var data = {};
+    data.enteredBy = document.getElementById("enteredBy").value;
+    data.eventType = document.getElementById("eventType").value;
+    data.glucose = document.getElementById("glucoseValue").value;
+    data.glucoseType = $('#treatment-form input[name=glucoseType]:checked').val();
+    data.carbs = document.getElementById("carbsGiven").value;
+    data.insulin = document.getElementById("insulinGiven").value;
+    data.preBolus = document.getElementById("preBolus").value;
+    data.notes = document.getElementById("notes").value;
+
+    var eventTimeDisplay = '';
+    if ($('#treatment-form input[name=nowOrOther]:checked').val() != "now") {
+        var value = document.getElementById("eventTimeValue").value;
+        var eventTimeParts = value.split(':');
+        data.eventTime = new Date();
+        data.eventTime.setHours(eventTimeParts[0]);
+        data.eventTime.setMinutes(eventTimeParts[1]);
+        data.eventTime.setSeconds(0);
+        data.eventTime.setMilliseconds(0);
+        eventTimeDisplay = formatTime(data.eventTime);
+    }
+
+    var dataJson = JSON.stringify(data, null, " ");
+
+    var ok = window.confirm(
+            'Please verify that the data entered is correct: ' +
+            '\nEvent type: ' + data.eventType +
+            '\nBlood glucose: ' + data.glucose +
+            '\nMethod: ' + data.glucoseType +
+            '\nCarbs Given: ' + data.carbs +
+            '\nInsulin Given: ' + data.insulin +
+            '\nPre Bolus: ' + data.preBolus +
+            '\nNotes: ' + data.notes +
+            '\nEntered By: ' + data.enteredBy +
+            '\nEvent Time: ' + eventTimeDisplay);
+
+    if (ok) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/v1/treatments/", true);
+        xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+        xhr.send(dataJson);
+
+        browserStorage.set("enteredBy", data.enteredBy);
+
+        closeTreatmentDrawer();
+    }
+
+    if (event) {
+        event.preventDefault();
+    }
 }
 
 
 var querystring = getQueryParms();
-// var serverSettings = getServerSettings();
-var browserSettings = getBrowserSettings(browserStorage);
 
 function Dropdown(el) {
 	this.ddmenuitem = 0;
@@ -214,6 +286,12 @@ Dropdown.prototype.open = function (e) {
 
 
 $("#drawerToggle").click(function(event) {
+    //close other drawers
+    if(treatmentDrawerIsOpen) {
+		closeTreatmentDrawer();
+		treatmentDrawerIsOpen = false;
+	} 
+
 	if(drawerIsOpen) {
 		closeDrawer();
 		drawerIsOpen = false;
@@ -224,35 +302,51 @@ $("#drawerToggle").click(function(event) {
 	event.preventDefault();
 });
 
+$("#treatmentDrawerToggle").click(function(event) {
+    //close other drawers
+    if(drawerIsOpen) {
+		closeDrawer();
+		drawerIsOpen = false;
+	}
+
+	if(treatmentDrawerIsOpen) {
+		closeTreatmentDrawer();
+		treatmentDrawerIsOpen = false;
+	}  else {
+		openTreatmentDrawer();
+		treatmentDrawerIsOpen = true;
+	}
+	event.preventDefault();
+});
+
+$("#treatmentDrawer").find("button").click(treatmentSubmit);
+
+$("#eventTime input:radio").change(function (){
+  if ($("#othertime").attr("checked")) {
+    $("#eventTimeValue").focus();
+  }
+});
+
+$("#eventTimeValue").focus(function () {
+  $("#othertime").attr("checked", "checked");
+});
+
 $("#notification").click(function(event) {
 	closeNotification();
 	event.preventDefault();
 });
 
-$("#hideToolbar").click(function(event) {
-	if (drawerIsOpen) {
-		closeDrawer(function() {
-			closeToolbar();
-		});
-	} else {
-		closeToolbar();
-	}
-	event.preventDefault();
-});
-$("#showToolbar").find("a").click(function(event) {
-	openToolbar();
-	event.preventDefault();
-});
-
-$("input#save").click(function() {
+$("input#save").click(function(event) {
 	storeInBrowser({
 		"units": $("input:radio[name=units-browser]:checked").val(),
+		"alarmUrgentHigh": $("#alarm-urgenthigh-browser").prop("checked"),
+		"alarmHigh": $("#alarm-high-browser").prop("checked"),
+		"alarmLow": $("#alarm-low-browser").prop("checked"),
+		"alarmUrgentLow": $("#alarm-urgentlow-browser").prop("checked"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
-		"customTitle": $("input#customTitle").prop("value")
-	}, browserStorage);
-
-	storeOnServer({
-		//"units": $("input:radio[name=units-server]:checked").val()
+		"customTitle": $("input#customTitle").prop("value"),
+		"theme": $("input:radio[name=theme-browser]:checked").val(),
+		"timeFormat": $("input:radio[name=timeformat-browser]:checked").val()
 	});
 
 	event.preventDefault();
@@ -286,10 +380,5 @@ $(function() {
 
 	if (querystring.drawer) {
 		openDrawer();
-	} else {
-		// drawer=true cancels out toolbar=false
-		if (querystring.toolbar == "false") {
-			closeToolbar();
-		}
 	}
 });
