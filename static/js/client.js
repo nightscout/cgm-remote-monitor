@@ -194,6 +194,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
 
     function inRetroMode() {
+        if (!brush) return false;
+        
         var brushExtent = brush.extent();
         var elementHidden = document.getElementById('bgButton').hidden == '';
         return brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && elementHidden != true;
@@ -325,6 +327,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             focusData = focusData.concat(prediction);
             var dateTime = new Date(now);
             nowDate = dateTime;
+
+            updateClockDisplay();
 
             if (errorCode) {
                 var errorDisplay;
@@ -1176,12 +1180,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
 
     function updateClock() {
-        now = Date.now();
-        var dateTime = new Date(now);
-        $('#currentTime').text(formatTime(dateTime)).css('text-decoration', '');
-
+        updateClockDisplay();
         var interval = (60 - (new Date()).getSeconds()) * 1000 + 5;
-        setTimeout(init,interval);
+        setTimeout(updateClock,interval);
 
         updateTimeAgo();
 
@@ -1195,8 +1196,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
     }
 
+    function updateClockDisplay() {
+        if (inRetroMode()) return;
+        now = Date.now();
+        var dateTime = new Date(now);
+        $('#currentTime').text(formatTime(dateTime)).css('text-decoration', '');
+    }
+
     function updateTimeAgo() {
-        if (!latestSGV) return;
+        if (!latestSGV || inRetroMode()) return;
 
         var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
         $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
@@ -1206,7 +1214,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         jqWindow = $(window);
 
-        tooltip = d3.select('body div.tooltip').style('opacity', 0);
+        tooltip = d3.select('body').append('div')
+            .attr('class', 'tooltip')
+            .style('opacity', 0);
 
         // Tick Values
         if (browserSettings.units == 'mmol') {
