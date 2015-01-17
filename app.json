@@ -1,0 +1,34 @@
+{
+  "name": "CGM Remote Monitor",
+  "repository": "https://github.com/nightscout/cgm-remote-monitor",
+  "env": {
+    "MONGO_COLLECTION": {
+      "description": "The mongo collection for CGM data.  Most users should leave this as default.",
+      "value": "entries",
+      "required": true
+    },
+    "API_SECRET": {
+      "description": "User generated password required for REST API and other features (12 character minimum).",
+      "value": "",
+      "required": true
+    },
+    "ENABLE": {
+      "description": "Space delimited list of optional features to enable.  Leave blank for a default site.",
+      "value": "",
+      "required": false
+    },
+    "PUSHOVER_API_TOKEN": {
+      "description": "Pushover API token, required for Pushover notifications.  Leave blank for a default site.",
+      "value": "",
+      "required": false
+    },
+    "PUSHOVER_USER_KEY": {
+      "description": "Pushover user key, required for Pushover notifications.  Leave blank for a default site.",
+      "value": "",
+      "required": false
+    }
+  },
+  "addons": [
+    "mongolab:sandbox"
+  ]
+}
