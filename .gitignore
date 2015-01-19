@@ -12,4 +12,3 @@ static/bower_components/
 
 .vagrant
 /iisnode
-/web.config
