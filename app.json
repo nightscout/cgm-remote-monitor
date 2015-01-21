@@ -12,6 +12,31 @@
       "value": "",
       "required": true
     },
+    "ALARM_TYPES": {
+      "description": "Controls Nightscout alarm behavior.  Default is 'predict'.  For odjustable alarm thresholds (set below), set to 'simple'.",
+      "value": "predict",
+      "required": true
+    },
+    "BG_HIGH": {
+      "description": "Optional Urgent High alarm BG value.  Default is 260.  Only used with simple alarms.",
+      "value": "260",
+      "requred": false
+    },
+    "BG_TARGET_TOP": {
+      "description": "Optional Non-urgent high alarm BG value.  This is the top of your target range.  Default is 180.  Only used with simple alarms.",
+      "value": "180",
+      "required": false
+    },
+    "BG_TARGET_BOTTOM": {
+      "description": "Optional Non urgent low alarm BG value.  This is the bottom of your target range.  Default is 80.  Only used with simple alarms.",
+      "value": "80",
+      "required": false
+    },
+    "BG_LOW": {
+      "description": "Optional Urgent Low alarm BG value.  Default is 55.  Only used with simple alarms.",
+      "value": "55",
+      "required": false
+    },
     "ENABLE": {
       "description": "Space delimited list of optional features to enable.  Leave blank for a default site.",
       "value": "",
