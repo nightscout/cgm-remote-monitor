@@ -1413,6 +1413,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 , head: xhr.head
                 , apiEnabled: xhr.apiEnabled
                 , thresholds: xhr.thresholds
+                , alarm_types: xhr.alarm_types
                 , units: xhr.units
                 , careportalEnabled: xhr.careportalEnabled
             };
