@@ -26,6 +26,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var socket
         , isInitialData = false
         , latestSGV
+        , latestUpdateTime
         , prevSGV
         , errorCode
         , treatments
@@ -192,6 +193,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .style('opacity', function (d) { return highlightBrushPoints(d) });
     }
 
+    function inRetroMode() {
+        if (!brush) return false;
+        
+        var brushExtent = brush.extent();
+        var elementHidden = document.getElementById('bgButton').hidden == '';
+        return brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && elementHidden != true;
+    }
+
     // function to call when context chart is brushed
     function brushed(skipTimer) {
 
@@ -230,7 +239,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }
         }
 
-        var element = document.getElementById('bgButton').hidden == '';
         var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
         // predict for retrospective data
@@ -239,7 +247,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // the dexcom switches from unfiltered to filtered at the start of a rapid rise or fall, while preserving
         // almost identical predications at other times.
         var lookback = 2;
-        if (brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
+        if (inRetroMode()) {
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
             var lookbackTime = (lookback+2)*FIVE_MINS_IN_MS + 2*ONE_MIN_IN_MS;
             var nowDataRaw = data.filter(function(d) {
@@ -319,9 +327,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             focusData = focusData.concat(prediction);
             var dateTime = new Date(now);
             nowDate = dateTime;
-            $('#currentTime')
-                .text(formatTime(dateTime))
-                .css('text-decoration', '');
+
+            updateClockDisplay();
 
             if (errorCode) {
                 var errorDisplay;
@@ -355,9 +362,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
             } else {
 
-                var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
-                $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
-
+                updateTimeAgo();
                 //in this case the SGV is unscaled
                 if (latestSGV.y < 40) {
                     $('.container .currentBG').text('LOW');
@@ -1174,6 +1179,37 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return predicted;
     }
 
+    function updateClock() {
+        updateClockDisplay();
+        var interval = (60 - (new Date()).getSeconds()) * 1000 + 5;
+        setTimeout(updateClock,interval);
+
+        updateTimeAgo();
+
+        // Dim the screen by reducing the opacity when at nighttime
+        if (browserSettings.nightMode) {
+            if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7)) {
+                $('body').css({ 'opacity': opacity.NIGHT });
+            } else {
+                $('body').css({ 'opacity': opacity.DAY });
+            }
+        }
+    }
+
+    function updateClockDisplay() {
+        if (inRetroMode()) return;
+        now = Date.now();
+        var dateTime = new Date(now);
+        $('#currentTime').text(formatTime(dateTime)).css('text-decoration', '');
+    }
+
+    function updateTimeAgo() {
+        if (!latestSGV || inRetroMode()) return;
+
+        var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
+        $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+    }
+
     function init() {
 
         jqWindow = $(window);
@@ -1244,6 +1280,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }, 100);
         };
 
+        updateClock();
+
         var silenceDropdown = new Dropdown('.dropdown-menu');
 
         $('#bgButton').click(function (e) {
@@ -1260,27 +1298,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         socket = io.connect();
 
-        socket.on('now', function (d) {
-            now = d;
-            var dateTime = new Date(now);
-            $('#currentTime').text(formatTime(dateTime));
-
-            // Dim the screen by reducing the opacity when at nighttime
-            if (browserSettings.nightMode) {
-                if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7)) {
-                    $('body').css({ 'opacity': opacity.NIGHT });
-                } else {
-                    $('body').css({ 'opacity': opacity.DAY });
-                }
-            }
-        });
-
         socket.on('sgv', function (d) {
             if (d.length > 1) {
                 errorCode = d.length >= 5 ? d[4] : undefined;
 
                 // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
                 if (d[0].length) {
+                    latestUpdateTime = Date.now();
                     latestSGV = d[0][d[0].length - 1];
                     prevSGV = d[0][d[0].length - 2];
                 }
