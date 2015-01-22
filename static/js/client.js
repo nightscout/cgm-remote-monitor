@@ -1282,22 +1282,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         updateClock();
 
-        $('#lastEntry').mousemove(function (event) {
-            var element = $('#lastEntry')
-                , offset = element.offset();
-
-            tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-            tooltip.html((latestUpdateTime ? '<strong>Last Update Time:</strong>' + formatTime(new Date(latestUpdateTime)) + '<br/>' : '') +
-                (latestSGV ? '<strong>Last Data Time:</strong>' + formatTime(new Date(latestSGV.x)) + '<br/>' : '')
-            )
-            .style('left', event.pageX + 'px')
-            .style('top', (offset.top + element.height() + 15) + 'px');
-        }).mouseout(function () {
-            tooltip.transition()
-                .duration(TOOLTIP_TRANS_MS)
-                .style('opacity', 0);
-        });
-
         var silenceDropdown = new Dropdown('.dropdown-menu');
 
         $('#bgButton').click(function (e) {
