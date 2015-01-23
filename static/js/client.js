@@ -875,7 +875,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .attr('cx', function (d) { return xScale2(d.date); })
             .attr('cy', function (d) { return yScale2(d.sgv); })
             .attr('fill', function (d) { return d.color; })
-            .style('opacity', function (d) { return highlightBrushPoints(d) });
+            .style('opacity', function (d) { return highlightBrushPoints(d) })
+            .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
+            .attr('stroke', function (d) { return 'white'; })
+            .attr('r', function(d) { if (d.type == 'mbg') return 4; else return 2;});
 
         // if new circle then just display
         contextCircles.enter().append('circle')
