@@ -29,7 +29,7 @@
     "postinstall": "node node_modules/bower/bin/bower install"
   },
   "engines": {
-    "node": ">=0.10 <0.12"
+    "node": "~0.10.0"
   },
   "dependencies": {
     "body-parser": "^1.4.3",
