@@ -13,7 +13,7 @@ travis-cov:
 	NODE_ENV=test \
 	${MONGO_SETTINGS} \
 	istanbul cover ./node_modules/mocha/bin/_mocha --report lcovonly -- -vvv -R tap ${TESTS} && \
-	cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js && \
+	cat ./coverage/lcov.info | coveralls && \
 	rm -rf ./coverage
 
 test:
