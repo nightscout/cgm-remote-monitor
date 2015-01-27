@@ -47,7 +47,7 @@ to submit their code for review, debate, and release before announcing
 features on social media.
 
 This can be done by checking your code `git commit -avm 'my
-improvements are here'`, the the branch you created back to your own
+improvements are here'`, the branch you created back to your own
 fork. This will probably look something like
 `git push -u origin wip/add-my-widget`.
 
@@ -57,12 +57,12 @@ select [Nightscout's `dev` branch](https://github.com/nightscout/cgm-remote-moni
 
 ## Comments and issues
 
-We encourage liberal use of the comments, including imgages where
+We encourage liberal use of the comments, including images where
 appropriate.
 
 ## Co-ordination
 
-There is google groups nightscout-core developers list where lots of
+There is a google groups nightscout-core developers list where lots of
 people discuss Nightscout.  Most cgm-remote-monitor hackers use
 github's ticketing system, along with Facebook cgm-in-the-cloud, and
 gitter system.
@@ -78,4 +78,3 @@ the version correctly.  See sem-ver for versioning strategy.
 Every commit is tested by travis.  We encourage adding tests to
 validate your design.  We encourage discussing your use cases to help
 everyone get a better understanding of your design.
-
