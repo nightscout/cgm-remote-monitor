@@ -24,6 +24,10 @@ function getBrowserSettings(storage) {
         }
     }
 
+    function appendThresholdValue(threshold) {
+        return app.alarm_types.indexOf('simple') == -1 ? '' : ' (' + scaleBg(threshold) + ')';
+    }
+
     try {
 		var json = {
 			"units": storage.get("units"),
@@ -49,10 +53,10 @@ function getBrowserSettings(storage) {
 		json.alarmHigh = setDefault(json.alarmHigh, defaultSettings.alarmHigh);
 		json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
 		json.alarmUrgentLow = setDefault(json.alarmUrgentLow, defaultSettings.alarmUrgentLow);
-		$("#alarm-urgenthigh-browser").prop("checked", json.alarmUrgentHigh).next().text('Urgent High Alarm (' + scaleBg(app.thresholds.bg_high) + ')');
-		$("#alarm-high-browser").prop("checked", json.alarmHigh).next().text('High Alarm (' + scaleBg(app.thresholds.bg_target_top) + ')');
-		$("#alarm-low-browser").prop("checked", json.alarmLow).next().text('Low Alarm (' + scaleBg(app.thresholds.bg_target_bottom) + ')');
-		$("#alarm-urgentlow-browser").prop("checked", json.alarmUrgentLow).next().text('Urgent Low Alarm (' + scaleBg(app.thresholds.bg_low) + ')');
+		$("#alarm-urgenthigh-browser").prop("checked", json.alarmUrgentHigh).next().text('Urgent High Alarm' + appendThresholdValue(app.thresholds.bg_high));
+		$("#alarm-high-browser").prop("checked", json.alarmHigh).next().text('High Alarm' + appendThresholdValue(app.thresholds.bg_target_top));
+		$("#alarm-low-browser").prop("checked", json.alarmLow).next().text('Low Alarm' + appendThresholdValue(app.thresholds.bg_target_bottom));
+		$("#alarm-urgentlow-browser").prop("checked", json.alarmUrgentLow).next().text('Urgent Low Alarm' + appendThresholdValue(app.thresholds.bg_low));
 
 		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 		$("#nightmode-browser").prop("checked", json.nightMode);
