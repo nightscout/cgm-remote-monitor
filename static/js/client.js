@@ -1188,6 +1188,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         // Dim the screen by reducing the opacity when at nighttime
         if (browserSettings.nightMode) {
+            var dateTime = new Date();
             if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7)) {
                 $('body').css({ 'opacity': opacity.NIGHT });
             } else {
