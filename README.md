@@ -37,8 +37,8 @@ Community maintained fork of the
 [build-url]: https://travis-ci.org/nightscout/cgm-remote-monitor
 [dependency-img]: https://img.shields.io/david/nightscout/cgm-remote-monitor.svg
 [dependency-url]: https://david-dm.org/nightscout/cgm-remote-monitor
-[coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/coverage.svg
-[coverage-url]: https://coveralls.io/r/nightscout/cgm-remote-monitor?branch=coverage
+[coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/master.svg
+[coverage-url]: https://coveralls.io/r/nightscout/cgm-remote-monitor?branch=master
 [gitter-img]: https://img.shields.io/badge/Gitter-Join%20Chat%20%E2%86%92-1dce73.svg
 [gitter-url]: https://gitter.im/nightscout/public
 [ready-img]: https://badge.waffle.io/nightscout/cgm-remote-monitor.svg?label=ready&title=Ready
