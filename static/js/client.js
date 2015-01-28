@@ -26,6 +26,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var socket
         , isInitialData = false
         , latestSGV
+        , latestUpdateTime
         , prevSGV
         , errorCode
         , treatments
@@ -192,6 +193,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .style('opacity', function (d) { return highlightBrushPoints(d) });
     }
 
+    function inRetroMode() {
+        if (!brush) return false;
+        
+        var brushExtent = brush.extent();
+        var elementHidden = document.getElementById('bgButton').hidden == '';
+        return brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && elementHidden != true;
+    }
+
     // function to call when context chart is brushed
     function brushed(skipTimer) {
 
@@ -230,7 +239,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }
         }
 
-        var element = document.getElementById('bgButton').hidden == '';
         var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
         // predict for retrospective data
@@ -239,7 +247,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // the dexcom switches from unfiltered to filtered at the start of a rapid rise or fall, while preserving
         // almost identical predications at other times.
         var lookback = 2;
-        if (brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && element != true) {
+        if (inRetroMode()) {
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
             var lookbackTime = (lookback+2)*FIVE_MINS_IN_MS + 2*ONE_MIN_IN_MS;
             var nowDataRaw = data.filter(function(d) {
@@ -319,9 +327,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             focusData = focusData.concat(prediction);
             var dateTime = new Date(now);
             nowDate = dateTime;
-            $('#currentTime')
-                .text(formatTime(dateTime))
-                .css('text-decoration', '');
+
+            updateClockDisplay();
 
             if (errorCode) {
                 var errorDisplay;
@@ -355,9 +362,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
             } else {
 
-                var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
-                $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
-
+                updateTimeAgo();
                 //in this case the SGV is unscaled
                 if (latestSGV.y < 40) {
                     $('.container .currentBG').text('LOW');
@@ -415,28 +420,26 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             return radius;
         };
 
+        function prepareFocusCircles(sel) {
+            sel.attr('cx', function (d) { return xScale(d.date); })
+                .attr('cy', function (d) { return yScale(d.sgv); })
+                .attr('fill', function (d) { return d.color; })
+                .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); })
+                .attr('stroke-width', function (d) { if (d.type == 'mbg') return 2; else return 0; })
+                .attr('stroke', function (d) {
+                    var device = d.device && d.device.toLowerCase();
+                    return (device == 'dexcom' ? 'white' : '#0099ff');
+                })
+                .attr('r', function (d) { return dotRadius(d.type); });
+
+            return sel;
+        }
+
         // if already existing then transition each circle to its new position
-        focusCircles
-            .transition()
-            .duration(UPDATE_TRANS_MS)
-            .attr('cx', function (d) { return xScale(d.date); })
-            .attr('cy', function (d) { return yScale(d.sgv); })
-            .attr('fill', function (d) { return d.color; })
-            .attr('r', function (d) {return dotRadius(d.type); })
-            .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); });
+        prepareFocusCircles(focusCircles.transition().duration(UPDATE_TRANS_MS));
 
         // if new circle then just display
-        focusCircles.enter().append('circle')
-            .attr('cx', function (d) { return xScale(d.date); })
-            .attr('cy', function (d) { return yScale(d.sgv); })
-            .attr('fill', function (d) { return d.color; })
-            .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); })
-            .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
-            .attr('stroke', function (d) {
-                var device = d.device && d.device.toLowerCase();
-                return (device == 'dexcom' ? 'white' : '#0099ff');
-            })
-            .attr('r', function (d) {return dotRadius(d.type); })
+        prepareFocusCircles(focusCircles.enter().append('circle'))
             .on('mouseover', function (d) {
                 if (d.type != 'sgv' && d.type != 'mbg') return;
 
@@ -513,6 +516,17 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // add clipping path so that data stays within axis
         focusCircles.attr('clip-path', 'url(#clip)');
 
+        function prepareTreatCircles(sel) {
+            sel.attr('cx', function (d) { return xScale(d.created_at); })
+                .attr('cy', function (d) { return yScale(scaledTreatmentBG(d)); })
+                .attr('r', function () { return dotRadius('mbg'); })
+                .attr('stroke-width', 2)
+                .attr('stroke', function (d) { return d.glucose ? 'grey' : 'white'; })
+                .attr('fill', function (d) { return d.glucose ? 'red' : 'grey'; });
+
+            return sel;
+        }
+
         try {
 
             //NOTE: treatments with insulin or carbs are drawn by drawTreatment()
@@ -524,35 +538,26 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }));
 
             // if already existing then transition each circle to its new position
-            treatCircles.transition()
-                  .duration(UPDATE_TRANS_MS)
-                  .attr('cx', function (d) { return xScale(new Date(d.created_at)); })
-                  .attr('cy', function (d) { return yScale(scaledTreatmentBG(d)); });
+            prepareTreatCircles(treatCircles.transition().duration(UPDATE_TRANS_MS));
 
             // if new circle then just display
-            treatCircles.enter().append('circle')
-                  .attr('cx', function (d) { return xScale(d.created_at); })
-                  .attr('cy', function (d) { return yScale(scaledTreatmentBG(d)); })
-                  .attr('r', function () { return dotRadius('mbg'); })
-                  .attr('stroke-width', 2)
-                  .attr('stroke', function (d) { return d.glucose ? 'grey' : 'white'; })
-                  .attr('fill', function (d) { return d.glucose ? 'red' : 'grey'; })
-                  .on('mouseover', function (d) {
-                      tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-                      tooltip.html('<strong>Time:</strong> ' + formatTime(d.created_at) + '<br/>' +
-                          (d.eventType ? '<strong>Treatment type:</strong> ' + d.eventType + '<br/>' : '') +
-                          (d.glucose ? '<strong>BG:</strong> ' + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + '<br/>' : '') +
-                          (d.enteredBy ? '<strong>Entered by:</strong> ' + d.enteredBy + '<br/>' : '') +
-                          (d.notes ? '<strong>Notes:</strong> ' + d.notes : '')
-                      )
-                      .style('left', (d3.event.pageX) + 'px')
-                      .style('top', (d3.event.pageY - 28) + 'px');
-                  })
-                  .on('mouseout', function () {
-                      tooltip.transition()
-                          .duration(TOOLTIP_TRANS_MS)
-                          .style('opacity', 0);
-                  });
+            prepareTreatCircles(treatCircles.enter().append('circle'))
+                .on('mouseover', function (d) {
+                    tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
+                    tooltip.html('<strong>Time:</strong> ' + formatTime(d.created_at) + '<br/>' +
+                        (d.eventType ? '<strong>Treatment type:</strong> ' + d.eventType + '<br/>' : '') +
+                        (d.glucose ? '<strong>BG:</strong> ' + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + '<br/>' : '') +
+                        (d.enteredBy ? '<strong>Entered by:</strong> ' + d.enteredBy + '<br/>' : '') +
+                        (d.notes ? '<strong>Notes:</strong> ' + d.notes : '')
+                    )
+                    .style('left', (d3.event.pageX) + 'px')
+                    .style('top', (d3.event.pageY - 28) + 'px');
+                })
+                .on('mouseout', function () {
+                    tooltip.transition()
+                        .duration(TOOLTIP_TRANS_MS)
+                        .style('opacity', 0);
+                });
             
             treatCircles.attr('clip-path', 'url(#clip)');
         } catch (err) {
@@ -864,23 +869,23 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var contextCircles = context.selectAll('circle')
             .data(data);
 
+        function prepareContextCircles(sel) {
+            sel.attr('cx', function (d) { return xScale2(d.date); })
+                .attr('cy', function (d) { return yScale2(d.sgv); })
+                .attr('fill', function (d) { return d.color; })
+                .style('opacity', function (d) { return highlightBrushPoints(d) })
+                .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
+                .attr('stroke', function (d) { return 'white'; })
+                .attr('r', function(d) { if (d.type == 'mbg') return 4; else return 2;});
+
+            return sel;
+        }
+
         // if already existing then transition each circle to its new position
-        contextCircles.transition()
-            .duration(UPDATE_TRANS_MS)
-            .attr('cx', function (d) { return xScale2(d.date); })
-            .attr('cy', function (d) { return yScale2(d.sgv); })
-            .attr('fill', function (d) { return d.color; })
-            .style('opacity', function (d) { return highlightBrushPoints(d) });
+        prepareContextCircles(contextCircles.transition().duration(UPDATE_TRANS_MS));
 
         // if new circle then just display
-        contextCircles.enter().append('circle')
-            .attr('cx', function (d) { return xScale2(d.date); })
-            .attr('cy', function (d) { return yScale2(d.sgv); })
-            .attr('fill', function (d) { return d.color; })
-            .style('opacity', function (d) { return highlightBrushPoints(d) })
-            .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
-            .attr('stroke', function (d) { return 'white'; })
-            .attr('r', function(d) { if (d.type == 'mbg') return 4; else return 2;});
+        prepareContextCircles(contextCircles.enter().append('circle'));
 
         contextCircles.exit()
             .remove();
@@ -1174,6 +1179,37 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return predicted;
     }
 
+    function updateClock() {
+        updateClockDisplay();
+        var interval = (60 - (new Date()).getSeconds()) * 1000 + 5;
+        setTimeout(updateClock,interval);
+
+        updateTimeAgo();
+
+        // Dim the screen by reducing the opacity when at nighttime
+        if (browserSettings.nightMode) {
+            if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7)) {
+                $('body').css({ 'opacity': opacity.NIGHT });
+            } else {
+                $('body').css({ 'opacity': opacity.DAY });
+            }
+        }
+    }
+
+    function updateClockDisplay() {
+        if (inRetroMode()) return;
+        now = Date.now();
+        var dateTime = new Date(now);
+        $('#currentTime').text(formatTime(dateTime)).css('text-decoration', '');
+    }
+
+    function updateTimeAgo() {
+        if (!latestSGV || inRetroMode()) return;
+
+        var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
+        $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+    }
+
     function init() {
 
         jqWindow = $(window);
@@ -1244,6 +1280,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }, 100);
         };
 
+        updateClock();
+
         var silenceDropdown = new Dropdown('.dropdown-menu');
 
         $('#bgButton').click(function (e) {
@@ -1260,27 +1298,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         socket = io.connect();
 
-        socket.on('now', function (d) {
-            now = d;
-            var dateTime = new Date(now);
-            $('#currentTime').text(formatTime(dateTime));
-
-            // Dim the screen by reducing the opacity when at nighttime
-            if (browserSettings.nightMode) {
-                if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7)) {
-                    $('body').css({ 'opacity': opacity.NIGHT });
-                } else {
-                    $('body').css({ 'opacity': opacity.DAY });
-                }
-            }
-        });
-
         socket.on('sgv', function (d) {
             if (d.length > 1) {
                 errorCode = d.length >= 5 ? d[4] : undefined;
 
                 // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
                 if (d[0].length) {
+                    latestUpdateTime = Date.now();
                     latestSGV = d[0][d[0].length - 1];
                     prevSGV = d[0][d[0].length - 2];
                 }
@@ -1389,6 +1413,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 , head: xhr.head
                 , apiEnabled: xhr.apiEnabled
                 , thresholds: xhr.thresholds
+                , alarm_types: xhr.alarm_types
                 , units: xhr.units
                 , careportalEnabled: xhr.careportalEnabled
             };
