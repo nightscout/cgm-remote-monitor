@@ -12,3 +12,6 @@ static/bower_components/
 
 .vagrant
 /iisnode
+
+# istanbul output
+coverage/
