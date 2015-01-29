@@ -88,8 +88,17 @@ var errorhandler = require('errorhandler');
   app.use(errorhandler());
 //}
 
+function create ( ) {
+  var transport = (env.ssl
+                ? require('https') : require('http'));
+  if (env.ssl) {
+    return transport.createServer(env.ssl, app);
+  }
+  return transport.createServer(app);
+}
+
 store(function ready ( ) {
-  var server = app.listen(PORT);
+  var server = create( ).listen(PORT);
   console.log('listening', PORT);
 
   ///////////////////////////////////////////////////
