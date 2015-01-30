@@ -1333,7 +1333,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 cal = d[5][d[5].length-1];
 
                 var temp1 = [ ];
-                if (cal) {
+                if (cal && app.enabledOptions && app.enabledOptions.indexOf('rawbg' > -1) && browserSettings.showRawbg == true) {
+                    console.info(">>>>browserSettings.showRawbg", browserSettings.showRawbg);
                     temp1 = d[0].map(function (obj) {
                         var rawBg = rawIsigToRawBg(obj.unfiltered
                             , cal.scale || [ ]
@@ -1446,6 +1447,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 , version: xhr.version
                 , head: xhr.head
                 , apiEnabled: xhr.apiEnabled
+                , enabledOptions: xhr.enabledOptions
                 , thresholds: xhr.thresholds
                 , alarm_types: xhr.alarm_types
                 , units: xhr.units
