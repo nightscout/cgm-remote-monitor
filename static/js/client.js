@@ -284,7 +284,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var prevfocusPoint = nowData[nowData.length - 2];
 
                 //in this case the SGV is scaled
-                if (focusPoint.y < 40) {
+                if (focusPoint.y < 39) {
+                    $('.container .currentBG').text('');
+                } else if (focusPoint.y == 39) {
                     $('.container .currentBG').text('LOW');
                 } else if (focusPoint.y > 400) {
                     $('.container .currentBG').text('HIGH');
