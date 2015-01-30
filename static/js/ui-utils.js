@@ -36,7 +36,7 @@ function getBrowserSettings(storage) {
 			"alarmLow": storage.get("alarmLow"),
 			"alarmUrgentLow": storage.get("alarmUrgentLow"),
 			"nightMode": storage.get("nightMode"),
-			"showRawbg": storage.get("showRawbg")
+			"showRawbg": storage.get("showRawbg"),
 			"customTitle": storage.get("customTitle"),
 			"theme": storage.get("theme"),
 			"timeFormat": storage.get("timeFormat")
