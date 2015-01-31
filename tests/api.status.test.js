@@ -22,7 +22,6 @@ describe('Status REST api', function ( ) {
 
   it('should be a module', function ( ) {
     api.should.be.ok;
-
   });
 
   it('/status.json', function (done) {
