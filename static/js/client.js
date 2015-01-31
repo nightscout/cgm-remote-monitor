@@ -28,7 +28,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , latestSGV
         , latestUpdateTime
         , prevSGV
-        , errorCode
         , treatments
         , cal
         , padding = { top: 20, right: 10, bottom: 30, left: 10 }
@@ -215,6 +214,27 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && elementHidden != true;
     }
 
+    function errorCodeToDisplay(errorCode) {
+        var errorDisplay;
+
+        switch (parseInt(errorCode)) {
+            case 0:  errorDisplay = '??0'; break; //None
+            case 1:  errorDisplay = '?SN'; break; //SENSOR_NOT_ACTIVE
+            case 2:  errorDisplay = '??2'; break; //MINIMAL_DEVIATION
+            case 3:  errorDisplay = '?NA'; break; //NO_ANTENNA
+            case 5:  errorDisplay = '?NC'; break; //SENSOR_NOT_CALIBRATED
+            case 6:  errorDisplay = '?CD'; break; //COUNTS_DEVIATION
+            case 7:  errorDisplay = '??7'; break; //?
+            case 8:  errorDisplay = '??8'; break; //?
+            case 9:  errorDisplay = '&#8987;'; break; //ABSOLUTE_DEVIATION
+            case 10: errorDisplay = '???'; break; //POWER_DEVIATION
+            case 12: errorDisplay = '?RF'; break; //BAD_RF
+            default: errorDisplay = '?' + parseInt(errorCode) + '?'; break;
+        }
+
+        return errorDisplay;
+    }
+
     // function to call when context chart is brushed
     function brushed(skipTimer) {
 
@@ -285,8 +305,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
                 //in this case the SGV is scaled
                 if (focusPoint.y < 39) {
-                    $('.container .currentBG').text('');
-                } else if (focusPoint.y == 39) {
+                    $('.container .currentBG').html(errorCodeToDisplay(focusPoint.y));
+                } else if (focusPoint.y < 40) {
                     $('.container .currentBG').text('LOW');
                 } else if (focusPoint.y > 400) {
                     $('.container .currentBG').text('HIGH');
@@ -314,7 +334,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 $('.container .currentDelta')
                     .text(retroDeltaString)
                     .css('text-decoration','line-through');
-                $('.container .currentDirection').html(focusPoint.direction)
+
+                if (focusPoint.y < 39) {
+                    $('.container .currentDirection').html('✖');
+                } else {
+                    $('.container .currentDirection').html(focusPoint.direction)
+                }
             } else {
                 $('.container .currentBG')
                     .text('---')
@@ -346,38 +371,33 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
             updateClockDisplay();
 
-            if (errorCode) {
-                var errorDisplay;
+            var bgDelta = scaleBg(latestSGV.y) - scaleBg(prevSGV.y);
+            if (browserSettings.units == 'mmol') {
+                bgDelta = bgDelta.toFixed(1);
+            }
 
-                switch (parseInt(errorCode)) {
-                    case 0:  errorDisplay = '??0'; break; //None
-                    case 1:  errorDisplay = '?SN'; break; //SENSOR_NOT_ACTIVE
-                    case 2:  errorDisplay = '??2'; break; //MINIMAL_DEVIATION
-                    case 3:  errorDisplay = '?NA'; break; //NO_ANTENNA
-                    case 5:  errorDisplay = '?NC'; break; //SENSOR_NOT_CALIBRATED
-                    case 6:  errorDisplay = '?CD'; break; //COUNTS_DEVIATION
-                    case 7:  errorDisplay = '??7'; break; //?
-                    case 8:  errorDisplay = '??8'; break; //?
-                    case 9:  errorDisplay = '&#8987;'; break; //ABSOLUTE_DEVIATION
-                    case 10: errorDisplay = '???'; break; //POWER_DEVIATION
-                    case 12: errorDisplay = '?RF'; break; //BAD_RF
-                    default: errorDisplay = '?' + parseInt(errorCode) + '?'; break;
-                }
+            var bgDeltaString = bgDelta;
+            if (bgDelta >= 0) {
+                bgDeltaString = '+' + bgDelta;
+            }
+
+            if (browserSettings.units == 'mmol') {
+                bgDeltaString = bgDeltaString + ' mmol/L'
+            } else {
+                bgDeltaString = bgDeltaString + ' mg/dL'
+            }
+
+            $('.container .currentBG').css('text-decoration', '');
+
+            if (latestSGV.y < 39) {
+                bgDeltaString = "";
 
                 $('#lastEntry').text('CGM ERROR').removeClass('current').addClass('urgent');
 
-                $('.container .currentBG').html(errorDisplay)
-                    .css('text-decoration', '');
-                $('.container .currentDelta').text('')
-                    .css('text-decoration','');
+                $('.container .currentBG').html(errorCodeToDisplay(latestSGV.y));
+                $('.container .currentDelta').text('').css('text-decoration','');
                 $('.container .currentDirection').html('✖');
-
-                var color = sgvToColor(errorCode);
-                $('.container #noButton .currentBG').css({color: color});
-                $('.container #noButton .currentDirection').css({color: color});
-
             } else {
-
                 updateTimeAgo();
                 //in this case the SGV is unscaled
                 if (latestSGV.y < 40) {
@@ -387,41 +407,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 } else {
                     $('.container .currentBG').text(scaleBg(latestSGV.y));
                 }
-
-                var bgDelta = scaleBg(latestSGV.y) - scaleBg(prevSGV.y);
-                if (browserSettings.units == 'mmol') {
-                    bgDelta = bgDelta.toFixed(1);
-                }
-
-                var bgDeltaString = bgDelta;
-                if (bgDelta >= 0) {
-                    bgDeltaString = '+' + bgDelta;
-                }
-
-                if (browserSettings.units == 'mmol') {
-                    bgDeltaString = bgDeltaString + ' mmol/L'
-                } else {
-                    bgDeltaString = bgDeltaString + ' mg/dL'
-                }
-
-                $('.container .currentBG').css('text-decoration', '');
-                $('.container .currentDelta')
-                    .text(bgDeltaString)
-                    .css('text-decoration','');
                 $('.container .currentDirection').html(latestSGV.direction);
-
-                var color = sgvToColor(latestSGV.y);
-                $('.container #noButton .currentBG').css({color: color});
-                $('.container #noButton .currentDirection').css({color: color});
-
-                // bgDelta and retroDelta to follow sgv color
-                // instead of Scott Leibrand's wip/iob-cob settings below
-
-                // var deltaColor = deltaToColor(bgDelta);
-                // $('.container #noButton .currentDelta').css({color: deltaColor});
-
-                $('.container #noButton .currentDelta').css({color: color});
             }
+
+            $('.container .currentDelta').text(bgDeltaString).css('text-decoration','');
+
+            var color = sgvToColor(latestSGV.y);
+            $('.container #noButton .currentBG').css({color: color});
+            $('.container #noButton .currentDirection').css({color: color});
+
+            $('.container #noButton .currentDelta').css({color: color});
         }
 
         xScale.domain(brush.extent());
@@ -1318,8 +1313,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         socket.on('sgv', function (d) {
             if (d.length > 1) {
-                errorCode = d.length >= 5 ? d[4] : undefined;
-
                 // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
                 if (d[0].length) {
                     latestUpdateTime = Date.now();
@@ -1332,11 +1325,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     d.created_at = new Date(d.created_at);
                 });
 
-                cal = d[5][d[5].length-1];
+                cal = d[4][d[4].length-1];
 
                 var temp1 = [ ];
                 if (cal && app.enabledOptions && app.enabledOptions.indexOf('rawbg' > -1) && browserSettings.showRawbg == true) {
-                    console.info(">>>>browserSettings.showRawbg", browserSettings.showRawbg);
                     temp1 = d[0].map(function (obj) {
                         var rawBg = rawIsigToRawBg(obj.unfiltered
                             , cal.scale || [ ]
@@ -1394,7 +1386,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         //with predicted alarms, latestSGV may still be in target so to see if the alarm
         //  is for a LOW we can only check if it's <= the top of the target
         function isAlarmForLow() {
-            return !!errorCode || latestSGV.y <= app.thresholds.bg_target_top;
+            return latestSGV.y <= app.thresholds.bg_target_top;
         }
 
         socket.on('alarm', function () {
