@@ -109,10 +109,10 @@ describe('Pebble Endpoint without Raw', function ( ) {
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
         bg.datetime.should.equal(1422727301000);
-        (bg.filtered == null).should.be.true;
-        (bg.unfiltered == null).should.be.true;
-        (bg.noise == null).should.be.true;
-        (bg.rssi == null).should.be.true;
+        should.not.exist(bg.filtered);
+        should.not.exist(bg.unfiltered);
+        should.not.exist(bg.noise);
+        should.not.exist(bg.rssi);
         bg.battery.should.equal('100');
 
         res.body.cals.length.should.equal(0);
