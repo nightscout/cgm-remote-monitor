@@ -36,6 +36,37 @@ describe('Status REST api', function ( ) {
       });
   });
 
+  it('/status.html', function (done) {
+    request(this.app)
+      .get('/api/status.html')
+      .end(function(err, res) {
+        res.type.should.equal('text/html');
+        res.statusCode.should.equal(200);
+        done()
+      });
+  });
+
+  it('/status.js', function (done) {
+    request(this.app)
+      .get('/api/status.js')
+      .end(function(err, res) {
+        res.type.should.equal('application/javascript');
+        res.statusCode.should.equal(200);
+        res.text.should.startWith('this.serverSettings =');
+        done()
+      });
+  });
+
+  it('/status.png', function (done) {
+    request(this.app)
+      .get('/api/status.png')
+      .end(function(err, res) {
+        res.headers.location.should.equal('http://img.shields.io/badge/Nightscout-OK-green.png');
+        res.statusCode.should.equal(302);
+        done()
+      });
+  });
+
 
 });
 
