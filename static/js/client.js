@@ -312,7 +312,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var totalImpact = Math.round((cImpact.totalImpact*tick)*10)/10;
                 if (totalImpact > 0) totalImpact = "+" + totalImpact;
 
-                $("h1.iobCob").text("IOB " + iob + "U,  COB " + cob + "g");
+                $(".iobCob").text("IOB " + iob + "U,  COB " + cob + "g");
 
                 //in this case the SGV is scaled
                 if (focusPoint.y < 40) {
@@ -396,7 +396,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             var totalImpact = Math.round((cImpact.totalImpact*tick)*10)/10;
             if (totalImpact > 0) totalImpact = "+" + totalImpact;
 
-            $("h1.iobCob").text("IOB " + iob + "U,  COB " + cob + "g");
+            $(".iobCob").text("IOB " + iob + "U,  COB " + cob + "g");
 
             updateClockDisplay();
 
