@@ -36,6 +36,7 @@ function getBrowserSettings(storage) {
 			"alarmLow": storage.get("alarmLow"),
 			"alarmUrgentLow": storage.get("alarmUrgentLow"),
 			"nightMode": storage.get("nightMode"),
+			"showRawbg": storage.get("showRawbg"),
 			"customTitle": storage.get("customTitle"),
 			"theme": storage.get("theme"),
 			"timeFormat": storage.get("timeFormat")
@@ -61,6 +62,15 @@ function getBrowserSettings(storage) {
 		json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
 		$("#nightmode-browser").prop("checked", json.nightMode);
 
+        if (app.enabledOptions.indexOf('rawbg') == -1) {
+            json.showRawbg = false;
+            $("#show-rawbg-option").hide();
+        } else {
+            $("#show-rawbg-option").show();
+            json.showRawbg = setDefault(json.showRawbg, (app.enabledOptions.indexOf('rawbg-on') > -1));
+            $("#show-rawbg").prop("checked", json.showRawbg);
+        }
+
 		if (json.customTitle) {
 			$("h1.customTitle").text(json.customTitle);
 			$("input#customTitle").prop("value", json.customTitle);
@@ -72,7 +82,7 @@ function getBrowserSettings(storage) {
         } else {
             $("#theme-default-browser").prop("checked", true);
         }
-		
+
 		json.timeFormat = setDefault(json.timeFormat, defaultSettings.timeFormat);
 		
 		if (json.timeFormat == "24") {
@@ -348,6 +358,7 @@ $("input#save").click(function(event) {
 		"alarmLow": $("#alarm-low-browser").prop("checked"),
 		"alarmUrgentLow": $("#alarm-urgentlow-browser").prop("checked"),
 		"nightMode": $("#nightmode-browser").prop("checked"),
+		"showRawbg": $("#show-rawbg").prop("checked"),
 		"customTitle": $("input#customTitle").prop("value"),
 		"theme": $("input:radio[name=theme-browser]:checked").val(),
 		"timeFormat": $("input:radio[name=timeformat-browser]:checked").val()
