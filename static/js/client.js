@@ -1447,7 +1447,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 , version: xhr.version
                 , head: xhr.head
                 , apiEnabled: xhr.apiEnabled
-                , enabledOptions: xhr.enabledOptions
+                , enabledOptions: xhr.enabledOptions || ''
                 , thresholds: xhr.thresholds
                 , alarm_types: xhr.alarm_types
                 , units: xhr.units
