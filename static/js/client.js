@@ -483,7 +483,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var bgType = (d.type == 'sgv' ? 'CGM' : (device == 'dexcom' ? 'Calibration' : 'Meter'));
                 var noiseLabel = '';
 
-                if (app.enabledOptions && app.enabledOptions.indexOf('rawbg' > -1) && browserSettings.showRawbg != 'never') {
+                if (d.type == 'sgv' && app.enabledOptions && app.enabledOptions.indexOf('rawbg' > -1) && browserSettings.showRawbg != 'never') {
                     noiseLabel = noiseCodeToDisplay(d.noise);
                 }
 
