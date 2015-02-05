@@ -246,6 +246,19 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return errorDisplay;
     }
 
+    function noiseCodeToDisplay(noise) {
+        var display = 'Not Set';
+        switch (parseInt(noise)) {
+            case 1: display = 'Clean'; break;
+            case 2: display = 'Light'; break;
+            case 3: display = 'Medium'; break;
+            case 4: display = 'Heavy'; break;
+            case 5: display = 'Unknown'; break;
+        }
+
+        return display;
+    }
+
     // function to call when context chart is brushed
     function brushed(skipTimer) {
 
@@ -468,10 +481,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
                 var device = d.device && d.device.toLowerCase();
                 var bgType = (d.type == 'sgv' ? 'CGM' : (device == 'dexcom' ? 'Calibration' : 'Meter'));
+                var noiseLabel = '';
+
+                if (app.enabledOptions && app.enabledOptions.indexOf('rawbg' > -1) && browserSettings.showRawbg != 'never') {
+                    noiseLabel = noiseCodeToDisplay(d.noise);
+                }
 
                 tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
                 tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
                     (d.type == 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
+                    (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
                     '<br/><strong>Time:</strong> ' + formatTime(d.date))
                     .style('left', (d3.event.pageX) + 'px')
                     .style('top', (d3.event.pageY - 28) + 'px');
@@ -1338,6 +1357,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
                 cal = d[4][d[4].length-1];
 
+
                 var temp1 = [ ];
                 if (cal && app.enabledOptions && app.enabledOptions.indexOf('rawbg' > -1) && (browserSettings.showRawbg == 'always' || browserSettings.showRawbg == 'noise')) {
                     temp1 = d[0].map(function (entry) {
@@ -1346,7 +1366,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     }).filter(function(entry) { return entry.y > 0});
                 }
                 var temp2 = d[0].map(function (obj) {
-                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
+                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise}
                 });
                 data = [];
                 data = data.concat(temp1, temp2);
