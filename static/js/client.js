@@ -104,15 +104,26 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
     }
 
-    function rawIsigToRawBg(unfiltered, scale, intercept, slope, filtered, sgv) {
-        if (slope == 0 || unfiltered == 0 || scale ==0  || slope == null || unfiltered == null || scale == null) return 0;
-        else if (filtered == 0 || filtered == null || sgv < 30 || sgv == null) {
+    function rawIsigToRawBg(entry, cal) {
+
+      var unfiltered = parseInt(entry.unfiltered) || 0
+        , filtered = parseInt(entry.filtered) || 0
+        , sgv = entry.y
+        , noise = entry.noise || 0
+        , scale = parseFloat(cal.scale) || 0
+        , intercept = parseFloat(cal.intercept) || 0
+        , slope = parseFloat(cal.slope) || 0;
+
+        if (slope == 0 || unfiltered == 0 || scale == 0) {
+          return 0;
+        } else if (noise < 2 && browserSettings.showRawbg != 'always') {
+          return 0;
+        } else if (filtered == 0 || sgv < 40) {
             console.info("Skipping ratio adjustment for SGV " + sgv);
-            return scale*(unfiltered-intercept)/slope;
-        }
-        else {
-            var ratio = scale*(filtered-intercept)/slope / sgv;
-            return scale*(unfiltered-intercept)/slope / ratio;
+            return scale * (unfiltered - intercept) / slope;
+        } else {
+            var ratio = scale * (filtered - intercept) / slope / sgv;
+            return scale * ( unfiltered - intercept) / slope / ratio;
         }
     }
 
@@ -233,6 +244,19 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
 
         return errorDisplay;
+    }
+
+    function noiseCodeToDisplay(noise) {
+        var display = 'Not Set';
+        switch (parseInt(noise)) {
+            case 1: display = 'Clean'; break;
+            case 2: display = 'Light'; break;
+            case 3: display = 'Medium'; break;
+            case 4: display = 'Heavy'; break;
+            case 5: display = 'Unknown'; break;
+        }
+
+        return display;
     }
 
     // function to call when context chart is brushed
@@ -457,10 +481,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
                 var device = d.device && d.device.toLowerCase();
                 var bgType = (d.type == 'sgv' ? 'CGM' : (device == 'dexcom' ? 'Calibration' : 'Meter'));
+                var noiseLabel = '';
+
+                if (d.type == 'sgv' && app.enabledOptions && app.enabledOptions.indexOf('rawbg' > -1) && browserSettings.showRawbg != 'never') {
+                    noiseLabel = noiseCodeToDisplay(d.noise);
+                }
 
                 tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
                 tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
                     (d.type == 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
+                    (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
                     '<br/><strong>Time:</strong> ' + formatTime(d.date))
                     .style('left', (d3.event.pageX) + 'px')
                     .style('top', (d3.event.pageY - 28) + 'px');
@@ -1327,20 +1357,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
                 cal = d[4][d[4].length-1];
 
+
                 var temp1 = [ ];
-                if (cal && app.enabledOptions && app.enabledOptions.indexOf('rawbg' > -1) && browserSettings.showRawbg == true) {
-                    temp1 = d[0].map(function (obj) {
-                        var rawBg = rawIsigToRawBg(obj.unfiltered
-                            , cal.scale || [ ]
-                            , cal.intercept
-                            , cal.slope || [ ]
-                            , obj.filtered
-                            , obj.y);
-                        return { date: new Date(obj.x-2*1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg'}
-                    });
+                if (cal && app.enabledOptions && app.enabledOptions.indexOf('rawbg' > -1) && (browserSettings.showRawbg == 'always' || browserSettings.showRawbg == 'noise')) {
+                    temp1 = d[0].map(function (entry) {
+                        var rawBg = rawIsigToRawBg(entry, cal);
+                        return { date: new Date(entry.x - 2 * 1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg'}
+                    }).filter(function(entry) { return entry.y > 0});
                 }
                 var temp2 = d[0].map(function (obj) {
-                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
+                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise}
                 });
                 data = [];
                 data = data.concat(temp1, temp2);
@@ -1441,7 +1467,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 , version: xhr.version
                 , head: xhr.head
                 , apiEnabled: xhr.apiEnabled
-                , enabledOptions: xhr.enabledOptions
+                , enabledOptions: xhr.enabledOptions || ''
                 , thresholds: xhr.thresholds
                 , alarm_types: xhr.alarm_types
                 , units: xhr.units
