@@ -17,7 +17,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , FORMAT_TIME_12 = '%I:%M'
         , FORMAT_TIME_24 = '%H:%M%'
         , FORMAT_TIME_SCALE = '%I %p'
-        , WIDTH_TIME_HIDDEN = 500
+        , WIDTH_TIME_HIDDEN = 400
         , WIDTH_SMALL_DOTS = WIDTH_TIME_HIDDEN
         , WIDTH_BIG_DOTS = 800
         , MINUTES_SINCE_LAST_UPDATE_WARN = 10
@@ -982,7 +982,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         if (querystring.mute != 'true') {
             audio.play();
         } else {
-            showNotification('Alarm is muted per your request. (?mute=true)');
+            showNotification('Alarm was muted (?mute=true)');
         }
     }
 
