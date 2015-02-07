@@ -38,7 +38,7 @@ function getBrowserSettings(storage) {
             'nightMode': storage.get('nightMode'),
             'showRawbg': storage.get('showRawbg'),
             'customTitle': storage.get('customTitle'),
-            'theme': storage.get('theme'),
+            'theme': storage.get('theme') || 'colors',
             'timeFormat': storage.get('timeFormat')
         };
 
