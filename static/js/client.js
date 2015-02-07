@@ -28,8 +28,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , latestSGV
         , latestUpdateTime
         , prevSGV
-        , errorCode
         , treatments
+        , cal
         , padding = { top: 20, right: 10, bottom: 30, left: 10 }
         , opacity = {current: 1, DAY: 1, NIGHT: 0.5}
         , now = Date.now()
@@ -95,7 +95,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     ]);
 
 
-  // lixgbg: Convert mg/dL BG value to metric mmol
+    // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
         if (browserSettings.units == 'mmol') {
             return (Math.round((bg / 18) * 10) / 10).toFixed(1);
@@ -103,6 +103,30 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             return bg;
         }
     }
+
+    function rawIsigToRawBg(entry, cal) {
+
+      var unfiltered = parseInt(entry.unfiltered) || 0
+        , filtered = parseInt(entry.filtered) || 0
+        , sgv = entry.y
+        , noise = entry.noise || 0
+        , scale = parseFloat(cal.scale) || 0
+        , intercept = parseFloat(cal.intercept) || 0
+        , slope = parseFloat(cal.slope) || 0;
+
+        if (slope == 0 || unfiltered == 0 || scale == 0) {
+          return 0;
+        } else if (noise < 2 && browserSettings.showRawbg != 'always') {
+          return 0;
+        } else if (filtered == 0 || sgv < 40) {
+            console.info("Skipping ratio adjustment for SGV " + sgv);
+            return scale * (unfiltered - intercept) / slope;
+        } else {
+            var ratio = scale * (filtered - intercept) / slope / sgv;
+            return scale * ( unfiltered - intercept) / slope / ratio;
+        }
+    }
+
     // initial setup of chart when data is first made available
     function initializeCharts() {
 
@@ -201,6 +225,40 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && elementHidden != true;
     }
 
+    function errorCodeToDisplay(errorCode) {
+        var errorDisplay;
+
+        switch (parseInt(errorCode)) {
+            case 0:  errorDisplay = '??0'; break; //None
+            case 1:  errorDisplay = '?SN'; break; //SENSOR_NOT_ACTIVE
+            case 2:  errorDisplay = '??2'; break; //MINIMAL_DEVIATION
+            case 3:  errorDisplay = '?NA'; break; //NO_ANTENNA
+            case 5:  errorDisplay = '?NC'; break; //SENSOR_NOT_CALIBRATED
+            case 6:  errorDisplay = '?CD'; break; //COUNTS_DEVIATION
+            case 7:  errorDisplay = '??7'; break; //?
+            case 8:  errorDisplay = '??8'; break; //?
+            case 9:  errorDisplay = '&#8987;'; break; //ABSOLUTE_DEVIATION
+            case 10: errorDisplay = '???'; break; //POWER_DEVIATION
+            case 12: errorDisplay = '?RF'; break; //BAD_RF
+            default: errorDisplay = '?' + parseInt(errorCode) + '?'; break;
+        }
+
+        return errorDisplay;
+    }
+
+    function noiseCodeToDisplay(noise) {
+        var display = 'Not Set';
+        switch (parseInt(noise)) {
+            case 1: display = 'Clean'; break;
+            case 2: display = 'Light'; break;
+            case 3: display = 'Medium'; break;
+            case 4: display = 'Heavy'; break;
+            case 5: display = 'Unknown'; break;
+        }
+
+        return display;
+    }
+
     // function to call when context chart is brushed
     function brushed(skipTimer) {
 
@@ -270,7 +328,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var prevfocusPoint = nowData[nowData.length - 2];
 
                 //in this case the SGV is scaled
-                if (focusPoint.y < 40) {
+                if (focusPoint.y < 39) {
+                    $('.container .currentBG').html(errorCodeToDisplay(focusPoint.y));
+                } else if (focusPoint.y < 40) {
                     $('.container .currentBG').text('LOW');
                 } else if (focusPoint.y > 400) {
                     $('.container .currentBG').text('HIGH');
@@ -298,7 +358,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 $('.container .currentDelta')
                     .text(retroDeltaString)
                     .css('text-decoration','line-through');
-                $('.container .currentDirection').html(focusPoint.direction)
+
+                if (focusPoint.y < 39) {
+                    $('.container .currentDirection').html('✖');
+                } else {
+                    $('.container .currentDirection').html(focusPoint.direction)
+                }
             } else {
                 $('.container .currentBG')
                     .text('---')
@@ -330,38 +395,33 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
             updateClockDisplay();
 
-            if (errorCode) {
-                var errorDisplay;
+            var bgDelta = scaleBg(latestSGV.y) - scaleBg(prevSGV.y);
+            if (browserSettings.units == 'mmol') {
+                bgDelta = bgDelta.toFixed(1);
+            }
 
-                switch (parseInt(errorCode)) {
-                    case 0:  errorDisplay = '??0'; break; //None
-                    case 1:  errorDisplay = '?SN'; break; //SENSOR_NOT_ACTIVE
-                    case 2:  errorDisplay = '??2'; break; //MINIMAL_DEVIATION
-                    case 3:  errorDisplay = '?NA'; break; //NO_ANTENNA
-                    case 5:  errorDisplay = '?NC'; break; //SENSOR_NOT_CALIBRATED
-                    case 6:  errorDisplay = '?CD'; break; //COUNTS_DEVIATION
-                    case 7:  errorDisplay = '??7'; break; //?
-                    case 8:  errorDisplay = '??8'; break; //?
-                    case 9:  errorDisplay = '&#8987;'; break; //ABSOLUTE_DEVIATION
-                    case 10: errorDisplay = '???'; break; //POWER_DEVIATION
-                    case 12: errorDisplay = '?RF'; break; //BAD_RF
-                    default: errorDisplay = '?' + parseInt(errorCode) + '?'; break;
-                }
+            var bgDeltaString = bgDelta;
+            if (bgDelta >= 0) {
+                bgDeltaString = '+' + bgDelta;
+            }
+
+            if (browserSettings.units == 'mmol') {
+                bgDeltaString = bgDeltaString + ' mmol/L'
+            } else {
+                bgDeltaString = bgDeltaString + ' mg/dL'
+            }
+
+            $('.container .currentBG').css('text-decoration', '');
+
+            if (latestSGV.y < 39) {
+                bgDeltaString = "";
 
                 $('#lastEntry').text('CGM ERROR').removeClass('current').addClass('urgent');
 
-                $('.container .currentBG').html(errorDisplay)
-                    .css('text-decoration', '');
-                $('.container .currentDelta').text('')
-                    .css('text-decoration','');
+                $('.container .currentBG').html(errorCodeToDisplay(latestSGV.y));
+                $('.container .currentDelta').text('').css('text-decoration','');
                 $('.container .currentDirection').html('✖');
-
-                var color = sgvToColor(errorCode);
-                $('.container #noButton .currentBG').css({color: color});
-                $('.container #noButton .currentDirection').css({color: color});
-
             } else {
-
                 updateTimeAgo();
                 //in this case the SGV is unscaled
                 if (latestSGV.y < 40) {
@@ -371,41 +431,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 } else {
                     $('.container .currentBG').text(scaleBg(latestSGV.y));
                 }
-
-                var bgDelta = scaleBg(latestSGV.y) - scaleBg(prevSGV.y);
-                if (browserSettings.units == 'mmol') {
-                    bgDelta = bgDelta.toFixed(1);
-                }
-
-                var bgDeltaString = bgDelta;
-                if (bgDelta >= 0) {
-                    bgDeltaString = '+' + bgDelta;
-                }
-
-                if (browserSettings.units == 'mmol') {
-                    bgDeltaString = bgDeltaString + ' mmol/L'
-                } else {
-                    bgDeltaString = bgDeltaString + ' mg/dL'
-                }
-
-                $('.container .currentBG').css('text-decoration', '');
-                $('.container .currentDelta')
-                    .text(bgDeltaString)
-                    .css('text-decoration','');
                 $('.container .currentDirection').html(latestSGV.direction);
-
-                var color = sgvToColor(latestSGV.y);
-                $('.container #noButton .currentBG').css({color: color});
-                $('.container #noButton .currentDirection').css({color: color});
-
-                // bgDelta and retroDelta to follow sgv color
-                // instead of Scott Leibrand's wip/iob-cob settings below
-
-                // var deltaColor = deltaToColor(bgDelta);
-                // $('.container #noButton .currentDelta').css({color: deltaColor});
-
-                $('.container #noButton .currentDelta').css({color: color});
             }
+
+            $('.container .currentDelta').text(bgDeltaString).css('text-decoration','');
+
+            var color = sgvToColor(latestSGV.y);
+            $('.container #noButton .currentBG').css({color: color});
+            $('.container #noButton .currentDirection').css({color: color});
+
+            $('.container #noButton .currentDelta').css({color: color});
         }
 
         xScale.domain(brush.extent());
@@ -417,40 +452,45 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var dotRadius = function(type) {
             var radius = prevChartWidth > WIDTH_BIG_DOTS ? 4 : (prevChartWidth < WIDTH_SMALL_DOTS ? 2 : 3);
             if (type == 'mbg') radius *= 2;
+            else if (type == 'rawbg') radius = Math.min(2, radius - 1);
             return radius;
         };
 
+        function prepareFocusCircles(sel) {
+            sel.attr('cx', function (d) { return xScale(d.date); })
+                .attr('cy', function (d) { return yScale(d.sgv); })
+                .attr('fill', function (d) { return d.color; })
+                .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); })
+                .attr('stroke-width', function (d) { if (d.type == 'mbg') return 2; else return 0; })
+                .attr('stroke', function (d) {
+                    var device = d.device && d.device.toLowerCase();
+                    return (device == 'dexcom' ? 'white' : '#0099ff');
+                })
+                .attr('r', function (d) { return dotRadius(d.type); });
+
+            return sel;
+        }
+
         // if already existing then transition each circle to its new position
-        focusCircles
-            .transition()
-            .duration(UPDATE_TRANS_MS)
-            .attr('cx', function (d) { return xScale(d.date); })
-            .attr('cy', function (d) { return yScale(d.sgv); })
-            .attr('fill', function (d) { return d.color; })
-            .attr('r', function (d) {return dotRadius(d.type); })
-            .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); });
+        prepareFocusCircles(focusCircles.transition().duration(UPDATE_TRANS_MS));
 
         // if new circle then just display
-        focusCircles.enter().append('circle')
-            .attr('cx', function (d) { return xScale(d.date); })
-            .attr('cy', function (d) { return yScale(d.sgv); })
-            .attr('fill', function (d) { return d.color; })
-            .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); })
-            .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
-            .attr('stroke', function (d) {
-                var device = d.device && d.device.toLowerCase();
-                return (device == 'dexcom' ? 'white' : '#0099ff');
-            })
-            .attr('r', function (d) {return dotRadius(d.type); })
+        prepareFocusCircles(focusCircles.enter().append('circle'))
             .on('mouseover', function (d) {
                 if (d.type != 'sgv' && d.type != 'mbg') return;
 
                 var device = d.device && d.device.toLowerCase();
                 var bgType = (d.type == 'sgv' ? 'CGM' : (device == 'dexcom' ? 'Calibration' : 'Meter'));
+                var noiseLabel = '';
+
+                if (d.type == 'sgv' && app.enabledOptions && app.enabledOptions.indexOf('rawbg' > -1) && browserSettings.showRawbg != 'never') {
+                    noiseLabel = noiseCodeToDisplay(d.noise);
+                }
 
                 tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
                 tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
                     (d.type == 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
+                    (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
                     '<br/><strong>Time:</strong> ' + formatTime(d.date))
                     .style('left', (d3.event.pageX) + 'px')
                     .style('top', (d3.event.pageY - 28) + 'px');
@@ -518,6 +558,17 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // add clipping path so that data stays within axis
         focusCircles.attr('clip-path', 'url(#clip)');
 
+        function prepareTreatCircles(sel) {
+            sel.attr('cx', function (d) { return xScale(d.created_at); })
+                .attr('cy', function (d) { return yScale(scaledTreatmentBG(d)); })
+                .attr('r', function () { return dotRadius('mbg'); })
+                .attr('stroke-width', 2)
+                .attr('stroke', function (d) { return d.glucose ? 'grey' : 'white'; })
+                .attr('fill', function (d) { return d.glucose ? 'red' : 'grey'; });
+
+            return sel;
+        }
+
         try {
 
             //NOTE: treatments with insulin or carbs are drawn by drawTreatment()
@@ -529,35 +580,26 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }));
 
             // if already existing then transition each circle to its new position
-            treatCircles.transition()
-                  .duration(UPDATE_TRANS_MS)
-                  .attr('cx', function (d) { return xScale(new Date(d.created_at)); })
-                  .attr('cy', function (d) { return yScale(scaledTreatmentBG(d)); });
+            prepareTreatCircles(treatCircles.transition().duration(UPDATE_TRANS_MS));
 
             // if new circle then just display
-            treatCircles.enter().append('circle')
-                  .attr('cx', function (d) { return xScale(d.created_at); })
-                  .attr('cy', function (d) { return yScale(scaledTreatmentBG(d)); })
-                  .attr('r', function () { return dotRadius('mbg'); })
-                  .attr('stroke-width', 2)
-                  .attr('stroke', function (d) { return d.glucose ? 'grey' : 'white'; })
-                  .attr('fill', function (d) { return d.glucose ? 'red' : 'grey'; })
-                  .on('mouseover', function (d) {
-                      tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-                      tooltip.html('<strong>Time:</strong> ' + formatTime(d.created_at) + '<br/>' +
-                          (d.eventType ? '<strong>Treatment type:</strong> ' + d.eventType + '<br/>' : '') +
-                          (d.glucose ? '<strong>BG:</strong> ' + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + '<br/>' : '') +
-                          (d.enteredBy ? '<strong>Entered by:</strong> ' + d.enteredBy + '<br/>' : '') +
-                          (d.notes ? '<strong>Notes:</strong> ' + d.notes : '')
-                      )
-                      .style('left', (d3.event.pageX) + 'px')
-                      .style('top', (d3.event.pageY - 28) + 'px');
-                  })
-                  .on('mouseout', function () {
-                      tooltip.transition()
-                          .duration(TOOLTIP_TRANS_MS)
-                          .style('opacity', 0);
-                  });
+            prepareTreatCircles(treatCircles.enter().append('circle'))
+                .on('mouseover', function (d) {
+                    tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
+                    tooltip.html('<strong>Time:</strong> ' + formatTime(d.created_at) + '<br/>' +
+                        (d.eventType ? '<strong>Treatment type:</strong> ' + d.eventType + '<br/>' : '') +
+                        (d.glucose ? '<strong>BG:</strong> ' + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + '<br/>' : '') +
+                        (d.enteredBy ? '<strong>Entered by:</strong> ' + d.enteredBy + '<br/>' : '') +
+                        (d.notes ? '<strong>Notes:</strong> ' + d.notes : '')
+                    )
+                    .style('left', (d3.event.pageX) + 'px')
+                    .style('top', (d3.event.pageY - 28) + 'px');
+                })
+                .on('mouseout', function () {
+                    tooltip.transition()
+                        .duration(TOOLTIP_TRANS_MS)
+                        .style('opacity', 0);
+                });
             
             treatCircles.attr('clip-path', 'url(#clip)');
         } catch (err) {
@@ -869,23 +911,23 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var contextCircles = context.selectAll('circle')
             .data(data);
 
+        function prepareContextCircles(sel) {
+            sel.attr('cx', function (d) { return xScale2(d.date); })
+                .attr('cy', function (d) { return yScale2(d.sgv); })
+                .attr('fill', function (d) { return d.color; })
+                .style('opacity', function (d) { return highlightBrushPoints(d) })
+                .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
+                .attr('stroke', function (d) { return 'white'; })
+                .attr('r', function(d) { if (d.type == 'mbg') return 4; else return 2;});
+
+            return sel;
+        }
+
         // if already existing then transition each circle to its new position
-        contextCircles.transition()
-            .duration(UPDATE_TRANS_MS)
-            .attr('cx', function (d) { return xScale2(d.date); })
-            .attr('cy', function (d) { return yScale2(d.sgv); })
-            .attr('fill', function (d) { return d.color; })
-            .style('opacity', function (d) { return highlightBrushPoints(d) });
+        prepareContextCircles(contextCircles.transition().duration(UPDATE_TRANS_MS));
 
         // if new circle then just display
-        contextCircles.enter().append('circle')
-            .attr('cx', function (d) { return xScale2(d.date); })
-            .attr('cy', function (d) { return yScale2(d.sgv); })
-            .attr('fill', function (d) { return d.color; })
-            .style('opacity', function (d) { return highlightBrushPoints(d) })
-            .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
-            .attr('stroke', function (d) { return 'white'; })
-            .attr('r', function(d) { if (d.type == 'mbg') return 4; else return 2;});
+        prepareContextCircles(contextCircles.enter().append('circle'));
 
         contextCircles.exit()
             .remove();
@@ -1188,6 +1230,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         // Dim the screen by reducing the opacity when at nighttime
         if (browserSettings.nightMode) {
+            var dateTime = new Date();
             if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7)) {
                 $('body').css({ 'opacity': opacity.NIGHT });
             } else {
@@ -1300,17 +1343,34 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         socket.on('sgv', function (d) {
             if (d.length > 1) {
-                errorCode = d.length >= 5 ? d[4] : undefined;
-
                 // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
                 if (d[0].length) {
                     latestUpdateTime = Date.now();
                     latestSGV = d[0][d[0].length - 1];
                     prevSGV = d[0][d[0].length - 2];
                 }
-                data = d[0].map(function (obj) {
-                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
+
+                treatments = d[3];
+                treatments.forEach(function (d) {
+                    d.created_at = new Date(d.created_at);
                 });
+
+                cal = d[4][d[4].length-1];
+
+
+                var temp1 = [ ];
+                if (cal && app.enabledOptions && app.enabledOptions.indexOf('rawbg' > -1) && (browserSettings.showRawbg == 'always' || browserSettings.showRawbg == 'noise')) {
+                    temp1 = d[0].map(function (entry) {
+                        var rawBg = rawIsigToRawBg(entry, cal);
+                        return { date: new Date(entry.x - 2 * 1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg'}
+                    }).filter(function(entry) { return entry.y > 0});
+                }
+                var temp2 = d[0].map(function (obj) {
+                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise}
+                });
+                data = [];
+                data = data.concat(temp1, temp2);
+
                 // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
                 // This shouldn't have to be sent and can be fixed by using xScale.domain([x0,x1]) function with
                 // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
@@ -1324,11 +1384,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 data.forEach(function (d) {
                     if (d.y < 39)
                         d.color = 'transparent';
-                });
-
-                treatments = d[3];
-                treatments.forEach(function (d) {
-                    d.created_at = new Date(d.created_at);
                 });
 
                 if (!isInitialData) {
@@ -1357,7 +1412,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         //with predicted alarms, latestSGV may still be in target so to see if the alarm
         //  is for a LOW we can only check if it's <= the top of the target
         function isAlarmForLow() {
-            return !!errorCode || latestSGV.y <= app.thresholds.bg_target_top;
+            return latestSGV.y <= app.thresholds.bg_target_top;
         }
 
         socket.on('alarm', function () {
@@ -1412,7 +1467,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 , version: xhr.version
                 , head: xhr.head
                 , apiEnabled: xhr.apiEnabled
+                , enabledOptions: xhr.enabledOptions || ''
                 , thresholds: xhr.thresholds
+                , alarm_types: xhr.alarm_types
                 , units: xhr.units
                 , careportalEnabled: xhr.careportalEnabled
             };
