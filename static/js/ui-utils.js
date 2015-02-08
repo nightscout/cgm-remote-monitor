@@ -13,6 +13,25 @@ var defaultSettings = {
     'timeFormat': '12'
 };
 
+function rawBGsEnabled() {
+    return true;
+}
+
+function initShowRawBG(currentValue) {
+
+    var initValue = 'never';
+
+    if (currentValue === true) {
+        initValue = 'noise';
+    } else if (currentValue == 'never' || currentValue == 'always' || currentValue == 'noise') {
+        initValue = currentValue;
+    } else {
+        initValue = 'noise';
+    }
+
+    return initValue;
+}
+
 function getBrowserSettings(storage) {
     var json = {};
 
@@ -67,18 +86,13 @@ function getBrowserSettings(storage) {
             $('input#retroLookback').prop('value', json.retroLookback);
         }
 
-        if (app.enabledOptions.indexOf('rawbg') == -1) {
-            json.showRawbg = false;
-            $('#show-rawbg-option').hide();
-        } else {
+        if (rawBGsEnabled()) {
             $('#show-rawbg-option').show();
-            if (json.showRawbg === false) {
-                json.showRawbg = 'never';
-            } else if (json.showRawbg === true) {
-                json.showRawbg = 'noise';
-            }
-            json.showRawbg = setDefault(json.showRawbg, (app.enabledOptions.indexOf('rawbg-on') > -1 ? 'noise' : 'never'));
+            json.showRawbg = initShowRawBG(json.showRawbg);
             $('#show-rawbg-' + json.showRawbg).prop('checked', true);
+        } else {
+            json.showRawbg = 'never';
+            $('#show-rawbg-option').hide();
         }
 
         if (json.customTitle) {
