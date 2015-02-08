@@ -243,6 +243,7 @@ div.tooltip {
 
   .bgStatus {
     width: 50%;
+    font-size: 650%;
   }
 
   .dropdown-menu {
@@ -313,6 +314,11 @@ div.tooltip {
         margin-left: 0;
         width: 100%;
     }
+
+    #container.alarming .time {
+        display: none;
+    }
+
     .timebox {
         text-align: none;
         width: auto;

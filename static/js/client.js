@@ -17,8 +17,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , FORMAT_TIME_12 = '%I:%M'
         , FORMAT_TIME_24 = '%H:%M%'
         , FORMAT_TIME_SCALE = '%I %p'
-        , WIDTH_TIME_HIDDEN = 400
-        , WIDTH_SMALL_DOTS = WIDTH_TIME_HIDDEN
+        , WIDTH_SMALL_DOTS = 400
         , WIDTH_BIG_DOTS = 800
         , MINUTES_SINCE_LAST_UPDATE_WARN = 10
         , MINUTES_SINCE_LAST_UPDATE_URGENT = 20;
@@ -288,14 +287,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         // get slice of data so that concatenation of predictions do not interfere with subsequent updates
         var focusData = data.slice();
-
-        if (alarmInProgress) {
-            if (jqWindow.width() > WIDTH_TIME_HIDDEN) {
-                $('.time').show();
-            } else {
-                $('.time').hide();
-            }
-        }
 
         var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
@@ -970,11 +961,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         bgButton.toggleClass('urgent', file == urgentAlarmSound);
         var noButton = $('#noButton');
         noButton.hide();
+        $('#container').addClass('alarming');
         $('.container .currentBG').text();
 
-        if (jqWindow.width() <= WIDTH_TIME_HIDDEN) {
-            $('.time').hide();
-        }
     }
 
     function playAlarm(audio) {
@@ -998,7 +987,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             $(this).removeClass('playing');
         });
 
-        $('.time').show();
+        $('#container').removeClass('alarming');
 
         // only emit ack if client invoke by button press
         if (isClient) {
