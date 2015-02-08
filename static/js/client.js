@@ -103,6 +103,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
     }
 
+    function showRawBGs() {
+        return app.enabledOptions
+            && app.enabledOptions.indexOf('rawbg' > -1)
+            && (browserSettings.showRawbg == 'always' || browserSettings.showRawbg == 'noise');
+    }
+
     function rawIsigToRawBg(entry, cal) {
 
       var unfiltered = parseInt(entry.unfiltered) || 0
@@ -474,7 +480,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var bgType = (d.type == 'sgv' ? 'CGM' : (device == 'dexcom' ? 'Calibration' : 'Meter'));
                 var noiseLabel = '';
 
-                if (d.type == 'sgv' && app.enabledOptions && app.enabledOptions.indexOf('rawbg' > -1) && browserSettings.showRawbg != 'never') {
+                if (d.type == 'sgv' && showRawBGs()) {
                     noiseLabel = noiseCodeToDisplay(d.noise);
                 }
 
@@ -1348,7 +1354,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
 
                 var temp1 = [ ];
-                if (cal && app.enabledOptions && app.enabledOptions.indexOf('rawbg' > -1) && (browserSettings.showRawbg == 'always' || browserSettings.showRawbg == 'noise')) {
+                if (cal && showRawBGs()) {
                     temp1 = d[0].map(function (entry) {
                         var rawBg = rawIsigToRawBg(entry, cal);
                         return { date: new Date(entry.x - 2 * 1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg'}
