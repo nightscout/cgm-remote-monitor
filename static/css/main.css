@@ -243,6 +243,7 @@ div.tooltip {
 
   .bgStatus {
     width: 50%;
+    font-size: 650%;
   }
 
   .dropdown-menu {
@@ -288,10 +289,10 @@ div.tooltip {
     #bgButton {display:block;} */
 
     .bgStatus {
-        font-size: 750%;
+        font-size: 700%;
         float: none;
         margin: 0 auto;
-        padding: 0;
+        padding: 20px 0 0 0;
         text-align: center;
         width: 100vw;
     }
@@ -307,12 +308,23 @@ div.tooltip {
         font-size: 100% !important;
     }
 
+    #toolbar #iob-cob h1 {
+        left: 60px;
+        right: auto;
+        position: relative;
+    }
+
     .time {
         margin-bottom: 0.1em;
         margin-top: -1em;
         margin-left: 0;
         width: 100%;
     }
+
+    #container.alarming .time {
+        display: none;
+    }
+
     .timebox {
         text-align: none;
         width: auto;
@@ -361,7 +373,7 @@ div.tooltip {
     }
 
     #chartContainer {
-        top: 130px;
+        top: 140px;
         font-size: 80%;
     }
     #chartContainer svg {
@@ -373,7 +385,9 @@ div.tooltip {
     .container .status {
         font-size: 70%;
     }
-}
+    .bgStatus {
+        padding-top: 10px;
+    }
 
 @media (max-height: 480px) and (max-width: 400px) {
     .container .status {
