@@ -1169,6 +1169,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var BG_REF = scaleBg(140);
         var BG_MIN = scaleBg(36);
         var BG_MAX = scaleBg(400);
+
+        function roundIfMgDl(value) {
+            if (browserSettings.units == 'mmol') {
+                return value;
+            } else {
+                return Math.round(value);
+            }
+        }
+
         // these are the one sigma limits for the first 13 prediction interval uncertainties (65 minutes)
         var CONE = [0.020, 0.041, 0.061, 0.081, 0.099, 0.116, 0.132, 0.146, 0.159, 0.171, 0.182, 0.192, 0.201];
         // these are modified to make the cone much blunter
@@ -1203,13 +1212,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             // Add 2000 ms so not same point as SG
             predicted[i * 2] = {
                 date: new Date(dt + 2000),
-                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] - 2 * CONE[i]))))),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX, roundIfMgDl(BG_REF * Math.exp((y[1] - 2 * CONE[i]))))),
                 color: predictedColor
             };
             // Add 4000 ms so not same point as SG
             predicted[i * 2 + 1] = {
                 date: new Date(dt + 4000),
-                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] + 2 * CONE[i]))))),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX, roundIfMgDl(BG_REF * Math.exp((y[1] + 2 * CONE[i]))))),
                 color: predictedColor
             };
             predicted.forEach(function (d) {
