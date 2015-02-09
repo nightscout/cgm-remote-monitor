@@ -308,12 +308,6 @@ div.tooltip {
         font-size: 100% !important;
     }
 
-    #toolbar #iob-cob h1 {
-        left: 60px;
-        right: auto;
-        position: relative;
-    }
-
     .time {
         margin-bottom: 0.1em;
         margin-top: -1em;
@@ -385,12 +379,23 @@ div.tooltip {
     .container .status {
         font-size: 70%;
     }
+
     .bgStatus {
-        padding-top: 10px;
+        padding-top: 20px;
     }
+
+}
 
 @media (max-height: 480px) and (max-width: 400px) {
     .container .status {
         font-size: 80% !important;
+    }
+}
+
+@media (min-height: 480px) and (max-width: 400px) {
+    #toolbar #iob-cob h1 {
+        left: 60px;
+        right: auto;
+        position: relative;
     }
 }
