@@ -1170,9 +1170,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var BG_MIN = scaleBg(36);
         var BG_MAX = scaleBg(400);
 
-        function roundIfMgDl(value) {
+        function roundByUnits(value) {
             if (browserSettings.units == 'mmol') {
-                return value;
+                return value.toFixed(1);
             } else {
                 return Math.round(value);
             }
@@ -1212,13 +1212,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             // Add 2000 ms so not same point as SG
             predicted[i * 2] = {
                 date: new Date(dt + 2000),
-                sgv: Math.max(BG_MIN, Math.min(BG_MAX, roundIfMgDl(BG_REF * Math.exp((y[1] - 2 * CONE[i]))))),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX, roundByUnits(BG_REF * Math.exp((y[1] - 2 * CONE[i]))))),
                 color: predictedColor
             };
             // Add 4000 ms so not same point as SG
             predicted[i * 2 + 1] = {
                 date: new Date(dt + 4000),
-                sgv: Math.max(BG_MIN, Math.min(BG_MAX, roundIfMgDl(BG_REF * Math.exp((y[1] + 2 * CONE[i]))))),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX, roundByUnits(BG_REF * Math.exp((y[1] + 2 * CONE[i]))))),
                 color: predictedColor
             };
             predicted.forEach(function (d) {
