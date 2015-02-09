@@ -1479,9 +1479,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         if (current.length > 0) {
             sgv=parseInt(current[current.length-1].sgv);
         }
-        if (sgv < 30) {
-            var obj = latestSGV;
-            sgv = rawIsigToRawBg(obj.rawIsig, obj.scale || [ ], obj.intercept, obj.slope, obj.filtered, obj.y);
+        if (sgv < 40 && cal) {
+            sgv = rawIsigToRawBg(latestSGV, cal);
         }
         var predBgs = [];
         var bgi = sgv;
