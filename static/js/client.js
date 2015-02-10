@@ -103,6 +103,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
     }
 
+    function showRawBGs() {
+        return app.enabledOptions
+            && app.enabledOptions.indexOf('rawbg' > -1)
+            && (browserSettings.showRawbg == 'always' || browserSettings.showRawbg == 'noise');
+    }
+
     function rawIsigToRawBg(entry, cal) {
 
       var unfiltered = parseInt(entry.unfiltered) || 0
@@ -474,7 +480,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var bgType = (d.type == 'sgv' ? 'CGM' : (device == 'dexcom' ? 'Calibration' : 'Meter'));
                 var noiseLabel = '';
 
-                if (d.type == 'sgv' && app.enabledOptions && app.enabledOptions.indexOf('rawbg' > -1) && browserSettings.showRawbg != 'never') {
+                if (d.type == 'sgv' && showRawBGs()) {
                     noiseLabel = noiseCodeToDisplay(d.noise);
                 }
 
@@ -1158,6 +1164,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var BG_REF = scaleBg(140);
         var BG_MIN = scaleBg(36);
         var BG_MAX = scaleBg(400);
+
+        function roundByUnits(value) {
+            if (browserSettings.units == 'mmol') {
+                return value.toFixed(1);
+            } else {
+                return Math.round(value);
+            }
+        }
+
         // these are the one sigma limits for the first 13 prediction interval uncertainties (65 minutes)
         var CONE = [0.020, 0.041, 0.061, 0.081, 0.099, 0.116, 0.132, 0.146, 0.159, 0.171, 0.182, 0.192, 0.201];
         // these are modified to make the cone much blunter
@@ -1192,13 +1207,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             // Add 2000 ms so not same point as SG
             predicted[i * 2] = {
                 date: new Date(dt + 2000),
-                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] - 2 * CONE[i]))))),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX, roundByUnits(BG_REF * Math.exp((y[1] - 2 * CONE[i]))))),
                 color: predictedColor
             };
             // Add 4000 ms so not same point as SG
             predicted[i * 2 + 1] = {
                 date: new Date(dt + 4000),
-                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] + 2 * CONE[i]))))),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX, roundByUnits(BG_REF * Math.exp((y[1] + 2 * CONE[i]))))),
                 color: predictedColor
             };
             predicted.forEach(function (d) {
@@ -1348,7 +1363,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
 
                 var temp1 = [ ];
-                if (cal && app.enabledOptions && app.enabledOptions.indexOf('rawbg' > -1) && (browserSettings.showRawbg == 'always' || browserSettings.showRawbg == 'noise')) {
+                if (cal && showRawBGs()) {
                     temp1 = d[0].map(function (entry) {
                         var rawBg = rawIsigToRawBg(entry, cal);
                         return { date: new Date(entry.x - 2 * 1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg'}
