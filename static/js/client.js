@@ -350,7 +350,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var insulinImpact = iTotal.activity;
                 var rawCarbImpact = cTotal.rawCarbImpact;
                 var cImpact = carbImpact(rawCarbImpact, insulinImpact);
-                var totalImpact = Math.round((cImpact.totalImpact*tick)*10)/10;
+                var totalImpact = roundByUnits((cImpact.totalImpact*tick)*10)/10;
                 if (totalImpact > 0) totalImpact = "+" + totalImpact;
 
                 $("h1.iobCob").text("IOB " + iob + "U,  COB " + cob + "g");
@@ -441,7 +441,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             var insulinImpact = iTotal.activity;
             var rawCarbImpact = cTotal.rawCarbImpact;
             var cImpact = carbImpact(rawCarbImpact, insulinImpact);
-            var totalImpact = Math.round((cImpact.totalImpact*tick)*10)/10;
+            var totalImpact = roundByUnits((cImpact.totalImpact*tick)*10)/10;
             if (totalImpact > 0) totalImpact = "+" + totalImpact;
 
             $("h1.iobCob").text("IOB " + iob + "U,  COB " + cob + "g");
@@ -1213,6 +1213,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // functions to predict
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    function roundByUnits(value) {
+        if (browserSettings.units == 'mmol') {
+            return value.toFixed(1);
+        } else {
+            return Math.round(value);
+        }
+    }
+
     function predictARDeltas(actual, lookback, tick) {
         var predict_hr = 4;
         var ONE_MINUTE = 60 * 1000;
@@ -1222,7 +1230,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var BG_MIN = scaleBg(36);
         var BG_MAX = scaleBg(400);
         var ARpredict_hr = 0.5;
-        //var ARpredict_ms = ARpredict_hr*60*60*1000;
+
         if (actual.length < lookback+1) {
             for (var i = 0; i < predict_hr/(tick*ONE_MINUTE); i++) {
                 predictedDeltas[i] = 0;
@@ -1240,7 +1248,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 if (i < ARpredict_hr*60/tick) {
                     y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
                     dt = dt + tick*ONE_MINUTE;
-                    var sgv = Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1])))));
+                    var sgv = Math.max(BG_MIN, Math.min(BG_MAX, roundByUnits(BG_REF * Math.exp((y[1])))));
                     var delta = sgv - initial;
                 }
                 predictedDeltas[i] = delta;
@@ -1506,8 +1514,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             predBgs.push(predBg);
         }
 
-        var max = Math.round(Math.max(predBgs));
-        var min = Math.round(Math.min(predBgs));
+        var max = roundByUnits(Math.max(predBgs));
+        var min = roundByUnits(Math.min(predBgs));
         return {
             predBgs: predBgs,
             max: max,
