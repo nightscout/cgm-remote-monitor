@@ -57,7 +57,16 @@ body {
 .bgStatus .currentBG {
     text-decoration: line-through;
 }
-.bgStatus .currentDelta {
+
+.bgStatus .currentBG.error-code {
+    font-size: 80%;
+}
+
+.bgStatus .currentBG.bg-limit {
+    font-size: 80%;
+}
+
+.bgStatus .currentDetails {
     font-size: 25%;
     text-decoration: line-through;
     display: block;
@@ -67,7 +76,7 @@ body {
 .bgStatus.current .currentBG {
     text-decoration: none;
 }
-.bgStatus.current .currentDelta {
+.bgStatus.current .currentDetails {
     font-size: 25%;
     text-decoration: none;
     display: block;
@@ -243,6 +252,7 @@ div.tooltip {
 
   .bgStatus {
     width: 50%;
+    font-size: 650%;
   }
 
   .dropdown-menu {
@@ -313,6 +323,11 @@ div.tooltip {
         margin-left: 0;
         width: 100%;
     }
+
+    #container.alarming .time {
+        display: none;
+    }
+
     .timebox {
         text-align: none;
         width: auto;
