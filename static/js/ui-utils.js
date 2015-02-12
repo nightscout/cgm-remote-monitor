@@ -253,6 +253,7 @@ function treatmentSubmit(event) {
     data.insulin = document.getElementById('insulinGiven').value;
     data.preBolus = document.getElementById('preBolus').value;
     data.notes = document.getElementById('notes').value;
+    data.units = browserSettings.units;
 
     var eventTimeDisplay = '';
     if ($('#treatment-form input[name=nowOrOther]:checked').val() != 'now') {
