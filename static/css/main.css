@@ -57,6 +57,15 @@ body {
 .bgStatus .currentBG {
     text-decoration: line-through;
 }
+
+.bgStatus .currentBG.error-code {
+    font-size: 80%;
+}
+
+.bgStatus .currentBG.bg-limit {
+    font-size: 80%;
+}
+
 .bgStatus .currentDetails {
     font-size: 25%;
     text-decoration: line-through;

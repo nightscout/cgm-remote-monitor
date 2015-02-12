@@ -127,7 +127,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         } else if (noise < 2 && browserSettings.showRawbg != 'always') {
           return 0;
         } else if (filtered == 0 || sgv < 40) {
-            console.info("Skipping ratio adjustment for SGV " + sgv);
+            console.info('Skipping ratio adjustment for SGV ' + sgv);
             return scale * (unfiltered - intercept) / slope;
         } else {
             var ratio = scale * (filtered - intercept) / slope / sgv;
@@ -293,210 +293,184 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }
         }
 
-        // get slice of data so that concatenation of predictions do not interfere with subsequent updates
-        var focusData = data.slice();
-
         var nowDate = new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS);
 
-        // predict for retrospective data
-        // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
-        // of data instead of 5, which eliminates the incorrect and misleading predictions generated when
-        // the dexcom switches from unfiltered to filtered at the start of a rapid rise or fall, while preserving
-        // almost identical predications at other times.
-        var lookback=2;
-        var retroLookback = browserSettings.retroLookback;
-        var retroStart = FOCUS_DATA_RANGE_MS+(retroLookback/60)*SIXTY_MINS_IN_MS;
-        //var retroEnd = predict_hr*SIXTY_MINS_IN_MS + retroLookback/60*SIXTY_MINS_IN_MS;
+        var currentBG = $('.bgStatus .currentBG')
+            , currentDirection = $('.bgStatus .currentDirection')
+            , currentDetails = $('.bgStatus .currentDetails');
 
-        if (inRetroMode()) {
-            // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
-            var plusFiveTime = (predict_hr * SIXTY_MINS_IN_MS) - 6*ONE_MIN_IN_MS;
-            var lookbackTime = (lookback+2)*FIVE_MINS_IN_MS + 2*ONE_MIN_IN_MS;
-            var sgvData = data.filter(function(d) {
-                return d.date.getTime() >= brushExtent[1].getTime() - retroStart &&
-                    //d.date.getTime() <= brushExtent[1].getTime() - retroEnd &&
-                    d.type == 'sgv';
-            });
-            var nowDataRaw = data.filter(function(d) {
-                return d.date.getTime() >= brushExtent[1].getTime() - plusFiveTime - lookbackTime &&
-                    d.date.getTime() <= brushExtent[1].getTime() - plusFiveTime &&
-                    d.type == 'sgv';
-            });
-            // sometimes nowDataRaw contains duplicates.  uniq it.
-            var lastDate = new Date('1/1/1970');
-            var nowData = nowDataRaw.filter(function(n) {
-                if ( (lastDate.getTime() + ONE_MIN_IN_MS) < n.date.getTime()) {
-                    lastDate = n.date;
-                    return n;
-                }
-            });
-            if (nowData.length > lookback) {
-                var time = new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS);
-                if (retroLookback > 0 && retroPredict) {
-                    var retroPrediction = retroPredictBgs(sgvData, treatments, profile, retroLookback, lookback);
-                    focusData = focusData.concat(retroPrediction);
-                }
-                var prediction = predictDIYPS(nowData, treatments, profile, time, lookback);
-                focusData = focusData.concat(prediction);
-                var focusPoint = nowData[nowData.length - 1];
-                var prevfocusPoint = nowData[nowData.length - 2];
-
-                var iTotal = iobTotal(treatments, time);
-                var iob = Math.round(iTotal.iob*10)/10;
-                var cTotal = cobTotal(treatments, time);
-                var cob = Math.round(cTotal.cob);
-
-                var tick = 5;
-                var insulinImpact = iTotal.activity;
-                var rawCarbImpact = cTotal.rawCarbImpact;
-                var cImpact = carbImpact(rawCarbImpact, insulinImpact);
-                var totalImpact = roundByUnits((cImpact.totalImpact*tick)*10)/10;
-                if (totalImpact > 0) totalImpact = "+" + totalImpact;
-
-                $("h1.iobCob").text("IOB " + iob + "U,  COB " + cob + "g");
-
-                //in this case the SGV is scaled
-                if (focusPoint.y < 39) {
-                    $('.container .currentBG').html(errorCodeToDisplay(focusPoint.y));
-                } else if (focusPoint.y < 40) {
-                    $('.container .currentBG').text('LOW');
-                } else if (focusPoint.y > 400) {
-                    $('.container .currentBG').text('HIGH');
-                } else {
-                    $('.container .currentBG').text(focusPoint.sgv);
-                }
-
-                var retroDelta = scaleBg(focusPoint.y) - scaleBg(prevfocusPoint.y);
-                if (browserSettings.units == 'mmol') {
-                    retroDelta = retroDelta.toFixed(1);
-                }
-
-                var retroDeltaString = retroDelta;
-                if (retroDelta >= 0) {
-                    retroDeltaString = '+' + retroDelta;
-                }
-
-                if (browserSettings.units == 'mmol') {
-                    retroDeltaString = retroDeltaString + ' mmol/L'
-                } else {
-                    retroDeltaString = retroDeltaString + ' mg/dL'
-                }
-
-                $('.container .currentBG').css('text-decoration','line-through');
-                $('.container .currentDetails')
-                    .text(retroDeltaString + ", BGI: " + totalImpact)
-                    .css('text-decoration','line-through');
-
-                if (focusPoint.y < 39) {
-                    $('.container .currentDirection').html('✖');
-                } else {
-                    $('.container .currentDirection').html(focusPoint.direction)
-                }
+        function updateCurrentSGV(value) {
+            if (value < 39) {
+                currentBG.html(errorCodeToDisplay(value)).toggleClass('error-code');
+            } else if (value < 40) {
+                currentBG.text('LOW');
+            } else if (value > 400) {
+                currentBG.text('HIGH');
             } else {
-                $('.container .currentBG')
-                    .text('---')
-                    .css('text-decoration','');
-                $('.container .currentDetails').text('');
+                currentBG.text(scaleBg(value));
             }
-            $('#currentTime')
-                .text(formatTime(new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS)))
-                .css('text-decoration','line-through');
 
-            $('#lastEntry').text('RETRO').removeClass('current');
+            currentBG.toggleClass('error-code', value < 39);
+            currentBG.toggleClass('bg-limit', value == 39 || value > 400);
+        }
 
-            $('.container #noButton .currentBG').css({color: 'grey'});
-            $('.container #noButton .currentDetails').css({color: 'grey'});
-            $('.container #noButton .currentDirection').css({color: 'grey'});
+        function calcBGDelta(prev, current) {
 
-        } else {
-            // if the brush comes back into the current time range then it should reset to the current time and sg
-            var sgvData = data.filter(function(d) {
-                return d.date.getTime() >= brushExtent[1].getTime() - retroStart &&
-                    d.color != 'transparent' &&
-                    d.type == 'sgv';
-            });
-            if (sgvData.length == 0) {
-                var sgvData = data.filter(function(d) {
-                    return d.date.getTime() >= brushExtent[1].getTime() - retroStart &&
-                    d.color != 'transparent' &&
-                    d.type == 'rawbg';
-                });
+            var bgDeltaString;
+
+            if (prev < 40 || prev > 400 || current < 40 || current > 400) {
+                bgDeltaString = '';
+            } else {
+                var bgDelta = scaleBg(current) - scaleBg(prev);
+                if (browserSettings.units == 'mmol') {
+                    bgDelta = bgDelta.toFixed(1);
+                }
+
+                bgDeltaString = bgDelta;
+                if (bgDelta >= 0) {
+                    bgDeltaString = '+' + bgDelta;
+                }
+
+                if (browserSettings.units == 'mmol') {
+                    bgDeltaString = bgDeltaString + ' mmol/L'
+                } else {
+                    bgDeltaString = bgDeltaString + ' mg/dL'
+                }
             }
-            var x=lookback+1;
-            nowData = sgvData.slice(sgvData.length-x, sgvData.length);
-            var dateTime = new Date(now);
-            nowDate = dateTime;
-            if (retroLookback > 0) {
-                var retroPrediction = retroPredictBgs(sgvData, treatments, profile, retroLookback, lookback);
-                focusData = focusData.concat(retroPrediction);
-            }
-            var prediction = predictDIYPS(nowData, treatments, profile, nowDate, lookback);
-            focusData = focusData.concat(prediction);
 
+            return bgDeltaString;
+        }
+
+        function calcDIYPSDisplay(time) {
             var iTotal = iobTotal(treatments, time);
-            var iob = Math.round(iTotal.iob*10)/10;
+            var iob = Math.round(iTotal.iob * 10) / 10;
             var cTotal = cobTotal(treatments, time);
             var cob = Math.round(cTotal.cob);
             var tick = 5;
             var insulinImpact = iTotal.activity;
             var rawCarbImpact = cTotal.rawCarbImpact;
             var cImpact = carbImpact(rawCarbImpact, insulinImpact);
-            var totalImpact = roundByUnits((cImpact.totalImpact*tick)*10)/10;
-            if (totalImpact > 0) totalImpact = "+" + totalImpact;
+            var totalImpact = roundByUnits((cImpact.totalImpact * tick) * 10) / 10;
+            if (totalImpact > 0) totalImpact = '+' + totalImpact;
 
-            $("h1.iobCob").text("IOB " + iob + "U,  COB " + cob + "g");
+            return {
+                iobCOB: 'IOB ' + iob + 'U,  COB ' + cob + 'g',
+                bgi: ', BGI: ' + totalImpact
+            }
+        }
 
+        var color = inRetroMode() ? 'grey' : sgvToColor(latestSGV.y);
+
+        $('.container #noButton .currentBG').css({color: color});
+        $('.container #noButton .currentDirection').css({color: color});
+        $('.container #noButton .currentDetails').css({color: color});
+
+        // predict for retrospective data
+        // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
+        // of data instead of 5, which eliminates the incorrect and misleading predictions generated when
+        // the dexcom switches from unfiltered to filtered at the start of a rapid rise or fall, while preserving
+        // almost identical predications at other times.
+        var lookback = 2;
+        var retroLookback = browserSettings.retroLookback;
+        var retroStart = FOCUS_DATA_RANGE_MS+(retroLookback/60)*SIXTY_MINS_IN_MS;
+        //var retroEnd = predict_hr*SIXTY_MINS_IN_MS + retroLookback/60*SIXTY_MINS_IN_MS;
+
+        var nowData = data.filter(function(d) {
+            return d.type == 'sgv';
+        });
+
+        var diypsDisplay, displayTime, lookbackData;
+
+        if (inRetroMode()) {
+            // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
+            var plusFiveTime = (predict_hr * SIXTY_MINS_IN_MS) - 6 * ONE_MIN_IN_MS;
+            var lookbackTime = (lookback + 2) * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
+
+            lookbackData = nowData.filter(function(d) {
+                return d.date.getTime() >= brushExtent[1].getTime() - retroStart
+            });
+
+            nowData = nowData.filter(function(d) {
+                return d.date.getTime() >= brushExtent[1].getTime() - plusFiveTime - lookbackTime &&
+                    d.date.getTime() <= brushExtent[1].getTime() - plusFiveTime
+            });
+            
+            // sometimes nowData contains duplicates.  uniq it.
+            var lastDate = new Date('1/1/1970');
+            nowData = nowData.filter(function(d) {
+                var ok = (lastDate.getTime() + ONE_MIN_IN_MS) < d.date.getTime();
+                lastDate = d.date;
+                return ok;
+            });
+
+            if (nowData.length > lookback) {
+                var time = new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS);
+                displayTime = time;
+
+                var focusPoint = nowData[nowData.length - 1];
+                var prevfocusPoint = nowData[nowData.length - 2];
+
+                updateCurrentSGV(focusPoint.y);
+                diypsDisplay = calcDIYPSDisplay(time);
+
+                currentBG.css('text-decoration','line-through');
+                currentDirection.html(focusPoint.y < 39 ? '✖' : focusPoint.direction);
+                currentDetails.text(calcBGDelta(prevfocusPoint.y, focusPoint.y) + diypsDisplay.bgi).css('text-decoration','line-through');
+            } else {
+                currentBG.text('---').css('text-decoration','');
+                currentDirection.text('-');
+                currentDetails.text('');
+            }
+
+            $('#currentTime')
+                .text(formatTime(new Date(brushExtent[1] - predict_hr * SIXTY_MINS_IN_MS)))
+                .css('text-decoration','line-through');
+
+            $('#lastEntry').text('RETRO').removeClass('current');
+        } else {
+            // if the brush comes back into the current time range then it should reset to the current time and sg
+            lookbackData = nowData.filter(function(d) {
+                return d.date.getTime() >= brushExtent[1].getTime() - retroStart
+            });
+            if (lookbackData.length == 0) {
+                lookbackData = data.filter(function(d) {
+                    return d.date.getTime() >= brushExtent[1].getTime() - retroStart &&
+                        d.type == 'rawbg';
+                });
+            }
+
+            nowData = lookbackData.slice(lookbackData.length - 1 - lookback, lookbackData.length);
+
+            nowDate = new Date(now);
+            displayTime = nowDate;
+
+            updateCurrentSGV(latestSGV.y);
             updateClockDisplay();
+            updateTimeAgo();
+            diypsDisplay = calcDIYPSDisplay();
 
-            var bgDelta = scaleBg(latestSGV.y) - scaleBg(prevSGV.y);
-            if (browserSettings.units == 'mmol') {
-                bgDelta = bgDelta.toFixed(1);
-            }
+            currentBG.css('text-decoration', '');
+            currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);
+            currentDetails.text(calcBGDelta(prevSGV.y, latestSGV.y) + diypsDisplay.bgi).css('text-decoration','');
+        }
 
-            var bgDeltaString = bgDelta;
-            if (bgDelta >= 0) {
-                bgDeltaString = '+' + bgDelta;
-            }
-
-            if (browserSettings.units == 'mmol') {
-                bgDeltaString = bgDeltaString + ' mmol/L'
-            } else {
-                bgDeltaString = bgDeltaString + ' mg/dL'
-            }
-
-            $('.container .currentBG').css('text-decoration', '');
-
-            if (latestSGV.y < 39) {
-                bgDeltaString = "";
-
-                $('#lastEntry').text('CGM ERROR').removeClass('current').addClass('urgent');
-
-                $('.container .currentBG').html(errorCodeToDisplay(latestSGV.y));
-                $('.container .currentDetails').text('').css('text-decoration','');
-                $('.container .currentDirection').html('✖');
-            } else {
-                updateTimeAgo();
-                //in this case the SGV is unscaled
-                if (latestSGV.y < 40) {
-                    $('.container .currentBG').text('LOW');
-                } else if (latestSGV.y > 400) {
-                    $('.container .currentBG').text('HIGH');
-                } else {
-                    $('.container .currentBG').text(scaleBg(latestSGV.y));
-                }
-                $('.container .currentDirection').html(latestSGV.direction);
-            }
-
-            $('.container .currentDetails').text(bgDeltaString + ", BGI: " + totalImpact).css('text-decoration','');
-
-            var color = sgvToColor(latestSGV.y);
-            $('.container #noButton .currentBG').css({color: color});
-            $('.container #noButton .currentDirection').css({color: color});
-
-            $('.container #noButton .currentDetails').css({color: color});
+        if (diypsDisplay && diypsDisplay.iobCOB) {
+            $('h1.iobCob').text(diypsDisplay.iobCOB);
         }
 
         xScale.domain(brush.extent());
+
+        // get slice of data so that concatenation of predictions do not interfere with subsequent updates
+        var focusData = data.slice();
+        if (retroLookback > 0 && retroPredict) {
+            var retroPrediction = retroPredictBgs(lookbackData, treatments, profile, retroLookback, lookback);
+            focusData = focusData.concat(retroPrediction);
+        }
+
+        if (nowData.length > lookback && displayTime) {
+            var prediction = predictDIYPS(nowData, treatments, profile, displayTime, lookback);
+            focusData = focusData.concat(prediction);
+        }
 
         // bind up the focus chart data to an array of circles
         // selects all our data into data and uses date function to get current max date
@@ -1237,7 +1211,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }
         } else {
             var elapsedMins = (actual[actual.length-1].date - actual[actual.length-1-lookback].date) / ONE_MINUTE;
-            // construct a "5m ago" sgv offset from current sgv by the average change over the lookback interval
+            // construct a '5m ago' sgv offset from current sgv by the average change over the lookback interval
             var lookbackSgvChange = actual[actual.length-1].sgv-actual[actual.length-1-lookback].sgv;
             var fiveMinAgoSgv = actual[actual.length-1].sgv - lookbackSgvChange/elapsedMins*5;
             var y = [Math.log(fiveMinAgoSgv / BG_REF), Math.log(actual[actual.length-1].sgv / BG_REF)];
@@ -1266,7 +1240,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var predicted = [];
         var n=parseInt(retroLookback/5)-1;
         // sometimes data contains duplicates.  uniq it.
-        var lastDate = new Date("1/1/1970");
+        var lastDate = new Date('1/1/1970');
         var data = dataRaw.filter(function(n) {
             if ( (lastDate.getTime() + ONE_MIN_IN_MS) < n.date.getTime()) {
                 lastDate = n.date;
@@ -1309,7 +1283,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
         var dt = time.getTime();
         var predictedColor = 'purple';
-        if (browserSettings.theme == "colors") {
+        if (browserSettings.theme == 'colors') {
             predictedColor = 'purple';
         }
         var bgPred = bgPredictions(treatments, actual, predict_hr, time, tick);
@@ -1385,8 +1359,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     function updateTimeAgo() {
         if (!latestSGV || inRetroMode()) return;
 
-        var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
-        $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+        if (latestSGV.y < 39) {
+            $('#lastEntry').text('CGM ERROR').removeClass('current').addClass('urgent');
+        } else {
+            var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
+            $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+        }
     }
 
 
@@ -1422,7 +1400,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
 
         var isDecaying = 0;
-        var lastDecayedBy = new Date("1/1/1970");
+        var lastDecayedBy = new Date('1/1/1970');
         var carbs_hr = profile.carbs_hr;
 
         treatments.forEach(function(treatment) {
@@ -1446,7 +1424,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 }
 
                 if (decaysin_hr > 0) {
-            //console.info("Adding " + delayMinutes + " minutes to decay of " + treatment.carbs + "g bolus at " + treatment.created_at);
+            //console.info('Adding ' + delayMinutes + ' minutes to decay of ' + treatment.carbs + 'g bolus at ' + treatment.created_at);
                     cob = Math.min(cCalc.initialCarbs, decaysin_hr * carbs_hr);
                     isDecaying = cCalc.isDecaying;
                 }
@@ -1480,7 +1458,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
 
     function bgPredictions(treatments, current, predict_hr, time, tick) {
-        //console.info("bgPredictions called");
+        //console.info('bgPredictions called');
         var sgv;
         var endtime=new Date(time);
 
