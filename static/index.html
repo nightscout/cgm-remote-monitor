@@ -6,9 +6,9 @@
         <link rel="apple-touch-icon" href="/images/logomobile.png">
         <title>Nightscout</title>
         <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
-        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.6.1" />
+        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.6.4" />
         <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.6.1" />
+        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.6.4" />
         <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
     </head>
     <body>
@@ -30,13 +30,13 @@
                     <div id="noButton">
                         <span class="currentBG">---</span>
                         <span class="currentDirection">-</span>
-                        <span class="currentDelta">--</span>
+                        <span class="currentDetails">--</span>
                         
                     </div>
                     <div id="bgButton" hidden="true">
                         <span class="currentBG">---</span>
                         <span class="currentDirection">-</span>
-                        <span class="currentDelta">--</span>
+                        <span class="currentDetails">--</span>
                     </div>
                     <ul class="dropdown-menu" id="silenceBtn">
                         <li><a href="#" data-snooze-time="1800000">Silence for 30 minutes</a></li>
@@ -75,7 +75,7 @@
                         <dd><input type="radio" name="timeformat-browser" id="24-browser" value="24" /><label for="24-browser">24 hours</label></dd>
                     </dl>
                     <dl class="toggle">
-                        <dt>Enable Alarms <a class="tip" original-title="When enabled the an alarm may sound."><i class="icon-help-circled"></i></a></dt>
+                        <dt>Enable Alarms <a class="tip" original-title="When enabled an alarm may sound."><i class="icon-help-circled"></i></a></dt>
                         <dd><input type="checkbox" id="alarm-urgenthigh-browser" /><label for="alarm-urgenthigh-browser">Urgent High Alarm</label></dd>
                         <dd><input type="checkbox" id="alarm-high-browser" /><label for="alarm-high-browser">High Alarm</label></dd>
                         <dd><input type="checkbox" id="alarm-low-browser" /><label for="alarm-low-browser">Low Alarm</label></dd>
@@ -84,6 +84,12 @@
                     <dl class="toggle">
                         <dt>Night Mode <a class="tip" original-title="When enabled the page will be dimmed from 10pm - 6am."><i class="icon-help-circled"></i></a></dt>
                         <dd><input type="checkbox" name="nightmode-browser" id="nightmode-browser" /><label for="nightmode-browser">Enable</label></dd>
+                    </dl>
+                    <dl id="show-rawbg-option" class="toggle">
+                      <dt>Show Raw BG Data <a class="tip" original-title="When enabled small white dots will be disaplyed for raw BG data"><i class="icon-help-circled"></i></a></dt>
+                      <dd><input type="radio" name="show-rawbg" id="show-rawbg-never" value="never"/><label for="show-rawbg-never">Never</label></dd>
+                      <dd><input type="radio" name="show-rawbg" id="show-rawbg-always" value="always"/><label for="show-rawbg-always">Always</label></dd>
+                      <dd><input type="radio" name="show-rawbg" id="show-rawbg-noise" value="noise"/><label for="show-rawbg-noise">When there is noise</label></dd>
                     </dl>
                     <dl>
                         <dt>Custom Title</dt>
@@ -220,8 +226,8 @@
         <script src="/bower_components/jquery/dist/jquery.min.js"></script>
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
-        <script src="/js/ui-utils.js?v=0.6.1"></script>
-        <script src="/js/client.js?v=0.6.1"></script>
+        <script src="/js/ui-utils.js?v=0.6.4"></script>
+        <script src="/js/client.js?v=0.6.4"></script>
         <script src="/js/experiments.js"></script>
     </body>
 </html>

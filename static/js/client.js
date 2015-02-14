@@ -17,8 +17,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , FORMAT_TIME_12 = '%I:%M'
         , FORMAT_TIME_24 = '%H:%M%'
         , FORMAT_TIME_SCALE = '%I %p'
-        , WIDTH_TIME_HIDDEN = 500
-        , WIDTH_SMALL_DOTS = WIDTH_TIME_HIDDEN
+        , WIDTH_SMALL_DOTS = 400
         , WIDTH_BIG_DOTS = 800
         , MINUTES_SINCE_LAST_UPDATE_WARN = 10
         , MINUTES_SINCE_LAST_UPDATE_URGENT = 20;
@@ -28,8 +27,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , latestSGV
         , latestUpdateTime
         , prevSGV
-        , errorCode
         , treatments
+        , cal
         , padding = { top: 20, right: 10, bottom: 30, left: 10 }
         , opacity = {current: 1, DAY: 1, NIGHT: 0.5}
         , now = Date.now()
@@ -95,7 +94,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     ]);
 
 
-  // lixgbg: Convert mg/dL BG value to metric mmol
+    // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
         if (browserSettings.units == 'mmol') {
             return (Math.round((bg / 18) * 10) / 10).toFixed(1);
@@ -103,6 +102,36 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             return bg;
         }
     }
+
+    function showRawBGs() {
+        return app.enabledOptions
+            && app.enabledOptions.indexOf('rawbg' > -1)
+            && (browserSettings.showRawbg == 'always' || browserSettings.showRawbg == 'noise');
+    }
+
+    function rawIsigToRawBg(entry, cal) {
+
+      var unfiltered = parseInt(entry.unfiltered) || 0
+        , filtered = parseInt(entry.filtered) || 0
+        , sgv = entry.y
+        , noise = entry.noise || 0
+        , scale = parseFloat(cal.scale) || 0
+        , intercept = parseFloat(cal.intercept) || 0
+        , slope = parseFloat(cal.slope) || 0;
+
+        if (slope == 0 || unfiltered == 0 || scale == 0) {
+          return 0;
+        } else if (noise < 2 && browserSettings.showRawbg != 'always') {
+          return 0;
+        } else if (filtered == 0 || sgv < 40) {
+            console.info("Skipping ratio adjustment for SGV " + sgv);
+            return scale * (unfiltered - intercept) / slope;
+        } else {
+            var ratio = scale * (filtered - intercept) / slope / sgv;
+            return scale * ( unfiltered - intercept) / slope / ratio;
+        }
+    }
+
     // initial setup of chart when data is first made available
     function initializeCharts() {
 
@@ -201,6 +230,40 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && elementHidden != true;
     }
 
+    function errorCodeToDisplay(errorCode) {
+        var errorDisplay;
+
+        switch (parseInt(errorCode)) {
+            case 0:  errorDisplay = '??0'; break; //None
+            case 1:  errorDisplay = '?SN'; break; //SENSOR_NOT_ACTIVE
+            case 2:  errorDisplay = '??2'; break; //MINIMAL_DEVIATION
+            case 3:  errorDisplay = '?NA'; break; //NO_ANTENNA
+            case 5:  errorDisplay = '?NC'; break; //SENSOR_NOT_CALIBRATED
+            case 6:  errorDisplay = '?CD'; break; //COUNTS_DEVIATION
+            case 7:  errorDisplay = '??7'; break; //?
+            case 8:  errorDisplay = '??8'; break; //?
+            case 9:  errorDisplay = '&#8987;'; break; //ABSOLUTE_DEVIATION
+            case 10: errorDisplay = '???'; break; //POWER_DEVIATION
+            case 12: errorDisplay = '?RF'; break; //BAD_RF
+            default: errorDisplay = '?' + parseInt(errorCode) + '?'; break;
+        }
+
+        return errorDisplay;
+    }
+
+    function noiseCodeToDisplay(noise) {
+        var display = 'Not Set';
+        switch (parseInt(noise)) {
+            case 1: display = 'Clean'; break;
+            case 2: display = 'Light'; break;
+            case 3: display = 'Medium'; break;
+            case 4: display = 'Heavy'; break;
+            case 5: display = 'Unknown'; break;
+        }
+
+        return display;
+    }
+
     // function to call when context chart is brushed
     function brushed(skipTimer) {
 
@@ -228,156 +291,40 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }
         }
 
-        // get slice of data so that concatenation of predictions do not interfere with subsequent updates
-        var focusData = data.slice();
-
-        if (alarmInProgress) {
-            if (jqWindow.width() > WIDTH_TIME_HIDDEN) {
-                $('.time').show();
-            } else {
-                $('.time').hide();
-            }
-        }
-
         var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
-        // predict for retrospective data
-        // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
-        // of data instead of 5, which eliminates the incorrect and misleading predictions generated when
-        // the dexcom switches from unfiltered to filtered at the start of a rapid rise or fall, while preserving
-        // almost identical predications at other times.
-        var lookback = 2;
-        if (inRetroMode()) {
-            // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
-            var lookbackTime = (lookback+2)*FIVE_MINS_IN_MS + 2*ONE_MIN_IN_MS;
-            var nowDataRaw = data.filter(function(d) {
-                return d.date.getTime() >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
-                    d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS &&
-                    d.type == 'sgv';
-            });
-            // sometimes nowDataRaw contains duplicates.  uniq it.
-            var lastDate = new Date('1/1/1970');
-            var nowData = nowDataRaw.filter(function(n) {
-                if ( (lastDate.getTime() + ONE_MIN_IN_MS) < n.date.getTime()) {
-                    lastDate = n.date;
-                    return n;
-                }
-            });
-            if (nowData.length > lookback) {
-                var prediction = predictAR(nowData, lookback);
-                focusData = focusData.concat(prediction);
-                var focusPoint = nowData[nowData.length - 1];
-                var prevfocusPoint = nowData[nowData.length - 2];
+        var currentBG = $('.bgStatus .currentBG')
+            , currentDirection = $('.bgStatus .currentDirection')
+            , currentDetails = $('.bgStatus .currentDetails');
 
-                //in this case the SGV is scaled
-                if (focusPoint.y < 40) {
-                    $('.container .currentBG').text('LOW');
-                } else if (focusPoint.y > 400) {
-                    $('.container .currentBG').text('HIGH');
-                } else {
-                    $('.container .currentBG').text(focusPoint.sgv);
-                }
-
-                var retroDelta = scaleBg(focusPoint.y) - scaleBg(prevfocusPoint.y);
-                if (browserSettings.units == 'mmol') {
-                    retroDelta = retroDelta.toFixed(1);
-                }
-
-                var retroDeltaString = retroDelta;
-                if (retroDelta >= 0) {
-                    retroDeltaString = '+' + retroDelta;
-                }
-
-                if (browserSettings.units == 'mmol') {
-                    retroDeltaString = retroDeltaString + ' mmol/L'
-                } else {
-                    retroDeltaString = retroDeltaString + ' mg/dL'
-                }
-
-                $('.container .currentBG').css('text-decoration','line-through');
-                $('.container .currentDelta')
-                    .text(retroDeltaString)
-                    .css('text-decoration','line-through');
-                $('.container .currentDirection').html(focusPoint.direction)
+        function updateCurrentSGV(value) {
+            if (value < 39) {
+                currentBG.html(errorCodeToDisplay(value)).toggleClass('error-code');
+            } else if (value < 40) {
+                currentBG.text('LOW');
+            } else if (value > 400) {
+                currentBG.text('HIGH');
             } else {
-                $('.container .currentBG')
-                    .text('---')
-                    .css('text-decoration','');
-                $('.container .currentDelta').text('');
+                currentBG.text(scaleBg(value));
             }
-            $('#currentTime')
-                .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
-                .css('text-decoration','line-through');
 
-            $('#lastEntry').text('RETRO').removeClass('current');
+            currentBG.toggleClass('error-code', value < 39);
+            currentBG.toggleClass('bg-limit', value == 39 || value > 400);
+        }
 
-            $('.container #noButton .currentBG').css({color: 'grey'});
-            $('.container #noButton .currentDelta').css({color: 'grey'});
-            $('.container #noButton .currentDirection').css({color: 'grey'});
+        function calcBGDelta(prev, current) {
 
-        } else {
-            // if the brush comes back into the current time range then it should reset to the current time and sg
-            var nowData = data.filter(function(d) {
-                return d.type == 'sgv';
-            });
-            var x=lookback+1;
-            nowData = nowData.slice(nowData.length-x, nowData.length);
-            //nowData = [nowData[nowData.length - lookback-1], nowData[nowData.length - 1]];
-            var prediction = predictAR(nowData, lookback);
-            focusData = focusData.concat(prediction);
-            var dateTime = new Date(now);
-            nowDate = dateTime;
+            var bgDeltaString;
 
-            updateClockDisplay();
-
-            if (errorCode) {
-                var errorDisplay;
-
-                switch (parseInt(errorCode)) {
-                    case 0:  errorDisplay = '??0'; break; //None
-                    case 1:  errorDisplay = '?SN'; break; //SENSOR_NOT_ACTIVE
-                    case 2:  errorDisplay = '??2'; break; //MINIMAL_DEVIATION
-                    case 3:  errorDisplay = '?NA'; break; //NO_ANTENNA
-                    case 5:  errorDisplay = '?NC'; break; //SENSOR_NOT_CALIBRATED
-                    case 6:  errorDisplay = '?CD'; break; //COUNTS_DEVIATION
-                    case 7:  errorDisplay = '??7'; break; //?
-                    case 8:  errorDisplay = '??8'; break; //?
-                    case 9:  errorDisplay = '&#8987;'; break; //ABSOLUTE_DEVIATION
-                    case 10: errorDisplay = '???'; break; //POWER_DEVIATION
-                    case 12: errorDisplay = '?RF'; break; //BAD_RF
-                    default: errorDisplay = '?' + parseInt(errorCode) + '?'; break;
-                }
-
-                $('#lastEntry').text('CGM ERROR').removeClass('current').addClass('urgent');
-
-                $('.container .currentBG').html(errorDisplay)
-                    .css('text-decoration', '');
-                $('.container .currentDelta').text('')
-                    .css('text-decoration','');
-                $('.container .currentDirection').html('✖');
-
-                var color = sgvToColor(errorCode);
-                $('.container #noButton .currentBG').css({color: color});
-                $('.container #noButton .currentDirection').css({color: color});
-
+            if (prev < 40 || prev > 400 || current < 40 || current > 400) {
+                bgDeltaString = '';
             } else {
-
-                updateTimeAgo();
-                //in this case the SGV is unscaled
-                if (latestSGV.y < 40) {
-                    $('.container .currentBG').text('LOW');
-                } else if (latestSGV.y > 400) {
-                    $('.container .currentBG').text('HIGH');
-                } else {
-                    $('.container .currentBG').text(scaleBg(latestSGV.y));
-                }
-
-                var bgDelta = scaleBg(latestSGV.y) - scaleBg(prevSGV.y);
+                var bgDelta = scaleBg(current) - scaleBg(prev);
                 if (browserSettings.units == 'mmol') {
                     bgDelta = bgDelta.toFixed(1);
                 }
 
-                var bgDeltaString = bgDelta;
+                bgDeltaString = bgDelta;
                 if (bgDelta >= 0) {
                     bgDeltaString = '+' + bgDelta;
                 }
@@ -387,28 +334,85 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 } else {
                     bgDeltaString = bgDeltaString + ' mg/dL'
                 }
-
-                $('.container .currentBG').css('text-decoration', '');
-                $('.container .currentDelta')
-                    .text(bgDeltaString)
-                    .css('text-decoration','');
-                $('.container .currentDirection').html(latestSGV.direction);
-
-                var color = sgvToColor(latestSGV.y);
-                $('.container #noButton .currentBG').css({color: color});
-                $('.container #noButton .currentDirection').css({color: color});
-
-                // bgDelta and retroDelta to follow sgv color
-                // instead of Scott Leibrand's wip/iob-cob settings below
-
-                // var deltaColor = deltaToColor(bgDelta);
-                // $('.container #noButton .currentDelta').css({color: deltaColor});
-
-                $('.container #noButton .currentDelta').css({color: color});
             }
+
+            return bgDeltaString;
+        }
+
+        var color = inRetroMode() ? 'grey' : sgvToColor(latestSGV.y);
+
+        $('.container #noButton .currentBG').css({color: color});
+        $('.container #noButton .currentDirection').css({color: color});
+        $('.container #noButton .currentDetails').css({color: color});
+
+        // predict for retrospective data
+        // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
+        // of data instead of 5, which eliminates the incorrect and misleading predictions generated when
+        // the dexcom switches from unfiltered to filtered at the start of a rapid rise or fall, while preserving
+        // almost identical predications at other times.
+        var lookback = 2;
+
+        var nowData = data.filter(function(d) {
+            return d.type == 'sgv';
+        });
+
+        if (inRetroMode()) {
+            // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
+            var lookbackTime = (lookback + 2) * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
+            nowData = nowData.filter(function(d) {
+                return d.date.getTime() >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
+                    d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS
+            });
+
+            // sometimes nowData contains duplicates.  uniq it.
+            var lastDate = new Date('1/1/1970');
+            nowData = nowData.filter(function(d) {
+                var ok = (lastDate.getTime() + ONE_MIN_IN_MS) < d.date.getTime();
+                lastDate = d.date;
+                return ok;
+            });
+
+            if (nowData.length > lookback) {
+                var focusPoint = nowData[nowData.length - 1];
+                var prevfocusPoint = nowData[nowData.length - 2];
+
+                updateCurrentSGV(focusPoint.y);
+
+                currentBG.css('text-decoration','line-through');
+                currentDirection.html(focusPoint.y < 39 ? '✖' : focusPoint.direction);
+                currentDetails.text(calcBGDelta(prevfocusPoint.y, focusPoint.y)).css('text-decoration','line-through');
+            } else {
+                currentBG.text('---').css('text-decoration','');
+                currentDirection.text('-');
+                currentDetails.text('');
+            }
+
+            $('#currentTime')
+                .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
+                .css('text-decoration','line-through');
+
+            $('#lastEntry').text('RETRO').removeClass('current');
+        } else {
+            // if the brush comes back into the current time range then it should reset to the current time and sg
+            nowData = nowData.slice(nowData.length - 1 - lookback, nowData.length);
+            nowDate = new Date(now);
+
+            updateCurrentSGV(latestSGV.y);
+            updateClockDisplay();
+            updateTimeAgo();
+
+            currentBG.css('text-decoration', '');
+            currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);
+            currentDetails.text(calcBGDelta(prevSGV.y, latestSGV.y)).css('text-decoration','');
         }
 
         xScale.domain(brush.extent());
+
+        // get slice of data so that concatenation of predictions do not interfere with subsequent updates
+        var focusData = data.slice();
+        if (nowData.length > lookback) {
+            focusData = focusData.concat(predictAR(nowData, lookback));
+        }
 
         // bind up the focus chart data to an array of circles
         // selects all our data into data and uses date function to get current max date
@@ -417,6 +421,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var dotRadius = function(type) {
             var radius = prevChartWidth > WIDTH_BIG_DOTS ? 4 : (prevChartWidth < WIDTH_SMALL_DOTS ? 2 : 3);
             if (type == 'mbg') radius *= 2;
+            else if (type == 'rawbg') radius = Math.min(2, radius - 1);
             return radius;
         };
 
@@ -445,10 +450,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
                 var device = d.device && d.device.toLowerCase();
                 var bgType = (d.type == 'sgv' ? 'CGM' : (device == 'dexcom' ? 'Calibration' : 'Meter'));
+                var noiseLabel = '';
+
+                if (d.type == 'sgv' && showRawBGs()) {
+                    noiseLabel = noiseCodeToDisplay(d.noise);
+                }
 
                 tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
                 tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
                     (d.type == 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
+                    (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
                     '<br/><strong>Time:</strong> ' + formatTime(d.date))
                     .style('left', (d3.event.pageX) + 'px')
                     .style('top', (d3.event.pageY - 28) + 'px');
@@ -928,11 +939,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         bgButton.toggleClass('urgent', file == urgentAlarmSound);
         var noButton = $('#noButton');
         noButton.hide();
+        $('#container').addClass('alarming');
         $('.container .currentBG').text();
 
-        if (jqWindow.width() <= WIDTH_TIME_HIDDEN) {
-            $('.time').hide();
-        }
     }
 
     function playAlarm(audio) {
@@ -940,7 +949,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         if (querystring.mute != 'true') {
             audio.play();
         } else {
-            showNotification('Alarm is muted per your request. (?mute=true)');
+            showNotification('Alarm was muted (?mute=true)');
         }
     }
 
@@ -956,7 +965,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             $(this).removeClass('playing');
         });
 
-        $('.time').show();
+        $('#container').removeClass('alarming');
 
         // only emit ack if client invoke by button press
         if (isClient) {
@@ -1127,6 +1136,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var BG_REF = scaleBg(140);
         var BG_MIN = scaleBg(36);
         var BG_MAX = scaleBg(400);
+
+        function roundByUnits(value) {
+            if (browserSettings.units == 'mmol') {
+                return value.toFixed(1);
+            } else {
+                return Math.round(value);
+            }
+        }
+
         // these are the one sigma limits for the first 13 prediction interval uncertainties (65 minutes)
         var CONE = [0.020, 0.041, 0.061, 0.081, 0.099, 0.116, 0.132, 0.146, 0.159, 0.171, 0.182, 0.192, 0.201];
         // these are modified to make the cone much blunter
@@ -1161,13 +1179,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             // Add 2000 ms so not same point as SG
             predicted[i * 2] = {
                 date: new Date(dt + 2000),
-                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] - 2 * CONE[i]))))),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX, roundByUnits(BG_REF * Math.exp((y[1] - 2 * CONE[i]))))),
                 color: predictedColor
             };
             // Add 4000 ms so not same point as SG
             predicted[i * 2 + 1] = {
                 date: new Date(dt + 4000),
-                sgv: Math.max(BG_MIN, Math.min(BG_MAX, Math.round(BG_REF * Math.exp((y[1] + 2 * CONE[i]))))),
+                sgv: Math.max(BG_MIN, Math.min(BG_MAX, roundByUnits(BG_REF * Math.exp((y[1] + 2 * CONE[i]))))),
                 color: predictedColor
             };
             predicted.forEach(function (d) {
@@ -1188,6 +1206,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         // Dim the screen by reducing the opacity when at nighttime
         if (browserSettings.nightMode) {
+            var dateTime = new Date();
             if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7)) {
                 $('body').css({ 'opacity': opacity.NIGHT });
             } else {
@@ -1206,8 +1225,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     function updateTimeAgo() {
         if (!latestSGV || inRetroMode()) return;
 
-        var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
-        $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+        if (latestSGV.y < 39) {
+            $('#lastEntry').text('CGM ERROR').removeClass('current').addClass('urgent');
+        } else {
+            var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
+            $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+        }
     }
 
     function init() {
@@ -1300,17 +1323,34 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         socket.on('sgv', function (d) {
             if (d.length > 1) {
-                errorCode = d.length >= 5 ? d[4] : undefined;
-
                 // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
                 if (d[0].length) {
                     latestUpdateTime = Date.now();
                     latestSGV = d[0][d[0].length - 1];
                     prevSGV = d[0][d[0].length - 2];
                 }
-                data = d[0].map(function (obj) {
-                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv'}
+
+                treatments = d[3];
+                treatments.forEach(function (d) {
+                    d.created_at = new Date(d.created_at);
                 });
+
+                cal = d[4][d[4].length-1];
+
+
+                var temp1 = [ ];
+                if (cal && showRawBGs()) {
+                    temp1 = d[0].map(function (entry) {
+                        var rawBg = rawIsigToRawBg(entry, cal);
+                        return { date: new Date(entry.x - 2 * 1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg'}
+                    }).filter(function(entry) { return entry.y > 0});
+                }
+                var temp2 = d[0].map(function (obj) {
+                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise}
+                });
+                data = [];
+                data = data.concat(temp1, temp2);
+
                 // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
                 // This shouldn't have to be sent and can be fixed by using xScale.domain([x0,x1]) function with
                 // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
@@ -1324,11 +1364,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 data.forEach(function (d) {
                     if (d.y < 39)
                         d.color = 'transparent';
-                });
-
-                treatments = d[3];
-                treatments.forEach(function (d) {
-                    d.created_at = new Date(d.created_at);
                 });
 
                 if (!isInitialData) {
@@ -1357,7 +1392,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         //with predicted alarms, latestSGV may still be in target so to see if the alarm
         //  is for a LOW we can only check if it's <= the top of the target
         function isAlarmForLow() {
-            return !!errorCode || latestSGV.y <= app.thresholds.bg_target_top;
+            return latestSGV.y <= app.thresholds.bg_target_top;
         }
 
         socket.on('alarm', function () {
@@ -1412,6 +1447,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 , version: xhr.version
                 , head: xhr.head
                 , apiEnabled: xhr.apiEnabled
+                , enabledOptions: xhr.enabledOptions || ''
                 , thresholds: xhr.thresholds
                 , alarm_types: xhr.alarm_types
                 , units: xhr.units
