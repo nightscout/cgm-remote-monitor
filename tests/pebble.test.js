@@ -92,7 +92,6 @@ describe('Pebble Endpoint with Raw', function ( ) {
   var pebbleRaw = require('../lib/pebble');
   before(function (done) {
     var envRaw = require('../env')( );
-    envRaw.enable = "rawbg";
     this.appRaw = require('express')( );
     this.appRaw.enable('api');
     this.appRaw.use('/pebble', pebbleRaw(entries, treatments, devicestatus, envRaw));
