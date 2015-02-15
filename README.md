@@ -92,7 +92,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
 #### Features/Labs
 
-  * `ENABLE` - Used to enable optional features, currently supports: `careportal`
+  * `ENABLE` - Used to enable optional features, expects a space delimited list such as: `careportal rawbg` (also `rawbg-on` to show raw data by default)
   * `API_SECRET` - A secret passphrase that must be at least 12 characters long, required to enable `POST` and `PUT`; also required for the Care Portal
   * `BG_HIGH` (`260`) - must be set using mg/dl units; the high BG outside the target range that is considered urgent
   * `BG_TARGET_TOP` (`180`) - must be set using mg/dl units; the top of the target range, also used to draw the line on the chart
