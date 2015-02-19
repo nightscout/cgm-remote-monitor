@@ -57,7 +57,16 @@ body {
 .bgStatus .currentBG {
     text-decoration: line-through;
 }
-.bgStatus .currentDelta {
+
+.bgStatus .currentBG.error-code {
+    font-size: 80%;
+}
+
+.bgStatus .currentBG.bg-limit {
+    font-size: 80%;
+}
+
+.bgStatus .currentDetails {
     font-size: 25%;
     text-decoration: line-through;
     display: block;
@@ -67,7 +76,7 @@ body {
 .bgStatus.current .currentBG {
     text-decoration: none;
 }
-.bgStatus.current .currentDelta {
+.bgStatus.current .currentDetails {
     font-size: 25%;
     text-decoration: none;
     display: block;
@@ -161,7 +170,6 @@ body {
     cursor: default;
     font-size: 75%;
     margin-top: 15px;
-    margin-right: 37px;
     width: auto;
 
     user-select: none;
@@ -244,11 +252,9 @@ div.tooltip {
 
   .bgStatus {
     width: 50%;
+    font-size: 650%;
   }
 
-  #bgButton {
-    font-size: 120%;
-  }
   .dropdown-menu {
     font-size: 60% !important;
   }
@@ -257,10 +263,7 @@ div.tooltip {
   }
 }
 
-@media (max-width: 700px) {
-  #bgButton {
-    font-size: 120%;
-  }
+@media (max-width: 750px) {
   .dropdown-menu {
     font-size: 60% !important;
   }
@@ -284,10 +287,6 @@ div.tooltip {
         font-size: 70%;
     }
 
-    #notification {
-        margin-top: 148px;
-    }
-
     .status {
         text-align: center;
         margin-bottom: 0;
@@ -307,10 +306,7 @@ div.tooltip {
         width: 100vw;
     }
     #bgButton {
-        font-size: 120%;
-        height: 142px;
-        margin-top: 1vw;
-        width: 98vw;
+        font-size: 100%;
     }
     .dropdown-menu {
         font-size: 60% !important;
@@ -327,6 +323,11 @@ div.tooltip {
         margin-left: 0;
         width: 100%;
     }
+
+    #container.alarming .time {
+        display: none;
+    }
+
     .timebox {
         text-align: none;
         width: auto;
@@ -363,10 +364,6 @@ div.tooltip {
     .container {
         top: 15px;
         padding-bottom: 20px;
-    }
-
-    #bgButton {
-        font-size: 70% !important;
     }
 
     #currentTime {
