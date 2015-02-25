@@ -269,11 +269,8 @@
             $scope.iob = function(treatment, time) {
 
                 var dia=$scope.profile[0].dia;
-                if (dia == 3) {
-                    var peak=75;
-                } else {
-                    console.warn('DIA of ' + dia + 'not supported');
-                }
+                var scalefactor = 3.0/dia;
+                var peak=75;
                 var sens=$scope.profile[0].sens;
                 if (typeof time === 'undefined') {
                     var time = new Date();
@@ -281,7 +278,7 @@
 
                 if (treatment.insulin) {
                     var bolusTime=new Date(treatment.created_at);
-                    var minAgo=(time-bolusTime)/1000/60;
+                    var minAgo=scalefactor*(time-bolusTime)/1000/60;
 
                     if (minAgo < 0) { 
                         var iobContrib=0;

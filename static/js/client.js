@@ -1279,7 +1279,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var BG_MIN = scaleBg(36);
         var BG_MAX = scaleBg(400);
         if (typeof predict_hr === 'undefined') {
-            var predict_hr = 4;
+            predict_hr = profile.dia;
         }
         var dt = time.getTime();
         var predictedColor = 'purple';
@@ -1547,38 +1547,37 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     function iobCalc(treatment, time) {
 
         var dia=profile.dia;
-        if (dia == 3) {
-            var peak=75;
-        } else {
-            console.warn('DIA of ' + dia + 'not supported');
-        }
+        var scaleFactor = 3.0/dia;
+        var peak = 75;
         var sens=profile.sens;
-        if (typeof time === 'undefined') {
-            var time = new Date();
+        var iobContrib, activityContrib;
+        var t = time;
+        if (typeof t === 'undefined') {
+            t = new Date();
         }
 
         if (treatment.insulin) {
             var bolusTime=new Date(treatment.created_at);
-            var minAgo=(time-bolusTime)/1000/60;
+            var minAgo=scaleFactor*(t-bolusTime)/1000/60;
 
             if (minAgo < 0) { 
-                var iobContrib=0;
-                var activityContrib=0;
+                iobContrib=0;
+                activityContrib=0;
             }
             if (minAgo < peak) {
                 var x = minAgo/5+1;
-                var iobContrib=treatment.insulin*(1-0.001852*x*x+0.001852*x);
-                var activityContrib=sens*treatment.insulin*(2/dia/60/peak)*minAgo;
+                iobContrib=treatment.insulin*(1-0.001852*x*x+0.001852*x);
+                activityContrib=sens*treatment.insulin*(2/dia/60/peak)*minAgo;
 
             }
             else if (minAgo < 180) {
                 var x = (minAgo-75)/5;
-                var iobContrib=treatment.insulin*(0.001323*x*x - .054233*x + .55556);
-                var activityContrib=sens*treatment.insulin*(2/dia/60-(minAgo-peak)*2/dia/60/(60*dia-peak));
+                iobContrib=treatment.insulin*(0.001323*x*x - .054233*x + .55556);
+                activityContrib=sens*treatment.insulin*(2/dia/60-(minAgo-peak)*2/dia/60/(60*dia-peak));
             }
             else {
-                var iobContrib=0;
-                var activityContrib=0;
+                iobContrib=0;
+                activityContrib=0;
             }
             return {
                 iobContrib: iobContrib,
