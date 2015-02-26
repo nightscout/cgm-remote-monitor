@@ -39,7 +39,7 @@
     }
   },
   "engines": {
-    "node": "~0.10.0"
+    "node": "0.10.x"
   },
   "dependencies": {
     "body-parser": "^1.4.3",
@@ -58,7 +58,6 @@
     "long": "~2.2.3"
   },
   "devDependencies": {
-    "coveralls": "~2.11.2",
     "istanbul": "~0.3.5",
     "mocha": "~1.20.1",
     "should": "~4.0.4",
