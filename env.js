@@ -3,6 +3,7 @@
 var env = { };
 var crypto = require('crypto');
 var consts = require('./lib/constants');
+var fs = require('fs');
 // Module to constrain all config and environment parsing to one spot.
 function config ( ) {
 
@@ -43,6 +44,19 @@ function config ( ) {
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
 
   env.enable = readENV('ENABLE');
+  env.SSL_KEY = readENV('SSL_KEY');
+  env.SSL_CERT = readENV('SSL_CERT');
+  env.SSL_CA = readENV('SSL_CA');
+  env.ssl = false;
+  if (env.SSL_KEY && env.SSL_CERT) {
+    env.ssl = {
+      key: fs.readFileSync(env.SSL_KEY)
+    , cert: fs.readFileSync(env.SSL_CERT)
+    };
+    if (env.SSL_CA) {
+      env.ca = fs.readFileSync(env.SSL_CA);
+    }
+  }
 
   var shasum = crypto.createHash('sha1');
 
@@ -64,6 +78,43 @@ function config ( ) {
     env.api_secret = shasum.digest('hex');
   }
 
+  env.thresholds = {
+    bg_high: readIntENV('BG_HIGH', 260)
+    , bg_target_top: readIntENV('BG_TARGET_TOP', 180)
+    , bg_target_bottom: readIntENV('BG_TARGET_BOTTOM', 80)
+    , bg_low: readIntENV('BG_LOW', 55)
+  };
+
+  //NOTE: using +/- 1 here to make the thresholds look visibly wrong in the UI
+  //      if all thresholds were set to the same value you should see 4 lines stacked right on top of each other
+  if (env.thresholds.bg_target_bottom >= env.thresholds.bg_target_top) {
+    console.warn('BG_TARGET_BOTTOM(' + env.thresholds.bg_target_bottom + ') was >= BG_TARGET_TOP(' + env.thresholds.bg_target_top + ')');
+    env.thresholds.bg_target_bottom = env.thresholds.bg_target_top - 1;
+    console.warn('BG_TARGET_BOTTOM is now ' + env.thresholds.bg_target_bottom);
+  }
+
+  if (env.thresholds.bg_target_top <= env.thresholds.bg_target_bottom) {
+    console.warn('BG_TARGET_TOP(' + env.thresholds.bg_target_top + ') was <= BG_TARGET_BOTTOM(' + env.thresholds.bg_target_bottom + ')');
+    env.thresholds.bg_target_top = env.thresholds.bg_target_bottom + 1;
+    console.warn('BG_TARGET_TOP is now ' + env.thresholds.bg_target_top);
+  }
+
+  if (env.thresholds.bg_low >= env.thresholds.bg_target_bottom) {
+    console.warn('BG_LOW(' + env.thresholds.bg_low + ') was >= BG_TARGET_BOTTOM(' + env.thresholds.bg_target_bottom + ')');
+    env.thresholds.bg_low = env.thresholds.bg_target_bottom - 1;
+    console.warn('BG_LOW is now ' + env.thresholds.bg_low);
+  }
+
+  if (env.thresholds.bg_high <= env.thresholds.bg_target_top) {
+    console.warn('BG_HIGH(' + env.thresholds.bg_high + ') was <= BG_TARGET_TOP(' + env.thresholds.bg_target_top + ')');
+    env.thresholds.bg_high = env.thresholds.bg_target_top + 1;
+    console.warn('BG_HIGH is now ' + env.thresholds.bg_high);
+  }
+
+  //if any of the BG_* thresholds are set, default to "simple" otherwise default to "predict" to preserve current behavior
+  var thresholdsSet = readIntENV('BG_HIGH') || readIntENV('BG_TARGET_TOP') || readIntENV('BG_TARGET_BOTTOM') || readIntENV('BG_LOW');
+  env.alarm_types = readENV('ALARM_TYPES') || (thresholdsSet ? "simple" : "predict");
+
   // For pushing notifications to Pushover.
   env.pushover_api_token = readENV('PUSHOVER_API_TOKEN');
   env.pushover_user_key = readENV('PUSHOVER_USER_KEY') || readENV('PUSHOVER_GROUP_KEY');
@@ -81,6 +132,10 @@ function config ( ) {
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
 
   return env;
+}
+
+function readIntENV(varName, defaultValue) {
+    return parseInt(readENV(varName)) || defaultValue;
 }
 
 function readENV(varName, defaultValue) {
