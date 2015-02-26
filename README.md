@@ -105,7 +105,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
 #### Core
 
-  * `DISPLAY_UNITS` (`mg/dl`) - Choices: `mg/dl` and `mmol`.  Setting to `mmol` puts the entire server into `mmol` mode by default, no further settings needed.
+  * `DEFAULTS` - `Key=Value` pairs that can be used to set system options.  Currently supported: `"display-units=mg/dl|mmol time-format=12|24"`
   * `MONGO_COLLECTION` (`entries`) - The collection used to store SGV, MBG, and CAL records from your CGM device
   * `MONGO_TREATMENTS_COLLECTION` (`treatments`) -The collection used to store treatments entered in the Care Portal, see the `ENABLE` env var above
   * `MONGO_DEVICESTATUS_COLLECTION`(`devicestatus`) - The collection used to store device status information such as uploader battery
@@ -113,6 +113,10 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js
+
+#### Deprecated
+  * `DISPLAY_UNITS` (`mg/dl`) - **[Use `DEFAULTS` instead.]** Choices: `mg/dl` and `mmol`.  Setting to `mmol` puts the entire server into `mmol` mode by default, no further settings needed.
+
 
 ## Setting environment variables
 Easy to emulate on the commandline:
