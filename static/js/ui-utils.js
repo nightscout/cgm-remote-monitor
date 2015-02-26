@@ -14,7 +14,7 @@ var defaultSettings = {
 };
 
 function rawBGsEnabled() {
-    return app.enabledOptions && app.enabledOptions.indexOf('rawbg') > -1;
+    return true;
 }
 
 function initShowRawBG(currentValue) {
@@ -26,7 +26,7 @@ function initShowRawBG(currentValue) {
     } else if (currentValue == 'never' || currentValue == 'always' || currentValue == 'noise') {
         initValue = currentValue;
     } else {
-        initValue = app.enabledOptions.indexOf('rawbg-on') > -1 ? 'noise' : 'never';
+        initValue = 'noise';
     }
 
     return initValue;
@@ -55,6 +55,7 @@ function getBrowserSettings(storage) {
             'alarmLow': storage.get('alarmLow'),
             'alarmUrgentLow': storage.get('alarmUrgentLow'),
             'nightMode': storage.get('nightMode'),
+            'retroLookback': storage.get('retroLookback'),
             'showRawbg': storage.get('showRawbg'),
             'customTitle': storage.get('customTitle'),
             'theme': storage.get('theme'),
@@ -81,6 +82,10 @@ function getBrowserSettings(storage) {
         json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
         $('#nightmode-browser').prop('checked', json.nightMode);
 
+        if (typeof json.retroLookback !== 'undefined') {
+            $('input#retroLookback').prop('value', json.retroLookback);
+        }
+
         if (rawBGsEnabled()) {
             $('#show-rawbg-option').show();
             json.showRawbg = initShowRawBG(json.showRawbg);
@@ -93,7 +98,7 @@ function getBrowserSettings(storage) {
         if (json.customTitle) {
             $('h1.customTitle').text(json.customTitle);
             $('input#customTitle').prop('value', json.customTitle);
-            document.title = 'Nightscout: ' + json.customTitle;
+            document.title = json.customTitle + " - Nightscout";
         }
 
         if (json.theme == 'colors') {
@@ -380,6 +385,7 @@ $('input#save').click(function(event) {
         'alarmLow': $('#alarm-low-browser').prop('checked'),
         'alarmUrgentLow': $('#alarm-urgentlow-browser').prop('checked'),
         'nightMode': $('#nightmode-browser').prop('checked'),
+        'retroLookback': $('input#retroLookback').prop('value'),
         'showRawbg': $('input:radio[name=show-rawbg]:checked').val(),
         'customTitle': $('input#customTitle').prop('value'),
         'theme': $('input:radio[name=theme-browser]:checked').val(),

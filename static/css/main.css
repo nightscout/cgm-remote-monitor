@@ -298,10 +298,10 @@ div.tooltip {
     #bgButton {display:block;} */
 
     .bgStatus {
-        font-size: 750%;
+        font-size: 700%;
         float: none;
         margin: 0 auto;
-        padding: 0;
+        padding: 20px 0 0 0;
         text-align: center;
         width: 100vw;
     }
@@ -357,8 +357,13 @@ div.tooltip {
         height: auto !important;
     }
 
-    #toolbar h1 {
+    #toolbar > h1 {
         display: none;
+    }
+
+    #iob-cob h1 {
+        left: 60px;
+        right: auto;
     }
 
     .container {
@@ -371,7 +376,7 @@ div.tooltip {
     }
 
     #chartContainer {
-        top: 130px;
+        top: 140px;
         font-size: 80%;
     }
     #chartContainer svg {
@@ -383,10 +388,23 @@ div.tooltip {
     .container .status {
         font-size: 70%;
     }
+
+    .bgStatus {
+        padding-top: 20px;
+    }
+
 }
 
 @media (max-height: 480px) and (max-width: 400px) {
     .container .status {
         font-size: 80% !important;
+    }
+}
+
+@media (min-height: 480px) and (max-width: 400px) {
+    #toolbar #iob-cob h1 {
+        left: 60px;
+        right: auto;
+        position: relative;
     }
 }

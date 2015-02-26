@@ -75,60 +75,26 @@ var entries = {
 };
 
 //Mock devicestatus
+var treatments = {
+    list: function(query, callback) {
+        callback(null, []);
+    }
+};
+
+//Mock devicestatus
 var devicestatus = {
   last: function(callback) {
     callback(null, {uploaderBattery: 100});
   }
 };
 
-describe('Pebble Endpoint without Raw', function ( ) {
-  var pebble = require('../lib/pebble');
-  before(function (done) {
-    var env = require('../env')( );
-    this.app = require('express')( );
-    this.app.enable('api');
-    this.app.use('/pebble', pebble(entries, devicestatus, env));
-    done();
-  });
-
-  it('should be a module', function ( ) {
-    pebble.should.be.ok;
-  });
-
-  it('/pebble', function (done) {
-    request(this.app)
-      .get('/pebble?count=2')
-      .expect(200)
-      .end(function (err, res)  {
-        var bgs = res.body.bgs;
-        bgs.length.should.equal(2);
-        var bg = bgs[0];
-        bg.sgv.should.equal('82');
-        bg.bgdelta.should.equal(-2);
-        bg.trend.should.equal(4);
-        bg.direction.should.equal('Flat');
-        bg.datetime.should.equal(1422727301000);
-        should.not.exist(bg.filtered);
-        should.not.exist(bg.unfiltered);
-        should.not.exist(bg.noise);
-        should.not.exist(bg.rssi);
-        bg.battery.should.equal('100');
-
-        res.body.cals.length.should.equal(0);
-        done( );
-      });
-  });
-});
-
-
 describe('Pebble Endpoint with Raw', function ( ) {
   var pebbleRaw = require('../lib/pebble');
   before(function (done) {
     var envRaw = require('../env')( );
-    envRaw.enable = "rawbg";
     this.appRaw = require('express')( );
     this.appRaw.enable('api');
-    this.appRaw.use('/pebble', pebbleRaw(entries, devicestatus, envRaw));
+    this.appRaw.use('/pebble', pebbleRaw(entries, treatments, devicestatus, envRaw));
     done();
   });
 
@@ -165,3 +131,5 @@ describe('Pebble Endpoint with Raw', function ( ) {
   });
 
 });
+
+//TODO: add test for IOB used in pebble endpoint
