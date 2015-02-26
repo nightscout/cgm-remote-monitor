@@ -33,7 +33,6 @@ function config ( ) {
   env.version = software.version;
   env.name = software.name;
 
-  env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
   env.PORT = readENV('PORT', 1337);
   env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI');
   env.mongo_collection = readENV('MONGO_COLLECTION', 'entries');
@@ -43,7 +42,12 @@ function config ( ) {
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
 
   env.enable = readENV('ENABLE');
-  env.SSL_KEY = readENV('SSL_KEY');
+
+  //TODO: parse defaults here, expect format `key1=value1 key2=value2` split on space, ignore commas
+  // results should be an object something like env.defaults = {"DISPLAY_UNITS": "mg/dl", "TIME_FORMAT": "12"};
+  env.defaults = readENV('DEFAULTS');
+
+    env.SSL_KEY = readENV('SSL_KEY');
   env.SSL_CERT = readENV('SSL_CERT');
   env.SSL_CA = readENV('SSL_CA');
   env.ssl = false;
@@ -56,6 +60,9 @@ function config ( ) {
       env.ca = fs.readFileSync(env.SSL_CA);
     }
   }
+
+  //TODO: check if set by `ENABLE`, if not check old env
+  env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
 
   var shasum = crypto.createHash('sha1');
 
