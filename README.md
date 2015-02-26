@@ -129,7 +129,8 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 Easy to emulate on the commandline:
 
 ```bash
-    echo 'MONGO_CONNECTION="mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout"' >> my.env
+    echo 'MONGO_CONNECTION=mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout' >> my.env
+    echo 'MONGO_COLLECTION=entries' >> my.env
 ```
 
 From now on you can run using
