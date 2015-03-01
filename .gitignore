@@ -1,6 +1,9 @@
 bower_components/
 node_modules/
 
+
+bundle/bundle.out.js
+
 .idea/
 *.iml
 my.env

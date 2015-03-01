@@ -82,6 +82,19 @@ var staticFiles = express.static(env.static_files, {maxAge: 60 * 60 * 1000});
 // serve the static content
 app.use(staticFiles);
 
+var browserify_express = require('browserify-express');
+var bundle = browserify_express({
+    entry: __dirname + '/bundle/bundle.source.js',
+    watch: __dirname + '/lib/',
+    mount: '/public/js/bundle.js',
+    verbose: true,
+    //minify: true,
+    bundle_opts: { debug: true }, // enable inline sourcemap on js files
+    write_file: __dirname + '/bundle/bundle.out.js'
+});
+
+app.use(bundle);
+
 // Handle errors with express's errorhandler, to display more readable error messages.
 var errorhandler = require('errorhandler');
 //if (process.env.NODE_ENV === 'development') {
