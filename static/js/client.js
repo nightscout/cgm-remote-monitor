@@ -389,7 +389,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
                 if (showIOB()) {
                     var iob = Nightscout.iob.calcTotal(treatments, profile, time);
-                    details += ", IOB:" + iob.display;
+                    details += ", IOB: " + iob.display;
                 }
 
                 currentBG.css('text-decoration','line-through');
@@ -419,7 +419,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
             if (showIOB()) {
                 var iob = Nightscout.iob.calcTotal(treatments, profile, nowDate);
-                details += ", IOB:" + iob.display;
+                details += ", IOB: " + iob.display;
             }
 
             currentBG.css('text-decoration', '');
