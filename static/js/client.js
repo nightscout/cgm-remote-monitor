@@ -106,8 +106,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function showRawBGs() {
         return app.enabledOptions
-            && app.enabledOptions.indexOf('rawbg' > -1)
+            && app.enabledOptions.indexOf('rawbg') > -1
             && (browserSettings.showRawbg == 'always' || browserSettings.showRawbg == 'noise');
+    }
+
+    function showIOB() {
+        console.info("app.enabledOptions", app.enabledOptions);
+        console.info("app.enabledOptions.indexOf('iob')", app.enabledOptions.indexOf('iob' > -1));
+        return app.enabledOptions
+            && app.enabledOptions.indexOf('iob') > -1;
     }
 
     function rawIsigToRawBg(entry, cal) {
@@ -358,6 +365,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         });
 
         if (inRetroMode()) {
+            var time = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
             var lookbackTime = (lookback + 2) * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
             nowData = nowData.filter(function(d) {
@@ -379,9 +387,17 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
                 updateCurrentSGV(focusPoint.y);
 
+                var details = calcBGDelta(prevfocusPoint.y, focusPoint.y);
+
+                if (showIOB()) {
+                    var iob = Nightscout.iob.calcTotal(treatments, profile, time);
+                    console.info("retro IOB", iob);
+                    details += ", IOB:" + iob.display;
+                }
+
                 currentBG.css('text-decoration','line-through');
                 currentDirection.html(focusPoint.y < 39 ? '✖' : focusPoint.direction);
-                currentDetails.text(calcBGDelta(prevfocusPoint.y, focusPoint.y)).css('text-decoration','line-through');
+                currentDetails.text(details).css('text-decoration','line-through');
             } else {
                 currentBG.text('---').css('text-decoration','');
                 currentDirection.text('-');
@@ -389,7 +405,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }
 
             $('#currentTime')
-                .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
+                .text(formatTime(time))
                 .css('text-decoration','line-through');
 
             $('#lastEntry').text('RETRO').removeClass('current');
@@ -402,9 +418,17 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             updateClockDisplay();
             updateTimeAgo();
 
+            var details = calcBGDelta(prevSGV.y, latestSGV.y);
+
+            if (showIOB()) {
+                var iob = Nightscout.iob.calcTotal(treatments, profile, nowDate);
+                console.info("current IOB", iob);
+                details += ", IOB:" + iob.display;
+            }
+
             currentBG.css('text-decoration', '');
             currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);
-            currentDetails.text(calcBGDelta(prevSGV.y, latestSGV.y)).css('text-decoration','');
+            currentDetails.text(details).css('text-decoration','');
         }
 
         xScale.domain(brush.extent());
