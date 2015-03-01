@@ -111,8 +111,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
 
     function showIOB() {
-        console.info("app.enabledOptions", app.enabledOptions);
-        console.info("app.enabledOptions.indexOf('iob')", app.enabledOptions.indexOf('iob' > -1));
         return app.enabledOptions
             && app.enabledOptions.indexOf('iob') > -1;
     }
@@ -391,7 +389,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
                 if (showIOB()) {
                     var iob = Nightscout.iob.calcTotal(treatments, profile, time);
-                    console.info("retro IOB", iob);
                     details += ", IOB:" + iob.display;
                 }
 
@@ -422,7 +419,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
             if (showIOB()) {
                 var iob = Nightscout.iob.calcTotal(treatments, profile, nowDate);
-                console.info("current IOB", iob);
                 details += ", IOB:" + iob.display;
             }
 
