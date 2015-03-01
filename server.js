@@ -50,8 +50,9 @@ var express = require('express');
 var entriesStorage = entries.storage(env.mongo_collection, store, pushover);
 var settings = require('./lib/settings')(env.settings_collection, store);
 var treatmentsStorage = treatments.storage(env.treatments_collection, store, pushover);
+var profile = require('./lib/profile')(env.profile_collection, store);
 var devicestatusStorage = devicestatus.storage(env.devicestatus_collection, store);
-var api = require('./lib/api/')(env, entriesStorage, settings, treatmentsStorage, devicestatusStorage);
+var api = require('./lib/api/')(env, entriesStorage, settings, treatmentsStorage, profile, devicestatusStorage);
 var pebble = require('./lib/pebble');
 ///////////////////////////////////////////////////
 
@@ -118,7 +119,7 @@ store(function ready ( ) {
   // setup socket io for data and message transmission
   ///////////////////////////////////////////////////
   var websocket = require('./lib/websocket');
-  var io = websocket(env, server, entriesStorage, treatmentsStorage);
+  var io = websocket(env, server, entriesStorage, treatmentsStorage, profile);
 });
 
 ///////////////////////////////////////////////////

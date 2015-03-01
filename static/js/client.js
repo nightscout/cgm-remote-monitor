@@ -28,6 +28,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , latestUpdateTime
         , prevSGV
         , treatments
+        , profile
         , cal
         , padding = { top: 20, right: 10, bottom: 30, left: 10 }
         , opacity = {current: 1, DAY: 1, NIGHT: 0.5}
@@ -124,7 +125,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         } else if (noise < 2 && browserSettings.showRawbg != 'always') {
           return 0;
         } else if (filtered == 0 || sgv < 40) {
-            console.info("Skipping ratio adjustment for SGV " + sgv);
+            console.info('Skipping ratio adjustment for SGV ' + sgv);
             return scale * (unfiltered - intercept) / slope;
         } else {
             var ratio = scale * (filtered - intercept) / slope / sgv;
@@ -1335,8 +1336,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     d.created_at = new Date(d.created_at);
                 });
 
-                cal = d[4][d[4].length-1];
-
+                profile = d[4][0];
+                cal = d[5][d[5].length-1];
 
                 var temp1 = [ ];
                 if (cal && showRawBGs()) {
