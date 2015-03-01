@@ -72,7 +72,7 @@ app.enable('trust proxy'); // Allows req.secure test on heroku https connections
 app.use('/api/v1', api);
 
 // pebble data
-app.get('/pebble', pebble(entriesStorage, devicestatusStorage, env));
+app.get('/pebble', pebble(entriesStorage, treatmentsStorage, profile, devicestatusStorage, env));
 
 //app.get('/package.json', software);
 
@@ -86,7 +86,7 @@ app.use(staticFiles);
 var browserify_express = require('browserify-express');
 var bundle = browserify_express({
     entry: __dirname + '/bundle/bundle.source.js',
-    watch: __dirname + '/lib/',
+    watch: [__dirname + '/lib/', __dirname + '/bundle/bundle.source.js'],
     mount: '/public/js/bundle.js',
     verbose: true,
     //minify: true,
