@@ -10,7 +10,7 @@
     position: absolute;
     margin-top: 45px;
     right: -200px;
-    width: 200px;
+    width: 300px;
     top: 0;
     z-index: 1;
 }
@@ -57,6 +57,25 @@
 }
 
 #treatmentDrawer label.left-column input, #treatmentDrawer label.left-column select {
+  width: 140px;
+}
+
+#treatmentDrawer label.extra-space {
+  padding-top: 10px;
+  display: block;
+}
+
+#eventTime {
+
+}
+
+#eventTime > span {
+  width: 105px;
+  display: inline-block;
+}
+
+#eventTime > input {
+  margin-left: 114px;
   width: 140px;
 }
 
@@ -184,29 +203,11 @@ h1, legend,
     padding-left: 9px !important;
 }
 
-#showToolbar,
 #notification {
     display: none;
     font-size: 14px;
     position: absolute;
 }
-#showToolbar {
-    opacity: 0.5;
-    text-align: center;
-    top: 0px;
-    width: 100%;
-    z-index: 98;
-}
-#showToolbar a {
-    border: solid #fff 1px;
-    border-radius: 5px;
-    border-top: 0;
-    color: #fff;
-    margin: 0 auto;
-    padding: 2px;
-}
-
-
 
 #notification,
 #notification a {
