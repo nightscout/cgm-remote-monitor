@@ -1564,7 +1564,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 iobContrib=0;
                 activityContrib=0;
             }
-            if (minAgo < peak) {
+            else if (minAgo < peak) {
                 var x = minAgo/5+1;
                 iobContrib=treatment.insulin*(1-0.001852*x*x+0.001852*x);
                 activityContrib=sens*treatment.insulin*(2/dia/60/peak)*minAgo;
