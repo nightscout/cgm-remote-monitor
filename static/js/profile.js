@@ -497,8 +497,8 @@ TODO:
 				return false;
 			}
 			
-			if (apisecret.length != 15) {
-				alert('You API secret must be exactly 15 characters long');
+			if (apisecret.length < 15) {
+				alert('You API secret must be at least 15 characters long');
 				$('#pe_status').hide().html('Bad API secret').fadeIn("slow");
 				return false;
 			}
