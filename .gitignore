@@ -15,3 +15,5 @@ static/bower_components/
 
 # istanbul output
 coverage/
+
+npm-debug.log
