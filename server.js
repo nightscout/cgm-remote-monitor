@@ -33,12 +33,14 @@ var pushover = require('./lib/pushover')(env);
 var entries = require('./lib/entries');
 var treatments = require('./lib/treatments');
 var devicestatus = require('./lib/devicestatus');
+var profiles = require('./lib/profile');
 
 var store = require('./lib/storage')(env, function() {
     console.info("Mongo ready");
     entries.ensureIndexes(env.mongo_collection, store);
     treatments.ensureIndexes(env.treatments_collection, store);
     devicestatus.ensureIndexes(env.devicestatus_collection, store);
+    profiles.ensureIndexes(env.profile_collection, store);
 });
 
 
@@ -51,9 +53,9 @@ var compression = require('compression');
 var entriesStorage = entries.storage(env.mongo_collection, store, pushover);
 var settings = require('./lib/settings')(env.settings_collection, store);
 var treatmentsStorage = treatments.storage(env.treatments_collection, store, pushover);
-var profile = require('./lib/profile')(env.profile_collection, store);
+var profilesStorage = profiles.storage(env.profile_collection, store);
 var devicestatusStorage = devicestatus.storage(env.devicestatus_collection, store);
-var api = require('./lib/api/')(env, entriesStorage, settings, treatmentsStorage, profile, devicestatusStorage);
+var api = require('./lib/api/')(env, entriesStorage, settings, treatmentsStorage, profilesStorage, devicestatusStorage);
 var pebble = require('./lib/pebble');
 ///////////////////////////////////////////////////
 
@@ -115,7 +117,7 @@ store(function ready ( ) {
   // setup socket io for data and message transmission
   ///////////////////////////////////////////////////
   var websocket = require('./lib/websocket');
-  var io = websocket(env, server, entriesStorage, treatmentsStorage, profile, devicestatusStorage);
+  var io = websocket(env, server, entriesStorage, treatmentsStorage, profilesStorage, devicestatusStorage);
 });
 
 ///////////////////////////////////////////////////
