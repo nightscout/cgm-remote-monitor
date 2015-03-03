@@ -43,11 +43,49 @@ function config ( ) {
 
   env.enable = readENV('ENABLE');
 
-  //TODO: parse defaults here, expect format `key1=value1 key2=value2` split on space, ignore commas
-  // results should be an object something like env.defaults = {"DISPLAY_UNITS": "mg/dl", "TIME_FORMAT": "12"};
-  env.defaults = readENV('DEFAULTS');
+  // parse defaults here, expect format `key1=value1 key2=value2` split on space, ignore commas
+  var rawdefaults = readENV('DEFAULTS');
+  env.defaults = { // currently supported keys must defined be here
+	  'time-format': '12'			// 12|24
+	, 'display-units': 'mg/dL'		// 'mg/dL'|'mmol'
+	, 'nightmode': 'off'			// 'off'|'on'
+	, 'rawbg': 'off'				// 'off'|'on'|'noise'
+	, 'custom-title': 'Nightscout'  // 2 underscores '__' are replaced to single space. "Bara's CGM" must by entered as custom-title=Bara\'s__CGM
+	, 'theme': 'default'			// 'default'|'color'
+	, 'language': 'en' 				// future use only
+	} ;
+	
+  var alloweddefaults = {
+	  'time-format': 	{ '12': true, '24': true }
+	, 'display-units': 	{ 'mg/dL': true, 'mmol': true }
+	, 'nightmode': 		{ 'off': true, 'on': true }
+	, 'rawbg': 			{ 'off': true, 'on': true , 'noise': true }
+	, 'custom-title': 	{ 'any': true }
+	, 'theme': 			{ 'default': true, 'color': true }
+	, 'language': 		{ 'en': true }
+  };
 
-    env.SSL_KEY = readENV('SSL_KEY');
+  rawdefaults = rawdefaults.replace(/\,/g,' '); // replace ',' by spaces
+  var rawdefarray = rawdefaults.trim().split(/\s+/);
+  for (var i=0; i<rawdefarray.length; i++) {
+	  var a = rawdefarray[i].split('=');
+	  if (a.length==2) {
+		  var key = a[0];
+		  var value = a[1];
+		  if (alloweddefaults[key] && (alloweddefaults[key][value] || alloweddefaults[key]['any'])) {
+			  env.defaults[key] = value.replace(/__/g,' ');
+		  } else {
+			console.log('DEFAULTS key: '+key+' value: '+value+' not allowed');
+		  }
+		  
+	  } else {
+		  console.log('Unknown DEFAULTS directive: '+rawdefarray[i]);
+	  }
+  }
+  //console.log(JSON.stringify(env.defaults));
+  
+  
+  env.SSL_KEY = readENV('SSL_KEY');
   env.SSL_CERT = readENV('SSL_CERT');
   env.SSL_CA = readENV('SSL_CA');
   env.ssl = false;
