@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="apple-touch-icon" href="/images/logomobile.png">
+        <title>Nightscout profile editor</title>
+        <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
+        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.6.4" />
+        <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
+        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.6.4" />
+        <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
+        <link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/themes/smoothness/jquery-ui.css" type="text/css" media="all" />
+		<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-timepicker-addon.css" />
+    </head>
+    <body>
+        <div id="toolbar">
+			<div id="buttonbar">
+				<b> Status:</b> <span id="pe_status">Not loaded</span>
+			</div>
+             <h1 class="customTitle">Nightscout</h1>
+            <div id="iob-cob">
+                <h1>Profile editor</h1>
+			</div>
+        </div>
+		
+		<br>
+		<form id="pe_form" onsubmit="return profileSubmit();">
+			<fieldset class="browserSettings">
+				<legend>General patient profile settings</legend>
+				<dl>
+					<b title="Display units">Units: </b>
+					<span id="pe_units" /></span>
+				</dl>
+				<dl>
+					<b title="Time format">Time format: </b>
+					<span id="pe_timeformat" /></span>
+				</dl>
+				<dl>
+					<b title="Represents the typical duration over which insulin takes effect.  Varies per patient and per insulin type. Typically 3-4 hours for most pumped insulin and most patients. Sometimes also called insulin lifetime.">Duration of Insulin Activity (DIA) [hours]: </b>
+					<input type="text" id="pe_dia" />
+				</dl>
+				<dl class="radio">
+					<b>Ratios profile input: </b>
+					<input type="radio" name="pe_input" id="pe_input_simple" checked /><label for="pe_input_simple" title="Single value for whole day">Simple</label>&nbsp;
+					<input type="radio" name="pe_input" id="pe_input_calculator" checked /><label for="pe_input_calculator" title="Values varying by time and glycemic index">Bolus calculator style</label>
+				</dl>
+				<dl>
+					<b title="Start of profile validity">Profile valid from: </b>
+					<input type="text" id="pe_validfrom" />
+				</dl>
+			</fieldset>
+
+ 			<fieldset id="pe_simple" class="browserSettings">
+				<legend>Simple style settings</legend>
+				<dl>
+					<b title="g carbs per U insulin. The ratio of how many grams of carbohydrates are offset by each U of insulin.">Insulin to carb ratio (IC) [g/unit]: </b>
+					<input type="number" id="pe_if" />
+				</dl>
+				<dl>
+					<b title="mg/dL or mmol/L per U insulin. The ratio of how much BG changes with each U of corrective insulin.">Insulin Sensitivity Factor (ISF) [mg/dL/unit,mmol/L/unit]: </b>
+					<input type="number" id="pe_isf" />
+				</dl>
+				<dl>
+					<b title="grams per unit time. Represents both the change in COB per unit of time, as well as the amount of carbs that should take effect over that time.  Carb absorption / activity curves are less well understood than insulin activity, but can be approximated using an initial delay followed by a constant rate of absorption (g/hr).">Carbs activity / absorption rate: [g/hour]</b>
+					<input type="number" id="pe_hr" />
+				</dl>
+			</fieldset>
+
+ 			<fieldset id="pe_calculator" class="browserSettings">
+				<legend>Bolus calculator style settings</legend>
+					<table>
+						<tr><td>
+							<b title="g carbs per U insulin. The ratio of how many grams of carbohydrates are offset by each U of insulin.">Insulin to carb ratio (IC) [g/unit]:</b><br>
+							<table>
+								<tr><td>
+									From: <select id="pe_if_from_0"></select>
+								</td><td>
+									IC : <input type="number" id="pe_if_0" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_if_from_1"></select>
+								</td><td>
+									 IC : <input type="number" id="pe_if_1" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_if_from_2"></select>
+								</td><td>
+									 IC : <input type="number" id="pe_if_2" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_if_from_3"></select>
+								</td><td>
+									 IC : <input type="number" id="pe_if_3" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_if_from_4"></select>
+								</td><td>
+									 IC : <input type="number" id="pe_if_4" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_if_from_5"></select>
+								</td><td>
+									 IC : <input type="number" id="pe_if_5" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_if_from_6"></select>
+								</td><td>
+									 IC : <input type="number" id="pe_if_6" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_if_from_7"></select>
+								</td><td>
+									 IC : <input type="number" id="pe_if_7" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_if_from_8"></select>
+								</td><td>
+									 IC : <input type="number" id="pe_if_8" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_if_from_9"></select>
+								</td><td>
+									 IC : <input type="number" id="pe_if_9" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_if_from_10"></select>
+								</td><td>
+									 IC : <input type="number" id="pe_if_10" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_if_from_11"></select>
+								</td><td>
+									 IC : <input type="number" id="pe_if_11" />
+								</td></tr>
+							</table>
+						</td>
+						<td width="100px"></td>
+						<td>
+							<b title="mg/dL or mmol/L per U insulin. The ratio of how much BG changes with each U of corrective insulin.">Insulin Sensitivity Factor (ISF) [mg/dL/unit,mmol/L/unit]: </b><br>
+							<table>
+								<tr><td>
+									From: <select id="pe_isf_from_0"></select>
+								</td><td>
+									  ISF : <input type="number" id="pe_isf_0" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_isf_from_1"></select>
+								</td><td>
+									  ISF : <input type="number" id="pe_isf_1" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_isf_from_2"></select>
+								</td><td>
+									  ISF : <input type="number" id="pe_isf_2" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_isf_from_3"></select>
+								</td><td>
+									  ISF : <input type="number" id="pe_isf_3" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_isf_from_4"></select>
+								</td><td>
+									  ISF : <input type="number" id="pe_isf_4" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_isf_from_5"></select>
+								</td><td>
+									  ISF : <input type="number" id="pe_isf_5" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_isf_from_6"></select>
+								</td><td>
+									  ISF : <input type="number" id="pe_isf_6" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_isf_from_7"></select>
+								</td><td>
+									  ISF : <input type="number" id="pe_isf_7" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_isf_from_8"></select>
+								</td><td>
+									  ISF : <input type="number" id="pe_isf_8" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_isf_from_9"></select>
+								</td><td>
+									  ISF : <input type="number" id="pe_isf_9" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_isf_from_10"></select>
+								</td><td>
+									  ISF : <input type="number" id="pe_isf_10" />
+								</td></tr>
+								<tr><td>
+									From: <select id="pe_isf_from_11"></select>
+								</td><td>
+									  ISF : <input type="number" id="pe_isf_11" />
+								</td></tr>
+						</table>
+						</td></tr>
+					</table>
+				<dl>
+					<b title="grams per unit time. Represents both the change in COB per unit of time, as well as the amount of carbs that should take effect over that time.  Carb absorption / activity curves are less well understood than insulin activity, but can be approximated using an initial delay followed by a constant rate of absorption (g/hr).">Carbs activity / absorption rate: [g/hour]</b><br>
+					<b title="Value for cargs with high glycemic index">High: </b><input type="number" id="pe_hr_high" />
+					<b title="Value for cargs with medium glycemic index">Medium: </b><input type="number" id="pe_hr_medium" />
+					<b title="Value for cargs with low glycemic index">Low: </b><input type="number" id="pe_hr_low" />
+				</dl>
+			</fieldset>
+			
+ 			<fieldset class="browserSettings">
+				<legend>Basal rates [unit/hour]</legend>
+				<table>
+					<tr><td>
+						<table>
+							<tr><td>
+								From: <select id="pe_basal_from_0"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_0" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_1"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_1" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_2"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_2" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_3"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_3" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_4"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_4" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_5"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_5" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_6"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_6" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_7"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_7" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_8"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_8" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_9"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_9" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_10"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_10" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_11"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_11" />
+							</td></tr>
+						</table>
+					</td>
+					<td width="100px"></td>
+					<td>
+						<table>
+							<tr><td>
+								From: <select id="pe_basal_from_12"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_12" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_13"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_13" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_14"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_14" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_15"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_15" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_16"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_16" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_17"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_17" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_18"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_18" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_19"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_19" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_20"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_20" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_21"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_21" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_22"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_22" />
+							</td></tr>
+							<tr><td>
+								From: <select id="pe_basal_from_23"></select>
+							</td><td>
+								  ISF : <input type="text" id="pe_basal_23" />
+							</td></tr>
+						</table>
+					</td></tr>
+				</table>
+			</fieldset>
+
+
+			<label for="pe_apisecret">Your API secret: </label>
+			 <input type="password" id="pe_apisecret" size="10" />&nbsp;&nbsp;&nbsp;
+			 <input type="checkbox" id="pe_storeapisecret" />  Store it on this computer (Use only on private computers)
+			 <br>
+			<button type="submit">Submit Form</button>
+
+		</form>
+
+        <script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
+        <script src="https://code.jquery.com/ui/1.11.3/jquery-ui.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-timepicker-addon.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-sliderAccess.js"></script>
+        <script src="/socket.io/socket.io.js"></script>
+        <script src="/api/v1/status.js"></script>
+        <script src="/js/profile.js"></script>
+		<script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/sha1.js"></script>    
+	</body>
+</html>
