@@ -223,7 +223,7 @@ TODO:
        },
 		error: function () {
 			alert('Error loading your defaults. 12H and mg/dL will be used');
-			apistatus = { 'defaults': { 'time-format': '12', 'display-units': 'mg/dL', 'language': 'en'} };
+			apistatus = { 'defaults': { 'time-format': '12', 'display-units': 'mg/dL', 'language': 'en', 'custom-title': 'Nightscout'} };
 		}
     }).done(function () {
 		$('#pe_status').hide().text('Loading profile records ...').fadeIn("slow");
@@ -268,7 +268,8 @@ TODO:
 		// display status
 		$('#pe_units').text(apistatus['defaults']['display-units']);
 		$('#pe_timeformat').text(apistatus['defaults']['time-format']+'h');
-		
+		$('#pe_title').text(apistatus['defaults']['custom-title']);
+
 		//timepicker
 		$('#pe_validfrom').datetimepicker({
 			  lang: apistatus['defaults']['language']
