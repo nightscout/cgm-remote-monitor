@@ -1,6 +1,6 @@
 {
   "name": "nightscout",
-  "version": "0.5.1",
+  "version": "0.6.4",
   "dependencies": {
     "angularjs": "1.3.0-beta.19",
     "bootstrap": "~3.2.0",
