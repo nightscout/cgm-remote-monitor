@@ -52,7 +52,7 @@ function config ( ) {
 	, 'display-units': 'mg/dL'		// 'mg/dL'|'mmol'
 	, 'nightmode': 'off'			// 'off'|'on'
 	, 'rawbg': 'off'				// 'off'|'on'|'noise'
-	, 'custom-title': 'Nightscout'  // 2 underscores '__' are replaced to single space. "Bara's CGM" must by entered as custom-title=Bara\'s__CGM
+	, 'custom-title': 'Nightscout'  // 2 underscores '__' are replaced to single space. "Bara's CGM" must by entered as custom-title=Bara's__CGM
 	, 'theme': 'default'			// 'default'|'color'
 	, 'language': 'en' 				// future use only
 	} ;
