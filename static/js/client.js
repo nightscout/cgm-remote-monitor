@@ -28,6 +28,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , latestUpdateTime
         , prevSGV
         , treatments
+        , profile
         , cal
         , padding = { top: 20, right: 10, bottom: 30, left: 10 }
         , opacity = {current: 1, DAY: 1, NIGHT: 0.5}
@@ -105,8 +106,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function showRawBGs() {
         return app.enabledOptions
-            && app.enabledOptions.indexOf('rawbg' > -1)
+            && app.enabledOptions.indexOf('rawbg') > -1
             && (browserSettings.showRawbg == 'always' || browserSettings.showRawbg == 'noise');
+    }
+
+    function showIOB() {
+        return app.enabledOptions
+            && app.enabledOptions.indexOf('iob') > -1;
     }
 
     function rawIsigToRawBg(entry, cal) {
@@ -124,7 +130,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         } else if (noise < 2 && browserSettings.showRawbg != 'always') {
           return 0;
         } else if (filtered == 0 || sgv < 40) {
-            console.info("Skipping ratio adjustment for SGV " + sgv);
+            console.info('Skipping ratio adjustment for SGV ' + sgv);
             return scale * (unfiltered - intercept) / slope;
         } else {
             var ratio = scale * (filtered - intercept) / slope / sgv;
@@ -329,21 +335,29 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     bgDeltaString = '+' + bgDelta;
                 }
 
+                bgDeltaString = '<span><em>' + bgDeltaString + '</em><label>';
+
                 if (browserSettings.units == 'mmol') {
-                    bgDeltaString = bgDeltaString + ' mmol/L'
+                    bgDeltaString = bgDeltaString + ' mmol/L';
                 } else {
-                    bgDeltaString = bgDeltaString + ' mg/dL'
+                    bgDeltaString = bgDeltaString + ' mg/dL';
                 }
             }
 
+            bgDeltaString += '</label></span>';
+
             return bgDeltaString;
+        }
+
+        function buildIOBIndicator(time) {
+            var iob = Nightscout.iob.calcTotal(treatments, profile, time);
+            return '<span><label>IOB</label><em>' + iob.display + '</em></span>';
         }
 
         var color = inRetroMode() ? 'grey' : sgvToColor(latestSGV.y);
 
         $('.container #noButton .currentBG').css({color: color});
         $('.container #noButton .currentDirection').css({color: color});
-        $('.container #noButton .currentDetails').css({color: color});
 
         // predict for retrospective data
         // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
@@ -357,6 +371,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         });
 
         if (inRetroMode()) {
+            var time = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
             var lookbackTime = (lookback + 2) * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
             nowData = nowData.filter(function(d) {
@@ -378,17 +393,23 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
                 updateCurrentSGV(focusPoint.y);
 
+                var details = calcBGDelta(prevfocusPoint.y, focusPoint.y);
+
+                if (showIOB()) {
+                    details += buildIOBIndicator(time);
+                }
+
                 currentBG.css('text-decoration','line-through');
                 currentDirection.html(focusPoint.y < 39 ? '✖' : focusPoint.direction);
-                currentDetails.text(calcBGDelta(prevfocusPoint.y, focusPoint.y)).css('text-decoration','line-through');
+                currentDetails.html(details);
             } else {
-                currentBG.text('---').css('text-decoration','');
+                currentBG.text('---');
                 currentDirection.text('-');
                 currentDetails.text('');
             }
 
             $('#currentTime')
-                .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
+                .text(formatTime(time))
                 .css('text-decoration','line-through');
 
             $('#lastEntry').text('RETRO').removeClass('current');
@@ -401,9 +422,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             updateClockDisplay();
             updateTimeAgo();
 
+            var details = calcBGDelta(prevSGV.y, latestSGV.y);
+
+            if (showIOB()) {
+                details += buildIOBIndicator(nowDate);
+            }
+
             currentBG.css('text-decoration', '');
             currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);
-            currentDetails.text(calcBGDelta(prevSGV.y, latestSGV.y)).css('text-decoration','');
+            currentDetails.html(details);
         }
 
         xScale.domain(brush.extent());
@@ -1335,8 +1362,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     d.created_at = new Date(d.created_at);
                 });
 
-                cal = d[4][d[4].length-1];
-
+                profile = d[4][0];
+                cal = d[5][d[5].length-1];
 
                 var temp1 = [ ];
                 if (cal && showRawBGs()) {
