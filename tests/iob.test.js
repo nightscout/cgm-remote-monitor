@@ -18,16 +18,16 @@ describe('IOB', function ( ) {
 
     var rightAfterBolus = iob.calcTotal(treatments, profile, time);
 
-    rightAfterBolus.display.should.equal(1);
+    rightAfterBolus.display.should.equal('1.00');
 
     var afterSomeTime = iob.calcTotal(treatments, profile, new Date(time.getTime() + (60 * 60 * 1000)));
 
-    afterSomeTime.display.should.be.lessThan(1);
-    afterSomeTime.display.should.be.greaterThan(0);
+    afterSomeTime.iob.should.be.lessThan(1);
+    afterSomeTime.iob.should.be.greaterThan(0);
 
     var afterDIA = iob.calcTotal(treatments, profile, new Date(time.getTime() + (3 * 60 * 60 * 1000)));
 
-    afterDIA.display.should.equal(0);
+    afterDIA.iob.should.equal(0);
 
   });
 });

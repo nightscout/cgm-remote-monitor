@@ -76,7 +76,6 @@ body {
     border-radius: 5px;
     border: 2px solid #bdbdbd;
     font-size: 80%;
-    display: inline-block;
 }
 
 #bgButton .currentDetails > span {
@@ -116,7 +115,8 @@ body {
 .currentDirection {
     font-weight: normal;
     text-decoration: none;
-    font-size: 80%;
+    font-size: 90%;
+    vertical-align: top;
 }
 
 .time {
