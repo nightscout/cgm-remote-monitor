@@ -303,6 +303,10 @@ div.tooltip {
     font-size: 70%;
   }
 
+  .bgStatus .currentDetails {
+    top: 0;
+  }
+
   #chartContainer {
     top: 165px;
     font-size: 80%;
@@ -336,6 +340,11 @@ div.tooltip {
         text-align: center;
         width: 100vw;
     }
+
+    .bgStatus .currentDetails {
+        top: -10px;
+    }
+
     #bgButton {
         font-size: 100%;
     }
