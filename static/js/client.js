@@ -351,7 +351,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         function buildIOBIndicator(time) {
             var iob = Nightscout.iob.calcTotal(treatments, profile, time);
-            return '<span><label>IOB</label><em>' + iob.display + '</em></span>';
+            return '<span><label>IOB</label><em>' + iob.display + 'U</em></span>';
         }
 
         var color = inRetroMode() ? 'grey' : sgvToColor(latestSGV.y);
