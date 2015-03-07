@@ -74,7 +74,7 @@ body {
 
 .currentDetails > span {
     border-radius: 5px;
-    border: 2px solid #808080;
+    border: 2px solid #bdbdbd;
     font-size: 80%;
     display: inline-block;
 }
@@ -94,17 +94,18 @@ body {
 }
 
 .currentDetails > span em {
+    color: #bdbdbd;
     font-style: normal;
     font-weight: bold;
 }
 
 .currentDetails > span label {
     color: #000;
-    background: #808080;
+    background: #bdbdbd;
 }
 
 #bgButton .currentDetails > span label {
-    color: #808080;
+    color: #bdbdbd;
     background: inherit;
 }
 
