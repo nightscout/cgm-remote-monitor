@@ -292,10 +292,6 @@ div.tooltip {
     font-size: 85%;
   }
 
-  .bgStatus .currentDetails {
-    top: 0px;
-  }
-
 }
 
 @media (max-width: 750px) {
