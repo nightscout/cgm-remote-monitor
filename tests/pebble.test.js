@@ -75,6 +75,18 @@ var entries = {
 };
 
 //Mock devicestatus
+var treatments = {
+  list: function(callback) {
+    callback(null, []);
+  }
+};
+
+var profile = {
+  list: function(callback) {
+    callback(null, []);
+  }
+};
+
 var devicestatus = {
   last: function(callback) {
     callback(null, {uploaderBattery: 100});
@@ -87,7 +99,7 @@ describe('Pebble Endpoint without Raw', function ( ) {
     var env = require('../env')( );
     this.app = require('express')( );
     this.app.enable('api');
-    this.app.use('/pebble', pebble(entries, devicestatus, env));
+    this.app.use('/pebble', pebble(entries, treatments, profile, devicestatus, env));
     done();
   });
 
@@ -128,7 +140,7 @@ describe('Pebble Endpoint with Raw', function ( ) {
     envRaw.enable = "rawbg";
     this.appRaw = require('express')( );
     this.appRaw.enable('api');
-    this.appRaw.use('/pebble', pebbleRaw(entries, devicestatus, envRaw));
+    this.appRaw.use('/pebble', pebbleRaw(entries, treatments, profile, devicestatus, envRaw));
     done();
   });
 
