@@ -164,10 +164,20 @@ h1, legend,
     margin-top: 0;
     margin-left: 42px;
     padding-top: 10px;
-    padding-right: 150px;
+    padding-right: 90px;
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
+}
+#iob-cob h1 {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 50px;
+    margin-top: 0;
+    margin-right: auto;
+    margin-left: auto;
+    text-align: center;
 }
 #buttonbar {
     padding-right: 10px;
