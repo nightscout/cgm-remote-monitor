@@ -49,37 +49,43 @@ body {
 
 .bgStatus {
     float: right;
-    font-size: 750%;
-    margin-right: 25px;
     text-align: center;
     white-space: nowrap;
 }
+
+.bgButton.urgent {
+  color: red;
+}
+
+.bgButton.warning {
+  color: yellow;
+}
+
+.bgButton.inrange {
+  color: #4cff00;
+}
+
 .bgStatus .currentBG {
+    font-size: 120px;
+    line-height: 120px;
     text-decoration: line-through;
 }
 
-.bgStatus .currentBG.error-code {
-    font-size: 80%;
-}
-
-.bgStatus .currentBG.bg-limit {
-    font-size: 80%;
+.bgStatus .currentDirection {
+  font-weight: normal;
+  text-decoration: none;
+  font-size: 90px;
+  line-height: 90px;
+  vertical-align: top;
 }
 
 .bgStatus .currentDetails {
-    font-size: 25%;
-    position: relative;
-    top: -10px;
+    font-size: 20px;
 }
 
 .currentDetails > span {
     border-radius: 5px;
     border: 2px solid #bdbdbd;
-    font-size: 80%;
-}
-
-#bgButton .currentDetails > span {
-    border-color: #000;
 }
 
 .currentDetails > span:not(:first-child) {
@@ -103,24 +109,12 @@ body {
     background: #bdbdbd;
 }
 
-#bgButton .currentDetails > span label {
-    color: #bdbdbd;
-    background: inherit;
-}
-
 .bgStatus.current .currentBG {
     text-decoration: none;
 }
 
-.currentDirection {
-    font-weight: normal;
-    text-decoration: none;
-    font-size: 90%;
-    vertical-align: top;
-}
-
 .time {
-    font-size: 600%;
+    font-size: 90px;
     padding-top: 15px;
 }
 .timebox {
@@ -128,7 +122,7 @@ body {
     width: 250px;
 }
 .timeOther {
-    font-size: 25%;
+    font-size: 20px;
 }
 #lastEntry {
     background: #808080;
@@ -180,49 +174,39 @@ body {
 }
 
 
-#noButton {
-  padding: 2px;
-}
-
-#bgButton,
 #silenceBtn {
     z-index: 99;
 }
 
-#bgButton {
-    background: yellow;
-    border: 2px solid #DDD;
-    border-right: 2px solid #ccc;
-    border-bottom: 2px solid #ccc;
-    border-radius: 5px;
-    box-shadow: 2px 4px 6px #ddd;
-    color: #000000;
-    cursor: default;
-    font-size: 75%;
-    margin-top: 15px;
-    width: auto;
-
-    user-select: none;
-    -moz-border-radius: 5px;
-    -webkit-border-radius: 5px;
-    -moz-box-shadow: 2px 2px 4px #ddd;
-    -webkit-box-shadow: 2px 2px 4px #ddd;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    -khtml-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
+#silenceBtn * {
+    font-size: 40px
 }
 
-#bgButton.urgent {
-  background: red;
+.bgButton {
+  margin: 10px;
+  border: 2px solid #000;
+  border-radius: 5px;
+  width: 320px;
+}
+
+.alarming .bgButton {
+  border-color: #bdbdbd;
+  color: #000;
+  box-shadow: 2px 4px 6px #ddd;
+}
+
+.alarming .bgButton.urgent {
+  background-color: red;
+}
+
+.alarming .bgButton.warning {
+  background-color: yellow;
 }
 
 .bgButton:active {
-    background: #850406;
-    border: 2px solid #999;
+    border: 2px solid #808080;
     box-shadow: none;
-
+    background-color: #222;
     -moz-box-shadow: none;
     -webkit-box-shadow: none;
 }
@@ -246,16 +230,8 @@ div.tooltip {
         pointer-events: none;         
 }
 
-#silenceBtn, #silenceBtn * {
-    font-size: 70%;
-}
-
 .alarms {
     display: none;
-}
-
-#testAlarms {
-    font-size: 20%;
 }
 
 #currentTime{
@@ -276,50 +252,78 @@ div.tooltip {
 }
 
 @media (max-width: 800px) {
-  #chartContainer {
-    font-size: 80%;
-  }
+    .bgStatus {
+        width: 40%;
+    }
 
-  .bgStatus {
-    width: 50%;
-    font-size: 650%;
-  }
+    .bgButton {
+        width: auto;
+    }
 
-  .dropdown-menu {
-    font-size: 60% !important;
-  }
-  #currentTime {
-    font-size: 85%;
-  }
+    .bgStatus .currentBG {
+        font-size: 80px;
+        line-height: 80px;
+    }
+
+    .bgStatus .currentDirection {
+        font-size: 70px;
+        line-height: 70px;
+    }
+
+    .time {
+        font-size: 70px;
+    }
+
+    .timeOther {
+        font-size: 15px;
+    }
+
+    #silenceBtn * {
+        font-size: 30px;
+    }
+
+    #chartContainer {
+        top: 185px;
+        font-size: 20px;
+    }
+    #chartContainer svg {
+        height: calc(100vh - 185px);
+    }
 
 }
 
 @media (max-width: 750px) {
-  .dropdown-menu {
-    font-size: 60% !important;
-  }
+    .bgStatus .currentBG {
+        font-size: 70px;
+        line-height: 70px;
+    }
 
-  .container .status {
-    font-size: 70%;
-  }
+    .bgStatus .currentDirection {
+        font-size: 60px;
+        line-height: 60px;
+    }
 
-  .bgStatus .currentDetails {
-    top: 0;
-  }
+    .bgStatus .currentDetails {
+        font-size: 15px;
+    }
 
-  #chartContainer {
-    top: 165px;
-    font-size: 80%;
-  }
-  #chartContainer svg {
-    height: calc(100vh - 165px);
-  }
+    .time {
+        font-size: 50px;
+    }
+
+    #chartContainer {
+        top: 165px;
+        font-size: 15px;
+    }
+    #chartContainer svg {
+        height: calc(100vh - 165px);
+    }
 
 }
 
 @media (max-width: 400px) {
     body {
-        font-size: 70%;
+        font-size: 70px;
     }
 
     .status {
@@ -328,40 +332,40 @@ div.tooltip {
         height: 152px;
     }
 
-    /* Unremark to test alert/silence button + menu. */
-    /* #noButton {display:none;}
-    #bgButton {display:block;} */
-
     .bgStatus {
-        font-size: 750%;
         float: none;
         margin: 0 auto;
         padding: 0;
-        text-align: center;
         width: 100vw;
     }
 
-    .bgStatus .currentDetails {
-        top: -10px;
+    .bgButton {
+        margin: 5px;
+        width: auto;
     }
 
-    #bgButton {
-        font-size: 100%;
+    .bgStatus .currentBG {
+        font-size: 70px;
+        line-height: 70px;
     }
+
+    .bgStatus .currentDirection {
+        font-size: 60px;
+        line-height: 60px;
+    }
+
+    .bgStatus .currentDetails {
+        font-size: 15px;
+    }
+
     .dropdown-menu {
-        font-size: 60% !important;
+        font-size: 50px !important;
         margin-left: 2vw;
         width: 96vw;
     }
-    .container .status {
-        font-size: 100% !important;
-    }
 
     .time {
-        margin-bottom: 0.1em;
-        margin-top: -1em;
-        margin-left: 0;
-        width: 100%;
+        font-size: 20px !important;
     }
 
     #container.alarming .time {
@@ -369,21 +373,22 @@ div.tooltip {
     }
 
     .timebox {
-        text-align: none;
         width: auto;
     }
+
     #currentTime {
         display: inline;
-        font-size: 25% !important;
-        font-weight: bold;
+        vertical-align: middle;
     }
+
     .timeOther {
         display: inline;
         margin-left: auto;
+        font-size: 15px;
     }
 
     #chartContainer {
-        font-size: 110% !important;
+        font-size: 12px !important;
         top: 210px;
     }
     #chartContainer svg {
@@ -406,13 +411,8 @@ div.tooltip {
         padding-bottom: 20px;
     }
 
-    #currentTime {
-        font-size: 85%;
-    }
-
     #chartContainer {
         top: 130px;
-        font-size: 80%;
     }
     #chartContainer svg {
         height: calc(100vh - 130px);
@@ -420,13 +420,56 @@ div.tooltip {
 }
 
 @media (max-height: 480px) and (min-width: 400px) {
-    .container .status {
-        font-size: 70%;
+    .bgStatus .currentBG {
+        font-size: 80px;
+        line-height: 80px;
     }
+
+    .bgStatus .currentDirection {
+        font-size: 70px;
+        line-height: 70px;
+    }
+
+    .bgStatus .currentDetails {
+        font-size: 15px;
+    }
+
+    .time {
+        font-size: 70px;
+    }
+
+    .timeOther {
+        font-size: 15px;
+    }
+
 }
 
 @media (max-height: 480px) and (max-width: 400px) {
-    .container .status {
-        font-size: 80% !important;
+
+    .bgStatus {
+        top: -15px;
+        position: relative;
     }
+
+    .time {
+        padding: 0;
+        top: -10px;
+        position: relative;
+    }
+
+    .bgStatus .currentBG {
+        font-size: 60px;
+        line-height: 60px;
+    }
+
+    .bgStatus .currentDirection {
+        font-size: 50px;
+        line-height: 50px;
+        vertical-align: middle;
+    }
+
+    .bgStatus .currentDetails {
+        font-size: 15px;
+    }
+
 }

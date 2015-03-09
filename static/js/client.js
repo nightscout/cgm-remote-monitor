@@ -228,12 +228,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .style('opacity', function (d) { return highlightBrushPoints(d) });
     }
 
+    function alarmingNow() {
+      return $('#container').hasClass('alarming');
+    }
+
     function inRetroMode() {
         if (!brush) return false;
         
-        var brushExtent = brush.extent();
-        var elementHidden = document.getElementById('bgButton').hidden == '';
-        return brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && elementHidden != true;
+        var time = brush.extent()[1].getTime();
+
+        return !alarmingNow() && time - THIRTY_MINS_IN_MS < now;
     }
 
     function errorCodeToDisplay(errorCode) {
@@ -354,10 +358,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             return '<span><label>IOB</label><em>' + iob.display + 'U</em></span>';
         }
 
-        var color = inRetroMode() ? 'grey' : sgvToColor(latestSGV.y);
-
-        $('.container #noButton .currentBG').css({color: color});
-        $('.container #noButton .currentDirection').css({color: color});
+        if (inRetroMode()) {
+            $('.bgButton').removeClass('urgent warning inrange');
+        } else {
+            $('.bgButton').addClass(sgvToColoredRange(latestSGV.y));
+        }
 
         // predict for retrospective data
         // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
@@ -953,6 +958,27 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return color;
     }
 
+    function sgvToColoredRange(sgv) {
+        var range = '';
+
+        if (browserSettings.theme == 'colors') {
+            if (sgv > app.thresholds.bg_high) {
+                range = 'urgent';
+            } else if (sgv > app.thresholds.bg_target_top) {
+                range = 'warning';
+            } else if (sgv >= app.thresholds.bg_target_bottom && sgv <= app.thresholds.bg_target_top) {
+                range = 'inrange';
+            } else if (sgv < app.thresholds.bg_low) {
+                range = 'urgent';
+            } else if (sgv < app.thresholds.bg_target_bottom) {
+                range = 'warning';
+            }
+        }
+
+        return range;
+    }
+
+
     function generateAlarm(file) {
         alarmInProgress = true;
         var selector = '.audio.alarms audio.' + file;
@@ -961,14 +987,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             playAlarm(audio);
             $(this).addClass('playing');
         });
-        var bgButton = $('#bgButton');
-        bgButton.show();
-        bgButton.toggleClass('urgent', file == urgentAlarmSound);
-        var noButton = $('#noButton');
-        noButton.hide();
+        $('.bgButton').addClass(file == urgentAlarmSound ? 'urgent' : 'warning');
         $('#container').addClass('alarming');
-        $('.container .currentBG').text();
-
     }
 
     function playAlarm(audio) {
@@ -982,11 +1002,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function stopAlarm(isClient, silenceTime) {
         alarmInProgress = false;
-        var bgButton = $('#bgButton');
-        bgButton.hide();
-        var noButton = $('#noButton');
-        noButton.show();
-        d3.selectAll('audio.playing').each(function (d, i) {
+        $('.bgButton').removeClass('urgent warning');
+        d3.selectAll('audio.playing').each(function () {
             var audio = this;
             audio.pause();
             $(this).removeClass('playing');
@@ -1334,8 +1351,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         var silenceDropdown = new Dropdown('.dropdown-menu');
 
-        $('#bgButton').click(function (e) {
-            silenceDropdown.open(e);
+        $('.bgButton').click(function (e) {
+            if (alarmingNow()) silenceDropdown.open(e);
         });
 
         $('#silenceBtn').find('a').click(function (e) {
