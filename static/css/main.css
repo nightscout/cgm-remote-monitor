@@ -69,14 +69,15 @@ body {
     font-size: 120px;
     line-height: 120px;
     text-decoration: line-through;
+    vertical-align: middle;
 }
 
 .bgStatus .currentDirection {
-  font-weight: normal;
-  text-decoration: none;
-  font-size: 90px;
-  line-height: 90px;
-  vertical-align: top;
+    font-weight: normal;
+    text-decoration: none;
+    font-size: 90px;
+    line-height: 90px;
+    vertical-align: middle;
 }
 
 .bgStatus .currentDetails {
@@ -465,7 +466,6 @@ div.tooltip {
     .bgStatus .currentDirection {
         font-size: 50px;
         line-height: 50px;
-        vertical-align: middle;
     }
 
     .bgStatus .currentDetails {
