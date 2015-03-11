@@ -339,7 +339,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     bgDeltaString = '+' + bgDelta;
                 }
 
-                bgDeltaString = '<span><em>' + bgDeltaString + '</em><label>';
+                bgDeltaString = '<span class="pill"><em>' + bgDeltaString + '</em><label>';
 
                 if (browserSettings.units == 'mmol') {
                     bgDeltaString = bgDeltaString + ' mmol/L';
@@ -355,7 +355,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         function buildIOBIndicator(time) {
             var iob = Nightscout.iob.calcTotal(treatments, profile, time);
-            return '<span><label>IOB</label><em>' + iob.display + 'U</em></span>';
+            return '<span class="pill"><label>IOB</label><em>' + iob.display + 'U</em></span>';
         }
 
         if (inRetroMode()) {
@@ -417,7 +417,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 .text(formatTime(time))
                 .css('text-decoration','line-through');
 
-            $('#lastEntry').text('RETRO').removeClass('current');
+            $('#lastEntry').removeClass('current');
+            $('#lastEntry label').text('RETRO').removeClass('current');
         } else {
             // if the brush comes back into the current time range then it should reset to the current time and sg
             nowData = nowData.slice(nowData.length - 1 - lookback, nowData.length);
@@ -1029,13 +1030,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         //offset = (MINUTE * MINUTES_SINCE_LAST_UPDATE_URGENT) + 60
 
         if (offset <= MINUTE)              parts = { label: 'now' };
-        if (offset <= MINUTE * 2)          parts = { label: '1 min ago' };
-        else if (offset < (MINUTE * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE)), label: 'mins' };
-        else if (offset < (HOUR * 2))      parts = { label: '1 hr ago' };
-        else if (offset < (HOUR * 24))     parts = { value: Math.round(Math.abs(offset / HOUR)), label: 'hrs' };
-        else if (offset < DAY)             parts = { label: '1 day ago' };
-        else if (offset < (DAY * 7))       parts = { value: Math.round(Math.abs(offset / DAY)), label: 'day' };
-        else if (offset < (WEEK * 52))     parts = { value: Math.round(Math.abs(offset / WEEK)), label: 'week' };
+        if (offset <= MINUTE * 2)          parts = { value: 1, label: 'min ago' };
+        else if (offset < (MINUTE * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE)), label: 'mins ago' };
+        else if (offset < (HOUR * 2))      parts = { value: 1, label: 'hr ago' };
+        else if (offset < (HOUR * 24))     parts = { value: Math.round(Math.abs(offset / HOUR)), label: 'hrs ago' };
+        else if (offset < DAY)             parts = { value: 1, label: 'day ago' };
+        else if (offset < (DAY * 7))       parts = { value: Math.round(Math.abs(offset / DAY)), label: 'day ago' };
+        else if (offset < (WEEK * 52))     parts = { value: Math.round(Math.abs(offset / WEEK)), label: 'week ago' };
         else                               parts = { label: 'a long time ago' };
 
         if (offset > (MINUTE * MINUTES_SINCE_LAST_UPDATE_URGENT)) {
@@ -1053,10 +1054,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             $('#lastEntry').removeClass('warn urgent');
         }
 
-        if (parts.value)
-            return parts.value + ' ' + parts.label + ' ago';
-        else
-            return parts.label;
+        return parts;
 
     }
 
@@ -1156,7 +1154,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 .attr('id', 'label')
                 .style('fill', 'white');
             label.append('text')
-                .style('font-size', 30 / scale)
+                .style('font-size', 40 / scale)
                 .style('font-family', 'Arial')
                 .style('text-shadow', '0px 0px 10px rgba(0, 0, 0, 1)')
                 .attr('text-anchor', 'middle')
@@ -1269,12 +1267,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     function updateTimeAgo() {
         if (!latestSGV || inRetroMode()) return;
 
-        if (latestSGV.y < 39) {
-            $('#lastEntry').text('CGM ERROR').removeClass('current').addClass('urgent');
+        var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
+        var ago = timeAgo(secsSinceLast);
+        $('#lastEntry').toggleClass('current', secsSinceLast < 10 * 60);
+        if (ago.value === undefined) {
+            $('#lastEntry em').hide();
         } else {
-            var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
-            $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+            $('#lastEntry em').show().text(ago.value);
         }
+        $('#lastEntry label').text(ago.label);
     }
 
     function init() {

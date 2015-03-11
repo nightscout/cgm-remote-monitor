@@ -12,21 +12,13 @@ body {
     font-family: 'Open Sans', Helvetica, Arial, sans-serif;
     fill: #fff;
     background: #000;
-    color: #808080;
+    color: #bdbdbd;
 }
 
-
-/* BEGIN: Dolphin/Stock Android Browser Fix */
-@media (max-width: 400px) {
-    .bgStatus {
-        width: 100% !important;
-    }
-}
 #chartContainer {
+    font-size: 20px;
     top: 225px; /*(toolbar height + status height)*/
 }
-/* END: Dolphin/Stock Android Browser Fix */
-
 
 .container {
     bottom: 0;
@@ -67,7 +59,7 @@ body {
 
 .bgStatus .currentBG {
     font-size: 120px;
-    line-height: 120px;
+    line-height: 100px;
     text-decoration: line-through;
     vertical-align: middle;
 }
@@ -84,28 +76,27 @@ body {
     font-size: 20px;
 }
 
-.currentDetails > span {
-    border-radius: 5px;
-    border: 2px solid #bdbdbd;
-}
-
 .currentDetails > span:not(:first-child) {
     margin-left: 5px;
 }
 
-.currentDetails > span * {
-    padding-left: 2px;
-    padding-right: 2px;
-    padding-bottom: 1px;
+span.pill {
+    white-space: nowrap;
+    border-radius: 5px;
+    border: 2px solid #bdbdbd;
 }
 
-.currentDetails > span em {
-    color: #bdbdbd;
+span.pill * {
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+span.pill em {
     font-style: normal;
     font-weight: bold;
 }
 
-.currentDetails > span label {
+span.pill label {
     color: #000;
     background: #bdbdbd;
 }
@@ -115,7 +106,9 @@ body {
 }
 
 .time {
-    font-size: 90px;
+    color: #808080;
+    font-size: 100px;
+    line-height: 100px;
     padding-top: 15px;
 }
 .timebox {
@@ -124,13 +117,22 @@ body {
 }
 .timeOther {
     font-size: 20px;
+    line-height: 30px;
 }
 #lastEntry {
     background: #808080;
-    border-radius: 5px;
-    color: #000;
-    padding: 0.25em;
+    border-color: #808080;
 }
+
+#lastEntry.pill em {
+    color: #808080;
+    background: #000;
+}
+
+#lastEntry.pill label {
+    background: #808080;
+}
+
 #lastEntry.warn {
     background: #cc0 !important;
 }
@@ -164,7 +166,7 @@ body {
   shape-rendering: crispEdges;
 }
 .grid path, .axis line {
-  stroke: #808080;
+  stroke: #bdbdbd;
   stroke-opacity: 1;
 }
 
@@ -205,7 +207,7 @@ body {
 }
 
 .bgButton:active {
-    border: 2px solid #808080;
+    border: 2px solid #bdbdbd;
     box-shadow: none;
     background-color: #222;
     -moz-box-shadow: none;
@@ -235,23 +237,6 @@ div.tooltip {
     display: none;
 }
 
-#currentTime{
-	padding: 0 0 10px 0;
-}
-
-/* Large desktop */
-@media (min-width: 980px) {
-    .content {
-        padding-top: 20px;
-    }
-    .linediv-l {
-        border-right: 1px white solid;
-    }
-    .linedic-r {
-        border-left: 1px white solid;
-    }
-}
-
 @media (max-width: 800px) {
     .bgStatus {
         width: 40%;
@@ -273,10 +258,12 @@ div.tooltip {
 
     .time {
         font-size: 70px;
+        line-height: 60px;
     }
 
     .timeOther {
         font-size: 15px;
+        line-height: 40px;
     }
 
     #silenceBtn * {
@@ -294,9 +281,13 @@ div.tooltip {
 }
 
 @media (max-width: 750px) {
+    .bgStatus {
+        width: 60%;
+    }
+
     .bgStatus .currentBG {
         font-size: 70px;
-        line-height: 70px;
+        line-height: 60px;
     }
 
     .bgStatus .currentDirection {
@@ -310,6 +301,8 @@ div.tooltip {
 
     .time {
         font-size: 50px;
+        line-height: 40px;
+        width: 250px;
     }
 
     #chartContainer {
@@ -323,10 +316,6 @@ div.tooltip {
 }
 
 @media (max-width: 400px) {
-    body {
-        font-size: 70px;
-    }
-
     .status {
         text-align: center;
         margin-bottom: 0;
@@ -366,6 +355,8 @@ div.tooltip {
     }
 
     .time {
+        width: auto;
+        padding-top: 0;
         font-size: 20px !important;
     }
 
@@ -437,6 +428,7 @@ div.tooltip {
 
     .time {
         font-size: 70px;
+        line-height: 60px;
     }
 
     .timeOther {
@@ -446,17 +438,6 @@ div.tooltip {
 }
 
 @media (max-height: 480px) and (max-width: 400px) {
-
-    .bgStatus {
-        top: -15px;
-        position: relative;
-    }
-
-    .time {
-        padding: 0;
-        top: -10px;
-        position: relative;
-    }
 
     .bgStatus .currentBG {
         font-size: 60px;
