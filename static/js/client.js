@@ -228,12 +228,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .style('opacity', function (d) { return highlightBrushPoints(d) });
     }
 
+    function alarmingNow() {
+      return $('#container').hasClass('alarming');
+    }
+
     function inRetroMode() {
         if (!brush) return false;
         
-        var brushExtent = brush.extent();
-        var elementHidden = document.getElementById('bgButton').hidden == '';
-        return brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && elementHidden != true;
+        var time = brush.extent()[1].getTime();
+
+        return !alarmingNow() && time - THIRTY_MINS_IN_MS < now;
     }
 
     function errorCodeToDisplay(errorCode) {
@@ -335,7 +339,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     bgDeltaString = '+' + bgDelta;
                 }
 
-                bgDeltaString = '<span><em>' + bgDeltaString + '</em><label>';
+                bgDeltaString = '<span class="pill"><em>' + bgDeltaString + '</em><label>';
 
                 if (browserSettings.units == 'mmol') {
                     bgDeltaString = bgDeltaString + ' mmol/L';
@@ -351,13 +355,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         function buildIOBIndicator(time) {
             var iob = Nightscout.iob.calcTotal(treatments, profile, time);
-            return '<span><label>IOB</label><em>' + iob.display + 'U</em></span>';
+            return '<span class="pill"><label>IOB</label><em>' + iob.display + 'U</em></span>';
         }
 
-        var color = inRetroMode() ? 'grey' : sgvToColor(latestSGV.y);
-
-        $('.container #noButton .currentBG').css({color: color});
-        $('.container #noButton .currentDirection').css({color: color});
+        if (inRetroMode()) {
+            $('.bgButton').removeClass('urgent warning inrange');
+        } else {
+            $('.bgButton').addClass(sgvToColoredRange(latestSGV.y));
+        }
 
         // predict for retrospective data
         // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
@@ -412,7 +417,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 .text(formatTime(time))
                 .css('text-decoration','line-through');
 
-            $('#lastEntry').text('RETRO').removeClass('current');
+            $('#lastEntry').removeClass('current');
+            $('#lastEntry label').text('RETRO').removeClass('current');
         } else {
             // if the brush comes back into the current time range then it should reset to the current time and sg
             nowData = nowData.slice(nowData.length - 1 - lookback, nowData.length);
@@ -953,6 +959,27 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return color;
     }
 
+    function sgvToColoredRange(sgv) {
+        var range = '';
+
+        if (browserSettings.theme == 'colors') {
+            if (sgv > app.thresholds.bg_high) {
+                range = 'urgent';
+            } else if (sgv > app.thresholds.bg_target_top) {
+                range = 'warning';
+            } else if (sgv >= app.thresholds.bg_target_bottom && sgv <= app.thresholds.bg_target_top) {
+                range = 'inrange';
+            } else if (sgv < app.thresholds.bg_low) {
+                range = 'urgent';
+            } else if (sgv < app.thresholds.bg_target_bottom) {
+                range = 'warning';
+            }
+        }
+
+        return range;
+    }
+
+
     function generateAlarm(file) {
         alarmInProgress = true;
         var selector = '.audio.alarms audio.' + file;
@@ -961,14 +988,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             playAlarm(audio);
             $(this).addClass('playing');
         });
-        var bgButton = $('#bgButton');
-        bgButton.show();
-        bgButton.toggleClass('urgent', file == urgentAlarmSound);
-        var noButton = $('#noButton');
-        noButton.hide();
+        $('.bgButton').addClass(file == urgentAlarmSound ? 'urgent' : 'warning');
         $('#container').addClass('alarming');
-        $('.container .currentBG').text();
-
     }
 
     function playAlarm(audio) {
@@ -982,11 +1003,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function stopAlarm(isClient, silenceTime) {
         alarmInProgress = false;
-        var bgButton = $('#bgButton');
-        bgButton.hide();
-        var noButton = $('#noButton');
-        noButton.show();
-        d3.selectAll('audio.playing').each(function (d, i) {
+        $('.bgButton').removeClass('urgent warning');
+        d3.selectAll('audio.playing').each(function () {
             var audio = this;
             audio.pause();
             $(this).removeClass('playing');
@@ -1012,13 +1030,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         //offset = (MINUTE * MINUTES_SINCE_LAST_UPDATE_URGENT) + 60
 
         if (offset <= MINUTE)              parts = { label: 'now' };
-        if (offset <= MINUTE * 2)          parts = { label: '1 min ago' };
-        else if (offset < (MINUTE * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE)), label: 'mins' };
-        else if (offset < (HOUR * 2))      parts = { label: '1 hr ago' };
-        else if (offset < (HOUR * 24))     parts = { value: Math.round(Math.abs(offset / HOUR)), label: 'hrs' };
-        else if (offset < DAY)             parts = { label: '1 day ago' };
-        else if (offset < (DAY * 7))       parts = { value: Math.round(Math.abs(offset / DAY)), label: 'day' };
-        else if (offset < (WEEK * 52))     parts = { value: Math.round(Math.abs(offset / WEEK)), label: 'week' };
+        if (offset <= MINUTE * 2)          parts = { value: 1, label: 'min ago' };
+        else if (offset < (MINUTE * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE)), label: 'mins ago' };
+        else if (offset < (HOUR * 2))      parts = { value: 1, label: 'hr ago' };
+        else if (offset < (HOUR * 24))     parts = { value: Math.round(Math.abs(offset / HOUR)), label: 'hrs ago' };
+        else if (offset < DAY)             parts = { value: 1, label: 'day ago' };
+        else if (offset < (DAY * 7))       parts = { value: Math.round(Math.abs(offset / DAY)), label: 'day ago' };
+        else if (offset < (WEEK * 52))     parts = { value: Math.round(Math.abs(offset / WEEK)), label: 'week ago' };
         else                               parts = { label: 'a long time ago' };
 
         if (offset > (MINUTE * MINUTES_SINCE_LAST_UPDATE_URGENT)) {
@@ -1036,10 +1054,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             $('#lastEntry').removeClass('warn urgent');
         }
 
-        if (parts.value)
-            return parts.value + ' ' + parts.label + ' ago';
-        else
-            return parts.label;
+        return parts;
 
     }
 
@@ -1139,7 +1154,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 .attr('id', 'label')
                 .style('fill', 'white');
             label.append('text')
-                .style('font-size', 30 / scale)
+                .style('font-size', 40 / scale)
                 .style('font-family', 'Arial')
                 .style('text-shadow', '0px 0px 10px rgba(0, 0, 0, 1)')
                 .attr('text-anchor', 'middle')
@@ -1252,12 +1267,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     function updateTimeAgo() {
         if (!latestSGV || inRetroMode()) return;
 
-        if (latestSGV.y < 39) {
-            $('#lastEntry').text('CGM ERROR').removeClass('current').addClass('urgent');
+        var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
+        var ago = timeAgo(secsSinceLast);
+        $('#lastEntry').toggleClass('current', secsSinceLast < 10 * 60);
+        if (ago.value === undefined) {
+            $('#lastEntry em').hide();
         } else {
-            var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
-            $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+            $('#lastEntry em').show().text(ago.value);
         }
+        $('#lastEntry label').text(ago.label);
     }
 
     function init() {
@@ -1334,8 +1352,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         var silenceDropdown = new Dropdown('.dropdown-menu');
 
-        $('#bgButton').click(function (e) {
-            silenceDropdown.open(e);
+        $('.bgButton').click(function (e) {
+            if (alarmingNow()) silenceDropdown.open(e);
         });
 
         $('#silenceBtn').find('a').click(function (e) {
