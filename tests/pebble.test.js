@@ -4,8 +4,8 @@ var should = require('should');
 
 //Mock entries
 var entries = {
-  list: function(q, callback) {
-    var results = [
+  list: function(opts, callback) {
+    var sgvs = [
       { device: 'dexcom',
         date: 1422727301000,
         dateString: 'Sat Jan 31 10:01:41 PST 2015',
@@ -16,14 +16,6 @@ var entries = {
         unfiltered: 111920,
         rssi: 179,
         noise: 1
-      },
-      { device: 'dexcom',
-        date: 1422647711000,
-        dateString: 'Fri Jan 30 11:55:11 PST 2015',
-        slope: 895.8571693029189,
-        intercept: 34281.06876195567,
-        scale: 1,
-        type: 'cal'
       },
       { device: 'dexcom',
         date: 1422727001000,
@@ -70,7 +62,25 @@ var entries = {
         noise: 1
       }
     ];
-    callback(null, results);
+
+    var cals = [
+      { device: 'dexcom',
+        date: 1422647711000,
+        dateString: 'Fri Jan 30 11:55:11 PST 2015',
+        slope: 895.8571693029189,
+        intercept: 34281.06876195567,
+        scale: 1,
+        type: 'cal'
+      }
+    ];
+
+    var count = (opts && opts.count) || 1;
+
+    if (opts && opts.find && opts.find.sgv) {
+      callback(null, sgvs.slice(0, count));
+    } else if (opts && opts.find && opts.find.type == 'cal') {
+      callback(null, cals.slice(0, count));
+    }
   }
 };
 
