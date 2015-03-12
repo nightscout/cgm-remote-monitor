@@ -174,13 +174,12 @@ describe('Pebble Endpoint with Raw', function ( ) {
         bg.filtered.should.equal(113984);
         bg.unfiltered.should.equal(111920);
         bg.noise.should.equal(1);
-        bg.rssi.should.equal(179);
         bg.battery.should.equal('100');
 
         res.body.cals.length.should.equal(1);
         var cal = res.body.cals[0];
-        cal.slope.should.equal(895.8571693029189);
-        cal.intercept.should.equal(34281.06876195567);
+        cal.slope.should.equal(896);
+        cal.intercept.should.equal(34281);
         cal.scale.should.equal(1);
         done( );
       });
