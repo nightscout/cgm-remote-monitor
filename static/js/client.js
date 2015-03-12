@@ -1155,7 +1155,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 .style('fill', 'white');
             label.append('text')
                 .style('font-size', 40 / scale)
-                .style('font-family', 'Arial')
                 .style('text-shadow', '0px 0px 10px rgba(0, 0, 0, 1)')
                 .attr('text-anchor', 'middle')
                 .attr('dy', '.35em')

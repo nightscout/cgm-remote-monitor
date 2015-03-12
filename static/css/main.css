@@ -15,11 +15,6 @@ body {
     color: #bdbdbd;
 }
 
-#chartContainer {
-    font-size: 20px;
-    top: 225px; /*(toolbar height + status height)*/
-}
-
 .container {
     bottom: 0;
     display: block;
@@ -141,14 +136,17 @@ span.pill label {
 }
 
 #chartContainer {
-    background: #111;
-    bottom:0;
-    display: block;
-    height:auto;
+    top: 225px; /*(toolbar height + status height)*/
     left:0;
-    position:absolute;
     right:0;
+    bottom:0;
+    height:auto;
+    font-size: 20px;
+    background: #111;
+    display: block;
+    position:absolute;
 }
+
 #chartContainer svg {
     height: calc(100vh - (180px + 45px));
     width: 100%;
@@ -179,6 +177,8 @@ span.pill label {
 
 #silenceBtn {
     z-index: 99;
+    border-radius: 5px;
+    border: 2px solid #bdbdbd;
 }
 
 #silenceBtn * {
@@ -206,10 +206,9 @@ span.pill label {
   background-color: yellow;
 }
 
-.bgButton:active {
+.alarming .bgButton:active {
     border: 2px solid #bdbdbd;
     box-shadow: none;
-    background-color: #222;
     -moz-box-shadow: none;
     -webkit-box-shadow: none;
 }
@@ -220,17 +219,17 @@ span.pill label {
     margin: 10px auto;
 }
 
-div.tooltip {   
-        position: absolute;           
-        text-align: left;           
-        width: fit-content;                  
-        height: fit-content;                 
-        padding: 2px;             
-        font: 14px sans-serif;        
-        background: white;   
-        border: 0px;      
-        border-radius: 8px;           
-        pointer-events: none;         
+div.tooltip {
+    color: #444;
+    position: absolute;
+    text-align: left;
+    padding: 4px;
+    font-size: 14px;
+    line-height: 15px;
+    background: white;
+    border: 0;
+    border-radius: 8px;
+    pointer-events: none;
 }
 
 .alarms {
@@ -272,7 +271,6 @@ div.tooltip {
 
     #chartContainer {
         top: 185px;
-        font-size: 20px;
     }
     #chartContainer svg {
         height: calc(100vh - 185px);
@@ -307,7 +305,6 @@ div.tooltip {
 
     #chartContainer {
         top: 165px;
-        font-size: 15px;
     }
     #chartContainer svg {
         height: calc(100vh - 165px);
@@ -380,11 +377,22 @@ div.tooltip {
     }
 
     #chartContainer {
-        font-size: 12px !important;
         top: 210px;
     }
     #chartContainer svg {
         height: calc(100vh - (210px));
+    }
+}
+
+@media (max-height: 700px) {
+    #chartContainer {
+        font-size: 15px;
+    }
+}
+
+@media (max-height: 600px) {
+    #chartContainer {
+        font-size: 12px;
     }
 }
 
@@ -405,7 +413,7 @@ div.tooltip {
 
     #chartContainer {
         top: 130px;
-        font-size: 15px;
+        font-size: 12px;
     }
     #chartContainer svg {
         height: calc(100vh - 130px);
