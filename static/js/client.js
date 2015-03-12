@@ -344,7 +344,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     bgDelta = bgDelta.toFixed(1);
                 }
 
-                pill.children('em').text(bgDelta);
+                pill.children('em').text((bgDelta >= 0 ? '+' : '') + bgDelta);
             }
 
             if (browserSettings.units == 'mmol') {
