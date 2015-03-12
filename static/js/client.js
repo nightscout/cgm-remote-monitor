@@ -34,7 +34,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , treatments
         , profile
         , cal
-        , padding = { top: 20, right: 10, bottom: 30, left: 10 }
+        , padding = { top: 0, right: 10, bottom: 30, left: 10 }
         , opacity = {current: 1, DAY: 1, NIGHT: 0.5}
         , now = Date.now()
         , data = []
@@ -162,7 +162,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .scale(xScale)
             .tickFormat(d3.time.format(getTimeFormat(true)))
             .ticks(4)
-            .orient('top');
+            .orient('bottom');
 
         yAxis = d3.svg.axis()
             .scale(yScale)
@@ -689,7 +689,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 focus.append('line')
                     .attr('class', 'now-line')
                     .attr('x1', xScale(new Date(now)))
-                    .attr('y1', yScale(scaleBg(36)))
+                    .attr('y1', yScale(scaleBg(30)))
                     .attr('x2', xScale(new Date(now)))
                     .attr('y2', yScale(scaleBg(420)))
                     .style('stroke-dasharray', ('3, 3'))
