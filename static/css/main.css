@@ -128,11 +128,20 @@ span.pill label {
     background: #808080;
 }
 
-#lastEntry.warn {
-    background: #cc0 !important;
+#lastEntry.warn, #lastEntry.warn label {
+    background: yellow;
+    border-color: yellow;
 }
-#lastEntry.urgent {
-    background: #c00 !important;
+#lastEntry.warn em {
+    color: yellow;
+}
+
+#lastEntry.urgent, #lastEntry.urgent label {
+    background: red;
+    border-color: red;
+}
+#lastEntry.urgent em {
+    color: red;
 }
 
 #chartContainer {
