@@ -1078,28 +1078,43 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     }
 
-    function calcBGByTime(time) {
+    function scaledTreatmentBG(treatment) {
+
+      function calcBGByTime(time) {
         var closeBGs = data.filter(function(d) {
-            if (!d.y) {
-                return false;
-            } else {
-                return Math.abs((new Date(d.date)).getTime() - time) <= SIX_MINS_IN_MS;
-            }
+          if (!d.y) {
+            return false;
+          } else {
+            return Math.abs((new Date(d.date)).getTime() - time) <= SIX_MINS_IN_MS;
+          }
         });
 
         var totalBG = 0;
         closeBGs.forEach(function(d) {
-            totalBG += d.y;
+          totalBG += d.y;
         });
 
-        return totalBG ? (totalBG / closeBGs.length) : 450;
-    }
+        return totalBG > 0 && closeBGs.length > 0 ? (totalBG / closeBGs.length) : 450;
+      }
 
-    function scaledTreatmentBG(treatment) {
-        //TODO: store units in db per treatment, and use that for conversion, until then assume glucose doesn't need to be scaled
-        //      Care Portal treatment form does ask for the display units to be used
-        //      other option is to convert on entry, but then need to correctly identify/handel old data
-        return treatment.glucose || scaleBg(calcBGByTime(treatment.created_at.getTime()));
+      var treatmentGlucose = null;
+
+      if (isNaN(treatment.glucose)) {
+        if (treatment.glucose && treatment.units) {
+          if (treatment.units != browserSettings.units && treatment.units != 'mmol') {
+            //BG is in mg/dl and display in mmol
+            treatmentGlucose = scaleBg(treatment.glucose);
+          } else if (treatment.units != browserSettings.units && treatment.units == 'mmol') {
+            //BG is in mmol and display in mg/dl
+            treatmentGlucose = Math.round(treatment.glucose * 18)
+          }
+        } else {
+          //no units, assume everything is the same
+          treatmentGlucose = treatment.glucose;
+        }
+      }
+
+      return treatmentGlucose || scaleBg(calcBGByTime(treatment.created_at.getTime()));
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
