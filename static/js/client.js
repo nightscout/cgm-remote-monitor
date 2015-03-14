@@ -1099,7 +1099,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         //TODO: store units in db per treatment, and use that for conversion, until then assume glucose doesn't need to be scaled
         //      Care Portal treatment form does ask for the display units to be used
         //      other option is to convert on entry, but then need to correctly identify/handel old data
-        return treatment.glucose || scaleBg(calcBGByTime(treatment.created_at.getTime()));
+        var rval = treatment.glucose || scaleBg(calcBGByTime(treatment.created_at.getTime()));
+        
+        // Deal with careportal entries that don't define contain a BG value
+        if (isNaN(rval)) {
+ 	       var ceiling = 450;
+			if (browserSettings.units == 'mmol') ceiling = 22;
+        	return ceiling;
+        	}
+        
+        return rval;
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
