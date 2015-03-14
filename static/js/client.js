@@ -1091,7 +1091,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         var totalBG = 0;
         closeBGs.forEach(function(d) {
-          totalBG += d.y;
+          totalBG += Number(d.y);
         });
 
         return totalBG > 0 && closeBGs.length > 0 ? (totalBG / closeBGs.length) : 450;
