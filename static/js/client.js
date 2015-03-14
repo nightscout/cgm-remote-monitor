@@ -464,7 +464,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         function prepareFocusCircles(sel) {
             sel.attr('cx', function (d) { return xScale(d.date); })
-                .attr('cy', function (d) { return yScale(d.sgv); })
+                .attr('cy', function (d) {
+                    if (isNaN(d.sgv)) {
+                        console.warn("Bad Data: isNaN(sgv)", d);
+                        return yScale(450);
+                    } else {
+                        return yScale(d.sgv);
+                    }
+                })
                 .attr('fill', function (d) { return d.color; })
                 .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); })
                 .attr('stroke-width', function (d) { if (d.type == 'mbg') return 2; else return 0; })
@@ -919,7 +926,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         function prepareContextCircles(sel) {
             sel.attr('cx', function (d) { return xScale2(d.date); })
-                .attr('cy', function (d) { return yScale2(d.sgv); })
+                .attr('cy', function (d) {
+                    if (isNaN(d.sgv)) {
+                        console.warn("Bad Data: isNaN(sgv)", d);
+                        return yScale2(450);
+                    } else {
+                        return yScale2(d.sgv);
+                    }
+                })
                 .attr('fill', function (d) { return d.color; })
                 .style('opacity', function (d) { return highlightBrushPoints(d) })
                 .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
@@ -1094,7 +1108,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             R3 = R2 + 8 / scale;
 
         if (isNaN(R1) || isNaN(R3) || isNaN(R3)) {
-            console.warn("Found NaN for treatment:", treatment);
+            console.warn("Bad Data: Found isNaN value in treatment", treatment);
             return;
         }
 
