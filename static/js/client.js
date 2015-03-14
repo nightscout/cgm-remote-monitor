@@ -315,8 +315,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
 
         function updateCurrentSGV(value) {
-            if (value < 39) {
-                currentBG.html(errorCodeToDisplay(value)).toggleClass('error-code');
+            if (value == 9) {
+                currentBG.text('');
+            } else if (value < 39) {
+                currentBG.html(errorCodeToDisplay(value));
             } else if (value < 40) {
                 currentBG.text('LOW');
             } else if (value > 400) {
@@ -332,6 +334,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
               }
             }
 
+            currentBG.toggleClass('icon-hourglass', value == 9);
             currentBG.toggleClass('error-code', value < 39);
             currentBG.toggleClass('bg-limit', value == 39 || value > 400);
         }
