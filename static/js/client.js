@@ -1093,6 +1093,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             R2 = Math.sqrt(Math.max(carbs, insulin * CR)) / scale,
             R3 = R2 + 8 / scale;
 
+        if (isNaN(R1) || isNaN(R3) || isNaN(R3)) {
+            console.warn("Found NaN for treatment:", treatment);
+            return;
+        }
+
         var arc_data = [
             { 'element': '', 'color': 'white', 'start': -1.5708, 'end': 1.5708, 'inner': 0, 'outer': R1 },
             { 'element': '', 'color': 'transparent', 'start': -1.5708, 'end': 1.5708, 'inner': R2, 'outer': R3 },
