@@ -117,7 +117,31 @@ describe('Pebble Endpoint without Raw', function ( ) {
     pebble.should.be.ok;
   });
 
-  it('/pebble', function (done) {
+  it('/pebble default(1) count', function (done) {
+    request(this.app)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        var bgs = res.body.bgs;
+        bgs.length.should.equal(1);
+        var bg = bgs[0];
+        bg.sgv.should.equal('82');
+        bg.bgdelta.should.equal(-2);
+        bg.trend.should.equal(4);
+        bg.direction.should.equal('Flat');
+        bg.datetime.should.equal(1422727301000);
+        should.not.exist(bg.filtered);
+        should.not.exist(bg.unfiltered);
+        should.not.exist(bg.noise);
+        should.not.exist(bg.rssi);
+        bg.battery.should.equal('100');
+
+        res.body.cals.length.should.equal(0);
+        done( );
+      });
+  });
+
+  it('/pebble?count=2', function (done) {
     request(this.app)
       .get('/pebble?count=2')
       .expect(200)
