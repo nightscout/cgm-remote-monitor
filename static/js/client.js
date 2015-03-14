@@ -307,7 +307,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
-        var currentBG = $('.bgStatus .currentBG')
+        var bgButton = $('.bgButton')
+            , currentBG = $('.bgStatus .currentBG')
             , currentDirection = $('.bgStatus .currentDirection')
             , currentDetails = $('.bgStatus .currentDetails')
             , lastEntry = $('#lastEntry');
@@ -322,6 +323,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 currentBG.text('HIGH');
             } else {
                 currentBG.text(scaleBg(value));
+            }
+
+            bgButton.removeClass('urgent warning inrange');
+            if (!inRetroMode()) {
+                bgButton.addClass(sgvToColoredRange(value));
             }
 
             currentBG.toggleClass('error-code', value < 39);
@@ -368,12 +374,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             } else {
                 currentDetails.find('.pill.iob').remove();
             }
-        }
-
-        if (inRetroMode()) {
-            $('.bgButton').removeClass('urgent warning inrange');
-        } else {
-            $('.bgButton').addClass(sgvToColoredRange(latestSGV.y));
         }
 
         // predict for retrospective data
@@ -463,8 +463,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         };
 
         function prepareFocusCircles(sel) {
+            var badData = [];
             sel.attr('cx', function (d) { return xScale(d.date); })
-                .attr('cy', function (d) { return yScale(d.sgv); })
+                .attr('cy', function (d) {
+                    if (isNaN(d.sgv)) {
+                        badData.push(d);
+                        return yScale(scaleBg(450));
+                    } else {
+                        return yScale(d.sgv);
+                    }
+                })
                 .attr('fill', function (d) { return d.color; })
                 .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); })
                 .attr('stroke-width', function (d) { if (d.type == 'mbg') return 2; else return 0; })
@@ -473,6 +481,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     return (device == 'dexcom' ? 'white' : '#0099ff');
                 })
                 .attr('r', function (d) { return dotRadius(d.type); });
+
+            if (badData.length > 0) {
+                console.warn("Bad Data: isNaN(sgv)", badData);
+            }
 
             return sel;
         }
@@ -918,13 +930,25 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .data(data);
 
         function prepareContextCircles(sel) {
+            var badData = [];
             sel.attr('cx', function (d) { return xScale2(d.date); })
-                .attr('cy', function (d) { return yScale2(d.sgv); })
+                .attr('cy', function (d) {
+                    if (isNaN(d.sgv)) {
+                        badData.push(d);
+                        return yScale2(scaleBg(450));
+                    } else {
+                        return yScale2(d.sgv);
+                    }
+                })
                 .attr('fill', function (d) { return d.color; })
                 .style('opacity', function (d) { return highlightBrushPoints(d) })
                 .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
                 .attr('stroke', function (d) { return 'white'; })
                 .attr('r', function(d) { if (d.type == 'mbg') return 4; else return 2;});
+
+            if (badData.length > 0) {
+                console.warn("Bad Data: isNaN(sgv)", badData);
+            }
 
             return sel;
         }
@@ -1092,6 +1116,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var R1 = Math.sqrt(Math.min(carbs, insulin * CR)) / scale,
             R2 = Math.sqrt(Math.max(carbs, insulin * CR)) / scale,
             R3 = R2 + 8 / scale;
+
+        if (isNaN(R1) || isNaN(R3) || isNaN(R3)) {
+            console.warn("Bad Data: Found isNaN value in treatment", treatment);
+            return;
+        }
 
         var arc_data = [
             { 'element': '', 'color': 'white', 'start': -1.5708, 'end': 1.5708, 'inner': 0, 'outer': R1 },
