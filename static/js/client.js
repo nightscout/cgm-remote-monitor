@@ -316,7 +316,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         function updateCurrentSGV(value) {
             if (value == 9) {
-                currentBG.html('&nbsp;');
+                currentBG.text('');
             } else if (value < 39) {
                 currentBG.html(errorCodeToDisplay(value));
             } else if (value < 40) {
