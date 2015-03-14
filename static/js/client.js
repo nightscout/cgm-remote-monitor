@@ -1092,7 +1092,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             totalBG += d.y;
         });
 
-
         return totalBG ? (totalBG / closeBGs.length) : 450;
     }
 
@@ -1129,7 +1128,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         if (isNaN(R1) || isNaN(R3) || isNaN(R3)) {
             console.warn("Bad Data: Found isNaN value in treatment", treatment);
-            console.warn("Found NaN for treatment:", treatment);
             return;
         }
 
