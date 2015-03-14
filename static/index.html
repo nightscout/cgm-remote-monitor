@@ -229,5 +229,19 @@
         <script src="/js/ui-utils.js?v=0.6.2"></script>
         <script src="/js/client.js?v=0.6.2"></script>
         <script src="/js/experiments.js"></script>
+
+        //Pingdom RUM monitoring
+        <script>
+          var _prum = [['id', '5503d6c5abe53db470bfc4d4'],
+            ['mark', 'firstbyte', (new Date()).getTime()]];
+          (function() {
+            var s = document.getElementsByTagName('script')[0]
+                , p = document.createElement('script');
+            p.async = 'async';
+            p.src = '//rum-static.pingdom.net/prum.min.js';
+            s.parentNode.insertBefore(p, s);
+          })();
+        </script>
+    
     </body>
 </html>
