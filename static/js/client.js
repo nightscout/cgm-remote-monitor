@@ -315,8 +315,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
 
         function updateCurrentSGV(value) {
-            if (value < 39) {
-                currentBG.html(errorCodeToDisplay(value)).toggleClass('error-code');
+            if (value == 9) {
+                currentBG.text('');
+            } else if (value < 39) {
+                currentBG.html(errorCodeToDisplay(value));
             } else if (value < 40) {
                 currentBG.text('LOW');
             } else if (value > 400) {
@@ -325,11 +327,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 currentBG.text(scaleBg(value));
             }
 
-            bgButton.removeClass('urgent warning inrange');
-            if (!inRetroMode()) {
+            if (!alarmingNow()) {
+              bgButton.removeClass('urgent warning inrange');
+              if (!inRetroMode()) {
                 bgButton.addClass(sgvToColoredRange(value));
+              }
             }
 
+            currentBG.toggleClass('icon-hourglass', value == 9);
             currentBG.toggleClass('error-code', value < 39);
             currentBG.toggleClass('bg-limit', value == 39 || value > 400);
         }
@@ -1078,28 +1083,43 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     }
 
-    function calcBGByTime(time) {
+    function scaledTreatmentBG(treatment) {
+
+      function calcBGByTime(time) {
         var closeBGs = data.filter(function(d) {
-            if (!d.y) {
-                return false;
-            } else {
-                return Math.abs((new Date(d.date)).getTime() - time) <= SIX_MINS_IN_MS;
-            }
+          if (!d.y) {
+            return false;
+          } else {
+            return Math.abs((new Date(d.date)).getTime() - time) <= SIX_MINS_IN_MS;
+          }
         });
 
         var totalBG = 0;
         closeBGs.forEach(function(d) {
-            totalBG += d.y;
+          totalBG += Number(d.y);
         });
 
-        return totalBG ? (totalBG / closeBGs.length) : 450;
-    }
+        return totalBG > 0 && closeBGs.length > 0 ? (totalBG / closeBGs.length) : 450;
+      }
 
-    function scaledTreatmentBG(treatment) {
-        //TODO: store units in db per treatment, and use that for conversion, until then assume glucose doesn't need to be scaled
-        //      Care Portal treatment form does ask for the display units to be used
-        //      other option is to convert on entry, but then need to correctly identify/handel old data
-        return treatment.glucose || scaleBg(calcBGByTime(treatment.created_at.getTime()));
+      var treatmentGlucose = null;
+
+      if (isNaN(treatment.glucose)) {
+        if (treatment.glucose && treatment.units) {
+          if (treatment.units != browserSettings.units && treatment.units != 'mmol') {
+            //BG is in mg/dl and display in mmol
+            treatmentGlucose = scaleBg(treatment.glucose);
+          } else if (treatment.units != browserSettings.units && treatment.units == 'mmol') {
+            //BG is in mmol and display in mg/dl
+            treatmentGlucose = Math.round(treatment.glucose * 18)
+          }
+        } else {
+          //no units, assume everything is the same
+          treatmentGlucose = treatment.glucose;
+        }
+      }
+
+      return treatmentGlucose || scaleBg(calcBGByTime(treatment.created_at.getTime()));
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
