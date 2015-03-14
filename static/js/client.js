@@ -463,11 +463,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         };
 
         function prepareFocusCircles(sel) {
+            var badData = [];
             sel.attr('cx', function (d) { return xScale(d.date); })
                 .attr('cy', function (d) {
                     if (isNaN(d.sgv)) {
-                        console.warn("Bad Data: isNaN(sgv)", d);
-                        return yScale(450);
+                        badData.push(d);
+                        return yScale(scaleBg(450));
                     } else {
                         return yScale(d.sgv);
                     }
@@ -480,6 +481,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     return (device == 'dexcom' ? 'white' : '#0099ff');
                 })
                 .attr('r', function (d) { return dotRadius(d.type); });
+
+            if (badData.length > 0) {
+                console.warn("Bad Data: isNaN(sgv)", badData);
+            }
 
             return sel;
         }
@@ -925,11 +930,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .data(data);
 
         function prepareContextCircles(sel) {
+            var badData = [];
             sel.attr('cx', function (d) { return xScale2(d.date); })
                 .attr('cy', function (d) {
                     if (isNaN(d.sgv)) {
-                        console.warn("Bad Data: isNaN(sgv)", d);
-                        return yScale2(450);
+                        badData.push(d);
+                        return yScale2(scaleBg(450));
                     } else {
                         return yScale2(d.sgv);
                     }
@@ -939,6 +945,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
                 .attr('stroke', function (d) { return 'white'; })
                 .attr('r', function(d) { if (d.type == 'mbg') return 4; else return 2;});
+
+            if (badData.length > 0) {
+                console.warn("Bad Data: isNaN(sgv)", badData);
+            }
 
             return sel;
         }
