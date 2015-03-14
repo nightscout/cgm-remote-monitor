@@ -325,9 +325,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 currentBG.text(scaleBg(value));
             }
 
-            bgButton.removeClass('urgent warning inrange');
-            if (!inRetroMode()) {
+            if (!alarmingNow()) {
+              bgButton.removeClass('urgent warning inrange');
+              if (!inRetroMode()) {
                 bgButton.addClass(sgvToColoredRange(value));
+              }
             }
 
             currentBG.toggleClass('error-code', value < 39);
