@@ -307,7 +307,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
-        var currentBG = $('.bgStatus .currentBG')
+        var bgButton = $('.bgButton')
+            , currentBG = $('.bgStatus .currentBG')
             , currentDirection = $('.bgStatus .currentDirection')
             , currentDetails = $('.bgStatus .currentDetails')
             , lastEntry = $('#lastEntry');
@@ -322,6 +323,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 currentBG.text('HIGH');
             } else {
                 currentBG.text(scaleBg(value));
+            }
+
+            bgButton.removeClass('urgent warning inrange');
+            if (!inRetroMode()) {
+                bgButton.addClass(sgvToColoredRange(value));
             }
 
             currentBG.toggleClass('error-code', value < 39);
@@ -368,12 +374,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             } else {
                 currentDetails.find('.pill.iob').remove();
             }
-        }
-
-        if (inRetroMode()) {
-            $('.bgButton').removeClass('urgent warning inrange');
-        } else {
-            $('.bgButton').addClass(sgvToColoredRange(latestSGV.y));
         }
 
         // predict for retrospective data
@@ -1092,6 +1092,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var R1 = Math.sqrt(Math.min(carbs, insulin * CR)) / scale,
             R2 = Math.sqrt(Math.max(carbs, insulin * CR)) / scale,
             R3 = R2 + 8 / scale;
+
+        if (isNaN(R1) || isNaN(R3) || isNaN(R3)) {
+            console.warn("Found NaN for treatment:", treatment);
+            return;
+        }
 
         var arc_data = [
             { 'element': '', 'color': 'white', 'start': -1.5708, 'end': 1.5708, 'inner': 0, 'outer': R1 },
