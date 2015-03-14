@@ -332,7 +332,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 bgButton.addClass(sgvToColoredRange(value));
             }
 
-            currentBG.toggleClass('icon-hourglass-1', value == 9);
+            currentBG.toggleClass('icon-hourglass', value == 9);
             currentBG.toggleClass('error-code', value < 39);
             currentBG.toggleClass('bg-limit', value == 39 || value > 400);
         }

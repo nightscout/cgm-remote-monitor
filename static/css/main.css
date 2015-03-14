@@ -59,7 +59,7 @@ body {
     vertical-align: middle;
 }
 
-.bgStatus .currentBG.icon-hourglass-1 {
+.bgStatus .currentBG.icon-hourglass {
   font-size: 90px;
 }
 
@@ -263,7 +263,7 @@ div.tooltip {
         line-height: 80px;
     }
 
-    .bgStatus .currentBG.icon-hourglass-1 {
+    .bgStatus .currentBG.icon-hourglass {
       font-size: 70px;
     }
 
@@ -305,7 +305,7 @@ div.tooltip {
         line-height: 60px;
     }
 
-    .bgStatus .currentBG.icon-hourglass-1 {
+    .bgStatus .currentBG.icon-hourglass {
       font-size: 50px;
     }
 
@@ -357,7 +357,7 @@ div.tooltip {
         line-height: 70px;
     }
 
-    .bgStatus .currentBG.icon-hourglass-1 {
+    .bgStatus .currentBG.icon-hourglass {
         font-size: 60px;
     }
 
@@ -451,7 +451,7 @@ div.tooltip {
         line-height: 80px;
     }
 
-    .bgStatus .currentBG.icon-hourglass-1 {
+    .bgStatus .currentBG.icon-hourglass {
         font-size: 70px;
     }
 
@@ -482,7 +482,7 @@ div.tooltip {
         line-height: 60px;
     }
 
-    .bgStatus .currentBG.icon-hourglass-1 {
+    .bgStatus .currentBG.icon-hourglass {
         font-size: 60px;
     }
 
