@@ -1128,6 +1128,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             R3 = R2 + 8 / scale;
 
         if (isNaN(R1) || isNaN(R3) || isNaN(R3)) {
+            console.warn("Bad Data: Found isNaN value in treatment", treatment);
             console.warn("Found NaN for treatment:", treatment);
             return;
         }
