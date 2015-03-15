@@ -428,10 +428,14 @@ div.tooltip {
         font-size: 15px;
     }
 
+    .alarming .focus-range {
+        display: none;
+    }
+
     .focus-range {
         position: absolute;
         top: 70px;
-        left: 10px;
+        left: 20px;
         margin: 0;
         width: auto;
     }
