@@ -276,9 +276,9 @@ div.tooltip {
 }
 
 .focus-range li.selected {
-    border-color: #bdbdbd;
+    border-color: #808080;
     color: #000;
-    background: #bdbdbd;
+    background: #808080;
 }
 
 @media (max-width: 800px) {
