@@ -973,6 +973,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // update x axis domain
         context.select('.x')
             .call(xAxis2);
+
+        if (init) {
+            $('.container').removeClass('loading');
+        }
     }
 
     function sgvToColor(sgv) {
