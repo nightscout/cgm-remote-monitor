@@ -10,10 +10,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , ONE_MIN_IN_MS = 60000
         , FIVE_MINS_IN_MS = 300000
         , SIX_MINS_IN_MS =  360000
+        , THREE_HOURS_MS = 3 * 60 * 60 * 1000
         , TWENTY_FIVE_MINS_IN_MS = 1500000
         , THIRTY_MINS_IN_MS = 1800000
         , SIXTY_MINS_IN_MS = 3600000
-        , FOCUS_DATA_RANGE_MS = 12600000 // 3.5 hours of actual data
         , FORMAT_TIME_12 = '%I:%M'
         , FORMAT_TIME_24 = '%H:%M%'
         , FORMAT_TIME_SCALE = '%I %p'
@@ -38,6 +38,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , opacity = {current: 1, DAY: 1, NIGHT: 0.5}
         , now = Date.now()
         , data = []
+        , foucusRangeMS = THREE_HOURS_MS
         , audio = document.getElementById('audio')
         , alarmInProgress = false
         , currentAlarmType = null
@@ -211,7 +212,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         d3.select('.brush')
             .transition()
             .duration(UPDATE_TRANS_MS)
-            .call(brush.extent([new Date(dataRange[1].getTime() - FOCUS_DATA_RANGE_MS), dataRange[1]]));
+            .call(brush.extent([new Date(dataRange[1].getTime() - foucusRangeMS), dataRange[1]]));
         brushed(true);
 
         // clear user brush tracking
@@ -291,15 +292,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var brushExtent = brush.extent();
 
         // ensure that brush extent is fixed at 3.5 hours
-        if (brushExtent[1].getTime() - brushExtent[0].getTime() != FOCUS_DATA_RANGE_MS) {
+        if (brushExtent[1].getTime() - brushExtent[0].getTime() != foucusRangeMS) {
 
             // ensure that brush updating is with the time range
-            if (brushExtent[0].getTime() + FOCUS_DATA_RANGE_MS > d3.extent(data, dateFn)[1].getTime()) {
-                brushExtent[0] = new Date(brushExtent[1].getTime() - FOCUS_DATA_RANGE_MS);
+            if (brushExtent[0].getTime() + foucusRangeMS > d3.extent(data, dateFn)[1].getTime()) {
+                brushExtent[0] = new Date(brushExtent[1].getTime() - foucusRangeMS);
                 d3.select('.brush')
                     .call(brush.extent([brushExtent[0], brushExtent[1]]));
             } else {
-                brushExtent[1] = new Date(brushExtent[0].getTime() + FOCUS_DATA_RANGE_MS);
+                brushExtent[1] = new Date(brushExtent[0].getTime() + foucusRangeMS);
                 d3.select('.brush')
                     .call(brush.extent([brushExtent[0], brushExtent[1]]));
             }
@@ -533,7 +534,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         // add treatment bubbles
         // a higher bubbleScale will produce smaller bubbles (it's not a radius like focusDotRadius)
-        var bubbleScale = prevChartWidth < WIDTH_SMALL_DOTS ? 4 : (prevChartWidth < WIDTH_BIG_DOTS ? 3 : 2);
+        var focusRangeAdjustment =  1 + (foucusRangeMS / THREE_HOURS_MS) / 10;
+        var bubbleScale = (prevChartWidth < WIDTH_SMALL_DOTS ? 4 : (prevChartWidth < WIDTH_BIG_DOTS ? 3 : 2)) * focusRangeAdjustment;
+
         focus.selectAll('circle')
             .data(treatments)
             .each(function (d) { drawTreatment(d, bubbleScale, true) });
@@ -922,7 +925,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var updateBrush = d3.select('.brush').transition().duration(UPDATE_TRANS_MS);
         if (!brushInProgress) {
             updateBrush
-                .call(brush.extent([new Date(dataRange[1].getTime() - FOCUS_DATA_RANGE_MS), dataRange[1]]));
+                .call(brush.extent([new Date(dataRange[1].getTime() - foucusRangeMS), dataRange[1]]));
             brushed(true);
         } else {
             updateBrush
@@ -1407,6 +1410,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         $('#silenceBtn').find('a').click(function (e) {
             stopAlarm(true, $(this).data('snooze-time'));
             e.preventDefault();
+        });
+
+        $('.focus-range li').click(function(e) {
+            var li = $(e.target);
+            $('.focus-range li').removeClass('selected');
+            li.addClass('selected');
+            var hours = Number(li.data('hours'));
+            foucusRangeMS = hours * 60 * 60 * 1000;
+            updateChart(false);
         });
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
