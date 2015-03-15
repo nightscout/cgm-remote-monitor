@@ -11,6 +11,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , FIVE_MINS_IN_MS = 300000
         , SIX_MINS_IN_MS =  360000
         , THREE_HOURS_MS = 3 * 60 * 60 * 1000
+        , TWELVE_HOURS_MS = 12 * 60 * 60 * 1000
         , TWENTY_FIVE_MINS_IN_MS = 1500000
         , THIRTY_MINS_IN_MS = 1800000
         , SIXTY_MINS_IN_MS = 3600000
@@ -135,7 +136,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         } else if (noise < 2 && browserSettings.showRawbg != 'always') {
           return 0;
         } else if (filtered == 0 || sgv < 40) {
-            console.info('Skipping ratio adjustment for SGV ' + sgv);
             return scale * (unfiltered - intercept) / slope;
         } else {
             var ratio = scale * (filtered - intercept) / slope / sgv;
@@ -461,11 +461,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // selects all our data into data and uses date function to get current max date
         var focusCircles = focus.selectAll('circle').data(focusData, dateFn);
 
+        var focusRangeAdjustment = foucusRangeMS == THREE_HOURS_MS ? 1 : 1 + ((foucusRangeMS - THREE_HOURS_MS) / THREE_HOURS_MS / 8);
+
         var dotRadius = function(type) {
             var radius = prevChartWidth > WIDTH_BIG_DOTS ? 4 : (prevChartWidth < WIDTH_SMALL_DOTS ? 2 : 3);
             if (type == 'mbg') radius *= 2;
             else if (type == 'rawbg') radius = Math.min(2, radius - 1);
-            return radius;
+
+            return radius / focusRangeAdjustment;
         };
 
         function prepareFocusCircles(sel) {
@@ -534,7 +537,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         // add treatment bubbles
         // a higher bubbleScale will produce smaller bubbles (it's not a radius like focusDotRadius)
-        var focusRangeAdjustment =  1 + (foucusRangeMS / THREE_HOURS_MS) / 10;
         var bubbleScale = (prevChartWidth < WIDTH_SMALL_DOTS ? 4 : (prevChartWidth < WIDTH_BIG_DOTS ? 3 : 2)) * focusRangeAdjustment;
 
         focus.selectAll('circle')
