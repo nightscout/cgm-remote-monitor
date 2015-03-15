@@ -118,6 +118,11 @@ span.pill label {
     font-size: 20px;
     line-height: 30px;
 }
+
+.loading #lastEntry {
+    display: none;
+}
+
 #lastEntry {
     background: #808080;
     border-color: #808080;
@@ -246,6 +251,10 @@ div.tooltip {
 }
 
 .alarms {
+    display: none;
+}
+
+.loading .focus-range {
     display: none;
 }
 
