@@ -44,7 +44,7 @@ function config ( ) {
   env.enable = readENV('ENABLE');
 
   // parse defaults here, expect format `key1=value1 key2=value2` split on space, ignore commas
-  var rawdefaults = readENV('DEFAULTS');
+  var rawdefaults = readENV('DEFAULTS','');
   env.defaults = { // currently supported keys must defined be here
 	  'time-format': '12'			// 12|24
 	, 'display-units': 'mg/dL'		// 'mg/dL'|'mmol'
@@ -73,7 +73,9 @@ function config ( ) {
 		  var key = a[0];
 		  var value = a[1];
 		  if (alloweddefaults[key] && (alloweddefaults[key][value] || alloweddefaults[key]['any'])) {
-			  env.defaults[key] = value.replace(/__/g,' ');
+			  value = value.replace(/__/g,' ');
+			  env.defaults[key] = value;
+			  console.log('DEFAULTS '+key+'='+value);
 		  } else {
 			console.log('DEFAULTS key: '+key+' value: '+value+' not allowed');
 		  }

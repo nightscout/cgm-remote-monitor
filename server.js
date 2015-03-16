@@ -80,7 +80,7 @@ function shouldCompress(req, res) {
 app.use('/api/v1', api);
 
 // pebble data
-app.get('/pebble', pebble(entriesStorage, treatmentsStorage, profile, devicestatusStorage, env));
+app.get('/pebble', pebble(entriesStorage, treatmentsStorage, profilesStorage, devicestatusStorage, env));
 
 //app.get('/package.json', software);
 

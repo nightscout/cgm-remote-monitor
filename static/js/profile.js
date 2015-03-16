@@ -6,7 +6,7 @@ TODO:
 	- how to handle units? store native or convert to mg/dL?
 
 */
-	var profile = {};
+	var c_profile = null;
 	var apisecret = "", storeapisecret = false;
 	
 	var defaultprofile = {
@@ -24,7 +24,7 @@ TODO:
 			
 			//Bolus calculator style values, "from" are in minutes from midnight
 			"ic": [{"from":0,"val":24},
-					{"from":0,"val":0},
+					{"from":48*30,"val":0},
 					{"from":0,"val":0},
 					{"from":0,"val":0},
 					{"from":0,"val":0},
@@ -40,7 +40,7 @@ TODO:
 			"car_medium": 30,
 			"car_low": 30,
 			"isf": [{"from":0,"val":17},
-					{"from":0,"val":0},
+					{"from":48*30,"val":0},
 					{"from":0,"val":0},
 					{"from":0,"val":0},
 					{"from":0,"val":0},
@@ -54,8 +54,8 @@ TODO:
 					],
 
 			// Basal rates
-			"basal": [{"from":0,"val":0},
-					{"from":0,"val":0},
+			"basal": [{"from":0,"val":0.1},
+					{"from":48*30,"val":0},
 					{"from":0,"val":0},
 					{"from":0,"val":0},
 					{"from":0,"val":0},
@@ -87,120 +87,120 @@ TODO:
 			{ "html":"pe_storeapisecret",	"type":"checkbox" , "settings":"storeapisecret" },
 	
 			// General
-			{ "html":"pe_input_simple",		"type":"checkbox" , "settings":"profile.simple" },
-			{ "html":"pe_input_calculator",	"type":"checkbox" , "settings":"profile.calculator" },
-			{ "html":"pe_dia", 				"type":"float" , 	"settings":"profile.dia" },
+			{ "html":"pe_input_simple",		"type":"checkbox" , "settings":"c_profile.simple" },
+			{ "html":"pe_input_calculator",	"type":"checkbox" , "settings":"c_profile.calculator" },
+			{ "html":"pe_dia", 				"type":"float" , 	"settings":"c_profile.dia" },
 			
-			{ "html":"pe_validfrom", 		"type":"date" , 	"settings":"profile.validfrom" },
+			{ "html":"pe_validfrom", 		"type":"date" , 	"settings":"c_profile.validfrom" },
 			
 			// Simple style values
-			{ "html":"pe_if", 			"type":"int" , 			"settings":"profile.carbratio" },
-			{ "html":"pe_hr", 			"type":"int" , 			"settings":"profile.carbs_hr" },
-			{ "html":"pe_isf", 			"type":"int" , 			"settings":"profile.sens" },
+			{ "html":"pe_if", 			"type":"int" , 			"settings":"c_profile.carbratio" },
+			{ "html":"pe_hr", 			"type":"int" , 			"settings":"c_profile.carbs_hr" },
+			{ "html":"pe_isf", 			"type":"int" , 			"settings":"c_profile.sens" },
 			
 			//Bolus calculator style values
-			{ "html":"pe_hr_high", 		"type":"int" , 			"settings":"profile.car_high" },
-			{ "html":"pe_hr_medium",	"type":"int" , 			"settings":"profile.car_medium" },
-			{ "html":"pe_hr_low", 		"type":"int" , 			"settings":"profile.car_low" },
+			{ "html":"pe_hr_high", 		"type":"int" , 			"settings":"c_profile.car_high" },
+			{ "html":"pe_hr_medium",	"type":"int" , 			"settings":"c_profile.car_medium" },
+			{ "html":"pe_hr_low", 		"type":"int" , 			"settings":"c_profile.car_low" },
 			
-			{ "html":"pe_if_from_0", 	"type":"dropdownval" ,	"settings":"profile.ic[0].from" },
-			{ "html":"pe_if_0", 		"type":"int" ,			"settings":"profile.ic[0].val" },
-			{ "html":"pe_if_from_1", 	"type":"dropdownval" ,	"settings":"profile.ic[1].from" },
-			{ "html":"pe_if_1", 		"type":"int" ,			"settings":"profile.ic[1].val" },
-			{ "html":"pe_if_from_2", 	"type":"dropdownval" ,	"settings":"profile.ic[2].from" },
-			{ "html":"pe_if_2", 		"type":"int" ,			"settings":"profile.ic[2].val" },
-			{ "html":"pe_if_from_3", 	"type":"dropdownval" ,	"settings":"profile.ic[3].from" },
-			{ "html":"pe_if_3", 		"type":"int" ,			"settings":"profile.ic[3].val" },
-			{ "html":"pe_if_from_4", 	"type":"dropdownval" ,	"settings":"profile.ic[4].from" },
-			{ "html":"pe_if_4", 		"type":"int" ,			"settings":"profile.ic[4].val" },
-			{ "html":"pe_if_from_5", 	"type":"dropdownval" ,	"settings":"profile.ic[5].from" },
-			{ "html":"pe_if_5", 		"type":"int" ,			"settings":"profile.ic[5].val" },
-			{ "html":"pe_if_from_6", 	"type":"dropdownval" ,	"settings":"profile.ic[6].from" },
-			{ "html":"pe_if_6", 		"type":"int" ,			"settings":"profile.ic[6].val" },
-			{ "html":"pe_if_from_7", 	"type":"dropdownval" ,	"settings":"profile.ic[7].from" },
-			{ "html":"pe_if_7", 		"type":"int" ,			"settings":"profile.ic[7].val" },
-			{ "html":"pe_if_from_8", 	"type":"dropdownval" ,	"settings":"profile.ic[8].from" },
-			{ "html":"pe_if_8", 		"type":"int" ,			"settings":"profile.ic[8].val" },
-			{ "html":"pe_if_from_9", 	"type":"dropdownval" ,	"settings":"profile.ic[9].from" },
-			{ "html":"pe_if_9", 		"type":"int" ,			"settings":"profile.ic[9].val" },
-			{ "html":"pe_if_from_10", 	"type":"dropdownval" ,	"settings":"profile.ic[10].from" },
-			{ "html":"pe_if_10", 		"type":"int" ,			"settings":"profile.ic[10].val" },
-			{ "html":"pe_if_from_11", 	"type":"dropdownval" ,	"settings":"profile.ic[11].from" },
-			{ "html":"pe_if_11", 		"type":"int" ,			"settings":"profile.ic[11].val" },
+			{ "html":"pe_if_from_0", 	"type":"dropdownval" ,	"settings":"c_profile.ic[0].from" },
+			{ "html":"pe_if_0", 		"type":"int" ,			"settings":"c_profile.ic[0].val" },
+			{ "html":"pe_if_from_1", 	"type":"dropdownval" ,	"settings":"c_profile.ic[1].from" },
+			{ "html":"pe_if_1", 		"type":"int" ,			"settings":"c_profile.ic[1].val" },
+			{ "html":"pe_if_from_2", 	"type":"dropdownval" ,	"settings":"c_profile.ic[2].from" },
+			{ "html":"pe_if_2", 		"type":"int" ,			"settings":"c_profile.ic[2].val" },
+			{ "html":"pe_if_from_3", 	"type":"dropdownval" ,	"settings":"c_profile.ic[3].from" },
+			{ "html":"pe_if_3", 		"type":"int" ,			"settings":"c_profile.ic[3].val" },
+			{ "html":"pe_if_from_4", 	"type":"dropdownval" ,	"settings":"c_profile.ic[4].from" },
+			{ "html":"pe_if_4", 		"type":"int" ,			"settings":"c_profile.ic[4].val" },
+			{ "html":"pe_if_from_5", 	"type":"dropdownval" ,	"settings":"c_profile.ic[5].from" },
+			{ "html":"pe_if_5", 		"type":"int" ,			"settings":"c_profile.ic[5].val" },
+			{ "html":"pe_if_from_6", 	"type":"dropdownval" ,	"settings":"c_profile.ic[6].from" },
+			{ "html":"pe_if_6", 		"type":"int" ,			"settings":"c_profile.ic[6].val" },
+			{ "html":"pe_if_from_7", 	"type":"dropdownval" ,	"settings":"c_profile.ic[7].from" },
+			{ "html":"pe_if_7", 		"type":"int" ,			"settings":"c_profile.ic[7].val" },
+			{ "html":"pe_if_from_8", 	"type":"dropdownval" ,	"settings":"c_profile.ic[8].from" },
+			{ "html":"pe_if_8", 		"type":"int" ,			"settings":"c_profile.ic[8].val" },
+			{ "html":"pe_if_from_9", 	"type":"dropdownval" ,	"settings":"c_profile.ic[9].from" },
+			{ "html":"pe_if_9", 		"type":"int" ,			"settings":"c_profile.ic[9].val" },
+			{ "html":"pe_if_from_10", 	"type":"dropdownval" ,	"settings":"c_profile.ic[10].from" },
+			{ "html":"pe_if_10", 		"type":"int" ,			"settings":"c_profile.ic[10].val" },
+			{ "html":"pe_if_from_11", 	"type":"dropdownval" ,	"settings":"c_profile.ic[11].from" },
+			{ "html":"pe_if_11", 		"type":"int" ,			"settings":"c_profile.ic[11].val" },
 			
-			{ "html":"pe_isf_from_0", 	"type":"dropdownval" ,	"settings":"profile.isf[0].from" },
-			{ "html":"pe_isf_0", 		"type":"int" ,			"settings":"profile.isf[0].val" },
-			{ "html":"pe_isf_from_1", 	"type":"dropdownval" ,	"settings":"profile.isf[1].from" },
-			{ "html":"pe_isf_1", 		"type":"int" ,			"settings":"profile.isf[1].val" },
-			{ "html":"pe_isf_from_2", 	"type":"dropdownval" ,	"settings":"profile.isf[2].from" },
-			{ "html":"pe_isf_2", 		"type":"int" ,			"settings":"profile.isf[2].val" },
-			{ "html":"pe_isf_from_3", 	"type":"dropdownval" ,	"settings":"profile.isf[3].from" },
-			{ "html":"pe_isf_3", 		"type":"int" ,			"settings":"profile.isf[3].val" },
-			{ "html":"pe_isf_from_4", 	"type":"dropdownval" ,	"settings":"profile.isf[4].from" },
-			{ "html":"pe_isf_4", 		"type":"int" ,			"settings":"profile.isf[4].val" },
-			{ "html":"pe_isf_from_5", 	"type":"dropdownval" ,	"settings":"profile.isf[5].from" },
-			{ "html":"pe_isf_5", 		"type":"int" ,			"settings":"profile.isf[5].val" },
-			{ "html":"pe_isf_from_6", 	"type":"dropdownval" ,	"settings":"profile.isf[6].from" },
-			{ "html":"pe_isf_6", 		"type":"int" ,			"settings":"profile.isf[6].val" },
-			{ "html":"pe_isf_from_7", 	"type":"dropdownval" ,	"settings":"profile.isf[7].from" },
-			{ "html":"pe_isf_7", 		"type":"int" ,			"settings":"profile.isf[7].val" },
-			{ "html":"pe_isf_from_8", 	"type":"dropdownval" ,	"settings":"profile.isf[8].from" },
-			{ "html":"pe_isf_8", 		"type":"int" ,			"settings":"profile.isf[8].val" },
-			{ "html":"pe_isf_from_9", 	"type":"dropdownval" ,	"settings":"profile.isf[9].from" },
-			{ "html":"pe_isf_9", 		"type":"int" ,			"settings":"profile.isf[9].val" },
-			{ "html":"pe_isf_from_10", 	"type":"dropdownval" ,	"settings":"profile.isf[10].from" },
-			{ "html":"pe_isf_10", 		"type":"int" ,			"settings":"profile.isf[10].val" },
-			{ "html":"pe_isf_from_11", 	"type":"dropdownval" ,	"settings":"profile.isf[11].from" },
-			{ "html":"pe_isf_11", 		"type":"int" ,			"settings":"profile.isf[11].val" },
+			{ "html":"pe_isf_from_0", 	"type":"dropdownval" ,	"settings":"c_profile.isf[0].from" },
+			{ "html":"pe_isf_0", 		"type":"int" ,			"settings":"c_profile.isf[0].val" },
+			{ "html":"pe_isf_from_1", 	"type":"dropdownval" ,	"settings":"c_profile.isf[1].from" },
+			{ "html":"pe_isf_1", 		"type":"int" ,			"settings":"c_profile.isf[1].val" },
+			{ "html":"pe_isf_from_2", 	"type":"dropdownval" ,	"settings":"c_profile.isf[2].from" },
+			{ "html":"pe_isf_2", 		"type":"int" ,			"settings":"c_profile.isf[2].val" },
+			{ "html":"pe_isf_from_3", 	"type":"dropdownval" ,	"settings":"c_profile.isf[3].from" },
+			{ "html":"pe_isf_3", 		"type":"int" ,			"settings":"c_profile.isf[3].val" },
+			{ "html":"pe_isf_from_4", 	"type":"dropdownval" ,	"settings":"c_profile.isf[4].from" },
+			{ "html":"pe_isf_4", 		"type":"int" ,			"settings":"c_profile.isf[4].val" },
+			{ "html":"pe_isf_from_5", 	"type":"dropdownval" ,	"settings":"c_profile.isf[5].from" },
+			{ "html":"pe_isf_5", 		"type":"int" ,			"settings":"c_profile.isf[5].val" },
+			{ "html":"pe_isf_from_6", 	"type":"dropdownval" ,	"settings":"c_profile.isf[6].from" },
+			{ "html":"pe_isf_6", 		"type":"int" ,			"settings":"c_profile.isf[6].val" },
+			{ "html":"pe_isf_from_7", 	"type":"dropdownval" ,	"settings":"c_profile.isf[7].from" },
+			{ "html":"pe_isf_7", 		"type":"int" ,			"settings":"c_profile.isf[7].val" },
+			{ "html":"pe_isf_from_8", 	"type":"dropdownval" ,	"settings":"c_profile.isf[8].from" },
+			{ "html":"pe_isf_8", 		"type":"int" ,			"settings":"c_profile.isf[8].val" },
+			{ "html":"pe_isf_from_9", 	"type":"dropdownval" ,	"settings":"c_profile.isf[9].from" },
+			{ "html":"pe_isf_9", 		"type":"int" ,			"settings":"c_profile.isf[9].val" },
+			{ "html":"pe_isf_from_10", 	"type":"dropdownval" ,	"settings":"c_profile.isf[10].from" },
+			{ "html":"pe_isf_10", 		"type":"int" ,			"settings":"c_profile.isf[10].val" },
+			{ "html":"pe_isf_from_11", 	"type":"dropdownval" ,	"settings":"c_profile.isf[11].from" },
+			{ "html":"pe_isf_11", 		"type":"int" ,			"settings":"c_profile.isf[11].val" },
 			
-			{ "html":"pe_basal_from_0", 	"type":"dropdownval" ,	"settings":"profile.basal[0].from" },
-			{ "html":"pe_basal_0", 		"type":"int" ,			"settings":"profile.basal[0].val" },
-			{ "html":"pe_basal_from_1", 	"type":"dropdownval" ,	"settings":"profile.basal[1].from" },
-			{ "html":"pe_basal_1", 		"type":"int" ,			"settings":"profile.basal[1].val" },
-			{ "html":"pe_basal_from_2", 	"type":"dropdownval" ,	"settings":"profile.basal[2].from" },
-			{ "html":"pe_basal_2", 		"type":"int" ,			"settings":"profile.basal[2].val" },
-			{ "html":"pe_basal_from_3", 	"type":"dropdownval" ,	"settings":"profile.basal[3].from" },
-			{ "html":"pe_basal_3", 		"type":"int" ,			"settings":"profile.basal[3].val" },
-			{ "html":"pe_basal_from_4", 	"type":"dropdownval" ,	"settings":"profile.basal[4].from" },
-			{ "html":"pe_basal_4", 		"type":"int" ,			"settings":"profile.basal[4].val" },
-			{ "html":"pe_basal_from_5", 	"type":"dropdownval" ,	"settings":"profile.basal[5].from" },
-			{ "html":"pe_basal_5", 		"type":"int" ,			"settings":"profile.basal[5].val" },
-			{ "html":"pe_basal_from_6", 	"type":"dropdownval" ,	"settings":"profile.basal[6].from" },
-			{ "html":"pe_basal_6", 		"type":"int" ,			"settings":"profile.basal[6].val" },
-			{ "html":"pe_basal_from_7", 	"type":"dropdownval" ,	"settings":"profile.basal[7].from" },
-			{ "html":"pe_basal_7", 		"type":"int" ,			"settings":"profile.basal[7].val" },
-			{ "html":"pe_basal_from_8", 	"type":"dropdownval" ,	"settings":"profile.basal[8].from" },
-			{ "html":"pe_basal_8", 		"type":"int" ,			"settings":"profile.basal[8].val" },
-			{ "html":"pe_basal_from_9", 	"type":"dropdownval" ,	"settings":"profile.basal[9].from" },
-			{ "html":"pe_basal_9", 		"type":"int" ,			"settings":"profile.basal[9].val" },
-			{ "html":"pe_basal_from_10", 	"type":"dropdownval" ,	"settings":"profile.basal[10].from" },
-			{ "html":"pe_basal_10", 		"type":"int" ,			"settings":"profile.basal[10].val" },
-			{ "html":"pe_basal_from_11", 	"type":"dropdownval" ,	"settings":"profile.basal[11].from" },
-			{ "html":"pe_basal_11", 		"type":"int" ,			"settings":"profile.basal[11].val" },
-			{ "html":"pe_basal_from_12", 	"type":"dropdownval" ,	"settings":"profile.basal[12].from" },
-			{ "html":"pe_basal_12", 		"type":"int" ,			"settings":"profile.basal[12].val" },
-			{ "html":"pe_basal_from_13", 	"type":"dropdownval" ,	"settings":"profile.basal[13].from" },
-			{ "html":"pe_basal_13", 		"type":"int" ,			"settings":"profile.basal[13].val" },
-			{ "html":"pe_basal_from_14", 	"type":"dropdownval" ,	"settings":"profile.basal[14].from" },
-			{ "html":"pe_basal_14", 		"type":"int" ,			"settings":"profile.basal[14].val" },
-			{ "html":"pe_basal_from_15", 	"type":"dropdownval" ,	"settings":"profile.basal[15].from" },
-			{ "html":"pe_basal_15", 		"type":"int" ,			"settings":"profile.basal[15].val" },
-			{ "html":"pe_basal_from_16", 	"type":"dropdownval" ,	"settings":"profile.basal[16].from" },
-			{ "html":"pe_basal_16", 		"type":"int" ,			"settings":"profile.basal[16].val" },
-			{ "html":"pe_basal_from_17", 	"type":"dropdownval" ,	"settings":"profile.basal[17].from" },
-			{ "html":"pe_basal_17", 		"type":"int" ,			"settings":"profile.basal[17].val" },
-			{ "html":"pe_basal_from_18", 	"type":"dropdownval" ,	"settings":"profile.basal[18].from" },
-			{ "html":"pe_basal_18", 		"type":"int" ,			"settings":"profile.basal[18].val" },
-			{ "html":"pe_basal_from_19", 	"type":"dropdownval" ,	"settings":"profile.basal[19].from" },
-			{ "html":"pe_basal_19", 		"type":"int" ,			"settings":"profile.basal[19].val" },
-			{ "html":"pe_basal_from_20", 	"type":"dropdownval" ,	"settings":"profile.basal[20].from" },
-			{ "html":"pe_basal_20", 		"type":"int" ,			"settings":"profile.basal[20].val" },
-			{ "html":"pe_basal_from_21", 	"type":"dropdownval" ,	"settings":"profile.basal[21].from" },
-			{ "html":"pe_basal_21", 		"type":"int" ,			"settings":"profile.basal[21].val" },
-			{ "html":"pe_basal_from_22", 	"type":"dropdownval" ,	"settings":"profile.basal[22].from" },
-			{ "html":"pe_basal_22", 		"type":"int" ,			"settings":"profile.basal[22].val" },
-			{ "html":"pe_basal_from_23", 	"type":"dropdownval" ,	"settings":"profile.basal[23].from" },
-			{ "html":"pe_basal_23", 		"type":"int" ,			"settings":"profile.basal[23].val" }
+			{ "html":"pe_basal_from_0", 	"type":"dropdownval" ,	"settings":"c_profile.basal[0].from" },
+			{ "html":"pe_basal_0", 			"type":"float" ,			"settings":"c_profile.basal[0].val" },
+			{ "html":"pe_basal_from_1", 	"type":"dropdownval" ,	"settings":"c_profile.basal[1].from" },
+			{ "html":"pe_basal_1", 			"type":"float" ,			"settings":"c_profile.basal[1].val" },
+			{ "html":"pe_basal_from_2", 	"type":"dropdownval" ,	"settings":"c_profile.basal[2].from" },
+			{ "html":"pe_basal_2", 			"type":"float" ,			"settings":"c_profile.basal[2].val" },
+			{ "html":"pe_basal_from_3", 	"type":"dropdownval" ,	"settings":"c_profile.basal[3].from" },
+			{ "html":"pe_basal_3", 			"type":"float" ,			"settings":"c_profile.basal[3].val" },
+			{ "html":"pe_basal_from_4", 	"type":"dropdownval" ,	"settings":"c_profile.basal[4].from" },
+			{ "html":"pe_basal_4", 			"type":"float" ,			"settings":"c_profile.basal[4].val" },
+			{ "html":"pe_basal_from_5", 	"type":"dropdownval" ,	"settings":"c_profile.basal[5].from" },
+			{ "html":"pe_basal_5", 			"type":"float" ,			"settings":"c_profile.basal[5].val" },
+			{ "html":"pe_basal_from_6", 	"type":"dropdownval" ,	"settings":"c_profile.basal[6].from" },
+			{ "html":"pe_basal_6", 			"type":"float" ,			"settings":"c_profile.basal[6].val" },
+			{ "html":"pe_basal_from_7", 	"type":"dropdownval" ,	"settings":"c_profile.basal[7].from" },
+			{ "html":"pe_basal_7", 			"type":"float" ,			"settings":"c_profile.basal[7].val" },
+			{ "html":"pe_basal_from_8", 	"type":"dropdownval" ,	"settings":"c_profile.basal[8].from" },
+			{ "html":"pe_basal_8", 			"type":"float" ,			"settings":"c_profile.basal[8].val" },
+			{ "html":"pe_basal_from_9", 	"type":"dropdownval" ,	"settings":"c_profile.basal[9].from" },
+			{ "html":"pe_basal_9", 			"type":"float" ,			"settings":"c_profile.basal[9].val" },
+			{ "html":"pe_basal_from_10", 	"type":"dropdownval" ,	"settings":"c_profile.basal[10].from" },
+			{ "html":"pe_basal_10", 		"type":"float" ,			"settings":"c_profile.basal[10].val" },
+			{ "html":"pe_basal_from_11", 	"type":"dropdownval" ,	"settings":"c_profile.basal[11].from" },
+			{ "html":"pe_basal_11", 		"type":"float" ,			"settings":"c_profile.basal[11].val" },
+			{ "html":"pe_basal_from_12", 	"type":"dropdownval" ,	"settings":"c_profile.basal[12].from" },
+			{ "html":"pe_basal_12", 		"type":"float" ,			"settings":"c_profile.basal[12].val" },
+			{ "html":"pe_basal_from_13", 	"type":"dropdownval" ,	"settings":"c_profile.basal[13].from" },
+			{ "html":"pe_basal_13", 		"type":"float" ,			"settings":"c_profile.basal[13].val" },
+			{ "html":"pe_basal_from_14", 	"type":"dropdownval" ,	"settings":"c_profile.basal[14].from" },
+			{ "html":"pe_basal_14", 		"type":"float" ,			"settings":"c_profile.basal[14].val" },
+			{ "html":"pe_basal_from_15", 	"type":"dropdownval" ,	"settings":"c_profile.basal[15].from" },
+			{ "html":"pe_basal_15", 		"type":"float" ,			"settings":"c_profile.basal[15].val" },
+			{ "html":"pe_basal_from_16", 	"type":"dropdownval" ,	"settings":"c_profile.basal[16].from" },
+			{ "html":"pe_basal_16", 		"type":"float" ,			"settings":"c_profile.basal[16].val" },
+			{ "html":"pe_basal_from_17", 	"type":"dropdownval" ,	"settings":"c_profile.basal[17].from" },
+			{ "html":"pe_basal_17", 		"type":"float" ,			"settings":"c_profile.basal[17].val" },
+			{ "html":"pe_basal_from_18", 	"type":"dropdownval" ,	"settings":"c_profile.basal[18].from" },
+			{ "html":"pe_basal_18", 		"type":"float" ,			"settings":"c_profile.basal[18].val" },
+			{ "html":"pe_basal_from_19", 	"type":"dropdownval" ,	"settings":"c_profile.basal[19].from" },
+			{ "html":"pe_basal_19", 		"type":"float" ,			"settings":"c_profile.basal[19].val" },
+			{ "html":"pe_basal_from_20", 	"type":"dropdownval" ,	"settings":"c_profile.basal[20].from" },
+			{ "html":"pe_basal_20", 		"type":"float" ,			"settings":"c_profile.basal[20].val" },
+			{ "html":"pe_basal_from_21", 	"type":"dropdownval" ,	"settings":"c_profile.basal[21].from" },
+			{ "html":"pe_basal_21", 		"type":"float" ,			"settings":"c_profile.basal[21].val" },
+			{ "html":"pe_basal_from_22", 	"type":"dropdownval" ,	"settings":"c_profile.basal[22].from" },
+			{ "html":"pe_basal_22", 		"type":"float" ,			"settings":"c_profile.basal[22].val" },
+			{ "html":"pe_basal_from_23", 	"type":"dropdownval" ,	"settings":"c_profile.basal[23].from" },
+			{ "html":"pe_basal_23", 		"type":"float" ,			"settings":"c_profile.basal[23].val" }
 	];
 	
 	var apistatus = {};
@@ -211,54 +211,61 @@ TODO:
 	if (apisecret) storeapisecret = true;
 
 	
-   // Fetch data from mongo
-   $('#pe_status').hide().text('Loading status ...').fadeIn("slow");
-   // status with defaults first
-   $.ajax('/api/v1/status.json', {
-        success: function (xhr) {
-            apistatus = { 
-                  apiEnabled: xhr.apiEnabled
-				, defaults: xhr.defaults //  { ...., defaults: {time-format: '24', display-units: 'mmol'} }
-			};
-       },
-		error: function () {
-			alert('Error loading your defaults. 12H and mg/dL will be used');
-			apistatus = { 'defaults': { 'time-format': '12', 'display-units': 'mg/dL', 'language': 'en', 'custom-title': 'Nightscout'} };
-		}
-    }).done(function () {
-		$('#pe_status').hide().text('Loading profile records ...').fadeIn("slow");
-		$.ajax('/api/v1/profile.json', {
-			success: function (records) {
-				mongoprofiles = records;
-				// create new profile to be edited from last record
-				if (records[0] && records[0].dia) {
-					// Use only values(keys) defined in defaultprofile, drop the rest. Preparation for future changes.
-					profile = defaultprofile;
-					for (var key in records[0]) {
-						if (typeof profile[key] != 'undefined') 
-							profile[key] = records[0][key];
-						// copy _id of record too
-						if (key == '_id') 
-							profile[key] = records[0][key];
-						// default validfrom is current date
-						if (key == 'validfrom')
-							profile[key] = new Date();
-					}
-					$('#pe_status').hide().text('Values loaded.').fadeIn("slow");
-					mongoprofiles.unshift(profile);
-				} else {
-					profile = defaultprofile;
-					mongoprofiles.unshift(profile);
-					$('#pe_status').hide().text('Default values used.').fadeIn("slow");
-				}
-			},
+	// test if loaded in editor. if not provide only api for client
+	if ($('#pe_status').length) { 
+	   // Fetch data from mongo
+	   $('#pe_status').hide().text('Loading status ...').fadeIn("slow");
+	   // status with defaults first
+	   $.ajax('/api/v1/status.json', {
+			success: function (xhr) {
+				apistatus = { 
+					  apiEnabled: xhr.apiEnabled
+					, defaults: xhr.defaults //  { ...., defaults: {time-format: '24', display-units: 'mmol'} }
+				};
+		   },
 			error: function () {
-				profile = defaultprofile;
-				mongoprofiles.unshift(profile);
-				$('#pe_status').hide().text('Error. Default values used.').fadeIn("slow");
+				alert('Error loading your defaults. 12H and mg/dL will be used');
+				apistatus = { 'defaults': { 'time-format': '12', 'display-units': 'mg/dL', 'language': 'en', 'custom-title': 'Nightscout'} };
 			}
-		}).done(initeditor);
-	});
+		}).done(function () {
+			$('#pe_status').hide().text('Loading profile records ...').fadeIn("slow");
+			$.ajax('/api/v1/profile.json', {
+				success: function (records) {
+					c_profile = {};
+					mongoprofiles = records;
+					// create new profile to be edited from last record
+					if (records[0] && records[0].dia) {
+						// Use only values(keys) defined in defaultprofile, drop the rest. Preparation for future changes.
+						c_profile = defaultprofile;
+						for (var key in records[0]) {
+							if (typeof c_profile[key] != 'undefined') 
+								c_profile[key] = records[0][key];
+							// copy _id of record too
+							if (key == '_id') 
+								c_profile[key] = records[0][key];
+						}
+						$('#pe_status').hide().text('Values loaded.').fadeIn("slow");
+						mongoprofiles.unshift(c_profile);
+					} else {
+						c_profile = defaultprofile;
+						mongoprofiles.unshift(c_profile);
+						$('#pe_status').hide().text('Default values used.').fadeIn("slow");
+					}
+				},
+				error: function () {
+					c_profile = defaultprofile;
+					mongoprofiles.unshift(c_profile);
+					$('#pe_status').hide().text('Error. Default values used.').fadeIn("slow");
+				}
+			}).done(initeditor);
+		});
+	} else {
+		$.ajax('/api/v1/profile/current', {
+				success: function (record) {
+					c_profile = record;
+					}
+		});
+	}
 	
 	function initeditor() {
 		// Add handler for style switching
@@ -270,6 +277,8 @@ TODO:
 		$('#pe_timeformat').text(apistatus['defaults']['time-format']+'h');
 		$('#pe_title').text(apistatus['defaults']['custom-title']);
 
+		var lastvalidfrom = new Date(mongoprofiles[1] && mongoprofiles[1].validfrom ? mongoprofiles[1].validfrom : null);
+		
 		//timepicker
 		$('#pe_validfrom').datetimepicker({
 			  lang: apistatus['defaults']['language']
@@ -277,20 +286,51 @@ TODO:
 			, stepMinute: 15
 			, timeFormat: apistatus['defaults']['time-format'] == '12' ? 'hh:mm p' : 'HH:mm'
 			, dateFormat: apistatus['defaults']['time-format'] == '12' ? 'mm/dd/yy' : 'd.m.yy'
-			, minDate: mongoprofiles[1] && mongoprofiles[1].validfrom ? mongoprofiles[1].validfrom : null
+			, minDate: lastvalidfrom
 			//this has a serious bug
 			//, minDateTime: mongoprofiles[1] && mongoprofiles[1].validfrom ? mongoprofiles[1].validfrom : null
 			, maxDate: new Date()
 			, maxDateTime: new Date()
-		});
+			, onSelect: function(d,i){
+				  if(d !== i.lastVal){
+					  $(this).change();
+				  }
+			 }
+		}).on('change', dateChanged);
 
+		//$('#pe_validfrom').datetimepicker('setDate', lastvalidfrom);
+	
 		// Set values from profile to html
 		fillFrom();
 		// hide unused style of ratios
 		switchStyle();
+		// show proper submit button
+		dateChanged();
 		
+		// date of last record
+		if (lastvalidfrom)
+			$('#pe_lastrecvalidfrom').html('Last record date: '+lastvalidfrom.toLocaleString()+' <i>(Date must be newer to create new record or the same to update current record)</i>');
+		else 
+			$('#pe_lastrecvalidfrom').html('');
 		
 		console.log('Done initeditor()');
+	}
+	
+	// Handling valid from date change
+	function dateChanged(event) {
+		var newdate = $('#pe_validfrom').datetimepicker('getDate');
+		if (mongoprofiles.length<2 || +new Date(mongoprofiles[1].validfrom) != +newdate) {
+			$('#pe_submit').text('Create new record');
+			$('#pe_validfrom').css({'background-color':'green'});
+			$('#pe_submit').css({'background-color':'green'});
+		} else {
+			$('#pe_submit').text('Update record');
+			$('#pe_validfrom').css({'background-color':'white'});
+			$('#pe_submit').css({'background-color':'buttonface'});
+		}
+		if (event) {
+			event.preventDefault();
+		}
 	}
 	
 	// Handling html events and setting/getting values
@@ -332,8 +372,8 @@ TODO:
 			$("#pe_if_from_"+i).empty();
 			for (var t=0;t<49;t++) {
 				if (i==0 && t>0) continue;
-				if (i>0 && isNaN(profile.ic[i-1].from)) continue;
-				if (i>0 && profile.ic[i-1].from >= t*30) continue;
+				if (i>0 && isNaN(c_profile.ic[i-1].from)) continue;
+				if (i>0 && c_profile.ic[i-1].from >= t*30) continue;
 				if (endof_if) continue;
 				if (apistatus['defaults']['time-format']=='24') {
 					$("#pe_if_from_"+i).append(new Option(mmoltime[t],t*30));
@@ -342,10 +382,10 @@ TODO:
 				}
 			}
 			//read value if modified because time not available anymore
-			$("#pe_if_from_"+i).val(profile.ic[i].from);
+			$("#pe_if_from_"+i).val(c_profile.ic[i].from);
 			if (!$("#pe_if_from_"+i).val())	$("#pe_if_from_"+i).prop("selectedIndex",0);
-			profile.ic[i].from = $("#pe_if_from_"+i).val();
-			if (profile.ic[i].from == 48*30)  { endof_if = true; profile.ic[i].val = 0; }
+			c_profile.ic[i].from = $("#pe_if_from_"+i).val();
+			if (c_profile.ic[i].from == 48*30)  { endof_if = true; c_profile.ic[i].val = 0; }
 			// bind handler back
 			$("#pe_if_from_"+i).bind("change",fillFrom);
 		}
@@ -356,8 +396,8 @@ TODO:
 			$("#pe_isf_from_"+i).empty();
 			for (var t=0;t<49;t++) {
 				if (i==0 && t>0) continue;
-				if (i>0 && isNaN(profile.isf[i-1].from)) continue;
-				if (i>0 && profile.isf[i-1].from >= t*30) continue;
+				if (i>0 && isNaN(c_profile.isf[i-1].from)) continue;
+				if (i>0 && c_profile.isf[i-1].from >= t*30) continue;
 				if (endof_isf) continue;
 				if (apistatus['defaults']['time-format']=='24') {
 					$("#pe_isf_from_"+i).append(new Option(mmoltime[t],t*30));
@@ -366,10 +406,10 @@ TODO:
 				}
 			}
 			//read value if modified because time not available anymore
-			$("#pe_isf_from_"+i).val(profile.isf[i].from);
+			$("#pe_isf_from_"+i).val(c_profile.isf[i].from);
 			if (!$("#pe_isf_from_"+i).val()) $("#pe_isf_from_"+i).prop("selectedIndex",0);
-			profile.isf[i].from = $("#pe_isf_from_"+i).val();
-			if (profile.isf[i].from == 48*30) { endof_isf = true; profile.isf[i].val = 0; }
+			c_profile.isf[i].from = $("#pe_isf_from_"+i).val();
+			if (c_profile.isf[i].from == 48*30) { endof_isf = true; c_profile.isf[i].val = 0; }
 			// bind handler back
 			$("#pe_isf_from_"+i).bind("change",fillFrom);
 		}	
@@ -380,8 +420,8 @@ TODO:
 			$("#pe_basal_from_"+i).empty();
 			for (var t=0;t<49;t++) {
 				if (i==0 && t>0) continue;
-				if (i>0 && isNaN(profile.basal[i-1].from)) continue;
-				if (i>0 && profile.basal[i-1].from >= t*30) continue;
+				if (i>0 && isNaN(c_profile.basal[i-1].from)) continue;
+				if (i>0 && c_profile.basal[i-1].from >= t*30) continue;
 				if (endof_basal) continue;
 				if (apistatus['defaults']['time-format']=='24') {
 					$("#pe_basal_from_"+i).append(new Option(mmoltime[t],t*30));
@@ -390,10 +430,10 @@ TODO:
 				}
 			}
 			//read value if modified because time not available anymore
-			$("#pe_basal_from_"+i).val(profile.basal[i].from);
+			$("#pe_basal_from_"+i).val(c_profile.basal[i].from);
 			if (!$("#pe_basal_from_"+i).val()) $("#pe_basal_from_"+i).prop("selectedIndex",0);
-			profile.basal[i].from = $("#pe_basal_from_"+i).val();
-			if (profile.basal[i].from == 48*30) { endof_basal = true; profile.basal[i].val = 0; }
+			c_profile.basal[i].from = $("#pe_basal_from_"+i).val();
+			if (c_profile.basal[i].from == 48*30) { endof_basal = true; c_profile.basal[i].val = 0; }
 			// bind handler back
 			$("#pe_basal_from_"+i).bind("change",fillFrom);
 			
@@ -424,7 +464,7 @@ TODO:
 				else if (GuiToVal[ii].type == "dropdown") {
 					setElement(GuiToVal[ii].html,'selectedIndex',eval(GuiToVal[ii].settings));
 				} else if (GuiToVal[ii].type == "date") {
-					$('#'+GuiToVal[ii].html).datetimepicker('setDate', new Date());
+					$('#'+GuiToVal[ii].html).datetimepicker('setDate', new Date(eval(GuiToVal[ii].settings)));
 				} else if (GuiToVal[ii].type == "dropdownval") {
 					var sel = document.getElementById(GuiToVal[ii].html);
 					var val = eval(GuiToVal[ii].settings);
@@ -471,7 +511,7 @@ TODO:
 				}
 			} catch (e) { alert('Wrong value entered: '+GuiToVal[ii].html+'  '+GuiToVal[ii].settings + ' ' + e.message); }
 		}
-		console.log(JSON.stringify(profile));
+		console.log(JSON.stringify(c_profile));
 	}
 	
 	function clone(obj) {
@@ -486,14 +526,8 @@ TODO:
 	function profileSubmit(event) {
 		try {
 			saveSettings();
-			if (new Date(profile.validfrom) > new Date()) {
+			if (new Date(c_profile.validfrom) > new Date()) {
 				alert('Date must be set in the past');
-				$('#pe_status').hide().html('Wrong date').fadeIn("slow");
-				return false;
-			}
-			
-			if (mongoprofiles.length > 1 && (new Date(profile.validfrom) <= new Date(mongoprofiles[1].validfrom))) {
-				alert('Date must be greater than last record '+new Date(mongoprofiles[1].validfrom));
 				$('#pe_status').hide().html('Wrong date').fadeIn("slow");
 				return false;
 			}
@@ -504,28 +538,48 @@ TODO:
 				return false;
 			}
 			
-			// remove _id when creating new record
-			// must be changed if we decide to have ability to edit old records
-			delete profile._id;
-			
-			var dataJson = JSON.stringify(profile, null, ' ');
+			c_profile.units = apistatus['defaults']['display-units'];
 			// create apisecret hash
 			var secrethash = CryptoJS.SHA1(apisecret);
 
-			var xhr = new XMLHttpRequest();
-			xhr.open('POST', '/api/v1/profile/', true);
-			xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-			xhr.setRequestHeader('api-secret', secrethash);
-			xhr.onload = function () {
-				$('#pe_status').hide().text(xhr.statusText).fadeIn("slow");
-				if (xhr.statusText=='OK') {
-					var newprofile = clone(profile);
-					newprofile.validfrom = new Date();
-					mongoprofiles.unshift(newprofile);
-					initeditor();
+			if ($('#pe_submit').text().indexOf('Create new record')>-1) {
+				if (mongoprofiles.length > 1 && (new Date(c_profile.validfrom) <= new Date(mongoprofiles[1].validfrom))) {
+					alert('Date must be greater than last record '+new Date(mongoprofiles[1].validfrom));
+					$('#pe_status').hide().html('Wrong date').fadeIn("slow");
+					return false;
 				}
+				
+				// remove _id when creating new record
+				delete c_profile._id;
+				
+				var dataJson = JSON.stringify(c_profile, null, ' ');
+
+				var xhr = new XMLHttpRequest();
+				xhr.open('POST', '/api/v1/profile/', true);
+				xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+				xhr.setRequestHeader('api-secret', secrethash);
+				xhr.onload = function () {
+					$('#pe_status').hide().text(xhr.statusText).fadeIn("slow");
+					if (xhr.statusText=='OK') {
+						var newprofile = clone(c_profile);
+						mongoprofiles.unshift(newprofile);
+						initeditor();
+					}
+				}
+				xhr.send(dataJson);
+			} else {
+				// Update record
+				var dataJson = JSON.stringify(c_profile, null, ' ');
+
+				var xhr = new XMLHttpRequest();
+				xhr.open('PUT', '/api/v1/profile/', true);
+				xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+				xhr.setRequestHeader('api-secret', secrethash);
+				xhr.onload = function () {
+					$('#pe_status').hide().text(xhr.statusText).fadeIn("slow");
+				}
+				xhr.send(dataJson);
 			}
-			xhr.send(dataJson);
 
 			// store or remove from browser store api secret
 			if (storeapisecret) 
@@ -537,3 +591,55 @@ TODO:
 	}
 
 
+	// API for client
+	// currently no support to the past
+	var currentProfile = {
+		  dia : function () { return c_profile ? c_profile.dia : null}
+		, ic : function (time) {
+					if (!c_profile) return null;
+					if (c_profile.simple) return c_profile.carbratio;
+					var minuntes =  time.getMinutes() + time.getHours() * 60;
+					for (var i=0; i < c_profile.ic.length -1; i++) {
+						if (parseInt(c_profile.ic[i+1].from)<minutes) return c_profile.ic[i].val;
+					}
+					return null;
+				}
+		, isf : function (time,units) {
+					if (!c_profile) return null;
+					if (c_profile.simple) return this.convertUnits(c_profile.sens,units);
+					var minuntes =  time.getMinutes() + time.getHours() * 60;
+					for (var i=0; i < c_profile.isf.length -1; i++) {
+						if (parseInt(c_profile.isf[i+1].from)<minutes) return this.convertUnits(c_profile.isf[i].val);
+					}
+					return null;
+				}
+		, car : function (time, glycemicIndex) { //glycemicIndex 1..low  2..medium 3..high but allowing float within range <1-3>
+					if (!c_profile) return null;
+					if (c_profile.simple) return c_profile.carbs_hr;
+					if (glycemicIndex==1) return c_profile.car_low;
+					if (glycemicIndex==2) return c_profile.car_medium;
+					if (glycemicIndex==3) return c_profile.car_high;
+					if (glycemicIndex>1 && glycemicIndex<2) return (c_profile.car_medium-c_profile.car_low) * (glycemicIndex-1) + c_profile.car_low;
+					if (glycemicIndex>2 && glycemicIndex<3) return (c_profile.car_high-c_profile.car_medium) * (glycemicIndex-2) + c_profile.car_medium;
+					return null;
+				}
+		, basal : function (time) {
+					if (!c_profile) return null;
+					var minuntes =  time.getMinutes() + time.getHours() * 60;
+					for (var i=0; i < c_profile.basal.length -1; i++) {
+						if (parseInt(c_profile.basal[i+1].from)<minutes) return c_profile.basal[i].val;
+					}
+					return null;
+				}
+		, convertUnits : function (value, units) { // convert value to specified units. if no unit's specified return in mg/dL
+					if (units == 'mg/dL' || typeof units === 'undefined') {
+						if (c_profile.units == 'mmol') return value * 18;
+						else return value;
+					}
+					if (units == 'mmol') {
+						if (c_profile.units == 'mmol') value;
+						else return value / 18;
+					}
+				}
+	};
+	
