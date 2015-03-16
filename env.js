@@ -21,7 +21,7 @@ function config ( ) {
   var software = require('./package.json');
   var git = require('git-rev');
 
-  if (readENV('SCM_GIT_EMAIL') == 'windowsazure' && readENV('SCMTYPE') == 'GitHub') {
+  if (readENV('APPSETTING_ScmType') == readENV('ScmType')) {
     env.head = require('./scm-commit-id.json');
     console.log("SCM COMMIT ID", env.head);
   } else {
