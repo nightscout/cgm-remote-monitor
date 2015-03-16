@@ -99,6 +99,7 @@ selectNodeVersion () {
 # ----------
 
 echo Handling node.js deployment.
+echo "\"$SCM_COMMIT_ID\"" > $DEPLOYMENT_SOURCE/scm-commit-id.json
 
 # 1. KuduSync
 if [[ "$IN_PLACE_DEPLOYMENT" -ne "1" ]]; then
@@ -113,7 +114,6 @@ selectNodeVersion
 if [ -e "$DEPLOYMENT_TARGET/package.json" ]; then
   cd "$DEPLOYMENT_TARGET"
   eval $NPM_CMD install --production
-  echo "\"$SCM_COMMIT_ID\"" > scm-commit-id.json
   exitWithMessageOnError "npm failed"
   cd - > /dev/null
 fi
