@@ -319,6 +319,10 @@ div.tooltip {
         line-height: 40px;
     }
 
+    #uploaderBattery label {
+        font-size: 15px !important;
+    }
+
     .focus-range {
         margin: 0;
     }
