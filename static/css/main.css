@@ -72,7 +72,7 @@ body {
 }
 
 .bgStatus .currentDetails {
-    font-size: 20px;
+    font-size: 30px;
 }
 
 .currentDetails > span:not(:first-child) {
@@ -82,7 +82,7 @@ body {
 span.pill {
     white-space: nowrap;
     border-radius: 5px;
-    border: 2px solid #bdbdbd;
+    border: 2px solid #808080;
 }
 
 span.pill * {
@@ -97,7 +97,7 @@ span.pill em {
 
 span.pill label {
     color: #000;
-    background: #bdbdbd;
+    background: #808080;
 }
 
 .bgStatus.current .currentBG {
@@ -118,14 +118,20 @@ span.pill label {
     font-size: 20px;
     line-height: 30px;
 }
+
+.loading #lastEntry {
+    display: none;
+}
+
 #lastEntry {
     background: #808080;
     border-color: #808080;
 }
 
 #lastEntry.pill em {
-    color: #808080;
+    color: #bdbdbd;
     background: #000;
+    border-radius: 4px 0 0 4px;
 }
 
 #lastEntry.pill label {
@@ -208,7 +214,7 @@ span.pill label {
 .alarming .bgButton {
   border-color: #bdbdbd;
   color: #000;
-  box-shadow: 2px 4px 6px #ddd;
+  box-shadow: 2px 2px 0 #ddd;
 }
 
 .alarming .bgButton.urgent {
@@ -249,6 +255,33 @@ div.tooltip {
     display: none;
 }
 
+.loading .focus-range {
+    display: none;
+}
+
+.focus-range {
+    list-style: none;
+    margin: 4px;
+    padding: 0;
+    width: 250px;
+    text-align: center;
+}
+
+.focus-range li {
+    display: inline-block;
+    font-size: 14px;
+    white-space: nowrap;
+    border-radius: 5px;
+    border: 2px solid #000;
+    cursor: pointer;
+}
+
+.focus-range li.selected {
+    border-color: #808080;
+    color: #000;
+    background: #808080;
+}
+
 @media (max-width: 800px) {
     .bgStatus {
         width: 40%;
@@ -272,6 +305,10 @@ div.tooltip {
         line-height: 70px;
     }
 
+    .bgStatus .currentDetails {
+        font-size: 20px;
+    }
+
     .time {
         font-size: 70px;
         line-height: 60px;
@@ -280,6 +317,10 @@ div.tooltip {
     .timeOther {
         font-size: 15px;
         line-height: 40px;
+    }
+
+    .focus-range {
+        margin: 0;
     }
 
     #silenceBtn * {
@@ -401,11 +442,27 @@ div.tooltip {
         font-size: 15px;
     }
 
+    .alarming .focus-range {
+        display: none;
+    }
+
+    .focus-range {
+        position: absolute;
+        top: 70px;
+        left: 20px;
+        margin: 0;
+        width: auto;
+    }
+
+    .focus-range li {
+        display: block;
+    }
+
     #chartContainer {
-        top: 210px;
+        top: 190px;
     }
     #chartContainer svg {
-        height: calc(100vh - (210px));
+        height: calc(100vh - (190px));
     }
 }
 
@@ -467,6 +524,7 @@ div.tooltip {
     .time {
         font-size: 70px;
         line-height: 60px;
+        padding-top: 5px;
     }
 
     .timeOther {
@@ -493,6 +551,18 @@ div.tooltip {
 
     .bgStatus .currentDetails {
         font-size: 15px;
+    }
+
+    .focus-range {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        margin: 0;
+        width: auto;
+    }
+
+    .focus-range li {
+        display: block;
     }
 
 }

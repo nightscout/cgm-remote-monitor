@@ -10,10 +10,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , ONE_MIN_IN_MS = 60000
         , FIVE_MINS_IN_MS = 300000
         , SIX_MINS_IN_MS =  360000
+        , THREE_HOURS_MS = 3 * 60 * 60 * 1000
+        , TWELVE_HOURS_MS = 12 * 60 * 60 * 1000
         , TWENTY_FIVE_MINS_IN_MS = 1500000
         , THIRTY_MINS_IN_MS = 1800000
         , SIXTY_MINS_IN_MS = 3600000
-        , FOCUS_DATA_RANGE_MS = 12600000 // 3.5 hours of actual data
         , FORMAT_TIME_12 = '%I:%M'
         , FORMAT_TIME_24 = '%H:%M%'
         , FORMAT_TIME_SCALE = '%I %p'
@@ -38,6 +39,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , opacity = {current: 1, DAY: 1, NIGHT: 0.5}
         , now = Date.now()
         , data = []
+        , foucusRangeMS = THREE_HOURS_MS
         , audio = document.getElementById('audio')
         , alarmInProgress = false
         , currentAlarmType = null
@@ -134,7 +136,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         } else if (noise < 2 && browserSettings.showRawbg != 'always') {
           return 0;
         } else if (filtered == 0 || sgv < 40) {
-            console.info('Skipping ratio adjustment for SGV ' + sgv);
             return scale * (unfiltered - intercept) / slope;
         } else {
             var ratio = scale * (filtered - intercept) / slope / sgv;
@@ -211,7 +212,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         d3.select('.brush')
             .transition()
             .duration(UPDATE_TRANS_MS)
-            .call(brush.extent([new Date(dataRange[1].getTime() - FOCUS_DATA_RANGE_MS), dataRange[1]]));
+            .call(brush.extent([new Date(dataRange[1].getTime() - foucusRangeMS), dataRange[1]]));
         brushed(true);
 
         // clear user brush tracking
@@ -291,15 +292,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var brushExtent = brush.extent();
 
         // ensure that brush extent is fixed at 3.5 hours
-        if (brushExtent[1].getTime() - brushExtent[0].getTime() != FOCUS_DATA_RANGE_MS) {
+        if (brushExtent[1].getTime() - brushExtent[0].getTime() != foucusRangeMS) {
 
             // ensure that brush updating is with the time range
-            if (brushExtent[0].getTime() + FOCUS_DATA_RANGE_MS > d3.extent(data, dateFn)[1].getTime()) {
-                brushExtent[0] = new Date(brushExtent[1].getTime() - FOCUS_DATA_RANGE_MS);
+            if (brushExtent[0].getTime() + foucusRangeMS > d3.extent(data, dateFn)[1].getTime()) {
+                brushExtent[0] = new Date(brushExtent[1].getTime() - foucusRangeMS);
                 d3.select('.brush')
                     .call(brush.extent([brushExtent[0], brushExtent[1]]));
             } else {
-                brushExtent[1] = new Date(brushExtent[0].getTime() + FOCUS_DATA_RANGE_MS);
+                brushExtent[1] = new Date(brushExtent[0].getTime() + foucusRangeMS);
                 d3.select('.brush')
                     .call(brush.extent([brushExtent[0], brushExtent[1]]));
             }
@@ -460,11 +461,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // selects all our data into data and uses date function to get current max date
         var focusCircles = focus.selectAll('circle').data(focusData, dateFn);
 
+        var focusRangeAdjustment = foucusRangeMS == THREE_HOURS_MS ? 1 : 1 + ((foucusRangeMS - THREE_HOURS_MS) / THREE_HOURS_MS / 8);
+
         var dotRadius = function(type) {
             var radius = prevChartWidth > WIDTH_BIG_DOTS ? 4 : (prevChartWidth < WIDTH_SMALL_DOTS ? 2 : 3);
             if (type == 'mbg') radius *= 2;
             else if (type == 'rawbg') radius = Math.min(2, radius - 1);
-            return radius;
+
+            return radius / focusRangeAdjustment;
         };
 
         function prepareFocusCircles(sel) {
@@ -533,7 +537,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         // add treatment bubbles
         // a higher bubbleScale will produce smaller bubbles (it's not a radius like focusDotRadius)
-        var bubbleScale = prevChartWidth < WIDTH_SMALL_DOTS ? 4 : (prevChartWidth < WIDTH_BIG_DOTS ? 3 : 2);
+        var bubbleScale = (prevChartWidth < WIDTH_SMALL_DOTS ? 4 : (prevChartWidth < WIDTH_BIG_DOTS ? 3 : 2)) * focusRangeAdjustment;
+
         focus.selectAll('circle')
             .data(treatments)
             .each(function (d) { drawTreatment(d, bubbleScale, true) });
@@ -922,7 +927,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var updateBrush = d3.select('.brush').transition().duration(UPDATE_TRANS_MS);
         if (!brushInProgress) {
             updateBrush
-                .call(brush.extent([new Date(dataRange[1].getTime() - FOCUS_DATA_RANGE_MS), dataRange[1]]));
+                .call(brush.extent([new Date(dataRange[1].getTime() - foucusRangeMS), dataRange[1]]));
             brushed(true);
         } else {
             updateBrush
@@ -970,6 +975,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // update x axis domain
         context.select('.x')
             .call(xAxis2);
+
+        if (init) {
+            $('.container').removeClass('loading');
+        }
     }
 
     function sgvToColor(sgv) {
@@ -1058,7 +1067,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , parts = {};
 
         if (offset < MINUTE_IN_SECS * -5)          parts = { label: 'in the future' };
-        else if (offset <= 0)                      parts = { label: 'time ago' };
+        else if (offset == -1)                     parts = { label: 'time ago' };
         else if (offset <= MINUTE_IN_SECS * 2)     parts = { value: 1, label: 'min ago' };
         else if (offset < (MINUTE_IN_SECS * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE_IN_SECS)), label: 'mins ago' };
         else if (offset < (HOUR_IN_SECS * 2))      parts = { value: 1, label: 'hr ago' };
@@ -1387,9 +1396,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         context.append('g')
             .attr('class', 'y axis');
 
+        window.onresize = function () {
+            updateChartSoon()
+        }
+
         // look for resize but use timer to only call the update script when a resize stops
         var resizeTimer;
-        window.onresize = function () {
+        function updateChartSoon() {
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(function () {
                 updateChart(false);
@@ -1407,6 +1420,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         $('#silenceBtn').find('a').click(function (e) {
             stopAlarm(true, $(this).data('snooze-time'));
             e.preventDefault();
+        });
+
+        $('.focus-range li').click(function(e) {
+            var li = $(e.target);
+            $('.focus-range li').removeClass('selected');
+            li.addClass('selected');
+            var hours = Number(li.data('hours'));
+            foucusRangeMS = hours * 60 * 60 * 1000;
+            updateChartSoon();
         });
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
