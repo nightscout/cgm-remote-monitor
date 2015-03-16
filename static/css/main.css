@@ -72,7 +72,7 @@ body {
 }
 
 .bgStatus .currentDetails {
-    font-size: 20px;
+    font-size: 30px;
 }
 
 .currentDetails > span:not(:first-child) {
@@ -82,7 +82,7 @@ body {
 span.pill {
     white-space: nowrap;
     border-radius: 5px;
-    border: 2px solid #bdbdbd;
+    border: 2px solid #808080;
 }
 
 span.pill * {
@@ -97,7 +97,7 @@ span.pill em {
 
 span.pill label {
     color: #000;
-    background: #bdbdbd;
+    background: #808080;
 }
 
 .bgStatus.current .currentBG {
@@ -119,37 +119,38 @@ span.pill label {
     line-height: 30px;
 }
 
-.loading #lastEntry {
+.loading .timeOther {
     display: none;
 }
 
-#lastEntry {
+.timeOther .pill {
     background: #808080;
     border-color: #808080;
 }
 
-#lastEntry.pill em {
-    color: #808080;
+.timeOther .pill em {
+    color: #bdbdbd;
     background: #000;
+    border-radius: 4px 0 0 4px;
 }
 
-#lastEntry.pill label {
+.timeOther .pill label {
     background: #808080;
 }
 
-#lastEntry.warn, #lastEntry.warn label {
+.timeOther .warn, .timeOther .warn label {
     background: yellow;
     border-color: yellow;
 }
-#lastEntry.warn em {
+.timeOther .warn em {
     color: yellow;
 }
 
-#lastEntry.urgent, #lastEntry.urgent label {
+.timeOther .urgent, .timeOther .urgent label {
     background: red;
     border-color: red;
 }
-#lastEntry.urgent em {
+.timeOther .urgent em {
     color: red;
 }
 
@@ -302,6 +303,10 @@ div.tooltip {
     .bgStatus .currentDirection {
         font-size: 70px;
         line-height: 70px;
+    }
+
+    .bgStatus .currentDetails {
+        font-size: 20px;
     }
 
     .time {

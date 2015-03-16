@@ -35,6 +35,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , treatments
         , profile
         , cal
+        , devicestatusData
         , padding = { top: 0, right: 10, bottom: 30, left: 10 }
         , opacity = {current: 1, DAY: 1, NIGHT: 0.5}
         , now = Date.now()
@@ -441,6 +442,17 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             updateCurrentSGV(latestSGV.y);
             updateClockDisplay();
             updateTimeAgo();
+
+            var battery = devicestatusData.uploaderBattery;
+            $('#uploaderBattery em').text(battery + '%');
+            $('#uploaderBattery label')
+                .toggleClass('icon-battery-100', battery >= 95)
+                .toggleClass('icon-battery-75', battery < 95 && battery >= 55)
+                .toggleClass('icon-battery-50', battery < 55 && battery >= 30)
+                .toggleClass('icon-battery-25', battery < 30);
+
+            $('#uploaderBattery').toggleClass('warn', battery <= 30 && battery > 20);
+            $('#uploaderBattery').toggleClass('urgent', battery <= 20);
 
             updateBGDelta(prevSGV.y, latestSGV.y);
             updateIOBIndicator(nowDate);
@@ -1067,7 +1079,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , parts = {};
 
         if (offset < MINUTE_IN_SECS * -5)          parts = { label: 'in the future' };
-        else if (offset <= 0)                      parts = { label: 'time ago' };
+        else if (offset == -1)                     parts = { label: 'time ago' };
         else if (offset <= MINUTE_IN_SECS * 2)     parts = { value: 1, label: 'min ago' };
         else if (offset < (MINUTE_IN_SECS * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE_IN_SECS)), label: 'mins ago' };
         else if (offset < (HOUR_IN_SECS * 2))      parts = { value: 1, label: 'hr ago' };
@@ -1396,9 +1408,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         context.append('g')
             .attr('class', 'y axis');
 
+        window.onresize = function () {
+            updateChartSoon()
+        }
+
         // look for resize but use timer to only call the update script when a resize stops
         var resizeTimer;
-        window.onresize = function () {
+        function updateChartSoon() {
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(function () {
                 updateChart(false);
@@ -1424,7 +1440,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             li.addClass('selected');
             var hours = Number(li.data('hours'));
             foucusRangeMS = hours * 60 * 60 * 1000;
-            updateChart(false);
+            updateChartSoon();
         });
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1448,6 +1464,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
                 profile = d[4][0];
                 cal = d[5][d[5].length-1];
+                devicestatusData = d[6];
 
                 var temp1 = [ ];
                 if (cal && showRawBGs()) {
