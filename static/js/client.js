@@ -1067,7 +1067,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , parts = {};
 
         if (offset < MINUTE_IN_SECS * -5)          parts = { label: 'in the future' };
-        else if (offset <= 0)                      parts = { label: 'time ago' };
+        else if (offset == -1)                     parts = { label: 'time ago' };
         else if (offset <= MINUTE_IN_SECS * 2)     parts = { value: 1, label: 'min ago' };
         else if (offset < (MINUTE_IN_SECS * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE_IN_SECS)), label: 'mins ago' };
         else if (offset < (HOUR_IN_SECS * 2))      parts = { value: 1, label: 'hr ago' };
