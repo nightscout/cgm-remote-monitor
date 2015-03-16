@@ -1396,9 +1396,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         context.append('g')
             .attr('class', 'y axis');
 
+        window.onresize = function () {
+            updateChartSoon()
+        }
+
         // look for resize but use timer to only call the update script when a resize stops
         var resizeTimer;
-        window.onresize = function () {
+        function updateChartSoon() {
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(function () {
                 updateChart(false);
@@ -1424,7 +1428,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             li.addClass('selected');
             var hours = Number(li.data('hours'));
             foucusRangeMS = hours * 60 * 60 * 1000;
-            updateChart(false);
+            updateChartSoon();
         });
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
