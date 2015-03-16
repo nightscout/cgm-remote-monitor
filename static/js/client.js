@@ -35,6 +35,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , treatments
         , profile
         , cal
+        , devicestatusData
         , padding = { top: 0, right: 10, bottom: 30, left: 10 }
         , opacity = {current: 1, DAY: 1, NIGHT: 0.5}
         , now = Date.now()
@@ -441,6 +442,17 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             updateCurrentSGV(latestSGV.y);
             updateClockDisplay();
             updateTimeAgo();
+
+            var battery = devicestatusData.uploaderBattery;
+            $('#uploaderBattery em').text(battery + '%');
+            $('#uploaderBattery label')
+                .toggleClass('icon-battery-100', battery >= 95)
+                .toggleClass('icon-battery-75', battery < 95 && battery >= 55)
+                .toggleClass('icon-battery-50', battery < 55 && battery >= 30)
+                .toggleClass('icon-battery-25', battery < 30);
+
+            $('#uploaderBattery').toggleClass('warn', battery <= 30 && battery > 20);
+            $('#uploaderBattery').toggleClass('urgent', battery <= 20);
 
             updateBGDelta(prevSGV.y, latestSGV.y);
             updateIOBIndicator(nowDate);
@@ -1452,6 +1464,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
                 profile = d[4][0];
                 cal = d[5][d[5].length-1];
+                devicestatusData = d[6];
 
                 var temp1 = [ ];
                 if (cal && showRawBGs()) {
