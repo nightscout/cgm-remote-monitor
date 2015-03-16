@@ -115,7 +115,7 @@ store(function ready ( ) {
   // setup socket io for data and message transmission
   ///////////////////////////////////////////////////
   var websocket = require('./lib/websocket');
-  var io = websocket(env, server, entriesStorage, treatmentsStorage, profile);
+  var io = websocket(env, server, entriesStorage, treatmentsStorage, profile, devicestatusStorage);
 });
 
 ///////////////////////////////////////////////////

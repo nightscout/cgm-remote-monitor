@@ -119,38 +119,38 @@ span.pill label {
     line-height: 30px;
 }
 
-.loading #lastEntry {
+.loading .timeOther {
     display: none;
 }
 
-#lastEntry {
+.timeOther .pill {
     background: #808080;
     border-color: #808080;
 }
 
-#lastEntry.pill em {
+.timeOther .pill em {
     color: #bdbdbd;
     background: #000;
     border-radius: 4px 0 0 4px;
 }
 
-#lastEntry.pill label {
+.timeOther .pill label {
     background: #808080;
 }
 
-#lastEntry.warn, #lastEntry.warn label {
+.timeOther .warn, .timeOther .warn label {
     background: yellow;
     border-color: yellow;
 }
-#lastEntry.warn em {
+.timeOther .warn em {
     color: yellow;
 }
 
-#lastEntry.urgent, #lastEntry.urgent label {
+.timeOther .urgent, .timeOther .urgent label {
     background: red;
     border-color: red;
 }
-#lastEntry.urgent em {
+.timeOther .urgent em {
     color: red;
 }
 
