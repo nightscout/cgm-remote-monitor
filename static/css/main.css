@@ -131,6 +131,7 @@ span.pill label {
 #lastEntry.pill em {
     color: #bdbdbd;
     background: #000;
+    border-radius: 5px 0 0 5px;
 }
 
 #lastEntry.pill label {
