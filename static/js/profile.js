@@ -220,12 +220,12 @@ TODO:
 			success: function (xhr) {
 				apistatus = { 
 					  apiEnabled: xhr.apiEnabled
-					, defaults: xhr.defaults //  { ...., defaults: {time-format: '24', display-units: 'mmol'} }
+					, defaults: xhr.defaults //  { ...., defaults: {timeFormat: '24', units: 'mmol'} }
 				};
 		   },
 			error: function () {
 				alert('Error loading your defaults. 12H and mg/dL will be used');
-				apistatus = { 'defaults': { 'time-format': '12', 'display-units': 'mg/dL', 'language': 'en', 'custom-title': 'Nightscout'} };
+				apistatus = { 'defaults': { 'timeFormat': '12', 'units': 'mg/dL', 'language': 'en', 'customTitle': 'Nightscout'} };
 			}
 		}).done(function () {
 			$('#pe_status').hide().text('Loading profile records ...').fadeIn("slow");
@@ -273,9 +273,9 @@ TODO:
 		$('#pe_input_calculator').change(switchStyle);
 
 		// display status
-		$('#pe_units').text(apistatus['defaults']['display-units']);
-		$('#pe_timeformat').text(apistatus['defaults']['time-format']+'h');
-		$('#pe_title').text(apistatus['defaults']['custom-title']);
+		$('#pe_units').text(apistatus['defaults']['units']);
+		$('#pe_timeformat').text(apistatus['defaults']['timeFormat']+'h');
+		$('#pe_title').text(apistatus['defaults']['customTitle']);
 
 		var lastvalidfrom = new Date(mongoprofiles[1] && mongoprofiles[1].validfrom ? mongoprofiles[1].validfrom : null);
 		
@@ -284,8 +284,8 @@ TODO:
 			  lang: apistatus['defaults']['language']
 			, mask: true
 			, stepMinute: 15
-			, timeFormat: apistatus['defaults']['time-format'] == '12' ? 'hh:mm p' : 'HH:mm'
-			, dateFormat: apistatus['defaults']['time-format'] == '12' ? 'mm/dd/yy' : 'd.m.yy'
+			, timeFormat: apistatus['defaults']['timeFormat'] == '12' ? 'hh:mm p' : 'HH:mm'
+			, dateFormat: apistatus['defaults']['timeFormat'] == '12' ? 'mm/dd/yy' : 'd.m.yy'
 			, minDate: lastvalidfrom
 			//this has a serious bug
 			//, minDateTime: mongoprofiles[1] && mongoprofiles[1].validfrom ? mongoprofiles[1].validfrom : null
@@ -375,7 +375,7 @@ TODO:
 				if (i>0 && isNaN(c_profile.ic[i-1].from)) continue;
 				if (i>0 && c_profile.ic[i-1].from >= t*30) continue;
 				if (endof_if) continue;
-				if (apistatus['defaults']['time-format']=='24') {
+				if (apistatus['defaults']['timeFormat']=='24') {
 					$("#pe_if_from_"+i).append(new Option(mmoltime[t],t*30));
 				} else {
 					$("#pe_if_from_"+i).append(new Option(mgtime[t],t*30));
@@ -399,7 +399,7 @@ TODO:
 				if (i>0 && isNaN(c_profile.isf[i-1].from)) continue;
 				if (i>0 && c_profile.isf[i-1].from >= t*30) continue;
 				if (endof_isf) continue;
-				if (apistatus['defaults']['time-format']=='24') {
+				if (apistatus['defaults']['timeFormat']=='24') {
 					$("#pe_isf_from_"+i).append(new Option(mmoltime[t],t*30));
 				} else {
 					$("#pe_isf_from_"+i).append(new Option(mgtime[t],t*30));
@@ -423,7 +423,7 @@ TODO:
 				if (i>0 && isNaN(c_profile.basal[i-1].from)) continue;
 				if (i>0 && c_profile.basal[i-1].from >= t*30) continue;
 				if (endof_basal) continue;
-				if (apistatus['defaults']['time-format']=='24') {
+				if (apistatus['defaults']['timeFormat']=='24') {
 					$("#pe_basal_from_"+i).append(new Option(mmoltime[t],t*30));
 				} else {
 					$("#pe_basal_from_"+i).append(new Option(mgtime[t],t*30));
@@ -538,7 +538,7 @@ TODO:
 				return false;
 			}
 			
-			c_profile.units = apistatus['defaults']['display-units'];
+			c_profile.units = apistatus['defaults']['units'];
 			// create apisecret hash
 			var secrethash = CryptoJS.SHA1(apisecret);
 
