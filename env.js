@@ -21,11 +21,9 @@ function config ( ) {
   var software = require('./package.json');
   var git = require('git-rev');
 
-  if (readENV('SCM_GIT_EMAIL') == 'windowsazure' && readENV('ScmType') == 'GitHub') {
-    git.cwd('/home/site/repository');
-  }
-  if (readENV('SCM_COMMIT_ID')) {
-    env.head = readENV('SCM_COMMIT_ID');
+  if (readENV('APPSETTING_ScmType') == readENV('ScmType') && readENV('ScmType') == 'GitHub') {
+    env.head = require('./scm-commit-id.json');
+    console.log("SCM COMMIT ID", env.head);
   } else {
     git.short(function record_git_head (head) {
       console.log("GIT HEAD", head);
