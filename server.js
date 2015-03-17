@@ -72,11 +72,6 @@ app.use(compression({filter: shouldCompress}));
 function shouldCompress(req, res) {
     //TODO: return false here if we find a condition where we don't want to compress
     // fallback to standard filter function
-    var IGNORE = /^\/socket/;
-    if (IGNORE.test(req.url)) {
-      console.log('XXXX', 'IGNORE COMPRESSION', req.url, IGNORE.test(req.url));
-      return false;
-    }
     return compression.filter(req, res);
 }
 
