@@ -28,20 +28,32 @@
 
 var software = require('./package.json');
 var env = require('./env')( );
-var store = require('./lib/storage')(env);
+var pushover = require('./lib/pushover')(env);
+
+var entries = require('./lib/entries');
+var treatments = require('./lib/treatments');
+var devicestatus = require('./lib/devicestatus');
+
+var store = require('./lib/storage')(env, function() {
+    console.info("Mongo ready");
+    entries.ensureIndexes(env.mongo_collection, store);
+    treatments.ensureIndexes(env.treatments_collection, store);
+    devicestatus.ensureIndexes(env.devicestatus_collection, store);
+});
 
 
 var express = require('express');
+var compression = require('compression');
 
-var pushover = require('./lib/pushover')(env);
 ///////////////////////////////////////////////////
 // api and json object variables
 ///////////////////////////////////////////////////
-var entries = require('./lib/entries')(env.mongo_collection, store, pushover);
+var entriesStorage = entries.storage(env.mongo_collection, store, pushover);
 var settings = require('./lib/settings')(env.settings_collection, store);
-var treatments = require('./lib/treatments')(env.treatments_collection, store, pushover);
-var devicestatus = require('./lib/devicestatus')(env.devicestatus_collection, store);
-var api = require('./lib/api/')(env, entries, settings, treatments, devicestatus);
+var treatmentsStorage = treatments.storage(env.treatments_collection, store, pushover);
+var profile = require('./lib/profile')(env.profile_collection, store);
+var devicestatusStorage = devicestatus.storage(env.devicestatus_collection, store);
+var api = require('./lib/api/')(env, entriesStorage, settings, treatmentsStorage, profile, devicestatusStorage);
 var pebble = require('./lib/pebble');
 ///////////////////////////////////////////////////
 
@@ -55,13 +67,18 @@ var appInfo = software.name + ' ' + software.version;
 app.set('title', appInfo);
 app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
 
-//if (env.api_secret) {
-//    console.log("API_SECRET", env.api_secret);
-//}
+app.use(compression({filter: shouldCompress}));
+
+function shouldCompress(req, res) {
+    //TODO: return false here if we find a condition where we don't want to compress
+    // fallback to standard filter function
+    return compression.filter(req, res);
+}
+
 app.use('/api/v1', api);
 
 // pebble data
-app.get('/pebble', pebble(entries, devicestatus));
+app.get('/pebble', pebble(entriesStorage, treatmentsStorage, profile, devicestatusStorage, env));
 
 //app.get('/package.json', software);
 
@@ -72,21 +89,33 @@ var staticFiles = express.static(env.static_files, {maxAge: 60 * 60 * 1000});
 // serve the static content
 app.use(staticFiles);
 
+var bundle = require('./bundle')();
+app.use(bundle);
+
 // Handle errors with express's errorhandler, to display more readable error messages.
 var errorhandler = require('errorhandler');
 //if (process.env.NODE_ENV === 'development') {
   app.use(errorhandler());
 //}
 
+function create ( ) {
+  var transport = (env.ssl
+                ? require('https') : require('http'));
+  if (env.ssl) {
+    return transport.createServer(env.ssl, app);
+  }
+  return transport.createServer(app);
+}
+
 store(function ready ( ) {
-  var server = app.listen(PORT);
+  var server = create( ).listen(PORT);
   console.log('listening', PORT);
 
   ///////////////////////////////////////////////////
   // setup socket io for data and message transmission
   ///////////////////////////////////////////////////
   var websocket = require('./lib/websocket');
-  var io = websocket(env, server, entries, treatments);
+  var io = websocket(env, server, entriesStorage, treatmentsStorage, profile, devicestatusStorage);
 });
 
 ///////////////////////////////////////////////////
