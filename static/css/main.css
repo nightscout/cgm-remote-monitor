@@ -59,7 +59,7 @@ body {
     vertical-align: middle;
 }
 
-.bgStatus .currentBG.icon-hourglass {
+.bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
   font-size: 90px;
 }
 
@@ -116,7 +116,6 @@ body {
     color: #808080;
     font-size: 100px;
     line-height: 100px;
-    padding-top: 15px;
 }
 .timebox {
     text-align: center;
@@ -259,6 +258,7 @@ div.tooltip {
     list-style: none;
     margin: 4px;
     padding: 0;
+    color: #808080;
     width: 250px;
     text-align: center;
 }
@@ -292,7 +292,7 @@ div.tooltip {
         line-height: 80px;
     }
 
-    .bgStatus .currentBG.icon-hourglass {
+    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
       font-size: 70px;
     }
 
@@ -346,7 +346,7 @@ div.tooltip {
         line-height: 60px;
     }
 
-    .bgStatus .currentBG.icon-hourglass {
+    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
       font-size: 50px;
     }
 
@@ -398,8 +398,9 @@ div.tooltip {
         line-height: 70px;
     }
 
-    .bgStatus .currentBG.icon-hourglass {
+    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
         font-size: 60px;
+        padding-left: 20px;
     }
 
     .bgStatus .currentDirection {
@@ -440,6 +441,10 @@ div.tooltip {
         display: inline;
         margin-left: auto;
         font-size: 15px;
+    }
+
+    #uploaderBattery label {
+        font-size: 15px !important;
     }
 
     .alarming .focus-range {
@@ -508,7 +513,7 @@ div.tooltip {
         line-height: 80px;
     }
 
-    .bgStatus .currentBG.icon-hourglass {
+    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
         font-size: 70px;
     }
 
@@ -531,6 +536,10 @@ div.tooltip {
         font-size: 15px;
     }
 
+    #uploaderBattery label {
+        font-size: 15px !important;
+    }
+
 }
 
 @media (max-height: 480px) and (max-width: 400px) {
@@ -540,7 +549,7 @@ div.tooltip {
         line-height: 60px;
     }
 
-    .bgStatus .currentBG.icon-hourglass {
+    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
         font-size: 60px;
     }
 
