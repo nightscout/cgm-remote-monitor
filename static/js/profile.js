@@ -598,18 +598,18 @@ TODO:
 		, ic : function (time) {
 					if (!c_profile) return null;
 					if (c_profile.simple) return c_profile.carbratio;
-					var minuntes =  time.getMinutes() + time.getHours() * 60;
+					var minutes =  time.getMinutes() + time.getHours() * 60;
 					for (var i=0; i < c_profile.ic.length -1; i++) {
-						if (parseInt(c_profile.ic[i+1].from)<minutes) return c_profile.ic[i].val;
+						if (parseInt(c_profile.ic[i+1].from)>minutes) return c_profile.ic[i].val;
 					}
 					return null;
 				}
 		, isf : function (time,units) {
 					if (!c_profile) return null;
 					if (c_profile.simple) return this.convertUnits(c_profile.sens,units);
-					var minuntes =  time.getMinutes() + time.getHours() * 60;
+					var minutes =  time.getMinutes() + time.getHours() * 60;
 					for (var i=0; i < c_profile.isf.length -1; i++) {
-						if (parseInt(c_profile.isf[i+1].from)<minutes) return this.convertUnits(c_profile.isf[i].val);
+						if (parseInt(c_profile.isf[i+1].from)>minutes) return this.convertUnits(c_profile.isf[i].val);
 					}
 					return null;
 				}
@@ -625,13 +625,13 @@ TODO:
 				}
 		, basal : function (time) {
 					if (!c_profile) return null;
-					var minuntes =  time.getMinutes() + time.getHours() * 60;
+					var minutes =  time.getMinutes() + time.getHours() * 60;
 					for (var i=0; i < c_profile.basal.length -1; i++) {
-						if (parseInt(c_profile.basal[i+1].from)<minutes) return c_profile.basal[i].val;
+						if (parseInt(c_profile.basal[i+1].from)>minutes) return c_profile.basal[i].val;
 					}
 					return null;
 				}
-		, convertUnits : function (value, units) { // convert value to specified units. if no unit's specified return in mg/dL
+		, convertUnits : function (value, units) { // convert value to specified units. if no units specified return in mg/dL
 					if (units == 'mg/dL' || typeof units === 'undefined') {
 						if (c_profile.units == 'mmol') return value * 18;
 						else return value;
