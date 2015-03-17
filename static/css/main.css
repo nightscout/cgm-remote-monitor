@@ -116,7 +116,6 @@ body {
     color: #808080;
     font-size: 100px;
     line-height: 100px;
-    padding-top: 15px;
 }
 .timebox {
     text-align: center;
@@ -259,6 +258,7 @@ div.tooltip {
     list-style: none;
     margin: 4px;
     padding: 0;
+    color: #808080;
     width: 250px;
     text-align: center;
 }
@@ -443,6 +443,10 @@ div.tooltip {
         font-size: 15px;
     }
 
+    #uploaderBattery label {
+        font-size: 15px !important;
+    }
+
     .alarming .focus-range {
         display: none;
     }
@@ -530,6 +534,10 @@ div.tooltip {
 
     .timeOther {
         font-size: 15px;
+    }
+
+    #uploaderBattery label {
+        font-size: 15px !important;
     }
 
 }
