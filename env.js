@@ -45,25 +45,34 @@ function config ( ) {
 
   env.enable = readENV('ENABLE');
 
+  env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
+
   // parse defaults here, expect format `key1=value1 key2=value2` split on space, ignore commas
   var rawdefaults = readENV('DEFAULTS','');
   env.defaults = { // currently supported keys must defined be here
-	  'time-format': '12'			// 12|24
-	, 'display-units': 'mg/dL'		// 'mg/dL'|'mmol'
-	, 'nightmode': 'off'			// 'off'|'on'
-	, 'rawbg': 'off'				// 'off'|'on'|'noise'
-	, 'custom-title': 'Nightscout'  // 2 underscores '__' are replaced to single space. "Bara's CGM" must by entered as custom-title=Bara's__CGM
-	, 'theme': 'default'			// 'default'|'color'
+	  'units': 'mg/dL'				// !!!!! taken from extra variable
+	, 'timeFormat': '12'			// 12|24
+	, 'nightMode': false			// 'off'|'on'
+	, 'showRawbg': 'never'			// 'always'|'never'|'noise'
+	, 'customTitle': 'Nightscout'	// 2 underscores '__' are replaced to single space. "Bara's CGM" must by entered as custom-title=Bara's__CGM
+	, 'theme': 'default'			// 'default'|'colors'
+    , 'alarmUrgentHigh': true		// 'off'|'on'
+    , 'alarmHigh': true				// 'off'|'on'
+    , 'alarmLow': true				// 'off'|'on'
+    , 'alarmUrgentLow': true		// 'off'|'on'
 	, 'language': 'en' 				// future use only
 	} ;
 	
   var alloweddefaults = {
-	  'time-format': 	{ '12': true, '24': true }
-	, 'display-units': 	{ 'mg/dL': true, 'mmol': true }
-	, 'nightmode': 		{ 'off': true, 'on': true }
-	, 'rawbg': 			{ 'off': true, 'on': true , 'noise': true }
-	, 'custom-title': 	{ 'any': true }
-	, 'theme': 			{ 'default': true, 'color': true }
+	  'timeFormat': 	{ '12': true, '24': true }
+	, 'nightMode': 		{ 'off': true, 'on': true }
+	, 'showRawbg': 		{ 'always': true, 'never': true , 'noise': true }
+	, 'customTitle': 	{ 'any': true }
+	, 'theme': 			{ 'default': true, 'colors': true }
+	, 'alarmUrgentHigh':{ 'off': true, 'on': true }
+    , 'alarmHigh': 		{ 'off': true, 'on': true }
+    , 'alarmLow':		{ 'off': true, 'on': true }
+    , 'alarmUrgentLow': { 'off': true, 'on': true }
 	, 'language': 		{ 'en': true }
   };
 
@@ -76,6 +85,8 @@ function config ( ) {
 		  var value = a[1];
 		  if (alloweddefaults[key] && (alloweddefaults[key][value] || alloweddefaults[key]['any'])) {
 			  value = value.replace(/__/g,' ');
+			  if (value == 'on') value = true;
+			  if (value == 'off') value = false;
 			  env.defaults[key] = value;
 			  console.log('DEFAULTS '+key+'='+value);
 		  } else {
@@ -86,6 +97,10 @@ function config ( ) {
 		  console.log('Unknown DEFAULTS directive: '+rawdefarray[i]);
 	  }
   }
+  // add units from separate variable
+  if (env.DISPLAY_UNITS == 'mmol') env.defaults.units = 'mmol';
+  // else keep default 'mg/dL'
+  
   //console.log(JSON.stringify(env.defaults));
   
   
@@ -102,9 +117,6 @@ function config ( ) {
       env.ca = fs.readFileSync(env.SSL_CA);
     }
   }
-
-  //TODO: check if set by `ENABLE`, if not check old env
-  env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
 
   var shasum = crypto.createHash('sha1');
 
