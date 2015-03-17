@@ -443,16 +443,22 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             updateClockDisplay();
             updateTimeAgo();
 
-            var battery = devicestatusData.uploaderBattery;
-            $('#uploaderBattery em').text(battery + '%');
-            $('#uploaderBattery label')
-                .toggleClass('icon-battery-100', battery >= 95)
-                .toggleClass('icon-battery-75', battery < 95 && battery >= 55)
-                .toggleClass('icon-battery-50', battery < 55 && battery >= 30)
-                .toggleClass('icon-battery-25', battery < 30);
+            var battery = devicestatusData && devicestatusData.uploaderBattery;
+            if (battery) {
+                $('#uploaderBattery em').text(battery + '%');
+                $('#uploaderBattery label')
+                    .toggleClass('icon-battery-100', battery >= 95)
+                    .toggleClass('icon-battery-75', battery < 95 && battery >= 55)
+                    .toggleClass('icon-battery-50', battery < 55 && battery >= 30)
+                    .toggleClass('icon-battery-25', battery < 30);
 
-            $('#uploaderBattery').toggleClass('warn', battery <= 30 && battery > 20);
-            $('#uploaderBattery').toggleClass('urgent', battery <= 20);
+                $('#uploaderBattery')
+                    .show()
+                    .toggleClass('warn', battery <= 30 && battery > 20)
+                    .toggleClass('urgent', battery <= 20);
+            } else {
+                $('#uploaderBattery').hide();
+            }
 
             updateBGDelta(prevSGV.y, latestSGV.y);
             updateIOBIndicator(nowDate);

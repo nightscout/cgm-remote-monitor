@@ -79,25 +79,33 @@ body {
     margin-left: 5px;
 }
 
-span.pill {
+.pill {
     white-space: nowrap;
     border-radius: 5px;
     border: 2px solid #808080;
 }
 
-span.pill * {
+.pill * {
     padding-left: 2px;
     padding-right: 2px;
 }
 
-span.pill em {
+.pill em {
     font-style: normal;
     font-weight: bold;
 }
 
-span.pill label {
+.pill label {
     color: #000;
     background: #808080;
+}
+
+.pill.warn em {
+    color: yellow !important;
+}
+
+.pill.urgent em {
+    color: red !important;
 }
 
 .bgStatus.current .currentBG {
@@ -138,20 +146,8 @@ span.pill label {
     background: #808080;
 }
 
-.timeOther .warn, .timeOther .warn label {
-    background: yellow;
-    border-color: yellow;
-}
-.timeOther .warn em {
-    color: yellow;
-}
-
-.timeOther .urgent, .timeOther .urgent label {
-    background: red;
-    border-color: red;
-}
-.timeOther .urgent em {
-    color: red;
+#uploaderBattery label {
+    padding: 0 !important;
 }
 
 #chartContainer {
