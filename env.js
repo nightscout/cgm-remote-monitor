@@ -21,7 +21,7 @@ function config ( ) {
   var software = require('./package.json');
   var git = require('git-rev');
 
-  if (readENV('APPSETTING_ScmType') == readENV('ScmType')) {
+  if (readENV('APPSETTING_ScmType') == readENV('ScmType') && readENV('ScmType') == 'GitHub') {
     env.head = require('./scm-commit-id.json');
     console.log("SCM COMMIT ID", env.head);
   } else {
