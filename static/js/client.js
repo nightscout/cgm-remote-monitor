@@ -949,7 +949,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             brushed(true);
         } else {
             updateBrush
-                .call(brush.extent([currentBrushExtent[0], currentBrushExtent[1]]));
+                .call(brush.extent([new Date(currentBrushExtent[1].getTime() - foucusRangeMS), currentBrushExtent[1]]));
             brushed(true);
         }
 
@@ -1586,6 +1586,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 , alarm_types: xhr.alarm_types
                 , units: xhr.units
                 , careportalEnabled: xhr.careportalEnabled
+                , defaults: xhr.defaults
             };
         }
     }).done(function() {

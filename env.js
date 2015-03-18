@@ -33,7 +33,6 @@ function config ( ) {
   env.version = software.version;
   env.name = software.name;
 
-  env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
   env.PORT = readENV('PORT', 1337);
   env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI');
   env.mongo_collection = readENV('MONGO_COLLECTION', 'entries');
@@ -43,6 +42,66 @@ function config ( ) {
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
 
   env.enable = readENV('ENABLE');
+
+  env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
+
+  // parse defaults here, expect format `key1=value1 key2=value2` split on space, ignore commas
+  var rawdefaults = readENV('DEFAULTS','');
+  env.defaults = { // currently supported keys must defined be here
+	  'units': 'mg/dL'				// !!!!! taken from extra variable
+	, 'timeFormat': '12'			// 12|24
+	, 'nightMode': false			// 'off'|'on'
+	, 'showRawbg': 'never'			// 'always'|'never'|'noise'
+	, 'customTitle': 'Nightscout'	// 2 underscores '__' are replaced to single space. "Bara's CGM" must by entered as custom-title=Bara's__CGM
+	, 'theme': 'default'			// 'default'|'colors'
+    , 'alarmUrgentHigh': true		// 'off'|'on'
+    , 'alarmHigh': true				// 'off'|'on'
+    , 'alarmLow': true				// 'off'|'on'
+    , 'alarmUrgentLow': true		// 'off'|'on'
+	, 'language': 'en' 				// future use only
+	} ;
+	
+  var alloweddefaults = {
+	  'timeFormat': 	{ '12': true, '24': true }
+	, 'nightMode': 		{ 'off': true, 'on': true }
+	, 'showRawbg': 		{ 'always': true, 'never': true , 'noise': true }
+	, 'customTitle': 	{ 'any': true }
+	, 'theme': 			{ 'default': true, 'colors': true }
+	, 'alarmUrgentHigh':{ 'off': true, 'on': true }
+    , 'alarmHigh': 		{ 'off': true, 'on': true }
+    , 'alarmLow':		{ 'off': true, 'on': true }
+    , 'alarmUrgentLow': { 'off': true, 'on': true }
+	, 'language': 		{ 'en': true }
+  };
+
+  rawdefaults = rawdefaults.replace(/\,/g,' '); // replace ',' by spaces
+  var rawdefarray = rawdefaults.trim().split(/\s+/);
+  for (var i=0; i<rawdefarray.length; i++) {
+	  var a = rawdefarray[i].split('=');
+	  if (a.length==2) {
+		  var key = a[0];
+		  var value = a[1];
+		  if (alloweddefaults[key] && (alloweddefaults[key][value] || alloweddefaults[key]['any'])) {
+			  value = value.replace(/__/g,' ');
+			  if (value == 'on') value = true;
+			  if (value == 'off') value = false;
+			  env.defaults[key] = value;
+			  console.log('DEFAULTS '+key+'='+value);
+		  } else {
+			console.log('DEFAULTS key: '+key+' value: '+value+' not allowed');
+		  }
+		  
+	  } else {
+		  console.log('Unknown DEFAULTS directive: '+rawdefarray[i]);
+	  }
+  }
+  // add units from separate variable
+  if (env.DISPLAY_UNITS == 'mmol') env.defaults.units = 'mmol';
+  // else keep default 'mg/dL'
+  
+  //console.log(JSON.stringify(env.defaults));
+  
+  
   env.SSL_KEY = readENV('SSL_KEY');
   env.SSL_CERT = readENV('SSL_CERT');
   env.SSL_CA = readENV('SSL_CA');
