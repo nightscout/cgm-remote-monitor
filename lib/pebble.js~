@@ -96,7 +96,6 @@ function pebble (req, res) {
             if (req.rawbg) {
                 var cq = { count: req.count, find: {type: 'cal'} };
                 req.entries.list(cq, function (err, results) {
-                  if (!err && results) {
                     results.forEach(function (element) {
                         if (element) {
                           calData.push({
@@ -106,10 +105,7 @@ function pebble (req, res) {
                           });
                         }
                     });
-                  } else {
-                    console.error("pebble cal error", arguments);
-                  }
-                  callback();
+                    callback();
                 });
             } else {
                 callback();
@@ -119,7 +115,6 @@ function pebble (req, res) {
             var q = { count: req.count + 1, find: { "sgv": { $exists: true }} };
 
             req.entries.list(q, function(err, results) {
-              if (!err && results) {
                 results.forEach(function(element, index) {
                     if (element) {
                         var obj = {};
@@ -148,9 +143,6 @@ function pebble (req, res) {
                         sgvData.push(obj);
                     }
                 });
-              } else {
-                console.error("pebble entries error", arguments);
-              }
                 callback();
             });
         }
