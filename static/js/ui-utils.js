@@ -1,7 +1,7 @@
 'use strict';
 
-var drawerIsOpen = false;
-var treatmentDrawerIsOpen = false;
+var openDraw = null;
+
 var defaultSettings = {
     'units': 'mg/dl',
     'alarmUrgentHigh': true,
@@ -150,38 +150,53 @@ function isTouch() {
     catch (e) { return false; }
 }
 
+function toggleDrawer(id, openCallback, closeCallback) {
 
-function closeDrawer(callback) {
-    $('#container').animate({marginLeft: '0px'}, 300, callback);
-    $('#chartContainer').animate({marginLeft: '0px'}, 300);
-    $('#drawer').animate({right: '-300px'}, 300, function() {
-        $('#drawer').css('display', 'none');
-    });
-    drawerIsOpen = false;
+    function openDrawer(id, callback) {
+        function closeOpenDraw(callback) {
+            if (openDraw) {
+                fastClose(openDraw, callback);
+            } else {
+                callback(true)
+            }
+        }
+
+        closeOpenDraw(function (container) {
+            openDraw = id;
+            if (container) {
+                $('#container').animate({marginLeft: '-300px'}, 300);
+                $('#chartContainer').animate({marginLeft: '-300px'}, 300);
+            }
+            $(id).css('display', 'block').animate({right: '0'}, 300, function () {
+                if (callback) callback();
+            });
+        });
+
+    }
+
+    function fastClose(id, callback) {
+        $(id).animate({right: '-300px'}, 300, function () {
+            $(id).css('display', 'none');
+            if (callback) callback();
+        });
+    }
+
+    function closeDrawer(id, callback) {
+        openDraw = null;
+        $('#container').animate({marginLeft: '0px'}, 300, callback);
+        $('#chartContainer').animate({marginLeft: '0px'}, 300);
+        fastClose(id, callback);
+    }
+
+    if (openDraw == id) {
+        closeDrawer(id, closeCallback);
+    } else {
+        openDrawer(id, openCallback);
+    }
+
 }
 
-function openDrawer()  {
-    drawerIsOpen = true;
-    $('#container').animate({marginLeft: '-300px'}, 300);
-    $('#chartContainer').animate({marginLeft: '-300px'}, 300);
-    $('#drawer').css('display', 'block').animate({right: '0'}, 300);
-}
-
-function closeTreatmentDrawer(callback) {
-    $('#container').animate({marginLeft: '0px'}, 400, callback);
-    $('#chartContainer').animate({marginLeft: '0px'}, 400);
-    $('#treatmentDrawer').animate({right: '-300px'}, 400, function() {
-        $('#treatmentDrawer').css('display', 'none');
-    });
-    treatmentDrawerIsOpen = false;
-}
-
-function openTreatmentDrawer()  {
-    treatmentDrawerIsOpen = true;
-    $('#container').animate({marginLeft: '-300px'}, 400);
-    $('#chartContainer').animate({marginLeft: '-300px'}, 400);
-    $('#treatmentDrawer').css('display', 'block').animate({right: '0'}, 400);
-
+function initTreatmentDrawer()  {
     $('#eventType').val('BG Check').focus();
     $('#glucoseValue').val('').attr('placeholder', 'Value in ' + browserSettings.units);
     $('#meter').prop('checked', true);
@@ -322,36 +337,12 @@ Dropdown.prototype.open = function (e) {
 
 
 $('#drawerToggle').click(function(event) {
-    //close other drawers
-    if(treatmentDrawerIsOpen) {
-        closeTreatmentDrawer();
-        treatmentDrawerIsOpen = false;
-    }
-
-    if(drawerIsOpen) {
-        closeDrawer();
-        drawerIsOpen = false;
-    }  else {
-        openDrawer();
-        drawerIsOpen = true;
-    }
+    toggleDrawer('#drawer');
     event.preventDefault();
 });
 
 $('#treatmentDrawerToggle').click(function(event) {
-    //close other drawers
-    if(drawerIsOpen) {
-        closeDrawer();
-        drawerIsOpen = false;
-    }
-
-    if(treatmentDrawerIsOpen) {
-        closeTreatmentDrawer();
-        treatmentDrawerIsOpen = false;
-    }  else {
-        openTreatmentDrawer();
-        treatmentDrawerIsOpen = true;
-    }
+    toggleDrawer('#treatmentDrawer', initTreatmentDrawer);
     event.preventDefault();
 });
 
