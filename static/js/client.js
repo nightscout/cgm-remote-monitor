@@ -1095,9 +1095,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         else if (offset <= (DAY_IN_SECS * 7))      parts = { value: Math.round(Math.abs(offset / DAY_IN_SECS)), label: 'day ago' };
         else                                       parts = { value: 'long ago' };
 
-        console.info('>>>>offset', offset, parts);
         if (offset > DAY_IN_SECS * 7) {
-                parts.removeClass = 'current urgent';
+            parts.removeClass = 'current urgent';
             parts.addClass = 'warn';
         } else if (offset < MINUTE_IN_SECS * -5 || offset > (MINUTE_IN_SECS * MINUTES_SINCE_LAST_UPDATE_URGENT)) {
             parts.removeClass = 'current warn';
