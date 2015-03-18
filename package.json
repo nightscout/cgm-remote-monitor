@@ -46,7 +46,9 @@
     "moment": "2.8.1",
     "pushover-notifications": "0.2.0",
     "sgvdata": "0.0.2",
-    "socket.io": "^0.9.17"
+    "socket.io": "^0.9.17",
+    "git-rev": "git://github.com/bewest/git-rev.git",
+    "bootevent": "0.0.1"
   },
   "devDependencies": {
     "istanbul": "~0.3.5",
