@@ -265,7 +265,7 @@ div.tooltip {
 
 .focus-range li {
     display: inline-block;
-    font-size: 14px;
+    font-size: 18px;
     white-space: nowrap;
     border-radius: 5px;
     border: 2px solid #000;
@@ -308,6 +308,7 @@ div.tooltip {
     .time {
         font-size: 70px;
         line-height: 60px;
+        padding-top: 8px;
     }
 
     .timeOther {
@@ -321,6 +322,10 @@ div.tooltip {
 
     .focus-range {
         margin: 0;
+    }
+
+    .focus-range li {
+        font-size: 14px;
     }
 
     #silenceBtn * {
