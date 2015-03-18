@@ -26,8 +26,8 @@ Community maintained fork of the
 [build-url]: https://travis-ci.org/nightscout/cgm-remote-monitor
 [dependency-img]: https://img.shields.io/david/nightscout/cgm-remote-monitor.svg
 [dependency-url]: https://david-dm.org/nightscout/cgm-remote-monitor
-[coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/coverage.svg
-[coverage-url]: https://coveralls.io/r/nightscout/cgm-remote-monitor?branch=coverage
+[coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/master.svg
+[coverage-url]: https://coveralls.io/r/nightscout/cgm-remote-monitor?branch=master
 [gitter-img]: https://img.shields.io/badge/Gitter-Join%20Chat%20%E2%86%92-1dce73.svg
 [gitter-url]: https://gitter.im/nightscout/public
 [ready-img]: https://badge.waffle.io/nightscout/cgm-remote-monitor.svg?label=ready&title=Ready
@@ -92,7 +92,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
 #### Features/Labs
 
-  * `ENABLE` - Used to enable optional features, currently supports: `careportal`
+  * `ENABLE` - Used to enable optional features, expects a space delimited list such as: `careportal rawbg` (also `rawbg-on` to show raw data by default)
   * `API_SECRET` - A secret passphrase that must be at least 12 characters long, required to enable `POST` and `PUT`; also required for the Care Portal
   * `BG_HIGH` (`260`) - must be set using mg/dl units; the high BG outside the target range that is considered urgent
   * `BG_TARGET_TOP` (`180`) - must be set using mg/dl units; the top of the target range, also used to draw the line on the chart
@@ -118,7 +118,8 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 Easy to emulate on the commandline:
 
 ```bash
-    echo 'MONGO_CONNECTION="mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout"' >> my.env
+    echo 'MONGO_CONNECTION=mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout' >> my.env
+    echo 'MONGO_COLLECTION=entries' >> my.env
 ```
 
 From now on you can run using
