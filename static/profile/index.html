@@ -29,16 +29,16 @@
 			<fieldset class="browserSettings">
 				<legend>General patient profile settings</legend>
 				<dl>
-					<b title="Title">Title: </b>
-					<span id="pe_title" /></span>
+					<b>Title: </b>
+					<span id="pe_title"></span>
 				</dl>
 				<dl>
-					<b title="Display units">Units: </b>
-					<span id="pe_units" /></span>
+					<b>Units: </b>
+					<span id="pe_units"></span>
 				</dl>
 				<dl>
-					<b title="Time format">Time format: </b>
-					<span id="pe_timeformat" /></span>
+					<b>Time format: </b>
+					<span id="pe_timeformat"></span>
 				</dl>
 				<dl>
 					<b title="Represents the typical duration over which insulin takes effect.  Varies per patient and per insulin type. Typically 3-4 hours for most pumped insulin and most patients. Sometimes also called insulin lifetime.">Duration of Insulin Activity (DIA) [hours]: </b>
@@ -353,8 +353,8 @@
 
 			<label for="pe_apisecret">Your API secret: </label>
 			 <input type="password" id="pe_apisecret" size="10" />&nbsp;&nbsp;&nbsp;
-			 <input type="checkbox" id="pe_storeapisecret" />  Store it on this computer (Use only on private computers)
-			 <br>
+			 <input type="checkbox" id="pe_storeapisecret" />  Store hash on this computer (Use only on private computers)
+			 <div id="pe_apisecrethash"></div>
 			<button type="submit" id="pe_submit">Update profile</button>
 
 		</form>
