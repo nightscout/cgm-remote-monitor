@@ -150,6 +150,14 @@ function isTouch() {
     catch (e) { return false; }
 }
 
+function closeDrawer(id, callback) {
+    openDraw = null;
+    $(id).animate({right: '-300px'}, 300, function () {
+        $(id).css('display', 'none');
+        if (callback) callback();
+    });
+}
+
 function toggleDrawer(id, openCallback, closeCallback) {
 
     function openDrawer(id, callback) {
@@ -168,14 +176,6 @@ function toggleDrawer(id, openCallback, closeCallback) {
             });
         });
 
-    }
-
-    function closeDrawer(id, callback) {
-        openDraw = null;
-        $(id).animate({right: '-300px'}, 300, function () {
-            $(id).css('display', 'none');
-            if (callback) callback();
-        });
     }
 
     if (openDraw == id) {
@@ -294,7 +294,7 @@ function treatmentSubmit(event) {
 
         browserStorage.set('enteredBy', data.enteredBy);
 
-        closeTreatmentDrawer();
+        closeDrawer('#treatmentDrawer');
     }
 
     if (event) {
