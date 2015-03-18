@@ -155,18 +155,14 @@ function toggleDrawer(id, openCallback, closeCallback) {
     function openDrawer(id, callback) {
         function closeOpenDraw(callback) {
             if (openDraw) {
-                fastClose(openDraw, callback);
+                closeDrawer(openDraw, callback);
             } else {
-                callback(true)
+                callback()
             }
         }
 
-        closeOpenDraw(function (container) {
+        closeOpenDraw(function () {
             openDraw = id;
-            if (container) {
-                $('#container').animate({marginLeft: '-300px'}, 300);
-                $('#chartContainer').animate({marginLeft: '-300px'}, 300);
-            }
             $(id).css('display', 'block').animate({right: '0'}, 300, function () {
                 if (callback) callback();
             });
@@ -174,18 +170,12 @@ function toggleDrawer(id, openCallback, closeCallback) {
 
     }
 
-    function fastClose(id, callback) {
+    function closeDrawer(id, callback) {
+        openDraw = null;
         $(id).animate({right: '-300px'}, 300, function () {
             $(id).css('display', 'none');
             if (callback) callback();
         });
-    }
-
-    function closeDrawer(id, callback) {
-        openDraw = null;
-        $('#container').animate({marginLeft: '0px'}, 300, callback);
-        $('#chartContainer').animate({marginLeft: '0px'}, 300);
-        fastClose(id, callback);
     }
 
     if (openDraw == id) {
@@ -400,13 +390,13 @@ $(function() {
         fade: true,
         gravity: 'n',
         opacity: 0.75
-    }
+    };
 
     if (querystring.notify) {
         showNotification(querystring.notify, querystring.notifytype);
     }
 
     if (querystring.drawer) {
-        openDrawer();
+        openDrawer('#drawer');
     }
 });
