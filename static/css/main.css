@@ -59,7 +59,7 @@ body {
     vertical-align: middle;
 }
 
-.bgStatus .currentBG.icon-hourglass {
+.bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
   font-size: 90px;
 }
 
@@ -79,25 +79,33 @@ body {
     margin-left: 5px;
 }
 
-span.pill {
+.pill {
     white-space: nowrap;
     border-radius: 5px;
     border: 2px solid #808080;
 }
 
-span.pill * {
+.pill * {
     padding-left: 2px;
     padding-right: 2px;
 }
 
-span.pill em {
+.pill em {
     font-style: normal;
     font-weight: bold;
 }
 
-span.pill label {
+.pill label {
     color: #000;
     background: #808080;
+}
+
+.pill.warn em {
+    color: yellow !important;
+}
+
+.pill.urgent em {
+    color: red !important;
 }
 
 .bgStatus.current .currentBG {
@@ -108,7 +116,6 @@ span.pill label {
     color: #808080;
     font-size: 100px;
     line-height: 100px;
-    padding-top: 15px;
 }
 .timebox {
     text-align: center;
@@ -119,39 +126,27 @@ span.pill label {
     line-height: 30px;
 }
 
-.loading #lastEntry {
+.loading .timeOther {
     display: none;
 }
 
-#lastEntry {
+.timeOther .pill {
     background: #808080;
     border-color: #808080;
 }
 
-#lastEntry.pill em {
+.timeOther .pill em {
     color: #bdbdbd;
     background: #000;
     border-radius: 4px 0 0 4px;
 }
 
-#lastEntry.pill label {
+.timeOther .pill label {
     background: #808080;
 }
 
-#lastEntry.warn, #lastEntry.warn label {
-    background: yellow;
-    border-color: yellow;
-}
-#lastEntry.warn em {
-    color: yellow;
-}
-
-#lastEntry.urgent, #lastEntry.urgent label {
-    background: red;
-    border-color: red;
-}
-#lastEntry.urgent em {
-    color: red;
+#uploaderBattery label {
+    padding: 0 !important;
 }
 
 #chartContainer {
@@ -263,13 +258,14 @@ div.tooltip {
     list-style: none;
     margin: 4px;
     padding: 0;
+    color: #808080;
     width: 250px;
     text-align: center;
 }
 
 .focus-range li {
     display: inline-block;
-    font-size: 14px;
+    font-size: 18px;
     white-space: nowrap;
     border-radius: 5px;
     border: 2px solid #000;
@@ -296,7 +292,7 @@ div.tooltip {
         line-height: 80px;
     }
 
-    .bgStatus .currentBG.icon-hourglass {
+    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
       font-size: 70px;
     }
 
@@ -312,6 +308,7 @@ div.tooltip {
     .time {
         font-size: 70px;
         line-height: 60px;
+        padding-top: 8px;
     }
 
     .timeOther {
@@ -319,8 +316,16 @@ div.tooltip {
         line-height: 40px;
     }
 
+    #uploaderBattery label {
+        font-size: 15px !important;
+    }
+
     .focus-range {
         margin: 0;
+    }
+
+    .focus-range li {
+        font-size: 14px;
     }
 
     #silenceBtn * {
@@ -346,7 +351,7 @@ div.tooltip {
         line-height: 60px;
     }
 
-    .bgStatus .currentBG.icon-hourglass {
+    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
       font-size: 50px;
     }
 
@@ -398,8 +403,9 @@ div.tooltip {
         line-height: 70px;
     }
 
-    .bgStatus .currentBG.icon-hourglass {
+    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
         font-size: 60px;
+        padding-left: 20px;
     }
 
     .bgStatus .currentDirection {
@@ -440,6 +446,10 @@ div.tooltip {
         display: inline;
         margin-left: auto;
         font-size: 15px;
+    }
+
+    #uploaderBattery label {
+        font-size: 15px !important;
     }
 
     .alarming .focus-range {
@@ -508,7 +518,7 @@ div.tooltip {
         line-height: 80px;
     }
 
-    .bgStatus .currentBG.icon-hourglass {
+    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
         font-size: 70px;
     }
 
@@ -531,6 +541,10 @@ div.tooltip {
         font-size: 15px;
     }
 
+    #uploaderBattery label {
+        font-size: 15px !important;
+    }
+
 }
 
 @media (max-height: 480px) and (max-width: 400px) {
@@ -540,7 +554,7 @@ div.tooltip {
         line-height: 60px;
     }
 
-    .bgStatus .currentBG.icon-hourglass {
+    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
         font-size: 60px;
     }
 
