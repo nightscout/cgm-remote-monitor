@@ -32,7 +32,7 @@ function create (env, ctx) {
 
 
   // pebble data
-  app.get('/pebble', pebble(ctx.entries, ctx.treatments, ctx.profiles, ctx.devicestatus));
+  app.get('/pebble', pebble(ctx.entries, ctx.treatments, ctx.profiles, ctx.devicestatus, env));
 
   //app.get('/package.json', software);
 
