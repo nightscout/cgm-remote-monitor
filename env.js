@@ -73,9 +73,7 @@ function config ( ) {
   env.defaults.alarmUrgentHigh = readENV('ALARM_URGENT_HIGH', env.defaults.alarmUrgentHigh);
   env.defaults.alarmHigh = readENV('ALARM_HIGH', env.defaults.alarmHigh);
   env.defaults.alarmLow = readENV('ALARM_LOW', env.defaults.alarmLow);
-console.log(env.defaults.alarmUrgentLow);
   env.defaults.alarmUrgentLow = readENV('ALARM_URGENT_LOW', env.defaults.alarmUrgentLow);
-console.log(env.defaults.alarmUrgentLow);
  
   //console.log(JSON.stringify(env.defaults));
   
