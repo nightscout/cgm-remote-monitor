@@ -28,6 +28,16 @@
     "test": "make test",
     "postinstall": "node node_modules/bower/bin/bower install"
   },
+  "config": {
+    "blanket": {
+      "pattern": [
+        "tests", "lib", "server", "app", "static/js"
+      ],
+      "data-cover-never": [
+        "node_modules"
+      ]
+    }
+  },
   "engines": {
     "node": "0.10.x"
   },
@@ -42,11 +52,15 @@
     "express": "^4.6.1",
     "express-extension-to-accept": "0.0.2",
     "git-rev": "git://github.com/bewest/git-rev.git",
+    "long": "~2.2.3",
     "mongodb": "^1.4.7",
     "moment": "2.8.1",
+    "mqtt": "~0.3.11",
     "pushover-notifications": "0.2.0",
-    "sgvdata": "0.0.2",
-    "socket.io": "^0.9.17"
+    "sgvdata": "git://github.com/ktind/sgvdata.git#wip/protobuf",
+    "socket.io": "^0.9.17",
+    "git-rev": "git://github.com/bewest/git-rev.git",
+    "bootevent": "0.0.1"
   },
   "devDependencies": {
     "istanbul": "~0.3.5",
