@@ -1671,6 +1671,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 , alarm_types: xhr.alarm_types
                 , units: xhr.units
                 , careportalEnabled: xhr.careportalEnabled
+                , defaults: xhr.defaults
             };
         }
     }).done(function() {
