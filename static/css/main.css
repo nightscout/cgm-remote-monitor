@@ -206,27 +206,6 @@ body {
   width: 320px;
 }
 
-.alarming .bgButton {
-  border-color: #bdbdbd;
-  color: #000;
-  box-shadow: 2px 2px 0 #ddd;
-}
-
-.alarming .bgButton.urgent {
-  background-color: red;
-}
-
-.alarming .bgButton.warning {
-  background-color: yellow;
-}
-
-.alarming .bgButton:active {
-    border: 2px solid #bdbdbd;
-    box-shadow: none;
-    -moz-box-shadow: none;
-    -webkit-box-shadow: none;
-}
-
 .bgButton.noise-heavy, .bgButton.noise-error {
     border-color: rgba(255, 0, 0, 0.39);
     box-shadow: 2px 2px 10px rgba(255, 0, 0, 0.75);
@@ -241,6 +220,36 @@ body {
     border-color: rgba(189, 189, 189, 0.39);
     box-shadow: 2px 2px 10px rgba(189, 189, 189, 0.75);
 }
+
+.bgButton .rawbg {
+    color: white;
+    position: absolute;
+    top: 60px;
+    right: 20px;
+    text-shadow: 4px 4px 7px rgba(0, 0, 0, 0.84);
+}
+
+.alarming .bgButton {
+    border-color: #bdbdbd;
+    color: #000;
+    box-shadow: 2px 2px 0 #ddd;
+}
+
+.alarming .bgButton.urgent {
+    background-color: red;
+}
+
+.alarming .bgButton.warning {
+    background-color: yellow;
+}
+
+.alarming .bgButton:active {
+    border: 2px solid #bdbdbd;
+    box-shadow: none;
+    -moz-box-shadow: none;
+    -webkit-box-shadow: none;
+}
+
 
 .button {
     text-align: center;
@@ -511,6 +520,10 @@ div.tooltip {
 
     #toolbar h1 {
         display: none;
+    }
+
+    .bgButton .rawbg {
+        top: 40px;
     }
 
     .container {

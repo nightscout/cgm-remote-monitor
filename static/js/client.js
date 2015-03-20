@@ -124,24 +124,25 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function rawIsigToRawBg(entry, cal) {
 
-      var unfiltered = parseInt(entry.unfiltered) || 0
+      var raw = 0
+        , unfiltered = parseInt(entry.unfiltered) || 0
         , filtered = parseInt(entry.filtered) || 0
         , sgv = entry.y
-        , noise = entry.noise || 0
         , scale = parseFloat(cal.scale) || 0
         , intercept = parseFloat(cal.intercept) || 0
         , slope = parseFloat(cal.slope) || 0;
 
+
         if (slope == 0 || unfiltered == 0 || scale == 0) {
-          return 0;
-        } else if (noise < 2 && browserSettings.showRawbg != 'always') {
-          return 0;
+          raw = 0;
         } else if (filtered == 0 || sgv < 40) {
-            return scale * (unfiltered - intercept) / slope;
+            raw = scale * (unfiltered - intercept) / slope;
         } else {
             var ratio = scale * (filtered - intercept) / slope / sgv;
-            return scale * ( unfiltered - intercept) / slope / ratio;
+            raw = scale * ( unfiltered - intercept) / slope / ratio;
         }
+
+        return Math.round(raw);
     }
 
     // initial setup of chart when data is first made available
@@ -316,7 +317,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , lastEntry = $('#lastEntry');
 
 
-        function updateCurrentSGV(value) {
+        function updateCurrentSGV(entry) {
+            var value = entry.y;
+
             if (value == 9) {
                 currentBG.text('');
             } else if (value < 39) {
@@ -334,6 +337,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
               if (!inRetroMode()) {
                 bgButton.addClass(sgvToColoredRange(value));
               }
+            }
+
+            var rawbg = bgButton.find('.rawbg');
+            if (showRawBGs() && (entry.noise >=2 || entry.y < 40)) {
+                rawbg.show().html(scaleBg(rawIsigToRawBg(entry, cal)));
+            } else {
+                rawbg.hide();
             }
 
             currentBG.toggleClass('icon-hourglass', value == 9);
@@ -437,7 +447,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var focusPoint = nowData[nowData.length - 1];
                 var prevfocusPoint = nowData[nowData.length - 2];
 
-                updateCurrentSGV(focusPoint.y);
+                updateCurrentSGV(focusPoint);
                 updateCurrentNoise(focusPoint);
 
                 updateBGDelta(prevfocusPoint.y, focusPoint.y);
@@ -462,7 +472,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             nowData = nowData.slice(nowData.length - 1 - lookback, nowData.length);
             nowDate = new Date(now);
 
-            updateCurrentSGV(latestSGV.y);
+            updateCurrentSGV(latestSGV);
             updateCurrentNoise(latestSGV);
             updateClockDisplay();
             updateTimeAgo();
@@ -1506,12 +1516,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var temp1 = [ ];
                 if (cal && showRawBGs()) {
                     temp1 = d[0].map(function (entry) {
-                        var rawBg = rawIsigToRawBg(entry, cal);
+                        var noise = entry.noise || 0;
+                        var rawBg = noise < 2 && browserSettings.showRawbg != 'always' ? 0 : rawIsigToRawBg(entry, cal);
                         return { date: new Date(entry.x - 2 * 1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg'}
                     }).filter(function(entry) { return entry.y > 0});
                 }
                 var temp2 = d[0].map(function (obj) {
-                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise}
+                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered}
                 });
                 data = [];
                 data = data.concat(temp1, temp2);
