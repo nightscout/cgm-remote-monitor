@@ -341,6 +341,28 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             currentBG.toggleClass('bg-limit', value == 39 || value > 400);
         }
 
+        function updateCurrentNoise(entry) {
+            var noise = entry.noise
+                , noiseType;
+
+            if ((noise <= 1 && entry.y >= 40) || !showRawBGs()) {
+                noiseType = null;
+            } else if (entry.y < 40) {
+                noiseType = 'error';
+            } else if (noise == 2) {
+                noiseType = 'light';
+            } else if (noise == 3) {
+                noiseType = 'medium';
+            } else if (noise >= 4) {
+                noiseType = 'heavy';
+            }
+
+            bgButton.removeClass('noise-light noise-medium noise-heavy noise-error');
+            if (noiseType) {
+                bgButton.addClass('noise-' + noiseType);
+            }
+        }
+
         function updateBGDelta(prev, current) {
 
             var pill = currentDetails.find('span.pill.bgdelta');
@@ -416,6 +438,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var prevfocusPoint = nowData[nowData.length - 2];
 
                 updateCurrentSGV(focusPoint.y);
+                updateCurrentNoise(focusPoint);
 
                 updateBGDelta(prevfocusPoint.y, focusPoint.y);
 
@@ -440,6 +463,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             nowDate = new Date(now);
 
             updateCurrentSGV(latestSGV.y);
+            updateCurrentNoise(latestSGV);
             updateClockDisplay();
             updateTimeAgo();
 

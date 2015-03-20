@@ -227,6 +227,21 @@ body {
     -webkit-box-shadow: none;
 }
 
+.bgButton.noise-heavy, .bgButton.noise-error {
+    border-color: rgba(255, 0, 0, 0.39);
+    box-shadow: 2px 2px 10px rgba(255, 0, 0, 0.75);
+}
+
+.bgButton.noise-medium {
+    border-color: rgba(255, 255, 0, 0.39);
+    box-shadow: 2px 2px 10px rgba(255, 255, 0, 0.75);
+}
+
+.bgButton.noise-light {
+    border-color: rgba(189, 189, 189, 0.39);
+    box-shadow: 2px 2px 10px rgba(189, 189, 189, 0.75);
+}
+
 .button {
     text-align: center;
     background: #ababab;
