@@ -552,8 +552,8 @@ div.tooltip {
 
 @media (max-height: 480px) and (min-width: 400px) {
     .bgStatus .currentBG {
-        font-size: 80px;
-        line-height: 80px;
+        font-size: 70px;
+        line-height: 60px;
     }
 
     .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
@@ -561,8 +561,8 @@ div.tooltip {
     }
 
     .bgStatus .currentDirection {
-        font-size: 70px;
-        line-height: 70px;
+        font-size: 50px;
+        line-height: 50px;
     }
 
     .bgStatus .currentDetails {
@@ -570,8 +570,8 @@ div.tooltip {
     }
 
     .time {
-        font-size: 70px;
-        line-height: 60px;
+        font-size: 50px;
+        line-height: 40px;
         padding-top: 5px;
     }
 
