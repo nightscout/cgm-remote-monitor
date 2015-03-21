@@ -111,10 +111,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
     }
 
-    function showRawBGs() {
-        return app.enabledOptions
-            && app.enabledOptions.indexOf('rawbg') > -1
-            && (browserSettings.showRawbg == 'always' || browserSettings.showRawbg == 'noise');
+    function isRawBGEnabled() {
+        return app.enabledOptions && app.enabledOptions.indexOf('rawbg') > -1;
+    }
+
+    function showRawBGs(sgv, noise, cal) {
+        return cal
+            && isRawBGEnabled()
+            && (browserSettings.showRawbg == 'always'
+                || (browserSettings.showRawbg == 'noise' && (noise >= 2 || sgv < 40))
+            );
     }
 
     function showIOB() {
@@ -268,14 +274,20 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return errorDisplay;
     }
 
-    function noiseCodeToDisplay(noise) {
+    function noiseCodeToDisplay(sgv, noise) {
         var display = 'Not Set';
         switch (parseInt(noise)) {
             case 1: display = 'Clean'; break;
             case 2: display = 'Light'; break;
             case 3: display = 'Medium'; break;
             case 4: display = 'Heavy'; break;
-            case 5: display = 'Unknown'; break;
+            case 5:
+                if (sgv < 40) {
+                    display = 'Error';
+                } else {
+                    display = 'Unknown';
+                }
+                break;
         }
 
         return display;
@@ -314,6 +326,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , currentBG = $('.bgStatus .currentBG')
             , currentDirection = $('.bgStatus .currentDirection')
             , currentDetails = $('.bgStatus .currentDetails')
+            , rawbg = bgButton.find('.rawbg')
             , lastEntry = $('#lastEntry');
 
 
@@ -339,8 +352,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
               }
             }
 
-            var rawbg = bgButton.find('.rawbg');
-            if (showRawBGs() && (entry.noise >=2 || entry.y < 40)) {
+            if (showRawBGs(entry.y, entry.noise, cal)) {
                 rawbg.show().html(scaleBg(rawIsigToRawBg(entry, cal)));
             } else {
                 rawbg.hide();
@@ -355,7 +367,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             var noise = entry.noise
                 , noiseType;
 
-            if ((noise <= 1 && entry.y >= 40) || !showRawBGs()) {
+            if (!showRawBGs(entry.y, noise, cal)) {
                 noiseType = null;
             } else if (entry.y < 40) {
                 noiseType = 'error';
@@ -458,6 +470,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 updateBGDelta();
                 currentBG.text('---');
                 currentDirection.text('-');
+                rawbg.hide();
+                bgButton.removeClass('urgent warning inrange');
             }
 
             updateIOBIndicator(time);
@@ -558,17 +572,22 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .on('mouseover', function (d) {
                 if (d.type != 'sgv' && d.type != 'mbg') return;
 
-                var device = d.device && d.device.toLowerCase();
-                var bgType = (d.type == 'sgv' ? 'CGM' : (device == 'dexcom' ? 'Calibration' : 'Meter'));
-                var noiseLabel = '';
+                var device = d.device && d.device.toLowerCase()
+                    , bgType = (d.type == 'sgv' ? 'CGM' : (device == 'dexcom' ? 'Calibration' : 'Meter'))
+                    , rawBG = 0
+                    , noiseLabel = '';
 
-                if (d.type == 'sgv' && showRawBGs()) {
-                    noiseLabel = noiseCodeToDisplay(d.noise);
+                if (d.type == 'sgv') {
+                    if (showRawBGs(d.y, d.noise, cal)) {
+                        rawBG = scaleBg(rawIsigToRawBg(d, cal));
+                    }
+                    noiseLabel = noiseCodeToDisplay(d.y, d.noise);
                 }
 
                 tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
                 tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
                     (d.type == 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
+                    (rawBG ? '<br/><strong>Raw BG:</strong> ' + rawBG : '') +
                     (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
                     '<br/><strong>Time:</strong> ' + formatTime(d.date))
                     .style('left', (d3.event.pageX) + 'px')
@@ -1514,7 +1533,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 devicestatusData = d[6];
 
                 var temp1 = [ ];
-                if (cal && showRawBGs()) {
+                if (cal && isRawBGEnabled()) {
                     temp1 = d[0].map(function (entry) {
                         var noise = entry.noise || 0;
                         var rawBg = noise < 2 && browserSettings.showRawbg != 'always' ? 0 : rawIsigToRawBg(entry, cal);

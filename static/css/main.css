@@ -316,7 +316,6 @@ div.tooltip {
 @media (max-width: 800px) {
     .bgStatus {
         width: 300px;
-        padding: 0;
     }
 
     .bgButton {
@@ -379,7 +378,8 @@ div.tooltip {
 
 @media (max-width: 750px) {
     .bgStatus {
-        width: 250px;
+        width: 240px;
+        padding: 0;
     }
 
     .bgStatus .currentBG {
@@ -424,7 +424,6 @@ div.tooltip {
 
     .bgStatus {
         float: none;
-        margin: 0 auto;
         padding: 0;
         text-align: center;
         width: 250px;
@@ -443,6 +442,7 @@ div.tooltip {
 
     .bgButton .rawbg {
         top: 5px;
+        left: 5px;
     }
 
     .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
@@ -466,7 +466,6 @@ div.tooltip {
     }
 
     .time {
-        width: auto;
         padding-top: 0;
         font-size: 20px !important;
     }
