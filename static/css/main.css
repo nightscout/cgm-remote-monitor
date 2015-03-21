@@ -38,6 +38,7 @@ body {
     float: right;
     text-align: center;
     white-space: nowrap;
+    padding-right: 20px;
 }
 
 .bgButton.urgent {
@@ -315,6 +316,7 @@ div.tooltip {
 @media (max-width: 800px) {
     .bgStatus {
         width: 300px;
+        padding: 0;
     }
 
     .bgButton {
