@@ -61,6 +61,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , focusHeight
         , contextHeight
         , dateFn = function (d) { return new Date(d.date) }
+        , documentHidden = false
         , brush
         , brushTimer
         , brushInProgress = false
@@ -709,6 +710,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // called for initial update and updates for resize
     function updateChart(init) {
 
+        if (documentHidden && !init) {
+            console.info('Document Hidden, not updating - ' + (new Date()));
+            return;
+        }
         // get current data range
         var dataRange = d3.extent(data, dateFn);
 
@@ -1474,18 +1479,31 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         context.append('g')
             .attr('class', 'y axis');
 
-        window.onresize = function () {
-            updateChartSoon()
-        }
-
         // look for resize but use timer to only call the update script when a resize stops
         var resizeTimer;
         function updateChartSoon() {
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(function () {
                 updateChart(false);
-            }, 100);
+            }, 200);
+        }
+
+        function visibilityChanged() {
+            var prevHidden = documentHidden;
+            documentHidden = (document.hidden || document.webkitHidden || document.mozHidden || document.msHidden);
+
+            if (prevHidden && !documentHidden) {
+                console.info('Document now visible, updating - ' + (new Date()));
+                updateChartSoon();
+            }
+        }
+
+        window.onresize = function () {
+            updateChartSoon()
         };
+
+        document.addEventListener('webkitvisibilitychange', visibilityChanged);
+
 
         updateClock();
 
