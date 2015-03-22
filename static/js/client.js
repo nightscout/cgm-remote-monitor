@@ -61,6 +61,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , focusHeight
         , contextHeight
         , dateFn = function (d) { return new Date(d.date) }
+        , documentHidden = false
         , brush
         , brushTimer
         , brushInProgress = false
@@ -111,37 +112,64 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
     }
 
-    function showRawBGs() {
-        return app.enabledOptions
-            && app.enabledOptions.indexOf('rawbg') > -1
-            && (browserSettings.showRawbg == 'always' || browserSettings.showRawbg == 'noise');
+    function isRawBGEnabled() {
+        return app.enabledOptions && app.enabledOptions.indexOf('rawbg') > -1;
+    }
+
+    function showRawBGs(sgv, noise, cal) {
+        return cal
+            && isRawBGEnabled()
+            && (browserSettings.showRawbg == 'always'
+                || (browserSettings.showRawbg == 'noise' && (noise >= 2 || sgv < 40))
+            );
+    }
+
+    function noiseCodeToDisplay(sgv, noise) {
+        var display;
+        switch (parseInt(noise)) {
+            case 0: display = '---'; break;
+            case 1: display = 'Clean'; break;
+            case 2: display = 'Light'; break;
+            case 3: display = 'Medium'; break;
+            case 4: display = 'Heavy'; break;
+            default:
+                if (sgv < 40) {
+                    display = 'Heavy';
+                } else {
+                    display = '~~~';
+                }
+                break;
+        }
+
+        return display;
+    }
+
+    function rawIsigToRawBg(entry, cal) {
+
+      var raw = 0
+        , unfiltered = parseInt(entry.unfiltered) || 0
+        , filtered = parseInt(entry.filtered) || 0
+        , sgv = entry.y
+        , scale = parseFloat(cal.scale) || 0
+        , intercept = parseFloat(cal.intercept) || 0
+        , slope = parseFloat(cal.slope) || 0;
+
+
+        if (slope == 0 || unfiltered == 0 || scale == 0) {
+          raw = 0;
+        } else if (filtered == 0 || sgv < 40) {
+            raw = scale * (unfiltered - intercept) / slope;
+        } else {
+            var ratio = scale * (filtered - intercept) / slope / sgv;
+            raw = scale * ( unfiltered - intercept) / slope / ratio;
+        }
+
+        return Math.round(raw);
     }
 
     function showIOB() {
         return app.enabledOptions
             && app.enabledOptions.indexOf('iob') > -1;
-    }
-
-    function rawIsigToRawBg(entry, cal) {
-
-      var unfiltered = parseInt(entry.unfiltered) || 0
-        , filtered = parseInt(entry.filtered) || 0
-        , sgv = entry.y
-        , noise = entry.noise || 0
-        , scale = parseFloat(cal.scale) || 0
-        , intercept = parseFloat(cal.intercept) || 0
-        , slope = parseFloat(cal.slope) || 0;
-
-        if (slope == 0 || unfiltered == 0 || scale == 0) {
-          return 0;
-        } else if (noise < 2 && browserSettings.showRawbg != 'always') {
-          return 0;
-        } else if (filtered == 0 || sgv < 40) {
-            return scale * (unfiltered - intercept) / slope;
-        } else {
-            var ratio = scale * (filtered - intercept) / slope / sgv;
-            return scale * ( unfiltered - intercept) / slope / ratio;
-        }
     }
 
     // initial setup of chart when data is first made available
@@ -267,19 +295,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return errorDisplay;
     }
 
-    function noiseCodeToDisplay(noise) {
-        var display = 'Not Set';
-        switch (parseInt(noise)) {
-            case 1: display = 'Clean'; break;
-            case 2: display = 'Light'; break;
-            case 3: display = 'Medium'; break;
-            case 4: display = 'Heavy'; break;
-            case 5: display = 'Unknown'; break;
-        }
-
-        return display;
-    }
-
     // function to call when context chart is brushed
     function brushed(skipTimer) {
 
@@ -313,10 +328,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , currentBG = $('.bgStatus .currentBG')
             , currentDirection = $('.bgStatus .currentDirection')
             , currentDetails = $('.bgStatus .currentDetails')
+            , rawNoise = bgButton.find('.rawnoise')
+            , rawbg = rawNoise.find('em')
+            , noiseLevel = rawNoise.find('label')
             , lastEntry = $('#lastEntry');
 
 
-        function updateCurrentSGV(value) {
+        function updateCurrentSGV(entry) {
+            var value = entry.y;
+
             if (value == 9) {
                 currentBG.text('');
             } else if (value < 39) {
@@ -336,9 +356,39 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
               }
             }
 
+            if (showRawBGs(entry.y, entry.noise, cal)) {
+                rawNoise.css('display', 'inline-block');
+                rawbg.text(scaleBg(rawIsigToRawBg(entry, cal)));
+                noiseLevel.text(noiseCodeToDisplay(entry.y, entry.noise));
+            } else {
+                rawNoise.hide();
+            }
+
             currentBG.toggleClass('icon-hourglass', value == 9);
             currentBG.toggleClass('error-code', value < 39);
             currentBG.toggleClass('bg-limit', value == 39 || value > 400);
+        }
+
+        function updateCurrentNoise(entry) {
+            var noise = entry.noise
+                , noiseType;
+
+            if (!showRawBGs(entry.y, noise, cal)) {
+                noiseType = null;
+            } else if (entry.y < 40) {
+                noiseType = 'error';
+            } else if (noise == 2) {
+                noiseType = 'light';
+            } else if (noise == 3) {
+                noiseType = 'medium';
+            } else if (noise >= 4) {
+                noiseType = 'heavy';
+            }
+
+            bgButton.removeClass('noise-light noise-medium noise-heavy noise-error');
+            if (noiseType) {
+                bgButton.addClass('noise-' + noiseType);
+            }
         }
 
         function updateBGDelta(prev, current) {
@@ -415,7 +465,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var focusPoint = nowData[nowData.length - 1];
                 var prevfocusPoint = nowData[nowData.length - 2];
 
-                updateCurrentSGV(focusPoint.y);
+                updateCurrentSGV(focusPoint);
+                updateCurrentNoise(focusPoint);
 
                 updateBGDelta(prevfocusPoint.y, focusPoint.y);
 
@@ -425,6 +476,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 updateBGDelta();
                 currentBG.text('---');
                 currentDirection.text('-');
+                rawNoise.hide();
+                bgButton.removeClass('urgent warning inrange');
             }
 
             updateIOBIndicator(time);
@@ -439,7 +492,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             nowData = nowData.slice(nowData.length - 1 - lookback, nowData.length);
             nowDate = new Date(now);
 
-            updateCurrentSGV(latestSGV.y);
+            updateCurrentSGV(latestSGV);
+            updateCurrentNoise(latestSGV);
             updateClockDisplay();
             updateTimeAgo();
 
@@ -524,17 +578,22 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .on('mouseover', function (d) {
                 if (d.type != 'sgv' && d.type != 'mbg') return;
 
-                var device = d.device && d.device.toLowerCase();
-                var bgType = (d.type == 'sgv' ? 'CGM' : (device == 'dexcom' ? 'Calibration' : 'Meter'));
-                var noiseLabel = '';
+                var device = d.device && d.device.toLowerCase()
+                    , bgType = (d.type == 'sgv' ? 'CGM' : (device == 'dexcom' ? 'Calibration' : 'Meter'))
+                    , rawBG = 0
+                    , noiseLabel = '';
 
-                if (d.type == 'sgv' && showRawBGs()) {
-                    noiseLabel = noiseCodeToDisplay(d.noise);
+                if (d.type == 'sgv') {
+                    if (showRawBGs(d.y, d.noise, cal)) {
+                        rawBG = scaleBg(rawIsigToRawBg(d, cal));
+                    }
+                    noiseLabel = noiseCodeToDisplay(d.y, d.noise);
                 }
 
                 tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
                 tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
                     (d.type == 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
+                    (rawBG ? '<br/><strong>Raw BG:</strong> ' + rawBG : '') +
                     (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
                     '<br/><strong>Time:</strong> ' + formatTime(d.date))
                     .style('left', (d3.event.pageX) + 'px')
@@ -656,6 +715,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // called for initial update and updates for resize
     function updateChart(init) {
 
+        if (documentHidden && !init) {
+            console.info('Document Hidden, not updating - ' + (new Date()));
+            return;
+        }
         // get current data range
         var dataRange = d3.extent(data, dateFn);
 
@@ -1127,9 +1190,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var totalBG = 0;
         closeBGs.forEach(function(d) {
           totalBG += Number(d.y);
+            parseFloat()
         });
 
-        return totalBG > 0 && closeBGs.length > 0 ? (totalBG / closeBGs.length) : 450;
+        return totalBG > 0 ? (totalBG / closeBGs.length) : 450;
       }
 
       var treatmentGlucose = null;
@@ -1421,18 +1485,31 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         context.append('g')
             .attr('class', 'y axis');
 
-        window.onresize = function () {
-            updateChartSoon()
-        }
-
         // look for resize but use timer to only call the update script when a resize stops
         var resizeTimer;
         function updateChartSoon() {
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(function () {
                 updateChart(false);
-            }, 100);
+            }, 200);
+        }
+
+        function visibilityChanged() {
+            var prevHidden = documentHidden;
+            documentHidden = (document.hidden || document.webkitHidden || document.mozHidden || document.msHidden);
+
+            if (prevHidden && !documentHidden) {
+                console.info('Document now visible, updating - ' + (new Date()));
+                updateChartSoon();
+            }
+        }
+
+        window.onresize = function () {
+            updateChartSoon()
         };
+
+        document.addEventListener('webkitvisibilitychange', visibilityChanged);
+
 
         updateClock();
 
@@ -1480,14 +1557,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 devicestatusData = d[6];
 
                 var temp1 = [ ];
-                if (cal && showRawBGs()) {
+                if (cal && isRawBGEnabled()) {
                     temp1 = d[0].map(function (entry) {
-                        var rawBg = rawIsigToRawBg(entry, cal);
+                        var noise = entry.noise || 0;
+                        var rawBg = noise < 2 && browserSettings.showRawbg != 'always' ? 0 : rawIsigToRawBg(entry, cal);
                         return { date: new Date(entry.x - 2 * 1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg'}
                     }).filter(function(entry) { return entry.y > 0});
                 }
                 var temp2 = d[0].map(function (obj) {
-                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise}
+                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered}
                 });
                 data = [];
                 data = data.concat(temp1, temp2);
