@@ -156,6 +156,7 @@ h1, legend,
     top: 0;
     margin: 0;
     height: 44px;
+    text-shadow: 0 0 5px black;
 }
 
 #toolbar h1 {
