@@ -124,9 +124,24 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             );
     }
 
-    function showIOB() {
-        return app.enabledOptions
-            && app.enabledOptions.indexOf('iob') > -1;
+    function noiseCodeToDisplay(sgv, noise) {
+        var display;
+        switch (parseInt(noise)) {
+            case 0: display = '---'; break;
+            case 1: display = 'Clean'; break;
+            case 2: display = 'Light'; break;
+            case 3: display = 'Medium'; break;
+            case 4: display = 'Heavy'; break;
+            default:
+                if (sgv < 40) {
+                    display = 'Heavy';
+                } else {
+                    display = '~~~';
+                }
+                break;
+        }
+
+        return display;
     }
 
     function rawIsigToRawBg(entry, cal) {
@@ -150,6 +165,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
 
         return Math.round(raw);
+    }
+
+    function showIOB() {
+        return app.enabledOptions
+            && app.enabledOptions.indexOf('iob') > -1;
     }
 
     // initial setup of chart when data is first made available
@@ -275,25 +295,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return errorDisplay;
     }
 
-    function noiseCodeToDisplay(sgv, noise) {
-        var display = 'Not Set';
-        switch (parseInt(noise)) {
-            case 1: display = 'Clean'; break;
-            case 2: display = 'Light'; break;
-            case 3: display = 'Medium'; break;
-            case 4: display = 'Heavy'; break;
-            case 5:
-                if (sgv < 40) {
-                    display = 'Error';
-                } else {
-                    display = 'Unknown';
-                }
-                break;
-        }
-
-        return display;
-    }
-
     // function to call when context chart is brushed
     function brushed(skipTimer) {
 
@@ -327,7 +328,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , currentBG = $('.bgStatus .currentBG')
             , currentDirection = $('.bgStatus .currentDirection')
             , currentDetails = $('.bgStatus .currentDetails')
-            , rawbg = bgButton.find('.rawbg')
+            , rawNoise = bgButton.find('.rawnoise')
+            , rawbg = rawNoise.find('em')
+            , noiseLevel = rawNoise.find('label')
             , lastEntry = $('#lastEntry');
 
 
@@ -354,9 +357,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }
 
             if (showRawBGs(entry.y, entry.noise, cal)) {
-                rawbg.show().html(scaleBg(rawIsigToRawBg(entry, cal)));
+                rawNoise.css('display', 'inline-block');
+                rawbg.text(scaleBg(rawIsigToRawBg(entry, cal)));
+                noiseLevel.text(noiseCodeToDisplay(entry.y, entry.noise));
             } else {
-                rawbg.hide();
+                rawNoise.hide();
             }
 
             currentBG.toggleClass('icon-hourglass', value == 9);
@@ -471,7 +476,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 updateBGDelta();
                 currentBG.text('---');
                 currentDirection.text('-');
-                rawbg.hide();
+                rawNoise.hide();
                 bgButton.removeClass('urgent warning inrange');
             }
 
@@ -1185,9 +1190,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var totalBG = 0;
         closeBGs.forEach(function(d) {
           totalBG += Number(d.y);
+            parseFloat()
         });
 
-        return totalBG > 0 && closeBGs.length > 0 ? (totalBG / closeBGs.length) : 450;
+        return totalBG > 0 ? (totalBG / closeBGs.length) : 450;
       }
 
       var treatmentGlucose = null;

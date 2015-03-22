@@ -204,40 +204,29 @@ body {
   margin: 10px;
   border: 2px solid #000;
   border-radius: 5px;
-  width: 320px;
+  width: 360px;
 }
 
-.loading .bgButton .rawbg {
+.loading .bgButton .rawnoise {
     display: none;
 }
 
-.bgButton .rawbg {
+.bgButton .rawnoise {
+    display: inline-block;
+    border-radius: 2px;
+    border: 1px solid #808080;
+}
+
+.bgButton .rawnoise em {
     color: white;
     background-color: black;
-    position: relative;
-    top: -5px;
-    font-size: 16px;
-    left: -10px;
-    width: 30px;
-    height: 30px;
-    padding: 4px;
-    border-radius: 80px;
-    text-align: center;
-    border: 3px solid white;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.84);
-    line-height: 30px;
+    display: block;
+    font-size: 20px;
 }
 
-.bgButton.noise-heavy .rawbg , .bgButton.noise-error  .rawbg {
-    border-color: rgba(255, 0, 0, 0.6);
-}
-
-.bgButton.noise-medium  .rawbg {
-    border-color: rgba(255, 255, 0, 0.6);
-}
-
-.bgButton.noise-light  .rawbg {
-    border-color: rgba(189, 189, 189, 0.6);
+.bgButton .rawnoise label {
+    display: block;
+    font-size: 14px;
 }
 
 .alarming .bgButton {
@@ -382,6 +371,14 @@ div.tooltip {
         padding: 0;
     }
 
+    .bgButton .rawnoise em {
+        font-size: 14px;
+    }
+
+    .bgButton .rawnoise label {
+        font-size: 12px;
+    }
+
     .bgStatus .currentBG {
         font-size: 70px;
         line-height: 60px;
@@ -438,11 +435,6 @@ div.tooltip {
     .bgStatus .currentBG {
         font-size: 70px;
         line-height: 70px;
-    }
-
-    .bgButton .rawbg {
-        top: 5px;
-        left: 5px;
     }
 
     .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
@@ -532,10 +524,6 @@ div.tooltip {
         display: none;
     }
 
-    .bgButton .rawbg {
-        top: -10px;
-    }
-
     .container {
         top: 15px;
         padding-bottom: 20px;
@@ -589,15 +577,14 @@ div.tooltip {
 
     .bgStatus {
         text-align: center;
-        width: 200px;
-        left: 0px;
+        width: 220px;
+        left: 0;
         position: absolute;
     }
 
     .bgStatus .currentBG {
         font-size: 60px;
         line-height: 60px;
-        padding-left: -10px;
     }
 
     .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
