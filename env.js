@@ -77,8 +77,6 @@ function config ( ) {
  
   //console.log(JSON.stringify(env.defaults));
   
-  
->>>>>>> Browser defaults
   env.SSL_KEY = readENV('SSL_KEY');
   env.SSL_CERT = readENV('SSL_CERT');
   env.SSL_CA = readENV('SSL_CA');
