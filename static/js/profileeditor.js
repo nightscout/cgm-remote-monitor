@@ -85,9 +85,7 @@ TODO:
 		success: function (xhr) {
 			apistatus = { 
 				  apiEnabled: xhr.apiEnabled
-//				, defaults: xhr.defaults //  { ...., defaults: {timeFormat: '24', units: 'mmol'} }
-// env not merged yet
-				, defaults: { timeFormat: '24', units: 'mmol'}
+				, defaults: xhr.defaults //  { ...., defaults: {timeFormat: '24', units: 'mmol'} }
 			};
 	   },
 		error: function () {
