@@ -35,7 +35,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , latestUpdateTime
         , prevSGV
         , treatments
-        , profile
         , cal
         , devicestatusData
         , padding = { top: 0, right: 10, bottom: 30, left: 10 }
@@ -418,7 +417,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     pill = $('<span class="pill iob"><label>IOB</label><em></em></span>');
                     currentDetails.append(pill);
                 }
-                var iob = Nightscout.iob.calcTotal(treatments, profile, time);
+                var iob = Nightscout.iob.calcTotal(treatments, time);
                 pill.find('em').text(iob.display + 'U');
             } else {
                 currentDetails.find('.pill.iob').remove();
@@ -1541,6 +1540,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         socket = io.connect();
 
+        socket.on('profile', function (d) {
+			console.info('New profile record received');
+			Nightscout.currentProfile.update(d);
+        });
         socket.on('sgv', function (d) {
             if (d.length > 1) {
                 // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
@@ -1555,9 +1558,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     d.created_at = new Date(d.created_at);
                 });
 
-                profile = d[4][0];
-                cal = d[5][d[5].length-1];
-                devicestatusData = d[6];
+                cal = d[4][d[4].length-1];
+                devicestatusData = d[5];
 
                 var temp1 = [ ];
                 if (cal && isRawBGEnabled()) {
