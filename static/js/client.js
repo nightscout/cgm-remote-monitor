@@ -19,6 +19,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , FORMAT_TIME_SCALE = '%I %p'
         , WIDTH_SMALL_DOTS = 400
         , WIDTH_BIG_DOTS = 800
+        , MINUTE_IN_SECS = 60
+        , HOUR_IN_SECS = 3600
+        , DAY_IN_SECS = 86400
+        , WEEK_IN_SECS = 604800
         , MINUTES_SINCE_LAST_UPDATE_WARN = 10
         , MINUTES_SINCE_LAST_UPDATE_URGENT = 20;
 
@@ -28,8 +32,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , latestUpdateTime
         , prevSGV
         , treatments
+        , profile
         , cal
-        , padding = { top: 20, right: 10, bottom: 30, left: 10 }
+        , padding = { top: 0, right: 10, bottom: 30, left: 10 }
         , opacity = {current: 1, DAY: 1, NIGHT: 0.5}
         , now = Date.now()
         , data = []
@@ -105,8 +110,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function showRawBGs() {
         return app.enabledOptions
-            && app.enabledOptions.indexOf('rawbg' > -1)
+            && app.enabledOptions.indexOf('rawbg') > -1
             && (browserSettings.showRawbg == 'always' || browserSettings.showRawbg == 'noise');
+    }
+
+    function showIOB() {
+        return app.enabledOptions
+            && app.enabledOptions.indexOf('iob') > -1;
     }
 
     function rawIsigToRawBg(entry, cal) {
@@ -124,7 +134,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         } else if (noise < 2 && browserSettings.showRawbg != 'always') {
           return 0;
         } else if (filtered == 0 || sgv < 40) {
-            console.info("Skipping ratio adjustment for SGV " + sgv);
+            console.info('Skipping ratio adjustment for SGV ' + sgv);
             return scale * (unfiltered - intercept) / slope;
         } else {
             var ratio = scale * (filtered - intercept) / slope / sgv;
@@ -152,7 +162,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .scale(xScale)
             .tickFormat(d3.time.format(getTimeFormat(true)))
             .ticks(4)
-            .orient('top');
+            .orient('bottom');
 
         yAxis = d3.svg.axis()
             .scale(yScale)
@@ -222,12 +232,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .style('opacity', function (d) { return highlightBrushPoints(d) });
     }
 
+    function alarmingNow() {
+      return $('#container').hasClass('alarming');
+    }
+
     function inRetroMode() {
         if (!brush) return false;
         
-        var brushExtent = brush.extent();
-        var elementHidden = document.getElementById('bgButton').hidden == '';
-        return brushExtent[1].getTime() - THIRTY_MINS_IN_MS < now && elementHidden != true;
+        var time = brush.extent()[1].getTime();
+
+        return !alarmingNow() && time - THIRTY_MINS_IN_MS < now;
     }
 
     function errorCodeToDisplay(errorCode) {
@@ -295,7 +309,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         var currentBG = $('.bgStatus .currentBG')
             , currentDirection = $('.bgStatus .currentDirection')
-            , currentDetails = $('.bgStatus .currentDetails');
+            , currentDetails = $('.bgStatus .currentDetails')
+            , lastEntry = $('#lastEntry');
+
 
         function updateCurrentSGV(value) {
             if (value < 39) {
@@ -312,38 +328,53 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             currentBG.toggleClass('bg-limit', value == 39 || value > 400);
         }
 
-        function calcBGDelta(prev, current) {
+        function updateBGDelta(prev, current) {
 
-            var bgDeltaString;
+            var pill = currentDetails.find('span.pill.bgdelta');
+            if (!pill || pill.length == 0) {
+                pill = $('<span class="pill bgdelta"><em></em><label></label></span>');
+                currentDetails.append(pill);
+            }
 
-            if (prev < 40 || prev > 400 || current < 40 || current > 400) {
-                bgDeltaString = '';
+            if (prev === undefined || current == undefined || prev < 40 || prev > 400 || current < 40 || current > 400) {
+                pill.children('em').text('#');
             } else {
                 var bgDelta = scaleBg(current) - scaleBg(prev);
                 if (browserSettings.units == 'mmol') {
                     bgDelta = bgDelta.toFixed(1);
                 }
 
-                bgDeltaString = bgDelta;
-                if (bgDelta >= 0) {
-                    bgDeltaString = '+' + bgDelta;
-                }
-
-                if (browserSettings.units == 'mmol') {
-                    bgDeltaString = bgDeltaString + ' mmol/L'
-                } else {
-                    bgDeltaString = bgDeltaString + ' mg/dL'
-                }
+                pill.children('em').text((bgDelta >= 0 ? '+' : '') + bgDelta);
             }
 
-            return bgDeltaString;
+            if (browserSettings.units == 'mmol') {
+                pill.children('label').text('mmol/L');
+            } else {
+                pill.children('label').text('mg/dL');
+            }
+
         }
 
-        var color = inRetroMode() ? 'grey' : sgvToColor(latestSGV.y);
+        function updateIOBIndicator(time) {
+            if (showIOB()) {
+                var pill = currentDetails.find('span.pill.iob');
 
-        $('.container #noButton .currentBG').css({color: color});
-        $('.container #noButton .currentDirection').css({color: color});
-        $('.container #noButton .currentDetails').css({color: color});
+                if (!pill || pill.length == 0) {
+                    pill = $('<span class="pill iob"><label>IOB</label><em></em></span>');
+                    currentDetails.append(pill);
+                }
+                var iob = Nightscout.iob.calcTotal(treatments, profile, time);
+                pill.find('em').text(iob.display + 'U');
+            } else {
+                currentDetails.find('.pill.iob').remove();
+            }
+        }
+
+        if (inRetroMode()) {
+            $('.bgButton').removeClass('urgent warning inrange');
+        } else {
+            $('.bgButton').addClass(sgvToColoredRange(latestSGV.y));
+        }
 
         // predict for retrospective data
         // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
@@ -357,6 +388,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         });
 
         if (inRetroMode()) {
+            var time = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
             var lookbackTime = (lookback + 2) * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
             nowData = nowData.filter(function(d) {
@@ -378,20 +410,23 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
                 updateCurrentSGV(focusPoint.y);
 
+                updateBGDelta(prevfocusPoint.y, focusPoint.y);
+
                 currentBG.css('text-decoration','line-through');
                 currentDirection.html(focusPoint.y < 39 ? '✖' : focusPoint.direction);
-                currentDetails.text(calcBGDelta(prevfocusPoint.y, focusPoint.y)).css('text-decoration','line-through');
             } else {
-                currentBG.text('---').css('text-decoration','');
+                updateBGDelta();
+                currentBG.text('---');
                 currentDirection.text('-');
-                currentDetails.text('');
             }
 
+            updateIOBIndicator(time);
+
             $('#currentTime')
-                .text(formatTime(new Date(brushExtent[1] - THIRTY_MINS_IN_MS)))
+                .text(formatTime(time))
                 .css('text-decoration','line-through');
 
-            $('#lastEntry').text('RETRO').removeClass('current');
+            updateTimeAgo();
         } else {
             // if the brush comes back into the current time range then it should reset to the current time and sg
             nowData = nowData.slice(nowData.length - 1 - lookback, nowData.length);
@@ -401,9 +436,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             updateClockDisplay();
             updateTimeAgo();
 
+            updateBGDelta(prevSGV.y, latestSGV.y);
+            updateIOBIndicator(nowDate);
+
             currentBG.css('text-decoration', '');
             currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);
-            currentDetails.text(calcBGDelta(prevSGV.y, latestSGV.y)).css('text-decoration','');
         }
 
         xScale.domain(brush.extent());
@@ -652,7 +689,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 focus.append('line')
                     .attr('class', 'now-line')
                     .attr('x1', xScale(new Date(now)))
-                    .attr('y1', yScale(scaleBg(36)))
+                    .attr('y1', yScale(scaleBg(30)))
                     .attr('x2', xScale(new Date(now)))
                     .attr('y2', yScale(scaleBg(420)))
                     .style('stroke-dasharray', ('3, 3'))
@@ -926,6 +963,27 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return color;
     }
 
+    function sgvToColoredRange(sgv) {
+        var range = '';
+
+        if (browserSettings.theme == 'colors') {
+            if (sgv > app.thresholds.bg_high) {
+                range = 'urgent';
+            } else if (sgv > app.thresholds.bg_target_top) {
+                range = 'warning';
+            } else if (sgv >= app.thresholds.bg_target_bottom && sgv <= app.thresholds.bg_target_top) {
+                range = 'inrange';
+            } else if (sgv < app.thresholds.bg_low) {
+                range = 'urgent';
+            } else if (sgv < app.thresholds.bg_target_bottom) {
+                range = 'warning';
+            }
+        }
+
+        return range;
+    }
+
+
     function generateAlarm(file) {
         alarmInProgress = true;
         var selector = '.audio.alarms audio.' + file;
@@ -934,14 +992,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             playAlarm(audio);
             $(this).addClass('playing');
         });
-        var bgButton = $('#bgButton');
-        bgButton.show();
-        bgButton.toggleClass('urgent', file == urgentAlarmSound);
-        var noButton = $('#noButton');
-        noButton.hide();
+        $('.bgButton').addClass(file == urgentAlarmSound ? 'urgent' : 'warning');
         $('#container').addClass('alarming');
-        $('.container .currentBG').text();
-
     }
 
     function playAlarm(audio) {
@@ -955,11 +1007,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function stopAlarm(isClient, silenceTime) {
         alarmInProgress = false;
-        var bgButton = $('#bgButton');
-        bgButton.hide();
-        var noButton = $('#noButton');
-        noButton.show();
-        d3.selectAll('audio.playing').each(function (d, i) {
+        $('.bgButton').removeClass('urgent warning');
+        d3.selectAll('audio.playing').each(function () {
             var audio = this;
             audio.pause();
             $(this).removeClass('playing');
@@ -974,45 +1023,34 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
     }
 
-    function timeAgo(offset) {
-        var parts = {},
-            MINUTE = 60,
-            HOUR = 3600,
-            DAY = 86400,
-            WEEK = 604800;
+    function timeAgo(time) {
+        var now = Date.now()
+            , offset = time == -1 ? -1 : (now - time) / 1000
+            , parts = {};
 
-        //offset = (MINUTE * MINUTES_SINCE_LAST_UPDATE_WARN) + 60
-        //offset = (MINUTE * MINUTES_SINCE_LAST_UPDATE_URGENT) + 60
+        if (offset < MINUTE_IN_SECS * -5)          parts = { label: 'in the future' };
+        else if (offset <= 0)                      parts = { label: 'time ago' };
+        else if (offset <= MINUTE_IN_SECS * 2)     parts = { value: 1, label: 'min ago' };
+        else if (offset < (MINUTE_IN_SECS * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE_IN_SECS)), label: 'mins ago' };
+        else if (offset < (HOUR_IN_SECS * 2))      parts = { value: 1, label: 'hr ago' };
+        else if (offset < (HOUR_IN_SECS * 24))     parts = { value: Math.round(Math.abs(offset / HOUR_IN_SECS)), label: 'hrs ago' };
+        else if (offset < DAY_IN_SECS)             parts = { value: 1, label: 'day ago' };
+        else if (offset < (DAY_IN_SECS * 7))       parts = { value: Math.round(Math.abs(offset / DAY_IN_SECS)), label: 'day ago' };
+        else if (offset < (WEEK_IN_SECS * 52))     parts = { value: Math.round(Math.abs(offset / WEEK_IN_SECS)), label: 'week ago' };
+        else                                       parts = { label: 'a long time ago' };
 
-        if (offset <= MINUTE)              parts = { label: 'now' };
-        if (offset <= MINUTE * 2)          parts = { label: '1 min ago' };
-        else if (offset < (MINUTE * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE)), label: 'mins' };
-        else if (offset < (HOUR * 2))      parts = { label: '1 hr ago' };
-        else if (offset < (HOUR * 24))     parts = { value: Math.round(Math.abs(offset / HOUR)), label: 'hrs' };
-        else if (offset < DAY)             parts = { label: '1 day ago' };
-        else if (offset < (DAY * 7))       parts = { value: Math.round(Math.abs(offset / DAY)), label: 'day' };
-        else if (offset < (WEEK * 52))     parts = { value: Math.round(Math.abs(offset / WEEK)), label: 'week' };
-        else                               parts = { label: 'a long time ago' };
-
-        if (offset > (MINUTE * MINUTES_SINCE_LAST_UPDATE_URGENT)) {
-            var lastEntry = $('#lastEntry');
-            lastEntry.removeClass('warn');
-            lastEntry.addClass('urgent');
-
-            $('.bgStatus').removeClass('current');
-        } else if (offset > (MINUTE * MINUTES_SINCE_LAST_UPDATE_WARN)) {
-            var lastEntry = $('#lastEntry');
-            lastEntry.removeClass('urgent');
-            lastEntry.addClass('warn');
+        if (offset < MINUTE_IN_SECS * -5 || offset > (MINUTE_IN_SECS * MINUTES_SINCE_LAST_UPDATE_URGENT)) {
+            parts.removeClass = 'current warn';
+            parts.addClass = 'urgent';
+        } else if (offset > (MINUTE_IN_SECS * MINUTES_SINCE_LAST_UPDATE_WARN)) {
+            parts.removeClass = 'current urgent';
+            parts.addClass = 'warn';
         } else {
-            $('.bgStatus').addClass('current');
-            $('#lastEntry').removeClass('warn urgent');
+            parts.addClass = 'current';
+            parts.removeClass = 'warn urgent';
         }
 
-        if (parts.value)
-            return parts.value + ' ' + parts.label + ' ago';
-        else
-            return parts.label;
+        return parts;
 
     }
 
@@ -1112,8 +1150,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 .attr('id', 'label')
                 .style('fill', 'white');
             label.append('text')
-                .style('font-size', 30 / scale)
-                .style('font-family', 'Arial')
+                .style('font-size', 40 / scale)
                 .style('text-shadow', '0px 0px 10px rgba(0, 0, 0, 1)')
                 .attr('text-anchor', 'middle')
                 .attr('dy', '.35em')
@@ -1223,14 +1260,21 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
 
     function updateTimeAgo() {
-        if (!latestSGV || inRetroMode()) return;
+        var lastEntry = $('#lastEntry')
+            , time = latestSGV ? new Date(latestSGV.x).getTime() : -1
+            , ago = timeAgo(time)
+            , retroMode = inRetroMode();
 
-        if (latestSGV.y < 39) {
-            $('#lastEntry').text('CGM ERROR').removeClass('current').addClass('urgent');
+        lastEntry.addClass(ago.addClass);
+        lastEntry.removeClass(ago.removeClass);
+
+        if (retroMode || !ago.value) {
+            lastEntry.find('em').hide();
         } else {
-            var secsSinceLast = (Date.now() - new Date(latestSGV.x).getTime()) / 1000;
-            $('#lastEntry').text(timeAgo(secsSinceLast)).toggleClass('current', secsSinceLast < 10 * 60);
+            lastEntry.find('em').show().text(ago.value);
         }
+
+        lastEntry.find('label').text(retroMode ? 'RETRO' : ago.label);
     }
 
     function init() {
@@ -1307,8 +1351,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         var silenceDropdown = new Dropdown('.dropdown-menu');
 
-        $('#bgButton').click(function (e) {
-            silenceDropdown.open(e);
+        $('.bgButton').click(function (e) {
+            if (alarmingNow()) silenceDropdown.open(e);
         });
 
         $('#silenceBtn').find('a').click(function (e) {
@@ -1335,8 +1379,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     d.created_at = new Date(d.created_at);
                 });
 
-                cal = d[4][d[4].length-1];
-
+                profile = d[4][0];
+                cal = d[5][d[5].length-1];
 
                 var temp1 = [ ];
                 if (cal && showRawBGs()) {
