@@ -24,10 +24,11 @@
             <a href="#"><span></span><i class="icon-cancel-circled"></i></a>
         </div>
 
-        <div class="container" id="container">
+        <div class="container loading" id="container">
             <div class="status">
                 <div class="bgStatus current">
                     <div class="bgButton ">
+                        <span class="rawnoise pill"><em></em><label></label></span>
                         <span class="currentBG">---</span>
                         <span class="currentDirection">-</span>
                     </div>
@@ -44,10 +45,17 @@
                     <div class="timebox">
                         <div id="currentTime">---</div>
                         <div class="timeOther">
-                            <span id="lastEntry" class="pill"><em>-</em><label></label></span>
+                            <span id="lastEntry" class="pill"><em></em><label></label></span>
+                            <span id="uploaderBattery" class="pill"><em></em><label></label></span>
                         </div>
                     </div>
                 </div>
+                <ul class="focus-range">
+                    <li class="selected" data-hours="3">3HR</li>
+                    <li data-hours="6">6HR</li>
+                    <li data-hours="12">12HR</li>
+                    <li data-hours="24">24HR</li>
+                </ul>
             </div>
             <div class="row-fluid section1">
                 <div id="chartContainer"></div>
