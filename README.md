@@ -120,7 +120,6 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `NIGHT_MODE` (`off`) - possible values `on` or `off`
   * `SHOW_RAWBG` (`never`) - possible values `always`, `never` or `noise`
   * `CUSTOM_TITLE` (`Nightscout`) - Usually name of T1
-  * `NIGHT_MODE` (`off`) - possible values `on` or `off`
   * `THEME` (`default`) - possible values `default` or `colors`
   * `ALARM_URGENT_HIGH` (`on`) - possible values `on` or `off`
   * `ALARM_HIGH` (`on`) - possible values `on` or `off`
