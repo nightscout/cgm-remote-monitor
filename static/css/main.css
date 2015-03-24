@@ -38,6 +38,7 @@ body {
     float: right;
     text-align: center;
     white-space: nowrap;
+    padding-right: 20px;
 }
 
 .bgButton.urgent {
@@ -203,21 +204,43 @@ body {
   margin: 10px;
   border: 2px solid #000;
   border-radius: 5px;
-  width: 320px;
+  width: 360px;
+}
+
+.loading .bgButton .rawnoise {
+    display: none;
+}
+
+.bgButton .rawnoise {
+    display: inline-block;
+    border-radius: 2px;
+    border: 1px solid #808080;
+}
+
+.bgButton .rawnoise em {
+    color: white;
+    background-color: black;
+    display: block;
+    font-size: 20px;
+}
+
+.bgButton .rawnoise label {
+    display: block;
+    font-size: 14px;
 }
 
 .alarming .bgButton {
-  border-color: #bdbdbd;
-  color: #000;
-  box-shadow: 2px 2px 0 #ddd;
+    border-color: #bdbdbd;
+    color: #000;
+    box-shadow: 2px 2px 0 #ddd;
 }
 
 .alarming .bgButton.urgent {
-  background-color: red;
+    background-color: red;
 }
 
 .alarming .bgButton.warning {
-  background-color: yellow;
+    background-color: yellow;
 }
 
 .alarming .bgButton:active {
@@ -226,6 +249,7 @@ body {
     -moz-box-shadow: none;
     -webkit-box-shadow: none;
 }
+
 
 .button {
     text-align: center;
@@ -280,7 +304,7 @@ div.tooltip {
 
 @media (max-width: 800px) {
     .bgStatus {
-        width: 40%;
+        width: 300px;
     }
 
     .bgButton {
@@ -343,7 +367,16 @@ div.tooltip {
 
 @media (max-width: 750px) {
     .bgStatus {
-        width: 60%;
+        width: 240px;
+        padding: 0;
+    }
+
+    .bgButton .rawnoise em {
+        font-size: 14px;
+    }
+
+    .bgButton .rawnoise label {
+        font-size: 12px;
     }
 
     .bgStatus .currentBG {
@@ -388,10 +421,11 @@ div.tooltip {
 
     .bgStatus {
         float: none;
-        margin: 0 auto;
         padding: 0;
-        width: 100vw;
+        text-align: center;
+        width: 250px;
     }
+
 
     .bgButton {
         margin: 5px;
@@ -424,13 +458,8 @@ div.tooltip {
     }
 
     .time {
-        width: auto;
         padding-top: 0;
         font-size: 20px !important;
-    }
-
-    #container.alarming .time {
-        display: none;
     }
 
     .timebox {
@@ -452,14 +481,11 @@ div.tooltip {
         font-size: 15px !important;
     }
 
-    .alarming .focus-range {
-        display: none;
-    }
-
     .focus-range {
         position: absolute;
-        top: 70px;
-        left: 20px;
+        top: 80px;
+        left: initial;
+        right: 10px;
         margin: 0;
         width: auto;
     }
@@ -514,8 +540,8 @@ div.tooltip {
 
 @media (max-height: 480px) and (min-width: 400px) {
     .bgStatus .currentBG {
-        font-size: 80px;
-        line-height: 80px;
+        font-size: 70px;
+        line-height: 60px;
     }
 
     .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
@@ -523,8 +549,8 @@ div.tooltip {
     }
 
     .bgStatus .currentDirection {
-        font-size: 70px;
-        line-height: 70px;
+        font-size: 50px;
+        line-height: 50px;
     }
 
     .bgStatus .currentDetails {
@@ -532,8 +558,8 @@ div.tooltip {
     }
 
     .time {
-        font-size: 70px;
-        line-height: 60px;
+        font-size: 50px;
+        line-height: 40px;
         padding-top: 5px;
     }
 
@@ -548,6 +574,13 @@ div.tooltip {
 }
 
 @media (max-height: 480px) and (max-width: 400px) {
+
+    .bgStatus {
+        text-align: center;
+        width: 220px;
+        left: 0;
+        position: absolute;
+    }
 
     .bgStatus .currentBG {
         font-size: 60px;
@@ -569,14 +602,24 @@ div.tooltip {
 
     .focus-range {
         position: absolute;
-        top: 10px;
-        left: 10px;
+        top: 40px;
+        left: initial;
+        right: 35px;
         margin: 0;
         width: auto;
     }
 
     .focus-range li {
         display: block;
+    }
+
+    .time {
+        position: absolute;
+        top: 90px;
+    }
+
+    .timebox {
+        width: 220px;
     }
 
 }
