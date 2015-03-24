@@ -1543,6 +1543,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         socket.on('profile', function (d) {
 			console.info('New profile record received');
 			Nightscout.currentProfile.update(d);
+            if (isInitialData) {
+                updateChart(false);
+			}
         });
         socket.on('sgv', function (d) {
             if (d.length > 1) {
