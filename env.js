@@ -134,19 +134,17 @@ function config ( ) {
   
   if (env.defaults.units == 'mmol') {
     // check backward compatibility
-	if (env.thresholds.bg_high > 80) {
-		// keep as it is (already in mg/dL)
-	} else {
-		// convert to mg/dL until we add support to store in mmol
-		env.thresholds.bg_high = env.thresholds.bg_high * 18;
-		env.thresholds.bg_target_top = env.thresholds.bg_target_top * 18;
-		env.thresholds.bg_target_bottom = env.thresholds.bg_target_bottom * 18;
-		env.thresholds.bg_low = env.thresholds.bg_low * 18;
-	}
+    if (env.thresholds.bg_high > 80) {
+      // keep as it is (already in mg/dL)
+    } else {
+      // convert to mg/dL until we add support to store in mmol
+      env.thresholds.bg_high = env.thresholds.bg_high * 18;
+      env.thresholds.bg_target_top = env.thresholds.bg_target_top * 18;
+      env.thresholds.bg_target_bottom = env.thresholds.bg_target_bottom * 18;
+      env.thresholds.bg_low = env.thresholds.bg_low * 18;
+    }
   }  
   
-console.log('env.thresholds.bg_high ', env.thresholds.bg_high);
-
   //NOTE: using +/- 1 here to make the thresholds look visibly wrong in the UI
   //      if all thresholds were set to the same value you should see 4 lines stacked right on top of each other
   if (env.thresholds.bg_target_bottom >= env.thresholds.bg_target_top) {
