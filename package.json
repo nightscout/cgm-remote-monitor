@@ -60,7 +60,8 @@
     "sgvdata": "git://github.com/ktind/sgvdata.git#wip/protobuf",
     "socket.io": "^0.9.17",
     "git-rev": "git://github.com/bewest/git-rev.git",
-    "bootevent": "0.0.1"
+    "bootevent": "0.0.1",
+    "forever": "~0.13.0"
   },
   "devDependencies": {
     "istanbul": "~0.3.5",

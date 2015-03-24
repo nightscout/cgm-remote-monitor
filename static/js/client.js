@@ -1134,6 +1134,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         });
 
         $('#container').removeClass('alarming');
+        brushed(true);
 
         // only emit ack if client invoke by button press
         if (isClient) {
@@ -1198,17 +1199,26 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
       var treatmentGlucose = null;
 
-      if (isNaN(treatment.glucose)) {
-        if (treatment.glucose && treatment.units) {
-          if (treatment.units != browserSettings.units && treatment.units != 'mmol') {
-            //BG is in mg/dl and display in mmol
-            treatmentGlucose = scaleBg(treatment.glucose);
-          } else if (treatment.units != browserSettings.units && treatment.units == 'mmol') {
-            //BG is in mmol and display in mg/dl
-            treatmentGlucose = Math.round(treatment.glucose * 18)
+      if (treatment.glucose && isNaN(treatment.glucose)) {
+        console.warn('found an invalid glucose value', treatment);
+      } else {
+        if (treatment.glucose && treatment.units && browserSettings.units) {
+          if (treatment.units != browserSettings.units) {
+            console.info('found mismatched glucose units, converting ' + treatment.units + ' into ' + browserSettings.units, treatment);
+            if (treatment.units == 'mmol') {
+              //BG is in mmol and display in mg/dl
+              treatmentGlucose = Math.round(treatment.glucose * 18)
+            } else {
+              //BG is in mg/dl and display in mmol
+              treatmentGlucose = scaleBg(treatment.glucose);
+            }
+          } else {
+            console.warn('found an VALID glucose value', treatment);
+            treatmentGlucose = treatment.glucose;
           }
-        } else {
+        } else if (treatment.glucose) {
           //no units, assume everything is the same
+          console.warn('found an glucose value with any units, maybe from an old version?', treatment);
           treatmentGlucose = treatment.glucose;
         }
       }
@@ -1671,6 +1681,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 , alarm_types: xhr.alarm_types
                 , units: xhr.units
                 , careportalEnabled: xhr.careportalEnabled
+                , defaults: xhr.defaults
             };
         }
     }).done(function() {

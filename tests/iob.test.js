@@ -1,5 +1,7 @@
 var should = require('should');
 
+var FIVE_MINS = 10 * 60 * 1000;
+
 describe('IOB', function ( ) {
   var iob = require('../lib/iob')();
 
@@ -34,13 +36,29 @@ describe('IOB', function ( ) {
   it('should calculate IOB using defaults', function() {
 
     var treatments = [{
-        created_at: (new Date()) - 1,
-        insulin: "1.00"
-      }];
+      created_at: (new Date()) - 1,
+      insulin: "1.00"
+    }];
 
     var rightAfterBolus = iob.calcTotal(treatments);
 
     rightAfterBolus.display.should.equal('1.00');
+
+  });
+
+  it('should not show a negative IOB when approaching 0', function() {
+
+    var time = new Date() - 1;
+
+    var treatments = [{
+      created_at: time,
+      insulin: "5.00"
+    }];
+
+    var whenApproaching0 = iob.calcTotal(treatments, undefined, new Date(time + (3 * 60 * 60 * 1000) - (90 * 1000)));
+
+    //before fix we got this: AssertionError: expected '-0.00' to be '0.00'
+    whenApproaching0.display.should.equal('0.00');
 
   });
 
