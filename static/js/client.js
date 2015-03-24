@@ -1134,6 +1134,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         });
 
         $('#container').removeClass('alarming');
+        brushed(true);
 
         // only emit ack if client invoke by button press
         if (isClient) {
