@@ -48,19 +48,19 @@ function config ( ) {
   env.enable = readENV('ENABLE', "");
 
   env.defaults = { // currently supported keys must defined be here
-	  'units': 'mg/dL'
-	, 'timeFormat': '12'
-	, 'nightMode': false
-	, 'showRawbg': 'never'
-	, 'customTitle': 'Nightscout'
-	, 'theme': 'default'
+    'units': 'mg/dL'
+    , 'timeFormat': '12'
+    , 'nightMode': false
+    , 'showRawbg': 'never'
+    , 'customTitle': 'Nightscout'
+    , 'theme': 'default'
     , 'alarmUrgentHigh': true
     , 'alarmHigh': true
     , 'alarmLow': true
     , 'alarmUrgentLow': true
-	, 'language': 'en' // not used yet
-	} ;
-	
+    , 'language': 'en' // not used yet
+  } ;
+
   // add units from separate variable
   env.defaults.units = env.DISPLAY_UNITS;
  
@@ -178,9 +178,10 @@ function readENV(varName, defaultValue) {
         || process.env[varName]
         || process.env[varName.toLowerCase()];
 
-	if (typeof value === 'string' && value.toLowerCase() == 'on') value = true;
-	if (typeof value === 'string' && value.toLowerCase() == 'off') value = false;
-    return value != null ? value : defaultValue;
+  if (typeof value === 'string' && value.toLowerCase() == 'on') value = true;
+  if (typeof value === 'string' && value.toLowerCase() == 'off') value = false;
+
+  return value != null ? value : defaultValue;
 }
 
 module.exports = config;

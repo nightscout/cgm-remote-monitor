@@ -64,12 +64,12 @@ function getBrowserSettings(storage) {
             $('#show-rawbg-option').hide();
         }
 
-		json.customTitle = setDefault(json.customTitle, app.defaults.customTitle);
+        json.customTitle = setDefault(json.customTitle, app.defaults.customTitle);
         $('h1.customTitle').text(json.customTitle);
         $('input#customTitle').prop('value', json.customTitle);
         document.title = 'Nightscout: ' + json.customTitle;
 
-		json.theme = setDefault(json.theme, app.defaults.theme);
+        json.theme = setDefault(json.theme, app.defaults.theme);
         if (json.theme == 'colors') {
             $('#theme-colors-browser').prop('checked', true);
         } else {
