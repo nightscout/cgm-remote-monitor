@@ -27,7 +27,7 @@ function config ( ) {
   } else {
     git.short(function record_git_head (head) {
       console.log("GIT HEAD", head);
-      env.head = head;
+      env.head = head || readENV("SCM_COMMIT_ID", "");
     });
   }
   env.version = software.version;
@@ -45,7 +45,7 @@ function config ( ) {
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
 
-  env.enable = readENV('ENABLE');
+  env.enable = readENV('ENABLE', "");
   env.SSL_KEY = readENV('SSL_KEY');
   env.SSL_CERT = readENV('SSL_CERT');
   env.SSL_CA = readENV('SSL_CA');
