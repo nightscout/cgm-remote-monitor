@@ -2,34 +2,8 @@
 
 var openDraw = null;
 
-var defaultSettings = {
-    'units': 'mg/dl',
-    'alarmUrgentHigh': true,
-    'alarmHigh': true,
-    'alarmLow': true,
-    'alarmUrgentLow': true,
-    'nightMode': false,
-    'theme': 'default',
-    'timeFormat': '12'
-};
-
 function rawBGsEnabled() {
     return app.enabledOptions && app.enabledOptions.indexOf('rawbg') > -1;
-}
-
-function initShowRawBG(currentValue) {
-
-    var initValue = 'never';
-
-    if (currentValue === true) {
-        initValue = 'noise';
-    } else if (currentValue == 'never' || currentValue == 'always' || currentValue == 'noise') {
-        initValue = currentValue;
-    } else {
-        initValue = app.enabledOptions.indexOf('rawbg-on') > -1 ? 'noise' : 'never';
-    }
-
-    return initValue;
 }
 
 function getBrowserSettings(storage) {
@@ -69,40 +43,40 @@ function getBrowserSettings(storage) {
             $('#mgdl-browser').prop('checked', true);
         }
 
-        json.alarmUrgentHigh = setDefault(json.alarmUrgentHigh, defaultSettings.alarmUrgentHigh);
-        json.alarmHigh = setDefault(json.alarmHigh, defaultSettings.alarmHigh);
-        json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
-        json.alarmUrgentLow = setDefault(json.alarmUrgentLow, defaultSettings.alarmUrgentLow);
+        json.alarmUrgentHigh = setDefault(json.alarmUrgentHigh, app.defaults.alarmUrgentHigh);
+        json.alarmHigh = setDefault(json.alarmHigh, app.defaults.alarmHigh);
+        json.alarmLow = setDefault(json.alarmLow, app.defaults.alarmLow);
+        json.alarmUrgentLow = setDefault(json.alarmUrgentLow, app.defaults.alarmUrgentLow);
         $('#alarm-urgenthigh-browser').prop('checked', json.alarmUrgentHigh).next().text('Urgent High Alarm' + appendThresholdValue(app.thresholds.bg_high));
         $('#alarm-high-browser').prop('checked', json.alarmHigh).next().text('High Alarm' + appendThresholdValue(app.thresholds.bg_target_top));
         $('#alarm-low-browser').prop('checked', json.alarmLow).next().text('Low Alarm' + appendThresholdValue(app.thresholds.bg_target_bottom));
         $('#alarm-urgentlow-browser').prop('checked', json.alarmUrgentLow).next().text('Urgent Low Alarm' + appendThresholdValue(app.thresholds.bg_low));
 
-        json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
+        json.nightMode = setDefault(json.nightMode, app.defaults.nightMode);
         $('#nightmode-browser').prop('checked', json.nightMode);
 
         if (rawBGsEnabled()) {
             $('#show-rawbg-option').show();
-            json.showRawbg = initShowRawBG(json.showRawbg);
+            json.showRawbg = setDefault(json.showRawbg, app.defaults.showRawbg);
             $('#show-rawbg-' + json.showRawbg).prop('checked', true);
         } else {
             json.showRawbg = 'never';
             $('#show-rawbg-option').hide();
         }
 
-        if (json.customTitle) {
-            $('h1.customTitle').text(json.customTitle);
-            $('input#customTitle').prop('value', json.customTitle);
-            document.title = 'Nightscout: ' + json.customTitle;
-        }
+        json.customTitle = setDefault(json.customTitle, app.defaults.customTitle);
+        $('h1.customTitle').text(json.customTitle);
+        $('input#customTitle').prop('value', json.customTitle);
+        document.title = 'Nightscout: ' + json.customTitle;
 
+        json.theme = setDefault(json.theme, app.defaults.theme);
         if (json.theme == 'colors') {
             $('#theme-colors-browser').prop('checked', true);
         } else {
             $('#theme-default-browser').prop('checked', true);
         }
 
-        json.timeFormat = setDefault(json.timeFormat, defaultSettings.timeFormat);
+        json.timeFormat = setDefault(json.timeFormat, app.defaults.timeFormat);
 
         if (json.timeFormat == '24') {
             $('#24-browser').prop('checked', true);
