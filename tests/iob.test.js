@@ -72,20 +72,20 @@ describe('IOB', function ( ) {
         sens: 0
       });
 
-    var rightAfterBolus = iob.calcTotal(treatments, profile, time);
+    var rightAfterBolus = iob.calcTotal(treatments, time);
 
     rightAfterBolus.display.should.equal('1.00');
 
-    var afterSomeTime = iob.calcTotal(treatments, profile, new Date(time.getTime() + (60 * 60 * 1000)));
+    var afterSomeTime = iob.calcTotal(treatments, new Date(time.getTime() + (60 * 60 * 1000)));
 
     afterSomeTime.iob.should.be.lessThan(1);
     afterSomeTime.iob.should.be.greaterThan(0);
 
-    var after3hDIA = iob.calcTotal(treatments, profile, new Date(time.getTime() + (3 * 60 * 60 * 1000)));
+    var after3hDIA = iob.calcTotal(treatments, new Date(time.getTime() + (3 * 60 * 60 * 1000)));
 
     after3hDIA.iob.should.greaterThan(0);
 
-    var after4hDIA = iob.calcTotal(treatments, profile, new Date(time.getTime() + (3 * 60 * 60 * 1000)));
+    var after4hDIA = iob.calcTotal(treatments, new Date(time.getTime() + (3 * 60 * 60 * 1000)));
 
     after4hDIA.iob.should.greaterThan(0);
 
