@@ -228,7 +228,7 @@ TODO:
 		 {prefix:'pe_isf', array:'isf', label:'ISF: '}
 		].forEach(function (e) {
 			// add end record if not at the end
-			if (c_profile[e.array][c_profile[e.array].length-1].from!=48*30) c_profile[e.array].push({"from":48*30,"low":0,"high":0});
+			if (c_profile[e.array][c_profile[e.array].length-1].from!=48*30) c_profile[e.array].push({"from":48*30,"val":0});
 			var html = '<table>';
 			for (var i=0; i<c_profile[e.array].length; i++) {
 				html += '<tr>';
