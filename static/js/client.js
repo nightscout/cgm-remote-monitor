@@ -403,7 +403,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
             currentBG.css('text-decoration', '');
             currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);
-            currentDetails.text(calcBGDelta(prevSGV.y, latestSGV.y)).css('text-decoration','');
+            
+            var delta = calcBGDelta(prevSGV.y, latestSGV.y);
+            currentDetails.text(delta).css('text-decoration','');
+            $(document).attr('title', latestSGV.y + ' ' + delta);
         }
 
         xScale.domain(brush.extent());
