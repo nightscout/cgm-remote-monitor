@@ -10,13 +10,16 @@ describe('Entries REST api', function ( ) {
     this.wares = require('../lib/middleware/')(env);
     var store = require('../lib/storage')(env);
     this.archive = require('../lib/entries').storage(env.mongo_collection, store);
+    var bootevent = require('../lib/bootevent');
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    store(function ( ) {
-      self.app.use('/', entries(self.app, self.wares, self.archive));
-      self.archive.create(load('json'), done);
+    bootevent(env).boot(function booted (ctx) {
+        env.store = ctx.store;
+        self.app.use('/', entries(self.app, self.wares, ctx));
+        self.archive.create(load('json'), done);
     });
+    // store(function ( ) { });
   });
 
   after(function (done) {
