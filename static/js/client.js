@@ -406,7 +406,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             
             var delta = calcBGDelta(prevSGV.y, latestSGV.y);
             currentDetails.text(delta).css('text-decoration','');
-            $(document).attr('title', latestSGV.y + ' ' + delta);
+            var bg_title = latestSGV.y + ' ' + delta;
+            if (browserStorage.get('customTitle')) {
+                bg_title += ' - ' + browserStorage.get('customTitle');
+            }
+            $(document).attr('title', bg_title);
+            
         }
 
         xScale.domain(brush.extent());
