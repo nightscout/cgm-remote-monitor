@@ -93,7 +93,7 @@ function getBrowserSettings(storage) {
         if (json.customTitle) {
             $('h1.customTitle').text(json.customTitle);
             $('input#customTitle').prop('value', json.customTitle);
-            document.title = 'Nightscout: ' + json.customTitle;
+            document.title = 'Nightscout: ' + json.customTitle; // this gets overriden by bg values and delta
         }
 
         if (json.theme == 'colors') {
