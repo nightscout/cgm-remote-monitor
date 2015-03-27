@@ -1213,7 +1213,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
               treatmentGlucose = scaleBg(treatment.glucose);
             }
           } else {
-            console.warn('found an VALID glucose value', treatment);
             treatmentGlucose = treatment.glucose;
           }
         } else if (treatment.glucose) {
