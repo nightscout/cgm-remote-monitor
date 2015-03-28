@@ -1546,14 +1546,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     temp1 = d[0].map(function (entry) {
                         var rawBg = showRawBGs(entry.y, entry.noise, cal) ? rawIsigToRawBg(entry, cal) : 0;
                         if (rawBg > 0) {
-                            return { date: new Date(entry.x - 2 * 1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg'}
+                            return { date: new Date(entry.x - 2000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg' };
                         } else {
-                            return null
+                            return null;
                         }
-                    }).filter(function(entry) { return entry != null});
+                    }).filter(function(entry) { return entry != null; });
                 }
                 var temp2 = d[0].map(function (obj) {
-                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered}
+                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
                 });
                 data = [];
                 data = data.concat(temp1, temp2);
