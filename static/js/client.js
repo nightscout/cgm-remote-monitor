@@ -369,28 +369,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             currentBG.toggleClass('bg-limit', value == 39 || value > 400);
         }
 
-        function updateCurrentNoise(entry) {
-            var noise = entry.noise
-                , noiseType;
-
-            if (!showRawBGs(entry.y, noise, cal)) {
-                noiseType = null;
-            } else if (entry.y < 40) {
-                noiseType = 'error';
-            } else if (noise == 2) {
-                noiseType = 'light';
-            } else if (noise == 3) {
-                noiseType = 'medium';
-            } else if (noise >= 4) {
-                noiseType = 'heavy';
-            }
-
-            bgButton.removeClass('noise-light noise-medium noise-heavy noise-error');
-            if (noiseType) {
-                bgButton.addClass('noise-' + noiseType);
-            }
-        }
-
         function updateBGDelta(prev, current) {
 
             var pill = currentDetails.find('span.pill.bgdelta');
@@ -400,21 +378,19 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }
 
             if (prev === undefined || current == undefined || prev < 40 || prev > 400 || current < 40 || current > 400) {
-                pill.children('em').text('#');
+                pill.children('em').hide();
             } else {
                 var bgDelta = scaleBg(current) - scaleBg(prev);
                 if (browserSettings.units == 'mmol') {
                     bgDelta = bgDelta.toFixed(1);
+                    pill.children('label').text('mmol/L');
+                } else {
+                    pill.children('label').text('mg/dL');
                 }
 
-                pill.children('em').text((bgDelta >= 0 ? '+' : '') + bgDelta);
+                pill.children('em').text((bgDelta >= 0 ? '+' : '') + bgDelta).show();
             }
 
-            if (browserSettings.units == 'mmol') {
-                pill.children('label').text('mmol/L');
-            } else {
-                pill.children('label').text('mg/dL');
-            }
 
         }
 
@@ -445,7 +421,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         });
 
         if (inRetroMode()) {
-            var time = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
+            var retroTime = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
+
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
             var lookbackTime = (lookback + 2) * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
             nowData = nowData.filter(function(d) {
@@ -461,17 +438,18 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 return ok;
             });
 
-            if (nowData.length > lookback) {
-                var focusPoint = nowData[nowData.length - 1];
-                var prevfocusPoint = nowData[nowData.length - 2];
-
+            var focusPoint = nowData.length > 0 ? nowData[nowData.length - 1] : null;
+            if (focusPoint) {
                 updateCurrentSGV(focusPoint);
-                updateCurrentNoise(focusPoint);
-
-                updateBGDelta(prevfocusPoint.y, focusPoint.y);
-
                 currentBG.css('text-decoration','line-through');
                 currentDirection.html(focusPoint.y < 39 ? '✖' : focusPoint.direction);
+
+                var prevfocusPoint = nowData.length > lookback ? nowData[nowData.length - 2] : null;
+                if (prevfocusPoint) {
+                    updateBGDelta(prevfocusPoint.y, focusPoint.y);
+                } else {
+                    updateBGDelta();
+                }
             } else {
                 updateBGDelta();
                 currentBG.text('---');
@@ -480,10 +458,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 bgButton.removeClass('urgent warning inrange');
             }
 
-            updateIOBIndicator(time);
+            updateIOBIndicator(retroTime);
 
             $('#currentTime')
-                .text(formatTime(time))
+                .text(formatTime(retroTime))
                 .css('text-decoration','line-through');
 
             updateTimeAgo();
@@ -493,7 +471,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             nowDate = new Date(now);
 
             updateCurrentSGV(latestSGV);
-            updateCurrentNoise(latestSGV);
             updateClockDisplay();
             updateTimeAgo();
 
@@ -1191,7 +1168,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var totalBG = 0;
         closeBGs.forEach(function(d) {
           totalBG += Number(d.y);
-            parseFloat()
         });
 
         return totalBG > 0 ? (totalBG / closeBGs.length) : 450;
