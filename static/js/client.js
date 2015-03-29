@@ -15,9 +15,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , TWENTY_FIVE_MINS_IN_MS = 1500000
         , THIRTY_MINS_IN_MS = 1800000
         , SIXTY_MINS_IN_MS = 3600000
-        , FORMAT_TIME_12 = '%I:%M'
+        , FORMAT_TIME_12 = '%I:%M %p'
+        , FORMAT_TIME_12_COMAPCT = '%I:%M'
         , FORMAT_TIME_24 = '%H:%M%'
-        , FORMAT_TIME_SCALE = '%I %p'
+        , FORMAT_TIME_12_SCALE = '%I %p'
+        , FORMAT_TIME_24_SCALE = '%H'
         , WIDTH_SMALL_DOTS = 400
         , WIDTH_BIG_DOTS = 800
         , MINUTE_IN_SECS = 60
@@ -67,8 +69,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , brushInProgress = false
         , clip;
 
-    function formatTime(time) {
-        var timeFormat = getTimeFormat();
+    function formatTime(time, compact) {
+        var timeFormat = getTimeFormat(false, compact);
         time = d3.time.format(timeFormat)(time);
         if(timeFormat == FORMAT_TIME_12){
             time = time.replace(/^0/, '').toLowerCase();
@@ -76,32 +78,20 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       return time;
     }
 
-    function getTimeFormat(isForScale) {
-        var timeFormat = FORMAT_TIME_12;
-        if (browserSettings.timeFormat) {
-            if (browserSettings.timeFormat == '24') {
-                timeFormat = FORMAT_TIME_24;
-            }
-        }
+    function isTimeFormat24() {
+        return browserSettings && browserSettings.timeFormat && parseInt(browserSettings.timeFormat) == 24;
+    }
 
-        if (isForScale && (timeFormat == FORMAT_TIME_12)) {
-            timeFormat = FORMAT_TIME_SCALE
+    function getTimeFormat(isForScale, compact) {
+        var timeFormat = FORMAT_TIME_12;
+        if (isTimeFormat24) {
+            timeFormat = isForScale ? FORMAT_TIME_24_SCALE : FORMAT_TIME_24;
+        } else {
+            timeFormat = isForScale ? FORMAT_TIME_12_SCALE : (compact ? FORMAT_TIME_12_COMAPCT : FORMAT_TIME_12);
         }
 
         return timeFormat;
     }
-
-    var x2TickFormat = d3.time.format.multi([
-        ['.%L', function(d) { return d.getMilliseconds(); }],
-        [':%S', function(d) { return d.getSeconds(); }],
-        ['%I:%M', function(d) { return d.getMinutes(); }],
-        [(getTimeFormat() == FORMAT_TIME_12) ? '%I %p': '%H:%M%', function(d) { return d.getHours(); }],
-        ['%a %d', function(d) { return d.getDay() && d.getDate() != 1; }],
-        ['%b %d', function(d) { return d.getDate() != 1; }],
-        ['%B', function(d) { return d.getMonth(); }],
-        ['%Y', function() { return true; }]
-    ]);
-
 
     // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
@@ -188,9 +178,20 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         yScale2 = d3.scale.log()
             .domain([scaleBg(36), scaleBg(420)]);
 
+        var tickFormat = d3.time.format.multi(  [
+            ['.%L', function(d) { return d.getMilliseconds(); }],
+            [':%S', function(d) { return d.getSeconds(); }],
+            ['%I:%M', function(d) { return d.getMinutes(); }],
+            [isTimeFormat24() ? '%H:%M' : '%I %p', function(d) { return d.getHours(); }],
+            ['%a %d', function(d) { return d.getDay() && d.getDate() != 1; }],
+            ['%b %d', function(d) { return d.getDate() != 1; }],
+            ['%B', function(d) { return d.getMonth(); }],
+            ['%Y', function() { return true; }]
+        ]);
+
         xAxis = d3.svg.axis()
             .scale(xScale)
-            .tickFormat(d3.time.format(getTimeFormat(true)))
+            .tickFormat(tickFormat)
             .ticks(4)
             .orient('bottom');
 
@@ -200,10 +201,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .tickValues(tickValues)
             .orient('left');
 
-      xAxis2 = d3.svg.axis()
+        xAxis2 = d3.svg.axis()
           .scale(xScale2)
-          .tickFormat(x2TickFormat)
-          .ticks(4)
+          .tickFormat(tickFormat)
+          .ticks(6)
           .orient('bottom');
 
         yAxis2 = d3.svg.axis()
@@ -464,7 +465,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             updateIOBIndicator(retroTime);
 
             $('#currentTime')
-                .text(formatTime(retroTime))
+                .text(formatTime(retroTime, true))
                 .css('text-decoration','line-through');
 
             updateTimeAgo();
@@ -1389,7 +1390,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         if (inRetroMode()) return;
         now = Date.now();
         var dateTime = new Date(now);
-        $('#currentTime').text(formatTime(dateTime)).css('text-decoration', '');
+        $('#currentTime').text(formatTime(dateTime, true)).css('text-decoration', '');
     }
 
     function updateTimeAgo() {
