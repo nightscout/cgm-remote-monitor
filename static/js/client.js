@@ -523,6 +523,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             return radius / focusRangeAdjustment;
         };
 
+        function isDexcom(device) {
+            return device && device.toLowerCase().indexOf('dexcom') == 0;
+        }
+
         function prepareFocusCircles(sel) {
             var badData = [];
             sel.attr('cx', function (d) { return xScale(d.date); })
@@ -539,7 +543,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 .attr('stroke-width', function (d) { if (d.type == 'mbg') return 2; else return 0; })
                 .attr('stroke', function (d) {
                     var device = d.device && d.device.toLowerCase();
-                    return (device == 'dexcom' ? 'white' : '#0099ff');
+                    return (isDexcom(d.device) ? 'white' : '#0099ff');
                 })
                 .attr('r', function (d) { return dotRadius(d.type); });
 
@@ -558,8 +562,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .on('mouseover', function (d) {
                 if (d.type != 'sgv' && d.type != 'mbg') return;
 
-                var device = d.device && d.device.toLowerCase()
-                    , bgType = (d.type == 'sgv' ? 'CGM' : (device == 'dexcom' ? 'Calibration' : 'Meter'))
+                var bgType = (d.type == 'sgv' ? 'CGM' : (isDexcom(d.device) ? 'Calibration' : 'Meter'))
                     , rawBG = 0
                     , noiseLabel = '';
 
