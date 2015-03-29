@@ -542,7 +542,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); })
                 .attr('stroke-width', function (d) { if (d.type == 'mbg') return 2; else return 0; })
                 .attr('stroke', function (d) {
-                    var device = d.device && d.device.toLowerCase();
                     return (isDexcom(d.device) ? 'white' : '#0099ff');
                 })
                 .attr('r', function (d) { return dotRadius(d.type); });
