@@ -72,7 +72,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     function formatTime(time, compact) {
         var timeFormat = getTimeFormat(false, compact);
         time = d3.time.format(timeFormat)(time);
-        if(timeFormat == FORMAT_TIME_12){
+        if (!isTimeFormat24()) {
             time = time.replace(/^0/, '').toLowerCase();
         }
       return time;
@@ -84,7 +84,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function getTimeFormat(isForScale, compact) {
         var timeFormat = FORMAT_TIME_12;
-        if (isTimeFormat24) {
+        if (isTimeFormat24()) {
             timeFormat = isForScale ? FORMAT_TIME_24_SCALE : FORMAT_TIME_24;
         } else {
             timeFormat = isForScale ? FORMAT_TIME_12_SCALE : (compact ? FORMAT_TIME_12_COMAPCT : FORMAT_TIME_12);
