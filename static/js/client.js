@@ -15,10 +15,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , TWENTY_FIVE_MINS_IN_MS = 1500000
         , THIRTY_MINS_IN_MS = 1800000
         , SIXTY_MINS_IN_MS = 3600000
-        , FORMAT_TIME_12 = '%I:%M %p'
-        , FORMAT_TIME_12_COMAPCT = '%I:%M'
+        , FORMAT_TIME_12 = '%-I:%M %p'
+        , FORMAT_TIME_12_COMAPCT = '%-I:%M'
         , FORMAT_TIME_24 = '%H:%M%'
-        , FORMAT_TIME_12_SCALE = '%I %p'
+        , FORMAT_TIME_12_SCALE = '%-I %p'
         , FORMAT_TIME_24_SCALE = '%H'
         , WIDTH_SMALL_DOTS = 400
         , WIDTH_BIG_DOTS = 800
@@ -73,7 +73,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var timeFormat = getTimeFormat(false, compact);
         time = d3.time.format(timeFormat)(time);
         if (!isTimeFormat24()) {
-            time = time.replace(/^0/, '').toLowerCase();
+            time = time.toLowerCase();
         }
       return time;
     }
@@ -182,7 +182,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             ['.%L', function(d) { return d.getMilliseconds(); }],
             [':%S', function(d) { return d.getSeconds(); }],
             ['%I:%M', function(d) { return d.getMinutes(); }],
-            [isTimeFormat24() ? '%H:%M' : '%I %p', function(d) { return d.getHours(); }],
+            [isTimeFormat24() ? '%H:%M' : '%-I %p', function(d) { return d.getHours(); }],
             ['%a %d', function(d) { return d.getDay() && d.getDate() != 1; }],
             ['%b %d', function(d) { return d.getDate() != 1; }],
             ['%B', function(d) { return d.getMonth(); }],
