@@ -1,17 +1,10 @@
 'use strict';
 
-var drawerIsOpen = false;
-var treatmentDrawerIsOpen = false;
-var defaultSettings = {
-    'units': 'mg/dl',
-    'alarmUrgentHigh': true,
-    'alarmHigh': true,
-    'alarmLow': true,
-    'alarmUrgentLow': true,
-    'nightMode': false,
-    'theme': 'default',
-    'timeFormat': '12'
-};
+var openDraw = null;
+
+function rawBGsEnabled() {
+    return app.enabledOptions && app.enabledOptions.indexOf('rawbg') > -1;
+}
 
 function getBrowserSettings(storage) {
     var json = {};
@@ -50,45 +43,40 @@ function getBrowserSettings(storage) {
             $('#mgdl-browser').prop('checked', true);
         }
 
-        json.alarmUrgentHigh = setDefault(json.alarmUrgentHigh, defaultSettings.alarmUrgentHigh);
-        json.alarmHigh = setDefault(json.alarmHigh, defaultSettings.alarmHigh);
-        json.alarmLow = setDefault(json.alarmLow, defaultSettings.alarmLow);
-        json.alarmUrgentLow = setDefault(json.alarmUrgentLow, defaultSettings.alarmUrgentLow);
+        json.alarmUrgentHigh = setDefault(json.alarmUrgentHigh, app.defaults.alarmUrgentHigh);
+        json.alarmHigh = setDefault(json.alarmHigh, app.defaults.alarmHigh);
+        json.alarmLow = setDefault(json.alarmLow, app.defaults.alarmLow);
+        json.alarmUrgentLow = setDefault(json.alarmUrgentLow, app.defaults.alarmUrgentLow);
         $('#alarm-urgenthigh-browser').prop('checked', json.alarmUrgentHigh).next().text('Urgent High Alarm' + appendThresholdValue(app.thresholds.bg_high));
         $('#alarm-high-browser').prop('checked', json.alarmHigh).next().text('High Alarm' + appendThresholdValue(app.thresholds.bg_target_top));
         $('#alarm-low-browser').prop('checked', json.alarmLow).next().text('Low Alarm' + appendThresholdValue(app.thresholds.bg_target_bottom));
         $('#alarm-urgentlow-browser').prop('checked', json.alarmUrgentLow).next().text('Urgent Low Alarm' + appendThresholdValue(app.thresholds.bg_low));
 
-        json.nightMode = setDefault(json.nightMode, defaultSettings.nightMode);
+        json.nightMode = setDefault(json.nightMode, app.defaults.nightMode);
         $('#nightmode-browser').prop('checked', json.nightMode);
 
-        if (app.enabledOptions.indexOf('rawbg') == -1) {
-            json.showRawbg = false;
-            $('#show-rawbg-option').hide();
-        } else {
+        if (rawBGsEnabled()) {
             $('#show-rawbg-option').show();
-            if (json.showRawbg === false) {
-                json.showRawbg = 'never';
-            } else if (json.showRawbg === true) {
-                json.showRawbg = 'noise';
-            }
-            json.showRawbg = setDefault(json.showRawbg, (app.enabledOptions.indexOf('rawbg-on') > -1 ? 'noise' : 'never'));
+            json.showRawbg = setDefault(json.showRawbg, app.defaults.showRawbg);
             $('#show-rawbg-' + json.showRawbg).prop('checked', true);
+        } else {
+            json.showRawbg = 'never';
+            $('#show-rawbg-option').hide();
         }
 
-        if (json.customTitle) {
-            $('h1.customTitle').text(json.customTitle);
-            $('input#customTitle').prop('value', json.customTitle);
-            document.title = 'Nightscout: ' + json.customTitle;
-        }
+        json.customTitle = setDefault(json.customTitle, app.defaults.customTitle);
+        $('h1.customTitle').text(json.customTitle);
+        $('input#customTitle').prop('value', json.customTitle);
+        document.title = 'Nightscout: ' + json.customTitle;
 
+        json.theme = setDefault(json.theme, app.defaults.theme);
         if (json.theme == 'colors') {
             $('#theme-colors-browser').prop('checked', true);
         } else {
             $('#theme-default-browser').prop('checked', true);
         }
 
-        json.timeFormat = setDefault(json.timeFormat, defaultSettings.timeFormat);
+        json.timeFormat = setDefault(json.timeFormat, app.defaults.timeFormat);
 
         if (json.timeFormat == '24') {
             $('#24-browser').prop('checked', true);
@@ -136,38 +124,43 @@ function isTouch() {
     catch (e) { return false; }
 }
 
-
-function closeDrawer(callback) {
-    $('#container').animate({marginLeft: '0px'}, 300, callback);
-    $('#chartContainer').animate({marginLeft: '0px'}, 300);
-    $('#drawer').animate({right: '-300px'}, 300, function() {
-        $('#drawer').css('display', 'none');
+function closeDrawer(id, callback) {
+    openDraw = null;
+    $(id).animate({right: '-300px'}, 300, function () {
+        $(id).css('display', 'none');
+        if (callback) callback();
     });
-    drawerIsOpen = false;
 }
 
-function openDrawer()  {
-    drawerIsOpen = true;
-    $('#container').animate({marginLeft: '-300px'}, 300);
-    $('#chartContainer').animate({marginLeft: '-300px'}, 300);
-    $('#drawer').css('display', 'block').animate({right: '0'}, 300);
+function toggleDrawer(id, openCallback, closeCallback) {
+
+    function openDrawer(id, callback) {
+        function closeOpenDraw(callback) {
+            if (openDraw) {
+                closeDrawer(openDraw, callback);
+            } else {
+                callback()
+            }
+        }
+
+        closeOpenDraw(function () {
+            openDraw = id;
+            $(id).css('display', 'block').animate({right: '0'}, 300, function () {
+                if (callback) callback();
+            });
+        });
+
+    }
+
+    if (openDraw == id) {
+        closeDrawer(id, closeCallback);
+    } else {
+        openDrawer(id, openCallback);
+    }
+
 }
 
-function closeTreatmentDrawer(callback) {
-    $('#container').animate({marginLeft: '0px'}, 400, callback);
-    $('#chartContainer').animate({marginLeft: '0px'}, 400);
-    $('#treatmentDrawer').animate({right: '-300px'}, 400, function() {
-        $('#treatmentDrawer').css('display', 'none');
-    });
-    treatmentDrawerIsOpen = false;
-}
-
-function openTreatmentDrawer()  {
-    treatmentDrawerIsOpen = true;
-    $('#container').animate({marginLeft: '-300px'}, 400);
-    $('#chartContainer').animate({marginLeft: '-300px'}, 400);
-    $('#treatmentDrawer').css('display', 'block').animate({right: '0'}, 400);
-
+function initTreatmentDrawer()  {
     $('#eventType').val('BG Check').focus();
     $('#glucoseValue').val('').attr('placeholder', 'Value in ' + browserSettings.units);
     $('#meter').prop('checked', true);
@@ -239,6 +232,7 @@ function treatmentSubmit(event) {
     data.insulin = document.getElementById('insulinGiven').value;
     data.preBolus = document.getElementById('preBolus').value;
     data.notes = document.getElementById('notes').value;
+    data.units = browserSettings.units;
 
     var eventTimeDisplay = '';
     if ($('#treatment-form input[name=nowOrOther]:checked').val() != 'now') {
@@ -274,7 +268,7 @@ function treatmentSubmit(event) {
 
         browserStorage.set('enteredBy', data.enteredBy);
 
-        closeTreatmentDrawer();
+        closeDrawer('#treatmentDrawer');
     }
 
     if (event) {
@@ -307,36 +301,12 @@ Dropdown.prototype.open = function (e) {
 
 
 $('#drawerToggle').click(function(event) {
-    //close other drawers
-    if(treatmentDrawerIsOpen) {
-        closeTreatmentDrawer();
-        treatmentDrawerIsOpen = false;
-    }
-
-    if(drawerIsOpen) {
-        closeDrawer();
-        drawerIsOpen = false;
-    }  else {
-        openDrawer();
-        drawerIsOpen = true;
-    }
+    toggleDrawer('#drawer');
     event.preventDefault();
 });
 
 $('#treatmentDrawerToggle').click(function(event) {
-    //close other drawers
-    if(drawerIsOpen) {
-        closeDrawer();
-        drawerIsOpen = false;
-    }
-
-    if(treatmentDrawerIsOpen) {
-        closeTreatmentDrawer();
-        treatmentDrawerIsOpen = false;
-    }  else {
-        openTreatmentDrawer();
-        treatmentDrawerIsOpen = true;
-    }
+    toggleDrawer('#treatmentDrawer', initTreatmentDrawer);
     event.preventDefault();
 });
 
@@ -394,13 +364,13 @@ $(function() {
         fade: true,
         gravity: 'n',
         opacity: 0.75
-    }
+    };
 
     if (querystring.notify) {
         showNotification(querystring.notify, querystring.notifytype);
     }
 
     if (querystring.drawer) {
-        openDrawer();
+        openDrawer('#drawer');
     }
 });
