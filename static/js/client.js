@@ -383,12 +383,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var bgDelta = scaleBg(current) - scaleBg(prev);
                 if (browserSettings.units == 'mmol') {
                     bgDelta = bgDelta.toFixed(1);
-                    pill.children('label').text('mmol/L');
-                } else {
-                    pill.children('label').text('mg/dL');
                 }
 
                 pill.children('em').text((bgDelta >= 0 ? '+' : '') + bgDelta).show();
+            }
+
+            if (browserSettings.units == 'mmol') {
+                pill.children('label').text('mmol/L');
+            } else {
+                pill.children('label').text('mg/dL');
             }
 
 
