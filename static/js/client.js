@@ -295,6 +295,18 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return errorDisplay;
     }
 
+    function updateTitle(prev, current) {
+        var delta = scaleBg(current) - scaleBg(prev);
+        if (browserSettings.units == 'mmol') {
+            delta = delta.toFixed(1);
+        }
+        var bg_title = scaleBg(current) + ' ' + (delta >= 0 ? '+' : '') + delta;
+        if (browserStorage.get('customTitle')) {
+            bg_title += " " + browserStorage.get('customTitle');
+        }
+        $(document).attr('title', bg_title);
+    }
+
     // function to call when context chart is brushed
     function brushed(skipTimer) {
 
@@ -418,18 +430,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         }
 
-        function updateTitle(prev, current) {
-            var delta = scaleBg(current) - scaleBg(prev);
-            if (browserSettings.units == 'mmol') {
-                delta = delta.toFixed(1);
-            }
-            var bg_title = scaleBg(current) + ' ' + (delta >= 0 ? '+' : '') + delta;
-            if (browserStorage.get('customTitle')) {
-                bg_title += " " + browserStorage.get('customTitle');
-            }
-            $(document).attr('title', bg_title);
-        }
-
         function updateIOBIndicator(time) {
             if (showIOB()) {
                 var pill = currentDetails.find('span.pill.iob');
@@ -527,7 +527,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }
 
             updateBGDelta(prevSGV.y, latestSGV.y);
-            updateTitle(prevSGV.y, latestSGV.y);
             updateIOBIndicator(nowDate);
 
             currentBG.css('text-decoration', '');
@@ -1608,6 +1607,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                         d.color = 'transparent';
                 });
 
+                updateTitle(prevSGV.y, latestSGV.y);
                 if (!isInitialData) {
                     isInitialData = true;
                     initializeCharts();
