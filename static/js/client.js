@@ -15,9 +15,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , TWENTY_FIVE_MINS_IN_MS = 1500000
         , THIRTY_MINS_IN_MS = 1800000
         , SIXTY_MINS_IN_MS = 3600000
-        , FORMAT_TIME_12 = '%I:%M'
+        , FORMAT_TIME_12 = '%-I:%M %p'
+        , FORMAT_TIME_12_COMAPCT = '%-I:%M'
         , FORMAT_TIME_24 = '%H:%M%'
-        , FORMAT_TIME_SCALE = '%I %p'
+        , FORMAT_TIME_12_SCALE = '%-I %p'
+        , FORMAT_TIME_24_SCALE = '%H'
         , WIDTH_SMALL_DOTS = 400
         , WIDTH_BIG_DOTS = 800
         , MINUTE_IN_SECS = 60
@@ -67,41 +69,29 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , brushInProgress = false
         , clip;
 
-    function formatTime(time) {
-        var timeFormat = getTimeFormat();
+    function formatTime(time, compact) {
+        var timeFormat = getTimeFormat(false, compact);
         time = d3.time.format(timeFormat)(time);
-        if(timeFormat == FORMAT_TIME_12){
-            time = time.replace(/^0/, '').toLowerCase();
+        if (!isTimeFormat24()) {
+            time = time.toLowerCase();
         }
       return time;
     }
 
-    function getTimeFormat(isForScale) {
-        var timeFormat = FORMAT_TIME_12;
-        if (browserSettings.timeFormat) {
-            if (browserSettings.timeFormat == '24') {
-                timeFormat = FORMAT_TIME_24;
-            }
-        }
+    function isTimeFormat24() {
+        return browserSettings && browserSettings.timeFormat && parseInt(browserSettings.timeFormat) == 24;
+    }
 
-        if (isForScale && (timeFormat == FORMAT_TIME_12)) {
-            timeFormat = FORMAT_TIME_SCALE
+    function getTimeFormat(isForScale, compact) {
+        var timeFormat = FORMAT_TIME_12;
+        if (isTimeFormat24()) {
+            timeFormat = isForScale ? FORMAT_TIME_24_SCALE : FORMAT_TIME_24;
+        } else {
+            timeFormat = isForScale ? FORMAT_TIME_12_SCALE : (compact ? FORMAT_TIME_12_COMAPCT : FORMAT_TIME_12);
         }
 
         return timeFormat;
     }
-
-    var x2TickFormat = d3.time.format.multi([
-        ['.%L', function(d) { return d.getMilliseconds(); }],
-        [':%S', function(d) { return d.getSeconds(); }],
-        ['%I:%M', function(d) { return d.getMinutes(); }],
-        [(getTimeFormat() == FORMAT_TIME_12) ? '%I %p': '%H:%M%', function(d) { return d.getHours(); }],
-        ['%a %d', function(d) { return d.getDay() && d.getDate() != 1; }],
-        ['%b %d', function(d) { return d.getDate() != 1; }],
-        ['%B', function(d) { return d.getMonth(); }],
-        ['%Y', function() { return true; }]
-    ]);
-
 
     // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
@@ -188,9 +178,20 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         yScale2 = d3.scale.log()
             .domain([scaleBg(36), scaleBg(420)]);
 
+        var tickFormat = d3.time.format.multi(  [
+            ['.%L', function(d) { return d.getMilliseconds(); }],
+            [':%S', function(d) { return d.getSeconds(); }],
+            ['%I:%M', function(d) { return d.getMinutes(); }],
+            [isTimeFormat24() ? '%H:%M' : '%-I %p', function(d) { return d.getHours(); }],
+            ['%a %d', function(d) { return d.getDay() && d.getDate() != 1; }],
+            ['%b %d', function(d) { return d.getDate() != 1; }],
+            ['%B', function(d) { return d.getMonth(); }],
+            ['%Y', function() { return true; }]
+        ]);
+
         xAxis = d3.svg.axis()
             .scale(xScale)
-            .tickFormat(d3.time.format(getTimeFormat(true)))
+            .tickFormat(tickFormat)
             .ticks(4)
             .orient('bottom');
 
@@ -200,10 +201,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .tickValues(tickValues)
             .orient('left');
 
-      xAxis2 = d3.svg.axis()
+        xAxis2 = d3.svg.axis()
           .scale(xScale2)
-          .tickFormat(x2TickFormat)
-          .ticks(4)
+          .tickFormat(tickFormat)
+          .ticks(6)
           .orient('bottom');
 
         yAxis2 = d3.svg.axis()
@@ -295,6 +296,18 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return errorDisplay;
     }
 
+    function updateTitle(prev, current) {
+        var delta = scaleBg(current) - scaleBg(prev);
+        if (browserSettings.units == 'mmol') {
+            delta = delta.toFixed(1);
+        }
+        var bg_title = scaleBg(current) + ' ' + (delta >= 0 ? '+' : '') + delta;
+        if (browserStorage.get('customTitle')) {
+            bg_title += " " + browserStorage.get('customTitle');
+        }
+        $(document).attr('title', bg_title);
+    }
+
     // function to call when context chart is brushed
     function brushed(skipTimer) {
 
@@ -369,28 +382,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             currentBG.toggleClass('bg-limit', value == 39 || value > 400);
         }
 
-        function updateCurrentNoise(entry) {
-            var noise = entry.noise
-                , noiseType;
-
-            if (!showRawBGs(entry.y, noise, cal)) {
-                noiseType = null;
-            } else if (entry.y < 40) {
-                noiseType = 'error';
-            } else if (noise == 2) {
-                noiseType = 'light';
-            } else if (noise == 3) {
-                noiseType = 'medium';
-            } else if (noise >= 4) {
-                noiseType = 'heavy';
-            }
-
-            bgButton.removeClass('noise-light noise-medium noise-heavy noise-error');
-            if (noiseType) {
-                bgButton.addClass('noise-' + noiseType);
-            }
-        }
-
         function updateBGDelta(prev, current) {
 
             var pill = currentDetails.find('span.pill.bgdelta');
@@ -400,14 +391,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }
 
             if (prev === undefined || current == undefined || prev < 40 || prev > 400 || current < 40 || current > 400) {
-                pill.children('em').text('#');
+                pill.children('em').hide();
             } else {
                 var bgDelta = scaleBg(current) - scaleBg(prev);
                 if (browserSettings.units == 'mmol') {
                     bgDelta = bgDelta.toFixed(1);
                 }
 
-                pill.children('em').text((bgDelta >= 0 ? '+' : '') + bgDelta);
+                pill.children('em').text((bgDelta >= 0 ? '+' : '') + bgDelta).show();
             }
 
             if (browserSettings.units == 'mmol') {
@@ -415,6 +406,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             } else {
                 pill.children('label').text('mg/dL');
             }
+
 
         }
 
@@ -445,7 +437,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         });
 
         if (inRetroMode()) {
-            var time = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
+            var retroTime = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
+
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
             var lookbackTime = (lookback + 2) * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
             nowData = nowData.filter(function(d) {
@@ -461,17 +454,18 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 return ok;
             });
 
-            if (nowData.length > lookback) {
-                var focusPoint = nowData[nowData.length - 1];
-                var prevfocusPoint = nowData[nowData.length - 2];
-
+            var focusPoint = nowData.length > 0 ? nowData[nowData.length - 1] : null;
+            if (focusPoint) {
                 updateCurrentSGV(focusPoint);
-                updateCurrentNoise(focusPoint);
-
-                updateBGDelta(prevfocusPoint.y, focusPoint.y);
-
                 currentBG.css('text-decoration','line-through');
                 currentDirection.html(focusPoint.y < 39 ? '✖' : focusPoint.direction);
+
+                var prevfocusPoint = nowData.length > lookback ? nowData[nowData.length - 2] : null;
+                if (prevfocusPoint) {
+                    updateBGDelta(prevfocusPoint.y, focusPoint.y);
+                } else {
+                    updateBGDelta();
+                }
             } else {
                 updateBGDelta();
                 currentBG.text('---');
@@ -480,10 +474,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 bgButton.removeClass('urgent warning inrange');
             }
 
-            updateIOBIndicator(time);
+            updateIOBIndicator(retroTime);
 
             $('#currentTime')
-                .text(formatTime(time))
+                .text(formatTime(retroTime, true))
                 .css('text-decoration','line-through');
 
             updateTimeAgo();
@@ -493,7 +487,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             nowDate = new Date(now);
 
             updateCurrentSGV(latestSGV);
-            updateCurrentNoise(latestSGV);
             updateClockDisplay();
             updateTimeAgo();
 
@@ -543,6 +536,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             return radius / focusRangeAdjustment;
         };
 
+        function isDexcom(device) {
+            return device && device.toLowerCase().indexOf('dexcom') == 0;
+        }
+
         function prepareFocusCircles(sel) {
             var badData = [];
             sel.attr('cx', function (d) { return xScale(d.date); })
@@ -558,8 +555,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); })
                 .attr('stroke-width', function (d) { if (d.type == 'mbg') return 2; else return 0; })
                 .attr('stroke', function (d) {
-                    var device = d.device && d.device.toLowerCase();
-                    return (device == 'dexcom' ? 'white' : '#0099ff');
+                    return (isDexcom(d.device) ? 'white' : '#0099ff');
                 })
                 .attr('r', function (d) { return dotRadius(d.type); });
 
@@ -578,8 +574,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .on('mouseover', function (d) {
                 if (d.type != 'sgv' && d.type != 'mbg') return;
 
-                var device = d.device && d.device.toLowerCase()
-                    , bgType = (d.type == 'sgv' ? 'CGM' : (device == 'dexcom' ? 'Calibration' : 'Meter'))
+                var bgType = (d.type == 'sgv' ? 'CGM' : (isDexcom(d.device) ? 'Calibration' : 'Meter'))
                     , rawBG = 0
                     , noiseLabel = '';
 
@@ -1191,7 +1186,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var totalBG = 0;
         closeBGs.forEach(function(d) {
           totalBG += Number(d.y);
-            parseFloat()
         });
 
         return totalBG > 0 ? (totalBG / closeBGs.length) : 450;
@@ -1213,7 +1207,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
               treatmentGlucose = scaleBg(treatment.glucose);
             }
           } else {
-            console.warn('found an VALID glucose value', treatment);
             treatmentGlucose = treatment.glucose;
           }
         } else if (treatment.glucose) {
@@ -1409,7 +1402,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         if (inRetroMode()) return;
         now = Date.now();
         var dateTime = new Date(now);
-        $('#currentTime').text(formatTime(dateTime)).css('text-decoration', '');
+        $('#currentTime').text(formatTime(dateTime, true)).css('text-decoration', '');
     }
 
     function updateTimeAgo() {
@@ -1569,13 +1562,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var temp1 = [ ];
                 if (cal && isRawBGEnabled()) {
                     temp1 = d[0].map(function (entry) {
-                        var noise = entry.noise || 0;
-                        var rawBg = noise < 2 && browserSettings.showRawbg != 'always' ? 0 : rawIsigToRawBg(entry, cal);
-                        return { date: new Date(entry.x - 2 * 1000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg'}
-                    }).filter(function(entry) { return entry.y > 0});
+                        var rawBg = showRawBGs(entry.y, entry.noise, cal) ? rawIsigToRawBg(entry, cal) : 0;
+                        if (rawBg > 0) {
+                            return { date: new Date(entry.x - 2000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg' };
+                        } else {
+                            return null;
+                        }
+                    }).filter(function(entry) { return entry != null; });
                 }
                 var temp2 = d[0].map(function (obj) {
-                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered}
+                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
                 });
                 data = [];
                 data = data.concat(temp1, temp2);
@@ -1595,6 +1591,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                         d.color = 'transparent';
                 });
 
+                updateTitle(prevSGV.y, latestSGV.y);
                 if (!isInitialData) {
                     isInitialData = true;
                     initializeCharts();
