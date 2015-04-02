@@ -27,7 +27,7 @@ function config ( ) {
   } else {
     git.short(function record_git_head (head) {
       console.log("GIT HEAD", head);
-      env.head = head || readENV("SCM_COMMIT_ID", "");
+      env.head = head || readENV('SCM_COMMIT_ID') || readENV('COMMIT_HASH', '');
     });
   }
   env.version = software.version;
