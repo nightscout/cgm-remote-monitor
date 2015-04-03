@@ -12,6 +12,11 @@
       "value": "",
       "required": true
     },
+    "DISPLAY_UNITS": {
+      "description": "Default null value implies 'mg/dl'.  Seting to 'mmol' forces the server to display BG data in mmol.  This affects the main website and Pebble endpoint.",
+      "value": "",
+      "required": false
+    }
     "ENABLE": {
       "description": "Space delimited list of optional features to enable, such as 'careportal'.",
       "value": "",
@@ -55,5 +60,6 @@
   },
   "addons": [
     "mongolab:sandbox"
+    "papertrail"
   ]
 }
