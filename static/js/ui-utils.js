@@ -126,6 +126,7 @@ function isTouch() {
 
 function closeDrawer(id, callback) {
     openDraw = null;
+    $("html, body").animate({ scrollTop: 0 });
     $(id).animate({right: '-300px'}, 300, function () {
         $(id).css('display', 'none');
         if (callback) callback();
