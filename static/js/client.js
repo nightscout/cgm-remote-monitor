@@ -299,7 +299,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
 
     // clears the current user brush and resets to the current real time data
-    function updateBrushToNow() {
+    function updateBrushToNow(skipBrushing) {
 
         // get current time range
         var dataRange = d3.extent(data, dateFn);
@@ -309,10 +309,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .transition()
             .duration(UPDATE_TRANS_MS)
             .call(brush.extent([new Date(dataRange[1].getTime() - foucusRangeMS), dataRange[1]]));
-        brushed(true);
 
-        // clear user brush tracking
-        brushInProgress = false;
+        if (!skipBrushing) {
+            brushed(true);
+
+            // clear user brush tracking
+            brushInProgress = false;
+        }
     }
 
     function brushStarted() {
@@ -1549,9 +1552,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             resizeTimer = setTimeout(function () {
                 if (updateToNow) {
                     updateBrushToNow();
-                } else {
-                    updateChart(false);
                 }
+                updateChart(false);
             }, 200);
         }
 
