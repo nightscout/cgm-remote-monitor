@@ -123,9 +123,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return decodeHTMLEntities;
     })();
 
-    function updateTitle(prevEntry, currentEntry) {
+    function updateTitle() {
 
-        var time = currentEntry ? new Date(currentEntry.x).getTime() : (prevEntry ? new Date(prevEntry.x).getTime() : -1)
+        var time = latestSGV ? new Date(latestSGV.x).getTime() : (prevSGV ? new Date(prevSGV.x).getTime() : -1)
             , ago = timeAgo(time);
 
         var bg_title = browserStorage.get('customTitle') || '';
@@ -134,14 +134,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         if (ago && ago.status !== 'current') {
             bg_title =  s(ago.value) + s(ago.label, ' - ') + bg_title;
-        } else if (currentEntry) {
-            var currentMgdl = currentEntry.y;
+        } else if (latestSGV) {
+            var currentMgdl = latestSGV.y;
 
             if (currentMgdl < 39) {
                 bg_title = s(errorCodeToDisplay(currentMgdl), ' - ') + bg_title;
             } else {
-                var deltaDisplay = calcDeltaDisplay(prevEntry, currentEntry);
-                bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(decodeEntities(currentEntry.direction)) + bg_title;
+                var deltaDisplay = calcDeltaDisplay(prevSGV, latestSGV);
+                bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(decodeEntities(latestSGV.direction)) + bg_title;
             }
         }
 
@@ -1649,7 +1649,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                         d.color = 'transparent';
                 });
 
-                updateTitle(prevSGV, latestSGV);
+                updateTitle();
                 if (!isInitialData) {
                     isInitialData = true;
                     initializeCharts();
