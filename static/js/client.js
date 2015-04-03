@@ -123,7 +123,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return decodeHTMLEntities;
     })();
 
-    function updateTitle(prevEntry, currentEntry, ago) {
+    function updateTitle(prevEntry, currentEntry) {
+
+        var time = currentEntry ? new Date(currentEntry.x).getTime() : (prevEntry ? new Date(prevEntry.x).getTime() : -1)
+            , ago = timeAgo(time);
 
         var bg_title = browserStorage.get('customTitle') || '';
 
@@ -131,8 +134,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         if (ago && ago.status !== 'current') {
             bg_title =  s(ago.value) + s(ago.label, ' - ') + bg_title;
-        } else {
-            var currentMgdl = currentEntry && currentEntry.y;
+        } else if (currentEntry) {
+            var currentMgdl = currentEntry.y;
 
             if (currentMgdl < 39) {
                 bg_title = s(errorCodeToDisplay(currentMgdl), ' - ') + bg_title;
@@ -140,7 +143,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 var deltaDisplay = calcDeltaDisplay(prevEntry, currentEntry);
                 bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(decodeEntities(currentEntry.direction)) + bg_title;
             }
-
         }
 
         $(document).attr('title', bg_title);
