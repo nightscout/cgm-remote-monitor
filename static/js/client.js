@@ -646,7 +646,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
                     '<br/><strong>Time:</strong> ' + formatTime(d.date))
                     .style('left', (d3.event.pageX) + 'px')
-                    .style('top', (d3.event.pageY - 28) + 'px');
+                    .style('top', (d3.event.pageY + 15) + 'px');
             })
             .on('mouseout', function (d) {
                 if (d.type != 'sgv' && d.type != 'mbg') return;
@@ -747,7 +747,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                         (d.notes ? '<strong>Notes:</strong> ' + d.notes : '')
                     )
                     .style('left', (d3.event.pageX) + 'px')
-                    .style('top', (d3.event.pageY - 28) + 'px');
+                    .style('top', (d3.event.pageY + 15) + 'px');
                 })
                 .on('mouseout', function () {
                     tooltip.transition()
@@ -1323,7 +1323,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                         (treatment.notes ? '<strong>Notes:</strong> ' + treatment.notes : '')
                 )
                 .style('left', (d3.event.pageX) + 'px')
-                .style('top', (d3.event.pageY - 28) + 'px');
+                .style('top', (d3.event.pageY + 15) + 'px');
             })
             .on('mouseout', function () {
                 tooltip.transition()
