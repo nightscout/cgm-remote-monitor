@@ -128,7 +128,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var time = latestSGV ? new Date(latestSGV.x).getTime() : (prevSGV ? new Date(prevSGV.x).getTime() : -1)
             , ago = timeAgo(time);
 
-        var bg_title = browserStorage.get('customTitle') || '';
+        var bg_title = browserSettings.customTitle || '';
 
         function s(value, sep) { return value ? value + ' ' : sep || ''; }
 
