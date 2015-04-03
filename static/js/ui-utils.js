@@ -67,7 +67,6 @@ function getBrowserSettings(storage) {
         json.customTitle = setDefault(json.customTitle, app.defaults.customTitle);
         $('h1.customTitle').text(json.customTitle);
         $('input#customTitle').prop('value', json.customTitle);
-        document.title = 'Nightscout: ' + json.customTitle;
 
         json.theme = setDefault(json.theme, app.defaults.theme);
         if (json.theme == 'colors') {
