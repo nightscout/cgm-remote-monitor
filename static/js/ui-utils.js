@@ -327,7 +327,7 @@ $('#notification').click(function(event) {
     event.preventDefault();
 });
 
-$('button#save').click(function(event) {
+$('#save').click(function(event) {
     storeInBrowser({
         'units': $('input:radio[name=units-browser]:checked').val(),
         'alarmUrgentHigh': $('#alarm-urgenthigh-browser').prop('checked'),
@@ -346,9 +346,12 @@ $('button#save').click(function(event) {
 });
 
 
-$('button#useDefaults').click(function(event) {
-    console.info('>>>>browserStorage', browserStorage);
-    browserStorage.removeAll();
+$('#useDefaults').click(function(event) {
+    //remove all known settings, since there might be something else is in localstorage
+    var settings = ['units', 'alarmUrgentHigh', 'alarmHigh', 'alarmLow', 'alarmUrgentLow', 'nightMode', 'showRawbg', 'customTitle', 'theme', 'timeFormat'];
+    settings.forEach(function(setting) {
+        browserStorage.remove(setting);
+    });
     event.preventDefault();
     reload();
 });
