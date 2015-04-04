@@ -161,7 +161,7 @@ function toggleDrawer(id, openCallback, closeCallback) {
 }
 
 function initTreatmentDrawer()  {
-    $('#eventType').val('BG Check').focus();
+    $('#eventType').val('BG Check');
     $('#glucoseValue').val('').attr('placeholder', 'Value in ' + browserSettings.units);
     $('#meter').prop('checked', true);
     $('#carbsGiven').val('');
