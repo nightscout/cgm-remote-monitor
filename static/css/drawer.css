@@ -66,7 +66,7 @@
 }
 
 #eventTime {
-
+    padding-bottom: 5px;
 }
 
 #eventTime > span {
@@ -258,3 +258,27 @@ h1, legend,
     color: #fff;
     font-size: 1.5em;
 }
+
+button {
+    background-color: #bbb;
+    font-size: 16px;
+    padding: 5px;
+    border-radius: 5px;
+    border: 2px solid #aaa;
+    margin: 15px 0;
+}
+
+button.default {
+    font-weight: bolder;
+    background-color: #ccc;
+    box-shadow: 2px 2px 0 #eee;
+}
+
+.pull-right {
+    float: right;
+}
+
+#drawer button {
+    margin: 15px;
+}
+

@@ -327,7 +327,7 @@ $('#notification').click(function(event) {
     event.preventDefault();
 });
 
-$('input#save').click(function(event) {
+$('button#save').click(function(event) {
     storeInBrowser({
         'units': $('input:radio[name=units-browser]:checked').val(),
         'alarmUrgentHigh': $('#alarm-urgenthigh-browser').prop('checked'),
@@ -342,14 +342,24 @@ $('input#save').click(function(event) {
     });
 
     event.preventDefault();
+    reload();
+});
 
+
+$('button#useDefaults').click(function(event) {
+    console.info('>>>>browserStorage', browserStorage);
+    browserStorage.removeAll();
+    event.preventDefault();
+    reload();
+});
+
+function reload() {
     // reload for changes to take effect
     // -- strip '#' so form submission does not fail
     var url = window.location.href;
     url = url.replace(/#$/, '');
     window.location = url;
-});
-
+}
 
 $(function() {
     // Tooltips can remain in the way on touch screens.
