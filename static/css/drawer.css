@@ -1,3 +1,13 @@
+#drawer button, #treatmentDrawer button{
+    font-size: 18px;
+    font-weight: bolder;
+    background-color: #ccc;
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 2px solid #aaa;
+    box-shadow: 2px 2px 0 #eee;
+}
+
 #drawer {
     background-color: #666;
     border-left: 1px solid #999;
@@ -14,8 +24,25 @@
     top: 0;
     z-index: 1;
 }
-#drawer i {
+
+#drawer i, #treatmentDrawer i {
     opacity: 0.6;
+}
+
+#drawer a, #treatmentDrawer a {
+    color: white;
+}
+
+input[type=number]:invalid {
+    background-color: #FFCCCC;
+}
+
+#drawer .actions {
+    margin: 10px 2px;
+}
+
+#drawer .actions a {
+    padding-left: 20px;
 }
 
 #treatmentDrawer {
@@ -33,13 +60,6 @@
     width: 300px;
     top: 0;
     z-index: 1;
-}
-#treatmentDrawer i {
-    opacity: 0.6;
-}
-
-#treatmentDrawer a {
-  color: white;
 }
 
 #treatmentDrawer input {
@@ -66,7 +86,7 @@
 }
 
 #eventTime {
-
+    padding-bottom: 15px;
 }
 
 #eventTime > span {
