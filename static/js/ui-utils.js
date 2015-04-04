@@ -224,51 +224,68 @@ function showLocalstorageError() {
 function treatmentSubmit(event) {
 
     var data = {};
-    data.enteredBy = document.getElementById('enteredBy').value;
-    data.eventType = document.getElementById('eventType').value;
-    data.glucose = document.getElementById('glucoseValue').value;
+    data.enteredBy = $('#enteredBy').val();
+    data.eventType = $('#eventType').val();
+    data.glucose = $('#glucoseValue').val();
     data.glucoseType = $('#treatment-form input[name=glucoseType]:checked').val();
-    data.carbs = document.getElementById('carbsGiven').value;
-    data.insulin = document.getElementById('insulinGiven').value;
-    data.preBolus = document.getElementById('preBolus').value;
-    data.notes = document.getElementById('notes').value;
+    data.carbs = $('#carbsGiven').val();
+    data.insulin = $('#insulinGiven').val();
+    data.preBolus = $('#preBolus').val();
+    data.notes = $('#notes').val();
     data.units = browserSettings.units;
 
-    var eventTimeDisplay = '';
-    if ($('#treatment-form input[name=nowOrOther]:checked').val() != 'now') {
-        var value = document.getElementById('eventTimeValue').value;
-        var eventTimeParts = value.split(':');
-        data.eventTime = new Date();
-        data.eventTime.setHours(eventTimeParts[0]);
-        data.eventTime.setMinutes(eventTimeParts[1]);
-        data.eventTime.setSeconds(0);
-        data.eventTime.setMilliseconds(0);
-        eventTimeDisplay = formatTime(data.eventTime);
+    var errors = [];
+    if (isNaN(data.glucose)) {
+        errors.push('Blood glucose must be a number');
     }
 
-    var dataJson = JSON.stringify(data, null, ' ');
+    if (isNaN(data.carbs)) {
+        errors.push('Carbs must be a number');
+    }
 
-    var ok = window.confirm(
-            'Please verify that the data entered is correct: ' +
-            '\nEvent type: ' + data.eventType +
-            '\nBlood glucose: ' + data.glucose +
-            '\nMethod: ' + data.glucoseType +
-            '\nCarbs Given: ' + data.carbs +
-            '\nInsulin Given: ' + data.insulin +
-            '\nPre Bolus: ' + data.preBolus +
-            '\nNotes: ' + data.notes +
-            '\nEntered By: ' + data.enteredBy +
-            '\nEvent Time: ' + eventTimeDisplay);
+    if (isNaN(data.insulin)) {
+        errors.push('Insulin must be a number');
+    }
 
-    if (ok) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/v1/treatments/', true);
-        xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-        xhr.send(dataJson);
+    if (errors.length > 0) {
+        window.alert(errors.join('\n'));
+    } else {
+        var eventTimeDisplay = '';
+        if ($('#treatment-form input[name=nowOrOther]:checked').val() != 'now') {
+            var value = $('#eventTimeValue').val();
+            var eventTimeParts = value.split(':');
+            data.eventTime = new Date();
+            data.eventTime.setHours(eventTimeParts[0]);
+            data.eventTime.setMinutes(eventTimeParts[1]);
+            data.eventTime.setSeconds(0);
+            data.eventTime.setMilliseconds(0);
+            eventTimeDisplay = formatTime(data.eventTime);
+        }
 
-        browserStorage.set('enteredBy', data.enteredBy);
+        var dataJson = JSON.stringify(data, null, ' ');
 
-        closeDrawer('#treatmentDrawer');
+        var ok = window.confirm(
+                'Please verify that the data entered is correct: ' +
+                '\nEvent type: ' + data.eventType +
+                '\nBlood glucose: ' + data.glucose +
+                '\nMethod: ' + data.glucoseType +
+                '\nCarbs Given: ' + data.carbs +
+                '\nInsulin Given: ' + data.insulin +
+                '\nPre Bolus: ' + data.preBolus +
+                '\nNotes: ' + data.notes +
+                '\nEntered By: ' + data.enteredBy +
+                '\nEvent Time: ' + eventTimeDisplay);
+
+        if (ok) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/v1/treatments/', true);
+            xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+            xhr.send(dataJson);
+
+            browserStorage.set('enteredBy', data.enteredBy);
+
+            closeDrawer('#treatmentDrawer');
+        }
     }
 
     if (event) {

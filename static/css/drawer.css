@@ -33,6 +33,10 @@
     color: white;
 }
 
+input[type=number]:invalid {
+    background-color: #FFCCCC;
+}
+
 #drawer .actions {
     margin: 10px 2px;
 }
