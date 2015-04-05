@@ -25,4 +25,12 @@ $(function() {
 		$("#toolbar").css({'background-image':'url('+newIcon+')'});
 		event.preventDefault();
 	});
+
+  var egghunt = 0;
+  $("#toolbar").click(function() {
+    if (egghunt > 6) {
+      $("#toolbar").css({'background-image': 'url(/images/logo-egg.png)'});
+    }
+    egghunt++;
+  });
 });
