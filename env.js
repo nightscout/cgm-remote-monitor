@@ -27,12 +27,12 @@ function config ( ) {
   } else {
     git.short(function record_git_head (head) {
       console.log("GIT HEAD", head);
-      env.head = head || readENV("SCM_COMMIT_ID", "");
+      env.head = head || readENV('SCM_COMMIT_ID') || readENV('COMMIT_HASH', '');
     });
   }
   env.version = software.version;
   env.name = software.name;
-  env.MQTT_MONITOR = process.env.MQTT_MONITOR || null;
+  env.MQTT_MONITOR = readENV('MQTT_MONITOR', null);
   env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
   env.PORT = readENV('PORT', 1337);
   env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI');
