@@ -25,4 +25,8 @@ $(function() {
 		$("#toolbar").css({'background-image':'url('+newIcon+')'});
 		event.preventDefault();
 	});
+
+  $("#toolbar").click(function() {
+    $("#toolbar").css({'background-image':'url(/images/logo-egg.png)'});
+  });
 });
