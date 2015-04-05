@@ -23,13 +23,13 @@ TODO:
 			"validfrom": new Date(),
 			
 			//Bolus calculator style values, "from" are in minutes from midnight
-			"ic": [{"from":0,"val":24},
+			"ic": [{"from":0,"val":0},
 					{"from":48*30,"val":0}
 					],
 			"car_high": 30,
 			"car_medium": 30,
 			"car_low": 30,
-			"isf": [{"from":0,"val":17},
+			"isf": [{"from":0,"val":0},
 					{"from":48*30,"val":0}
 					],
 
