@@ -4,6 +4,7 @@ var FIVE_MINS = 10 * 60 * 1000;
 
 describe('IOB', function ( ) {
   var iob = require('../lib/iob')();
+  var currentProfile = require('../lib/currentProfile')();
 
   it('should calculate IOB', function() {
 
@@ -13,21 +14,17 @@ describe('IOB', function ( ) {
           insulin: "1.00"
         }
       ]
-      , profile = {
-        dia: 3,
-        sens: 0
-      };
 
-    var rightAfterBolus = iob.calcTotal(treatments, profile, time);
+    var rightAfterBolus = iob.calcTotal(treatments, time);
 
     rightAfterBolus.display.should.equal('1.00');
 
-    var afterSomeTime = iob.calcTotal(treatments, profile, new Date(time.getTime() + (60 * 60 * 1000)));
+    var afterSomeTime = iob.calcTotal(treatments, new Date(time.getTime() + (60 * 60 * 1000)));
 
     afterSomeTime.iob.should.be.lessThan(1);
     afterSomeTime.iob.should.be.greaterThan(0);
 
-    var afterDIA = iob.calcTotal(treatments, profile, new Date(time.getTime() + (3 * 60 * 60 * 1000)));
+    var afterDIA = iob.calcTotal(treatments, new Date(time.getTime() + (3 * 60 * 60 * 1000)));
 
     afterDIA.iob.should.equal(0);
 
@@ -55,7 +52,7 @@ describe('IOB', function ( ) {
       insulin: "5.00"
     }];
 
-    var whenApproaching0 = iob.calcTotal(treatments, undefined, new Date(time + (3 * 60 * 60 * 1000) - (90 * 1000)));
+    var whenApproaching0 = iob.calcTotal(treatments, new Date(time + (3 * 60 * 60 * 1000) - (90 * 1000)));
 
     //before fix we got this: AssertionError: expected '-0.00' to be '0.00'
     whenApproaching0.display.should.equal('0.00');
@@ -69,26 +66,26 @@ describe('IOB', function ( ) {
         created_at: time - 1,
         insulin: "1.00"
       }
-      ]
-      , profile = {
+      ];
+      currentProfile.update({
         dia: 4,
         sens: 0
-      };
+      });
 
-    var rightAfterBolus = iob.calcTotal(treatments, profile, time);
+    var rightAfterBolus = iob.calcTotal(treatments, time);
 
     rightAfterBolus.display.should.equal('1.00');
 
-    var afterSomeTime = iob.calcTotal(treatments, profile, new Date(time.getTime() + (60 * 60 * 1000)));
+    var afterSomeTime = iob.calcTotal(treatments, new Date(time.getTime() + (60 * 60 * 1000)));
 
     afterSomeTime.iob.should.be.lessThan(1);
     afterSomeTime.iob.should.be.greaterThan(0);
 
-    var after3hDIA = iob.calcTotal(treatments, profile, new Date(time.getTime() + (3 * 60 * 60 * 1000)));
+    var after3hDIA = iob.calcTotal(treatments, new Date(time.getTime() + (3 * 60 * 60 * 1000)));
 
     after3hDIA.iob.should.greaterThan(0);
 
-    var after4hDIA = iob.calcTotal(treatments, profile, new Date(time.getTime() + (3 * 60 * 60 * 1000)));
+    var after4hDIA = iob.calcTotal(treatments, new Date(time.getTime() + (3 * 60 * 60 * 1000)));
 
     after4hDIA.iob.should.greaterThan(0);
 
