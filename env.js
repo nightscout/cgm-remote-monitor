@@ -58,6 +58,8 @@ function config ( ) {
     , 'alarmHigh': true
     , 'alarmLow': true
     , 'alarmUrgentLow': true
+    , 'alarmTimeAgoWarn': true
+    , 'alarmTimeAgoUrgent': true
     , 'language': 'en' // not used yet
   } ;
 
@@ -74,7 +76,9 @@ function config ( ) {
   env.defaults.alarmHigh = readENV('ALARM_HIGH', env.defaults.alarmHigh);
   env.defaults.alarmLow = readENV('ALARM_LOW', env.defaults.alarmLow);
   env.defaults.alarmUrgentLow = readENV('ALARM_URGENT_LOW', env.defaults.alarmUrgentLow);
- 
+  env.defaults.alarmTimeAgoWarn = readENV('ALARM_TIMEAGO_WARN', env.defaults.alarmTimeAgoWarn);
+  env.defaults.alarmTimeAgoUrgent = readENV('ALARM_TIMEAGO_URGENT', env.defaults.alarmTimeAgoUrgent);
+
   //console.log(JSON.stringify(env.defaults));
   
   env.SSL_KEY = readENV('SSL_KEY');

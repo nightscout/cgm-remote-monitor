@@ -28,6 +28,8 @@ function getBrowserSettings(storage) {
             'alarmHigh': storage.get('alarmHigh'),
             'alarmLow': storage.get('alarmLow'),
             'alarmUrgentLow': storage.get('alarmUrgentLow'),
+            'alarmTimeAgoWarn': storage.get('alarmTimeAgoWarn'),
+            'alarmTimeAgoUrgent': storage.get('alarmTimeAgoUrgent'),
             'nightMode': storage.get('nightMode'),
             'showRawbg': storage.get('showRawbg'),
             'customTitle': storage.get('customTitle'),
@@ -47,10 +49,14 @@ function getBrowserSettings(storage) {
         json.alarmHigh = setDefault(json.alarmHigh, app.defaults.alarmHigh);
         json.alarmLow = setDefault(json.alarmLow, app.defaults.alarmLow);
         json.alarmUrgentLow = setDefault(json.alarmUrgentLow, app.defaults.alarmUrgentLow);
+        json.alarmTimeAgoWarn = setDefault(json.alarmTimeAgoWarn, app.defaults.alarmTimeAgoWarn);
+        json.alarmTimeAgoUrgent = setDefault(json.alarmTimeAgoUrgent, app.defaults.alarmTimeAgoUrgent);
         $('#alarm-urgenthigh-browser').prop('checked', json.alarmUrgentHigh).next().text('Urgent High Alarm' + appendThresholdValue(app.thresholds.bg_high));
         $('#alarm-high-browser').prop('checked', json.alarmHigh).next().text('High Alarm' + appendThresholdValue(app.thresholds.bg_target_top));
         $('#alarm-low-browser').prop('checked', json.alarmLow).next().text('Low Alarm' + appendThresholdValue(app.thresholds.bg_target_bottom));
         $('#alarm-urgentlow-browser').prop('checked', json.alarmUrgentLow).next().text('Urgent Low Alarm' + appendThresholdValue(app.thresholds.bg_low));
+        $('#alarm-timeagowarn-browser').prop('checked', json.alarmTimeAgoWarn);
+        $('#alarm-timeagourgent-browser').prop('checked', json.alarmTimeAgoUrgent);
 
         json.nightMode = setDefault(json.nightMode, app.defaults.nightMode);
         $('#nightmode-browser').prop('checked', json.nightMode);
@@ -351,6 +357,8 @@ $('#save').click(function(event) {
         'alarmHigh': $('#alarm-high-browser').prop('checked'),
         'alarmLow': $('#alarm-low-browser').prop('checked'),
         'alarmUrgentLow': $('#alarm-urgentlow-browser').prop('checked'),
+        'alarmTimeAgoWarn': $('#alarm-timeagowarn-browser').prop('checked'),
+        'alarmTimeAgoUrgent': $('#alarm-timeagourgent-browser').prop('checked'),
         'nightMode': $('#nightmode-browser').prop('checked'),
         'showRawbg': $('input:radio[name=show-rawbg]:checked').val(),
         'customTitle': $('input#customTitle').prop('value'),
@@ -365,7 +373,7 @@ $('#save').click(function(event) {
 
 $('#useDefaults').click(function(event) {
     //remove all known settings, since there might be something else is in localstorage
-    var settings = ['units', 'alarmUrgentHigh', 'alarmHigh', 'alarmLow', 'alarmUrgentLow', 'nightMode', 'showRawbg', 'customTitle', 'theme', 'timeFormat'];
+    var settings = ['units', 'alarmUrgentHigh', 'alarmHigh', 'alarmLow', 'alarmUrgentLow', 'alarmTimeAgoWarn', 'alarmTimeAgoUrgent', 'nightMode', 'showRawbg', 'customTitle', 'theme', 'timeFormat'];
     settings.forEach(function(setting) {
         browserStorage.remove(setting);
     });
