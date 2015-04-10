@@ -125,6 +125,8 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `ALARM_HIGH` (`on`) - possible values `on` or `off`
   * `ALARM_LOW` (`on`) - possible values `on` or `off`
   * `ALARM_URGENT_LOW` (`on`) - possible values `on` or `off`
+  * `ALARM_TIMEAGO_WARN` (`on`) - possible values `on` or `off`
+  * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
   
   
 ## Setting environment variables
