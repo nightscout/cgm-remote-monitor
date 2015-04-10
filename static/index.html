@@ -104,7 +104,10 @@
                     </dl>
                 </fieldset>
 
-                <input type="submit" id="save" value="Save" />
+                <div class="actions">
+                  <button type="button" id="save">Save</button>
+                  <a id="useDefaults" class="pull-right" href="">Reset, and use defaults</a>
+                </div>
 
                 <fieldset class="experiments">
                     <legend>Experiments</legend>
@@ -136,7 +139,7 @@
         </div>
 
         <div id="treatmentDrawer">
-            <form id="treatment-form" onsubmit="return treatmentSubmit();">
+            <form id="treatment-form">
                 <fieldset class="treatmentData">
                     <legend>Log a Treatment</legend>
                     <label for="eventType" class="left-column">
@@ -211,7 +214,7 @@
                       <input type="time" id="eventTimeValue" name="eventTimeValue" value=""/>
                     </div>
 
-                  <button type="submit">Submit Form</button>
+                  <button type="button">Submit Form</button>
                 </fieldset>
                 <a href="/treatments.html" target="treatments">View all treatments</a>
             </form>
