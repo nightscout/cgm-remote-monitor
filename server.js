@@ -53,6 +53,7 @@ var treatmentsStorage = treatments.storage(env.treatments_collection, store, pus
 var devicestatusStorage = devicestatus.storage(env.devicestatus_collection, store);
 var api = require('./lib/api/')(env, entriesStorage, settings, treatmentsStorage, devicestatusStorage);
 var pebble = require('./lib/pebble');
+var garmin = require('./lib/garmin');
 ///////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////
@@ -72,6 +73,9 @@ app.use('/api/v1', api);
 
 // pebble data
 app.get('/pebble', pebble(entriesStorage, devicestatusStorage, env));
+
+// garmin data
+app.get('/garmin', garmin(entriesStorage, devicestatusStorage, env));
 
 //app.get('/package.json', software);
 
