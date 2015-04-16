@@ -41,7 +41,8 @@ function config ( ) {
     var hostDbCollection = [env.mongo.split('mongodb://').pop().split('@').pop( ), env.mongo_collection].join('/');
     var mongoHash = crypto.createHash('sha1');
     mongoHash.update(hostDbCollection);
-    env.mqtt_client_id = mongoHash.digest('hex');
+    //some MQTT servers only allow the client id to be 23 chars
+    env.mqtt_client_id = mongoHash.digest('base64').substring(0, 23);
     console.info('Using Mongo host/db/collection to create the default MQTT client_id', hostDbCollection);
     if (env.MQTT_MONITOR.indexOf('?clientId=') == -1) {
       console.info('Set MQTT client_id to: ', env.mqtt_client_id);
