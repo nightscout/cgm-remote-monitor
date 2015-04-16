@@ -66,6 +66,22 @@ describe('Entries REST api', function ( ) {
       });
   });
 
+  it('/entries/ID', function (done) {
+    var app = this.app;
+    this.archive.list({count: 1}, function(err, records) {
+      var currentId = records.pop()._id.toString();
+      request(app)
+        .get('/entries/'+currentId+'.json')
+        .expect(200)
+        .end(function (err, res) {
+          res.body.length.should.equal(1);
+          res.body[0]._id.should.equal(currentId);
+          done( );
+        });
+    });
+
+  });
+
   it('/entries/preview', function (done) {
     request(this.app)
       .post('/entries/preview.json')
