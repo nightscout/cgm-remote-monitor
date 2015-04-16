@@ -11,7 +11,7 @@ function getBrowserSettings(storage) {
 
     function scaleBg(bg) {
         if (json.units == 'mmol') {
-            return (Math.round((bg / 18) * 10) / 10).toFixed(1);
+            return Nightscout.units.mgdlToMMOL(bg);
         } else {
             return bg;
         }

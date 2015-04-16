@@ -32,13 +32,23 @@ function config ( ) {
   }
   env.version = software.version;
   env.name = software.name;
-  env.MQTT_MONITOR = readENV('MQTT_MONITOR', null);
   env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
   env.PORT = readENV('PORT', 1337);
   env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI');
   env.mongo_collection = readENV('MONGO_COLLECTION', 'entries');
+  env.MQTT_MONITOR = readENV('MQTT_MONITOR', null);
   if (env.MQTT_MONITOR) {
-    env.mqtt_client_id = [env.mongo.split('/').pop( ), env.mongo_collection].join('.');
+    var hostDbCollection = [env.mongo.split('mongodb://').pop().split('@').pop( ), env.mongo_collection].join('/');
+    var mongoHash = crypto.createHash('sha1');
+    mongoHash.update(hostDbCollection);
+    //some MQTT servers only allow the client id to be 23 chars
+    env.mqtt_client_id = mongoHash.digest('base64').substring(0, 23);
+    console.info('Using Mongo host/db/collection to create the default MQTT client_id', hostDbCollection);
+    if (env.MQTT_MONITOR.indexOf('?clientId=') == -1) {
+      console.info('Set MQTT client_id to: ', env.mqtt_client_id);
+    } else {
+      console.info('MQTT configured to use a custom client id, it will override the default: ', env.mqtt_client_id);
+    }
   }
   env.settings_collection = readENV('MONGO_SETTINGS_COLLECTION', 'settings');
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
