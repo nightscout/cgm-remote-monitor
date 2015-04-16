@@ -358,6 +358,7 @@ div.tooltip {
 
     #chartContainer {
         top: 185px;
+        font-size: 14px;
     }
     #chartContainer svg {
         height: calc(100vh - 185px);
@@ -504,7 +505,7 @@ div.tooltip {
 
 @media (max-height: 700px) {
     #chartContainer {
-        font-size: 15px;
+        font-size: 14px;
     }
 }
 
