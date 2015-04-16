@@ -69,7 +69,9 @@ function config ( ) {
     , 'alarmLow': true
     , 'alarmUrgentLow': true
     , 'alarmTimeAgoWarn': true
+    , 'alarmTimeAgoWarnMins': 15
     , 'alarmTimeAgoUrgent': true
+    , 'alarmTimeAgoUrgentMins': 30
     , 'language': 'en' // not used yet
   } ;
 
@@ -87,7 +89,9 @@ function config ( ) {
   env.defaults.alarmLow = readENV('ALARM_LOW', env.defaults.alarmLow);
   env.defaults.alarmUrgentLow = readENV('ALARM_URGENT_LOW', env.defaults.alarmUrgentLow);
   env.defaults.alarmTimeAgoWarn = readENV('ALARM_TIMEAGO_WARN', env.defaults.alarmTimeAgoWarn);
+  env.defaults.alarmTimeAgoWarnMins = readENV('ALARM_TIMEAGO_WARN_MINS', env.defaults.alarmTimeAgoWarnMins);
   env.defaults.alarmTimeAgoUrgent = readENV('ALARM_TIMEAGO_URGENT', env.defaults.alarmTimeAgoUrgent);
+  env.defaults.alarmTimeAgoUrgentMins = readENV('ALARM_TIMEAGO_URGENT_MINS', env.defaults.alarmTimeAgoUrgentMins);
 
   //console.log(JSON.stringify(env.defaults));
   
