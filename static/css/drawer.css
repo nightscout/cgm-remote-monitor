@@ -85,6 +85,10 @@ input[type=number]:invalid {
   display: block;
 }
 
+input.timeago-mins {
+  width: 40px;
+}
+
 #eventTime {
     padding-bottom: 15px;
 }

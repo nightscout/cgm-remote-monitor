@@ -109,8 +109,26 @@ body {
     color: red !important;
 }
 
+.alarming-timeago .timeOther .pill.warn {
+  border-color: yellow;
+}
+.alarming-timeago .timeOther .pill.warn label {
+  background: yellow;
+}
+
+.alarming-timeago .timeOther .pill.urgent {
+  border-color: red;
+}
+.alarming-timeago .timeOther .pill.urgent label {
+  background: red;
+}
+
 .bgStatus.current .currentBG {
     text-decoration: none;
+}
+
+.alarming-timeago .bgStatus.current .currentBG {
+  text-decoration: line-through;
 }
 
 .time {

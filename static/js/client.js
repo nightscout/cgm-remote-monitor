@@ -25,9 +25,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , MINUTE_IN_SECS = 60
         , HOUR_IN_SECS = 3600
         , DAY_IN_SECS = 86400
-        , WEEK_IN_SECS = 604800
-        , MINUTES_SINCE_LAST_UPDATE_WARN = 15
-        , MINUTES_SINCE_LAST_UPDATE_URGENT = 30;
+        , WEEK_IN_SECS = 604800;
 
     var socket
         , isInitialData = false
@@ -1222,9 +1220,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         if (offset > DAY_IN_SECS * 7) {
             parts.status = 'warn';
-        } else if (offset < MINUTE_IN_SECS * -5 || offset > (MINUTE_IN_SECS * MINUTES_SINCE_LAST_UPDATE_URGENT)) {
+        } else if (offset < MINUTE_IN_SECS * -5 || offset > (MINUTE_IN_SECS * browserSettings.alarmTimeAgoUrgentMins)) {
             parts.status = 'urgent';
-        } else if (offset > (MINUTE_IN_SECS * MINUTES_SINCE_LAST_UPDATE_WARN)) {
+        } else if (offset > (MINUTE_IN_SECS * browserSettings.alarmTimeAgoWarnMins)) {
             parts.status = 'warn';
         } else {
             parts.status = 'current';
