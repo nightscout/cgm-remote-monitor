@@ -6,6 +6,7 @@
     border-radius: 5px;
     border: 2px solid #aaa;
     box-shadow: 2px 2px 0 #eee;
+    width: 100%;
 }
 
 #drawer {
@@ -42,7 +43,8 @@ input[type=number]:invalid {
 }
 
 #drawer .actions a {
-    padding-left: 20px;
+    float: right;
+    padding: 10px 0;
 }
 
 #treatmentDrawer {
@@ -83,6 +85,10 @@ input[type=number]:invalid {
 #treatmentDrawer label.extra-space {
   padding-top: 10px;
   display: block;
+}
+
+input.timeago-mins {
+  width: 40px;
 }
 
 #eventTime {
