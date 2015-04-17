@@ -109,8 +109,26 @@ body {
     color: red !important;
 }
 
+.alarming-timeago #lastEntry.pill.warn {
+  border-color: yellow;
+}
+.alarming-timeago #lastEntry.pill.warn label {
+  background: yellow;
+}
+
+.alarming-timeago #lastEntry.pill.urgent {
+  border-color: red;
+}
+.alarming-timeago #lastEntry.pill.urgent label {
+  background: red;
+}
+
 .bgStatus.current .currentBG {
     text-decoration: none;
+}
+
+.alarming-timeago .bgStatus.current .currentBG {
+  text-decoration: line-through;
 }
 
 .time {
@@ -452,10 +470,8 @@ div.tooltip {
         font-size: 15px;
     }
 
-    .dropdown-menu {
-        font-size: 50px !important;
-        margin-left: 2vw;
-        width: 96vw;
+    #silenceBtn * {
+      font-size: 20px;
     }
 
     .time {
@@ -601,7 +617,11 @@ div.tooltip {
         font-size: 15px;
     }
 
-    .focus-range {
+    #silenceBtn {
+      right: -25px;
+    }
+
+  .focus-range {
         position: absolute;
         top: 40px;
         left: initial;
