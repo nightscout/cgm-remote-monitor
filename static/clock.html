@@ -41,6 +41,7 @@
   </div>
   <script src="/bower_components/jquery/dist/jquery.min.js"></script>
   <script src="/api/v1/status.js"></script>
+  <script src="/public/js/bundle.js"></script>
   <script type="text/javascript">
     function query ( ) {
       console.log('query');
@@ -53,7 +54,7 @@
       var last = new Date(rec.date);
       var now = new Date( );
       if (window.serverSettings.units == 'mmol') {
-        rec.sgv = (Math.round((rec.sgv / 18) * 10) / 10).toFixed(1);
+        rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
       }
       $('.bgnow').text(rec.sgv);
       var threshold = 1000 * 60 * 13;
