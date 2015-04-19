@@ -4,6 +4,7 @@
 
     window.Nightscout = {
         iob: require('../lib/iob')(),
+        units: require('../lib/units')(),
         profile: require('../lib/profilefunctions')()
     };
 

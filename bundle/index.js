@@ -6,7 +6,6 @@ function bundle() {
   return browserify_express({
     entry: __dirname + '/bundle.source.js',
     watch: __dirname + '/../lib/',
- //   watch: [__dirname + '/../lib/', __dirname + '/bundle.source.js'],
     mount: '/public/js/bundle.js',
     verbose: true,
     //minify: true,
