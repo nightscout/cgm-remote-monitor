@@ -476,8 +476,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 			env.currentDetails = currentDetails;
 			env.sgv = Number(sgv);
 			env.treatments = treatments;
+			env.time = time;
 			
-			// get additional data from data providers
+			// Update the env through data provider plugins
 			
 			for (var p in NightscoutPlugins) {
 				
@@ -485,15 +486,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 			
 					var plugin = NightscoutPlugins[p];
 				
-					var dataProviderEnvironment = {};
-				
-					dataProviderEnvironment.treatments = treatments;
-					dataProviderEnvironment.profile = profile;
-				
 					plugin.setEnv(env);
 					
 					if (plugin.isDataProvider) {
-						var dataFromPlugin = plugin.getData(dataProviderEnvironment,time);
+						var dataFromPlugin = plugin.getData();
 						var container = {};
 						for (var i in dataFromPlugin) {
 							container[i] = dataFromPlugin[i];
@@ -503,7 +499,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 				}
 			}
 			
-			// update data inside the plugins
+			// update data the plugins
 			
 			sendEnvToPlugins(env);
 		}
