@@ -469,6 +469,32 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         }
 
+		function updatePluginData(sgv, time)
+		{
+			var env = {};
+			env.profile = profile;
+			env.currentDetails = currentDetails;
+			env.sgv = Number(sgv);
+			var iob = Nightscout.iob.calcTotal(treatments, profile, time);
+			env.iob = Number(iob.iob);
+			
+			for (var p in NightscoutPlugins)
+			{
+				var plugin = NightscoutPlugins[p];
+				plugin.setEnv(env);
+			}
+
+		}
+		
+		function updatePluginVisualisation()
+		{
+			for (var p in NightscoutPlugins)
+			{
+				var plugin = NightscoutPlugins[p];
+				plugin.updateVisualisation();
+			}
+		}
+
         function updateIOBIndicator(time) {
             if (showIOB()) {
                 var pill = currentDetails.find('span.pill.iob');
@@ -479,6 +505,20 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 }
                 var iob = Nightscout.iob.calcTotal(treatments, profile, time);
                 pill.find('em').text(iob.display + 'U');
+
+/*               
+				if (typeof latestSGV !== 'undefined' && typeof latestSGV.y !== 'undefined') {
+					
+					var env = {};
+					env.profile = profile;
+					env.currentDetails = currentDetails;
+
+					//NightscoutPlugins.bwp.setEnv(env);
+					updatePluginData(time);
+					NightscoutPlugins.bwp.updateBATIndicator(Number(latestSGV.y), Number(iob.iob));
+	            }
+*/
+                
             } else {
                 currentDetails.find('.pill.iob').remove();
             }
@@ -532,6 +572,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 bgButton.removeClass('urgent warning inrange');
             }
 
+			// update plugins
+			
+			updatePluginData(focusPoint.y,retroTime);
+			updatePluginVisualisation();
+
             updateIOBIndicator(retroTime);
 
             $('#currentTime')
@@ -567,6 +612,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
             updateBGDelta(prevSGV, latestSGV);
             updateIOBIndicator(nowDate);
+
+			// update plugins
+			
+			updatePluginData(latestSGV.y,nowDate);
+			updatePluginVisualisation();
 
             currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);
         }
