@@ -475,7 +475,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 			env.profile = profile;
 			env.currentDetails = currentDetails;
 			env.sgv = Number(sgv);
-
+			env.treatments = treatments;
+			
 			// get additional data from data providers
 			
 			for (var p in NightscoutPlugins) {
@@ -489,6 +490,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 					dataProviderEnvironment.treatments = treatments;
 					dataProviderEnvironment.profile = profile;
 				
+					plugin.setEnv(env);
+					
 					if (plugin.isDataProvider) {
 						var dataFromPlugin = plugin.getData(dataProviderEnvironment,time);
 						var container = {};
@@ -497,17 +500,19 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 						}
 						env[p] = container;
 					}
-					plugin.setEnv(env);
 				}
 			}
 			
 			// update data inside the plugins
 			
+			sendEnvToPlugins(env);
+		}
+		
+		function sendEnvToPlugins(env) {
 			for (var p in NightscoutPlugins) {
 				var plugin = NightscoutPlugins[p];
 				plugin.setEnv(env);
 			}
-
 		}
 		
 		function updatePluginVisualisation() {
