@@ -464,6 +464,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
 
 		// PLUGIN MANAGEMENT CODE
+		
+		function isPluginEnabled(name) {
+			return app.enabledOptions
+            && app.enabledOptions.indexOf(name) > -1;
+		}
 
 		function updatePluginData(sgv, time) {
 			var env = {};
@@ -471,30 +476,27 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 			env.currentDetails = currentDetails;
 			env.sgv = Number(sgv);
 
-/*
-        return app.enabledOptions
-            && app.enabledOptions.indexOf('iob') > -1;
-
-
-*/
-
 			// get additional data from data providers
 			
 			for (var p in NightscoutPlugins) {
-				var plugin = NightscoutPlugins[p];
 				
-				var dataProviderEnvironment = {};
+				if (isPluginEnabled(p)) {
+			
+					var plugin = NightscoutPlugins[p];
 				
-				dataProviderEnvironment.treatments = treatments;
-				dataProviderEnvironment.profile = profile;
+					var dataProviderEnvironment = {};
 				
-				if (plugin.isDataProvider) {
-					var dataFromPlugin = plugin.getData(dataProviderEnvironment,time);
-					for (var i in dataFromPlugin) {
-						env[i] = dataFromPlugin[i];
+					dataProviderEnvironment.treatments = treatments;
+					dataProviderEnvironment.profile = profile;
+				
+					if (plugin.isDataProvider) {
+						var dataFromPlugin = plugin.getData(dataProviderEnvironment,time);
+						for (var i in dataFromPlugin) {
+							env[i] = dataFromPlugin[i];
+						}
 					}
+					plugin.setEnv(env);
 				}
-				plugin.setEnv(env);
 			}
 			
 			// update data inside the plugins
@@ -508,9 +510,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 		
 		function updatePluginVisualisation() {
 			for (var p in NightscoutPlugins) {
-				var plugin = NightscoutPlugins[p];
-				if (plugin.isVisualisationProvider) {
-					plugin.updateVisualisation();
+				if (isPluginEnabled(p)) {
+					var plugin = NightscoutPlugins[p];
+					if (plugin.isVisualisationProvider) {
+						plugin.updateVisualisation();
+					}
 				}
 			}
 		}
