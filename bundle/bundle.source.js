@@ -3,7 +3,6 @@
     window.Nightscout = window.Nightscout || {};
 
     window.Nightscout = {
-        iob: require('../lib/iob')(),
         units: require('../lib/units')(),
         profile: require('../lib/profilefunctions')()
     };
@@ -16,6 +15,7 @@
     window.NightscoutPlugins = window.NightscoutPlugins || {};
 
     window.NightscoutPlugins = {
+        iob: require('../lib/iob')(),
         bwp: require('../lib/boluswizardpreview')(PluginBase)
     };
 	// class inheritance to the plugins from the base + map functions over
