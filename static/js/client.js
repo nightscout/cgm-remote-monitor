@@ -491,9 +491,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 				
 					if (plugin.isDataProvider) {
 						var dataFromPlugin = plugin.getData(dataProviderEnvironment,time);
+						var container = {};
 						for (var i in dataFromPlugin) {
-							env[i] = dataFromPlugin[i];
+							container[i] = dataFromPlugin[i];
 						}
+						env[p] = container;
 					}
 					plugin.setEnv(env);
 				}

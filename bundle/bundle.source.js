@@ -2,6 +2,8 @@
 	
     window.Nightscout = window.Nightscout || {};
 
+	// Default features
+
     window.Nightscout = {
         units: require('../lib/units')(),
         profile: require('../lib/profilefunctions')()
