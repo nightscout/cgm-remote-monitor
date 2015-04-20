@@ -25,9 +25,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , MINUTE_IN_SECS = 60
         , HOUR_IN_SECS = 3600
         , DAY_IN_SECS = 86400
-        , WEEK_IN_SECS = 604800
-        , MINUTES_SINCE_LAST_UPDATE_WARN = 10
-        , MINUTES_SINCE_LAST_UPDATE_URGENT = 20;
+        , WEEK_IN_SECS = 604800;
 
     var socket
         , isInitialData = false
@@ -43,6 +41,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , now = Date.now()
         , data = []
         , foucusRangeMS = THREE_HOURS_MS
+        , clientAlarms = {}
         , audio = document.getElementById('audio')
         , alarmInProgress = false
         , currentAlarmType = null
@@ -96,7 +95,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
         if (browserSettings.units == 'mmol') {
-            return (Math.round((bg / 18) * 10) / 10).toFixed(1);
+            return Nightscout.units.mgdlToMMOL(bg);
         } else {
             return bg;
         }
@@ -1186,13 +1185,21 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         });
 
         $('#container').removeClass('alarming');
-        brushed(true);
 
         // only emit ack if client invoke by button press
         if (isClient) {
-            socket.emit('ack', currentAlarmType || 'alarm', silenceTime);
-            brushed(false);
+            if (isTimeAgoAlarmType(currentAlarmType)) {
+                $('#container').removeClass('alarming-timeago');
+                var alarm = getClientAlarm(currentAlarmType);
+                alarm.lastAckTime = Date.now();
+                alarm.silenceTime = silenceTime;
+                console.info('time ago alarm (' + currentAlarmType + ', not acking to server');
+            } else {
+                socket.emit('ack', currentAlarmType || 'alarm', silenceTime);
+            }
         }
+
+        brushed(false);
     }
 
     function timeAgo(time) {
@@ -1213,9 +1220,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         if (offset > DAY_IN_SECS * 7) {
             parts.status = 'warn';
-        } else if (offset < MINUTE_IN_SECS * -5 || offset > (MINUTE_IN_SECS * MINUTES_SINCE_LAST_UPDATE_URGENT)) {
+        } else if (offset < MINUTE_IN_SECS * -5 || offset > (MINUTE_IN_SECS * browserSettings.alarmTimeAgoUrgentMins)) {
             parts.status = 'urgent';
-        } else if (offset > (MINUTE_IN_SECS * MINUTES_SINCE_LAST_UPDATE_WARN)) {
+        } else if (offset > (MINUTE_IN_SECS * browserSettings.alarmTimeAgoWarnMins)) {
             parts.status = 'warn';
         } else {
             parts.status = 'current';
@@ -1458,6 +1465,35 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         $('#currentTime').text(formatTime(dateTime, true)).css('text-decoration', '');
     }
 
+    function getClientAlarm(type) {
+        var alarm = clientAlarms[type];
+        if (!alarm) {
+            alarm = { type: type };
+            clientAlarms[type] = alarm;
+        }
+        return alarm;
+    }
+
+    function isTimeAgoAlarmType(alarmType) {
+        return alarmType == 'warnTimeAgo' || alarmType == 'urgentTimeAgo';
+    }
+
+    function checkTimeAgoAlarm(ago) {
+        var level = ago.status
+            , alarm = getClientAlarm(level + 'TimeAgo');
+
+        if (!alarmingNow() && Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
+            currentAlarmType = alarm.type;
+            console.info('generating timeAgoAlarm', alarm.type);
+            $('#container').addClass('alarming-timeago');
+            if (level == 'warn') {
+                generateAlarm(alarmSound);
+            } else {
+                generateAlarm(urgentAlarmSound);
+            }
+        }
+    }
+
     function updateTimeAgo() {
         var lastEntry = $('#lastEntry')
             , time = latestSGV ? new Date(latestSGV.x).getTime() : -1
@@ -1469,6 +1505,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         if (ago.status !== 'current') {
             updateTitle();
+        }
+
+        if (
+            (browserSettings.alarmTimeAgoWarn && ago.status == 'warn')
+            || (browserSettings.alarmTimeAgoUrgent && ago.status == 'urgent')) {
+            checkTimeAgoAlarm(ago);
+        }
+
+        if (alarmingNow() && ago.status == 'current' && isTimeAgoAlarmType(currentAlarmType)) {
+            stopAlarm(true, ONE_MIN_IN_MS);
         }
 
         if (retroMode || !ago.value) {
