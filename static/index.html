@@ -29,13 +29,14 @@
         <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
         <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.7.0" />
         <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
-    </head>
+		<link href="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.1/themes/ui-darkness/jquery-ui.min.css" rel="stylesheet">    </head>
     <body>
         <div id="toolbar">
             <div id="buttonbar">
                 <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
                 <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-cog"></i></a>
                 <a id="treatmentDrawerToggle" class="tip" original-title="Treatments" href="#"><i class="icon-plus"></i></a>
+                <a id="boluscalcDrawerToggle" class="tip" original-title="Bolus calculator" href="#"><i class="icon-calc"></i></a>
             </div>
             <h1 class="customTitle">Nightscout</h1>
         </div>
@@ -249,6 +250,204 @@
             </form>
         </div>
 
+       <div id="boluscalcDrawer">
+			<form id="boluscalc-form" onsubmit="return Nightscout.boluscalc.boluscalcSubmit();">
+                <fieldset class="boluscalcData">
+                    <legend>Bolus calculator</legend>
+					<table>
+						<tr>
+							<td>
+								BG:
+								<input type="radio" name="bc_bginput" id="bc_bgfromsensor" checked>Sensor
+								<br>
+								<input type="radio" name="bc_bginput" id="bc_bgfrommeter">Meter
+								<input type="radio" name="bc_bginput" id="bc_bgmanual">Manual
+							</td>
+							<td>
+								<input type="text" size="3" id="bc_bg" class="insulincalculationpart">
+								<span id="bc_units" style="font-size:10px"></span>
+							</td>
+						</tr>
+						<tr class="insulincalculation border_bottom">
+							<td>
+								BG correction:
+							</td>
+							<td id="bc_inzulinbgtd">
+								<span id="bc_inzulinbg">0.00</span>
+							</td>
+						</tr>
+						<tr class="foodinput">
+							<td colspan="2" id="bc_gitd">
+								Glycemic index (1-3):
+								<select style="float:right;" id="bc_gi">
+									<option value="1">Low</option>
+									<option value="2" selected>Medium/Unknown</option>
+									<option value="3">High</option>
+								</select>
+							</td>
+							<td>
+								<span id="bc_gicalculated" style="display:none"></span>
+							</td>
+						</tr>
+						<tr class="foodinput">
+							<td colspan="2">
+								Quickpick: <select style="float:right;" id="bc_quickpick"></select>
+								<br>
+								or <a href="#" style="float:right;" id="bc_addfromdatabase">Add from database</a>
+								<div id="bc_food"></div>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								Carbs:
+							</td>
+							<td>
+								<input type="text" size="5" id="bc_carbs" value="0" class="insulincalculationpart">
+								<span style="font-size:10px"> g</span>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								COB:
+							</td>
+							<td>
+								<span id="bc_cob">0</span>
+								<span style="font-size:10px"> g</span>
+							</td>
+						</tr>
+						<tr class="insulincalculation border_bottom">
+							<td>
+								Carbs correction:
+							</td>
+							<td id="bc_inzulincarbstd">
+								<span id="bc_inzulincarbs">0.00</span>
+							</td>
+						</tr>
+						<tr class="insulincalculation">
+							<td>
+								IOB:
+							</td>
+							<td>
+								<span id="bc_iob">0.00</span>
+							</td>
+						</tr>
+						<tr class="insulincalculation">
+							<td>
+								Exercise correction:
+							</td>
+							<td>
+								<input type="text" size="5" id="bc_exercisecorrection" value="0" class="insulincalculationpart">
+							</td>
+						</tr>
+						<tr class="insulincalculation">
+							<td>
+								Other correction:
+							</td>
+							<td>
+								<input type="text" size="5" id="bc_othercorrection" value="0" class="insulincalculationpart">
+							</td>
+						</tr>
+						<tr class="insulincalculation border_bottom">
+							<td>
+								Rounding:
+							</td>
+							<td>
+								<span id="bc_rouding">0.00</span>
+							</td>
+						</tr>
+						<tr  id="bc_insulinneededtr" class="insulintotalcalculation border_bottom">
+							<td>
+								Insulin needed:
+							</td>
+							<td>
+								<span id="bc_insulintotal">0.00</span>
+							</td>
+						</tr>
+						<tr  id="bc_carbsneededtr" class="insulintotalcalculation border_bottom" title="Carbs needed if Insulin total is negative value">
+							<td>
+								Carbs needed:
+							</td>
+							<td>
+								<span id="bc_carbsneeded"></span>
+							</td>
+						</tr>
+						<tr class="border_bottom">
+							<td>
+								Current basal rate:
+							</td>
+							<td>
+								<span id="bc_basal"></span>
+							</td>
+						</tr>
+					</table>
+					<hr>
+                     <label for="bc_preBolus" class="left-column short-label extra-space">
+                        <span>Eating:</span>
+                        <select id="bc_preBolus">
+                            <option value="-60">60 minutes before</option>
+                            <option value="-45">45 minutes before</option>
+                            <option value="-30">30 minutes before</option>
+                            <option value="-20">20 minutes before</option>
+                            <option value="-15">15 minutes before</option>
+                            <option value="0" selected>Time in minutes</option>
+                            <option value="15">15 minutes after</option>
+                            <option value="20">20 minutes after</option>
+                            <option value="30">30 minutes after</option>
+                            <option value="45">45 minutes after</option>
+                            <option value="60">60 minutes after</option>
+                        </select>
+                    </label>
+					<br>
+
+                    <!-- Label and textarea -->
+                    <label for="bc_notes" class="extra-space">Additional Notes, Comments:</label>
+                    <textarea id="bc_notes" style="width:250px"></textarea><br>
+
+                    <label for="bc_enteredBy" class="left-column extra-space">
+                      <span>Entered By:</span>
+                      <input type="text" id="bc_enteredBy" value="" />
+                    </label>
+
+                    <div id="bc_eventTime">
+                      <span>Event Time:</span>
+                      <label for="bc_nowtime">
+                        <input type="radio" name="bc_nowOrOther" id="bc_nowtime" value="now" checked="checked"/>
+                        <span>Now</span>
+                      </label>
+                      <label for="bc_othertime">
+                        <input type="radio" name="bc_nowOrOther" id="bc_othertime" value="other"/>
+                        <span>Other</span>
+                      </label>
+                      <input type="date" id="bc_eventDateValue" name="bc_eventTimeValue" value="" class="bc_eventtimeinput"/>
+                      <input type="time" id="bc_eventTimeValue" name="bc_eventTimeValue" value="" class="bc_eventtimeinput"/>
+                    </div>
+					<div id="bc_retro" style="display:none;width:100%;background-color:red;text-align: center;border: 2px solid black;border-radius: 10px;margin-top:10px;">RETRO MODE</div>
+               </fieldset>
+				<button id="bc_submit" type="submit">Submit Form</button>
+				<br>
+				<br>
+                <a href="/treatments.html" target="treatments">View all treatments</a>
+				<br>
+                <a href="/profile/" target="treatments">Profile editor</a>
+				<br>
+                <a href="/food/" target="treatments">Food editor</a>
+				<div id="bc_debug"></div>
+            </form>
+        </div>
+		
+		<div id="bc_addfooddialog" style="display:none" title="Add food from your database">
+			<fieldset class="browserSettings">
+				<legend>Filter</legend>
+				Category: <select id="bc_filter_category"></select>
+				Subcategory: <select id="bc_filter_subcategory"></select>
+				<br>
+				Name: <input type="text" id="bc_filter_name"></select>
+			</fieldset>
+			<select id="bc_data" style="width:100%;"></select>
+			<br><br>
+			Portions: <input type="number" step="0.1" min="0" value="1" size="3" id="bc_addportions">
+		</div>
+
         <div class="audio alarms">
             <audio src="/audio/alarm.mp3" preload="auto" loop="true" class="alarm mp3" type="audio/mp3"></audio>
             <audio src="/audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
@@ -263,6 +462,8 @@
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
         <script src="/js/ui-utils.js?v=0.7.0"></script>
         <script src="/js/client.js?v=0.7.0"></script>
+        <script src="https://code.jquery.com/ui/1.11.3/jquery-ui.min.js"></script>
+        <script src="/js/boluscalc.js"></script>
         <script src="/js/experiments.js"></script>
     </body>
 </html>

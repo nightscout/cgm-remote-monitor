@@ -29,6 +29,9 @@ TODO:
 			"car_high": 30,
 			"car_medium": 30,
 			"car_low": 30,
+			"delay_high": 20,
+			"delay_medium": 20,
+			"delay_low": 20,
 			"isf": [{"from":0,"val":0},
 					{"from":48*30,"val":0}
 					],
@@ -62,7 +65,10 @@ TODO:
 			//Bolus calculator style values
 			{ "html":"pe_hr_high", 		"type":"int" , 			"settings":"c_profile.car_high" },
 			{ "html":"pe_hr_medium",	"type":"int" , 			"settings":"c_profile.car_medium" },
-			{ "html":"pe_hr_low", 		"type":"int" , 			"settings":"c_profile.car_low" }
+			{ "html":"pe_hr_low", 		"type":"int" , 			"settings":"c_profile.car_low" },
+			{ "html":"pe_delay_high", 	"type":"int" , 			"settings":"c_profile.delay_high" },
+			{ "html":"pe_delay_medium",	"type":"int" , 			"settings":"c_profile.delay_medium" },
+			{ "html":"pe_delay_low", 	"type":"int" , 			"settings":"c_profile.delay_low" }
 	];
 	
 	var icon_add = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABa0lEQVQ4T6WTzysEYRjHP+/Mrv2hHOTuqJRNOfgPSORHokg4OClHcnVzVygHF6WIcuHMnyCHVRyI3ZYxa23vzOzs7LzamaI0e5i89fTWt/f5vPV5n1cQsXLbHepvfLv5JaLORoZNwMbyFo5vYfsWB0c7xAasLa5T/vCg45Oj48P4gJWFVYxCA63L5PzkND5gfm4Jo+Chd5W5OrtsDYgS1pQ1OTuNUfTQO8tcX9xE+QugYnS/X81MzGP7MpTWkEFVZY1KxcVPV3h27zAtA+oCagIcDfWUCgEje31qfHwK06gHjaF5iXQcHCV5lHmqqgQCNEAI0IsavCVDwNBurxoeGwmaAkDDwvYsqtIh//6AJUoklP97s62BbJYeAqIcpJNZsoM+r2aVbKKOekiBL8An3BuAEiGg1SSKAYnttpFxPdR9Jv4zipxFTUuQKqsfYbFGWfTYuO06yRfxIyweoLuG+iMsFuBfvzFy7FqE33vs2BFqlfN5AAAAAElFTkSuQmCC";

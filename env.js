@@ -54,6 +54,7 @@ function config ( ) {
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
+  env.food_collection = readENV('MONGO_FOOD_COLLECTION', 'food');
 
   env.enable = readENV('ENABLE', "");
 

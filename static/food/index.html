@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="apple-touch-icon" href="/images/logomobile.png">
+        <title>Nightscout food editor</title>
+        <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
+        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.6.4" />
+        <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
+        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.6.4" />
+        <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
+        <link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/themes/smoothness/jquery-ui.css" type="text/css" media="all" />
+		<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-timepicker-addon.css" />
+    </head>
+    <body>
+        <div id="toolbar">
+			<div id="buttonbar">
+				<b> Status:</b> <span id="fe_status">Not loaded</span>
+			</div>
+             <h1 class="customTitle">Nightscout</h1>
+            <div id="profile-editor">
+                <h1>Food editor</h1>
+			</div>
+        </div>
+		
+		<br>
+		<form id="fe_form">
+			<fieldset class="browserSettings">
+				<legend>Your database</legend>
+				<fieldset class="browserSettings">
+					<legend>Filter</legend>
+					Category: <select id="fe_filter_category"></select>
+					Subcategory: <select id="fe_filter_subcategory"></select>
+					Name: <input type="text" id="fe_filter_name"></select>
+				</fieldset>
+				<div id="fe_data_header"></div>
+				<div id="fe_data" style="width:100%;height:250px;overflow-x:hidden;overflow-y:scroll;"></div>
+			</fieldset>
+			<fieldset class="browserSettings">
+				<legend>Record (ID: <input type="text" id="fe_id">)</legend>
+				<table>
+					<tr>
+						<td>
+							Name: <br><input type="text" id="fe_name">
+						</td>
+						<td>
+							Portion:<br><input type="text" id="fe_portion">
+						</td>
+						<td>
+							Unit: <br><select id="fe_unit">
+							</select>
+						</td>
+						<td>
+							Carbs: [g]<br><input type="number" id="fe_carbs">
+						</td>
+						<td>
+							GI: <br><select id="fe_gi">
+								<option value="1">Low</option>
+								<option value="2" selected>Medium</option>
+								<option value="3">High</option>
+							</select>
+						</td>
+						<td>
+							Category: <select id="fe_category_list"></select>
+							<br>
+							<input type="text" id="fe_category">
+						</td>
+						<td>
+							Subcategory: <select id="fe_subcategory_list"></select>
+							<br>
+							<input type="text" id="fe_subcategory">
+						</td>
+					</tr>
+				</table>
+				<button id="fe_editcreate">Save</button>
+				<button id="fe_clear">Clear</button>
+			</fieldset>
+			<fieldset class="browserSettings">
+				<legend>
+					Quick picks 
+					|
+					<img style="cursor:pointer" title="Add new" id="fe_quickpick_add" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABa0lEQVQ4T6WTzysEYRjHP+/Mrv2hHOTuqJRNOfgPSORHokg4OClHcnVzVygHF6WIcuHMnyCHVRyI3ZYxa23vzOzs7LzamaI0e5i89fTWt/f5vPV5n1cQsXLbHepvfLv5JaLORoZNwMbyFo5vYfsWB0c7xAasLa5T/vCg45Oj48P4gJWFVYxCA63L5PzkND5gfm4Jo+Chd5W5OrtsDYgS1pQ1OTuNUfTQO8tcX9xE+QugYnS/X81MzGP7MpTWkEFVZY1KxcVPV3h27zAtA+oCagIcDfWUCgEje31qfHwK06gHjaF5iXQcHCV5lHmqqgQCNEAI0IsavCVDwNBurxoeGwmaAkDDwvYsqtIh//6AJUoklP97s62BbJYeAqIcpJNZsoM+r2aVbKKOekiBL8An3BuAEiGg1SSKAYnttpFxPdR9Jv4zipxFTUuQKqsfYbFGWfTYuO06yRfxIyweoLuG+iMsFuBfvzFy7FqE33vs2BFqlfN5AAAAAElFTkSuQmCC">
+					|
+					<input type="checkbox" id="fe_quickpick_showhidden"> Show hidden
+					<span id="fe_quickpick_hiddencount"></span>
+					|
+					<button id="fe_quickpick_save">Save</button> 
+				</legend>
+				<div id="fe_picklist"></div>
+			</fieldset>
+			<label for="pe_apisecret">Your API secret: </label>
+			 <input type="password" id="pe_apisecret" size="10" />&nbsp;&nbsp;&nbsp;
+			 <input type="checkbox" id="pe_storeapisecret" />  Store hash on this computer (Use only on private computers)
+			 <div id="pe_apisecrethash"></div>
+		</form>
+		
+        <script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
+        <script src="https://code.jquery.com/ui/1.11.3/jquery-ui.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-timepicker-addon.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-sliderAccess.js"></script>
+        <script src="/socket.io/socket.io.js"></script>
+        <script src="/api/v1/status.js"></script>
+        <script src="/js/food.js"></script>
+		<script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/sha1.js"></script>    
+	</body>
+</html>
