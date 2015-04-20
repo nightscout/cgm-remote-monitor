@@ -1,13 +1,14 @@
 cgm-remote-monitor (a.k.a. Nightscout)
 ======================================
 
-[![Build Status](https://travis-ci.org/nightscout/cgm-remote-monitor.png)](https://travis-ci.org/nightscout/cgm-remote-monitor)
-[![Dependency Status](https://david-dm.org/nightscout/cgm-remote-monitor.png)](https://david-dm.org/nightscout/cgm-remote-monitor)
-[![Gitter chat](https://badges.gitter.im/nightscout.png)](https://gitter.im/nightscout/public)
-[![Stories in  Ready](https://badge.waffle.io/nightscout/cgm-remote-monitor.png?label=ready&title=Ready)](https://waffle.io/nightscout/cgm-remote-monitor)
-[![Stories in Progress](https://badge.waffle.io/nightscout/cgm-remote-monitor.png?label=in+progress&title=In+Progress)](https://waffle.io/nightscout/cgm-remote-monitor)
+[![Build Status][build-img]][build-url]
+[![Dependency Status][dependency-img]][dependency-url]
+[![Coverage Status][coverage-img]][coverage-url]
+[![Gitter chat][gitter-img]][gitter-url]
+[![Stories in Ready][ready-img]][waffle]
+[![Stories in Progress][progress-img]][waffle]
 
-[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
+[![Deploy to Heroku][heroku-img]][heroku-url]
 
 This acts as a web-based CGM (Continuous Glucose Monitor) to allow
 multiple caregivers to remotely view a patient's glucose data in
@@ -19,7 +20,22 @@ autoregressive second order model.  Alarms are generated for high and
 low values, which can be cleared by any watcher of the data.
 
 Community maintained fork of the
-[original cgm-remote-monitor](https://github.com/rnpenguin/cgm-remote-monitor).
+[original cgm-remote-monitor][original].
+
+[build-img]: https://img.shields.io/travis/nightscout/cgm-remote-monitor.svg
+[build-url]: https://travis-ci.org/nightscout/cgm-remote-monitor
+[dependency-img]: https://img.shields.io/david/nightscout/cgm-remote-monitor.svg
+[dependency-url]: https://david-dm.org/nightscout/cgm-remote-monitor
+[coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/master.svg
+[coverage-url]: https://coveralls.io/r/nightscout/cgm-remote-monitor?branch=master
+[gitter-img]: https://img.shields.io/badge/Gitter-Join%20Chat%20%E2%86%92-1dce73.svg
+[gitter-url]: https://gitter.im/nightscout/public
+[ready-img]: https://badge.waffle.io/nightscout/cgm-remote-monitor.svg?label=ready&title=Ready
+[waffle]: https://waffle.io/nightscout/cgm-remote-monitor
+[progress-img]: https://badge.waffle.io/nightscout/cgm-remote-monitor.svg?label=in+progress&title=In+Progress
+[heroku-img]: https://www.herokucdn.com/deploy/button.png
+[heroku-url]: https://heroku.com/deploy
+[original]: https://github.com/rnpenguin/cgm-remote-monitor
 
 Install
 ---------------
@@ -76,7 +92,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
 #### Features/Labs
 
-  * `ENABLE` - Used to enable optional features, currently supports: `careportal`
+  * `ENABLE` - Used to enable optional features, expects a space delimited list such as: `careportal rawbg iob`
   * `API_SECRET` - A secret passphrase that must be at least 12 characters long, required to enable `POST` and `PUT`; also required for the Care Portal
   * `BG_HIGH` (`260`) - must be set using mg/dl units; the high BG outside the target range that is considered urgent
   * `BG_TARGET_TOP` (`180`) - must be set using mg/dl units; the top of the target range, also used to draw the line on the chart
@@ -98,11 +114,29 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js
 
+  
+#### Predefined values for your browser settings (optional)
+  * `TIME_FORMAT` (`12`)- possible values `12` or `24`
+  * `NIGHT_MODE` (`off`) - possible values `on` or `off`
+  * `SHOW_RAWBG` (`never`) - possible values `always`, `never` or `noise`
+  * `CUSTOM_TITLE` (`Nightscout`) - Usually name of T1
+  * `THEME` (`default`) - possible values `default` or `colors`
+  * `ALARM_URGENT_HIGH` (`on`) - possible values `on` or `off`
+  * `ALARM_HIGH` (`on`) - possible values `on` or `off`
+  * `ALARM_LOW` (`on`) - possible values `on` or `off`
+  * `ALARM_URGENT_LOW` (`on`) - possible values `on` or `off`
+  * `ALARM_TIMEAGO_WARN` (`on`) - possible values `on` or `off`
+  * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
+  * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
+  * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
+  
+  
 ## Setting environment variables
 Easy to emulate on the commandline:
 
 ```bash
-    echo 'MONGO_CONNECTION="mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout"' >> my.env
+    echo 'MONGO_CONNECTION=mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout' >> my.env
+    echo 'MONGO_COLLECTION=entries' >> my.env
 ```
 
 From now on you can run using
