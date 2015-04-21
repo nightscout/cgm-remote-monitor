@@ -73,7 +73,7 @@ function config ( ) {
     , 'alarmTimeAgoWarnMins': 15
     , 'alarmTimeAgoUrgent': true
     , 'alarmTimeAgoUrgentMins': 30
-    , 'language': 'en' // not used yet
+    , 'language': 'en'
   } ;
 
   // add units from separate variable
@@ -93,6 +93,7 @@ function config ( ) {
   env.defaults.alarmTimeAgoWarnMins = readENV('ALARM_TIMEAGO_WARN_MINS', env.defaults.alarmTimeAgoWarnMins);
   env.defaults.alarmTimeAgoUrgent = readENV('ALARM_TIMEAGO_URGENT', env.defaults.alarmTimeAgoUrgent);
   env.defaults.alarmTimeAgoUrgentMins = readENV('ALARM_TIMEAGO_URGENT_MINS', env.defaults.alarmTimeAgoUrgentMins);
+  env.defaults.language = readENV('LANGUAGE', env.defaults.language);
 
   //console.log(JSON.stringify(env.defaults));
   

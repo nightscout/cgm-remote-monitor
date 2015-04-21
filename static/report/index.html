@@ -2,6 +2,7 @@
 <html>
     <head>
         <title>Nightscout reporting</title>
+        <link rel="stylesheet" type="text/css" href="/css/report.css" />
     </head>
     <body>
         <h1 class="customTitle">Nightscout</h1>
@@ -9,67 +10,83 @@
 			<tr>
 				<td><input type="checkbox" id="rp_enabledate" checked></td>
 				<td>
-					From: <input type="date" id="rp_from">
-					To: <input type="date" id="rp_to">
-					<a href="#" id="rp_yesterday">Yesterday</a>
-					<a href="#" id="rp_last3days">Last 3 days</a>
-					<a href="#" id="rp_last7days">Last week</a>
-					<a href="#" id="rp_last14days">Last 2 weeks</a>
-				</td>
- 
-			</tr>
-			<tr>
-				<td><input type="checkbox" id="rp_enablefood"></td>
-				<td>
-					Category: <select id="rp_category"></select>
-					Subcategory: <select id="rp_subcategory"></select>
-					Name: <input type="text" id="rp_name"></select>
+					<span class="translate">From</span>: <input type="date" id="rp_from">
+					<span class="translate">To</span>: <input type="date" id="rp_to">
+					<a href="#" days="1" class="presetdates"><span class="translate">Today</span></a>
+					<a href="#" days="2" class="presetdates"><span class="translate">Last 2 days</span></a>
+					<a href="#" days="3" class="presetdates"><span class="translate">Last 3 days</span></a>
+					<a href="#" days="7" class="presetdates"><span class="translate">Last week</span></a>
+					<a href="#" days="14" class="presetdates"><span class="translate">Last 2 weeks</span></a>
+					<a href="#" days="31" class="presetdates"><span class="translate">Last month</span></a>
+					<a href="#" days="90" class="presetdates"><span class="translate">Last 3 months</span></a>
 				</td>
  
 			</tr>
 			<tr>
 				<td></td>
 				<td>
-					Food: <select id="rp_food"></select>
+					<span class="translate">Category</span>: <select id="rp_category"></select>
+					<span class="translate">Subcategory</span>: <select id="rp_subcategory"></select>
+					<span class="translate">Name</span>: <input type="text" id="rp_name"></select>
+				</td>
+ 
+			</tr>
+			<tr>
+				<td>
+					<input type="checkbox" id="rp_enablefood">
+				</td>
+				<td>
+					<span class="translate">Food</span>: <select id="rp_food"></select>
 				</td>
  
 			</tr>
 			<tr>
 				<td><input type="checkbox" id="rp_enablenotes"></td>
 				<td>
-					Notes contain: <input type="text" id="rp_notes"></select>
+					<span class="translate">Notes contain</span>: <input type="text" id="rp_notes"></select>
 				</td>
  
 			</tr>
+			<tr>
+				<td colspan="2">
+					<input type="checkbox" id="rp_mo" checked><span class="translate">Mo</span>
+					<input type="checkbox" id="rp_tu" checked><span class="translate">Tu</span>
+					<input type="checkbox" id="rp_we" checked><span class="translate">We</span>
+					<input type="checkbox" id="rp_th" checked><span class="translate">Th</span>
+					<input type="checkbox" id="rp_fr" checked><span class="translate">Fr</span>
+					<input type="checkbox" id="rp_sa" checked><span class="translate">Sa</span>
+					<input type="checkbox" id="rp_su" checked><span class="translate">Su</span>
+				</td>
+				<td></td>
+			</tr>
 		</table>
-		Display: 
-		<input type="checkbox" id="rp_optionsnotes" checked>Notes
-		<input type="checkbox" id="rp_optionsfood" checked>Food
-		<input type="checkbox" id="rp_optionsinsulin" checked>Insulin
-		<input type="checkbox" id="rp_optionscarbs" checked>Carbs
+		<span class="translate">Display</span>: 
+		<input type="checkbox" id="rp_optionsnotes" checked><span class="translate">Notes</span>
+		<input type="checkbox" id="rp_optionsfood" checked><span class="translate">Food</span>
+		<input type="checkbox" id="rp_optionsinsulin" checked><span class="translate">Insulin</span>
+		<input type="checkbox" id="rp_optionscarbs" checked><span class="translate">Carbs</span>
 		<input type="checkbox" id="rp_optionsraw">Raw
 		<input type="checkbox" id="rp_optionsiob">IOB
 		<input type="checkbox" id="rp_optionscob">COB
 		<br>
-		<button id="rp_show">Show</button>
+		<span class="translate">Target bg range bottom</span>:
+		<input type="number" size="3" id="rp_targetlow">
+		<span class="translate">top</span>:
+		<input type="number" size="3" id="rp_targethigh">
+		<br>
+		<button id="rp_show" class="translate">Show</button>
 		<hr>
         <div id="info"></div>
         <div id="charts">
-			<div id="chart-2015-04-13"></div>
-			<div id="chart-2015-04-14"></div>
-			<div id="chart-2015-04-15"></div>
-			<div id="chart-2015-04-16"></div>
-			<div id="chart-2015-04-17"></div>
-			<div id="chart-2015-04-18"></div>
-			<div id="chart-2015-04-20"></div>
 		</div>
-        <div id="rect-demo"></div>
 
+        <script src="/api/v1/status.js"></script>
         <script src="/bower_components/d3/d3.min.js"></script>
         <script src="/bower_components/jquery/dist/jquery.min.js"></script>
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
-        <script src="/js/ui-utils.js?v=0.7.0-dev"></script>
+        <script src="/js/language.js"></script>
+        <script src="/js/ui-utils.js"></script>
         <script src="/js/report.js"></script>
     </body>
 </html>

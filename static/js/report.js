@@ -4,8 +4,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     'use strict';
 
 	var containerprefix = 'chart-';
+	var maxdays = 21;
+	var datastorage = {};
 	
 	var chw = 1000, chh = 300;
+	
+	var targetBGdefault = {
+		"mg/dL": { low: 72, high: 180 },
+		"mmol": { low: 4, high: 10 }
+	};
 	
 	var maxInsulinValue = 0
 		, maxCarbsValue = 0;
@@ -106,7 +113,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // create svg and g to contain the chart contents
         charts = d3.select('#'+containerprefix+day).html(
 			'<b>'+
-			["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date(day).getDay()]+
+			[translate("Sunday"),translate("Monday"),translate("Tuesday"),translate("Wednesday"),translate("Thursday"),translate("Friday"),translate("Saturday")][new Date(day).getDay()]+
 			' '+
 			new Date(day).toLocaleDateString()+
 			'</b><br>'
@@ -348,7 +355,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return color;
     }
 
-	 $('#info').html('<b>Loading status ...</b>');
+	 $('#info').html('<b>'+translate('Loading status')+' ...</b>');
      $.ajax('/api/v1/status.json', {
         success: function (xhr) {
             app = { name: xhr.name
@@ -364,53 +371,203 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             };
         }
     }).done(function() {
-		$('#info').html('<b>Loading food database ...</b>');
-//		$.ajax('/api/v1/food/regular.json', {
-		$.ajax('/api/v1/status.json', {
+		$('#info').html('<b>'+translate('Loading food database')+' ...</b>');
+		$.ajax('/api/v1/food/regular.json', {
 			success: function (records) {
-//				records.forEach(function (r) {
-//					foodlist.push(r);
-//					if (r.category && !categories[r.category]) categories[r.category] = {};
-//					if (r.category && r.subcategory) categories[r.category][r.subcategory] = true;
-//				});
+				records.forEach(function (r) {
+					foodlist.push(r);
+					if (r.category && !categories[r.category]) categories[r.category] = {};
+					if (r.category && r.subcategory) categories[r.category][r.subcategory] = true;
+				});
+				fillForm();
 			}
 		}).done(function() {
-			$('.appName').text(app.name);
-			$('.version').text(app.version);
-			$('.head').text(app.head);
-			if (app.apiEnabled) {
-				$('.serverSettings').show();
-			}
-			$('#treatmentDrawerToggle').toggle(app.careportalEnabled);
 			browserSettings = getBrowserSettings(browserStorage);
-			var options = {
-				targetLow: 3.5,
-				targetHigh: 10,
-				raw: true,
-				notes: true,
-				food: true,
-				insulin: true,
-				carbs: true,
-				iob : true,
-				cob : true
-			};
+
 			$('#info').html('');
-			loadData('2015-04-13',drawChart,options);
-			loadData('2015-04-14',drawChart,options);
-			loadData('2015-04-15',drawChart,options);
-			loadData('2015-04-16',drawChart,options);
-			loadData('2015-04-17',drawChart,options);
-			loadData('2015-04-18',drawChart,options);
-			loadData('2015-04-20',drawChart,options);
+			$('.presetdates').click(function(e) { var days = $(this).attr('days');  setDataRange(e,days); });
+
+			$('#rp_show').click(show);
+			$('#rp_food').change(function (event) { 
+				event.preventDefault(); 
+				$('#rp_enablefood').prop('checked',true);
+			});
+			$('#rp_notes').change(function (event) { 
+				event.preventDefault(); 
+				$('#rp_enablenotes').prop('checked',true);
+			});
+			
+			$('#rp_targetlow').val(targetBGdefault[browserSettings.units].low);
+			$('#rp_targethigh').val(targetBGdefault[browserSettings.units].high);
+
+			setDataRange(null,7);
+			
 			});
     });
 
-	var datastorage = {};
+	function show(event) {
+		var options = {
+			targetLow: 3.5,
+			targetHigh: 10,
+			raw: true,
+			notes: true,
+			food: true,
+			insulin: true,
+			carbs: true,
+			iob : true,
+			cob : true
+		};
+		
+		options.targetLow = parseFloat($('#rp_targetlow').val().replace(',','.'));
+		options.targetHigh = parseFloat($('#rp_targethigh').val().replace(',','.'));
+		options.raw = $('#rp_optionsraw').is(':checked')
+		options.iob = $('#rp_optionsiob').is(':checked')
+		options.cob = $('#rp_optionscob').is(':checked')
+		options.notes = $('#rp_optionsnotes').is(':checked')
+		options.food = $('#rp_optionsfood').is(':checked')
+		options.insulin = $('#rp_optionsinsulin').is(':checked')
+		options.carbs = $('#rp_optionscarbs').is(':checked')
+		
+		
+		var daystoshow = {};
+		var matchesneeded = 0;
+
+		// date range
+		function datefilter() {
+			if ($('#rp_enabledate').is(':checked')) {
+				matchesneeded++;
+				var from = new Date($('#rp_from').val());
+				var to = new Date($('#rp_to').val());
+				
+				while (from <= to) {
+					if (daystoshow[from.toDateInputValue()]) daystoshow[from.toDateInputValue()]++;
+					else daystoshow[from.toDateInputValue()] = 1;
+					from.addDays(1);
+				}
+			}
+			console.log('Dayfilter: ',daystoshow);
+			foodfilter();
+		}
+
+		//food filter
+		function foodfilter() {
+			if ($('#rp_enablefood').is(':checked')) {
+				matchesneeded++;
+				var _id = $('#rp_food').val();
+				if (_id) {
+					var treatmentData;
+					var tquery = '?find[boluscalc.foods._id]='+_id;
+					$.ajax('/api/v1/treatments.json'+tquery, {
+						success: function (xhr) {
+							treatmentData = xhr.map(function (treatment) {
+								var timestamp = new Date(treatment.created_at);
+								return timestamp.toDateInputValue();
+							});
+							// unique it
+							treatmentData = $.grep(treatmentData, function(v, k){
+								return $.inArray(v ,treatmentData) === k;
+							});
+							treatmentData.sort(function(a, b) { return a > b; });
+						}
+					}).done(function () {
+					console.log('Foodfilter: ',treatmentData);
+					for (var d=0; d<treatmentData.length; d++) {
+						if (daystoshow[treatmentData[d]]) daystoshow[treatmentData[d]]++;
+						else daystoshow[treatmentData[d]] = 1;
+					}
+					notesfilter();
+					});
+				}
+			} else {
+				notesfilter();
+			}
+		}
+		
+		//notes filter
+		function notesfilter() {
+			if ($('#rp_enablenotes').is(':checked')) {
+				matchesneeded++;
+				var notes = $('#rp_notes').val();
+				if (notes) {
+					var treatmentData;
+					var tquery = '?find[notes]='+notes;
+					$.ajax('/api/v1/treatments.json'+tquery, {
+						success: function (xhr) {
+							treatmentData = xhr.map(function (treatment) {
+								var timestamp = new Date(treatment.created_at);
+								return timestamp.toDateInputValue();
+							});
+							// unique it
+							treatmentData = $.grep(treatmentData, function(v, k){
+								return $.inArray(v ,treatmentData) === k;
+							});
+							treatmentData.sort(function(a, b) { return a > b; });
+						}
+					}).done(function () {
+						console.log('Notesfilter: ',treatmentData);
+						for (var d=0; d<treatmentData.length; d++) {
+							if (daystoshow[treatmentData[d]]) daystoshow[treatmentData[d]]++;
+							else daystoshow[treatmentData[d]] = 1;
+						}
+						daysfilter();
+					});
+				}
+			} else {
+				daysfilter();
+			}
+		}
+		
+		function daysfilter() {
+			matchesneeded++;
+			for (var d in daystoshow) {
+				var day = new Date(d).getDay();
+				if (day==0 && $('#rp_su').is(':checked')) daystoshow[d]++;
+				if (day==1 && $('#rp_mo').is(':checked')) daystoshow[d]++;
+				if (day==2 && $('#rp_tu').is(':checked')) daystoshow[d]++;
+				if (day==3 && $('#rp_we').is(':checked')) daystoshow[d]++;
+				if (day==4 && $('#rp_th').is(':checked')) daystoshow[d]++;
+				if (day==5 && $('#rp_fr').is(':checked')) daystoshow[d]++;
+				if (day==6 && $('#rp_sa').is(':checked')) daystoshow[d]++;
+			}
+			display();
+		}
+		
+		function display() {
+			console.log('Total: ',daystoshow,'Needed: ',matchesneeded);
+			var displayeddays = 0;
+			$('#charts').html('');
+			for (var d in daystoshow) {
+				if (displayeddays < maxdays) {
+					if (daystoshow[d]==matchesneeded) {
+						$('#charts').append($('<div id="chart-'+d+'"></div>'));
+						loadData(d,drawChart,options);
+						displayeddays++;
+					}
+				} else {
+					$('#charts').append($('<div>'+d+' '+translate('not displayed')+'.</div>'));
+				}
+			}
+			if (displayeddays==0)
+				$('#charts').append(translate('Result is empty'));
+		}
+		
+		datefilter();
+		if (event) event.preventDefault();
+	}
+	
+	function setDataRange(event,days) {
+		var now = new Date();
+		var from = new Date().addDays(-days+1);
+		$('#rp_from').val(from.toDateInputValue());
+		$('#rp_to').val(now.toDateInputValue());
+		
+		if (event) event.preventDefault();
+	}
 	
 	function loadData(day,callback,options) {
 		// check for loaded data
 		if (datastorage[day]) {
-			callback(day,data,options);
+			callback(day,datastorage[day],options);
 			return;
 		}
 		// patientData = [actual, predicted, mbg, treatment, cal, devicestatusData];
@@ -425,7 +582,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 		var to = from + 1000 * 60 * 60 * 24;
 		var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
 		
-		$('#'+containerprefix+day).html('<b>Loading CGM data of '+day+' ...</b>');
+		$('#'+containerprefix+day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
 		$.ajax('/api/v1/entries.json'+query, {
 			success: function (xhr) {
 				xhr.forEach(function (element) {
@@ -475,15 +632,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 				data.cal.sort(function(a, b) { return a.x - b.x; });
 			}
 		}).done(function () {
-			$('#'+containerprefix+day).html('<b>Loading treatments data of '+day+' ...</b>');
-/*
-?find[dateString][$gte]=2015-02-00&find[dateString][$lte]=2015-03-00&count=10000 to get month 02
-so find[foo]=bar becomes {foo: 'bar'} while find[foo][]=bar becomes { foo: [ 'bar']}
-so everything attached to find params gets passed as literal obj decoded via query string as object to mongo search
-
-    return api().find({created_at: {$gte: new Date(from).toISOString(), $lt: new Date(to).toISOString()} }).sort({"created_at": 1}).toArray(fn);
-
-*/			
+			$('#'+containerprefix+day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
 			var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
 			$.ajax('/api/v1/treatments.json'+tquery, {
 				success: function (xhr) {
@@ -496,7 +645,7 @@ so everything attached to find params gets passed as literal obj decoded via que
 					data.treatments.sort(function(a, b) { return a.x - b.x; });
 				}
 			}).done(function () {
-				$('#'+containerprefix+day).html('<b>Precessing data of '+day+' ...</b>');
+				$('#'+containerprefix+day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
 				processData(data,day,callback,options);
 			});
 				
@@ -546,3 +695,67 @@ so everything attached to find params gets passed as literal obj decoded via que
         datastorage[day] = data;
 	    callback(day,data,options);
 	}
+
+	// Filtering food code
+	// -------------------
+	var categories = [];
+	var foodlist = [];
+	var filter = {
+		  category: ''
+		, subcategory: ''
+		, name: ''
+	};
+
+	function fillForm(event) {
+		$('#rp_category').empty().append(new Option(translate('(none)'),''));
+		for (var s in categories) {
+			$('#rp_category').append(new Option(s,s));
+		}
+		filter.category = '';
+		fillSubcategories();
+		
+		$('#rp_category').change(fillSubcategories);
+		$('#rp_subcategory').change(doFilter);
+		$('#rp_name').on('input',doFilter);
+	
+		if (event) event.preventDefault();
+		return false;
+	}
+
+	function fillSubcategories(event) {
+		if (event) {
+			event.preventDefault();
+		}
+		filter.category = $('#rp_category').val();
+		filter.subcategory = '';
+		$('#rp_subcategory').empty().append(new Option(translate('(none)'),''));
+		if (filter.category != '') {
+			for (var s in categories[filter.category]) {
+				$('#rp_subcategory').append(new Option(s,s));
+			}
+		}
+		doFilter();
+	}
+
+	function doFilter(event) {
+		if (event) {
+			filter.category = $('#rp_category').val();
+			filter.subcategory = $('#rp_subcategory').val();
+			filter.name = $('#rp_name').val();
+		}
+		$('#rp_food').empty();
+		for (var i=0; i<foodlist.length; i++) {
+			if (filter.category != '' && foodlist[i].category != filter.category) continue;
+			if (filter.subcategory != '' && foodlist[i].subcategory != filter.subcategory) continue;
+			if (filter.name!= '' && foodlist[i].name.toLowerCase().indexOf(filter.name.toLowerCase())<0) continue;
+			var o = '';
+			o += foodlist[i].name + ' | ';
+			o += translate('Portion')+': ' + foodlist[i].portion + ' ';
+			o += foodlist[i].unit + ' | ';
+			o += translate('Carbs')+': ' + foodlist[i].carbs+' g';
+			$('#rp_food').append(new Option(o,foodlist[i]._id));
+		}
+		
+		if (event) event.preventDefault();
+	}
+	

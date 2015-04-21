@@ -420,3 +420,31 @@ $(function() {
         openDrawer('#drawer');
     }
 });
+
+// clone object
+function clone(obj) {
+	if (null == obj || "object" != typeof obj) return obj;
+	var copy = obj.constructor();
+	for (var attr in obj) {
+		if (obj.hasOwnProperty(attr)) copy[attr] = obj[attr];
+	}
+	return copy;
+}
+
+// some helpers for input "date"
+Date.prototype.toDateInputValue = (function() {
+	var local = new Date(this);
+	local.setMinutes(this.getMinutes() - this.getTimezoneOffset());
+	return local.toJSON().slice(0,10);
+});
+
+Date.prototype.addHours = function(h) {    
+   this.setTime(this.getTime() + (h*60*60*1000)); 
+   return this;   
+}    
+
+Date.prototype.addDays = function(h) {    
+   this.setTime(this.getTime() + (h*24*60*60*1000)); 
+   return this;   
+}    
+
