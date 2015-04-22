@@ -7,8 +7,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 	var maxdays = 21;
 	var datastorage = {};
 	
-	var chw = 1000, chh = 300;
-	
 	var targetBGdefault = {
 		"mg/dL": { low: 72, high: 180 },
 		"mmol": { low: 4, high: 10 }
@@ -157,12 +155,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var dataRange = d3.extent(data.sgv, dateFn);
 
         // get the entire container height and width subtracting the padding
-        var chartWidth = chw - padding.left - padding.right;
-        var chartHeight = chh - padding.top - padding.bottom;
+        var chartWidth = options.width - padding.left - padding.right;
+        var chartHeight = options.height - padding.top - padding.bottom;
  
  		//set the width and height of the SVG element
-		charts.attr('width', chw)
-			.attr('height', chh)
+		charts.attr('width', options.width)
+			.attr('height', options.height)
             /*.attr('transform', 'translate(' + padding.left + ',' + padding.top + ')')*/;
 			
 		// ranges are based on the width and height available so reset
@@ -253,6 +251,33 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         contextCircles.exit()
             .remove();
 
+		var to = new Date(day).addDays(1).addMinutes(new Date().getTimezoneOffset());
+		var from = new Date(day).addMinutes(new Date().getTimezoneOffset());
+		for (var dt=from; dt < to; dt.addMinutes(5)) {
+			if (options.iob) {
+				var iob = Nightscout.iob.calcTotal(data.treatments,dt).display;
+				context.append('circle')
+					.attr('cx', xScale2(dt) + padding.left)
+					.attr('cy', yInsulinScale(iob) + padding.top)
+					.attr('fill', 'DarkOrchid')
+					.style('opacity', 1)
+					.attr('stroke-width', 0)
+					.attr('stroke', 'black')
+					.attr('r', 1.2);
+			}
+			if (options.cob) {
+				var cob = Nightscout.cob.calcTotal(data.treatments,dt,true).cob;
+				context.append('circle')
+					.attr('cx', xScale2(dt) + padding.left)
+					.attr('cy', yCarbsScale(cob) + padding.top)
+					.attr('fill', 'olive')
+					.style('opacity', 1)
+					.attr('stroke-width', 0)
+					.attr('stroke', 'black')
+					.attr('r', 1.2);
+			}
+		}
+
         data.treatments.forEach(function (treatment) {
 		  if (treatment.boluscalc && treatment.boluscalc.foods && treatment.boluscalc.foods.length > 0 || treatment.notes) {
 				  var lastfoodtext = foodtexts;
@@ -339,7 +364,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 				  .attr('transform', 'translate(' + (xScale2(treatment.created_at.getTime()) + padding.left - 2) + ',' + +padding.top + ')')
 				  .text(treatment.insulin+'U');
 			}
-			
 		});
 }
 
@@ -371,42 +395,51 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             };
         }
     }).done(function() {
-		$('#info').html('<b>'+translate('Loading food database')+' ...</b>');
-		$.ajax('/api/v1/food/regular.json', {
-			success: function (records) {
-				records.forEach(function (r) {
-					foodlist.push(r);
-					if (r.category && !categories[r.category]) categories[r.category] = {};
-					if (r.category && r.subcategory) categories[r.category][r.subcategory] = true;
-				});
-				fillForm();
+		$('#info').html('<b>'+translate('Loading profile')+' ...</b>');
+		$.ajax('/api/v1/profile/current', {
+			success: function (record) {
+				Nightscout.currentProfile.update(record);
 			}
 		}).done(function() {
-			browserSettings = getBrowserSettings(browserStorage);
+			$('#info').html('<b>'+translate('Loading food database')+' ...</b>');
+			$.ajax('/api/v1/food/regular.json', {
+				success: function (records) {
+					records.forEach(function (r) {
+						foodlist.push(r);
+						if (r.category && !categories[r.category]) categories[r.category] = {};
+						if (r.category && r.subcategory) categories[r.category][r.subcategory] = true;
+					});
+					fillForm();
+				}
+			}).done(function() {
+				browserSettings = getBrowserSettings(browserStorage);
 
-			$('#info').html('');
-			$('.presetdates').click(function(e) { var days = $(this).attr('days');  setDataRange(e,days); });
+				$('#info').html('');
+				$('.presetdates').click(function(e) { var days = $(this).attr('days');  setDataRange(e,days); });
 
-			$('#rp_show').click(show);
-			$('#rp_food').change(function (event) { 
-				event.preventDefault(); 
-				$('#rp_enablefood').prop('checked',true);
-			});
-			$('#rp_notes').change(function (event) { 
-				event.preventDefault(); 
-				$('#rp_enablenotes').prop('checked',true);
-			});
-			
-			$('#rp_targetlow').val(targetBGdefault[browserSettings.units].low);
-			$('#rp_targethigh').val(targetBGdefault[browserSettings.units].high);
+				$('#rp_show').click(show);
+				$('#rp_food').change(function (event) { 
+					event.preventDefault(); 
+					$('#rp_enablefood').prop('checked',true);
+				});
+				$('#rp_notes').change(function (event) { 
+					event.preventDefault(); 
+					$('#rp_enablenotes').prop('checked',true);
+				});
+				
+				$('#rp_targetlow').val(targetBGdefault[browserSettings.units].low);
+				$('#rp_targethigh').val(targetBGdefault[browserSettings.units].high);
 
-			setDataRange(null,7);
-			
-			});
+				setDataRange(null,7);
+				
+				});
+		});
     });
 
 	function show(event) {
 		var options = {
+			width: 1000,
+			height: 300,
 			targetLow: 3.5,
 			targetHigh: 10,
 			raw: true,
@@ -420,13 +453,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 		
 		options.targetLow = parseFloat($('#rp_targetlow').val().replace(',','.'));
 		options.targetHigh = parseFloat($('#rp_targethigh').val().replace(',','.'));
-		options.raw = $('#rp_optionsraw').is(':checked')
-		options.iob = $('#rp_optionsiob').is(':checked')
-		options.cob = $('#rp_optionscob').is(':checked')
-		options.notes = $('#rp_optionsnotes').is(':checked')
-		options.food = $('#rp_optionsfood').is(':checked')
-		options.insulin = $('#rp_optionsinsulin').is(':checked')
-		options.carbs = $('#rp_optionscarbs').is(':checked')
+		options.raw = $('#rp_optionsraw').is(':checked');
+		options.iob = $('#rp_optionsiob').is(':checked');
+		options.cob = $('#rp_optionscob').is(':checked');
+		options.notes = $('#rp_optionsnotes').is(':checked');
+		options.food = $('#rp_optionsfood').is(':checked');
+		options.insulin = $('#rp_optionsinsulin').is(':checked');
+		options.carbs = $('#rp_optionscarbs').is(':checked');
+		options.width = parseInt($('#rp_size :selected').attr('x'));
+		options.height = parseInt($('#rp_size :selected').attr('y'));
 		
 		
 		var daystoshow = {};
@@ -505,6 +540,40 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 						}
 					}).done(function () {
 						console.log('Notesfilter: ',treatmentData);
+						for (var d=0; d<treatmentData.length; d++) {
+							if (daystoshow[treatmentData[d]]) daystoshow[treatmentData[d]]++;
+							else daystoshow[treatmentData[d]] = 1;
+						}
+						eventtypefilter();
+					});
+				}
+			} else {
+				eventtypefilter();
+			}
+		}
+		
+		//event type filter
+		function eventtypefilter() {
+			if ($('#rp_enableeventtype').is(':checked')) {
+				matchesneeded++;
+				var eventtype = $('#rp_eventtype').val();
+				if (eventtype) {
+					var treatmentData;
+					var tquery = '?find[eventType]='+eventtype;
+					$.ajax('/api/v1/treatments.json'+tquery, {
+						success: function (xhr) {
+							treatmentData = xhr.map(function (treatment) {
+								var timestamp = new Date(treatment.created_at);
+								return timestamp.toDateInputValue();
+							});
+							// unique it
+							treatmentData = $.grep(treatmentData, function(v, k){
+								return $.inArray(v ,treatmentData) === k;
+							});
+							treatmentData.sort(function(a, b) { return a > b; });
+						}
+					}).done(function () {
+						console.log('Eventtypefilter: ',treatmentData);
 						for (var d=0; d<treatmentData.length; d++) {
 							if (daystoshow[treatmentData[d]]) daystoshow[treatmentData[d]]++;
 							else daystoshow[treatmentData[d]] = 1;

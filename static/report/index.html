@@ -48,6 +48,14 @@
  
 			</tr>
 			<tr>
+			<tr>
+				<td><input type="checkbox" id="rp_enableeventtype"></td>
+				<td>
+					<span class="translate">Event type contain</span>: <input type="text" id="rp_eventtype"></select>
+				</td>
+ 
+			</tr>
+			<tr>
 				<td colspan="2">
 					<input type="checkbox" id="rp_mo" checked><span class="translate">Mo</span>
 					<input type="checkbox" id="rp_tu" checked><span class="translate">Tu</span>
@@ -61,13 +69,20 @@
 			</tr>
 		</table>
 		<span class="translate">Display</span>: 
+		<input type="checkbox" id="rp_optionsinsulin" checked><span class="translate" style="color:blue;opacity:0.5">Insulin</span>
+		<input type="checkbox" id="rp_optionscarbs" checked><span class="translate" style="color:red;opacity:0.5">Carbs</span>
 		<input type="checkbox" id="rp_optionsnotes" checked><span class="translate">Notes</span>
 		<input type="checkbox" id="rp_optionsfood" checked><span class="translate">Food</span>
-		<input type="checkbox" id="rp_optionsinsulin" checked><span class="translate">Insulin</span>
-		<input type="checkbox" id="rp_optionscarbs" checked><span class="translate">Carbs</span>
-		<input type="checkbox" id="rp_optionsraw">Raw
-		<input type="checkbox" id="rp_optionsiob">IOB
-		<input type="checkbox" id="rp_optionscob">COB
+		<input type="checkbox" id="rp_optionsraw"><span class="translate" style="color:gray;opacity:1">Raw</span>
+		<input type="checkbox" id="rp_optionsiob"><span class="translate" style="color:DarkOrchid;opacity:0.5">IOB</span>
+		<input type="checkbox" id="rp_optionscob"><span class="translate" style="color:Olive;opacity:1">COB</span>
+		&nbsp;<span class="translate">Size</span>:
+		<select id="rp_size">
+			<option x="800" y="250">800x250px</option>
+			<option x="1000" y="300" selected>1000x300px</option>
+			<option x="1200" y="400">1200x400px</option>
+			<option x="1200" y="400">1550x500px</option>
+		</select>
 		<br>
 		<span class="translate">Target bg range bottom</span>:
 		<input type="number" size="3" id="rp_targetlow">
@@ -85,6 +100,7 @@
         <script src="/bower_components/jquery/dist/jquery.min.js"></script>
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
+        <script src="/public/js/bundle.js"></script>
         <script src="/js/language.js"></script>
         <script src="/js/ui-utils.js"></script>
         <script src="/js/report.js"></script>

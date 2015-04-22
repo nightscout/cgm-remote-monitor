@@ -103,6 +103,9 @@
 		'Notes contain' : { 	
 			cs: 'Poznámky obsahují'
 			},
+		'Event type contain' : { 	
+			cs: 'Typ události obsahuje'
+			},
 		'Target bg range bottom' : { 	
 			cs: 'Cílová glykémie spodní'
 			},
@@ -114,6 +117,9 @@
 			},
 		'Display' : { 	
 			cs: 'Zobraz'
+			},
+		'Loading profile' : { 	
+			cs: 'Nahrávám profil'
 			},
 		'Loading status' : { 	
 			cs: 'Nahrávám status'
@@ -135,6 +141,9 @@
 			},
 		'Portion' : { 	
 			cs: 'Porce'
+			},
+		'Size' : { 	
+			cs: 'Rozměr'
 			},
 		'(none)' : { 	
 			cs: '(Prázdný)'
