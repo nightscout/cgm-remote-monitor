@@ -3,12 +3,31 @@
     <head>
         <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
         <meta name="apple-mobile-web-app-capable" content="yes">
-        <link rel="apple-touch-icon" href="/images/logomobile.png">
         <title>Nightscout</title>
-        <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
-        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.6.4" />
+
+      <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
+      <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
+      <link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png">
+      <link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png">
+      <link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png">
+      <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
+      <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
+      <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
+      <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
+      <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
+      <link rel="icon" type="image/png" href="/images/android-chrome-192x192.png" sizes="192x192">
+      <link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96">
+      <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
+      <link rel="manifest" href="/manifest.json">
+      <link rel="shortcut icon" href="/images/favicon.ico">
+      <meta name="msapplication-TileColor" content="#00a300">
+      <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
+      <meta name="msapplication-config" content="/browserconfig.xml">
+      <meta name="theme-color" content="#333333">
+
+        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.7.0" />
         <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.6.4" />
+        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.7.0" />
         <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
     </head>
     <body>
@@ -24,19 +43,13 @@
             <a href="#"><span></span><i class="icon-cancel-circled"></i></a>
         </div>
 
-        <div class="container" id="container">
+        <div class="container loading" id="container">
             <div class="status">
                 <div class="bgStatus current">
-                    <div id="noButton">
+                    <div class="bgButton ">
+                        <span class="rawnoise pill"><em></em><label></label></span>
                         <span class="currentBG">---</span>
                         <span class="currentDirection">-</span>
-                        <span class="currentDetails">--</span>
-                        
-                    </div>
-                    <div id="bgButton" hidden="true">
-                        <span class="currentBG">---</span>
-                        <span class="currentDirection">-</span>
-                        <span class="currentDetails">--</span>
                     </div>
                     <ul class="dropdown-menu" id="silenceBtn">
                         <li><a href="#" data-snooze-time="1800000">Silence for 30 minutes</a></li>
@@ -44,16 +57,24 @@
                         <li><a href="#" data-snooze-time="5400000">Silence for 90 minutes</a></li>
                         <li><a href="#" data-snooze-time="7200000">Silence for 120 minutes</a></li>
                     </ul>
+                    <div class="currentDetails"></div>
                 </div>
 
                 <div class="time">
                     <div class="timebox">
                         <div id="currentTime">---</div>
                         <div class="timeOther">
-                            <span id="lastEntry">---</span>
+                            <span id="lastEntry" class="pill"><em></em><label></label></span>
+                            <span id="uploaderBattery" class="pill"><em></em><label></label></span>
                         </div>
                     </div>
                 </div>
+                <ul class="focus-range">
+                    <li class="selected" data-hours="3">3HR</li>
+                    <li data-hours="6">6HR</li>
+                    <li data-hours="12">12HR</li>
+                    <li data-hours="24">24HR</li>
+                </ul>
             </div>
             <div class="row-fluid section1">
                 <div id="chartContainer"></div>
@@ -80,6 +101,16 @@
                         <dd><input type="checkbox" id="alarm-high-browser" /><label for="alarm-high-browser">High Alarm</label></dd>
                         <dd><input type="checkbox" id="alarm-low-browser" /><label for="alarm-low-browser">Low Alarm</label></dd>
                         <dd><input type="checkbox" id="alarm-urgentlow-browser" /><label for="alarm-urgentlow-browser">Urgent Low Alarm</label></dd>
+                        <dd>
+                          <input type="checkbox" id="alarm-timeagowarn-browser"/><label for="alarm-timeagowarn-browser">Stale Data: Warn</label>
+                          <input type="text" id="alarm-timeagowarnmins-browser" class="timeago-mins" value="15"/>
+                          mins
+                        </dd>
+                        <dd>
+                          <input type="checkbox" id="alarm-timeagourgent-browser"/><label for="alarm-timeagourgent-browser">Stale Data: Urgent</label>
+                          <input type="text" id="alarm-timeagourgentmins-browser" class="timeago-mins" value="30"/>
+                          mins
+                        </dd>
                     </dl>
                     <dl class="toggle">
                         <dt>Night Mode <a class="tip" original-title="When enabled the page will be dimmed from 10pm - 6am."><i class="icon-help-circled"></i></a></dt>
@@ -102,7 +133,10 @@
                     </dl>
                 </fieldset>
 
-                <input type="submit" id="save" value="Save" />
+                <div class="actions">
+                  <button type="button" id="save">Save</button>
+                  <a id="useDefaults" class="pull-right" href="">Reset, and use defaults</a>
+                </div>
 
                 <fieldset class="experiments">
                     <legend>Experiments</legend>
@@ -134,7 +168,7 @@
         </div>
 
         <div id="treatmentDrawer">
-            <form id="treatment-form" onsubmit="return treatmentSubmit();">
+            <form id="treatment-form">
                 <fieldset class="treatmentData">
                     <legend>Log a Treatment</legend>
                     <label for="eventType" class="left-column">
@@ -209,7 +243,7 @@
                       <input type="time" id="eventTimeValue" name="eventTimeValue" value=""/>
                     </div>
 
-                  <button type="submit">Submit Form</button>
+                  <button type="button">Submit Form</button>
                 </fieldset>
                 <a href="/treatments.html" target="treatments">View all treatments</a>
             </form>
@@ -220,14 +254,15 @@
             <audio src="/audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
         </div>
 
+        <script src="/public/js/bundle.js"></script>
         <script src="/socket.io/socket.io.js"></script>
         <script src="/api/v1/status.js"></script>
         <script src="/bower_components/d3/d3.min.js"></script>
         <script src="/bower_components/jquery/dist/jquery.min.js"></script>
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
-        <script src="/js/ui-utils.js?v=0.6.4"></script>
-        <script src="/js/client.js?v=0.6.4"></script>
+        <script src="/js/ui-utils.js?v=0.7.0"></script>
+        <script src="/js/client.js?v=0.7.0"></script>
         <script src="/js/experiments.js"></script>
     </body>
 </html>
