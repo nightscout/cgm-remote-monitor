@@ -12,6 +12,11 @@
       "value": "",
       "required": true
     },
+    "DISPLAY_UNITS": {
+      "description": "Server display units for BG values.  Default null value implies 'mg/dl'.  Set to 'mmol' to change the server to mmol mode.",
+      "value": "",
+      "required": false
+    },
     "ENABLE": {
       "description": "Space delimited list of optional features to enable, such as 'careportal'.",
       "value": "",
@@ -54,6 +59,7 @@
     }
   },
   "addons": [
-    "mongolab:sandbox"
+    "mongolab:sandbox",
+    "papertrail"
   ]
 }
