@@ -1,39 +1,53 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>NightScout</title>
-        <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
-        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.3.3" />
+        <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <title>Nightscout</title>
+
+      <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
+      <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
+      <link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png">
+      <link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png">
+      <link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png">
+      <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
+      <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
+      <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
+      <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
+      <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
+      <link rel="icon" type="image/png" href="/images/android-chrome-192x192.png" sizes="192x192">
+      <link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96">
+      <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
+      <link rel="manifest" href="/manifest.json">
+      <link rel="shortcut icon" href="/images/favicon.ico">
+      <meta name="msapplication-TileColor" content="#00a300">
+      <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
+      <meta name="msapplication-config" content="/browserconfig.xml">
+      <meta name="theme-color" content="#333333">
+
+        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.7.0" />
         <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-        <link rel="stylesheet" type="text/css" href="/css/drawer.css" />
+        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.7.0" />
         <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
     </head>
     <body>
         <div id="toolbar">
             <div id="buttonbar">
-                <div style="visibility:hidden" id="battery" class="tip" original-title="Uploader Battery 75%"><i class="icon-battery-75"></i></div>
                 <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
-                <a id="hideToolbar" class="tip" original-title="Hides the toolbar" href="#"><i class="icon-angle-double-up"></i></a>
                 <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-cog"></i></a>
+                <a id="treatmentDrawerToggle" class="tip" original-title="Treatments" href="#"><i class="icon-plus"></i></a>
             </div>
             <h1 class="customTitle">Nightscout</h1>
         </div>
         <div id="notification">
             <a href="#"><span></span><i class="icon-cancel-circled"></i></a>
         </div>
-        <div id="showToolbar">
-            <a class="tip" original-title="Open the toolbar" href="#"><i class="icon-angle-double-down"></i></a>
-        </div>
 
-        <div class="container" id="container">
+        <div class="container loading" id="container">
             <div class="status">
                 <div class="bgStatus current">
-                    <div id="noButton">
-                        <span class="currentBG">---</span>
-                        <span class="currentDirection">-</span>
-                    </div>
-                    <div id="bgButton" hidden="true">
+                    <div class="bgButton ">
+                        <span class="rawnoise pill"><em></em><label></label></span>
                         <span class="currentBG">---</span>
                         <span class="currentDirection">-</span>
                     </div>
@@ -43,16 +57,24 @@
                         <li><a href="#" data-snooze-time="5400000">Silence for 90 minutes</a></li>
                         <li><a href="#" data-snooze-time="7200000">Silence for 120 minutes</a></li>
                     </ul>
+                    <div class="currentDetails"></div>
                 </div>
 
                 <div class="time">
                     <div class="timebox">
                         <div id="currentTime">---</div>
                         <div class="timeOther">
-                            <span id="lastEntry">---</span>
+                            <span id="lastEntry" class="pill"><em></em><label></label></span>
+                            <span id="uploaderBattery" class="pill"><em></em><label></label></span>
                         </div>
                     </div>
                 </div>
+                <ul class="focus-range">
+                    <li class="selected" data-hours="3">3HR</li>
+                    <li data-hours="6">6HR</li>
+                    <li data-hours="12">12HR</li>
+                    <li data-hours="24">24HR</li>
+                </ul>
             </div>
             <div class="row-fluid section1">
                 <div id="chartContainer"></div>
@@ -65,20 +87,56 @@
                     <legend>Settings</legend>
                     <dl class="radio">
                         <dt>Units</dt>
-                        <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label><br />
-                        <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label>
+                        <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label></dd>
+                        <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label></dd>
+                    </dl>
+                    <dl class="radio">
+                        <dt>Date format</dt>
+                        <dd><input type="radio" name="timeformat-browser" id="12-browser" value="12" checked /><label for="12-browser">12 hours</label></dd>
+                        <dd><input type="radio" name="timeformat-browser" id="24-browser" value="24" /><label for="24-browser">24 hours</label></dd>
+                    </dl>
+                    <dl class="toggle">
+                        <dt>Enable Alarms <a class="tip" original-title="When enabled an alarm may sound."><i class="icon-help-circled"></i></a></dt>
+                        <dd><input type="checkbox" id="alarm-urgenthigh-browser" /><label for="alarm-urgenthigh-browser">Urgent High Alarm</label></dd>
+                        <dd><input type="checkbox" id="alarm-high-browser" /><label for="alarm-high-browser">High Alarm</label></dd>
+                        <dd><input type="checkbox" id="alarm-low-browser" /><label for="alarm-low-browser">Low Alarm</label></dd>
+                        <dd><input type="checkbox" id="alarm-urgentlow-browser" /><label for="alarm-urgentlow-browser">Urgent Low Alarm</label></dd>
+                        <dd>
+                          <input type="checkbox" id="alarm-timeagowarn-browser"/><label for="alarm-timeagowarn-browser">Stale Data: Warn</label>
+                          <input type="text" id="alarm-timeagowarnmins-browser" class="timeago-mins" value="15"/>
+                          mins
+                        </dd>
+                        <dd>
+                          <input type="checkbox" id="alarm-timeagourgent-browser"/><label for="alarm-timeagourgent-browser">Stale Data: Urgent</label>
+                          <input type="text" id="alarm-timeagourgentmins-browser" class="timeago-mins" value="30"/>
+                          mins
+                        </dd>
                     </dl>
                     <dl class="toggle">
                         <dt>Night Mode <a class="tip" original-title="When enabled the page will be dimmed from 10pm - 6am."><i class="icon-help-circled"></i></a></dt>
                         <dd><input type="checkbox" name="nightmode-browser" id="nightmode-browser" /><label for="nightmode-browser">Enable</label></dd>
                     </dl>
+                    <dl id="show-rawbg-option" class="toggle">
+                      <dt>Show Raw BG Data <a class="tip" original-title="When enabled small white dots will be disaplyed for raw BG data"><i class="icon-help-circled"></i></a></dt>
+                      <dd><input type="radio" name="show-rawbg" id="show-rawbg-never" value="never"/><label for="show-rawbg-never">Never</label></dd>
+                      <dd><input type="radio" name="show-rawbg" id="show-rawbg-always" value="always"/><label for="show-rawbg-always">Always</label></dd>
+                      <dd><input type="radio" name="show-rawbg" id="show-rawbg-noise" value="noise"/><label for="show-rawbg-noise">When there is noise</label></dd>
+                    </dl>
                     <dl>
                         <dt>Custom Title</dt>
                         <dd><input type="text" id="customTitle" value="Nightscout" /></dd>
                     </dl>
+                    <dl class="radio">
+                        <dt>Theme</dt>
+                        <dd><input type="radio" name="theme-browser" id="theme-default-browser" value="default" checked /><label for="theme-default-browser">Default</label></dd>
+                        <dd><input type="radio" name="theme-browser" id="theme-colors-browser" value="colors" /><label for="theme-colors-browser">Colors</label></dd>
+                    </dl>
                 </fieldset>
 
-                <input type="submit" id="save" value="Save" />
+                <div class="actions">
+                  <button type="button" id="save">Save</button>
+                  <a id="useDefaults" class="pull-right" href="">Reset, and use defaults</a>
+                </div>
 
                 <fieldset class="experiments">
                     <legend>Experiments</legend>
@@ -93,12 +151,101 @@
                     <legend>About</legend>
                     <div class="appName"></div>
                     <div>version <span class="version"></span></div>
+                    <div>head <span class="head"></span></div>
+                    <p>
+                      <div>License: <a href="http://www.gnu.org/licenses/agpl.html" target="_blank">AGPL</a></div>
+                      <div>Copyright © 2015 <a href="http://www.nightscoutfoundation.org/" target="_blank">The Nightscout Foundation</a></div>
+                    </p>
                     <div class="links">
-                        <a href="https://github.com/nightscout/cgm-remote-monitor/releases">Release Notes</a><br />
-                        <a href="http://github.com/nightscout/cgm-remote-monitor">Open Source</a><br />
-                        <a href="http://www.nightscout.info">Community</a><br />
+                        <a href="https://github.com/nightscout/cgm-remote-monitor/releases" target="_blank">Release Notes</a><br />
+                        <a href="http://github.com/nightscout/cgm-remote-monitor" target="_blank">Open Source</a><br />
+                        <a href="http://www.nightscout.info" target="_blank">Nightscout Info</a><br />
+                        <a href="http://www.nightscoutfoundation.org/donations/" target="_blank">Help Support Nightscout</a><br />
+                        <a href="https://www.facebook.com/groups/cgminthecloud/" target="_blank">CGM in the Cloud</a><br />
                     </div>
                 </fieldset>
+            </form>
+        </div>
+
+        <div id="treatmentDrawer">
+            <form id="treatment-form">
+                <fieldset class="treatmentData">
+                    <legend>Log a Treatment</legend>
+                    <label for="eventType" class="left-column">
+                        <span>Event Type:</span>
+                        <select id="eventType">
+                            <option value="BG Check">BG Check</option>
+                            <option value="Snack Bolus">Snack Bolus</option>
+                            <option value="Meal Bolus">Meal Bolus</option>
+                            <option value="Correction Bolus">Correction Bolus</option>
+                            <option value="Carb Correction">Carb Correction</option>
+                            <option value="Note">Note</option>
+                            <option value="Question">Question</option>
+                            <option value="Exercise">Exercise</option>
+                            <option value="Site Change">Pump Site Change</option>
+                            <option value="Sensor Start">Dexcom Sensor Start</option>
+                            <option value="D.A.D. Alert">D.A.D. Alert</option>
+                        </select>
+                    </label>
+
+                    <fieldset>
+                        <legend>Glucose Reading</legend>
+                        <input type="number" step="any" id="glucoseValue" />
+                        <label><br>Measurement Method:<br></label>
+                        <label for="meter">
+                            <input type="radio" name="glucoseType" id="meter" value="Finger"/>
+                            <span>Meter</span>
+                        </label>
+                        <label for="sensor">
+                            <input type="radio" name="glucoseType" id="sensor" value="Sensor"/>
+                            <span>Sensor<br></span>
+                        </label>
+                    </fieldset>
+                    <label for="carbsGiven" class="left-column short-label">
+                        <span>Carbs Given:</span>
+                        <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" />
+                    </label>
+                    <label for="insulinGiven" class="left-column short-label">
+                        <span>Insulin Given:</span>
+                        <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units"/>
+                    </label>
+                    <label for="preBolus" class="left-column short-label extra-space">
+                        <span>Eating in:</span>
+                        <select id="preBolus">
+                            <option value="0">Time in minutes</option>
+                            <option value="15">15 minutes</option>
+                            <option value="20">20 minutes</option>
+                            <option value="30">30 minutes</option>
+                            <option value="45">45 minutes</option>
+                            <option value="60">60 minutes</option>
+                        </select>
+                    </label>
+
+                    <!-- Label and textarea -->
+                    <label for="notes" class="extra-space">Additional Notes, Comments:</label>
+                    <textarea id="notes"></textarea><br>
+
+                    <label for="enteredBy" class="left-column extra-space">
+                      <span>Entered By:</span>
+                      <input type="text" id="enteredBy" value="" />
+                    </label>
+
+                    <div id="eventTime">
+                      <span>Event Time:</span>
+                      <label for="nowtime">
+                        <input type="radio" name="nowOrOther" id="nowtime" value="now" checked="checked"/>
+                        <span>Now</span>
+                      </label>
+                      <label for="othertime">
+                        <input type="radio" name="nowOrOther" id="othertime" value="other"/>
+                        <span>Other</span>
+                      </label>
+                      <input type="time" id="eventTimeValue" name="eventTimeValue" value=""/>
+                    </div>
+
+                  <button type="button">Submit Form</button>
+                </fieldset>
+                <a href="/treatments.html" target="treatments">View all treatments</a>
             </form>
         </div>
 
@@ -106,14 +253,16 @@
             <audio src="/audio/alarm.mp3" preload="auto" loop="true" class="alarm mp3" type="audio/mp3"></audio>
             <audio src="/audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
         </div>
+
+        <script src="/public/js/bundle.js"></script>
         <script src="/socket.io/socket.io.js"></script>
         <script src="/api/v1/status.js"></script>
         <script src="/bower_components/d3/d3.min.js"></script>
         <script src="/bower_components/jquery/dist/jquery.min.js"></script>
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
-        <script src="/js/ui-utils.js"></script>
-        <script src="/js/client.js?v=0.3.3"></script>
+        <script src="/js/ui-utils.js?v=0.7.0"></script>
+        <script src="/js/client.js?v=0.7.0"></script>
         <script src="/js/experiments.js"></script>
     </body>
 </html>
