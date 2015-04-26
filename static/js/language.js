@@ -14,7 +14,7 @@
 			}
 		,'Th' : {
 			cs: 'Čt'
-			,de: 'Di'
+			,de: 'Do'
 			}
 		,'Fr' : {
 			cs: 'Pá'
@@ -30,129 +30,167 @@
 			}
 		,'Monday' : {
 			cs: 'Pondělí'
+			,de: 'Montag'
 			}
 		,'Tuesday' : {
 			cs: 'Úterý'
+			,de: 'Dienstag'
 			}
 		,'Wednesday' : {
 			cs: 'Středa'
+			,de: 'Mittwoch'
 			}
 		,'Thursday' : {
 			cs: 'Čtvrtek'
+			,de: 'Donnerstag'
 			}
 		,'Friday' : {
 			cs: 'Pátek'
+			,de: 'Freitag'
 			}
 		,'Saturday' : {
-			cs: 'Sobota'
+			cs: 'Sobota
+			,de: 'Samstag'
 			}
 		,'Sunday' : {
 			cs: 'Neděle'
+			,de: 'Sonntag'
 			}
 		,'Category' : {
 			cs: 'Kategorie'
+			,de: 'Kategorie'
 			}
 		,'Subcategory' : { 	
 			cs: 'Podkategorie'
+			,de: 'Unterkategorie'
 			}
 		,'Name' : { 	
 			cs: 'Jméno'
+			,de: 'Name'
 			}
 		,'Today' : { 	
 			cs: 'Dnes'
+			,de: 'Heute'
 			}
 		,'Last 2 days' : { 	
 			cs: 'Poslední 2 dny'
+			,de: 'letzte 2 Tage'
 			}
 		,'Last 3 days' : { 	
 			cs: 'Poslední 3 dny'
+			,de: 'letzte 3 Tage'
 			}
 		,'Last week' : { 	
 			cs: 'Poslední týden'
+			,de: 'letzte Woche'
 			}
 		,'Last 2 weeks' : { 	
 			cs: 'Poslední 2 týdny'
+			,de: 'letzte 2 Wochen'
 			}
 		,'Last month' : { 	
 			cs: 'Poslední měsíc'
+			,de: 'letzter Monat'
 			}
 		,'Last 3 months' : { 	
 			cs: 'Poslední 3 měsíce'
+			,de: 'letzte 3 Monate'
 			}
 		,'From' : { 	
 			cs: 'Od'
+			,de: 'Von'
 			}
 		,'To' : { 	
 			cs: 'Do'
+			,de: 'Bis'
 			}
 		,'Notes' : { 	
 			cs: 'Poznámky'
+			,de: 'Notiz'
 			}
 		,'Food' : { 	
 			cs: 'Jídlo'
+			,de: 'Essen'
 			}
 		,'Insulin' : { 	
 			cs: 'Inzulín'
+			,de: 'Insulin'
 			}
 		,'Carbs' : { 	
 			cs: 'Sacharidy'
-			}
-		,'Notes' : { 	
-			cs: 'Poznámky'
+			,de: 'Kohlenhydrate'
 			}
 		,'Notes contain' : { 	
 			cs: 'Poznámky obsahují'
+			,de: 'Notizen beinhalten'
 			}
 		,'Event type contain' : { 	
 			cs: 'Typ události obsahuje'
+			,de: 'Ereignis-Typ beinhaltet'
 			}
 		,'Target bg range bottom' : { 	
 			cs: 'Cílová glykémie spodní'
+			,de: 'Untergrenze des Blutzuckerzielbereichs'
 			}
 		,'top' : { 	
 			cs: 'horní'
+			,de: 'oben'
 			}
 		,'Show' : { 	
 			cs: 'Zobraz'
+			,de: 'Zeige'
 			}
 		,'Display' : { 	
 			cs: 'Zobraz'
+			,de: 'Zeige'
 			}
 		,'Loading' : { 	
 			cs: 'Nahrávám'
+			,de: 'Laden'
 			}
 		,'Loading profile' : { 	
 			cs: 'Nahrávám profil'
+			,de: 'Lade Profil'
 			}
 		,'Loading status' : { 	
 			cs: 'Nahrávám status'
+			,de: 'Lade Status'
 			}
 		,'Loading food database' : { 	
 			cs: 'Nahrávám databázi jídel'
+			,de: 'Lade Essensdatenbank'
 			}
 		,'not displayed' : { 	
-			cs: 'není zobrazeno'
+			cs: 'není zobrazeno
+			,de: 'nicht angezeigt'
 			}
 		,'Loading CGM data of' : { 	
 			cs: 'Nahrávám CGM data'
+			,de: 'Lade CGM-Daten von'
 			}
 		,'Loading treatments data of' : { 	
 			cs: 'Nahrávám data ošetření'
+			,de: 'Lade Behandlungsdaten von'
 			}
 		,'Processing data of' : { 	
 			cs: 'Zpracovávám data'
+			,de: 'Verarbeite Daten von'
 			}
 		,'Portion' : { 	
-			cs: 'Porce'
+			cs: 'Porce
+			,de: 'Portion'
 			}
 		,'Size' : { 	
 			cs: 'Rozměr'
+			,de: 'Größe'
 			}
 		,'(none)' : { 	
 			cs: '(Prázdný)'
+			,de: '(nichts)'
 			}
 		,'Result is empty' : { 	
 			cs: 'Prázdný výsledek'
+			,de: 'Leeres Ergebnis'
 			}
 // ported reporting
 		,'Day to day' : { 	
