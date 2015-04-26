@@ -12,21 +12,8 @@ body {
     font-family: 'Open Sans', Helvetica, Arial, sans-serif;
     fill: #fff;
     background: #000;
-    color: #808080;
+    color: #bdbdbd;
 }
-
-
-/* BEGIN: Dolphin/Stock Android Browser Fix */
-@media (max-width: 400px) {
-    .bgStatus {
-        width: 100% !important;
-    }
-}
-#chartContainer {
-    top: 225px; /*(toolbar height + status height)*/
-}
-/* END: Dolphin/Stock Android Browser Fix */
-
 
 .container {
     bottom: 0;
@@ -49,79 +36,150 @@ body {
 
 .bgStatus {
     float: right;
-    font-size: 750%;
-    margin-right: 25px;
     text-align: center;
     white-space: nowrap;
+    padding-right: 20px;
 }
+
+.bgButton.urgent {
+  color: red;
+}
+
+.bgButton.warning {
+  color: yellow;
+}
+
+.bgButton.inrange {
+  color: #4cff00;
+}
+
 .bgStatus .currentBG {
+    font-size: 120px;
+    line-height: 100px;
     text-decoration: line-through;
+    vertical-align: middle;
 }
 
-.bgStatus .currentBG.error-code {
-    font-size: 80%;
+.bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+  font-size: 90px;
 }
 
-.bgStatus .currentBG.bg-limit {
-    font-size: 80%;
+.bgStatus .currentDirection {
+    font-weight: normal;
+    text-decoration: none;
+    font-size: 90px;
+    line-height: 90px;
+    vertical-align: middle;
 }
 
 .bgStatus .currentDetails {
-    font-size: 25%;
-    text-decoration: line-through;
-    display: block;
-    position: relative;    
-    top: -20px;
+    font-size: 30px;
 }
+
+.currentDetails > span:not(:first-child) {
+    margin-left: 5px;
+}
+
+.pill {
+    white-space: nowrap;
+    border-radius: 5px;
+    border: 2px solid #808080;
+}
+
+.pill * {
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+.pill em {
+    font-style: normal;
+    font-weight: bold;
+}
+
+.pill label {
+    color: #000;
+    background: #808080;
+}
+
+.pill.warn em {
+    color: yellow !important;
+}
+
+.pill.urgent em {
+    color: red !important;
+}
+
+.alarming-timeago #lastEntry.pill.warn {
+  border-color: yellow;
+}
+.alarming-timeago #lastEntry.pill.warn label {
+  background: yellow;
+}
+
+.alarming-timeago #lastEntry.pill.urgent {
+  border-color: red;
+}
+.alarming-timeago #lastEntry.pill.urgent label {
+  background: red;
+}
+
 .bgStatus.current .currentBG {
     text-decoration: none;
 }
-.bgStatus.current .currentDetails {
-    font-size: 25%;
-    text-decoration: none;
-    display: block;
-    position: relative;    
-    top: -10px;
-}
-.currentDirection {
-    font-weight: normal;
-    text-decoration: none;
-    font-size: 80%;
+
+.alarming-timeago .bgStatus.current .currentBG {
+  text-decoration: line-through;
 }
 
 .time {
-    font-size: 600%;
-    padding-top: 15px;
+    color: #808080;
+    font-size: 100px;
+    line-height: 100px;
 }
 .timebox {
     text-align: center;
     width: 250px;
 }
 .timeOther {
-    font-size: 25%;
+    font-size: 20px;
+    line-height: 30px;
 }
-#lastEntry {
-    background: #999;
-    border-radius: 5px;
-    color: #000;
-    padding: 0.25em;
+
+.loading .timeOther {
+    display: none;
 }
-#lastEntry.warn {
-    background: #cc0 !important;
+
+.timeOther .pill {
+    background: #808080;
+    border-color: #808080;
 }
-#lastEntry.urgent {
-    background: #c00 !important;
+
+.timeOther .pill em {
+    color: #bdbdbd;
+    background: #000;
+    border-radius: 4px 0 0 4px;
+}
+
+.timeOther .pill label {
+    background: #808080;
+}
+
+#uploaderBattery label {
+    padding: 0 !important;
 }
 
 #chartContainer {
-    background: #111;
-    bottom:0;
-    display: block;
-    height:auto;
+    top: 225px; /*(toolbar height + status height)*/
     left:0;
-    position:absolute;
     right:0;
+    bottom:0;
+    height:auto;
+    font-size: 20px;
+    background: #111;
+    display: block;
+    position:absolute;
 }
+
 #chartContainer svg {
     height: calc(100vh - (180px + 45px));
     width: 100%;
@@ -139,7 +197,7 @@ body {
   shape-rendering: crispEdges;
 }
 .grid path, .axis line {
-  stroke: #808080;
+  stroke: #bdbdbd;
   stroke-opacity: 1;
 }
 
@@ -150,52 +208,66 @@ body {
 }
 
 
-#noButton {
-  padding: 2px;
-}
-
-#bgButton,
 #silenceBtn {
     z-index: 99;
-}
-
-#bgButton {
-    background: yellow;
-    border: 2px solid #DDD;
-    border-right: 2px solid #ccc;
-    border-bottom: 2px solid #ccc;
     border-radius: 5px;
-    box-shadow: 2px 4px 6px #ddd;
-    color: #000000;
-    cursor: default;
-    font-size: 75%;
-    margin-top: 15px;
-    width: auto;
-
-    user-select: none;
-    -moz-border-radius: 5px;
-    -webkit-border-radius: 5px;
-    -moz-box-shadow: 2px 2px 4px #ddd;
-    -webkit-box-shadow: 2px 2px 4px #ddd;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    -khtml-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
+    border: 2px solid #bdbdbd;
 }
 
-#bgButton.urgent {
-  background: red;
+#silenceBtn * {
+    font-size: 40px
 }
 
-.bgButton:active {
-    background: #850406;
-    border: 2px solid #999;
+.bgButton {
+  margin: 10px;
+  border: 2px solid #000;
+  border-radius: 5px;
+  width: 360px;
+}
+
+.loading .bgButton .rawnoise {
+    display: none;
+}
+
+.bgButton .rawnoise {
+    display: inline-block;
+    border-radius: 2px;
+    border: 1px solid #808080;
+}
+
+.bgButton .rawnoise em {
+    color: white;
+    background-color: black;
+    display: block;
+    font-size: 20px;
+}
+
+.bgButton .rawnoise label {
+    display: block;
+    font-size: 14px;
+}
+
+.alarming .bgButton {
+    border-color: #bdbdbd;
+    color: #000;
+    box-shadow: 2px 2px 0 #ddd;
+}
+
+.alarming .bgButton.urgent {
+    background-color: red;
+}
+
+.alarming .bgButton.warning {
+    background-color: yellow;
+}
+
+.alarming .bgButton:active {
+    border: 2px solid #bdbdbd;
     box-shadow: none;
-
     -moz-box-shadow: none;
     -webkit-box-shadow: none;
 }
+
 
 .button {
     text-align: center;
@@ -203,151 +275,259 @@ body {
     margin: 10px auto;
 }
 
-div.tooltip {   
-        position: absolute;           
-        text-align: left;           
-        width: fit-content;                  
-        height: fit-content;                 
-        padding: 2px;             
-        font: 14px sans-serif;        
-        background: white;   
-        border: 0px;      
-        border-radius: 8px;           
-        pointer-events: none;         
-}
-
-#silenceBtn, #silenceBtn * {
-    font-size: 70%;
+div.tooltip {
+    color: #444;
+    position: absolute;
+    text-align: left;
+    padding: 4px;
+    font-size: 14px;
+    line-height: 15px;
+    background: white;
+    border: 0;
+    border-radius: 8px;
+    pointer-events: none;
 }
 
 .alarms {
     display: none;
 }
 
-#testAlarms {
-    font-size: 20%;
+.loading .focus-range {
+    display: none;
 }
 
-#currentTime{
-	padding: 0 0 10px 0;
+.focus-range {
+    list-style: none;
+    margin: 4px;
+    padding: 0;
+    color: #808080;
+    width: 250px;
+    text-align: center;
 }
 
-/* Large desktop */
-@media (min-width: 980px) {
-    .content {
-        padding-top: 20px;
-    }
-    .linediv-l {
-        border-right: 1px white solid;
-    }
-    .linedic-r {
-        border-left: 1px white solid;
-    }
+.focus-range li {
+    display: inline-block;
+    font-size: 18px;
+    white-space: nowrap;
+    border-radius: 5px;
+    border: 2px solid #000;
+    cursor: pointer;
+}
+
+.focus-range li.selected {
+    border-color: #808080;
+    color: #000;
+    background: #808080;
 }
 
 @media (max-width: 800px) {
-  #chartContainer {
-    font-size: 80%;
-  }
+    .bgStatus {
+        width: 300px;
+    }
 
-  .bgStatus {
-    width: 50%;
-    font-size: 650%;
-  }
+    .bgButton {
+        width: auto;
+    }
 
-  .dropdown-menu {
-    font-size: 60% !important;
-  }
-  #currentTime {
-    font-size: 85%;
-  }
+    .bgStatus .currentBG {
+        font-size: 80px;
+        line-height: 80px;
+    }
+
+    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+      font-size: 70px;
+    }
+
+    .bgStatus .currentDirection {
+        font-size: 70px;
+        line-height: 70px;
+    }
+
+    .bgStatus .currentDetails {
+        font-size: 20px;
+    }
+
+    .time {
+        font-size: 70px;
+        line-height: 60px;
+        padding-top: 8px;
+    }
+
+    .timeOther {
+        font-size: 15px;
+        line-height: 40px;
+    }
+
+    #uploaderBattery label {
+        font-size: 15px !important;
+    }
+
+    .focus-range {
+        margin: 0;
+    }
+
+    .focus-range li {
+        font-size: 14px;
+    }
+
+    #silenceBtn * {
+        font-size: 30px;
+    }
+
+    #chartContainer {
+        top: 185px;
+        font-size: 14px;
+    }
+    #chartContainer svg {
+        height: calc(100vh - 185px);
+    }
+
 }
 
 @media (max-width: 750px) {
-  .dropdown-menu {
-    font-size: 60% !important;
-  }
+    .bgStatus {
+        width: 240px;
+        padding: 0;
+    }
 
-  .container .status {
-    font-size: 70%;
-  }
+    .bgButton .rawnoise em {
+        font-size: 14px;
+    }
 
-  #chartContainer {
-    top: 165px;
-    font-size: 80%;
-  }
-  #chartContainer svg {
-    height: calc(100vh - 165px);
-  }
+    .bgButton .rawnoise label {
+        font-size: 12px;
+    }
+
+    .bgStatus .currentBG {
+        font-size: 70px;
+        line-height: 60px;
+    }
+
+    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+      font-size: 50px;
+    }
+
+    .bgStatus .currentDirection {
+        font-size: 50px;
+        line-height: 50px;
+    }
+
+    .bgStatus .currentDetails {
+        font-size: 15px;
+    }
+
+    .time {
+        font-size: 50px;
+        line-height: 40px;
+        width: 250px;
+    }
+
+    #chartContainer {
+        top: 165px;
+    }
+    #chartContainer svg {
+        height: calc(100vh - 165px);
+    }
 
 }
 
 @media (max-width: 400px) {
-    body {
-        font-size: 70%;
-    }
-
     .status {
         text-align: center;
         margin-bottom: 0;
         height: 152px;
     }
 
-    /* Unremark to test alert/silence button + menu. */
-    /* #noButton {display:none;}
-    #bgButton {display:block;} */
-
     .bgStatus {
-        font-size: 750%;
         float: none;
-        margin: 0 auto;
         padding: 0;
         text-align: center;
-        width: 100vw;
+        width: 250px;
     }
-    #bgButton {
-        font-size: 100%;
+
+
+    .bgButton {
+        margin: 5px;
+        width: auto;
     }
-    .dropdown-menu {
-        font-size: 60% !important;
-        margin-left: 2vw;
-        width: 96vw;
+
+    .bgStatus .currentBG {
+        font-size: 70px;
+        line-height: 70px;
     }
-    .container .status {
-        font-size: 100% !important;
+
+    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+        font-size: 60px;
+        padding-left: 20px;
+    }
+
+    .bgStatus .currentDirection {
+        font-size: 60px;
+        line-height: 60px;
+    }
+
+    .bgStatus .currentDetails {
+        font-size: 15px;
+    }
+
+    #silenceBtn * {
+      font-size: 20px;
     }
 
     .time {
-        margin-bottom: 0.1em;
-        margin-top: -1em;
-        margin-left: 0;
-        width: 100%;
-    }
-
-    #container.alarming .time {
-        display: none;
+        padding-top: 0;
+        font-size: 20px !important;
     }
 
     .timebox {
-        text-align: none;
         width: auto;
     }
+
     #currentTime {
         display: inline;
-        font-size: 25% !important;
-        font-weight: bold;
+        vertical-align: middle;
     }
+
     .timeOther {
         display: inline;
         margin-left: auto;
+        font-size: 15px;
+    }
+
+    #uploaderBattery label {
+        font-size: 15px !important;
+    }
+
+    .focus-range {
+        position: absolute;
+        top: 80px;
+        left: initial;
+        right: 10px;
+        margin: 0;
+        width: auto;
+    }
+
+    .focus-range li {
+        display: block;
     }
 
     #chartContainer {
-        font-size: 110% !important;
-        top: 210px;
+        top: 190px;
     }
     #chartContainer svg {
-        height: calc(100vh - (210px));
+        height: calc(100vh - (190px));
+    }
+}
+
+@media (max-height: 700px) {
+    #chartContainer {
+        font-size: 14px;
+    }
+}
+
+@media (max-height: 600px) {
+    #chartContainer {
+        font-size: 12px;
     }
 }
 
@@ -366,13 +546,9 @@ div.tooltip {
         padding-bottom: 20px;
     }
 
-    #currentTime {
-        font-size: 85%;
-    }
-
     #chartContainer {
         top: 130px;
-        font-size: 80%;
+        font-size: 10px;
     }
     #chartContainer svg {
         height: calc(100vh - 130px);
@@ -380,13 +556,91 @@ div.tooltip {
 }
 
 @media (max-height: 480px) and (min-width: 400px) {
-    .container .status {
-        font-size: 70%;
+    .bgStatus .currentBG {
+        font-size: 70px;
+        line-height: 60px;
     }
+
+    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+        font-size: 70px;
+    }
+
+    .bgStatus .currentDirection {
+        font-size: 50px;
+        line-height: 50px;
+    }
+
+    .bgStatus .currentDetails {
+        font-size: 15px;
+    }
+
+    .time {
+        font-size: 50px;
+        line-height: 40px;
+        padding-top: 5px;
+    }
+
+    .timeOther {
+        font-size: 15px;
+    }
+
+    #uploaderBattery label {
+        font-size: 15px !important;
+    }
+
 }
 
 @media (max-height: 480px) and (max-width: 400px) {
-    .container .status {
-        font-size: 80% !important;
+
+    .bgStatus {
+        text-align: center;
+        width: 220px;
+        left: 0;
+        position: absolute;
     }
+
+    .bgStatus .currentBG {
+        font-size: 60px;
+        line-height: 60px;
+    }
+
+    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+        font-size: 60px;
+    }
+
+    .bgStatus .currentDirection {
+        font-size: 50px;
+        line-height: 50px;
+    }
+
+    .bgStatus .currentDetails {
+        font-size: 15px;
+    }
+
+    #silenceBtn {
+      right: -25px;
+    }
+
+  .focus-range {
+        position: absolute;
+        top: 40px;
+        left: initial;
+        right: 35px;
+        margin: 0;
+        width: auto;
+    }
+
+    .focus-range li {
+        display: block;
+    }
+
+    .time {
+        position: absolute;
+        top: 90px;
+    }
+
+    .timebox {
+        width: 220px;
+    }
+
 }
