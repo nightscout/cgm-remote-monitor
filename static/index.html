@@ -253,32 +253,37 @@
        <div id="boluscalcDrawer">
 			<form id="boluscalc-form" onsubmit="return Nightscout.boluscalc.boluscalcSubmit();">
                 <fieldset class="boluscalcData">
-                    <legend>Bolus calculator</legend>
+                    <legend>
+						Bolus calculator
+						<span id="bc_units" style="font-size:10px"></span>
+					</legend>
 					<table>
 						<tr>
 							<td>
 								BG:
-								<input type="radio" name="bc_bginput" id="bc_bgfromsensor" checked>Sensor
-								<br>
-								<input type="radio" name="bc_bginput" id="bc_bgfrommeter">Meter
-								<input type="radio" name="bc_bginput" id="bc_bgmanual">Manual
+								<span style="float:right;">
+									<input type="text" size="3" id="bc_bg" class="insulincalculationpart">
+								</span>
 							</td>
 							<td>
-								<input type="text" size="3" id="bc_bg" class="insulincalculationpart">
-								<span id="bc_units" style="font-size:10px"></span>
 							</td>
 						</tr>
-						<tr class="insulincalculation border_bottom">
+						<tr class="border_bottom">
 							<td>
-								BG correction:
+								<input type="radio" name="bc_bginput" id="bc_bgfromsensor" checked>
+								<i class="icon-chart-line" style="margin-right:0;margin-left:-0.6em"></i>
+								<input type="radio" name="bc_bginput" id="bc_bgfrommeter">
+								<i class="icon-tint" style="margin-right:0;margin-left:-0.6em"></i>
+								<input type="radio" name="bc_bginput" id="bc_bgmanual">
+								<i class="icon-sort-numeric" style="margin-right:0;margin-left:-0.6em"></i>
 							</td>
-							<td id="bc_inzulinbgtd">
+							<td id="bc_inzulinbgtd" class="insulincalculation">
 								<span id="bc_inzulinbg">0.00</span>
 							</td>
 						</tr>
 						<tr class="foodinput">
 							<td colspan="2" id="bc_gitd">
-								Glycemic index (1-3):
+								GI (1-3):
 								<select style="float:right;" id="bc_gi">
 									<option value="1">Low</option>
 									<option value="2" selected>Medium/Unknown</option>
@@ -299,11 +304,13 @@
 						</tr>
 						<tr>
 							<td>
-								Carbs:
+								Carbs [g]:
+								<span style="float:right;">
+									<input type="text" size="3" id="bc_carbs" value="0" class="insulincalculationpart">
+								</span>
 							</td>
-							<td>
-								<input type="text" size="5" id="bc_carbs" value="0" class="insulincalculationpart">
-								<span style="font-size:10px"> g</span>
+							<td id="bc_inzulincarbstd">
+								<span id="bc_inzulincarbs">0.00</span>
 							</td>
 						</tr>
 						<tr>
@@ -319,8 +326,7 @@
 							<td>
 								Carbs correction:
 							</td>
-							<td id="bc_inzulincarbstd">
-								<span id="bc_inzulincarbs">0.00</span>
+							<td>
 							</td>
 						</tr>
 						<tr class="insulincalculation">
@@ -333,18 +339,10 @@
 						</tr>
 						<tr class="insulincalculation">
 							<td>
-								Exercise correction:
-							</td>
-							<td>
-								<input type="text" size="5" id="bc_exercisecorrection" value="0" class="insulincalculationpart">
-							</td>
-						</tr>
-						<tr class="insulincalculation">
-							<td>
 								Other correction:
 							</td>
 							<td>
-								<input type="text" size="5" id="bc_othercorrection" value="0" class="insulincalculationpart">
+								<input type="text" style="width:25px" id="bc_othercorrection" value="0" class="insulincalculationpart">U
 							</td>
 						</tr>
 						<tr class="insulincalculation border_bottom">
@@ -373,7 +371,7 @@
 						</tr>
 						<tr class="border_bottom">
 							<td>
-								Current basal rate:
+								Basal rate:
 							</td>
 							<td>
 								<span id="bc_basal"></span>

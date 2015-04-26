@@ -80,12 +80,12 @@ TODO:
 	// load api secret from browser storage
 	apisecrethash = localStorage.getItem('apisecrethash');
 	if (apisecrethash)
-		$('#pe_apisecrethash').text('Using stored API secret hash: '+apisecrethash).css({'color':'darkgray'});
+		$('#pe_apisecrethash').text(translate('Using stored API secret hash')+': '+apisecrethash).css({'color':'darkgray'});
 	else 
-		$('#pe_apisecrethash').text('No API secret hash stored yet. You need to enter API secret.').css({'color':'darkgray'});
+		$('#pe_apisecrethash').text(translate('No API secret hash stored yet. You need to enter API secret.')).css({'color':'darkgray'});
 	
 	// Fetch data from mongo
-	$('#pe_status').hide().text('Loading status ...').fadeIn("slow");
+	$('#pe_status').hide().text(translate('Loading status')+' ...').fadeIn("slow");
 	// status with defaults first
 	$.ajax('/api/v1/status.json', {
 		success: function (xhr) {

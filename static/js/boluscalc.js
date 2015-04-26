@@ -242,13 +242,6 @@
 		
 		
 		// Corrections
-		boluscalc.exercisecorrection = parseFloat($('#bc_exercisecorrection').val().replace(',','.'));
-		if ($('#bc_exercisecorrection').val()=='') {
-			boluscalc.exercisecorrection = 0;
-		} else if (isNaN(boluscalc.exercisecorrection)) {
-			$('#bc_exercisecorrection').css('background-color','red');
-			return null;
-		} else $('#bc_exercisecorrection').css('background-color','');
 		boluscalc.othercorrection = parseFloat($('#bc_othercorrection').val().replace(',','.'));
 		if ($('#bc_othercorrection').val()=='') {
 			boluscalc.othercorrection = 0;
@@ -258,7 +251,7 @@
 		} else $('#bc_othercorrection').css('background-color','');
 
 		// Total & rounding
-		var total = boluscalc.insulinbg + boluscalc.insulincarbs - boluscalc.iob + boluscalc.exercisecorrection + boluscalc.othercorrection;
+		var total = boluscalc.insulinbg + boluscalc.insulincarbs - boluscalc.iob + boluscalc.othercorrection;
 		boluscalc.insulin = floorTo005(total);
 		boluscalc.roundingcorrection = boluscalc.insulin - total;
 		

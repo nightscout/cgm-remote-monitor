@@ -2,8 +2,6 @@
 <html>
     <head>
         <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <link rel="apple-touch-icon" href="/images/logomobile.png">
         <title>Nightscout food editor</title>
         <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
         <link rel="stylesheet" type="text/css" href="/css/main.css" />
@@ -16,82 +14,82 @@
     <body>
         <div id="toolbar">
 			<div id="buttonbar">
-				<b> Status:</b> <span id="fe_status">Not loaded</span>
+				<b> <span  class="translate">Status</span>:</b> <span id="fe_status" class="translate">Not loaded</span>
 			</div>
              <h1 class="customTitle">Nightscout</h1>
             <div id="profile-editor">
-                <h1>Food editor</h1>
+                <h1 class="translate">Food editor</h1>
 			</div>
         </div>
 		
 		<br>
 		<form id="fe_form">
 			<fieldset class="browserSettings">
-				<legend>Your database</legend>
+				<legend class="translate">Your database</legend>
 				<fieldset class="browserSettings">
-					<legend>Filter</legend>
-					Category: <select id="fe_filter_category"></select>
-					Subcategory: <select id="fe_filter_subcategory"></select>
-					Name: <input type="text" id="fe_filter_name"></select>
+					<legend class="translate">Filter</legend>
+					<span class="translate">Category</span>: <select id="fe_filter_category"></select>
+					<span class="translate">Subcategory</span>: <select id="fe_filter_subcategory"></select>
+					<span class="translate">Name</span>: <input type="text" id="fe_filter_name"></select>
 				</fieldset>
 				<div id="fe_data_header"></div>
 				<div id="fe_data" style="width:100%;height:250px;overflow-x:hidden;overflow-y:scroll;"></div>
 			</fieldset>
 			<fieldset class="browserSettings">
-				<legend>Record (ID: <input type="text" id="fe_id">)</legend>
+				<legend><span class="translate">Record</span> (ID: <input type="text" id="fe_id">)</legend>
 				<table>
 					<tr>
 						<td>
-							Name: <br><input type="text" id="fe_name">
+							<span class="translate">Name</span>: <br><input type="text" id="fe_name">
 						</td>
 						<td>
-							Portion:<br><input type="text" id="fe_portion">
+							<span class="translate">Portion</span>:<br><input type="text" id="fe_portion">
 						</td>
 						<td>
-							Unit: <br><select id="fe_unit">
+							<span class="translate">Unit</span>: <br><select id="fe_unit">
 							</select>
 						</td>
 						<td>
-							Carbs: [g]<br><input type="number" id="fe_carbs">
+							<span class="translate">Carbs</span>: [g]<br><input type="number" id="fe_carbs">
 						</td>
 						<td>
-							GI: <br><select id="fe_gi">
-								<option value="1">Low</option>
-								<option value="2" selected>Medium</option>
-								<option value="3">High</option>
+							<span class="translate">GI</span>: <br><select id="fe_gi">
+								<option value="1" class="translate">Low</option>
+								<option value="2" class="translate" selected>Medium</option>
+								<option value="3" class="translate">High</option>
 							</select>
 						</td>
 						<td>
-							Category: <select id="fe_category_list"></select>
+							<span class="translate">Category</span>: <select id="fe_category_list"></select>
 							<br>
 							<input type="text" id="fe_category">
 						</td>
 						<td>
-							Subcategory: <select id="fe_subcategory_list"></select>
+							<span class="translate">Subcategory</span>: <select id="fe_subcategory_list"></select>
 							<br>
 							<input type="text" id="fe_subcategory">
 						</td>
 					</tr>
 				</table>
-				<button id="fe_editcreate">Save</button>
-				<button id="fe_clear">Clear</button>
+				<button id="fe_editcreate" class="translate">Save</button>
+				<button id="fe_clear" class="translate">Clear</button>
 			</fieldset>
 			<fieldset class="browserSettings">
 				<legend>
-					Quick picks 
+					<span class="translate">Quick picks</span> 
 					|
 					<img style="cursor:pointer" title="Add new" id="fe_quickpick_add" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABa0lEQVQ4T6WTzysEYRjHP+/Mrv2hHOTuqJRNOfgPSORHokg4OClHcnVzVygHF6WIcuHMnyCHVRyI3ZYxa23vzOzs7LzamaI0e5i89fTWt/f5vPV5n1cQsXLbHepvfLv5JaLORoZNwMbyFo5vYfsWB0c7xAasLa5T/vCg45Oj48P4gJWFVYxCA63L5PzkND5gfm4Jo+Chd5W5OrtsDYgS1pQ1OTuNUfTQO8tcX9xE+QugYnS/X81MzGP7MpTWkEFVZY1KxcVPV3h27zAtA+oCagIcDfWUCgEje31qfHwK06gHjaF5iXQcHCV5lHmqqgQCNEAI0IsavCVDwNBurxoeGwmaAkDDwvYsqtIh//6AJUoklP97s62BbJYeAqIcpJNZsoM+r2aVbKKOekiBL8An3BuAEiGg1SSKAYnttpFxPdR9Jv4zipxFTUuQKqsfYbFGWfTYuO06yRfxIyweoLuG+iMsFuBfvzFy7FqE33vs2BFqlfN5AAAAAElFTkSuQmCC">
 					|
-					<input type="checkbox" id="fe_quickpick_showhidden"> Show hidden
+					<input type="checkbox" id="fe_quickpick_showhidden"> <span class="translate">Show hidden</span>
 					<span id="fe_quickpick_hiddencount"></span>
 					|
-					<button id="fe_quickpick_save">Save</button> 
+					<button id="fe_quickpick_save" class="translate">Save</button> 
 				</legend>
 				<div id="fe_picklist"></div>
 			</fieldset>
-			<label for="pe_apisecret">Your API secret: </label>
+			<label for="pe_apisecret"><span class="translate">Your API secret</span>: </label>
 			 <input type="password" id="pe_apisecret" size="10" />&nbsp;&nbsp;&nbsp;
-			 <input type="checkbox" id="pe_storeapisecret" />  Store hash on this computer (Use only on private computers)
+			 <input type="checkbox" id="pe_storeapisecret" />  <span class="translate">Store hash on this computer (Use only on private computers)</span>
 			 <div id="pe_apisecrethash"></div>
 		</form>
 		
@@ -101,6 +99,7 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-sliderAccess.js"></script>
         <script src="/js/ui-utils.js"></script>
         <script src="/api/v1/status.js"></script>
+        <script src="/js/language.js"></script>
         <script src="/js/food.js"></script>
 		<script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/sha1.js"></script>    
 	</body>

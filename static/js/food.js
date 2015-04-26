@@ -74,9 +74,9 @@
 	// load api secret from browser storage
 	apisecrethash = localStorage.getItem('apisecrethash');
 	if (apisecrethash)
-		$('#pe_apisecrethash').text('Using stored API secret hash: '+apisecrethash).css({'color':'darkgray'});
+		$('#pe_apisecrethash').text(translate('Using stored API secret hash')+': '+apisecrethash).css({'color':'darkgray'});
 	else 
-		$('#pe_apisecrethash').text('No API secret hash stored yet. You need to enter API secret.').css({'color':'darkgray'});
+		$('#pe_apisecrethash').text(translate('No API secret hash stored yet. You need to enter API secret.')).css({'color':'darkgray'});
 	
 	// Fetch data from mongo
 	$('#fe_status').hide().text('Loading food database ...').fadeIn("slow");
@@ -90,11 +90,11 @@
 				} else if (r.type == 'quickpick') calculateCarbs(foodquickpick.push(r)-1);
 				else console.log('Unknown food database record');
 			});
-			$('#fe_status').hide().text('Database loaded').fadeIn("slow");
+			$('#fe_status').hide().text(translate('Database loaded')).fadeIn("slow");
 			foodquickpick.sort(function (a,b) { return cmp(parseInt(a.position),parseInt(b.position)) });
 		},
 		error: function () {
-			$('#fe_status').hide().text('Error: Database failed to load').fadeIn("slow");
+			$('#fe_status').hide().text(translate('Error: Database failed to load')).fadeIn("slow");
 		}
 	}).done(initeditor);
 	
@@ -124,9 +124,9 @@
 	
 	function updateSaveButton(event) {
 		if($('#fe_id').val()=='') {
-			$('#fe_editcreate').text('Create new record');
+			$('#fe_editcreate').text(translate('Create new record'));
 		} else {
-			$('#fe_editcreate').text('Save record');
+			$('#fe_editcreate').text(translate('Save record'));
 		}
 		if (event) {
 			event.preventDefault();
@@ -140,7 +140,7 @@
 		}
 		if (!editrec) {
 			filter.subcategory = '';
-			$('#fe_filter_subcategory').empty().append(new Option('(none)',''));
+			$('#fe_filter_subcategory').empty().append(new Option(translate('(none)'),''));
 			if (filter.category != '') {
 				for (s in categories[filter.category]) {
 					$('#fe_filter_subcategory').append(new Option(s,s));
@@ -149,7 +149,7 @@
 			doFilter();
 		} else {
 			foodrec.subcategory = '';
-			$('#fe_subcategory_list').empty().append(new Option('(none)',''));
+			$('#fe_subcategory_list').empty().append(new Option(translate('(none)'),''));
 			if (foodrec.category != '') {
 				for (s in categories[foodrec.category]) {
 					$('#fe_subcategory_list').append(new Option(s,s));
@@ -177,8 +177,8 @@
 	}
 
 	function fillForm(event) {
-		$('#fe_filter_category').empty().append(new Option('(none)',''));
-		$('#fe_category_list').empty().append(new Option('(none)',''));
+		$('#fe_filter_category').empty().append(new Option(translate('(none)'),''));
+		$('#fe_category_list').empty().append(new Option(translate('(none)'),''));
 		for (s in categories) {
 			$('#fe_filter_category').append(new Option(s,s));
 			$('#fe_category_list').append(new Option(s,s));
@@ -198,13 +198,13 @@
 		var html = '';
 		$('#fe_data_header').html(
 			'<span class="fs50"></span>'+
-			'<span class="fs200">Name</span>'+
-			'<span class="fs150" style="text-align:center;">Portion</span>'+
-			'<span class="fs50" style="text-align:center;">Unit</span>'+
-			'<span class="fs100" style="text-align:center;">Carbs [g]</span>'+
-			'<span class="fs100" style="text-align:center;">GI [1-3]</span>'+
-			'<span class="fs150">Category</span>'+
-			'<span class="fs150">Subcategory</span>'
+			'<span class="fs200">'+translate('Name')+'</span>'+
+			'<span class="fs150" style="text-align:center;">'+translate('Portion')+'</span>'+
+			'<span class="fs50" style="text-align:center;">'+translate('Unit')+'</span>'+
+			'<span class="fs100" style="text-align:center;">'+translate('Carbs')+' [g]</span>'+
+			'<span class="fs100" style="text-align:center;">'+translate('GI')+' [1-3]</span>'+
+			'<span class="fs150">'+translate('Category')+'</span>'+
+			'<span class="fs150">'+translate('Subcategory')+'</span>'
 		);
 		for (var i=0; i<foodlist.length; i++) {
 			if (filter.category != '' && foodlist[i].category != filter.category) continue;
@@ -212,8 +212,8 @@
 			if (filter.name!= '' && foodlist[i].name.toLowerCase().indexOf(filter.name.toLowerCase())<0) continue;
 			html += '<div index="'+i+'" class="draggablefood" style="background-color:gray;border: 2px solid #000;cursor:move;">';
 			html += '<span class="fs50">';
-			html += '<img style="cursor:pointer" title="Edit record" src="'+icon_edit+'" href="#" onclick="doEdit('+i+'); return false;"> ';
-			html += '<img style="cursor:pointer" title="Delete record" src="'+icon_remove+'" href="#" onclick="return deleteFoodRecord('+i+');">';
+			html += '<img style="cursor:pointer" title="'+translate('Edit record')+'" src="'+icon_edit+'" href="#" onclick="doEdit('+i+'); return false;"> ';
+			html += '<img style="cursor:pointer" title="'+translate('Delete record')+'" src="'+icon_remove+'" href="#" onclick="return deleteFoodRecord('+i+');">';
 			html += '</span>';
 			html += '<span class="fs200">'+foodlist[i].name+'</span>';
 			html += '<span class="fs150" style="text-align:center;">'+foodlist[i].portion+'</span>';
@@ -280,21 +280,21 @@
 			if (showhidden == false && q.hidden) { hiddentotal++; continue; }
 			html += '<fieldset class="sortablequickpick" index="'+i+'" _id="'+q._id+'" style="cursor:move;background-color:#383838" >';
 			html += '<legend>';
-			html += '<img style="cursor:pointer" title="Move to the top" src="'+icon_up+'" href="#" onclick="return quickpickMoveToTop('+i+');">';
-			html += ' | <img style="cursor:pointer" title="Delete record" src="'+icon_remove+'" href="#" onclick="return deleteQuickpickRecord('+i+');">';
-			html += ' | Name: <input type="text" class="fq_name" index="'+i+'" value="'+q.name+'">';
-			html += ' <input type="checkbox" class="fq_hidden" index="'+i+'"'+(q.hidden ? ' checked' : '')+'>Hidden';
-			html += ' <input type="checkbox" class="fq_hideafteruse" index="'+i+'"'+(q.hideafteruse ? ' checked' : '')+'>Hide after use';
-			html += ' | Carbs: '+q.carbs.toFixed(0);
+			html += '<img style="cursor:pointer" title="'+translate('Move to the top')+'" src="'+icon_up+'" href="#" onclick="return quickpickMoveToTop('+i+');">';
+			html += ' | <img style="cursor:pointer" title="'+translate('Delete record')+'" src="'+icon_remove+'" href="#" onclick="return deleteQuickpickRecord('+i+');">';
+			html += ' | '+translate('Name')+': <input type="text" class="fq_name" index="'+i+'" value="'+q.name+'">';
+			html += ' <input type="checkbox" class="fq_hidden" index="'+i+'"'+(q.hidden ? ' checked' : '')+'>'+translate('Hidden');
+			html += ' <input type="checkbox" class="fq_hideafteruse" index="'+i+'"'+(q.hideafteruse ? ' checked' : '')+'>'+translate('Hide after use');
+			html += ' | '+translate('Carbs')+': '+q.carbs.toFixed(0) + ' g';
 			html += '</legend>';
 //			html += '<br>';
 
 			if (q.foods.length) {
 				html +=
 					'<span class="fs50"></span>'+
-					'<span class="fs200">Name</span>'+
-					'<span class="fs150" style="text-align:center;">Portion [g,ml]</span>'+
-					'<span class="fs100" style="text-align:center;">Carbs [g]</span>'+
+					'<span class="fs200">'+translate('Name')+'</span>'+
+					'<span class="fs150" style="text-align:center;">'+translate('Portion')+' [g,ml]</span>'+
+					'<span class="fs100" style="text-align:center;">'+translate('Carbs')+' [g]</span>'+
 					'<br>';
 			} else {
 				html += '<i>-&gt; Drag&drop food here</i>';
@@ -304,12 +304,12 @@
 				var r = q.foods[j];
 				html += '<div style="background-color:gray;border: 2px solid" id="fqp_food_'+i+'_'+j+'">';
 				html += '<span class="fs50">';
-				html += '<img style="cursor:pointer" title="Delete record" src="'+icon_remove+'" href="#" onclick="return deleteQuickpickFood('+i+','+j+');">';
+				html += '<img style="cursor:pointer" title="'+translate('Delete record')+'" src="'+icon_remove+'" href="#" onclick="return deleteQuickpickFood('+i+','+j+');">';
 				html += '</span>';
 				html += '<span class="fs200">'+r.name+'</span>';
 				html += '<span class="fs150" style="text-align:center;">'+r.portion+'</span>';
 				html += '<span class="fs100" style="text-align:center;">'+r.carbs+'</span>';
-				html += 'Portions: <input type="text" id="fq_portions_'+q._id+'_'+j+'" value="'+r.portions+'" onchange="return savePortions('+i+','+j+',$(this).val());">';
+				html += ''+translate('Portions')+': <input type="text" id="fq_portions_'+q._id+'_'+j+'" value="'+r.portions+'" onchange="return savePortions('+i+','+j+',$(this).val());">';
 				html += '</div>';
 			}
 			html += '</fieldset>';
@@ -490,16 +490,16 @@
 	
 	function foodSubmit(event) {
 		saveSettings();
-		if (!apisecrethash && apisecret.length < 15) {
-			alert('You API secret must be at least 15 characters long');
-			$('#fe_status').hide().html('Bad API secret').fadeIn("slow");
+		if (!apisecrethash && apisecret.length < 12) {
+			alert(translate('You API secret must be at least 12 characters long'));
+			$('#fe_status').hide().html(translate('Bad API secret')).fadeIn("slow");
 			return false;
 		}
 		
 		// update apisecret hash
 		if (apisecret.length >= 15)
 			apisecrethash = CryptoJS.SHA1(apisecret);
-		if ($('#fe_editcreate').text().indexOf('Create new record')>-1) {
+		if ($('#fe_editcreate').text().indexOf(translate('Create new record'))>-1) {
 			
 			// remove _id when creating new record
 			delete foodrec._id;
@@ -544,7 +544,7 @@
 		// store or remove from browser store api secret
 		if (storeapisecret) {
 			localStorage.setItem('apisecrethash',apisecrethash);
-			$('#pe_apisecrethash').text('API secret hash '+apisecrethash+' stored');
+			$('#pe_apisecrethash').text(translate('API secret hash stored')+': '+apisecrethash);
 		}
 		
 		if (event) event.preventDefault();
@@ -552,14 +552,14 @@
 	}
 
 	function deleteRecord(_id) {
-		if (!apisecrethash && apisecret.length < 15) {
-			alert('You API secret must be at least 15 characters long');
-			$('#fe_status').hide().html('Bad API secret').fadeIn("slow");
+		if (!apisecrethash && apisecret.length < 12) {
+			alert(translate('You API secret must be at least 12 characters long'));
+			$('#fe_status').hide().html(translate('Bad API secret')).fadeIn("slow");
 			return false;
 		}
 		
 		// update apisecret hash
-		if (apisecret.length >= 15)
+		if (apisecret.length >= 12)
 			apisecrethash = CryptoJS.SHA1(apisecret);
 			
 		var dataJson = JSON.stringify(_id, null, ' ');
@@ -578,7 +578,7 @@
 		// store or remove from browser store api secret
 		if (storeapisecret) {
 			localStorage.setItem('apisecrethash',apisecrethash);
-			$('#pe_apisecrethash').text('API secret hash '+apisecrethash+' stored');
+			$('#pe_apisecrethash').text(translate('API secret hash stored')+': '+apisecrethash);
 		}
 		
 		return false;
@@ -599,14 +599,14 @@
 		try {
 			var newrec = clone(quickpickrec_template);
 			
-			if (!apisecrethash && apisecret.length < 15) {
-				alert('You API secret must be at least 15 characters long');
-				$('#fe_status').hide().html('Bad API secret').fadeIn("slow");
+			if (!apisecrethash && apisecret.length < 12) {
+				alert(translate('You API secret must be at least 12 characters long'));
+				$('#fe_status').hide().html(translate('Bad API secret')).fadeIn("slow");
 				return false;
 			}
 			
 			// update apisecret hash
-			if (apisecret.length >= 15)
+			if (apisecret.length >= 12)
 				apisecrethash = CryptoJS.SHA1(apisecret);
 			
 			// remove _id when creating new record
@@ -631,7 +631,7 @@
 			// store or remove from browser store api secret
 			if (storeapisecret) {
 				localStorage.setItem('apisecrethash',apisecrethash);
-				$('#pe_apisecrethash').text('API secret hash '+apisecrethash+' stored');
+				$('#pe_apisecrethash').text(translate('API secret hash stored')+': '+apisecrethash);
 			}
 			
 			if (event) event.preventDefault();
@@ -641,14 +641,14 @@
 	}
 
 	function quickpickSave(event) {
-		if (!apisecrethash && apisecret.length < 15) {
-			alert('You API secret must be at least 15 characters long');
-			$('#fe_status').hide().html('Bad API secret').fadeIn("slow");
+		if (!apisecrethash && apisecret.length < 12) {
+			alert(translate('You API secret must be at least 12 characters long'));
+			$('#fe_status').hide().html(translate('Bad API secret')).fadeIn("slow");
 			return false;
 		}
 		
 		// update apisecret hash
-		if (apisecret.length >= 15)
+		if (apisecret.length >= 12)
 			apisecrethash = CryptoJS.SHA1(apisecret);
 			
 		for (var i=0; i<foodquickpicktodelete.length; i++) {
@@ -665,7 +665,7 @@
 		// store or remove from browser store api secret
 		if (storeapisecret) {
 			localStorage.setItem('apisecrethash',apisecrethash);
-			$('#pe_apisecrethash').text('API secret hash '+apisecrethash+' stored');
+			$('#pe_apisecrethash').text(translate('API secret hash stored')+': '+apisecrethash);
 		}
 		
 		if (event) event.preventDefault();

@@ -4,8 +4,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     'use strict';
 
 	var containerprefix = 'chart-';
-	var maxdays = 21;
+	var maxdays = 3 * 31;
 	var datastorage = {};
+	var daystoshow = {};
 	
 	var targetBGdefault = {
 		"mg/dL": { low: 72, high: 180 },
@@ -111,9 +112,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // create svg and g to contain the chart contents
         charts = d3.select('#'+containerprefix+day).html(
 			'<b>'+
-			[translate("Sunday"),translate("Monday"),translate("Tuesday"),translate("Wednesday"),translate("Thursday"),translate("Friday"),translate("Saturday")][new Date(day).getDay()]+
-			' '+
-			new Date(day).toLocaleDateString()+
+			localeDate(day)+
 			'</b><br>'
 		).append('svg');
 
@@ -319,7 +318,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 						.attr('x1', xScale2(treatment.created_at.getTime()) + padding.left)
 						.attr('y1', lastfoodtext * 15 + padding.top)
 						.attr('x2', xScale2(treatment.created_at.getTime()) + padding.left)
-						.attr('y2', padding.top + treatment.carbs ? yCarbsScale(treatment.carbs) :  yInsulinScale(treatment.insulin))
+						.attr('y2', padding.top + treatment.carbs ? yCarbsScale(treatment.carbs) : ( treatment.insulin ? yInsulinScale(treatment.insulin) : chartHeight))
 						.style('stroke-dasharray', ('1, 7'))
 						.attr('stroke', 'grey');
 				  }
@@ -429,6 +428,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 				
 				$('#rp_targetlow').val(targetBGdefault[browserSettings.units].low);
 				$('#rp_targethigh').val(targetBGdefault[browserSettings.units].high);
+				
+				$('.menutab').click(switchtab);
 
 				setDataRange(null,7);
 				
@@ -464,7 +465,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 		options.height = parseInt($('#rp_size :selected').attr('y'));
 		
 		
-		var daystoshow = {};
 		var matchesneeded = 0;
 
 		// date range
@@ -525,7 +525,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 				var notes = $('#rp_notes').val();
 				if (notes) {
 					var treatmentData;
-					var tquery = '?find[notes]='+notes;
+					var tquery = '?find[notes]=/'+notes+'/i';
 					$.ajax('/api/v1/treatments.json'+tquery, {
 						success: function (xhr) {
 							treatmentData = xhr.map(function (treatment) {
@@ -559,7 +559,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 				var eventtype = $('#rp_eventtype').val();
 				if (eventtype) {
 					var treatmentData;
-					var tquery = '?find[eventType]='+eventtype;
+					var tquery = '?find[eventType]=/'+eventtype+'/i';
 					$.ajax('/api/v1/treatments.json'+tquery, {
 						success: function (xhr) {
 							treatmentData = xhr.map(function (treatment) {
@@ -604,24 +604,46 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 		function display() {
 			console.log('Total: ',daystoshow,'Needed: ',matchesneeded);
 			var displayeddays = 0;
+			$('#info').html('<b>'+translate('Loading')+' ...</b>');
 			$('#charts').html('');
 			for (var d in daystoshow) {
-				if (displayeddays < maxdays) {
-					if (daystoshow[d]==matchesneeded) {
+				if (daystoshow[d]==matchesneeded) {
+					if (displayeddays < maxdays) {
 						$('#charts').append($('<div id="chart-'+d+'"></div>'));
-						loadData(d,drawChart,options);
+						loadData(d,options);
 						displayeddays++;
+					} else {
+						$('#charts').append($('<div>'+d+' '+translate('not displayed')+'.</div>'));
 					}
 				} else {
-					$('#charts').append($('<div>'+d+' '+translate('not displayed')+'.</div>'));
+					delete daystoshow[d];
 				}
 			}
 			if (displayeddays==0)
 				$('#charts').append(translate('Result is empty'));
 		}
 		
+		daystoshow = {};
 		datefilter();
 		if (event) event.preventDefault();
+	}
+	
+	function showotherreports(options) {
+		// wait for all loads
+		for (var d in daystoshow) {
+			if (!datastorage[d]) return;
+		}
+
+		['dailystats','percentile','glucosedistribution','hourlystats','success'].forEach(function (chart) {
+			// jquery plot doesn't draw to hidden div
+			$('#'+chart+'-placeholder').css('display','');
+			eval('report_'+chart+'(datastorage,daystoshow,options);');
+			if (!$('#'+chart).hasClass('selected'))
+				$('#'+chart+'-placeholder').css('display','none');
+		});
+		
+		$('#info').html('');
+
 	}
 	
 	function setDataRange(event,days) {
@@ -633,10 +655,30 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 		if (event) event.preventDefault();
 	}
 	
-	function loadData(day,callback,options) {
+	function switchtab(event) {
+		var id = $(this).attr('id');
+		
+		$('.menutab').removeClass('selected');
+		$('#'+id).addClass('selected');
+		
+		$('.tabplaceholder').css('display','none');
+		$('#'+id+'-placeholder').css('display','');
+	
+	}
+	
+	function localeDate(day) {
+		var ret = 
+			[translate("Sunday"),translate("Monday"),translate("Tuesday"),translate("Wednesday"),translate("Thursday"),translate("Friday"),translate("Saturday")][new Date(day).getDay()];
+		ret += ' ';
+		ret += new Date(day).toLocaleDateString();
+		return ret;
+	}
+	
+	function loadData(day,options) {
 		// check for loaded data
-		if (datastorage[day]) {
-			callback(day,datastorage[day],options);
+		if (datastorage[day] && day != new Date().toDateInputValue()) {
+			drawChart(day,datastorage[day],options);
+			showotherreports(options);
 			return;
 		}
 		// patientData = [actual, predicted, mbg, treatment, cal, devicestatusData];
@@ -715,13 +757,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 				}
 			}).done(function () {
 				$('#'+containerprefix+day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
-				processData(data,day,callback,options);
+				processData(data,day,options);
 			});
 				
 		});
 	}
 
-	function processData(data,day,callback,options) {
+	function processData(data,day,options) {
 		// treatments
 		data.treatments.forEach(function (d) {
 			d.created_at = new Date(d.created_at);
@@ -749,8 +791,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 		// make sure data data range will be exactly 24h
 		var from = new Date(new Date(day).getTime() + (new Date().getTimezoneOffset()*60*1000));
 		var to = new Date(from.getTime() + 1000 * 60 * 60 * 24);
-		data.sgv.push({ date: from, y: 40, sgv: 40, color: 'transparent', type: 'sgv'});
-		data.sgv.push({ date: to, y: 40, sgv: 40, color: 'transparent', type: 'sgv'});
+		data.sgv.push({ date: from, y: 40, sgv: 40, color: 'transparent', type: 'rawbg'});
+		data.sgv.push({ date: to, y: 40, sgv: 40, color: 'transparent', type: 'rawbg'});
 
 		// clear error data. we don't need it to display them
 		data.sgv = data.sgv.filter(function (d) {
@@ -760,9 +802,23 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 		
 		delete data.cal;
 		delete data.mbg;
+		
+		// for other reports
+		data.statsrecords = data.sgv.filter(function(r) {
+			if (r.type) return r.type == 'sgv';
+			else return true;
+		}).map(function (r) { 
+			var ret = {};
+			ret.sgv = parseFloat(r.sgv); 
+			ret.bgValue = parseInt(r.y);
+			ret.displayTime = r.date;
+			return ret;
+		});
+
 	  
         datastorage[day] = data;
-	    callback(day,data,options);
+	    drawChart(day,data,options);
+		showotherreports(options);
 	}
 
 	// Filtering food code

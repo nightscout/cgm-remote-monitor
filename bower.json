@@ -8,7 +8,9 @@
     "jquery": "2.1.0",
     "jQuery-Storage-API": "~1.7.2",
     "tipsy-jmalonzo": "~1.0.1",
-    "jsSHA": "~1.5.0"
+    "jsSHA": "~1.5.0",
+	"jquery-flot": "0.8.3",
+	"simple-statistics": "0.7.0"
   },
   "resolutions": {
     "jquery": "2.1.0"
