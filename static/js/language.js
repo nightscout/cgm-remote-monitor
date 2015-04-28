@@ -49,7 +49,7 @@
 			,de: 'Freitag'
 			}
 		,'Saturday' : {
-			cs: 'Sobota
+			cs: 'Sobota'
 			,de: 'Samstag'
 			}
 		,'Sunday' : {
@@ -161,7 +161,7 @@
 			,de: 'Lade Essensdatenbank'
 			}
 		,'not displayed' : { 	
-			cs: 'není zobrazeno
+			cs: 'není zobrazeno'
 			,de: 'nicht angezeigt'
 			}
 		,'Loading CGM data of' : { 	
@@ -177,7 +177,7 @@
 			,de: 'Verarbeite Daten von'
 			}
 		,'Portion' : { 	
-			cs: 'Porce
+			cs: 'Porce'
 			,de: 'Portion'
 			}
 		,'Size' : { 	
