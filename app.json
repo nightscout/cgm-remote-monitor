@@ -3,32 +3,63 @@
   "repository": "https://github.com/nightscout/cgm-remote-monitor",
   "env": {
     "MONGO_COLLECTION": {
-      "description": "The mongo collection for CGM data.  Most users should leave this as default.",
+      "description": "REQUIRED: The mongo collection used for CGM data. Default value is 'entries'. Most users should use the default.",
       "value": "entries",
       "required": true
     },
     "API_SECRET": {
-      "description": "User generated password required for REST API and other features (12 character minimum).",
+      "description": "REQUIRED: User generated password used for REST API and optional features (12 character minimum).",
       "value": "",
       "required": true
     },
+    "DISPLAY_UNITS": {
+      "description": "Server display units for BG values.  Default null value implies 'mg/dl'.  Set to 'mmol' to change the server to mmol mode.",
+      "value": "",
+      "required": false
+    },
     "ENABLE": {
-      "description": "Space delimited list of optional features to enable.  Leave blank for a default site.",
+      "description": "Space delimited list of optional features to enable, such as 'careportal'.",
+      "value": "",
+      "required": false
+    },
+    "ALARM_TYPES": {
+      "description": "Nightscout alarm behavior control. Default null value implies 'predict'. For adjustable alarm thresholds (set below), set to 'simple'.",
+      "value": "",
+      "required": false
+    },
+    "BG_HIGH": {
+      "description": "Urgent high BG alarm. Default null value implies 260. Must be set in mg/dL. Only used with simple alarms.",
+      "value": "",
+      "required": false
+    },
+    "BG_TARGET_TOP": {
+      "description": "Non-urgent high BG alarm, the top of your target range. Default null value implies 180. Must be set in mg/dL. Only used with simple alarms.",
+      "value": "",
+      "required": false
+    },
+    "BG_TARGET_BOTTOM": {
+      "description": "Non urgent low BG alarm, the bottom of your target range. Default null value implies 80. Must be set in mg/dL. Only used with simple alarms.",
+      "value": "",
+      "required": false
+    },
+    "BG_LOW": {
+      "description": "Urgent Low BG alarm. Default null value implies 55. Must be set in mg/dL. Only used with simple alarms.",
       "value": "",
       "required": false
     },
     "PUSHOVER_API_TOKEN": {
-      "description": "Pushover API token, required for Pushover notifications.  Leave blank for a default site.",
+      "description": "Pushover API token, required for Pushover notifications. Leave blank if not using Pushover.",
       "value": "",
       "required": false
     },
     "PUSHOVER_USER_KEY": {
-      "description": "Pushover user key, required for Pushover notifications.  Leave blank for a default site.",
+      "description": "Pushover user key, required for Pushover notifications. Leave blank if not using Pushover.",
       "value": "",
       "required": false
     }
   },
   "addons": [
-    "mongolab:sandbox"
+    "mongolab:sandbox",
+    "papertrail"
   ]
 }
