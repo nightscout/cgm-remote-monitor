@@ -1514,6 +1514,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
 
         if (alarmingNow() && ago.status == 'current' && isTimeAgoAlarmType(currentAlarmType)) {
+            $('#container').removeClass('alarming-timeago');
             stopAlarm(true, ONE_MIN_IN_MS);
         }
 
