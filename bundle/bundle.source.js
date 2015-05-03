@@ -19,7 +19,8 @@
     window.NightscoutPlugins = {
         iob: require('../lib/iob')(PluginBase),
         cob: require('../lib/cob')(PluginBase),
-        bwp: require('../lib/boluswizardpreview')(PluginBase)
+        bwp: require('../lib/boluswizardpreview')(PluginBase),
+        cage: require('../lib/cannulaage')(PluginBase)
     };
 	// class inheritance to the plugins from the base + map functions over
 
