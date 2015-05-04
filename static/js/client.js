@@ -490,7 +490,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 				
 					plugin.setEnv(env);
 					
-					if (plugin.isDataProvider) {
+					// check if the plugin implements processing data
+					
+					if (plugin.getData) {
 						var dataFromPlugin = plugin.getData();
 						var container = {};
 						for (var i in dataFromPlugin) {
@@ -517,7 +519,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 			for (var p in NightscoutPlugins) {
 				if (isPluginEnabled(p)) {
 					var plugin = NightscoutPlugins[p];
-					if (plugin.isVisualisationProvider) {
+					
+					// check if the plugin implements visualisations
+					if (plugin.updateVisualisation) {
 						plugin.updateVisualisation();
 					}
 				}
