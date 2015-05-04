@@ -27,6 +27,7 @@
 	for (var p in window.NightscoutPlugins) {
 		var plugin = window.NightscoutPlugins[p];
 		inherits(plugin, PluginBase);
+		plugin.name = p;
  
 		for (var n in PluginBase.prototype) {
       		var item = PluginBase.prototype[n];                      
