@@ -393,6 +393,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , currentBG = $('.bgStatus .currentBG')
             , currentDirection = $('.bgStatus .currentDirection')
             , currentDetails = $('.bgStatus .currentDetails')
+            , pluginPills = $('.bgStatus .pluginPills')
             , rawNoise = bgButton.find('.rawnoise')
             , rawbg = rawNoise.find('em')
             , noiseLevel = rawNoise.find('label')
@@ -474,6 +475,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 			var env = {};
 			env.profile = profile;
 			env.currentDetails = currentDetails;
+			env.pluginPills = pluginPills;
 			env.sgv = Number(sgv);
 			env.treatments = treatments;
 			env.time = time;
