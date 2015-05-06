@@ -42,13 +42,18 @@
 		$('#bc_bg').val(bg);
 		
 		foods = [];
-		$('#bc_bgfrommeter').attr('checked',false);
+		$('#bc_usebg').prop('checked','checked');
+		$('#bc_usecarbs').prop('checked','checked');
+		$('#bc_usecob').prop('checked','');
+		$('#bc_useiob').prop('checked','checked');
+		$('#bc_bgfromsensor').prop('checked','checked');
 		$('#bc_carbs').val('');
 		$('#bc_quickpick').val(2);
 		$('#bc_preBolus').val(0);
 		$('#bc_notes').val('');
 		$('#bc_enteredBy').val(browserStorage.get('enteredBy') || '');
 		$('#bc_nowtime').prop('checked', true);
+		$('#bc_othercorrection').val(0); 
 	}
 	
 	function destroyBoluscalcDrawer() {
@@ -58,8 +63,10 @@
 
 	if (isTouch())
 		$('.insulincalculationpart').change(calculateInsulin); // Make it faster on mobile devices
-	else
+	else {
 		$('.insulincalculationpart').on('input',calculateInsulin);
+		$('input:checkbox.insulincalculationpart').change(calculateInsulin);
+	}
 	$('#bc_bgfrommeter').change(calculateInsulin);
 	$('#bc_addfromdatabase').click(addFoodFromDatabase);
 
@@ -153,37 +160,58 @@
 		}
 
 		// Load IOB
-		boluscalc.iob = Nightscout.iob.calcTotal(Nightscout.client.treatments,boluscalc.eventTime).display;
-		$('#bc_iob').text('-'+boluscalc.iob);
-		boluscalc.iob = parseFloat(boluscalc.iob);
+		boluscalc.iob = 0;
+		if ($('#bc_useiob').is(':checked')) {
+			boluscalc.iob = parseFloat(Nightscout.iob.calcTotal(Nightscout.client.treatments,boluscalc.eventTime).iob);
+			$('#bc_iob').text((boluscalc.iob > 0 ? '-' : '') + boluscalc.iob.toFixed(2));
+		} else {
+			$('#bc_iob').text('');
+		}
 
 		// Load COB
-		boluscalc.cob = Nightscout.cob.calcTotal(Nightscout.client.treatments,boluscalc.eventTime,true).cob;
-		$('#bc_cob').text(boluscalc.cob.toFixed(2));
+		var ic = Nightscout.currentProfile.ic(boluscalc.eventTime,units);
+		if ($('#bc_usecob').is(':checked')) {
+			boluscalc.cob = Nightscout.cob.calcTotal(Nightscout.client.treatments,boluscalc.eventTime,true).cob;
+			boluscalc.insulincob = roundTo00(boluscalc.cob / ic);
+			$('#bc_cob').text(boluscalc.cob.toFixed(2));
+			$('#bc_cobu').text(boluscalc.insulincob.toFixed(2));
+		} else {
+			boluscalc.cob = 0;
+			boluscalc.insulincob = 0;
+			$('#bc_cob').text('');
+			$('#bc_cobu').text('');
+		}
 
 		// BG
-		boluscalc.bg = parseFloat($('#bc_bg').val().replace(',','.'));
-		if (boluscalc.bg == 0 || (oldbg && $('#bc_bgfromsensor').is(':checked'))) {
-			$('#bc_bg').css('background-color','red');
-			//return;
-		} else $('#bc_bg').css('background-color','');
-		boluscalc.bgdiff = 0;
-		boluscalc.targetBGLow = Nightscout.currentProfile.targetBGLow(boluscalc.eventTime,units);
-		boluscalc.targetBGHigh = Nightscout.currentProfile.targetBGHigh(boluscalc.eventTime,units);
-		boluscalc.isf = Nightscout.currentProfile.isf(boluscalc.eventTime,units);
-		if (boluscalc.targetBGLow==0 || boluscalc.targetBGHigh==0 || boluscalc.isf==0) {
-			$('#bc_inzulinbgtd').css('background-color','red');
-			return null;
-		} else $('#bc_inzulinbgtd').css('background-color','');
-		if (boluscalc.bg <= boluscalc.targetBGLow) boluscalc.bgdiff = boluscalc.bg - boluscalc.targetBGLow;
-		else if (boluscalc.bg >= boluscalc.targetBGHigh) boluscalc.bgdiff = boluscalc.bg - boluscalc.targetBGHigh;
-		boluscalc.insulinbg = roundTo00(boluscalc.bgdiff / boluscalc.isf);
-		$('#bc_inzulinbg').text(boluscalc.insulinbg.toFixed(2));
-		$('#bc_inzulinbg').attr('title',
-			'Target BG range: '+boluscalc.targetBGLow + ' - ' + boluscalc.targetBGHigh + 
-			'\nISF: ' +  boluscalc.isf +
-			'\nBG diff: ' +  boluscalc.bgdiff.toFixed(1)
-			);
+		if ($('#bc_usebg').is(':checked')) {
+			boluscalc.bg = parseFloat($('#bc_bg').val().replace(',','.'));
+			if (boluscalc.bg == 0 || (oldbg && $('#bc_bgfromsensor').is(':checked'))) {
+				$('#bc_bg').css('background-color','red');
+			} else $('#bc_bg').css('background-color','');
+			var bgdiff = 0;
+			var targetBGLow = Nightscout.currentProfile.targetBGLow(boluscalc.eventTime,units);
+			var targetBGHigh = Nightscout.currentProfile.targetBGHigh(boluscalc.eventTime,units);
+			var isf = Nightscout.currentProfile.isf(boluscalc.eventTime,units);
+			if (targetBGLow==0 || targetBGHigh==0 || isf==0) {
+				$('#bc_inzulinbgtd').css('background-color','red');
+				return null;
+			} else $('#bc_inzulinbgtd').css('background-color','');
+			if (boluscalc.bg <= targetBGLow) bgdiff = boluscalc.bg - targetBGLow;
+			else if (boluscalc.bg >= targetBGHigh) bgdiff = boluscalc.bg - targetBGHigh;
+			boluscalc.insulinbg = roundTo00(bgdiff / isf);
+			$('#bc_inzulinbg').text(boluscalc.insulinbg.toFixed(2));
+			$('#bc_inzulinbg').attr('title',
+				'Target BG range: '+targetBGLow + ' - ' + targetBGHigh + 
+				'\nISF: ' +  isf +
+				'\nBG diff: ' +  bgdiff.toFixed(1)
+				);
+		} else {
+			boluscalc.bg = 0;
+			boluscalc.insulinbg = 0;
+			$('#bc_inzulinbgtd').css('background-color','');
+			$('#bc_bg').css('background-color','');
+			$('#bc_inzulinbg').text('');
+		}
 		
 		// Foods
 		if (foods.length) {
@@ -211,7 +239,7 @@
 			$('#bc_gicalculated').css('display','');
 			boluscalc.gi = (gisum/carbs).toFixed(2);
 			$('#bc_gicalculated').text(boluscalc.gi);
-			$('#bc_gitd').attr('colspan','');
+			//$('#bc_gitd').attr('colspan','');
 		} else {
 			$('#bc_food').html('');
 			$('#bc_carbs').attr('disabled',false);
@@ -219,39 +247,49 @@
 			$('#bc_gi').css('display','');
 			$('#bc_gicalculated').css('display','none');
 			$('#bc_gicalculated').text('');
-			$('#bc_gitd').attr('colspan',2);
+			//$('#bc_gitd').attr('colspan',3);
 		}
 		boluscalc.foods = clone(foods);
 		
 		// Carbs
-		boluscalc.carbs = parseInt($('#bc_carbs').val().replace(',','.'));
-		if ($('#bc_carbs').val()=='') {
+		if ($('#bc_usecarbs').is(':checked')) {
+			boluscalc.carbs = parseInt($('#bc_carbs').val().replace(',','.'));
+			if ($('#bc_carbs').val()=='') {
+				boluscalc.carbs = 0;
+				$('#bc_carbs').css('background-color','');
+			} else if (isNaN(boluscalc.carbs)) {
+				$('#bc_carbs').css('background-color','red');
+				return null;
+			} else $('#bc_carbs').css('background-color','');
+			if (Nightscout.currentProfile.ic(boluscalc.eventTime)==0) {
+				$('#bc_inzulincarbstd').css('background-color','red');
+				return null;
+			} else $('#bc_inzulincarbstd').css('background-color','');
+			boluscalc.insulincarbs = roundTo00(boluscalc.carbs / ic);
+			$('#bc_inzulincarbs').text(boluscalc.insulincarbs.toFixed(2));
+			$('#bc_inzulincarbs').attr('title','IC: ' +  ic);
+		} else {
 			boluscalc.carbs = 0;
-		} else if (isNaN(boluscalc.carbs)) {
-			$('#bc_carbs').css('background-color','red');
-			return null;
-		} else $('#bc_carbs').css('background-color','');
-		if (Nightscout.currentProfile.ic(boluscalc.eventTime)==0) {
-			$('#bc_inzulincarbstd').css('background-color','red');
-			return null;
-		} else $('#bc_inzulincarbstd').css('background-color','');
-		boluscalc.ic = Nightscout.currentProfile.ic(boluscalc.eventTime,units);
-		boluscalc.insulincarbs = roundTo00((boluscalc.carbs + boluscalc.cob) / boluscalc.ic);
-		$('#bc_inzulincarbs').text(boluscalc.insulincarbs.toFixed(2));
-		$('#bc_inzulincarbs').attr('title','IC: ' +  boluscalc.ic);
+			boluscalc.insulincarbs = 0;
+			$('#bc_carbs').css('background-color','');
+			$('#bc_inzulincarbs').text('');
+		}
 		
 		
 		// Corrections
 		boluscalc.othercorrection = parseFloat($('#bc_othercorrection').val().replace(',','.'));
-		if ($('#bc_othercorrection').val()=='') {
-			boluscalc.othercorrection = 0;
-		} else if (isNaN(boluscalc.othercorrection)) {
-			$('#bc_othercorrection').css('background-color','red');
-			return null;
-		} else $('#bc_othercorrection').css('background-color','');
+//		if ($('#bc_othercorrection').val()=='') {
+//			boluscalc.othercorrection = 0;
+//		} else if (isNaN(boluscalc.othercorrection)) {
+//			$('#bc_othercorrection').css('background-color','red');
+//			return null;
+//		} else $('#bc_othercorrection').css('background-color','');
 
 		// Total & rounding
-		var total = boluscalc.insulinbg + boluscalc.insulincarbs - boluscalc.iob + boluscalc.othercorrection;
+		var total = 0;
+		if ($('#bc_useinsulin').is(':checked')) {
+			total = boluscalc.insulinbg + boluscalc.insulincarbs + boluscalc.insulincob - boluscalc.iob + boluscalc.othercorrection;
+		}
 		boluscalc.insulin = floorTo005(total);
 		boluscalc.roundingcorrection = boluscalc.insulin - total;
 		
@@ -261,13 +299,15 @@
 		// Carbs needed if too much iob
 		boluscalc.carbsneeded = 0;
 		if (boluscalc.insulin<0) {
-			boluscalc.carbsneeded = Math.round(-total * boluscalc.ic);
-			$('#bc_carbsneeded').text(boluscalc.carbsneeded+' g ('+boluscalc.insulin.toFixed(2)+')');
+			boluscalc.carbsneeded = Math.round(-total * ic);
+			$('#bc_carbsneeded').text(boluscalc.carbsneeded+' g');
+			$('#bc_insulinover').text(boluscalc.insulin.toFixed(2));
 			$('#bc_carbsneededtr').css('display','');
 			$('#bc_insulinneededtr').css('display','none');
 			//$('#bc_submit').css('display','none');
 		} else {
 			$('#bc_carbsneeded').text('');
+			$('#bc_insulinover').text('');
 			$('#bc_carbsneededtr').css('display','none');
 			$('#bc_insulinneededtr').css('display','');
 		}
@@ -496,10 +536,6 @@
 			  width: 640
 			, height: 400
 			,  buttons: [
-				{ text: "Reload database",
-				  class: 'leftButton',
-				  click: loadDatabase
-				},
 				{ text: "Add",
 				  click: function() {
 					var index = $('#bc_data').val();
@@ -511,12 +547,16 @@
 						$( this ).dialog( "close" );
 					}
 				  }
+				},
+				{ text: "Reload database",
+				  class: 'leftButton',
+				  click: loadDatabase
 				}
 			  ]
 			, open   : function(ev, ui) {
 				$(this).parent().css('box-shadow', '20px 20px 20px 0px black');
 				$(this).parent().find('.ui-dialog-buttonset'      ).css({'width':'100%','text-align':'right'})
-				$(this).parent().find('button:contains("Reload database")').css({'float':'left'});
+				$(this).parent().find('button:contains("Add")').css({'float':'left'});
 			}
 
 		});

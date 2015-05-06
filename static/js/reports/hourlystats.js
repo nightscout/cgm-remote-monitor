@@ -60,13 +60,14 @@
 				// Math.min.apply(Math, pivotedByHour[hour].map(function(r) { return r.sgv; })),
 				// Math.max.apply(Math, pivotedByHour[hour].map(function(r) { return r.sgv; }))
 			]);
+			var tmp;
 			$("<td>" + display + "</td>").appendTo(tr);
 			$("<td>" + pivotedByHour[hour].length + " (" + Math.floor(100 * pivotedByHour[hour].length / data.length) + "%)</td>").appendTo(tr);
 			$("<td>" + avg + "</td>").appendTo(tr);
 			$("<td>" + Math.min.apply(Math, pivotedByHour[hour].map(function(r) { return r.sgv; })) + "</td>").appendTo(tr);
-			$("<td>" + ss.quantile(pivotedByHour[hour].map(function(r) { return r.sgv; }), 0.25).toFixed(1) + "</td>").appendTo(tr);
-			$("<td>" + ss.quantile(pivotedByHour[hour].map(function(r) { return r.sgv; }), 0.5).toFixed(1) + "</td>").appendTo(tr);
-			$("<td>" + ss.quantile(pivotedByHour[hour].map(function(r) { return r.sgv; }), 0.75).toFixed(1) + "</td>").appendTo(tr);
+			$("<td>" + ((tmp=ss.quantile(pivotedByHour[hour].map(function(r) { return r.sgv; }), 0.25)) ? tmp.toFixed(1) : 0 ) + "</td>").appendTo(tr);
+			$("<td>" + ((tmp=ss.quantile(pivotedByHour[hour].map(function(r) { return r.sgv; }), 0.5)) ? tmp.toFixed(1) : 0 ) + "</td>").appendTo(tr);
+			$("<td>" + ((tmp=ss.quantile(pivotedByHour[hour].map(function(r) { return r.sgv; }), 0.75)) ? tmp.toFixed(1) : 0 ) + "</td>").appendTo(tr);
 			$("<td>" + Math.max.apply(Math, pivotedByHour[hour].map(function(r) { return r.sgv; })) + "</td>").appendTo(tr);
 			$("<td>" + Math.floor(dev*10)/10 + "</td>").appendTo(tr);
 			table.append(tr);

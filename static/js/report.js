@@ -325,6 +325,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 			  }
 
 			if (treatment.carbs && options.carbs) {
+				var ic = Nightscout.currentProfile.ic(treatment.created_at);
 				context.append('rect')
 				  .attr('y',yCarbsScale(treatment.carbs))
 				  .attr('height', chartHeight-yCarbsScale(treatment.carbs))
@@ -341,7 +342,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 //				  .attr('opacity', '0.7')
 				  .attr('y', yCarbsScale(treatment.carbs)-10)
 				  .attr('transform', 'translate(' + (xScale2(treatment.created_at.getTime()) + padding.left) + ',' + +padding.top + ')')
-				  .text(treatment.carbs+' g');
+				  .text(treatment.carbs+' g ('+(treatment.carbs/ic).toFixed(2)+'U)');
 			}
 			
 			if (treatment.insulin && options.insulin) {
@@ -619,10 +620,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 					delete daystoshow[d];
 				}
 			}
-			if (displayeddays==0)
-				$('#charts').append(translate('Result is empty'));
+			if (displayeddays==0) {
+				$('#charts').html('<b>'+translate('Result is empty')+'</b>');
+				$('#info').empty();
+			}
 		}
 		
+		$('#rp_show').css('display','none');
 		daystoshow = {};
 		datefilter();
 		if (event) event.preventDefault();
@@ -631,7 +635,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 	function showotherreports(options) {
 		// wait for all loads
 		for (var d in daystoshow) {
-			if (!datastorage[d]) return;
+			if (!datastorage[d]) return; // all data not loaded yet
 		}
 
 		['dailystats','percentile','glucosedistribution','hourlystats','success'].forEach(function (chart) {
@@ -643,7 +647,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 		});
 		
 		$('#info').html('');
-
+		$('#rp_show').css('display','');
 	}
 	
 	function setDataRange(event,days) {

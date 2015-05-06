@@ -124,7 +124,7 @@
 			cs: 'Poznámky obsahují'
 			,de: 'Notizen beinhalten'
 			}
-		,'Event type contain' : { 	
+		,'Event type contains' : { 	
 			cs: 'Typ události obsahuje'
 			,de: 'Ereignis-Typ beinhaltet'
 			}
