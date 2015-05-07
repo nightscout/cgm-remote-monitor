@@ -1654,7 +1654,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     updateBrushToNow();
                 }
                 updateChart(false);
-            }, 1000);
+            }, 200);
         }
 
         function visibilityChanged() {
