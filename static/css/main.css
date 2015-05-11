@@ -29,9 +29,9 @@ body {
 
 .status {
     font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
-    height: 180px;
+    height: 200px;
     vertical-align: middle;
-    clear: both;
+    clear: left right;
 }
 
 .bgStatus {
@@ -76,7 +76,17 @@ body {
     font-size: 30px;
 }
 
+.pluginPills {
+    font-size: 22px;
+    margin-top: 5px;
+    z-index: 500;
+}
+
 .currentDetails > span:not(:first-child) {
+    margin-left: 5px;
+}
+
+.pluginPills > span:not(:first-child) {
     margin-left: 5px;
 }
 
@@ -109,8 +119,26 @@ body {
     color: red !important;
 }
 
+.alarming-timeago #lastEntry.pill.warn {
+  border-color: yellow;
+}
+.alarming-timeago #lastEntry.pill.warn label {
+  background: yellow;
+}
+
+.alarming-timeago #lastEntry.pill.urgent {
+  border-color: red;
+}
+.alarming-timeago #lastEntry.pill.urgent label {
+  background: red;
+}
+
 .bgStatus.current .currentBG {
     text-decoration: none;
+}
+
+.alarming-timeago .bgStatus.current .currentBG {
+  text-decoration: line-through;
 }
 
 .time {
@@ -151,7 +179,7 @@ body {
 }
 
 #chartContainer {
-    top: 225px; /*(toolbar height + status height)*/
+    top: 245px; /*(toolbar height + status height)*/
     left:0;
     right:0;
     bottom:0;
@@ -329,6 +357,10 @@ div.tooltip {
         font-size: 20px;
     }
 
+    .bgStatus .pluginPills {
+        font-size: 16px;
+    }
+
     .time {
         font-size: 70px;
         line-height: 60px;
@@ -357,7 +389,7 @@ div.tooltip {
     }
 
     #chartContainer {
-        top: 185px;
+        top: 195px;
         font-size: 14px;
     }
     #chartContainer svg {
@@ -398,6 +430,10 @@ div.tooltip {
         font-size: 15px;
     }
 
+    .bgStatus .pluginPills {
+        font-size: 12px;
+    }
+
     .time {
         font-size: 50px;
         line-height: 40px;
@@ -405,7 +441,7 @@ div.tooltip {
     }
 
     #chartContainer {
-        top: 165px;
+        top: 175px;
     }
     #chartContainer svg {
         height: calc(100vh - 165px);
@@ -452,10 +488,12 @@ div.tooltip {
         font-size: 15px;
     }
 
-    .dropdown-menu {
-        font-size: 50px !important;
-        margin-left: 2vw;
-        width: 96vw;
+    .bgStatus .pluginPills {
+        font-size: 12px;
+    }
+
+    #silenceBtn * {
+      font-size: 20px;
     }
 
     .time {
@@ -496,7 +534,7 @@ div.tooltip {
     }
 
     #chartContainer {
-        top: 190px;
+        top: 200px;
     }
     #chartContainer svg {
         height: calc(100vh - (190px));
@@ -531,7 +569,7 @@ div.tooltip {
     }
 
     #chartContainer {
-        top: 130px;
+        top: 140px;
         font-size: 10px;
     }
     #chartContainer svg {
@@ -556,6 +594,10 @@ div.tooltip {
 
     .bgStatus .currentDetails {
         font-size: 15px;
+    }
+
+    .bgStatus .pluginPills {
+        font-size: 12px;
     }
 
     .time {
@@ -601,7 +643,15 @@ div.tooltip {
         font-size: 15px;
     }
 
-    .focus-range {
+    .bgStatus .currentDetails {
+        font-size: 12px;
+    }
+
+    #silenceBtn {
+      right: -25px;
+    }
+
+  .focus-range {
         position: absolute;
         top: 40px;
         left: initial;

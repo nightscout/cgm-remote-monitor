@@ -25,9 +25,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , MINUTE_IN_SECS = 60
         , HOUR_IN_SECS = 3600
         , DAY_IN_SECS = 86400
-        , WEEK_IN_SECS = 604800
-        , MINUTES_SINCE_LAST_UPDATE_WARN = 10
-        , MINUTES_SINCE_LAST_UPDATE_URGENT = 20;
+        , WEEK_IN_SECS = 604800;
 
     var socket
         , isInitialData = false
@@ -43,6 +41,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , now = Date.now()
         , data = []
         , foucusRangeMS = THREE_HOURS_MS
+        , clientAlarms = {}
         , audio = document.getElementById('audio')
         , alarmInProgress = false
         , currentAlarmType = null
@@ -96,7 +95,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // lixgbg: Convert mg/dL BG value to metric mmol
     function scaleBg(bg) {
         if (browserSettings.units == 'mmol') {
-            return (Math.round((bg / 18) * 10) / 10).toFixed(1);
+            return Nightscout.units.mgdlToMMOL(bg);
         } else {
             return bg;
         }
@@ -221,11 +220,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
 
         return Math.round(raw);
-    }
-
-    function showIOB() {
-        return app.enabledOptions
-            && app.enabledOptions.indexOf('iob') > -1;
     }
 
     // initial setup of chart when data is first made available
@@ -399,6 +393,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , currentBG = $('.bgStatus .currentBG')
             , currentDirection = $('.bgStatus .currentDirection')
             , currentDetails = $('.bgStatus .currentDetails')
+            , pluginPills = $('.bgStatus .pluginPills')
             , rawNoise = bgButton.find('.rawnoise')
             , rawbg = rawNoise.find('em')
             , noiseLevel = rawNoise.find('label')
@@ -469,20 +464,71 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         }
 
-        function updateIOBIndicator(time) {
-            if (showIOB()) {
-                var pill = currentDetails.find('span.pill.iob');
+		// PLUGIN MANAGEMENT CODE
+		
+		function isPluginEnabled(name) {
+			return app.enabledOptions
+            && app.enabledOptions.indexOf(name) > -1;
+		}
 
-                if (!pill || pill.length == 0) {
-                    pill = $('<span class="pill iob"><label>IOB</label><em></em></span>');
-                    currentDetails.append(pill);
-                }
-                var iob = Nightscout.iob.calcTotal(treatments, profile, time);
-                pill.find('em').text(iob.display + 'U');
-            } else {
-                currentDetails.find('.pill.iob').remove();
-            }
-        }
+		function updatePluginData(sgv, time) {
+			var env = {};
+			env.profile = profile;
+			env.currentDetails = currentDetails;
+			env.pluginPills = pluginPills;
+			env.sgv = Number(sgv);
+			env.treatments = treatments;
+			env.time = time;
+			
+			// Update the env through data provider plugins
+			
+			for (var p in NightscoutPlugins) {
+				
+				if (isPluginEnabled(p)) {
+			
+					var plugin = NightscoutPlugins[p];
+				
+					plugin.setEnv(env);
+					
+					// check if the plugin implements processing data
+					
+					if (plugin.getData) {
+						var dataFromPlugin = plugin.getData();
+						var container = {};
+						for (var i in dataFromPlugin) {
+							container[i] = dataFromPlugin[i];
+						}
+						env[p] = container;
+					}
+				}
+			}
+			
+			// update data the plugins
+			
+			sendEnvToPlugins(env);
+		}
+		
+		function sendEnvToPlugins(env) {
+			for (var p in NightscoutPlugins) {
+				var plugin = NightscoutPlugins[p];
+				plugin.setEnv(env);
+			}
+		}
+		
+		function updatePluginVisualisation() {
+			for (var p in NightscoutPlugins) {
+				if (isPluginEnabled(p)) {
+					var plugin = NightscoutPlugins[p];
+					
+					// check if the plugin implements visualisations
+					if (plugin.updateVisualisation) {
+						plugin.updateVisualisation();
+					}
+				}
+			}
+		}
+
+		/// END PLUGIN CODE
 
         // predict for retrospective data
         // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
@@ -532,7 +578,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 bgButton.removeClass('urgent warning inrange');
             }
 
-            updateIOBIndicator(retroTime);
+			// update plugins
+			
+			updatePluginData(focusPoint.y,retroTime);
+			updatePluginVisualisation();
 
             $('#currentTime')
                 .text(formatTime(retroTime, true))
@@ -566,7 +615,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }
 
             updateBGDelta(prevSGV, latestSGV);
-            updateIOBIndicator(nowDate);
+
+			// update plugins
+			
+			updatePluginData(latestSGV.y,nowDate);
+			updatePluginVisualisation();
 
             currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);
         }
@@ -1186,13 +1239,21 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         });
 
         $('#container').removeClass('alarming');
-        brushed(true);
 
         // only emit ack if client invoke by button press
         if (isClient) {
-            socket.emit('ack', currentAlarmType || 'alarm', silenceTime);
-            brushed(false);
+            if (isTimeAgoAlarmType(currentAlarmType)) {
+                $('#container').removeClass('alarming-timeago');
+                var alarm = getClientAlarm(currentAlarmType);
+                alarm.lastAckTime = Date.now();
+                alarm.silenceTime = silenceTime;
+                console.info('time ago alarm (' + currentAlarmType + ', not acking to server');
+            } else {
+                socket.emit('ack', currentAlarmType || 'alarm', silenceTime);
+            }
         }
+
+        brushed(false);
     }
 
     function timeAgo(time) {
@@ -1213,9 +1274,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         if (offset > DAY_IN_SECS * 7) {
             parts.status = 'warn';
-        } else if (offset < MINUTE_IN_SECS * -5 || offset > (MINUTE_IN_SECS * MINUTES_SINCE_LAST_UPDATE_URGENT)) {
+        } else if (offset < MINUTE_IN_SECS * -5 || offset > (MINUTE_IN_SECS * browserSettings.alarmTimeAgoUrgentMins)) {
             parts.status = 'urgent';
-        } else if (offset > (MINUTE_IN_SECS * MINUTES_SINCE_LAST_UPDATE_WARN)) {
+        } else if (offset > (MINUTE_IN_SECS * browserSettings.alarmTimeAgoWarnMins)) {
             parts.status = 'warn';
         } else {
             parts.status = 'current';
@@ -1458,6 +1519,35 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         $('#currentTime').text(formatTime(dateTime, true)).css('text-decoration', '');
     }
 
+    function getClientAlarm(type) {
+        var alarm = clientAlarms[type];
+        if (!alarm) {
+            alarm = { type: type };
+            clientAlarms[type] = alarm;
+        }
+        return alarm;
+    }
+
+    function isTimeAgoAlarmType(alarmType) {
+        return alarmType == 'warnTimeAgo' || alarmType == 'urgentTimeAgo';
+    }
+
+    function checkTimeAgoAlarm(ago) {
+        var level = ago.status
+            , alarm = getClientAlarm(level + 'TimeAgo');
+
+        if (!alarmingNow() && Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
+            currentAlarmType = alarm.type;
+            console.info('generating timeAgoAlarm', alarm.type);
+            $('#container').addClass('alarming-timeago');
+            if (level == 'warn') {
+                generateAlarm(alarmSound);
+            } else {
+                generateAlarm(urgentAlarmSound);
+            }
+        }
+    }
+
     function updateTimeAgo() {
         var lastEntry = $('#lastEntry')
             , time = latestSGV ? new Date(latestSGV.x).getTime() : -1
@@ -1469,6 +1559,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         if (ago.status !== 'current') {
             updateTitle();
+        }
+
+        if (
+            (browserSettings.alarmTimeAgoWarn && ago.status == 'warn')
+            || (browserSettings.alarmTimeAgoUrgent && ago.status == 'urgent')) {
+            checkTimeAgoAlarm(ago);
+        }
+
+        if (alarmingNow() && ago.status == 'current' && isTimeAgoAlarmType(currentAlarmType)) {
+            stopAlarm(true, ONE_MIN_IN_MS);
         }
 
         if (retroMode || !ago.value) {
