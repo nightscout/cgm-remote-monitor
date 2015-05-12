@@ -1,14 +1,8 @@
 language: node_js
+sudo: false
 node_js:
-   - "0.10"
-   - "0.11"
-matrix:
-   allow_failures:
-     - node_js: "0.11"
-services:
-  - mongodb
-before_script:
-  - sleep 10
-  - echo mongo mongo_travis
-script:
-  - make travis
+  - "0.10"
+  - "0.12"
+services: mongodb
+script: make travis
+after_script: make report
