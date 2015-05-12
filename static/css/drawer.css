@@ -1,14 +1,3 @@
-#drawer button, #treatmentDrawer button{
-    font-size: 18px;
-    font-weight: bolder;
-    background-color: #ccc;
-    padding: 5px 10px;
-    border-radius: 5px;
-    border: 2px solid #aaa;
-    box-shadow: 2px 2px 0 #eee;
-    width: 100%;
-}
-
 #drawer {
     background-color: #666;
     border-left: 1px solid #999;
@@ -25,26 +14,8 @@
     top: 0;
     z-index: 1;
 }
-
-#drawer i, #treatmentDrawer i {
+#drawer i {
     opacity: 0.6;
-}
-
-#drawer a, #treatmentDrawer a {
-    color: white;
-}
-
-input[type=number]:invalid {
-    background-color: #FFCCCC;
-}
-
-#drawer .actions {
-    margin: 10px 2px;
-}
-
-#drawer .actions a {
-    float: right;
-    padding: 10px 0;
 }
 
 #treatmentDrawer {
@@ -62,6 +33,13 @@ input[type=number]:invalid {
     width: 300px;
     top: 0;
     z-index: 1;
+}
+#treatmentDrawer i {
+    opacity: 0.6;
+}
+
+#treatmentDrawer a {
+  color: white;
 }
 
 #treatmentDrawer input {
@@ -87,12 +65,8 @@ input[type=number]:invalid {
   display: block;
 }
 
-input.timeago-mins {
-  width: 40px;
-}
-
 #eventTime {
-    padding-bottom: 15px;
+
 }
 
 #eventTime > span {
@@ -182,7 +156,6 @@ h1, legend,
     top: 0;
     margin: 0;
     height: 44px;
-    text-shadow: 0 0 5px black;
 }
 
 #toolbar h1 {
@@ -203,7 +176,6 @@ h1, legend,
     vertical-align: middle;
     position: absolute;
     right: 0;
-    z-index: 500;
 }
 
 #buttonbar a,
