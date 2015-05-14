@@ -109,8 +109,26 @@ body {
     color: red !important;
 }
 
+.alarming-timeago #lastEntry.pill.warn {
+  border-color: yellow;
+}
+.alarming-timeago #lastEntry.pill.warn label {
+  background: yellow;
+}
+
+.alarming-timeago #lastEntry.pill.urgent {
+  border-color: red;
+}
+.alarming-timeago #lastEntry.pill.urgent label {
+  background: red;
+}
+
 .bgStatus.current .currentBG {
     text-decoration: none;
+}
+
+.alarming-timeago .bgStatus.current .currentBG {
+  text-decoration: line-through;
 }
 
 .time {
@@ -358,6 +376,7 @@ div.tooltip {
 
     #chartContainer {
         top: 185px;
+        font-size: 14px;
     }
     #chartContainer svg {
         height: calc(100vh - 185px);
@@ -451,10 +470,8 @@ div.tooltip {
         font-size: 15px;
     }
 
-    .dropdown-menu {
-        font-size: 50px !important;
-        margin-left: 2vw;
-        width: 96vw;
+    #silenceBtn * {
+      font-size: 20px;
     }
 
     .time {
@@ -504,7 +521,7 @@ div.tooltip {
 
 @media (max-height: 700px) {
     #chartContainer {
-        font-size: 15px;
+        font-size: 14px;
     }
 }
 
@@ -600,7 +617,11 @@ div.tooltip {
         font-size: 15px;
     }
 
-    .focus-range {
+    #silenceBtn {
+      right: -25px;
+    }
+
+  .focus-range {
         position: absolute;
         top: 40px;
         left: initial;
