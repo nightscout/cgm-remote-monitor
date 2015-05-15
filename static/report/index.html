@@ -13,6 +13,7 @@
 		  <li id="glucosedistribution" class="translate menutab">Distribution</li>
 		  <li id="hourlystats"         class="translate menutab">Hourly stats</li>
 		  <li id="success"             class="translate menutab">Weekly success</li>
+		  <li id="treatments"          class="translate menutab">Treatments</li>
 		</ul>
 		<table>
 			<tr>
@@ -95,14 +96,14 @@
 			<input type="checkbox" id="rp_optionsnotes" checked><span class="translate">Notes</span>
 			<input type="checkbox" id="rp_optionsfood" checked><span class="translate">Food</span>
 			<input type="checkbox" id="rp_optionsraw"><span class="translate" style="color:gray;opacity:1">Raw</span>
-			<input type="checkbox" id="rp_optionsiob"><span class="translate" style="color:DarkOrchid;opacity:0.5">IOB</span>
-			<input type="checkbox" id="rp_optionscob"><span class="translate" style="color:Olive;opacity:1">COB</span>
+			<input type="checkbox" id="rp_optionsiob"><span class="translate" style="color:blue;opacity:0.5">IOB</span>
+			<input type="checkbox" id="rp_optionscob"><span class="translate" style="color:red;opacity:0.5">COB</span>
 			&nbsp;<span class="translate">Size</span>:
 			<select id="rp_size">
 				<option x="800" y="250">800x250px</option>
 				<option x="1000" y="300" selected>1000x300px</option>
 				<option x="1200" y="400">1200x400px</option>
-				<option x="1200" y="400">1550x500px</option>
+				<option x="1550" y="600">1550x600px</option>
 			</select>
 			<br>
 			<div id="charts">
@@ -139,6 +140,10 @@
 		<div id="success-placeholder" class="tabplaceholder" style="display:none">
 			<h1 class="translate">Weekly Success</h1>
 			<div id="success-grid"></div>
+		</div>
+		<div id="treatments-placeholder" class="tabplaceholder" style="display:none">
+			<h1 class="translate">Treatments</h1>
+			<div id="treatments-report"></div>
 		</div>
 		
 		

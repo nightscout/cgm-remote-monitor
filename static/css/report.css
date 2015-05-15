@@ -106,3 +106,7 @@ ul#tabnav li:hover { /* settings for hover effect */
 background: #9f9; /* set desired hover color */
 cursor:pointer;
 }
+
+tr.border_bottom td {
+  border-bottom:1pt solid #eee;
+}

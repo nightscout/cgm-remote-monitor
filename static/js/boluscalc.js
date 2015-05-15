@@ -171,7 +171,7 @@
 		// Load COB
 		var ic = Nightscout.currentProfile.ic(boluscalc.eventTime,units);
 		if ($('#bc_usecob').is(':checked')) {
-			boluscalc.cob = Nightscout.cob.calcTotal(Nightscout.client.treatments,boluscalc.eventTime,true).cob;
+			boluscalc.cob = Nightscout.cob.calcTotal(Nightscout.client.treatments,boluscalc.eventTime,true).cob || 0;
 			boluscalc.insulincob = roundTo00(boluscalc.cob / ic);
 			$('#bc_cob').text(boluscalc.cob.toFixed(2));
 			$('#bc_cobu').text(boluscalc.insulincob.toFixed(2));
@@ -278,12 +278,6 @@
 		
 		// Corrections
 		boluscalc.othercorrection = parseFloat($('#bc_othercorrection').val().replace(',','.'));
-//		if ($('#bc_othercorrection').val()=='') {
-//			boluscalc.othercorrection = 0;
-//		} else if (isNaN(boluscalc.othercorrection)) {
-//			$('#bc_othercorrection').css('background-color','red');
-//			return null;
-//		} else $('#bc_othercorrection').css('background-color','');
 
 		// Total & rounding
 		var total = 0;
@@ -348,7 +342,7 @@
 		}
 		
 		data.enteredBy = $('#bc_enteredBy').val();
-		data.eventType = 'Bolus calculator';
+		data.eventType = 'Bolus Wizard';
 		if ($('#bc_bg').val()!=0) {
 			data.glucose = $('#bc_bg').val();
 			data.glucoseType = $('#bc_bgfrommeter').is(':checked') ? 'Finger' : (  $('#bc_bgfromsensor').is(':checked') ? 'Sensor' : 'Manual');
@@ -557,6 +551,7 @@
 				$(this).parent().css('box-shadow', '20px 20px 20px 0px black');
 				$(this).parent().find('.ui-dialog-buttonset'      ).css({'width':'100%','text-align':'right'})
 				$(this).parent().find('button:contains("Add")').css({'float':'left'});
+				$('#bc_filter_name').focus();
 			}
 
 		});

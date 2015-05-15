@@ -252,9 +252,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
 		var to = new Date(day).addDays(1).addMinutes(new Date().getTimezoneOffset());
 		var from = new Date(day).addMinutes(new Date().getTimezoneOffset());
+		var iobpolyline = '', cobpolyline = '';
 		for (var dt=from; dt < to; dt.addMinutes(5)) {
 			if (options.iob) {
 				var iob = Nightscout.iob.calcTotal(data.treatments,dt).display;
+/*
 				context.append('circle')
 					.attr('cx', xScale2(dt) + padding.left)
 					.attr('cy', yInsulinScale(iob) + padding.top)
@@ -263,9 +265,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 					.attr('stroke-width', 0)
 					.attr('stroke', 'black')
 					.attr('r', 1.2);
+*/
+				if (dt!=from) iobpolyline += ', ';
+				iobpolyline += (xScale2(dt) + padding.left) + ',' + (yInsulinScale(iob) + padding.top) + ' ';
 			}
 			if (options.cob) {
 				var cob = Nightscout.cob.calcTotal(data.treatments,dt,true).cob;
+/*
 				context.append('circle')
 					.attr('cx', xScale2(dt) + padding.left)
 					.attr('cy', yCarbsScale(cob) + padding.top)
@@ -274,8 +280,25 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 					.attr('stroke-width', 0)
 					.attr('stroke', 'black')
 					.attr('r', 1.2);
+*/
+				if (dt!=from) cobpolyline += ', ';
+				cobpolyline += (xScale2(dt) + padding.left) + ',' + (yCarbsScale(cob) + padding.top) + ' ';
 			}
 		}
+		if (options.iob) 
+			context.append('polyline')
+				  .attr('stroke', 'blue')
+				  .attr('opacity', '0.5')
+				  .attr('fill-opacity', '0.1')
+				  .attr('points',iobpolyline);
+				
+		if (options.cob) 
+			context.append('polyline')
+				  .attr('stroke', 'red')
+				  .attr('opacity', '0.5')
+				  .attr('fill-opacity', '0.1')
+				  .attr('points',cobpolyline);
+				
 
         data.treatments.forEach(function (treatment) {
 		  if (treatment.boluscalc && treatment.boluscalc.foods && treatment.boluscalc.foods.length > 0 || treatment.notes) {
@@ -638,7 +661,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 			if (!datastorage[d]) return; // all data not loaded yet
 		}
 
-		['dailystats','percentile','glucosedistribution','hourlystats','success'].forEach(function (chart) {
+		['dailystats','percentile','glucosedistribution','hourlystats','success','treatments'].forEach(function (chart) {
 			// jquery plot doesn't draw to hidden div
 			$('#'+chart+'-placeholder').css('display','');
 			eval('report_'+chart+'(datastorage,daystoshow,options);');
@@ -649,7 +672,82 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 		$('#info').html('');
 		$('#rp_show').css('display','');
 	}
+
+	// Treatments report
 	
+	function report_treatments(datastorage,daystoshow,options) {
+		var icon_remove = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACrElEQVQ4T42Ty2sTQRzHv5tmk2yyjRNtpfZhL8V6s2KoUNC2XqwgaCsVQcGiFqpHi0c9iRdR/ANE9KR40FIQX4cueKoPaKFoLdSYNtE0abKT1+5s9iW7aUMiHtzTzO7v85md+c6PA4DrHbsPCKIgOWO1pA7dT6YXnXH949SE/F63pqwZtRrO+SCKgjQ5NUV+azpmHj2krMwaJC4c8Erj+/eRyloMMwWFKgbn1nC3ervlK1evkXBLGBZT8SOewotnTylTNLdgeg/pDgZDC2cPHSR8bB22DVC9hFe0SG/H0xFXcHlykjRHRDBWgJcZSCY38Xx2lhqMnRYE34Px/sN9vlQWeoHBAx2yXsRruVAVuFsIBaSJ8+eJGPaBqQV4NROJjTzez89jLBoFn6FgybQL54wS3uTyVDFQ3cL2IYpBv3RhdJSIIQ80tQyv7gEqJvS8AmUlBs7UXPhtjtZgh3UFNYngk86NHCfNAg9dMwHVBPu+CpsVkTXKeJeVG+AGgTOZ3tt6MSKKjy+NjEBjFrR4ElZmA4pdxstMFsyyJu6tZZ7Ux9vwB6EAL50ZGiRECEPPUOixVTRxHlicgSVWxEdZpuZWfNuS2hk48NjwMIkIYZglBnV5Cbqtws/5IaAJmsfCglrEl2y2QeKmEBJ80tixKmxrFpSVr0gV0viQoxho2YUuPohmeFD22PiklLC4ma5JuBvdrfLJI0dJd0s7bM0ES8aR/BXDXGaTskqlL+D3Lwy0tZEePoAd4EA5YF4tYymdonfjmQh3s6dTPjU4SHYGwjAKecSXFyGlM1TdytntE56T+ts7SC/vhw3gm6njc2Kd3vm5Ub1IwQAvnYhGiZpYw1wiWYPrIw7wnBTt7CLOOwdmut14kQQvqt24tfK/utGR6LaF+iRqMf4N/O/8D28HiiCRYqzAAAAAAElFTkSuQmCC";
+
+		var table = '<table>';
+		table += '<tr style="background:gray"><th></th><th style="width:80px" align="left">Time</th><th style="width:150px" align="left">Event Type</th><th style="width:150px" align="left">BG</th><th style="width:50px" align="left">Insulin</th><th style="width:50px" align="left">Carbs</th><th style="width:150px" align="left">Entered by</th><th style="width:300px" align="left">Notes</th></tr>';
+		
+		Object.keys(daystoshow).forEach(function (day) {
+			table += '<tr><td></td><td colspan="7"><b>'+localeDate(day)+'</b></td></tr>';
+			var treatments = datastorage[day].treatments;
+			for (var t=0; t<treatments.length; t++) {
+				var tr = treatments[t];
+				table += '<tr class="border_bottom">';
+				table += '<td><img style="cursor:pointer" title="Delete record" src="'+icon_remove+'" href="#" class="deleteTreatment" data=\''+JSON.stringify(tr)+'\' day="'+day+'"></td>';
+				table += '<td>'+(new Date(tr.created_at).toLocaleTimeString().replace(/([\d]+:[\d]{2})(:[\d]{2})(.*)/, "$1$3"))+'</td>';
+				table += '<td>'+(tr.eventType ? tr.eventType : '')+'</td>';
+				table += '<td align="center">'+(tr.glucose ? tr.glucose + ' ('+tr.glucoseType+')' : '')+'</td>';
+				table += '<td align="center">'+(tr.insulin ? tr.insulin : '')+'</td>';
+				table += '<td align="center">'+(tr.carbs ? tr.carbs : '')+'</td>';
+				table += '<td>'+(tr.enteredBy ? tr.enteredBy : '')+'</td>';
+				table += '<td>'+(tr.notes ? tr.notes : '')+'</td>';
+				
+				table += '</tr>';
+			}
+		});
+		$('#treatments-report').html(table);
+		$('.deleteTreatment').click(deleteTreatment);
+	}
+	
+	function deleteTreatment(event) {
+		var data = JSON.parse($(this).attr('data'));
+		var day = $(this).attr('day');
+
+		var ok = window.confirm(
+				'Delete this treatment?\n' +
+				'\nEvent type: ' + data.eventType +
+				(data.glucose ? '\nBlood glucose: ' + data.glucose : '')+
+				(data.glucoseType ? '\nMethod: ' + data.glucoseType : '')+
+				(data.carbs ? '\nCarbs Given: ' + data.carbs : '' )+
+				(data.insulin ? '\nInsulin Given: ' + data.insulin : '')+
+				(data.preBolus ? '\nPre Bolus: ' + data.preBolus : '')+
+				(data.notes ? '\nNotes: ' + data.notes : '' )+
+				(data.enteredBy ? '\nEntered By: ' + data.enteredBy : '' )+
+				('\nEvent Time: ' + new Date(data.created_at).toLocaleString())
+		);
+
+		if (ok) {
+			deleteTreatmentRecord(data._id);
+			delete datastorage[day];
+			show();
+		}
+		if (event) event.preventDefault();
+		return false;
+	}
+
+	function deleteTreatmentRecord(_id) {
+		var apisecrethash = localStorage.getItem('apisecrethash');
+
+		if (!apisecrethash) {
+			alert(translate('You API secret hash not stored yet'));
+			return false;
+		}
+		
+	
+		var dataJson = JSON.stringify(_id, null, ' ');
+
+		var xhr = new XMLHttpRequest();
+		xhr.open('DELETE', '/api/v1/treatments/'+_id, true);
+		xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+		xhr.setRequestHeader('api-secret', apisecrethash);
+		xhr.send(null);
+		return true;
+	}
+
 	function setDataRange(event,days) {
 		var now = new Date();
 		var from = new Date().addDays(-days+1);

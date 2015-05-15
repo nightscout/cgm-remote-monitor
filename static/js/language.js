@@ -377,8 +377,8 @@
 		,'Store hash on this computer (Use only on private computers)' : { 	
 			cs: 'Ulož hash na tomto počítači (používejte pouze na soukromých počítačích)'
 			}
-		,'Save' : { 	
-			cs: 'Ulož'
+		,'Treatments' : { 	
+			cs: 'Ošetření'
 			}
 
 	}
