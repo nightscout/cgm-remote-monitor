@@ -254,7 +254,7 @@
 			<form id="boluscalc-form" onsubmit="return Nightscout.boluscalc.boluscalcSubmit();">
                 <fieldset class="boluscalcData">
                     <legend>
-						Bolus Wizard
+						<span class="translate">Bolus Wizard</span>
 						(<span id="bc_units"></span>)
 					</legend>
 					<table>
@@ -262,7 +262,7 @@
 							<td>
 							</td>
 							<td>
-								BG:
+								<span class="translate">BG</span>:
 								<span style="float:right;">
 									<input type="text" size="3" id="bc_bg" class="insulincalculationpart">
 								</span>
@@ -272,15 +272,15 @@
 						</tr>
 						<tr>
 							<td>
-								<input title="Use BG correction in calculation" type="checkbox" id="bc_usebg" class="insulincalculationpart" checked>
+								<input title="Use BG correction in calculation" type="checkbox" id="bc_usebg" class="insulincalculationpart titletranslate" checked>
 							</td>
 							<td style="width:170px">
 								<input type="radio" name="bc_bginput" id="bc_bgfromsensor" checked>
-								<i title="BG from CGM (autoupdated)" class="icon-chart-line" style="margin-right:0;margin-left:-0.6em;color:lightgreen"></i>
+								<i title="BG from CGM (autoupdated)" class="icon-chart-line titletranslate" style="margin-right:0;margin-left:-0.6em;color:lightgreen"></i>
 								<input type="radio" name="bc_bginput" id="bc_bgfrommeter">
-								<i title="BG from meter" class="icon-tint" style="margin-right:0;margin-left:-0.6em;color:red"></i>
+								<i title="BG from meter" class="icon-tint titletranslate" style="margin-right:0;margin-left:-0.6em;color:red"></i>
 								<input type="radio" name="bc_bginput" id="bc_bgmanual">
-								<i title="Manual BG" class="icon-sort-numeric" style="margin-right:0;margin-left:-0.6em;color:blue"></i>
+								<i title="Manual BG" class="icon-sort-numeric titletranslate" style="margin-right:0;margin-left:-0.6em;color:blue"></i>
 							</td>
 							<td id="bc_inzulinbgtd" class="insulincalculation">
 								<span style="float:right" id="bc_inzulinbg">0.00</span>
@@ -288,29 +288,29 @@
 						</tr>
 						<tr class="foodinput">
 							<td colspan="3" id="bc_gitd">
-								GI:
+								<span class="translate">GI</span>:
 								<select style="float:right;" id="bc_gi">
-									<option value="1">Low</option>
-									<option value="2" selected>Medium/Unknown</option>
-									<option value="3">High</option>
+									<option class="translate" value="1">Low</option>
+									<option class="translate" value="2" selected>Medium/Unknown</option>
+									<option class="translate" value="3">High</option>
 								</select>
 								<span style="float:right;" id="bc_gicalculated" style="display:none"></span>
 							</td>
 						</tr>
 						<tr class="foodinput">
 							<td colspan="3">
-								Quickpick: <select style="float:right;" id="bc_quickpick"></select>
+								<span class="translate">Quickpick</span>: <select style="float:right;" id="bc_quickpick"></select>
 								<br>
-								or <a href="#" style="float:right;" id="bc_addfromdatabase">Add from database</a>
+								<span class="translate">or</span> <a href="#" style="float:right;" id="bc_addfromdatabase"><span class="translate">Add from database<span class="translate"></a>
 								<div id="bc_food"></div>
 							</td>
 						</tr>
 						<tr>
 							<td>
-								<input title="Use carbs correction in calculation" type="checkbox" id="bc_usecarbs" class="insulincalculationpart" checked>
+								<input title="Use carbs correction in calculation" type="checkbox" id="bc_usecarbs" class="insulincalculationpart titletranslate" checked>
 							</td>
 							<td>
-								Carbs:
+								<span class="translate">Carbs</span>:
 								<span style="float:right;">
 									<input type="text" size="3" id="bc_carbs" value="0" class="insulincalculationpart"> g
 								</span>
@@ -321,10 +321,10 @@
 						</tr>
 						<tr>
 							<td>
-								<input title="Use COB correction in calculation" type="checkbox" id="bc_usecob" class="insulincalculationpart">
+								<input title="Use COB correction in calculation" type="checkbox" id="bc_usecob" class="insulincalculationpart titletranslate">
 							</td>
 							<td>
-								COB:
+								<span class="translate">COB</span>:
 								<span style="float:right">
 									<span id="bc_cob"></span> g
 								</span>
@@ -338,7 +338,7 @@
 								<input title="Use IOB in calculation" type="checkbox" id="bc_useiob" class="insulincalculationpart" checked>
 							</td>
 							<td>
-								IOB:
+								<span class="translate">IOB</span>:
 							</td>
 							<td class="insulincalculation">
 								<span style="float:right" id="bc_iob">0.00</span>
@@ -348,7 +348,7 @@
 							<td>
 							</td>
 							<td>
-								Other correction:
+								<span class="translate">Other correction</span>:
 							</td>
 							<td class="insulincalculation">
 								<select style="float:right" id="bc_othercorrection" class="insulincalculationpart">
@@ -400,7 +400,7 @@
 							<td>
 							</td>
 							<td>
-								Rounding:
+								<span class="translate">Rounding</span>:
 							</td>
 							<td class="insulincalculation">
 								<span style="float:right" id="bc_rouding">0.00</span>
@@ -408,20 +408,20 @@
 						</tr>
 						<tr  id="bc_insulinneededtr" class="insulintotalcalculation border_bottom">
 							<td>
-								<input title="Enter insulin correction in treatment" type="checkbox" id="bc_useinsulin" class="insulincalculationpart" checked>
+								<input title="Enter insulin correction in treatment" type="checkbox" id="bc_useinsulin" class="insulincalculationpart titletranslate" checked>
 							</td>
 							<td>
-								Insulin needed:
+								<span class="translate">Insulin needed</span>:
 							</td>
 							<td>
 								<span style="float:right" id="bc_insulintotal">0.00</span>
 							</td>
 						</tr>
-						<tr  id="bc_carbsneededtr" class="insulintotalcalculation border_bottom" title="Carbs needed if Insulin total is negative value">
+						<tr  id="bc_carbsneededtr" class="insulintotalcalculation border_bottom titletranslate" title="Carbs needed if Insulin total is negative value">
 							<td>
 							</td>
 							<td>
-								Carbs needed:
+								<span class="translate">Carbs needed</span>:
 								<span style="float:right" id="bc_carbsneeded"></span>
 							</td>
 							<td>
@@ -432,7 +432,7 @@
 							<td>
 							</td>
 							<td>
-								Basal rate:
+								<span class="translate">Basal rate</span>:
 							</td>
 							<td>
 								<span id="bc_basal" style="float:right"></span>
@@ -441,72 +441,72 @@
 					</table>
 					<hr>
                      <label for="bc_preBolus" class="left-column short-label extra-space">
-                        <span>Eating:</span>
+                        <span class="translate">Eating</span>:
                         <select id="bc_preBolus">
-                            <option value="-60">60 minutes before</option>
-                            <option value="-45">45 minutes before</option>
-                            <option value="-30">30 minutes before</option>
-                            <option value="-20">20 minutes before</option>
-                            <option value="-15">15 minutes before</option>
-                            <option value="0" selected>Time in minutes</option>
-                            <option value="15">15 minutes after</option>
-                            <option value="20">20 minutes after</option>
-                            <option value="30">30 minutes after</option>
-                            <option value="45">45 minutes after</option>
-                            <option value="60">60 minutes after</option>
+                            <option class="translate" value="-60">60 minutes before</option>
+                            <option class="translate" value="-45">45 minutes before</option>
+                            <option class="translate" value="-30">30 minutes before</option>
+                            <option class="translate" value="-20">20 minutes before</option>
+                            <option class="translate" value="-15">15 minutes before</option>
+                            <option class="translate" value="0" selected>Time in minutes</option>
+                            <option class="translate" value="15">15 minutes after</option>
+                            <option class="translate" value="20">20 minutes after</option>
+                            <option class="translate" value="30">30 minutes after</option>
+                            <option class="translate" value="45">45 minutes after</option>
+                            <option class="translate" value="60">60 minutes after</option>
                         </select>
                     </label>
 					<br>
 
                     <!-- Label and textarea -->
-                    <label for="bc_notes" class="extra-space">Additional Notes, Comments:</label>
+                    <label for="bc_notes" class="extra-space translate">Additional Notes, Comments:</label>
                     <textarea id="bc_notes" style="width:250px"></textarea><br>
 
                     <label for="bc_enteredBy" class="left-column extra-space">
-                      <span>Entered By:</span>
+                      <span class="translate">Entered By</span>:
                       <input type="text" id="bc_enteredBy" value="" />
                     </label>
 
                     <div id="bc_eventTime">
-                      <span>Event Time:</span>
+                      <span class="translate">Event Time</span>:
                       <label for="bc_nowtime">
                         <input type="radio" name="bc_nowOrOther" id="bc_nowtime" value="now" checked="checked"/>
-                        <span>Now</span>
+                        <span class="translate">Now</span>
                       </label>
                       <label for="bc_othertime">
                         <input type="radio" name="bc_nowOrOther" id="bc_othertime" value="other"/>
-                        <span>Other</span>
+                        <span class="translate">Other</span>
                       </label>
                       <input type="date" id="bc_eventDateValue" name="bc_eventTimeValue" value="" class="bc_eventtimeinput"/>
                       <input type="time" id="bc_eventTimeValue" name="bc_eventTimeValue" value="" class="bc_eventtimeinput"/>
                     </div>
-					<div id="bc_retro" style="display:none;width:100%;background-color:red;text-align: center;border: 2px solid black;border-radius: 10px;margin-top:10px;">RETRO MODE</div>
+					<div id="bc_retro" class="translate" style="display:none;width:100%;background-color:red;text-align: center;border: 2px solid black;border-radius: 10px;margin-top:10px;">RETRO MODE</div>
                </fieldset>
-				<button id="bc_submit" type="submit">Submit Form</button>
+				<button id="bc_submit" type="submit" class="translate">Submit Form</button>
 				<br>
 				<br>
-                <a href="/treatments.html" target="_blank">View all treatments</a>
+                <a href="/treatments.html" target="_blank"><span class="translate">View all treatments</span></a>
 				<br>
-                <a href="/profile/" target="_blank">Profile editor</a>
+                <a href="/profile/" target="_blank"><span class="translate">Profile editor</span></a>
 				<br>
-                <a href="/food/" target="_blank">Food editor</a>
+                <a href="/food/" target="_blank"><span class="translate">Food editor</span></a>
 				<br>
-                <a href="/report/" target="_blank">Reporting tool</a>
+                <a href="/report/" target="_blank"><span class="translate">Reporting tool</span></a>
 				<div id="bc_debug"></div>
             </form>
         </div>
 		
-		<div id="bc_addfooddialog" style="display:none" title="Add food from your database">
+		<div id="bc_addfooddialog" style="display:none" title="Add food from your database" class="titletranslate">
 			<fieldset class="browserSettings">
-				<legend>Filter</legend>
-				Category: <select id="bc_filter_category"></select>
-				Subcategory: <select id="bc_filter_subcategory"></select>
+				<legend class="translate">Filter</legend>
+				<span class="translate">Category</span>: <select id="bc_filter_category"></select>
+				<span class="translate">Subcategory</span>: <select id="bc_filter_subcategory"></select>
 				<br>
-				Name: <input type="text" id="bc_filter_name"></select>
+				<span class="translate">Name</span>: <input type="text" id="bc_filter_name"></select>
 			</fieldset>
 			<select id="bc_data" style="width:100%;"></select>
 			<br><br>
-			Portions: <input type="number" step="0.1" min="0" value="1" size="3" id="bc_addportions">
+			<span class="translate">Portions</span>: <input type="number" step="0.1" min="0" value="1" size="3" id="bc_addportions">
 		</div>
 
         <div class="audio alarms">
@@ -524,6 +524,7 @@
         <script src="/js/ui-utils.js?v=0.7.0"></script>
         <script src="/js/client.js?v=0.7.0"></script>
         <script src="https://code.jquery.com/ui/1.11.3/jquery-ui.min.js"></script>
+        <script src="/js/language.js"></script>
         <script src="/js/boluscalc.js"></script>
         <script src="/js/experiments.js"></script>
     </body>

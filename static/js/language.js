@@ -380,6 +380,165 @@
 		,'Treatments' : { 	
 			cs: 'Ošetření'
 			}
+		,'Time' : { 	
+			cs: 'Čas'
+			}
+		,'Event Type' : { 	
+			cs: 'Typ události'
+			}
+		,'Blood Glucose' : { 	
+			cs: 'Glykémie'
+			}
+		,'Entered By' : { 	
+			cs: 'Zadáno'
+			}
+		,'Delete this treatment?' : { 	
+			cs: 'Vymazat toto ošetření?'
+			}
+		,'Carbs Given' : { 	
+			cs: 'Sacharidů'
+			}
+		,'Inzulin Given' : { 	
+			cs: 'Inzulínu'
+			}
+		,'Event Time' : { 	
+			cs: 'Čas události'
+			}
+		,'Please verify that the data entered is correct' : { 	
+			cs: 'Prosím zkontrolujte, zda jsou data zadána správně'
+			}
+		,'BG' : { 	
+			cs: 'Glykémie'
+			}
+		,'Bolus Wizard' : { 	
+			cs: 'Bolusový kalkulátor'
+			}
+		,'Use BG correction in calculation' : { 	
+			cs: 'Použij korekci na glykémii'
+			}
+		,'BG from CGM (autoupdated)' : { 	
+			cs: 'Glykémie z CGM (automaticky aktualizovaná)'
+			}
+		,'BG from meter' : { 	
+			cs: 'Glykémie z glukoměru'
+			}
+		,'Manual BG' : { 	
+			cs: 'Ručně zadaná glykémie'
+			}
+		,'Quickpick' : { 	
+			cs: 'Rychlý výběr'
+			}
+		,'or' : { 	
+			cs: 'nebo'
+			}
+		,'Add from database' : { 	
+			cs: 'Přidat z databáze'
+			}
+		,'Use carbs correction in calculation' : { 	
+			cs: 'Použij korekci na sacharidy'
+			}
+		,'Use COB correction in calculation' : { 	
+			cs: 'Použij korekci na COB'
+			}
+		,'Use IOB in calculation' : { 	
+			cs: 'Použij IOB ve výpočtu'
+			}
+		,'Other correction' : { 	
+			cs: 'Jiná korekce'
+			}
+		,'Rounding' : { 	
+			cs: 'Zaokrouhlení'
+			}
+		,'Enter insulin correction in treatment' : { 	
+			cs: 'Zahrň inzulín do záznamu ošetření'
+			}
+		,'Insulin needed' : { 	
+			cs: 'Potřebný inzulín'
+			}
+		,'Carbs needed' : { 	
+			cs: 'Potřebné sach'
+			}
+		,'Carbs needed if Insulin total is negative value' : { 	
+			cs: 'Chybějící sacharidy v případě, že výsledek je záporný'
+			}
+		,'Basal rate' : { 	
+			cs: 'Bazál'
+			}
+		,'Eating' : { 	
+			cs: 'Jídlo'
+			}
+		,'60 minutes before' : { 	
+			cs: '60 min předem'
+			}
+		,'45 minutes before' : { 	
+			cs: '45 min předem'
+			}
+		,'30 minutes before' : { 	
+			cs: '30 min předem'
+			}
+		,'20 minutes before' : { 	
+			cs: '20 min předem'
+			}
+		,'15 minutes before' : { 	
+			cs: '15 min předem'
+			}
+		,'Time in minutes' : { 	
+			cs: 'Čas v minutách'
+			}
+		,'15 minutes after' : { 	
+			cs: '15 min po'
+			}
+		,'20 minutes after' : { 	
+			cs: '20 min po'
+			}
+		,'30 minutes after' : { 	
+			cs: '30 min po'
+			}
+		,'45 minutes after' : { 	
+			cs: '45 min po'
+			}
+		,'60 minutes after' : { 	
+			cs: '60 min po'
+			}
+		,'Additional Notes, Comments:' : { 	
+			cs: 'Dalši poznámky, komentáře:'
+			}
+		,'RETRO MODE' : { 	
+			cs: 'V MINULOSTI'
+			}
+		,'Now' : { 	
+			cs: 'Nyní'
+			}
+		,'Other' : { 	
+			cs: 'Jiný'
+			}
+		,'Submit Form' : { 	
+			cs: 'Odeslat formulář'
+			}
+		,'View all treatments' : { 	
+			cs: 'Zobrazit všechna ošetření'
+			}
+		,'Profile editor' : { 	
+			cs: 'Editor profilu'
+			}
+		,'Food editor' : { 	
+			cs: 'Editor jídel'
+			}
+		,'Reporting tool' : { 	
+			cs: 'Výkazy'
+			}
+		,'Add food from your database' : { 	
+			cs: 'Přidat jidlo z Vaší databáze'
+			}
+		,'Reload database' : { 	
+			cs: 'Znovu nahraj databázi'
+			}
+		,'Add' : { 	
+			cs: 'Přidej'
+			}
+		,'1' : { 	
+			cs: '1'
+			}
 
 	}
 	
@@ -394,4 +553,8 @@
 	$('.translate').each(function (s) {
 		//console.log($(this).text());
 		$(this).text(translate($(this).text()));
+	});
+	$('.titletranslate').each(function (s) {
+		//console.log($(this).attr('title'));
+		$(this).attr('title',translate($(this).attr('title')));
 	});

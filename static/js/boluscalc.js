@@ -363,16 +363,16 @@
 		var dataJson = JSON.stringify(data, null, ' ');
 
 		var ok = window.confirm(
-				'Please verify that the data entered is correct: ' +
-				'\nEvent type: ' + data.eventType +
-				(data.glucose ? '\nBlood glucose: ' + data.glucose : '')+
-				(data.glucoseType ? '\nMethod: ' + data.glucoseType : '')+
-				(data.carbs ? '\nCarbs Given: ' + data.carbs : '' )+
-				(data.insulin ? '\nInsulin Given: ' + data.insulin : '')+
-				(data.preBolus ? '\nPre Bolus: ' + data.preBolus : '')+
-				(data.notes ? '\nNotes: ' + data.notes : '' )+
-				(data.enteredBy ? '\nEntered By: ' + data.enteredBy : '' )+
-				($('#bc_othertime').is(':checked') ? '\nEvent Time: ' + eventTimeDisplay : '')
+				translate('Please verify that the data entered is correct')+': ' +
+				'\n'+translate('Event Type')+': ' + data.eventType +
+				(data.glucose ? '\n'+translate('Blood Glucose')+': ' + data.glucose : '')+
+				(data.glucoseType ? '\n'+translate('Method')+': ' + data.glucoseType : '')+
+				(data.carbs ? '\n'+translate('Carbs Given')+': ' + data.carbs : '' )+
+				(data.insulin ? '\n'+translate('Insulin Given')+': ' + data.insulin : '')+
+				(data.preBolus ? '\n'+translate('Pre Bolus')+': ' + data.preBolus : '')+
+				(data.notes ? '\n'+translate('Notes')+': ' + data.notes : '' )+
+				(data.enteredBy ? '\n'+translate('Entered By')+': ' + data.enteredBy : '' )+
+				($('#bc_othertime').is(':checked') ? '\n'+translate('Event Time')+': ' + eventTimeDisplay : '')
 		);
 
 		if (ok) {
@@ -530,7 +530,7 @@
 			  width: 640
 			, height: 400
 			,  buttons: [
-				{ text: "Add",
+				{ text: translate("Add"),
 				  click: function() {
 					var index = $('#bc_data').val();
 					var portions = parseFloat($('#bc_addportions').val().replace(',','.'));
@@ -542,7 +542,7 @@
 					}
 				  }
 				},
-				{ text: "Reload database",
+				{ text: translate("Reload database"),
 				  class: 'leftButton',
 				  click: loadDatabase
 				}
@@ -550,7 +550,7 @@
 			, open   : function(ev, ui) {
 				$(this).parent().css('box-shadow', '20px 20px 20px 0px black');
 				$(this).parent().find('.ui-dialog-buttonset'      ).css({'width':'100%','text-align':'right'})
-				$(this).parent().find('button:contains("Add")').css({'float':'left'});
+				$(this).parent().find('button:contains("'+translate('Add')+'")').css({'float':'left'});
 				$('#bc_filter_name').focus();
 			}
 
