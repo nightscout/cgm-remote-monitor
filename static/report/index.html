@@ -3,6 +3,7 @@
     <head>
         <title>Nightscout reporting</title>
         <link rel="stylesheet" type="text/css" href="/css/report.css" />
+		<link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-lightness/jquery-ui.min.css">    
     </head>
     <body>
         <h1 class="customTitle">Nightscout</h1>
@@ -144,6 +145,8 @@
 		<div id="treatments-placeholder" class="tabplaceholder" style="display:none">
 			<h1 class="translate">Treatments</h1>
 			<div id="treatments-report"></div>
+			<br>
+			<b><span class="translate">Authentication status</span>: </b><span id="authentication_placeholder"></span>
 		</div>
 		
 		
@@ -157,8 +160,11 @@
         <script src="/bower_components/jquery-flot/jquery.flot.time.js"></script>
         <script src="/bower_components/jquery-flot/jquery.flot.fillbetween.js"></script>
 		<script src="/bower_components/simple-statistics/src/simple_statistics.js"></script>
+        <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
+        <script src="/bower_components/jsSHA/src/sha1.js"></script>
         <script src="/public/js/bundle.js"></script>
         <script src="/js/language.js"></script>
+        <script src="/js/hashauth/hashauth.js"></script>
         <script src="/js/ui-utils.js"></script>
         <script src="/js/report.js"></script>
 		<script src="/js/reports/time.js"></script>

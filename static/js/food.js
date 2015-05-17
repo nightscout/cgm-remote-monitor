@@ -1,7 +1,6 @@
 /* Code by Milos Kozak
 
 */
-	var apisecret = '', storeapisecret = false, apisecrethash = null;
 	var foodrec_template = { 
 		  _id: ''
 		, type: 'food'
@@ -38,9 +37,6 @@
 	
 	var GuiToVal = [
 			// API secret
-			{ "html":"pe_apisecret", 			"type":"text" , 		"settings":"apisecret" },
-			{ "html":"pe_storeapisecret",		"type":"checkbox" , 	"settings":"storeapisecret" },
-
 			{ "html":"fe_filter_category", 		"type":"dropdownval" , 	"settings":"filter.category" },
 			{ "html":"fe_filter_subcategory", 	"type":"dropdownval" , 	"settings":"filter.subcategory" },
 			{ "html":"fe_filter_name", 			"type":"text" , 		"settings":"filter.name" },
@@ -71,13 +67,6 @@
 	var categories = {};
 	
 
-	// load api secret from browser storage
-	apisecrethash = localStorage.getItem('apisecrethash');
-	if (apisecrethash)
-		$('#pe_apisecrethash').text(translate('Using stored API secret hash')+': '+apisecrethash).css({'color':'darkgray'});
-	else 
-		$('#pe_apisecrethash').text(translate('No API secret hash stored yet. You need to enter API secret.')).css({'color':'darkgray'});
-	
 	// Fetch data from mongo
 	$('#fe_status').hide().text('Loading food database ...').fadeIn("slow");
 	$.ajax('/api/v1/food.json', {
@@ -490,15 +479,12 @@
 	
 	function foodSubmit(event) {
 		saveSettings();
-		if (!apisecrethash && apisecret.length < 12) {
-			alert(translate('You API secret must be at least 12 characters long'));
-			$('#fe_status').hide().html(translate('Bad API secret')).fadeIn("slow");
+
+		if (!Nightscout.auth.isAuthenticated()) {
+			alert(translate('Your device is not authenticated yet'));
 			return false;
 		}
-		
-		// update apisecret hash
-		if (apisecret.length >= 15)
-			apisecrethash = CryptoJS.SHA1(apisecret);
+			
 		if ($('#fe_editcreate').text().indexOf(translate('Create new record'))>-1) {
 			
 			// remove _id when creating new record
@@ -509,7 +495,7 @@
 			var xhr = new XMLHttpRequest();
 			xhr.open('POST', '/api/v1/food/', true);
 			xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-			xhr.setRequestHeader('api-secret', apisecrethash);
+			xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
 			xhr.onload = function () {
 				$('#fe_status').hide().text(xhr.statusText).fadeIn("slow");
 				if (xhr.statusText=='OK') {
@@ -529,7 +515,7 @@
 			var xhr = new XMLHttpRequest();
 			xhr.open('PUT', '/api/v1/food/', true);
 			xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-			xhr.setRequestHeader('api-secret', apisecrethash);
+			xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
 			xhr.onload = function () {
 				$('#fe_status').hide().text(xhr.statusText).fadeIn("slow");
 				if (xhr.statusText=='OK') {
@@ -541,33 +527,22 @@
 			xhr.send(dataJson);
 		}
 
-		// store or remove from browser store api secret
-		if (storeapisecret) {
-			localStorage.setItem('apisecrethash',apisecrethash);
-			$('#pe_apisecrethash').text(translate('API secret hash stored')+': '+apisecrethash);
-		}
-		
 		if (event) event.preventDefault();
 		return false;
 	}
 
 	function deleteRecord(_id) {
-		if (!apisecrethash && apisecret.length < 12) {
-			alert(translate('You API secret must be at least 12 characters long'));
-			$('#fe_status').hide().html(translate('Bad API secret')).fadeIn("slow");
+		if (!Nightscout.auth.isAuthenticated()) {
+			alert(translate('Your device is not authenticated yet'));
 			return false;
 		}
-		
-		// update apisecret hash
-		if (apisecret.length >= 12)
-			apisecrethash = CryptoJS.SHA1(apisecret);
 			
 		var dataJson = JSON.stringify(_id, null, ' ');
 
 		var xhr = new XMLHttpRequest();
 		xhr.open('DELETE', '/api/v1/food/'+_id, true);
 		xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-		xhr.setRequestHeader('api-secret', apisecrethash);
+		xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
 		xhr.onload = function () {
 			$('#fe_status').hide().text(xhr.statusText).fadeIn("slow");
 			if (xhr.statusText=='OK') {
@@ -575,23 +550,22 @@
 		}
 		xhr.send(null);
 
-		// store or remove from browser store api secret
-		if (storeapisecret) {
-			localStorage.setItem('apisecrethash',apisecrethash);
-			$('#pe_apisecrethash').text(translate('API secret hash stored')+': '+apisecrethash);
-		}
-		
 		return false;
 
 	}
 
 	function updateRecord(foodrec) {
+		if (!Nightscout.auth.isAuthenticated()) {
+			alert(translate('Your device is not authenticated yet'));
+			return false;
+		}
+			
 		var dataJson = JSON.stringify(foodrec, null, ' ');
 
 		var xhr = new XMLHttpRequest();
 		xhr.open('PUT', '/api/v1/food/', true);
 		xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-		xhr.setRequestHeader('api-secret', apisecrethash);
+		xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
 		xhr.send(dataJson);
 	}
 
@@ -599,16 +573,11 @@
 		try {
 			var newrec = clone(quickpickrec_template);
 			
-			if (!apisecrethash && apisecret.length < 12) {
-				alert(translate('You API secret must be at least 12 characters long'));
-				$('#fe_status').hide().html(translate('Bad API secret')).fadeIn("slow");
+			if (!Nightscout.auth.isAuthenticated()) {
+				alert(translate('Your device is not authenticated yet'));
 				return false;
 			}
-			
-			// update apisecret hash
-			if (apisecret.length >= 12)
-				apisecrethash = CryptoJS.SHA1(apisecret);
-			
+				
 			// remove _id when creating new record
 			delete newrec._id;
 			
@@ -617,7 +586,7 @@
 			var xhr = new XMLHttpRequest();
 			xhr.open('POST', '/api/v1/food/', true);
 			xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-			xhr.setRequestHeader('api-secret', apisecrethash);
+			xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
 			xhr.onload = function () {
 				$('#fe_status').hide().text(xhr.statusText).fadeIn("slow");
 				if (xhr.statusText=='OK') {
@@ -628,12 +597,6 @@
 			}
 			xhr.send(dataJson);
 
-			// store or remove from browser store api secret
-			if (storeapisecret) {
-				localStorage.setItem('apisecrethash',apisecrethash);
-				$('#pe_apisecrethash').text(translate('API secret hash stored')+': '+apisecrethash);
-			}
-			
 			if (event) event.preventDefault();
 			return false;
 
@@ -641,15 +604,10 @@
 	}
 
 	function quickpickSave(event) {
-		if (!apisecrethash && apisecret.length < 12) {
-			alert(translate('You API secret must be at least 12 characters long'));
-			$('#fe_status').hide().html(translate('Bad API secret')).fadeIn("slow");
+		if (!Nightscout.auth.isAuthenticated()) {
+			alert(translate('Your device is not authenticated yet'));
 			return false;
 		}
-		
-		// update apisecret hash
-		if (apisecret.length >= 12)
-			apisecrethash = CryptoJS.SHA1(apisecret);
 			
 		for (var i=0; i<foodquickpicktodelete.length; i++) {
 			deleteRecord(foodquickpicktodelete[i]);
@@ -660,12 +618,6 @@
 			if (fqp.hidden) fqp.position = HIDDEN;
 			else fqp.position = i;
 			updateRecord(fqp);
-		}
-		
-		// store or remove from browser store api secret
-		if (storeapisecret) {
-			localStorage.setItem('apisecrethash',apisecrethash);
-			$('#pe_apisecrethash').text(translate('API secret hash stored')+': '+apisecrethash);
 		}
 		
 		if (event) event.preventDefault();

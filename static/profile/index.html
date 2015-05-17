@@ -10,7 +10,7 @@
         <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
         <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.6.4" />
         <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
-        <link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/themes/smoothness/jquery-ui.css" type="text/css" media="all" />
+		<link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">    
 		<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-timepicker-addon.css" />
     </head>
     <body>
@@ -106,24 +106,24 @@
 				<div id="pe_targetbg_placeholder"></div>
 			</fieldset>
 
+			<b><span class="translate">Authentication status</span>: </b>
+			<span id="authentication_placeholder"></span>
 
-			<label for="pe_apisecret">Your API secret: </label>
-			 <input type="password" id="pe_apisecret" size="10" />&nbsp;&nbsp;&nbsp;
-			 <input type="checkbox" id="pe_storeapisecret" />  Store hash on this computer (Use only on private computers)
-			 <div id="pe_apisecrethash"></div>
 			<button type="submit" id="pe_submit">Update profile</button>
 
 		</form>
 
-        <script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
-        <script src="https://code.jquery.com/ui/1.11.3/jquery-ui.min.js"></script>
+        <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+        <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
+        <script src="/bower_components/jsSHA/src/sha1.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-timepicker-addon.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-sliderAccess.js"></script>
         <script src="/socket.io/socket.io.js"></script>
         <script src="/api/v1/status.js"></script>
         <script src="/js/ui-utils.js"></script>
+        <script src="/public/js/bundle.js"></script>
         <script src="/js/language.js"></script>
+        <script src="/js/hashauth/hashauth.js"></script>
         <script src="/js/profileeditor.js"></script>
-		<script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/sha1.js"></script>    
 	</body>
 </html>

@@ -329,7 +329,7 @@
 		,'Hide after use' : { 	
 			cs: 'Skryj po použití'
 			}
-		,'You API secret must be at least 12 characters long' : { 	
+		,'Your API secret must be at least 12 characters long' : { 	
 			cs: 'Vaše API heslo musí mít alespoň 12 znaků'
 			}
 		,'Bad API secret' : { 	

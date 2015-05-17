@@ -730,10 +730,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 	}
 
 	function deleteTreatmentRecord(_id) {
-		var apisecrethash = localStorage.getItem('apisecrethash');
-
-		if (!apisecrethash) {
-			alert(translate('You API secret hash not stored yet'));
+		if (!Nightscout.auth.isAuthenticated()) {
+			alert(translate('Your device is not authenticated yet'));
 			return false;
 		}
 		
@@ -743,7 +741,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 		var xhr = new XMLHttpRequest();
 		xhr.open('DELETE', '/api/v1/treatments/'+_id, true);
 		xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-		xhr.setRequestHeader('api-secret', apisecrethash);
+		xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
 		xhr.send(null);
 		return true;
 	}

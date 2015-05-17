@@ -8,8 +8,7 @@
         <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
         <link rel="stylesheet" type="text/css" href="/css/drawer.css" />
         <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
-        <link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/themes/smoothness/jquery-ui.css" type="text/css" media="all" />
-		<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-timepicker-addon.css" />
+		<link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">    
     </head>
     <body>
         <div id="toolbar">
@@ -87,20 +86,18 @@
 				</legend>
 				<div id="fe_picklist"></div>
 			</fieldset>
-			<label for="pe_apisecret"><span class="translate">Your API secret</span>: </label>
-			 <input type="password" id="pe_apisecret" size="10" />&nbsp;&nbsp;&nbsp;
-			 <input type="checkbox" id="pe_storeapisecret" />  <span class="translate">Store hash on this computer (Use only on private computers)</span>
-			 <div id="pe_apisecrethash"></div>
+			<b><span class="translate">Authentication status</span>: </b>
+			<span id="authentication_placeholder"></span>
 		</form>
 		
-        <script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
-        <script src="https://code.jquery.com/ui/1.11.3/jquery-ui.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-timepicker-addon.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-sliderAccess.js"></script>
+        <script src="/public/js/bundle.js"></script>
+        <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+        <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
+        <script src="/bower_components/jsSHA/src/sha1.js"></script>
         <script src="/js/ui-utils.js"></script>
         <script src="/api/v1/status.js"></script>
         <script src="/js/language.js"></script>
+        <script src="/js/hashauth/hashauth.js"></script>
         <script src="/js/food.js"></script>
-		<script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/sha1.js"></script>    
 	</body>
 </html>

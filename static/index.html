@@ -29,7 +29,8 @@
         <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
         <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.7.0" />
         <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
-		<link href="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.1/themes/ui-darkness/jquery-ui.min.css" rel="stylesheet">    </head>
+		<link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">    
+	</head>
     <body>
         <div id="toolbar">
             <div id="buttonbar">
@@ -492,7 +493,10 @@
                 <a href="/food/" target="_blank"><span class="translate">Food editor</span></a>
 				<br>
                 <a href="/report/" target="_blank"><span class="translate">Reporting tool</span></a>
-				<div id="bc_debug"></div>
+				<br>
+				<b><span class="translate">Authentication status</span>: </b>
+				<br>
+				<span id="authentication_placeholder"></span>
             </form>
         </div>
 		
@@ -521,10 +525,12 @@
         <script src="/bower_components/jquery/dist/jquery.min.js"></script>
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
+        <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
+        <script src="/bower_components/jsSHA/src/sha1.js"></script>
         <script src="/js/ui-utils.js?v=0.7.0"></script>
         <script src="/js/client.js?v=0.7.0"></script>
-        <script src="https://code.jquery.com/ui/1.11.3/jquery-ui.min.js"></script>
         <script src="/js/language.js"></script>
+        <script src="/js/hashauth/hashauth.js"></script>
         <script src="/js/boluscalc.js"></script>
         <script src="/js/experiments.js"></script>
     </body>

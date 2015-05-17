@@ -7,7 +7,6 @@ TODO:
 
 */
 	var c_profile = null;
-	var apisecret = '', storeapisecret = false, apisecrethash = null;
 	
 	var defaultprofile = {
 			//General values
@@ -46,10 +45,6 @@ TODO:
 	};
 
 	var GuiToVal = [
-			// API secret
-			{ "html":"pe_apisecret", 		"type":"text" , 	"settings":"apisecret" },
-			{ "html":"pe_storeapisecret",	"type":"checkbox" , "settings":"storeapisecret" },
-	
 			// General
 			{ "html":"pe_input_simple",		"type":"checkbox" , "settings":"c_profile.simple" },
 			{ "html":"pe_input_calculator",	"type":"checkbox" , "settings":"c_profile.calculator" },
@@ -77,13 +72,6 @@ TODO:
 	var apistatus = {};
 	var mongoprofiles = [];
 
-	// load api secret from browser storage
-	apisecrethash = localStorage.getItem('apisecrethash');
-	if (apisecrethash)
-		$('#pe_apisecrethash').text(translate('Using stored API secret hash')+': '+apisecrethash).css({'color':'darkgray'});
-	else 
-		$('#pe_apisecrethash').text(translate('No API secret hash stored yet. You need to enter API secret.')).css({'color':'darkgray'});
-	
 	// Fetch data from mongo
 	$('#pe_status').hide().text(translate('Loading status')+' ...').fadeIn("slow");
 	// status with defaults first
@@ -425,18 +413,13 @@ TODO:
 				return false;
 			}
 			
-			if (!apisecrethash && apisecret.length < 15) {
-				alert('You API secret must be at least 15 characters long');
-				$('#pe_status').hide().html('Bad API secret').fadeIn("slow");
+			if (!Nightscout.auth.isAuthenticated()) {
+				alert(translate('Your device is not authenticated yet'));
 				return false;
 			}
 			
 			c_profile.units = apistatus['defaults']['units'];
 			
-			// update apisecret hash
-			if (apisecret.length >= 15)
-				apisecrethash = CryptoJS.SHA1(apisecret);
-
 			if ($('#pe_submit').text().indexOf('Create new record')>-1) {
 				if (mongoprofiles.length > 1 && (new Date(c_profile.validfrom) <= new Date(mongoprofiles[1].validfrom))) {
 					alert('Date must be greater than last record '+new Date(mongoprofiles[1].validfrom));
@@ -452,7 +435,7 @@ TODO:
 				var xhr = new XMLHttpRequest();
 				xhr.open('POST', '/api/v1/profile/', true);
 				xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-				xhr.setRequestHeader('api-secret', apisecrethash);
+				xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
 				xhr.onload = function () {
 					$('#pe_status').hide().text(xhr.statusText).fadeIn("slow");
 					if (xhr.statusText=='OK') {
@@ -469,18 +452,13 @@ TODO:
 				var xhr = new XMLHttpRequest();
 				xhr.open('PUT', '/api/v1/profile/', true);
 				xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-				xhr.setRequestHeader('api-secret', apisecrethash);
+				xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
 				xhr.onload = function () {
 					$('#pe_status').hide().text(xhr.statusText).fadeIn("slow");
 				}
 				xhr.send(dataJson);
 			}
 
-			// store or remove from browser store api secret
-			if (storeapisecret) {
-				localStorage.setItem('apisecrethash',apisecrethash);
-				$('#pe_apisecrethash').text('API secret hash '+apisecrethash+' stored');
-			}
 			return false;
 		} catch (e) { alert(e.message); return false; }
 	}
