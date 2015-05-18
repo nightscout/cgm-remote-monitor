@@ -156,7 +156,7 @@
 			
 		//Load BG
 		if ($('#bc_bgfromsensor').is(':checked')) {
-			$('#bc_bg').val(sensorbg);
+			$('#bc_bg').val(sensorbg ? sensorbg : '');
 		}
 
 		// Load IOB
