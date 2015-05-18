@@ -33,18 +33,18 @@
     <body>
         <div id="toolbar">
             <div id="buttonbar">
-                <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
-                <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-cog"></i></a>
-                <a id="treatmentDrawerToggle" class="tip" original-title="Treatments" href="#"><i class="icon-plus"></i></a>
+                <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"  aria-label="test alarms"><i class="icon-volume"></i></a>
+                <a id="drawerToggle" class="tip" original-title="Settings" href="#" aria-label="settings"><i class="icon-cog"></i></a>
+                <a id="treatmentDrawerToggle" class="tip" original-title="Treatments" href="#"  aria-label="log a treatment"><i class="icon-plus"></i></a>
             </div>
             <h1 class="customTitle">Nightscout</h1>
         </div>
         <div id="notification">
-            <a href="#"><span></span><i class="icon-cancel-circled"></i></a>
+            <a href="#"  aria-label="cancel"><span></span><i class="icon-cancel-circled"></i></a>
         </div>
 
         <div class="container loading" id="container">
-            <div class="status">
+            <div class="status" aria-live="assertive" >
                 <div class="bgStatus current">
                     <div class="bgButton ">
                         <span class="rawnoise pill"><em></em><label></label></span>
@@ -63,7 +63,7 @@
                 <div class="time">
                     <div class="timebox">
                         <div id="currentTime">---</div>
-                        <div class="timeOther">
+                        <div class="timeOther" aria-live="polite" >
                             <span id="lastEntry" class="pill"><em></em><label></label></span>
                             <span id="uploaderBattery" class="pill"><em></em><label></label></span>
                         </div>
