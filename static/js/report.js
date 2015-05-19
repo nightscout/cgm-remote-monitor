@@ -717,7 +717,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 				(data.preBolus ? '\n'+translate('Pre Bolus')+': ' + data.preBolus : '')+
 				(data.notes ? '\n'+translate('Notes')+': ' + data.notes : '' )+
 				(data.enteredBy ? '\n'+translate('Entered By')+': ' + data.enteredBy : '' )+
-				('\nEvent Time: ' + new Date(data.created_at).toLocaleString())
+				('\n'+translate('Event Time')+': ' + new Date(data.created_at).toLocaleString())
 		);
 
 		if (ok) {
@@ -742,6 +742,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 		xhr.open('DELETE', '/api/v1/treatments/'+_id, true);
 		xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
 		xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
+		xhr.onload = function () {
+			if (xhr.statusText!='OK') {
+				alert(translate('Entering record failed'));
+			}
+		}
 		xhr.send(null);
 		return true;
 	}

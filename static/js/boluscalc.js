@@ -379,6 +379,12 @@
 			var xhr = new XMLHttpRequest();
 			xhr.open('POST', '/api/v1/treatments/', true);
 			xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+			xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
+			xhr.onload = function () {
+				if (xhr.statusText!='OK') {
+					alert(translate('Entering record failed')+'\n'+translate(xhr.statusText));
+				}
+			}
 			xhr.send(dataJson);
 
 			browserStorage.set('enteredBy', data.enteredBy);

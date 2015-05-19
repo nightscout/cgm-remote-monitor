@@ -131,6 +131,9 @@ function config ( ) {
     env.api_secret = shasum.digest('hex');
   }
 
+  // require authorization for entering treatments
+  env.treatments_auth = readENV('TREATMENTS_AUTH',false);
+  
   env.thresholds = {
     bg_high: readIntENV('BG_HIGH', 260)
     , bg_target_top: readIntENV('BG_TARGET_TOP', 180)

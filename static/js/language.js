@@ -536,6 +536,24 @@
 		,'Add' : { 	
 			cs: 'Přidej'
 			}
+		,'Unauthorized' : { 	
+			cs: 'Neautorizováno'
+			}
+		,'Entering record failed' : { 	
+			cs: 'Vložení záznamu selhalo'
+			}
+		,'Device not authenticated' : { 	
+			cs: 'Zařízení není ověřeno'
+			}
+		,'Authentication status' : { 	
+			cs: 'Stav ověření'
+			}
+		,'Authenticate' : { 	
+			cs: 'Ověřit'
+			}
+		,'Your device is not authenticated yet' : { 	
+			cs: 'Toto zařízení nebylo dosud ověřeno'
+			}
 		,'1' : { 	
 			cs: '1'
 			}
