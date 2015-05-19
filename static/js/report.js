@@ -387,6 +387,24 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 				  .attr('transform', 'translate(' + (xScale2(treatment.created_at.getTime()) + padding.left - 2) + ',' + +padding.top + ')')
 				  .text(treatment.insulin+'U');
 			}
+			// other treatments
+			if (!treatment.insulin && !treatment.carbs) {
+				context.append('circle')
+					.attr('cx', xScale2(treatment.created_at.getTime()) + padding.left)
+					.attr('cy', yScale2(scaledTreatmentBG(treatment,data.sgv)) + padding.top)
+					.attr('fill', 'purple')
+					.style('opacity', 1)
+					.attr('stroke-width', 1)
+					.attr('stroke', 'black')
+					.attr('r', 4);
+				context.append('text')
+				  .style('font-size', '12px')
+				  .style('font-weight', 'bold')
+				  .attr('fill', 'purple')
+				  .attr('y', yScale2(scaledTreatmentBG(treatment,data.sgv)) + padding.top -10)
+                  .attr('x', xScale2(treatment.created_at.getTime()) + padding.left + 10)
+				  .text(treatment.eventType);
+			}
 		});
 }
 
@@ -690,7 +708,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 				table += '<td><img style="cursor:pointer" title="'+translate('Delete record')+'" src="'+icon_remove+'" href="#" class="deleteTreatment" data=\''+JSON.stringify(tr)+'\' day="'+day+'"></td>';
 				table += '<td>'+(new Date(tr.created_at).toLocaleTimeString().replace(/([\d]+:[\d]{2})(:[\d]{2})(.*)/, "$1$3"))+'</td>';
 				table += '<td>'+(tr.eventType ? tr.eventType : '')+'</td>';
-				table += '<td align="center">'+(tr.glucose ? tr.glucose + ' ('+tr.glucoseType+')' : '')+'</td>';
+				table += '<td align="center">'+(tr.glucose ? tr.glucose + ' ('+translate(tr.glucoseType)+')' : '')+'</td>';
 				table += '<td align="center">'+(tr.insulin ? tr.insulin : '')+'</td>';
 				table += '<td align="center">'+(tr.carbs ? tr.carbs : '')+'</td>';
 				table += '<td>'+(tr.enteredBy ? tr.enteredBy : '')+'</td>';

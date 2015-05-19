@@ -273,6 +273,7 @@
 			boluscalc.insulincarbs = 0;
 			$('#bc_carbs').css('background-color','');
 			$('#bc_inzulincarbs').text('');
+			$('#bc_carbs').text('');
 		}
 		
 		

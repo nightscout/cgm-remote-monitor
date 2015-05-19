@@ -405,7 +405,7 @@
 			cs: 'Čas události'
 			}
 		,'Please verify that the data entered is correct' : { 	
-			cs: 'Prosím zkontrolujte, zda jsou data zadána správně'
+			cs: 'Prosím zkontrolujte, zda jsou údaje zadány správně'
 			}
 		,'BG' : { 	
 			cs: 'Glykémie'
@@ -553,6 +553,15 @@
 			}
 		,'Your device is not authenticated yet' : { 	
 			cs: 'Toto zařízení nebylo dosud ověřeno'
+			}
+		,'Sensor' : { 	
+			cs: 'Senzor'
+			}
+		,'Finger' : { 	
+			cs: 'Glukoměr'
+			}
+		,'Manual' : { 	
+			cs: 'Ručně'
 			}
 		,'1' : { 	
 			cs: '1'

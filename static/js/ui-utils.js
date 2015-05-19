@@ -459,3 +459,62 @@ Date.prototype.addDays = function(h) {
    return this;   
 }    
 
+    function scaledTreatmentBG(treatment,data) {
+
+      var SIX_MINS_IN_MS =  360000;
+	   
+      function calcBGByTime(time) {
+        var closeBGs = data.filter(function(d) {
+          if (!d.y) {
+            return false;
+          } else {
+            return Math.abs((new Date(d.date)).getTime() - time) <= SIX_MINS_IN_MS;
+          }
+        });
+
+        var totalBG = 0;
+        closeBGs.forEach(function(d) {
+          totalBG += Number(d.y);
+        });
+
+        return totalBG > 0 ? (totalBG / closeBGs.length) : 450;
+      }
+
+      var treatmentGlucose = null;
+
+      if (treatment.glucose && isNaN(treatment.glucose)) {
+        console.warn('found an invalid glucose value', treatment);
+      } else {
+        if (treatment.glucose && treatment.units && browserSettings.units) {
+          if (treatment.units != browserSettings.units) {
+            console.info('found mismatched glucose units, converting ' + treatment.units + ' into ' + browserSettings.units, treatment);
+            if (treatment.units == 'mmol') {
+              //BG is in mmol and display in mg/dl
+              treatmentGlucose = Math.round(treatment.glucose * 18)
+            } else {
+              //BG is in mg/dl and display in mmol
+              treatmentGlucose = scaleBg(treatment.glucose);
+            }
+          } else {
+            treatmentGlucose = treatment.glucose;
+          }
+        } else if (treatment.glucose) {
+          //no units, assume everything is the same
+          console.warn('found an glucose value with any units, maybe from an old version?', treatment);
+          treatmentGlucose = treatment.glucose;
+        }
+      }
+
+      return treatmentGlucose || scaleBg(calcBGByTime(treatment.created_at.getTime()));
+    }
+
+
+    // lixgbg: Convert mg/dL BG value to metric mmol
+    function scaleBg(bg) {
+        if (browserSettings.units == 'mmol') {
+            return Nightscout.units.mgdlToMMOL(bg);
+        } else {
+            return bg;
+        }
+    }
+

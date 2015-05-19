@@ -9,8 +9,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , UPDATE_TRANS_MS = 750 // milliseconds
         , ONE_MIN_IN_MS = 60000
         , FIVE_MINS_IN_MS = 300000
-        , SIX_MINS_IN_MS =  360000
-        , THREE_HOURS_MS = 3 * 60 * 60 * 1000
+         , THREE_HOURS_MS = 3 * 60 * 60 * 1000
         , TWELVE_HOURS_MS = 12 * 60 * 60 * 1000
         , TWENTY_FIVE_MINS_IN_MS = 1500000
         , THIRTY_MINS_IN_MS = 1800000
@@ -90,15 +89,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
 
         return timeFormat;
-    }
-
-    // lixgbg: Convert mg/dL BG value to metric mmol
-    function scaleBg(bg) {
-        if (browserSettings.units == 'mmol') {
-            return Nightscout.units.mgdlToMMOL(bg);
-        } else {
-            return bg;
-        }
     }
 
     //see http://stackoverflow.com/a/9609450
@@ -746,7 +736,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         function prepareTreatCircles(sel) {
             sel.attr('cx', function (d) { return xScale(d.created_at); })
-                .attr('cy', function (d) { return yScale(scaledTreatmentBG(d)); })
+                .attr('cy', function (d) { return yScale(scaledTreatmentBG(d,data)); })
                 .attr('r', function () { return dotRadius('mbg'); })
                 .attr('stroke-width', 2)
                 .attr('stroke', function (d) { return d.glucose ? 'grey' : 'white'; })
@@ -1262,53 +1252,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     }
 
-    function scaledTreatmentBG(treatment) {
-
-      function calcBGByTime(time) {
-        var closeBGs = data.filter(function(d) {
-          if (!d.y) {
-            return false;
-          } else {
-            return Math.abs((new Date(d.date)).getTime() - time) <= SIX_MINS_IN_MS;
-          }
-        });
-
-        var totalBG = 0;
-        closeBGs.forEach(function(d) {
-          totalBG += Number(d.y);
-        });
-
-        return totalBG > 0 ? (totalBG / closeBGs.length) : 450;
-      }
-
-      var treatmentGlucose = null;
-
-      if (treatment.glucose && isNaN(treatment.glucose)) {
-        console.warn('found an invalid glucose value', treatment);
-      } else {
-        if (treatment.glucose && treatment.units && browserSettings.units) {
-          if (treatment.units != browserSettings.units) {
-            console.info('found mismatched glucose units, converting ' + treatment.units + ' into ' + browserSettings.units, treatment);
-            if (treatment.units == 'mmol') {
-              //BG is in mmol and display in mg/dl
-              treatmentGlucose = Math.round(treatment.glucose * 18)
-            } else {
-              //BG is in mg/dl and display in mmol
-              treatmentGlucose = scaleBg(treatment.glucose);
-            }
-          } else {
-            treatmentGlucose = treatment.glucose;
-          }
-        } else if (treatment.glucose) {
-          //no units, assume everything is the same
-          console.warn('found an glucose value with any units, maybe from an old version?', treatment);
-          treatmentGlucose = treatment.glucose;
-        }
-      }
-
-      return treatmentGlucose || scaleBg(calcBGByTime(treatment.created_at.getTime()));
-    }
-
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //draw a compact visualization of a treatment (carbs, insulin)
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1381,7 +1324,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .data(arc_data)
             .enter()
             .append('g')
-            .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(scaledTreatmentBG(treatment)) + ')')
+            .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(scaledTreatmentBG(treatment,data)) + ')')
             .on('mouseover', function () {
                 tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
                 tooltip.html('<strong>Time:</strong> ' + formatTime(treatment.created_at) + '<br/>' + '<strong>Treatment type:</strong> ' + treatment.eventType + '<br/>' +
