@@ -19,15 +19,15 @@
 		});
 		var table = $("<table width=\"100%\" border=\"1\">");
 		var thead = $("<tr/>");
-		$("<th>Time</th>").appendTo(thead);
-		$("<th>Readings</th>").appendTo(thead);
-		$("<th>Avg</th>").appendTo(thead);
-		$("<th>Min</th>").appendTo(thead);
-		$("<th>Quartile 25</th>").appendTo(thead);
-		$("<th>Median</th>").appendTo(thead);
-		$("<th>Quartile 75</th>").appendTo(thead);
-		$("<th>Max</th>").appendTo(thead);
-		$("<th>St Dev</th>").appendTo(thead);
+		$('<th>'+translate('Time')+'</th>').appendTo(thead);
+		$('<th>'+translate('Readings')+'</th>').appendTo(thead);
+		$('<th>'+translate('Average')+'</th>').appendTo(thead);
+		$('<th>'+translate('Min')+'</th>').appendTo(thead);
+		$('<th>'+translate('Quartile')+' 25</th>').appendTo(thead);
+		$('<th>'+translate('Median')+'</th>').appendTo(thead);
+		$('<th>'+translate('Quartile')+' 75</th>').appendTo(thead);
+		$('<th>'+translate('Max')+'</th>').appendTo(thead);
+		$('<th>'+translate('Standard Deviation')+'</th>').appendTo(thead);
 		thead.appendTo(table);
 
 		[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23].forEach(function(hour) {

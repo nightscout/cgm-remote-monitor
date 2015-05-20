@@ -217,11 +217,26 @@
 		,'Low' : { 	
 			cs: 'Nízká'
 			}
-		,'In range' : { 	
+		,'In Range' : { 	
 			cs: 'V rozsahu'
+			}
+		,'Period' : { 	
+			cs: 'Období'
 			}
 		,'High' : { 	
 			cs: 'Vysoká'
+			}
+		,'Average' : { 	
+			cs: 'Průměrná'
+			}
+		,'Low Quartile' : { 	
+			cs: 'Nízký kvartil'
+			}
+		,'Upper Quartile' : { 	
+			cs: 'Vysoký kvartil'
+			}
+		,'Quartile' : { 	
+			cs: 'Kvartil'
 			}
 		,'Date' : { 	
 			cs: 'Datum'
@@ -267,6 +282,12 @@
 			}
 		,'Standard Deviation' : { 	
 			cs: 'Standardní odchylka'
+			}
+		,'Max' : { 	
+			cs: 'Max'
+			}
+		,'Min' : { 	
+			cs: 'Min'
 			}
 		,'A1c estimation*' : { 	
 			cs: 'Předpokládané HBA1c*'
@@ -542,6 +563,9 @@
 		,'Entering record failed' : { 	
 			cs: 'Vložení záznamu selhalo'
 			}
+		,'Device authenticated' : { 	
+			cs: 'Zařízení ověřeno'
+			}
 		,'Device not authenticated' : { 	
 			cs: 'Zařízení není ověřeno'
 			}
@@ -550,6 +574,9 @@
 			}
 		,'Authenticate' : { 	
 			cs: 'Ověřit'
+			}
+		,'Remove' : { 	
+			cs: 'Vymazat'
 			}
 		,'Your device is not authenticated yet' : { 	
 			cs: 'Toto zařízení nebylo dosud ověřeno'
