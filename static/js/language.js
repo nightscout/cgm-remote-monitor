@@ -590,6 +590,15 @@
 		,'Manual' : { 	
 			cs: 'Ručně'
 			}
+		,'Scale' : { 	
+			cs: 'Měřítko'
+			}
+		,'Linear' : { 	
+			cs: 'lineární'
+			}
+		,'Logarithmic' : { 	
+			cs: 'logaritmické'
+			}
 		,'1' : { 	
 			cs: '1'
 			}

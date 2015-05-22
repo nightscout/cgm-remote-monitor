@@ -22,10 +22,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , FORMAT_TIME_24 = '%H'
 		;
 
+	var 
+		  SCALE_LINEAR = 0
+		, SCALE_LOG = 1;
+	
+		
 	var categories = [];
 	var foodlist = [];
 	
-    var padding = { top: 15, right: 15, bottom: 30, left: 30 };
+    var padding = { top: 15, right: 15, bottom: 30, left: 35 };
 		
      function getTimeFormat() {
         var timeFormat = FORMAT_TIME_12;
@@ -80,34 +85,60 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 			, foodtexts = 0;
 
         // Tick Values
-        if (browserSettings.units == 'mmol') {
-            tickValues = [
-                  2.0
-                , 4.0
-                , 6.0
-                , 8.0
-                , 10.0
-                , 12.0
-                , 14.0
-                , 16.0
-                , 18.0
-                , 20.0
-                , 22.0
-            ];
-        } else {
-            tickValues = [
-                  40
-                , 80
-                , 120
-                , 160
-                , 200
-                , 240
-                , 280
-                , 320
-                , 360
-                , 400
-            ];
-        }
+		if (options.scale == SCALE_LOG) {
+			if (browserSettings.units == 'mmol') {
+				tickValues = [
+					  2.0
+					, 3.0
+					, options.targetLow
+					, 6.0
+					, 8.0
+					, options.targetHigh
+					, 16.0
+					, 22.0
+				];
+			} else {
+				tickValues = [
+					  40
+					, 60
+					, options.targetLow
+					, 120
+					, 160
+					, options.targetHigh
+					, 250
+					, 400
+				];
+			}
+		} else {
+			if (browserSettings.units == 'mmol') {
+				tickValues = [
+					  2.0
+					, 4.0
+					, 6.0
+					, 8.0
+					, 10.0
+					, 12.0
+					, 14.0
+					, 16.0
+					, 18.0
+					, 20.0
+					, 22.0
+				];
+			} else {
+				tickValues = [
+					  40
+					, 80
+					, 120
+					, 160
+					, 200
+					, 240
+					, 280
+					, 320
+					, 360
+					, 400
+				];
+			}
+		}
 
         // create svg and g to contain the chart contents
         charts = d3.select('#'+containerprefix+day).html(
@@ -127,9 +158,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         xScale2 = d3.time.scale()
             .domain(d3.extent(data.sgv, function (d) { return d.date; }));
 
-//        yScale2 = d3.scale.log()
-        yScale2 = d3.scale.linear()
+		if (options.scale == SCALE_LOG) {
+	        yScale2 = d3.scale.log()
             .domain([scaleBg(36), scaleBg(420)]);
+		} else {
+			yScale2 = d3.scale.linear()
+				.domain([scaleBg(36), scaleBg(420)]);
+		}
 
         yInsulinScale = d3.scale.linear()
             .domain([0, maxInsulinValue*2]);
@@ -491,7 +526,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 			insulin: true,
 			carbs: true,
 			iob : true,
-			cob : true
+			cob : true,
+			scale: SCALE_LINEAR
 		};
 		
 		options.targetLow = parseFloat($('#rp_targetlow').val().replace(',','.'));
@@ -503,6 +539,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 		options.food = $('#rp_optionsfood').is(':checked');
 		options.insulin = $('#rp_optionsinsulin').is(':checked');
 		options.carbs = $('#rp_optionscarbs').is(':checked');
+		options.scale = $('#rp_linear').is(':checked') ? SCALE_LINEAR : SCALE_LOG;
 		options.width = parseInt($('#rp_size :selected').attr('x'));
 		options.height = parseInt($('#rp_size :selected').attr('y'));
 		
