@@ -9,7 +9,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 	var daystoshow = {};
 	
 	var targetBGdefault = {
-		"mg/dL": { low: 72, high: 180 },
+		"mg/dl": { low: 72, high: 180 },
 		"mmol": { low: 4, high: 10 }
 	};
 	
