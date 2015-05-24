@@ -464,14 +464,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         }
 
-        // PLUGIN MANAGEMENT CODE
-
-        function isPluginEnabled(name) {
-            return app.enabledOptions
-                && app.enabledOptions.indexOf(name) > -1;
-        }
-
-        function updatePluginData(sgv, time) {
+        function updatePlugins(sgv, time) {
             var env = {};
             env.profile = profile;
             env.currentDetails = currentDetails;
@@ -482,55 +475,26 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
             // Update the env through data provider plugins
 
-            for (var p in NightscoutPlugins) {
-                if (NightscoutPlugins.hasOwnProperty(p) && isPluginEnabled(p)) {
-                    var plugin = NightscoutPlugins[p];
+            Nightscout.plugins.eachEnabledPlugin(function updateEachPlugin(plugin) {
+                plugin.setEnv(env);
 
-                    plugin.setEnv(env);
-
-                    // check if the plugin implements processing data
-
-                    if (plugin.getData) {
-                        var dataFromPlugin = plugin.getData();
-                        var container = {};
-                        for (var i in dataFromPlugin) {
-                            if (dataFromPlugin.hasOwnProperty(i)) {
-                                container[i] = dataFromPlugin[i];
-                            }
+                // check if the plugin implements processing data
+                if (plugin.getData) {
+                    var dataFromPlugin = plugin.getData();
+                    var container = {};
+                    for (var i in dataFromPlugin) {
+                        if (dataFromPlugin.hasOwnProperty(i)) {
+                            container[i] = dataFromPlugin[i];
                         }
-                        env[p] = container;
                     }
+                    env[plugin.name] = container;
                 }
-            }
+            });
 
-            // update data the plugins
-
-            sendEnvToPlugins(env);
+            // update data for all the plugins
+            Nightscout.plugins.setEnv(env);
+            Nightscout.plugins.updateVisualisations();
         }
-
-        function sendEnvToPlugins(env) {
-            for (var p in NightscoutPlugins) {
-                if (NightscoutPlugins.hasOwnProperty(p)) {
-                    var plugin = NightscoutPlugins[p];
-                    plugin.setEnv(env);
-                }
-            }
-        }
-
-        function updatePluginVisualisation() {
-            for (var p in NightscoutPlugins) {
-                if (NightscoutPlugins.hasOwnProperty(p) && isPluginEnabled(p)) {
-                    var plugin = NightscoutPlugins[p];
-
-                    // check if the plugin implements visualisations
-                    if (plugin.updateVisualisation) {
-                        plugin.updateVisualisation();
-                    }
-                }
-            }
-        }
-
-        /// END PLUGIN CODE
 
         // predict for retrospective data
         // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
@@ -580,10 +544,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 bgButton.removeClass('urgent warning inrange');
             }
 
-			// update plugins
-			
-			updatePluginData(focusPoint.y,retroTime);
-			updatePluginVisualisation();
+            // update plugins
+
+            updatePlugins(focusPoint.y, retroTime);
 
             $('#currentTime')
                 .text(formatTime(retroTime, true))
@@ -618,10 +581,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
             updateBGDelta(prevSGV, latestSGV);
 
-			// update plugins
-			
-			updatePluginData(latestSGV.y,nowDate);
-			updatePluginVisualisation();
+            // update plugins
+
+            updatePlugins(latestSGV.y, nowDate);
 
             currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);
         }
@@ -1842,6 +1804,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 , careportalEnabled: xhr.careportalEnabled
                 , defaults: xhr.defaults
             };
+            Nightscout.plugins.clientInit(app);
         }
     }).done(function() {
         $('.appName').text(app.name);

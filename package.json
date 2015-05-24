@@ -55,6 +55,7 @@
     "forever": "~0.13.0",
     "git-rev": "git://github.com/bewest/git-rev.git",
     "inherits": "~2.0.1",
+    "lodash": "^3.9.1",
     "long": "~2.2.3",
     "mongodb": "^1.4.7",
     "moment": "2.8.1",

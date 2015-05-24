@@ -94,8 +94,18 @@ function getBrowserSettings(storage) {
         } else {
             $('#12-browser').prop('checked', true);
         }
-    }
-    catch(err) {
+
+        var enablePlugins = $('#enable-plugins');
+        Nightscout.plugins.eachPlugin(function each(plugin) {
+            var id = 'plugin-' + plugin.name;
+            var dd = $('<dd><input type="checkbox" id="' + id + '" /><label for="' + id + '">' + (plugin.label || plugin.name) + '</label></dd>');
+            enablePlugins.append(dd);
+            dd.find('input').prop('checked', plugin.enabled);
+            console.info('appending plugin dd', dd);
+        });
+
+
+    } catch(err) {
         console.error(err);
         showLocalstorageError();
     }
