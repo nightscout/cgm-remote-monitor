@@ -544,8 +544,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 bgButton.removeClass('urgent warning inrange');
             }
 
-            // update plugins
-
             updatePlugins(focusPoint.y, retroTime);
 
             $('#currentTime')
@@ -580,8 +578,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }
 
             updateBGDelta(prevSGV, latestSGV);
-
-            // update plugins
 
             updatePlugins(latestSGV.y, nowDate);
 
