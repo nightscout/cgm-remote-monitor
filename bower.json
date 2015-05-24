@@ -8,7 +8,6 @@
     "jquery": "2.1.0",
     "jQuery-Storage-API": "~1.7.2",
     "jsSHA": "~1.5.0",
-    "lodash": "~3.9.0",
     "tipsy-jmalonzo": "~1.0.1"
   },
   "resolutions": {
