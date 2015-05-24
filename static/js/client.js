@@ -464,71 +464,73 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         }
 
-		// PLUGIN MANAGEMENT CODE
-		
-		function isPluginEnabled(name) {
-			return app.enabledOptions
-            && app.enabledOptions.indexOf(name) > -1;
-		}
+        // PLUGIN MANAGEMENT CODE
 
-		function updatePluginData(sgv, time) {
-			var env = {};
-			env.profile = profile;
-			env.currentDetails = currentDetails;
-			env.pluginPills = pluginPills;
-			env.sgv = Number(sgv);
-			env.treatments = treatments;
-			env.time = time;
-			
-			// Update the env through data provider plugins
-			
-			for (var p in NightscoutPlugins) {
-				
-				if (isPluginEnabled(p)) {
-			
-					var plugin = NightscoutPlugins[p];
-				
-					plugin.setEnv(env);
-					
-					// check if the plugin implements processing data
-					
-					if (plugin.getData) {
-						var dataFromPlugin = plugin.getData();
-						var container = {};
-						for (var i in dataFromPlugin) {
-							container[i] = dataFromPlugin[i];
-						}
-						env[p] = container;
-					}
-				}
-			}
-			
-			// update data the plugins
-			
-			sendEnvToPlugins(env);
-		}
-		
-		function sendEnvToPlugins(env) {
-			for (var p in NightscoutPlugins) {
-				var plugin = NightscoutPlugins[p];
-				plugin.setEnv(env);
-			}
-		}
-		
-		function updatePluginVisualisation() {
-			for (var p in NightscoutPlugins) {
-				if (isPluginEnabled(p)) {
-					var plugin = NightscoutPlugins[p];
-					
-					// check if the plugin implements visualisations
-					if (plugin.updateVisualisation) {
-						plugin.updateVisualisation();
-					}
-				}
-			}
-		}
+        function isPluginEnabled(name) {
+            return app.enabledOptions
+                && app.enabledOptions.indexOf(name) > -1;
+        }
 
-		/// END PLUGIN CODE
+        function updatePluginData(sgv, time) {
+            var env = {};
+            env.profile = profile;
+            env.currentDetails = currentDetails;
+            env.pluginPills = pluginPills;
+            env.sgv = Number(sgv);
+            env.treatments = treatments;
+            env.time = time;
+
+            // Update the env through data provider plugins
+
+            for (var p in NightscoutPlugins) {
+                if (NightscoutPlugins.hasOwnProperty(p) && isPluginEnabled(p)) {
+                    var plugin = NightscoutPlugins[p];
+
+                    plugin.setEnv(env);
+
+                    // check if the plugin implements processing data
+
+                    if (plugin.getData) {
+                        var dataFromPlugin = plugin.getData();
+                        var container = {};
+                        for (var i in dataFromPlugin) {
+                            if (dataFromPlugin.hasOwnProperty(i)) {
+                                container[i] = dataFromPlugin[i];
+                            }
+                        }
+                        env[p] = container;
+                    }
+                }
+            }
+
+            // update data the plugins
+
+            sendEnvToPlugins(env);
+        }
+
+        function sendEnvToPlugins(env) {
+            for (var p in NightscoutPlugins) {
+                if (NightscoutPlugins.hasOwnProperty(p)) {
+                    var plugin = NightscoutPlugins[p];
+                    plugin.setEnv(env);
+                }
+            }
+        }
+
+        function updatePluginVisualisation() {
+            for (var p in NightscoutPlugins) {
+                if (NightscoutPlugins.hasOwnProperty(p) && isPluginEnabled(p)) {
+                    var plugin = NightscoutPlugins[p];
+
+                    // check if the plugin implements visualisations
+                    if (plugin.updateVisualisation) {
+                        plugin.updateVisualisation();
+                    }
+                }
+            }
+        }
+
+        /// END PLUGIN CODE
 
         // predict for retrospective data
         // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
@@ -1325,7 +1327,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
           }
         } else if (treatment.glucose) {
           //no units, assume everything is the same
-          console.warn('found an glucose value with any units, maybe from an old version?', treatment);
+          console.warn('found a glucose value without any units, maybe from an old version?', treatment);
           treatmentGlucose = treatment.glucose;
         }
       }
