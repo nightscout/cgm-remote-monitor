@@ -9,10 +9,10 @@
   };
 
   window.Nightscout.plugins.register({
-    iob: require('../lib/plugins/iob'),
-    cob: require('../lib/plugins/cob'),
-    bwp: require('../lib/plugins/boluswizardpreview'),
-    cage: require('../lib/plugins/cannulaage')
+    iob: require('../lib/plugins/iob')(),
+    cob: require('../lib/plugins/cob')(),
+    bwp: require('../lib/plugins/boluswizardpreview')(),
+    cage: require('../lib/plugins/cannulaage')()
   });
 
   console.info("Nightscout bundle ready", window.Nightscout);

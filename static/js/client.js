@@ -473,9 +473,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             env.treatments = treatments;
             env.time = time;
 
-            // Update the env through data provider plugins
-
-            Nightscout.plugins.eachEnabledPlugin(function updateEachPlugin(plugin) {
+            Nightscout.plugins.eachShownPlugin(browserSettings, function updateEachPlugin(plugin) {
+                // Update the env through data provider plugins
                 plugin.setEnv(env);
 
                 // check if the plugin implements processing data
@@ -491,9 +490,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 }
             });
 
-            // update data for all the plugins
+            // update data for all the plugins, before updating visualisations
             Nightscout.plugins.setEnv(env);
-            Nightscout.plugins.updateVisualisations();
+            Nightscout.plugins.updateVisualisations(browserSettings);
         }
 
         // predict for retrospective data
@@ -1800,7 +1799,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 , careportalEnabled: xhr.careportalEnabled
                 , defaults: xhr.defaults
             };
-            Nightscout.plugins.clientInit(app);
         }
     }).done(function() {
         $('.appName').text(app.name);
@@ -1810,6 +1808,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             $('.serverSettings').show();
         }
         $('#treatmentDrawerToggle').toggle(app.careportalEnabled);
+        Nightscout.plugins.clientInit(app);
         browserSettings = getBrowserSettings(browserStorage);
         init();
     });
