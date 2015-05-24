@@ -222,11 +222,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return Math.round(raw);
     }
 
-    function showIOB() {
-        return app.enabledOptions
-            && app.enabledOptions.indexOf('iob') > -1;
-    }
-
     // initial setup of chart when data is first made available
     function initializeCharts() {
 
@@ -398,6 +393,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , currentBG = $('.bgStatus .currentBG')
             , currentDirection = $('.bgStatus .currentDirection')
             , currentDetails = $('.bgStatus .currentDetails')
+            , pluginPills = $('.bgStatus .pluginPills')
             , rawNoise = bgButton.find('.rawnoise')
             , rawbg = rawNoise.find('em')
             , noiseLevel = rawNoise.find('label')
@@ -468,20 +464,71 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         }
 
-        function updateIOBIndicator(time) {
-            if (showIOB()) {
-                var pill = currentDetails.find('span.pill.iob');
+		// PLUGIN MANAGEMENT CODE
+		
+		function isPluginEnabled(name) {
+			return app.enabledOptions
+            && app.enabledOptions.indexOf(name) > -1;
+		}
 
-                if (!pill || pill.length == 0) {
-                    pill = $('<span class="pill iob"><label>IOB</label><em></em></span>');
-                    currentDetails.append(pill);
-                }
-                var iob = Nightscout.iob.calcTotal(treatments, profile, time);
-                pill.find('em').text(iob.display + 'U');
-            } else {
-                currentDetails.find('.pill.iob').remove();
-            }
-        }
+		function updatePluginData(sgv, time) {
+			var env = {};
+			env.profile = profile;
+			env.currentDetails = currentDetails;
+			env.pluginPills = pluginPills;
+			env.sgv = Number(sgv);
+			env.treatments = treatments;
+			env.time = time;
+			
+			// Update the env through data provider plugins
+			
+			for (var p in NightscoutPlugins) {
+				
+				if (isPluginEnabled(p)) {
+			
+					var plugin = NightscoutPlugins[p];
+				
+					plugin.setEnv(env);
+					
+					// check if the plugin implements processing data
+					
+					if (plugin.getData) {
+						var dataFromPlugin = plugin.getData();
+						var container = {};
+						for (var i in dataFromPlugin) {
+							container[i] = dataFromPlugin[i];
+						}
+						env[p] = container;
+					}
+				}
+			}
+			
+			// update data the plugins
+			
+			sendEnvToPlugins(env);
+		}
+		
+		function sendEnvToPlugins(env) {
+			for (var p in NightscoutPlugins) {
+				var plugin = NightscoutPlugins[p];
+				plugin.setEnv(env);
+			}
+		}
+		
+		function updatePluginVisualisation() {
+			for (var p in NightscoutPlugins) {
+				if (isPluginEnabled(p)) {
+					var plugin = NightscoutPlugins[p];
+					
+					// check if the plugin implements visualisations
+					if (plugin.updateVisualisation) {
+						plugin.updateVisualisation();
+					}
+				}
+			}
+		}
+
+		/// END PLUGIN CODE
 
         // predict for retrospective data
         // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
@@ -531,7 +578,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 bgButton.removeClass('urgent warning inrange');
             }
 
-            updateIOBIndicator(retroTime);
+			// update plugins
+			
+			updatePluginData(focusPoint.y,retroTime);
+			updatePluginVisualisation();
 
             $('#currentTime')
                 .text(formatTime(retroTime, true))
@@ -565,7 +615,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }
 
             updateBGDelta(prevSGV, latestSGV);
-            updateIOBIndicator(nowDate);
+
+			// update plugins
+			
+			updatePluginData(latestSGV.y,nowDate);
+			updatePluginVisualisation();
 
             currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);
         }
