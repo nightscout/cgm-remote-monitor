@@ -472,26 +472,23 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             env.sgv = Number(sgv);
             env.treatments = treatments;
             env.time = time;
+            env.tooltip = tooltip;
 
-            Nightscout.plugins.eachShownPlugin(browserSettings, function updateEachPlugin(plugin) {
+            //all enabled plugins get a chance to add data, even if they aren't shown
+            Nightscout.plugins.eachEnabledPlugin(function updateEachPlugin(plugin) {
                 // Update the env through data provider plugins
                 plugin.setEnv(env);
 
                 // check if the plugin implements processing data
                 if (plugin.getData) {
-                    var dataFromPlugin = plugin.getData();
-                    var container = {};
-                    for (var i in dataFromPlugin) {
-                        if (dataFromPlugin.hasOwnProperty(i)) {
-                            container[i] = dataFromPlugin[i];
-                        }
-                    }
-                    env[plugin.name] = container;
+                    env[plugin.name] = plugin.getData();
                 }
             });
 
             // update data for all the plugins, before updating visualisations
-            Nightscout.plugins.setEnv(env);
+            Nightscout.plugins.setEnvs(env);
+
+            //only shown plugins get a chance to update visualisations
             Nightscout.plugins.updateVisualisations(browserSettings);
         }
 

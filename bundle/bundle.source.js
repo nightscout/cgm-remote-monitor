@@ -8,6 +8,8 @@
     plugins: require('../lib/plugins/')()
   };
 
+  console.info('plugins', window.Nightscout.plugins);
+
   window.Nightscout.plugins.register({
     iob: require('../lib/plugins/iob')(),
     cob: require('../lib/plugins/cob')(),
