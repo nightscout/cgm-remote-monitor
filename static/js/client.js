@@ -392,8 +392,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , bgStatus = $('.bgStatus')
             , currentBG = $('.bgStatus .currentBG')
             , currentDirection = $('.bgStatus .currentDirection')
-            , currentDetails = $('.bgStatus .currentDetails')
-            , pluginPills = $('.bgStatus .pluginPills')
+            , majorPills = $('.bgStatus .majorPills')
+            , minorPills = $('.bgStatus .minorPills')
             , rawNoise = bgButton.find('.rawnoise')
             , rawbg = rawNoise.find('em')
             , noiseLevel = rawNoise.find('label')
@@ -442,10 +442,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         function updateBGDelta(prevEntry, currentEntry) {
 
-            var pill = currentDetails.find('span.pill.bgdelta');
+            var pill = majorPills.find('span.pill.bgdelta');
             if (!pill || pill.length == 0) {
                 pill = $('<span class="pill bgdelta"><em></em><label></label></span>');
-                currentDetails.append(pill);
+                majorPills.append(pill);
             }
 
             var deltaDisplay = calcDeltaDisplay(prevEntry, currentEntry);
@@ -464,71 +464,45 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         }
 
-		// PLUGIN MANAGEMENT CODE
-		
-		function isPluginEnabled(name) {
-			return app.enabledOptions
-            && app.enabledOptions.indexOf(name) > -1;
-		}
+        function updatePlugins(sgv, time) {
+            var env = {};
+            env.profile = profile;
+            env.majorPills = majorPills;
+            env.minorPills = minorPills;
+            env.sgv = Number(sgv);
+            env.treatments = treatments;
+            env.time = time;
+            env.tooltip = tooltip;
 
-		function updatePluginData(sgv, time) {
-			var env = {};
-			env.profile = profile;
-			env.currentDetails = currentDetails;
-			env.pluginPills = pluginPills;
-			env.sgv = Number(sgv);
-			env.treatments = treatments;
-			env.time = time;
-			
-			// Update the env through data provider plugins
-			
-			for (var p in NightscoutPlugins) {
-				
-				if (isPluginEnabled(p)) {
-			
-					var plugin = NightscoutPlugins[p];
-				
-					plugin.setEnv(env);
-					
-					// check if the plugin implements processing data
-					
-					if (plugin.getData) {
-						var dataFromPlugin = plugin.getData();
-						var container = {};
-						for (var i in dataFromPlugin) {
-							container[i] = dataFromPlugin[i];
-						}
-						env[p] = container;
-					}
-				}
-			}
-			
-			// update data the plugins
-			
-			sendEnvToPlugins(env);
-		}
-		
-		function sendEnvToPlugins(env) {
-			for (var p in NightscoutPlugins) {
-				var plugin = NightscoutPlugins[p];
-				plugin.setEnv(env);
-			}
-		}
-		
-		function updatePluginVisualisation() {
-			for (var p in NightscoutPlugins) {
-				if (isPluginEnabled(p)) {
-					var plugin = NightscoutPlugins[p];
-					
-					// check if the plugin implements visualisations
-					if (plugin.updateVisualisation) {
-						plugin.updateVisualisation();
-					}
-				}
-			}
-		}
+            var hasMinorPill = false;
 
-		/// END PLUGIN CODE
+            //all enabled plugins get a chance to add data, even if they aren't shown
+            Nightscout.plugins.eachEnabledPlugin(function updateEachPlugin(plugin) {
+                // Update the env through data provider plugins
+                plugin.setEnv(env);
+
+                // check if the plugin implements processing data
+                if (plugin.getData) {
+                    env[plugin.name] = plugin.getData();
+                }
+            });
+
+            Nightscout.plugins.eachShownPlugins(browserSettings, function eachPlugin(plugin) {
+              console.info('plugin.pluginType', plugin.pluginType);
+              if (plugin.pluginType == 'minor-pill') {
+                hasMinorPill = true;
+              }
+            });
+
+            $('.container').toggleClass('has-minor-pills', hasMinorPill);
+
+
+            // update data for all the plugins, before updating visualisations
+            Nightscout.plugins.setEnvs(env);
+
+            //only shown plugins get a chance to update visualisations
+            Nightscout.plugins.updateVisualisations(browserSettings);
+        }
 
         // predict for retrospective data
         // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
@@ -578,10 +552,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 bgButton.removeClass('urgent warning inrange');
             }
 
-			// update plugins
-			
-			updatePluginData(focusPoint.y,retroTime);
-			updatePluginVisualisation();
+            updatePlugins(focusPoint.y, retroTime);
 
             $('#currentTime')
                 .text(formatTime(retroTime, true))
@@ -616,10 +587,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
             updateBGDelta(prevSGV, latestSGV);
 
-			// update plugins
-			
-			updatePluginData(latestSGV.y,nowDate);
-			updatePluginVisualisation();
+            updatePlugins(latestSGV.y, nowDate);
 
             currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);
         }
@@ -1325,7 +1293,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
           }
         } else if (treatment.glucose) {
           //no units, assume everything is the same
-          console.warn('found an glucose value with any units, maybe from an old version?', treatment);
+          console.warn('found a glucose value without any units, maybe from an old version?', treatment);
           treatmentGlucose = treatment.glucose;
         }
       }
@@ -1849,6 +1817,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             $('.serverSettings').show();
         }
         $('#treatmentDrawerToggle').toggle(app.careportalEnabled);
+        Nightscout.plugins.clientInit(app);
         browserSettings = getBrowserSettings(browserStorage);
         init();
     });
