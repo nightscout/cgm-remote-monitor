@@ -222,11 +222,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return Math.round(raw);
     }
 
-    function showIOB() {
-        return app.enabledOptions
-            && app.enabledOptions.indexOf('iob') > -1;
-    }
-
     // initial setup of chart when data is first made available
     function initializeCharts() {
 
@@ -397,7 +392,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , bgStatus = $('.bgStatus')
             , currentBG = $('.bgStatus .currentBG')
             , currentDirection = $('.bgStatus .currentDirection')
-            , currentDetails = $('.bgStatus .currentDetails')
+            , majorPills = $('.bgStatus .majorPills')
+            , minorPills = $('.bgStatus .minorPills')
             , rawNoise = bgButton.find('.rawnoise')
             , rawbg = rawNoise.find('em')
             , noiseLevel = rawNoise.find('label')
@@ -446,10 +442,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         function updateBGDelta(prevEntry, currentEntry) {
 
-            var pill = currentDetails.find('span.pill.bgdelta');
+            var pill = majorPills.find('span.pill.bgdelta');
             if (!pill || pill.length == 0) {
                 pill = $('<span class="pill bgdelta"><em></em><label></label></span>');
-                currentDetails.append(pill);
+                majorPills.append(pill);
             }
 
             var deltaDisplay = calcDeltaDisplay(prevEntry, currentEntry);
@@ -468,19 +464,44 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         }
 
-        function updateIOBIndicator(time) {
-            if (showIOB()) {
-                var pill = currentDetails.find('span.pill.iob');
+        function updatePlugins(sgv, time) {
+            var env = {};
+            env.profile = profile;
+            env.majorPills = majorPills;
+            env.minorPills = minorPills;
+            env.sgv = Number(sgv);
+            env.treatments = treatments;
+            env.time = time;
+            env.tooltip = tooltip;
 
-                if (!pill || pill.length == 0) {
-                    pill = $('<span class="pill iob"><label>IOB</label><em></em></span>');
-                    currentDetails.append(pill);
+            var hasMinorPill = false;
+
+            //all enabled plugins get a chance to add data, even if they aren't shown
+            Nightscout.plugins.eachEnabledPlugin(function updateEachPlugin(plugin) {
+                // Update the env through data provider plugins
+                plugin.setEnv(env);
+
+                // check if the plugin implements processing data
+                if (plugin.getData) {
+                    env[plugin.name] = plugin.getData();
                 }
-                var iob = Nightscout.iob.calcTotal(treatments, profile, time);
-                pill.find('em').text(iob.display + 'U');
-            } else {
-                currentDetails.find('.pill.iob').remove();
-            }
+            });
+
+            Nightscout.plugins.eachShownPlugins(browserSettings, function eachPlugin(plugin) {
+              console.info('plugin.pluginType', plugin.pluginType);
+              if (plugin.pluginType == 'minor-pill') {
+                hasMinorPill = true;
+              }
+            });
+
+            $('.container').toggleClass('has-minor-pills', hasMinorPill);
+
+
+            // update data for all the plugins, before updating visualisations
+            Nightscout.plugins.setEnvs(env);
+
+            //only shown plugins get a chance to update visualisations
+            Nightscout.plugins.updateVisualisations(browserSettings);
         }
 
         // predict for retrospective data
@@ -531,7 +552,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 bgButton.removeClass('urgent warning inrange');
             }
 
-            updateIOBIndicator(retroTime);
+            updatePlugins(focusPoint.y, retroTime);
 
             $('#currentTime')
                 .text(formatTime(retroTime, true))
@@ -565,7 +586,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }
 
             updateBGDelta(prevSGV, latestSGV);
-            updateIOBIndicator(nowDate);
+
+            updatePlugins(latestSGV.y, nowDate);
 
             currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);
         }
@@ -1271,7 +1293,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
           }
         } else if (treatment.glucose) {
           //no units, assume everything is the same
-          console.warn('found an glucose value with any units, maybe from an old version?', treatment);
+          console.warn('found a glucose value without any units, maybe from an old version?', treatment);
           treatmentGlucose = treatment.glucose;
         }
       }
@@ -1795,6 +1817,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             $('.serverSettings').show();
         }
         $('#treatmentDrawerToggle').toggle(app.careportalEnabled);
+        Nightscout.plugins.clientInit(app);
         browserSettings = getBrowserSettings(browserStorage);
         init();
     });
