@@ -392,8 +392,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , bgStatus = $('.bgStatus')
             , currentBG = $('.bgStatus .currentBG')
             , currentDirection = $('.bgStatus .currentDirection')
-            , currentDetails = $('.bgStatus .currentDetails')
-            , pluginPills = $('.bgStatus .pluginPills')
+            , majorPills = $('.bgStatus .majorPills')
+            , minorPills = $('.bgStatus .minorPills')
             , rawNoise = bgButton.find('.rawnoise')
             , rawbg = rawNoise.find('em')
             , noiseLevel = rawNoise.find('label')
@@ -442,10 +442,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         function updateBGDelta(prevEntry, currentEntry) {
 
-            var pill = currentDetails.find('span.pill.bgdelta');
+            var pill = majorPills.find('span.pill.bgdelta');
             if (!pill || pill.length == 0) {
                 pill = $('<span class="pill bgdelta"><em></em><label></label></span>');
-                currentDetails.append(pill);
+                majorPills.append(pill);
             }
 
             var deltaDisplay = calcDeltaDisplay(prevEntry, currentEntry);
@@ -467,12 +467,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         function updatePlugins(sgv, time) {
             var env = {};
             env.profile = profile;
-            env.currentDetails = currentDetails;
-            env.pluginPills = pluginPills;
+            env.majorPills = majorPills;
+            env.minorPills = minorPills;
             env.sgv = Number(sgv);
             env.treatments = treatments;
             env.time = time;
             env.tooltip = tooltip;
+
+            var hasMinorPill = false;
 
             //all enabled plugins get a chance to add data, even if they aren't shown
             Nightscout.plugins.eachEnabledPlugin(function updateEachPlugin(plugin) {
@@ -484,6 +486,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     env[plugin.name] = plugin.getData();
                 }
             });
+
+            Nightscout.plugins.eachShownPlugins(browserSettings, function eachPlugin(plugin) {
+              console.info('plugin.pluginType', plugin.pluginType);
+              if (plugin.pluginType == 'minor-pill') {
+                hasMinorPill = true;
+              }
+            });
+
+            $('.container').toggleClass('has-minor-pills', hasMinorPill);
+
 
             // update data for all the plugins, before updating visualisations
             Nightscout.plugins.setEnvs(env);

@@ -29,9 +29,13 @@ body {
 
 .status {
     font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
-    height: 200px;
+    height: 180px;
     vertical-align: middle;
     clear: left right;
+}
+
+.has-minor-pills .status {
+  height: 200px;
 }
 
 .bgStatus {
@@ -72,21 +76,21 @@ body {
     vertical-align: middle;
 }
 
-.bgStatus .currentDetails {
+.bgStatus .majorPills {
     font-size: 30px;
 }
 
-.pluginPills {
+.minorPills {
     font-size: 22px;
     margin-top: 5px;
     z-index: 500;
 }
 
-.currentDetails > span:not(:first-child) {
+.majorPills > span:not(:first-child) {
     margin-left: 5px;
 }
 
-.pluginPills > span:not(:first-child) {
+.minorPills > span:not(:first-child) {
     margin-left: 5px;
 }
 
@@ -179,7 +183,7 @@ body {
 }
 
 #chartContainer {
-    top: 245px; /*(toolbar height + status height)*/
+    top: 225px; /*(toolbar height + status height)*/
     left:0;
     right:0;
     bottom:0;
@@ -188,6 +192,10 @@ body {
     background: #111;
     display: block;
     position:absolute;
+}
+
+.has-minor-pills #chartContainer {
+  top: 245px;
 }
 
 #chartContainer svg {
@@ -353,11 +361,11 @@ div.tooltip {
         line-height: 70px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 20px;
     }
 
-    .bgStatus .pluginPills {
+    .bgStatus .minorPills {
         font-size: 16px;
     }
 
@@ -389,9 +397,14 @@ div.tooltip {
     }
 
     #chartContainer {
-        top: 195px;
+        top: 185px;
         font-size: 14px;
     }
+
+    .has-minor-pills #chartContainer {
+      top: 195px;
+    }
+
     #chartContainer svg {
         height: calc(100vh - 185px);
     }
@@ -426,11 +439,11 @@ div.tooltip {
         line-height: 50px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 15px;
     }
 
-    .bgStatus .pluginPills {
+    .bgStatus .minorPills {
         font-size: 12px;
     }
 
@@ -484,11 +497,11 @@ div.tooltip {
         line-height: 60px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 15px;
     }
 
-    .bgStatus .pluginPills {
+    .bgStatus .minorPills {
         font-size: 12px;
     }
 
@@ -534,8 +547,13 @@ div.tooltip {
     }
 
     #chartContainer {
-        top: 200px;
+        top: 190px;
     }
+
+    .has-minor-pills #chartContainer {
+      top: 200px;
+    }
+
     #chartContainer svg {
         height: calc(100vh - (190px));
     }
@@ -569,9 +587,14 @@ div.tooltip {
     }
 
     #chartContainer {
-        top: 140px;
+        top: 130px;
         font-size: 10px;
     }
+
+    .has-minor-pills #chartContainer {
+      top: 140px;
+    }
+
     #chartContainer svg {
         height: calc(100vh - 130px);
     }
@@ -592,11 +615,11 @@ div.tooltip {
         line-height: 50px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 15px;
     }
 
-    .bgStatus .pluginPills {
+    .bgStatus .minorPills {
         font-size: 12px;
     }
 
@@ -639,11 +662,11 @@ div.tooltip {
         line-height: 50px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 15px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 12px;
     }
 
