@@ -10,12 +10,7 @@
 
   console.info('plugins', window.Nightscout.plugins);
 
-  window.Nightscout.plugins.register({
-    iob: require('../lib/plugins/iob')(),
-    cob: require('../lib/plugins/cob')(),
-    bwp: require('../lib/plugins/boluswizardpreview')(),
-    cage: require('../lib/plugins/cannulaage')()
-  });
+  window.Nightscout.plugins.registerDefaults();
 
   console.info("Nightscout bundle ready", window.Nightscout);
 
