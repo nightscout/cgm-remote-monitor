@@ -82,7 +82,7 @@ body {
 
 .minorPills {
     font-size: 22px;
-    margin-top: 5px;
+    margin-top: 10px;
     z-index: 500;
 }
 
@@ -397,16 +397,20 @@ div.tooltip {
     }
 
     #chartContainer {
-        top: 185px;
+        top: 165px;
         font-size: 14px;
     }
 
+    #chartContainer svg {
+        height: calc(100vh - 165px);
+    }
+
     .has-minor-pills #chartContainer {
-      top: 195px;
+      top: 175px;
     }
 
     #chartContainer svg {
-        height: calc(100vh - 185px);
+        height: calc(100vh - 175px);
     }
 
 }
@@ -449,7 +453,7 @@ div.tooltip {
 
     .time {
         font-size: 50px;
-        line-height: 40px;
+        line-height: 35px;
         width: 250px;
     }
 
@@ -550,12 +554,16 @@ div.tooltip {
         top: 190px;
     }
 
-    .has-minor-pills #chartContainer {
-      top: 200px;
-    }
-
     #chartContainer svg {
         height: calc(100vh - (190px));
+    }
+
+    .has-minor-pills #chartContainer {
+      top: 210px;
+    }
+
+    .has-minor-pills #chartContainer svg {
+        height: calc(100vh - (210px));
     }
 }
 
@@ -591,12 +599,16 @@ div.tooltip {
         font-size: 10px;
     }
 
-    .has-minor-pills #chartContainer {
-      top: 140px;
-    }
-
     #chartContainer svg {
         height: calc(100vh - 130px);
+    }
+
+    .has-minor-pills #chartContainer {
+        top: 140px;
+    }
+
+    .has-minor-pills #chartContainer svg {
+        height: calc(100vh - 140px);
     }
 }
 
