@@ -14,10 +14,9 @@ describe('API_SECRET', function ( ) {
     ctx.wares = require('../lib/middleware/')(env);
     ctx.store = require('../lib/storage')(env);
     ctx.archive = require('../lib/entries').storage(env.mongo_collection, ctx.store);
-    ctx.settings = require('../lib/settings')(env.settings_collection, ctx.store);
 
     ctx.store(function ( ) {
-      ctx.app = api(env, ctx.wares, ctx.archive, ctx.settings);
+      ctx.app = api(env, ctx.wares, ctx.archive);
       scope.app = ctx.app;
       ctx.archive.create(load('json'), fn);
       scope.archive = ctx.archive;
