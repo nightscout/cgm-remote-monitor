@@ -98,7 +98,7 @@ function getBrowserSettings(storage) {
 
     json.showPlugins = setDefault(json.showPlugins, app.defaults.showPlugins || Nightscout.plugins.enabledPluginNames());
     var showPluginsSettings = $('#show-plugins');
-    Nightscout.plugins.eachPlugin(function each(plugin) {
+    Nightscout.plugins.eachEnabledPlugin(function each(plugin) {
       var id = 'plugin-' + plugin.name;
       var dd = $('<dd><input type="checkbox" id="' + id + '" value="' + plugin.name + '"/><label for="' + id + '">' + (plugin.label || plugin.name) + '</label></dd>');
       showPluginsSettings.append(dd);
