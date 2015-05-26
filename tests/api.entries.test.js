@@ -69,7 +69,7 @@ describe('Entries REST api', function ( ) {
       });
   });
 
-  it('/entries/ID', function (done) {
+  it('/entries/sgv/ID', function (done) {
     var app = this.app;
     this.archive.list({count: 1}, function(err, records) {
       var currentId = records.pop()._id.toString();
