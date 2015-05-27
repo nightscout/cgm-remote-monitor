@@ -489,7 +489,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
             Nightscout.plugins.eachShownPlugins(browserSettings, function eachPlugin(plugin) {
               console.info('plugin.pluginType', plugin.pluginType);
-              if (plugin.pluginType == 'minor-pill') {
+              if (plugin.pluginType == 'pill-minor') {
                 hasMinorPill = true;
               }
             });
@@ -1818,7 +1818,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             $('.serverSettings').show();
         }
         $('#treatmentDrawerToggle').toggle(app.careportalEnabled);
-        Nightscout.plugins.clientInit(app);
+        Nightscout.plugins.init(app);
         browserSettings = getBrowserSettings(browserStorage);
         init();
     });

@@ -8,18 +8,17 @@ describe('Entries REST api', function ( ) {
   before(function (done) {
     var env = require('../env')( );
     this.wares = require('../lib/middleware/')(env);
-    var store = require('../lib/storage')(env);
-    this.archive = require('../lib/entries').storage(env.mongo_collection, store);
-    var bootevent = require('../lib/bootevent');
+    this.archive = null;
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
+    var bootevent = require('../lib/bootevent');
     bootevent(env).boot(function booted (ctx) {
-        env.store = ctx.store;
-        self.app.use('/', entries(self.app, self.wares, ctx));
-        self.archive.create(load('json'), done);
+      env.store = ctx.store;
+      self.app.use('/', entries(self.app, self.wares, ctx));
+      self.archive = require('../lib/entries')(env, ctx);
+      self.archive.create(load('json'), done);
     });
-    // store(function ( ) { });
   });
 
   after(function (done) {
