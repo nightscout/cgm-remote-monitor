@@ -12,7 +12,6 @@ function config ( ) {
    *   * PORT - serve http on this port
    *   * MONGO_CONNECTION, CUSTOMCONNSTR_mongo - mongodb://... uri
    *   * CUSTOMCONNSTR_mongo_collection - name of mongo collection with "sgv" documents
-   *   * CUSTOMCONNSTR_mongo_settings_collection - name of mongo collection to store configurable settings
    *   * API_SECRET - if defined, this passphrase is fed to a sha1 hash digest, the hex output is used to create a single-use token for API authorization
    *   * NIGHTSCOUT_STATIC_FILES - the "base directory" to use for serving
    *     static files over http.  Default value is the included `static`
@@ -27,25 +26,74 @@ function config ( ) {
   } else {
     git.short(function record_git_head (head) {
       console.log("GIT HEAD", head);
-      env.head = head;
+      env.head = head || readENV('SCM_COMMIT_ID') || readENV('COMMIT_HASH', '');
     });
   }
   env.version = software.version;
   env.name = software.name;
-  env.MQTT_MONITOR = process.env.MQTT_MONITOR || null;
   env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
   env.PORT = readENV('PORT', 1337);
   env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI');
   env.mongo_collection = readENV('MONGO_COLLECTION', 'entries');
+  env.MQTT_MONITOR = readENV('MQTT_MONITOR', null);
   if (env.MQTT_MONITOR) {
-    env.mqtt_client_id = [env.mongo.split('/').pop( ), env.mongo_collection].join('.');
+    var hostDbCollection = [env.mongo.split('mongodb://').pop().split('@').pop( ), env.mongo_collection].join('/');
+    var mongoHash = crypto.createHash('sha1');
+    mongoHash.update(hostDbCollection);
+    //some MQTT servers only allow the client id to be 23 chars
+    env.mqtt_client_id = mongoHash.digest('base64').substring(0, 23);
+    console.info('Using Mongo host/db/collection to create the default MQTT client_id', hostDbCollection);
+    if (env.MQTT_MONITOR.indexOf('?clientId=') == -1) {
+      console.info('Set MQTT client_id to: ', env.mqtt_client_id);
+    } else {
+      console.info('MQTT configured to use a custom client id, it will override the default: ', env.mqtt_client_id);
+    }
   }
-  env.settings_collection = readENV('MONGO_SETTINGS_COLLECTION', 'settings');
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
 
   env.enable = readENV('ENABLE', "");
+
+  env.defaults = { // currently supported keys must defined be here
+    'units': 'mg/dL'
+    , 'timeFormat': '12'
+    , 'nightMode': false
+    , 'showRawbg': 'never'
+    , 'customTitle': 'Nightscout'
+    , 'theme': 'default'
+    , 'alarmUrgentHigh': true
+    , 'alarmHigh': true
+    , 'alarmLow': true
+    , 'alarmUrgentLow': true
+    , 'alarmTimeAgoWarn': true
+    , 'alarmTimeAgoWarnMins': 15
+    , 'alarmTimeAgoUrgent': true
+    , 'alarmTimeAgoUrgentMins': 30
+    , 'language': 'en' // not used yet
+  } ;
+
+  // add units from separate variable
+  env.defaults.units = env.DISPLAY_UNITS;
+ 
+  // Highest priority per line defaults
+  env.defaults.timeFormat = readENV('TIME_FORMAT', env.defaults.timeFormat);
+  env.defaults.nightMode = readENV('NIGHT_MODE', env.defaults.nightMode);
+  env.defaults.showRawbg = readENV('SHOW_RAWBG', env.defaults.showRawbg);
+  env.defaults.customTitle = readENV('CUSTOM_TITLE', env.defaults.customTitle);
+  env.defaults.theme = readENV('THEME', env.defaults.theme);
+  env.defaults.alarmUrgentHigh = readENV('ALARM_URGENT_HIGH', env.defaults.alarmUrgentHigh);
+  env.defaults.alarmHigh = readENV('ALARM_HIGH', env.defaults.alarmHigh);
+  env.defaults.alarmLow = readENV('ALARM_LOW', env.defaults.alarmLow);
+  env.defaults.alarmUrgentLow = readENV('ALARM_URGENT_LOW', env.defaults.alarmUrgentLow);
+  env.defaults.alarmTimeAgoWarn = readENV('ALARM_TIMEAGO_WARN', env.defaults.alarmTimeAgoWarn);
+  env.defaults.alarmTimeAgoWarnMins = readENV('ALARM_TIMEAGO_WARN_MINS', env.defaults.alarmTimeAgoWarnMins);
+  env.defaults.alarmTimeAgoUrgent = readENV('ALARM_TIMEAGO_URGENT', env.defaults.alarmTimeAgoUrgent);
+  env.defaults.alarmTimeAgoUrgentMins = readENV('ALARM_TIMEAGO_URGENT_MINS', env.defaults.alarmTimeAgoUrgentMins);
+  env.defaults.showPlugins = readENV('SHOW_PLUGINS', '');
+
+  //console.log(JSON.stringify(env.defaults));
+  
   env.SSL_KEY = readENV('SSL_KEY');
   env.SSL_CERT = readENV('SSL_CERT');
   env.SSL_CA = readENV('SSL_CA');
@@ -126,11 +174,9 @@ function config ( ) {
   // This allows a provided json config to override environment variables
   var DB = require('./database_configuration.json'),
     DB_URL = DB.url ? DB.url : env.mongo,
-    DB_COLLECTION = DB.collection ? DB.collection : env.mongo_collection,
-    DB_SETTINGS_COLLECTION = DB.settings_collection ? DB.settings_collection : env.settings_collection;
+    DB_COLLECTION = DB.collection ? DB.collection : env.mongo_collection
   env.mongo = DB_URL;
   env.mongo_collection = DB_COLLECTION;
-  env.settings_collection = DB_SETTINGS_COLLECTION;
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
 
   return env;
@@ -147,7 +193,10 @@ function readENV(varName, defaultValue) {
         || process.env[varName]
         || process.env[varName.toLowerCase()];
 
-    return value || defaultValue;
+  if (typeof value === 'string' && value.toLowerCase() == 'on') value = true;
+  if (typeof value === 'string' && value.toLowerCase() == 'off') value = false;
+
+  return value != null ? value : defaultValue;
 }
 
 module.exports = config;
