@@ -1206,6 +1206,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             $(this).removeClass('playing');
         });
 
+        closeNotification();
         $('#container').removeClass('alarming');
 
         // only emit ack if client invoke by button press
