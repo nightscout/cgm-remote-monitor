@@ -178,6 +178,10 @@ body {
     background: #808080;
 }
 
+#uploaderBattery {
+  display: none;
+}
+
 #uploaderBattery label {
     padding: 0 !important;
 }
