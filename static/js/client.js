@@ -12,8 +12,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
 (function(win){
     'use strict';
-    
-    console.log("Foo");
 
     var simpleRe = /^(#?[\w-]+|\.[\w-.]+)$/, 
     periodRe = /\./g, 
