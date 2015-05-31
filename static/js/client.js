@@ -13,11 +13,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 (function(win){
     'use strict';
 
-    var simpleRe = /^(#?[\w-]+|\.[\w-.]+)$/, 
+    var simpleRe = /^(#?[\w-]+|\.[\w-.]+)$/,
     periodRe = /\./g, 
     slice = [].slice;
 
     win.query = function(selector, context){
+        console.info('win.query() called');
         context = context || document;
         // Redirect call to the more performant function 
         // if it's a simple selector and return an array
