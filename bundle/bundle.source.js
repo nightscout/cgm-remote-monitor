@@ -1,5 +1,6 @@
 (function () {
 
+  window._ = require('lodash');
   window.Nightscout = window.Nightscout || {};
 
   window.Nightscout = {
@@ -7,8 +8,6 @@
     profile: require('../lib/profilefunctions')(),
     plugins: require('../lib/plugins/')().registerClientDefaults()
   };
-
-  console.info('plugins', window.Nightscout.plugins);
 
   console.info("Nightscout bundle ready", window.Nightscout);
 
