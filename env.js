@@ -12,7 +12,6 @@ function config ( ) {
    *   * PORT - serve http on this port
    *   * MONGO_CONNECTION, CUSTOMCONNSTR_mongo - mongodb://... uri
    *   * CUSTOMCONNSTR_mongo_collection - name of mongo collection with "sgv" documents
-   *   * CUSTOMCONNSTR_mongo_settings_collection - name of mongo collection to store configurable settings
    *   * API_SECRET - if defined, this passphrase is fed to a sha1 hash digest, the hex output is used to create a single-use token for API authorization
    *   * NIGHTSCOUT_STATIC_FILES - the "base directory" to use for serving
    *     static files over http.  Default value is the included `static`
@@ -50,7 +49,6 @@ function config ( ) {
       console.info('MQTT configured to use a custom client id, it will override the default: ', env.mqtt_client_id);
     }
   }
-  env.settings_collection = readENV('MONGO_SETTINGS_COLLECTION', 'settings');
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
@@ -92,6 +90,7 @@ function config ( ) {
   env.defaults.alarmTimeAgoWarnMins = readENV('ALARM_TIMEAGO_WARN_MINS', env.defaults.alarmTimeAgoWarnMins);
   env.defaults.alarmTimeAgoUrgent = readENV('ALARM_TIMEAGO_URGENT', env.defaults.alarmTimeAgoUrgent);
   env.defaults.alarmTimeAgoUrgentMins = readENV('ALARM_TIMEAGO_URGENT_MINS', env.defaults.alarmTimeAgoUrgentMins);
+  env.defaults.showPlugins = readENV('SHOW_PLUGINS', '');
 
   //console.log(JSON.stringify(env.defaults));
   
@@ -175,11 +174,9 @@ function config ( ) {
   // This allows a provided json config to override environment variables
   var DB = require('./database_configuration.json'),
     DB_URL = DB.url ? DB.url : env.mongo,
-    DB_COLLECTION = DB.collection ? DB.collection : env.mongo_collection,
-    DB_SETTINGS_COLLECTION = DB.settings_collection ? DB.settings_collection : env.settings_collection;
+    DB_COLLECTION = DB.collection ? DB.collection : env.mongo_collection
   env.mongo = DB_URL;
   env.mongo_collection = DB_COLLECTION;
-  env.settings_collection = DB_SETTINGS_COLLECTION;
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
 
   return env;
