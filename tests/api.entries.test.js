@@ -14,7 +14,6 @@ describe('Entries REST api', function ( ) {
     var self = this;
     var bootevent = require('../lib/bootevent');
     bootevent(env).boot(function booted (ctx) {
-      env.store = ctx.store;
       self.app.use('/', entries(self.app, self.wares, ctx));
       self.archive = require('../lib/entries')(env, ctx);
       self.archive.create(load('json'), done);
