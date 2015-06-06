@@ -58,9 +58,18 @@ bootevent(env).boot(function booted (ctx) {
     ///////////////////////////////////////////////////
     // setup socket io for data and message transmission
     ///////////////////////////////////////////////////
-    var websocket = require('./lib/websocket');
-    var io = websocket(env, ctx, server);
-  })
+    var websocket = require('./lib/websocket')(server);
+
+    ctx.heartbeat.on('tick', function(tick) {
+      console.info('tick', tick.now);
+      ctx.data.update(function dataUpdated () {
+        websocket.processData(env, ctx);
+      });
+    });
+
+    ctx.heartbeat.uptime( );
+
+})
 ;
 
 ///////////////////////////////////////////////////
