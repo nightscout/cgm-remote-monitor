@@ -1,9 +1,15 @@
 //TODO: clean up
 var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
-Array.prototype.diff = function(a) {
-    return this.filter(function(i) {return a.indexOf(i) < 0;});
-};
+function nsArrayDiff(oldArray, newArray) {
+  var seen = {};
+  var l = oldArray.length;
+  for (var i = 0; i < l; i++) { seen[oldArray[i].x] = true };
+  var result = [];
+  l = newArray.length;
+  for (var i = 0; i < l; i++) { if (!seen.hasOwnProperty(newArray[i].x)) { result.push(newArray[i]); console.log('delta data found'); } };
+  return result;
+}
 
 (function () {
     'use strict';
@@ -1682,7 +1688,7 @@ Array.prototype.diff = function(a) {
             console.log('Replacing all local sgv records');
             SGVdata = d.sgvs;
           } else {
-            var diff = SGVdata.diff(d.sgvs);
+            var diff =  nsArrayDiff(SGVdata,d.sgvs);
             console.log('SGV data updated with', diff.length, 'new records');
             SGVdata = SGVdata.concat(diff);
           }
@@ -1703,7 +1709,7 @@ Array.prototype.diff = function(a) {
         
         // profile, calibration and device status
 
-		if (d.profile) profile = d.profile[0];
+		if (d.profiles) profile = d.profiles[0];
 		if (d.cals) cal = d.cals[d.cals.length-1];
 		if (d.devicestatus) devicestatusData = d.devicestatus;
 
@@ -1750,7 +1756,7 @@ Array.prototype.diff = function(a) {
 			if (!d.delta) {
 				treatments = d.treatments;
 			} else {
-				var newTreatments = treatments.diff(d.treatments);
+				var newTreatments = nsArrayDiff(treatments,d.treatments);
 				console.log('treatment data updated with', newTreatments.length, 'new records');
 				treatments = treatments.concat(newTreatments);
         	    treatments.sort(function(a, b) {
