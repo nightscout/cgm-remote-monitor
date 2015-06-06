@@ -1705,8 +1705,6 @@ function nsArrayDiff(oldArray, newArray) {
         }
         
         console.log('Total SGV data size', SGVdata.length);
-        console.log('Latest SGV', latestSGV.date);
-        console.log('prevSGV', prevSGV.date);
         
         // profile, calibration and device status
 
@@ -1741,25 +1739,20 @@ function nsArrayDiff(oldArray, newArray) {
 		  data = data.concat(d.predicted.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'none', type: 'server-forecast'} }));
 		}
 		
-		//Add MBG's also, pretend they are SGV's
+		//Add MBG's also, pretend they are MBG's
 		if (d.mbgs) {
-		
           if (!d.delta) {
-            // replace all locally stored SGV data
-            console.log('Replacing all local sgv records');
+            // replace all locally stored MBG data
+            console.log('Replacing all local MBG records');
             MBGdata = d.mbgs;
           } else {
             var diff =  nsArrayDiff(MBGdata,d.mbgs);
             console.log('MBG data updated with', diff.length, 'new records');
             MBGdata = MBGdata.concat(diff);
-          }
-                  
-          MBGdata.sort(function(a, b) {
-            return a.x - b.x;
-          });
-        
-          data = data.concat(MBGdata.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
+          }        
 		}
+		
+    	data = data.concat(MBGdata.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 		
 		data.forEach(function (d) {
 			if (d.y < 39)
