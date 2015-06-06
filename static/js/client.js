@@ -438,6 +438,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             currentBG.toggleClass('icon-hourglass', value == 9);
             currentBG.toggleClass('error-code', value < 39);
             currentBG.toggleClass('bg-limit', value == 39 || value > 400);
+
+            $('.container').removeClass('loading');
+
         }
 
         function updateBGDelta(prevEntry, currentEntry) {
@@ -1113,9 +1116,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         context.select('.x')
             .call(xAxis2);
 
-        if (init) {
-            $('.container').removeClass('loading');
-        }
     }, DEBOUNCE_MS);
 
     function sgvToColor(sgv) {
