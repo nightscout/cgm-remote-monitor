@@ -30,6 +30,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     var socket
         , isInitialData = false
+        , SGVdata = []
         , latestSGV
         , latestUpdateTime
         , prevSGV
@@ -1656,67 +1657,132 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         socket = io.connect();
 
-        socket.on('sgv', function (d) {
-            if (d.length > 1) {
-                // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
-                if (d[0].length) {
-                    latestUpdateTime = Date.now();
-                    latestSGV = d[0][d[0].length - 1];
-                    prevSGV = d[0][d[0].length - 2];
-                }
+		function recordAlreadyStored(array,record) {
+			var l = array.length -1;
+			for (var i = 0; i <= l; i++) {
+				var oldRecord = array[i];
+				if (record.x == oldRecord.x) return true;
+			}
+		}
 
-                profile = d[4][0];
-                cal = d[5][d[5].length-1];
-                devicestatusData = d[6];
+        socket.on('sgv', function receivedSGV(d) {
+        
+        if (!d) return;
+        
+        var dataUpdate = d.actual ? false : true;
+        
+        if (!dataUpdate) {
+        	// replace all locally stored SGV data
+        	console.log('Replacing all local sgv records');
+        	SGVdata = d.actual;
+        } else {
+        	var newRecords = [];
+        	
+			var l = d.sgvdataupdate.length;
+			for (var i = 0; i < l; i++) {
+				var record = d.sgvdataupdate[i];
+				if (!recordAlreadyStored(SGVdata,record)) {
+					newRecords.push(record);
+				}
+			}
+			console.log('SGV data updated with', newRecords.length, 'new records');
+        	SGVdata = SGVdata.concat(newRecords);
+        	
+        	if (newRecords.length > 0)
+        	{
+        		console.log(newRecords);
+        	}
+        	
+			SGVdata.sort(function(a, b) {
+            	return a.x - b.x;
+     		});
+	
+        }
+        
+        console.log('Total CGM data size', SGVdata.length);
+        
+		// change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
+	//	if (if !dataUpdate && d.actual.length) {
+			latestUpdateTime = Date.now();
+			latestSGV = SGVdata[SGVdata.length - 1];
+			prevSGV = SGVdata[SGVdata.length - 2];
+	//	}
 
-                var temp1 = [ ];
-                if (cal && isRawBGEnabled()) {
-                    temp1 = d[0].map(function (entry) {
-                        var rawBg = showRawBGs(entry.y, entry.noise, cal) ? rawIsigToRawBg(entry, cal) : 0;
-                        if (rawBg > 0) {
-                            return { date: new Date(entry.x - 2000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg' };
-                        } else {
-                            return null;
-                        }
-                    }).filter(function(entry) { return entry != null; });
-                }
-                var temp2 = d[0].map(function (obj) {
-                    return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
-                });
-                data = [];
-                data = data.concat(temp1, temp2);
+		if (d.profile) profile = d.profile[0];
 
-                // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
-                // This shouldn't have to be sent and can be fixed by using xScale.domain([x0,x1]) function with
-                // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
-                // required to happen when 'now' event is sent from websocket.js every minute.  When fixed,
-                // remove all 'color != 'none'' code
-                data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'none', type: 'server-forecast'} }));
+		cal = d.cal[d.cal.length-1];
+		devicestatusData = d.devicestatusData;
 
-                //Add MBG's also, pretend they are SGV's
-                data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
+		var temp1 = [ ];
+		if (cal && isRawBGEnabled()) {
+			temp1 = SGVdata.map(function (entry) {
+				var rawBg = showRawBGs(entry.y, entry.noise, cal) ? rawIsigToRawBg(entry, cal) : 0;
+				if (rawBg > 0) {
+					return { date: new Date(entry.x - 2000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg' };
+				} else {
+					return null;
+				}
+			}).filter(function(entry) { return entry != null; });
+		}
+		var temp2 = SGVdata.map(function (obj) {
+			return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
+		});
+		data = [];
+		data = data.concat(temp1, temp2);
 
-                data.forEach(function (d) {
-                    if (d.y < 39)
-                        d.color = 'transparent';
-                });
+		// TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
+		// This shouldn't have to be sent and can be fixed by using xScale.domain([x0,x1]) function with
+		// 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
+		// required to happen when 'now' event is sent from websocket.js every minute.  When fixed,
+		// remove all 'color != 'none'' code
+		data = data.concat(d.predicted.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'none', type: 'server-forecast'} }));
 
-                treatments = d[3];
-                treatments.forEach(function (d) {
-                  d.created_at = new Date(d.created_at);
-                  //cache the displayBG for each treatment in DISPLAY_UNITS
-                  d.displayBG = displayTreatmentBG(d);
-                });
+		//Add MBG's also, pretend they are SGV's
+		data = data.concat(d.mbg.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 
-                updateTitle();
-                if (!isInitialData) {
-                    isInitialData = true;
-                    initializeCharts();
-                }
-                else {
-                    updateChart(false);
-                }
-            }
+		data.forEach(function (d) {
+			if (d.y < 39)
+				d.color = 'transparent';
+		});
+
+		// Update treatment data with new if delta
+		
+		if (!dataUpdate) {
+			treatments = d.treatment;
+		} else {
+			var newRecords = [];
+			var l = d.treatmentdataupdate.length;
+			for (var i = 0; i < l; i++) {
+				var record = d.treatmentdataupdate[i];
+				if (!recordAlreadyStored(treatments,record)) {
+					newRecods.push(record);
+				}
+			}
+			console.log('treatment data updated with', newRecords.length, 'new records');
+        	treatments = treatments.concat(newRecords);
+        	treatments.sort(function(a, b) {
+            	return a.x - b.x;
+       		});
+
+		}
+		
+		console.log('Total treatment data size', treatments.length);
+        
+		treatments.forEach(function (d) {
+		  d.created_at = new Date(d.created_at);
+		  //cache the displayBG for each treatment in DISPLAY_UNITS
+		  d.displayBG = displayTreatmentBG(d);
+		});
+
+		updateTitle();
+		if (!isInitialData) {
+			isInitialData = true;
+			initializeCharts();
+		}
+		else {
+			updateChart(false);
+		}
+
         });
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1725,6 +1791,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         socket.on('connect', function () {
             console.log('Client connected to server.')
         });
+
 
         //with predicted alarms, latestSGV may still be in target so to see if the alarm
         //  is for a HIGH we can only check if it's >= the bottom of the target
