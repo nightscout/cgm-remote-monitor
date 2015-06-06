@@ -1686,6 +1686,10 @@ Array.prototype.diff = function(a) {
             console.log('SGV data updated with', diff.length, 'new records');
             SGVdata = SGVdata.concat(diff);
           }
+                  
+		SGVdata.sort(function(a, b) {
+          return a.x - b.x;
+     	});
         
         // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
         latestUpdateTime = Date.now();
@@ -1693,17 +1697,15 @@ Array.prototype.diff = function(a) {
 		prevSGV = SGVdata[SGVdata.length - 2];
         }
         
-		SGVdata.sort(function(a, b) {
-          return a.x - b.x;
-     	});
-        
         console.log('Total SGV data size', SGVdata.length);
+        console.log('Latest SGV', latestSGV.date);
+        console.log('prevSGV', prevSGV.date);
         
         // profile, calibration and device status
 
 		if (d.profile) profile = d.profile[0];
-		if (d.cal) cal = d.cal[d.cal.length-1];
-		if (d.devicestatus) devicestatusData = d.devicestatusData;
+		if (d.cals) cal = d.cals[d.cals.length-1];
+		if (d.devicestatus) devicestatusData = d.devicestatus;
 
 		var temp1 = [ ];
 		if (cal && isRawBGEnabled()) {
@@ -1750,7 +1752,7 @@ Array.prototype.diff = function(a) {
 			} else {
 				var newTreatments = treatments.diff(d.treatments);
 				console.log('treatment data updated with', newTreatments.length, 'new records');
-				treatments = treatments.concat(newRecords);
+				treatments = treatments.concat(newTreatments);
         	    treatments.sort(function(a, b) {
                 	return a.x - b.x;
        	    	});
