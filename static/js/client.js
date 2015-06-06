@@ -41,6 +41,7 @@ function nsArrayDiff(oldArray, newArray) {
     var socket
         , isInitialData = false
         , SGVdata = []
+        , MBGdata = []
         , latestSGV
         , latestUpdateTime
         , prevSGV
@@ -1693,7 +1694,7 @@ function nsArrayDiff(oldArray, newArray) {
             SGVdata = SGVdata.concat(diff);
           }
                   
-		SGVdata.sort(function(a, b) {
+	  	SGVdata.sort(function(a, b) {
           return a.x - b.x;
      	});
         
@@ -1742,7 +1743,22 @@ function nsArrayDiff(oldArray, newArray) {
 		
 		//Add MBG's also, pretend they are SGV's
 		if (d.mbgs) {
-          data = data.concat(d.mbgs.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
+		
+          if (!d.delta) {
+            // replace all locally stored SGV data
+            console.log('Replacing all local sgv records');
+            MBGdata = d.mbgs;
+          } else {
+            var diff =  nsArrayDiff(MBGdata,d.mbgs);
+            console.log('MBG data updated with', diff.length, 'new records');
+            MBGdata = MBGdata.concat(diff);
+          }
+                  
+          MBGdata.sort(function(a, b) {
+            return a.x - b.x;
+          });
+        
+          data = data.concat(MBGdata.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 		}
 		
 		data.forEach(function (d) {
