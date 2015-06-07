@@ -1643,41 +1643,47 @@ function nsArrayDiff(oldArray, newArray) {
       }
     }
 
+    function mergeDataUpdate(isDelta, cachedDataArray, reveivedDataArray) {
+
+      // If there was no delta data, just return the original data
+      if (!reveivedDataArray) return cachedDataArray;
+
+      // If this is not a delta update, replace all data
+      if (!isDelta) return reveivedDataArray;
+
+      // If this is delta, calculate the difference, merge and sort
+      var diff = nsArrayDiff(cachedDataArray,receivedDataArray);
+      return cachedDataArray.concat(diff).sort(function(a, b) {
+        return a.x - b.x;
+      });
+    }
+
     socket.on('dataUpdate', function receivedSGV(d) {
 
       if (!d) return;
 
-      // SGV
+      // Calculate the diff to existing data and replace as needed
+
+      SGVdata = mergeDataUpdate(d.delta, SGVdata, d.sgvs);
+      MBGdata = mergeDataUpdate(d.delta,MBGdata, d.mbgs);
+      treatments = mergeDataUpdate(d.delta,treatments, d.treatments);
+      if (d.profiles) profile = d.profiles[0];
+      if (d.cals) cal = d.cals[d.cals.length-1];
+      if (d.devicestatus) devicestatusData = d.devicestatus;
+
+      // Do some reporting on the console
+      console.log('Total SGV data size', SGVdata.length);
+      console.log('Total treatment data size', treatments.length);
+
+      // Post processing after data is in
 
       if (d.sgvs) {
-
-        if (!d.delta) {
-          // replace all locally stored SGV data
-          console.log('Replacing all local sgv records');
-          SGVdata = d.sgvs;
-        } else {
-          var diff =  nsArrayDiff(SGVdata,d.sgvs);
-          console.log('SGV data updated with', diff.length, 'new records');
-          SGVdata = SGVdata.concat(diff);
-        }
-
-        SGVdata.sort(function(a, b) {
-          return a.x - b.x;
-        });
-
         // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
         latestUpdateTime = Date.now();
         latestSGV = SGVdata[SGVdata.length - 1];
         prevSGV = SGVdata[SGVdata.length - 2];
       }
 
-      console.log('Total SGV data size', SGVdata.length);
-
-      // profile, calibration and device status
-
-      if (d.profiles) profile = d.profiles[0];
-      if (d.cals) cal = d.cals[d.cals.length-1];
-      if (d.devicestatus) devicestatusData = d.devicestatus;
 
       var temp1 = [ ];
       if (cal && isRawBGEnabled()) {
@@ -1708,19 +1714,6 @@ function nsArrayDiff(oldArray, newArray) {
         });
       }
 
-      //Add MBG's also, pretend they are MBG's
-      if (d.mbgs) {
-        if (!d.delta) {
-          // replace all locally stored MBG data
-          console.log('Replacing all local MBG records');
-          MBGdata = d.mbgs;
-        } else {
-          var diff =  nsArrayDiff(MBGdata,d.mbgs);
-          console.log('MBG data updated with', diff.length, 'new records');
-          MBGdata = MBGdata.concat(diff);
-        }
-      }
-
       data = data.concat(MBGdata.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 
       data.forEach(function (d) {
@@ -1728,23 +1721,7 @@ function nsArrayDiff(oldArray, newArray) {
           d.color = 'transparent';
       });
 
-      // Update treatment data with new if delta
-
-      if (d.treatments) {
-        if (!d.delta) {
-          treatments = d.treatments;
-        } else {
-          var newTreatments = nsArrayDiff(treatments,d.treatments);
-          console.log('treatment data updated with', newTreatments.length, 'new records');
-          treatments = treatments.concat(newTreatments);
-          treatments.sort(function(a, b) {
-            return a.x - b.x;
-          });
-        }
-      }
-
-      console.log('Total treatment data size', treatments.length);
-
+      // OPTIMIZATION: precalculate treatment location in timeline
       treatments.forEach(function (d) {
         d.created_at = new Date(d.created_at);
         //cache the displayBG for each treatment in DISPLAY_UNITS
