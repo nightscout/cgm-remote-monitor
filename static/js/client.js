@@ -5,6 +5,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     'use strict';
 
     var BRUSH_TIMEOUT = 300000 // 5 minutes in ms
+        , DEBOUNCE_MS = 10
         , TOOLTIP_TRANS_MS = 200 // milliseconds
         , UPDATE_TRANS_MS = 750 // milliseconds
         , ONE_MIN_IN_MS = 60000
@@ -293,7 +294,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
 
     // clears the current user brush and resets to the current real time data
-    function updateBrushToNow(skipBrushing) {
+    var updateBrushToNow = _.debounce(function updateBrushToNow(skipBrushing) {
 
         // get current time range
         var dataRange = d3.extent(data, dateFn);
@@ -310,7 +311,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             // clear user brush tracking
             brushInProgress = false;
         }
-    }
+    }, DEBOUNCE_MS);
 
     function brushStarted() {
         // update the opacity of the context data points to brush extent
@@ -359,8 +360,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return errorDisplay;
     }
 
-    // function to call when context chart is brushed
-    function brushed(skipTimer) {
+    var brushed = _.debounce(function brushed(skipTimer) {
 
         if (!skipTimer) {
             // set a timer to reset focus chart to real-time data
@@ -438,6 +438,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             currentBG.toggleClass('icon-hourglass', value == 9);
             currentBG.toggleClass('error-code', value < 39);
             currentBG.toggleClass('bg-limit', value == 39 || value > 400);
+
+            $('.container').removeClass('loading');
+
         }
 
         function updateBGDelta(prevEntry, currentEntry) {
@@ -486,16 +489,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     env[plugin.name] = plugin.getData();
                 }
             });
-
-            Nightscout.plugins.eachShownPlugins(browserSettings, function eachPlugin(plugin) {
-              console.info('plugin.pluginType', plugin.pluginType);
-              if (plugin.pluginType == 'minor-pill') {
-                hasMinorPill = true;
-              }
-            });
-
-            $('.container').toggleClass('has-minor-pills', hasMinorPill);
-
 
             // update data for all the plugins, before updating visualisations
             Nightscout.plugins.setEnvs(env);
@@ -552,7 +545,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 bgButton.removeClass('urgent warning inrange');
             }
 
-            updatePlugins(focusPoint.y, retroTime);
+            updatePlugins(focusPoint && focusPoint.y, retroTime);
 
             $('#currentTime')
                 .text(formatTime(retroTime, true))
@@ -738,7 +731,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         function prepareTreatCircles(sel) {
             sel.attr('cx', function (d) { return xScale(d.created_at); })
-                .attr('cy', function (d) { return yScale(scaledTreatmentBG(d)); })
+                .attr('cy', function (d) { return yScale(d.displayBG); })
                 .attr('r', function () { return dotRadius('mbg'); })
                 .attr('stroke-width', 2)
                 .attr('stroke', function (d) { return d.glucose ? 'grey' : 'white'; })
@@ -747,46 +740,39 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             return sel;
         }
 
-        try {
+        //NOTE: treatments with insulin or carbs are drawn by drawTreatment()
+        // bind up the focus chart data to an array of circles
+        var treatCircles = focus.selectAll('rect').data(treatments.filter(function(treatment) {
+            return !treatment.carbs && !treatment.insulin;
+        }));
 
-            //NOTE: treatments with insulin or carbs are drawn by drawTreatment()
-            //TODO: integrate with drawTreatment()
+        // if already existing then transition each circle to its new position
+        prepareTreatCircles(treatCircles.transition().duration(UPDATE_TRANS_MS));
 
-            // bind up the focus chart data to an array of circles
-            var treatCircles = focus.selectAll('rect').data(treatments.filter(function(treatment) {
-                return !treatment.carbs && !treatment.insulin;
-            }));
+        // if new circle then just display
+        prepareTreatCircles(treatCircles.enter().append('circle'))
+            .on('mouseover', function (d) {
+                tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
+                tooltip.html('<strong>Time:</strong> ' + formatTime(d.created_at) + '<br/>' +
+                    (d.eventType ? '<strong>Treatment type:</strong> ' + d.eventType + '<br/>' : '') +
+                    (d.glucose ? '<strong>BG:</strong> ' + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + '<br/>' : '') +
+                    (d.enteredBy ? '<strong>Entered by:</strong> ' + d.enteredBy + '<br/>' : '') +
+                    (d.notes ? '<strong>Notes:</strong> ' + d.notes : '')
+                )
+                .style('left', (d3.event.pageX) + 'px')
+                .style('top', (d3.event.pageY + 15) + 'px');
+            })
+            .on('mouseout', function () {
+                tooltip.transition()
+                    .duration(TOOLTIP_TRANS_MS)
+                    .style('opacity', 0);
+            });
 
-            // if already existing then transition each circle to its new position
-            prepareTreatCircles(treatCircles.transition().duration(UPDATE_TRANS_MS));
-
-            // if new circle then just display
-            prepareTreatCircles(treatCircles.enter().append('circle'))
-                .on('mouseover', function (d) {
-                    tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-                    tooltip.html('<strong>Time:</strong> ' + formatTime(d.created_at) + '<br/>' +
-                        (d.eventType ? '<strong>Treatment type:</strong> ' + d.eventType + '<br/>' : '') +
-                        (d.glucose ? '<strong>BG:</strong> ' + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + '<br/>' : '') +
-                        (d.enteredBy ? '<strong>Entered by:</strong> ' + d.enteredBy + '<br/>' : '') +
-                        (d.notes ? '<strong>Notes:</strong> ' + d.notes : '')
-                    )
-                    .style('left', (d3.event.pageX) + 'px')
-                    .style('top', (d3.event.pageY + 15) + 'px');
-                })
-                .on('mouseout', function () {
-                    tooltip.transition()
-                        .duration(TOOLTIP_TRANS_MS)
-                        .style('opacity', 0);
-                });
-            
-            treatCircles.attr('clip-path', 'url(#clip)');
-        } catch (err) {
-            console.error(err);
-        }
-    }
+        treatCircles.attr('clip-path', 'url(#clip)');
+    }, DEBOUNCE_MS);
 
     // called for initial update and updates for resize
-    function updateChart(init) {
+    var updateChart = _.debounce(function updateChart(init) {
 
         if (documentHidden && !init) {
             console.info('Document Hidden, not updating - ' + (new Date()));
@@ -1130,10 +1116,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         context.select('.x')
             .call(xAxis2);
 
-        if (init) {
-            $('.container').removeClass('loading');
-        }
-    }
+    }, DEBOUNCE_MS);
 
     function sgvToColor(sgv) {
         var color = 'grey';
@@ -1255,23 +1238,30 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     }
 
-    function scaledTreatmentBG(treatment) {
+    function displayTreatmentBG(treatment) {
 
       function calcBGByTime(time) {
-        var closeBGs = data.filter(function(d) {
-          if (!d.y) {
-            return false;
-          } else {
-            return Math.abs((new Date(d.date)).getTime() - time) <= SIX_MINS_IN_MS;
-          }
+        var withBGs = _.filter(data, function(d) {
+          return d.y && d.type == 'sgv';
         });
 
-        var totalBG = 0;
-        closeBGs.forEach(function(d) {
-          totalBG += Number(d.y);
+        var beforeTreatment = _.findLast(withBGs, function (d) {
+          return d.date.getTime() <= time;
+        });
+        var afterTreatment = _.find(withBGs, function (d) {
+          return d.date.getTime() >= time;
         });
 
-        return totalBG > 0 ? (totalBG / closeBGs.length) : 450;
+        var calcedBG = 0;
+        if (beforeTreatment && afterTreatment) {
+          calcedBG = (Number(beforeTreatment.y) + Number(afterTreatment.y)) / 2;
+        } else if (beforeTreatment) {
+          calcedBG = Number(beforeTreatment.y);
+        } else if (afterTreatment) {
+          calcedBG = Number(afterTreatment.y);
+        }
+
+        return calcedBG || 400;
       }
 
       var treatmentGlucose = null;
@@ -1309,6 +1299,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         if (!treatment.carbs && !treatment.insulin) return;
 
+        // don't render the treatment if it's not visible
+        if (Math.abs(xScale(treatment.created_at.getTime())) > window.innerWidth) return;
+
         var CR = treatment.CR || 20;
         var carbs = treatment.carbs || CR;
         var insulin = treatment.insulin || 1;
@@ -1345,7 +1338,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .data(arc_data)
             .enter()
             .append('g')
-            .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(scaledTreatmentBG(treatment)) + ')')
+            .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(treatment.displayBG) + ')')
             .on('mouseover', function () {
                 tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
                 tooltip.html('<strong>Time:</strong> ' + formatTime(treatment.created_at) + '<br/>' + '<strong>Treatment type:</strong> ' + treatment.eventType + '<br/>' +
@@ -1615,16 +1608,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         context.append('g')
             .attr('class', 'y axis');
 
-        // look for resize but use timer to only call the update script when a resize stops
-        var resizeTimer;
-        function updateChartSoon(updateToNow) {
-            clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(function () {
-                if (updateToNow) {
-                    updateBrushToNow();
-                }
-                updateChart(false);
-            }, 200);
+        //updateBrushToNow and updateChart are both _.debounced
+        function refreshChart(updateToNow) {
+            if (updateToNow) {
+                updateBrushToNow();
+            }
+            updateChart(false);
         }
 
         function visibilityChanged() {
@@ -1633,13 +1622,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
             if (prevHidden && !documentHidden) {
                 console.info('Document now visible, updating - ' + (new Date()));
-                updateChartSoon(true);
+                refreshChart(true);
             }
         }
 
-        window.onresize = function () {
-            updateChartSoon()
-        };
+        window.onresize = refreshChart;
 
         document.addEventListener('webkitvisibilitychange', visibilityChanged);
 
@@ -1663,7 +1650,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             li.addClass('selected');
             var hours = Number(li.data('hours'));
             foucusRangeMS = hours * 60 * 60 * 1000;
-            updateChartSoon();
+            refreshChart();
         });
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1679,11 +1666,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     latestSGV = d[0][d[0].length - 1];
                     prevSGV = d[0][d[0].length - 2];
                 }
-
-                treatments = d[3];
-                treatments.forEach(function (d) {
-                    d.created_at = new Date(d.created_at);
-                });
 
                 profile = d[4][0];
                 cal = d[5][d[5].length-1];
@@ -1719,6 +1701,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 data.forEach(function (d) {
                     if (d.y < 39)
                         d.color = 'transparent';
+                });
+
+                treatments = d[3];
+                treatments.forEach(function (d) {
+                  d.created_at = new Date(d.created_at);
+                  //cache the displayBG for each treatment in DISPLAY_UNITS
+                  d.displayBG = displayTreatmentBG(d);
                 });
 
                 updateTitle();
@@ -1821,6 +1810,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         $('#treatmentDrawerToggle').toggle(app.careportalEnabled);
         Nightscout.plugins.clientInit(app);
         browserSettings = getBrowserSettings(browserStorage);
+        $('.container').toggleClass('has-minor-pills', Nightscout.plugins.hasShownType('minor-pill', browserSettings));
         init();
     });
 

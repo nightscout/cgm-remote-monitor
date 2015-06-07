@@ -8,8 +8,7 @@
     plugins: require('../lib/plugins/')()
   };
 
-  console.info('plugins', window.Nightscout.plugins);
-
+  window._ = require('lodash');
   window.Nightscout.plugins.registerDefaults();
 
   console.info("Nightscout bundle ready", window.Nightscout);
