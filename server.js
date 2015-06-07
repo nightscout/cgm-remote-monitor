@@ -60,14 +60,9 @@ bootevent(env).boot(function booted (ctx) {
     ///////////////////////////////////////////////////
     var websocket = require('./lib/websocket')(server);
 
-    ctx.heartbeat.on('tick', function(tick) {
-      console.info('tick', tick.now);
-      ctx.data.update(function dataUpdated () {
-        websocket.processData(env, ctx);
-      });
+    ctx.heartbeat.on('data-loaded', function() {
+      websocket.processData(env, ctx);
     });
-
-    ctx.heartbeat.uptime( );
 
 })
 ;
