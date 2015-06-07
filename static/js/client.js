@@ -1735,7 +1735,7 @@ function nsArrayDiff(oldArray, newArray) {
       // required to happen when 'now' event is sent from websocket.js every minute.  When fixed,
       // remove all 'color != 'none'' code
       var lastdata = data.length > 0 ? data[data.length - 1].date.getTime() : Date.now();
-      for (var i = 1; i <= 8; i++) {
+      for (var i = 1; i <= 7; i++) {
         data.push({
           date: new Date(lastdata + (i * FIVE_MINS_IN_MS)), y: 100, sgv: scaleBg(100), color: 'none', type: 'server-forecast'
         });
