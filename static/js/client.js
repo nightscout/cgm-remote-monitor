@@ -1,10 +1,12 @@
 //TODO: clean up
 var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
+var nsUtils = Nightscout.nsUtils;
+
 function nsArrayDiff(oldArray, newArray) {
   var seen = {};
   var l = oldArray.length;
-  for (var i = 0; i < l; i++) { seen[oldArray[i].x] = true };
+  for (var i = 0; i < l; i++) { seen[oldArray[i].x] = true }
   var result = [];
   l = newArray.length;
   for (var j = 0; j < l; j++) { if (!seen.hasOwnProperty(newArray[j].x)) { result.push(newArray[j]); console.log('delta data found'); } }
@@ -20,9 +22,7 @@ function nsArrayDiff(oldArray, newArray) {
     , UPDATE_TRANS_MS = 750 // milliseconds
     , ONE_MIN_IN_MS = 60000
     , FIVE_MINS_IN_MS = 300000
-    , SIX_MINS_IN_MS =  360000
     , THREE_HOURS_MS = 3 * 60 * 60 * 1000
-    , TWELVE_HOURS_MS = 12 * 60 * 60 * 1000
     , TWENTY_FIVE_MINS_IN_MS = 1500000
     , THIRTY_MINS_IN_MS = 1800000
     , SIXTY_MINS_IN_MS = 3600000
@@ -32,11 +32,7 @@ function nsArrayDiff(oldArray, newArray) {
     , FORMAT_TIME_12_SCALE = '%-I %p'
     , FORMAT_TIME_24_SCALE = '%H'
     , WIDTH_SMALL_DOTS = 400
-    , WIDTH_BIG_DOTS = 800
-    , MINUTE_IN_SECS = 60
-    , HOUR_IN_SECS = 3600
-    , DAY_IN_SECS = 86400
-    , WEEK_IN_SECS = 604800;
+    , WIDTH_BIG_DOTS = 800;
 
   var socket
     , isInitialData = false
@@ -138,7 +134,7 @@ function nsArrayDiff(oldArray, newArray) {
   function updateTitle() {
 
     var time = latestSGV ? new Date(latestSGV.x).getTime() : (prevSGV ? new Date(prevSGV.x).getTime() : -1)
-      , ago = timeAgo(time);
+      , ago = nsUtils.timeAgo(time);
 
     var bg_title = browserSettings.customTitle || '';
 
@@ -413,10 +409,11 @@ function nsArrayDiff(oldArray, newArray) {
 
 
     function updateCurrentSGV(entry) {
-      var value = entry.y
-        , time = new Date(entry.x).getTime()
-        , ago = timeAgo(time)
-        , isCurrent = ago.status === 'current';
+        var value, time, ago, isCurrent;
+        value = entry.y;
+        time = new Date(entry.x).getTime();
+        ago = nsUtils.timeAgo(time);
+        isCurrent = ago.status === 'current';
 
       if (value == 9) {
         currentBG.text('');
@@ -779,7 +776,7 @@ function nsArrayDiff(oldArray, newArray) {
       });
 
     treatCircles.attr('clip-path', 'url(#clip)');
-  };
+  }
 
   // called for initial update and updates for resize
   var updateChart = _.debounce(function updateChart(init) {
@@ -1218,36 +1215,6 @@ function nsArrayDiff(oldArray, newArray) {
     brushed(false);
   }
 
-  function timeAgo(time) {
-
-    var now = Date.now()
-      , offset = time == -1 ? -1 : (now - time) / 1000
-      , parts = {};
-
-    if (offset < MINUTE_IN_SECS * -5)          parts = { value: 'in the future' };
-    else if (offset == -1)                     parts = { label: 'time ago' };
-    else if (offset <= MINUTE_IN_SECS * 2)     parts = { value: 1, label: 'min ago' };
-    else if (offset < (MINUTE_IN_SECS * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE_IN_SECS)), label: 'mins ago' };
-    else if (offset < (HOUR_IN_SECS * 2))      parts = { value: 1, label: 'hr ago' };
-    else if (offset < (HOUR_IN_SECS * 24))     parts = { value: Math.round(Math.abs(offset / HOUR_IN_SECS)), label: 'hrs ago' };
-    else if (offset < DAY_IN_SECS)             parts = { value: 1, label: 'day ago' };
-    else if (offset <= (DAY_IN_SECS * 7))      parts = { value: Math.round(Math.abs(offset / DAY_IN_SECS)), label: 'day ago' };
-    else                                       parts = { value: 'long ago' };
-
-    if (offset > DAY_IN_SECS * 7) {
-      parts.status = 'warn';
-    } else if (offset < MINUTE_IN_SECS * -5 || offset > (MINUTE_IN_SECS * browserSettings.alarmTimeAgoUrgentMins)) {
-      parts.status = 'urgent';
-    } else if (offset > (MINUTE_IN_SECS * browserSettings.alarmTimeAgoWarnMins)) {
-      parts.status = 'warn';
-    } else {
-      parts.status = 'current';
-    }
-
-    return parts;
-
-  }
-
   function displayTreatmentBG(treatment) {
 
     function calcBGByTime(time) {
@@ -1523,7 +1490,7 @@ function nsArrayDiff(oldArray, newArray) {
   function updateTimeAgo() {
     var lastEntry = $('#lastEntry')
       , time = latestSGV ? new Date(latestSGV.x).getTime() : -1
-      , ago = timeAgo(time)
+      , ago = nsUtils.timeAgo(time)
       , retroMode = inRetroMode();
 
     lastEntry.removeClass('current warn urgent');
