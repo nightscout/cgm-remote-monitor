@@ -306,7 +306,7 @@ function nsArrayDiff(oldArray, newArray) {
   }
 
   // clears the current user brush and resets to the current real time data
-  var updateBrushToNow = _.debounce(function updateBrushToNow(skipBrushing) {
+  function updateBrushToNow(skipBrushing) {
 
     // get current time range
     var dataRange = d3.extent(data, dateFn);
@@ -323,7 +323,7 @@ function nsArrayDiff(oldArray, newArray) {
       // clear user brush tracking
       brushInProgress = false;
     }
-  }, DEBOUNCE_MS);
+  }
 
   function brushStarted() {
     // update the opacity of the context data points to brush extent
@@ -372,7 +372,7 @@ function nsArrayDiff(oldArray, newArray) {
     return errorDisplay;
   }
 
-  var brushed = _.debounce(function brushed(skipTimer) {
+  function brushed(skipTimer) {
 
     if (!skipTimer) {
       // set a timer to reset focus chart to real-time data
@@ -779,7 +779,7 @@ function nsArrayDiff(oldArray, newArray) {
       });
 
     treatCircles.attr('clip-path', 'url(#clip)');
-  }, DEBOUNCE_MS);
+  };
 
   // called for initial update and updates for resize
   var updateChart = _.debounce(function updateChart(init) {
@@ -1618,7 +1618,7 @@ function nsArrayDiff(oldArray, newArray) {
     context.append('g')
       .attr('class', 'y axis');
 
-    //updateBrushToNow and updateChart are both _.debounced
+    //updateChart is _.debounce'd
     function refreshChart(updateToNow) {
       if (updateToNow) {
         updateBrushToNow();
