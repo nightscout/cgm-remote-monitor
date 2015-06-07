@@ -344,7 +344,7 @@ function nsArrayDiff(oldArray, newArray) {
 
     var time = brush.extent()[1].getTime();
 
-    return !alarmingNow() && time - THIRTY_MINS_IN_MS < now;
+    return !alarmingNow() && time - TWENTY_FIVE_MINS_IN_MS < now;
   }
 
   function errorCodeToDisplay(errorCode) {
