@@ -1643,13 +1643,13 @@ function nsArrayDiff(oldArray, newArray) {
       }
     }
 
-    function mergeDataUpdate(isDelta, cachedDataArray, reveivedDataArray) {
+    function mergeDataUpdate(isDelta, cachedDataArray, receivedDataArray) {
 
       // If there was no delta data, just return the original data
-      if (!reveivedDataArray) return cachedDataArray;
+      if (!receivedDataArray) return cachedDataArray;
 
       // If this is not a delta update, replace all data
-      if (!isDelta) return reveivedDataArray;
+      if (!isDelta) return receivedDataArray;
 
       // If this is delta, calculate the difference, merge and sort
       var diff = nsArrayDiff(cachedDataArray,receivedDataArray);
