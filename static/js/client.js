@@ -1730,13 +1730,14 @@ function nsArrayDiff(oldArray, newArray) {
       data = data.concat(temp1, temp2);
 
       // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
-      // This shouldn't have to be sent and can be fixed by using xScale.domain([x0,x1]) function with
+      // This shouldn't need to be generated and can be fixed by using xScale.domain([x0,x1]) function with
       // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
       // required to happen when 'now' event is sent from websocket.js every minute.  When fixed,
       // remove all 'color != 'none'' code
-
-      if (d.predicted) {
-        data = data.concat(d.predicted.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'none', type: 'server-forecast'} }));
+      for (var i = 1; i <= 12; i++) {
+        data.push({
+          date: new Date(Date.now() + (i * FIVE_MINS_IN_MS)), y: 100, sgv: scaleBg(100), color: 'none', type: 'server-forecast'
+        });
       }
 
       //Add MBG's also, pretend they are MBG's
