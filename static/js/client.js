@@ -1734,9 +1734,10 @@ function nsArrayDiff(oldArray, newArray) {
       // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
       // required to happen when 'now' event is sent from websocket.js every minute.  When fixed,
       // remove all 'color != 'none'' code
-      for (var i = 1; i <= 12; i++) {
+      var lastdata = data.length > 0 ? data[data.length - 1].date.getTime() : Date.now();
+      for (var i = 1; i <= 8; i++) {
         data.push({
-          date: new Date(Date.now() + (i * FIVE_MINS_IN_MS)), y: 100, sgv: scaleBg(100), color: 'none', type: 'server-forecast'
+          date: new Date(lastdata + (i * FIVE_MINS_IN_MS)), y: 100, sgv: scaleBg(100), color: 'none', type: 'server-forecast'
         });
       }
 
