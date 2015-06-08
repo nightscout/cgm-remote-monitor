@@ -31,7 +31,11 @@ body {
     font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
     height: 180px;
     vertical-align: middle;
-    clear: both;
+    clear: left right;
+}
+
+.has-minor-pills .status {
+  height: 200px;
 }
 
 .bgStatus {
@@ -72,11 +76,21 @@ body {
     vertical-align: middle;
 }
 
-.bgStatus .currentDetails {
+.bgStatus .majorPills {
     font-size: 30px;
 }
 
-.currentDetails > span:not(:first-child) {
+.minorPills {
+    font-size: 22px;
+    margin-top: 10px;
+    z-index: 500;
+}
+
+.majorPills > span:not(:first-child) {
+    margin-left: 5px;
+}
+
+.minorPills > span:not(:first-child) {
     margin-left: 5px;
 }
 
@@ -109,8 +123,26 @@ body {
     color: red !important;
 }
 
+.alarming-timeago #lastEntry.pill.warn {
+  border-color: yellow;
+}
+.alarming-timeago #lastEntry.pill.warn label {
+  background: yellow;
+}
+
+.alarming-timeago #lastEntry.pill.urgent {
+  border-color: red;
+}
+.alarming-timeago #lastEntry.pill.urgent label {
+  background: red;
+}
+
 .bgStatus.current .currentBG {
     text-decoration: none;
+}
+
+.alarming-timeago .bgStatus.current .currentBG {
+  text-decoration: line-through;
 }
 
 .time {
@@ -146,6 +178,10 @@ body {
     background: #808080;
 }
 
+#uploaderBattery {
+  display: none;
+}
+
 #uploaderBattery label {
     padding: 0 !important;
 }
@@ -160,6 +196,10 @@ body {
     background: #111;
     display: block;
     position:absolute;
+}
+
+.has-minor-pills #chartContainer {
+  top: 245px;
 }
 
 #chartContainer svg {
@@ -325,8 +365,12 @@ div.tooltip {
         line-height: 70px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 20px;
+    }
+
+    .bgStatus .minorPills {
+        font-size: 16px;
     }
 
     .time {
@@ -357,11 +401,20 @@ div.tooltip {
     }
 
     #chartContainer {
-        top: 185px;
+        top: 165px;
         font-size: 14px;
     }
+
     #chartContainer svg {
-        height: calc(100vh - 185px);
+        height: calc(100vh - 165px);
+    }
+
+    .has-minor-pills #chartContainer {
+      top: 175px;
+    }
+
+    #chartContainer svg {
+        height: calc(100vh - 175px);
     }
 
 }
@@ -394,18 +447,22 @@ div.tooltip {
         line-height: 50px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 15px;
+    }
+
+    .bgStatus .minorPills {
+        font-size: 12px;
     }
 
     .time {
         font-size: 50px;
-        line-height: 40px;
+        line-height: 35px;
         width: 250px;
     }
 
     #chartContainer {
-        top: 165px;
+        top: 175px;
     }
     #chartContainer svg {
         height: calc(100vh - 165px);
@@ -448,14 +505,16 @@ div.tooltip {
         line-height: 60px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 15px;
     }
 
-    .dropdown-menu {
-        font-size: 50px !important;
-        margin-left: 2vw;
-        width: 96vw;
+    .bgStatus .minorPills {
+        font-size: 12px;
+    }
+
+    #silenceBtn * {
+      font-size: 20px;
     }
 
     .time {
@@ -498,8 +557,17 @@ div.tooltip {
     #chartContainer {
         top: 190px;
     }
+
     #chartContainer svg {
         height: calc(100vh - (190px));
+    }
+
+    .has-minor-pills #chartContainer {
+      top: 210px;
+    }
+
+    .has-minor-pills #chartContainer svg {
+        height: calc(100vh - (210px));
     }
 }
 
@@ -534,8 +602,17 @@ div.tooltip {
         top: 130px;
         font-size: 10px;
     }
+
     #chartContainer svg {
         height: calc(100vh - 130px);
+    }
+
+    .has-minor-pills #chartContainer {
+        top: 140px;
+    }
+
+    .has-minor-pills #chartContainer svg {
+        height: calc(100vh - 140px);
     }
 }
 
@@ -554,8 +631,12 @@ div.tooltip {
         line-height: 50px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 15px;
+    }
+
+    .bgStatus .minorPills {
+        font-size: 12px;
     }
 
     .time {
@@ -597,11 +678,19 @@ div.tooltip {
         line-height: 50px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 15px;
     }
 
-    .focus-range {
+    .bgStatus .majorPills {
+        font-size: 12px;
+    }
+
+    #silenceBtn {
+      right: -25px;
+    }
+
+  .focus-range {
         position: absolute;
         top: 40px;
         left: initial;

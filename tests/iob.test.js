@@ -3,7 +3,7 @@ var should = require('should');
 var FIVE_MINS = 10 * 60 * 1000;
 
 describe('IOB', function ( ) {
-  var iob = require('../lib/iob')();
+  var iob = require('../lib/plugins/iob')();
 
   it('should calculate IOB', function() {
 

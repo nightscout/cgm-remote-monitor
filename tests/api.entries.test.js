@@ -10,13 +10,16 @@ describe('Entries REST api', function ( ) {
     this.wares = require('../lib/middleware/')(env);
     var store = require('../lib/storage')(env);
     this.archive = require('../lib/entries').storage(env.mongo_collection, store);
+    var bootevent = require('../lib/bootevent');
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    store(function ( ) {
-      self.app.use('/', entries(self.app, self.wares, self.archive));
-      self.archive.create(load('json'), done);
+    bootevent(env).boot(function booted (ctx) {
+        env.store = ctx.store;
+        self.app.use('/', entries(self.app, self.wares, ctx));
+        self.archive.create(load('json'), done);
     });
+    // store(function ( ) { });
   });
 
   after(function (done) {
@@ -64,6 +67,22 @@ describe('Entries REST api', function ( ) {
         done( );
         // console.log('err', err, 'res', res);
       });
+  });
+
+  it('/entries/sgv/ID', function (done) {
+    var app = this.app;
+    this.archive.list({count: 1}, function(err, records) {
+      var currentId = records.pop()._id.toString();
+      request(app)
+        .get('/entries/'+currentId+'.json')
+        .expect(200)
+        .end(function (err, res) {
+          res.body.length.should.equal(1);
+          res.body[0]._id.should.equal(currentId);
+          done( );
+        });
+    });
+
   });
 
   it('/entries/preview', function (done) {
