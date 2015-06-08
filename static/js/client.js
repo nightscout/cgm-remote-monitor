@@ -1,7 +1,7 @@
 //TODO: clean up
 var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
-var nsUtils = Nightscout.nsUtils;
+var timeAgo = Nightscout.utils.timeAgo;
 
 function nsArrayDiff(oldArray, newArray) {
   var seen = {};
@@ -134,7 +134,7 @@ function nsArrayDiff(oldArray, newArray) {
   function updateTitle() {
 
     var time = latestSGV ? new Date(latestSGV.x).getTime() : (prevSGV ? new Date(prevSGV.x).getTime() : -1)
-      , ago = nsUtils.timeAgo(time);
+      , ago = timeAgo(time);
 
     var bg_title = browserSettings.customTitle || '';
 
@@ -412,7 +412,7 @@ function nsArrayDiff(oldArray, newArray) {
         var value, time, ago, isCurrent;
         value = entry.y;
         time = new Date(entry.x).getTime();
-        ago = nsUtils.timeAgo(time);
+        ago = timeAgo(time);
         isCurrent = ago.status === 'current';
 
       if (value == 9) {
@@ -1490,7 +1490,7 @@ function nsArrayDiff(oldArray, newArray) {
   function updateTimeAgo() {
     var lastEntry = $('#lastEntry')
       , time = latestSGV ? new Date(latestSGV.x).getTime() : -1
-      , ago = nsUtils.timeAgo(time)
+      , ago = timeAgo(time)
       , retroMode = inRetroMode();
 
     lastEntry.removeClass('current warn urgent');
