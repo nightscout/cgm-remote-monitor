@@ -197,8 +197,8 @@ describe('Pebble Endpoint with Raw', function ( ) {
 
         res.body.cals.length.should.equal(1);
         var cal = res.body.cals[0];
-        cal.slope.should.equal(896);
-        cal.intercept.should.equal(34281);
+        cal.slope.toFixed(3).should.equal('895.857');
+        cal.intercept.toFixed(3).should.equal('34281.069');
         cal.scale.should.equal(1);
         done( );
       });
