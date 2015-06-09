@@ -60,8 +60,8 @@ bootevent(env).boot(function booted (ctx) {
     ///////////////////////////////////////////////////
     var websocket = require('./lib/websocket')(env, ctx, server);
 
-    ctx.bus.on('data-loaded', function() {
-      websocket.processData();
+    ctx.bus.on('data-processed', function() {
+      websocket.update();
     });
 
     ctx.bus.on('notification', function(info) {
