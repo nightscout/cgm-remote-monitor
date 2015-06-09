@@ -5,8 +5,7 @@ MONGO_CONNECTION?=mongodb://localhost/test_db
 CUSTOMCONNSTR_mongo_settings_collection?=test_settings
 CUSTOMCONNSTR_mongo_collection?=test_sgvs
 MONGO_SETTINGS=MONGO_CONNECTION=${MONGO_CONNECTION} \
-	CUSTOMCONNSTR_mongo_collection=${CUSTOMCONNSTR_mongo_collection} \
-	CUSTOMCONNSTR_mongo_settings_collection=${CUSTOMCONNSTR_mongo_settings_collection}
+	CUSTOMCONNSTR_mongo_collection=${CUSTOMCONNSTR_mongo_collection}
 
 # XXX.bewest: Mocha is an odd process, and since things are being
 # wrapped and transformed, this odd path needs to be used, not the
