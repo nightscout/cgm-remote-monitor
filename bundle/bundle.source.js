@@ -5,7 +5,7 @@
 
   window.Nightscout = {
     units: require('../lib/units')(),
-    utils: require('../lib/nsutils')(),
+    utils: require('../lib/utils')(),
     profile: require('../lib/profilefunctions')(),
     plugins: require('../lib/plugins/')().registerClientDefaults()
   };

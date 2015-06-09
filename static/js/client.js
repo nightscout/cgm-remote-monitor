@@ -969,10 +969,12 @@ function nsArrayDiff(oldArray, newArray) {
           .attr('transform', 'translate(0,' + chartHeight + ')')
           .call(xAxis2);
 
-        // reset clip to new dimensions
-        clip.transition()
-          .attr('width', chartWidth)
-          .attr('height', chartHeight);
+        if (clip) {
+          // reset clip to new dimensions
+          clip.transition()
+            .attr('width', chartWidth)
+            .attr('height', chartHeight);
+        }
 
         // reset brush location
         context.select('.x.brush')
