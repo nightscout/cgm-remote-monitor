@@ -168,6 +168,9 @@ function config ( ) {
   // For pushing notifications to Pushover.
   env.pushover_api_token = readENV('PUSHOVER_API_TOKEN');
   env.pushover_user_key = readENV('PUSHOVER_USER_KEY') || readENV('PUSHOVER_GROUP_KEY');
+  if (env.pushover_api_token && env.pushover_user_key) {
+    env.alarm_types.push('pushover');
+  }
 
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.
