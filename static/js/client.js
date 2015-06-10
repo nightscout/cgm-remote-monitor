@@ -476,32 +476,21 @@ function nsArrayDiff(oldArray, newArray) {
 
     }
 
-    function updatePlugins(sgv, time) {
-      var env = {};
-      env.profile = profile;
-      env.majorPills = majorPills;
-      env.minorPills = minorPills;
-      env.sgv = Number(sgv);
-      env.treatments = treatments;
-      env.time = time;
-      env.tooltip = tooltip;
+    function updatePlugins(sgvs, time) {
 
-      //all enabled plugins get a chance to add data, even if they aren't shown
-      Nightscout.plugins.eachEnabledPlugin(function updateEachPlugin(plugin) {
-        // Update the env through data provider plugins
-        plugin.setEnv(env);
+      var pluginBase = Nightscout.plugins.base(majorPills, minorPills, tooltip);
 
-        // check if the plugin implements processing data
-        if (plugin.getData) {
-          env[plugin.name] = plugin.getData();
-        }
+      var sbx = Nightscout.sandbox.clientInit(app, browserSettings, time, pluginBase, {
+        sgvs: sgvs
+        , treatments: treatments
+        , profile: profile
       });
 
-      // update data for all the plugins, before updating visualisations
-      Nightscout.plugins.setEnvs(env);
+      //all enabled plugins get a chance to set properties, even if they aren't shown
+      Nightscout.plugins.setProperties(sbx);
 
       //only shown plugins get a chance to update visualisations
-      Nightscout.plugins.updateVisualisations(browserSettings);
+      Nightscout.plugins.updateVisualisations(sbx);
     }
 
     // predict for retrospective data
@@ -552,7 +541,7 @@ function nsArrayDiff(oldArray, newArray) {
         bgButton.removeClass('urgent warning inrange');
       }
 
-      updatePlugins(focusPoint && focusPoint.y, retroTime);
+      updatePlugins(nowData, retroTime);
 
       $('#currentTime')
         .text(formatTime(retroTime, true))
@@ -587,7 +576,7 @@ function nsArrayDiff(oldArray, newArray) {
 
       updateBGDelta(prevSGV, latestSGV);
 
-      updatePlugins(latestSGV.y, nowDate);
+      updatePlugins(nowData, nowDate);
 
       currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);
     }
@@ -969,10 +958,12 @@ function nsArrayDiff(oldArray, newArray) {
           .attr('transform', 'translate(0,' + chartHeight + ')')
           .call(xAxis2);
 
-        // reset clip to new dimensions
-        clip.transition()
-          .attr('width', chartWidth)
-          .attr('height', chartHeight);
+        if (clip) {
+          // reset clip to new dimensions
+          clip.transition()
+            .attr('width', chartWidth)
+            .attr('height', chartHeight);
+        }
 
         // reset brush location
         context.select('.x.brush')

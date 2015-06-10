@@ -5,7 +5,7 @@ var should = require('should');
 describe('COB', function ( ) {
   var cob = require('../lib/plugins/cob')();
 
-  cob.profile = {
+  var profile = {
     sens: 95
     , carbratio: 18
     , carbs_hr: 30
@@ -24,9 +24,9 @@ describe('COB', function ( ) {
       }
     ];
 
-    var after100 = cob.cobTotal(treatments, new Date("2015-05-29T02:03:49.827Z"));
-    var before10 = cob.cobTotal(treatments, new Date("2015-05-29T03:45:10.670Z"));
-    var after10 = cob.cobTotal(treatments, new Date("2015-05-29T03:45:11.670Z"));
+    var after100 = cob.cobTotal(treatments, profile, new Date("2015-05-29T02:03:49.827Z"));
+    var before10 = cob.cobTotal(treatments, profile, new Date("2015-05-29T03:45:10.670Z"));
+    var after10 = cob.cobTotal(treatments, profile, new Date("2015-05-29T03:45:11.670Z"));
 
     console.info('>>>>after100:', after100);
     console.info('>>>>before10:', before10);
@@ -52,11 +52,11 @@ describe('COB', function ( ) {
     var later3 = new Date("2015-05-29T05:50:00.174Z");
     var later4 = new Date("2015-05-29T06:50:00.174Z");
 
-    var result1 = cob.cobTotal(treatments, rightAfterCorrection);
-    var result2 = cob.cobTotal(treatments, later1);
-    var result3 = cob.cobTotal(treatments, later2);
-    var result4 = cob.cobTotal(treatments, later3);
-    var result5 = cob.cobTotal(treatments, later4);
+    var result1 = cob.cobTotal(treatments, profile, rightAfterCorrection);
+    var result2 = cob.cobTotal(treatments, profile, later1);
+    var result3 = cob.cobTotal(treatments, profile, later2);
+    var result4 = cob.cobTotal(treatments, profile, later3);
+    var result5 = cob.cobTotal(treatments, profile, later4);
 
     result1.cob.should.equal(8);
     result2.cob.should.equal(6);
