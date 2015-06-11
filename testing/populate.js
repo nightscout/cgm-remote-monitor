@@ -61,14 +61,13 @@ function get_cgm_record() {
     console.log('dir  = ' + dir);
     console.log('str  = ' + datestr);
 
-    var doc = {
+    return {
         'device': 'dexcom',
         'date': datemil,
         'sgv': sgv,
         'direction': dir,
         'dateString': datestr
     };
-    return doc;
 }
 
 function getDateString(d) {

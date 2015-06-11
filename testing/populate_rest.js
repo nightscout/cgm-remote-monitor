@@ -56,7 +56,6 @@ function get_cgm_record() {
     var dateobj = new Date();
     var datemil = dateobj.getTime();
     var datesec = datemil / 1000;
-    var datestr = getDateString(dateobj);
 
     // We put the time in a range from -1 to +1 for every thiry minute period
     var range = (datesec % 1800) / 900 - 1.0;
@@ -69,49 +68,12 @@ function get_cgm_record() {
     console.log('sgv  = ' + sgv);
     console.log('date = ' + datemil);
     console.log('dir  = ' + dir);
-    console.log('str  = ' + datestr);
+    console.log('str  = ' + datemil);
 
-    var doc = {
-        'device': 'dexcom',
+    return {
         'date': datemil,
-        'sgv': sgv,
+        'sgv': "sgv",
         'direction': dir,
-        'dateString': datestr
+        'dateString': datemil
     };
-    return doc;
-}
-
-function getDateString(d) {
-
-    // How I wish js had strftime. This would be one line of code!
-
-    var month = d.getMonth();
-    var day = d.getDay();
-    var year = d.getFullYear();
-
-    if (month < 10) month = '0' + month;
-    if (day < 10) day = '0' + day;
-
-    var hour = d.getHours();
-    var min = d.getMinutes();
-    var sec = d.getSeconds();
-
-    var ampm = 'PM';
-    if (hour < 12) {
-        ampm = "AM";
-    }
-
-    if (hour == 0) {
-        hour = 12;
-    }
-    if (hour > 12) {
-        hour = hour - 12;
-    }
-
-    if (hour < 10) hour = '0' + hour;
-    if (min < 10) min = '0' + min;
-    if (sec < 10) sec = '0' + sec;
-
-    return month + '/' + day + '/' + year + ' ' + hour + ':' + min + ':' + sec + ' ' + ampm;
-
 }
