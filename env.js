@@ -178,8 +178,11 @@ function config ( ) {
   env.pushover_api_token = readENV('PUSHOVER_API_TOKEN');
   env.pushover_user_key = readENV('PUSHOVER_USER_KEY') || readENV('PUSHOVER_GROUP_KEY');
   if (env.pushover_api_token && env.pushover_user_key) {
-    env.enable = env.enable + ' pushover';
+    env.enable += ' pushover';
+    //TODO: after config changes are documented this shouldn't be auto enabled
+    env.enable += ' treatmentnotify';
   }
+
 
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.
