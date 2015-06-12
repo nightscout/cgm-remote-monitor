@@ -56,6 +56,11 @@
       "description": "Pushover user key, required for Pushover notifications. Leave blank if not using Pushover.",
       "value": "",
       "required": false
+    },
+    "MQTT_MONITOR": {
+      "description": "Connects to a MQTT message broker to monitor topics on which updates can be published. How to configure an example broker: https://devcenter.heroku.com/articles/cloudmqtt. Should work with other MQTT brokers as well.",
+      "value": "",
+      "required": false
     }
   },
   "addons": [

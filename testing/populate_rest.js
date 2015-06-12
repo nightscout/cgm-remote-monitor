@@ -11,37 +11,42 @@
 // DB Connection setup and utils
 ///////////////////////////////////////////////////
 
-var mongodb = require('mongodb');
 var software = require('./../package.json');
 var env = require('./../env')();
-
+var http = require('http');
 var util = require('./helpers/util');
 
 main();
 
 function main() {
-    var MongoClient = mongodb.MongoClient;
-    MongoClient.connect(env.mongo, function connected(err, db) {
-
-        console.log("Connecting to mongo...");
-        if (err) {
-            console.log("Error occurred: ", err);
-            throw err;
-        }
-        populate_collection(db);
-    });
+    send_entry_rest();
 }
 
-function populate_collection(db) {
-    var cgm_collection = db.collection(env.mongo_collection);
+function send_entry_rest() {
     var new_cgm_record = util.get_cgm_record();
+    var new_cgm_record_string = JSON.stringify(new_cgm_record);
 
-    cgm_collection.insert(new_cgm_record, function (err, created) {
-        if (err) {
-            throw err;
+    var options = {
+        host: 'localhost',
+        port: env.PORT,
+        path: '/api/v1/entries/',
+        method: 'POST',
+        headers: {
+            'api-secret' : env.api_secret,
+            'Content-Type': 'application/json',
+            'Content-Length': new_cgm_record_string.length
         }
-        process.exit(0);
+    };
+
+    var req = http.request(options, function(res) {
+        console.log("Ok: ", res.statusCode);
     });
+
+    req.on('error', function(e) {
+        console.error('error');
+        console.error(e);
+    });
+
+    req.write(new_cgm_record_string);
+    req.end();
 }
-
-
