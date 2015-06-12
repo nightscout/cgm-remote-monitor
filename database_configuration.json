@@ -1,4 +1,4 @@
 {
-  "url": "mongodb://root:root@localhost/nightscout",
-  "collection": "entries"
+  "url": null,
+  "collection": null
 }
