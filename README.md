@@ -163,6 +163,24 @@ The setup script will install OS packages then run `npm install`.
 The Vagrant VM serves to your host machine only on 192.168.33.10, you can access
 the web interface on [http://192.168.33.10:1337](http://192.168.33.10:1337)
 
+### Docker Compose
+
+Nightscout can be installed using Docker. This can be done using pure Docker, or Docker Compose (successor of Fig). Docker Compose is recommended as it also starts MongoDB and Mosquitto. Using Docker:
+
+```bash
+docker build -t nightscout .
+docker run nightscout
+```
+
+Using Docker Compose:
+
+```bash
+docker-compose build
+docker-compose up
+```
+
+Sometimes it is good to use the `rm` command to remove the images if changes have been made to the source files.
+
 More questions?
 ---------------
 
