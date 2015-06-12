@@ -14,6 +14,7 @@
 var software = require('./../package.json');
 var env = require('./../env')();
 var http = require('http');
+var util = require('./helpers/util');
 
 main();
 
@@ -22,8 +23,7 @@ function main() {
 }
 
 function send_entry_rest() {
-    var new_cgm_record = get_cgm_record();
-
+    var new_cgm_record = util.get_cgm_record();
     var new_cgm_record_string = JSON.stringify(new_cgm_record);
 
     var options = {
@@ -49,31 +49,4 @@ function send_entry_rest() {
 
     req.write(new_cgm_record_string);
     req.end();
-}
-
-function get_cgm_record() {
-
-    var dateobj = new Date();
-    var datemil = dateobj.getTime();
-    var datesec = datemil / 1000;
-
-    // We put the time in a range from -1 to +1 for every thiry minute period
-    var range = (datesec % 1800) / 900 - 1.0;
-
-    // The we push through a COS function and scale between 40 and 400 (so it is like a bg level)
-    var sgv = Math.floor(360 * (Math.cos(10.0 * range / 3.14) / 2 + 0.5)) + 40;
-    var dir = range > 0.0 ? "FortyFiveDown" : "FortyFiveUp";
-
-    console.log('Writing Record: ');
-    console.log('sgv  = ' + sgv);
-    console.log('date = ' + datemil);
-    console.log('dir  = ' + dir);
-    console.log('str  = ' + datemil);
-
-    return {
-        'date': datemil,
-        'sgv': "sgv",
-        'direction': dir,
-        'dateString': datemil
-    };
 }

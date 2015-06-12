@@ -1,5 +1,4 @@
 {
-    "url": "mongodb://root:root@localhost/nightscout",
-    "collection": "entries",
-    "API_SECRET": "thisismysercret"
+  "url": "mongodb://root:root@localhost/nightscout",
+  "collection": "entries"
 }

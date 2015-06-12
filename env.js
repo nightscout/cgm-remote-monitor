@@ -29,6 +29,7 @@ function config ( ) {
       env.head = head || readENV('SCM_COMMIT_ID') || readENV('COMMIT_HASH', '');
     });
   }
+
   env.version = software.version;
   env.name = software.name;
   env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
@@ -107,6 +108,7 @@ function config ( ) {
       env.ca = fs.readFileSync(env.SSL_CA);
     }
   }
+    console.log(env);
 
   var shasum = crypto.createHash('sha1');
 
