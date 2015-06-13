@@ -27,17 +27,17 @@ describe('notifications', function ( ) {
 
   var exampleSnooze = {
     level: notifications.levels.WARN
-    , mills: 1000
+    , lengthMills: 1000
   };
 
   var exampleSnoozeNone = {
     level: notifications.levels.WARN
-    , mills: -1000
+    , lengthMills: 1
   };
 
   var exampleSnoozeUrgent = {
     level: notifications.levels.URGENT
-    , mills: 1000
+    , lengthMills: 1000
   };
 
   it('initAndReInit', function (done) {
