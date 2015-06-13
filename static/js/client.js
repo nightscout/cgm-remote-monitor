@@ -1210,7 +1210,7 @@ function nsArrayDiff(oldArray, newArray) {
 
     function calcBGByTime(time) {
       var withBGs = _.filter(data, function(d) {
-        return d.y && d.type == 'sgv';
+        return d.y > 39 && d.type == 'sgv';
       });
 
       var beforeTreatment = _.findLast(withBGs, function (d) {
