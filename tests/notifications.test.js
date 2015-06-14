@@ -13,6 +13,12 @@ describe('notifications', function ( ) {
 
   var notifications = require('../lib/notifications')(env, ctx);
 
+  var exampleInfo = {
+    title: 'test'
+    , message: 'testing'
+    , level: notifications.levels.INFO
+  };
+
   var exampleWarn = {
     title: 'test'
     , message: 'testing'
@@ -27,17 +33,17 @@ describe('notifications', function ( ) {
 
   var exampleSnooze = {
     level: notifications.levels.WARN
-    , mills: 1000
+    , lengthMills: 1000
   };
 
   var exampleSnoozeNone = {
     level: notifications.levels.WARN
-    , mills: -1000
+    , lengthMills: 1
   };
 
   var exampleSnoozeUrgent = {
     level: notifications.levels.URGENT
-    , mills: 1000
+    , lengthMills: 1000
   };
 
   it('initAndReInit', function (done) {
@@ -50,7 +56,9 @@ describe('notifications', function ( ) {
   });
 
 
-  it('emitANotification', function (done) {
+  it('emitAWarning', function (done) {
+    //start fresh to we don't pick up other notifications
+    ctx.bus = new Stream;
     //if notification doesn't get called test will time out
     ctx.bus.on('notification', function callback ( ) {
       done();
@@ -59,6 +67,23 @@ describe('notifications', function ( ) {
     notifications.initRequests();
     notifications.requestNotify(exampleWarn);
     notifications.findHighestAlarm().should.equal(exampleWarn);
+    notifications.process();
+  });
+
+  it('emitAnInfo', function (done) {
+    //start fresh to we don't pick up other notifications
+    ctx.bus = new Stream;
+    //if notification doesn't get called test will time out
+    ctx.bus.on('notification', function callback (notify) {
+      if (!notify.clear) {
+        done();
+      }
+    });
+
+    notifications.initRequests();
+    notifications.requestNotify(exampleInfo);
+    should.not.exist(notifications.findHighestAlarm());
+
     notifications.process();
   });
 
