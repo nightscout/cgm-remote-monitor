@@ -8,7 +8,7 @@ describe('utils', function ( ) {
     , alarmTimeAgoWarnMins: 15
   };
 
-  it('shod format numbers', function () {
+  it('format numbers', function () {
     utils.toFixed(5.499999999).should.equal('5.50')
   });
 
