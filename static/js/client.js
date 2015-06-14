@@ -134,7 +134,7 @@ function nsArrayDiff(oldArray, newArray) {
   function updateTitle() {
 
     var time = latestSGV ? new Date(latestSGV.x).getTime() : (prevSGV ? new Date(prevSGV.x).getTime() : -1)
-      , ago = timeAgo(time);
+      , ago = timeAgo(time, browserSettings);
 
     var bg_title = browserSettings.customTitle || '';
 
@@ -412,7 +412,7 @@ function nsArrayDiff(oldArray, newArray) {
         var value, time, ago, isCurrent;
         value = entry.y;
         time = new Date(entry.x).getTime();
-        ago = timeAgo(time);
+        ago = timeAgo(time, browserSettings);
         isCurrent = ago.status === 'current';
 
       if (value == 9) {
@@ -1210,7 +1210,7 @@ function nsArrayDiff(oldArray, newArray) {
 
     function calcBGByTime(time) {
       var withBGs = _.filter(data, function(d) {
-        return d.y && d.type == 'sgv';
+        return d.y > 39 && d.type == 'sgv';
       });
 
       var beforeTreatment = _.findLast(withBGs, function (d) {
@@ -1481,7 +1481,7 @@ function nsArrayDiff(oldArray, newArray) {
   function updateTimeAgo() {
     var lastEntry = $('#lastEntry')
       , time = latestSGV ? new Date(latestSGV.x).getTime() : -1
-      , ago = timeAgo(time)
+      , ago = timeAgo(time, browserSettings)
       , retroMode = inRetroMode();
 
     lastEntry.removeClass('current warn urgent');
