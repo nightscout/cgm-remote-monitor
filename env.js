@@ -165,9 +165,24 @@ function config ( ) {
   var thresholdsSet = readIntENV('BG_HIGH') || readIntENV('BG_TARGET_TOP') || readIntENV('BG_TARGET_BOTTOM') || readIntENV('BG_LOW');
   env.alarm_types = readENV('ALARM_TYPES') || (thresholdsSet ? "simple" : "predict");
 
+  //TODO: maybe get rid of ALARM_TYPES and only use enable?
+  if (env.alarm_types.indexOf('simple') > -1) {
+    env.enable = 'simplealarms ' + env.enable;
+  }
+  if (env.alarm_types.indexOf('predict') > -1) {
+    env.enable = 'ar2 ' + env.enable;
+  }
+
   // For pushing notifications to Pushover.
+  //TODO: handle PUSHOVER_ as generic plugin props
   env.pushover_api_token = readENV('PUSHOVER_API_TOKEN');
   env.pushover_user_key = readENV('PUSHOVER_USER_KEY') || readENV('PUSHOVER_GROUP_KEY');
+  if (env.pushover_api_token && env.pushover_user_key) {
+    env.enable += ' pushover';
+    //TODO: after config changes are documented this shouldn't be auto enabled
+    env.enable += ' treatmentnotify';
+  }
+
 
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.
