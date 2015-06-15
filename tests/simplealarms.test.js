@@ -12,7 +12,7 @@ describe('simplealarms', function ( ) {
 
   it('Not trigger an alarm when in range', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{sgv: 100}];
+    ctx.data.sgvs = [{y: 100}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     simplealarms.checkNotifications(sbx);
@@ -23,7 +23,7 @@ describe('simplealarms', function ( ) {
 
   it('should trigger a warning when above target', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{sgv: 181}];
+    ctx.data.sgvs = [{y: 181}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     simplealarms.checkNotifications(sbx);
@@ -34,7 +34,7 @@ describe('simplealarms', function ( ) {
 
   it('should trigger a urgent alarm when really high', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{sgv: 400}];
+    ctx.data.sgvs = [{y: 400}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     simplealarms.checkNotifications(sbx);
@@ -45,7 +45,7 @@ describe('simplealarms', function ( ) {
 
   it('should trigger a warning when below target', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{sgv: 70}];
+    ctx.data.sgvs = [{y: 70}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     simplealarms.checkNotifications(sbx);
@@ -56,7 +56,7 @@ describe('simplealarms', function ( ) {
 
   it('should trigger a urgent alarm when really low', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{sgv: 40}];
+    ctx.data.sgvs = [{y: 40}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     simplealarms.checkNotifications(sbx);
