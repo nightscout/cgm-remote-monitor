@@ -57,4 +57,18 @@ describe('errorcodes', function ( ) {
     done();
   });
 
+  it('should trigger a low notification when code < 9', function (done) {
+
+    for (var i = 0; i < 9; i++) {
+      ctx.notifications.initRequests();
+      ctx.data.sgvs = [{y: i, x: now}];
+
+      var sbx = require('../lib/sandbox')().serverInit(env, ctx);
+      errorcodes.checkNotifications(sbx);
+      should.not.exist(ctx.notifications.findHighestAlarm());
+      _.first(ctx.notifications.findInfos()).level.should.be.lessThan(ctx.notifications.levels.WARN);
+    }
+    done();
+  });
+
 });
