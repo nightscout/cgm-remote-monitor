@@ -182,6 +182,7 @@ function config ( ) {
     //TODO: after config changes are documented this shouldn't be auto enabled
     env.enable += ' treatmentnotify';
   }
+  env.enable += ' errorcodes';
 
 
   // TODO: clean up a bit
