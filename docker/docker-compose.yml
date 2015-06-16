@@ -1,3 +1,11 @@
+database:
+  image: mongo:3.0.3
+  ports:
+   - "27017"
+broker:
+  image: prologic/mosquitto
+  ports:
+   - "1883"
 nightscout:
   build: ../
   links:
@@ -10,12 +18,3 @@ nightscout:
    - API_SECRET=mylittlesecret
    - MQTT_MONITOR=mqtt://broker
    - PORT=80
-  command: ./docker-start.sh
-database:
-  image: mongo:3.0.3
-  ports:
-   - "27017"
-broker:
-  image: prologic/mosquitto
-  ports:
-   - "1883"
