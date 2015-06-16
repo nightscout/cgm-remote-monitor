@@ -60,7 +60,7 @@ bootevent(env).boot(function booted (ctx) {
     // setup socket io for data and message transmission
     ///////////////////////////////////////////////////
     var websocket = require('./lib/websocket');
-    websocket(env, server, app.entries, app.treatments, app.profiles, app.devicestatus);
+    var io = websocket(env, server, app.entries, app.treatments, app.profiles, app.devicestatus);
   })
 ;
 
