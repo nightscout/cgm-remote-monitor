@@ -9,6 +9,8 @@ describe('boluswizardpreview', function ( ) {
   ctx.data = require('../lib/data')(env, ctx);
   ctx.notifications = require('../lib/notifications')(env, ctx);
 
+  var now = Date.now();
+
   var profile = {
     sens: 90
     , target_high: 120
@@ -17,7 +19,7 @@ describe('boluswizardpreview', function ( ) {
 
   it('Not trigger an alarm when in range', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{sgv: 100}];
+    ctx.data.sgvs = [{x: now, y: 100}];
     ctx.data.profiles = [profile];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
@@ -33,7 +35,7 @@ describe('boluswizardpreview', function ( ) {
 
   it('trigger a warning when going out of range', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{sgv: 180}];
+    ctx.data.sgvs = [{x: now, y: 180}];
     ctx.data.profiles = [profile];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
@@ -49,7 +51,7 @@ describe('boluswizardpreview', function ( ) {
 
   it('trigger an urgent alarms when going too high', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{sgv: 300}];
+    ctx.data.sgvs = [{x: now, y: 300}];
     ctx.data.profiles = [profile];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
