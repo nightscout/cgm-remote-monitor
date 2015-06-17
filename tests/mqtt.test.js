@@ -20,6 +20,23 @@ describe('mqtt', function ( ) {
     done();
   });
 
+  it('handle a download with only sgvs', function (done) {
+    var packet = {
+      sgv: [
+        {sgv_mgdl: 110, trend: 4, date: prev2}
+        , {sgv_mgdl: 105, trend: 4, date: prev1}
+        , {sgv_mgdl: 100, trend: 4, date: now}
+      ]
+    };
+
+    var merged = mqtt.sgvSensorMerge(packet);
+
+    merged.length.should.equal(packet.sgv.length);
+
+    done();
+
+  });
+
   it('merge sgvs and sensor records that match up', function (done) {
     var packet = {
       sgv: [
