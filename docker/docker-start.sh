@@ -8,4 +8,4 @@ done
 
 echo 'Connected to MongoDB!'
 
-node .
+node /opt/app

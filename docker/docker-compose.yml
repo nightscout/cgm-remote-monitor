@@ -1,3 +1,15 @@
+nightscout:
+  build: ../
+  links:
+   - database
+   - broker
+  ports:
+   - "1337:1337"
+  environment:
+   - MONGO_CONNECTION=mongodb://database/nightscout
+   - API_SECRET=mylittlesecret
+   - MQTT_MONITOR=mqtt://broker
+   - PORT=1337
 database:
   image: mongo:3.0.3
   ports:
@@ -6,15 +18,3 @@ broker:
   image: prologic/mosquitto
   ports:
    - "1883"
-nightscout:
-  build: ../
-  links:
-   - database
-   - broker
-  ports:
-   - "80"
-  environment:
-   - MONGO_CONNECTION=mongodb://database/nightscout
-   - API_SECRET=mylittlesecret
-   - MQTT_MONITOR=mqtt://broker
-   - PORT=80
