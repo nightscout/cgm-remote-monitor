@@ -41,25 +41,26 @@ function create(app) {
 // We need the database
 var storage = require('./lib/storage')(env, function(err, store) {
     // Store the database store in the environment object
-    env.store = store;
+    var core = {};
+    core.store = store;
 
     ///////////////////////////////////////////////////
     // API and json object variables
     ///////////////////////////////////////////////////
-    env.pushover = require('./pushover')(env);
-    env.entries = require('./entries')(env.mongo_collection, store, env.pushover);
-    env.treatments = require('./treatments')(env.treatments_collection, store, env.pushover);
-    env.devicestatus = require('./devicestatus')(env.devicestatus_collection, store);
-    env.profiles = require('./profile')(env.profile_collection, store);
-    env.pebble = require('./pebble');
+    core.pushover = require('./lib/pushover')(env);
+    core.entries = require('./lib/entries')(env.mongo_collection, store, env.pushover);
+    core.treatments = require('./lib/treatments')(env.treatments_collection, store, env.pushover);
+    core.devicestatus = require('./lib/devicestatus')(env.devicestatus_collection, store);
+    core.profiles = require('./lib/profile')(env.profile_collection, store);
+    core.pebble = require('./lib/pebble');
 
     console.info("Ensuring indexes");
-    store.ensureIndexes(env.entries( ), env.entries.indexedFields);
-    store.ensureIndexes(env.treatments( ), env.treatments.indexedFields);
-    store.ensureIndexes(env.devicestatus( ), env.devicestatus.indexedFields);
-    store.ensureIndexes(env.profiles( ), env.profiles.indexedFields);
+    store.ensureIndexes(core.entries( ), core.entries.indexedFields);
+    store.ensureIndexes(core.treatments( ), core.treatments.indexedFields);
+    store.ensureIndexes(core.devicestatus( ), core.devicestatus.indexedFields);
+    store.ensureIndexes(core.profiles( ), core.profiles.indexedFields);
 
-    var app = require('./app')(env, ctx);
+    var app = require('./app')(env, core);
     var server = create(app).listen(env.PORT);
 
     console.log('Listening on port ', env.PORT);

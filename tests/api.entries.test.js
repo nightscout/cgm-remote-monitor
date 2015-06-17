@@ -8,18 +8,18 @@ describe('Entries REST api', function ( ) {
   before(function (done) {
     var env = require('../env')( );
     this.wares = require('../lib/middleware/')(env);
-    var store = require('../lib/storage')(env);
-    this.archive = require('../lib/entries').storage(env.mongo_collection, store);
-    var bootevent = require('../lib/bootevent');
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    bootevent(env).boot(function booted (ctx) {
-        env.store = ctx.store;
-        self.app.use('/', entries(self.app, self.wares, ctx));
+
+    require('../lib/storage')(env, function(err, store) {
+        env.store = store;
+
+        self.archive = require('../lib/entries').storage(env.mongo_collection, store);
+
+        self.app.use('/', entries(self.app, self.wares, env));
         self.archive.create(load('json'), done);
     });
-    // store(function ( ) { });
   });
 
   after(function (done) {
@@ -40,7 +40,7 @@ describe('Entries REST api', function ( ) {
       .get('/entries.json?count=' + count)
       .expect(200)
       .end(function (err, res) {
-        // console.log('body', res.body);
+        console.log('body', res.body);
         res.body.length.should.equal(count);
         done( );
       });
