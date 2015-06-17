@@ -1,6 +1,7 @@
 'use strict';
 
 var env = { };
+var _ = require('lodash');
 var crypto = require('crypto');
 var consts = require('./lib/constants');
 var fs = require('fs');
@@ -184,6 +185,8 @@ function config ( ) {
   }
   env.enable += ' errorcodes';
 
+  env.enableExt = findExtendedSettings(env.enable, process.env);
+
 
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.
@@ -213,6 +216,28 @@ function readENV(varName, defaultValue) {
   if (typeof value === 'string' && value.toLowerCase() == 'off') value = false;
 
   return value != null ? value : defaultValue;
+}
+
+function findExtendedSettings (enables, envs) {
+  var extended = {};
+  enables.split(' ').forEach(function eachEnable(enable) {
+    if (_.trim(enable)) {
+      _.forIn(envs, function eachEnvPair (value, key) {
+        if (_.startsWith(key, enable.toUpperCase() + '_') || _.startsWith(key, enable.toLowerCase() + '_')) {
+          var split = key.indexOf('_');
+          if (split > -1 && split <= key.length) {
+            var exts = extended[enable] || {};
+            extended[enable] = exts;
+            var ext = _.kebabCase(key.substring(split + 1).toLowerCase());
+            exts[ext] = value;
+          }
+        }
+      });
+    }
+  });
+
+  console.info('Extended Settings: ', extended);
+  return extended;
 }
 
 module.exports = config;
