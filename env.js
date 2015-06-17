@@ -222,7 +222,7 @@ function findExtendedSettings (enables, envs) {
   var extended = {};
   enables.split(' ').forEach(function eachEnable(enable) {
     if (_.trim(enable)) {
-      _.forIn(envs, function (value, key) {
+      _.forIn(envs, function eachEnvPair (value, key) {
         if (_.startsWith(key, enable.toUpperCase() + '_') || _.startsWith(key, enable.toLowerCase() + '_')) {
           var split = key.indexOf('_');
           if (split > -1 && split <= key.length) {
