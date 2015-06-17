@@ -43,4 +43,3 @@ function populate_collection(db) {
         process.exit(0);
     });
 }
-
