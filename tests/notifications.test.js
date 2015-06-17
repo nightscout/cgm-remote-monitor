@@ -13,22 +13,27 @@ describe('notifications', function ( ) {
 
   var notifications = require('../lib/notifications')(env, ctx);
 
+  var examplePlugin = function examplePlugin () {};
+
   var exampleInfo = {
     title: 'test'
     , message: 'testing'
     , level: notifications.levels.INFO
+    , plugin: examplePlugin
   };
 
   var exampleWarn = {
     title: 'test'
     , message: 'testing'
     , level: notifications.levels.WARN
+    , plugin: examplePlugin
   };
 
   var exampleUrgent = {
     title: 'test'
     , message: 'testing'
     , level: notifications.levels.URGENT
+    , plugin: examplePlugin
   };
 
   var exampleSnooze = {
