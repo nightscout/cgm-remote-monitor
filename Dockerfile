@@ -2,9 +2,15 @@ FROM node:0.10.38-slim
 
 MAINTAINER Nightscout
 
-# Netcat is required to poll the database, so Nightscout starts when MongoDB is up and running
-RUN apt-get update && apt-get -y install netcat
-RUN npm install .
+WORKDIR /opt/app
+ 
+# GIT is required for npm to download and compile a dependency
+RUN apt-get update && apt-get -y install git
+
+RUN npm install
+
+ADD . /opt/app
 
 EXPOSE 1337
-CMD ["sh", "docker/docker-start.sh"]
+
+CMD ["node", "server.js"]

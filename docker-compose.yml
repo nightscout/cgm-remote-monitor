@@ -1,5 +1,5 @@
 nightscout:
-  build: ../
+  build: .
   links:
    - database
    - broker
