@@ -187,13 +187,14 @@ function config ( ) {
 
   env.extendedSettings = findExtendedSettings(env.enable, process.env);
 
+  env.baseUrl = readENV('BASE_URL');
 
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.
   // This allows a provided json config to override environment variables
   var DB = require('./database_configuration.json'),
     DB_URL = DB.url ? DB.url : env.mongo,
-    DB_COLLECTION = DB.collection ? DB.collection : env.mongo_collection
+    DB_COLLECTION = DB.collection ? DB.collection : env.mongo_collection;
   env.mongo = DB_URL;
   env.mongo_collection = DB_COLLECTION;
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
