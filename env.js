@@ -185,7 +185,7 @@ function config ( ) {
   }
   env.enable += ' errorcodes';
 
-  env.enableExt = findExtendedSettings(env.enable, process.env);
+  env.extendedSettings = findExtendedSettings(env.enable, process.env);
 
 
   // TODO: clean up a bit
