@@ -1,3 +1,4 @@
+'use strict';
 
 var dir = __dirname;
 var fs = require('fs');

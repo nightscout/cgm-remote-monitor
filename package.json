@@ -60,7 +60,8 @@
     "mqtt": "~0.3.11",
     "pushover-notifications": "0.2.0",
     "sgvdata": "git://github.com/ktind/sgvdata.git#wip/protobuf",
-    "socket.io": "^0.9.17"
+    "socket.io": "^0.9.17",
+    "json-override": "0.2.0"
   },
   "devDependencies": {
     "istanbul": "~0.3.5",
