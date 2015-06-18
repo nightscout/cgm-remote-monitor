@@ -236,8 +236,6 @@ function findExtendedSettings (enables, envs) {
       });
     }
   });
-
-  console.info('Extended Settings: ', extended);
   return extended;
 }
 
