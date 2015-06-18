@@ -1804,6 +1804,7 @@ function nsArrayDiff(oldArray, newArray) {
         , head: xhr.head
         , apiEnabled: xhr.apiEnabled
         , enabledOptions: xhr.enabledOptions || ''
+        , extendedSettings: xhr.extendedSettings
         , thresholds: xhr.thresholds
         , alarm_types: xhr.alarm_types
         , units: xhr.units
