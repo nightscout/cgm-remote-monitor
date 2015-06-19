@@ -33,6 +33,9 @@ report:
 	test -f ${ANALYZED} && \
 	(npm install coveralls && cat ${ANALYZED} | \
 	./node_modules/.bin/coveralls) || echo "NO COVERAGE"
+	test -f ${ANALYZED} && \
+	(npm install codecov.io && cat ${ANALYZED} | \
+	./node_modules/codecov.io/bin/codecov.io.js) || echo "NO COVERAGE"
 
 test:
 	${MONGO_SETTINGS} ${MOCHA} -R tap ${TESTS}

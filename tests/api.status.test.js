@@ -13,11 +13,12 @@ describe('Status REST api', function ( ) {
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    store(function ( ) {
-      var entriesStorage = require('../lib/entries').storage(env.mongo_collection, store);
-      self.app.use('/api', api(env, entriesStorage));
+    var bootevent = require('../lib/bootevent');
+    bootevent(env).boot(function booted (ctx) {
+      self.app.use('/api', api(env,  ctx.entries));
       done();
     });
+
   });
 
   it('should be a module', function ( ) {
