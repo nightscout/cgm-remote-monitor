@@ -22,6 +22,15 @@ describe('Data', function ( ) {
     delta.sgvs.length.should.equal(1);
   });
 
+  it('adding one treatment record should return delta with one treatment', function() {
+    data.treatments = [{sgv: 100, x:100},{sgv: 100, x:99}];
+    var newData = data.clone();
+    newData.treatments = [{sgv: 100, x:100},{sgv: 100, x:99},{sgv: 100, x:98}];
+    var delta = data.calculateDeltaBetweenDatasets(data,newData);
+    delta.delta.should.equal(true);
+    delta.treatments.length.should.equal(1);
+  });
+
   it('changes to treatments, mbgs and cals should be calculated even if sgvs is not changed', function() {
     data.sgvs = [{sgv: 100, x:100},{sgv: 100, x:99}];
     data.treatments = [{sgv: 100, x:100},{sgv: 100, x:99}];
