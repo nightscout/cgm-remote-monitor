@@ -149,11 +149,11 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 }
 ```
   * The ```carbratio``` value should be the insulin to carb ratio used for BWP.
-    The ```dia``` value should be the duration of insulin action you want IOB/BWP to use in calculating how much insulin is left active.
-    The ```sens``` value should be the Insulin Sensitivity Factor used by BWP, How much one unit of insulin will normally lower blood glucose.
-    The ```target_low``` value should be the low number of the target zone you want BWP calculations to aim for.
-    The ```target_high``` value should be the high number of the target zone you want BWP calculations to aim for.
-    Additional information can be found [here](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website)
+  * The ```dia``` value should be the duration of insulin action you want IOB/BWP to use in calculating how much insulin is left active.
+  * The ```sens``` value should be the Insulin Sensitivity Factor used by BWP, How much one unit of insulin will normally lower blood glucose.
+  * The ```target_low``` value should be the low number of the target zone you want BWP calculations to aim for.
+  * The ```target_high``` value should be the high number of the target zone you want BWP calculations to aim for.
+  * Additional information can be found [here](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website)
 
 ## Setting environment variables
 Easy to emulate on the commandline:
