@@ -99,10 +99,11 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `BG_TARGET_BOTTOM` (`80`) - must be set using mg/dl units; the bottom of the target range, also used to draw the line on the chart
   * `BG_LOW` (`55`) - must be set using mg/dl units; the low BG outside the target range that is considered urgent
   * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's
-  * `BASE_URL` - Used for building links to your sites api, ie pushover callbacks
+  * `BASE_URL` - Used for building links to your sites api, ie pushover callbacks, usually the URL of your Nightscout site you may want https instead of http
   * `PUSHOVER_API_TOKEN` - Used to enable pushover notifications for Care Portal treatments, this token is specific to the application you create from in [Pushover](https://pushover.net/)
   * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site
-
+  * `PUSHOVER_GROUP_KEY` - If you wish to send to a Pushover delivery group instead of just to a user, Specify a group key in this variable, See the [Pushover](https://pushover.net) site to set up a delivery group and get a group key.
+ 
 
 #### Core
 
@@ -132,7 +133,21 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
   * `SHOW_PLUGINS` - enabled plugins that should have their visualisations shown, defaults to all enabled
   
-  
+#### A note on BWP/Bolus wizard preview
+  * If your ENABLE variable has bwp enabled, and you don't have a profile set up in mongo your Nightscout deployment
+    likely won't run cause it couldn't find some profile values that bwp is looking for
+  * To provide the profile information you will have to add a document to the profile collection in you mongo database with the following information
+  ```json
+{
+    "carbratio": 7.5, // Insulin to carb ratio
+    "carbs_hr": 30, // see here [IOB-COB site](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website)
+    "dia": 4, // Duration of insulin action used for calculating IOB remaining in iob/bwp
+    "sens": 35, // Insulin Sensitivity Factor how much one unit lowers your blood glucose
+    "target_low": 95, // Bottom number for your target range for BWP
+    "target_high": 120 // Top number for your target range for BWP
+}
+  ```
+
 ## Setting environment variables
 Easy to emulate on the commandline:
 
