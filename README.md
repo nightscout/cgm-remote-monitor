@@ -101,8 +101,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's
   * `BASE_URL` - Used for building links to your sites api, ie pushover callbacks, usually the URL of your Nightscout site you may want https instead of http
   * `PUSHOVER_API_TOKEN` - Used to enable pushover notifications for Care Portal treatments, this token is specific to the application you create from in [Pushover](https://pushover.net/)
-  * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site
-  * `PUSHOVER_GROUP_KEY` - If you wish to send to a Pushover delivery group instead of just to a user, Specify a group key in this variable, See the [Pushover](https://pushover.net) site to set up a delivery group and get a group key.
+  * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.
  
 
 #### Core
