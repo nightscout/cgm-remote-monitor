@@ -136,17 +136,24 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 #### A note on BWP/Bolus wizard preview
   * If your ENABLE variable has bwp enabled, and you don't have a profile set up in mongo your Nightscout deployment
     likely won't run cause it couldn't find some profile values that bwp is looking for
-  * To provide the profile information you will have to add a document to the profile collection in you mongo database with the following information
+  * To provide the profile information you will have to add a document to the profile collection in you mongo database with the following information,
+    Data below is provided as an example please ensure you change it to fit.
 ```json
 {
-    "carbratio": 7.5, // Insulin to carb ratio
-    "carbs_hr": 30, // see here [IOB-COB site](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website)
-    "dia": 4, // Duration of insulin action used for calculating IOB remaining in iob/bwp
-    "sens": 35, // Insulin Sensitivity Factor how much one unit lowers your blood glucose
-    "target_low": 95, // Bottom number for your target range for BWP
-    "target_high": 120 // Top number for your target range for BWP
+    "carbratio": 7.5,
+    "carbs_hr": 30, 
+    "dia": 4, 
+    "sens": 35, 
+    "target_low": 95, 
+    "target_high": 120
 }
 ```
+  * The ```carbratio``` value should be the insulin to carb ratio used for BWP.
+    The ```dia``` value should be the duration of insulin action you want IOB/BWP to use in calculating how much insulin is left active.
+    The ```sens``` value should be the Insulin Sensitivity Factor used by BWP, How much one unit of insulin will normally lower blood glucose.
+    The ```target_low``` value should be the low number of the target zone you want BWP calculations to aim for.
+    The ```target_high``` value should be the high number of the target zone you want BWP calculations to aim for.
+    Additional information can be found [here](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website)
 
 ## Setting environment variables
 Easy to emulate on the commandline:
