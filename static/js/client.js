@@ -301,6 +301,21 @@ function nsArrayDiff(oldArray, newArray) {
     }
   }
 
+  function addPlaceholderPoints () {
+    // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
+    // This shouldn't need to be generated and can be fixed by using xScale.domain([x0,x1]) function with
+    // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
+    // required to happen when 'now' event is sent from websocket.js every minute.  When fixed,
+    // remove all 'color != 'none'' code
+    var lastTime = data.length > 0 ? data[data.length - 1].date.getTime() : Date.now();
+    var n = Math.ceil(12 * (1 / 2 + (now - lastTime) / SIXTY_MINS_IN_MS)) + 1;
+    for (var i = 1; i <= n; i++) {
+      data.push({
+        date: new Date(lastTime + (i * FIVE_MINS_IN_MS)), y: 100, sgv: scaleBg(100), color: 'none', type: 'server-forecast'
+      });
+    }
+  }
+
   // clears the current user brush and resets to the current real time data
   function updateBrushToNow(skipBrushing) {
 
@@ -312,6 +327,8 @@ function nsArrayDiff(oldArray, newArray) {
       .transition()
       .duration(UPDATE_TRANS_MS)
       .call(brush.extent([new Date(dataRange[1].getTime() - foucusRangeMS), dataRange[1]]));
+
+    addPlaceholderPoints();
 
     if (!skipBrushing) {
       brushed(true);
@@ -1693,18 +1710,7 @@ function nsArrayDiff(oldArray, newArray) {
       data = [];
       data = data.concat(temp1, temp2);
 
-      // TODO: This is a kludge to advance the time as data becomes stale by making old predictor clear (using color = 'none')
-      // This shouldn't need to be generated and can be fixed by using xScale.domain([x0,x1]) function with
-      // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
-      // required to happen when 'now' event is sent from websocket.js every minute.  When fixed,
-      // remove all 'color != 'none'' code
-      var lastTime = data.length > 0 ? data[data.length - 1].date.getTime() : Date.now();
-      var n = Math.ceil(12 * (1 / 2 + (now - lastTime) / SIXTY_MINS_IN_MS)) + 1;
-      for (var i = 1; i <= n; i++) {
-        data.push({
-          date: new Date(lastTime + (i * FIVE_MINS_IN_MS)), y: 100, sgv: scaleBg(100), color: 'none', type: 'server-forecast'
-        });
-      }
+      addPlaceholderPoints();
 
       data = data.concat(MBGdata.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 
