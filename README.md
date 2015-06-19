@@ -137,7 +137,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * If your ENABLE variable has bwp enabled, and you don't have a profile set up in mongo your Nightscout deployment
     likely won't run cause it couldn't find some profile values that bwp is looking for
   * To provide the profile information you will have to add a document to the profile collection in you mongo database with the following information
-  ```bash
+```bash
 {
     "carbratio": 7.5, // Insulin to carb ratio
     "carbs_hr": 30, // see here [IOB-COB site](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website)
@@ -146,7 +146,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
     "target_low": 95, // Bottom number for your target range for BWP
     "target_high": 120 // Top number for your target range for BWP
 }
-  ```
+```
 
 ## Setting environment variables
 Easy to emulate on the commandline:
