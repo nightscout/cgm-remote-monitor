@@ -1,6 +1,7 @@
 'use strict';
 
 var env = { };
+var _ = require('lodash');
 var crypto = require('crypto');
 var consts = require('./lib/constants');
 var fs = require('fs');
@@ -12,7 +13,6 @@ function config ( ) {
    *   * PORT - serve http on this port
    *   * MONGO_CONNECTION, CUSTOMCONNSTR_mongo - mongodb://... uri
    *   * CUSTOMCONNSTR_mongo_collection - name of mongo collection with "sgv" documents
-   *   * CUSTOMCONNSTR_mongo_settings_collection - name of mongo collection to store configurable settings
    *   * API_SECRET - if defined, this passphrase is fed to a sha1 hash digest, the hex output is used to create a single-use token for API authorization
    *   * NIGHTSCOUT_STATIC_FILES - the "base directory" to use for serving
    *     static files over http.  Default value is the included `static`
@@ -50,7 +50,6 @@ function config ( ) {
       console.info('MQTT configured to use a custom client id, it will override the default: ', env.mqtt_client_id);
     }
   }
-  env.settings_collection = readENV('MONGO_SETTINGS_COLLECTION', 'settings');
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
@@ -92,6 +91,7 @@ function config ( ) {
   env.defaults.alarmTimeAgoWarnMins = readENV('ALARM_TIMEAGO_WARN_MINS', env.defaults.alarmTimeAgoWarnMins);
   env.defaults.alarmTimeAgoUrgent = readENV('ALARM_TIMEAGO_URGENT', env.defaults.alarmTimeAgoUrgent);
   env.defaults.alarmTimeAgoUrgentMins = readENV('ALARM_TIMEAGO_URGENT_MINS', env.defaults.alarmTimeAgoUrgentMins);
+  env.defaults.showPlugins = readENV('SHOW_PLUGINS', '');
 
   //console.log(JSON.stringify(env.defaults));
   
@@ -166,20 +166,37 @@ function config ( ) {
   var thresholdsSet = readIntENV('BG_HIGH') || readIntENV('BG_TARGET_TOP') || readIntENV('BG_TARGET_BOTTOM') || readIntENV('BG_LOW');
   env.alarm_types = readENV('ALARM_TYPES') || (thresholdsSet ? "simple" : "predict");
 
+  //TODO: maybe get rid of ALARM_TYPES and only use enable?
+  if (env.alarm_types.indexOf('simple') > -1) {
+    env.enable = 'simplealarms ' + env.enable;
+  }
+  if (env.alarm_types.indexOf('predict') > -1) {
+    env.enable = 'ar2 ' + env.enable;
+  }
+
   // For pushing notifications to Pushover.
+  //TODO: handle PUSHOVER_ as generic plugin props
   env.pushover_api_token = readENV('PUSHOVER_API_TOKEN');
   env.pushover_user_key = readENV('PUSHOVER_USER_KEY') || readENV('PUSHOVER_GROUP_KEY');
+  if (env.pushover_api_token && env.pushover_user_key) {
+    env.enable += ' pushover';
+    //TODO: after config changes are documented this shouldn't be auto enabled
+    env.enable += ' treatmentnotify';
+  }
+  env.enable += ' errorcodes';
+
+  env.extendedSettings = findExtendedSettings(env.enable, process.env);
+
+  env.baseUrl = readENV('BASE_URL');
 
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.
   // This allows a provided json config to override environment variables
   var DB = require('./database_configuration.json'),
     DB_URL = DB.url ? DB.url : env.mongo,
-    DB_COLLECTION = DB.collection ? DB.collection : env.mongo_collection,
-    DB_SETTINGS_COLLECTION = DB.settings_collection ? DB.settings_collection : env.settings_collection;
+    DB_COLLECTION = DB.collection ? DB.collection : env.mongo_collection;
   env.mongo = DB_URL;
   env.mongo_collection = DB_COLLECTION;
-  env.settings_collection = DB_SETTINGS_COLLECTION;
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
 
   return env;
@@ -200,6 +217,26 @@ function readENV(varName, defaultValue) {
   if (typeof value === 'string' && value.toLowerCase() == 'off') value = false;
 
   return value != null ? value : defaultValue;
+}
+
+function findExtendedSettings (enables, envs) {
+  var extended = {};
+  enables.split(' ').forEach(function eachEnable(enable) {
+    if (_.trim(enable)) {
+      _.forIn(envs, function eachEnvPair (value, key) {
+        if (_.startsWith(key, enable.toUpperCase() + '_') || _.startsWith(key, enable.toLowerCase() + '_')) {
+          var split = key.indexOf('_');
+          if (split > -1 && split <= key.length) {
+            var exts = extended[enable] || {};
+            extended[enable] = exts;
+            var ext = _.camelCase(key.substring(split + 1).toLowerCase());
+            exts[ext] = value;
+          }
+        }
+      });
+    }
+  });
+  return extended;
 }
 
 module.exports = config;

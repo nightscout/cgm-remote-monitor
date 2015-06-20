@@ -5,14 +5,9 @@ function create (env, ctx) {
   ///////////////////////////////////////////////////
   // api and json object variables
   ///////////////////////////////////////////////////
-  var api = require('./lib/api/')(env, ctx.entries, ctx.settings, ctx.treatments, ctx.profiles, ctx.devicestatus);
-  var pebble = ctx.pebble;
+  var api = require('./lib/api/')(env, ctx);
 
   var app = express();
-  app.entries = ctx.entries;
-  app.treatments = ctx.treatments;
-  app.profiles = ctx.profiles;
-  app.devicestatus = ctx.devicestatus;
   var appInfo = env.name + ' ' + env.version;
   app.set('title', appInfo);
   app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
@@ -32,7 +27,7 @@ function create (env, ctx) {
 
 
   // pebble data
-  app.get('/pebble', pebble(ctx.entries, ctx.treatments, ctx.profiles, ctx.devicestatus, env));
+  app.get('/pebble', ctx.pebble);
 
   //app.get('/package.json', software);
 

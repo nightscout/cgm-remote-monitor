@@ -8,13 +8,14 @@ describe('Entries REST api', function ( ) {
   before(function (done) {
     var env = require('../env')( );
     this.wares = require('../lib/middleware/')(env);
-    var store = require('../lib/storage')(env);
-    this.archive = require('../lib/entries').storage(env.mongo_collection, store);
+    this.archive = null;
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    store(function ( ) {
-      self.app.use('/', entries(self.app, self.wares, self.archive));
+    var bootevent = require('../lib/bootevent');
+    bootevent(env).boot(function booted (ctx) {
+      self.app.use('/', entries(self.app, self.wares, ctx));
+      self.archive = require('../lib/entries')(env, ctx);
       self.archive.create(load('json'), done);
     });
   });
@@ -63,7 +64,7 @@ describe('Entries REST api', function ( ) {
       });
   });
 
-  it('/entries/ID', function (done) {
+  it('/entries/sgv/ID', function (done) {
     var app = this.app;
     this.archive.list({count: 1}, function(err, records) {
       var currentId = records.pop()._id.toString();
