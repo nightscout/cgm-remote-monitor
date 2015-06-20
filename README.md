@@ -194,29 +194,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `target_high` - Upper target for correction boluses
   * `target_low` - Lower target for correction boluses
 
-  Additional information can be found [here](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website)
-
-#### A note on BWP/Bolus wizard preview
-  * If your ENABLE variable has bwp enabled, and you don't have a profile set up in mongo your Nightscout deployment
-    likely won't run cause it couldn't find some profile values that bwp is looking for
-  * To provide the profile information you will have to add a document to the profile collection in you mongo database with the following information,
-    Data below is provided as an example please ensure you change it to fit.
-```json
-{
-    "carbratio": 7.5,
-    "carbs_hr": 30,
-    "dia": 4,
-    "sens": 35,
-    "target_low": 95,
-    "target_high": 120
-}
-```
-  * The ```carbratio``` value should be the insulin to carb ratio used for BWP.
-  * The ```dia``` value should be the duration of insulin action you want IOB/BWP to use in calculating how much insulin is left active.
-  * The ```sens``` value should be the Insulin Sensitivity Factor used by BWP, How much one unit of insulin will normally lower blood glucose.
-  * The ```target_low``` value should be the low number of the target zone you want BWP calculations to aim for.
-  * The ```target_high``` value should be the high number of the target zone you want BWP calculations to aim for.
-  * Additional information can be found [here](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website)
+  Additional information can be found [here](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website).
 
 ### Pushover
   In addition to the normal web based alarms, there is also support for [Pushover](https://pushover.net/) based alarms and notifications.
@@ -225,7 +203,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
   Using that account login to [Pushover](https://pushover.net/), in the top left you’ll see your User Key, you’ll need this plus an application API Token/Key to complete this setup.
 
-  You’ll need to [Create a Pushover Application](https://pushover.net/apps/build).  You only need to set the Application name, you can ignore all the other settings, but setting an Icon is a nice touch.  Maybe you'd like to use [this one](https://raw.githubusercontent.com/nightscout/cgm-remote-monitor/master/static/images/large.png)
+  You’ll need to [Create a Pushover Application](https://pushover.net/apps/build).  You only need to set the Application name, you can ignore all the other settings, but setting an Icon is a nice touch.  Maybe you'd like to use [this one](https://raw.githubusercontent.com/nightscout/cgm-remote-monitor/master/static/images/large.png)?
 
   Pushover is configured using the `PUSHOVER_API_TOKEN`, `PUSHOVER_USER_KEY`, `BASE_URL`, and `API_SECRET` environment variables. For acknowledgment callbacks to work `BASE_URL` and `API_SECRET` must be set and `BASE_URL` must be publicly accessible.  For testing/devlopment try [localtunnel](http://localtunnel.me/).
 
