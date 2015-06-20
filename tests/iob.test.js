@@ -1,3 +1,5 @@
+'use strict';
+
 var should = require('should');
 
 var FIVE_MINS = 10 * 60 * 1000;

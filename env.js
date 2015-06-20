@@ -169,14 +169,6 @@ function config ( ) {
   env.pushover_api_token = readENV('PUSHOVER_API_TOKEN');
   env.pushover_user_key = readENV('PUSHOVER_USER_KEY') || readENV('PUSHOVER_GROUP_KEY');
 
-  // TODO: clean up a bit
-  // Some people prefer to use a json configuration file instead.
-  // This allows a provided json config to override environment variables
-  var DB = require('./database_configuration.json'),
-    DB_URL = DB.url ? DB.url : env.mongo,
-    DB_COLLECTION = DB.collection ? DB.collection : env.mongo_collection
-  env.mongo = DB_URL;
-  env.mongo_collection = DB_COLLECTION;
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
 
   return env;
