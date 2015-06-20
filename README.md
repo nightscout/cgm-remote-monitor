@@ -101,9 +101,9 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `BG_TARGET_BOTTOM` (`80`) - must be set using mg/dl units; the bottom of the target range, also used to draw the line on the chart
   * `BG_LOW` (`55`) - must be set using mg/dl units; the low BG outside the target range that is considered urgent
   * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's
-  * `BASE_URL` - Used for building links to your sites api, ie pushover callbacks
-  * `PUSHOVER_API_TOKEN` - Used to enable pushover notifications for Care Portal treatments, this token is specific to the application you create from in [Pushover](https://pushover.net/), ***[additional pushover information](#pushover)*** below.
-  * `PUSHOVER_USER_KEY` - Your Pushover user *(or group)* key, can be found in the top left of the [Pushover](https://pushover.net/) site
+  * `BASE_URL` - Used for building links to your sites api, ie pushover callbacks, usually the URL of your Nightscout site you may want https instead of http
+  * `PUSHOVER_API_TOKEN` - Used to enable pushover notifications, this token is specific to the application you create from in [Pushover](https://pushover.net/), ***[additional pushover information](#pushover)*** below.
+  * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.
 
 
 #### Core
@@ -133,6 +133,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
+
 
 ### Plugins
 
@@ -171,14 +172,51 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   Plugins only have access to their own extended settings, all the extended settings of client plugins will be sent to the browser.
 
 ### Treatment Profile
-  Some of the [plugins](#plugins) make use of a treatment profile that is stored in Mongo. To use those plugins there should only be a single doc in the `profile` collection with the following fields:
+  Some of the [plugins](#plugins) make use of a treatment profile that is stored in Mongo. To use those plugins there should only be a single doc in the `profile` collection.  For example (change it to fit you):
 
-  * `dia` (Insulin duration) - defaults to 3 hours
+  ```json
+  {
+    "dia": 4,
+    "carbs_hr": 30,
+    "carbratio": 7.5,
+    "sens": 35,
+    "target_low": 95,
+    "target_high": 120
+  }
+  ```
+
+  Treatment Profile Fields:
+
+  * `dia` (Insulin duration) - value should be the duration of insulin action to use in calculating how much insulin is left active. Defaults to 3 hours
   * `carbs_hr` (Carbs per Hour) - The number of carbs that are processed per hour, for more information see [#DIYPS](http://diyps.org/2014/05/29/determining-your-carbohydrate-absorption-rate-diyps-lessons-learned/)
   * `carbratio` (Carb Ratio) - grams per unit of insulin
-  * `sens` (Insulin sensitivity) field from the treatment profile
+  * `sens` (Insulin sensitivity) How much one unit of insulin will normally lower blood glucose.
   * `target_high` - Upper target for correction boluses
   * `target_low` - Lower target for correction boluses
+
+  Additional information can be found [here](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website)
+
+#### A note on BWP/Bolus wizard preview
+  * If your ENABLE variable has bwp enabled, and you don't have a profile set up in mongo your Nightscout deployment
+    likely won't run cause it couldn't find some profile values that bwp is looking for
+  * To provide the profile information you will have to add a document to the profile collection in you mongo database with the following information,
+    Data below is provided as an example please ensure you change it to fit.
+```json
+{
+    "carbratio": 7.5,
+    "carbs_hr": 30,
+    "dia": 4,
+    "sens": 35,
+    "target_low": 95,
+    "target_high": 120
+}
+```
+  * The ```carbratio``` value should be the insulin to carb ratio used for BWP.
+  * The ```dia``` value should be the duration of insulin action you want IOB/BWP to use in calculating how much insulin is left active.
+  * The ```sens``` value should be the Insulin Sensitivity Factor used by BWP, How much one unit of insulin will normally lower blood glucose.
+  * The ```target_low``` value should be the low number of the target zone you want BWP calculations to aim for.
+  * The ```target_high``` value should be the high number of the target zone you want BWP calculations to aim for.
+  * Additional information can be found [here](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website)
 
 ### Pushover
   In addition to the normal web based alarms, there is also support for [Pushover](https://pushover.net/) based alarms and notifications.
