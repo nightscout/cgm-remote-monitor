@@ -10,6 +10,6 @@ RUN apt-get update && apt-get -y install git
 
 RUN npm install
 
-EXPOSE 1337
+EXPOSE 80
 
 CMD ["node", "server.js"]
