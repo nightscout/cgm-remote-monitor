@@ -19,7 +19,7 @@ and blood glucose values are predicted 0.5 hours ahead using an
 autoregressive second order model.  Alarms are generated for high and
 low values, which can be cleared by any watcher of the data.
 
-#[#WeAreNotWaiting](https://twitter.com/hashtag/WeAreNotWaiting) and [this](https://vimeo.com/109767890) is why.
+#[#WeAreNotWaiting](https://twitter.com/hashtag/wearenotwaiting?src=hash&vertical=default&f=images) and [this](https://vimeo.com/109767890) is why.
 
 Community maintained fork of the
 [original cgm-remote-monitor][original].
@@ -132,13 +132,13 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
-  * `SHOW_PLUGINS` - enabled plugins that should have their visualisations shown, defaults to all enabled
+  * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
 
 ### Plugins
 
   Plugins are used extend the way information is displayed, how notifications are sent, alarms are triggered, and more.
 
-  The built-in/example plugins that are available by default are listed below.  The plugins may still need to be `ENABLE`'d.
+  The built-in/example plugins that are available by default are listed below.  The plugins may still need to be enabled by adding the to the `ENABLE` environment variable.
 
   **Built-in/Example Plugins:**
 
@@ -174,8 +174,8 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   Some of the [plugins](#plugins) make use of a treatment profile that is stored in Mongo. To use those plugins there should only be a single doc in the `profile` collection with the following fields:
 
   * `dia` (Insulin duration) - defaults to 3 hours
-  * `carbs_hr` ([Carbs per hour](http://diyps.org/2014/05/29/determining-your-carbohydrate-absorption-rate-diyps-lessons-learned/))
-  * `carbratio` - grams per unit of insulin
+  * `carbs_hr` (Carbs per Hour) - The number of carbs that are processed per hour, for more information see [#DIYPS](http://diyps.org/2014/05/29/determining-your-carbohydrate-absorption-rate-diyps-lessons-learned/)
+  * `carbratio` (Carb Ratio) - grams per unit of insulin
   * `sens` (Insulin sensitivity) field from the treatment profile
   * `target_high` - Upper target for correction boluses
   * `target_low` - Lower target for correction boluses
