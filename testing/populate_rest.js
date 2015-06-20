@@ -1,15 +1,4 @@
 'use strict';
-///////////////////////////////////////////////////
-// This script is intended to be run as a cron job
-// every n-minutes or whatever the equiv is on windows
-//
-// Author: John A. [euclidjda](https://github.com/euclidjda)
-// Source: https://gist.github.com/euclidjda/4ae207a89921f21382a9
-///////////////////////////////////////////////////
-
-///////////////////////////////////////////////////
-// DB Connection setup and utils
-///////////////////////////////////////////////////
 
 var software = require('./../package.json');
 var env = require('./../env')();
