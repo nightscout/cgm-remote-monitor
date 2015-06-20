@@ -4,12 +4,11 @@ nightscout:
    - database
    - broker
   ports:
-   - "1337:1337"
+   - "1337:80"
   environment:
    - MONGO_CONNECTION=mongodb://database/nightscout
    - API_SECRET=mylittlesecret
    - MQTT_MONITOR=mqtt://broker
-   - PORT=1337
 database:
   image: mongo:3.0.3
   ports:
