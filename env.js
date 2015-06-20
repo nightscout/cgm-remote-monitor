@@ -229,7 +229,7 @@ function findExtendedSettings (enables, envs) {
           if (split > -1 && split <= key.length) {
             var exts = extended[enable] || {};
             extended[enable] = exts;
-            var ext = _.kebabCase(key.substring(split + 1).toLowerCase());
+            var ext = _.camelCase(key.substring(split + 1).toLowerCase());
             exts[ext] = value;
           }
         }
