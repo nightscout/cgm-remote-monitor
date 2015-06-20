@@ -37,9 +37,8 @@ describe('Entries REST api', function ( ) {
       .get('/entries.json?count=' + count)
       .expect(200)
       .end(function (err, res) {
-        // console.log('body', res.body);
-        res.body.length.should.equal(count);
-        done( );
+        res.body.should.be.instanceof(Array).and.have.lengthOf(count);
+        done();
       });
   });
 
@@ -49,8 +48,7 @@ describe('Entries REST api', function ( ) {
       .get('/entries.json')
       .expect(200)
       .end(function (err, res) {
-        // console.log('body', res.body);
-        res.body.length.should.equal(defaultCount);
+        res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
         done( );
       });
   });
@@ -60,9 +58,8 @@ describe('Entries REST api', function ( ) {
       .get('/entries/current.json')
       .expect(200)
       .end(function (err, res) {
-        res.body.length.should.equal(1);
-        done( );
-        // console.log('err', err, 'res', res);
+        res.body.should.be.instanceof(Array).and.have.lengthOf(1);
+        done();
       });
   });
 
@@ -74,7 +71,7 @@ describe('Entries REST api', function ( ) {
         .get('/entries/'+currentId+'.json')
         .expect(200)
         .end(function (err, res) {
-          res.body.length.should.equal(1);
+          res.body.should.be.instanceof(Array).and.have.lengthOf(1);
           res.body[0]._id.should.equal(currentId);
           done( );
         });
@@ -88,10 +85,8 @@ describe('Entries REST api', function ( ) {
       .send(load('json'))
       .expect(201)
       .end(function (err, res) {
-        // console.log(res.body);
-        res.body.length.should.equal(30);
-        done( );
-        // console.log('err', err, 'res', res);
+        res.body.should.be.instanceof(Array).and.have.lengthOf(30);
+        done();
       });
   });
 });
