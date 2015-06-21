@@ -39,7 +39,8 @@ Some simple rules, that will make it easier to maintain our codebase:
 * Name your callback functions, such as `boom('the name', function afterBoom ( result ) { }`
 * Don't include author names in the header of your files, if you need to give credit to someone else do it in the commit comment.
 * Use the comma first style, for example:
-  javascript```
+
+  ```javascript
   var data = {
     value: 'the value'
     , detail: 'the details...'
