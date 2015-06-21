@@ -419,6 +419,7 @@ function nsArrayDiff(oldArray, newArray) {
       , currentDirection = $('.bgStatus .currentDirection')
       , majorPills = $('.bgStatus .majorPills')
       , minorPills = $('.bgStatus .minorPills')
+      , statusPills = $('.status .statusPills')
       , rawNoise = bgButton.find('.rawnoise')
       , rawbg = rawNoise.find('em')
       , noiseLevel = rawNoise.find('label')
@@ -471,12 +472,13 @@ function nsArrayDiff(oldArray, newArray) {
 
     function updatePlugins(sgvs, time) {
 
-      var pluginBase = Nightscout.plugins.base(majorPills, minorPills, tooltip);
+      var pluginBase = Nightscout.plugins.base(majorPills, minorPills, statusPills, tooltip);
 
       var sbx = Nightscout.sandbox.clientInit(app, browserSettings, time, pluginBase, {
         sgvs: sgvs
         , treatments: treatments
         , profile: profile
+        , uploaderBattery: devicestatusData && devicestatusData.uploaderBattery
       });
 
       //all enabled plugins get a chance to set properties, even if they aren't shown
@@ -541,24 +543,6 @@ function nsArrayDiff(oldArray, newArray) {
       updateCurrentSGV(latestSGV);
       updateClockDisplay();
       updateTimeAgo();
-
-      var battery = devicestatusData && devicestatusData.uploaderBattery;
-      if (battery) {
-        $('#uploaderBattery em').text(battery + '%');
-        $('#uploaderBattery label')
-          .toggleClass('icon-battery-100', battery >= 95)
-          .toggleClass('icon-battery-75', battery < 95 && battery >= 55)
-          .toggleClass('icon-battery-50', battery < 55 && battery >= 30)
-          .toggleClass('icon-battery-25', battery < 30);
-
-        $('#uploaderBattery')
-          .show()
-          .toggleClass('warn', battery <= 30 && battery > 20)
-          .toggleClass('urgent', battery <= 20);
-      } else {
-        $('#uploaderBattery').hide();
-      }
-
       updatePlugins(nowData, nowDate);
 
       currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);

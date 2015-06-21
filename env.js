@@ -95,7 +95,7 @@ function config ( ) {
 
   //TODO: figure out something for some plugins to have them shown by default
   if (env.defaults.showPlugins != '') {
-    env.defaults.showPlugins += ' delta'
+    env.defaults.showPlugins += ' delta upbat'
   }
 
   //console.log(JSON.stringify(env.defaults));
@@ -190,7 +190,7 @@ function config ( ) {
   }
 
   //TODO: figure out something for default plugins, how can they be disabled?
-  env.enable += ' delta errorcodes';
+  env.enable += ' delta upbat errorcodes';
 
   env.extendedSettings = findExtendedSettings(env.enable, process.env);
 
