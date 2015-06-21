@@ -13,7 +13,7 @@ describe('API_SECRET', function ( ) {
     var ctx = { };
     ctx.wares = require('../lib/middleware/')(env);
     ctx.store = require('../lib/storage')(env);
-    ctx.archive = require('../lib/entries')(env.mongo_collection, ctx.store);
+    ctx.archive = require('../lib/entries').storage(env.mongo_collection, ctx.store);
     ctx.settings = require('../lib/settings')(env.settings_collection, ctx.store);
 
     ctx.store(function ( ) {
