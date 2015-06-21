@@ -12,7 +12,7 @@ describe('Status REST api', function ( ) {
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    require('../lib/bootevent')(env, function booted (ctx) {
+    require('../lib/bootevent')(env).boot(function booted (ctx) {
       self.app.use('/api', api(env, ctx.entries));
       done();
     });
