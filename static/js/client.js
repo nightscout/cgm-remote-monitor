@@ -469,30 +469,6 @@ function nsArrayDiff(oldArray, newArray) {
 
     }
 
-    function updateBGDelta(prevEntry, currentEntry) {
-
-      var pill = majorPills.find('span.pill.bgdelta');
-      if (!pill || pill.length == 0) {
-        pill = $('<span class="pill bgdelta"><em></em><label></label></span>');
-        majorPills.append(pill);
-      }
-
-      var deltaDisplay = calcDeltaDisplay(prevEntry, currentEntry);
-
-      if (deltaDisplay == null) {
-        pill.children('em').hide();
-      } else {
-        pill.children('em').text(deltaDisplay).show();
-      }
-
-      if (browserSettings.units == 'mmol') {
-        pill.children('label').text('mmol/L');
-      } else {
-        pill.children('label').text('mg/dL');
-      }
-
-    }
-
     function updatePlugins(sgvs, time) {
 
       var pluginBase = Nightscout.plugins.base(majorPills, minorPills, tooltip);
@@ -543,15 +519,7 @@ function nsArrayDiff(oldArray, newArray) {
       if (focusPoint) {
         updateCurrentSGV(focusPoint);
         currentDirection.html(focusPoint.y < 39 ? '✖' : focusPoint.direction);
-
-        var prevfocusPoint = nowData.length > lookback ? nowData[nowData.length - 2] : null;
-        if (prevfocusPoint) {
-          updateBGDelta(prevfocusPoint, focusPoint);
-        } else {
-          updateBGDelta();
-        }
       } else {
-        updateBGDelta();
         currentBG.text('---');
         currentDirection.text('-');
         rawNoise.hide();
@@ -590,8 +558,6 @@ function nsArrayDiff(oldArray, newArray) {
       } else {
         $('#uploaderBattery').hide();
       }
-
-      updateBGDelta(prevSGV, latestSGV);
 
       updatePlugins(nowData, nowDate);
 
