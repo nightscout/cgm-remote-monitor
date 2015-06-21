@@ -1,18 +1,6 @@
 //TODO: clean up
 var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
-var timeAgo = Nightscout.utils.timeAgo;
-
-function nsArrayDiff(oldArray, newArray) {
-  var seen = {};
-  var l = oldArray.length;
-  for (var i = 0; i < l; i++) { seen[oldArray[i].x] = true }
-  var result = [];
-  l = newArray.length;
-  for (var j = 0; j < l; j++) { if (!seen.hasOwnProperty(newArray[j].x)) { result.push(newArray[j]); console.log('delta data found'); } }
-  return result;
-}
-
 (function () {
   'use strict';
 
@@ -58,8 +46,9 @@ function nsArrayDiff(oldArray, newArray) {
     , urgentAlarmSound = 'alarm2.mp3';
 
   var sbx
-    , rawbg
-    , delta;
+    , rawbg = Nightscout.plugins('rawbg')
+    , delta = Nightscout.plugins('delta')
+    , timeAgo = Nightscout.utils.timeAgo;
 
   var jqWindow
     , tooltip
@@ -1510,15 +1499,17 @@ function nsArrayDiff(oldArray, newArray) {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     socket = io.connect();
 
-    function recordAlreadyStored(array,record) {
-      var l = array.length -1;
-      for (var i = 0; i <= l; i++) {
-        var oldRecord = array[i];
-        if (record.x == oldRecord.x) return true;
-      }
-    }
-
     function mergeDataUpdate(isDelta, cachedDataArray, receivedDataArray) {
+
+      function nsArrayDiff(oldArray, newArray) {
+        var seen = {};
+        var l = oldArray.length;
+        for (var i = 0; i < l; i++) { seen[oldArray[i].x] = true }
+        var result = [];
+        l = newArray.length;
+        for (var j = 0; j < l; j++) { if (!seen.hasOwnProperty(newArray[j].x)) { result.push(newArray[j]); console.log('delta data found'); } }
+        return result;
+      }
 
       // If there was no delta data, just return the original data
       if (!receivedDataArray) return cachedDataArray;
@@ -1558,7 +1549,6 @@ function nsArrayDiff(oldArray, newArray) {
         latestSGV = SGVdata[SGVdata.length - 1];
         prevSGV = SGVdata[SGVdata.length - 2];
       }
-
 
       var temp1 = [ ];
       if (cal && rawbg.isEnabled(sbx)) {
@@ -1696,8 +1686,6 @@ function nsArrayDiff(oldArray, newArray) {
     Nightscout.plugins.init(app);
     browserSettings = getBrowserSettings(browserStorage);
     sbx = Nightscout.sandbox.clientInit(app, browserSettings, Date.now());
-    delta = Nightscout.plugins('delta');
-    rawbg = Nightscout.plugins('rawbg');
     $('.container').toggleClass('has-minor-pills', Nightscout.plugins.hasShownType('pill-minor', browserSettings));
     init();
   });

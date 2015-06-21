@@ -95,7 +95,10 @@ function config ( ) {
 
   //TODO: figure out something for some plugins to have them shown by default
   if (env.defaults.showPlugins != '') {
-    env.defaults.showPlugins += ' delta upbat'
+    env.defaults.showPlugins += ' delta upbat';
+    if (env.defaults.showRawbg == 'always' || env.defaults.showRawbg == 'noise') {
+      env.defaults.showPlugins += 'rawbg';
+    }
   }
 
   //console.log(JSON.stringify(env.defaults));
