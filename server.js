@@ -43,7 +43,7 @@ function create (app) {
   return transport.createServer(app);
 }
 
-require('./lib/bootevent')(env, function booted (ctx) {
+require('./lib/bootevent')(env).boot(function booted (ctx) {
     var app = require('./app')(env, ctx);
     var server = create(app).listen(PORT);
     console.log('listening', PORT);
