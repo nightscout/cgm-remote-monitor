@@ -500,7 +500,7 @@ function nsArrayDiff(oldArray, newArray) {
       var sbx = Nightscout.sandbox.clientInit(app, browserSettings, time, pluginBase, {
         sgvs: sgvs
         , treatments: treatments
-        , profile: profile
+        , profile: Nightscout.profile
       });
 
       //all enabled plugins get a chance to set properties, even if they aren't shown
@@ -1675,7 +1675,10 @@ function nsArrayDiff(oldArray, newArray) {
       SGVdata = mergeDataUpdate(d.delta, SGVdata, d.sgvs);
       MBGdata = mergeDataUpdate(d.delta,MBGdata, d.mbgs);
       treatments = mergeDataUpdate(d.delta,treatments, d.treatments);
-      if (d.profiles) profile = d.profiles[0];
+      if (d.profiles) {
+        profile = d.profiles[0];
+        Nightscout.profile.loadData(d.profiles);
+      }
       if (d.cals) cal = d.cals[d.cals.length-1];
       if (d.devicestatus) devicestatusData = d.devicestatus;
 
