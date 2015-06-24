@@ -243,24 +243,24 @@ body {
   width: 360px;
 }
 
-.loading .bgButton .pill.rawbg {
+.loading .pill.rawbg {
     display: none;
 }
 
-.bgButton .pill.rawbg {
+.pill.rawbg {
     display: inline-block;
     border-radius: 2px;
     border: 1px solid #808080;
 }
 
-.bgButton .pill.rawbg em {
+.pill.rawbg em {
     color: white;
     background-color: black;
     display: block;
     font-size: 20px;
 }
 
-.bgButton .pill.rawbg label {
+.pill.rawbg label {
     display: block;
     font-size: 14px;
 }
@@ -336,6 +336,10 @@ div.tooltip {
     border-color: #808080;
     color: #000;
     background: #808080;
+}
+
+.pill.hidden {
+  display: none;
 }
 
 @media (max-width: 800px) {
@@ -421,11 +425,11 @@ div.tooltip {
         padding: 0;
     }
 
-    .bgButton .pill.rawbg em {
+    .pill.rawbg em {
         font-size: 14px;
     }
 
-    .bgButton .pill.rawbg label {
+    .pill.rawbg label {
         font-size: 12px;
     }
 
