@@ -43,8 +43,7 @@ function create (app) {
   return transport.createServer(app);
 }
 
-var bootevent = require('./lib/bootevent');
-bootevent(env).boot(function booted (ctx) {
+require('./lib/bootevent')(env).boot(function booted (ctx) {
     var app = require('./app')(env, ctx);
     var server = create(app).listen(PORT);
     console.log('listening', PORT);
@@ -67,8 +66,4 @@ bootevent(env).boot(function booted (ctx) {
     ctx.bus.on('notification', function(info) {
       websocket.emitNotification(info);
     });
-
-})
-;
-
-///////////////////////////////////////////////////
+});
