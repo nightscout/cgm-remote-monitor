@@ -143,27 +143,20 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
   **Built-in/Example Plugins:**
 
+  * `rawbg` (Raw BG) - Calculates BG using sensor and calibration records from and displays an alternate BG values and noise levels.
   * `iob` (Insulin-on-Board) - Adds the IOB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with insulin doses and the `dia` and `sens` fields from the [treatment profile](#treatment-profile).
-
   * `cob` (Carbs-on-Board) - Adds the COB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with carb doses and the `carbs_hr`, `carbratio`, and `sens` fields from the [treatment profile](#treatment-profile).
-
   * `bwp` (Bolus Wizard Preview) - This plugin in intended for the purpose of automatically snoozing alarms when the CGM indicates high blood sugar but there is also insulin on board (IOB) and secondly, alerting to user that it might be beneficial to measure the blood sugar using a glucometer and dosing insulin as calculated by the pump or instructed by trained medicare professionals. ***The values provided by the plugin are provided as a reference based on CGM data and insulin sensitivity you have configured, and are not intended to be used as a reference for bolus calculation.*** The plugin calculates the bolus amount when above your target, generates alarms when you should consider checking and bolusing, and snoozes alarms when there is enough IOB to cover a high BG. Uses the results of the `iob` plugin and `sens`, `target_high`, and `target_low` fields from the [treatment profile](#treatment-profile). Defaults that can be adjusted with [extended setting](#extended-settings)
     * `BWP_WARN` (`0.50`) - If `BWP` is > `BWP_WARN` a warning alarm will be triggered.
-
     * `BWP_URGENT` (`1.00`) - If `BWP` is > `BWP_URGENT` an urgent alarm will be triggered.
-
     * `BWP_SNOOZE_MINS` (`10`) - minutes to snooze when there is enough IOB to cover a high BG.
-
     * `BWP_SNOOZE` - (`0.10`) If BG is higher then the `target_high` and `BWP` < `BWP_SNOOZE` alarms will be snoozed for `BWP_SNOOZE_MINS`.
-
   * `cage` (Cannula Age) - Calculates the number of hours since the last `Site Change` treatment that was recorded.
-
+  * `delta` (BG Delta) - Calculates and displays the change between the last 2 BG values.  **Enabled by default.**
+  * `upbat` (Uploader Battery) - Displays the most recent battery status from the uploader phone.  **Enabled by default.**
   * `ar2` ([Forcasting using AR2 algorithm](https://github.com/nightscout/nightscout.github.io/wiki/Forecasting)) - Generates alarms based on forecasted values. **Enabled by default.**
-
   * `simplealarms` (Simple BG Alarms) - Uses  `BG_HIGH`, `BG_TARGET_TOP`, `BG_TARGET_BOTTOM`, `BG_LOW` settings to generate alarms.
-
   * `errorcodes` (CGM Error Codes) - Generates alarms for CGM codes `9` (hourglass) and `10` (???).  **Enabled by default.**
-
   * `treatmentnotify` (Treatment Notifications) - Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.  Default snooze is 10 minutes, and can be set using the `TREATMENTNOTIFY_SNOOZE_MINS` [extended setting](#extended-settings).
 
 #### Extended Settings

@@ -99,10 +99,14 @@ function getBrowserSettings(storage) {
     json.showPlugins = setDefault(json.showPlugins, app.defaults.showPlugins || Nightscout.plugins.enabledPluginNames());
     var showPluginsSettings = $('#show-plugins');
     Nightscout.plugins.eachEnabledPlugin(function each(plugin) {
-      var id = 'plugin-' + plugin.name;
-      var dd = $('<dd><input type="checkbox" id="' + id + '" value="' + plugin.name + '"/><label for="' + id + '">' + (plugin.label || plugin.name) + '</label></dd>');
-      showPluginsSettings.append(dd);
-      dd.find('input').prop('checked', json.showPlugins.indexOf(plugin.name) > -1);
+      if (Nightscout.plugins.alwaysShown.indexOf(plugin.name) > -1) {
+        //ignore these, they are always on for now
+      } else {
+        var id = 'plugin-' + plugin.name;
+        var dd = $('<dd><input type="checkbox" id="' + id + '" value="' + plugin.name + '"/><label for="' + id + '">' + (plugin.label || plugin.name) + '</label></dd>');
+        showPluginsSettings.append(dd);
+        dd.find('input').prop('checked', json.showPlugins.indexOf(plugin.name) > -1);
+      }
     });
 
 
