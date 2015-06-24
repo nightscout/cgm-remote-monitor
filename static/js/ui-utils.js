@@ -99,7 +99,7 @@ function getBrowserSettings(storage) {
     json.showPlugins = setDefault(json.showPlugins, app.defaults.showPlugins || Nightscout.plugins.enabledPluginNames());
     var showPluginsSettings = $('#show-plugins');
     Nightscout.plugins.eachEnabledPlugin(function each(plugin) {
-      if (Nightscout.plugins.alwaysShown.indexOf(plugin.name) > -1) {
+      if (Nightscout.plugins.specialPlugins.indexOf(plugin.name) > -1) {
         //ignore these, they are always on for now
       } else {
         var id = 'plugin-' + plugin.name;
