@@ -101,9 +101,9 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `BG_TARGET_BOTTOM` (`80`) - must be set using mg/dl units; the bottom of the target range, also used to draw the line on the chart
   * `BG_LOW` (`55`) - must be set using mg/dl units; the low BG outside the target range that is considered urgent
   * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's
-  * `BASE_URL` - Used for building links to your sites api, ie pushover callbacks
-  * `PUSHOVER_API_TOKEN` - Used to enable pushover notifications for Care Portal treatments, this token is specific to the application you create from in [Pushover](https://pushover.net/), ***[additional pushover information](#pushover)*** below.
-  * `PUSHOVER_USER_KEY` - Your Pushover user *(or group)* key, can be found in the top left of the [Pushover](https://pushover.net/) site
+  * `BASE_URL` - Used for building links to your sites api, ie pushover callbacks, usually the URL of your Nightscout site you may want https instead of http
+  * `PUSHOVER_API_TOKEN` - Used to enable pushover notifications, this token is specific to the application you create from in [Pushover](https://pushover.net/), ***[additional pushover information](#pushover)*** below.
+  * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.
 
 
 #### Core
@@ -134,6 +134,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
 
+
 ### Plugins
 
   Plugins are used extend the way information is displayed, how notifications are sent, alarms are triggered, and more.
@@ -142,27 +143,20 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
   **Built-in/Example Plugins:**
 
+  * `rawbg` (Raw BG) - Calculates BG using sensor and calibration records from and displays an alternate BG values and noise levels.
   * `iob` (Insulin-on-Board) - Adds the IOB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with insulin doses and the `dia` and `sens` fields from the [treatment profile](#treatment-profile).
-
   * `cob` (Carbs-on-Board) - Adds the COB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with carb doses and the `carbs_hr`, `carbratio`, and `sens` fields from the [treatment profile](#treatment-profile).
-
-  * `bwp` (Bolus Wizard Preview) ***Example only*** - Calculates the bolus amount when above your target, generates alarms when you should consider checking and bolusing, and snoozes alarms when there is enough IOB to cover a high BG. Uses the results of the `iob` plugin and `sens`, `target_high`, and `target_low` fields from the [treatment profile](#treatment-profile). Defaults that can be adjusted with [extended setting](#extended-settings)
+  * `bwp` (Bolus Wizard Preview) - This plugin in intended for the purpose of automatically snoozing alarms when the CGM indicates high blood sugar but there is also insulin on board (IOB) and secondly, alerting to user that it might be beneficial to measure the blood sugar using a glucometer and dosing insulin as calculated by the pump or instructed by trained medicare professionals. ***The values provided by the plugin are provided as a reference based on CGM data and insulin sensitivity you have configured, and are not intended to be used as a reference for bolus calculation.*** The plugin calculates the bolus amount when above your target, generates alarms when you should consider checking and bolusing, and snoozes alarms when there is enough IOB to cover a high BG. Uses the results of the `iob` plugin and `sens`, `target_high`, and `target_low` fields from the [treatment profile](#treatment-profile). Defaults that can be adjusted with [extended setting](#extended-settings)
     * `BWP_WARN` (`0.50`) - If `BWP` is > `BWP_WARN` a warning alarm will be triggered.
-
     * `BWP_URGENT` (`1.00`) - If `BWP` is > `BWP_URGENT` an urgent alarm will be triggered.
-
     * `BWP_SNOOZE_MINS` (`10`) - minutes to snooze when there is enough IOB to cover a high BG.
-
     * `BWP_SNOOZE` - (`0.10`) If BG is higher then the `target_high` and `BWP` < `BWP_SNOOZE` alarms will be snoozed for `BWP_SNOOZE_MINS`.
-
   * `cage` (Cannula Age) - Calculates the number of hours since the last `Site Change` treatment that was recorded.
-
+  * `delta` (BG Delta) - Calculates and displays the change between the last 2 BG values.  **Enabled by default.**
+  * `upbat` (Uploader Battery) - Displays the most recent battery status from the uploader phone.  **Enabled by default.**
   * `ar2` ([Forcasting using AR2 algorithm](https://github.com/nightscout/nightscout.github.io/wiki/Forecasting)) - Generates alarms based on forecasted values. **Enabled by default.**
-
   * `simplealarms` (Simple BG Alarms) - Uses  `BG_HIGH`, `BG_TARGET_TOP`, `BG_TARGET_BOTTOM`, `BG_LOW` settings to generate alarms.
-
   * `errorcodes` (CGM Error Codes) - Generates alarms for CGM codes `9` (hourglass) and `10` (???).  **Enabled by default.**
-
   * `treatmentnotify` (Treatment Notifications) - Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.  Default snooze is 10 minutes, and can be set using the `TREATMENTNOTIFY_SNOOZE_MINS` [extended setting](#extended-settings).
 
 #### Extended Settings
@@ -171,14 +165,29 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   Plugins only have access to their own extended settings, all the extended settings of client plugins will be sent to the browser.
 
 ### Treatment Profile
-  Some of the [plugins](#plugins) make use of a treatment profile that is stored in Mongo. To use those plugins there should only be a single doc in the `profile` collection with the following fields:
+  Some of the [plugins](#plugins) make use of a treatment profile that is stored in Mongo. To use those plugins there should only be a single doc in the `profile` collection.  For example (change it to fit you):
 
-  * `dia` (Insulin duration) - defaults to 3 hours
+  ```json
+  {
+    "dia": 4,
+    "carbs_hr": 30,
+    "carbratio": 7.5,
+    "sens": 35,
+    "target_low": 95,
+    "target_high": 120
+  }
+  ```
+
+  Treatment Profile Fields:
+
+  * `dia` (Insulin duration) - value should be the duration of insulin action to use in calculating how much insulin is left active. Defaults to 3 hours
   * `carbs_hr` (Carbs per Hour) - The number of carbs that are processed per hour, for more information see [#DIYPS](http://diyps.org/2014/05/29/determining-your-carbohydrate-absorption-rate-diyps-lessons-learned/)
   * `carbratio` (Carb Ratio) - grams per unit of insulin
-  * `sens` (Insulin sensitivity) field from the treatment profile
+  * `sens` (Insulin sensitivity) How much one unit of insulin will normally lower blood glucose.
   * `target_high` - Upper target for correction boluses
   * `target_low` - Lower target for correction boluses
+
+  Additional information can be found [here](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website).
 
 ### Pushover
   In addition to the normal web based alarms, there is also support for [Pushover](https://pushover.net/) based alarms and notifications.
@@ -187,7 +196,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
   Using that account login to [Pushover](https://pushover.net/), in the top left you’ll see your User Key, you’ll need this plus an application API Token/Key to complete this setup.
 
-  You’ll need to [Create a Pushover Application](https://pushover.net/apps/build).  You only need to set the Application name, you can ignore all the other settings, but setting an Icon is a nice touch.  Maybe you'd like to use [this one](https://raw.githubusercontent.com/nightscout/cgm-remote-monitor/master/static/images/large.png)
+  You’ll need to [Create a Pushover Application](https://pushover.net/apps/build).  You only need to set the Application name, you can ignore all the other settings, but setting an Icon is a nice touch.  Maybe you'd like to use [this one](https://raw.githubusercontent.com/nightscout/cgm-remote-monitor/master/static/images/large.png)?
 
   Pushover is configured using the `PUSHOVER_API_TOKEN`, `PUSHOVER_USER_KEY`, `BASE_URL`, and `API_SECRET` environment variables. For acknowledgment callbacks to work `BASE_URL` and `API_SECRET` must be set and `BASE_URL` must be publicly accessible.  For testing/devlopment try [localtunnel](http://localtunnel.me/).
 

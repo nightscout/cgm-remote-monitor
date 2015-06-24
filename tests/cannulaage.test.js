@@ -14,8 +14,8 @@ describe('cage', function ( ) {
     };
 
     var pluginBase = {
-      updatePillText: function mockedUpdatePillText (plugin, updatedText, label, info) {
-        updatedText.should.equal('24h');
+      updatePillText: function mockedUpdatePillText (plugin, options) {
+        options.value.should.equal('24h');
         done();
       }
     };
