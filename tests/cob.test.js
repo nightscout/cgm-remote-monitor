@@ -4,12 +4,14 @@ var should = require('should');
 
 describe('COB', function ( ) {
   var cob = require('../lib/plugins/cob')();
-
-  var profile = {
+  
+  var profileData = {
     sens: 95
     , carbratio: 18
     , carbs_hr: 30
   };
+
+  var profile = require('../lib/profilefunctions')([profileData]);
 
   it('should calculate IOB, multiple treatments', function() {
 
