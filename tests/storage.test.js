@@ -6,7 +6,7 @@ var assert = require('assert');
 var load = require('./fixtures/load');
 
 describe('STORAGE', function () {
-  var env = require('../env')( );
+  var env = require('../env')();
 
   before(function (done) {
     delete env.api_secret;
@@ -25,8 +25,7 @@ describe('STORAGE', function () {
 
       store(env, function (err2, db2) {
         should.not.exist(err2);
-
-        console.log(db1 == db2)
+        assert(db1.db, db2.db, 'Check if the handlers are the same.')
 
         done();
       });
@@ -37,8 +36,8 @@ describe('STORAGE', function () {
     delete env.mongo;
     should.not.exist(env.mongo);
 
-    (function(){
-      return require('../lib/storage')(env);
+    (function () {
+      return require('../lib/storage')(env, false, true);
     }).should.throw('MongoDB connection string is missing');
 
     done();
@@ -47,8 +46,8 @@ describe('STORAGE', function () {
   it('An invalid connection-string should throw an error.', function (done) {
     env.mongo = 'This is not a MongoDB connection-string';
 
-    (function(){
-      return require('../lib/storage')(env);
+    (function () {
+      return require('../lib/storage')(env, false, true);
     }).should.throw('URL must be in the format mongodb://user:pass@host:port/dbname');
 
     done();
