@@ -1,0 +1,17 @@
+bower_components/
+node_modules/
+
+.idea/
+*.iml
+
+*.env
+static/bower_components/
+.*.sw?
+.DS_Store
+
+.vagrant
+/iisnode
+
+# istanbul output
+coverage/
+npm-debug.log
