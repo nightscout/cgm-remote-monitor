@@ -5,6 +5,7 @@ var FIVE_MINS = 10 * 60 * 1000;
 describe('IOB', function ( ) {
   var iob = require('../lib/plugins/iob')();
 
+
   it('should calculate IOB', function() {
 
     var time = new Date()
@@ -12,11 +13,14 @@ describe('IOB', function ( ) {
           created_at: time - 1,
           insulin: "1.00"
         }
-      ]
-      , profile = {
-        dia: 3,
-        sens: 0
-      };
+      ];
+    
+    
+  var profileData = {
+    dia: 3,
+    sens: 0};
+
+   var profile = require('../lib/profilefunctions')([profileData]);
 
     var rightAfterBolus = iob.calcTotal(treatments, profile, time);
 
@@ -69,12 +73,15 @@ describe('IOB', function ( ) {
         created_at: time - 1,
         insulin: "1.00"
       }
-      ]
-      , profile = {
-        dia: 4,
-        sens: 0
-      };
+      ];
+       
+  var profileData = {
+    dia: 4,
+    sens: 0};
 
+   var profile = require('../lib/profilefunctions')([profileData]);
+
+    
     var rightAfterBolus = iob.calcTotal(treatments, profile, time);
 
     rightAfterBolus.display.should.equal('1.00');
@@ -88,9 +95,9 @@ describe('IOB', function ( ) {
 
     after3hDIA.iob.should.greaterThan(0);
 
-    var after4hDIA = iob.calcTotal(treatments, profile, new Date(time.getTime() + (3 * 60 * 60 * 1000)));
+    var after4hDIA = iob.calcTotal(treatments, profile, new Date(time.getTime() + (4 * 60 * 60 * 1000)));
 
-    after4hDIA.iob.should.greaterThan(0);
+    after4hDIA.iob.should.equal(0);
 
   });
 
