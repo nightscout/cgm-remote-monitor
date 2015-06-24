@@ -384,7 +384,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         sgvs: sgvs
         , cals: [cal]
         , treatments: treatments
-        , profile: profile
+        , profile: Nightscout.profile
         , uploaderBattery: devicestatusData && devicestatusData.uploaderBattery
       });
 
@@ -1533,7 +1533,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       SGVdata = mergeDataUpdate(d.delta, SGVdata, d.sgvs);
       MBGdata = mergeDataUpdate(d.delta,MBGdata, d.mbgs);
       treatments = mergeDataUpdate(d.delta,treatments, d.treatments);
-      if (d.profiles) profile = d.profiles[0];
+      if (d.profiles) {
+        profile = d.profiles[0];
+        Nightscout.profile.loadData(d.profiles);
+      }
       if (d.cals) cal = d.cals[d.cals.length-1];
       if (d.devicestatus) devicestatusData = d.devicestatus;
 
