@@ -27,5 +27,6 @@ describe('cage', function ( ) {
 
   });
 
+  // TODO add test for cage.findLatestTimeChange()
 
 });
