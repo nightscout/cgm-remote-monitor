@@ -41,8 +41,6 @@ function create (env, ctx) {
   var bundle = require('./bundle')();
   app.use(bundle);
 
-// Handle errors with express's errorhandler, to display more readable error messages.
-
   // Handle errors with express's errorhandler, to display more readable error messages.
   var errorhandler = require('errorhandler');
   //if (process.env.NODE_ENV === 'development') {
