@@ -30,10 +30,6 @@ describe('COB', function ( ) {
     var before10 = cob.cobTotal(treatments, profile, new Date("2015-05-29T03:45:10.670Z"));
     var after10 = cob.cobTotal(treatments, profile, new Date("2015-05-29T03:45:11.670Z"));
 
-    console.info('>>>>after100:', after100);
-    console.info('>>>>before10:', before10);
-    console.info('>>>>after2nd:', after10);
-
     after100.cob.should.equal(100);
     Math.round(before10.cob).should.equal(59);
     Math.round(after10.cob).should.equal(69); //WTF == 128
