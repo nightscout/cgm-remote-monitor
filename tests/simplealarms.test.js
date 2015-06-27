@@ -3,6 +3,7 @@ var should = require('should');
 describe('simplealarms', function ( ) {
 
   var simplealarms = require('../lib/plugins/simplealarms')();
+  var delta = require('../lib/plugins/delta')();
 
   var env = require('../env')();
   var ctx = {};
@@ -10,6 +11,7 @@ describe('simplealarms', function ( ) {
   ctx.notifications = require('../lib/notifications')(env, ctx);
 
   var now = Date.now();
+  var before = now - (5 * 60 * 1000);
 
 
   it('Not trigger an alarm when in range', function (done) {
@@ -25,12 +27,14 @@ describe('simplealarms', function ( ) {
 
   it('should trigger a warning when above target', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: now, y: 181}];
+    ctx.data.sgvs = [{x: before, y: 171}, {x: now, y: 181}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
+    delta.setProperties(sbx);
     simplealarms.checkNotifications(sbx);
-    ctx.notifications.findHighestAlarm().level.should.equal(ctx.notifications.levels.WARN);
-
+    var highest = ctx.notifications.findHighestAlarm();
+    highest.level.should.equal(ctx.notifications.levels.WARN);
+    highest.message.should.equal('BG Now: 181 +10 mg/dl');
     done();
   });
 
