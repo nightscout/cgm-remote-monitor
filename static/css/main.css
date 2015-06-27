@@ -27,14 +27,14 @@ body {
     z-index: 2;
 }
 
-.status {
+.primary {
     font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
     height: 180px;
     vertical-align: middle;
     clear: left right;
 }
 
-.has-minor-pills .status {
+.has-minor-pills .primary {
   height: 200px;
 }
 
@@ -145,44 +145,40 @@ body {
   text-decoration: line-through;
 }
 
-.time {
+.status {
     color: #808080;
     font-size: 100px;
     line-height: 100px;
 }
-.timebox {
+.statusBox {
     text-align: center;
     width: 250px;
 }
-.timeOther {
+.statusPills {
     font-size: 20px;
     line-height: 30px;
 }
 
-.loading .timeOther {
+.loading .statusPills {
     display: none;
 }
 
-.timeOther .pill {
+.statusPills .pill {
     background: #808080;
     border-color: #808080;
 }
 
-.timeOther .pill em {
+.statusPills .pill em {
     color: #bdbdbd;
     background: #000;
     border-radius: 4px 0 0 4px;
 }
 
-.timeOther .pill label {
+.statusPills .pill label {
     background: #808080;
 }
 
-#uploaderBattery {
-  display: none;
-}
-
-#uploaderBattery label {
+.pill.upbat label {
     padding: 0 !important;
 }
 
@@ -247,24 +243,24 @@ body {
   width: 360px;
 }
 
-.loading .bgButton .rawnoise {
+.loading .pill.rawbg {
     display: none;
 }
 
-.bgButton .rawnoise {
+.pill.rawbg {
     display: inline-block;
     border-radius: 2px;
     border: 1px solid #808080;
 }
 
-.bgButton .rawnoise em {
+.pill.rawbg em {
     color: white;
     background-color: black;
     display: block;
     font-size: 20px;
 }
 
-.bgButton .rawnoise label {
+.pill.rawbg label {
     display: block;
     font-size: 14px;
 }
@@ -342,6 +338,10 @@ div.tooltip {
     background: #808080;
 }
 
+.pill.hidden {
+  display: none;
+}
+
 @media (max-width: 800px) {
     .bgStatus {
         width: 300px;
@@ -373,18 +373,18 @@ div.tooltip {
         font-size: 16px;
     }
 
-    .time {
+    .status {
         font-size: 70px;
         line-height: 60px;
         padding-top: 8px;
     }
 
-    .timeOther {
+    .statusPills {
         font-size: 15px;
         line-height: 40px;
     }
 
-    #uploaderBattery label {
+    .pill.upbat label {
         font-size: 15px !important;
     }
 
@@ -425,11 +425,11 @@ div.tooltip {
         padding: 0;
     }
 
-    .bgButton .rawnoise em {
+    .pill.rawbg em {
         font-size: 14px;
     }
 
-    .bgButton .rawnoise label {
+    .pill.rawbg label {
         font-size: 12px;
     }
 
@@ -455,7 +455,7 @@ div.tooltip {
         font-size: 12px;
     }
 
-    .time {
+    .status {
         font-size: 50px;
         line-height: 35px;
         width: 250px;
@@ -471,7 +471,7 @@ div.tooltip {
 }
 
 @media (max-width: 400px) {
-    .status {
+    .primary {
         text-align: center;
         margin-bottom: 0;
         height: 152px;
@@ -517,12 +517,12 @@ div.tooltip {
       font-size: 20px;
     }
 
-    .time {
+    .status {
         padding-top: 0;
         font-size: 20px !important;
     }
 
-    .timebox {
+    .statusBox {
         width: auto;
     }
 
@@ -531,13 +531,13 @@ div.tooltip {
         vertical-align: middle;
     }
 
-    .timeOther {
+    .statusPills {
         display: inline;
         margin-left: auto;
         font-size: 15px;
     }
 
-    #uploaderBattery label {
+    .pill.upbat label {
         font-size: 15px !important;
     }
 
@@ -639,17 +639,17 @@ div.tooltip {
         font-size: 12px;
     }
 
-    .time {
+    .status {
         font-size: 50px;
         line-height: 40px;
         padding-top: 5px;
     }
 
-    .timeOther {
+    .statusPills {
         font-size: 15px;
     }
 
-    #uploaderBattery label {
+    .pill.upbat label {
         font-size: 15px !important;
     }
 
@@ -703,12 +703,12 @@ div.tooltip {
         display: block;
     }
 
-    .time {
+    .status {
         position: absolute;
         top: 90px;
     }
 
-    .timebox {
+    .statusBox {
         width: 220px;
     }
 

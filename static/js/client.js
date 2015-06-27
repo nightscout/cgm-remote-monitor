@@ -1,18 +1,6 @@
 //TODO: clean up
 var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
-var timeAgo = Nightscout.utils.timeAgo;
-
-function nsArrayDiff(oldArray, newArray) {
-  var seen = {};
-  var l = oldArray.length;
-  for (var i = 0; i < l; i++) { seen[oldArray[i].x] = true }
-  var result = [];
-  l = newArray.length;
-  for (var j = 0; j < l; j++) { if (!seen.hasOwnProperty(newArray[j].x)) { result.push(newArray[j]); console.log('delta data found'); } }
-  return result;
-}
-
 (function () {
   'use strict';
 
@@ -56,6 +44,11 @@ function nsArrayDiff(oldArray, newArray) {
     , currentAlarmType = null
     , alarmSound = 'alarm.mp3'
     , urgentAlarmSound = 'alarm2.mp3';
+
+  var sbx
+    , rawbg = Nightscout.plugins('rawbg')
+    , delta = Nightscout.plugins('delta')
+    , timeAgo = Nightscout.utils.timeAgo;
 
   var jqWindow
     , tooltip
@@ -148,87 +141,12 @@ function nsArrayDiff(oldArray, newArray) {
       if (currentMgdl < 39) {
         bg_title = s(errorCodeToDisplay(currentMgdl), ' - ') + bg_title;
       } else {
-        var deltaDisplay = calcDeltaDisplay(prevSGV, latestSGV);
+        var deltaDisplay = delta.calc(prevSGV && prevSGV.y, latestSGV && latestSGV.y, sbx).display;
         bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(decodeEntities(latestSGV.direction)) + bg_title;
       }
     }
 
     $(document).attr('title', bg_title);
-  }
-
-  function calcDeltaDisplay(prevEntry, currentEntry) {
-    var delta = null
-      , prevMgdl = prevEntry && prevEntry.y
-      , currentMgdl = currentEntry && currentEntry.y;
-
-    if (prevMgdl === undefined || currentMgdl == undefined || prevMgdl < 40 || prevMgdl > 400 || currentMgdl < 40 || currentMgdl > 400) {
-      //TODO consider using raw data here
-      delta = null;
-    } else {
-      delta = scaleBg(currentMgdl) - scaleBg(prevMgdl);
-      if (browserSettings.units == 'mmol') {
-        delta = delta.toFixed(1);
-      }
-
-      delta = (delta >= 0 ? '+' : '') + delta;
-    }
-
-    return delta;
-  }
-
-  function isRawBGEnabled() {
-    return app.enabledOptions && app.enabledOptions.indexOf('rawbg') > -1;
-  }
-
-  function showRawBGs(sgv, noise, cal) {
-    return cal
-      && isRawBGEnabled()
-      && (browserSettings.showRawbg == 'always'
-        || (browserSettings.showRawbg == 'noise' && (noise >= 2 || sgv < 40))
-        );
-  }
-
-  function noiseCodeToDisplay(sgv, noise) {
-    var display;
-    switch (parseInt(noise)) {
-      case 0: display = '---'; break;
-      case 1: display = 'Clean'; break;
-      case 2: display = 'Light'; break;
-      case 3: display = 'Medium'; break;
-      case 4: display = 'Heavy'; break;
-      default:
-        if (sgv < 40) {
-          display = 'Heavy';
-        } else {
-          display = '~~~';
-        }
-        break;
-    }
-
-    return display;
-  }
-
-  function rawIsigToRawBg(entry, cal) {
-
-    var raw = 0
-      , unfiltered = parseInt(entry.unfiltered) || 0
-      , filtered = parseInt(entry.filtered) || 0
-      , sgv = entry.y
-      , scale = parseFloat(cal.scale) || 0
-      , intercept = parseFloat(cal.intercept) || 0
-      , slope = parseFloat(cal.slope) || 0;
-
-
-    if (slope == 0 || unfiltered == 0 || scale == 0) {
-      raw = 0;
-    } else if (filtered == 0 || sgv < 40) {
-      raw = scale * (unfiltered - intercept) / slope;
-    } else {
-      var ratio = scale * (filtered - intercept) / slope / sgv;
-      raw = scale * ( unfiltered - intercept) / slope / ratio;
-    }
-
-    return Math.round(raw);
   }
 
   // initial setup of chart when data is first made available
@@ -419,9 +337,7 @@ function nsArrayDiff(oldArray, newArray) {
       , currentDirection = $('.bgStatus .currentDirection')
       , majorPills = $('.bgStatus .majorPills')
       , minorPills = $('.bgStatus .minorPills')
-      , rawNoise = bgButton.find('.rawnoise')
-      , rawbg = rawNoise.find('em')
-      , noiseLevel = rawNoise.find('label')
+      , statusPills = $('.status .statusPills')
       , lastEntry = $('#lastEntry');
 
 
@@ -452,15 +368,6 @@ function nsArrayDiff(oldArray, newArray) {
         }
       }
 
-      if (showRawBGs(entry.y, entry.noise, cal)) {
-        rawNoise.css('display', 'inline-block');
-        rawbg.text(scaleBg(rawIsigToRawBg(entry, cal)));
-        noiseLevel.text(noiseCodeToDisplay(entry.y, entry.noise));
-      } else {
-        rawNoise.hide();
-      }
-
-
       currentBG.toggleClass('icon-hourglass', value == 9);
       currentBG.toggleClass('error-code', value < 39);
       currentBG.toggleClass('bg-limit', value == 39 || value > 400);
@@ -469,38 +376,16 @@ function nsArrayDiff(oldArray, newArray) {
 
     }
 
-    function updateBGDelta(prevEntry, currentEntry) {
-
-      var pill = majorPills.find('span.pill.bgdelta');
-      if (!pill || pill.length == 0) {
-        pill = $('<span class="pill bgdelta"><em></em><label></label></span>');
-        majorPills.append(pill);
-      }
-
-      var deltaDisplay = calcDeltaDisplay(prevEntry, currentEntry);
-
-      if (deltaDisplay == null) {
-        pill.children('em').hide();
-      } else {
-        pill.children('em').text(deltaDisplay).show();
-      }
-
-      if (browserSettings.units == 'mmol') {
-        pill.children('label').text('mmol/L');
-      } else {
-        pill.children('label').text('mg/dL');
-      }
-
-    }
-
     function updatePlugins(sgvs, time) {
 
-      var pluginBase = Nightscout.plugins.base(majorPills, minorPills, tooltip);
+      var pluginBase = Nightscout.plugins.base(majorPills, minorPills, statusPills, bgStatus, tooltip);
 
-      var sbx = Nightscout.sandbox.clientInit(app, browserSettings, time, pluginBase, {
+      sbx = Nightscout.sandbox.clientInit(app, browserSettings, time, pluginBase, {
         sgvs: sgvs
+        , cals: [cal]
         , treatments: treatments
-        , profile: profile
+        , profile: Nightscout.profile
+        , uploaderBattery: devicestatusData && devicestatusData.uploaderBattery
       });
 
       //all enabled plugins get a chance to set properties, even if they aren't shown
@@ -543,18 +428,9 @@ function nsArrayDiff(oldArray, newArray) {
       if (focusPoint) {
         updateCurrentSGV(focusPoint);
         currentDirection.html(focusPoint.y < 39 ? '✖' : focusPoint.direction);
-
-        var prevfocusPoint = nowData.length > lookback ? nowData[nowData.length - 2] : null;
-        if (prevfocusPoint) {
-          updateBGDelta(prevfocusPoint, focusPoint);
-        } else {
-          updateBGDelta();
-        }
       } else {
-        updateBGDelta();
         currentBG.text('---');
         currentDirection.text('-');
-        rawNoise.hide();
         bgButton.removeClass('urgent warning inrange');
       }
 
@@ -573,26 +449,6 @@ function nsArrayDiff(oldArray, newArray) {
       updateCurrentSGV(latestSGV);
       updateClockDisplay();
       updateTimeAgo();
-
-      var battery = devicestatusData && devicestatusData.uploaderBattery;
-      if (battery) {
-        $('#uploaderBattery em').text(battery + '%');
-        $('#uploaderBattery label')
-          .toggleClass('icon-battery-100', battery >= 95)
-          .toggleClass('icon-battery-75', battery < 95 && battery >= 55)
-          .toggleClass('icon-battery-50', battery < 55 && battery >= 30)
-          .toggleClass('icon-battery-25', battery < 30);
-
-        $('#uploaderBattery')
-          .show()
-          .toggleClass('warn', battery <= 30 && battery > 20)
-          .toggleClass('urgent', battery <= 20);
-      } else {
-        $('#uploaderBattery').hide();
-      }
-
-      updateBGDelta(prevSGV, latestSGV);
-
       updatePlugins(nowData, nowDate);
 
       currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);
@@ -659,20 +515,20 @@ function nsArrayDiff(oldArray, newArray) {
         if (d.type != 'sgv' && d.type != 'mbg') return;
 
         var bgType = (d.type == 'sgv' ? 'CGM' : (isDexcom(d.device) ? 'Calibration' : 'Meter'))
-          , rawBG = 0
+          , rawbgValue = 0
           , noiseLabel = '';
 
         if (d.type == 'sgv') {
-          if (showRawBGs(d.y, d.noise, cal)) {
-            rawBG = scaleBg(rawIsigToRawBg(d, cal));
+          if (rawbg.showRawBGs(d.y, d.noise, cal, sbx)) {
+            rawbgValue = scaleBg(rawbg.calc(d, cal, sbx));
           }
-          noiseLabel = noiseCodeToDisplay(d.y, d.noise);
+          noiseLabel = rawbg.noiseCodeToDisplay(d.y, d.noise);
         }
 
         tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
         tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
           (d.type == 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
-          (rawBG ? '<br/><strong>Raw BG:</strong> ' + rawBG : '') +
+          (rawbgValue ? '<br/><strong>Raw BG:</strong> ' + rawbgValue : '') +
           (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
           '<br/><strong>Time:</strong> ' + formatTime(d.date))
           .style('left', (d3.event.pageX) + 'px')
@@ -1643,15 +1499,17 @@ function nsArrayDiff(oldArray, newArray) {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     socket = io.connect();
 
-    function recordAlreadyStored(array,record) {
-      var l = array.length -1;
-      for (var i = 0; i <= l; i++) {
-        var oldRecord = array[i];
-        if (record.x == oldRecord.x) return true;
-      }
-    }
-
     function mergeDataUpdate(isDelta, cachedDataArray, receivedDataArray) {
+
+      function nsArrayDiff(oldArray, newArray) {
+        var seen = {};
+        var l = oldArray.length;
+        for (var i = 0; i < l; i++) { seen[oldArray[i].x] = true }
+        var result = [];
+        l = newArray.length;
+        for (var j = 0; j < l; j++) { if (!seen.hasOwnProperty(newArray[j].x)) { result.push(newArray[j]); console.log('delta data found'); } }
+        return result;
+      }
 
       // If there was no delta data, just return the original data
       if (!receivedDataArray) return cachedDataArray;
@@ -1675,7 +1533,10 @@ function nsArrayDiff(oldArray, newArray) {
       SGVdata = mergeDataUpdate(d.delta, SGVdata, d.sgvs);
       MBGdata = mergeDataUpdate(d.delta,MBGdata, d.mbgs);
       treatments = mergeDataUpdate(d.delta,treatments, d.treatments);
-      if (d.profiles) profile = d.profiles[0];
+      if (d.profiles) {
+        profile = d.profiles[0];
+        Nightscout.profile.loadData(d.profiles);
+      }
       if (d.cals) cal = d.cals[d.cals.length-1];
       if (d.devicestatus) devicestatusData = d.devicestatus;
 
@@ -1692,13 +1553,12 @@ function nsArrayDiff(oldArray, newArray) {
         prevSGV = SGVdata[SGVdata.length - 2];
       }
 
-
       var temp1 = [ ];
-      if (cal && isRawBGEnabled()) {
+      if (cal && rawbg.isEnabled(sbx)) {
         temp1 = SGVdata.map(function (entry) {
-          var rawBg = showRawBGs(entry.y, entry.noise, cal) ? rawIsigToRawBg(entry, cal) : 0;
-          if (rawBg > 0) {
-            return { date: new Date(entry.x - 2000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg' };
+          var rawbgValue = rawbg.showRawBGs(entry.y, entry.noise, cal, sbx) ? rawbg.calc(entry, cal, sbx) : 0;
+          if (rawbgValue > 0) {
+            return { date: new Date(entry.x - 2000), y: rawbgValue, sgv: scaleBg(rawbgValue), color: 'white', type: 'rawbg' };
           } else {
             return null;
           }
@@ -1828,6 +1688,7 @@ function nsArrayDiff(oldArray, newArray) {
     $('#treatmentDrawerToggle').toggle(app.careportalEnabled);
     Nightscout.plugins.init(app);
     browserSettings = getBrowserSettings(browserStorage);
+    sbx = Nightscout.sandbox.clientInit(app, browserSettings, Date.now());
     $('.container').toggleClass('has-minor-pills', Nightscout.plugins.hasShownType('pill-minor', browserSettings));
     init();
   });

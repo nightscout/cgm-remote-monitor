@@ -10,8 +10,7 @@ describe('API_SECRET', function ( ) {
 
   var scope = this;
   function setup_app (env, fn) {
-    var bootevent = require('../lib/bootevent');
-    bootevent(env).boot(function booted (ctx) {
+    require('../lib/bootevent')(env).boot(function booted (ctx) {
       var wares = require('../lib/middleware/')(env);
       ctx.app = api(env, wares, ctx);
       scope.app = ctx.app;

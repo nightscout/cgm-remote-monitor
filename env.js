@@ -92,6 +92,14 @@ function config ( ) {
   env.defaults.alarmTimeAgoUrgentMins = readENV('ALARM_TIMEAGO_URGENT_MINS', env.defaults.alarmTimeAgoUrgentMins);
   env.defaults.showPlugins = readENV('SHOW_PLUGINS', '');
 
+  //TODO: figure out something for some plugins to have them shown by default
+  if (env.defaults.showPlugins != '') {
+    env.defaults.showPlugins += ' delta upbat';
+    if (env.defaults.showRawbg == 'always' || env.defaults.showRawbg == 'noise') {
+      env.defaults.showPlugins += 'rawbg';
+    }
+  }
+
   //console.log(JSON.stringify(env.defaults));
   
   env.SSL_KEY = readENV('SSL_KEY');
@@ -182,7 +190,9 @@ function config ( ) {
     //TODO: after config changes are documented this shouldn't be auto enabled
     env.enable += ' treatmentnotify';
   }
-  env.enable += ' errorcodes';
+
+  //TODO: figure out something for default plugins, how can they be disabled?
+  env.enable += ' delta upbat errorcodes';
 
   env.extendedSettings = findExtendedSettings(env.enable, process.env);
 
