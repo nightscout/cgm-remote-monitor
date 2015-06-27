@@ -63,5 +63,32 @@ describe('COB', function ( ) {
     result5.cob.should.equal(0);
   });
 
+  it('set a pill to the current COB', function (done) {
+
+    var app = {};
+    var clientSettings = {};
+
+    var data = {
+      treatments: [{
+        carbs: "8"
+        , "created_at": Date.now() - 60000 //1m ago
+      }]
+      , profile: profile
+    };
+
+    var pluginBase = {
+      updatePillText: function mockedUpdatePillText (plugin, options) {
+        options.value.should.equal('8g');
+        done();
+      }
+    };
+
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
+    cob.setProperties(sbx);
+    cob.updateVisualisation(sbx);
+
+  });
+
 
 });
