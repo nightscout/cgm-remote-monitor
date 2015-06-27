@@ -6,8 +6,6 @@ describe('ar2', function ( ) {
   var delta = require('../lib/plugins/delta')();
 
   var env = require('../env')();
-  var envRaw = require('../env')();
-  envRaw.extendedSettings = {'ar2': {useRaw: true}};
 
   var ctx = {};
   ctx.data = require('../lib/data')(env, ctx);
@@ -95,12 +93,18 @@ describe('ar2', function ( ) {
     done();
   });
 
+  function rawSandbox(ctx) {
+    var envRaw = require('../env')();
+    envRaw.extendedSettings = {'ar2': {useRaw: true}};
+    return require('../lib/sandbox')().serverInit(envRaw, ctx);
+  }
+
   it('should trigger a warning (no urgent for raw) when raw is falling really fast, but sgv is steady', function (done) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{unfiltered: 113680, filtered: 111232, y: 100, x: before, noise: 1}, {unfiltered: 43680, filtered: 111232, y: 100, x: now, noise: 1}];
     ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918}];
 
-    var sbx = require('../lib/sandbox')().serverInit(envRaw, ctx);
+    var sbx = rawSandbox(ctx);
     ar2.checkNotifications(sbx.withExtendedSettings(ar2));
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.WARN);
@@ -114,7 +118,7 @@ describe('ar2', function ( ) {
     ctx.data.sgvs = [{unfiltered: 113680, filtered: 111232, y: 100, x: before, noise: 1}, {unfiltered: 183680, filtered: 111232, y: 100, x: now, noise: 1}];
     ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918}];
 
-    var sbx = require('../lib/sandbox')().serverInit(envRaw, ctx);
+    var sbx = rawSandbox(ctx);
     ar2.checkNotifications(sbx.withExtendedSettings(ar2));
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.WARN);
@@ -122,6 +126,5 @@ describe('ar2', function ( ) {
 
     done();
   });
-
 
 });
