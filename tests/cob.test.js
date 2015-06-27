@@ -69,8 +69,11 @@ describe('COB', function ( ) {
     var clientSettings = {};
 
     var data = {
-      treatments: [{carbs: "8", "created_at": new Date()}]
-      , profile: require('../lib/profilefunctions')([profileData])
+      treatments: [{
+        carbs: "8"
+        , "created_at": Date.now() - 60000 //1m ago
+      }]
+      , profile: profile
     };
 
     var pluginBase = {
