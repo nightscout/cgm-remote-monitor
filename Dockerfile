@@ -1,34 +1,25 @@
-<<<<<<< HEAD
-FROM node:0.10.38-slim
+FROM node:latest
 
-MAINTAINER Nightscout
+MAINTAINER fokko@driesprong.frl
 
 WORKDIR /opt/app
 ADD . /opt/app
- 
-# GIT is required for npm to download and compile a dependency
-RUN apt-get update && apt-get -y install git
-
-RUN npm install
-
-EXPOSE 80
-
-CMD ["node", "server.js"]
-=======
-FROM node:0.12.38-slim
-
-MAINTAINER Nightscout
 
 # Netcat is required to poll the database, so Nightscout starts when MongoDB is up and running
-RUN apt-get update && apt-get -y install netcat git
+# RUN apt-get update && apt-get -y install netcat git
+
+RUN apt-get update && apt-get -y install git
 
 # Got this from the setup.sh
 RUN apt-get install -y python-software-properties python g++ make git
 
+# Upgrade
 RUN apt-get upgrade -y
 
+# Install using NPM
 RUN npm install .
 
+# Expose the default port, although this does not matter at it will be exposed as an arbitrary port by the Docker network driver.
 EXPOSE 1337
-CMD ["sh", "docker/docker-start.sh"]
->>>>>>> b85cd25b5386d64f994fbcede840ece84e02b171
+
+CMD ["node", "server.js"]
