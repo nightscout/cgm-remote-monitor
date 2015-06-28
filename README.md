@@ -154,10 +154,11 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `cage` (Cannula Age) - Calculates the number of hours since the last `Site Change` treatment that was recorded.
   * `delta` (BG Delta) - Calculates and displays the change between the last 2 BG values.  **Enabled by default.**
   * `upbat` (Uploader Battery) - Displays the most recent battery status from the uploader phone.  **Enabled by default.**
-  * `ar2` ([Forcasting using AR2 algorithm](https://github.com/nightscout/nightscout.github.io/wiki/Forecasting)) - Generates alarms based on forecasted values. **Enabled by default.**
+  * `ar2` ([Forcasting using AR2 algorithm](https://github.com/nightscout/nightscout.github.io/wiki/Forecasting)) - Generates alarms based on forecasted values.  **Enabled by default.**  Use [extended setting](#extended-settings) `AR2_USE_RAW=true` to forecast using `rawbg` values.
   * `simplealarms` (Simple BG Alarms) - Uses  `BG_HIGH`, `BG_TARGET_TOP`, `BG_TARGET_BOTTOM`, `BG_LOW` settings to generate alarms.
   * `errorcodes` (CGM Error Codes) - Generates alarms for CGM codes `9` (hourglass) and `10` (???).  **Enabled by default.**
   * `treatmentnotify` (Treatment Notifications) - Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.  Default snooze is 10 minutes, and can be set using the `TREATMENTNOTIFY_SNOOZE_MINS` [extended setting](#extended-settings).
+  * `basal` (Basal Profile) - Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile).
 
 #### Extended Settings
   Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
@@ -165,7 +166,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   Plugins only have access to their own extended settings, all the extended settings of client plugins will be sent to the browser.
 
 ### Treatment Profile
-  Some of the [plugins](#plugins) make use of a treatment profile that is stored in Mongo. To use those plugins there should only be a single doc in the `profile` collection.  For example (change it to fit you):
+  Some of the [plugins](#plugins) make use of a treatment profile that is stored in Mongo. To use those plugins there should only be a single doc in the `profile` collection.  A simple example (change it to fit you):
 
   ```json
   {
@@ -173,19 +174,72 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
     "carbs_hr": 30,
     "carbratio": 7.5,
     "sens": 35,
+    "basal": 1.00
     "target_low": 95,
     "target_high": 120
+  }
+  ```
+  
+  Profiles can also use time periods for any field, for example:
+  
+  ```json
+  {
+    "carbratio": [
+      {
+        "time": "00:00",
+        "value": 16
+      },
+      {
+        "time": "06:00",
+        "value": 15
+      },
+      {
+        "time": "14:00",
+        "value": 16
+      }
+    ],
+    "basal": [
+      {
+        "time": "00:00",
+        "value": 0.175
+      },
+      {
+        "time": "02:30",
+        "value": 0.125
+      },
+      {
+        "time": "05:00",
+        "value": 0.075
+      },
+      {
+        "time": "08:00",
+        "value": 0.1
+      },
+      {
+        "time": "14:00",
+        "value": 0.125
+      },
+      {
+        "time": "20:00",
+        "value": 0.3
+      },
+      {
+        "time": "22:00",
+        "value": 0.225
+      }
+    ]
   }
   ```
 
   Treatment Profile Fields:
 
-  * `dia` (Insulin duration) - value should be the duration of insulin action to use in calculating how much insulin is left active. Defaults to 3 hours
-  * `carbs_hr` (Carbs per Hour) - The number of carbs that are processed per hour, for more information see [#DIYPS](http://diyps.org/2014/05/29/determining-your-carbohydrate-absorption-rate-diyps-lessons-learned/)
-  * `carbratio` (Carb Ratio) - grams per unit of insulin
+  * `dia` (Insulin duration) - value should be the duration of insulin action to use in calculating how much insulin is left active. Defaults to 3 hours.
+  * `carbs_hr` (Carbs per Hour) - The number of carbs that are processed per hour, for more information see [#DIYPS](http://diyps.org/2014/05/29/determining-your-carbohydrate-absorption-rate-diyps-lessons-learned/).
+  * `carbratio` (Carb Ratio) - grams per unit of insulin.
   * `sens` (Insulin sensitivity) How much one unit of insulin will normally lower blood glucose.
-  * `target_high` - Upper target for correction boluses
-  * `target_low` - Lower target for correction boluses
+  * `basal` The basal rate set on the pump.
+  * `target_high` - Upper target for correction boluses.
+  * `target_low` - Lower target for correction boluses.
 
   Additional information can be found [here](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website).
 
