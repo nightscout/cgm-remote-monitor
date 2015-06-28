@@ -30,10 +30,6 @@ describe('COB', function ( ) {
     var before10 = cob.cobTotal(treatments, profile, new Date("2015-05-29T03:45:10.670Z"));
     var after10 = cob.cobTotal(treatments, profile, new Date("2015-05-29T03:45:11.670Z"));
 
-    console.info('>>>>after100:', after100);
-    console.info('>>>>before10:', before10);
-    console.info('>>>>after2nd:', after10);
-
     after100.cob.should.equal(100);
     Math.round(before10.cob).should.equal(59);
     Math.round(after10.cob).should.equal(69); //WTF == 128
@@ -65,6 +61,33 @@ describe('COB', function ( ) {
     result3.cob.should.equal(0);
     result4.cob.should.equal(0);
     result5.cob.should.equal(0);
+  });
+
+  it('set a pill to the current COB', function (done) {
+
+    var app = {};
+    var clientSettings = {};
+
+    var data = {
+      treatments: [{
+        carbs: "8"
+        , "created_at": Date.now() - 60000 //1m ago
+      }]
+      , profile: profile
+    };
+
+    var pluginBase = {
+      updatePillText: function mockedUpdatePillText (plugin, options) {
+        options.value.should.equal('8g');
+        done();
+      }
+    };
+
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
+    cob.setProperties(sbx);
+    cob.updateVisualisation(sbx);
+
   });
 
 

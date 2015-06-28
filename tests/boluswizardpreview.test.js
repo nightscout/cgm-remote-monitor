@@ -27,6 +27,7 @@ describe('boluswizardpreview', function ( ) {
       return {iob: 0}
     });
 
+    boluswizardpreview.setProperties(sbx);
     boluswizardpreview.checkNotifications(sbx);
     should.not.exist(ctx.notifications.findHighestAlarm());
 
@@ -43,6 +44,7 @@ describe('boluswizardpreview', function ( ) {
       return {iob: 0}
     });
 
+    boluswizardpreview.setProperties(sbx);
     boluswizardpreview.checkNotifications(sbx);
     ctx.notifications.findHighestAlarm().level.should.equal(ctx.notifications.levels.WARN);
 
@@ -59,6 +61,7 @@ describe('boluswizardpreview', function ( ) {
       return {iob: 0}
     });
 
+    boluswizardpreview.setProperties(sbx);
     boluswizardpreview.checkNotifications(sbx);
     ctx.notifications.findHighestAlarm().level.should.equal(ctx.notifications.levels.URGENT);
 
