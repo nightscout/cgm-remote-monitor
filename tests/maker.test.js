@@ -4,7 +4,7 @@ describe('maker', function ( ) {
   var maker = require('../lib/maker')({extendedSettings: {maker: {key: '12345'}}});
 
   //prevent any calls to iftt
-  maker.makeRequest = function noOpMakeRequest (event, callback) {};
+  maker.makeRequest = function noOpMakeRequest (event, callback) { callback && callback()};
 
   it('turn values to a query', function (done) {
     maker.valuesToQuery(['This is a title', 'This is the message']).should.equal('?value1=This%20is%20a%20title&value2=This%20is%20the%20message');
@@ -12,14 +12,14 @@ describe('maker', function ( ) {
   });
 
   it('send a request', function (done) {
-    maker.makeRequest = function mockedMakeRequest ( ) { done(); };
     maker.sendEvent({name: 'test'}, function sendCallback (err) {
       should.not.exist(err);
+      done();
     });
   });
 
   it('send a allclear, but only once', function (done) {
-    maker.makeRequest = function mockedMakeRequest ( ) { done(); };
+    maker.makeRequest = function mockedToTestSingleDone (event, callback) { callback(); done(); };
     maker.sendAllClear(function sendCallback (err, result) {
       should.not.exist(err);
       result.sent.should.equal(true);
