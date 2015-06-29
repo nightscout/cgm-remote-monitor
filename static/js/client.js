@@ -103,14 +103,39 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
   }
 
-  function updateTitle() {
+  //see http://stackoverflow.com/a/9609450
+  var decodeEntities = (function() {
+    // this prevents any overhead from creating the object each time
+    var element = document.createElement('div');
 
+    function decodeHTMLEntities (str) {
+      if(str && typeof str === 'string') {
+        // strip script/html tags
+        str = str.replace(/<script[^>]*>([\S\s]*?)<\/script>/gmi, '');
+        str = str.replace(/<\/?\w(?:[^"'>]|"[^"]*"|'[^']*')*>/gmi, '');
+        element.innerHTML = str;
+        str = element.textContent;
+        element.textContent = '';
+      }
+
+      return str;
+    }
+
+    return decodeHTMLEntities;
+  })();
+
+  function updateTitle(message) {
+    //Replace custom title with alert notification text during alarm state. A bit of a hack, but the alerts are getting very confusing as they're often triggered for no apparent reason on the site visualization.
+
+    function s(value, sep) { return value ? value + ' ' : sep || ''; }
+
+	if (!message && !alarmInProgress) {
     var time = latestSGV ? new Date(latestSGV.x).getTime() : (prevSGV ? new Date(prevSGV.x).getTime() : -1)
       , ago = timeAgo(time, browserSettings);
 
     var bg_title = browserSettings.customTitle || '';
 
-    function s(value, sep) { return value ? value + ' ' : sep || ''; }
+    if (browserSettings.customTitle) $('h1.customTitle').text(browserSettings.customTitle);
 
     if (ago && ago.status !== 'current') {
       bg_title =  s(ago.value) + s(ago.label, ' - ') + bg_title;
@@ -123,6 +148,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var deltaDisplay = delta.calc(prevSGV && prevSGV.y, latestSGV && latestSGV.y, sbx).display;
         bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(direction.info(latestSGV).label) + bg_title;
       }
+    }
+    } else {
+    	bg_title = message.title + ' ' + message.message;
+    	$('h1.customTitle').text(bg_title);
     }
 
     $(document).attr('title', bg_title);
@@ -1010,7 +1039,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
   }
 
 
-  function generateAlarm(file) {
+  function generateAlarm(file, reason) {
     alarmInProgress = true;
     var selector = '.audio.alarms audio.' + file;
     d3.select(selector).each(function () {
@@ -1020,6 +1049,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     });
     $('.bgButton').addClass(file === urgentAlarmSound ? 'urgent' : 'warning');
     $('#container').addClass('alarming');
+
+    updateTitle(reason);
+
   }
 
   function playAlarm(audio) {
@@ -1042,6 +1074,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     closeNotification();
     $('#container').removeClass('alarming');
+
+    updateTitle();
 
     // only emit ack if client invoke by button press
     if (isClient) {
@@ -1338,10 +1372,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       currentAlarmType = alarm.type;
       console.info('generating timeAgoAlarm', alarm.type);
       $('#container').addClass('alarming-timeago');
-      if (level === 'warn') {
-        generateAlarm(alarmSound);
+      console.log('ago:', ago);
+      var message = {'title': 'Last data received ', 'message': ago.value + ago.label};
+      if (level == 'warn') {
+        generateAlarm(alarmSound, message);
       } else {
-        generateAlarm(urgentAlarmSound);
+        generateAlarm(urgentAlarmSound, message);
       }
     }
   }
@@ -1621,26 +1657,29 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       return latestSGV.y <= app.thresholds.bg_target_top;
     }
 
-    socket.on('alarm', function () {
+    socket.on('alarm', function (notify) {
       console.info('alarm received from server');
+      console.log('notify:',notify);
       var enabled = (isAlarmForHigh() && browserSettings.alarmHigh) || (isAlarmForLow() && browserSettings.alarmLow);
       if (enabled) {
         console.log('Alarm raised!');
         currentAlarmType = 'alarm';
-        generateAlarm(alarmSound);
+        generateAlarm(alarmSound,notify);
       } else {
         console.info('alarm was disabled locally', latestSGV.y, browserSettings);
       }
       brushInProgress = false;
       updateChart(false);
     });
-    socket.on('urgent_alarm', function () {
+    socket.on('urgent_alarm', function (notify) {
       console.info('urgent alarm received from server');
+	  console.log('notify:',notify);
+	  
       var enabled = (isAlarmForHigh() && browserSettings.alarmUrgentHigh) || (isAlarmForLow() && browserSettings.alarmUrgentLow);
       if (enabled) {
         console.log('Urgent alarm raised!');
         currentAlarmType = 'urgent_alarm';
-        generateAlarm(urgentAlarmSound);
+        generateAlarm(urgentAlarmSound,notify);
       } else {
         console.info('urgent alarm was disabled locally', latestSGV.y, browserSettings);
       }
