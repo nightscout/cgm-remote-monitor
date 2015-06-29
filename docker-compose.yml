@@ -1,19 +1,20 @@
+broker:
+  image: 'prologic/mosquitto:latest'
+  ports:
+    - '1883:1883'
+database:
+  image: 'tutum/mongodb:latest'
+  environment:
+    - MONGODB_PASS=notinproduction
 nightscout:
   build: .
-  links:
-   - database
-   - broker
-  ports:
-   - "1337:80"
   environment:
-   - MONGO_CONNECTION=mongodb://database/nightscout
-   - API_SECRET=mylittlesecret
-   - MQTT_MONITOR=mqtt://broker
-database:
-  image: mongo:3.0.3
+    - API_SECRET=mylittlesecret
+    - 'MONGO_CONNECTION=mongodb://admin:notinproduction@database/admin'
+    - 'MQTT_MONITOR=mqtt://broker'
+    - PORT=1337
+  links:
+    - broker
+    - database
   ports:
-   - "27017"
-broker:
-  image: prologic/mosquitto
-  ports:
-   - "1883"
+    - '1337:1337'

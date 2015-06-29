@@ -14,7 +14,7 @@ RUN apt-get upgrade -y
 
 RUN useradd -ms /bin/bash node
 # copy the nice dotfiles that dockerfile/ubuntu gives us:
-RUN cd && cp -R .bashrc .profile  /home/node
+RUN cd && cp -R .bashrc .profile /home/node
  
 ADD . /home/node/app
 RUN chown -R node:node /home/node
@@ -28,5 +28,4 @@ RUN npm install
 
 # Expose the default port, although this does not matter at it will be exposed as an arbitrary port by the Docker network driver.
 EXPOSE 1337
-
 CMD ["node", "server.js"]
