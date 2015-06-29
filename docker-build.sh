@@ -1,4 +1,4 @@
 #!/bin/sh
 
-sudo docker build -t local/nightscout .
-sudo docker run -t local/nightscout
+sudo docker build -t nightscout .
+sudo docker run local/nightscout
