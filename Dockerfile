@@ -8,19 +8,23 @@ RUN apt-get update && apt-get install -y python-software-properties python g++ m
 # Upgrade
 RUN apt-get upgrade -y
 
+# We need to change user for security.
 # https://github.com/jspm/jspm-cli/issues/865
-ENV user node
+# http://stackoverflow.com/questions/24308760/running-app-inside-docker-as-non-root-user
 
-RUN groupadd --system $user && useradd --system --create-home --gid $user $user
+RUN useradd -ms /bin/bash node
+# copy the nice dotfiles that dockerfile/ubuntu gives us:
+RUN cd && cp -R .bashrc .profile  /home/node
+ 
+ADD . /home/node/app
+RUN chown -R node:node /home/node
+ 
+USER node
+ENV HOME /home/node
+ 
+WORKDIR /home/node/app
 
-COPY . /home/$user/
-WORKDIR /home/$user
-
-# We don't wat to run in root.
-RUN chown $user --recursive .
-USER $user
-
-RUN npm install .
+RUN npm install
 
 # Expose the default port, although this does not matter at it will be exposed as an arbitrary port by the Docker network driver.
 EXPOSE 1337
