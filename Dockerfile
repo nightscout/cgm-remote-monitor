@@ -12,17 +12,17 @@ RUN apt-get upgrade -y
 # https://github.com/jspm/jspm-cli/issues/865
 # http://stackoverflow.com/questions/24308760/running-app-inside-docker-as-non-root-user
 
-RUN useradd -ms /bin/bash node
-# copy the nice dotfiles that dockerfile/ubuntu gives us:
-RUN cd && cp -R .bashrc .profile /home/node
+# RUN useradd --system -ms /bin/bash node
+
+# RUN cd && cp -R .bashrc .profile /home/node
  
-ADD . /home/node/app
-RUN chown -R node:node /home/node
- 
-USER node
-ENV HOME /home/node
- 
-WORKDIR /home/node/app
+# ADD . /home/node/app
+# RUN chown -R node:node /home/node
+
+# USER node
+
+# ENV HOME /home/node 
+# WORKDIR /home/node/app
 
 RUN npm install
 
