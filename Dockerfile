@@ -1,12 +1,8 @@
 FROM node:latest
 
 MAINTAINER fokko@driesprong.frl
-
-# Installing the required packages.
+ 
 RUN apt-get update && apt-get install -y python-software-properties python g++ make git
-
-# Upgrade
-RUN apt-get upgrade -y
 
 # We need to change user for security.
 # https://github.com/jspm/jspm-cli/issues/865
@@ -20,7 +16,6 @@ RUN apt-get upgrade -y
 # RUN chown -R node:node /home/node
 
 # USER node
-
 # ENV HOME /home/node 
 # WORKDIR /home/node/app
 
