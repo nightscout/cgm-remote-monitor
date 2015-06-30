@@ -1,31 +1,3 @@
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**
-
-- [Nightscout Web Monitor (a.k.a. cgm-remote-monitor)](#nightscout-web-monitor-aka-cgm-remote-monitor)
-- [[#WeAreNotWaiting](https://twitter.com/hashtag/wearenotwaiting?src=hash&vertical=default&f=images) and [this](https://vimeo.com/109767890) is why.](##wearenotwaitinghttpstwittercomhashtagwearenotwaitingsrchash&verticaldefault&fimages-and-thishttpsvimeocom109767890-is-why)
-- [Install](#install)
-- [Usage](#usage)
-  - [Updating my version?](#updating-my-version)
-  - [What is my mongo string?](#what-is-my-mongo-string)
-  - [Configure my uploader to match](#configure-my-uploader-to-match)
-  - [Environment](#environment)
-    - [Required](#required)
-    - [Features/Labs](#featureslabs)
-    - [Core](#core)
-    - [Predefined values for your browser settings (optional)](#predefined-values-for-your-browser-settings-optional)
-    - [Plugins](#plugins)
-      - [Extended Settings](#extended-settings)
-      - [Pushover](#pushover)
-      - [IFTTT Maker](#ifttt-maker)
-    - [Treatment Profile](#treatment-profile)
-  - [Setting environment variables](#setting-environment-variables)
-    - [Vagrant install](#vagrant-install)
-  - [More questions?](#more-questions)
-  - [License](#license)
-
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
 Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 ======================================
 
@@ -66,6 +38,32 @@ Community maintained fork of the
 [heroku-img]: https://www.herokucdn.com/deploy/button.png
 [heroku-url]: https://heroku.com/deploy
 [original]: https://github.com/rnpenguin/cgm-remote-monitor
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**
+
+- [Install](#install)
+- [Usage](#usage)
+  - [Updating my version?](#updating-my-version)
+  - [What is my mongo string?](#what-is-my-mongo-string)
+  - [Configure my uploader to match](#configure-my-uploader-to-match)
+  - [Environment](#environment)
+    - [Required](#required)
+    - [Features/Labs](#featureslabs)
+    - [Core](#core)
+    - [Predefined values for your browser settings (optional)](#predefined-values-for-your-browser-settings-optional)
+    - [Plugins](#plugins)
+      - [Extended Settings](#extended-settings)
+      - [Pushover](#pushover)
+      - [IFTTT Maker](#ifttt-maker)
+    - [Treatment Profile](#treatment-profile)
+  - [Setting environment variables](#setting-environment-variables)
+    - [Vagrant install](#vagrant-install)
+  - [More questions?](#more-questions)
+  - [License](#license)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 # Install
 
