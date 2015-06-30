@@ -15,6 +15,7 @@
     - [5. Choose an Action](#5-choose-an-action)
     - [6. Complete Action Fields](#6-complete-action-fields)
     - [7. Create and Connect](#7-create-and-connect)
+    - [Result](#result)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
