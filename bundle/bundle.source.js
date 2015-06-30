@@ -1,13 +1,17 @@
 (function () {
 
-    window.Nightscout = window.Nightscout || {};
+  window._ = require('lodash');
+  window.Nightscout = window.Nightscout || {};
 
-    window.Nightscout = {
-        iob: require('../lib/iob')()
-        , units: require('../lib/units')()
-    };
+  window.Nightscout = {
+    units: require('../lib/units')(),
+    utils: require('../lib/utils')(),
+    profile: require('../lib/profilefunctions')(),
+    plugins: require('../lib/plugins/')().registerClientDefaults(),
+    sandbox: require('../lib/sandbox')()
+  };
 
-    console.info("Nightscout bundle ready", window.Nightscout);
+  console.info("Nightscout bundle ready", window.Nightscout);
 
 })();
 

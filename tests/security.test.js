@@ -10,20 +10,15 @@ describe('API_SECRET', function ( ) {
 
   var scope = this;
   function setup_app (env, fn) {
-    var ctx = { };
-    ctx.wares = require('../lib/middleware/')(env);
-    ctx.store = require('../lib/storage')(env);
-    ctx.archive = require('../lib/entries').storage(env.mongo_collection, ctx.store);
-    ctx.settings = require('../lib/settings')(env.settings_collection, ctx.store);
-
-    ctx.store(function ( ) {
-      ctx.app = api(env, ctx.wares, ctx.archive, ctx.settings);
+    require('../lib/bootevent')(env).boot(function booted (ctx) {
+      var wares = require('../lib/middleware/')(env);
+      ctx.app = api(env, wares, ctx);
       scope.app = ctx.app;
-      ctx.archive.create(load('json'), fn);
-      scope.archive = ctx.archive;
+      scope.entries = ctx.entries;
+      ctx.entries.create(load('json'), function () {
+        fn(ctx);
+      });
     });
-
-    return ctx;
   }
   /*
   before(function (done) {
@@ -31,14 +26,14 @@ describe('API_SECRET', function ( ) {
   });
   */
   after(function (done) {
-    scope.archive( ).remove({ }, done);
+    scope.entries( ).remove({ }, done);
   });
 
   it('should work fine absent', function (done) {
     delete process.env.API_SECRET;
     var env = require('../env')( );
     should.not.exist(env.api_secret);
-    var ctx = setup_app(env,  function ( ) {
+    setup_app(env, function (ctx) {
       ctx.app.enabled('api').should.be.false;
       ping_status(ctx.app, again);
       function again ( ) {
@@ -54,7 +49,7 @@ describe('API_SECRET', function ( ) {
     process.env.API_SECRET = 'this is my long pass phrase';
     var env = require('../env')( );
     env.api_secret.should.equal(known);
-    var ctx = setup_app(env,  function ( ) {
+    setup_app(env, function (ctx) {
       // console.log(this.app.enabled('api'));
       ctx.app.enabled('api').should.be.true;
       // ping_status(ctx.app, done);
@@ -75,7 +70,7 @@ describe('API_SECRET', function ( ) {
     process.env.API_SECRET = 'this is my long pass phrase';
     var env = require('../env')( );
     env.api_secret.should.equal(known);
-    var ctx = setup_app(env,  function ( ) {
+    setup_app(env, function (ctx) {
       // console.log(this.app.enabled('api'));
       ctx.app.enabled('api').should.be.true;
       // ping_status(ctx.app, done);

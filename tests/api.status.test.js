@@ -9,13 +9,11 @@ describe('Status REST api', function ( ) {
     env.enable = "careportal rawbg";
     env.api_secret = 'this is my long pass phrase';
     this.wares = require('../lib/middleware/')(env);
-    var store = require('../lib/storage')(env);
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    store(function ( ) {
-      var entriesStorage = require('../lib/entries').storage(env.mongo_collection, store);
-      self.app.use('/api', api(env, entriesStorage));
+    require('../lib/bootevent')(env).boot(function booted (ctx) {
+      self.app.use('/api', api(env, ctx.entries));
       done();
     });
   });
