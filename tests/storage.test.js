@@ -1,9 +1,7 @@
 'use strict';
 
-var request = require('supertest');
 var should = require('should');
 var assert = require('assert');
-var load = require('./fixtures/load');
 
 describe('STORAGE', function () {
   var env = require('../env')();
@@ -14,7 +12,7 @@ describe('STORAGE', function () {
   });
 
   it('The storage class should be OK.', function (done) {
-    require('../lib/storage').should.be.ok;
+    should(require('../lib/storage')).be.ok;
     done();
   });
 
@@ -25,7 +23,7 @@ describe('STORAGE', function () {
 
       store(env, function (err2, db2) {
         should.not.exist(err2);
-        assert(db1.db, db2.db, 'Check if the handlers are the same.')
+        assert(db1.db, db2.db, 'Check if the handlers are the same.');
 
         done();
       });
