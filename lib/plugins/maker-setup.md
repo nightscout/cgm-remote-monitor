@@ -32,12 +32,30 @@ Nightscout/IFTTT Maker
 ## Create a recipe
 
   Start [creating a recipe](https://ifttt.com/myrecipes/personal/new)
-  
+  ![screen shot 2015-06-29 at 10 58 48 pm](https://cloud.githubusercontent.com/assets/751143/8425240/bab51986-1eb8-11e5-88fb-5aed311896be.png)
+
   1. Choose a Trigger Channel
+    ![screen shot 2015-06-29 at 10 59 01 pm](https://cloud.githubusercontent.com/assets/751143/8425243/c007ace6-1eb8-11e5-96d1-b13f9c3d071f.png)
+  
   2. Choose a Trigger
+    ![screen shot 2015-06-29 at 10 59 18 pm](https://cloud.githubusercontent.com/assets/751143/8425246/c77c5a4e-1eb8-11e5-9084-32ae40518ee0.png)
+  
   3. Complete Trigger Fields
+    ![screen shot 2015-06-29 at 10 59 33 pm](https://cloud.githubusercontent.com/assets/751143/8425249/ced7b450-1eb8-11e5-95a3-730f6b9b2925.png)
+
   4. That
+    ![screen shot 2015-06-29 at 10 59 46 pm](https://cloud.githubusercontent.com/assets/751143/8425251/d46e1dc8-1eb8-11e5-91be-8dc731e308b2.png)
+    
   5. Choose an Action
+    ![screen shot 2015-06-29 at 11 00 12 pm](https://cloud.githubusercontent.com/assets/751143/8425254/de634844-1eb8-11e5-8f09-cd43c41ccf3f.png)
+    
   6. Complete Action Fields
+    ![screen shot 2015-06-29 at 11 02 14 pm](https://cloud.githubusercontent.com/assets/751143/8425267/f2da6dd4-1eb8-11e5-8e4d-cad2590d111f.png)
+    ![screen shot 2015-06-29 at 11 02 21 pm](https://cloud.githubusercontent.com/assets/751143/8425272/f83ceb62-1eb8-11e5-8ea2-afd4dcbd391f.png)
+    
   7. Create and Connect
+    ![screen shot 2015-06-29 at 11 02 43 pm](https://cloud.githubusercontent.com/assets/751143/8425277/fe52f618-1eb8-11e5-8d7f-e0b34eebe29a.png)
+    
+    
+
  
