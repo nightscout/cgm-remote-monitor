@@ -22,7 +22,11 @@ describe('maker', function ( ) {
   });
 
   it('send a allclear, but only once', function (done) {
-    maker.makeRequest = function mockedToTestSingleDone (event, eventName, callback) { callback(); done(); };
+    function mockedToTestSingleDone (event, eventName, callback) {
+      callback(); done();
+    }
+
+    maker.makeRequest = mockedToTestSingleDone;
     maker.sendAllClear(function sendCallback (err, result) {
       should.not.exist(err);
       result.sent.should.equal(true);
