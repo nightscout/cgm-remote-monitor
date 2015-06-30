@@ -74,6 +74,8 @@ Nightscout/IFTTT Maker
   ![screen shot 2015-06-29 at 11 00 12 pm](https://cloud.githubusercontent.com/assets/751143/8425254/de634844-1eb8-11e5-8f09-cd43c41ccf3f.png)
   
 ### 6. Complete Action Fields
+  **Example:** `Nightscout: {{Value1}} {{Value2}} {{Value3}}`
+  
   ![screen shot 2015-06-29 at 11 02 14 pm](https://cloud.githubusercontent.com/assets/751143/8425267/f2da6dd4-1eb8-11e5-8e4d-cad2590d111f.png)
   ![screen shot 2015-06-29 at 11 02 21 pm](https://cloud.githubusercontent.com/assets/751143/8425272/f83ceb62-1eb8-11e5-8ea2-afd4dcbd391f.png)
   
