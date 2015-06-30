@@ -1,3 +1,31 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**
+
+- [Nightscout Web Monitor (a.k.a. cgm-remote-monitor)](#nightscout-web-monitor-aka-cgm-remote-monitor)
+- [[#WeAreNotWaiting](https://twitter.com/hashtag/wearenotwaiting?src=hash&vertical=default&f=images) and [this](https://vimeo.com/109767890) is why.](##wearenotwaitinghttpstwittercomhashtagwearenotwaitingsrchash&verticaldefault&fimages-and-thishttpsvimeocom109767890-is-why)
+- [Install](#install)
+- [Usage](#usage)
+  - [Updating my version?](#updating-my-version)
+  - [What is my mongo string?](#what-is-my-mongo-string)
+  - [Configure my uploader to match](#configure-my-uploader-to-match)
+  - [Environment](#environment)
+    - [Required](#required)
+    - [Features/Labs](#featureslabs)
+    - [Core](#core)
+    - [Predefined values for your browser settings (optional)](#predefined-values-for-your-browser-settings-optional)
+    - [Plugins](#plugins)
+      - [Extended Settings](#extended-settings)
+      - [Pushover](#pushover)
+      - [IFTTT Maker](#ifttt-maker)
+    - [Treatment Profile](#treatment-profile)
+  - [Setting environment variables](#setting-environment-variables)
+    - [Vagrant install](#vagrant-install)
+  - [More questions?](#more-questions)
+  - [License](#license)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 ======================================
 
@@ -19,7 +47,7 @@ and blood glucose values are predicted 0.5 hours ahead using an
 autoregressive second order model.  Alarms are generated for high and
 low values, which can be cleared by any watcher of the data.
 
-#[#WeAreNotWaiting](https://twitter.com/hashtag/wearenotwaiting?src=hash&vertical=default&f=images) and [this](https://vimeo.com/109767890) is why.
+# [#WeAreNotWaiting](https://twitter.com/hashtag/wearenotwaiting?src=hash&vertical=default&f=images) and [this](https://vimeo.com/109767890) is why.
 
 Community maintained fork of the
 [original cgm-remote-monitor][original].
@@ -39,8 +67,7 @@ Community maintained fork of the
 [heroku-url]: https://heroku.com/deploy
 [original]: https://github.com/rnpenguin/cgm-remote-monitor
 
-Install
----------------
+# Install
 
 Requirements:
 
@@ -52,8 +79,7 @@ Clone this repo then install dependencies into the root of the project:
 $ npm install
 ```
 
-Usage
----------------
+#Usage
 
 The data being uploaded from the server to the client is from a
 MongoDB server such as [mongolab][mongodb].  In order to access the
@@ -68,31 +94,32 @@ ready, just host your web app on your service of choice.
 [mongostring]: http://nightscout.github.io/pages/mongostring/
 [update-fork]: http://nightscout.github.io/pages/update-fork/
 
-### Updating my version?
+## Updating my version?
 The easiest way to update your version of cgm-remote-monitor to our latest
 recommended version is to use the [update my fork tool][update-fork].  It even
 gives out stars if you are up to date.
 
-### What is my mongo string?
+## What is my mongo string?
 
 Try the [what is my mongo string tool][mongostring] to get a good idea of your
 mongo string.  You can copy and paste the text in the gray box into your
 `MONGO_CONNECTION` environment variable.
 
-### Configure my uploader to match
+## Configure my uploader to match
 
 Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
 
-### Environment
+## Environment
 
 `VARIABLE` (default) - description
 
-#### Required
+### Required
 
   * `MONGO_CONNECTION` - Your mongo uri, for example: `mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout`
+  * `DISPLAY_UNITS` (`mg/dl`) - Choices: `mg/dl` and `mmol`.  Setting to `mmol` puts the entire server into `mmol` mode by default, no further settings needed.
 
-#### Features/Labs
+### Features/Labs
 
   * `ENABLE` - Used to enable optional features, expects a space delimited list such as: `careportal rawbg iob`, see [plugins](#plugins) below
   * `API_SECRET` - A secret passphrase that must be at least 12 characters long, required to enable `POST` and `PUT`; also required for the Care Portal
@@ -104,9 +131,8 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `BASE_URL` - Used for building links to your sites api, ie pushover callbacks, usually the URL of your Nightscout site you may want https instead of http
 
 
-#### Core
+### Core
 
-  * `DISPLAY_UNITS` (`mg/dl`) - Choices: `mg/dl` and `mmol`.  Setting to `mmol` puts the entire server into `mmol` mode by default, no further settings needed.
   * `MONGO_COLLECTION` (`entries`) - The collection used to store SGV, MBG, and CAL records from your CGM device
   * `MONGO_TREATMENTS_COLLECTION` (`treatments`) -The collection used to store treatments entered in the Care Portal, see the `ENABLE` env var above
   * `MONGO_DEVICESTATUS_COLLECTION`(`devicestatus`) - The collection used to store device status information such as uploader battery
@@ -116,7 +142,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js
 
 
-#### Predefined values for your browser settings (optional)
+### Predefined values for your browser settings (optional)
   * `TIME_FORMAT` (`12`)- possible values `12` or `24`
   * `NIGHT_MODE` (`off`) - possible values `on` or `off`
   * `SHOW_RAWBG` (`never`) - possible values `always`, `never` or `noise`
@@ -165,6 +191,46 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
 
   Plugins only have access to their own extended settings, all the extended settings of client plugins will be sent to the browser.
+
+#### Pushover
+  In addition to the normal web based alarms, there is also support for [Pushover](https://pushover.net/) based alarms and notifications.
+
+  To get started install the Pushover application on your iOS or Android device and create an account.
+
+  Using that account login to [Pushover](https://pushover.net/), in the top left you’ll see your User Key, you’ll need this plus an application API Token/Key to complete this setup.
+
+  You’ll need to [Create a Pushover Application](https://pushover.net/apps/build).  You only need to set the Application name, you can ignore all the other settings, but setting an Icon is a nice touch.  Maybe you'd like to use [this one](https://raw.githubusercontent.com/nightscout/cgm-remote-monitor/master/static/images/large.png)?
+
+  Pushover is configured using the following Environment Variables:
+  
+    * `ENABLE` - `pushover` should be added to the list of plugin, for example: `ENABLE="pushover"`.
+    * `PUSHOVER_API_TOKEN` - Used to enable pushover notifications, this token is specific to the application you create from in [Pushover](https://pushover.net/), ***[additional pushover information](#pushover)*** below.
+    * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.
+    * `BASE_URL` - Used for pushover callbacks, usually the URL of your Nightscout site, use https when possible.
+    * `API_SECRET` - Used for signing the pushover callback request for acknowledgments.
+    
+    For testing/devlopment try [localtunnel](http://localtunnel.me/).
+
+#### IFTTT Maker
+ In addition to the normal web based alarms, and pushover, there is also integration for [IFTTT Maker](https://ifttt.com/maker).
+  
+ With Maker you are able to integrate with all the other [IFTTT Channels](https://ifttt.com/channels).  For example you can send a tweet when there is an alarm, change the color of hue light, send an email, send and sms, and so much more.
+ 
+ 1. Setup IFTTT account: [login](https://ifttt.com/login) or [create an account](https://ifttt.com/join)
+ 2. Find your secret key on the [maker page](https://ifttt.com/maker)
+ 3. Configure Nightscout by setting these environment variables:
+  * `ENABLE` - `maker` should be added to the list of plugin, for example: `ENABLE="maker"`.
+  * `MAKER_KEY` - Set this to your secret key that you located in step 2, for example: `MAKER_KEY="abcMyExampleabc123defjt1DeNSiftttmak-XQb69p"`
+ 4. [Create a recipe](https://ifttt.com/myrecipes/personal/new) or see [more detailed instructions](lib/plugins/maker-setup.md#create-a-recipe)
+ 
+ Plugins can create custom events, but all events sent to maker will be prefixed with `ns-`.  The core events are:
+  * `ns-event` - This event is sent to the maker service for all alarms and notifications.  This is good catch all event for general logging.
+  * `ns-allclear` - This event is sent to the maker service when an alarm has been ack'd or when the server starts up without triggering any alarms.  For example, you could use this event to turn a light to green.
+  * `ns-info` - Plugins that generate notifications at the info level will cause this event to also be triggered.  It will be sent in addition to `ns-event`.
+  * `ns-warning` - Alarms at the warning level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
+  * `ns-urgent` - Alarms at the urgent level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
+  * see the [full list of events](lib/plugins/maker-setup.md#events)
+
 
 ### Treatment Profile
   Some of the [plugins](#plugins) make use of a treatment profile that is stored in Mongo. To use those plugins there should only be a single doc in the `profile` collection.  A simple example (change it to fit you):
@@ -243,51 +309,6 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `target_low` - Lower target for correction boluses.
 
   Additional information can be found [here](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website).
-
-### Pushover
-  In addition to the normal web based alarms, there is also support for [Pushover](https://pushover.net/) based alarms and notifications.
-
-  To get started install the Pushover application on your iOS or Android device and create an account.
-
-  Using that account login to [Pushover](https://pushover.net/), in the top left you’ll see your User Key, you’ll need this plus an application API Token/Key to complete this setup.
-
-  You’ll need to [Create a Pushover Application](https://pushover.net/apps/build).  You only need to set the Application name, you can ignore all the other settings, but setting an Icon is a nice touch.  Maybe you'd like to use [this one](https://raw.githubusercontent.com/nightscout/cgm-remote-monitor/master/static/images/large.png)?
-
-  Pushover is configured using the following Environment Variables:
-  
-    * `ENABLE` - `pushover` should be added to the list of plugin, for example: `ENABLE="pushover"`.
-    * `PUSHOVER_API_TOKEN` - Used to enable pushover notifications, this token is specific to the application you create from in [Pushover](https://pushover.net/), ***[additional pushover information](#pushover)*** below.
-    * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.
-    * `BASE_URL` - Used for pushover callbacks, usually the URL of your Nightscout site, use https when possible.
-    * `API_SECRET` - Used for signing the pushover callback request for acknowledgments.
-    
-    For testing/devlopment try [localtunnel](http://localtunnel.me/).
-
-### IFTTT Maker
- In addition to the normal web based alarms, and pushover, there is also integration for [IFTTT Maker](https://ifttt.com/maker).
-  
- With Maker you are able to integrate with all the other [IFTTT Channels](https://ifttt.com/channels).  For example you can send a tweet when there is an alarm, change the color of hue light, send an email, send and sms, and so much more.
- 
- 1. Setup IFTTT account: [login](https://ifttt.com/login) or [create an account](https://ifttt.com/join)
- 2. Find your secret key on the [maker page](https://ifttt.com/maker)
- 3. Configure Nightscout by setting these environment variables:
-  * `ENABLE` - `maker` should be added to the list of plugin, for example: `ENABLE="maker"`.
-  * `MAKER_KEY` - Set this to your secret key that you located in step 2, for example: `MAKER_KEY="abcMyExampleabc123defjt1DeNSiftttmak-XQb69p"`
- 4. [Create a recipe](https://ifttt.com/myrecipes/personal/new) or see [more detailed instructions](lib/plugins/maker-setup.md)
- 
- Plugins can create custom events, but all events sent to maker will be prefixed with `ns-`.  The core events are:
-  * `ns-event` - This event is sent to the maker service for all alarms and notifications.  This is good catch all event for general logging.
-  * `ns-allclear` - This event is sent to the maker service when an alarm has been ack'd or when the server starts up without triggering any alarms.  For example, you could use this event to turn a light to green.
-  * `ns-info` - Plugins that generate notifications at the info level will cause this event to also be triggered.  It will be sent in addition to `ns-event`.
-  * `ns-warning` - Alarms at the warning level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
-  * `ns-urgent` - Alarms at the urgent level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
-  * `ns-warning-high` - Alarms at the warning level with cause this event to also be triggered.  It will be sent in addition to `ns-event` and `ns-warning`.
-  * `ns-urgent-high` - Alarms at the urgent level with cause this event to also be triggered.  It will be sent in addition to `ns-event` and `ns-urgent`.
-  * `ns-warning-low` - Alarms at the warning level with cause this event to also be triggered.  It will be sent in addition to `ns-event` and `ns-warning`.
-  * `ns-urgent-low` - Alarms at the urgent level with cause this event to also be triggered.  It will be sent in addition to `ns-event` and `ns-urgent`.
-  * `ns-info-treatmentnotify` - When a treatment is entered into the care portal this event is triggered.  It will be sent in addition to `ns-event` and `ns-info`.
-  * `ns-warning-bwp` - When the BWP plugin generates a warning alarm.  It will be sent in addition to `ns-event` and `ns-warning`.
-  * `ns-urgent-bwp` - When the BWP plugin generates an urgent alarm.  It will be sent in addition to `ns-event` and `ns-urget`.
 
 ## Setting environment variables
 Easy to emulate on the commandline:
