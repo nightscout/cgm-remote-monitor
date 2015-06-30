@@ -78,7 +78,8 @@ Nightscout/IFTTT Maker
   
 ### 7. Create and Connect
   ![screen shot 2015-06-29 at 11 02 43 pm](https://cloud.githubusercontent.com/assets/751143/8425277/fe52f618-1eb8-11e5-8d7f-e0b34eebe29a.png)
-    
-    
+
+### Result
+  ![cinpiqkumaa33u7](https://cloud.githubusercontent.com/assets/751143/8425925/e7d08d2c-1ebf-11e5-853c-cdc5381c4186.png)
 
  

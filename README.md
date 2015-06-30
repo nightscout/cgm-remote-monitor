@@ -163,7 +163,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
   Plugins are used extend the way information is displayed, how notifications are sent, alarms are triggered, and more.
 
-  The built-in/example plugins that are available by default are listed below.  The plugins may still need to be enabled by adding the to the `ENABLE` environment variable.
+  The built-in/example plugins that are available by default are listed below.  The plugins may still need to be enabled by adding to the `ENABLE` environment variable.
 
   **Built-in/Example Plugins:**
 
