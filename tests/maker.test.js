@@ -1,7 +1,7 @@
 var should = require('should');
 
 describe('maker', function ( ) {
-  var maker = require('../lib/maker')({extendedSettings: {maker: {key: '12345'}}});
+  var maker = require('../lib/plugins/maker')({extendedSettings: {maker: {key: '12345'}}});
 
   //prevent any calls to iftt
   function noOpMakeRequest (event, eventName, callback) {
