@@ -4,7 +4,11 @@ describe('maker', function ( ) {
   var maker = require('../lib/maker')({extendedSettings: {maker: {key: '12345'}}});
 
   //prevent any calls to iftt
-  maker.makeRequest = function noOpMakeRequest (event, eventName, callback) { callback && callback()};
+  function noOpMakeRequest (event, eventName, callback) {
+    if (callback) { callback(); }
+  }
+
+  maker.makeRequest = noOpMakeRequest;
 
   it('turn values to a query', function (done) {
     maker.valuesToQuery({
@@ -27,13 +31,13 @@ describe('maker', function ( ) {
     }
 
     maker.makeRequest = mockedToTestSingleDone;
-    maker.sendAllClear(function sendCallback (err, result) {
+    maker.sendAllClear({}, function sendCallback (err, result) {
       should.not.exist(err);
       result.sent.should.equal(true);
     });
 
     //send again, if done is called again test will fail
-    maker.sendAllClear(function sendCallback (err, result) {
+    maker.sendAllClear({}, function sendCallback (err, result) {
       should.not.exist(err);
       result.sent.should.equal(false);
     });
