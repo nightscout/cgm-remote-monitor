@@ -233,36 +233,38 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
 
 ### Treatment Profile
-  Some of the [plugins](#plugins) make use of a treatment profile that is stored in Mongo. To use those plugins there should only be a single doc in the `profile` collection.  A simple example (change it to fit you):
+  Some of the [plugins](#plugins) make use of a treatment profile that is stored in Mongo. To use those plugins there should only be a single doc in the `profile` collection.
+  
+  Example Profile (change it to fit you):
 
   ```json
   {
-    "dia": 4,
-    "carbs_hr": 30,
-    "carbratio": 7.5,
-    "sens": 35,
-    "basal": 1.00
-    "target_low": 95,
+    "dia": 3,
+    "carbs_hr": 20,
+    "carbratio": 30,
+    "sens": 100,
+    "basal": 0.125,
+    "target_low": 100,
     "target_high": 120
   }
   ```
   
-  Profiles can also use time periods for any field, for example:
+  Profile can also use time periods for any field, for example:
   
   ```json
   {
     "carbratio": [
       {
         "time": "00:00",
-        "value": 16
+        "value": 30
       },
       {
         "time": "06:00",
-        "value": 15
+        "value": 25
       },
       {
         "time": "14:00",
-        "value": 16
+        "value": 28
       }
     ],
     "basal": [
@@ -280,7 +282,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
       },
       {
         "time": "08:00",
-        "value": 0.1
+        "value": 0.100
       },
       {
         "time": "14:00",
@@ -288,11 +290,11 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
       },
       {
         "time": "20:00",
-        "value": 0.3
+        "value": 0.175
       },
       {
         "time": "22:00",
-        "value": 0.225
+        "value": 0.200
       }
     ]
   }
