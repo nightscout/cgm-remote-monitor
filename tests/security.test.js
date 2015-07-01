@@ -85,7 +85,6 @@ describe('API_SECRET', function ( ) {
   });
 
   it('should not work short', function ( ) {
-    var known = 'c1d117818a97e847bdf286aa02d9dc8e8f7148f5';
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'tooshort';
     var env;

@@ -155,7 +155,7 @@ function closeDrawer(id, callback) {
   $("html, body").animate({ scrollTop: 0 });
   $(id).animate({right: '-300px'}, 300, function () {
     $(id).css('display', 'none');
-    if (callback) callback();
+    if (callback) { callback(); }
   });
 }
 
@@ -173,7 +173,7 @@ function toggleDrawer(id, openCallback, closeCallback) {
     closeOpenDraw(function () {
       openDraw = id;
       $(id).css('display', 'block').animate({right: '0'}, 300, function () {
-        if (callback) callback();
+        if (callback) { callback(); }
       });
     });
 
@@ -205,8 +205,8 @@ function currentTime() {
   var hours = now.getHours();
   var minutes = now.getMinutes();
 
-  if (hours<10) hours = '0' + hours;
-  if (minutes<10) minutes = '0' + minutes;
+  if (hours < 10) { hours = '0' + hours; }
+  if (minutes < 10) { minutes = '0' + minutes; }
 
   return ''+ hours + ':' + minutes;
 }

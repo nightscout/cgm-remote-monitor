@@ -1,4 +1,6 @@
-var should = require('should');
+'use strict';
+
+require('should');
 
 describe('units', function ( ) {
   var units = require('../lib/units')();

@@ -1,12 +1,13 @@
+'use strict';
 
 var request = require('supertest');
-var should = require('should');
+require('should');
 
 describe('Status REST api', function ( ) {
   var api = require('../lib/api/');
   before(function (done) {
     var env = require('../env')( );
-    env.enable = "careportal rawbg";
+    env.enable = 'careportal rawbg';
     env.api_secret = 'this is my long pass phrase';
     this.wares = require('../lib/middleware/')(env);
     this.app = require('express')( );

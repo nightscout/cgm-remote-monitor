@@ -275,7 +275,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
   }
 
   function inRetroMode() {
-    if (!brush) return false;
+    if (!brush) {
+      return false;
+    }
 
     var time = brush.extent()[1].getTime();
 
@@ -470,8 +472,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     var dotRadius = function(type) {
       var radius = prevChartWidth > WIDTH_BIG_DOTS ? 4 : (prevChartWidth < WIDTH_SMALL_DOTS ? 2 : 3);
-      if (type == 'mbg') radius *= 2;
-      else if (type == 'rawbg') radius = Math.min(2, radius - 1);
+      if (type == 'mbg') {
+        radius *= 2;
+      } else if (type == 'rawbg') {
+        radius = Math.min(2, radius - 1);
+      }
 
       return radius / focusRangeAdjustment;
     };
@@ -493,7 +498,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         })
         .attr('fill', function (d) { return d.color; })
         .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); })
-        .attr('stroke-width', function (d) { if (d.type == 'mbg') return 2; else return 0; })
+        .attr('stroke-width', function (d) { return d.type == 'mbg' ? 2 : 0; })
         .attr('stroke', function (d) {
           return (isDexcom(d.device) ? 'white' : '#0099ff');
         })
@@ -512,33 +517,34 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // if new circle then just display
     prepareFocusCircles(focusCircles.enter().append('circle'))
       .on('mouseover', function (d) {
-        if (d.type != 'sgv' && d.type != 'mbg') return;
+        if (d.type === 'sgv' || d.type === 'mbg') {
+          var bgType = (d.type === 'sgv' ? 'CGM' : (isDexcom(d.device) ? 'Calibration' : 'Meter'))
+            , rawbgValue = 0
+            , noiseLabel = '';
 
-        var bgType = (d.type == 'sgv' ? 'CGM' : (isDexcom(d.device) ? 'Calibration' : 'Meter'))
-          , rawbgValue = 0
-          , noiseLabel = '';
-
-        if (d.type == 'sgv') {
-          if (rawbg.showRawBGs(d.y, d.noise, cal, sbx)) {
-            rawbgValue = scaleBg(rawbg.calc(d, cal, sbx));
+          if (d.type === 'sgv') {
+            if (rawbg.showRawBGs(d.y, d.noise, cal, sbx)) {
+              rawbgValue = scaleBg(rawbg.calc(d, cal, sbx));
+            }
+            noiseLabel = rawbg.noiseCodeToDisplay(d.y, d.noise);
           }
-          noiseLabel = rawbg.noiseCodeToDisplay(d.y, d.noise);
-        }
 
-        tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-        tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
-          (d.type == 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
-          (rawbgValue ? '<br/><strong>Raw BG:</strong> ' + rawbgValue : '') +
-          (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
-          '<br/><strong>Time:</strong> ' + formatTime(d.date))
-          .style('left', (d3.event.pageX) + 'px')
-          .style('top', (d3.event.pageY + 15) + 'px');
+          tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
+          tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
+            (d.type == 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
+            (rawbgValue ? '<br/><strong>Raw BG:</strong> ' + rawbgValue : '') +
+            (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
+            '<br/><strong>Time:</strong> ' + formatTime(d.date))
+            .style('left', (d3.event.pageX) + 'px')
+            .style('top', (d3.event.pageY + 15) + 'px');
+        }
       })
       .on('mouseout', function (d) {
-        if (d.type != 'sgv' && d.type != 'mbg') return;
-        tooltip.transition()
-          .duration(TOOLTIP_TRANS_MS)
-          .style('opacity', 0);
+        if (d.type === 'sgv' || d.type === 'mbg') {
+          tooltip.transition()
+            .duration(TOOLTIP_TRANS_MS)
+            .style('opacity', 0);
+        }
       });
 
     focusCircles.exit()
@@ -963,9 +969,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         })
         .attr('fill', function (d) { return d.color; })
         .style('opacity', function (d) { return highlightBrushPoints(d) })
-        .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
-        .attr('stroke', function (d) { return 'white'; })
-        .attr('r', function(d) { if (d.type == 'mbg') return 4; else return 2;});
+        .attr('stroke-width', function (d) { return d.type == 'mbg' ? 2 : 0; })
+        .attr('stroke', function ( ) { return 'white'; })
+        .attr('r', function (d) { return d.type == 'mbg' ? 4 : 2; });
 
       if (badData.length > 0) {
         console.warn("Bad Data: isNaN(sgv)", badData);
@@ -1138,10 +1144,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   function drawTreatment(treatment, scale, showValues) {
 
-    if (!treatment.carbs && !treatment.insulin) return;
+    if (!treatment.carbs && !treatment.insulin) { return; }
 
     // don't render the treatment if it's not visible
-    if (Math.abs(xScale(treatment.created_at.getTime())) > window.innerWidth) return;
+    if (Math.abs(xScale(treatment.created_at.getTime())) > window.innerWidth) { return; }
 
     var CR = treatment.CR || 20;
     var carbs = treatment.carbs || CR;

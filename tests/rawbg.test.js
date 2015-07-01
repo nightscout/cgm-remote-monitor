@@ -1,6 +1,6 @@
 'use strict';
 
-var should = require('should');
+require('should');
 
 describe('Raw BG', function ( ) {
   var rawbg = require('../lib/plugins/rawbg')();

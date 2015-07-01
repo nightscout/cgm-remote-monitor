@@ -1,6 +1,6 @@
-var should = require('should');
+'use strict';
 
-var FIVE_MINS = 10 * 60 * 1000;
+require('should');
 
 describe('IOB', function ( ) {
   var iob = require('../lib/plugins/iob')();
@@ -11,7 +11,7 @@ describe('IOB', function ( ) {
     var time = new Date()
       , treatments = [ {
           created_at: time - 1,
-          insulin: "1.00"
+          insulin: '1.00'
         }
       ];
     
@@ -41,7 +41,7 @@ describe('IOB', function ( ) {
 
     var treatments = [{
       created_at: (new Date()) - 1,
-      insulin: "1.00"
+      insulin: '1.00'
     }];
 
     var rightAfterBolus = iob.calcTotal(treatments);
@@ -56,7 +56,7 @@ describe('IOB', function ( ) {
 
     var treatments = [{
       created_at: time,
-      insulin: "5.00"
+      insulin: '5.00'
     }];
 
     var whenApproaching0 = iob.calcTotal(treatments, undefined, new Date(time + (3 * 60 * 60 * 1000) - (90 * 1000)));
@@ -71,7 +71,7 @@ describe('IOB', function ( ) {
     var time = new Date()
       , treatments = [ {
         created_at: time - 1,
-        insulin: "1.00"
+        insulin: '1.00'
       }
       ];
        

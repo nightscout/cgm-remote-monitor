@@ -1,6 +1,6 @@
 'use strict';
 
-var should = require('should');
+require('should');
 
 describe('Delta', function ( ) {
   var delta = require('../lib/plugins/delta')();

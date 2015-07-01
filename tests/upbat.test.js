@@ -1,6 +1,6 @@
 'use strict';
 
-var should = require('should');
+require('should');
 
 describe('Uploader Battery', function ( ) {
   var data = {uploaderBattery: 20};
