@@ -27,7 +27,7 @@ function send_entry_rest() {
   };
 
   var req = http.request(options, function(res) {
-    console.log("Ok: ", res.statusCode);
+    console.log('Ok: ', res.statusCode);
   });
 
   req.on('error', function(e) {

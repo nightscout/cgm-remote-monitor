@@ -152,7 +152,7 @@ function isTouch() {
 
 function closeDrawer(id, callback) {
   openDraw = null;
-  $("html, body").animate({ scrollTop: 0 });
+  $('html, body').animate({ scrollTop: 0 });
   $(id).animate({right: '-300px'}, 300, function () {
     $(id).css('display', 'none');
     if (callback) { callback(); }
@@ -166,7 +166,7 @@ function toggleDrawer(id, openCallback, closeCallback) {
       if (openDraw) {
         closeDrawer(openDraw, callback);
       } else {
-        callback()
+        callback();
       }
     }
 
@@ -242,7 +242,7 @@ function showNotification(note, type)  {
 }
 
 function showLocalstorageError() {
-  var msg = '<b>Settings are disabled.</b><br /><br />Please enable cookies so you may customize your Nightscout site.'
+  var msg = '<b>Settings are disabled.</b><br /><br />Please enable cookies so you may customize your Nightscout site.';
   $('.browserSettings').html('<legend>Settings</legend>'+msg+'');
   $('#save').hide();
 }
@@ -373,7 +373,7 @@ $('#notification').click(function(event) {
 
 $('#save').click(function(event) {
   function checkedPluginNames() {
-    var checkedPlugins = []
+    var checkedPlugins = [];
     $('#show-plugins input:checked').each(function eachPluginCheckbox(index, checkbox) {
       checkedPlugins.push($(checkbox).val());
     });

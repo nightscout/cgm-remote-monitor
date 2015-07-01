@@ -103,7 +103,7 @@ describe('API_SECRET', function ( ) {
           res.body.status.should.equal('ok');
           fn( );
           // console.log('err', err, 'res', res);
-        })
+        });
   }
 
   function ping_authorized_endpoint (app, fails, fn) {
@@ -117,7 +117,7 @@ describe('API_SECRET', function ( ) {
           }
           fn( );
           // console.log('err', err, 'res', res);
-        })
+        });
   }
 
 });

@@ -18,7 +18,7 @@ describe('Plugins', function ( ) {
   });
 
   it('should find sever plugins, but not client only plugins', function (done) {
-    var plugins = require('../lib/plugins/')().registerServerDefaults()
+    var plugins = require('../lib/plugins/')().registerServerDefaults();
 
     plugins('rawbg').name.should.equal('rawbg');
     plugins('treatmentnotify').name.should.equal('treatmentnotify');

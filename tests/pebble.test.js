@@ -96,7 +96,7 @@ var ctx = {
       callback(null, {uploaderBattery: 100});
     }
   }
-}
+};
 
 describe('Pebble Endpoint without Raw', function ( ) {
   var pebble = require('../lib/pebble');

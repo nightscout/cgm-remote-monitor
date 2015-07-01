@@ -24,7 +24,7 @@ describe('Raw BG', function ( ) {
       var result = setter();
       result.value.should.equal(113);
       result.noiseLabel.should.equal('Clean');
-      done()
+      done();
     };
 
     rawbg.setProperties(sbx);

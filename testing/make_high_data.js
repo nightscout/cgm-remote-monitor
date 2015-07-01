@@ -1,6 +1,6 @@
 var fs = require('fs');
 
-var data = ''
+var data = '';
 var END_TIME = Date.now();
 var FIVE_MINS_IN_MS = 300000;
 var TIME_PERIOD_HRS = 24;
@@ -23,4 +23,4 @@ function makedata() {
   fs.writeFile('../Dexcom.csv', data);
 }
 
-setInterval(makedata, 1000 * 10)
+setInterval(makedata, 1000 * 10);

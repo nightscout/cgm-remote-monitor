@@ -21,7 +21,7 @@ describe('Delta', function ( ) {
       var result = setter();
       result.value.should.equal(5);
       result.display.should.equal('+5');
-      done()
+      done();
     };
 
     delta.setProperties(sbx);

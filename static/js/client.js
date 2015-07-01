@@ -415,7 +415,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       var lookbackTime = (lookback + 2) * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
       nowData = nowData.filter(function(d) {
         return d.date.getTime() >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
-          d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS
+          d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS;
       });
 
       // sometimes nowData contains duplicates.  uniq it.
@@ -505,7 +505,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         .attr('r', function (d) { return dotRadius(d.type); });
 
       if (badData.length > 0) {
-        console.warn("Bad Data: isNaN(sgv)", badData);
+        console.warn('Bad Data: isNaN(sgv)', badData);
       }
 
       return sel;
@@ -974,7 +974,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         .attr('r', function (d) { return d.type == 'mbg' ? 4 : 2; });
 
       if (badData.length > 0) {
-        console.warn("Bad Data: isNaN(sgv)", badData);
+        console.warn('Bad Data: isNaN(sgv)', badData);
       }
 
       return sel;
@@ -1121,7 +1121,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
           console.info('found mismatched glucose units, converting ' + treatment.units + ' into ' + browserSettings.units, treatment);
           if (treatment.units == 'mmol') {
             //BG is in mmol and display in mg/dl
-            treatmentGlucose = Math.round(treatment.glucose * 18)
+            treatmentGlucose = Math.round(treatment.glucose * 18);
           } else {
             //BG is in mg/dl and display in mmol
             treatmentGlucose = scaleBg(treatment.glucose);
@@ -1158,7 +1158,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       R3 = R2 + 8 / scale;
 
     if (isNaN(R1) || isNaN(R3) || isNaN(R3)) {
-      console.warn("Bad Data: Found isNaN value in treatment", treatment);
+      console.warn('Bad Data: Found isNaN value in treatment', treatment);
       return;
     }
 
@@ -1172,8 +1172,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     arc_data[0].outlineOnly = !treatment.carbs;
     arc_data[2].outlineOnly = !treatment.insulin;
 
-    if (treatment.carbs > 0) arc_data[1].element = Math.round(treatment.carbs) + ' g';
-    if (treatment.insulin > 0) arc_data[3].element = Math.round(treatment.insulin * 100) / 100 + ' U';
+    if (treatment.carbs > 0) {
+      arc_data[1].element = Math.round(treatment.carbs) + ' g';
+    }
+
+    if (treatment.insulin > 0) {
+      arc_data[3].element = Math.round(treatment.insulin * 100) / 100 + ' U';
+    }
 
     var arc = d3.svg.arc()
       .innerRadius(function (d) { return 5 * d.inner; })
@@ -1205,8 +1210,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       });
     var arcs = treatmentDots.append('path')
       .attr('class', 'path')
-      .attr('fill', function (d, i) { if (d.outlineOnly) return 'transparent'; else return d.color; })
-      .attr('stroke-width', function (d) {if (d.outlineOnly) return 1; else return 0; })
+      .attr('fill', function (d, i) { return d.outlineOnly ? 'transparent' : d.color; })
+      .attr('stroke-width', function (d) { return d.outlineOnly ? 1 : 0; })
       .attr('stroke', function (d) { return d.color; })
       .attr('id', function (d, i) { return 's' + i; })
       .attr('d', arc);

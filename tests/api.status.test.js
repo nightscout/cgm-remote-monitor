@@ -41,7 +41,7 @@ describe('Status REST api', function ( ) {
       .end(function(err, res) {
         res.type.should.equal('text/html');
         res.statusCode.should.equal(200);
-        done()
+        done();
       });
   });
 
@@ -52,7 +52,7 @@ describe('Status REST api', function ( ) {
         res.type.should.equal('application/javascript');
         res.statusCode.should.equal(200);
         res.text.should.startWith('this.serverSettings =');
-        done()
+        done();
       });
   });
 
