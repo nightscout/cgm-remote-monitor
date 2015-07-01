@@ -15,6 +15,7 @@
 		  <li id="hourlystats"         class="translate menutab">Hourly stats</li>
 		  <li id="success"             class="translate menutab">Weekly success</li>
 		  <li id="treatments"          class="translate menutab">Treatments</li>
+		  <li id="calibrations"        class="translate menutab">Calibrations</li>
 		</ul>
 		<table>
 			<tr>
@@ -154,6 +155,11 @@
 			<br>
 			<b><span class="translate">Authentication status</span>: </b><span id="authentication_placeholder"></span>
 		</div>
+		<div id="calibrations-placeholder" class="tabplaceholder" style="display:none">
+			<h1 class="translate">Calibrations</h1>
+			<div style="width:50%;height:500px;float:left;overflow:scroll;overflow-x:hidden;" id="calibrations-list"></div>
+			<div style="width:48%;float:right;" id="calibrations-chart"></div>
+		</div>
 		
 		
         <script src="/api/v1/status.js"></script>
@@ -172,7 +178,7 @@
         <script src="/js/language.js"></script>
         <script src="/js/hashauth/hashauth.js"></script>
         <script src="/js/ui-utils.js"></script>
-        <script src="/js/report.js"></script>
+        <script src="/js/reports/report.js"></script>
 		<script src="/js/reports/time.js"></script>
 		<script src="/js/reports/flotcandle.js"></script>
 		<script src="/js/reports/dailystats.js"></script>
@@ -180,5 +186,6 @@
 		<script src="/js/reports/percentile.js"></script>
 		<script src="/js/reports/hourlystats.js"></script>
 		<script src="/js/reports/success.js"></script>
+		<script src="/js/reports/calibrations.js"></script>
     </body>
 </html>

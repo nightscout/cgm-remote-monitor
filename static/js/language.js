@@ -411,7 +411,7 @@
 			cs: 'Glykémie'
 			}
 		,'Entered By' : { 	
-			cs: 'Zadáno'
+			cs: 'Zadal'
 			}
 		,'Delete this treatment?' : { 	
 			cs: 'Vymazat toto ošetření?'
@@ -599,6 +599,267 @@
 		,'Logarithmic' : { 	
 			cs: 'logaritmické'
 			}
+		,'Silence for 30 minutes' : { 	
+			cs: 'Ztlumit na 30 minut'
+			}
+		,'Silence for 60 minutes' : { 	
+			cs: 'Ztlumit na 60 minut'
+			}
+		,'Silence for 90 minutes' : { 	
+			cs: 'Ztlumit na 90 minut'
+			}
+		,'Silence for 120 minutes' : { 	
+			cs: 'Ztlumit na 120 minut'
+			}
+		,'3HR' : { 	
+			cs: '3hod'
+			}
+		,'6HR' : { 	
+			cs: '6hod'
+			}
+		,'12HR' : { 	
+			cs: '12hod'
+			}
+		,'24HR' : { 	
+			cs: '24hod'
+			}
+		,'Sttings' : { 	
+			cs: 'Nastavení'
+			}
+		,'Units' : { 	
+			cs: 'Jednotky'
+			}
+		,'Date format' : { 	
+			cs: 'Formát datumu'
+			}
+		,'12 hours' : { 	
+			cs: '12 hodin'
+			}
+		,'24 hours' : { 	
+			cs: '24 hodin'
+			}
+		,'Log a Treatment' : { 	
+			cs: 'Záznam ošetření'
+			}
+		,'BG Check' : { 	
+			cs: 'Kontrola glykémie'
+			}
+		,'Meal Bolus' : { 	
+			cs: 'Bolus na jídlo'
+			}
+		,'Snack Bolus' : { 	
+			cs: 'Bolus na svačinu'
+			}
+		,'Correction Bolus' : { 	
+			cs: 'Bolus na glykémii'
+			}
+		,'Carb Correction' : { 	
+			cs: 'Přídavek sacharidů'
+			}
+		,'Note' : { 	
+			cs: 'Poznámka'
+			}
+		,'Question' : { 	
+			cs: 'Otázka'
+			}
+		,'Exercise' : { 	
+			cs: 'Cvičení'
+			}
+		,'1' : { 	
+			cs: '1'
+			}
+		,'Pump Site Change' : { 	
+			cs: 'Přepíchnutí kanyly'
+			}
+		,'Sensor Start' : { 	
+			cs: 'Spuštění sensoru'
+			}
+		,'Sensor Change' : { 	
+			cs: 'Výměna sensoru'
+			}
+		,'Dexcom Sensor Start' : { 	
+			cs: 'Spuštění sensoru'
+			}
+		,'Dexcom Sensor Change' : { 	
+			cs: 'Výměna sensoru'
+			}
+		,'Insulin Cartridge Change' : { 	
+			cs: 'Výměna inzulínu'
+			}
+		,'D.A.D. Alert' : { 	
+			cs: 'D.A.D. Alert'
+			}
+		,'Glucose Reading' : { 	
+			cs: 'Hodnota glykémie'
+			}
+		,'Measurement Method' : { 	
+			cs: 'Metoda měření'
+			}
+		,'Meter' : { 	
+			cs: 'Glukoměr'
+			}
+		,'Carbs Given' : { 	
+			cs: 'Sacharidy'
+			}
+		,'Insulin Given' : { 	
+			cs: 'Inzulín'
+			}
+		,'Amount in grams' : { 	
+			cs: 'Množství v gramech'
+			}
+		,'Amount in units' : { 	
+			cs: 'Množství v jednotkách'
+			}
+		,'View all treatments' : { 	
+			cs: 'Zobraz všechny ošetření'
+			}
+		,'Enable Alarms' : { 	
+			cs: 'Povolit alarmy'
+			}
+		,'When enabled an alarm may sound.' : { 	
+			cs: 'Při povoleném alarmu zní zvuk'
+			}
+		,'Urgent High Alarm' : { 	
+			cs: 'Urgentní vysoká glykémie'
+			}
+		,'High Alarm' : { 	
+			cs: 'Vysoká glykémie'
+			}
+		,'Low Alarm' : { 	
+			cs: 'Nízká glykémie'
+			}
+		,'Urgent Low Alarm' : { 	
+			cs: 'Urgentní nízká glykémie'
+			}
+		,'Stale Data: Warn' : { 	
+			cs: 'Zastaralá data'
+			}
+		,'Stale Data: Urgent' : { 	
+			cs: 'Zastaralá data urgentní'
+			}
+		,'mins' : { 	
+			cs: 'min'
+			}
+		,'Night Mode' : { 	
+			cs: 'Noční mód'
+			}
+		,'When enabled the page will be dimmed from 10pm - 6am.' : { 	
+			cs: 'Když je povoleno, obrazovka je ztlumena 22:00 - 6:00'
+			}
+		,'Enable' : { 	
+			cs: 'Povoleno'
+			}
+		,'Settings' : { 	
+			cs: 'Nastavení'
+			}
+		,'Show Raw BG Data' : { 	
+			cs: 'Zobraz RAW data'
+			}
+		,'Never' : { 	
+			cs: 'Nikdy'
+			}
+		,'Always' : { 	
+			cs: 'Vždy'
+			}
+		,'When there is noise' : { 	
+			cs: 'Při šumu'
+			}
+		,'When enabled small white dots will be disaplyed for raw BG data' : { 	
+			cs: 'Když je povoleno, malé tečky budou zobrazeny pro RAW data'
+			}
+		,'Custom Title' : { 	
+			cs: 'Vlastní název stránky'
+			}
+		,'Theme' : { 	
+			cs: 'Téma'
+			}
+		,'Default' : { 	
+			cs: 'Výchozí'
+			}
+		,'Colors' : { 	
+			cs: 'Barevné'
+			}
+		,'Reset, and use defaults' : { 	
+			cs: 'Vymaž a nastav výchozí hodnoty'
+			}
+		,'Calibrations' : { 	
+			cs: 'Kalibrace'
+			}
+		,'Alarm Test / Smartphone Enable' : { 	
+			cs: 'Test alarmu'
+			}
+		,'Settings' : { 	
+			cs: 'Nastavení'
+			}
+		,'Treatments' : { 	
+			cs: 'Ošetření'
+			}
+		,'Bolus Wizard' : { 	
+			cs: 'Bolusový kalkulátor'
+			}
+		,'in the future' : { 	
+			cs: 'v budoucnosti'
+			}
+		,'time ago' : { 	
+			cs: 'min zpět'
+			}
+		,'hr ago' : { 	
+			cs: 'hod zpět'
+			}
+		,'hrs ago' : { 	
+			cs: 'hod zpět'
+			}
+		,'min ago' : { 	
+			cs: 'min zpět'
+			}
+		,'mins ago' : { 	
+			cs: 'min zpět'
+			}
+		,'day ago' : { 	
+			cs: 'den zpět'
+			}
+		,'days ago' : { 	
+			cs: 'dnů zpět'
+			}
+		,'long ago' : { 	
+			cs: 'dlouho zpět'
+			}
+		,'Clean' : { 	
+			cs: 'Čistý'
+			}
+		,'Light' : { 	
+			cs: 'Lehký'
+			}
+		,'Medium' : { 	
+			cs: 'Střední'
+			}
+		,'Heavy' : { 	
+			cs: 'Těžký'
+			}
+		,'Treatment type' : { 	
+			cs: 'Typ ošetření'
+			}
+		,'Raw BG' : { 	
+			cs: 'Glykémie z RAW dat'
+			}
+		,'Device' : { 	
+			cs: 'Zařízení'
+			}
+		,'Noise' : { 	
+			cs: 'Šum'
+			}
+		,'Calibration' : { 	
+			cs: 'Kalibrace'
+			}
+
+		,'1' : { 	
+			cs: '1'
+			}
+
+		,'1' : { 	
+			cs: '1'
+			}
+
 		,'1' : { 	
 			cs: '1'
 			}
@@ -620,4 +881,6 @@
 	$('.titletranslate').each(function (s) {
 		//console.log($(this).attr('title'));
 		$(this).attr('title',translate($(this).attr('title')));
+		$(this).attr('original-title',translate($(this).attr('original-title')));
+		$(this).attr('placeholder',translate($(this).attr('placeholder')));
 	});

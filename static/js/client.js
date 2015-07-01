@@ -173,10 +173,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var display;
         switch (parseInt(noise)) {
             case 0: display = '---'; break;
-            case 1: display = 'Clean'; break;
-            case 2: display = 'Light'; break;
-            case 3: display = 'Medium'; break;
-            case 4: display = 'Heavy'; break;
+            case 1: display = translate('Clean'); break;
+            case 2: display = translate('Light'); break;
+            case 3: display = translate('Medium'); break;
+            case 4: display = translate('Heavy'); break;
             default:
                 if (sgv < 40) {
                     display = 'Heavy';
@@ -662,11 +662,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 }
 
                 tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-                tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
-                    (d.type == 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
-                    (rawBG ? '<br/><strong>Raw BG:</strong> ' + rawBG : '') +
-                    (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
-                    '<br/><strong>Time:</strong> ' + formatTime(d.date))
+                tooltip.html('<strong>' + translate(bgType) + ' ' + translate('BG') + ':</strong> ' + d.sgv +
+                    (d.type == 'mbg' ? '<br/><strong>' + translate('Device') + ': </strong>' + d.device : '') +
+                    (rawBG ? '<br/><strong>' + translate('Raw BG') + ' :</strong> ' + rawBG : '') +
+                    (noiseLabel ? '<br/><strong>' + translate('Noise') + ':</strong> ' + noiseLabel : '') +
+                    '<br/><strong>' + translate('Time') + ':</strong> ' + formatTime(d.date))
                     .style('left', (d3.event.pageX) + 'px')
                     .style('top', (d3.event.pageY + 15) + 'px');
             })
@@ -762,11 +762,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             prepareTreatCircles(treatCircles.enter().append('circle'))
                 .on('mouseover', function (d) {
                     tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-                    tooltip.html('<strong>Time:</strong> ' + formatTime(d.created_at) + '<br/>' +
-                        (d.eventType ? '<strong>Treatment type:</strong> ' + d.eventType + '<br/>' : '') +
-                        (d.glucose ? '<strong>BG:</strong> ' + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + '<br/>' : '') +
-                        (d.enteredBy ? '<strong>Entered by:</strong> ' + d.enteredBy + '<br/>' : '') +
-                        (d.notes ? '<strong>Notes:</strong> ' + d.notes : '')
+                    tooltip.html('<strong>'+translate('Time')+':</strong> ' + formatTime(d.created_at) + '<br/>' +
+                        (d.eventType ? '<strong>'+translate('Treatment type')+':</strong> ' + translate(d.eventType) + '<br/>' : '') +
+                        (d.glucose ? '<strong>'+translate('BG')+':</strong> ' + d.glucose + (d.glucoseType ? ' (' + translate(d.glucoseType) + ')': '') + '<br/>' : '') +
+                        (d.enteredBy ? '<strong>'+translate('Entered By')+':</strong> ' + d.enteredBy + '<br/>' : '') +
+                        (d.notes ? '<strong>'+translate('Notes')+':</strong> ' + d.notes : '')
                     )
                     .style('left', (d3.event.pageX) + 'px')
                     .style('top', (d3.event.pageY + 15) + 'px');
@@ -1228,15 +1228,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , offset = time == -1 ? -1 : (now - time) / 1000
             , parts = {};
 
-        if (offset < MINUTE_IN_SECS * -5)          parts = { value: 'in the future' };
-        else if (offset == -1)                     parts = { label: 'time ago' };
-        else if (offset <= MINUTE_IN_SECS * 2)     parts = { value: 1, label: 'min ago' };
-        else if (offset < (MINUTE_IN_SECS * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE_IN_SECS)), label: 'mins ago' };
-        else if (offset < (HOUR_IN_SECS * 2))      parts = { value: 1, label: 'hr ago' };
-        else if (offset < (HOUR_IN_SECS * 24))     parts = { value: Math.round(Math.abs(offset / HOUR_IN_SECS)), label: 'hrs ago' };
-        else if (offset < DAY_IN_SECS)             parts = { value: 1, label: 'day ago' };
-        else if (offset <= (DAY_IN_SECS * 7))      parts = { value: Math.round(Math.abs(offset / DAY_IN_SECS)), label: 'day ago' };
-        else                                       parts = { value: 'long ago' };
+        if (offset < MINUTE_IN_SECS * -5)          parts = { value: translate('in the future') };
+        else if (offset == -1)                     parts = { label: translate('time ago') };
+        else if (offset <= MINUTE_IN_SECS * 2)     parts = { value: 1, label: translate('min ago') };
+        else if (offset < (MINUTE_IN_SECS * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE_IN_SECS)), label: translate('mins ago') };
+        else if (offset < (HOUR_IN_SECS * 2))      parts = { value: 1, label: translate('hr ago') };
+        else if (offset < (HOUR_IN_SECS * 24))     parts = { value: Math.round(Math.abs(offset / HOUR_IN_SECS)), label: translate('hrs ago') };
+        else if (offset < DAY_IN_SECS)             parts = { value: 1, label: translate('day ago') };
+        else if (offset <= (DAY_IN_SECS * 7))      parts = { value: Math.round(Math.abs(offset / DAY_IN_SECS)), label: translate('days ago') };
+        else                                       parts = { value: translate('long ago') };
 
         if (offset > DAY_IN_SECS * 7) {
             parts.status = 'warn';
@@ -1327,12 +1327,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(scaledTreatmentBG(treatment,data)) + ')')
             .on('mouseover', function () {
                 tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-                tooltip.html('<strong>Time:</strong> ' + formatTime(treatment.created_at) + '<br/>' + '<strong>Treatment type:</strong> ' + treatment.eventType + '<br/>' +
-                        (treatment.carbs ? '<strong>Carbs:</strong> ' + treatment.carbs + '<br/>' : '') +
-                        (treatment.insulin ? '<strong>Insulin:</strong> ' + treatment.insulin + '<br/>' : '') +
-                        (treatment.glucose ? '<strong>BG:</strong> ' + treatment.glucose + (treatment.glucoseType ? ' (' + treatment.glucoseType + ')': '') + '<br/>' : '') +
-                        (treatment.enteredBy ? '<strong>Entered by:</strong> ' + treatment.enteredBy + '<br/>' : '') +
-                        (treatment.notes ? '<strong>Notes:</strong> ' + treatment.notes : '')+
+                tooltip.html('<strong>'+translate('Time')+':</strong> ' + formatTime(treatment.created_at) + '<br/>' + '<strong>'+translate('Treatment type')+':</strong> ' + translate(treatment.eventType) + '<br/>' +
+                        (treatment.carbs ? '<strong>'+translate('Carbs')+':</strong> ' + treatment.carbs + '<br/>' : '') +
+                        (treatment.insulin ? '<strong>'+translate('Insulin')+':</strong> ' + treatment.insulin + '<br/>' : '') +
+                        (treatment.glucose ? '<strong>'+translate('BG')+':</strong> ' + treatment.glucose + (treatment.glucoseType ? ' (' + translate(treatment.glucoseType) + ')': '') + '<br/>' : '') +
+                        (treatment.enteredBy ? '<strong>'+translate('Entered By')+':</strong> ' + treatment.enteredBy + '<br/>' : '') +
+                        (treatment.notes ? '<strong>'+translate('Notes')+':</strong> ' + treatment.notes : '')+
                         (boluscalchtml ? '<hr>' + boluscalchtml : '')
                 )
                 .style('left', (d3.event.pageX) + 'px')
@@ -1710,7 +1710,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 });
 
                 updateTitle();
-				Nightscout.client.data = data;
+                Nightscout.client.data = data;
                 if (!isInitialData) {
                     isInitialData = true;
                     initializeCharts();
@@ -1822,7 +1822,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     Nightscout.client.treatments = treatments;
     Nightscout.client.latestSGV = latestSGV;
     Nightscout.client.brush = brush;
-	Nightscout.utils = Nightscout.utils || {};
+    Nightscout.utils = Nightscout.utils || {};
     Nightscout.utils.scaleBg = scaleBg;
     Nightscout.utils.updateBrushToTime = updateBrushToTime;
     Nightscout.utils.updateBrushToNow = updateBrushToNow;

@@ -716,7 +716,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 			if (!datastorage[d]) return; // all data not loaded yet
 		}
 
-		['dailystats','percentile','glucosedistribution','hourlystats','success','treatments'].forEach(function (chart) {
+		['dailystats','percentile','glucosedistribution','hourlystats','success','treatments','calibrations'].forEach(function (chart) {
 			// jquery plot doesn't draw to hidden div
 			$('#'+chart+'-placeholder').css('display','');
 			eval('report_'+chart+'(datastorage,daystoshow,options);');
@@ -834,6 +834,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 		return ret;
 	}
 	
+	function localeDateTime(day) {
+		var ret = new Date(day).toLocaleDateString() + ' ' + new Date(day).toLocaleTimeString();
+		return ret;
+	}
+	
 	function loadData(day,options) {
 		// check for loaded data
 		if (datastorage[day] && day != new Date().toDateInputValue()) {
@@ -937,18 +942,18 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 			temp1 = data.sgv.map(function (entry) {
 				var noise = entry.noise || 0;
 				var rawBg = rawIsigToRawBg(entry, cal);
-				return { date: new Date(entry.x - 2 * 1000), y: rawBg, sgv: scaleBg(rawBg), color: 'gray', type: 'rawbg'}
+				return { x: entry.x, date: new Date(entry.x - 2 * 1000), y: rawBg, sgv: scaleBg(rawBg), color: 'gray', type: 'rawbg', filtered: entry.filtered, unfiltered: entry.unfiltered }
 			}).filter(function(entry) { return entry.y > 0});
 		}
 		var temp2 = data.sgv.map(function (obj) {
-			return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: sgvToColor(scaleBg(obj.y),options), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered}
+			return { x: obj.x, date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: sgvToColor(scaleBg(obj.y),options), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered}
 		});
 		data.sgv = [].concat(temp1, temp2);
 
 		//Add MBG's also, pretend they are SGV's
 		data.sgv = data.sgv.concat(data.mbg.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 
-		// make sure data data range will be exactly 24h
+		// make sure data range will be exactly 24h
 		var from = new Date(new Date(day).getTime() + (new Date().getTimezoneOffset()*60*1000));
 		var to = new Date(from.getTime() + 1000 * 60 * 60 * 24);
 		data.sgv.push({ date: from, y: 40, sgv: 40, color: 'transparent', type: 'rawbg'});
@@ -960,8 +965,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 			return true;
 		});
 		
-		delete data.cal;
-		delete data.mbg;
+		//delete data.cal;
+		//delete data.mbg;
 		
 		// for other reports
 		data.statsrecords = data.sgv.filter(function(r) {
