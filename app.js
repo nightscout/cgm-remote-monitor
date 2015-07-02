@@ -12,13 +12,11 @@ function create (env, ctx) {
   app.set('title', appInfo);
   app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
 
-  app.use(compression({filter: shouldCompress}));
-
-  function shouldCompress(req, res) {
-      //TODO: return false here if we find a condition where we don't want to compress
-      // fallback to standard filter function
-      return compression.filter(req, res);
-  }
+  app.use(compression({filter: function shouldCompress(req, res) {
+    //TODO: return false here if we find a condition where we don't want to compress
+    // fallback to standard filter function
+    return compression.filter(req, res);
+  }}));
 
   //if (env.api_secret) {
   //    console.log("API_SECRET", env.api_secret);

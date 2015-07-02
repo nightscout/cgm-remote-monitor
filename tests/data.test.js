@@ -1,11 +1,12 @@
-var should = require('should');
+'use strict';
+
+require('should');
 
 describe('Data', function ( ) {
 
   var env = require('../env')();
   var ctx = {};
-  data = require('../lib/data')(env, ctx);
-//  console.log(data);
+  var data = require('../lib/data')(env, ctx);
 
   it('should return original data if there are no changes', function() {
     data.sgvs = [{sgv: 100, x:100},{sgv: 100, x:99}];
