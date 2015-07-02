@@ -1206,7 +1206,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
           .duration(TOOLTIP_TRANS_MS)
           .style('opacity', 0);
       });
-    var arcs = treatmentDots.append('path')
+
+    treatmentDots.append('path')
       .attr('class', 'path')
       .attr('fill', function (d) { return d.outlineOnly ? 'transparent' : d.color; })
       .attr('stroke-width', function (d) { return d.outlineOnly ? 1 : 0; })
@@ -1285,6 +1286,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     if (browserSettings.theme === 'colors') {
       predictedColor = 'cyan';
     }
+
     for (var i = 0; i < CONE.length; i++) {
       y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
       dt = dt + FIVE_MINUTES;
@@ -1300,13 +1302,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         sgv: Math.max(BG_MIN, Math.min(BG_MAX, roundByUnits(BG_REF * Math.exp((y[1] + 2 * CONE[i]))))),
         color: predictedColor
       };
-      predicted.forEach(function (d) {
-        d.type = 'forecast';
-        if (d.sgv < BG_MIN) {
-          d.color = 'transparent';
-        }
-      });
     }
+
+    predicted.forEach(function (d) {
+      d.type = 'forecast';
+      if (d.sgv < BG_MIN) {
+        d.color = 'transparent';
+      }
+    });
+
     return predicted;
   }
 
@@ -1492,7 +1496,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var silenceDropdown = new Dropdown('.dropdown-menu');
 
     $('.bgButton').click(function (e) {
-      if (alarmingNow()) silenceDropdown.open(e);
+      if (alarmingNow()) {
+        silenceDropdown.open(e);
+      }
     });
 
     $('#silenceBtn').find('a').click(function (e) {
@@ -1527,10 +1533,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       }
 
       // If there was no delta data, just return the original data
-      if (!receivedDataArray) return cachedDataArray;
+      if (!receivedDataArray) {
+        return cachedDataArray;
+      }
 
       // If this is not a delta update, replace all data
-      if (!isDelta) return receivedDataArray;
+      if (!isDelta) {
+        return receivedDataArray;
+      }
 
       // If this is delta, calculate the difference, merge and sort
       var diff = nsArrayDiff(cachedDataArray,receivedDataArray);
@@ -1541,19 +1551,23 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     socket.on('dataUpdate', function receivedSGV(d) {
 
-      if (!d) return;
+      if (!d) {
+        return;
+      }
 
       // Calculate the diff to existing data and replace as needed
 
       SGVdata = mergeDataUpdate(d.delta, SGVdata, d.sgvs);
       MBGdata = mergeDataUpdate(d.delta,MBGdata, d.mbgs);
       treatments = mergeDataUpdate(d.delta,treatments, d.treatments);
+
       if (d.profiles) {
         profile = d.profiles[0];
         Nightscout.profile.loadData(d.profiles);
       }
-      if (d.cals) cal = d.cals[d.cals.length-1];
-      if (d.devicestatus) devicestatusData = d.devicestatus;
+
+      if (d.cals) { cal = d.cals[d.cals.length-1]; }
+      if (d.devicestatus) { devicestatusData = d.devicestatus; }
 
       // Do some reporting on the console
       console.log('Total SGV data size', SGVdata.length);
@@ -1590,8 +1604,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       data = data.concat(MBGdata.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 
       data.forEach(function (d) {
-        if (d.y < 39)
-          d.color = 'transparent';
+        if (d.y < 39) { d.color = 'transparent'; }
       });
 
       // OPTIMIZATION: precalculate treatment location in timeline
@@ -1616,7 +1629,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // Alarms and Text handling
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     socket.on('connect', function () {
-      console.log('Client connected to server.')
+      console.log('Client connected to server.');
     });
 
 

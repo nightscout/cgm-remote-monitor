@@ -22,7 +22,7 @@ function getBrowserSettings(storage) {
   }
 
   try {
-    var json = {
+    json = {
       'units': storage.get('units'),
       'alarmUrgentHigh': storage.get('alarmUrgentHigh'),
       'alarmHigh': storage.get('alarmHigh'),
