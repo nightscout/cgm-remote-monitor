@@ -99,6 +99,19 @@ describe('ar2', function ( ) {
     return require('../lib/sandbox')().serverInit(envRaw, ctx);
   }
 
+  it('should not trigger an alarm when raw is missing or 0', function (done) {
+    ctx.notifications.initRequests();
+    ctx.data.sgvs = [{unfiltered: 0, filtered: 0, y: 100, x: before, noise: 1}, {unfiltered: 0, filtered: 0, y: 100, x: now, noise: 1}];
+    ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918}];
+
+    var sbx = rawSandbox(ctx);
+    ar2.checkNotifications(sbx.withExtendedSettings(ar2));
+    should.not.exist(ctx.notifications.findHighestAlarm());
+
+    done();
+  });
+
+
   it('should trigger a warning (no urgent for raw) when raw is falling really fast, but sgv is steady', function (done) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{unfiltered: 113680, filtered: 111232, y: 100, x: before, noise: 1}, {unfiltered: 43680, filtered: 111232, y: 100, x: now, noise: 1}];
