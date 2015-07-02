@@ -1,6 +1,6 @@
 'use strict';
 
-var should = require('should');
+require('should');
 
 describe('Uploader Battery', function ( ) {
   var data = {uploaderBattery: 20};
@@ -18,7 +18,7 @@ describe('Uploader Battery', function ( ) {
       result.display.should.equal('20%');
       result.status.should.equal('urgent');
       result.level.should.equal(25);
-      done()
+      done();
     };
 
     var upbat = require('../lib/plugins/upbat')();

@@ -35,7 +35,7 @@ describe('ar2', function ( ) {
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.WARN);
-    highest.title.should.equal('Warning, HIGH BG predicted');
+    highest.title.should.equal('Warning, HIGH predicted');
     highest.message.should.startWith('BG Now: 170 +20 mg/dl');
 
     done();
@@ -49,7 +49,7 @@ describe('ar2', function ( ) {
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.URGENT);
-    highest.title.should.equal('Urgent, HIGH BG');
+    highest.title.should.equal('Urgent, HIGH');
 
     done();
   });
@@ -62,7 +62,7 @@ describe('ar2', function ( ) {
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.WARN);
-    highest.title.should.equal('Warning, LOW BG');
+    highest.title.should.equal('Warning, LOW');
 
     done();
   });
@@ -75,7 +75,7 @@ describe('ar2', function ( ) {
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.WARN);
-    highest.title.should.equal('Warning, LOW BG predicted');
+    highest.title.should.equal('Warning, LOW predicted');
 
     done();
   });
@@ -88,7 +88,7 @@ describe('ar2', function ( ) {
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.URGENT);
-    highest.title.should.equal('Urgent, LOW BG predicted');
+    highest.title.should.equal('Urgent, LOW predicted');
 
     done();
   });
@@ -108,7 +108,7 @@ describe('ar2', function ( ) {
     ar2.checkNotifications(sbx.withExtendedSettings(ar2));
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.WARN);
-    highest.title.should.equal('Warning, LOW BG predicted w/raw');
+    highest.title.should.equal('Warning, LOW predicted w/raw');
 
     done();
   });
@@ -122,7 +122,7 @@ describe('ar2', function ( ) {
     ar2.checkNotifications(sbx.withExtendedSettings(ar2));
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.WARN);
-    highest.title.should.equal('Warning, HIGH BG predicted w/raw');
+    highest.title.should.equal('Warning, HIGH predicted w/raw');
 
     done();
   });

@@ -46,4 +46,18 @@ describe('sandbox', function ( ) {
     done();
   });
 
+  it('display 39 as LOW and 401 as HIGH', function () {
+    var env = require('../env')();
+    var ctx = {};
+    ctx.data = require('../lib/data')(env, ctx);
+    ctx.notifications = require('../lib/notifications')(env, ctx);
+
+    var sbx = sandbox.serverInit(env, ctx);
+
+    sbx.displayBg(39).should.equal('LOW');
+    sbx.displayBg('39').should.equal('LOW');
+    sbx.displayBg(401).should.equal('HIGH');
+    sbx.displayBg('401').should.equal('HIGH');
+  });
+
 });

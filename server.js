@@ -66,4 +66,16 @@ require('./lib/bootevent')(env).boot(function booted (ctx) {
     ctx.bus.on('notification', function(info) {
       websocket.emitNotification(info);
     });
+
+    //after startup if there are no alarms send all clear
+    setTimeout(function sendStartupAllClear () {
+      var alarm = ctx.notifications.findHighestAlarm();
+      if (!alarm) {
+        ctx.bus.emit('notification', {
+          clear: true
+          , title: 'All Clear'
+          , message: 'Server started without alarms'
+        });
+      }
+    }, 20000);
 });

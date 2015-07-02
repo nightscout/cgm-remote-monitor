@@ -1,4 +1,6 @@
-var should = require('should');
+'use strict';
+
+require('should');
 
 describe('cage', function ( ) {
   var cage = require('../lib/plugins/cannulaage')();

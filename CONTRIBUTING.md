@@ -1,3 +1,19 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**
+
+- [Contributing to cgm-remote-monitor](#contributing-to-cgm-remote-monitor)
+  - [Design](#design)
+  - [Develop on `dev`](#develop-on-dev)
+  - [Style Guide](#style-guide)
+  - [Create a prototype](#create-a-prototype)
+  - [Submit a pull request](#submit-a-pull-request)
+  - [Comments and issues](#comments-and-issues)
+  - [Co-ordination](#co-ordination)
+  - [Other Dev Tips](#other-dev-tips)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 
 # Contributing to cgm-remote-monitor
 
