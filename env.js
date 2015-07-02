@@ -21,7 +21,7 @@ function config ( ) {
   var software = require('./package.json');
   var git = require('git-rev');
 
-  if (readENV('APPSETTING_ScmType') == readENV('ScmType') && readENV('ScmType') == 'GitHub') {
+  if (readENV('APPSETTING_ScmType') === readENV('ScmType') && readENV('ScmType') === 'GitHub') {
     env.head = require('./scm-commit-id.json');
     console.log('SCM COMMIT ID', env.head);
   } else {
@@ -44,7 +44,7 @@ function config ( ) {
     //some MQTT servers only allow the client id to be 23 chars
     env.mqtt_client_id = mongoHash.digest('base64').substring(0, 23);
     console.info('Using Mongo host/db/collection to create the default MQTT client_id', hostDbCollection);
-    if (env.MQTT_MONITOR.indexOf('?clientId=') == -1) {
+    if (env.MQTT_MONITOR.indexOf('?clientId=') === -1) {
       console.info('Set MQTT client_id to: ', env.mqtt_client_id);
     } else {
       console.info('MQTT configured to use a custom client id, it will override the default: ', env.mqtt_client_id);
@@ -94,9 +94,9 @@ function config ( ) {
   env.defaults.showPlugins = readENV('SHOW_PLUGINS', '');
 
   //TODO: figure out something for some plugins to have them shown by default
-  if (env.defaults.showPlugins != '') {
+  if (env.defaults.showPlugins !== '') {
     env.defaults.showPlugins += ' delta upbat';
-    if (env.defaults.showRawbg == 'always' || env.defaults.showRawbg == 'noise') {
+    if (env.defaults.showRawbg === 'always' || env.defaults.showRawbg === 'noise') {
       env.defaults.showPlugins += 'rawbg';
     }
   }
@@ -223,8 +223,8 @@ function readENV(varName, defaultValue) {
         || process.env[varName]
         || process.env[varName.toLowerCase()];
 
-  if (typeof value === 'string' && value.toLowerCase() == 'on') { value = true; }
-  if (typeof value === 'string' && value.toLowerCase() == 'off') { value = false; }
+  if (typeof value === 'string' && value.toLowerCase() === 'on') { value = true; }
+  if (typeof value === 'string' && value.toLowerCase() === 'off') { value = false; }
 
   return value != null ? value : defaultValue;
 }

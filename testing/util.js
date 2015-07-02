@@ -49,7 +49,7 @@ function getDateString(d) {
     ampm = 'AM';
   }
 
-  if (hour == 0) {
+  if (hour === 0) {
     hour = 12;
   }
   if (hour > 12) {

@@ -14,13 +14,6 @@ describe('Profile', function ( ) {
     should.not.exist(dia);
   });
 
-  var profileDataPartial = {
-    'dia': 3
-    , 'carbs_hr': 30
-  };
-  
-  var profilePartial = require('../lib/profilefunctions')([profileDataPartial]);
-
   it('should return undefined if asking for missing keys', function() {
     var sens = profile_empty.getSensitivity(now);
     should.not.exist(sens);

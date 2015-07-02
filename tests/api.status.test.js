@@ -19,10 +19,6 @@ describe('Status REST api', function ( ) {
     });
   });
 
-  it('should be a module', function ( ) {
-    api.should.be.ok;
-  });
-
   it('/status.json', function (done) {
     request(this.app)
       .get('/api/status.json')
@@ -62,7 +58,7 @@ describe('Status REST api', function ( ) {
       .end(function(err, res) {
         res.headers.location.should.equal('http://img.shields.io/badge/Nightscout-OK-green.png');
         res.statusCode.should.equal(302);
-        done()
+        done();
       });
   });
 
