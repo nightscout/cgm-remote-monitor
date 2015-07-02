@@ -1,6 +1,8 @@
+'use strict';
+
 var request = require('supertest');
-var should = require('should');
 var load = require('./fixtures/load');
+require('should');
 
 describe('Entries REST api', function ( ) {
   var entries = require('../lib/api/entries/');
@@ -21,10 +23,6 @@ describe('Entries REST api', function ( ) {
 
   after(function (done) {
     this.archive( ).remove({ }, done);
-  });
-
-  it('should be a module', function ( ) {
-    entries.should.be.ok;
   });
 
   // keep this test pinned at or near the top in order to validate all

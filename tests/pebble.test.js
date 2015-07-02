@@ -79,7 +79,7 @@ var ctx = {
 
       if (opts && opts.find && opts.find.sgv) {
         callback(null, sgvs.slice(0, count));
-      } else if (opts && opts.find && opts.find.type == 'cal') {
+      } else if (opts && opts.find && opts.find.type === 'cal') {
         callback(null, cals.slice(0, count));
       }
     }
@@ -96,7 +96,7 @@ var ctx = {
       callback(null, {uploaderBattery: 100});
     }
   }
-}
+};
 
 describe('Pebble Endpoint without Raw', function ( ) {
   var pebble = require('../lib/pebble');
@@ -106,10 +106,6 @@ describe('Pebble Endpoint without Raw', function ( ) {
     this.app.enable('api');
     this.app.use('/pebble', pebble(env, ctx));
     done();
-  });
-
-  it('should be a module', function ( ) {
-    pebble.should.be.ok;
   });
 
   it('/pebble default(1) count', function (done) {
@@ -166,15 +162,11 @@ describe('Pebble Endpoint with Raw', function ( ) {
   var pebbleRaw = require('../lib/pebble');
   before(function (done) {
     var envRaw = require('../env')( );
-    envRaw.enable = "rawbg";
+    envRaw.enable = 'rawbg';
     this.appRaw = require('express')( );
     this.appRaw.enable('api');
     this.appRaw.use('/pebble', pebbleRaw(envRaw, ctx));
     done();
-  });
-
-  it('should be a module', function ( ) {
-    pebbleRaw.should.be.ok;
   });
 
   it('/pebble', function (done) {

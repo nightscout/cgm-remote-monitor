@@ -6,7 +6,6 @@ var load = require('./fixtures/load');
 
 describe('API_SECRET', function ( ) {
   var api = require('../lib/api/');
-  api.should.be.ok;
 
   var scope = this;
   function setup_app (env, fn) {
@@ -34,7 +33,8 @@ describe('API_SECRET', function ( ) {
     var env = require('../env')( );
     should.not.exist(env.api_secret);
     setup_app(env, function (ctx) {
-      ctx.app.enabled('api').should.be.false;
+
+      ctx.app.enabled('api').should.equal(false);
       ping_status(ctx.app, again);
       function again ( ) {
         ping_authorized_endpoint(ctx.app, 404, done);
@@ -51,7 +51,7 @@ describe('API_SECRET', function ( ) {
     env.api_secret.should.equal(known);
     setup_app(env, function (ctx) {
       // console.log(this.app.enabled('api'));
-      ctx.app.enabled('api').should.be.true;
+      ctx.app.enabled('api').should.equal(true);
       // ping_status(ctx.app, done);
       // ping_authorized_endpoint(ctx.app, 200, done);
       ping_status(ctx.app, again);
@@ -72,7 +72,7 @@ describe('API_SECRET', function ( ) {
     env.api_secret.should.equal(known);
     setup_app(env, function (ctx) {
       // console.log(this.app.enabled('api'));
-      ctx.app.enabled('api').should.be.true;
+      ctx.app.enabled('api').should.equal(true);
       // ping_status(ctx.app, done);
       // ping_authorized_endpoint(ctx.app, 200, done);
       ping_status(ctx.app, again);
@@ -85,7 +85,6 @@ describe('API_SECRET', function ( ) {
   });
 
   it('should not work short', function ( ) {
-    var known = 'c1d117818a97e847bdf286aa02d9dc8e8f7148f5';
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'tooshort';
     var env;
@@ -104,7 +103,7 @@ describe('API_SECRET', function ( ) {
           res.body.status.should.equal('ok');
           fn( );
           // console.log('err', err, 'res', res);
-        })
+        });
   }
 
   function ping_authorized_endpoint (app, fails, fn) {
@@ -118,7 +117,7 @@ describe('API_SECRET', function ( ) {
           }
           fn( );
           // console.log('err', err, 'res', res);
-        })
+        });
   }
 
 });

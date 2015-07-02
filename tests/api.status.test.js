@@ -1,12 +1,13 @@
+'use strict';
 
 var request = require('supertest');
-var should = require('should');
+require('should');
 
 describe('Status REST api', function ( ) {
   var api = require('../lib/api/');
   before(function (done) {
     var env = require('../env')( );
-    env.enable = "careportal rawbg";
+    env.enable = 'careportal rawbg';
     env.api_secret = 'this is my long pass phrase';
     this.wares = require('../lib/middleware/')(env);
     this.app = require('express')( );
@@ -16,10 +17,6 @@ describe('Status REST api', function ( ) {
       self.app.use('/api', api(env, ctx.entries));
       done();
     });
-  });
-
-  it('should be a module', function ( ) {
-    api.should.be.ok;
   });
 
   it('/status.json', function (done) {
@@ -40,7 +37,7 @@ describe('Status REST api', function ( ) {
       .end(function(err, res) {
         res.type.should.equal('text/html');
         res.statusCode.should.equal(200);
-        done()
+        done();
       });
   });
 
@@ -51,7 +48,7 @@ describe('Status REST api', function ( ) {
         res.type.should.equal('application/javascript');
         res.statusCode.should.equal(200);
         res.text.should.startWith('this.serverSettings =');
-        done()
+        done();
       });
   });
 
@@ -61,7 +58,7 @@ describe('Status REST api', function ( ) {
       .end(function(err, res) {
         res.headers.location.should.equal('http://img.shields.io/badge/Nightscout-OK-green.png');
         res.statusCode.should.equal(302);
-        done()
+        done();
       });
   });
 

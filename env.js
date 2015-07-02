@@ -12,21 +12,21 @@ function config ( ) {
    * First inspect a bunch of environment variables:
    *   * PORT - serve http on this port
    *   * MONGO_CONNECTION, CUSTOMCONNSTR_mongo - mongodb://... uri
-   *   * CUSTOMCONNSTR_mongo_collection - name of mongo collection with "sgv" documents
+   *   * CUSTOMCONNSTR_mongo_collection - name of mongo collection with `sgv` documents
    *   * API_SECRET - if defined, this passphrase is fed to a sha1 hash digest, the hex output is used to create a single-use token for API authorization
-   *   * NIGHTSCOUT_STATIC_FILES - the "base directory" to use for serving
+   *   * NIGHTSCOUT_STATIC_FILES - the `base directory` to use for serving
    *     static files over http.  Default value is the included `static`
    *     directory.
    */
   var software = require('./package.json');
   var git = require('git-rev');
 
-  if (readENV('APPSETTING_ScmType') == readENV('ScmType') && readENV('ScmType') == 'GitHub') {
+  if (readENV('APPSETTING_ScmType') === readENV('ScmType') && readENV('ScmType') === 'GitHub') {
     env.head = require('./scm-commit-id.json');
-    console.log("SCM COMMIT ID", env.head);
+    console.log('SCM COMMIT ID', env.head);
   } else {
     git.short(function record_git_head (head) {
-      console.log("GIT HEAD", head);
+      console.log('GIT HEAD', head);
       env.head = head || readENV('SCM_COMMIT_ID') || readENV('COMMIT_HASH', '');
     });
   }
@@ -44,7 +44,7 @@ function config ( ) {
     //some MQTT servers only allow the client id to be 23 chars
     env.mqtt_client_id = mongoHash.digest('base64').substring(0, 23);
     console.info('Using Mongo host/db/collection to create the default MQTT client_id', hostDbCollection);
-    if (env.MQTT_MONITOR.indexOf('?clientId=') == -1) {
+    if (env.MQTT_MONITOR.indexOf('?clientId=') === -1) {
       console.info('Set MQTT client_id to: ', env.mqtt_client_id);
     } else {
       console.info('MQTT configured to use a custom client id, it will override the default: ', env.mqtt_client_id);
@@ -54,7 +54,7 @@ function config ( ) {
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
 
-  env.enable = readENV('ENABLE', "");
+  env.enable = readENV('ENABLE', '');
 
   env.defaults = { // currently supported keys must defined be here
     'units': 'mg/dL'
@@ -94,9 +94,9 @@ function config ( ) {
   env.defaults.showPlugins = readENV('SHOW_PLUGINS', '');
 
   //TODO: figure out something for some plugins to have them shown by default
-  if (env.defaults.showPlugins != '') {
+  if (env.defaults.showPlugins !== '') {
     env.defaults.showPlugins += ' delta upbat';
-    if (env.defaults.showRawbg == 'always' || env.defaults.showRawbg == 'noise') {
+    if (env.defaults.showRawbg === 'always' || env.defaults.showRawbg === 'noise') {
       env.defaults.showPlugins += 'rawbg';
     }
   }
@@ -127,7 +127,7 @@ function config ( ) {
   // if a passphrase was provided, get the hex digest to mint a single token
   if (useSecret) {
     if (readENV('API_SECRET').length < consts.MIN_PASSPHRASE_LENGTH) {
-      var msg = ["API_SECRET should be at least", consts.MIN_PASSPHRASE_LENGTH, "characters"];
+      var msg = ['API_SECRET should be at least', consts.MIN_PASSPHRASE_LENGTH, 'characters'];
       var err = new Error(msg.join(' '));
       // console.error(err);
       throw err;
@@ -170,9 +170,9 @@ function config ( ) {
     console.warn('BG_HIGH is now ' + env.thresholds.bg_high);
   }
 
-  //if any of the BG_* thresholds are set, default to "simple" otherwise default to "predict" to preserve current behavior
+  //if any of the BG_* thresholds are set, default to `simple` otherwise default to `predict` to preserve current behavior
   var thresholdsSet = readIntENV('BG_HIGH') || readIntENV('BG_TARGET_TOP') || readIntENV('BG_TARGET_BOTTOM') || readIntENV('BG_LOW');
-  env.alarm_types = readENV('ALARM_TYPES') || (thresholdsSet ? "simple" : "predict");
+  env.alarm_types = readENV('ALARM_TYPES') || (thresholdsSet ? 'simple' : 'predict');
 
   //TODO: maybe get rid of ALARM_TYPES and only use enable?
   if (env.alarm_types.indexOf('simple') > -1) {
@@ -223,8 +223,8 @@ function readENV(varName, defaultValue) {
         || process.env[varName]
         || process.env[varName.toLowerCase()];
 
-  if (typeof value === 'string' && value.toLowerCase() == 'on') value = true;
-  if (typeof value === 'string' && value.toLowerCase() == 'off') value = false;
+  if (typeof value === 'string' && value.toLowerCase() === 'on') { value = true; }
+  if (typeof value === 'string' && value.toLowerCase() === 'off') { value = false; }
 
   return value != null ? value : defaultValue;
 }
