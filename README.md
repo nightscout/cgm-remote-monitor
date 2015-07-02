@@ -6,6 +6,7 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 [![Build Status][build-img]][build-url]
 [![Dependency Status][dependency-img]][dependency-url]
 [![Coverage Status][coverage-img]][coverage-url]
+[![Codacy Badge][codacy-img]][codacy-url]
 [![Gitter chat][gitter-img]][gitter-url]
 [![Stories in Ready][ready-img]][waffle]
 [![Stories in Progress][progress-img]][waffle]
@@ -32,6 +33,8 @@ Community maintained fork of the
 [dependency-url]: https://david-dm.org/nightscout/cgm-remote-monitor
 [coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/master.svg
 [coverage-url]: https://coveralls.io/r/nightscout/cgm-remote-monitor?branch=master
+[codacy-img]: https://www.codacy.com/project/badge/f79327216860472dad9afda07de39d3b
+[codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
 [gitter-img]: https://img.shields.io/badge/Gitter-Join%20Chat%20%E2%86%92-1dce73.svg
 [gitter-url]: https://gitter.im/nightscout/public
 [ready-img]: https://badge.waffle.io/nightscout/cgm-remote-monitor.svg?label=ready&title=Ready
