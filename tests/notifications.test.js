@@ -13,7 +13,7 @@ describe('notifications', function ( ) {
 
   var notifications = require('../lib/notifications')(env, ctx);
 
-  var examplePlugin = function examplePlugin () {};
+  function examplePlugin () {};
 
   var exampleInfo = {
     title: 'test'

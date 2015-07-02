@@ -11,7 +11,7 @@
     sandbox: require('../lib/sandbox')()
   };
 
-  console.info("Nightscout bundle ready", window.Nightscout);
+  console.info('Nightscout bundle ready', window.Nightscout);
 
 })();
 

@@ -1,6 +1,6 @@
 'use strict';
 
-var should = require('should');
+require('should');
 
 describe('COB', function ( ) {
   var cob = require('../lib/plugins/cob')();
@@ -17,18 +17,18 @@ describe('COB', function ( ) {
 
     var treatments = [
       {
-        "carbs": "100",
-        "created_at": new Date("2015-05-29T02:03:48.827Z")
+        'carbs': '100',
+        'created_at': new Date('2015-05-29T02:03:48.827Z')
       },
       {
-        "carbs": "10",
-        "created_at": new Date("2015-05-29T03:45:10.670Z")
+        'carbs': '10',
+        'created_at': new Date('2015-05-29T03:45:10.670Z')
       }
     ];
 
-    var after100 = cob.cobTotal(treatments, profile, new Date("2015-05-29T02:03:49.827Z"));
-    var before10 = cob.cobTotal(treatments, profile, new Date("2015-05-29T03:45:10.670Z"));
-    var after10 = cob.cobTotal(treatments, profile, new Date("2015-05-29T03:45:11.670Z"));
+    var after100 = cob.cobTotal(treatments, profile, new Date('2015-05-29T02:03:49.827Z'));
+    var before10 = cob.cobTotal(treatments, profile, new Date('2015-05-29T03:45:10.670Z'));
+    var after10 = cob.cobTotal(treatments, profile, new Date('2015-05-29T03:45:11.670Z'));
 
     after100.cob.should.equal(100);
     Math.round(before10.cob).should.equal(59);
@@ -39,16 +39,16 @@ describe('COB', function ( ) {
 
     var treatments = [
       {
-        "carbs": "8",
-        "created_at": new Date("2015-05-29T04:40:40.174Z")
+        'carbs': '8',
+        'created_at': new Date('2015-05-29T04:40:40.174Z')
       }
     ];
 
-    var rightAfterCorrection = new Date("2015-05-29T04:41:40.174Z");
-    var later1 = new Date("2015-05-29T05:04:40.174Z");
-    var later2 = new Date("2015-05-29T05:20:00.174Z");
-    var later3 = new Date("2015-05-29T05:50:00.174Z");
-    var later4 = new Date("2015-05-29T06:50:00.174Z");
+    var rightAfterCorrection = new Date('2015-05-29T04:41:40.174Z');
+    var later1 = new Date('2015-05-29T05:04:40.174Z');
+    var later2 = new Date('2015-05-29T05:20:00.174Z');
+    var later3 = new Date('2015-05-29T05:50:00.174Z');
+    var later4 = new Date('2015-05-29T06:50:00.174Z');
 
     var result1 = cob.cobTotal(treatments, profile, rightAfterCorrection);
     var result2 = cob.cobTotal(treatments, profile, later1);
@@ -70,8 +70,8 @@ describe('COB', function ( ) {
 
     var data = {
       treatments: [{
-        carbs: "8"
-        , "created_at": Date.now() - 60000 //1m ago
+        carbs: '8'
+        , 'created_at': Date.now() - 60000 //1m ago
       }]
       , profile: profile
     };

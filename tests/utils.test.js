@@ -1,4 +1,6 @@
-var should = require('should');
+'use strict';
+
+require('should');
 
 describe('utils', function ( ) {
   var utils = require('../lib/utils')();
@@ -9,7 +11,7 @@ describe('utils', function ( ) {
   };
 
   it('format numbers', function () {
-    utils.toFixed(5.499999999).should.equal('5.50')
+    utils.toFixed(5.499999999).should.equal('5.50');
   });
 
   it('show format recent times to 1 minute', function () {

@@ -1,4 +1,6 @@
-var should = require('should');
+'use strict';
+
+require('should');
 
 describe('pushnotify', function ( ) {
 
@@ -24,7 +26,7 @@ describe('pushnotify', function ( ) {
           msg.priority.should.equal(2);
           msg.sound.should.equal('climb');
           callback(null, JSON.stringify({receipt: 'abcd12345'}));
-          done()
+          done();
         }
     };
 
@@ -58,7 +60,7 @@ describe('pushnotify', function ( ) {
           msg.priority.should.equal(0);
           msg.sound.should.equal('gamelan');
           callback(null, JSON.stringify({}));
-          done()
+          done();
         }
     };
 

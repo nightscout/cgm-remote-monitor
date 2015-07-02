@@ -10,7 +10,7 @@ function getBrowserSettings(storage) {
   var json = {};
 
   function scaleBg(bg) {
-    if (json.units == 'mmol') {
+    if (json.units === 'mmol') {
       return Nightscout.units.mgdlToMMOL(bg);
     } else {
       return bg;
@@ -18,11 +18,11 @@ function getBrowserSettings(storage) {
   }
 
   function appendThresholdValue(threshold) {
-    return app.alarm_types.indexOf('simple') == -1 ? '' : ' (' + scaleBg(threshold) + ')';
+    return app.alarm_types.indexOf('simple') === -1 ? '' : ' (' + scaleBg(threshold) + ')';
   }
 
   try {
-    var json = {
+    json = {
       'units': storage.get('units'),
       'alarmUrgentHigh': storage.get('alarmUrgentHigh'),
       'alarmHigh': storage.get('alarmHigh'),
@@ -42,7 +42,7 @@ function getBrowserSettings(storage) {
 
     // Default browser units to server units if undefined.
     json.units = setDefault(json.units, app.units);
-    if (json.units == 'mmol') {
+    if (json.units === 'mmol') {
       $('#mmol-browser').prop('checked', true);
     } else {
       $('#mgdl-browser').prop('checked', true);
@@ -82,7 +82,7 @@ function getBrowserSettings(storage) {
     $('input#customTitle').prop('value', json.customTitle);
 
     json.theme = setDefault(json.theme, app.defaults.theme);
-    if (json.theme == 'colors') {
+    if (json.theme === 'colors') {
       $('#theme-colors-browser').prop('checked', true);
     } else {
       $('#theme-default-browser').prop('checked', true);
@@ -90,7 +90,7 @@ function getBrowserSettings(storage) {
 
     json.timeFormat = setDefault(json.timeFormat, app.defaults.timeFormat);
 
-    if (json.timeFormat == '24') {
+    if (json.timeFormat === '24') {
       $('#24-browser').prop('checked', true);
     } else {
       $('#12-browser').prop('checked', true);
@@ -152,10 +152,10 @@ function isTouch() {
 
 function closeDrawer(id, callback) {
   openDraw = null;
-  $("html, body").animate({ scrollTop: 0 });
+  $('html, body').animate({ scrollTop: 0 });
   $(id).animate({right: '-300px'}, 300, function () {
     $(id).css('display', 'none');
-    if (callback) callback();
+    if (callback) { callback(); }
   });
 }
 
@@ -166,20 +166,20 @@ function toggleDrawer(id, openCallback, closeCallback) {
       if (openDraw) {
         closeDrawer(openDraw, callback);
       } else {
-        callback()
+        callback();
       }
     }
 
     closeOpenDraw(function () {
       openDraw = id;
       $(id).css('display', 'block').animate({right: '0'}, 300, function () {
-        if (callback) callback();
+        if (callback) { callback(); }
       });
     });
 
   }
 
-  if (openDraw == id) {
+  if (openDraw === id) {
     closeDrawer(id, closeCallback);
   } else {
     openDrawer(id, openCallback);
@@ -205,8 +205,8 @@ function currentTime() {
   var hours = now.getHours();
   var minutes = now.getMinutes();
 
-  if (hours<10) hours = '0' + hours;
-  if (minutes<10) minutes = '0' + minutes;
+  if (hours < 10) { hours = '0' + hours; }
+  if (minutes < 10) { minutes = '0' + minutes; }
 
   return ''+ hours + ':' + minutes;
 }
@@ -242,7 +242,7 @@ function showNotification(note, type)  {
 }
 
 function showLocalstorageError() {
-  var msg = '<b>Settings are disabled.</b><br /><br />Please enable cookies so you may customize your Nightscout site.'
+  var msg = '<b>Settings are disabled.</b><br /><br />Please enable cookies so you may customize your Nightscout site.';
   $('.browserSettings').html('<legend>Settings</legend>'+msg+'');
   $('#save').hide();
 }
@@ -278,7 +278,7 @@ function treatmentSubmit(event) {
     window.alert(errors.join('\n'));
   } else {
     var eventTimeDisplay = '';
-    if ($('#treatment-form input[name=nowOrOther]:checked').val() != 'now') {
+    if ($('#treatment-form input[name=nowOrOther]:checked').val() !== 'now') {
       var value = $('#eventTimeValue').val();
       var eventTimeParts = value.split(':');
       data.eventTime = new Date();
@@ -373,7 +373,7 @@ $('#notification').click(function(event) {
 
 $('#save').click(function(event) {
   function checkedPluginNames() {
-    var checkedPlugins = []
+    var checkedPlugins = [];
     $('#show-plugins input:checked').each(function eachPluginCheckbox(index, checkbox) {
       checkedPlugins.push($(checkbox).val());
     });
