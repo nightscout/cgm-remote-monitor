@@ -60,7 +60,7 @@ describe('Notifications API', function ( ) {
       .get('/notifications/ack?level=1')
       .set('api-secret', env.api_secret || '')
       .expect(200)
-      .end(function (err, res) {
+      .end(function (err) {
         if (err) {
           console.error(err);
         }
