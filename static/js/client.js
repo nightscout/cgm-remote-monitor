@@ -47,6 +47,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
   var sbx
     , rawbg = Nightscout.plugins('rawbg')
     , delta = Nightscout.plugins('delta')
+    , direction = Nightscout.plugins('direction')
     , timeAgo = Nightscout.utils.timeAgo;
 
   var jqWindow
@@ -102,27 +103,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
   }
 
-  //see http://stackoverflow.com/a/9609450
-  var decodeEntities = (function() {
-    // this prevents any overhead from creating the object each time
-    var element = document.createElement('div');
-
-    function decodeHTMLEntities (str) {
-      if(str && typeof str === 'string') {
-        // strip script/html tags
-        str = str.replace(/<script[^>]*>([\S\s]*?)<\/script>/gmi, '');
-        str = str.replace(/<\/?\w(?:[^"'>]|"[^"]*"|'[^']*')*>/gmi, '');
-        element.innerHTML = str;
-        str = element.textContent;
-        element.textContent = '';
-      }
-
-      return str;
-    }
-
-    return decodeHTMLEntities;
-  })();
-
   function updateTitle() {
 
     var time = latestSGV ? new Date(latestSGV.x).getTime() : (prevSGV ? new Date(prevSGV.x).getTime() : -1)
@@ -141,7 +121,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         bg_title = s(errorCodeToDisplay(currentMgdl), ' - ') + bg_title;
       } else {
         var deltaDisplay = delta.calc(prevSGV && prevSGV.y, latestSGV && latestSGV.y, sbx).display;
-        bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(decodeEntities(latestSGV.direction)) + bg_title;
+        bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(direction.info(latestSGV).label) + bg_title;
       }
     }
 
@@ -335,7 +315,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var bgButton = $('.bgButton')
       , bgStatus = $('.bgStatus')
       , currentBG = $('.bgStatus .currentBG')
-      , currentDirection = $('.bgStatus .currentDirection')
       , majorPills = $('.bgStatus .majorPills')
       , minorPills = $('.bgStatus .minorPills')
       , statusPills = $('.status .statusPills')
@@ -427,10 +406,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       var focusPoint = nowData.length > 0 ? nowData[nowData.length - 1] : null;
       if (focusPoint) {
         updateCurrentSGV(focusPoint);
-        currentDirection.html(focusPoint.y < 39 ? '✖' : focusPoint.direction);
       } else {
         currentBG.text('---');
-        currentDirection.text('-');
         bgButton.removeClass('urgent warning inrange');
       }
 
@@ -451,7 +428,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       updateTimeAgo();
       updatePlugins(nowData, nowDate);
 
-      currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);
     }
 
     xScale.domain(brush.extent());
