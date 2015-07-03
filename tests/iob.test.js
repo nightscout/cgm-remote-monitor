@@ -1,22 +1,26 @@
-var should = require('should');
+'use strict';
 
-var FIVE_MINS = 10 * 60 * 1000;
+require('should');
 
 describe('IOB', function ( ) {
   var iob = require('../lib/plugins/iob')();
+
 
   it('should calculate IOB', function() {
 
     var time = new Date()
       , treatments = [ {
           created_at: time - 1,
-          insulin: "1.00"
+          insulin: '1.00'
         }
-      ]
-      , profile = {
-        dia: 3,
-        sens: 0
-      };
+      ];
+    
+    
+  var profileData = {
+    dia: 3,
+    sens: 0};
+
+   var profile = require('../lib/profilefunctions')([profileData]);
 
     var rightAfterBolus = iob.calcTotal(treatments, profile, time);
 
@@ -37,7 +41,7 @@ describe('IOB', function ( ) {
 
     var treatments = [{
       created_at: (new Date()) - 1,
-      insulin: "1.00"
+      insulin: '1.00'
     }];
 
     var rightAfterBolus = iob.calcTotal(treatments);
@@ -52,7 +56,7 @@ describe('IOB', function ( ) {
 
     var treatments = [{
       created_at: time,
-      insulin: "5.00"
+      insulin: '5.00'
     }];
 
     var whenApproaching0 = iob.calcTotal(treatments, undefined, new Date(time + (3 * 60 * 60 * 1000) - (90 * 1000)));
@@ -67,14 +71,17 @@ describe('IOB', function ( ) {
     var time = new Date()
       , treatments = [ {
         created_at: time - 1,
-        insulin: "1.00"
+        insulin: '1.00'
       }
-      ]
-      , profile = {
-        dia: 4,
-        sens: 0
-      };
+      ];
+       
+  var profileData = {
+    dia: 4,
+    sens: 0};
 
+   var profile = require('../lib/profilefunctions')([profileData]);
+
+    
     var rightAfterBolus = iob.calcTotal(treatments, profile, time);
 
     rightAfterBolus.display.should.equal('1.00');
@@ -88,9 +95,9 @@ describe('IOB', function ( ) {
 
     after3hDIA.iob.should.greaterThan(0);
 
-    var after4hDIA = iob.calcTotal(treatments, profile, new Date(time.getTime() + (3 * 60 * 60 * 1000)));
+    var after4hDIA = iob.calcTotal(treatments, profile, new Date(time.getTime() + (4 * 60 * 60 * 1000)));
 
-    after4hDIA.iob.should.greaterThan(0);
+    after4hDIA.iob.should.equal(0);
 
   });
 

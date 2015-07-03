@@ -1,17 +1,17 @@
 (function () {
 
+  window._ = require('lodash');
   window.Nightscout = window.Nightscout || {};
 
   window.Nightscout = {
     units: require('../lib/units')(),
+    utils: require('../lib/utils')(),
     profile: require('../lib/profilefunctions')(),
-    plugins: require('../lib/plugins/')()
+    plugins: require('../lib/plugins/')().registerClientDefaults(),
+    sandbox: require('../lib/sandbox')()
   };
 
-  window._ = require('lodash');
-  window.Nightscout.plugins.registerDefaults();
-
-  console.info("Nightscout bundle ready", window.Nightscout);
+  console.info('Nightscout bundle ready', window.Nightscout);
 
 })();
 
