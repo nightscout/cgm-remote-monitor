@@ -61,9 +61,9 @@ describe('sandbox', function ( ) {
 
   it('build BG Now line using properties', function ( ) {
     var sbx = createServerSandbox();
-    sbx.properties = { delta: {display: '+5' } };
+    sbx.properties = { delta: {display: '+5' }, direction: {value: 'FortyFiveUp', label: '↗', entity: '&#8599;'} };
 
-    sbx.buildBGNowLine(99).should.equal('BG Now: 99 +5 mg/dl');
+    sbx.buildBGNowLine(99).should.equal('BG Now: 99 +5 ↗ mg/dl');
 
   });
 
@@ -71,12 +71,13 @@ describe('sandbox', function ( ) {
     var sbx = createServerSandbox();
     sbx.properties = {
       delta: {display: '+5' }
+      , direction: {value: 'FortyFiveUp', label: '↗', entity: '&#8599;'}
       , rawbg: {displayLine: 'Raw BG: 100 mg/dl'}
       , iob: {displayLine: 'IOB: 1.25U'}
       , cob: {displayLine: 'COB: 15g'}
     };
 
-    sbx.buildDefaultMessage(99).should.equal('BG Now: 99 +5 mg/dl\nRaw BG: 100 mg/dl\nIOB: 1.25U\nCOB: 15g');
+    sbx.buildDefaultMessage(99).should.equal('BG Now: 99 +5 ↗ mg/dl\nRaw BG: 100 mg/dl\nIOB: 1.25U\nCOB: 15g');
 
   });
 

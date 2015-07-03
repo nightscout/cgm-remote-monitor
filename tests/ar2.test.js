@@ -35,11 +35,14 @@ describe('ar2', function ( ) {
     sbx.offerProperty('iob', function setFakeIOB() {
       return {displayLine: 'IOB: 1.25U'};
     });
+    sbx.offerProperty('direction', function setFakeIOB() {
+      return {value: 'FortyFiveUp', label: '↗', entity: '&#8599;'};
+    });
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.WARN);
     highest.title.should.equal('Warning, HIGH predicted');
-    highest.message.should.equal('BG Now: 170 +20 mg/dl\nBG 15m: 206 mg/dl\nIOB: 1.25U');
+    highest.message.should.equal('BG Now: 170 +20 ↗ mg/dl\nBG 15m: 206 mg/dl\nIOB: 1.25U');
 
     done();
   });
