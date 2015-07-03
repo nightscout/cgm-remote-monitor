@@ -32,11 +32,14 @@ describe('ar2', function ( ) {
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     delta.setProperties(sbx);
+    sbx.offerProperty('iob', function setFakeIOB() {
+      return {displayLine: 'IOB: 1.25U'};
+    });
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.WARN);
     highest.title.should.equal('Warning, HIGH predicted');
-    highest.message.should.startWith('BG Now: 170 +20 mg/dl');
+    highest.message.should.equal('BG Now: 170 +20 mg/dl\nBG 15m: 206 mg/dl\nIOB: 1.25U');
 
     done();
   });
