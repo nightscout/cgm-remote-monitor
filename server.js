@@ -63,8 +63,9 @@ require('./lib/bootevent')(env).boot(function booted (ctx) {
       websocket.update();
     });
 
-    ctx.bus.on('notification', function(info) {
-      websocket.emitNotification(info);
+    ctx.bus.on('notification', function(notify) {
+      websocket.emitNotification(notify);
+      mqtt.emitNotification(notify);
     });
 
     //after startup if there are no alarms send all clear
