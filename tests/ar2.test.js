@@ -105,6 +105,32 @@ describe('ar2', function ( ) {
     return require('../lib/sandbox')().serverInit(envRaw, ctx);
   }
 
+  it('should include current raw bg and raw bg forecast when predicting w/raw', function (done) {
+    ctx.notifications.initRequests();
+    ctx.data.sgvs = [{unfiltered: 113680, filtered: 111232, y: 100, x: before, noise: 1}, {unfiltered: 183680, filtered: 111232, y: 100, x: now, noise: 1}];
+    ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918}];
+
+    var sbx = rawSandbox(ctx);
+    delta.setProperties(sbx);
+    sbx.offerProperty('rawbg', function setFakeIOB() {
+      return {displayLine: 'Raw BG: 200 mg/dl Clean'};
+    });
+    sbx.offerProperty('iob', function setFakeIOB() {
+      return {displayLine: 'IOB: 1.25U'};
+    });
+    sbx.offerProperty('direction', function setFakeIOB() {
+      return {value: 'FortyFiveUp', label: '↗', entity: '&#8599;'};
+    });
+    ar2.checkNotifications(sbx.withExtendedSettings(ar2));
+
+    var highest = ctx.notifications.findHighestAlarm();
+    highest.level.should.equal(ctx.notifications.levels.WARN);
+    highest.title.should.equal('Warning, HIGH predicted w/raw');
+    highest.message.should.equal('BG Now: 100 +0 ↗ mg/dl\nRaw BG: 200 mg/dl Clean\nRaw BG 15m: 400 mg/dl\nIOB: 1.25U');
+
+    done();
+  });
+
   it('should not trigger an alarm when raw is missing or 0', function (done) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{unfiltered: 0, filtered: 0, y: 100, x: before, noise: 1}, {unfiltered: 0, filtered: 0, y: 100, x: now, noise: 1}];
