@@ -24,7 +24,7 @@ describe('boluswizardpreview', function ( ) {
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     sbx.offerProperty('iob', function () {
-      return {iob: 0}
+      return {iob: 0};
     });
 
     boluswizardpreview.setProperties(sbx);
@@ -41,7 +41,7 @@ describe('boluswizardpreview', function ( ) {
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     sbx.offerProperty('iob', function () {
-      return {iob: 0}
+      return {iob: 0};
     });
 
     boluswizardpreview.setProperties(sbx);
@@ -58,7 +58,7 @@ describe('boluswizardpreview', function ( ) {
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     sbx.offerProperty('iob', function () {
-      return {iob: 0}
+      return {iob: 0};
     });
 
     boluswizardpreview.setProperties(sbx);
