@@ -61,6 +61,7 @@ describe('Notifications API', function ( ) {
       .set('api-secret', env.api_secret || '')
       .expect(200)
       .end(function (err) {
+        should.not.exist(err);
         if (err) {
           console.error(err);
         }
