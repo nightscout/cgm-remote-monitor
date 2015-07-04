@@ -411,7 +411,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         bgButton.removeClass('urgent warning inrange');
       }
 
-      updatePlugins(nowData, retroTime);
+      updatePlugins(nowData, retroTime.getTime());
 
       $('#currentTime')
         .text(formatTime(retroTime, true))
@@ -426,7 +426,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       updateCurrentSGV(latestSGV);
       updateClockDisplay();
       updateTimeAgo();
-      updatePlugins(nowData, nowDate);
+      updatePlugins(nowData, nowDate.getTime());
 
     }
 
