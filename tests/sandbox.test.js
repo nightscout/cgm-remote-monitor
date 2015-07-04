@@ -18,13 +18,13 @@ describe('sandbox', function ( ) {
     };
 
     var pluginBase = {};
-    var data = {sgvs: [{sgv: 100}]};
+    var data = {sgvs: [{y: 100}]};
 
     var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
 
     sbx.pluginBase.should.equal(pluginBase);
     sbx.data.should.equal(data);
-    sbx.data.lastSGV().should.equal(100);
+    sbx.lastSGV().should.equal(100);
 
     done();
   });
@@ -40,12 +40,12 @@ describe('sandbox', function ( ) {
 
   it('init on server', function (done) {
     var sbx = createServerSandbox();
-    sbx.data.sgvs = [{sgv: 100}];
+    sbx.data.sgvs = [{y: 100}];
 
     should.exist(sbx.notifications.requestNotify);
     should.not.exist(sbx.notifications.process);
     should.not.exist(sbx.notifications.ack);
-    sbx.data.lastSGV().should.equal(100);
+    sbx.lastSGV().should.equal(100);
 
     done();
   });
@@ -61,14 +61,16 @@ describe('sandbox', function ( ) {
 
   it('build BG Now line using properties', function ( ) {
     var sbx = createServerSandbox();
+    sbx.data.sgvs = [{y: 99}];
     sbx.properties = { delta: {display: '+5' }, direction: {value: 'FortyFiveUp', label: '↗', entity: '&#8599;'} };
 
-    sbx.buildBGNowLine(99).should.equal('BG Now: 99 +5 ↗ mg/dl');
+    sbx.buildBGNowLine().should.equal('BG Now: 99 +5 ↗ mg/dl');
 
   });
 
   it('build default message using properties', function ( ) {
     var sbx = createServerSandbox();
+    sbx.data.sgvs = [{y: 99}];
     sbx.properties = {
       delta: {display: '+5' }
       , direction: {value: 'FortyFiveUp', label: '↗', entity: '&#8599;'}
@@ -77,7 +79,7 @@ describe('sandbox', function ( ) {
       , cob: {displayLine: 'COB: 15g'}
     };
 
-    sbx.buildDefaultMessage(99).should.equal('BG Now: 99 +5 ↗ mg/dl\nRaw BG: 100 mg/dl\nIOB: 1.25U\nCOB: 15g');
+    sbx.buildDefaultMessage().should.equal('BG Now: 99 +5 ↗ mg/dl\nRaw BG: 100 mg/dl\nIOB: 1.25U\nCOB: 15g');
 
   });
 
