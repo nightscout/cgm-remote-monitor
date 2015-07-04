@@ -135,14 +135,21 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     xScale = d3.time.scale()
       .domain(d3.extent(data, function (d) { return d.date; }));
 
-    yScale = d3.scale.log()
-      .domain([scaleBg(30), scaleBg(510)]);
+    if(app.defaults.bgScale == 'lin'){
+      yScale = d3.scale.linear();
+      yScale2 = d3.scale.linear();
+    }
+    else {
+      yScale = d3.scale.log();
+      yScale2 = d3.scale.log();
+    }
 
     xScale2 = d3.time.scale()
       .domain(d3.extent(data, function (d) { return d.date; }));
 
-    yScale2 = d3.scale.log()
-      .domain([scaleBg(36), scaleBg(420)]);
+    // TODO: Remove magic numbers
+    yScale = yScale.domain([scaleBg(30), scaleBg(510)]);
+    yScale2 = yScale2.domain([scaleBg(36), scaleBg(420)]);
 
     var tickFormat = d3.time.format.multi(  [
       ['.%L', function(d) { return d.getMilliseconds(); }],
@@ -1527,7 +1534,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     socket.on('dataUpdate', function receivedSGV(d) {
 
-      if (!d) {
+      if ($.isEmptyObject(d)) {
         return;
       }
 

@@ -59,6 +59,7 @@ function config ( ) {
   env.defaults = { // currently supported keys must defined be here
     'units': 'mg/dL'
     , 'timeFormat': '12'
+    , 'bgScale': 'log'
     , 'nightMode': false
     , 'showRawbg': 'never'
     , 'customTitle': 'Nightscout'
@@ -79,6 +80,7 @@ function config ( ) {
  
   // Highest priority per line defaults
   env.defaults.timeFormat = readENV('TIME_FORMAT', env.defaults.timeFormat);
+  env.defaults.bgScale = readENV('BG_SCALE', env.defaults.bgScale);
   env.defaults.nightMode = readENV('NIGHT_MODE', env.defaults.nightMode);
   env.defaults.showRawbg = readENV('SHOW_RAWBG', env.defaults.showRawbg);
   env.defaults.customTitle = readENV('CUSTOM_TITLE', env.defaults.customTitle);
