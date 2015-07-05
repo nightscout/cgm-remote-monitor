@@ -1,4 +1,5 @@
 var should = require('should');
+var moment = require('moment-timezone');
 
 describe('Profile', function ( ) {
 
@@ -86,6 +87,7 @@ describe('Profile', function ( ) {
 
   var complexProfileData = 
   {
+    'timezone': moment.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time
     'sens': [
         {
             'time': '00:00',
