@@ -1,4 +1,4 @@
-#drawer button, #treatmentDrawer button{
+#drawer button, #treatmentDrawer button, #boluscalcDrawer button{
     font-size: 18px;
     font-weight: bolder;
     background-color: #ccc;
@@ -278,6 +278,56 @@ h1, legend,
     float: right;
     opacity: 0.5;
     vertical-align: top;
+}
+
+#boluscalcDrawer {
+    background-color: #666;
+    border-left: 1px solid #999;
+    box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
+    color: #eee;
+    display: none;
+    font-size: 16px;
+    height: 100%;
+    overflow-y: auto;
+    position: absolute;
+    margin-top: 45px;
+    right: -200px;
+    width: 320px;
+    top: 0;
+    z-index: 1;
+}
+
+#boluscalcDrawer a {
+  color: white;
+  font-size: 12px;
+}
+
+#boluscalcDrawer .insulincalculation {
+    background: gray;
+}
+
+#boluscalcDrawer .insulintotalcalculation {
+    background: Sienna;
+}
+
+#boluscalcDrawer tr.border_bottom td {
+  border-bottom:1pt solid #eee;
+}
+
+#boluscalcDrawer .foodinput {
+   background: #505050;
+   margin: 10px;
+}
+
+#profile-editor h1 {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 50px;
+  margin-top: 0;
+  margin-right: auto;
+  margin-left: auto;
+  text-align: center;
 }
 
 .experiments a {

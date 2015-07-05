@@ -1,0 +1,112 @@
+@import url("//fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic");
+@import url("//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800");
+@import url("/glyphs/css/fontello.css");
+
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+body {
+    font-family: 'Open Sans', Helvetica, Arial, sans-serif;
+    background: white;
+    color: black;
+}
+.inlinepiechart {
+	width: 2.0in;
+	height: 0.9in;
+}
+
+#glucosedistribution-overviewchart {
+	width: 3.0in;
+	height: 3in;
+	float:left;
+}
+#percentile-chart {
+	width: 100%;
+	height: 100%;
+}
+#hourlystats-overviewchart {
+	width: 100%;
+	min-width: 6.5in;
+	height: 5in;
+}
+#success-placeholder table td {
+	border: 1px #ccc solid;
+	margin: 0;
+	padding: 1px;
+}
+
+#success-placeholder td.bad {
+	background-color: #fcc;
+}
+
+#success-placeholder td.good {
+	background-color: #cfc;
+}
+
+#success-placeholder th:first-child {
+	width: 30%;
+}
+#success-placeholder th {
+	width: 10%;
+}
+#success-placeholder table {
+	width: 100%;
+}
+
+table.centeraligned td{
+	text-align:center;
+}
+table.centeraligned th{
+	text-align:center;
+}
+#dailystats-placeholder td.tdborder {
+	width:80px;
+	border: 1px #ccc solid;
+	margin: 0;
+	padding: 1px;
+}
+#glucosedistribution-placeholder td.tdborder {
+	width:80px;
+	border: 1px #ccc solid;
+	margin: 0;
+	padding: 1px;
+}
+
+ul#tabnav { /* general settings */
+text-align: left; /* set to left, right or center */
+margin: 1em 0 1em 0; /* set margins as desired */
+font: bold 11px verdana, arial, sans-serif; /* set font as desired */
+border-bottom: 1px solid #6c6; /* set border COLOR as desired */
+list-style-type: none;
+padding: 3px 10px 3px 10px; /* THIRD number must change with respect to padding-top (X) below */
+}
+
+ul#tabnav li { /* do not change */
+display: inline;
+}
+
+ul#tabnav li{ /* settings for all tab links */
+padding: 3px 4px; /* set padding (tab size) as desired; FIRST number must change with respect to padding-top (X) above */
+border: 1px solid #6c6; /* set border COLOR as desired; usually matches border color specified in #tabnav */
+background-color: #cfc; /* set unselected tab background color as desired */
+color: #666; /* set unselected tab link color as desired */
+margin-right: 0px; /* set additional spacing between tabs as desired */
+text-decoration: none;
+border-bottom: none;
+}
+
+ul#tabnav li.selected  { /* settings selected tab */
+background: #fff; /* set desired selected color */
+}
+
+ul#tabnav li:hover { /* settings for hover effect */
+background: #9f9; /* set desired hover color */
+cursor:pointer;
+}
+
+tr.border_bottom td {
+  border-bottom:1pt solid #eee;
+}

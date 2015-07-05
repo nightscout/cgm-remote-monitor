@@ -54,6 +54,7 @@ function config ( ) {
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
+  env.food_collection = readENV('MONGO_FOOD_COLLECTION', 'food');
 
   env.enable = readENV('ENABLE', "");
 
@@ -72,7 +73,7 @@ function config ( ) {
     , 'alarmTimeAgoWarnMins': 15
     , 'alarmTimeAgoUrgent': true
     , 'alarmTimeAgoUrgentMins': 30
-    , 'language': 'en' // not used yet
+    , 'language': 'en'
   } ;
 
   // add units from separate variable
@@ -92,6 +93,7 @@ function config ( ) {
   env.defaults.alarmTimeAgoWarnMins = readENV('ALARM_TIMEAGO_WARN_MINS', env.defaults.alarmTimeAgoWarnMins);
   env.defaults.alarmTimeAgoUrgent = readENV('ALARM_TIMEAGO_URGENT', env.defaults.alarmTimeAgoUrgent);
   env.defaults.alarmTimeAgoUrgentMins = readENV('ALARM_TIMEAGO_URGENT_MINS', env.defaults.alarmTimeAgoUrgentMins);
+  env.defaults.language = readENV('LANGUAGE', env.defaults.language);
 
   //console.log(JSON.stringify(env.defaults));
   
@@ -129,6 +131,9 @@ function config ( ) {
     env.api_secret = shasum.digest('hex');
   }
 
+  // require authorization for entering treatments
+  env.treatments_auth = readENV('TREATMENTS_AUTH',false);
+  
   env.thresholds = {
     bg_high: readIntENV('BG_HIGH', 260)
     , bg_target_top: readIntENV('BG_TARGET_TOP', 180)

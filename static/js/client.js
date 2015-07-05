@@ -9,8 +9,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , UPDATE_TRANS_MS = 750 // milliseconds
         , ONE_MIN_IN_MS = 60000
         , FIVE_MINS_IN_MS = 300000
-        , SIX_MINS_IN_MS =  360000
-        , THREE_HOURS_MS = 3 * 60 * 60 * 1000
+         , THREE_HOURS_MS = 3 * 60 * 60 * 1000
         , TWELVE_HOURS_MS = 12 * 60 * 60 * 1000
         , TWENTY_FIVE_MINS_IN_MS = 1500000
         , THIRTY_MINS_IN_MS = 1800000
@@ -33,7 +32,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , latestUpdateTime
         , prevSGV
         , treatments
-        , profile
         , cal
         , devicestatusData
         , padding = { top: 0, right: 10, bottom: 30, left: 10 }
@@ -66,6 +64,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , brush
         , brushTimer
         , brushInProgress = false
+		, nowYAxis = THIRTY_MINS_IN_MS
         , clip;
 
     function formatTime(time, compact) {
@@ -90,15 +89,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
 
         return timeFormat;
-    }
-
-    // lixgbg: Convert mg/dL BG value to metric mmol
-    function scaleBg(bg) {
-        if (browserSettings.units == 'mmol') {
-            return Nightscout.units.mgdlToMMOL(bg);
-        } else {
-            return bg;
-        }
     }
 
     //see http://stackoverflow.com/a/9609450
@@ -183,10 +173,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var display;
         switch (parseInt(noise)) {
             case 0: display = '---'; break;
-            case 1: display = 'Clean'; break;
-            case 2: display = 'Light'; break;
-            case 3: display = 'Medium'; break;
-            case 4: display = 'Heavy'; break;
+            case 1: display = translate('Clean'); break;
+            case 2: display = translate('Light'); break;
+            case 3: display = translate('Medium'); break;
+            case 4: display = translate('Heavy'); break;
             default:
                 if (sgv < 40) {
                     display = 'Heavy';
@@ -302,7 +292,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         // get current time range
         var dataRange = d3.extent(data, dateFn);
-
+		
+		resetYAxisOffset();
+		
         // update brush and focus chart with recent data
         d3.select('.brush')
             .transition()
@@ -316,6 +308,34 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             brushInProgress = false;
         }
     }
+
+    function updateBrushToTime(time) {
+
+        // get current time range
+        var dataRange = d3.extent(data, dateFn);
+
+		if (dataRange[0]>time || dataRange[1]<time) {
+			console.log('updateBrushToTime: Invalid time');
+			return;
+		}
+        // update brush and focus chart with recent data
+        d3.select('.brush')
+            .transition()
+            .duration(UPDATE_TRANS_MS)
+            .call(brush.extent([new Date(time.getTime() - foucusRangeMS + nowYAxis), new Date(time.getTime() + nowYAxis)]));
+        brushed(false);
+
+        // clear user brush tracking
+        brushInProgress = false;
+    }
+	
+	function setYAxisOffset(pct) {
+		nowYAxis = foucusRangeMS * pct / 100;
+	}
+
+	function resetYAxisOffset() {
+		nowYAxis = THIRTY_MINS_IN_MS;
+	}
 
     function brushStarted() {
         // update the opacity of the context data points to brush extent
@@ -340,7 +360,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         var time = brush.extent()[1].getTime();
 
-        return !alarmingNow() && time - THIRTY_MINS_IN_MS < now;
+        return !alarmingNow() && time - nowYAxis < now;
     }
 
     function errorCodeToDisplay(errorCode) {
@@ -391,7 +411,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             }
         }
 
-        var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
+        var nowDate = new Date(brushExtent[1] - nowYAxis);
 
         var bgButton = $('.bgButton')
             , bgStatus = $('.bgStatus')
@@ -476,7 +496,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     pill = $('<span class="pill iob"><label>IOB</label><em></em></span>');
                     currentDetails.append(pill);
                 }
-                var iob = Nightscout.iob.calcTotal(treatments, profile, time);
+                var iob = Nightscout.iob.calcTotal(treatments, time);
                 pill.find('em').text(iob.display + 'U');
             } else {
                 currentDetails.find('.pill.iob').remove();
@@ -495,7 +515,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         });
 
         if (inRetroMode()) {
-            var retroTime = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
+            var retroTime = new Date(brushExtent[1] - nowYAxis);
 
             // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
             var lookbackTime = (lookback + 2) * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
@@ -642,11 +662,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 }
 
                 tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-                tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
-                    (d.type == 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
-                    (rawBG ? '<br/><strong>Raw BG:</strong> ' + rawBG : '') +
-                    (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
-                    '<br/><strong>Time:</strong> ' + formatTime(d.date))
+                tooltip.html('<strong>' + translate(bgType) + ' ' + translate('BG') + ':</strong> ' + d.sgv +
+                    (d.type == 'mbg' ? '<br/><strong>' + translate('Device') + ': </strong>' + d.device : '') +
+                    (rawBG ? '<br/><strong>' + translate('Raw BG') + ' :</strong> ' + rawBG : '') +
+                    (noiseLabel ? '<br/><strong>' + translate('Noise') + ':</strong> ' + noiseLabel : '') +
+                    '<br/><strong>' + translate('Time') + ':</strong> ' + formatTime(d.date))
                     .style('left', (d3.event.pageX) + 'px')
                     .style('top', (d3.event.pageY + 15) + 'px');
             })
@@ -702,9 +722,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         context.select('.now-line')
             .transition()
-            .attr('x1', xScale2(new Date(brush.extent()[1]- THIRTY_MINS_IN_MS)))
+            .attr('x1', xScale2(new Date(brush.extent()[1]- nowYAxis)))
             .attr('y1', yScale2(scaleBg(36)))
-            .attr('x2', xScale2(new Date(brush.extent()[1]- THIRTY_MINS_IN_MS)))
+            .attr('x2', xScale2(new Date(brush.extent()[1]- nowYAxis)))
             .attr('y2', yScale2(scaleBg(420)));
 
         // update x axis
@@ -716,7 +736,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         function prepareTreatCircles(sel) {
             sel.attr('cx', function (d) { return xScale(d.created_at); })
-                .attr('cy', function (d) { return yScale(scaledTreatmentBG(d)); })
+                .attr('cy', function (d) { return yScale(scaledTreatmentBG(d,data)); })
                 .attr('r', function () { return dotRadius('mbg'); })
                 .attr('stroke-width', 2)
                 .attr('stroke', function (d) { return d.glucose ? 'grey' : 'white'; })
@@ -742,11 +762,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             prepareTreatCircles(treatCircles.enter().append('circle'))
                 .on('mouseover', function (d) {
                     tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-                    tooltip.html('<strong>Time:</strong> ' + formatTime(d.created_at) + '<br/>' +
-                        (d.eventType ? '<strong>Treatment type:</strong> ' + d.eventType + '<br/>' : '') +
-                        (d.glucose ? '<strong>BG:</strong> ' + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + '<br/>' : '') +
-                        (d.enteredBy ? '<strong>Entered by:</strong> ' + d.enteredBy + '<br/>' : '') +
-                        (d.notes ? '<strong>Notes:</strong> ' + d.notes : '')
+                    tooltip.html('<strong>'+translate('Time')+':</strong> ' + formatTime(d.created_at) + '<br/>' +
+                        (d.eventType ? '<strong>'+translate('Treatment type')+':</strong> ' + translate(d.eventType) + '<br/>' : '') +
+                        (d.glucose ? '<strong>'+translate('BG')+':</strong> ' + d.glucose + (d.glucoseType ? ' (' + translate(d.glucoseType) + ')': '') + '<br/>' : '') +
+                        (d.enteredBy ? '<strong>'+translate('Entered By')+':</strong> ' + d.enteredBy + '<br/>' : '') +
+                        (d.notes ? '<strong>'+translate('Notes')+':</strong> ' + d.notes : '')
                     )
                     .style('left', (d3.event.pageX) + 'px')
                     .style('top', (d3.event.pageY + 15) + 'px');
@@ -1208,15 +1228,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , offset = time == -1 ? -1 : (now - time) / 1000
             , parts = {};
 
-        if (offset < MINUTE_IN_SECS * -5)          parts = { value: 'in the future' };
-        else if (offset == -1)                     parts = { label: 'time ago' };
-        else if (offset <= MINUTE_IN_SECS * 2)     parts = { value: 1, label: 'min ago' };
-        else if (offset < (MINUTE_IN_SECS * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE_IN_SECS)), label: 'mins ago' };
-        else if (offset < (HOUR_IN_SECS * 2))      parts = { value: 1, label: 'hr ago' };
-        else if (offset < (HOUR_IN_SECS * 24))     parts = { value: Math.round(Math.abs(offset / HOUR_IN_SECS)), label: 'hrs ago' };
-        else if (offset < DAY_IN_SECS)             parts = { value: 1, label: 'day ago' };
-        else if (offset <= (DAY_IN_SECS * 7))      parts = { value: Math.round(Math.abs(offset / DAY_IN_SECS)), label: 'day ago' };
-        else                                       parts = { value: 'long ago' };
+        if (offset < MINUTE_IN_SECS * -5)          parts = { value: translate('in the future') };
+        else if (offset == -1)                     parts = { label: translate('time ago') };
+        else if (offset <= MINUTE_IN_SECS * 2)     parts = { value: 1, label: translate('min ago') };
+        else if (offset < (MINUTE_IN_SECS * 60))   parts = { value: Math.round(Math.abs(offset / MINUTE_IN_SECS)), label: translate('mins ago') };
+        else if (offset < (HOUR_IN_SECS * 2))      parts = { value: 1, label: translate('hr ago') };
+        else if (offset < (HOUR_IN_SECS * 24))     parts = { value: Math.round(Math.abs(offset / HOUR_IN_SECS)), label: translate('hrs ago') };
+        else if (offset < DAY_IN_SECS)             parts = { value: 1, label: translate('day ago') };
+        else if (offset <= (DAY_IN_SECS * 7))      parts = { value: Math.round(Math.abs(offset / DAY_IN_SECS)), label: translate('days ago') };
+        else                                       parts = { value: translate('long ago') };
 
         if (offset > DAY_IN_SECS * 7) {
             parts.status = 'warn';
@@ -1230,53 +1250,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         return parts;
 
-    }
-
-    function scaledTreatmentBG(treatment) {
-
-      function calcBGByTime(time) {
-        var closeBGs = data.filter(function(d) {
-          if (!d.y) {
-            return false;
-          } else {
-            return Math.abs((new Date(d.date)).getTime() - time) <= SIX_MINS_IN_MS;
-          }
-        });
-
-        var totalBG = 0;
-        closeBGs.forEach(function(d) {
-          totalBG += Number(d.y);
-        });
-
-        return totalBG > 0 ? (totalBG / closeBGs.length) : 450;
-      }
-
-      var treatmentGlucose = null;
-
-      if (treatment.glucose && isNaN(treatment.glucose)) {
-        console.warn('found an invalid glucose value', treatment);
-      } else {
-        if (treatment.glucose && treatment.units && browserSettings.units) {
-          if (treatment.units != browserSettings.units) {
-            console.info('found mismatched glucose units, converting ' + treatment.units + ' into ' + browserSettings.units, treatment);
-            if (treatment.units == 'mmol') {
-              //BG is in mmol and display in mg/dl
-              treatmentGlucose = Math.round(treatment.glucose * 18)
-            } else {
-              //BG is in mg/dl and display in mmol
-              treatmentGlucose = scaleBg(treatment.glucose);
-            }
-          } else {
-            treatmentGlucose = treatment.glucose;
-          }
-        } else if (treatment.glucose) {
-          //no units, assume everything is the same
-          console.warn('found an glucose value with any units, maybe from an old version?', treatment);
-          treatmentGlucose = treatment.glucose;
-        }
-      }
-
-      return treatmentGlucose || scaleBg(calcBGByTime(treatment.created_at.getTime()));
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1318,19 +1291,49 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .endAngle(function (d) { return d.start; })
             .startAngle(function (d) { return d.end; });
 
+        var boluscalchtml = '';
+        if (treatment.boluscalc) {
+            for (var i in treatment.boluscalc) {
+               var converted;
+			   switch (typeof treatment.boluscalc[i]) {
+                   case 'object': 
+				        if (treatment.boluscalc[i] instanceof Date) converted = formatTime(treatment.boluscalc[i]);
+                        else if (i=='foods') {
+                           converted = '<table>';
+                           for (var fi=0; fi<treatment.boluscalc[i].length; fi++) {
+                              var f = treatment.boluscalc[i][fi];
+                              converted += '<tr>';
+                              converted += '<td>'+ f.name + '</td>';
+                              converted += '<td>'+ (f.portion*f.portions).toFixed(1) + ' ' + f.unit + '</td>';
+                              converted += '<td>('+ (f.carbs*f.portions).toFixed(1) + ' g)</td>';
+                              converted += '</tr>';
+                           }
+                           converted += '</table>';
+                        }
+                        break;
+                   case 'number': converted = treatment.boluscalc[i].toFixed(2);
+                        break;
+                   default: converted = treatment.boluscalc[i];
+                        break;
+			   }
+               boluscalchtml += '<strong>' + i + ':</strong> ' + converted + '<br>';
+            }
+        }
+
         var treatmentDots = focus.selectAll('treatment-dot')
             .data(arc_data)
             .enter()
             .append('g')
-            .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(scaledTreatmentBG(treatment)) + ')')
+            .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(scaledTreatmentBG(treatment,data)) + ')')
             .on('mouseover', function () {
                 tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-                tooltip.html('<strong>Time:</strong> ' + formatTime(treatment.created_at) + '<br/>' + '<strong>Treatment type:</strong> ' + treatment.eventType + '<br/>' +
-                        (treatment.carbs ? '<strong>Carbs:</strong> ' + treatment.carbs + '<br/>' : '') +
-                        (treatment.insulin ? '<strong>Insulin:</strong> ' + treatment.insulin + '<br/>' : '') +
-                        (treatment.glucose ? '<strong>BG:</strong> ' + treatment.glucose + (treatment.glucoseType ? ' (' + treatment.glucoseType + ')': '') + '<br/>' : '') +
-                        (treatment.enteredBy ? '<strong>Entered by:</strong> ' + treatment.enteredBy + '<br/>' : '') +
-                        (treatment.notes ? '<strong>Notes:</strong> ' + treatment.notes : '')
+                tooltip.html('<strong>'+translate('Time')+':</strong> ' + formatTime(treatment.created_at) + '<br/>' + '<strong>'+translate('Treatment type')+':</strong> ' + translate(treatment.eventType) + '<br/>' +
+                        (treatment.carbs ? '<strong>'+translate('Carbs')+':</strong> ' + treatment.carbs + '<br/>' : '') +
+                        (treatment.insulin ? '<strong>'+translate('Insulin')+':</strong> ' + treatment.insulin + '<br/>' : '') +
+                        (treatment.glucose ? '<strong>'+translate('BG')+':</strong> ' + treatment.glucose + (treatment.glucoseType ? ' (' + translate(treatment.glucoseType) + ')': '') + '<br/>' : '') +
+                        (treatment.enteredBy ? '<strong>'+translate('Entered By')+':</strong> ' + treatment.enteredBy + '<br/>' : '') +
+                        (treatment.notes ? '<strong>'+translate('Notes')+':</strong> ' + treatment.notes : '')+
+                        (boluscalchtml ? '<hr>' + boluscalchtml : '')
                 )
                 .style('left', (d3.event.pageX) + 'px')
                 .style('top', (d3.event.pageY + 15) + 'px');
@@ -1647,23 +1650,32 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         socket = io.connect();
 
+        socket.on('profile', function (d) {
+			console.info('New profile record received');
+			Nightscout.currentProfile.update(d);
+            if (isInitialData) {
+                updateChart(false);
+			}
+			if (openDraw=='#boluscalcDrawer') {
+				Nightscout.boluscalc.calculateInsulin();
+			}
+        });
         socket.on('sgv', function (d) {
             if (d.length > 1) {
                 // change the next line so that it uses the prediction if the signal gets lost (max 1/2 hr)
                 if (d[0].length) {
                     latestUpdateTime = Date.now();
-                    latestSGV = d[0][d[0].length - 1];
+                    Nightscout.client.latestSGV = latestSGV = d[0][d[0].length - 1];
                     prevSGV = d[0][d[0].length - 2];
                 }
 
-                treatments = d[3];
+                Nightscout.client.treatments = treatments = d[3];
                 treatments.forEach(function (d) {
                     d.created_at = new Date(d.created_at);
                 });
 
-                profile = d[4][0];
-                cal = d[5][d[5].length-1];
-                devicestatusData = d[6];
+                cal = d[4][d[4].length-1];
+                devicestatusData = d[5];
 
                 var temp1 = [ ];
                 if (cal && isRawBGEnabled()) {
@@ -1698,6 +1710,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 });
 
                 updateTitle();
+                Nightscout.client.data = data;
                 if (!isInitialData) {
                     isInitialData = true;
                     initializeCharts();
@@ -1705,6 +1718,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 else {
                     updateChart(false);
                 }
+				if (openDraw=='#boluscalcDrawer') {
+					Nightscout.boluscalc.calculateInsulin();
+				}
             }
         });
 
@@ -1784,6 +1800,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 , alarm_types: xhr.alarm_types
                 , units: xhr.units
                 , careportalEnabled: xhr.careportalEnabled
+                , boluscalcEnabled: xhr.boluscalcEnabled
                 , defaults: xhr.defaults
             };
         }
@@ -1795,8 +1812,20 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             $('.serverSettings').show();
         }
         $('#treatmentDrawerToggle').toggle(app.careportalEnabled);
+        $('#boluscalcDrawerToggle').toggle(app.boluscalcEnabled);
         browserSettings = getBrowserSettings(browserStorage);
         init();
     });
 
+    Nightscout.client = Nightscout.client || {};
+    Nightscout.client.data = data;
+    Nightscout.client.treatments = treatments;
+    Nightscout.client.latestSGV = latestSGV;
+    Nightscout.client.brush = brush;
+    Nightscout.utils = Nightscout.utils || {};
+    Nightscout.utils.scaleBg = scaleBg;
+    Nightscout.utils.updateBrushToTime = updateBrushToTime;
+    Nightscout.utils.updateBrushToNow = updateBrushToNow;
+    Nightscout.utils.resetYAxisOffset = resetYAxisOffset;
+    Nightscout.utils.setYAxisOffset = setYAxisOffset;
 })();

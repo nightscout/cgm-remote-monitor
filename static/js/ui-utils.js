@@ -292,7 +292,13 @@ function treatmentSubmit(event) {
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/v1/treatments/', true);
             xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-            xhr.send(dataJson);
+			xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
+			xhr.onload = function () {
+				if (xhr.statusText!='OK') {
+					alert(translate('Entering record failed')+'\n'+translate(xhr.statusText));
+				}
+			}
+           xhr.send(dataJson);
 
             browserStorage.set('enteredBy', data.enteredBy);
 
@@ -420,3 +426,95 @@ $(function() {
         openDrawer('#drawer');
     }
 });
+
+// clone object
+function clone(obj) {
+	if (null == obj || "object" != typeof obj) return obj;
+	var copy = obj.constructor();
+	for (var attr in obj) {
+		if (obj.hasOwnProperty(attr)) copy[attr] = obj[attr];
+	}
+	return copy;
+}
+
+// some helpers for input "date"
+Date.prototype.toDateInputValue = (function() {
+	var local = new Date(this);
+	local.setMinutes(this.getMinutes() - this.getTimezoneOffset());
+	return local.toJSON().slice(0,10);
+});
+
+Date.prototype.addMinutes = function(h) {    
+   this.setTime(this.getTime() + (h*60*1000)); 
+   return this;   
+}    
+
+Date.prototype.addHours = function(h) {    
+   this.setTime(this.getTime() + (h*60*60*1000)); 
+   return this;   
+}    
+
+Date.prototype.addDays = function(h) {    
+   this.setTime(this.getTime() + (h*24*60*60*1000)); 
+   return this;   
+}    
+
+    function scaledTreatmentBG(treatment,data) {
+
+      var SIX_MINS_IN_MS =  360000;
+	   
+      function calcBGByTime(time) {
+        var closeBGs = data.filter(function(d) {
+          if (!d.y) {
+            return false;
+          } else {
+            return Math.abs((new Date(d.date)).getTime() - time) <= SIX_MINS_IN_MS;
+          }
+        });
+
+        var totalBG = 0;
+        closeBGs.forEach(function(d) {
+          totalBG += Number(d.y);
+        });
+
+        return totalBG > 0 ? (totalBG / closeBGs.length) : 450;
+      }
+
+      var treatmentGlucose = null;
+
+      if (treatment.glucose && isNaN(treatment.glucose)) {
+        console.warn('found an invalid glucose value', treatment);
+      } else {
+        if (treatment.glucose && treatment.units && browserSettings.units) {
+          if (treatment.units != browserSettings.units) {
+            console.info('found mismatched glucose units, converting ' + treatment.units + ' into ' + browserSettings.units, treatment);
+            if (treatment.units == 'mmol') {
+              //BG is in mmol and display in mg/dl
+              treatmentGlucose = Math.round(treatment.glucose * 18)
+            } else {
+              //BG is in mg/dl and display in mmol
+              treatmentGlucose = scaleBg(treatment.glucose);
+            }
+          } else {
+            treatmentGlucose = treatment.glucose;
+          }
+        } else if (treatment.glucose) {
+          //no units, assume everything is the same
+          console.warn('found an glucose value with any units, maybe from an old version?', treatment);
+          treatmentGlucose = treatment.glucose;
+        }
+      }
+
+      return treatmentGlucose || scaleBg(calcBGByTime(treatment.created_at.getTime()));
+    }
+
+
+    // lixgbg: Convert mg/dL BG value to metric mmol
+    function scaleBg(bg) {
+        if (browserSettings.units == 'mmol') {
+            return Nightscout.units.mgdlToMMOL(bg);
+        } else {
+            return bg;
+        }
+    }
+

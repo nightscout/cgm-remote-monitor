@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="apple-touch-icon" href="/images/logomobile.png">
+        <title>Nightscout profile editor</title>
+        <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
+        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.6.4" />
+        <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
+        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.6.4" />
+        <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
+		<link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">    
+		<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-timepicker-addon.css" />
+    </head>
+    <body>
+        <div id="toolbar">
+			<div id="buttonbar">
+				<b> Status:</b> <span id="pe_status">Not loaded</span>
+			</div>
+             <h1 class="customTitle">Nightscout</h1>
+            <div id="profile-editor">
+                <h1>Profile editor</h1>
+			</div>
+        </div>
+		
+		<br>
+		<form id="pe_form" onsubmit="return profileSubmit();">
+			<fieldset class="browserSettings">
+				<legend>General patient profile settings</legend>
+				<dl>
+					<b>Title: </b>
+					<span id="pe_title"></span>
+				</dl>
+				<dl>
+					<b>Units: </b>
+					<span id="pe_units"></span>
+				</dl>
+				<dl>
+					<b>Time format: </b>
+					<span id="pe_timeformat"></span>
+				</dl>
+				<dl>
+					<b title="Represents the typical duration over which insulin takes effect.  Varies per patient and per insulin type. Typically 3-4 hours for most pumped insulin and most patients. Sometimes also called insulin lifetime.">Duration of Insulin Activity (DIA) [hours]: </b>
+					<input type="text" id="pe_dia" />
+				</dl>
+				<dl class="radio">
+					<b>Ratios profile input: </b>
+					<input type="radio" name="pe_input" id="pe_input_simple" checked /><label for="pe_input_simple" title="Single value for whole day">Simple</label>&nbsp;
+					<input type="radio" name="pe_input" id="pe_input_calculator" checked /><label for="pe_input_calculator" title="Values varying by time and glycemic index">Bolus calculator style</label>
+				</dl>
+				<dl>
+					<b title="Start of profile validity">Profile valid from: </b>
+					<input type="text" id="pe_validfrom" />
+					<div id="pe_lastrecvalidfrom"></div>
+				</dl>
+			</fieldset>
+
+ 			<fieldset id="pe_simple" class="browserSettings">
+				<legend>Simple style settings</legend>
+				<dl>
+					<b title="g carbs per U insulin. The ratio of how many grams of carbohydrates are offset by each U of insulin.">Insulin to carb ratio (IC) [g]: </b>
+					<input type="number" id="pe_if" />
+				</dl>
+				<dl>
+					<b title="mg/dL or mmol/L per U insulin. The ratio of how much BG changes with each U of corrective insulin.">Insulin Sensitivity Factor (ISF) [mg/dL,mmol/L]: </b>
+					<input type="number" id="pe_isf" />
+				</dl>
+				<dl>
+					<b title="grams per unit time. Represents both the change in COB per unit of time, as well as the amount of carbs that should take effect over that time.  Carb absorption / activity curves are less well understood than insulin activity, but can be approximated using an initial delay followed by a constant rate of absorption (g/hr).">Carbs activity / absorption rate: [g/hour]</b>
+					<input type="number" id="pe_hr" />
+				</dl>
+			</fieldset>
+
+ 			<fieldset id="pe_calculator" class="browserSettings">
+				<legend>Bolus calculator style settings</legend>
+				<dl>
+					<b title="g carbs per U insulin. The ratio of how many grams of carbohydrates are offset by each U of insulin.">Insulin to carb ratio (IC) [g]:</b><br>
+					<div id="pe_ic_placeholder"></div>
+				</dl>
+				<dl>
+					<b title="mg/dL or mmol/L per U insulin. The ratio of how much BG changes with each U of corrective insulin.">Insulin Sensitivity Factor (ISF) [mg/dL,mmol/L]: </b><br>
+					<div id="pe_isf_placeholder"></div>
+				</dl>
+				<dl>
+					<b title="grams per unit time. Represents both the change in COB per unit of time, as well as the amount of carbs that should take effect over that time.  Carb absorption / activity curves are less well understood than insulin activity, but can be approximated using an initial delay followed by a constant rate of absorption (g/hr).">Carbs activity / absorption rate: [g/hour]</b><br>
+					<span title="Value for carbs with high glycemic index">High: </span><input type="number" id="pe_hr_high" />
+					<span title="Value for carbs with medium glycemic index">Medium: </span><input type="number" id="pe_hr_medium" />
+					<span title="Value for carbs with low glycemic index">Low: </span><input type="number" id="pe_hr_low" />
+				</dl>
+				<dl>
+					<b title="minutes. Initial time before carbs are being absorbed.">Carbs absorption delay: [min]</b><br>
+					<span title="Value for carbs with high glycemic index">High: </span><input type="number" id="pe_delay_high" />
+					<span title="Value for carbs with medium glycemic index">Medium: </span><input type="number" id="pe_delay_medium" />
+					<span title="Value for carbs with low glycemic index">Low: </span><input type="number" id="pe_delay_low" />
+				</dl>
+			</fieldset>
+			
+ 			<fieldset class="browserSettings">
+				<legend>Basal rates [unit/hour]</legend>
+				<div id="pe_basal_placeholder"></div>
+			</fieldset>
+
+			<fieldset class="browserSettings">
+				<legend>Target BG range [mg/dL,mmol/L]</legend>
+				<div id="pe_targetbg_placeholder"></div>
+			</fieldset>
+
+			<b><span class="translate">Authentication status</span>: </b>
+			<span id="authentication_placeholder"></span>
+
+			<button type="submit" id="pe_submit">Update profile</button>
+
+		</form>
+
+        <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+        <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
+        <script src="/bower_components/jsSHA/src/sha1.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-timepicker-addon.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-sliderAccess.js"></script>
+        <script src="/socket.io/socket.io.js"></script>
+        <script src="/api/v1/status.js"></script>
+        <script src="/js/ui-utils.js"></script>
+        <script src="/public/js/bundle.js"></script>
+        <script src="/js/language.js"></script>
+        <script src="/js/hashauth/hashauth.js"></script>
+        <script src="/js/profileeditor.js"></script>
+	</body>
+</html>
