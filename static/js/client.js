@@ -103,57 +103,43 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
   }
 
-  //see http://stackoverflow.com/a/9609450
-  var decodeEntities = (function() {
-    // this prevents any overhead from creating the object each time
-    var element = document.createElement('div');
-
-    function decodeHTMLEntities (str) {
-      if(str && typeof str === 'string') {
-        // strip script/html tags
-        str = str.replace(/<script[^>]*>([\S\s]*?)<\/script>/gmi, '');
-        str = str.replace(/<\/?\w(?:[^"'>]|"[^"]*"|'[^']*')*>/gmi, '');
-        element.innerHTML = str;
-        str = element.textContent;
-        element.textContent = '';
-      }
-
-      return str;
-    }
-
-    return decodeHTMLEntities;
-  })();
-
-  function updateTitle(message) {
-    //Replace custom title with alert notification text during alarm state. A bit of a hack, but the alerts are getting very confusing as they're often triggered for no apparent reason on the site visualization.
+  function generateTitle() {
 
     function s(value, sep) { return value ? value + ' ' : sep || ''; }
 
+    var bg_title = '';
+
+    var time = latestSGV ? new Date(latestSGV.x).getTime() : (prevSGV ? new Date(prevSGV.x).getTime() : -1)
+      , ago = timeAgo(time, browserSettings);
+
+    if (browserSettings.customTitle) {
+      $('h1.customTitle').text(browserSettings.customTitle);
+    }
+
+    if (ago && ago.status !== 'current') {
+      bg_title =  s(ago.value) + s(ago.label, ' - ') + bg_title;
+    } else if (latestSGV) {
+      var currentMgdl = latestSGV.y;
+
+      if (currentMgdl < 39) {
+        bg_title = s(errorCodeToDisplay(currentMgdl), ' - ') + bg_title;
+      } else {
+        var deltaDisplay = delta.calc(prevSGV && prevSGV.y, latestSGV && latestSGV.y, sbx).display;
+        bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(direction.info(latestSGV).label) + bg_title;
+      }
+    }
+    return bg_title;  
+  }
+
+  function updateTitle(message) {
+
     var bg_title = browserSettings.customTitle || '';
 
-	if (!message && !alarmInProgress) {
-      var time = latestSGV ? new Date(latestSGV.x).getTime() : (prevSGV ? new Date(prevSGV.x).getTime() : -1)
-        , ago = timeAgo(time, browserSettings);
-
-      if (browserSettings.customTitle) {
-        $('h1.customTitle').text(browserSettings.customTitle);
-      }
-
-      if (ago && ago.status !== 'current') {
-        bg_title =  s(ago.value) + s(ago.label, ' - ') + bg_title;
-      } else if (latestSGV) {
-        var currentMgdl = latestSGV.y;
-
-        if (currentMgdl < 39) {
-          bg_title = s(errorCodeToDisplay(currentMgdl), ' - ') + bg_title;
-        } else {
-          var deltaDisplay = delta.calc(prevSGV && prevSGV.y, latestSGV && latestSGV.y, sbx).display;
-          bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(direction.info(latestSGV).label) + bg_title;
-        }
-      }
-    } else {
-    	bg_title = message.title + ' ' + message.message;
-    	$('h1.customTitle').text(bg_title);
+	if (message && alarmInProgress) {
+      bg_title = message.title + ' ' + message.message;
+      $('h1.customTitle').text(bg_title);
+	} else {
+	  bg_title = generateTitle();
     }
 
     $(document).attr('title', bg_title);
