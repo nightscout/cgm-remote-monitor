@@ -135,11 +135,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     var bg_title = browserSettings.customTitle || '';
 
-	if (message && alarmInProgress) {
-      bg_title = message.title + ' ' + message.message;
-      $('h1.customTitle').text(bg_title);
-	} else {
-	  bg_title = generateTitle();
+    if (message && alarmInProgress) {
+      //message title + normal generated title for the browser tab
+      bg_title = message.title + ': ' + generateTitle();
+      //full message in header
+      $('h1.customTitle').text(message.title + ' ' + message.message);
+    } else {
+      bg_title = generateTitle();
     }
 
     $(document).attr('title', bg_title);
