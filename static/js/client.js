@@ -1362,7 +1362,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       $('#container').addClass('alarming-timeago');
       console.log('ago:', ago);
       var message = {'title': 'Last data received ', 'message': ago.value + ago.label};
-      if (level == 'warn') {
+      if (level === 'warn') {
         generateAlarm(alarmSound, message);
       } else {
         generateAlarm(urgentAlarmSound, message);
