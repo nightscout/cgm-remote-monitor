@@ -129,26 +129,28 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function s(value, sep) { return value ? value + ' ' : sep || ''; }
 
-	if (!message && !alarmInProgress) {
-    var time = latestSGV ? new Date(latestSGV.x).getTime() : (prevSGV ? new Date(prevSGV.x).getTime() : -1)
-      , ago = timeAgo(time, browserSettings);
-
     var bg_title = browserSettings.customTitle || '';
 
-    if (browserSettings.customTitle) $('h1.customTitle').text(browserSettings.customTitle);
+	if (!message && !alarmInProgress) {
+      var time = latestSGV ? new Date(latestSGV.x).getTime() : (prevSGV ? new Date(prevSGV.x).getTime() : -1)
+        , ago = timeAgo(time, browserSettings);
 
-    if (ago && ago.status !== 'current') {
-      bg_title =  s(ago.value) + s(ago.label, ' - ') + bg_title;
-    } else if (latestSGV) {
-      var currentMgdl = latestSGV.y;
-
-      if (currentMgdl < 39) {
-        bg_title = s(errorCodeToDisplay(currentMgdl), ' - ') + bg_title;
-      } else {
-        var deltaDisplay = delta.calc(prevSGV && prevSGV.y, latestSGV && latestSGV.y, sbx).display;
-        bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(direction.info(latestSGV).label) + bg_title;
+      if (browserSettings.customTitle) {
+        $('h1.customTitle').text(browserSettings.customTitle);
       }
-    }
+
+      if (ago && ago.status !== 'current') {
+        bg_title =  s(ago.value) + s(ago.label, ' - ') + bg_title;
+      } else if (latestSGV) {
+        var currentMgdl = latestSGV.y;
+
+        if (currentMgdl < 39) {
+          bg_title = s(errorCodeToDisplay(currentMgdl), ' - ') + bg_title;
+        } else {
+          var deltaDisplay = delta.calc(prevSGV && prevSGV.y, latestSGV && latestSGV.y, sbx).display;
+          bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(direction.info(latestSGV).label) + bg_title;
+        }
+      }
     } else {
     	bg_title = message.title + ' ' + message.message;
     	$('h1.customTitle').text(bg_title);
