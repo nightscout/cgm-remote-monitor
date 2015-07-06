@@ -3,6 +3,8 @@ var should = require('should');
 describe('sandbox', function ( ) {
   var sandbox = require('../lib/sandbox')();
 
+  var now = Date.now();
+
   it('init on client', function (done) {
     var app = {
       thresholds:{
@@ -18,7 +20,7 @@ describe('sandbox', function ( ) {
     };
 
     var pluginBase = {};
-    var data = {sgvs: [{y: 100}]};
+    var data = {sgvs: [{y: 100, x: now}]};
 
     var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
 
@@ -40,7 +42,7 @@ describe('sandbox', function ( ) {
 
   it('init on server', function (done) {
     var sbx = createServerSandbox();
-    sbx.data.sgvs = [{y: 100}];
+    sbx.data.sgvs = [{y: 100, x: now}];
 
     should.exist(sbx.notifications.requestNotify);
     should.not.exist(sbx.notifications.process);
@@ -61,7 +63,7 @@ describe('sandbox', function ( ) {
 
   it('build BG Now line using properties', function ( ) {
     var sbx = createServerSandbox();
-    sbx.data.sgvs = [{y: 99}];
+    sbx.data.sgvs = [{y: 99, x: now}];
     sbx.properties = { delta: {display: '+5' }, direction: {value: 'FortyFiveUp', label: '↗', entity: '&#8599;'} };
 
     sbx.buildBGNowLine().should.equal('BG Now: 99 +5 ↗ mg/dl');
@@ -70,7 +72,7 @@ describe('sandbox', function ( ) {
 
   it('build default message using properties', function ( ) {
     var sbx = createServerSandbox();
-    sbx.data.sgvs = [{y: 99}];
+    sbx.data.sgvs = [{y: 99, x: now}];
     sbx.properties = {
       delta: {display: '+5' }
       , direction: {value: 'FortyFiveUp', label: '↗', entity: '&#8599;'}
