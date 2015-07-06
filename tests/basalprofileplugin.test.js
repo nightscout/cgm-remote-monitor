@@ -1,4 +1,4 @@
-var should = require('should');
+require('should');
 
 describe('basalprofile', function ( ) {
 
@@ -9,14 +9,6 @@ describe('basalprofile', function ( ) {
   var ctx = {};
   ctx.data = require('../lib/data')(env, ctx);
   ctx.notifications = require('../lib/notifications')(env, ctx);
-
-  function prepareSandbox ( ) {
-    var sbx = require('../lib/sandbox')().serverInit(env, ctx);
-    sbx.offerProperty('iob', function () {
-      return {iob: 0};
-    });
-    return sbx;
-  }
 
   var profileData = 
   {
