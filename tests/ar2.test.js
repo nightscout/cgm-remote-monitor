@@ -14,12 +14,31 @@ describe('ar2', function ( ) {
   var now = Date.now();
   var before = now - (5 * 60 * 1000);
 
+  function prepareSandbox(base) {
+    var sbx = base || require('../lib/sandbox')().serverInit(env, ctx);
+    ar2.setProperties(sbx);
+    delta.setProperties(sbx);
+    return sbx;
+  }
+
+  function rawSandbox() {
+    var envRaw = require('../env')();
+    envRaw.extendedSettings = {'ar2': {useRaw: true}};
+
+    var sbx = require('../lib/sandbox')().serverInit(envRaw, ctx).withExtendedSettings(ar2);
+
+    sbx.offerProperty('rawbg', function setFakeRawBG() {
+      return {};
+    });
+
+    return prepareSandbox(sbx);
+  }
 
   it('Not trigger an alarm when in range', function (done) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{y: 100, x: before}, {y: 105, x: now}];
 
-    var sbx = require('../lib/sandbox')().serverInit(env, ctx);
+    var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
     should.not.exist(ctx.notifications.findHighestAlarm());
 
@@ -30,12 +49,11 @@ describe('ar2', function ( ) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{y: 150, x: before}, {y: 170, x: now}];
 
-    var sbx = require('../lib/sandbox')().serverInit(env, ctx);
-    delta.setProperties(sbx);
+    var sbx = prepareSandbox();
     sbx.offerProperty('iob', function setFakeIOB() {
       return {displayLine: 'IOB: 1.25U'};
     });
-    sbx.offerProperty('direction', function setFakeIOB() {
+    sbx.offerProperty('direction', function setFakeDirection() {
       return {value: 'FortyFiveUp', label: '↗', entity: '&#8599;'};
     });
     ar2.checkNotifications(sbx);
@@ -51,7 +69,7 @@ describe('ar2', function ( ) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{y: 140, x: before}, {y: 200, x: now}];
 
-    var sbx = require('../lib/sandbox')().serverInit(env, ctx);
+    var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.URGENT);
@@ -64,7 +82,7 @@ describe('ar2', function ( ) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{y: 90, x: before}, {y: 80, x: now}];
 
-    var sbx = require('../lib/sandbox')().serverInit(env, ctx);
+    var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.WARN);
@@ -77,7 +95,7 @@ describe('ar2', function ( ) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{y: 90, x: before}, {y: 83, x: now}];
 
-    var sbx = require('../lib/sandbox')().serverInit(env, ctx);
+    var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.WARN);
@@ -90,7 +108,7 @@ describe('ar2', function ( ) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{y: 120, x: before}, {y: 85, x: now}];
 
-    var sbx = require('../lib/sandbox')().serverInit(env, ctx);
+    var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.URGENT);
@@ -99,28 +117,28 @@ describe('ar2', function ( ) {
     done();
   });
 
-  function rawSandbox(ctx) {
-    var envRaw = require('../env')();
-    envRaw.extendedSettings = {'ar2': {useRaw: true}};
-    return require('../lib/sandbox')().serverInit(envRaw, ctx);
-  }
-
   it('should include current raw bg and raw bg forecast when predicting w/raw', function (done) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{unfiltered: 113680, filtered: 111232, y: 100, x: before, noise: 1}, {unfiltered: 183680, filtered: 111232, y: 100, x: now, noise: 1}];
     ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918}];
 
-    var sbx = rawSandbox(ctx);
-    delta.setProperties(sbx);
+    var envRaw = require('../env')();
+    envRaw.extendedSettings = {'ar2': {useRaw: true}};
+
+    var sbx = require('../lib/sandbox')().serverInit(envRaw, ctx).withExtendedSettings(ar2);
+
     sbx.offerProperty('rawbg', function setFakeIOB() {
       return {displayLine: 'Raw BG: 200 mg/dl Clean'};
     });
     sbx.offerProperty('iob', function setFakeIOB() {
       return {displayLine: 'IOB: 1.25U'};
     });
-    sbx.offerProperty('direction', function setFakeIOB() {
+    sbx.offerProperty('direction', function setFakeDirection() {
       return {value: 'FortyFiveUp', label: '↗', entity: '&#8599;'};
     });
+
+    sbx = prepareSandbox(sbx);
+
     ar2.checkNotifications(sbx.withExtendedSettings(ar2));
 
     var highest = ctx.notifications.findHighestAlarm();
@@ -136,7 +154,7 @@ describe('ar2', function ( ) {
     ctx.data.sgvs = [{unfiltered: 0, filtered: 0, y: 100, x: before, noise: 1}, {unfiltered: 0, filtered: 0, y: 100, x: now, noise: 1}];
     ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918}];
 
-    var sbx = rawSandbox(ctx);
+    var sbx = rawSandbox();
     ar2.checkNotifications(sbx.withExtendedSettings(ar2));
     should.not.exist(ctx.notifications.findHighestAlarm());
 
@@ -149,7 +167,11 @@ describe('ar2', function ( ) {
     ctx.data.sgvs = [{unfiltered: 113680, filtered: 111232, y: 100, x: before, noise: 1}, {unfiltered: 43680, filtered: 111232, y: 100, x: now, noise: 1}];
     ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918}];
 
-    var sbx = rawSandbox(ctx);
+    var sbx = rawSandbox();
+    sbx.offerProperty('rawbg', function setFakeIOB() {
+      return {};
+    });
+
     ar2.checkNotifications(sbx.withExtendedSettings(ar2));
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.WARN);
@@ -163,7 +185,11 @@ describe('ar2', function ( ) {
     ctx.data.sgvs = [{unfiltered: 113680, filtered: 111232, y: 100, x: before, noise: 1}, {unfiltered: 183680, filtered: 111232, y: 100, x: now, noise: 1}];
     ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918}];
 
-    var sbx = rawSandbox(ctx);
+    var sbx = rawSandbox();
+    sbx.offerProperty('rawbg', function setFakeIOB() {
+      return {};
+    });
+
     ar2.checkNotifications(sbx.withExtendedSettings(ar2));
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.WARN);
