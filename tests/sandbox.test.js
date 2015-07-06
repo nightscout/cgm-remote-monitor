@@ -85,4 +85,13 @@ describe('sandbox', function ( ) {
 
   });
 
+  //FIXME: field mismatch between server and client :(, remove this test when we get that cleaned up
+  it('Use the x or date fields to find an entries time in mills', function () {
+    var sbx = createServerSandbox();
+
+    sbx.entryMills({x: now}).should.equal(now);
+    sbx.entryMills({date: now}).should.equal(now);
+  });
+
+
 });
