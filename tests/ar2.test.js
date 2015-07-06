@@ -6,7 +6,6 @@ describe('ar2', function ( ) {
   var delta = require('../lib/plugins/delta')();
 
   var env = require('../env')();
-
   var ctx = {};
   ctx.data = require('../lib/data')(env, ctx);
   ctx.notifications = require('../lib/notifications')(env, ctx);
@@ -120,7 +119,7 @@ describe('ar2', function ( ) {
   it('should include current raw bg and raw bg forecast when predicting w/raw', function (done) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{unfiltered: 113680, filtered: 111232, y: 100, x: before, noise: 1}, {unfiltered: 183680, filtered: 111232, y: 100, x: now, noise: 1}];
-    ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918}];
+    ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, x: now}];
 
     var envRaw = require('../env')();
     envRaw.extendedSettings = {'ar2': {useRaw: true}};
@@ -152,7 +151,7 @@ describe('ar2', function ( ) {
   it('should not trigger an alarm when raw is missing or 0', function (done) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{unfiltered: 0, filtered: 0, y: 100, x: before, noise: 1}, {unfiltered: 0, filtered: 0, y: 100, x: now, noise: 1}];
-    ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918}];
+    ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, x: now}];
 
     var sbx = rawSandbox();
     ar2.checkNotifications(sbx.withExtendedSettings(ar2));
@@ -165,7 +164,7 @@ describe('ar2', function ( ) {
   it('should trigger a warning (no urgent for raw) when raw is falling really fast, but sgv is steady', function (done) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{unfiltered: 113680, filtered: 111232, y: 100, x: before, noise: 1}, {unfiltered: 43680, filtered: 111232, y: 100, x: now, noise: 1}];
-    ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918}];
+    ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, x: now}];
 
     var sbx = rawSandbox();
     sbx.offerProperty('rawbg', function setFakeIOB() {
@@ -183,7 +182,7 @@ describe('ar2', function ( ) {
   it('should trigger a warning (no urgent for raw) when raw is rising really fast, but sgv is steady', function (done) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{unfiltered: 113680, filtered: 111232, y: 100, x: before, noise: 1}, {unfiltered: 183680, filtered: 111232, y: 100, x: now, noise: 1}];
-    ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918}];
+    ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, x: now}];
 
     var sbx = rawSandbox();
     sbx.offerProperty('rawbg', function setFakeIOB() {
