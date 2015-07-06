@@ -6,10 +6,11 @@ describe('Raw BG', function ( ) {
   var rawbg = require('../lib/plugins/rawbg')();
   var sandbox = require('../lib/sandbox')();
 
+  var now = Date.now();
   var pluginBase = {};
   var data = {
-    sgvs: [{unfiltered: 113680, filtered: 111232, y: 110, noise: 1}]
-    , cals: [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918}]
+    sgvs: [{unfiltered: 113680, filtered: 111232, y: 110, noise: 1, x: now}]
+    , cals: [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, x: now}]
   };
   var app = { };
   var clientSettings = {
