@@ -10,10 +10,12 @@ describe('treatmentnotify', function ( ) {
   ctx.data = require('../lib/data')(env, ctx);
   ctx.notifications = require('../lib/notifications')(env, ctx);
 
+  var now = Date.now();
+
   it('Request a snooze for a recent treatment and request an info notify', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{sgv: 100}];
-    ctx.data.treatments = [{eventType: 'BG Check', glucose: '100', created_at: (new Date()).toISOString()}];
+    ctx.data.sgvs = [{x: now, y: 100}];
+    ctx.data.treatments = [{eventType: 'BG Check', glucose: '100', x: now}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     treatmentnotify.checkNotifications(sbx);
@@ -27,8 +29,8 @@ describe('treatmentnotify', function ( ) {
 
   it('Not Request a snooze for an older treatment and not request an info notification', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{sgv: 100}];
-    ctx.data.treatments = [{created_at: (new Date(Date.now() - (15 * 60 * 1000))).toISOString()}];
+    ctx.data.sgvs = [{x: now, y: 100}];
+    ctx.data.treatments = [{x: Date.now() - (15 * 60 * 1000)}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     treatmentnotify.checkNotifications(sbx);
@@ -42,7 +44,7 @@ describe('treatmentnotify', function ( ) {
 
   it('Request a snooze for a recent calibration and request an info notify', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{sgv: 100}];
+    ctx.data.sgvs = [{x: now, y: 100}];
     ctx.data.mbgs = [{y: '100', x: Date.now()}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
@@ -57,7 +59,7 @@ describe('treatmentnotify', function ( ) {
 
   it('Not Request a snooze for an older calibration treatment and not request an info notification', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{sgv: 100}];
+    ctx.data.sgvs = [{x: now, y: 100}];
     ctx.data.mbgs = [{y: '100', x: Date.now() - (15 * 60 * 1000)}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
