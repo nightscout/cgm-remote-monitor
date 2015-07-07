@@ -39,16 +39,22 @@ describe('notifications', function ( ) {
 
   var exampleSnooze = {
     level: notifications.levels.WARN
+    , title: 'exampleSnooze'
+    , message: 'exampleSnooze message'
     , lengthMills: 1000
   };
 
   var exampleSnoozeNone = {
     level: notifications.levels.WARN
+    , title: 'exampleSnoozeNone'
+    , message: 'exampleSnoozeNone message'
     , lengthMills: 1
   };
 
   var exampleSnoozeUrgent = {
     level: notifications.levels.URGENT
+    , title: 'exampleSnoozeUrgent'
+    , message: 'exampleSnoozeUrgent message'
     , lengthMills: 1000
   };
 
