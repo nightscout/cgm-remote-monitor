@@ -374,7 +374,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     }
 
-    function updatePlugins(sgvs, time) {
+    function updatePlugins (sgvs, time) {
 
       var pluginBase = Nightscout.plugins.base(majorPills, minorPills, statusPills, bgStatus, tooltip);
 
@@ -393,13 +393,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       Nightscout.plugins.updateVisualisations(sbx);
     }
 
-    // predict for retrospective data
-    // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
-    // of data instead of 5, which eliminates the incorrect and misleading predictions generated when
-    // the dexcom switches from unfiltered to filtered at the start of a rapid rise or fall, while preserving
-    // almost identical predications at other times.
-    var lookback = 2;
-
     var nowData = data.filter(function(d) {
       return d.type === 'sgv';
     });
@@ -408,7 +401,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       var retroTime = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
       // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
-      var lookbackTime = (lookback + 2) * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
+      var lookbackTime = 3 * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
       nowData = nowData.filter(function(d) {
         return d.date.getTime() >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
           d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS;
@@ -439,7 +432,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       updateTimeAgo();
     } else {
       // if the brush comes back into the current time range then it should reset to the current time and sg
-      nowData = nowData.slice(nowData.length - 1 - lookback, nowData.length);
+      nowData = nowData.slice(nowData.length - 2, nowData.length);
       nowDate = new Date(now);
 
       updateCurrentSGV(latestSGV);
@@ -453,8 +446,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     // get slice of data so that concatenation of predictions do not interfere with subsequent updates
     var focusData = data.slice();
-    if (nowData.length > lookback) {
-      focusData = focusData.concat(predictAR(nowData, lookback));
+
+    if (sbx.pluginBase.forecastPoints) {
+      focusData = focusData.concat(sbx.pluginBase.forecastPoints);
     }
 
     // bind up the focus chart data to an array of circles
@@ -1236,84 +1230,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
   }
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // function to predict
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  function predictAR(actual, lookback) {
-    var ONE_MINUTE = 60 * 1000;
-    var FIVE_MINUTES = 5 * ONE_MINUTE;
-    var predicted = [];
-    var BG_REF = scaleBg(140);
-    var BG_MIN = scaleBg(36);
-    var BG_MAX = scaleBg(400);
-
-    function roundByUnits(value) {
-      if (browserSettings.units === 'mmol') {
-        return value.toFixed(1);
-      } else {
-        return Math.round(value);
-      }
-    }
-
-    //TODO: clean when moving the ar2 plugin
-    var y;
-
-    // these are the one sigma limits for the first 13 prediction interval uncertainties (65 minutes)
-    var CONE = [0.020, 0.041, 0.061, 0.081, 0.099, 0.116, 0.132, 0.146, 0.159, 0.171, 0.182, 0.192, 0.201];
-    // these are modified to make the cone much blunter
-    //var CONE = [0.030, 0.060, 0.090, 0.120, 0.140, 0.150, 0.160, 0.170, 0.180, 0.185, 0.190, 0.195, 0.200];
-    // for testing
-    //var CONE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    if (actual.length < lookback+1) {
-      y = [Math.log(actual[actual.length-1].sgv / BG_REF), Math.log(actual[actual.length-1].sgv / BG_REF)];
-    } else {
-      var elapsedMins = (actual[actual.length-1].date - actual[actual.length-1-lookback].date) / ONE_MINUTE;
-      // construct a '5m ago' sgv offset from current sgv by the average change over the lookback interval
-      var lookbackSgvChange = actual[lookback].sgv-actual[0].sgv;
-      var fiveMinAgoSgv = actual[lookback].sgv - lookbackSgvChange/elapsedMins*5;
-      y = [Math.log(fiveMinAgoSgv / BG_REF), Math.log(actual[lookback].sgv / BG_REF)];
-      /*
-       if (elapsedMins < lookback * 5.1) {
-       y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[lookback].sgv / BG_REF)];
-       } else {
-       y = [Math.log(actual[lookback].sgv / BG_REF), Math.log(actual[lookback].sgv / BG_REF)];
-       }
-       */
-    }
-    var AR = [-0.723, 1.716];
-    var dt = actual[lookback].date.getTime();
-    var predictedColor = 'blue';
-    if (browserSettings.theme === 'colors') {
-      predictedColor = 'cyan';
-    }
-
-    for (var i = 0; i < CONE.length; i++) {
-      y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
-      dt = dt + FIVE_MINUTES;
-      // Add 2000 ms so not same point as SG
-      predicted[i * 2] = {
-        date: new Date(dt + 2000),
-        sgv: Math.max(BG_MIN, Math.min(BG_MAX, roundByUnits(BG_REF * Math.exp((y[1] - 2 * CONE[i]))))),
-        color: predictedColor
-      };
-      // Add 4000 ms so not same point as SG
-      predicted[i * 2 + 1] = {
-        date: new Date(dt + 4000),
-        sgv: Math.max(BG_MIN, Math.min(BG_MAX, roundByUnits(BG_REF * Math.exp((y[1] + 2 * CONE[i]))))),
-        color: predictedColor
-      };
-    }
-
-    predicted.forEach(function (d) {
-      d.type = 'forecast';
-      if (d.sgv < BG_MIN) {
-        d.color = 'transparent';
-      }
-    });
-
-    return predicted;
-  }
-
   function updateClock() {
     updateClockDisplay();
     var interval = (60 - (new Date()).getSeconds()) * 1000 + 5;
@@ -1589,21 +1505,22 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         temp1 = SGVdata.map(function (entry) {
           var rawbgValue = rawbg.showRawBGs(entry.y, entry.noise, cal, sbx) ? rawbg.calc(entry, cal, sbx) : 0;
           if (rawbgValue > 0) {
-            return { date: new Date(entry.x - 2000), y: rawbgValue, sgv: scaleBg(rawbgValue), color: 'white', type: 'rawbg' };
+            var rawX = entry.x - 2000;
+            return { date: new Date(rawX), x: rawX, y: rawbgValue, sgv: scaleBg(rawbgValue), color: 'white', type: 'rawbg' };
           } else {
             return null;
           }
         }).filter(function(entry) { return entry !== null; });
       }
       var temp2 = SGVdata.map(function (obj) {
-        return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
+        return { date: new Date(obj.x), x: obj.x, y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
       });
       data = [];
       data = data.concat(temp1, temp2);
 
       addPlaceholderPoints();
 
-      data = data.concat(MBGdata.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
+      data = data.concat(MBGdata.map(function (obj) { return { date: new Date(obj.x), x: obj.x, y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 
       data.forEach(function (d) {
         if (d.y < 39) { d.color = 'transparent'; }
