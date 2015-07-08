@@ -33,6 +33,25 @@ describe('ar2', function ( ) {
     return prepareSandbox(sbx);
   }
 
+  it('should plot a cone', function () {
+    ctx.data.sgvs = [{y: 100, mills: before}, {y: 105, mills: now}];
+    var sbx = prepareSandbox();
+    var cone = ar2.forecastCone(sbx);
+    cone.length.should.equal(26);
+  });
+
+  it('should plot a line if coneFactor is 0', function () {
+    ctx.data.sgvs = [{y: 100, mills: before}, {y: 105, mills: now}];
+
+    var env0 = require('../env')();
+    env0.extendedSettings = { ar2: { coneFactor: 0 } };
+    var sbx = require('../lib/sandbox')().serverInit(env0, ctx).withExtendedSettings(ar2);
+
+    var cone = ar2.forecastCone(sbx);
+    cone.length.should.equal(13);
+  });
+
+
   it('Not trigger an alarm when in range', function (done) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{y: 100, mills: before}, {y: 105, mills: now}];
