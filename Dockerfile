@@ -1,6 +1,6 @@
 FROM node:latest
 
-MAINTAINER fokko@driesprong.frl
+MAINTAINER Nightscout https://github.com/nightscout/
 
 # Installing the required packages.
 RUN apt-get update && apt-get install -y python-software-properties python g++ make git
@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y python-software-properties python g++ m
 # Upgrade
 RUN apt-get upgrade -y
 
-# We need to change user for security and for proper execution of bower which is in the postinstall hook at package.js
+# We need to change user for security and for proper execution of all the NPM stages
 # https://github.com/jspm/jspm-cli/issues/865
 # http://stackoverflow.com/questions/24308760/running-app-inside-docker-as-non-root-user
 
