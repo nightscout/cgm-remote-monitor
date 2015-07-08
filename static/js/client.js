@@ -135,7 +135,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     xScale = d3.time.scale()
       .domain(d3.extent(data, function (d) { return d.date; }));
 
-    if(app.defaults.bgScale === 'lin'){
+    if(browserSettings.bgScale === 'lin'){
       yScale = d3.scale.linear();
       yScale2 = d3.scale.linear();
     }
