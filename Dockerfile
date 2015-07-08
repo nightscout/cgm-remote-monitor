@@ -1,6 +1,6 @@
 FROM node:latest
 
-MAINTAINER fokko@driesprong.frl
+MAINTAINER Nightscout https://github.com/nightscout/
 
 # Installing the required packages.
 RUN apt-get update && apt-get install -y python-software-properties python g++ make git
@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y python-software-properties python g++ m
 # Upgrade
 RUN apt-get upgrade -y
 
-# We need to change user for security.
+# We need to change user for security and for proper execution of all the NPM stages
 # https://github.com/jspm/jspm-cli/issues/865
 # http://stackoverflow.com/questions/24308760/running-app-inside-docker-as-non-root-user
 
@@ -24,6 +24,7 @@ USER node
 ENV HOME /home/node 
 WORKDIR /home/node/app
 
+# Invoke NPM
 RUN npm install
 
 # Expose the default port, although this does not matter at it will be exposed as an arbitrary port by the Docker network driver.
