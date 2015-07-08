@@ -31,7 +31,7 @@ body {
     font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
     height: 180px;
     vertical-align: middle;
-    clear: left right;
+    clear: both;
 }
 
 .has-minor-pills .primary {
@@ -101,7 +101,7 @@ body {
     border: 2px solid #808080;
 }
 
-.pill * {
+.pill em, .pill label {
     padding-left: 2px;
     padding-right: 2px;
 }
@@ -233,7 +233,7 @@ body {
     border: 2px solid #bdbdbd;
 }
 
-#silenceBtn * {
+#silenceBtn a {
     font-size: 40px
 }
 
@@ -335,7 +335,7 @@ body {
     cursor: pointer;
 }
 
-.focus-range li.selected {
+.focus-range .selected {
     border-color: #808080;
     color: #000;
     background: #808080;
@@ -399,7 +399,7 @@ body {
         font-size: 14px;
     }
 
-    #silenceBtn * {
+    #silenceBtn a {
         font-size: 30px;
     }
 
@@ -516,7 +516,7 @@ body {
         font-size: 12px;
     }
 
-    #silenceBtn * {
+    #silenceBtn a {
       font-size: 20px;
     }
 
