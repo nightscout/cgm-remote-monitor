@@ -63,7 +63,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , prevChartHeight = 0
     , focusHeight
     , contextHeight
-    , dateFn = function (d) { return new Date(d.mills) }
+    , dateFn = function (d) { return d.mills }
     , documentHidden = false
     , brush
     , brushTimer
@@ -72,7 +72,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
   function formatTime(time, compact) {
     var timeFormat = getTimeFormat(false, compact);
-    time = d3.time.format(timeFormat)(time);
+    time = d3.time.format(timeFormat)(new Date(time));
     if (!isTimeFormat24()) {
       time = time.toLowerCase();
     }
@@ -210,7 +210,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
   // get the desired opacity for context chart based on the brush extent
   function highlightBrushPoints(data) {
-    if (data.mills >= brush.extent()[0].getTime() && data.mills <= brush.extent()[1].getTime()) {
+    if (data.mills >= brush.extent()[0] && data.mills <= brush.extent()[1]) {
       return futureOpacity(data.mills - latestSGV.mills);
     } else {
       return 0.5;
@@ -242,7 +242,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     d3.select('.brush')
       .transition()
       .duration(UPDATE_TRANS_MS)
-      .call(brush.extent([new Date(dataRange[1].getTime() - foucusRangeMS), dataRange[1]]));
+      .call(brush.extent([dataRange[1] - foucusRangeMS, dataRange[1]]));
 
     addPlaceholderPoints();
 
@@ -277,7 +277,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       return false;
     }
 
-    var time = brush.extent()[1].getTime();
+    var time = brush.extent()[1];
 
     return !alarmingNow() && time - TWENTY_FIVE_MINS_IN_MS < now;
   }
@@ -315,21 +315,21 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var brushExtent = brush.extent();
 
     // ensure that brush extent is fixed at 3.5 hours
-    if (brushExtent[1].getTime() - brushExtent[0].getTime() !== foucusRangeMS) {
+    if (brushExtent[1] - brushExtent[0] !== foucusRangeMS) {
 
       // ensure that brush updating is with the time range
-      if (brushExtent[0].getTime() + foucusRangeMS > d3.extent(data, dateFn)[1].getTime()) {
-        brushExtent[0] = new Date(brushExtent[1].getTime() - foucusRangeMS);
+      if (brushExtent[0] + foucusRangeMS > d3.extent(data, dateFn)[1]) {
+        brushExtent[0] = brushExtent[1] - foucusRangeMS;
         d3.select('.brush')
           .call(brush.extent([brushExtent[0], brushExtent[1]]));
       } else {
-        brushExtent[1] = new Date(brushExtent[0].getTime() + foucusRangeMS);
+        brushExtent[1] = brushExtent[0] + foucusRangeMS;
         d3.select('.brush')
           .call(brush.extent([brushExtent[0], brushExtent[1]]));
       }
     }
 
-    var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
+    var nowDate = brushExtent[1] - THIRTY_MINS_IN_MS;
 
     var bgButton = $('.bgButton')
       , bgStatus = $('.bgStatus')
@@ -396,17 +396,17 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     });
 
     if (inRetroMode()) {
-      var retroTime = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
+      var retroTime = brushExtent[1] - THIRTY_MINS_IN_MS;
 
       // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
       var lookbackTime = 3 * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
       nowData = nowData.filter(function(d) {
-        return d.mills >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
-          d.mills <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS;
+        return d.mills >= brushExtent[1] - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
+          d.mills <= brushExtent[1] - TWENTY_FIVE_MINS_IN_MS;
       });
 
       // sometimes nowData contains duplicates.  uniq it.
-      var lastDate = new Date('1/1/1970');
+      var lastDate = 0;
       nowData = nowData.filter(function(d) {
         var ok = lastDate + ONE_MIN_IN_MS < d.mills;
         lastDate = d.mills;
@@ -421,7 +421,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         bgButton.removeClass('urgent warning inrange');
       }
 
-      updatePlugins(nowData, retroTime.getTime());
+      updatePlugins(nowData, retroTime);
 
       $('#currentTime')
         .text(formatTime(retroTime, true))
@@ -431,12 +431,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     } else {
       // if the brush comes back into the current time range then it should reset to the current time and sg
       nowData = nowData.slice(nowData.length - 2, nowData.length);
-      nowDate = new Date(now);
+      nowDate = now;
 
       updateCurrentSGV(latestSGV);
       updateClockDisplay();
       updateTimeAgo();
-      updatePlugins(nowData, nowDate.getTime());
+      updatePlugins(nowData, nowDate);
 
     }
 
@@ -577,9 +577,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     context.select('.now-line')
       .transition()
-      .attr('x1', xScale2(new Date(brush.extent()[1]- THIRTY_MINS_IN_MS)))
+      .attr('x1', xScale2(brush.extent()[1]- THIRTY_MINS_IN_MS))
       .attr('y1', yScale2(scaleBg(36)))
-      .attr('x2', xScale2(new Date(brush.extent()[1]- THIRTY_MINS_IN_MS)))
+      .attr('x2', xScale2(brush.extent()[1]- THIRTY_MINS_IN_MS))
       .attr('y2', yScale2(scaleBg(420)));
 
     // update x axis
@@ -590,7 +590,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     focusCircles.attr('clip-path', 'url(#clip)');
 
     function prepareTreatCircles(sel) {
-      sel.attr('cx', function (d) { return xScale(d.created_at); })
+      sel.attr('cx', function (d) { return xScale(d.mills); })
         .attr('cy', function (d) { return yScale(d.displayBG); })
         .attr('r', function () { return dotRadius('mbg'); })
         .attr('stroke-width', 2)
@@ -613,7 +613,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     prepareTreatCircles(treatCircles.enter().append('circle'))
       .on('mouseover', function (d) {
         tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-        tooltip.html('<strong>Time:</strong> ' + formatTime(d.created_at) + '<br/>' +
+        tooltip.html('<strong>Time:</strong> ' + formatTime(d.mills) + '<br/>' +
             (d.eventType ? '<strong>Treatment type:</strong> ' + d.eventType + '<br/>' : '') +
             (d.glucose ? '<strong>BG:</strong> ' + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + '<br/>' : '') +
             (d.enteredBy ? '<strong>Entered by:</strong> ' + d.enteredBy + '<br/>' : '') +
@@ -710,9 +710,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // add a line that marks the current time
         focus.append('line')
           .attr('class', 'now-line')
-          .attr('x1', xScale(new Date(now)))
+          .attr('x1', xScale(now))
           .attr('y1', yScale(scaleBg(30)))
-          .attr('x2', xScale(new Date(now)))
+          .attr('x2', xScale(now))
           .attr('y2', yScale(scaleBg(420)))
           .style('stroke-dasharray', ('3, 3'))
           .attr('stroke', 'grey');
@@ -776,9 +776,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // add a line that marks the current time
         context.append('line')
           .attr('class', 'now-line')
-          .attr('x1', xScale(new Date(now)))
+          .attr('x1', xScale(now))
           .attr('y1', yScale2(scaleBg(36)))
-          .attr('x2', xScale(new Date(now)))
+          .attr('x2', xScale(now))
           .attr('y2', yScale2(scaleBg(420)))
           .style('stroke-dasharray', ('3, 3'))
           .attr('stroke', 'grey');
@@ -929,11 +929,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var updateBrush = d3.select('.brush').transition().duration(UPDATE_TRANS_MS);
     if (!brushInProgress) {
       updateBrush
-        .call(brush.extent([new Date(dataRange[1].getTime() - foucusRangeMS), dataRange[1]]));
+        .call(brush.extent([dataRange[1] - foucusRangeMS, dataRange[1]]));
       brushed(true);
     } else {
       updateBrush
-        .call(brush.extent([new Date(currentBrushExtent[1].getTime() - foucusRangeMS), currentBrushExtent[1]]));
+        .call(brush.extent([currentBrushExtent[1] - foucusRangeMS, currentBrushExtent[1]]));
       brushed(true);
     }
 
@@ -1126,7 +1126,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       }
     }
 
-    return treatmentGlucose || scaleBg(calcBGByTime(treatment.created_at.getTime()));
+    return treatmentGlucose || scaleBg(calcBGByTime(treatment.mills));
   }
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1137,7 +1137,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     if (!treatment.carbs && !treatment.insulin) { return; }
 
     // don't render the treatment if it's not visible
-    if (Math.abs(xScale(treatment.created_at.getTime())) > window.innerWidth) { return; }
+    if (Math.abs(xScale(treatment.mills)) > window.innerWidth) { return; }
 
     var CR = treatment.CR || 20;
     var carbs = treatment.carbs || CR;
@@ -1180,10 +1180,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       .data(arc_data)
       .enter()
       .append('g')
-      .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(treatment.displayBG) + ')')
+      .attr('transform', 'translate(' + xScale(treatment.mills) + ', ' + yScale(treatment.displayBG) + ')')
       .on('mouseover', function () {
         tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-        tooltip.html('<strong>Time:</strong> ' + formatTime(treatment.created_at) + '<br/>' + '<strong>Treatment type:</strong> ' + treatment.eventType + '<br/>' +
+        tooltip.html('<strong>Time:</strong> ' + formatTime(treatment.mills) + '<br/>' + '<strong>Treatment type:</strong> ' + treatment.eventType + '<br/>' +
             (treatment.carbs ? '<strong>Carbs:</strong> ' + treatment.carbs + '<br/>' : '') +
             (treatment.insulin ? '<strong>Insulin:</strong> ' + treatment.insulin + '<br/>' : '') +
             (treatment.glucose ? '<strong>BG:</strong> ' + treatment.glucose + (treatment.glucoseType ? ' (' + treatment.glucoseType + ')': '') + '<br/>' : '') +
@@ -1251,8 +1251,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       return;
     }
     now = Date.now();
-    var dateTime = new Date(now);
-    $('#currentTime').text(formatTime(dateTime, true)).css('text-decoration', '');
+    $('#currentTime').text(formatTime(now, true)).css('text-decoration', '');
   }
 
   function getClientAlarm(type) {
@@ -1525,7 +1524,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
       // OPTIMIZATION: precalculate treatment location in timeline
       treatments.forEach(function (d) {
-        d.created_at = new Date(d.created_at);
+        d.mills = new Date(d.created_at).getTime();
         //cache the displayBG for each treatment in DISPLAY_UNITS
         d.displayBG = displayTreatmentBG(d);
       });
