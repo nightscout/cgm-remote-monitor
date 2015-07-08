@@ -63,7 +63,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , prevChartHeight = 0
     , focusHeight
     , contextHeight
-    , dateFn = function (d) { return new Date(d.date) }
+    , dateFn = function (d) { return new Date(d.mills) }
     , documentHidden = false
     , brush
     , brushTimer
@@ -109,7 +109,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     var bg_title = '';
 
-    var time = latestSGV ? new Date(latestSGV.x).getTime() : (prevSGV ? new Date(prevSGV.x).getTime() : -1)
+    var time = latestSGV ? latestSGV.mills : (prevSGV ? prevSGV.mills : -1)
       , ago = timeAgo(time, browserSettings);
 
     if (browserSettings.customTitle) {
@@ -152,13 +152,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     // define the parts of the axis that aren't dependent on width or height
     xScale = d3.time.scale()
-      .domain(d3.extent(data, function (d) { return d.date; }));
+      .domain(d3.extent(data, function (d) { return d.mills; }));
 
     yScale = d3.scale.log()
       .domain([scaleBg(30), scaleBg(510)]);
 
     xScale2 = d3.time.scale()
-      .domain(d3.extent(data, function (d) { return d.date; }));
+      .domain(d3.extent(data, function (d) { return d.mills; }));
 
     yScale2 = d3.scale.log()
       .domain([scaleBg(36), scaleBg(420)]);
@@ -210,8 +210,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
   // get the desired opacity for context chart based on the brush extent
   function highlightBrushPoints(data) {
-    if (data.date.getTime() >= brush.extent()[0].getTime() && data.date.getTime() <= brush.extent()[1].getTime()) {
-      return futureOpacity(data.date.getTime() - latestSGV.x);
+    if (data.mills >= brush.extent()[0].getTime() && data.mills <= brush.extent()[1].getTime()) {
+      return futureOpacity(data.mills - latestSGV.mills);
     } else {
       return 0.5;
     }
@@ -223,11 +223,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
     // required to happen when 'now' event is sent from websocket.js every minute.  When fixed,
     // remove this code and all references to `type: 'server-forecast'`
-    var lastTime = data.length > 0 ? data[data.length - 1].date.getTime() : Date.now();
+    var lastTime = data.length > 0 ? data[data.length - 1].mills : Date.now();
     var n = Math.ceil(12 * (1 / 2 + (now - lastTime) / SIXTY_MINS_IN_MS)) + 1;
     for (var i = 1; i <= n; i++) {
       data.push({
-        date: new Date(lastTime + (i * FIVE_MINS_IN_MS)), y: 100, sgv: scaleBg(100), color: 'none', type: 'server-forecast'
+        mills: lastTime + (i * FIVE_MINS_IN_MS), y: 100, sgv: scaleBg(100), color: 'none', type: 'server-forecast'
       });
     }
   }
@@ -340,11 +340,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       ;
 
     function updateCurrentSGV(entry) {
-        var value, time, ago, isCurrent;
-        value = entry.y;
-        time = new Date(entry.x).getTime();
-        ago = timeAgo(time, browserSettings);
-        isCurrent = ago.status === 'current';
+        var value = entry.y
+          , ago = timeAgo(entry.mills, browserSettings)
+          , isCurrent = ago.status === 'current';
 
       if (value === 9) {
         currentBG.text('');
@@ -403,15 +401,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
       var lookbackTime = 3 * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
       nowData = nowData.filter(function(d) {
-        return d.date.getTime() >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
-          d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS;
+        return d.mills >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
+          d.mills <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS;
       });
 
       // sometimes nowData contains duplicates.  uniq it.
       var lastDate = new Date('1/1/1970');
       nowData = nowData.filter(function(d) {
-        var ok = (lastDate.getTime() + ONE_MIN_IN_MS) < d.date.getTime();
-        lastDate = d.date;
+        var ok = lastDate + ONE_MIN_IN_MS < d.mills;
+        lastDate = d.mills;
         return ok;
       });
 
@@ -474,7 +472,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function prepareFocusCircles(sel) {
       var badData = [];
-      sel.attr('cx', function (d) { return xScale(d.date); })
+      sel.attr('cx', function (d) { return xScale(d.mills); })
         .attr('cy', function (d) {
           if (isNaN(d.sgv)) {
             badData.push(d);
@@ -484,7 +482,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
           }
         })
         .attr('fill', function (d) { return d.color; })
-        .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); })
+        .attr('opacity', function (d) { return futureOpacity(d.mills - latestSGV.mills); })
         .attr('stroke-width', function (d) { return d.type === 'mbg' ? 2 : 0; })
         .attr('stroke', function (d) {
           return (isDexcom(d.device) ? 'white' : '#0099ff');
@@ -521,7 +519,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             (d.type === 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
             (rawbgValue ? '<br/><strong>Raw BG:</strong> ' + rawbgValue : '') +
             (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
-            '<br/><strong>Time:</strong> ' + formatTime(d.date))
+            '<br/><strong>Time:</strong> ' + formatTime(d.mills))
             .style('left', (d3.event.pageX) + 'px')
             .style('top', (d3.event.pageY + 15) + 'px');
         }
@@ -945,7 +943,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function prepareContextCircles(sel) {
       var badData = [];
-      sel.attr('cx', function (d) { return xScale2(d.date); })
+      sel.attr('cx', function (d) { return xScale2(d.mills); })
         .attr('cy', function (d) {
           if (isNaN(d.sgv)) {
             badData.push(d);
@@ -1085,10 +1083,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       });
 
       var beforeTreatment = _.findLast(withBGs, function (d) {
-        return d.date.getTime() <= time;
+        return d.mills <= time;
       });
       var afterTreatment = _.find(withBGs, function (d) {
-        return d.date.getTime() >= time;
+        return d.mills >= time;
       });
 
       var calcedBG = 0;
@@ -1290,7 +1288,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
   function updateTimeAgo() {
     var lastEntry = $('#lastEntry')
-      , time = latestSGV ? new Date(latestSGV.x).getTime() : -1
+      , time = latestSGV ? latestSGV.mills : -1
       , ago = timeAgo(time, browserSettings)
       , retroMode = inRetroMode();
 
@@ -1443,10 +1441,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       function nsArrayDiff(oldArray, newArray) {
         var seen = {};
         var l = oldArray.length;
-        for (var i = 0; i < l; i++) { seen[oldArray[i].x] = true }
+        for (var i = 0; i < l; i++) { seen[oldArray[i].mills] = true }
         var result = [];
         l = newArray.length;
-        for (var j = 0; j < l; j++) { if (!seen.hasOwnProperty(newArray[j].x)) { result.push(newArray[j]); console.log('delta data found'); } }
+        for (var j = 0; j < l; j++) { if (!seen.hasOwnProperty(newArray[j].mills)) { result.push(newArray[j]); console.log('delta data found'); } }
         return result;
       }
 
@@ -1463,7 +1461,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       // If this is delta, calculate the difference, merge and sort
       var diff = nsArrayDiff(cachedDataArray,receivedDataArray);
       return cachedDataArray.concat(diff).sort(function(a, b) {
-        return a.x - b.x;
+        return a.mills - b.mills;
       });
     }
 
@@ -1505,22 +1503,21 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         temp1 = SGVdata.map(function (entry) {
           var rawbgValue = rawbg.showRawBGs(entry.y, entry.noise, cal, sbx) ? rawbg.calc(entry, cal, sbx) : 0;
           if (rawbgValue > 0) {
-            var rawX = entry.x - 2000;
-            return { date: new Date(rawX), x: rawX, y: rawbgValue, sgv: scaleBg(rawbgValue), color: 'white', type: 'rawbg' };
+            return { mills: entry.mills - 2000, y: rawbgValue, sgv: scaleBg(rawbgValue), color: 'white', type: 'rawbg' };
           } else {
             return null;
           }
         }).filter(function(entry) { return entry !== null; });
       }
       var temp2 = SGVdata.map(function (obj) {
-        return { date: new Date(obj.x), x: obj.x, y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
+        return { mills: obj.mills, y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
       });
       data = [];
       data = data.concat(temp1, temp2);
 
       addPlaceholderPoints();
 
-      data = data.concat(MBGdata.map(function (obj) { return { date: new Date(obj.x), x: obj.x, y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
+      data = data.concat(MBGdata.map(function (obj) { return { mills: obj.mills, y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 
       data.forEach(function (d) {
         if (d.y < 39) { d.color = 'transparent'; }

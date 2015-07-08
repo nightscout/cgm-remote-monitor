@@ -294,7 +294,9 @@ body {
     margin: 10px auto;
 }
 
-div.tooltip {
+.tooltip {
+    top: 0;
+    left: 0;
     color: #444;
     position: absolute;
     text-align: left;
