@@ -1623,6 +1623,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , careportalEnabled: xhr.careportalEnabled
         , defaults: xhr.defaults
       };
+
+      //TODO: currently we need the ar2 plugin for the cone
+      if (app.enabledOptions.indexOf('ar2') < 0) {
+        app.enabledOptions += ' ar2';
+      }
     }
   }).done(function() {
     $('.appName').text(app.name);
