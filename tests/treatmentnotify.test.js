@@ -14,8 +14,8 @@ describe('treatmentnotify', function ( ) {
 
   it('Request a snooze for a recent treatment and request an info notify', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: now, y: 100}];
-    ctx.data.treatments = [{eventType: 'BG Check', glucose: '100', x: now}];
+    ctx.data.sgvs = [{mills: now, y: 100}];
+    ctx.data.treatments = [{eventType: 'BG Check', glucose: '100', mills: now}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     treatmentnotify.checkNotifications(sbx);
@@ -29,8 +29,8 @@ describe('treatmentnotify', function ( ) {
 
   it('Not Request a snooze for an older treatment and not request an info notification', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: now, y: 100}];
-    ctx.data.treatments = [{x: Date.now() - (15 * 60 * 1000)}];
+    ctx.data.sgvs = [{mills: now, y: 100}];
+    ctx.data.treatments = [{mills: now - (15 * 60 * 1000)}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     treatmentnotify.checkNotifications(sbx);
@@ -44,8 +44,8 @@ describe('treatmentnotify', function ( ) {
 
   it('Request a snooze for a recent calibration and request an info notify', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: now, y: 100}];
-    ctx.data.mbgs = [{y: '100', x: Date.now()}];
+    ctx.data.sgvs = [{mills: now, y: 100}];
+    ctx.data.mbgs = [{y: '100', mills: now}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     treatmentnotify.checkNotifications(sbx);
@@ -59,8 +59,8 @@ describe('treatmentnotify', function ( ) {
 
   it('Not Request a snooze for an older calibration treatment and not request an info notification', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: now, y: 100}];
-    ctx.data.mbgs = [{y: '100', x: Date.now() - (15 * 60 * 1000)}];
+    ctx.data.sgvs = [{mills: now, y: 100}];
+    ctx.data.mbgs = [{y: '100', mills: now - (15 * 60 * 1000)}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     treatmentnotify.checkNotifications(sbx);
