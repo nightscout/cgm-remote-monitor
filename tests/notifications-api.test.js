@@ -56,15 +56,22 @@ describe('Notifications API', function ( ) {
     var wares = require('../lib/middleware/')(env);
     app.use('/', notificationsAPI(app, wares, ctx));
 
-    request(app)
-      .get('/notifications/ack?level=1')
-      .set('api-secret', env.api_secret || '')
-      .expect(200)
-      .end(function (err) {
-        should.not.exist(err);
-        if (err) {
-          console.error(err);
-        }
-      });
+    function makeRequest () {
+      request(app)
+        .get('/notifications/ack?level=1')
+        .set('api-secret', env.api_secret || '')
+        .expect(200)
+        .end(function (err) {
+          should.not.exist(err);
+          if (err) {
+            console.error(err);
+          }
+        });
+    }
+
+    makeRequest();
+
+    //2nd call should have no effect, done should NOT be called again
+    makeRequest();
   });
 });
