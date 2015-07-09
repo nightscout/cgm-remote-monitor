@@ -106,4 +106,37 @@ describe('boluswizardpreview', function ( ) {
 
   });
 
+  it('set a pill to the BWP with infos', function (done) {
+    var pluginBase = {
+      updatePillText: function mockedUpdatePillText (plugin, options) {
+        options.label.should.equal('BWP');
+        options.value.should.equal('0.50U');
+        done();
+      }
+    };
+
+    var app = { };
+    var clientSettings = {};
+
+    var loadedProfile = require('../lib/profilefunctions')();
+    loadedProfile.loadData([profile]);
+
+    var data = {
+      sgvs: [{x: before, y: 295}, {x: now, y: 300}]
+      , treatments: [{created_at: before, insulin: '1.5'}]
+      , profile: loadedProfile
+    };
+
+    var sbx = require('../lib/sandbox')().clientInit(app, clientSettings, Date.now(), pluginBase, data);
+
+    iob.setProperties(sbx);
+    boluswizardpreview.setProperties(sbx);
+    boluswizardpreview.updateVisualisation(sbx);
+
+    ctx.notifications.resetStateForTests();
+    ctx.notifications.initRequests();
+    ctx.data.profiles = [profile];
+
+  });
+
 });
