@@ -75,13 +75,15 @@ ctx.data.cals = updateMills([
   }
 ]);
 
+ctx.data.profiles = [{dia: 4 }];
+
 ctx.data.treatments = updateMills([
-  { insulin: '1.50' }
+  { eventType: 'Snack Bolus', insulin: '1.50', carbs: '22' }
 ]);
 
 ctx.data.devicestatus.uploaderBattery = 100;
 
-describe('Pebble Endpoint without Raw', function ( ) {
+describe('Pebble Endpoint', function ( ) {
   var pebble = require('../lib/pebble');
   before(function (done) {
     var env = require('../env')( );
@@ -101,6 +103,31 @@ describe('Pebble Endpoint without Raw', function ( ) {
         var bg = bgs[0];
         bg.sgv.should.equal('82');
         bg.bgdelta.should.equal(-2);
+        bg.trend.should.equal(4);
+        bg.direction.should.equal('Flat');
+        bg.datetime.should.equal(now);
+        should.not.exist(bg.filtered);
+        should.not.exist(bg.unfiltered);
+        should.not.exist(bg.noise);
+        should.not.exist(bg.rssi);
+        should.not.exist(bg.iob);
+        bg.battery.should.equal('100');
+
+        res.body.cals.length.should.equal(0);
+        done( );
+      });
+  });
+
+  it('/pebble with mmol param', function (done) {
+    request(this.app)
+      .get('/pebble?units=mmol')
+      .expect(200)
+      .end(function (err, res)  {
+        var bgs = res.body.bgs;
+        bgs.length.should.equal(1);
+        var bg = bgs[0];
+        bg.sgv.should.equal('4.6');
+        bg.bgdelta.should.equal(-0.1);
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
         bg.datetime.should.equal(now);
@@ -140,12 +167,11 @@ describe('Pebble Endpoint without Raw', function ( ) {
   });
 });
 
-
-describe('Pebble Endpoint with Raw', function ( ) {
+describe('Pebble Endpoint with Raw and IOB', function ( ) {
   var pebbleRaw = require('../lib/pebble');
   before(function (done) {
     var envRaw = require('../env')( );
-    envRaw.enable = 'rawbg';
+    envRaw.enable = 'rawbg iob';
     this.appRaw = require('express')( );
     this.appRaw.enable('api');
     this.appRaw.use('/pebble', pebbleRaw(envRaw, ctx));
