@@ -7,7 +7,6 @@ var consts = require('./lib/constants');
 var fs = require('fs');
 // Module to constrain all config and environment parsing to one spot.
 function config ( ) {
-
   /*
    * First inspect a bunch of environment variables:
    *   * PORT - serve http on this port
@@ -95,7 +94,7 @@ function config ( ) {
 
   //TODO: figure out something for some plugins to have them shown by default
   if (env.defaults.showPlugins !== '') {
-    env.defaults.showPlugins += ' delta upbat';
+    env.defaults.showPlugins += ' delta direction upbat';
     if (env.defaults.showRawbg === 'always' || env.defaults.showRawbg === 'noise') {
       env.defaults.showPlugins += 'rawbg';
     }
@@ -193,7 +192,7 @@ function config ( ) {
   }
 
   //TODO: figure out something for default plugins, how can they be disabled?
-  env.enable += ' delta upbat errorcodes';
+  env.enable += ' delta direction upbat errorcodes';
 
   env.extendedSettings = findExtendedSettings(env.enable, process.env);
 

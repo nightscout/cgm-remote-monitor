@@ -49,9 +49,9 @@ require('./lib/bootevent')(env).boot(function booted (ctx) {
     console.log('listening', PORT);
 
     if (env.MQTT_MONITOR) {
-      var mqtt = require('./lib/mqtt')(env, ctx);
+      ctx.mqtt = require('./lib/mqtt')(env, ctx);
       var es = require('event-stream');
-      es.pipeline(mqtt.entries, ctx.entries.map( ), mqtt.every(ctx.entries));
+      es.pipeline(ctx.mqtt.entries, ctx.entries.map( ), ctx.mqtt.every(ctx.entries));
     }
 
     ///////////////////////////////////////////////////
@@ -63,8 +63,11 @@ require('./lib/bootevent')(env).boot(function booted (ctx) {
       websocket.update();
     });
 
-    ctx.bus.on('notification', function(info) {
-      websocket.emitNotification(info);
+    ctx.bus.on('notification', function(notify) {
+      websocket.emitNotification(notify);
+      if (ctx.mqtt) {
+        ctx.mqtt.emitNotification(notify);
+      }
     });
 
     //after startup if there are no alarms send all clear

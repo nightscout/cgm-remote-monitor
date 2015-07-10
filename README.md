@@ -179,7 +179,12 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
     * `BWP_SNOOZE_MINS` (`10`) - minutes to snooze when there is enough IOB to cover a high BG.
     * `BWP_SNOOZE` - (`0.10`) If BG is higher then the `target_high` and `BWP` < `BWP_SNOOZE` alarms will be snoozed for `BWP_SNOOZE_MINS`.
   * `cage` (Cannula Age) - Calculates the number of hours since the last `Site Change` treatment that was recorded.
+    * `CAGE_ENABLEALERTS` (`FALSE`) - Set to `TRUE` to enable notifications to remind you of upcoming cannula change.
+    * `CAGE_INFO` (`44`) - If time since last `Site Change` matches `CAGE_INFO`, user will be warned of upcoming cannula change
+    * `CAGE_WARN` (`48`) - If time since last `Site Change` matches `CAGE_WARN`, user will be alarmed to to change the cannula
+    * `CAGE_URGENT` (`72`) - If time since last `Site Change` matches `CAGE_URGENT`, user will be issued a persistent warning of overdue change.
   * `delta` (BG Delta) - Calculates and displays the change between the last 2 BG values.  **Enabled by default.**
+  * `direction` (BG Direction) - Displays the trend direction.  **Enabled by default.**
   * `upbat` (Uploader Battery) - Displays the most recent battery status from the uploader phone.  **Enabled by default.**
   * `ar2` ([Forcasting using AR2 algorithm](https://github.com/nightscout/nightscout.github.io/wiki/Forecasting)) - Generates alarms based on forecasted values.  **Enabled by default.**  Use [extended setting](#extended-settings) `AR2_USE_RAW=true` to forecast using `rawbg` values.
   * `simplealarms` (Simple BG Alarms) - Uses  `BG_HIGH`, `BG_TARGET_TOP`, `BG_TARGET_BOTTOM`, `BG_LOW` settings to generate alarms.

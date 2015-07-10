@@ -6,7 +6,7 @@ var FIVE_MINS = 5 * 60 * 1000;
 
 describe('mqtt', function ( ) {
 
-  var mqtt = require('../lib/mqtt');
+  var mqtt = require('../lib/mqtt')({}, {});
 
   var now = Date.now()
     , prev1 = now - FIVE_MINS

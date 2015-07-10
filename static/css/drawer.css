@@ -12,7 +12,7 @@
 #drawer {
     background-color: #666;
     border-left: 1px solid #999;
-    box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
+    box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
     color: #eee;
     display: none;
     font-size: 16px;
@@ -50,7 +50,7 @@ input[type=number]:invalid {
 #treatmentDrawer {
     background-color: #666;
     border-left: 1px solid #999;
-    box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
+    box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
     color: #eee;
     display: none;
     font-size: 16px;
@@ -242,9 +242,8 @@ h1, legend,
     overflow: hidden;
 }
 #notification {
-    opacity: 0.75;
-    top: 4px;
-    z-index: 99;
+    top: 5px;
+    z-index: 500;
 }
 #notification.info a {
     background: #00f;

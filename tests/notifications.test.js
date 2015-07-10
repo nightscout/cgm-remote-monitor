@@ -3,7 +3,8 @@ var Stream = require('stream');
 
 describe('notifications', function ( ) {
 
-  var env = {};
+  var env = {testMode: true};
+
   var ctx = {
     bus: new Stream
     , data: {
@@ -13,7 +14,7 @@ describe('notifications', function ( ) {
 
   var notifications = require('../lib/notifications')(env, ctx);
 
-  function examplePlugin () {};
+  function examplePlugin () {}
 
   var exampleInfo = {
     title: 'test'
@@ -38,16 +39,22 @@ describe('notifications', function ( ) {
 
   var exampleSnooze = {
     level: notifications.levels.WARN
+    , title: 'exampleSnooze'
+    , message: 'exampleSnooze message'
     , lengthMills: 1000
   };
 
   var exampleSnoozeNone = {
     level: notifications.levels.WARN
+    , title: 'exampleSnoozeNone'
+    , message: 'exampleSnoozeNone message'
     , lengthMills: 1
   };
 
   var exampleSnoozeUrgent = {
     level: notifications.levels.URGENT
+    , title: 'exampleSnoozeUrgent'
+    , message: 'exampleSnoozeUrgent message'
     , lengthMills: 1000
   };
 
@@ -69,6 +76,7 @@ describe('notifications', function ( ) {
       done();
     });
 
+    notifications.resetStateForTests();
     notifications.initRequests();
     notifications.requestNotify(exampleWarn);
     notifications.findHighestAlarm().should.equal(exampleWarn);
@@ -85,10 +93,48 @@ describe('notifications', function ( ) {
       }
     });
 
+    notifications.resetStateForTests();
     notifications.initRequests();
     notifications.requestNotify(exampleInfo);
     should.not.exist(notifications.findHighestAlarm());
 
+    notifications.process();
+  });
+
+  it('emitAllClear 1 time after alarm is auto acked', function (done) {
+    //start fresh to we don't pick up other notifications
+    ctx.bus = new Stream;
+    //if notification doesn't get called test will time out
+    ctx.bus.on('notification', function callback (notify) {
+      if (notify.clear) {
+        done();
+      }
+    });
+
+    notifications.resetStateForTests();
+    notifications.initRequests();
+    notifications.requestNotify(exampleWarn);
+    notifications.findHighestAlarm().should.equal(exampleWarn);
+    notifications.process();
+
+    notifications.initRequests();
+    //don't request a notify this time, and an auto ack should be sent
+    should.not.exist(notifications.findHighestAlarm());
+    notifications.process();
+
+    var alarm = notifications.getAlarmForTests(notifications.levels.WARN);
+    alarm.level.should.equal(notifications.levels.WARN);
+    alarm.silenceTime.should.equal(1);
+    alarm.lastAckTime.should.be.approximately(Date.now(), 2000);
+    should.not.exist(alarm.lastEmitTime);
+
+    //clear last emit time, even with that all clear shouldn't be sent again since there was no alarm cleared
+    delete alarm.lastEmitTime;
+
+    //process 1 more time to make sure all clear is only sent once
+    notifications.initRequests();
+    //don't request a notify this time, and an auto ack should be sent
+    should.not.exist(notifications.findHighestAlarm());
     notifications.process();
   });
 
