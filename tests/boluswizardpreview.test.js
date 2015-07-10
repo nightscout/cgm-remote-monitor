@@ -39,7 +39,7 @@ describe('boluswizardpreview', function ( ) {
 
   it('Not trigger an alarm when in range', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: before, y: 95}, {x: now, y: 100}];
+    ctx.data.sgvs = [{mills: before, y: 95}, {mills: now, y: 100}];
     ctx.data.treatments = [];
     ctx.data.profiles = [profile];
 
@@ -53,7 +53,7 @@ describe('boluswizardpreview', function ( ) {
 
   it('trigger a warning when going out of range', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: before, y: 175}, {x: now, y: 180}];
+    ctx.data.sgvs = [{mills: before, y: 175}, {mills: now, y: 180}];
     ctx.data.treatments = [];
     ctx.data.profiles = [profile];
 
@@ -69,7 +69,7 @@ describe('boluswizardpreview', function ( ) {
 
   it('trigger an urgent alarms when going too high', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: before, y: 295}, {x: now, y: 300}];
+    ctx.data.sgvs = [{mills: before, y: 295}, {mills: now, y: 300}];
     ctx.data.treatments = [];
     ctx.data.profiles = [profile];
 
@@ -84,8 +84,8 @@ describe('boluswizardpreview', function ( ) {
 
     ctx.notifications.resetStateForTests();
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: before, y: 295}, {x: now, y: 300}];
-    ctx.data.treatments = [{created_at: before, insulin: '5.0'}];
+    ctx.data.sgvs = [{mills: before, y: 295}, {mills: now, y: 300}];
+    ctx.data.treatments = [{mills: before, insulin: '5.0'}];
     ctx.data.profiles = [profile];
 
     var sbx = prepareSandbox();
@@ -122,8 +122,8 @@ describe('boluswizardpreview', function ( ) {
     loadedProfile.loadData([profile]);
 
     var data = {
-      sgvs: [{x: before, y: 295}, {x: now, y: 300}]
-      , treatments: [{created_at: before, insulin: '1.5'}]
+      sgvs: [{mills: before, y: 295}, {mills: now, y: 300}]
+      , treatments: [{mills: before, insulin: '1.5'}]
       , profile: loadedProfile
     };
 
