@@ -1,6 +1,5 @@
 'use strict';
 
-var _ = require('lodash');
 var request = require('supertest');
 var should = require('should');
 
@@ -77,7 +76,7 @@ ctx.data.cals = updateMills([
 ]);
 
 ctx.data.treatments = updateMills([
-  { insulin: "1.50" }
+  { insulin: '1.50' }
 ]);
 
 ctx.data.devicestatus.uploaderBattery = 100;
