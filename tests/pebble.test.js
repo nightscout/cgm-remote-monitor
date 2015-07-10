@@ -1,103 +1,86 @@
 'use strict';
 
+var _ = require('lodash');
 var request = require('supertest');
 var should = require('should');
 
 //Mocked ctx
-var ctx = {
-  entries: {
-    list: function (opts, callback) {
-      var sgvs = [
-        { device: 'dexcom',
-          date: 1422727301000,
-          dateString: 'Sat Jan 31 10:01:41 PST 2015',
-          sgv: 82,
-          direction: 'Flat',
-          type: 'sgv',
-          filtered: 113984,
-          unfiltered: 111920,
-          rssi: 179,
-          noise: 1
-        },
-        { device: 'dexcom',
-          date: 1422727001000,
-          dateString: 'Sat Jan 31 09:56:41 PST 2015',
-          sgv: 84,
-          direction: 'Flat',
-          type: 'sgv',
-          filtered: 115680,
-          unfiltered: 113552,
-          rssi: 179,
-          noise: 1
-        },
-        { device: 'dexcom',
-          date: 1422726701000,
-          dateString: 'Sat Jan 31 09:51:41 PST 2015',
-          sgv: 86,
-          direction: 'Flat',
-          type: 'sgv',
-          filtered: 117808,
-          unfiltered: 114640,
-          rssi: 169,
-          noise: 1
-        },
-        { device: 'dexcom',
-          date: 1422726401000,
-          dateString: 'Sat Jan 31 09:46:41 PST 2015',
-          sgv: 88,
-          direction: 'Flat',
-          type: 'sgv',
-          filtered: 120464,
-          unfiltered: 116608,
-          rssi: 175,
-          noise: 1
-        },
-        { device: 'dexcom',
-          date: 1422726101000,
-          dateString: 'Sat Jan 31 09:41:41 PST 2015',
-          sgv: 91,
-          direction: 'Flat',
-          type: 'sgv',
-          filtered: 124048,
-          unfiltered: 118880,
-          rssi: 174,
-          noise: 1
-        }
-      ];
+var ctx = {};
+var env = {};
+var now = Date.now();
 
-      var cals = [
-        { device: 'dexcom',
-          date: 1422647711000,
-          dateString: 'Fri Jan 30 11:55:11 PST 2015',
-          slope: 895.8571693029189,
-          intercept: 34281.06876195567,
-          scale: 1,
-          type: 'cal'
-        }
-      ];
-
-      var count = (opts && opts.count) || 1;
-
-      if (opts && opts.find && opts.find.sgv) {
-        callback(null, sgvs.slice(0, count));
-      } else if (opts && opts.find && opts.find.type === 'cal') {
-        callback(null, cals.slice(0, count));
-      }
-    }
-  }, treatments: {
-    list: function (callback) {
-      callback(null, []);
-    }
-  }, profile: {
-    list: function (callback) {
-      callback(null, []);
-    }
-  }, devicestatus: {
-    last: function (callback) {
-      callback(null, {uploaderBattery: 100});
-    }
+function updateMills (entries) {
+  //last is now, assume 5m between points
+  for (var i = 0; i < entries.length; i++) {
+    var entry = entries[entries.length - i - 1];
+    entry.mills = now - (i * 5 * 60 * 1000);
   }
-};
+  return entries;
+}
+
+ctx.data = require('../lib/data')(env, ctx);
+ctx.data.sgvs = updateMills([
+  { device: 'dexcom',
+    y: 91,
+    direction: 'Flat',
+    type: 'sgv',
+    filtered: 124048,
+    unfiltered: 118880,
+    rssi: 174,
+    noise: 1
+  }
+  , { device: 'dexcom',
+    y: 88,
+    direction: 'Flat',
+    type: 'sgv',
+    filtered: 120464,
+    unfiltered: 116608,
+    rssi: 175,
+    noise: 1
+  }
+  , { device: 'dexcom',
+    y: 86,
+    direction: 'Flat',
+    type: 'sgv',
+    filtered: 117808,
+    unfiltered: 114640,
+    rssi: 169,
+    noise: 1
+  }
+  , { device: 'dexcom',
+    y: 84,
+    direction: 'Flat',
+    type: 'sgv',
+    filtered: 115680,
+    unfiltered: 113552,
+    rssi: 179,
+    noise: 1
+  }
+  , { device: 'dexcom',
+    y: 82,
+    direction: 'Flat',
+    type: 'sgv',
+    filtered: 113984,
+    unfiltered: 111920,
+    rssi: 179,
+    noise: 1
+  }
+]);
+
+ctx.data.cals = updateMills([
+  { device: 'dexcom',
+    slope: 895.8571693029189,
+    intercept: 34281.06876195567,
+    scale: 1,
+    type: 'cal'
+  }
+]);
+
+ctx.data.treatments = updateMills([
+  { insulin: "1.50" }
+]);
+
+ctx.data.devicestatus.uploaderBattery = 100;
 
 describe('Pebble Endpoint without Raw', function ( ) {
   var pebble = require('../lib/pebble');
@@ -121,7 +104,7 @@ describe('Pebble Endpoint without Raw', function ( ) {
         bg.bgdelta.should.equal(-2);
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
-        bg.datetime.should.equal(1422727301000);
+        bg.datetime.should.equal(now);
         should.not.exist(bg.filtered);
         should.not.exist(bg.unfiltered);
         should.not.exist(bg.noise);
@@ -145,7 +128,7 @@ describe('Pebble Endpoint without Raw', function ( ) {
         bg.bgdelta.should.equal(-2);
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
-        bg.datetime.should.equal(1422727301000);
+        bg.datetime.should.equal(now);
         should.not.exist(bg.filtered);
         should.not.exist(bg.unfiltered);
         should.not.exist(bg.noise);
@@ -182,7 +165,7 @@ describe('Pebble Endpoint with Raw', function ( ) {
         bg.bgdelta.should.equal(-2);
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
-        bg.datetime.should.equal(1422727301000);
+        bg.datetime.should.equal(now);
         bg.filtered.should.equal(113984);
         bg.unfiltered.should.equal(111920);
         bg.noise.should.equal(1);
