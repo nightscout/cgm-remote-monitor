@@ -14,7 +14,7 @@ describe('errorcodes', function ( ) {
 
   it('Not trigger an alarm when in range', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{y: 100, x: now}];
+    ctx.data.sgvs = [{y: 100, mills: now}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     errorcodes.checkNotifications(sbx);
@@ -25,7 +25,7 @@ describe('errorcodes', function ( ) {
 
   it('should trigger a urgent alarm when ???', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{y: 10, x: now}];
+    ctx.data.sgvs = [{y: 10, mills: now}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     errorcodes.checkNotifications(sbx);
@@ -36,7 +36,7 @@ describe('errorcodes', function ( ) {
 
   it('should trigger a urgent alarm when hourglass', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{y: 9, x: now}];
+    ctx.data.sgvs = [{y: 9, mills: now}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     errorcodes.checkNotifications(sbx);
@@ -47,7 +47,7 @@ describe('errorcodes', function ( ) {
 
   it('should trigger a low notification when needing calibration', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{y: 5, x: now}];
+    ctx.data.sgvs = [{y: 5, mills: now}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     errorcodes.checkNotifications(sbx);
@@ -61,7 +61,7 @@ describe('errorcodes', function ( ) {
 
     for (var i = 0; i < 9; i++) {
       ctx.notifications.initRequests();
-      ctx.data.sgvs = [{y: i, x: now}];
+      ctx.data.sgvs = [{y: i, mills: now}];
 
       var sbx = require('../lib/sandbox')().serverInit(env, ctx);
       errorcodes.checkNotifications(sbx);

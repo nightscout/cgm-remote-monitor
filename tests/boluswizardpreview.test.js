@@ -37,7 +37,7 @@ describe('boluswizardpreview', function ( ) {
 
   it('Not trigger an alarm when in range', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: before, y: 95}, {x: now, y: 100}];
+    ctx.data.sgvs = [{mills: before, y: 95}, {mills: now, y: 100}];
     ctx.data.profiles = [profile];
 
     var sbx = prepareSandbox();
@@ -50,7 +50,7 @@ describe('boluswizardpreview', function ( ) {
 
   it('trigger a warning when going out of range', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: before, y: 175}, {x: now, y: 180}];
+    ctx.data.sgvs = [{mills: before, y: 175}, {mills: now, y: 180}];
     ctx.data.profiles = [profile];
 
     var sbx = prepareSandbox();
@@ -65,7 +65,7 @@ describe('boluswizardpreview', function ( ) {
 
   it('trigger an urgent alarms when going too high', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: before, y: 295}, {x: now, y: 300}];
+    ctx.data.sgvs = [{mills: before, y: 295}, {mills: now, y: 300}];
     ctx.data.profiles = [profile];
 
     var sbx = prepareSandbox();

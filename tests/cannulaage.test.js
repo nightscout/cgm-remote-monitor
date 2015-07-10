@@ -24,7 +24,7 @@ describe('cage', function ( ) {
     var clientSettings = {};
 
     var data = {
-      treatments: [{eventType: 'Site Change', created_at: (new Date(Date.now() - 24 * 60 * 60000)).toISOString()}]
+      treatments: [{eventType: 'Site Change', mills: Date.now() - 24 * 60 * 60000}]
     };
 
     var pluginBase = {
@@ -43,9 +43,9 @@ describe('cage', function ( ) {
  it('trigger a warning when cannula is 48 hours old', function (done) {
     ctx.notifications.initRequests();
 
-    var before = new Date(Date.now() - (48 * 60 * 60 * 1000));
+    var before = Date.now() - (48 * 60 * 60 * 1000);
 
-    ctx.data.treatments = [{eventType: 'Site Change', created_at: before}];
+    ctx.data.treatments = [{eventType: 'Site Change', mills: before}];
 
     var sbx = prepareSandbox();
     sbx.extendedSettings = { 'enablealerts': 'TRUE' };
