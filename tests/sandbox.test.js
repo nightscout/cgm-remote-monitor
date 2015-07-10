@@ -20,7 +20,7 @@ describe('sandbox', function ( ) {
     };
 
     var pluginBase = {};
-    var data = {sgvs: [{y: 100, x: now}]};
+    var data = {sgvs: [{y: 100, mills: now}]};
 
     var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
 
@@ -42,7 +42,7 @@ describe('sandbox', function ( ) {
 
   it('init on server', function (done) {
     var sbx = createServerSandbox();
-    sbx.data.sgvs = [{y: 100, x: now}];
+    sbx.data.sgvs = [{y: 100, mills: now}];
 
     should.exist(sbx.notifications.requestNotify);
     should.not.exist(sbx.notifications.process);
@@ -63,7 +63,7 @@ describe('sandbox', function ( ) {
 
   it('build BG Now line using properties', function ( ) {
     var sbx = createServerSandbox();
-    sbx.data.sgvs = [{y: 99, x: now}];
+    sbx.data.sgvs = [{y: 99, mills: now}];
     sbx.properties = { delta: {display: '+5' }, direction: {value: 'FortyFiveUp', label: '↗', entity: '&#8599;'} };
 
     sbx.buildBGNowLine().should.equal('BG Now: 99 +5 ↗ mg/dl');
@@ -72,7 +72,7 @@ describe('sandbox', function ( ) {
 
   it('build default message using properties', function ( ) {
     var sbx = createServerSandbox();
-    sbx.data.sgvs = [{y: 99, x: now}];
+    sbx.data.sgvs = [{y: 99, mills: now}];
     sbx.properties = {
       delta: {display: '+5' }
       , direction: {value: 'FortyFiveUp', label: '↗', entity: '&#8599;'}
@@ -84,14 +84,5 @@ describe('sandbox', function ( ) {
     sbx.buildDefaultMessage().should.equal('BG Now: 99 +5 ↗ mg/dl\nRaw BG: 100 mg/dl\nIOB: 1.25U\nCOB: 15g');
 
   });
-
-  //FIXME: field mismatch between server and client :(, remove this test when we get that cleaned up
-  it('Use the x or date fields to find an entries time in mills', function () {
-    var sbx = createServerSandbox();
-
-    sbx.entryMills({x: now}).should.equal(now);
-    sbx.entryMills({date: now}).should.equal(now);
-  });
-
 
 });
