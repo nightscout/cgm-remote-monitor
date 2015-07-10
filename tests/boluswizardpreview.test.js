@@ -84,8 +84,8 @@ describe('boluswizardpreview', function ( ) {
 
     ctx.notifications.resetStateForTests();
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: before, y: 295}, {x: now, y: 300}];
-    ctx.data.treatments = [{created_at: before, insulin: '5.0'}];
+    ctx.data.sgvs = [{mills: before, y: 295}, {mills: now, y: 300}];
+    ctx.data.treatments = [{mills: before, insulin: '5.0'}];
     ctx.data.profiles = [profile];
 
     var sbx = prepareSandbox();
@@ -122,8 +122,8 @@ describe('boluswizardpreview', function ( ) {
     loadedProfile.loadData([profile]);
 
     var data = {
-      sgvs: [{x: before, y: 295}, {x: now, y: 300}]
-      , treatments: [{created_at: before, insulin: '1.5'}]
+      sgvs: [{mills: before, y: 295}, {mills: now, y: 300}]
+      , treatments: [{mills: before, insulin: '1.5'}]
       , profile: loadedProfile
     };
 
