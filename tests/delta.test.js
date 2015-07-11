@@ -109,6 +109,6 @@ describe('Delta', function ( ) {
 function findInfoValue (label, info) {
   var found = _.find(info, function checkLine (line) {
     return line.label === label;
-  })
+  });
   return found && found.value;
 }
