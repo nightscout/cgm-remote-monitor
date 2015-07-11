@@ -7,7 +7,7 @@ describe('Delta', function ( ) {
   var sandbox = require('../lib/sandbox')();
 
   var pluginBase = {};
-  var data = {sgvs: [{y: 100}, {y: 105}]};
+  var data = {sgvs: [{mgdl: 100}, {mgdl: 105}]};
   var app = { };
   var clientSettings = {
     units: 'mg/dl'
