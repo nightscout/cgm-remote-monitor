@@ -124,7 +124,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       if (currentMgdl < 39) {
         bg_title = s(errorCodeToDisplay(currentMgdl), ' - ') + bg_title;
       } else {
-        var deltaDisplay = delta.calc(prevSGV && prevSGV.mgdl, latestSGV && latestSGV.mgdl, sbx).display;
+        var deltaDisplay = delta.calc(prevSGV, latestSGV, sbx).display;
         bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(direction.info(latestSGV).label) + bg_title;
       }
     }
@@ -227,7 +227,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var n = Math.ceil(12 * (1 / 2 + (now - lastTime) / SIXTY_MINS_IN_MS)) + 1;
     for (var i = 1; i <= n; i++) {
       data.push({
-        mills: lastTime + (i * FIVE_MINS_IN_MS), mgdl: 100, sgv: scaleBg(100), color: 'none', type: 'server-forecast'
+        mills: lastTime + (i * FIVE_MINS_IN_MS), mgdl: 100, color: 'none', type: 'server-forecast'
       });
     }
   }
@@ -473,11 +473,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       var badData = [];
       sel.attr('cx', function (d) { return xScale(new Date(d.mills)); })
         .attr('cy', function (d) {
-          if (isNaN(d.sgv)) {
+          var scaled = sbx.scaleEntry(d);
+          if (isNaN(scaled)) {
             badData.push(d);
             return yScale(scaleBg(450));
           } else {
-            return yScale(d.sgv);
+            return yScale(scaled);
           }
         })
         .attr('fill', function (d) { return d.color; })
@@ -514,7 +515,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
           }
 
           tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-          tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
+          tooltip.html('<strong>' + bgType + ' BG:</strong> ' + sbx.scaleEntry(d) +
             (d.type === 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
             (rawbgValue ? '<br/><strong>Raw BG:</strong> ' + rawbgValue : '') +
             (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
@@ -944,11 +945,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       var badData = [];
       sel.attr('cx', function (d) { return xScale2(new Date(d.mills)); })
         .attr('cy', function (d) {
-          if (isNaN(d.sgv)) {
+          var scaled = sbx.scaleEntry(d);
+          if (isNaN(scaled)) {
             badData.push(d);
             return yScale2(scaleBg(450));
           } else {
-            return yScale2(d.sgv);
+            return yScale2(scaled);
           }
         })
         .attr('fill', function (d) { return d.color; })
@@ -1502,21 +1504,21 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         temp1 = SGVdata.map(function (entry) {
           var rawbgValue = rawbg.showRawBGs(entry.mgdl, entry.noise, cal, sbx) ? rawbg.calc(entry, cal, sbx) : 0;
           if (rawbgValue > 0) {
-            return { mills: entry.mills - 2000, mgdl: rawbgValue, sgv: scaleBg(rawbgValue), color: 'white', type: 'rawbg' };
+            return { mills: entry.mills - 2000, mgdl: rawbgValue, color: 'white', type: 'rawbg' };
           } else {
             return null;
           }
         }).filter(function(entry) { return entry !== null; });
       }
       var temp2 = SGVdata.map(function (obj) {
-        return { mills: obj.mills, mgdl: obj.mgdl, sgv: scaleBg(obj.mgdl), direction: obj.direction, color: sgvToColor(obj.mgdl), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
+        return { mills: obj.mills, mgdl: obj.mgdl, direction: obj.direction, color: sgvToColor(obj.mgdl), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
       });
       data = [];
       data = data.concat(temp1, temp2);
 
       addPlaceholderPoints();
 
-      data = data.concat(MBGdata.map(function (obj) { return { mills: obj.mills, mgdl: obj.mgdl, sgv: scaleBg(obj.mgdl), color: 'red', type: 'mbg', device: obj.device } }));
+      data = data.concat(MBGdata.map(function (obj) { return { mills: obj.mills, mgdl: obj.mgdl, color: 'red', type: 'mbg', device: obj.device } }));
 
       data.forEach(function (d) {
         if (d.mgdl < 39) { d.color = 'transparent'; }
