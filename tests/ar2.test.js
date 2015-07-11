@@ -1,5 +1,8 @@
 var should = require('should');
 
+var FIVE_MINS = 300000;
+var SIX_MINS = 360000;
+
 describe('ar2', function ( ) {
 
   var ar2 = require('../lib/plugins/ar2')();
@@ -11,7 +14,7 @@ describe('ar2', function ( ) {
   ctx.notifications = require('../lib/notifications')(env, ctx);
 
   var now = Date.now();
-  var before = now - (5 * 60 * 1000);
+  var before = now - FIVE_MINS;
 
   function prepareSandbox(base) {
     var sbx = base || require('../lib/sandbox')().serverInit(env, ctx);
@@ -34,14 +37,14 @@ describe('ar2', function ( ) {
   }
 
   it('should plot a cone', function () {
-    ctx.data.sgvs = [{y: 100, mills: before}, {y: 105, mills: now}];
+    ctx.data.sgvs = [{mgdl: 100, mills: before}, {mgdl: 105, mills: now}];
     var sbx = prepareSandbox();
     var cone = ar2.forecastCone(sbx);
     cone.length.should.equal(26);
   });
 
   it('should plot a line if coneFactor is 0', function () {
-    ctx.data.sgvs = [{y: 100, mills: before}, {y: 105, mills: now}];
+    ctx.data.sgvs = [{mgdl: 100, mills: before}, {mgdl: 105, mills: now}];
 
     var env0 = require('../env')();
     env0.extendedSettings = { ar2: { coneFactor: 0 } };
@@ -54,7 +57,7 @@ describe('ar2', function ( ) {
 
   it('Not trigger an alarm when in range', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{y: 100, mills: before}, {y: 105, mills: now}];
+    ctx.data.sgvs = [{mgdl: 100, mills: before}, {mgdl: 105, mills: now}];
 
     var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
@@ -65,7 +68,7 @@ describe('ar2', function ( ) {
 
   it('should trigger a warning when going above target', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{y: 150, mills: before}, {y: 170, mills: now}];
+    ctx.data.sgvs = [{mgdl: 150, mills: before}, {mgdl: 170, mills: now}];
 
     var sbx = prepareSandbox();
     sbx.offerProperty('iob', function setFakeIOB() {
@@ -85,7 +88,7 @@ describe('ar2', function ( ) {
 
   it('should trigger a urgent alarm when going high fast', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{y: 140, mills: before}, {y: 200, mills: now}];
+    ctx.data.sgvs = [{mgdl: 140, mills: before}, {mgdl: 200, mills: now}];
 
     var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
@@ -98,7 +101,7 @@ describe('ar2', function ( ) {
 
   it('should trigger a warning when below target', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{y: 90, mills: before}, {y: 80, mills: now}];
+    ctx.data.sgvs = [{mgdl: 90, mills: before}, {mgdl: 80, mills: now}];
 
     var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
@@ -111,7 +114,7 @@ describe('ar2', function ( ) {
 
   it('should trigger a warning when almost below target', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{y: 90, mills: before}, {y: 83, mills: now}];
+    ctx.data.sgvs = [{mgdl: 90, mills: before}, {mgdl: 83, mills: now}];
 
     var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
@@ -124,7 +127,7 @@ describe('ar2', function ( ) {
 
   it('should trigger a urgent alarm when falling fast', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{y: 120, mills: before}, {y: 85, mills: now}];
+    ctx.data.sgvs = [{mgdl: 120, mills: before}, {mgdl: 85, mills: now}];
 
     var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
@@ -135,9 +138,24 @@ describe('ar2', function ( ) {
     done();
   });
 
+  it('should trigger a warning alarm by interpolating when more than 5mins apart', function (done) {
+    ctx.notifications.initRequests();
+
+    //same as previous test but prev is 10 mins ago, so delta isn't enough to trigger an urgent alarm
+    ctx.data.sgvs = [{mgdl: 120, mills: before - SIX_MINS}, {mgdl: 85, mills: now}];
+
+    var sbx = prepareSandbox();
+    ar2.checkNotifications(sbx);
+    var highest = ctx.notifications.findHighestAlarm();
+    highest.level.should.equal(ctx.notifications.levels.WARN);
+    highest.title.should.equal('Warning, LOW predicted');
+
+    done();
+  });
+
   it('should include current raw bg and raw bg forecast when predicting w/raw', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{unfiltered: 113680, filtered: 111232, y: 100, mills: before, noise: 1}, {unfiltered: 183680, filtered: 111232, y: 100, mills: now, noise: 1}];
+    ctx.data.sgvs = [{unfiltered: 113680, filtered: 111232, mgdl: 100, mills: before, noise: 1}, {unfiltered: 183680, filtered: 111232, mgdl: 100, mills: now, noise: 1}];
     ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, mills: now}];
 
     var envRaw = require('../env')();
@@ -169,7 +187,7 @@ describe('ar2', function ( ) {
 
   it('should not trigger an alarm when raw is missing or 0', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{unfiltered: 0, filtered: 0, y: 100, mills: before, noise: 1}, {unfiltered: 0, filtered: 0, y: 100, mills: now, noise: 1}];
+    ctx.data.sgvs = [{unfiltered: 0, filtered: 0, mgdl: 100, mills: before, noise: 1}, {unfiltered: 0, filtered: 0, mgdl: 100, mills: now, noise: 1}];
     ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, mills: now}];
 
     var sbx = rawSandbox();
@@ -182,7 +200,7 @@ describe('ar2', function ( ) {
 
   it('should trigger a warning (no urgent for raw) when raw is falling really fast, but sgv is steady', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{unfiltered: 113680, filtered: 111232, y: 100, mills: before, noise: 1}, {unfiltered: 43680, filtered: 111232, y: 100, mills: now, noise: 1}];
+    ctx.data.sgvs = [{unfiltered: 113680, filtered: 111232, mgdl: 100, mills: before, noise: 1}, {unfiltered: 43680, filtered: 111232, mgdl: 100, mills: now, noise: 1}];
     ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, mills: now}];
 
     var sbx = rawSandbox();
@@ -200,7 +218,7 @@ describe('ar2', function ( ) {
 
   it('should trigger a warning (no urgent for raw) when raw is rising really fast, but sgv is steady', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{unfiltered: 113680, filtered: 111232, y: 100, mills: before, noise: 1}, {unfiltered: 183680, filtered: 111232, y: 100, mills: now, noise: 1}];
+    ctx.data.sgvs = [{unfiltered: 113680, filtered: 111232, mgdl: 100, mills: before, noise: 1}, {unfiltered: 183680, filtered: 111232, mgdl: 100, mills: now, noise: 1}];
     ctx.data.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, mills: now}];
 
     var sbx = rawSandbox();

@@ -20,7 +20,7 @@ function updateMills (entries) {
 ctx.data = require('../lib/data')(env, ctx);
 ctx.data.sgvs = updateMills([
   { device: 'dexcom',
-    y: 91,
+    mgdl: 91,
     direction: 'Flat',
     type: 'sgv',
     filtered: 124048,
@@ -29,7 +29,7 @@ ctx.data.sgvs = updateMills([
     noise: 1
   }
   , { device: 'dexcom',
-    y: 88,
+    mgdl: 88,
     direction: 'Flat',
     type: 'sgv',
     filtered: 120464,
@@ -38,7 +38,7 @@ ctx.data.sgvs = updateMills([
     noise: 1
   }
   , { device: 'dexcom',
-    y: 86,
+    mgdl: 86,
     direction: 'Flat',
     type: 'sgv',
     filtered: 117808,
@@ -47,7 +47,7 @@ ctx.data.sgvs = updateMills([
     noise: 1
   }
   , { device: 'dexcom',
-    y: 84,
+    mgdl: 84,
     direction: 'Flat',
     type: 'sgv',
     filtered: 115680,
@@ -56,7 +56,7 @@ ctx.data.sgvs = updateMills([
     noise: 1
   }
   , { device: 'dexcom',
-    y: 82,
+    mgdl: 82,
     direction: 'Flat',
     type: 'sgv',
     filtered: 113984,
