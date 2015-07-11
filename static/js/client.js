@@ -397,10 +397,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     if (inRetroMode()) {
       var retroTime = brushExtent[1].getTime() - THIRTY_MINS_IN_MS;
 
-      // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
-      var lookbackTime = 3 * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
       nowData = nowData.filter(function(d) {
-        return d.mills >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
+        return d.mills >= brushExtent[1].getTime() - (2 * TWENTY_FIVE_MINS_IN_MS) &&
           d.mills <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS;
       });
 
