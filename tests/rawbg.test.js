@@ -23,7 +23,7 @@ describe('Raw BG', function ( ) {
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
       name.should.equal('rawbg');
       var result = setter();
-      result.value.should.equal(113);
+      result.mgdl.should.equal(113);
       result.noiseLabel.should.equal('Clean');
       done();
     };
