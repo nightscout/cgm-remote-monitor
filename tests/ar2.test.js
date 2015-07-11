@@ -1,5 +1,7 @@
 var should = require('should');
 
+var FIVE_MINS = 300000;
+
 describe('ar2', function ( ) {
 
   var ar2 = require('../lib/plugins/ar2')();
@@ -11,7 +13,7 @@ describe('ar2', function ( ) {
   ctx.notifications = require('../lib/notifications')(env, ctx);
 
   var now = Date.now();
-  var before = now - (5 * 60 * 1000);
+  var before = now - FIVE_MINS;
 
   function prepareSandbox(base) {
     var sbx = base || require('../lib/sandbox')().serverInit(env, ctx);
@@ -131,6 +133,21 @@ describe('ar2', function ( ) {
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.notifications.levels.URGENT);
     highest.title.should.equal('Urgent, LOW predicted');
+
+    done();
+  });
+
+  it('should trigger a warning alarm by interpolating when more than 5mins apart', function (done) {
+    ctx.notifications.initRequests();
+
+    //same as previous test but prev is 10 mins ago, so delta isn't enough to trigger an urgent alarm
+    ctx.data.sgvs = [{mgdl: 120, mills: before - FIVE_MINS}, {mgdl: 85, mills: now}];
+
+    var sbx = prepareSandbox();
+    ar2.checkNotifications(sbx);
+    var highest = ctx.notifications.findHighestAlarm();
+    highest.level.should.equal(ctx.notifications.levels.WARN);
+    highest.title.should.equal('Warning, LOW predicted');
 
     done();
   });
