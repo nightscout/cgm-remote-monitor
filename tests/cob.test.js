@@ -1,36 +1,34 @@
 'use strict';
 
-var should = require('should');
+require('should');
 
 describe('COB', function ( ) {
   var cob = require('../lib/plugins/cob')();
-
-  var profile = {
+  
+  var profileData = {
     sens: 95
     , carbratio: 18
     , carbs_hr: 30
   };
 
+  var profile = require('../lib/profilefunctions')([profileData]);
+
   it('should calculate IOB, multiple treatments', function() {
 
     var treatments = [
       {
-        "carbs": "100",
-        "created_at": new Date("2015-05-29T02:03:48.827Z")
+        'carbs': '100',
+        'mills': new Date('2015-05-29T02:03:48.827Z').getTime()
       },
       {
-        "carbs": "10",
-        "created_at": new Date("2015-05-29T03:45:10.670Z")
+        'carbs': '10',
+        'mills': new Date('2015-05-29T03:45:10.670Z').getTime()
       }
     ];
 
-    var after100 = cob.cobTotal(treatments, profile, new Date("2015-05-29T02:03:49.827Z"));
-    var before10 = cob.cobTotal(treatments, profile, new Date("2015-05-29T03:45:10.670Z"));
-    var after10 = cob.cobTotal(treatments, profile, new Date("2015-05-29T03:45:11.670Z"));
-
-    console.info('>>>>after100:', after100);
-    console.info('>>>>before10:', before10);
-    console.info('>>>>after2nd:', after10);
+    var after100 = cob.cobTotal(treatments, profile, new Date('2015-05-29T02:03:49.827Z').getTime());
+    var before10 = cob.cobTotal(treatments, profile, new Date('2015-05-29T03:45:10.670Z').getTime());
+    var after10 = cob.cobTotal(treatments, profile, new Date('2015-05-29T03:45:11.670Z').getTime());
 
     after100.cob.should.equal(100);
     Math.round(before10.cob).should.equal(59);
@@ -41,16 +39,16 @@ describe('COB', function ( ) {
 
     var treatments = [
       {
-        "carbs": "8",
-        "created_at": new Date("2015-05-29T04:40:40.174Z")
+        'carbs': '8',
+        'mills': new Date('2015-05-29T04:40:40.174Z').getTime()
       }
     ];
 
-    var rightAfterCorrection = new Date("2015-05-29T04:41:40.174Z");
-    var later1 = new Date("2015-05-29T05:04:40.174Z");
-    var later2 = new Date("2015-05-29T05:20:00.174Z");
-    var later3 = new Date("2015-05-29T05:50:00.174Z");
-    var later4 = new Date("2015-05-29T06:50:00.174Z");
+    var rightAfterCorrection = new Date('2015-05-29T04:41:40.174Z').getTime();
+    var later1 = new Date('2015-05-29T05:04:40.174Z').getTime();
+    var later2 = new Date('2015-05-29T05:20:00.174Z').getTime();
+    var later3 = new Date('2015-05-29T05:50:00.174Z').getTime();
+    var later4 = new Date('2015-05-29T06:50:00.174Z').getTime();
 
     var result1 = cob.cobTotal(treatments, profile, rightAfterCorrection);
     var result2 = cob.cobTotal(treatments, profile, later1);
@@ -63,6 +61,33 @@ describe('COB', function ( ) {
     result3.cob.should.equal(0);
     result4.cob.should.equal(0);
     result5.cob.should.equal(0);
+  });
+
+  it('set a pill to the current COB', function (done) {
+
+    var app = {};
+    var clientSettings = {};
+
+    var data = {
+      treatments: [{
+        carbs: '8'
+        , 'mills': Date.now() - 60000 //1m ago
+      }]
+      , profile: profile
+    };
+
+    var pluginBase = {
+      updatePillText: function mockedUpdatePillText (plugin, options) {
+        options.value.should.equal('8g');
+        done();
+      }
+    };
+
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
+    cob.setProperties(sbx);
+    cob.updateVisualisation(sbx);
+
   });
 
 
