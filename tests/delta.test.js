@@ -4,6 +4,7 @@ require('should');
 var _ =require('lodash');
 
 var FIVE_MINS = 300000;
+var SIX_MINS = 360000;
 
 describe('Delta', function ( ) {
   var delta = require('../lib/plugins/delta')();
@@ -42,13 +43,13 @@ describe('Delta', function ( ) {
 
   it('should calculate BG Delta by interpolating when more than 5mins apart', function (done) {
     var clientSettings = { units: 'mg/dl' };
-    var data = {sgvs: [{mills: before - FIVE_MINS, mgdl: 100}, {mills: now, mgdl: 105}]};
+    var data = {sgvs: [{mills: before - SIX_MINS, mgdl: 100}, {mills: now, mgdl: 105}]};
 
     var callbackPluginBase = {
       updatePillText: function mockedUpdatePillText (plugin, options) {
         options.label.should.equal(clientSettings.units);
         options.value.should.equal('+2 *');
-        findInfoValue('Elapsed Time', options.info).should.equal('10 mins');
+        findInfoValue('Elapsed Time', options.info).should.equal('11 mins');
         findInfoValue('Absolute Delta', options.info).should.equal('5 mg/dl');
         findInfoValue('Interpolated', options.info).should.equal('103 mg/dl');
         done();
@@ -88,7 +89,7 @@ describe('Delta', function ( ) {
 
   it('should calculate BG Delta in mmol by interpolating when more than 5mins apart', function (done) {
     var clientSettings = { units: 'mmol' };
-    var data = {sgvs: [{mills: before - FIVE_MINS, mgdl: 100}, {mills: now, mgdl: 105}]};
+    var data = {sgvs: [{mills: before - SIX_MINS, mgdl: 100}, {mills: now, mgdl: 105}]};
     var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
 
     sbx.offerProperty = function mockedOfferProperty (name, setter) {

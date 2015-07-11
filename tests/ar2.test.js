@@ -1,6 +1,7 @@
 var should = require('should');
 
 var FIVE_MINS = 300000;
+var SIX_MINS = 360000;
 
 describe('ar2', function ( ) {
 
@@ -141,7 +142,7 @@ describe('ar2', function ( ) {
     ctx.notifications.initRequests();
 
     //same as previous test but prev is 10 mins ago, so delta isn't enough to trigger an urgent alarm
-    ctx.data.sgvs = [{mgdl: 120, mills: before - FIVE_MINS}, {mgdl: 85, mills: now}];
+    ctx.data.sgvs = [{mgdl: 120, mills: before - SIX_MINS}, {mgdl: 85, mills: now}];
 
     var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
