@@ -3,7 +3,8 @@ var Stream = require('stream');
 
 describe('notifications', function ( ) {
 
-  var env = {};
+  var env = {testMode: true};
+
   var ctx = {
     bus: new Stream
     , data: {
@@ -13,7 +14,7 @@ describe('notifications', function ( ) {
 
   var notifications = require('../lib/notifications')(env, ctx);
 
-  var examplePlugin = function examplePlugin () {};
+  function examplePlugin () {}
 
   var exampleInfo = {
     title: 'test'
@@ -38,18 +39,48 @@ describe('notifications', function ( ) {
 
   var exampleSnooze = {
     level: notifications.levels.WARN
-    , lengthMills: 1000
+    , title: 'exampleSnooze'
+    , message: 'exampleSnooze message'
+    , lengthMills: 10000
   };
 
   var exampleSnoozeNone = {
     level: notifications.levels.WARN
+    , title: 'exampleSnoozeNone'
+    , message: 'exampleSnoozeNone message'
     , lengthMills: 1
   };
 
   var exampleSnoozeUrgent = {
     level: notifications.levels.URGENT
-    , lengthMills: 1000
+    , title: 'exampleSnoozeUrgent'
+    , message: 'exampleSnoozeUrgent message'
+    , lengthMills: 10000
   };
+
+
+  function expectNotification (check, done) {
+    //start fresh to we don't pick up other notifications
+    ctx.bus = new Stream;
+    //if notification doesn't get called test will time out
+    ctx.bus.on('notification', function callback (notify) {
+      if (check(notify)) {
+        done();
+      }
+    });
+  }
+
+  function clearToDone (done) {
+    expectNotification(function expectClear (notify) {
+      return notify.clear;
+    }, done);
+  }
+
+  function notifyToDone (done) {
+    expectNotification(function expectNotClear (notify) {
+      return ! notify.clear;
+    }, done);
+  }
 
   it('initAndReInit', function (done) {
     notifications.initRequests();
@@ -69,6 +100,7 @@ describe('notifications', function ( ) {
       done();
     });
 
+    notifications.resetStateForTests();
     notifications.initRequests();
     notifications.requestNotify(exampleWarn);
     notifications.findHighestAlarm().should.equal(exampleWarn);
@@ -76,15 +108,9 @@ describe('notifications', function ( ) {
   });
 
   it('emitAnInfo', function (done) {
-    //start fresh to we don't pick up other notifications
-    ctx.bus = new Stream;
-    //if notification doesn't get called test will time out
-    ctx.bus.on('notification', function callback (notify) {
-      if (!notify.clear) {
-        done();
-      }
-    });
+    notifyToDone(done);
 
+    notifications.resetStateForTests();
     notifications.initRequests();
     notifications.requestNotify(exampleInfo);
     should.not.exist(notifications.findHighestAlarm());
@@ -92,39 +118,85 @@ describe('notifications', function ( ) {
     notifications.process();
   });
 
+  it('emitAllClear 1 time after alarm is auto acked', function (done) {
+    clearToDone(done);
+
+    notifications.resetStateForTests();
+    notifications.initRequests();
+    notifications.requestNotify(exampleWarn);
+    notifications.findHighestAlarm().should.equal(exampleWarn);
+    notifications.process();
+
+    notifications.initRequests();
+    //don't request a notify this time, and an auto ack should be sent
+    should.not.exist(notifications.findHighestAlarm());
+    notifications.process();
+
+    var alarm = notifications.getAlarmForTests(notifications.levels.WARN);
+    alarm.level.should.equal(notifications.levels.WARN);
+    alarm.silenceTime.should.equal(1);
+    alarm.lastAckTime.should.be.approximately(Date.now(), 2000);
+    should.not.exist(alarm.lastEmitTime);
+
+    //clear last emit time, even with that all clear shouldn't be sent again since there was no alarm cleared
+    delete alarm.lastEmitTime;
+
+    //process 1 more time to make sure all clear is only sent once
+    notifications.initRequests();
+    //don't request a notify this time, and an auto ack should be sent
+    should.not.exist(notifications.findHighestAlarm());
+    notifications.process();
+  });
+
   it('Can be snoozed', function (done) {
+    notifyToDone(done); //shouldn't get called
+
+    notifications.resetStateForTests();
     notifications.initRequests();
     notifications.requestNotify(exampleWarn);
     notifications.requestSnooze(exampleSnooze);
     notifications.snoozedBy(exampleWarn).should.equal(exampleSnooze);
+    notifications.process();
 
     done();
   });
 
   it('Can be snoozed by last snooze', function (done) {
+    notifyToDone(done); //shouldn't get called
+
+    notifications.resetStateForTests();
     notifications.initRequests();
     notifications.requestNotify(exampleWarn);
     notifications.requestSnooze(exampleSnoozeNone);
     notifications.requestSnooze(exampleSnooze);
     notifications.snoozedBy(exampleWarn).should.equal(exampleSnooze);
+    notifications.process();
 
     done();
   });
 
   it('Urgent alarms can\'t be snoozed by warn', function (done) {
+    clearToDone(done); //shouldn't get called
+
+    notifications.resetStateForTests();
     notifications.initRequests();
     notifications.requestNotify(exampleUrgent);
     notifications.requestSnooze(exampleSnooze);
     should.not.exist(notifications.snoozedBy(exampleUrgent));
+    notifications.process();
 
     done();
   });
 
   it('Warnings can be snoozed by urgent', function (done) {
+    notifyToDone(done); //shouldn't get called
+
+    notifications.resetStateForTests();
     notifications.initRequests();
     notifications.requestNotify(exampleWarn);
     notifications.requestSnooze(exampleSnoozeUrgent);
     notifications.snoozedBy(exampleWarn).should.equal(exampleSnoozeUrgent);
+    notifications.process();
 
     done();
   });

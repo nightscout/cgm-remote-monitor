@@ -1,18 +1,6 @@
 //TODO: clean up
 var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
-var timeAgo = Nightscout.utils.timeAgo;
-
-function nsArrayDiff(oldArray, newArray) {
-  var seen = {};
-  var l = oldArray.length;
-  for (var i = 0; i < l; i++) { seen[oldArray[i].x] = true }
-  var result = [];
-  l = newArray.length;
-  for (var j = 0; j < l; j++) { if (!seen.hasOwnProperty(newArray[j].x)) { result.push(newArray[j]); console.log('delta data found'); } }
-  return result;
-}
-
 (function () {
   'use strict';
 
@@ -51,11 +39,16 @@ function nsArrayDiff(oldArray, newArray) {
     , data = []
     , foucusRangeMS = THREE_HOURS_MS
     , clientAlarms = {}
-    , audio = document.getElementById('audio')
     , alarmInProgress = false
     , currentAlarmType = null
     , alarmSound = 'alarm.mp3'
     , urgentAlarmSound = 'alarm2.mp3';
+
+  var sbx
+    , rawbg = Nightscout.plugins('rawbg')
+    , delta = Nightscout.plugins('delta')
+    , direction = Nightscout.plugins('direction')
+    , timeAgo = Nightscout.utils.timeAgo;
 
   var jqWindow
     , tooltip
@@ -70,7 +63,7 @@ function nsArrayDiff(oldArray, newArray) {
     , prevChartHeight = 0
     , focusHeight
     , contextHeight
-    , dateFn = function (d) { return new Date(d.date) }
+    , dateFn = function (d) { return new Date(d.mills) }
     , documentHidden = false
     , brush
     , brushTimer
@@ -87,7 +80,7 @@ function nsArrayDiff(oldArray, newArray) {
   }
 
   function isTimeFormat24() {
-    return browserSettings && browserSettings.timeFormat && parseInt(browserSettings.timeFormat) == 24;
+    return browserSettings && browserSettings.timeFormat && parseInt(browserSettings.timeFormat) === 24;
   }
 
   function getTimeFormat(isForScale, compact) {
@@ -103,42 +96,25 @@ function nsArrayDiff(oldArray, newArray) {
 
   // lixgbg: Convert mg/dL BG value to metric mmol
   function scaleBg(bg) {
-    if (browserSettings.units == 'mmol') {
+    if (browserSettings.units === 'mmol') {
       return Nightscout.units.mgdlToMMOL(bg);
     } else {
       return bg;
     }
   }
 
-  //see http://stackoverflow.com/a/9609450
-  var decodeEntities = (function() {
-    // this prevents any overhead from creating the object each time
-    var element = document.createElement('div');
-
-    function decodeHTMLEntities (str) {
-      if(str && typeof str === 'string') {
-        // strip script/html tags
-        str = str.replace(/<script[^>]*>([\S\s]*?)<\/script>/gmi, '');
-        str = str.replace(/<\/?\w(?:[^"'>]|"[^"]*"|'[^']*')*>/gmi, '');
-        element.innerHTML = str;
-        str = element.textContent;
-        element.textContent = '';
-      }
-
-      return str;
-    }
-
-    return decodeHTMLEntities;
-  })();
-
-  function updateTitle() {
-
-    var time = latestSGV ? new Date(latestSGV.x).getTime() : (prevSGV ? new Date(prevSGV.x).getTime() : -1)
-      , ago = timeAgo(time, browserSettings);
-
-    var bg_title = browserSettings.customTitle || '';
+  function generateTitle() {
 
     function s(value, sep) { return value ? value + ' ' : sep || ''; }
+
+    var bg_title = '';
+
+    var time = latestSGV ? latestSGV.mills : (prevSGV ? prevSGV.mills : -1)
+      , ago = timeAgo(time, browserSettings);
+
+    if (browserSettings.customTitle) {
+      $('h1.customTitle').text(browserSettings.customTitle);
+    }
 
     if (ago && ago.status !== 'current') {
       bg_title =  s(ago.value) + s(ago.label, ' - ') + bg_title;
@@ -148,87 +124,27 @@ function nsArrayDiff(oldArray, newArray) {
       if (currentMgdl < 39) {
         bg_title = s(errorCodeToDisplay(currentMgdl), ' - ') + bg_title;
       } else {
-        var deltaDisplay = calcDeltaDisplay(prevSGV, latestSGV);
-        bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(decodeEntities(latestSGV.direction)) + bg_title;
+        var deltaDisplay = delta.calc(prevSGV && prevSGV.y, latestSGV && latestSGV.y, sbx).display;
+        bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(direction.info(latestSGV).label) + bg_title;
       }
+    }
+    return bg_title;  
+  }
+
+  function updateTitle(message) {
+
+    var bg_title = browserSettings.customTitle || '';
+
+    if (message && alarmInProgress) {
+      //message title + normal generated title for the browser tab
+      bg_title = message.title + ': ' + generateTitle();
+      //full message in header
+      $('h1.customTitle').text(message.title + ' ' + message.message);
+    } else {
+      bg_title = generateTitle();
     }
 
     $(document).attr('title', bg_title);
-  }
-
-  function calcDeltaDisplay(prevEntry, currentEntry) {
-    var delta = null
-      , prevMgdl = prevEntry && prevEntry.y
-      , currentMgdl = currentEntry && currentEntry.y;
-
-    if (prevMgdl === undefined || currentMgdl == undefined || prevMgdl < 40 || prevMgdl > 400 || currentMgdl < 40 || currentMgdl > 400) {
-      //TODO consider using raw data here
-      delta = null;
-    } else {
-      delta = scaleBg(currentMgdl) - scaleBg(prevMgdl);
-      if (browserSettings.units == 'mmol') {
-        delta = delta.toFixed(1);
-      }
-
-      delta = (delta >= 0 ? '+' : '') + delta;
-    }
-
-    return delta;
-  }
-
-  function isRawBGEnabled() {
-    return app.enabledOptions && app.enabledOptions.indexOf('rawbg') > -1;
-  }
-
-  function showRawBGs(sgv, noise, cal) {
-    return cal
-      && isRawBGEnabled()
-      && (browserSettings.showRawbg == 'always'
-        || (browserSettings.showRawbg == 'noise' && (noise >= 2 || sgv < 40))
-        );
-  }
-
-  function noiseCodeToDisplay(sgv, noise) {
-    var display;
-    switch (parseInt(noise)) {
-      case 0: display = '---'; break;
-      case 1: display = 'Clean'; break;
-      case 2: display = 'Light'; break;
-      case 3: display = 'Medium'; break;
-      case 4: display = 'Heavy'; break;
-      default:
-        if (sgv < 40) {
-          display = 'Heavy';
-        } else {
-          display = '~~~';
-        }
-        break;
-    }
-
-    return display;
-  }
-
-  function rawIsigToRawBg(entry, cal) {
-
-    var raw = 0
-      , unfiltered = parseInt(entry.unfiltered) || 0
-      , filtered = parseInt(entry.filtered) || 0
-      , sgv = entry.y
-      , scale = parseFloat(cal.scale) || 0
-      , intercept = parseFloat(cal.intercept) || 0
-      , slope = parseFloat(cal.slope) || 0;
-
-
-    if (slope == 0 || unfiltered == 0 || scale == 0) {
-      raw = 0;
-    } else if (filtered == 0 || sgv < 40) {
-      raw = scale * (unfiltered - intercept) / slope;
-    } else {
-      var ratio = scale * (filtered - intercept) / slope / sgv;
-      raw = scale * ( unfiltered - intercept) / slope / ratio;
-    }
-
-    return Math.round(raw);
   }
 
   // initial setup of chart when data is first made available
@@ -236,13 +152,13 @@ function nsArrayDiff(oldArray, newArray) {
 
     // define the parts of the axis that aren't dependent on width or height
     xScale = d3.time.scale()
-      .domain(d3.extent(data, function (d) { return d.date; }));
+      .domain(d3.extent(data, dateFn));
 
     yScale = d3.scale.log()
       .domain([scaleBg(30), scaleBg(510)]);
 
     xScale2 = d3.time.scale()
-      .domain(d3.extent(data, function (d) { return d.date; }));
+      .domain(d3.extent(data, dateFn));
 
     yScale2 = d3.scale.log()
       .domain([scaleBg(36), scaleBg(420)]);
@@ -252,8 +168,8 @@ function nsArrayDiff(oldArray, newArray) {
       [':%S', function(d) { return d.getSeconds(); }],
       ['%I:%M', function(d) { return d.getMinutes(); }],
       [isTimeFormat24() ? '%H:%M' : '%-I %p', function(d) { return d.getHours(); }],
-      ['%a %d', function(d) { return d.getDay() && d.getDate() != 1; }],
-      ['%b %d', function(d) { return d.getDate() != 1; }],
+      ['%a %d', function(d) { return d.getDay() && d.getDate() !== 1; }],
+      ['%b %d', function(d) { return d.getDate() !== 1; }],
       ['%B', function(d) { return d.getMonth(); }],
       ['%Y', function() { return true; }]
     ]);
@@ -294,8 +210,8 @@ function nsArrayDiff(oldArray, newArray) {
 
   // get the desired opacity for context chart based on the brush extent
   function highlightBrushPoints(data) {
-    if (data.date.getTime() >= brush.extent()[0].getTime() && data.date.getTime() <= brush.extent()[1].getTime()) {
-      return futureOpacity(data.date.getTime() - latestSGV.x);
+    if (data.mills >= brush.extent()[0].getTime() && data.mills <= brush.extent()[1].getTime()) {
+      return futureOpacity(data.mills - latestSGV.mills);
     } else {
       return 0.5;
     }
@@ -306,12 +222,12 @@ function nsArrayDiff(oldArray, newArray) {
     // This shouldn't need to be generated and can be fixed by using xScale.domain([x0,x1]) function with
     // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
     // required to happen when 'now' event is sent from websocket.js every minute.  When fixed,
-    // remove all 'color != 'none'' code
-    var lastTime = data.length > 0 ? data[data.length - 1].date.getTime() : Date.now();
+    // remove this code and all references to `type: 'server-forecast'`
+    var lastTime = data.length > 0 ? data[data.length - 1].mills : Date.now();
     var n = Math.ceil(12 * (1 / 2 + (now - lastTime) / SIXTY_MINS_IN_MS)) + 1;
     for (var i = 1; i <= n; i++) {
       data.push({
-        date: new Date(lastTime + (i * FIVE_MINS_IN_MS)), y: 100, sgv: scaleBg(100), color: 'none', type: 'server-forecast'
+        mills: lastTime + (i * FIVE_MINS_IN_MS), y: 100, sgv: scaleBg(100), color: 'none', type: 'server-forecast'
       });
     }
   }
@@ -342,7 +258,7 @@ function nsArrayDiff(oldArray, newArray) {
     // update the opacity of the context data points to brush extent
     context.selectAll('circle')
       .data(data)
-      .style('opacity', function (d) { return 1; });
+      .style('opacity', 1);
   }
 
   function brushEnded() {
@@ -357,7 +273,9 @@ function nsArrayDiff(oldArray, newArray) {
   }
 
   function inRetroMode() {
-    if (!brush) return false;
+    if (!brush) {
+      return false;
+    }
 
     var time = brush.extent()[1].getTime();
 
@@ -397,8 +315,7 @@ function nsArrayDiff(oldArray, newArray) {
     var brushExtent = brush.extent();
 
     // ensure that brush extent is fixed at 3.5 hours
-    if (brushExtent[1].getTime() - brushExtent[0].getTime() != foucusRangeMS) {
-
+    if (brushExtent[1].getTime() - brushExtent[0].getTime() !== foucusRangeMS) {
       // ensure that brush updating is with the time range
       if (brushExtent[0].getTime() + foucusRangeMS > d3.extent(data, dateFn)[1].getTime()) {
         brushExtent[0] = new Date(brushExtent[1].getTime() - foucusRangeMS);
@@ -416,23 +333,17 @@ function nsArrayDiff(oldArray, newArray) {
     var bgButton = $('.bgButton')
       , bgStatus = $('.bgStatus')
       , currentBG = $('.bgStatus .currentBG')
-      , currentDirection = $('.bgStatus .currentDirection')
       , majorPills = $('.bgStatus .majorPills')
       , minorPills = $('.bgStatus .minorPills')
-      , rawNoise = bgButton.find('.rawnoise')
-      , rawbg = rawNoise.find('em')
-      , noiseLevel = rawNoise.find('label')
-      , lastEntry = $('#lastEntry');
-
+      , statusPills = $('.status .statusPills')
+      ;
 
     function updateCurrentSGV(entry) {
-        var value, time, ago, isCurrent;
-        value = entry.y;
-        time = new Date(entry.x).getTime();
-        ago = timeAgo(time, browserSettings);
-        isCurrent = ago.status === 'current';
+        var value = entry.y
+          , ago = timeAgo(entry.mills, browserSettings)
+          , isCurrent = ago.status === 'current';
 
-      if (value == 9) {
+      if (value === 9) {
         currentBG.text('');
       } else if (value < 39) {
         currentBG.html(errorCodeToDisplay(value));
@@ -452,55 +363,24 @@ function nsArrayDiff(oldArray, newArray) {
         }
       }
 
-      if (showRawBGs(entry.y, entry.noise, cal)) {
-        rawNoise.css('display', 'inline-block');
-        rawbg.text(scaleBg(rawIsigToRawBg(entry, cal)));
-        noiseLevel.text(noiseCodeToDisplay(entry.y, entry.noise));
-      } else {
-        rawNoise.hide();
-      }
-
-
-      currentBG.toggleClass('icon-hourglass', value == 9);
+      currentBG.toggleClass('icon-hourglass', value === 9);
       currentBG.toggleClass('error-code', value < 39);
-      currentBG.toggleClass('bg-limit', value == 39 || value > 400);
+      currentBG.toggleClass('bg-limit', value === 39 || value > 400);
 
       $('.container').removeClass('loading');
 
     }
 
-    function updateBGDelta(prevEntry, currentEntry) {
+    function updatePlugins (sgvs, time) {
 
-      var pill = majorPills.find('span.pill.bgdelta');
-      if (!pill || pill.length == 0) {
-        pill = $('<span class="pill bgdelta"><em></em><label></label></span>');
-        majorPills.append(pill);
-      }
+      var pluginBase = Nightscout.plugins.base(majorPills, minorPills, statusPills, bgStatus, tooltip);
 
-      var deltaDisplay = calcDeltaDisplay(prevEntry, currentEntry);
-
-      if (deltaDisplay == null) {
-        pill.children('em').hide();
-      } else {
-        pill.children('em').text(deltaDisplay).show();
-      }
-
-      if (browserSettings.units == 'mmol') {
-        pill.children('label').text('mmol/L');
-      } else {
-        pill.children('label').text('mg/dL');
-      }
-
-    }
-
-    function updatePlugins(sgvs, time) {
-
-      var pluginBase = Nightscout.plugins.base(majorPills, minorPills, tooltip);
-
-      var sbx = Nightscout.sandbox.clientInit(app, browserSettings, time, pluginBase, {
+      sbx = Nightscout.sandbox.clientInit(app, browserSettings, time, pluginBase, {
         sgvs: sgvs
+        , cals: [cal]
         , treatments: treatments
-        , profile: profile
+        , profile: Nightscout.profile
+        , uploaderBattery: devicestatusData && devicestatusData.uploaderBattery
       });
 
       //all enabled plugins get a chance to set properties, even if they aren't shown
@@ -510,123 +390,88 @@ function nsArrayDiff(oldArray, newArray) {
       Nightscout.plugins.updateVisualisations(sbx);
     }
 
-    // predict for retrospective data
-    // by changing lookback from 1 to 2, we modify the AR algorithm to determine its initial slope from 10m
-    // of data instead of 5, which eliminates the incorrect and misleading predictions generated when
-    // the dexcom switches from unfiltered to filtered at the start of a rapid rise or fall, while preserving
-    // almost identical predications at other times.
-    var lookback = 2;
-
     var nowData = data.filter(function(d) {
-      return d.type == 'sgv';
+      return d.type === 'sgv';
     });
 
     if (inRetroMode()) {
-      var retroTime = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
+      var retroTime = brushExtent[1].getTime() - THIRTY_MINS_IN_MS;
 
       // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
-      var lookbackTime = (lookback + 2) * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
+      var lookbackTime = 3 * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
       nowData = nowData.filter(function(d) {
-        return d.date.getTime() >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
-          d.date.getTime() <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS
+        return d.mills >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
+          d.mills <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS;
       });
 
       // sometimes nowData contains duplicates.  uniq it.
-      var lastDate = new Date('1/1/1970');
+      var lastDate = 0;
       nowData = nowData.filter(function(d) {
-        var ok = (lastDate.getTime() + ONE_MIN_IN_MS) < d.date.getTime();
-        lastDate = d.date;
+        var ok = lastDate + ONE_MIN_IN_MS < d.mills;
+        lastDate = d.mills;
         return ok;
       });
 
       var focusPoint = nowData.length > 0 ? nowData[nowData.length - 1] : null;
       if (focusPoint) {
         updateCurrentSGV(focusPoint);
-        currentDirection.html(focusPoint.y < 39 ? '✖' : focusPoint.direction);
-
-        var prevfocusPoint = nowData.length > lookback ? nowData[nowData.length - 2] : null;
-        if (prevfocusPoint) {
-          updateBGDelta(prevfocusPoint, focusPoint);
-        } else {
-          updateBGDelta();
-        }
       } else {
-        updateBGDelta();
         currentBG.text('---');
-        currentDirection.text('-');
-        rawNoise.hide();
         bgButton.removeClass('urgent warning inrange');
       }
 
       updatePlugins(nowData, retroTime);
 
       $('#currentTime')
-        .text(formatTime(retroTime, true))
+        .text(formatTime(new Date(retroTime), true))
         .css('text-decoration','line-through');
 
       updateTimeAgo();
     } else {
       // if the brush comes back into the current time range then it should reset to the current time and sg
-      nowData = nowData.slice(nowData.length - 1 - lookback, nowData.length);
-      nowDate = new Date(now);
+      nowData = nowData.slice(nowData.length - 2, nowData.length);
+      nowDate = now;
 
       updateCurrentSGV(latestSGV);
       updateClockDisplay();
       updateTimeAgo();
-
-      var battery = devicestatusData && devicestatusData.uploaderBattery;
-      if (battery) {
-        $('#uploaderBattery em').text(battery + '%');
-        $('#uploaderBattery label')
-          .toggleClass('icon-battery-100', battery >= 95)
-          .toggleClass('icon-battery-75', battery < 95 && battery >= 55)
-          .toggleClass('icon-battery-50', battery < 55 && battery >= 30)
-          .toggleClass('icon-battery-25', battery < 30);
-
-        $('#uploaderBattery')
-          .show()
-          .toggleClass('warn', battery <= 30 && battery > 20)
-          .toggleClass('urgent', battery <= 20);
-      } else {
-        $('#uploaderBattery').hide();
-      }
-
-      updateBGDelta(prevSGV, latestSGV);
-
       updatePlugins(nowData, nowDate);
 
-      currentDirection.html(latestSGV.y < 39 ? '✖' : latestSGV.direction);
     }
 
     xScale.domain(brush.extent());
 
     // get slice of data so that concatenation of predictions do not interfere with subsequent updates
     var focusData = data.slice();
-    if (nowData.length > lookback) {
-      focusData = focusData.concat(predictAR(nowData, lookback));
+
+    if (sbx.pluginBase.forecastPoints) {
+      focusData = focusData.concat(sbx.pluginBase.forecastPoints);
     }
 
     // bind up the focus chart data to an array of circles
     // selects all our data into data and uses date function to get current max date
     var focusCircles = focus.selectAll('circle').data(focusData, dateFn);
 
-    var focusRangeAdjustment = foucusRangeMS == THREE_HOURS_MS ? 1 : 1 + ((foucusRangeMS - THREE_HOURS_MS) / THREE_HOURS_MS / 8);
+    var focusRangeAdjustment = foucusRangeMS === THREE_HOURS_MS ? 1 : 1 + ((foucusRangeMS - THREE_HOURS_MS) / THREE_HOURS_MS / 8);
 
     var dotRadius = function(type) {
       var radius = prevChartWidth > WIDTH_BIG_DOTS ? 4 : (prevChartWidth < WIDTH_SMALL_DOTS ? 2 : 3);
-      if (type == 'mbg') radius *= 2;
-      else if (type == 'rawbg') radius = Math.min(2, radius - 1);
+      if (type === 'mbg') {
+        radius *= 2;
+      } else if (type === 'rawbg') {
+        radius = Math.min(2, radius - 1);
+      }
 
       return radius / focusRangeAdjustment;
     };
 
     function isDexcom(device) {
-      return device && device.toLowerCase().indexOf('dexcom') == 0;
+      return device && device.toLowerCase().indexOf('dexcom') === 0;
     }
 
     function prepareFocusCircles(sel) {
       var badData = [];
-      sel.attr('cx', function (d) { return xScale(d.date); })
+      sel.attr('cx', function (d) { return xScale(new Date(d.mills)); })
         .attr('cy', function (d) {
           if (isNaN(d.sgv)) {
             badData.push(d);
@@ -636,15 +481,15 @@ function nsArrayDiff(oldArray, newArray) {
           }
         })
         .attr('fill', function (d) { return d.color; })
-        .attr('opacity', function (d) { return futureOpacity(d.date.getTime() - latestSGV.x); })
-        .attr('stroke-width', function (d) { if (d.type == 'mbg') return 2; else return 0; })
+        .attr('opacity', function (d) { return futureOpacity(d.mills - latestSGV.mills); })
+        .attr('stroke-width', function (d) { return d.type === 'mbg' ? 2 : 0; })
         .attr('stroke', function (d) {
           return (isDexcom(d.device) ? 'white' : '#0099ff');
         })
         .attr('r', function (d) { return dotRadius(d.type); });
 
       if (badData.length > 0) {
-        console.warn("Bad Data: isNaN(sgv)", badData);
+        console.warn('Bad Data: isNaN(sgv)', badData);
       }
 
       return sel;
@@ -656,33 +501,34 @@ function nsArrayDiff(oldArray, newArray) {
     // if new circle then just display
     prepareFocusCircles(focusCircles.enter().append('circle'))
       .on('mouseover', function (d) {
-        if (d.type != 'sgv' && d.type != 'mbg') return;
+        if (d.type === 'sgv' || d.type === 'mbg') {
+          var bgType = (d.type === 'sgv' ? 'CGM' : (isDexcom(d.device) ? 'Calibration' : 'Meter'))
+            , rawbgValue = 0
+            , noiseLabel = '';
 
-        var bgType = (d.type == 'sgv' ? 'CGM' : (isDexcom(d.device) ? 'Calibration' : 'Meter'))
-          , rawBG = 0
-          , noiseLabel = '';
-
-        if (d.type == 'sgv') {
-          if (showRawBGs(d.y, d.noise, cal)) {
-            rawBG = scaleBg(rawIsigToRawBg(d, cal));
+          if (d.type === 'sgv') {
+            if (rawbg.showRawBGs(d.y, d.noise, cal, sbx)) {
+              rawbgValue = scaleBg(rawbg.calc(d, cal, sbx));
+            }
+            noiseLabel = rawbg.noiseCodeToDisplay(d.y, d.noise);
           }
-          noiseLabel = noiseCodeToDisplay(d.y, d.noise);
-        }
 
-        tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-        tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
-          (d.type == 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
-          (rawBG ? '<br/><strong>Raw BG:</strong> ' + rawBG : '') +
-          (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
-          '<br/><strong>Time:</strong> ' + formatTime(d.date))
-          .style('left', (d3.event.pageX) + 'px')
-          .style('top', (d3.event.pageY + 15) + 'px');
+          tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
+          tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
+            (d.type === 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
+            (rawbgValue ? '<br/><strong>Raw BG:</strong> ' + rawbgValue : '') +
+            (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
+            '<br/><strong>Time:</strong> ' + formatTime(new Date(d.mills)))
+            .style('left', (d3.event.pageX) + 'px')
+            .style('top', (d3.event.pageY + 15) + 'px');
+        }
       })
       .on('mouseout', function (d) {
-        if (d.type != 'sgv' && d.type != 'mbg') return;
-        tooltip.transition()
-          .duration(TOOLTIP_TRANS_MS)
-          .style('opacity', 0);
+        if (d.type === 'sgv' || d.type === 'mbg') {
+          tooltip.transition()
+            .duration(TOOLTIP_TRANS_MS)
+            .style('opacity', 0);
+        }
       });
 
     focusCircles.exit()
@@ -730,9 +576,9 @@ function nsArrayDiff(oldArray, newArray) {
 
     context.select('.now-line')
       .transition()
-      .attr('x1', xScale2(new Date(brush.extent()[1]- THIRTY_MINS_IN_MS)))
+      .attr('x1', xScale2(brush.extent()[1]- THIRTY_MINS_IN_MS))
       .attr('y1', yScale2(scaleBg(36)))
-      .attr('x2', xScale2(new Date(brush.extent()[1]- THIRTY_MINS_IN_MS)))
+      .attr('x2', xScale2(brush.extent()[1]- THIRTY_MINS_IN_MS))
       .attr('y2', yScale2(scaleBg(420)));
 
     // update x axis
@@ -743,7 +589,7 @@ function nsArrayDiff(oldArray, newArray) {
     focusCircles.attr('clip-path', 'url(#clip)');
 
     function prepareTreatCircles(sel) {
-      sel.attr('cx', function (d) { return xScale(d.created_at); })
+      sel.attr('cx', function (d) { return xScale(new Date(d.mills)); })
         .attr('cy', function (d) { return yScale(d.displayBG); })
         .attr('r', function () { return dotRadius('mbg'); })
         .attr('stroke-width', 2)
@@ -766,7 +612,7 @@ function nsArrayDiff(oldArray, newArray) {
     prepareTreatCircles(treatCircles.enter().append('circle'))
       .on('mouseover', function (d) {
         tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-        tooltip.html('<strong>Time:</strong> ' + formatTime(d.created_at) + '<br/>' +
+        tooltip.html('<strong>Time:</strong> ' + formatTime(new Date(d.mills)) + '<br/>' +
             (d.eventType ? '<strong>Treatment type:</strong> ' + d.eventType + '<br/>' : '') +
             (d.glucose ? '<strong>BG:</strong> ' + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + '<br/>' : '') +
             (d.enteredBy ? '<strong>Entered by:</strong> ' + d.enteredBy + '<br/>' : '') +
@@ -785,7 +631,7 @@ function nsArrayDiff(oldArray, newArray) {
   }
 
   // called for initial update and updates for resize
-  var updateChart = _.debounce(function updateChart(init) {
+  var updateChart = _.debounce(function debouncedUpdateChart(init) {
 
     if (documentHidden && !init) {
       console.info('Document Hidden, not updating - ' + (new Date()));
@@ -809,7 +655,7 @@ function nsArrayDiff(oldArray, newArray) {
     var currentBrushExtent = brush.extent();
 
     // only redraw chart if chart size has changed
-    if ((prevChartWidth != chartWidth) || (prevChartHeight != chartHeight)) {
+    if ((prevChartWidth !== chartWidth) || (prevChartHeight !== chartHeight)) {
 
       prevChartWidth = chartWidth;
       prevChartHeight = chartHeight;
@@ -1096,7 +942,7 @@ function nsArrayDiff(oldArray, newArray) {
 
     function prepareContextCircles(sel) {
       var badData = [];
-      sel.attr('cx', function (d) { return xScale2(d.date); })
+      sel.attr('cx', function (d) { return xScale2(new Date(d.mills)); })
         .attr('cy', function (d) {
           if (isNaN(d.sgv)) {
             badData.push(d);
@@ -1107,12 +953,12 @@ function nsArrayDiff(oldArray, newArray) {
         })
         .attr('fill', function (d) { return d.color; })
         .style('opacity', function (d) { return highlightBrushPoints(d) })
-        .attr('stroke-width', function (d) {if (d.type == 'mbg') return 2; else return 0; })
-        .attr('stroke', function (d) { return 'white'; })
-        .attr('r', function(d) { if (d.type == 'mbg') return 4; else return 2;});
+        .attr('stroke-width', function (d) { return d.type === 'mbg' ? 2 : 0; })
+        .attr('stroke', function ( ) { return 'white'; })
+        .attr('r', function (d) { return d.type === 'mbg' ? 4 : 2; });
 
       if (badData.length > 0) {
-        console.warn("Bad Data: isNaN(sgv)", badData);
+        console.warn('Bad Data: isNaN(sgv)', badData);
       }
 
       return sel;
@@ -1136,7 +982,7 @@ function nsArrayDiff(oldArray, newArray) {
   function sgvToColor(sgv) {
     var color = 'grey';
 
-    if (browserSettings.theme == 'colors') {
+    if (browserSettings.theme === 'colors') {
       if (sgv > app.thresholds.bg_high) {
         color = 'red';
       } else if (sgv > app.thresholds.bg_target_top) {
@@ -1156,7 +1002,7 @@ function nsArrayDiff(oldArray, newArray) {
   function sgvToColoredRange(sgv) {
     var range = '';
 
-    if (browserSettings.theme == 'colors') {
+    if (browserSettings.theme === 'colors') {
       if (sgv > app.thresholds.bg_high) {
         range = 'urgent';
       } else if (sgv > app.thresholds.bg_target_top) {
@@ -1174,21 +1020,24 @@ function nsArrayDiff(oldArray, newArray) {
   }
 
 
-  function generateAlarm(file) {
+  function generateAlarm(file, reason) {
     alarmInProgress = true;
     var selector = '.audio.alarms audio.' + file;
-    d3.select(selector).each(function (d, i) {
+    d3.select(selector).each(function () {
       var audio = this;
       playAlarm(audio);
       $(this).addClass('playing');
     });
-    $('.bgButton').addClass(file == urgentAlarmSound ? 'urgent' : 'warning');
+    $('.bgButton').addClass(file === urgentAlarmSound ? 'urgent' : 'warning');
     $('#container').addClass('alarming');
+
+    updateTitle(reason);
+
   }
 
   function playAlarm(audio) {
     // ?mute=true disables alarms to testers.
-    if (querystring.mute != 'true') {
+    if (querystring.mute !== 'true') {
       audio.play();
     } else {
       showNotification('Alarm was muted (?mute=true)');
@@ -1206,6 +1055,8 @@ function nsArrayDiff(oldArray, newArray) {
 
     closeNotification();
     $('#container').removeClass('alarming');
+
+    updateTitle();
 
     // only emit ack if client invoke by button press
     if (isClient) {
@@ -1227,14 +1078,14 @@ function nsArrayDiff(oldArray, newArray) {
 
     function calcBGByTime(time) {
       var withBGs = _.filter(data, function(d) {
-        return d.y > 39 && d.type == 'sgv';
+        return d.y > 39 && d.type === 'sgv';
       });
 
       var beforeTreatment = _.findLast(withBGs, function (d) {
-        return d.date.getTime() <= time;
+        return d.mills <= time;
       });
       var afterTreatment = _.find(withBGs, function (d) {
-        return d.date.getTime() >= time;
+        return d.mills >= time;
       });
 
       var calcedBG = 0;
@@ -1255,11 +1106,11 @@ function nsArrayDiff(oldArray, newArray) {
       console.warn('found an invalid glucose value', treatment);
     } else {
       if (treatment.glucose && treatment.units && browserSettings.units) {
-        if (treatment.units != browserSettings.units) {
+        if (treatment.units !== browserSettings.units) {
           console.info('found mismatched glucose units, converting ' + treatment.units + ' into ' + browserSettings.units, treatment);
-          if (treatment.units == 'mmol') {
+          if (treatment.units === 'mmol') {
             //BG is in mmol and display in mg/dl
-            treatmentGlucose = Math.round(treatment.glucose * 18)
+            treatmentGlucose = Math.round(treatment.glucose * 18);
           } else {
             //BG is in mg/dl and display in mmol
             treatmentGlucose = scaleBg(treatment.glucose);
@@ -1274,7 +1125,7 @@ function nsArrayDiff(oldArray, newArray) {
       }
     }
 
-    return treatmentGlucose || scaleBg(calcBGByTime(treatment.created_at.getTime()));
+    return treatmentGlucose || scaleBg(calcBGByTime(treatment.mills));
   }
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1282,10 +1133,10 @@ function nsArrayDiff(oldArray, newArray) {
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   function drawTreatment(treatment, scale, showValues) {
 
-    if (!treatment.carbs && !treatment.insulin) return;
+    if (!treatment.carbs && !treatment.insulin) { return; }
 
     // don't render the treatment if it's not visible
-    if (Math.abs(xScale(treatment.created_at.getTime())) > window.innerWidth) return;
+    if (Math.abs(xScale(new Date(treatment.mills))) > window.innerWidth) { return; }
 
     var CR = treatment.CR || 20;
     var carbs = treatment.carbs || CR;
@@ -1296,7 +1147,7 @@ function nsArrayDiff(oldArray, newArray) {
       R3 = R2 + 8 / scale;
 
     if (isNaN(R1) || isNaN(R3) || isNaN(R3)) {
-      console.warn("Bad Data: Found isNaN value in treatment", treatment);
+      console.warn('Bad Data: Found isNaN value in treatment', treatment);
       return;
     }
 
@@ -1310,8 +1161,13 @@ function nsArrayDiff(oldArray, newArray) {
     arc_data[0].outlineOnly = !treatment.carbs;
     arc_data[2].outlineOnly = !treatment.insulin;
 
-    if (treatment.carbs > 0) arc_data[1].element = Math.round(treatment.carbs) + ' g';
-    if (treatment.insulin > 0) arc_data[3].element = Math.round(treatment.insulin * 100) / 100 + ' U';
+    if (treatment.carbs > 0) {
+      arc_data[1].element = Math.round(treatment.carbs) + ' g';
+    }
+
+    if (treatment.insulin > 0) {
+      arc_data[3].element = Math.round(treatment.insulin * 100) / 100 + ' U';
+    }
 
     var arc = d3.svg.arc()
       .innerRadius(function (d) { return 5 * d.inner; })
@@ -1323,10 +1179,10 @@ function nsArrayDiff(oldArray, newArray) {
       .data(arc_data)
       .enter()
       .append('g')
-      .attr('transform', 'translate(' + xScale(treatment.created_at.getTime()) + ', ' + yScale(treatment.displayBG) + ')')
+      .attr('transform', 'translate(' + xScale(new Date(treatment.mills)) + ', ' + yScale(treatment.displayBG) + ')')
       .on('mouseover', function () {
         tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-        tooltip.html('<strong>Time:</strong> ' + formatTime(treatment.created_at) + '<br/>' + '<strong>Treatment type:</strong> ' + treatment.eventType + '<br/>' +
+        tooltip.html('<strong>Time:</strong> ' + formatTime(new Date(treatment.mills)) + '<br/>' + '<strong>Treatment type:</strong> ' + treatment.eventType + '<br/>' +
             (treatment.carbs ? '<strong>Carbs:</strong> ' + treatment.carbs + '<br/>' : '') +
             (treatment.insulin ? '<strong>Insulin:</strong> ' + treatment.insulin + '<br/>' : '') +
             (treatment.glucose ? '<strong>BG:</strong> ' + treatment.glucose + (treatment.glucoseType ? ' (' + treatment.glucoseType + ')': '') + '<br/>' : '') +
@@ -1341,10 +1197,11 @@ function nsArrayDiff(oldArray, newArray) {
           .duration(TOOLTIP_TRANS_MS)
           .style('opacity', 0);
       });
-    var arcs = treatmentDots.append('path')
+
+    treatmentDots.append('path')
       .attr('class', 'path')
-      .attr('fill', function (d, i) { if (d.outlineOnly) return 'transparent'; else return d.color; })
-      .attr('stroke-width', function (d) {if (d.outlineOnly) return 1; else return 0; })
+      .attr('fill', function (d) { return d.outlineOnly ? 'transparent' : d.color; })
+      .attr('stroke-width', function (d) { return d.outlineOnly ? 1 : 0; })
       .attr('stroke', function (d) { return d.color; })
       .attr('id', function (d, i) { return 's' + i; })
       .attr('d', arc);
@@ -1370,77 +1227,6 @@ function nsArrayDiff(oldArray, newArray) {
     }
   }
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // function to predict
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  function predictAR(actual, lookback) {
-    var ONE_MINUTE = 60 * 1000;
-    var FIVE_MINUTES = 5 * ONE_MINUTE;
-    var predicted = [];
-    var BG_REF = scaleBg(140);
-    var BG_MIN = scaleBg(36);
-    var BG_MAX = scaleBg(400);
-
-    function roundByUnits(value) {
-      if (browserSettings.units == 'mmol') {
-        return value.toFixed(1);
-      } else {
-        return Math.round(value);
-      }
-    }
-
-    // these are the one sigma limits for the first 13 prediction interval uncertainties (65 minutes)
-    var CONE = [0.020, 0.041, 0.061, 0.081, 0.099, 0.116, 0.132, 0.146, 0.159, 0.171, 0.182, 0.192, 0.201];
-    // these are modified to make the cone much blunter
-    //var CONE = [0.030, 0.060, 0.090, 0.120, 0.140, 0.150, 0.160, 0.170, 0.180, 0.185, 0.190, 0.195, 0.200];
-    // for testing
-    //var CONE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    if (actual.length < lookback+1) {
-      var y = [Math.log(actual[actual.length-1].sgv / BG_REF), Math.log(actual[actual.length-1].sgv / BG_REF)];
-    } else {
-      var elapsedMins = (actual[actual.length-1].date - actual[actual.length-1-lookback].date) / ONE_MINUTE;
-      // construct a '5m ago' sgv offset from current sgv by the average change over the lookback interval
-      var lookbackSgvChange = actual[lookback].sgv-actual[0].sgv;
-      var fiveMinAgoSgv = actual[lookback].sgv - lookbackSgvChange/elapsedMins*5;
-      y = [Math.log(fiveMinAgoSgv / BG_REF), Math.log(actual[lookback].sgv / BG_REF)];
-      /*
-       if (elapsedMins < lookback * 5.1) {
-       y = [Math.log(actual[0].sgv / BG_REF), Math.log(actual[lookback].sgv / BG_REF)];
-       } else {
-       y = [Math.log(actual[lookback].sgv / BG_REF), Math.log(actual[lookback].sgv / BG_REF)];
-       }
-       */
-    }
-    var AR = [-0.723, 1.716];
-    var dt = actual[lookback].date.getTime();
-    var predictedColor = 'blue';
-    if (browserSettings.theme == 'colors') {
-      predictedColor = 'cyan';
-    }
-    for (var i = 0; i < CONE.length; i++) {
-      y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
-      dt = dt + FIVE_MINUTES;
-      // Add 2000 ms so not same point as SG
-      predicted[i * 2] = {
-        date: new Date(dt + 2000),
-        sgv: Math.max(BG_MIN, Math.min(BG_MAX, roundByUnits(BG_REF * Math.exp((y[1] - 2 * CONE[i]))))),
-        color: predictedColor
-      };
-      // Add 4000 ms so not same point as SG
-      predicted[i * 2 + 1] = {
-        date: new Date(dt + 4000),
-        sgv: Math.max(BG_MIN, Math.min(BG_MAX, roundByUnits(BG_REF * Math.exp((y[1] + 2 * CONE[i]))))),
-        color: predictedColor
-      };
-      predicted.forEach(function (d) {
-        d.type = 'forecast';
-        if (d.sgv < BG_MIN)
-          d.color = 'transparent';
-      })
-    }
-    return predicted;
-  }
-
   function updateClock() {
     updateClockDisplay();
     var interval = (60 - (new Date()).getSeconds()) * 1000 + 5;
@@ -1451,7 +1237,7 @@ function nsArrayDiff(oldArray, newArray) {
     // Dim the screen by reducing the opacity when at nighttime
     if (browserSettings.nightMode) {
       var dateTime = new Date();
-      if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7)) {
+      if (opacity.current !== opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7)) {
         $('body').css({ 'opacity': opacity.NIGHT });
       } else {
         $('body').css({ 'opacity': opacity.DAY });
@@ -1460,10 +1246,11 @@ function nsArrayDiff(oldArray, newArray) {
   }
 
   function updateClockDisplay() {
-    if (inRetroMode()) return;
+    if (inRetroMode()) {
+      return;
+    }
     now = Date.now();
-    var dateTime = new Date(now);
-    $('#currentTime').text(formatTime(dateTime, true)).css('text-decoration', '');
+    $('#currentTime').text(formatTime(new Date(now), true)).css('text-decoration', '');
   }
 
   function getClientAlarm(type) {
@@ -1476,7 +1263,7 @@ function nsArrayDiff(oldArray, newArray) {
   }
 
   function isTimeAgoAlarmType(alarmType) {
-    return alarmType == 'warnTimeAgo' || alarmType == 'urgentTimeAgo';
+    return alarmType === 'warnTimeAgo' || alarmType === 'urgentTimeAgo';
   }
 
   function checkTimeAgoAlarm(ago) {
@@ -1487,17 +1274,19 @@ function nsArrayDiff(oldArray, newArray) {
       currentAlarmType = alarm.type;
       console.info('generating timeAgoAlarm', alarm.type);
       $('#container').addClass('alarming-timeago');
-      if (level == 'warn') {
-        generateAlarm(alarmSound);
+      console.log('ago:', ago);
+      var message = {'title': 'Last data received ', 'message': ago.value + ago.label};
+      if (level === 'warn') {
+        generateAlarm(alarmSound, message);
       } else {
-        generateAlarm(urgentAlarmSound);
+        generateAlarm(urgentAlarmSound, message);
       }
     }
   }
 
   function updateTimeAgo() {
     var lastEntry = $('#lastEntry')
-      , time = latestSGV ? new Date(latestSGV.x).getTime() : -1
+      , time = latestSGV ? latestSGV.mills : -1
       , ago = timeAgo(time, browserSettings)
       , retroMode = inRetroMode();
 
@@ -1509,13 +1298,14 @@ function nsArrayDiff(oldArray, newArray) {
     }
 
     if (
-      (browserSettings.alarmTimeAgoWarn && ago.status == 'warn')
-      || (browserSettings.alarmTimeAgoUrgent && ago.status == 'urgent')) {
+      (browserSettings.alarmTimeAgoWarn && ago.status === 'warn')
+      || (browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent')) {
       checkTimeAgoAlarm(ago);
     }
 
-    if (alarmingNow() && ago.status == 'current' && isTimeAgoAlarmType(currentAlarmType)) {
-      $('#container').removeClass('alarming-timeago');
+    $('#container').toggleClass('alarming-timeago', ago.status !== 'current');
+
+    if (alarmingNow() && ago.status === 'current' && isTimeAgoAlarmType(currentAlarmType)) {
       stopAlarm(true, ONE_MIN_IN_MS);
     }
 
@@ -1541,7 +1331,7 @@ function nsArrayDiff(oldArray, newArray) {
       .style('opacity', 0);
 
     // Tick Values
-    if (browserSettings.units == 'mmol') {
+    if (browserSettings.units === 'mmol') {
       tickValues = [
         2.0
         , Math.round(scaleBg(app.thresholds.bg_low))
@@ -1621,7 +1411,9 @@ function nsArrayDiff(oldArray, newArray) {
     var silenceDropdown = new Dropdown('.dropdown-menu');
 
     $('.bgButton').click(function (e) {
-      if (alarmingNow()) silenceDropdown.open(e);
+      if (alarmingNow()) {
+        silenceDropdown.open(e);
+      }
     });
 
     $('#silenceBtn').find('a').click(function (e) {
@@ -1643,41 +1435,54 @@ function nsArrayDiff(oldArray, newArray) {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     socket = io.connect();
 
-    function recordAlreadyStored(array,record) {
-      var l = array.length -1;
-      for (var i = 0; i <= l; i++) {
-        var oldRecord = array[i];
-        if (record.x == oldRecord.x) return true;
-      }
-    }
-
     function mergeDataUpdate(isDelta, cachedDataArray, receivedDataArray) {
 
+      function nsArrayDiff(oldArray, newArray) {
+        var seen = {};
+        var l = oldArray.length;
+        for (var i = 0; i < l; i++) { seen[oldArray[i].mills] = true }
+        var result = [];
+        l = newArray.length;
+        for (var j = 0; j < l; j++) { if (!seen.hasOwnProperty(newArray[j].mills)) { result.push(newArray[j]); console.log('delta data found'); } }
+        return result;
+      }
+
       // If there was no delta data, just return the original data
-      if (!receivedDataArray) return cachedDataArray;
+      if (!receivedDataArray) {
+        return cachedDataArray;
+      }
 
       // If this is not a delta update, replace all data
-      if (!isDelta) return receivedDataArray;
+      if (!isDelta) {
+        return receivedDataArray;
+      }
 
       // If this is delta, calculate the difference, merge and sort
       var diff = nsArrayDiff(cachedDataArray,receivedDataArray);
       return cachedDataArray.concat(diff).sort(function(a, b) {
-        return a.x - b.x;
+        return a.mills - b.mills;
       });
     }
 
     socket.on('dataUpdate', function receivedSGV(d) {
 
-      if (!d) return;
+      if (!d) {
+        return;
+      }
 
       // Calculate the diff to existing data and replace as needed
 
       SGVdata = mergeDataUpdate(d.delta, SGVdata, d.sgvs);
       MBGdata = mergeDataUpdate(d.delta,MBGdata, d.mbgs);
       treatments = mergeDataUpdate(d.delta,treatments, d.treatments);
-      if (d.profiles) profile = d.profiles[0];
-      if (d.cals) cal = d.cals[d.cals.length-1];
-      if (d.devicestatus) devicestatusData = d.devicestatus;
+
+      if (d.profiles) {
+        profile = d.profiles[0];
+        Nightscout.profile.loadData(d.profiles);
+      }
+
+      if (d.cals) { cal = d.cals[d.cals.length-1]; }
+      if (d.devicestatus) { devicestatusData = d.devicestatus; }
 
       // Do some reporting on the console
       console.log('Total SGV data size', SGVdata.length);
@@ -1692,36 +1497,34 @@ function nsArrayDiff(oldArray, newArray) {
         prevSGV = SGVdata[SGVdata.length - 2];
       }
 
-
       var temp1 = [ ];
-      if (cal && isRawBGEnabled()) {
+      if (cal && rawbg.isEnabled(sbx)) {
         temp1 = SGVdata.map(function (entry) {
-          var rawBg = showRawBGs(entry.y, entry.noise, cal) ? rawIsigToRawBg(entry, cal) : 0;
-          if (rawBg > 0) {
-            return { date: new Date(entry.x - 2000), y: rawBg, sgv: scaleBg(rawBg), color: 'white', type: 'rawbg' };
+          var rawbgValue = rawbg.showRawBGs(entry.y, entry.noise, cal, sbx) ? rawbg.calc(entry, cal, sbx) : 0;
+          if (rawbgValue > 0) {
+            return { mills: entry.mills - 2000, y: rawbgValue, sgv: scaleBg(rawbgValue), color: 'white', type: 'rawbg' };
           } else {
             return null;
           }
-        }).filter(function(entry) { return entry != null; });
+        }).filter(function(entry) { return entry !== null; });
       }
       var temp2 = SGVdata.map(function (obj) {
-        return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
+        return { mills: obj.mills, y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
       });
       data = [];
       data = data.concat(temp1, temp2);
 
       addPlaceholderPoints();
 
-      data = data.concat(MBGdata.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
+      data = data.concat(MBGdata.map(function (obj) { return { mills: obj.mills, y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 
       data.forEach(function (d) {
-        if (d.y < 39)
-          d.color = 'transparent';
+        if (d.y < 39) { d.color = 'transparent'; }
       });
 
       // OPTIMIZATION: precalculate treatment location in timeline
       treatments.forEach(function (d) {
-        d.created_at = new Date(d.created_at);
+        d.mills = new Date(d.created_at).getTime();
         //cache the displayBG for each treatment in DISPLAY_UNITS
         d.displayBG = displayTreatmentBG(d);
       });
@@ -1741,7 +1544,7 @@ function nsArrayDiff(oldArray, newArray) {
     // Alarms and Text handling
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     socket.on('connect', function () {
-      console.log('Client connected to server.')
+      console.log('Client connected to server.');
     });
 
 
@@ -1757,26 +1560,29 @@ function nsArrayDiff(oldArray, newArray) {
       return latestSGV.y <= app.thresholds.bg_target_top;
     }
 
-    socket.on('alarm', function () {
+    socket.on('alarm', function (notify) {
       console.info('alarm received from server');
+      console.log('notify:',notify);
       var enabled = (isAlarmForHigh() && browserSettings.alarmHigh) || (isAlarmForLow() && browserSettings.alarmLow);
       if (enabled) {
         console.log('Alarm raised!');
         currentAlarmType = 'alarm';
-        generateAlarm(alarmSound);
+        generateAlarm(alarmSound,notify);
       } else {
         console.info('alarm was disabled locally', latestSGV.y, browserSettings);
       }
       brushInProgress = false;
       updateChart(false);
     });
-    socket.on('urgent_alarm', function () {
+    socket.on('urgent_alarm', function (notify) {
       console.info('urgent alarm received from server');
+	  console.log('notify:',notify);
+	  
       var enabled = (isAlarmForHigh() && browserSettings.alarmUrgentHigh) || (isAlarmForLow() && browserSettings.alarmUrgentLow);
       if (enabled) {
         console.log('Urgent alarm raised!');
         currentAlarmType = 'urgent_alarm';
-        generateAlarm(urgentAlarmSound);
+        generateAlarm(urgentAlarmSound,notify);
       } else {
         console.info('urgent alarm was disabled locally', latestSGV.y, browserSettings);
       }
@@ -1817,6 +1623,11 @@ function nsArrayDiff(oldArray, newArray) {
         , careportalEnabled: xhr.careportalEnabled
         , defaults: xhr.defaults
       };
+
+      //TODO: currently we need the ar2 plugin for the cone
+      if (app.enabledOptions.indexOf('ar2') < 0) {
+        app.enabledOptions += ' ar2';
+      }
     }
   }).done(function() {
     $('.appName').text(app.name);
@@ -1828,6 +1639,7 @@ function nsArrayDiff(oldArray, newArray) {
     $('#treatmentDrawerToggle').toggle(app.careportalEnabled);
     Nightscout.plugins.init(app);
     browserSettings = getBrowserSettings(browserStorage);
+    sbx = Nightscout.sandbox.clientInit(app, browserSettings, Date.now());
     $('.container').toggleClass('has-minor-pills', Nightscout.plugins.hasShownType('pill-minor', browserSettings));
     init();
   });
