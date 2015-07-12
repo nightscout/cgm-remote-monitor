@@ -589,7 +589,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function prepareTreatCircles(sel) {
       sel.attr('cx', function (d) { return xScale(new Date(d.mills)); })
-        .attr('cy', function (d) { return yScale(d.displayBG); })
+        .attr('cy', function (d) { return yScale(sbx.scaleEntry(d)); })
         .attr('r', function () { return dotRadius('mbg'); })
         .attr('stroke-width', 2)
         .attr('stroke', function (d) { return d.glucose ? 'grey' : 'white'; })
@@ -1074,60 +1074,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     brushed(false);
   }
 
-  function displayTreatmentBG(treatment) {
-
-    function calcBGByTime(time) {
-      var withBGs = _.filter(data, function(d) {
-        return d.mgdl > 39 && d.type === 'sgv';
-      });
-
-      var beforeTreatment = _.findLast(withBGs, function (d) {
-        return d.mills <= time;
-      });
-      var afterTreatment = _.find(withBGs, function (d) {
-        return d.mills >= time;
-      });
-
-      var calcedBG = 0;
-      if (beforeTreatment && afterTreatment) {
-        calcedBG = (Number(beforeTreatment.mgdl) + Number(afterTreatment.mgdl)) / 2;
-      } else if (beforeTreatment) {
-        calcedBG = Number(beforeTreatment.mgdl);
-      } else if (afterTreatment) {
-        calcedBG = Number(afterTreatment.mgdl);
-      }
-
-      return calcedBG || 400;
-    }
-
-    var treatmentGlucose = null;
-
-    if (treatment.glucose && isNaN(treatment.glucose)) {
-      console.warn('found an invalid glucose value', treatment);
-    } else {
-      if (treatment.glucose && treatment.units && browserSettings.units) {
-        if (treatment.units !== browserSettings.units) {
-          console.info('found mismatched glucose units, converting ' + treatment.units + ' into ' + browserSettings.units, treatment);
-          if (treatment.units === 'mmol') {
-            //BG is in mmol and display in mg/dl
-            treatmentGlucose = Math.round(treatment.glucose * 18);
-          } else {
-            //BG is in mg/dl and display in mmol
-            treatmentGlucose = scaleBg(treatment.glucose);
-          }
-        } else {
-          treatmentGlucose = treatment.glucose;
-        }
-      } else if (treatment.glucose) {
-        //no units, assume everything is the same
-        console.warn('found a glucose value without any units, maybe from an old version?', treatment);
-        treatmentGlucose = treatment.glucose;
-      }
-    }
-
-    return treatmentGlucose || scaleBg(calcBGByTime(treatment.mills));
-  }
-
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //draw a compact visualization of a treatment (carbs, insulin)
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1179,7 +1125,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       .data(arc_data)
       .enter()
       .append('g')
-      .attr('transform', 'translate(' + xScale(new Date(treatment.mills)) + ', ' + yScale(treatment.displayBG) + ')')
+      .attr('transform', 'translate(' + xScale(new Date(treatment.mills)) + ', ' + yScale(sbx.scaleEntry(treatment)) + ')')
       .on('mouseover', function () {
         tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
         tooltip.html('<strong>Time:</strong> ' + formatTime(new Date(treatment.mills)) + '<br/>' + '<strong>Treatment type:</strong> ' + treatment.eventType + '<br/>' +
@@ -1520,13 +1466,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
       data.forEach(function (d) {
         if (d.mgdl < 39) { d.color = 'transparent'; }
-      });
-
-      // OPTIMIZATION: precalculate treatment location in timeline
-      treatments.forEach(function (d) {
-        d.mills = new Date(d.created_at).getTime();
-        //cache the displayBG for each treatment in DISPLAY_UNITS
-        d.displayBG = displayTreatmentBG(d);
       });
 
       updateTitle();
