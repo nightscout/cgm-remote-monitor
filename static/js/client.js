@@ -119,12 +119,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     if (ago && ago.status !== 'current') {
       bg_title =  s(ago.value) + s(ago.label, ' - ') + bg_title;
     } else if (latestSGV) {
-      var currentMgdl = latestSGV.y;
+      var currentMgdl = latestSGV.mgdl;
 
       if (currentMgdl < 39) {
         bg_title = s(errorCodeToDisplay(currentMgdl), ' - ') + bg_title;
       } else {
-        var deltaDisplay = delta.calc(prevSGV && prevSGV.y, latestSGV && latestSGV.y, sbx).display;
+        var deltaDisplay = delta.calc(prevSGV, latestSGV, sbx).display;
         bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(direction.info(latestSGV).label) + bg_title;
       }
     }
@@ -227,7 +227,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var n = Math.ceil(12 * (1 / 2 + (now - lastTime) / SIXTY_MINS_IN_MS)) + 1;
     for (var i = 1; i <= n; i++) {
       data.push({
-        mills: lastTime + (i * FIVE_MINS_IN_MS), y: 100, sgv: scaleBg(100), color: 'none', type: 'server-forecast'
+        mills: lastTime + (i * FIVE_MINS_IN_MS), mgdl: 100, color: 'none', type: 'server-forecast'
       });
     }
   }
@@ -339,7 +339,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       ;
 
     function updateCurrentSGV(entry) {
-        var value = entry.y
+        var value = entry.mgdl
           , ago = timeAgo(entry.mills, browserSettings)
           , isCurrent = ago.status === 'current';
 
@@ -397,11 +397,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     if (inRetroMode()) {
       var retroTime = brushExtent[1].getTime() - THIRTY_MINS_IN_MS;
 
-      // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
-      var lookbackTime = 3 * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
       nowData = nowData.filter(function(d) {
-        return d.mills >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
-          d.mills <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS;
+        return d.mills >= brushExtent[1].getTime() - (2 * THIRTY_MINS_IN_MS) &&
+          d.mills <= brushExtent[1].getTime() - THIRTY_MINS_IN_MS - ONE_MIN_IN_MS;
       });
 
       // sometimes nowData contains duplicates.  uniq it.
@@ -471,22 +469,33 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function prepareFocusCircles(sel) {
       var badData = [];
-      sel.attr('cx', function (d) { return xScale(new Date(d.mills)); })
-        .attr('cy', function (d) {
-          if (isNaN(d.sgv)) {
-            badData.push(d);
-            return yScale(scaleBg(450));
-          } else {
-            return yScale(d.sgv);
-          }
-        })
-        .attr('fill', function (d) { return d.color; })
-        .attr('opacity', function (d) { return futureOpacity(d.mills - latestSGV.mills); })
-        .attr('stroke-width', function (d) { return d.type === 'mbg' ? 2 : 0; })
-        .attr('stroke', function (d) {
-          return (isDexcom(d.device) ? 'white' : '#0099ff');
-        })
-        .attr('r', function (d) { return dotRadius(d.type); });
+      sel.attr('cx', function (d) {
+        if (!d) {
+          console.error('Bad data', d);
+          return xScale(new Date(0));
+        } else if (!d.mills) {
+          console.error('Bad data, no mills', d);
+          return xScale(new Date(0));
+        } else {
+          return xScale(new Date(d.mills));
+        }
+      })
+      .attr('cy', function (d) {
+        var scaled = sbx.scaleEntry(d);
+        if (isNaN(scaled)) {
+          badData.push(d);
+          return yScale(scaleBg(450));
+        } else {
+          return yScale(scaled);
+        }
+      })
+      .attr('fill', function (d) { return d.color; })
+      .attr('opacity', function (d) { return futureOpacity(d.mills - latestSGV.mills); })
+      .attr('stroke-width', function (d) { return d.type === 'mbg' ? 2 : 0; })
+      .attr('stroke', function (d) {
+        return (isDexcom(d.device) ? 'white' : '#0099ff');
+      })
+      .attr('r', function (d) { return dotRadius(d.type); });
 
       if (badData.length > 0) {
         console.warn('Bad Data: isNaN(sgv)', badData);
@@ -507,14 +516,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , noiseLabel = '';
 
           if (d.type === 'sgv') {
-            if (rawbg.showRawBGs(d.y, d.noise, cal, sbx)) {
+            if (rawbg.showRawBGs(d.mgdl, d.noise, cal, sbx)) {
               rawbgValue = scaleBg(rawbg.calc(d, cal, sbx));
             }
-            noiseLabel = rawbg.noiseCodeToDisplay(d.y, d.noise);
+            noiseLabel = rawbg.noiseCodeToDisplay(d.mgdl, d.noise);
           }
 
           tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-          tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
+          tooltip.html('<strong>' + bgType + ' BG:</strong> ' + sbx.scaleEntry(d) +
             (d.type === 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
             (rawbgValue ? '<br/><strong>Raw BG:</strong> ' + rawbgValue : '') +
             (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
@@ -590,7 +599,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function prepareTreatCircles(sel) {
       sel.attr('cx', function (d) { return xScale(new Date(d.mills)); })
-        .attr('cy', function (d) { return yScale(d.displayBG); })
+        .attr('cy', function (d) { return yScale(sbx.scaleEntry(d)); })
         .attr('r', function () { return dotRadius('mbg'); })
         .attr('stroke-width', 2)
         .attr('stroke', function (d) { return d.glucose ? 'grey' : 'white'; })
@@ -944,11 +953,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       var badData = [];
       sel.attr('cx', function (d) { return xScale2(new Date(d.mills)); })
         .attr('cy', function (d) {
-          if (isNaN(d.sgv)) {
+          var scaled = sbx.scaleEntry(d);
+          if (isNaN(scaled)) {
             badData.push(d);
             return yScale2(scaleBg(450));
           } else {
-            return yScale2(d.sgv);
+            return yScale2(scaled);
           }
         })
         .attr('fill', function (d) { return d.color; })
@@ -1074,60 +1084,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     brushed(false);
   }
 
-  function displayTreatmentBG(treatment) {
-
-    function calcBGByTime(time) {
-      var withBGs = _.filter(data, function(d) {
-        return d.y > 39 && d.type === 'sgv';
-      });
-
-      var beforeTreatment = _.findLast(withBGs, function (d) {
-        return d.mills <= time;
-      });
-      var afterTreatment = _.find(withBGs, function (d) {
-        return d.mills >= time;
-      });
-
-      var calcedBG = 0;
-      if (beforeTreatment && afterTreatment) {
-        calcedBG = (Number(beforeTreatment.y) + Number(afterTreatment.y)) / 2;
-      } else if (beforeTreatment) {
-        calcedBG = Number(beforeTreatment.y);
-      } else if (afterTreatment) {
-        calcedBG = Number(afterTreatment.y);
-      }
-
-      return calcedBG || 400;
-    }
-
-    var treatmentGlucose = null;
-
-    if (treatment.glucose && isNaN(treatment.glucose)) {
-      console.warn('found an invalid glucose value', treatment);
-    } else {
-      if (treatment.glucose && treatment.units && browserSettings.units) {
-        if (treatment.units !== browserSettings.units) {
-          console.info('found mismatched glucose units, converting ' + treatment.units + ' into ' + browserSettings.units, treatment);
-          if (treatment.units === 'mmol') {
-            //BG is in mmol and display in mg/dl
-            treatmentGlucose = Math.round(treatment.glucose * 18);
-          } else {
-            //BG is in mg/dl and display in mmol
-            treatmentGlucose = scaleBg(treatment.glucose);
-          }
-        } else {
-          treatmentGlucose = treatment.glucose;
-        }
-      } else if (treatment.glucose) {
-        //no units, assume everything is the same
-        console.warn('found a glucose value without any units, maybe from an old version?', treatment);
-        treatmentGlucose = treatment.glucose;
-      }
-    }
-
-    return treatmentGlucose || scaleBg(calcBGByTime(treatment.mills));
-  }
-
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //draw a compact visualization of a treatment (carbs, insulin)
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1179,7 +1135,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       .data(arc_data)
       .enter()
       .append('g')
-      .attr('transform', 'translate(' + xScale(new Date(treatment.mills)) + ', ' + yScale(treatment.displayBG) + ')')
+      .attr('transform', 'translate(' + xScale(new Date(treatment.mills)) + ', ' + yScale(sbx.scaleEntry(treatment)) + ')')
       .on('mouseover', function () {
         tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
         tooltip.html('<strong>Time:</strong> ' + formatTime(new Date(treatment.mills)) + '<br/>' + '<strong>Treatment type:</strong> ' + treatment.eventType + '<br/>' +
@@ -1500,33 +1456,26 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       var temp1 = [ ];
       if (cal && rawbg.isEnabled(sbx)) {
         temp1 = SGVdata.map(function (entry) {
-          var rawbgValue = rawbg.showRawBGs(entry.y, entry.noise, cal, sbx) ? rawbg.calc(entry, cal, sbx) : 0;
+          var rawbgValue = rawbg.showRawBGs(entry.mgdl, entry.noise, cal, sbx) ? rawbg.calc(entry, cal, sbx) : 0;
           if (rawbgValue > 0) {
-            return { mills: entry.mills - 2000, y: rawbgValue, sgv: scaleBg(rawbgValue), color: 'white', type: 'rawbg' };
+            return { mills: entry.mills - 2000, mgdl: rawbgValue, color: 'white', type: 'rawbg' };
           } else {
             return null;
           }
         }).filter(function(entry) { return entry !== null; });
       }
       var temp2 = SGVdata.map(function (obj) {
-        return { mills: obj.mills, y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
+        return { mills: obj.mills, mgdl: obj.mgdl, direction: obj.direction, color: sgvToColor(obj.mgdl), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
       });
       data = [];
       data = data.concat(temp1, temp2);
 
       addPlaceholderPoints();
 
-      data = data.concat(MBGdata.map(function (obj) { return { mills: obj.mills, y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
+      data = data.concat(MBGdata.map(function (obj) { return { mills: obj.mills, mgdl: obj.mgdl, color: 'red', type: 'mbg', device: obj.device } }));
 
       data.forEach(function (d) {
-        if (d.y < 39) { d.color = 'transparent'; }
-      });
-
-      // OPTIMIZATION: precalculate treatment location in timeline
-      treatments.forEach(function (d) {
-        d.mills = new Date(d.created_at).getTime();
-        //cache the displayBG for each treatment in DISPLAY_UNITS
-        d.displayBG = displayTreatmentBG(d);
+        if (d.mgdl < 39) { d.color = 'transparent'; }
       });
 
       updateTitle();
@@ -1551,13 +1500,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     //with predicted alarms, latestSGV may still be in target so to see if the alarm
     //  is for a HIGH we can only check if it's >= the bottom of the target
     function isAlarmForHigh() {
-      return latestSGV.y >= app.thresholds.bg_target_bottom;
+      return latestSGV.mgdl >= app.thresholds.bg_target_bottom;
     }
 
     //with predicted alarms, latestSGV may still be in target so to see if the alarm
     //  is for a LOW we can only check if it's <= the top of the target
     function isAlarmForLow() {
-      return latestSGV.y <= app.thresholds.bg_target_top;
+      return latestSGV.mgdl <= app.thresholds.bg_target_top;
     }
 
     socket.on('alarm', function (notify) {
@@ -1569,7 +1518,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         currentAlarmType = 'alarm';
         generateAlarm(alarmSound,notify);
       } else {
-        console.info('alarm was disabled locally', latestSGV.y, browserSettings);
+        console.info('alarm was disabled locally', latestSGV.mgdl, browserSettings);
       }
       brushInProgress = false;
       updateChart(false);
@@ -1584,7 +1533,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         currentAlarmType = 'urgent_alarm';
         generateAlarm(urgentAlarmSound,notify);
       } else {
-        console.info('urgent alarm was disabled locally', latestSGV.y, browserSettings);
+        console.info('urgent alarm was disabled locally', latestSGV.mgdl, browserSettings);
       }
       brushInProgress = false;
       updateChart(false);
