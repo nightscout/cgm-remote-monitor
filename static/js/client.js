@@ -469,23 +469,33 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function prepareFocusCircles(sel) {
       var badData = [];
-      sel.attr('cx', function (d) { return xScale(new Date(d.mills)); })
-        .attr('cy', function (d) {
-          var scaled = sbx.scaleEntry(d);
-          if (isNaN(scaled)) {
-            badData.push(d);
-            return yScale(scaleBg(450));
-          } else {
-            return yScale(scaled);
-          }
-        })
-        .attr('fill', function (d) { return d.color; })
-        .attr('opacity', function (d) { return futureOpacity(d.mills - latestSGV.mills); })
-        .attr('stroke-width', function (d) { return d.type === 'mbg' ? 2 : 0; })
-        .attr('stroke', function (d) {
-          return (isDexcom(d.device) ? 'white' : '#0099ff');
-        })
-        .attr('r', function (d) { return dotRadius(d.type); });
+      sel.attr('cx', function (d) {
+        if (!d) {
+          console.error('Bad data', d);
+          return xScale(new Date(0));
+        } else if (!d.mills) {
+          console.error('Bad data, no mills', d);
+          return xScale(new Date(0));
+        } else {
+          return xScale(new Date(d.mills));
+        }
+      })
+      .attr('cy', function (d) {
+        var scaled = sbx.scaleEntry(d);
+        if (isNaN(scaled)) {
+          badData.push(d);
+          return yScale(scaleBg(450));
+        } else {
+          return yScale(scaled);
+        }
+      })
+      .attr('fill', function (d) { return d.color; })
+      .attr('opacity', function (d) { return futureOpacity(d.mills - latestSGV.mills); })
+      .attr('stroke-width', function (d) { return d.type === 'mbg' ? 2 : 0; })
+      .attr('stroke', function (d) {
+        return (isDexcom(d.device) ? 'white' : '#0099ff');
+      })
+      .attr('r', function (d) { return dotRadius(d.type); });
 
       if (badData.length > 0) {
         console.warn('Bad Data: isNaN(sgv)', badData);
