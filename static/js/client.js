@@ -40,6 +40,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , foucusRangeMS = THREE_HOURS_MS
     , clientAlarms = {}
     , alarmInProgress = false
+    , alarmMessage
     , currentAlarmType = null
     , alarmSound = 'alarm.mp3'
     , urgentAlarmSound = 'alarm2.mp3';
@@ -132,18 +133,20 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     return bg_title;  
   }
 
-  function updateTitle(message) {
+  function updateTitle(skipPageTitle) {
 
     var bg_title = browserSettings.customTitle || '';
 
-    if (message && alarmInProgress) {
-      bg_title = message.title + ': ' + generateTitle();
-      $('h1.customTitle').text(message.title);
+    if (alarmMessage && alarmInProgress) {
+      bg_title = alarmMessage + ': ' + generateTitle();
+      $('h1.customTitle').text(alarmMessage);
     } else {
       bg_title = generateTitle();
     }
 
-    $(document).attr('title', bg_title);
+    if (!skipPageTitle) {
+      $(document).attr('title', bg_title);
+    }
   }
 
   // initial setup of chart when data is first made available
@@ -1010,17 +1013,22 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
   function generateAlarm(file, reason) {
     alarmInProgress = true;
+    alarmMessage = reason && reason.title;
     var selector = '.audio.alarms audio.' + file;
-    d3.select(selector).each(function () {
-      var audio = this;
-      playAlarm(audio);
-      $(this).addClass('playing');
-    });
+
+    if (!alarmingNow()) {
+      d3.select(selector).each(function () {
+        var audio = this;
+        playAlarm(audio);
+        $(this).addClass('playing');
+      });
+    }
+
     $('.bgButton').addClass(file === urgentAlarmSound ? 'urgent' : 'warning');
     $('#container').addClass('alarming');
 
-    updateTitle(reason);
-
+    var skipPageTitle = isTimeAgoAlarmType(currentAlarmType);
+    updateTitle(skipPageTitle);
   }
 
   function playAlarm(audio) {
@@ -1034,6 +1042,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
   function stopAlarm(isClient, silenceTime) {
     alarmInProgress = false;
+    alarmMessage = null;
     $('.bgButton').removeClass('urgent warning');
     d3.selectAll('audio.playing').each(function () {
       var audio = this;
@@ -1053,10 +1062,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var alarm = getClientAlarm(currentAlarmType);
         alarm.lastAckTime = Date.now();
         alarm.silenceTime = silenceTime;
-        console.info('time ago alarm (' + currentAlarmType + ', not acking to server');
-      } else {
-        socket.emit('ack', currentAlarmType || 'alarm', silenceTime);
       }
+      socket.emit('ack', currentAlarmType || 'alarm', silenceTime);
     }
 
     brushed(false);
@@ -1204,11 +1211,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var level = ago.status
       , alarm = getClientAlarm(level + 'TimeAgo');
 
-    if (!alarmingNow() && Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
+    if (Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
       currentAlarmType = alarm.type;
       console.info('generating timeAgoAlarm', alarm.type);
       $('#container').addClass('alarming-timeago');
-      console.log('ago:', ago);
       var message = {'title': 'Last data received ' + [ago.value, ago.label].join(' ')};
       if (level === 'warn') {
         generateAlarm(alarmSound, message);
