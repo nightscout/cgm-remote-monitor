@@ -1,4 +1,5 @@
 var should = require('should');
+var moment = require('moment-timezone');
 
 describe('Profile', function ( ) {
 
@@ -31,7 +32,7 @@ describe('Profile', function ( ) {
   var profile = require('../lib/profilefunctions')([profileData]);
 //  console.log(profile);
 
-  var now = new Date();
+  var now = Date.now();
 
   it('should know what the DIA is with old style profiles', function() {
     var dia = profile.getDIA(now);
@@ -86,6 +87,7 @@ describe('Profile', function ( ) {
 
   var complexProfileData = 
   {
+    'timezone': moment.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time
     'sens': [
         {
             'time': '00:00',
@@ -153,8 +155,8 @@ describe('Profile', function ( ) {
 
   var complexProfile = require('../lib/profilefunctions')([complexProfileData]);
 
-  var noon = new Date('2015-06-22 12:00:00');
-  var threepm = new Date('2015-06-22 15:00:00');
+  var noon = new Date('2015-06-22 12:00:00').getTime();
+  var threepm = new Date('2015-06-22 15:00:00').getTime();
 
   it('should know what the basal rate is at 12:00 with complex style profiles', function() {
     var value = complexProfile.getBasal(noon);
