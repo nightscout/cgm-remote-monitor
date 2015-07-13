@@ -106,8 +106,12 @@ $('.eventtimeinput').focus(function (event) {
 $('.eventtimeinput').change(function (event) {
   $('#othertime').prop('checked', true);
   var time = mergeInputTime('#eventTimeValue','#eventDateValue');
-  if ($(this).attr('oldminutes')==59 && time.getMinutes()==0) time.addHours(1);
-  if ($(this).attr('oldminutes')==0 && time.getMinutes()==59) time.addHours(-1);
+  if ($(this).attr('oldminutes')=='59' && time.getMinutes()=='0') {
+     time.addHours(1);
+  }
+  if ($(this).attr('oldminutes')=='0' && time.getMinutes()=='59') {
+     time.addHours(-1);
+  }
   $('#eventTimeValue').val(time.toTimeString().slice(0,5));
   $('#eventDateValue').val(time.toDateInputValue());
   $(this).attr('oldminutes',time.getMinutes());

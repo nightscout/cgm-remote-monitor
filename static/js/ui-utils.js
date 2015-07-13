@@ -358,20 +358,20 @@ Date.prototype.toDateInputValue = function toDateInputValue() {
 	var local = new Date(this);
 	local.setMinutes(this.getMinutes() - this.getTimezoneOffset());
 	return local.toJSON().slice(0,10);
-}
+};
 
 Date.prototype.addMinutes = function addMinutes(h) {    
    this.setTime(this.getTime() + (h*60*1000)); 
    return this;   
-}    
+};
 
 Date.prototype.addHours = function addHours(h) {    
    this.setTime(this.getTime() + (h*60*60*1000)); 
    return this;   
-}    
+};
 
 Date.prototype.addDays = function addDays(h) {    
    this.setTime(this.getTime() + (h*24*60*60*1000)); 
    return this;   
-}    
+};
 
