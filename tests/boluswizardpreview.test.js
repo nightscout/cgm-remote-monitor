@@ -1,5 +1,6 @@
 var should = require('should');
 var Stream = require('stream');
+var levels = require('../lib/levels');
 
 describe('boluswizardpreview', function ( ) {
 
@@ -61,7 +62,7 @@ describe('boluswizardpreview', function ( ) {
     boluswizardpreview.checkNotifications(sbx);
 
     var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(ctx.notifications.levels.WARN);
+    highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Warning, Check BG, time to bolus?');
     highest.message.should.equal('BG Now: 180 +5 ↗ mg/dl\nBG 15m: 187 mg/dl\nBWP: 0.66U\nIOB: 0U');
     done();
@@ -75,7 +76,7 @@ describe('boluswizardpreview', function ( ) {
 
     var sbx = prepareSandbox();
     boluswizardpreview.checkNotifications(sbx);
-    ctx.notifications.findHighestAlarm().level.should.equal(ctx.notifications.levels.URGENT);
+    ctx.notifications.findHighestAlarm().level.should.equal(levels.URGENT);
 
     done();
   });
