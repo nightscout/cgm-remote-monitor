@@ -71,4 +71,10 @@ describe('errorcodes', function ( ) {
     done();
   });
 
+  it('convert a code to display', function () {
+    errorcodes.toDisplay(5).should.equal('?NC');
+    errorcodes.toDisplay(9).should.equal('?AD');
+    errorcodes.toDisplay(10).should.equal('???');
+  });
+
 });
