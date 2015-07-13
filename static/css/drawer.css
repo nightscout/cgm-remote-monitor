@@ -242,8 +242,9 @@ h1, legend,
     overflow: hidden;
 }
 #notification {
-    top: 5px;
-    z-index: 500;
+    opacity: 0.75;
+    top: 4px;
+    z-index: 99;
 }
 #notification.info a {
     background: #00f;

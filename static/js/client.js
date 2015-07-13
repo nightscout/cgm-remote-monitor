@@ -137,10 +137,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var bg_title = browserSettings.customTitle || '';
 
     if (message && alarmInProgress) {
-      //message title + normal generated title for the browser tab
       bg_title = message.title + ': ' + generateTitle();
-      //full message in header
-      $('h1.customTitle').text(message.title + ' ' + message.message);
+      $('h1.customTitle').text(message.title);
     } else {
       bg_title = generateTitle();
     }
@@ -1211,7 +1209,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       console.info('generating timeAgoAlarm', alarm.type);
       $('#container').addClass('alarming-timeago');
       console.log('ago:', ago);
-      var message = {'title': 'Last data received ', 'message': ago.value + ago.label};
+      [ago.value, ago.label].join(' - ');
+      var message = {'title': 'Last data received ' + [ago.value, ago.label].join(' - ')};
       if (level === 'warn') {
         generateAlarm(alarmSound, message);
       } else {
