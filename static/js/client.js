@@ -1209,8 +1209,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       console.info('generating timeAgoAlarm', alarm.type);
       $('#container').addClass('alarming-timeago');
       console.log('ago:', ago);
-      [ago.value, ago.label].join(' - ');
-      var message = {'title': 'Last data received ' + [ago.value, ago.label].join(' - ')};
+      var message = {'title': 'Last data received ' + [ago.value, ago.label].join(' ')};
       if (level === 'warn') {
         generateAlarm(alarmSound, message);
       } else {
