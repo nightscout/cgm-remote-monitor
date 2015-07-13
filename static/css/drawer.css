@@ -100,11 +100,6 @@ input[type=number]:invalid {
   display: inline-block;
 }
 
-#eventTime > input {
-  margin-left: 114px;
-  width: 140px;
-}
-
 #treatmentDrawer #glucoseValue {
   width: 230px;
 }
