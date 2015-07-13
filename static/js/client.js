@@ -40,6 +40,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , foucusRangeMS = THREE_HOURS_MS
     , clientAlarms = {}
     , alarmInProgress = false
+    , alarmMessage
     , currentAlarmType = null
     , alarmSound = 'alarm.mp3'
     , urgentAlarmSound = 'alarm2.mp3';
@@ -48,6 +49,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , rawbg = Nightscout.plugins('rawbg')
     , delta = Nightscout.plugins('delta')
     , direction = Nightscout.plugins('direction')
+    , errorcodes = Nightscout.plugins('errorcodes')
     , timeAgo = Nightscout.utils.timeAgo;
 
   var jqWindow
@@ -122,7 +124,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       var currentMgdl = latestSGV.mgdl;
 
       if (currentMgdl < 39) {
-        bg_title = s(errorCodeToDisplay(currentMgdl), ' - ') + bg_title;
+        bg_title = s(errorcodes.toDisplay(currentMgdl), ' - ') + bg_title;
       } else {
         var deltaDisplay = delta.calc(prevSGV, latestSGV, sbx).display;
         bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(direction.info(latestSGV).label) + bg_title;
@@ -131,20 +133,20 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     return bg_title;  
   }
 
-  function updateTitle(message) {
+  function updateTitle(skipPageTitle) {
 
     var bg_title = browserSettings.customTitle || '';
 
-    if (message && alarmInProgress) {
-      //message title + normal generated title for the browser tab
-      bg_title = message.title + ': ' + generateTitle();
-      //full message in header
-      $('h1.customTitle').text(message.title + ' ' + message.message);
+    if (alarmMessage && alarmInProgress) {
+      bg_title = alarmMessage + ': ' + generateTitle();
+      $('h1.customTitle').text(alarmMessage);
     } else {
       bg_title = generateTitle();
     }
 
-    $(document).attr('title', bg_title);
+    if (!skipPageTitle) {
+      $(document).attr('title', bg_title);
+    }
   }
 
   // initial setup of chart when data is first made available
@@ -282,27 +284,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     return !alarmingNow() && time - TWENTY_FIVE_MINS_IN_MS < now;
   }
 
-  function errorCodeToDisplay(errorCode) {
-    var errorDisplay;
-
-    switch (parseInt(errorCode)) {
-      case 0:  errorDisplay = '??0'; break; //None
-      case 1:  errorDisplay = '?SN'; break; //SENSOR_NOT_ACTIVE
-      case 2:  errorDisplay = '??2'; break; //MINIMAL_DEVIATION
-      case 3:  errorDisplay = '?NA'; break; //NO_ANTENNA
-      case 5:  errorDisplay = '?NC'; break; //SENSOR_NOT_CALIBRATED
-      case 6:  errorDisplay = '?CD'; break; //COUNTS_DEVIATION
-      case 7:  errorDisplay = '??7'; break; //?
-      case 8:  errorDisplay = '??8'; break; //?
-      case 9:  errorDisplay = '?HG'; break; //ABSOLUTE_DEVIATION
-      case 10: errorDisplay = '???'; break; //POWER_DEVIATION
-      case 12: errorDisplay = '?RF'; break; //BAD_RF
-      default: errorDisplay = '?' + parseInt(errorCode) + '?'; break;
-    }
-
-    return errorDisplay;
-  }
-
   function brushed(skipTimer) {
 
     if (!skipTimer) {
@@ -346,7 +327,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       if (value === 9) {
         currentBG.text('');
       } else if (value < 39) {
-        currentBG.html(errorCodeToDisplay(value));
+        currentBG.html(errorcodes.toDisplay(value));
       } else if (value < 40) {
         currentBG.text('LOW');
       } else if (value > 400) {
@@ -399,7 +380,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
       nowData = nowData.filter(function(d) {
         return d.mills >= brushExtent[1].getTime() - (2 * THIRTY_MINS_IN_MS) &&
-          d.mills <= brushExtent[1].getTime() - THIRTY_MINS_IN_MS - ONE_MIN_IN_MS;
+          d.mills <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS;
       });
 
       // sometimes nowData contains duplicates.  uniq it.
@@ -1032,17 +1013,22 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
   function generateAlarm(file, reason) {
     alarmInProgress = true;
+    alarmMessage = reason && reason.title;
     var selector = '.audio.alarms audio.' + file;
-    d3.select(selector).each(function () {
-      var audio = this;
-      playAlarm(audio);
-      $(this).addClass('playing');
-    });
+
+    if (!alarmingNow()) {
+      d3.select(selector).each(function () {
+        var audio = this;
+        playAlarm(audio);
+        $(this).addClass('playing');
+      });
+    }
+
     $('.bgButton').addClass(file === urgentAlarmSound ? 'urgent' : 'warning');
     $('#container').addClass('alarming');
 
-    updateTitle(reason);
-
+    var skipPageTitle = isTimeAgoAlarmType(currentAlarmType);
+    updateTitle(skipPageTitle);
   }
 
   function playAlarm(audio) {
@@ -1056,6 +1042,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
   function stopAlarm(isClient, silenceTime) {
     alarmInProgress = false;
+    alarmMessage = null;
     $('.bgButton').removeClass('urgent warning');
     d3.selectAll('audio.playing').each(function () {
       var audio = this;
@@ -1075,10 +1062,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         var alarm = getClientAlarm(currentAlarmType);
         alarm.lastAckTime = Date.now();
         alarm.silenceTime = silenceTime;
-        console.info('time ago alarm (' + currentAlarmType + ', not acking to server');
-      } else {
-        socket.emit('ack', currentAlarmType || 'alarm', silenceTime);
       }
+      socket.emit('ack', currentAlarmType || 'alarm', silenceTime);
     }
 
     brushed(false);
@@ -1226,12 +1211,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var level = ago.status
       , alarm = getClientAlarm(level + 'TimeAgo');
 
-    if (!alarmingNow() && Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
+    if (Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
       currentAlarmType = alarm.type;
       console.info('generating timeAgoAlarm', alarm.type);
       $('#container').addClass('alarming-timeago');
-      console.log('ago:', ago);
-      var message = {'title': 'Last data received ', 'message': ago.value + ago.label};
+      var message = {'title': 'Last data received ' + [ago.value, ago.label].join(' ')};
       if (level === 'warn') {
         generateAlarm(alarmSound, message);
       } else {

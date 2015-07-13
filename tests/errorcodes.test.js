@@ -40,7 +40,9 @@ describe('errorcodes', function ( ) {
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     errorcodes.checkNotifications(sbx);
-    ctx.notifications.findHighestAlarm().level.should.equal(ctx.notifications.levels.URGENT);
+    var findHighestAlarm = ctx.notifications.findHighestAlarm();
+    findHighestAlarm.level.should.equal(ctx.notifications.levels.URGENT);
+    findHighestAlarm.pushoverSound.should.equal('alien');
 
     done();
   });
@@ -52,7 +54,9 @@ describe('errorcodes', function ( ) {
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     errorcodes.checkNotifications(sbx);
     should.not.exist(ctx.notifications.findHighestAlarm());
-    _.first(ctx.notifications.findInfos()).level.should.equal(ctx.notifications.levels.LOW);
+    var info = _.first(ctx.notifications.findInfos());
+    info.level.should.equal(ctx.notifications.levels.LOW);
+    info.pushoverSound.should.equal('intermission');
 
     done();
   });
@@ -69,6 +73,12 @@ describe('errorcodes', function ( ) {
       _.first(ctx.notifications.findInfos()).level.should.be.lessThan(ctx.notifications.levels.WARN);
     }
     done();
+  });
+
+  it('convert a code to display', function () {
+    errorcodes.toDisplay(5).should.equal('?NC');
+    errorcodes.toDisplay(9).should.equal('?AD');
+    errorcodes.toDisplay(10).should.equal('???');
   });
 
 });
