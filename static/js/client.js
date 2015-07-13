@@ -72,6 +72,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , brushInProgress = false
     , clip;
 
+  var container = $('.container')
+    , bgButton = $('.bgButton')
+    , bgStatus = $('.bgStatus')
+    , currentBG = $('.bgStatus .currentBG')
+    , majorPills = $('.bgStatus .majorPills')
+    , minorPills = $('.bgStatus .minorPills')
+    , statusPills = $('.status .statusPills')
+    ;
+
   function formatTime(time, compact) {
     var timeFormat = getTimeFormat(false, compact);
     time = d3.time.format(timeFormat)(time);
@@ -115,7 +124,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       , ago = timeAgo(time, browserSettings);
 
     if (browserSettings.customTitle) {
-      $('h1.customTitle').text(browserSettings.customTitle);
+      $('.customTitle').text(browserSettings.customTitle);
     }
 
     if (ago && ago.status !== 'current') {
@@ -139,7 +148,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     if (alarmMessage && alarmInProgress) {
       bg_title = alarmMessage + ': ' + generateTitle();
-      $('h1.customTitle').text(alarmMessage);
+      $('.customTitle').text(alarmMessage);
     } else {
       bg_title = generateTitle();
     }
@@ -271,7 +280,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
   }
 
   function alarmingNow() {
-    return $('#container').hasClass('alarming');
+    return container.hasClass('alarming');
   }
 
   function inRetroMode() {
@@ -311,14 +320,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
-    var bgButton = $('.bgButton')
-      , bgStatus = $('.bgStatus')
-      , currentBG = $('.bgStatus .currentBG')
-      , majorPills = $('.bgStatus .majorPills')
-      , minorPills = $('.bgStatus .minorPills')
-      , statusPills = $('.status .statusPills')
-      ;
-
     function updateCurrentSGV(entry) {
         var value = entry.mgdl
           , ago = timeAgo(entry.mills, browserSettings)
@@ -338,9 +339,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
       bgStatus.toggleClass('current', alarmingNow() || (isCurrent && !inRetroMode()));
       if (!alarmingNow()) {
-        bgButton.removeClass('urgent warning inrange');
+        container.removeClass('urgent warning inrange');
         if (isCurrent && !inRetroMode()) {
-          bgButton.addClass(sgvToColoredRange(value));
+          container.addClass(sgvToColoredRange(value));
         }
       }
 
@@ -396,7 +397,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         updateCurrentSGV(focusPoint);
       } else {
         currentBG.text('---');
-        bgButton.removeClass('urgent warning inrange');
+        container.removeClass('urgent warning inrange');
       }
 
       updatePlugins(nowData, retroTime);
@@ -1024,8 +1025,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       });
     }
 
-    $('.bgButton').addClass(file === urgentAlarmSound ? 'urgent' : 'warning');
-    $('#container').addClass('alarming');
+    container.addClass('alarming').addClass(file === urgentAlarmSound ? 'urgent' : 'warning');
 
     var skipPageTitle = isTimeAgoAlarmType(currentAlarmType);
     updateTitle(skipPageTitle);
@@ -1043,7 +1043,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
   function stopAlarm(isClient, silenceTime) {
     alarmInProgress = false;
     alarmMessage = null;
-    $('.bgButton').removeClass('urgent warning');
+    container.removeClass('urgent warning');
     d3.selectAll('audio.playing').each(function () {
       var audio = this;
       audio.pause();
@@ -1051,14 +1051,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     });
 
     closeNotification();
-    $('#container').removeClass('alarming');
+    container.removeClass('alarming');
 
     updateTitle();
 
     // only emit ack if client invoke by button press
     if (isClient) {
       if (isTimeAgoAlarmType(currentAlarmType)) {
-        $('#container').removeClass('alarming-timeago');
+        container.removeClass('alarming-timeago');
         var alarm = getClientAlarm(currentAlarmType);
         alarm.lastAckTime = Date.now();
         alarm.silenceTime = silenceTime;
@@ -1214,7 +1214,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     if (Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
       currentAlarmType = alarm.type;
       console.info('generating timeAgoAlarm', alarm.type);
-      $('#container').addClass('alarming-timeago');
+      container.addClass('alarming-timeago');
       var message = {'title': 'Last data received ' + [ago.value, ago.label].join(' ')};
       if (level === 'warn') {
         generateAlarm(alarmSound, message);
@@ -1243,7 +1243,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       checkTimeAgoAlarm(ago);
     }
 
-    $('#container').toggleClass('alarming-timeago', ago.status !== 'current');
+    container.toggleClass('alarming-timeago', ago.status !== 'current');
 
     if (alarmingNow() && ago.status === 'current' && isTimeAgoAlarmType(currentAlarmType)) {
       stopAlarm(true, ONE_MIN_IN_MS);

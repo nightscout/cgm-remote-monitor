@@ -163,6 +163,7 @@ dd.numbers label {
 }
 
 h1, legend,
+#toolbar .customTitle,
 #about .appName,
 #about .version {
     font-weight: bold;
@@ -185,7 +186,7 @@ h1, legend,
     text-shadow: 0 0 5px black;
 }
 
-#toolbar h1 {
+#toolbar div {
     color: #ccc;
     font-size: 16px;
     margin-top: 0;
