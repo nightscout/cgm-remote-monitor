@@ -126,10 +126,10 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
   * `ENABLE` - Used to enable optional features, expects a space delimited list such as: `careportal rawbg iob`, see [plugins](#plugins) below
   * `API_SECRET` - A secret passphrase that must be at least 12 characters long, required to enable `POST` and `PUT`; also required for the Care Portal
-  * `BG_HIGH` (`260`) - must be set using mg/dl units; the high BG outside the target range that is considered urgent
-  * `BG_TARGET_TOP` (`180`) - must be set using mg/dl units; the top of the target range, also used to draw the line on the chart
-  * `BG_TARGET_BOTTOM` (`80`) - must be set using mg/dl units; the bottom of the target range, also used to draw the line on the chart
-  * `BG_LOW` (`55`) - must be set using mg/dl units; the low BG outside the target range that is considered urgent
+  * `BG_HIGH` (`260` mg/dL or `15` mmol/L) - the high BG outside the target range that is considered urgent. Use mmol/L with `DISPLAY_UNITS=mmol` variable
+  * `BG_TARGET_TOP` (`180` mg/dL or `10` mmol/L) - the top of the target range, also used to draw the line on the chart. Use mmol/L with `DISPLAY_UNITS=mmol` variable
+  * `BG_TARGET_BOTTOM` (`80` mg/dL or `5` mmol/L) - the bottom of the target range, also used to draw the line on the chart. Use mmol/L with `DISPLAY_UNITS=mmol` variable
+  * `BG_LOW` (`55` mg/dL or `4` mmol/L) - the low BG outside the target range that is considered urgent. Use mmol/L with `DISPLAY_UNITS=mmol` variable
   * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's
   * `BASE_URL` - Used for building links to your sites api, ie pushover callbacks, usually the URL of your Nightscout site you may want https instead of http
 
