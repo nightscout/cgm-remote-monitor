@@ -399,7 +399,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
       nowData = nowData.filter(function(d) {
         return d.mills >= brushExtent[1].getTime() - (2 * THIRTY_MINS_IN_MS) &&
-          d.mills <= brushExtent[1].getTime() - THIRTY_MINS_IN_MS - ONE_MIN_IN_MS;
+          d.mills <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS;
       });
 
       // sometimes nowData contains duplicates.  uniq it.
