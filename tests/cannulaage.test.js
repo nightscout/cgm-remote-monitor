@@ -1,6 +1,7 @@
 'use strict';
 
 require('should');
+var levels = require('../lib/levels');
 
 describe('cage', function ( ) {
   var cage = require('../lib/plugins/cannulaage')();
@@ -52,7 +53,7 @@ describe('cage', function ( ) {
     cage.checkNotifications(sbx);
 
     var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(ctx.notifications.levels.WARN);
+    highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Cannula age 48 hours');
     done();
   });

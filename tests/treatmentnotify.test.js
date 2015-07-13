@@ -1,5 +1,6 @@
 var _ = require('lodash');
 var should = require('should');
+var levels = require('../lib/levels');
 
 describe('treatmentnotify', function ( ) {
 
@@ -20,9 +21,9 @@ describe('treatmentnotify', function ( ) {
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     treatmentnotify.checkNotifications(sbx);
     should.not.exist(ctx.notifications.findHighestAlarm());
-    should.exist(ctx.notifications.snoozedBy({level: ctx.notifications.levels.URGENT}));
+    should.exist(ctx.notifications.snoozedBy({level: levels.URGENT}));
 
-    _.first(ctx.notifications.findInfos()).level.should.equal(ctx.notifications.levels.INFO);
+    _.first(ctx.notifications.findInfos()).level.should.equal(levels.INFO);
 
     done();
   });
@@ -35,7 +36,7 @@ describe('treatmentnotify', function ( ) {
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     treatmentnotify.checkNotifications(sbx);
     should.not.exist(ctx.notifications.findHighestAlarm());
-    should.exist(ctx.notifications.snoozedBy({level: ctx.notifications.levels.URGENT}));
+    should.exist(ctx.notifications.snoozedBy({level: levels.URGENT}));
 
     should.not.exist(_.first(ctx.notifications.findInfos()));
 
@@ -50,9 +51,9 @@ describe('treatmentnotify', function ( ) {
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     treatmentnotify.checkNotifications(sbx);
     should.not.exist(ctx.notifications.findHighestAlarm());
-    should.exist(ctx.notifications.snoozedBy({level: ctx.notifications.levels.URGENT}));
+    should.exist(ctx.notifications.snoozedBy({level: levels.URGENT}));
 
-    _.first(ctx.notifications.findInfos()).level.should.equal(ctx.notifications.levels.INFO);
+    _.first(ctx.notifications.findInfos()).level.should.equal(levels.INFO);
 
     done();
   });
@@ -65,7 +66,7 @@ describe('treatmentnotify', function ( ) {
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     treatmentnotify.checkNotifications(sbx);
     should.not.exist(ctx.notifications.findHighestAlarm());
-    should.exist(ctx.notifications.snoozedBy({level: ctx.notifications.levels.URGENT}));
+    should.exist(ctx.notifications.snoozedBy({level: levels.URGENT}));
 
     should.not.exist(_.first(ctx.notifications.findInfos()));
 
