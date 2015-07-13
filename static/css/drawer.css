@@ -186,7 +186,7 @@ h1, legend,
     text-shadow: 0 0 5px black;
 }
 
-#toolbar div {
+#toolbar .customTitle {
     color: #ccc;
     font-size: 16px;
     margin-top: 0;
