@@ -443,6 +443,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       var radius = prevChartWidth > WIDTH_BIG_DOTS ? 4 : (prevChartWidth < WIDTH_SMALL_DOTS ? 2 : 3);
       if (type === 'mbg') {
         radius *= 2;
+      } else if (type === 'forecast') {
+        radius = Math.min(3, radius - 1);
       } else if (type === 'rawbg') {
         radius = Math.min(2, radius - 1);
       }
@@ -476,11 +478,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
           return yScale(scaled);
         }
       })
-      .attr('fill', function (d) { return d.color; })
+      .attr('fill', function (d) { return d.type === 'forecast' ? 'none' : d.color; })
       .attr('opacity', function (d) { return futureOpacity(d.mills - latestSGV.mills); })
-      .attr('stroke-width', function (d) { return d.type === 'mbg' ? 2 : 0; })
+      .attr('stroke-width', function (d) { return d.type === 'mbg' ? 2 : d.type === 'forecast' ? 1 : 0; })
       .attr('stroke', function (d) {
-        return (isDexcom(d.device) ? 'white' : '#0099ff');
+        return (isDexcom(d.device) ? 'white' : d.type === 'forecast' ? d.color : '#0099ff');
       })
       .attr('r', function (d) { return dotRadius(d.type); });
 
