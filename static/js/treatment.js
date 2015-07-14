@@ -11,7 +11,7 @@ function initTreatmentDrawer()  {
   $('#enteredBy').val(browserStorage.get('enteredBy') || '');
   $('#nowtime').prop('checked', true);
   $('#eventTimeValue').val(new Date().toTimeString().slice(0,5));
-  $('#eventDateValue').val(new Date().toDateInputValue());
+  $('#eventDateValue').val(Nightscout.utils.toDateInputValue(new Date()));
 }
 
 function treatmentSubmit(event) {
@@ -43,41 +43,41 @@ function treatmentSubmit(event) {
   if (errors.length > 0) {
     window.alert(errors.join('\n'));
   } else {
- 		var eventTimeDisplay = '';
 		if ($('#othertime').is(':checked')) {
-			data.eventTime = mergeInputTime('#eventTimeValue','#eventDateValue');
-			eventTimeDisplay = data.eventTime.toLocaleString();
+			data.eventTime = Nightscout.utils.mergeInputTime('#eventTimeValue','#eventDateValue');
 		}
-
-    var dataJson = JSON.stringify(data, null, ' ');
-
-    var ok = window.confirm(
-        'Please verify that the data entered is correct: ' +
-        '\nEvent type: ' + data.eventType +
-        ( data.glucose ? '\nBlood glucose: ' + data.glucose +
-        '\nMethod: ' + data.glucoseType : '' ) +
-        ( data.carbs ? '\nCarbs Given: ' + data.carbs : '' ) +
-        ( data.insulin ? '\nInsulin Given: ' + data.insulin : '' ) +
-        ( data.preBolus ? '\nPre Bolus: ' + data.preBolus : '' ) +
-        ( data.notes ? '\nNotes: ' + data.notes : '' ) +
-        ( data.enteredBy ? '\nEntered By: ' + data.enteredBy : '') +
-        (eventTimeDisplay ? '\nEvent Time: ' + eventTimeDisplay: '' )
-      );
-
-    if (ok) {
-      var xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/v1/treatments/', true);
-      xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-      xhr.send(dataJson);
-
-      browserStorage.set('enteredBy', data.enteredBy);
-
-      closeDrawer('#treatmentDrawer');
-    }
+    confirmPost(data);
   }
 
   if (event) {
     event.preventDefault();
+  }
+}
+
+function confirmPost(data) {
+  var ok = window.confirm(
+      'Please verify that the data entered is correct: ' +
+      '\nEvent type: ' + data.eventType +
+      ( data.glucose ? '\nBlood glucose: ' + data.glucose +
+      '\nMethod: ' + data.glucoseType : '' ) +
+      ( data.carbs ? '\nCarbs Given: ' + data.carbs : '' ) +
+      ( data.insulin ? '\nInsulin Given: ' + data.insulin : '' ) +
+      ( data.preBolus ? '\nPre Bolus: ' + data.preBolus : '' ) +
+      ( data.notes ? '\nNotes: ' + data.notes : '' ) +
+      ( data.enteredBy ? '\nEntered By: ' + data.enteredBy : '') +
+      (data.eventTime ? '\nEvent Time: ' + data.eventTime.toLocaleString(): '' )
+    );
+
+  if (ok) {
+    var dataJson = JSON.stringify(data, null, ' ');
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/v1/treatments/', true);
+    xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+    xhr.send(dataJson);
+
+    browserStorage.set('enteredBy', data.enteredBy);
+
+    closeDrawer('#treatmentDrawer');
   }
 }
 
@@ -97,7 +97,7 @@ $('#eventTime input:radio').change(function (event){
 
 $('.eventtimeinput').focus(function (event) {
   $('#othertime').prop('checked', true);
-  var time = mergeInputTime('#eventTimeValue','#eventDateValue');
+  var time = Nightscout.utils.mergeInputTime('#eventTimeValue','#eventDateValue');
   $(this).attr('oldminutes',time.getMinutes());
   $(this).attr('oldhours',time.getHours());
   event.preventDefault();
@@ -105,15 +105,15 @@ $('.eventtimeinput').focus(function (event) {
 
 $('.eventtimeinput').change(function (event) {
   $('#othertime').prop('checked', true);
-  var time = mergeInputTime('#eventTimeValue','#eventDateValue');
-  if ($(this).attr('oldminutes')=='59' && time.getMinutes()=='0') {
-     time.addHours(1);
+  var time = Nightscout.utils.mergeInputTime('#eventTimeValue','#eventDateValue');
+  if ($(this).attr('oldminutes')==='59' && time.getMinutes()===0) {
+     Nightscout.utils.addHours(time,1);
   }
-  if ($(this).attr('oldminutes')=='0' && time.getMinutes()=='59') {
-     time.addHours(-1);
+  if ($(this).attr('oldminutes')==='0' && time.getMinutes()===59) {
+     Nightscout.utils.addHours(time,-1);
   }
   $('#eventTimeValue').val(time.toTimeString().slice(0,5));
-  $('#eventDateValue').val(time.toDateInputValue());
+  $('#eventDateValue').val(Nightscout.utils.toDateInputValue(time));
   $(this).attr('oldminutes',time.getMinutes());
   $(this).attr('oldhours',time.getHours());
   event.preventDefault();

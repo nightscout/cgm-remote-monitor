@@ -342,36 +342,3 @@ $(function() {
   }
 });
 
-// some helpers for input "date"
-function mergeInputTime(timeid,dateid) {
-  var value = $(timeid).val();
-  var eventTimeParts = value.split(':');
-  var eventTime = new Date($(dateid).val());
-  eventTime.setHours(eventTimeParts[0]);
-  eventTime.setMinutes(eventTimeParts[1]);
-  eventTime.setSeconds(0);
-  eventTime.setMilliseconds(0);
-  return eventTime;
-}
-
-Date.prototype.toDateInputValue = function toDateInputValue() {
-	var local = new Date(this);
-	local.setMinutes(this.getMinutes() - this.getTimezoneOffset());
-	return local.toJSON().slice(0,10);
-};
-
-Date.prototype.addMinutes = function addMinutes(h) {    
-   this.setTime(this.getTime() + (h*60*1000)); 
-   return this;   
-};
-
-Date.prototype.addHours = function addHours(h) {    
-   this.setTime(this.getTime() + (h*60*60*1000)); 
-   return this;   
-};
-
-Date.prototype.addDays = function addDays(h) {    
-   this.setTime(this.getTime() + (h*24*60*60*1000)); 
-   return this;   
-};
-
