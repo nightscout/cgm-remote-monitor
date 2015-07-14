@@ -55,7 +55,7 @@ function treatmentSubmit(event) {
 }
 
 function confirmPost(data) {
-  var ok = window.confirm(
+  var confirmtext = 
       'Please verify that the data entered is correct: ' +
       '\nEvent type: ' + data.eventType +
       ( data.glucose ? '\nBlood glucose: ' + data.glucose +
@@ -65,10 +65,9 @@ function confirmPost(data) {
       ( data.preBolus ? '\nPre Bolus: ' + data.preBolus : '' ) +
       ( data.notes ? '\nNotes: ' + data.notes : '' ) +
       ( data.enteredBy ? '\nEntered By: ' + data.enteredBy : '') +
-      (data.eventTime ? '\nEvent Time: ' + data.eventTime.toLocaleString(): '' )
-    );
+      ( data.eventTime ? '\nEvent Time: ' + data.eventTime.toLocaleString(): '' );
 
-  if (ok) {
+  if (window.confirm(confirmtext)) {
     var dataJson = JSON.stringify(data, null, ' ');
     var xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/v1/treatments/', true);

@@ -187,27 +187,6 @@ function toggleDrawer(id, openCallback, closeCallback) {
 
 }
 
-function currentTime() {
-  var now = new Date();
-  var hours = now.getHours();
-  var minutes = now.getMinutes();
-
-  if (hours < 10) { hours = '0' + hours; }
-  if (minutes < 10) { minutes = '0' + minutes; }
-
-  return ''+ hours + ':' + minutes;
-}
-
-function formatTime(date) {
-  var hours = date.getHours();
-  var minutes = date.getMinutes();
-  var ampm = hours >= 12 ? 'pm' : 'am';
-  hours = hours % 12;
-  hours = hours ? hours : 12; // the hour '0' should be '12'
-  minutes = minutes < 10 ? '0' + minutes : minutes;
-  return hours + ':' + minutes + ' ' + ampm;
-}
-
 function closeNotification() {
   var notify = $('#notification');
   notify.hide();
