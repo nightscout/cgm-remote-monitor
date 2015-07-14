@@ -73,7 +73,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , clip;
 
   var container = $('.container')
-    , bgButton = $('.bgButton')
     , bgStatus = $('.bgStatus')
     , currentBG = $('.bgStatus .currentBG')
     , majorPills = $('.bgStatus .majorPills')
@@ -234,7 +233,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
     // required to happen when 'now' event is sent from websocket.js every minute.  When fixed,
     // remove this code and all references to `type: 'server-forecast'`
-    var lastTime = data.length > 0 ? data[data.length - 1].mills : Date.now();
+    var last = _.last(data);
+    var lastTime = last && last.mills;
+    if (!lastTime) {
+      console.error('Bad Data, last point has no mills', last);
+      lastTime = Date.now();
+    }
+
     var n = Math.ceil(12 * (1 / 2 + (now - lastTime) / SIXTY_MINS_IN_MS)) + 1;
     for (var i = 1; i <= n; i++) {
       data.push({
