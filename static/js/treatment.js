@@ -44,7 +44,7 @@ function treatmentSubmit(event) {
     window.alert(errors.join('\n'));
   } else {
 		if ($('#othertime').is(':checked')) {
-			data.eventTime = Nightscout.utils.mergeInputTime('#eventTimeValue','#eventDateValue');
+			data.eventTime = Nightscout.utils.mergeInputTime($('#eventTimeValue').val(),$('#eventDateValue').val());
 		}
     confirmPost(data);
   }
@@ -56,16 +56,15 @@ function treatmentSubmit(event) {
 
 function confirmPost(data) {
   var confirmtext = 
-      'Please verify that the data entered is correct: ' +
-      '\nEvent type: ' + data.eventType +
-      ( data.glucose ? '\nBlood glucose: ' + data.glucose +
-      '\nMethod: ' + data.glucoseType : '' ) +
-      ( data.carbs ? '\nCarbs Given: ' + data.carbs : '' ) +
-      ( data.insulin ? '\nInsulin Given: ' + data.insulin : '' ) +
-      ( data.preBolus ? '\nPre Bolus: ' + data.preBolus : '' ) +
-      ( data.notes ? '\nNotes: ' + data.notes : '' ) +
-      ( data.enteredBy ? '\nEntered By: ' + data.enteredBy : '') +
-      ( data.eventTime ? '\nEvent Time: ' + data.eventTime.toLocaleString(): '' );
+        'Please verify that the data entered is correct: ' +
+        '\nEvent type: ' + data.eventType;
+  confirmtext += data.glucose ? '\nBlood glucose: ' + data.glucose + '\nMethod: ' + data.glucoseType : '';
+  confirmtext += data.carbs ? '\nCarbs Given: ' + data.carbs : '';
+  confirmtext += data.insulin ? '\nInsulin Given: ' + data.insulin : '';
+  confirmtext += data.preBolus ? '\nPre Bolus: ' + data.preBolus : '';
+  confirmtext += data.notes ? '\nNotes: ' + data.notes : '';
+  confirmtext += data.enteredBy ? '\nEntered By: ' + data.enteredBy : '';
+  confirmtext += data.eventTime ? '\nEvent Time: ' + data.eventTime.toLocaleString(): '';
 
   if (window.confirm(confirmtext)) {
     var dataJson = JSON.stringify(data, null, ' ');
@@ -96,7 +95,7 @@ $('#eventTime input:radio').change(function (event){
 
 $('.eventtimeinput').focus(function (event) {
   $('#othertime').prop('checked', true);
-  var time = Nightscout.utils.mergeInputTime('#eventTimeValue','#eventDateValue');
+  var time = Nightscout.utils.mergeInputTime($('#eventTimeValue').val(),$('#eventDateValue').val());
   $(this).attr('oldminutes',time.getMinutes());
   $(this).attr('oldhours',time.getHours());
   event.preventDefault();
@@ -104,7 +103,7 @@ $('.eventtimeinput').focus(function (event) {
 
 $('.eventtimeinput').change(function (event) {
   $('#othertime').prop('checked', true);
-  var time = Nightscout.utils.mergeInputTime('#eventTimeValue','#eventDateValue');
+  var time = Nightscout.utils.mergeInputTime($('#eventTimeValue').val(),$('#eventDateValue').val());
   if ($(this).attr('oldminutes')==='59' && time.getMinutes()===0) {
      Nightscout.utils.addHours(time,1);
   }
