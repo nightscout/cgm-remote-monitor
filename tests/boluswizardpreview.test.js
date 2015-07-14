@@ -152,6 +152,42 @@ describe('boluswizardpreview', function ( ) {
   });
 
 
+ it('should calculate IOB results correctly with 0.45 U IOB resulting in going low in MMOL', function (done) {
+
+    // boilerplate for client sandbox running in mmol
+
+    var profileData = {
+      dia: 3
+      , units: 'mmol'
+      , sens: 9
+      , target_high: 6
+      , target_low: 5
+      , basal: 0.125
+    };
+
+    var sandbox = require('../lib/sandbox')();
+    var app = { };
+    var pluginBase = {};
+    var clientSettings = { units: 'mmol' };
+    var data = {sgvs: [{mills: before, mgdl: 175}, {mills: now, mgdl: 153}]};
+    data.treatments = [{mills: now, insulin: '0.45'}];
+    data.profile = require('../lib/profilefunctions')([profileData]);
+    var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
+    var iob = require('../lib/plugins/iob')();
+    sbx.properties.iob = iob.calcTotal(data.treatments, data.profile, now);
+
+    var results = boluswizardpreview.calc(sbx);
+    
+    results.effect.should.equal(4.05);
+    results.outcome.should.equal(4.45);
+    Math.round(results.bolusEstimate*100).should.equal(-6);
+    results.displayLine.should.equal('BWP: -0.07U');
+    results.tempBasalAdjustment.thirtymin.should.equal(2);
+    results.tempBasalAdjustment.onehour.should.equal(51);
+    
+    done();
+  });
+
 
   it('Not trigger an alarm when in range', function (done) {
     ctx.notifications.initRequests();
