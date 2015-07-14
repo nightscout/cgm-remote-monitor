@@ -102,7 +102,7 @@ describe('Pebble Endpoint', function ( ) {
         bgs.length.should.equal(1);
         var bg = bgs[0];
         bg.sgv.should.equal('82');
-        bg.bgdelta.should.equal(-2);
+        bg.bgdelta.should.equal('-2');
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
         bg.datetime.should.equal(now);
@@ -127,7 +127,7 @@ describe('Pebble Endpoint', function ( ) {
         bgs.length.should.equal(1);
         var bg = bgs[0];
         bg.sgv.should.equal('4.6');
-        bg.bgdelta.should.equal(-0.1);
+        bg.bgdelta.should.equal('-0.1');
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
         bg.datetime.should.equal(now);
@@ -151,7 +151,7 @@ describe('Pebble Endpoint', function ( ) {
         bgs.length.should.equal(2);
         var bg = bgs[0];
         bg.sgv.should.equal('82');
-        bg.bgdelta.should.equal(-2);
+        bg.bgdelta.should.equal('-2');
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
         bg.datetime.should.equal(now);
@@ -187,7 +187,7 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
         bgs.length.should.equal(2);
         var bg = bgs[0];
         bg.sgv.should.equal('82');
-        bg.bgdelta.should.equal(-2);
+        bg.bgdelta.should.equal('-2');
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
         bg.datetime.should.equal(now);
