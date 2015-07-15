@@ -47,7 +47,7 @@ ctx.data.sgvs = updateMills([
     noise: 1
   }
   , { device: 'dexcom',
-    mgdl: 84,
+    mgdl: 92,
     direction: 'Flat',
     type: 'sgv',
     filtered: 115680,
@@ -56,7 +56,7 @@ ctx.data.sgvs = updateMills([
     noise: 1
   }
   , { device: 'dexcom',
-    mgdl: 82,
+    mgdl: 90,
     direction: 'Flat',
     type: 'sgv',
     filtered: 113984,
@@ -101,7 +101,7 @@ describe('Pebble Endpoint', function ( ) {
         var bgs = res.body.bgs;
         bgs.length.should.equal(1);
         var bg = bgs[0];
-        bg.sgv.should.equal('82');
+        bg.sgv.should.equal('90');
         bg.bgdelta.should.equal(-2);
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
@@ -126,8 +126,8 @@ describe('Pebble Endpoint', function ( ) {
         var bgs = res.body.bgs;
         bgs.length.should.equal(1);
         var bg = bgs[0];
-        bg.sgv.should.equal('4.6');
-        bg.bgdelta.should.equal(-0.1);
+        bg.sgv.should.equal('5.0');
+        bg.bgdelta.should.equal('-0.1');
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
         bg.datetime.should.equal(now);
@@ -150,7 +150,7 @@ describe('Pebble Endpoint', function ( ) {
         var bgs = res.body.bgs;
         bgs.length.should.equal(2);
         var bg = bgs[0];
-        bg.sgv.should.equal('82');
+        bg.sgv.should.equal('90');
         bg.bgdelta.should.equal(-2);
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
@@ -186,7 +186,7 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
         var bgs = res.body.bgs;
         bgs.length.should.equal(2);
         var bg = bgs[0];
-        bg.sgv.should.equal('82');
+        bg.sgv.should.equal('90');
         bg.bgdelta.should.equal(-2);
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
