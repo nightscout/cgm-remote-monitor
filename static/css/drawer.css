@@ -68,26 +68,26 @@ input[type=number]:invalid {
   box-sizing: border-box;
 }
 
-#treatmentDrawer label.left-column {
+#treatmentDrawer .left-column {
   display: block;
   width: 100%;
 }
 
-#treatmentDrawer label.left-column span {
+#treatmentDrawer .left-column span {
   width: 110px;
   display: inline-block;
 }
 
-#treatmentDrawer label.left-column input, #treatmentDrawer label.left-column select {
+#treatmentDrawer .left-column input, #treatmentDrawer .left-column select {
   width: 140px;
 }
 
-#treatmentDrawer label.extra-space {
+#treatmentDrawer .extra-space {
   padding-top: 10px;
   display: block;
 }
 
-input.timeago-mins {
+.timeago-mins {
   width: 25px;
 }
 
