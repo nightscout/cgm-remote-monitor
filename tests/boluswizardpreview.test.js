@@ -38,6 +38,157 @@ describe('boluswizardpreview', function ( ) {
     , target_low: 100
   };
 
+  it('should calculate IOB results correctly with 0 IOB', function (done) {
+    ctx.notifications.initRequests();
+    ctx.data.sgvs = [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}];
+    ctx.data.treatments = [];
+    ctx.data.profiles = [profile];
+
+    var sbx = prepareSandbox();
+    var results = boluswizardpreview.calc(sbx);
+    
+    results.effect.should.equal(0);
+    results.effectDisplay.should.equal(0);
+    results.outcome.should.equal(100);
+    results.outcomeDisplay.should.equal(100);
+    results.bolusEstimate.should.equal(0);
+    results.displayLine.should.equal('BWP: 0U');
+    
+    done();
+  });
+
+  it('should calculate IOB results correctly with 1.0 U IOB', function (done) {
+    ctx.notifications.initRequests();
+    ctx.data.sgvs = [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}];
+    ctx.data.treatments = [{mills: now, insulin: '1.0'}];
+    
+    var profile = {
+      dia: 3
+      , sens: 50
+      , target_high: 100
+      , target_low: 50
+    };
+
+    ctx.data.profiles = [profile];
+
+    var sbx = prepareSandbox();
+    var results = boluswizardpreview.calc(sbx);
+
+    Math.round(results.effect).should.equal(50);
+    results.effectDisplay.should.equal(50);
+    Math.round(results.outcome).should.equal(50);
+    results.outcomeDisplay.should.equal(50);
+    results.bolusEstimate.should.equal(0);
+    results.displayLine.should.equal('BWP: 0U');
+    
+    done();
+  });
+
+  it('should calculate IOB results correctly with 1.0 U IOB resulting in going low', function (done) {
+    ctx.notifications.initRequests();
+    ctx.data.sgvs = [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}];
+    ctx.data.treatments = [{mills: now, insulin: '1.0'}];
+    
+    var profile = {
+      dia: 3
+      , sens: 50
+      , target_high: 200
+      , target_low: 100
+      , basal: 1
+    };
+
+    
+    ctx.data.profiles = [profile];
+
+    var sbx = prepareSandbox();
+    var results = boluswizardpreview.calc(sbx);
+    
+    Math.round(results.effect).should.equal(50);
+    results.effectDisplay.should.equal(50);
+    Math.round(results.outcome).should.equal(50);
+    results.outcomeDisplay.should.equal(50);
+    Math.round(results.bolusEstimate).should.equal(-1);
+    results.displayLine.should.equal('BWP: -1.00U');
+    results.tempBasalAdjustment.thirtymin.should.equal(-100);
+    results.tempBasalAdjustment.onehour.should.equal(0);
+    
+    done();
+  });
+
+ it('should calculate IOB results correctly with 1.0 U IOB resulting in going low in MMOL', function (done) {
+
+    // boilerplate for client sandbox running in mmol
+
+    var profileData = {
+      dia: 3
+      , units: 'mmol'
+      , sens: 10
+      , target_high: 10
+      , target_low: 5.6
+      , basal: 1
+    };
+
+    var sandbox = require('../lib/sandbox')();
+    var app = { };
+    var pluginBase = {};
+    var clientSettings = { units: 'mmol' };
+    var data = {sgvs: [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}]};
+    data.treatments = [{mills: now, insulin: '1.0'}];
+    data.profile = require('../lib/profilefunctions')([profileData]);
+    var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
+    var iob = require('../lib/plugins/iob')();
+    sbx.properties.iob = iob.calcTotal(data.treatments, data.profile, now);
+
+    var results = boluswizardpreview.calc(sbx);
+    
+    results.effect.should.equal(10);
+    results.outcome.should.equal(-4.4);
+    results.bolusEstimate.should.equal(-1);
+    results.displayLine.should.equal('BWP: -1.00U');
+    results.tempBasalAdjustment.thirtymin.should.equal(-100);
+    results.tempBasalAdjustment.onehour.should.equal(0);
+    
+    done();
+  });
+
+
+ it('should calculate IOB results correctly with 0.45 U IOB resulting in going low in MMOL', function (done) {
+
+    // boilerplate for client sandbox running in mmol
+
+    var profileData = {
+      dia: 3
+      , units: 'mmol'
+      , sens: 9
+      , target_high: 6
+      , target_low: 5
+      , basal: 0.125
+    };
+
+    var sandbox = require('../lib/sandbox')();
+    var app = { };
+    var pluginBase = {};
+    var clientSettings = { units: 'mmol' };
+    var data = {sgvs: [{mills: before, mgdl: 175}, {mills: now, mgdl: 153}]};
+    data.treatments = [{mills: now, insulin: '0.45'}];
+    data.profile = require('../lib/profilefunctions')([profileData]);
+    var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
+    var iob = require('../lib/plugins/iob')();
+    sbx.properties.iob = iob.calcTotal(data.treatments, data.profile, now);
+
+    var results = boluswizardpreview.calc(sbx);
+    
+    results.effect.should.equal(4.05);
+    results.outcome.should.equal(4.45);
+    Math.round(results.bolusEstimate*100).should.equal(-6);
+    results.displayLine.should.equal('BWP: -0.07U');
+    results.tempBasalAdjustment.thirtymin.should.equal(2);
+    results.tempBasalAdjustment.onehour.should.equal(51);
+    
+    done();
+  });
+
+
   it('Not trigger an alarm when in range', function (done) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{mills: before, mgdl: 95}, {mills: now, mgdl: 100}];
