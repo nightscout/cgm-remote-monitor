@@ -25,12 +25,16 @@ describe('cage', function ( ) {
     var clientSettings = {};
 
     var data = {
-      treatments: [{eventType: 'Site Change', mills: Date.now() - 24 * 60 * 60000}]
+      treatments: [
+        {eventType: 'Site Change', notes: 'Foo', mills: Date.now() - 48 * 60 * 60000}
+        , {eventType: 'Site Change', notes: 'Bar', mills: Date.now() - 24 * 60 * 60000}
+        ]
     };
 
     var pluginBase = {
       updatePillText: function mockedUpdatePillText (plugin, options) {
         options.value.should.equal('24h');
+        options.info[1].value.should.equal('Bar');
         done();
       }
     };
