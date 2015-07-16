@@ -75,7 +75,7 @@
 
     if (data.glucose) {
       text.push('Blood glucose: ' + data.glucose);
-      text.push('Method: ' + data.glucoseType)
+      text.push('Method: ' + data.glucoseType);
     }
 
     if (data.carbs) { text.push('Carbs Given: ' + data.carbs); }
