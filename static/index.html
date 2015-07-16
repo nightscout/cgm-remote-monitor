@@ -234,8 +234,9 @@
                         <input type="radio" name="nowOrOther" id="othertime" value="other"/>
                         <span>Other</span>
                       </label>
-                      <input type="time" id="eventTimeValue" name="eventTimeValue" value=""/>
-                    </div>
+                      <input type="date" id="eventDateValue" name="eventDateValue" value="" class="eventinput eventdate"/>
+                      <input type="time" id="eventTimeValue" name="eventTimeValue" value="" class="eventinput eventtime"/>
+                   </div>
 
                   <button type="button">Submit Form</button>
                 </fieldset>
@@ -256,6 +257,7 @@
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
         <script src="/js/ui-utils.js?v=0.7.0"></script>
+        <script src="/js/treatment.js"></script>
         <script src="/js/client.js?v=0.7.0"></script>
     </body>
 </html>
