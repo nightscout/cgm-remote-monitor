@@ -31,27 +31,34 @@
     return errors;
   }
 
+  function prepareData() {
+    var data = {
+      enteredBy: $('#enteredBy').val()
+    , eventType: $('#eventType').val()
+    , glucose: $('#glucoseValue').val()
+    , glucoseType: $('#treatment-form').find('input[name=glucoseType]:checked').val()
+    , carbs: $('#carbsGiven').val()
+    , insulin: $('#insulinGiven').val()
+    , preBolus: parseInt($('#preBolus').val())
+    , notes: $('#notes').val()
+    , units: browserSettings.units
+    };
+
+    if ($('#othertime').is(':checked')) {
+      data.eventTime = Nightscout.utils.mergeInputTime($('#eventTimeValue').val(), $('#eventDateValue').val());
+    }
+
+    return data;
+  }
+
   function treatmentSubmit(event) {
 
-    var data = {};
-    data.enteredBy = $('#enteredBy').val();
-    data.eventType = $('#eventType').val();
-    data.glucose = $('#glucoseValue').val();
-    data.glucoseType = $('#treatment-form').find('input[name=glucoseType]:checked').val();
-    data.carbs = $('#carbsGiven').val();
-    data.insulin = $('#insulinGiven').val();
-    data.preBolus = parseInt($('#preBolus').val());
-    data.notes = $('#notes').val();
-    data.units = browserSettings.units;
-
+    var data = prepareData();
     var errors = checkForErrors(data);
 
     if (errors.length > 0) {
       window.alert(errors.join('\n'));
     } else {
-      if ($('#othertime').is(':checked')) {
-        data.eventTime = Nightscout.utils.mergeInputTime($('#eventTimeValue').val(), $('#eventDateValue').val());
-      }
       confirmPost(data);
     }
 
