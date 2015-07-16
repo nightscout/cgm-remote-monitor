@@ -1,6 +1,7 @@
 (function () {
 
   window._ = require('lodash');
+  window.moment = require('moment-timezone');
   window.Nightscout = window.Nightscout || {};
 
   window.Nightscout = {
