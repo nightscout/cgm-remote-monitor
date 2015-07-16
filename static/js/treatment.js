@@ -67,19 +67,22 @@
     }
   }
 
-  function confirmPost(data) {
-    var confirmtext =
+  function buildConfirmText(data) {
+    var text =
       'Please verify that the data entered is correct: ' +
       '\nEvent type: ' + data.eventType;
-    confirmtext += data.glucose ? '\nBlood glucose: ' + data.glucose + '\nMethod: ' + data.glucoseType : '';
-    confirmtext += data.carbs ? '\nCarbs Given: ' + data.carbs : '';
-    confirmtext += data.insulin ? '\nInsulin Given: ' + data.insulin : '';
-    confirmtext += data.preBolus ? '\nPre Bolus: ' + data.preBolus : '';
-    confirmtext += data.notes ? '\nNotes: ' + data.notes : '';
-    confirmtext += data.enteredBy ? '\nEntered By: ' + data.enteredBy : '';
-    confirmtext += data.eventTime ? '\nEvent Time: ' + data.eventTime.format('LLL') : '';
+    text += data.glucose ? '\nBlood glucose: ' + data.glucose + '\nMethod: ' + data.glucoseType : '';
+    text += data.carbs ? '\nCarbs Given: ' + data.carbs : '';
+    text += data.insulin ? '\nInsulin Given: ' + data.insulin : '';
+    text += data.preBolus ? '\nPre Bolus: ' + data.preBolus : '';
+    text += data.notes ? '\nNotes: ' + data.notes : '';
+    text += data.enteredBy ? '\nEntered By: ' + data.enteredBy : '';
+    text += data.eventTime ? '\nEvent Time: ' + data.eventTime.format('LLL') : moment().format('LLL');
+    return text;
+  }
 
-    if (window.confirm(confirmtext)) {
+  function confirmPost(data) {
+    if (window.confirm(buildConfirmText(data))) {
       var dataJson = JSON.stringify(data, null, ' ');
       var xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/v1/treatments/', true);
@@ -99,7 +102,7 @@
 
   $('#treatmentDrawer').find('button').click(treatmentSubmit);
 
-  $('#eventTime input:radio').change(function (event) {
+  $('#eventTime').find('input:radio').change(function (event) {
     if ($('#othertime').is(':checked')) {
       $('#eventTimeValue').focus();
     }
@@ -112,9 +115,8 @@
     $(this).attr('oldminutes', moment.minutes());
     $(this).attr('oldhours', moment.hours());
     event.preventDefault();
-  });
-
-  $('.eventinput').change(function (event) {
+  })
+  .change(function (event) {
     $('#othertime').prop('checked', true);
     var moment = Nightscout.utils.mergeInputTime($('#eventTimeValue').val(), $('#eventDateValue').val());
     if ($(this).attr('oldminutes') === ' 59' && moment.minutes() === 0) {
