@@ -203,7 +203,7 @@ function showNotification(note, type)  {
   notify.addClass(type ? type : 'urgent');
 
   notify.find('span').html(note);
-  notify.css('right', '5px');
+  notify.css('left', 'calc(50% - ' + (notify.width() / 2) + 'px)');
   notify.show();
 }
 
