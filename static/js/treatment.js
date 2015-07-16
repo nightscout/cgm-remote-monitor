@@ -15,19 +15,7 @@
     $('#eventDateValue').val(moment().format('YYYY-MM-D'));
   }
 
-  function treatmentSubmit(event) {
-
-    var data = {};
-    data.enteredBy = $('#enteredBy').val();
-    data.eventType = $('#eventType').val();
-    data.glucose = $('#glucoseValue').val();
-    data.glucoseType = $('#treatment-form input[name=glucoseType]:checked').val();
-    data.carbs = $('#carbsGiven').val();
-    data.insulin = $('#insulinGiven').val();
-    data.preBolus = parseInt($('#preBolus').val());
-    data.notes = $('#notes').val();
-    data.units = browserSettings.units;
-
+  function checkForErrors(data) {
     var errors = [];
     if (isNaN(data.glucose)) {
       errors.push('Blood glucose must be a number');
@@ -40,6 +28,23 @@
     if (isNaN(data.insulin)) {
       errors.push('Insulin must be a number');
     }
+    return errors;
+  }
+
+  function treatmentSubmit(event) {
+
+    var data = {};
+    data.enteredBy = $('#enteredBy').val();
+    data.eventType = $('#eventType').val();
+    data.glucose = $('#glucoseValue').val();
+    data.glucoseType = $('#treatment-form').find('input[name=glucoseType]:checked').val();
+    data.carbs = $('#carbsGiven').val();
+    data.insulin = $('#insulinGiven').val();
+    data.preBolus = parseInt($('#preBolus').val());
+    data.notes = $('#notes').val();
+    data.units = browserSettings.units;
+
+    var errors = checkForErrors(data);
 
     if (errors.length > 0) {
       window.alert(errors.join('\n'));
