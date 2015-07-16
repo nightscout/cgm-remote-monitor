@@ -68,17 +68,24 @@
   }
 
   function buildConfirmText(data) {
-    var text =
-      'Please verify that the data entered is correct: ' +
-      '\nEvent type: ' + data.eventType;
-    text += data.glucose ? '\nBlood glucose: ' + data.glucose + '\nMethod: ' + data.glucoseType : '';
-    text += data.carbs ? '\nCarbs Given: ' + data.carbs : '';
-    text += data.insulin ? '\nInsulin Given: ' + data.insulin : '';
-    text += data.preBolus ? '\nPre Bolus: ' + data.preBolus : '';
-    text += data.notes ? '\nNotes: ' + data.notes : '';
-    text += data.enteredBy ? '\nEntered By: ' + data.enteredBy : '';
-    text += data.eventTime ? '\nEvent Time: ' + data.eventTime.format('LLL') : moment().format('LLL');
-    return text;
+    var text = [
+      'Please verify that the data entered is correct: '
+      , 'Event type: ' + data.eventType
+    ];
+
+    if (data.glucose) {
+      text.push('Blood glucose: ' + data.glucose);
+      text.push('Method: ' + data.glucoseType)
+    }
+
+    if (data.carbs) { text.push('Carbs Given: ' + data.carbs); }
+    if (data.insulin) { text.push('Insulin Given: ' + data.insulin); }
+    if (data.preBolus) { text.push('Insulin Given: ' + data.insulin); }
+    if (data.notes) { text.push('Notes: ' + data.notes); }
+    if (data.enteredBy) { text.push('Entered By: ' + data.enteredBy); }
+
+    text.push('Event Time: ' + (data.eventTime ? data.eventTime.format('LLL') : moment().format('LLL')));
+    return text.join('\n');
   }
 
   function confirmPost(data) {
