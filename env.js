@@ -120,10 +120,10 @@ function setMongo() {
   env.mongo_collection = DB_COLLECTION;
 }
 
-function setAlarmType() {
 //if any of the BG_* thresholds are set, default to `simple` and `predict` otherwise default to only `predict`
+function setAlarmType() {
   var thresholdsSet = readIntENV('BG_HIGH') || readIntENV('BG_TARGET_TOP') || readIntENV('BG_TARGET_BOTTOM') || readIntENV('BG_LOW');
-  env.alarm_types = readENV('ALARM_TYPES') || (thresholdsSet ? 'simple predict' : 'predict');
+  env.alarm_types = readENV('ALARM_TYPES') || (thresholdsSet ? 'simple' : 'predict');
 }
 
 function setEnableAndExtendedSettnigs() {
