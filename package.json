@@ -26,7 +26,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "make test",
-    "postinstall": "node node_modules/bower/bin/bower install"
+    "postinstall": "node node_modules/bower/bin/bower --allow-root install"
   },
   "config": {
     "blanket": {
