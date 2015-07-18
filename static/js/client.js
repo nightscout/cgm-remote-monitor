@@ -1220,7 +1220,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var level = ago.status
       , alarm = getClientAlarm(level + 'TimeAgo');
 
-    if (Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
+    var isStale = browserSettings.alarmTimeAgoWarn && ago.status === 'warn'
+      || browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent';
+
+    if (isStale && Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
       currentAlarmType = alarm.type;
       console.info('generating timeAgoAlarm', alarm.type);
       container.addClass('alarming-timeago');
@@ -1248,11 +1251,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       if (ago.status !== 'current') {
         updateTitle();
       }
-
-      if ((browserSettings.alarmTimeAgoWarn && ago.status === 'warn')
-        || (browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent')) {
-        checkTimeAgoAlarm(ago);
-      }
+      checkTimeAgoAlarm(ago);
     }
 
     container.toggleClass('alarming-timeago', ago.status !== 'current');
