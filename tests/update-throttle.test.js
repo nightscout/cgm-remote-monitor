@@ -29,7 +29,7 @@ describe('Throttle', function ( ) {
 
     //if the data-loaded event is triggered more than once the test will fail
     self.ctx.bus.on('data-loaded', function dataWasLoaded ( ) {
-      done()
+      done();
     });
 
     function post () {
