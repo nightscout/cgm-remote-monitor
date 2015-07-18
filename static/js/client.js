@@ -8,6 +8,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , DEBOUNCE_MS = 10
     , TOOLTIP_TRANS_MS = 200 // milliseconds
     , UPDATE_TRANS_MS = 750 // milliseconds
+    , TWO_SEC_IN_MS =  2000
+    , FIVE_SEC_IN_MS =  5000
     , ONE_MIN_IN_MS = 60000
     , FIVE_MINS_IN_MS = 300000
     , THREE_HOURS_MS = 3 * 60 * 60 * 1000
@@ -67,7 +69,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , contextHeight
     , dateFn = function (d) { return new Date(d.mills) }
     , documentHidden = false
-    , visibilityChanging = false
+    , visibilityChangedAt = Date.now()
     , brush
     , brushTimer
     , brushInProgress = false
@@ -567,7 +569,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     focus.select('.now-line')
       .transition()
-      .duration(UPDATE_TRANS_MS)
+      .duration(UPDATE_TRANS_MS * 1.3)
       .attr('x1', xScale(nowDate))
       .attr('y1', yScale(scaleBg(36)))
       .attr('x2', xScale(nowDate))
@@ -630,7 +632,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
   }
 
   // called for initial update and updates for resize
-  var updateChart = _.debounce(function debouncedUpdateChart(init, callback) {
+  var updateChart = _.debounce(function debouncedUpdateChart(init) {
 
     if (documentHidden && !init) {
       console.info('Document Hidden, not updating - ' + (new Date()));
@@ -976,11 +978,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // update x axis domain
     context.select('.x')
       .call(xAxis2);
-
-    if (callback) {
-      callback();
-    }
-
   }, DEBOUNCE_MS);
 
   function sgvToColor(sgv) {
@@ -1236,28 +1233,26 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
   }
 
-  function updateTimeAgo() {
+  function updateTimeAgo(forceUpdate) {
     var lastEntry = $('#lastEntry')
       , time = latestSGV ? latestSGV.mills : -1
       , ago = timeAgo(time, browserSettings)
       , retroMode = inRetroMode();
 
-    if (visibilityChanging) {
+    if (Date.now() - visibilityChangedAt <= FIVE_SEC_IN_MS && !forceUpdate) {
       console.info('visibility is changing now, wait till next tick to check time ago');
-      return;
-    }
+    } else {
+      lastEntry.removeClass('current warn urgent');
+      lastEntry.addClass(ago.status);
 
-    lastEntry.removeClass('current warn urgent');
-    lastEntry.addClass(ago.status);
+      if (ago.status !== 'current') {
+        updateTitle();
+      }
 
-    if (ago.status !== 'current') {
-      updateTitle();
-    }
-
-    if (
-      (browserSettings.alarmTimeAgoWarn && ago.status === 'warn')
-      || (browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent')) {
-      checkTimeAgoAlarm(ago);
+      if ((browserSettings.alarmTimeAgoWarn && ago.status === 'warn')
+        || (browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent')) {
+        checkTimeAgoAlarm(ago);
+      }
     }
 
     container.toggleClass('alarming-timeago', ago.status !== 'current');
@@ -1340,16 +1335,19 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     context.append('g')
       .attr('class', 'y axis');
 
-    function refreshChart(updateToNow, callback) {
-      //updateChart is _.debounce'd
-      updateChart(false, function ( ) {
-        if (updateToNow) {
-          updateBrushToNow();
-        }
-        if (callback) {
-          callback();
-        }
-      });
+    function updateTimeAgoSoon() {
+      setTimeout(function updatingTimeAgoNow() {
+        var forceUpdate = true;
+        updateTimeAgo(forceUpdate);
+      }, TWO_SEC_IN_MS);
+    }
+
+    function refreshChart(updateToNow) {
+      if (updateToNow) {
+        updateBrushToNow();
+      }
+      updateChart(false);
+      updateTimeAgoSoon();
     }
 
     function visibilityChanged() {
@@ -1358,10 +1356,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
       if (prevHidden && !documentHidden) {
         console.info('Document now visible, updating - ' + (new Date()));
-        visibilityChanging = true;
-        refreshChart(true, function ( ) {
-          visibilityChanging = false;
-        });
+        visibilityChangedAt = Date.now();
+        refreshChart(true);
       }
     }
 
@@ -1371,6 +1367,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
 
     updateClock();
+    updateTimeAgoSoon();
 
     var silenceDropdown = new Dropdown('.dropdown-menu');
 
