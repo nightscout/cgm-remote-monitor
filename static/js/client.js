@@ -8,6 +8,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , DEBOUNCE_MS = 10
     , TOOLTIP_TRANS_MS = 200 // milliseconds
     , UPDATE_TRANS_MS = 750 // milliseconds
+    , TWO_SEC_IN_MS =  2000
+    , FIVE_SEC_IN_MS =  5000
     , ONE_MIN_IN_MS = 60000
     , FIVE_MINS_IN_MS = 300000
     , THREE_HOURS_MS = 3 * 60 * 60 * 1000
@@ -67,7 +69,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , contextHeight
     , dateFn = function (d) { return new Date(d.mills) }
     , documentHidden = false
-    , visibilityChanging = false
+    , visibilityChangedAt = Date.now()
     , brush
     , brushTimer
     , brushInProgress = false
@@ -567,7 +569,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     focus.select('.now-line')
       .transition()
-      .duration(UPDATE_TRANS_MS)
+      .duration(UPDATE_TRANS_MS * 1.3)
       .attr('x1', xScale(nowDate))
       .attr('y1', yScale(scaleBg(36)))
       .attr('x2', xScale(nowDate))
@@ -630,7 +632,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
   }
 
   // called for initial update and updates for resize
-  var updateChart = _.debounce(function debouncedUpdateChart(init, callback) {
+  var updateChart = _.debounce(function debouncedUpdateChart(init) {
 
     if (documentHidden && !init) {
       console.info('Document Hidden, not updating - ' + (new Date()));
@@ -976,11 +978,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // update x axis domain
     context.select('.x')
       .call(xAxis2);
-
-    if (callback) {
-      callback();
-    }
-
   }, DEBOUNCE_MS);
 
   function sgvToColor(sgv) {
@@ -1223,41 +1220,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var level = ago.status
       , alarm = getClientAlarm(level + 'TimeAgo');
 
-    if (Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
+    var isStale = browserSettings.alarmTimeAgoWarn && ago.status === 'warn'
+      || browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent';
+
+    if (isStale && Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
       currentAlarmType = alarm.type;
       console.info('generating timeAgoAlarm', alarm.type);
       container.addClass('alarming-timeago');
       var message = {'title': 'Last data received ' + [ago.value, ago.label].join(' ')};
-      if (level === 'warn') {
-        generateAlarm(alarmSound, message);
-      } else {
-        generateAlarm(urgentAlarmSound, message);
-      }
-    }
-  }
-
-  function updateTimeAgo() {
-    var lastEntry = $('#lastEntry')
-      , time = latestSGV ? latestSGV.mills : -1
-      , ago = timeAgo(time, browserSettings)
-      , retroMode = inRetroMode();
-
-    if (visibilityChanging) {
-      console.info('visibility is changing now, wait till next tick to check time ago');
-      return;
-    }
-
-    lastEntry.removeClass('current warn urgent');
-    lastEntry.addClass(ago.status);
-
-    if (ago.status !== 'current') {
-      updateTitle();
-    }
-
-    if (
-      (browserSettings.alarmTimeAgoWarn && ago.status === 'warn')
-      || (browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent')) {
-      checkTimeAgoAlarm(ago);
+      var sound = level === 'warn' ? alarmSound : urgentAlarmSound;
+      generateAlarm(sound, message);
     }
 
     container.toggleClass('alarming-timeago', ago.status !== 'current');
@@ -1265,18 +1237,41 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     if (alarmingNow() && ago.status === 'current' && isTimeAgoAlarmType(currentAlarmType)) {
       stopAlarm(true, ONE_MIN_IN_MS);
     }
+  }
 
-    if (retroMode || !ago.value) {
-      lastEntry.find('em').hide();
-    } else {
-      lastEntry.find('em').show().text(ago.value);
+  function updateTimeAgo(forceUpdate) {
+    var lastEntry = $('#lastEntry')
+      , time = latestSGV ? latestSGV.mills : -1
+      , ago = timeAgo(time, browserSettings)
+      , retroMode = inRetroMode();
+
+    //TODO: move this ao a plugin?
+    function updateTimeAgoPill() {
+      if (retroMode || !ago.value) {
+        lastEntry.find('em').hide();
+      } else {
+        lastEntry.find('em').show().text(ago.value);
+      }
+      if (retroMode || ago.label) {
+        lastEntry.find('label').show().text(retroMode ? 'RETRO' : ago.label);
+      } else {
+        lastEntry.find('label').hide();
+      }
     }
 
-    if (retroMode || ago.label) {
-      lastEntry.find('label').show().text(retroMode ? 'RETRO' : ago.label);
+    if (Date.now() - visibilityChangedAt <= FIVE_SEC_IN_MS && !forceUpdate) {
+      console.info('visibility is changing now, wait till next tick to check time ago');
     } else {
-      lastEntry.find('label').hide();
+      lastEntry.removeClass('current warn urgent');
+      lastEntry.addClass(ago.status);
+
+      if (ago.status !== 'current') {
+        updateTitle();
+      }
+      checkTimeAgoAlarm(ago);
     }
+
+    updateTimeAgoPill();
   }
 
   function init() {
@@ -1340,16 +1335,19 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     context.append('g')
       .attr('class', 'y axis');
 
-    function refreshChart(updateToNow, callback) {
-      //updateChart is _.debounce'd
-      updateChart(false, function ( ) {
-        if (updateToNow) {
-          updateBrushToNow();
-        }
-        if (callback) {
-          callback();
-        }
-      });
+    function updateTimeAgoSoon() {
+      setTimeout(function updatingTimeAgoNow() {
+        var forceUpdate = true;
+        updateTimeAgo(forceUpdate);
+      }, TWO_SEC_IN_MS);
+    }
+
+    function refreshChart(updateToNow) {
+      if (updateToNow) {
+        updateBrushToNow();
+      }
+      updateChart(false);
+      updateTimeAgoSoon();
     }
 
     function visibilityChanged() {
@@ -1358,10 +1356,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
       if (prevHidden && !documentHidden) {
         console.info('Document now visible, updating - ' + (new Date()));
-        visibilityChanging = true;
-        refreshChart(true, function ( ) {
-          visibilityChanging = false;
-        });
+        visibilityChangedAt = Date.now();
+        refreshChart(true);
       }
     }
 
@@ -1371,6 +1367,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
 
     updateClock();
+    updateTimeAgoSoon();
 
     var silenceDropdown = new Dropdown('.dropdown-menu');
 
