@@ -8,8 +8,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , DEBOUNCE_MS = 10
     , TOOLTIP_TRANS_MS = 200 // milliseconds
     , UPDATE_TRANS_MS = 750 // milliseconds
-    , TWO_SEC_IN_MS =  2000
-    , FIVE_SEC_IN_MS =  5000
+    , TEN_SEC_IN_MS =  10000
     , ONE_MIN_IN_MS = 60000
     , FIVE_MINS_IN_MS = 300000
     , THREE_HOURS_MS = 3 * 60 * 60 * 1000
@@ -1260,7 +1259,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       }
     }
 
-    if (Date.now() - visibilityChangedAt <= FIVE_SEC_IN_MS && !forceUpdate) {
+    if (Date.now() - visibilityChangedAt <= TEN_SEC_IN_MS && !forceUpdate) {
       console.info('visibility is changing now, wait till next tick to check time ago');
     } else {
       lastEntry.removeClass('current warn urgent');
@@ -1340,7 +1339,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       setTimeout(function updatingTimeAgoNow() {
         var forceUpdate = true;
         updateTimeAgo(forceUpdate);
-      }, TWO_SEC_IN_MS);
+      }, TEN_SEC_IN_MS);
     }
 
     function refreshChart(updateToNow) {
