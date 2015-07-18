@@ -125,10 +125,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var time = latestSGV ? latestSGV.mills : (prevSGV ? prevSGV.mills : -1)
       , ago = timeAgo(time, browserSettings);
 
-    if (browserSettings.customTitle) {
-      $('.customTitle').text(browserSettings.customTitle);
-    }
-
     if (ago && ago.status !== 'current') {
       bg_title =  s(ago.value) + s(ago.label, ' - ') + bg_title;
     } else if (latestSGV) {
@@ -144,20 +140,26 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     return bg_title;  
   }
 
-  function updateTitle(skipPageTitle) {
+  function updateTitle() {
 
-    var bg_title = browserSettings.customTitle || '';
+    var bg_title;
 
     if (alarmMessage && alarmInProgress) {
-      bg_title = alarmMessage + ': ' + generateTitle();
       $('.customTitle').text(alarmMessage);
+      if (!isTimeAgoAlarmType(currentAlarmType)) {
+        bg_title = alarmMessage + ': ' + generateTitle();
+      }
+    } else if (browserSettings.customTitle) {
+      $('.customTitle').text(browserSettings.customTitle);
     } else {
+      $('.customTitle').text('Nightscout');
+    }
+
+    if (bg_title === undefined) {
       bg_title = generateTitle();
     }
 
-    if (!skipPageTitle) {
-      $(document).attr('title', bg_title);
-    }
+    $(document).attr('title', bg_title);
   }
 
   // initial setup of chart when data is first made available
@@ -1036,8 +1038,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     container.addClass('alarming').addClass(file === urgentAlarmSound ? 'urgent' : 'warning');
 
-    var skipPageTitle = isTimeAgoAlarmType(currentAlarmType);
-    updateTitle(skipPageTitle);
+    updateTitle();
   }
 
   function playAlarm(audio) {
