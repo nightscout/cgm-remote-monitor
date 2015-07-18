@@ -67,6 +67,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , contextHeight
     , dateFn = function (d) { return new Date(d.mills) }
     , documentHidden = false
+    , visibilityChanging = false
     , brush
     , brushTimer
     , brushInProgress = false
@@ -233,7 +234,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
     // required to happen when 'now' event is sent from websocket.js every minute.  When fixed,
     // remove this code and all references to `type: 'server-forecast'`
-    var last = _.last(data);
+    var last = _.findLast(data, {type: 'sgv'});
     var lastTime = last && last.mills;
     if (!lastTime) {
       console.error('Bad Data, last point has no mills', last);
@@ -629,7 +630,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
   }
 
   // called for initial update and updates for resize
-  var updateChart = _.debounce(function debouncedUpdateChart(init) {
+  var updateChart = _.debounce(function debouncedUpdateChart(init, callback) {
 
     if (documentHidden && !init) {
       console.info('Document Hidden, not updating - ' + (new Date()));
@@ -976,6 +977,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     context.select('.x')
       .call(xAxis2);
 
+    if (callback) {
+      callback();
+    }
+
   }, DEBOUNCE_MS);
 
   function sgvToColor(sgv) {
@@ -1237,6 +1242,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       , ago = timeAgo(time, browserSettings)
       , retroMode = inRetroMode();
 
+    if (visibilityChanging) {
+      console.info('visibility is changing now, wait till next tick to check time ago');
+      return;
+    }
+
     lastEntry.removeClass('current warn urgent');
     lastEntry.addClass(ago.status);
 
@@ -1330,12 +1340,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     context.append('g')
       .attr('class', 'y axis');
 
-    //updateChart is _.debounce'd
-    function refreshChart(updateToNow) {
-      if (updateToNow) {
-        updateBrushToNow();
-      }
-      updateChart(false);
+    function refreshChart(updateToNow, callback) {
+      //updateChart is _.debounce'd
+      updateChart(false, function ( ) {
+        if (updateToNow) {
+          updateBrushToNow();
+        }
+        if (callback) {
+          callback();
+        }
+      });
     }
 
     function visibilityChanged() {
@@ -1344,7 +1358,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
       if (prevHidden && !documentHidden) {
         console.info('Document now visible, updating - ' + (new Date()));
-        refreshChart(true);
+        visibilityChanging = true;
+        refreshChart(true, function ( ) {
+          visibilityChanging = false;
+        });
       }
     }
 
