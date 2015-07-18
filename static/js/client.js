@@ -1228,11 +1228,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       console.info('generating timeAgoAlarm', alarm.type);
       container.addClass('alarming-timeago');
       var message = {'title': 'Last data received ' + [ago.value, ago.label].join(' ')};
-      if (level === 'warn') {
-        generateAlarm(alarmSound, message);
-      } else {
-        generateAlarm(urgentAlarmSound, message);
-      }
+      var sound = level === 'warn' ? alarmSound : urgentAlarmSound;
+      generateAlarm(sound, message);
+    }
+
+    container.toggleClass('alarming-timeago', ago.status !== 'current');
+
+    if (alarmingNow() && ago.status === 'current' && isTimeAgoAlarmType(currentAlarmType)) {
+      stopAlarm(true, ONE_MIN_IN_MS);
     }
   }
 
@@ -1241,6 +1244,20 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       , time = latestSGV ? latestSGV.mills : -1
       , ago = timeAgo(time, browserSettings)
       , retroMode = inRetroMode();
+
+    //TODO: move this ao a plugin?
+    function updateTimeAgoPill() {
+      if (retroMode || !ago.value) {
+        lastEntry.find('em').hide();
+      } else {
+        lastEntry.find('em').show().text(ago.value);
+      }
+      if (retroMode || ago.label) {
+        lastEntry.find('label').show().text(retroMode ? 'RETRO' : ago.label);
+      } else {
+        lastEntry.find('label').hide();
+      }
+    }
 
     if (Date.now() - visibilityChangedAt <= FIVE_SEC_IN_MS && !forceUpdate) {
       console.info('visibility is changing now, wait till next tick to check time ago');
@@ -1254,23 +1271,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       checkTimeAgoAlarm(ago);
     }
 
-    container.toggleClass('alarming-timeago', ago.status !== 'current');
-
-    if (alarmingNow() && ago.status === 'current' && isTimeAgoAlarmType(currentAlarmType)) {
-      stopAlarm(true, ONE_MIN_IN_MS);
-    }
-
-    if (retroMode || !ago.value) {
-      lastEntry.find('em').hide();
-    } else {
-      lastEntry.find('em').show().text(ago.value);
-    }
-
-    if (retroMode || ago.label) {
-      lastEntry.find('label').show().text(retroMode ? 'RETRO' : ago.label);
-    } else {
-      lastEntry.find('label').hide();
-    }
+    updateTimeAgoPill();
   }
 
   function init() {
