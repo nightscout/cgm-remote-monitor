@@ -53,7 +53,7 @@ function config ( ) {
   env.settings_collection = readENV('MONGO_SETTINGS_COLLECTION', 'settings');
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
-  env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
+  env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'battery');
 
   env.enable = readENV('ENABLE', "");
 
@@ -64,13 +64,13 @@ function config ( ) {
     , 'showRawbg': 'never'
     , 'customTitle': 'CGM - David Rimmer'
     , 'theme': 'colors'
-    , 'alarmUrgentHigh': true
-    , 'alarmHigh': true
-    , 'alarmLow': true
-    , 'alarmUrgentLow': true
-    , 'alarmTimeAgoWarn': true
+    , 'alarmUrgentHigh': false
+    , 'alarmHigh': false
+    , 'alarmLow': false
+    , 'alarmUrgentLow': false
+    , 'alarmTimeAgoWarn': false
     , 'alarmTimeAgoWarnMins': 15
-    , 'alarmTimeAgoUrgent': true
+    , 'alarmTimeAgoUrgent': false
     , 'alarmTimeAgoUrgentMins': 30
     , 'language': 'en' // not used yet
   } ;
