@@ -62,8 +62,8 @@ function config ( ) {
     , 'timeFormat': '12'
     , 'nightMode': false
     , 'showRawbg': 'never'
-    , 'customTitle': 'Nightscout'
-    , 'theme': 'default'
+    , 'customTitle': 'CGM - David Rimmer'
+    , 'theme': 'colors'
     , 'alarmUrgentHigh': true
     , 'alarmHigh': true
     , 'alarmLow': true
