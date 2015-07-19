@@ -58,7 +58,7 @@ function config ( ) {
   env.enable = readENV('ENABLE', "");
 
   env.defaults = { // currently supported keys must defined be here
-    'units': 'mg/dL'
+    'units': 'mmol'
     , 'timeFormat': '12'
     , 'nightMode': false
     , 'showRawbg': 'never'
@@ -131,8 +131,8 @@ function config ( ) {
 
   env.thresholds = {
     bg_high: readIntENV('BG_HIGH', 260)
-    , bg_target_top: readIntENV('BG_TARGET_TOP', 180)
-    , bg_target_bottom: readIntENV('BG_TARGET_BOTTOM', 80)
+    , bg_target_top: readIntENV('BG_TARGET_TOP', 144)
+    , bg_target_bottom: readIntENV('BG_TARGET_BOTTOM', 68)
     , bg_low: readIntENV('BG_LOW', 55)
   };
 
