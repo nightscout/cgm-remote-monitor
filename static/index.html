@@ -31,25 +31,25 @@
         <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
     </head>
     <body>
-        <div id="toolbar">
-            <div id="buttonbar">
-                <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
-                <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-cog"></i></a>
-                <a id="treatmentDrawerToggle" class="tip" original-title="Treatments" href="#"><i class="icon-plus"></i></a>
-            </div>
-            <h1 class="customTitle">Nightscout</h1>
-        </div>
-        <div id="notification">
-            <a href="#"><span></span><i class="icon-cancel-circled"></i></a>
-        </div>
-
         <div class="container loading" id="container">
-            <div class="status">
+            <div id="toolbar">
+                <div id="buttonbar">
+                    <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
+                    <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-cog"></i></a>
+                    <a id="treatmentDrawerToggle" class="tip" original-title="Treatments" href="#"><i class="icon-plus"></i></a>
+                </div>
+                <div class="customTitle">Nightscout</div>
+            </div>
+            <div id="notification">
+                <a href="#"><span></span><i class="icon-cancel-circled"></i></a>
+            </div>
+
+            <div class="primary">
                 <div class="bgStatus current">
                     <div class="bgButton ">
-                        <span class="rawnoise pill"><em></em><label></label></span>
+                        <span class="pill rawbg hidden"><em></em><label></label></span>
                         <span class="currentBG">---</span>
-                        <span class="currentDirection">-</span>
+                        <span class="pill direction">-</span>
                     </div>
                     <ul class="dropdown-menu" id="silenceBtn">
                         <li><a href="#" data-snooze-time="1800000">Silence for 30 minutes</a></li>
@@ -61,12 +61,11 @@
                     <div class="minorPills"></div>
                 </div>
 
-                <div class="time">
-                    <div class="timebox">
+                <div class="status">
+                    <div class="statusBox">
                         <div id="currentTime">---</div>
-                        <div class="timeOther">
+                        <div class="statusPills">
                             <span id="lastEntry" class="pill"><em></em><label></label></span>
-                            <span id="uploaderBattery" class="pill"><em></em><label></label></span>
                         </div>
                     </div>
                 </div>
@@ -141,15 +140,6 @@
                   <button type="button" id="save">Save</button>
                   <a id="useDefaults" class="pull-right" href="">Reset, and use defaults</a>
                 </div>
-
-                <fieldset class="experiments">
-                    <legend>Experiments</legend>
-                    <div style="text-align:center; vertical-align:middle;">
-                        <b>Hamburger?</b><br />
-                        <a class="glyphToggle tip" href="#" original-title="icon-menu"><i class="icon-menu"></i></a>
-                        <a class="glyphToggle tip" href="#" original-title="icon-cog"><i class="icon-cog"></i></a>
-                    </div>
-                </fieldset>
 
                 <fieldset id="about">
                     <legend>About</legend>
@@ -244,8 +234,9 @@
                         <input type="radio" name="nowOrOther" id="othertime" value="other"/>
                         <span>Other</span>
                       </label>
-                      <input type="time" id="eventTimeValue" name="eventTimeValue" value=""/>
-                    </div>
+                      <input type="date" id="eventDateValue" name="eventDateValue" value="" class="eventinput eventdate"/>
+                      <input type="time" id="eventTimeValue" name="eventTimeValue" value="" class="eventinput eventtime"/>
+                   </div>
 
                   <button type="button">Submit Form</button>
                 </fieldset>
@@ -266,7 +257,7 @@
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
         <script src="/js/ui-utils.js?v=0.7.0"></script>
+        <script src="/js/treatment.js"></script>
         <script src="/js/client.js?v=0.7.0"></script>
-        <script src="/js/experiments.js"></script>
     </body>
 </html>

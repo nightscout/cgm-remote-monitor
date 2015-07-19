@@ -10,7 +10,7 @@ function getBrowserSettings(storage) {
   var json = {};
 
   function scaleBg(bg) {
-    if (json.units == 'mmol') {
+    if (json.units === 'mmol') {
       return Nightscout.units.mgdlToMMOL(bg);
     } else {
       return bg;
@@ -18,11 +18,11 @@ function getBrowserSettings(storage) {
   }
 
   function appendThresholdValue(threshold) {
-    return app.alarm_types.indexOf('simple') == -1 ? '' : ' (' + scaleBg(threshold) + ')';
+    return app.alarm_types.indexOf('simple') === -1 ? '' : ' (' + scaleBg(threshold) + ')';
   }
 
   try {
-    var json = {
+    json = {
       'units': storage.get('units'),
       'alarmUrgentHigh': storage.get('alarmUrgentHigh'),
       'alarmHigh': storage.get('alarmHigh'),
@@ -42,7 +42,7 @@ function getBrowserSettings(storage) {
 
     // Default browser units to server units if undefined.
     json.units = setDefault(json.units, app.units);
-    if (json.units == 'mmol') {
+    if (json.units === 'mmol') {
       $('#mmol-browser').prop('checked', true);
     } else {
       $('#mgdl-browser').prop('checked', true);
@@ -82,7 +82,7 @@ function getBrowserSettings(storage) {
     $('input#customTitle').prop('value', json.customTitle);
 
     json.theme = setDefault(json.theme, app.defaults.theme);
-    if (json.theme == 'colors') {
+    if (json.theme === 'colors') {
       $('#theme-colors-browser').prop('checked', true);
     } else {
       $('#theme-default-browser').prop('checked', true);
@@ -90,7 +90,7 @@ function getBrowserSettings(storage) {
 
     json.timeFormat = setDefault(json.timeFormat, app.defaults.timeFormat);
 
-    if (json.timeFormat == '24') {
+    if (json.timeFormat === '24') {
       $('#24-browser').prop('checked', true);
     } else {
       $('#12-browser').prop('checked', true);
@@ -99,10 +99,14 @@ function getBrowserSettings(storage) {
     json.showPlugins = setDefault(json.showPlugins, app.defaults.showPlugins || Nightscout.plugins.enabledPluginNames());
     var showPluginsSettings = $('#show-plugins');
     Nightscout.plugins.eachEnabledPlugin(function each(plugin) {
-      var id = 'plugin-' + plugin.name;
-      var dd = $('<dd><input type="checkbox" id="' + id + '" value="' + plugin.name + '"/><label for="' + id + '">' + (plugin.label || plugin.name) + '</label></dd>');
-      showPluginsSettings.append(dd);
-      dd.find('input').prop('checked', json.showPlugins.indexOf(plugin.name) > -1);
+      if (Nightscout.plugins.specialPlugins.indexOf(plugin.name) > -1) {
+        //ignore these, they are always on for now
+      } else {
+        var id = 'plugin-' + plugin.name;
+        var dd = $('<dd><input type="checkbox" id="' + id + '" value="' + plugin.name + '"/><label for="' + id + '">' + (plugin.label || plugin.name) + '</label></dd>');
+        showPluginsSettings.append(dd);
+        dd.find('input').prop('checked', json.showPlugins.indexOf(plugin.name) > -1);
+      }
     });
 
 
@@ -148,10 +152,10 @@ function isTouch() {
 
 function closeDrawer(id, callback) {
   openDraw = null;
-  $("html, body").animate({ scrollTop: 0 });
+  $('html, body').animate({ scrollTop: 0 });
   $(id).animate({right: '-300px'}, 300, function () {
     $(id).css('display', 'none');
-    if (callback) callback();
+    if (callback) { callback(); }
   });
 }
 
@@ -162,59 +166,25 @@ function toggleDrawer(id, openCallback, closeCallback) {
       if (openDraw) {
         closeDrawer(openDraw, callback);
       } else {
-        callback()
+        callback();
       }
     }
 
     closeOpenDraw(function () {
       openDraw = id;
       $(id).css('display', 'block').animate({right: '0'}, 300, function () {
-        if (callback) callback();
+        if (callback) { callback(); }
       });
     });
 
   }
 
-  if (openDraw == id) {
+  if (openDraw === id) {
     closeDrawer(id, closeCallback);
   } else {
     openDrawer(id, openCallback);
   }
 
-}
-
-function initTreatmentDrawer()  {
-  $('#eventType').val('BG Check');
-  $('#glucoseValue').val('').attr('placeholder', 'Value in ' + browserSettings.units);
-  $('#meter').prop('checked', true);
-  $('#carbsGiven').val('');
-  $('#insulinGiven').val('');
-  $('#preBolus').val(0);
-  $('#notes').val('');
-  $('#enteredBy').val(browserStorage.get('enteredBy') || '');
-  $('#nowtime').prop('checked', true);
-  $('#eventTimeValue').val(currentTime());
-}
-
-function currentTime() {
-  var now = new Date();
-  var hours = now.getHours();
-  var minutes = now.getMinutes();
-
-  if (hours<10) hours = '0' + hours;
-  if (minutes<10) minutes = '0' + minutes;
-
-  return ''+ hours + ':' + minutes;
-}
-
-function formatTime(date) {
-  var hours = date.getHours();
-  var minutes = date.getMinutes();
-  var ampm = hours >= 12 ? 'pm' : 'am';
-  hours = hours % 12;
-  hours = hours ? hours : 12; // the hour '0' should be '12'
-  minutes = minutes < 10 ? '0' + minutes : minutes;
-  return hours + ':' + minutes + ' ' + ampm;
 }
 
 function closeNotification() {
@@ -238,82 +208,9 @@ function showNotification(note, type)  {
 }
 
 function showLocalstorageError() {
-  var msg = '<b>Settings are disabled.</b><br /><br />Please enable cookies so you may customize your Nightscout site.'
+  var msg = '<b>Settings are disabled.</b><br /><br />Please enable cookies so you may customize your Nightscout site.';
   $('.browserSettings').html('<legend>Settings</legend>'+msg+'');
   $('#save').hide();
-}
-
-
-function treatmentSubmit(event) {
-
-  var data = {};
-  data.enteredBy = $('#enteredBy').val();
-  data.eventType = $('#eventType').val();
-  data.glucose = $('#glucoseValue').val();
-  data.glucoseType = $('#treatment-form input[name=glucoseType]:checked').val();
-  data.carbs = $('#carbsGiven').val();
-  data.insulin = $('#insulinGiven').val();
-  data.preBolus = $('#preBolus').val();
-  data.notes = $('#notes').val();
-  data.units = browserSettings.units;
-
-  var errors = [];
-  if (isNaN(data.glucose)) {
-    errors.push('Blood glucose must be a number');
-  }
-
-  if (isNaN(data.carbs)) {
-    errors.push('Carbs must be a number');
-  }
-
-  if (isNaN(data.insulin)) {
-    errors.push('Insulin must be a number');
-  }
-
-  if (errors.length > 0) {
-    window.alert(errors.join('\n'));
-  } else {
-    var eventTimeDisplay = '';
-    if ($('#treatment-form input[name=nowOrOther]:checked').val() != 'now') {
-      var value = $('#eventTimeValue').val();
-      var eventTimeParts = value.split(':');
-      data.eventTime = new Date();
-      data.eventTime.setHours(eventTimeParts[0]);
-      data.eventTime.setMinutes(eventTimeParts[1]);
-      data.eventTime.setSeconds(0);
-      data.eventTime.setMilliseconds(0);
-      eventTimeDisplay = formatTime(data.eventTime);
-    }
-
-    var dataJson = JSON.stringify(data, null, ' ');
-
-    var ok = window.confirm(
-        'Please verify that the data entered is correct: ' +
-        '\nEvent type: ' + data.eventType +
-        '\nBlood glucose: ' + data.glucose +
-        '\nMethod: ' + data.glucoseType +
-        '\nCarbs Given: ' + data.carbs +
-        '\nInsulin Given: ' + data.insulin +
-        '\nPre Bolus: ' + data.preBolus +
-        '\nNotes: ' + data.notes +
-        '\nEntered By: ' + data.enteredBy +
-        '\nEvent Time: ' + eventTimeDisplay);
-
-    if (ok) {
-      var xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/v1/treatments/', true);
-      xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-      xhr.send(dataJson);
-
-      browserStorage.set('enteredBy', data.enteredBy);
-
-      closeDrawer('#treatmentDrawer');
-    }
-  }
-
-  if (event) {
-    event.preventDefault();
-  }
 }
 
 
@@ -345,23 +242,6 @@ $('#drawerToggle').click(function(event) {
   event.preventDefault();
 });
 
-$('#treatmentDrawerToggle').click(function(event) {
-  toggleDrawer('#treatmentDrawer', initTreatmentDrawer);
-  event.preventDefault();
-});
-
-$('#treatmentDrawer').find('button').click(treatmentSubmit);
-
-$('#eventTime input:radio').change(function (){
-  if ($('#othertime').attr('checked')) {
-    $('#eventTimeValue').focus();
-  }
-});
-
-$('#eventTimeValue').focus(function () {
-  $('#othertime').attr('checked', 'checked');
-});
-
 $('#notification').click(function(event) {
   closeNotification();
   event.preventDefault();
@@ -369,7 +249,7 @@ $('#notification').click(function(event) {
 
 $('#save').click(function(event) {
   function checkedPluginNames() {
-    var checkedPlugins = []
+    var checkedPlugins = [];
     $('#show-plugins input:checked').each(function eachPluginCheckbox(index, checkbox) {
       checkedPlugins.push($(checkbox).val());
     });
@@ -440,3 +320,4 @@ $(function() {
     openDrawer('#drawer');
   }
 });
+
