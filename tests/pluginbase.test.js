@@ -4,10 +4,8 @@ require('should');
 
 describe('pluginbase', function ( ) {
 
-  //jsdom();
-
-  var jsdom = require("jsdom").jsdom;
-  var doc = jsdom("hello world");
+  var jsdom = require('jsdom').jsdom;
+  var doc = jsdom('<body></body>');
   var window = doc.parentWindow;
 
 
@@ -19,7 +17,6 @@ describe('pluginbase', function ( ) {
 
   var container = div('container')
     , bgStatus = div('bgStatus').appendTo(container)
-    , currentBG = div('currentBG').appendTo(bgStatus)
     , majorPills = div('majorPills').appendTo(bgStatus)
     , minorPills = div('minorPills').appendTo(bgStatus)
     , statusPills = div('statusPills').appendTo(bgStatus)
