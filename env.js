@@ -32,7 +32,7 @@ function config ( ) {
   }
   env.version = software.version;
   env.name = software.name;
-  env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
+  env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mmol');
   env.PORT = readENV('PORT', 1337);
   env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI');
   env.mongo_collection = readENV('MONGO_COLLECTION', 'entries');
