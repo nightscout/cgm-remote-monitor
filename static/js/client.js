@@ -638,7 +638,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     if (showRawBGs(d.y, d.noise, cal)) {
                         rawBG = scaleBg(rawIsigToRawBg(d, cal));
                     }
-                    noiseLabel = noiseCodeToDisplay(d.y, d.noise);
+                   // noiseLabel = noiseCodeToDisplay(d.y, d.noise);
                 }
 
                 tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
