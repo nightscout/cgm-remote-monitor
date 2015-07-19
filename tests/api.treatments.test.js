@@ -1,6 +1,5 @@
 'use strict';
 
-var _ = require('lodash');
 var request = require('supertest');
 require('should');
 
