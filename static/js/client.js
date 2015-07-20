@@ -225,7 +225,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 	function graphParam(param,chart) {
 		var returnValue = 0 ;
 		if ( param == 'Max' ) {
-			returnValue = 252 ;
+			returnValue = 234 ;
 		}
 		if ( param == 'Min' ) {
 			returnValue = 45 ;
@@ -707,16 +707,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .transition()
             .duration(UPDATE_TRANS_MS)
             .attr('x1', xScale(nowDate))
-            .attr('y1', yScale(scaleBg(36)))
+            .attr('y1', yScale(scaleBg(graphParam('Min','y1'))))
             .attr('x2', xScale(nowDate))
-            .attr('y2', yScale(scaleBg(420)));
+            .attr('y2', yScale(scaleBg(graphParam('Max','y2'))));
 
         context.select('.now-line')
             .transition()
             .attr('x1', xScale2(new Date(brush.extent()[1]- THIRTY_MINS_IN_MS)))
-            .attr('y1', yScale2(scaleBg(36)))
+            .attr('y1', yScale2(scaleBg(graphParam('Min','y1'))))
             .attr('x2', xScale2(new Date(brush.extent()[1]- THIRTY_MINS_IN_MS)))
-            .attr('y2', yScale2(scaleBg(420)));
+            .attr('y2', yScale2(scaleBg(graphParam('Max','y2'))));
 
         // update x axis
         focus.select('.x.axis')
