@@ -222,6 +222,17 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return Math.round(raw);
     }
 
+	function graphParam(paramName,xy,chartNo) {
+		var returnValue = 0 ;
+		if ( param == 'Max' ) {
+			returnValue = 252 ;
+		}
+		if ( param == 'Min' ) {
+			returnValue = 45 ;
+		}
+		return returnValue ;
+	}
+	
     function showIOB() {
         return app.enabledOptions
             && app.enabledOptions.indexOf('iob') > -1;
@@ -235,13 +246,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale = d3.scale.log()
-            .domain([scaleBg(45), scaleBg(234)]);
+            .domain([scaleBg(graphParam('Min')), scaleBg(graphParam('Max'))]);
 
         xScale2 = d3.time.scale()
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale2 = d3.scale.log()
-            .domain([scaleBg(36), scaleBg(420)]);
+            .domain([scaleBg(graphParam('Min')), scaleBg(graphParam('Max'))]);
 
         var tickFormat = d3.time.format.multi(  [
             ['.%L', function(d) { return d.getMilliseconds(); }],
@@ -602,7 +613,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 .attr('cy', function (d) {
                     if (isNaN(d.sgv)) {
                         badData.push(d);
-                        return yScale(scaleBg(450));
+                        return yScale(scaleBg(graphParam('Max')));
                     } else {
                         return yScale(d.sgv);
                     }
@@ -674,9 +685,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // transition open-top line to correct location
         focus.select('.open-top')
             .attr('x1', xScale2(brush.extent()[0]))
-            .attr('y1', yScale(scaleBg(30)))
+            .attr('y1', yScale(scaleBg(graphParam('Min'))))
             .attr('x2', xScale2(brush.extent()[1]))
-            .attr('y2', yScale(scaleBg(30)));
+            .attr('y2', yScale(scaleBg(graphParam('Min'))));
 
         // transition open-left line to correct location
         focus.select('.open-left')
@@ -843,9 +854,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 focus.append('line')
                     .attr('class', 'now-line')
                     .attr('x1', xScale(new Date(now)))
-                    .attr('y1', yScale(scaleBg(30)))
+                    .attr('y1', yScale(scaleBg(graphParam('Min'))))
                     .attr('x2', xScale(new Date(now)))
-                    .attr('y2', yScale(scaleBg(420)))
+                    .attr('y2', yScale(scaleBg(graphParam('Max'))))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -1009,9 +1020,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(30)))
+                    .attr('y1', yScale(scaleBg(graphParam('Min'))))
                     .attr('x2', xScale2(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(30)));
+                    .attr('y2', yScale(scaleBg(graphParam('Min'))));
 
                 // transition open-left line to correct location
                 focus.select('.open-left')
@@ -1077,7 +1088,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 .attr('cy', function (d) {
                     if (isNaN(d.sgv)) {
                         badData.push(d);
-                        return yScale2(scaleBg(450));
+                        return yScale2(scaleBg(graphParam('Max')));
                     } else {
                         return yScale2(d.sgv);
                     }
@@ -1541,13 +1552,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // Tick Values
         if (browserSettings.units == 'mmol') {
             tickValues = [
-                  2.0
+                  3.0
                 , Math.round(scaleBg(app.thresholds.bg_low))
                 , Math.round(scaleBg(app.thresholds.bg_target_bottom))
                 , 6.0
                 , Math.round(scaleBg(app.thresholds.bg_target_top))
                 , Math.round(scaleBg(app.thresholds.bg_high))
-                , 14.0 
+                , 12.0 
             ];
         } else {
             tickValues = [
