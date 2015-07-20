@@ -280,7 +280,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         xAxis2 = d3.svg.axis()
           .scale(xScale2)
           .tickFormat(tickFormat)
-          .ticks(6)
+          .ticks(12)
           .orient('bottom');
 
         yAxis2 = d3.svg.axis()
@@ -793,7 +793,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         // get the height of each chart based on its container size ratio
         focusHeight = chartHeight * .7;
-        contextHeight = chartHeight * .3;
+        contextHeight = chartHeight * .275;
 
         // get current brush extent
         var currentBrushExtent = brush.extent();
