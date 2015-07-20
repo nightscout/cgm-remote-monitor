@@ -222,7 +222,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return Math.round(raw);
     }
 
-	function graphParam(param,xy,chartNo) {
+	function graphParam(param,chart) {
 		var returnValue = 0 ;
 		if ( param == 'Max' ) {
 			returnValue = 252 ;
@@ -246,13 +246,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale = d3.scale.log()
-            .domain([scaleBg(graphParam('Min')), scaleBg(graphParam('Max'))]);
+            .domain([scaleBg(graphParam('Min','y1')), scaleBg(graphParam('Max','y1'))]);
 
         xScale2 = d3.time.scale()
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale2 = d3.scale.log()
-            .domain([scaleBg(graphParam('Min')), scaleBg(graphParam('Max'))]);
+            .domain([scaleBg(graphParam('Min','y2')), scaleBg(graphParam('Max','y2'))]);
 
         var tickFormat = d3.time.format.multi(  [
             ['.%L', function(d) { return d.getMilliseconds(); }],
@@ -613,7 +613,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 .attr('cy', function (d) {
                     if (isNaN(d.sgv)) {
                         badData.push(d);
-                        return yScale(scaleBg(graphParam('Max')));
+                        return yScale(scaleBg(graphParam('Max','y1')));
                     } else {
                         return yScale(d.sgv);
                     }
@@ -685,9 +685,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // transition open-top line to correct location
         focus.select('.open-top')
             .attr('x1', xScale2(brush.extent()[0]))
-            .attr('y1', yScale(scaleBg(graphParam('Min'))))
+            .attr('y1', yScale(scaleBg(graphParam('Min','y1'))))
             .attr('x2', xScale2(brush.extent()[1]))
-            .attr('y2', yScale(scaleBg(graphParam('Min'))));
+            .attr('y2', yScale(scaleBg(graphParam('Min','y2'))));
 
         // transition open-left line to correct location
         focus.select('.open-left')
@@ -854,9 +854,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 focus.append('line')
                     .attr('class', 'now-line')
                     .attr('x1', xScale(new Date(now)))
-                    .attr('y1', yScale(scaleBg(graphParam('Min'))))
+                    .attr('y1', yScale(scaleBg(graphParam('Min','y1'))))
                     .attr('x2', xScale(new Date(now)))
-                    .attr('y2', yScale(scaleBg(graphParam('Max'))))
+                    .attr('y2', yScale(scaleBg(graphParam('Max','y2'))))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -920,9 +920,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 context.append('line')
                     .attr('class', 'now-line')
                     .attr('x1', xScale(new Date(now)))
-                    .attr('y1', yScale2(scaleBg(36)))
+                    .attr('y1', yScale2(scaleBg(graphParam('Min','y1'))))
                     .attr('x2', xScale(new Date(now)))
-                    .attr('y2', yScale2(scaleBg(420)))
+                    .attr('y2', yScale2(scaleBg(graphParam('Max','y2'))))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -1020,9 +1020,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(currentBrushExtent[0]))
-                    .attr('y1', yScale(scaleBg(graphParam('Min'))))
+                    .attr('y1', yScale(scaleBg(graphParam('Min','y1'))))
                     .attr('x2', xScale2(currentBrushExtent[1]))
-                    .attr('y2', yScale(scaleBg(graphParam('Min'))));
+                    .attr('y2', yScale(scaleBg(graphParam('Min','y2'))));
 
                 // transition open-left line to correct location
                 focus.select('.open-left')
@@ -1088,7 +1088,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 .attr('cy', function (d) {
                     if (isNaN(d.sgv)) {
                         badData.push(d);
-                        return yScale2(scaleBg(graphParam('Max')));
+                        return yScale2(scaleBg(graphParam('Max','y2')));
                     } else {
                         return yScale2(d.sgv);
                     }
