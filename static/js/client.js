@@ -1547,7 +1547,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 , 6.0
                 , Math.round(scaleBg(app.thresholds.bg_target_top))
                 , Math.round(scaleBg(app.thresholds.bg_high))
-                , 12.0
+                , 12.0 
             ];
         } else {
             tickValues = [
