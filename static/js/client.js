@@ -235,7 +235,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale = d3.scale.log()
-            .domain([scaleBg(30), scaleBg(510)]);
+            .domain([scaleBg(45), scaleBg(234)]);
 
         xScale2 = d3.time.scale()
             .domain(d3.extent(data, function (d) { return d.date; }));
