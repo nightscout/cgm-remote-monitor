@@ -222,7 +222,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         return Math.round(raw);
     }
 
-	function graphParam(paramName,xy,chartNo) {
+	function graphParam(param,xy,chartNo) {
 		var returnValue = 0 ;
 		if ( param == 'Max' ) {
 			returnValue = 252 ;
