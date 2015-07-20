@@ -235,13 +235,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale = d3.scale.log()
-            .domain([scaleBg(45), scaleBg(234)]); // david [scaleBg(30), scaleBg(510)]
+            .domain([scaleBg(30), scaleBg(510)]); // david [scaleBg(30), scaleBg(510)]
 
         xScale2 = d3.time.scale()
             .domain(d3.extent(data, function (d) { return d.date; }));
 
         yScale2 = d3.scale.log()
-            .domain([scaleBg(45), scaleBg(234)]); // [scaleBg(36), scaleBg(420)]
+            .domain([scaleBg(36), scaleBg(420)]); // [scaleBg(36), scaleBg(420)]
 
         var tickFormat = d3.time.format.multi(  [
             ['.%L', function(d) { return d.getMilliseconds(); }],
@@ -1547,7 +1547,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 , 6.0
                 , Math.round(scaleBg(app.thresholds.bg_target_top))
                 , Math.round(scaleBg(app.thresholds.bg_high))
-                , 12.0 
+                , 14.0 
             ];
         } else {
             tickValues = [
