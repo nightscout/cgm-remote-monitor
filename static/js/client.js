@@ -793,7 +793,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         // get the height of each chart based on its container size ratio
         focusHeight = chartHeight * .7;
-        contextHeight = chartHeight * .2;
+        contextHeight = chartHeight * .3;
 
         // get current brush extent
         var currentBrushExtent = brush.extent();
