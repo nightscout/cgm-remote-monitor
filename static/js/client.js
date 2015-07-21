@@ -81,6 +81,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , statusPills = $('.status .statusPills')
     ;
 
+  Nightscout.language.set(serverSettings.defaults.language).DOMtranslate();
+  
   function formatTime(time, compact) {
     var timeFormat = getTimeFormat(false, compact);
     time = d3.time.format(timeFormat)(time);

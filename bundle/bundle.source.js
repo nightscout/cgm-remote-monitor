@@ -9,7 +9,7 @@
     units: require('../lib/units')(),
     utils: require('../lib/utils')(),
     profile: require('../lib/profilefunctions')(),
-    language: require('../lib/language')(serverSettings.defaults.language),
+    language: require('../lib/language')(),
     plugins: require('../lib/plugins/')().registerClientDefaults(),
     sandbox: require('../lib/sandbox')()
   };
