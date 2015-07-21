@@ -37,6 +37,7 @@ function getBrowserSettings(storage) {
       'customTitle': storage.get('customTitle'),
       'theme': storage.get('theme'),
       'timeFormat': storage.get('timeFormat'),
+      'bgScale': storage.get('bgScale'),
       'showPlugins': storage.get('showPlugins')
     };
 
@@ -96,6 +97,19 @@ function getBrowserSettings(storage) {
       $('#12-browser').prop('checked', true);
     }
 
+
+    console.log(json, app.defaults);
+
+    json.bgScale = setDefault(json.bgScale, app.defaults.bgScale);
+
+
+
+    if (json.bgScale === 'log') {
+      $('#log-browser').prop('checked', true);
+    } else {
+      $('#lin-browser').prop('checked', true);
+    }
+
     json.showPlugins = setDefault(json.showPlugins, app.defaults.showPlugins || Nightscout.plugins.enabledPluginNames());
     var showPluginsSettings = $('#show-plugins');
     Nightscout.plugins.eachEnabledPlugin(function each(plugin) {
@@ -119,14 +133,13 @@ function getBrowserSettings(storage) {
 }
 
 function setDefault(variable, defaultValue) {
-  if (typeof(variable) === 'object') {
+  if (typeof(variable) === 'object' || typeof(variable) === 'undefined') {
     return defaultValue;
   }
   return variable;
 }
 
 function storeInBrowser(data) {
-
   for (var k in data) {
     if (data.hasOwnProperty(k)) {
       browserStorage.set(k, data[k]);
@@ -271,6 +284,7 @@ $('#save').click(function(event) {
     'customTitle': $('input#customTitle').prop('value'),
     'theme': $('input:radio[name=theme-browser]:checked').val(),
     'timeFormat': $('input:radio[name=timeformat-browser]:checked').val(),
+    'bgScale': $('input:radio[name=bgscale-browser]:checked').val(),
     'showPlugins': checkedPluginNames()
   });
 
@@ -281,7 +295,25 @@ $('#save').click(function(event) {
 
 $('#useDefaults').click(function(event) {
   //remove all known settings, since there might be something else is in localstorage
-  var settings = ['units', 'alarmUrgentHigh', 'alarmHigh', 'alarmLow', 'alarmUrgentLow', 'alarmTimeAgoWarn', 'alarmTimeAgoWarnMins', 'alarmTimeAgoUrgent', 'alarmTimeAgoUrgentMins', 'nightMode', 'showRawbg', 'customTitle', 'theme', 'timeFormat', 'showPlugins'];
+  var settings = [
+    'units'
+    , 'alarmUrgentHigh'
+    , 'alarmHigh'
+    , 'alarmLow'
+    , 'alarmUrgentLow'
+    , 'alarmTimeAgoWarn'
+    , 'alarmTimeAgoWarnMins'
+    , 'alarmTimeAgoUrgent'
+    , 'alarmTimeAgoUrgentMins'
+    , 'nightMode'
+    , 'showRawbg'
+    , 'customTitle'
+    , 'theme'
+    , 'timeFormat'
+    , 'bgScale'
+    , 'showPlugins'
+  ];
+
   settings.forEach(function(setting) {
     browserStorage.remove(setting);
   });
