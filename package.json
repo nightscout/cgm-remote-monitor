@@ -58,6 +58,7 @@
     "express-extension-to-accept": "0.0.2",
     "forever": "~0.13.0",
     "git-rev": "git://github.com/bewest/git-rev.git",
+    "jquery": "^2.1.4",
     "lodash": "^3.9.1",
     "long": "~2.2.3",
     "moment": "2.8.1",
@@ -74,6 +75,7 @@
     "istanbul": "~0.3.5",
     "mocha": "~1.20.1",
     "should": "~4.0.4",
-    "supertest": "~0.13.0"
+    "supertest": "~0.13.0",
+    "jsdom": "^3.1.2"
   }
 }

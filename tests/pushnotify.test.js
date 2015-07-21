@@ -1,6 +1,7 @@
 'use strict';
 
 require('should');
+var levels = require('../lib/levels');
 
 describe('pushnotify', function ( ) {
 
@@ -13,7 +14,7 @@ describe('pushnotify', function ( ) {
     var notify = {
       title: 'Warning, this is a test!'
       , message: 'details details details details'
-      , level: ctx.notifications.levels.WARN
+      , level: levels.WARN
       , pushoverSound: 'climb'
       , plugin: function test () {}
     };
@@ -48,7 +49,7 @@ describe('pushnotify', function ( ) {
     var notify = {
       title: 'Sent from a test'
       , message: 'details details details details'
-      , level: ctx.notifications.levels.INFO
+      , level: levels.INFO
       , plugin: function test () {}
     };
 
@@ -82,7 +83,7 @@ describe('pushnotify', function ( ) {
     var notify = {
       title: 'Warning, this is a test!'
       , message: 'details details details details'
-      , level: ctx.notifications.levels.WARN
+      , level: levels.WARN
       , pushoverSound: 'climb'
       , plugin: function test () {}
     };
