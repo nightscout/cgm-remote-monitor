@@ -112,6 +112,9 @@
   $('#eventTime').find('input:radio').change(function (event) {
     if ($('#othertime').is(':checked')) {
       $('#eventTimeValue').focus();
+    } else {
+      $('#eventTimeValue').val(moment().format('HH:mm'));
+      $('#eventDateValue').val(moment().format('YYYY-MM-D'));
     }
     event.preventDefault();
   });
