@@ -84,7 +84,7 @@
     if (data.notes) { text.push('Notes: ' + data.notes); }
     if (data.enteredBy) { text.push('Entered By: ' + data.enteredBy); }
 
-    text.push('Event Time: ' + (data.eventTime ? data.eventTime.format('LLL') : moment().format('LLL')));
+    text.push('Event Time: ' + (data.eventTime ? data.eventTime.toDate().toLocaleString() : new Date().toLocaleString()));
     return text.join('\n');
   }
 
