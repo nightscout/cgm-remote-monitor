@@ -50,6 +50,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , delta = Nightscout.plugins('delta')
     , direction = Nightscout.plugins('direction')
     , errorcodes = Nightscout.plugins('errorcodes')
+    , translate = Nightscout.language.translate
     , timeAgo = Nightscout.utils.timeAgo;
 
   var jqWindow

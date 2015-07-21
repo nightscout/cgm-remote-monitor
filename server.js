@@ -27,7 +27,7 @@
 ///////////////////////////////////////////////////
 
 var env = require('./env')( );
-
+var translate = require('./lib/language')(env.defaults.language).translate;
 
 ///////////////////////////////////////////////////
 // setup http server
