@@ -27,11 +27,23 @@ body {
     z-index: 2;
 }
 
-.status {
+#container.alarming.urgent .customTitle {
+  color: red;
+}
+
+#container.alarming.warning .customTitle {
+  color: yellow;
+}
+
+.primary {
     font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
-    height: 200px;
+    height: 180px;
     vertical-align: middle;
-    clear: left right;
+    clear: both;
+}
+
+.has-minor-pills .primary {
+  height: 200px;
 }
 
 .bgStatus {
@@ -41,15 +53,15 @@ body {
     padding-right: 20px;
 }
 
-.bgButton.urgent {
+.urgent .bgButton {
   color: red;
 }
 
-.bgButton.warning {
+.warning .bgButton {
   color: yellow;
 }
 
-.bgButton.inrange {
+.inrange .bgButton {
   color: #4cff00;
 }
 
@@ -64,29 +76,30 @@ body {
   font-size: 90px;
 }
 
-.bgStatus .currentDirection {
-    font-weight: normal;
-    text-decoration: none;
-    font-size: 90px;
-    line-height: 90px;
-    vertical-align: middle;
+.bgStatus .pill.direction {
+  font-weight: normal;
+  text-decoration: none;
+  font-size: 90px;
+  line-height: 90px;
+  vertical-align: middle;
+  border: none;
 }
 
-.bgStatus .currentDetails {
+.bgStatus .majorPills {
     font-size: 30px;
 }
 
-.pluginPills {
+.minorPills {
     font-size: 22px;
-    margin-top: 5px;
+    margin-top: 10px;
     z-index: 500;
 }
 
-.currentDetails > span:not(:first-child) {
+.majorPills > span:not(:first-child) {
     margin-left: 5px;
 }
 
-.pluginPills > span:not(:first-child) {
+.minorPills > span:not(:first-child) {
     margin-left: 5px;
 }
 
@@ -96,7 +109,7 @@ body {
     border: 2px solid #808080;
 }
 
-.pill * {
+.pill em, .pill label {
     padding-left: 2px;
     padding-right: 2px;
 }
@@ -141,45 +154,45 @@ body {
   text-decoration: line-through;
 }
 
-.time {
+.status {
     color: #808080;
     font-size: 100px;
     line-height: 100px;
 }
-.timebox {
+.statusBox {
     text-align: center;
     width: 250px;
 }
-.timeOther {
+.statusPills {
     font-size: 20px;
     line-height: 30px;
 }
 
-.loading .timeOther {
+.loading .statusPills {
     display: none;
 }
 
-.timeOther .pill {
+.statusPills .pill {
     background: #808080;
     border-color: #808080;
 }
 
-.timeOther .pill em {
+.statusPills .pill em {
     color: #bdbdbd;
     background: #000;
     border-radius: 4px 0 0 4px;
 }
 
-.timeOther .pill label {
+.statusPills .pill label {
     background: #808080;
 }
 
-#uploaderBattery label {
+.pill.upbat label {
     padding: 0 !important;
 }
 
 #chartContainer {
-    top: 245px; /*(toolbar height + status height)*/
+    top: 225px; /*(toolbar height + status height)*/
     left:0;
     right:0;
     bottom:0;
@@ -188,6 +201,10 @@ body {
     background: #111;
     display: block;
     position:absolute;
+}
+
+.has-minor-pills #chartContainer {
+  top: 245px;
 }
 
 #chartContainer svg {
@@ -224,7 +241,7 @@ body {
     border: 2px solid #bdbdbd;
 }
 
-#silenceBtn * {
+#silenceBtn a {
     font-size: 40px
 }
 
@@ -235,24 +252,24 @@ body {
   width: 360px;
 }
 
-.loading .bgButton .rawnoise {
+.loading .pill.rawbg {
     display: none;
 }
 
-.bgButton .rawnoise {
+.pill.rawbg {
     display: inline-block;
     border-radius: 2px;
     border: 1px solid #808080;
 }
 
-.bgButton .rawnoise em {
+.pill.rawbg em {
     color: white;
     background-color: black;
     display: block;
     font-size: 20px;
 }
 
-.bgButton .rawnoise label {
+.pill.rawbg label {
     display: block;
     font-size: 14px;
 }
@@ -263,11 +280,11 @@ body {
     box-shadow: 2px 2px 0 #ddd;
 }
 
-.alarming .bgButton.urgent {
+.alarming.urgent .bgButton {
     background-color: red;
 }
 
-.alarming .bgButton.warning {
+.alarming.warning .bgButton {
     background-color: yellow;
 }
 
@@ -285,7 +302,9 @@ body {
     margin: 10px auto;
 }
 
-div.tooltip {
+.tooltip {
+    top: 0;
+    left: 0;
     color: #444;
     position: absolute;
     text-align: left;
@@ -324,10 +343,14 @@ div.tooltip {
     cursor: pointer;
 }
 
-.focus-range li.selected {
+.focus-range .selected {
     border-color: #808080;
     color: #000;
     background: #808080;
+}
+
+.pill.hidden {
+  display: none;
 }
 
 @media (max-width: 800px) {
@@ -348,31 +371,31 @@ div.tooltip {
       font-size: 70px;
     }
 
-    .bgStatus .currentDirection {
+    .bgStatus .pill.direction {
         font-size: 70px;
         line-height: 70px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 20px;
     }
 
-    .bgStatus .pluginPills {
+    .bgStatus .minorPills {
         font-size: 16px;
     }
 
-    .time {
+    .status {
         font-size: 70px;
         line-height: 60px;
         padding-top: 8px;
     }
 
-    .timeOther {
+    .statusPills {
         font-size: 15px;
         line-height: 40px;
     }
 
-    #uploaderBattery label {
+    .pill.upbat label {
         font-size: 15px !important;
     }
 
@@ -384,16 +407,25 @@ div.tooltip {
         font-size: 14px;
     }
 
-    #silenceBtn * {
+    #silenceBtn a {
         font-size: 30px;
     }
 
     #chartContainer {
-        top: 195px;
+        top: 165px;
         font-size: 14px;
     }
+
     #chartContainer svg {
-        height: calc(100vh - 185px);
+        height: calc(100vh - 165px);
+    }
+
+    .has-minor-pills #chartContainer {
+      top: 175px;
+    }
+
+    #chartContainer svg {
+        height: calc(100vh - 175px);
     }
 
 }
@@ -404,11 +436,11 @@ div.tooltip {
         padding: 0;
     }
 
-    .bgButton .rawnoise em {
+    .pill.rawbg em {
         font-size: 14px;
     }
 
-    .bgButton .rawnoise label {
+    .pill.rawbg label {
         font-size: 12px;
     }
 
@@ -421,22 +453,22 @@ div.tooltip {
       font-size: 50px;
     }
 
-    .bgStatus .currentDirection {
+    .bgStatus .pill.direction {
         font-size: 50px;
         line-height: 50px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 15px;
     }
 
-    .bgStatus .pluginPills {
+    .bgStatus .minorPills {
         font-size: 12px;
     }
 
-    .time {
+    .status {
         font-size: 50px;
-        line-height: 40px;
+        line-height: 35px;
         width: 250px;
     }
 
@@ -450,7 +482,7 @@ div.tooltip {
 }
 
 @media (max-width: 400px) {
-    .status {
+    .primary {
         text-align: center;
         margin-bottom: 0;
         height: 152px;
@@ -479,29 +511,29 @@ div.tooltip {
         padding-left: 20px;
     }
 
-    .bgStatus .currentDirection {
+    .bgStatus .pill.direction {
         font-size: 60px;
         line-height: 60px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 15px;
     }
 
-    .bgStatus .pluginPills {
+    .bgStatus .minorPills {
         font-size: 12px;
     }
 
-    #silenceBtn * {
+    #silenceBtn a {
       font-size: 20px;
     }
 
-    .time {
+    .status {
         padding-top: 0;
         font-size: 20px !important;
     }
 
-    .timebox {
+    .statusBox {
         width: auto;
     }
 
@@ -510,13 +542,13 @@ div.tooltip {
         vertical-align: middle;
     }
 
-    .timeOther {
+    .statusPills {
         display: inline;
         margin-left: auto;
         font-size: 15px;
     }
 
-    #uploaderBattery label {
+    .pill.upbat label {
         font-size: 15px !important;
     }
 
@@ -534,10 +566,19 @@ div.tooltip {
     }
 
     #chartContainer {
-        top: 200px;
+        top: 190px;
     }
+
     #chartContainer svg {
         height: calc(100vh - (190px));
+    }
+
+    .has-minor-pills #chartContainer {
+      top: 210px;
+    }
+
+    .has-minor-pills #chartContainer svg {
+        height: calc(100vh - (210px));
     }
 }
 
@@ -559,7 +600,7 @@ div.tooltip {
         height: auto !important;
     }
 
-    #toolbar h1 {
+    #toolbar .customTitle {
         display: none;
     }
 
@@ -569,11 +610,20 @@ div.tooltip {
     }
 
     #chartContainer {
-        top: 140px;
+        top: 130px;
         font-size: 10px;
     }
+
     #chartContainer svg {
         height: calc(100vh - 130px);
+    }
+
+    .has-minor-pills #chartContainer {
+        top: 140px;
+    }
+
+    .has-minor-pills #chartContainer svg {
+        height: calc(100vh - 140px);
     }
 }
 
@@ -587,30 +637,30 @@ div.tooltip {
         font-size: 70px;
     }
 
-    .bgStatus .currentDirection {
+    .bgStatus .pill.direction {
         font-size: 50px;
         line-height: 50px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 15px;
     }
 
-    .bgStatus .pluginPills {
+    .bgStatus .minorPills {
         font-size: 12px;
     }
 
-    .time {
+    .status {
         font-size: 50px;
         line-height: 40px;
         padding-top: 5px;
     }
 
-    .timeOther {
+    .statusPills {
         font-size: 15px;
     }
 
-    #uploaderBattery label {
+    .pill.upbat label {
         font-size: 15px !important;
     }
 
@@ -634,16 +684,16 @@ div.tooltip {
         font-size: 60px;
     }
 
-    .bgStatus .currentDirection {
+    .bgStatus .pill.direction {
         font-size: 50px;
         line-height: 50px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 15px;
     }
 
-    .bgStatus .currentDetails {
+    .bgStatus .majorPills {
         font-size: 12px;
     }
 
@@ -664,12 +714,12 @@ div.tooltip {
         display: block;
     }
 
-    .time {
+    .status {
         position: absolute;
         top: 90px;
     }
 
-    .timebox {
+    .statusBox {
         width: 220px;
     }
 
