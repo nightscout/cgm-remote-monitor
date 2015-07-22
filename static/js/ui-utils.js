@@ -6,118 +6,6 @@ function rawBGsEnabled() {
   return serverSettings.enabledOptions && serverSettings.enabledOptions.indexOf('rawbg') > -1;
 }
 
-function getBrowserSettings(storage) {
-  var json = {};
-
-  function scaleBg(bg) {
-    if (json.units === 'mmol') {
-      return Nightscout.units.mgdlToMMOL(bg);
-    } else {
-      return bg;
-    }
-  }
-
-  function appendThresholdValue(threshold) {
-    return serverSettings.alarm_types.indexOf('simple') === -1 ? '' : ' (' + scaleBg(threshold) + ')';
-  }
-
-  try {
-    json = {
-      'units': storage.get('units'),
-      'alarmUrgentHigh': storage.get('alarmUrgentHigh'),
-      'alarmHigh': storage.get('alarmHigh'),
-      'alarmLow': storage.get('alarmLow'),
-      'alarmUrgentLow': storage.get('alarmUrgentLow'),
-      'alarmTimeAgoWarn': storage.get('alarmTimeAgoWarn'),
-      'alarmTimeAgoWarnMins': storage.get('alarmTimeAgoWarnMins'),
-      'alarmTimeAgoUrgent': storage.get('alarmTimeAgoUrgent'),
-      'alarmTimeAgoUrgentMins': storage.get('alarmTimeAgoUrgentMins'),
-      'nightMode': storage.get('nightMode'),
-      'showRawbg': storage.get('showRawbg'),
-      'customTitle': storage.get('customTitle'),
-      'theme': storage.get('theme'),
-      'timeFormat': storage.get('timeFormat'),
-      'showPlugins': storage.get('showPlugins')
-    };
-
-    // Default browser units to server units if undefined.
-    json.units = setDefault(json.units, serverSettings.units);
-    if (json.units === 'mmol') {
-      $('#mmol-browser').prop('checked', true);
-    } else {
-      $('#mgdl-browser').prop('checked', true);
-    }
-
-    json.alarmUrgentHigh = setDefault(json.alarmUrgentHigh, serverSettings.defaults.alarmUrgentHigh);
-    json.alarmHigh = setDefault(json.alarmHigh, serverSettings.defaults.alarmHigh);
-    json.alarmLow = setDefault(json.alarmLow, serverSettings.defaults.alarmLow);
-    json.alarmUrgentLow = setDefault(json.alarmUrgentLow, serverSettings.defaults.alarmUrgentLow);
-    json.alarmTimeAgoWarn = setDefault(json.alarmTimeAgoWarn, serverSettings.defaults.alarmTimeAgoWarn);
-    json.alarmTimeAgoWarnMins = setDefault(json.alarmTimeAgoWarnMins, serverSettings.defaults.alarmTimeAgoWarnMins);
-    json.alarmTimeAgoUrgent = setDefault(json.alarmTimeAgoUrgent, serverSettings.defaults.alarmTimeAgoUrgent);
-    json.alarmTimeAgoUrgentMins = setDefault(json.alarmTimeAgoUrgentMins, serverSettings.defaults.alarmTimeAgoUrgentMins);
-    $('#alarm-urgenthigh-browser').prop('checked', json.alarmUrgentHigh).next().text('Urgent High Alarm' + appendThresholdValue(serverSettings.thresholds.bg_high));
-    $('#alarm-high-browser').prop('checked', json.alarmHigh).next().text('High Alarm' + appendThresholdValue(serverSettings.thresholds.bg_target_top));
-    $('#alarm-low-browser').prop('checked', json.alarmLow).next().text('Low Alarm' + appendThresholdValue(serverSettings.thresholds.bg_target_bottom));
-    $('#alarm-urgentlow-browser').prop('checked', json.alarmUrgentLow).next().text('Urgent Low Alarm' + appendThresholdValue(serverSettings.thresholds.bg_low));
-    $('#alarm-timeagowarn-browser').prop('checked', json.alarmTimeAgoWarn);
-    $('#alarm-timeagowarnmins-browser').val(json.alarmTimeAgoWarnMins);
-    $('#alarm-timeagourgent-browser').prop('checked', json.alarmTimeAgoUrgent);
-    $('#alarm-timeagourgentmins-browser').val(json.alarmTimeAgoUrgentMins);
-
-    json.nightMode = setDefault(json.nightMode, serverSettings.defaults.nightMode);
-    $('#nightmode-browser').prop('checked', json.nightMode);
-
-    if (rawBGsEnabled()) {
-      $('#show-rawbg-option').show();
-      json.showRawbg = setDefault(json.showRawbg, serverSettings.defaults.showRawbg);
-      $('#show-rawbg-' + json.showRawbg).prop('checked', true);
-    } else {
-      json.showRawbg = 'never';
-      $('#show-rawbg-option').hide();
-    }
-
-    json.customTitle = setDefault(json.customTitle, serverSettings.defaults.customTitle);
-    $('h1.customTitle').text(json.customTitle);
-    $('input#customTitle').prop('value', json.customTitle);
-
-    json.theme = setDefault(json.theme, serverSettings.defaults.theme);
-    if (json.theme === 'colors') {
-      $('#theme-colors-browser').prop('checked', true);
-    } else {
-      $('#theme-default-browser').prop('checked', true);
-    }
-
-    json.timeFormat = setDefault(json.timeFormat, serverSettings.defaults.timeFormat);
-
-    if (json.timeFormat === '24') {
-      $('#24-browser').prop('checked', true);
-    } else {
-      $('#12-browser').prop('checked', true);
-    }
-
-    json.showPlugins = setDefault(json.showPlugins, serverSettings.defaults.showPlugins || Nightscout.plugins.enabledPluginNames());
-    var showPluginsSettings = $('#show-plugins');
-    Nightscout.plugins.eachEnabledPlugin(function each(plugin) {
-      if (Nightscout.plugins.specialPlugins.indexOf(plugin.name) > -1) {
-        //ignore these, they are always on for now
-      } else {
-        var id = 'plugin-' + plugin.name;
-        var dd = $('<dd><input type="checkbox" id="' + id + '" value="' + plugin.name + '"/><label for="' + id + '">' + (plugin.label || plugin.name) + '</label></dd>');
-        showPluginsSettings.append(dd);
-        dd.find('input').prop('checked', json.showPlugins.indexOf(plugin.name) > -1);
-      }
-    });
-
-
-  } catch(err) {
-    console.error(err);
-    showLocalstorageError();
-  }
-
-  return json;
-}
-
 function setDefault(variable, defaultValue) {
   if (typeof(variable) === 'object') {
     return defaultValue;
@@ -207,35 +95,8 @@ function showNotification(note, type)  {
   notify.show();
 }
 
-function showLocalstorageError() {
-  var msg = '<b>Settings are disabled.</b><br /><br />Please enable cookies so you may customize your Nightscout site.';
-  $('.browserSettings').html('<legend>Settings</legend>'+msg+'');
-  $('#save').hide();
-}
-
 
 var querystring = getQueryParms();
-
-function Dropdown(el) {
-  this.ddmenuitem = 0;
-
-  this.$el = $(el);
-  var that = this;
-
-  $(document).click(function() { that.close(); });
-}
-Dropdown.prototype.close = function () {
-  if (this.ddmenuitem) {
-    this.ddmenuitem.css('visibility', 'hidden');
-    this.ddmenuitem = 0;
-  }
-};
-Dropdown.prototype.open = function (e) {
-  this.close();
-  this.ddmenuitem = $(this.$el).css('visibility', 'visible');
-  e.stopPropagation();
-};
-
 
 $('#drawerToggle').click(function(event) {
   toggleDrawer('#drawer');
