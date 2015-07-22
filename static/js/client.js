@@ -1,5 +1,5 @@
 //TODO: clean up
-var app = {}, browserSettings = {}, browserStorage = $.localStorage;
+var browserSettings = {}, browserStorage = $.localStorage;
 
 (function () {
   'use strict';
@@ -365,7 +365,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
       var pluginBase = Nightscout.plugins.base(majorPills, minorPills, statusPills, bgStatus, tooltip);
 
-      sbx = Nightscout.sandbox.clientInit(app, browserSettings, time, pluginBase, {
+      sbx = Nightscout.sandbox.clientInit(serverSettings, browserSettings, time, pluginBase, {
         sgvs: sgvs
         , cals: [cal]
         , treatments: treatments
@@ -721,9 +721,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         focus.append('line')
           .attr('class', 'high-line')
           .attr('x1', xScale(dataRange[0]))
-          .attr('y1', yScale(scaleBg(app.thresholds.bg_high)))
+          .attr('y1', yScale(scaleBg(serverSettings.thresholds.bg_high)))
           .attr('x2', xScale(dataRange[1]))
-          .attr('y2', yScale(scaleBg(app.thresholds.bg_high)))
+          .attr('y2', yScale(scaleBg(serverSettings.thresholds.bg_high)))
           .style('stroke-dasharray', ('1, 6'))
           .attr('stroke', '#777');
 
@@ -731,9 +731,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         focus.append('line')
           .attr('class', 'target-top-line')
           .attr('x1', xScale(dataRange[0]))
-          .attr('y1', yScale(scaleBg(app.thresholds.bg_target_top)))
+          .attr('y1', yScale(scaleBg(serverSettings.thresholds.bg_target_top)))
           .attr('x2', xScale(dataRange[1]))
-          .attr('y2', yScale(scaleBg(app.thresholds.bg_target_top)))
+          .attr('y2', yScale(scaleBg(serverSettings.thresholds.bg_target_top)))
           .style('stroke-dasharray', ('3, 3'))
           .attr('stroke', 'grey');
 
@@ -741,9 +741,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         focus.append('line')
           .attr('class', 'target-bottom-line')
           .attr('x1', xScale(dataRange[0]))
-          .attr('y1', yScale(scaleBg(app.thresholds.bg_target_bottom)))
+          .attr('y1', yScale(scaleBg(serverSettings.thresholds.bg_target_bottom)))
           .attr('x2', xScale(dataRange[1]))
-          .attr('y2', yScale(scaleBg(app.thresholds.bg_target_bottom)))
+          .attr('y2', yScale(scaleBg(serverSettings.thresholds.bg_target_bottom)))
           .style('stroke-dasharray', ('3, 3'))
           .attr('stroke', 'grey');
 
@@ -751,9 +751,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         focus.append('line')
           .attr('class', 'low-line')
           .attr('x1', xScale(dataRange[0]))
-          .attr('y1', yScale(scaleBg(app.thresholds.bg_low)))
+          .attr('y1', yScale(scaleBg(serverSettings.thresholds.bg_low)))
           .attr('x2', xScale(dataRange[1]))
-          .attr('y2', yScale(scaleBg(app.thresholds.bg_low)))
+          .attr('y2', yScale(scaleBg(serverSettings.thresholds.bg_low)))
           .style('stroke-dasharray', ('1, 6'))
           .attr('stroke', '#777');
 
@@ -787,9 +787,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         context.append('line')
           .attr('class', 'high-line')
           .attr('x1', xScale(dataRange[0]))
-          .attr('y1', yScale2(scaleBg(app.thresholds.bg_target_top)))
+          .attr('y1', yScale2(scaleBg(serverSettings.thresholds.bg_target_top)))
           .attr('x2', xScale(dataRange[1]))
-          .attr('y2', yScale2(scaleBg(app.thresholds.bg_target_top)))
+          .attr('y2', yScale2(scaleBg(serverSettings.thresholds.bg_target_top)))
           .style('stroke-dasharray', ('3, 3'))
           .attr('stroke', 'grey');
 
@@ -797,9 +797,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         context.append('line')
           .attr('class', 'low-line')
           .attr('x1', xScale(dataRange[0]))
-          .attr('y1', yScale2(scaleBg(app.thresholds.bg_target_bottom)))
+          .attr('y1', yScale2(scaleBg(serverSettings.thresholds.bg_target_bottom)))
           .attr('x2', xScale(dataRange[1]))
-          .attr('y2', yScale2(scaleBg(app.thresholds.bg_target_bottom)))
+          .attr('y2', yScale2(scaleBg(serverSettings.thresholds.bg_target_bottom)))
           .style('stroke-dasharray', ('3, 3'))
           .attr('stroke', 'grey');
 
@@ -846,33 +846,33 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
           .transition()
           .duration(UPDATE_TRANS_MS)
           .attr('x1', xScale(currentBrushExtent[0]))
-          .attr('y1', yScale(scaleBg(app.thresholds.bg_high)))
+          .attr('y1', yScale(scaleBg(serverSettings.thresholds.bg_high)))
           .attr('x2', xScale(currentBrushExtent[1]))
-          .attr('y2', yScale(scaleBg(app.thresholds.bg_high)));
+          .attr('y2', yScale(scaleBg(serverSettings.thresholds.bg_high)));
 
         focus.select('.target-top-line')
           .transition()
           .duration(UPDATE_TRANS_MS)
           .attr('x1', xScale(currentBrushExtent[0]))
-          .attr('y1', yScale(scaleBg(app.thresholds.bg_target_top)))
+          .attr('y1', yScale(scaleBg(serverSettings.thresholds.bg_target_top)))
           .attr('x2', xScale(currentBrushExtent[1]))
-          .attr('y2', yScale(scaleBg(app.thresholds.bg_target_top)));
+          .attr('y2', yScale(scaleBg(serverSettings.thresholds.bg_target_top)));
 
         focus.select('.target-bottom-line')
           .transition()
           .duration(UPDATE_TRANS_MS)
           .attr('x1', xScale(currentBrushExtent[0]))
-          .attr('y1', yScale(scaleBg(app.thresholds.bg_target_bottom)))
+          .attr('y1', yScale(scaleBg(serverSettings.thresholds.bg_target_bottom)))
           .attr('x2', xScale(currentBrushExtent[1]))
-          .attr('y2', yScale(scaleBg(app.thresholds.bg_target_bottom)));
+          .attr('y2', yScale(scaleBg(serverSettings.thresholds.bg_target_bottom)));
 
         focus.select('.low-line')
           .transition()
           .duration(UPDATE_TRANS_MS)
           .attr('x1', xScale(currentBrushExtent[0]))
-          .attr('y1', yScale(scaleBg(app.thresholds.bg_low)))
+          .attr('y1', yScale(scaleBg(serverSettings.thresholds.bg_low)))
           .attr('x2', xScale(currentBrushExtent[1]))
-          .attr('y2', yScale(scaleBg(app.thresholds.bg_low)));
+          .attr('y2', yScale(scaleBg(serverSettings.thresholds.bg_low)));
 
         // transition open-top line to correct location
         focus.select('.open-top')
@@ -906,18 +906,18 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
           .transition()
           .duration(UPDATE_TRANS_MS)
           .attr('x1', xScale2(dataRange[0]))
-          .attr('y1', yScale2(scaleBg(app.thresholds.bg_target_top)))
+          .attr('y1', yScale2(scaleBg(serverSettings.thresholds.bg_target_top)))
           .attr('x2', xScale2(dataRange[1]))
-          .attr('y2', yScale2(scaleBg(app.thresholds.bg_target_top)));
+          .attr('y2', yScale2(scaleBg(serverSettings.thresholds.bg_target_top)));
 
         // transition low line to correct location
         context.select('.low-line')
           .transition()
           .duration(UPDATE_TRANS_MS)
           .attr('x1', xScale2(dataRange[0]))
-          .attr('y1', yScale2(scaleBg(app.thresholds.bg_target_bottom)))
+          .attr('y1', yScale2(scaleBg(serverSettings.thresholds.bg_target_bottom)))
           .attr('x2', xScale2(dataRange[1]))
-          .attr('y2', yScale2(scaleBg(app.thresholds.bg_target_bottom)));
+          .attr('y2', yScale2(scaleBg(serverSettings.thresholds.bg_target_bottom)));
       }
     }
 
@@ -985,15 +985,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var color = 'grey';
 
     if (browserSettings.theme === 'colors') {
-      if (sgv > app.thresholds.bg_high) {
+      if (sgv > serverSettings.thresholds.bg_high) {
         color = 'red';
-      } else if (sgv > app.thresholds.bg_target_top) {
+      } else if (sgv > serverSettings.thresholds.bg_target_top) {
         color = 'yellow';
-      } else if (sgv >= app.thresholds.bg_target_bottom && sgv <= app.thresholds.bg_target_top) {
+      } else if (sgv >= serverSettings.thresholds.bg_target_bottom && sgv <= serverSettings.thresholds.bg_target_top) {
         color = '#4cff00';
-      } else if (sgv < app.thresholds.bg_low) {
+      } else if (sgv < serverSettings.thresholds.bg_low) {
         color = 'red';
-      } else if (sgv < app.thresholds.bg_target_bottom) {
+      } else if (sgv < serverSettings.thresholds.bg_target_bottom) {
         color = 'yellow';
       }
     }
@@ -1005,15 +1005,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var range = '';
 
     if (browserSettings.theme === 'colors') {
-      if (sgv > app.thresholds.bg_high) {
+      if (sgv > serverSettings.thresholds.bg_high) {
         range = 'urgent';
-      } else if (sgv > app.thresholds.bg_target_top) {
+      } else if (sgv > serverSettings.thresholds.bg_target_top) {
         range = 'warning';
-      } else if (sgv >= app.thresholds.bg_target_bottom && sgv <= app.thresholds.bg_target_top) {
+      } else if (sgv >= serverSettings.thresholds.bg_target_bottom && sgv <= serverSettings.thresholds.bg_target_top) {
         range = 'inrange';
-      } else if (sgv < app.thresholds.bg_low) {
+      } else if (sgv < serverSettings.thresholds.bg_low) {
         range = 'urgent';
-      } else if (sgv < app.thresholds.bg_target_bottom) {
+      } else if (sgv < serverSettings.thresholds.bg_target_bottom) {
         range = 'warning';
       }
     }
@@ -1284,21 +1284,21 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     if (browserSettings.units === 'mmol') {
       tickValues = [
         2.0
-        , Math.round(scaleBg(app.thresholds.bg_low))
-        , Math.round(scaleBg(app.thresholds.bg_target_bottom))
+        , Math.round(scaleBg(serverSettings.thresholds.bg_low))
+        , Math.round(scaleBg(serverSettings.thresholds.bg_target_bottom))
         , 6.0
-        , Math.round(scaleBg(app.thresholds.bg_target_top))
-        , Math.round(scaleBg(app.thresholds.bg_high))
+        , Math.round(scaleBg(serverSettings.thresholds.bg_target_top))
+        , Math.round(scaleBg(serverSettings.thresholds.bg_high))
         , 22.0
       ];
     } else {
       tickValues = [
         40
-        , app.thresholds.bg_low
-        , app.thresholds.bg_target_bottom
+        , serverSettings.thresholds.bg_low
+        , serverSettings.thresholds.bg_target_bottom
         , 120
-        , app.thresholds.bg_target_top
-        , app.thresholds.bg_high
+        , serverSettings.thresholds.bg_target_top
+        , serverSettings.thresholds.bg_high
         , 400
       ];
     }
@@ -1494,13 +1494,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     //with predicted alarms, latestSGV may still be in target so to see if the alarm
     //  is for a HIGH we can only check if it's >= the bottom of the target
     function isAlarmForHigh() {
-      return latestSGV.mgdl >= app.thresholds.bg_target_bottom;
+      return latestSGV.mgdl >= serverSettings.thresholds.bg_target_bottom;
     }
 
     //with predicted alarms, latestSGV may still be in target so to see if the alarm
     //  is for a LOW we can only check if it's <= the top of the target
     function isAlarmForLow() {
-      return latestSGV.mgdl <= app.thresholds.bg_target_top;
+      return latestSGV.mgdl <= serverSettings.thresholds.bg_target_top;
     }
 
     socket.on('alarm', function (notify) {
@@ -1552,39 +1552,21 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     });
   }
 
-  $.ajax('/api/v1/status.json', {
-    success: function (xhr) {
-      app = { name: xhr.name
-        , version: xhr.version
-        , head: xhr.head
-        , apiEnabled: xhr.apiEnabled
-        , enabledOptions: xhr.enabledOptions || ''
-        , extendedSettings: xhr.extendedSettings
-        , thresholds: xhr.thresholds
-        , alarm_types: xhr.alarm_types
-        , units: xhr.units
-        , careportalEnabled: xhr.careportalEnabled
-        , defaults: xhr.defaults
-      };
+  if (serverSettings.enabledOptions.indexOf('ar2') < 0) {
+    serverSettings.enabledOptions += ' ar2';
+  }
 
-      //TODO: currently we need the ar2 plugin for the cone
-      if (app.enabledOptions.indexOf('ar2') < 0) {
-        app.enabledOptions += ' ar2';
-      }
-    }
-  }).done(function() {
-    $('.appName').text(app.name);
-    $('.version').text(app.version);
-    $('.head').text(app.head);
-    if (app.apiEnabled) {
-      $('.serverSettings').show();
-    }
-    $('#treatmentDrawerToggle').toggle(app.careportalEnabled);
-    Nightscout.plugins.init(app);
-    browserSettings = getBrowserSettings(browserStorage);
-    sbx = Nightscout.sandbox.clientInit(app, browserSettings, Date.now());
-    $('.container').toggleClass('has-minor-pills', Nightscout.plugins.hasShownType('pill-minor', browserSettings));
-    init();
-  });
+  $('.appName').text(serverSettings.name);
+  $('.version').text(serverSettings.version);
+  $('.head').text(serverSettings.head);
+  if (serverSettings.apiEnabled) {
+    $('.serverSettings').show();
+  }
+  $('#treatmentDrawerToggle').toggle(serverSettings.careportalEnabled);
+  Nightscout.plugins.init(serverSettings);
+  browserSettings = getBrowserSettings(browserStorage);
+  sbx = Nightscout.sandbox.clientInit(serverSettings, browserSettings, Date.now());
+  $('.container').toggleClass('has-minor-pills', Nightscout.plugins.hasShownType('pill-minor', browserSettings));
+  init();
 
 })();

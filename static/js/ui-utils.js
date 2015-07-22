@@ -3,7 +3,7 @@
 var openDraw = null;
 
 function rawBGsEnabled() {
-  return app.enabledOptions && app.enabledOptions.indexOf('rawbg') > -1;
+  return serverSettings.enabledOptions && serverSettings.enabledOptions.indexOf('rawbg') > -1;
 }
 
 function getBrowserSettings(storage) {
@@ -18,7 +18,7 @@ function getBrowserSettings(storage) {
   }
 
   function appendThresholdValue(threshold) {
-    return app.alarm_types.indexOf('simple') === -1 ? '' : ' (' + scaleBg(threshold) + ')';
+    return serverSettings.alarm_types.indexOf('simple') === -1 ? '' : ' (' + scaleBg(threshold) + ')';
   }
 
   try {
@@ -41,54 +41,54 @@ function getBrowserSettings(storage) {
     };
 
     // Default browser units to server units if undefined.
-    json.units = setDefault(json.units, app.units);
+    json.units = setDefault(json.units, serverSettings.units);
     if (json.units === 'mmol') {
       $('#mmol-browser').prop('checked', true);
     } else {
       $('#mgdl-browser').prop('checked', true);
     }
 
-    json.alarmUrgentHigh = setDefault(json.alarmUrgentHigh, app.defaults.alarmUrgentHigh);
-    json.alarmHigh = setDefault(json.alarmHigh, app.defaults.alarmHigh);
-    json.alarmLow = setDefault(json.alarmLow, app.defaults.alarmLow);
-    json.alarmUrgentLow = setDefault(json.alarmUrgentLow, app.defaults.alarmUrgentLow);
-    json.alarmTimeAgoWarn = setDefault(json.alarmTimeAgoWarn, app.defaults.alarmTimeAgoWarn);
-    json.alarmTimeAgoWarnMins = setDefault(json.alarmTimeAgoWarnMins, app.defaults.alarmTimeAgoWarnMins);
-    json.alarmTimeAgoUrgent = setDefault(json.alarmTimeAgoUrgent, app.defaults.alarmTimeAgoUrgent);
-    json.alarmTimeAgoUrgentMins = setDefault(json.alarmTimeAgoUrgentMins, app.defaults.alarmTimeAgoUrgentMins);
-    $('#alarm-urgenthigh-browser').prop('checked', json.alarmUrgentHigh).next().text('Urgent High Alarm' + appendThresholdValue(app.thresholds.bg_high));
-    $('#alarm-high-browser').prop('checked', json.alarmHigh).next().text('High Alarm' + appendThresholdValue(app.thresholds.bg_target_top));
-    $('#alarm-low-browser').prop('checked', json.alarmLow).next().text('Low Alarm' + appendThresholdValue(app.thresholds.bg_target_bottom));
-    $('#alarm-urgentlow-browser').prop('checked', json.alarmUrgentLow).next().text('Urgent Low Alarm' + appendThresholdValue(app.thresholds.bg_low));
+    json.alarmUrgentHigh = setDefault(json.alarmUrgentHigh, serverSettings.defaults.alarmUrgentHigh);
+    json.alarmHigh = setDefault(json.alarmHigh, serverSettings.defaults.alarmHigh);
+    json.alarmLow = setDefault(json.alarmLow, serverSettings.defaults.alarmLow);
+    json.alarmUrgentLow = setDefault(json.alarmUrgentLow, serverSettings.defaults.alarmUrgentLow);
+    json.alarmTimeAgoWarn = setDefault(json.alarmTimeAgoWarn, serverSettings.defaults.alarmTimeAgoWarn);
+    json.alarmTimeAgoWarnMins = setDefault(json.alarmTimeAgoWarnMins, serverSettings.defaults.alarmTimeAgoWarnMins);
+    json.alarmTimeAgoUrgent = setDefault(json.alarmTimeAgoUrgent, serverSettings.defaults.alarmTimeAgoUrgent);
+    json.alarmTimeAgoUrgentMins = setDefault(json.alarmTimeAgoUrgentMins, serverSettings.defaults.alarmTimeAgoUrgentMins);
+    $('#alarm-urgenthigh-browser').prop('checked', json.alarmUrgentHigh).next().text('Urgent High Alarm' + appendThresholdValue(serverSettings.thresholds.bg_high));
+    $('#alarm-high-browser').prop('checked', json.alarmHigh).next().text('High Alarm' + appendThresholdValue(serverSettings.thresholds.bg_target_top));
+    $('#alarm-low-browser').prop('checked', json.alarmLow).next().text('Low Alarm' + appendThresholdValue(serverSettings.thresholds.bg_target_bottom));
+    $('#alarm-urgentlow-browser').prop('checked', json.alarmUrgentLow).next().text('Urgent Low Alarm' + appendThresholdValue(serverSettings.thresholds.bg_low));
     $('#alarm-timeagowarn-browser').prop('checked', json.alarmTimeAgoWarn);
     $('#alarm-timeagowarnmins-browser').val(json.alarmTimeAgoWarnMins);
     $('#alarm-timeagourgent-browser').prop('checked', json.alarmTimeAgoUrgent);
     $('#alarm-timeagourgentmins-browser').val(json.alarmTimeAgoUrgentMins);
 
-    json.nightMode = setDefault(json.nightMode, app.defaults.nightMode);
+    json.nightMode = setDefault(json.nightMode, serverSettings.defaults.nightMode);
     $('#nightmode-browser').prop('checked', json.nightMode);
 
     if (rawBGsEnabled()) {
       $('#show-rawbg-option').show();
-      json.showRawbg = setDefault(json.showRawbg, app.defaults.showRawbg);
+      json.showRawbg = setDefault(json.showRawbg, serverSettings.defaults.showRawbg);
       $('#show-rawbg-' + json.showRawbg).prop('checked', true);
     } else {
       json.showRawbg = 'never';
       $('#show-rawbg-option').hide();
     }
 
-    json.customTitle = setDefault(json.customTitle, app.defaults.customTitle);
+    json.customTitle = setDefault(json.customTitle, serverSettings.defaults.customTitle);
     $('h1.customTitle').text(json.customTitle);
     $('input#customTitle').prop('value', json.customTitle);
 
-    json.theme = setDefault(json.theme, app.defaults.theme);
+    json.theme = setDefault(json.theme, serverSettings.defaults.theme);
     if (json.theme === 'colors') {
       $('#theme-colors-browser').prop('checked', true);
     } else {
       $('#theme-default-browser').prop('checked', true);
     }
 
-    json.timeFormat = setDefault(json.timeFormat, app.defaults.timeFormat);
+    json.timeFormat = setDefault(json.timeFormat, serverSettings.defaults.timeFormat);
 
     if (json.timeFormat === '24') {
       $('#24-browser').prop('checked', true);
@@ -96,7 +96,7 @@ function getBrowserSettings(storage) {
       $('#12-browser').prop('checked', true);
     }
 
-    json.showPlugins = setDefault(json.showPlugins, app.defaults.showPlugins || Nightscout.plugins.enabledPluginNames());
+    json.showPlugins = setDefault(json.showPlugins, serverSettings.defaults.showPlugins || Nightscout.plugins.enabledPluginNames());
     var showPluginsSettings = $('#show-plugins');
     Nightscout.plugins.eachEnabledPlugin(function each(plugin) {
       if (Nightscout.plugins.specialPlugins.indexOf(plugin.name) > -1) {
