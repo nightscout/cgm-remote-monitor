@@ -280,7 +280,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         xAxis2 = d3.svg.axis()
           .scale(xScale2)
           .tickFormat(tickFormat)
-          .ticks(12)
+          .ticks(6)
           .orient('bottom');
 
         yAxis2 = d3.svg.axis()
@@ -1423,9 +1423,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
         var AR = [-0.723, 1.716];
         var dt = actual[lookback].date.getTime();
-        var predictedColor = 'blue';
+        var predictedColor = 'transparent';
         if (browserSettings.theme == 'colors') {
-            predictedColor = 'cyan';
+            predictedColor = 'transparent';
         }
         for (var i = 0; i < CONE.length; i++) {
             y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
