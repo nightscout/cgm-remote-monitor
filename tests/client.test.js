@@ -13,15 +13,13 @@ describe('client', function ( ) {
         , jQuery: require('jquery')
         , d3: require('d3')
         , io: {
-          connect: function mockConnect() {
+          connect: function mockConnect ( ) {
             return {
-              on: function mockOn(event, callback) {}
+              on: function mockOn ( ) { }
             };
           }
         }
       });
-//      benv.require('../static/js/ui-utils.js', 'window');
-//      benv.require('../static/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js');
       done();
     });
   });
@@ -32,18 +30,36 @@ describe('client', function ( ) {
   });
 
   it ('not blow up', function () {
-//    var jsdom = require('jsdom').jsdom;
-//    var doc = jsdom('<body></body>');
-//    var window = doc.parentWindow;
-//
-//    global.$ = global.jQuery = require('jquery')(window);
-
     var serverSettings = {
-      apiEnabled: true, careportalEnabled: true, enabledOptions: "ar2 careportal delta direction upbat errorcodes", defaults: {
-        "units": "mg/dl", "timeFormat": "12", "nightMode": false, "showRawbg": "noise", "customTitle": "Nightscout", "theme": "colors", "alarmUrgentHigh": true, "alarmHigh": true, "alarmLow": true, "alarmUrgentLow": true, "alarmTimeAgoWarn": true, "alarmTimeAgoWarnMins": 15, "alarmTimeAgoUrgent": true, "alarmTimeAgoUrgentMins": 30, "language": "en", "showPlugins": "iob delta direction upbatrawbg"
-      }, "units": "mg/dl", "head": "ae71dca", "version": "0.7.0", "thresholds": {
-        "bg_high": 200, "bg_target_top": 170, "bg_target_bottom": 80, "bg_low": 55
-      }, "alarm_types": "predict", "name": "Nightscout"
+      apiEnabled: true, careportalEnabled: true, enabledOptions: 'ar2 careportal delta direction upbat errorcodes', defaults: {
+        units: 'mg/dl'
+        , timeFormat: '12'
+        , nightMode: false
+        , showRawbg: 'noise'
+        , customTitle: 'Nightscout'
+        , theme: 'colors'
+        , alarmUrgentHigh: true
+        , alarmHigh: true
+        , alarmLow: true
+        , alarmUrgentLow: true
+        , alarmTimeAgoWarn: true
+        , alarmTimeAgoWarnMins: 15
+        , alarmTimeAgoUrgent: true
+        , alarmTimeAgoUrgentMins: 30
+        , language: 'en'
+        , showPlugins: 'iob delta direction upbatrawbg'
+      }
+      , units: 'mg/dl'
+      , head: 'ae71dca'
+      , version: '0.7.0'
+      , thresholds: {
+        bg_high: 200
+        , bg_target_top: 170
+        , bg_target_bottom: 80
+        , bg_low: 55
+      }
+      , alarm_types: 'predict'
+      , name: 'Nightscout'
     };
 
     var plugins = require('../lib/plugins/')().registerClientDefaults();
