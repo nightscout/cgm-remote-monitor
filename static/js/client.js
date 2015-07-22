@@ -1550,23 +1550,25 @@ var browserSettings = {}, browserStorage = $.localStorage;
       });
       event.preventDefault();
     });
+
+    if (serverSettings.enabledOptions.indexOf('ar2') < 0) {
+      serverSettings.enabledOptions += ' ar2';
+    }
+
+    $('.appName').text(serverSettings.name);
+    $('.version').text(serverSettings.version);
+    $('.head').text(serverSettings.head);
+    if (serverSettings.apiEnabled) {
+      $('.serverSettings').show();
+    }
+    $('#treatmentDrawerToggle').toggle(serverSettings.careportalEnabled);
+    Nightscout.plugins.init(serverSettings);
+    browserSettings = getBrowserSettings(browserStorage);
+    sbx = Nightscout.sandbox.clientInit(serverSettings, browserSettings, Date.now());
+    $('.container').toggleClass('has-minor-pills', Nightscout.plugins.hasShownType('pill-minor', browserSettings));
+
   }
 
-  if (serverSettings.enabledOptions.indexOf('ar2') < 0) {
-    serverSettings.enabledOptions += ' ar2';
-  }
-
-  $('.appName').text(serverSettings.name);
-  $('.version').text(serverSettings.version);
-  $('.head').text(serverSettings.head);
-  if (serverSettings.apiEnabled) {
-    $('.serverSettings').show();
-  }
-  $('#treatmentDrawerToggle').toggle(serverSettings.careportalEnabled);
-  Nightscout.plugins.init(serverSettings);
-  browserSettings = getBrowserSettings(browserStorage);
-  sbx = Nightscout.sandbox.clientInit(serverSettings, browserSettings, Date.now());
-  $('.container').toggleClass('has-minor-pills', Nightscout.plugins.hasShownType('pill-minor', browserSettings));
   init();
 
 })();
