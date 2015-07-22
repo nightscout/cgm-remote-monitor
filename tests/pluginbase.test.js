@@ -10,14 +10,6 @@ describe('pluginbase', function ( ) {
       benv.expose({
         $: require('jquery')
         , jQuery: require('jquery')
-        , d3: require('d3')
-        , io: {
-          connect: function mockConnect() {
-            return {
-              on: function mockOn(event, callback) {}
-            };
-          }
-        }
       });
       done();
     });
