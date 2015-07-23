@@ -165,24 +165,25 @@
             <form id="treatment-form">
                 <fieldset class="treatmentData">
                     <legend class="translate">Log a Treatment</legend>
-                    <label for="eventType" class="">
-                        <span class="translate">Event Type</span>:
-                        <select id="eventType">
-                            <option value="BG Check" class="translate">BG Check</option>
-                            <option value="Snack Bolus" class="translate">Snack Bolus</option>
-                            <option value="Meal Bolus" class="translate">Meal Bolus</option>
-                            <option value="Correction Bolus" class="translate">Correction Bolus</option>
-                            <option value="Carb Correction" class="translate">Carb Correction</option>
-                            <option value="Note" class="translate">Note</option>
-                            <option value="Question" class="translate">Question</option>
-                            <option value="Exercise" class="translate">Exercise</option>
-                            <option value="Site Change" class="translate">Pump Site Change</option>
-                            <option value="Sensor Start" class="translate">Dexcom Sensor Start</option>
-                            <option value="Sensor Change" class="translate">Dexcom Sensor Change</option>
-                            <option value="Insulin Change" class="translate">Insulin Cartridge Change</option>
-                            <option value="D.A.D. Alert" class="translate">D.A.D. Alert</option>
-                        </select>
+                    <label for="eventType" class="w260">
+                      <span class="translate">Event Type</span>:
+                      <select id="eventType" class="">
+                        <option value="BG Check" class="translate">BG Check</option>
+                        <option value="Snack Bolus" class="translate">Snack Bolus</option>
+                        <option value="Meal Bolus" class="translate">Meal Bolus</option>
+                        <option value="Correction Bolus" class="translate">Correction Bolus</option>
+                        <option value="Carb Correction" class="translate">Carb Correction</option>
+                        <option value="Note" class="translate">Note</option>
+                        <option value="Question" class="translate">Question</option>
+                        <option value="Exercise" class="translate">Exercise</option>
+                        <option value="Site Change" class="translate">Pump Site Change</option>
+                        <option value="Sensor Start" class="translate">Dexcom Sensor Start</option>
+                        <option value="Sensor Change" class="translate">Dexcom Sensor Change</option>
+                        <option value="Insulin Change" class="translate">Insulin Cartridge Change</option>
+                        <option value="D.A.D. Alert" class="translate">D.A.D. Alert</option>
+                      </select>
                     </label>
+
 
                     <fieldset>
                         <legend class="translate">Glucose Reading</legend>
@@ -197,15 +198,15 @@
                             <span class="translate">Sensor<br></span>
                         </label>
                     </fieldset>
-                    <label for="carbsGiven" class="">
+                    <label for="carbsGiven" class="w260">
                         <span class="translate">Carbs Given</span>:
                         <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" class="titletranslate"/>
                     </label>
-                    <label for="insulinGiven" class="">
+                    <label for="insulinGiven" class="w260">
                         <span class="translate">Insulin Given</span>:
                         <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate"/>
                     </label>
-                    <label for="preBolus" class="extra-space">
+                    <label for="preBolus" class="extra-space w260">
                         <span class="translate">Eating</span>:
                         <select id="preBolus">
                             <option class="translate" value="-60">60 minutes before</option>
@@ -223,26 +224,29 @@
                     </label>
 
                     <!-- Label and textarea -->
-                    <label for="notes" class="extra-space translate">Additional Notes, Comments</label>:
+                    <label for="notes" class="extra-space w260"><span class="translate">Additional Notes, Comments</span>:</label>
                     <textarea id="notes"></textarea><br>
 
-                    <label for="enteredBy" class="extra-space">
+                    <label for="enteredBy" class="extra-space w260">
                       <span class="translate">Entered By</span>:
                       <input type="text" id="enteredBy" value="" />
                     </label>
 
                     <div id="eventTime">
-                      <span class="translate">Event Time</span>:
-                      <label for="nowtime">
-                        <input type="radio" name="nowOrOther" id="nowtime" value="now" checked="checked"/>
-                        <span class="translate">Now</span>
-                      </label>
-                      <label for="othertime">
-                        <input type="radio" name="nowOrOther" id="othertime" value="other"/>
-                        <span class="translate">Other</span>
-                      </label>
-                      <input type="date" id="eventDateValue" name="eventDateValue" value="" class="eventinput eventdate"/>
-                      <input type="time" id="eventTimeValue" name="eventTimeValue" value="" class="eventinput eventtime"/>
+                      <fieldset>
+                        <legend class="translate">Event Time</legend>
+                        <label for="nowtime">
+                          <input type="radio" name="nowOrOther" id="nowtime" value="now" checked="checked"/>
+                          <span class="translate">Now</span>
+                        </label>
+                        <label for="othertime">
+                          <input type="radio" name="nowOrOther" id="othertime" value="other"/>
+                          <span class="translate">Other</span>
+                        </label>
+                        <br>
+                        <input type="date" id="eventDateValue" name="eventDateValue" value="" class="eventinput eventdate"/>
+                        <input type="time" id="eventTimeValue" name="eventTimeValue" value="" class="eventinput eventtime"/>
+                      </fieldset>
                    </div>
 
                   <button type="button" class="translate">Submit Form</button>

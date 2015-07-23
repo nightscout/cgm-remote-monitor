@@ -68,18 +68,11 @@ input[type=number]:invalid {
   box-sizing: border-box;
 }
 
-#treatmentDrawer .left-column {
-  display: block;
-  width: 100%;
-}
-
-#treatmentDrawer .left-column span {
-  width: 110px;
-  display: inline-block;
-}
-
-#treatmentDrawer .left-column input, #treatmentDrawer .left-column select {
-  width: 140px;
+#treatmentDrawer .w260 {
+  width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  display:inline-block;
 }
 
 #treatmentDrawer .extra-space {
@@ -105,7 +98,7 @@ input[type=number]:invalid {
 }
 
 #treatmentDrawer .eventtime {
-  width: 110px;
+  width: 80px;
 }
 
 #treatmentDrawer #glucoseValue {
