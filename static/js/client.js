@@ -51,6 +51,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , delta = Nightscout.plugins('delta')
     , direction = Nightscout.plugins('direction')
     , errorcodes = Nightscout.plugins('errorcodes')
+    , translate = Nightscout.language.translate
     , timeAgo = Nightscout.utils.timeAgo;
 
   var jqWindow
@@ -82,6 +83,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , statusPills = $('.status .statusPills')
     ;
 
+  Nightscout.language.set(serverSettings.defaults.language).DOMtranslate();
+  
   function formatTime(time, compact) {
     var timeFormat = getTimeFormat(false, compact);
     time = d3.time.format(timeFormat)(time);
@@ -614,11 +617,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     prepareTreatCircles(treatCircles.enter().append('circle'))
       .on('mouseover', function (d) {
         tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-        tooltip.html('<strong>Time:</strong> ' + formatTime(new Date(d.mills)) + '<br/>' +
-            (d.eventType ? '<strong>Treatment type:</strong> ' + d.eventType + '<br/>' : '') +
-            (d.glucose ? '<strong>BG:</strong> ' + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + '<br/>' : '') +
-            (d.enteredBy ? '<strong>Entered by:</strong> ' + d.enteredBy + '<br/>' : '') +
-            (d.notes ? '<strong>Notes:</strong> ' + d.notes : '')
+        tooltip.html('<strong>'+translate('Time')+':</strong> ' + formatTime(new Date(d.mills)) + '<br/>' +
+            (d.eventType ? '<strong>'+translate('Treatment type')+':</strong> ' + d.eventType + '<br/>' : '') +
+            (d.glucose ? '<strong>'+translate('BG')+':</strong> ' + d.glucose + (d.glucoseType ? ' (' + translate(d.glucoseType) + ')': '') + '<br/>' : '') +
+            (d.enteredBy ? '<strong>'+translate('Entered by')+':</strong> ' + d.enteredBy + '<br/>' : '') +
+            (d.notes ? '<strong>'+translate('Notes')+':</strong> ' + d.notes : '')
         )
           .style('left', (d3.event.pageX) + 'px')
           .style('top', (d3.event.pageY + 15) + 'px');
@@ -1132,12 +1135,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       .attr('transform', 'translate(' + xScale(new Date(treatment.mills)) + ', ' + yScale(sbx.scaleEntry(treatment)) + ')')
       .on('mouseover', function () {
         tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-        tooltip.html('<strong>Time:</strong> ' + formatTime(new Date(treatment.mills)) + '<br/>' + '<strong>Treatment type:</strong> ' + treatment.eventType + '<br/>' +
-            (treatment.carbs ? '<strong>Carbs:</strong> ' + treatment.carbs + '<br/>' : '') +
-            (treatment.insulin ? '<strong>Insulin:</strong> ' + treatment.insulin + '<br/>' : '') +
-            (treatment.glucose ? '<strong>BG:</strong> ' + treatment.glucose + (treatment.glucoseType ? ' (' + treatment.glucoseType + ')': '') + '<br/>' : '') +
-            (treatment.enteredBy ? '<strong>Entered by:</strong> ' + treatment.enteredBy + '<br/>' : '') +
-            (treatment.notes ? '<strong>Notes:</strong> ' + treatment.notes : '')
+        tooltip.html('<strong>'+translate('Time')+':</strong> ' + formatTime(new Date(treatment.mills)) + '<br/>' + '<strong>'+translate('Treatment type')+':</strong> ' + translate(treatment.eventType) + '<br/>' +
+            (treatment.carbs ? '<strong>'+translate('Carbs')+':</strong> ' + treatment.carbs + '<br/>' : '') +
+            (treatment.insulin ? '<strong>'+translate('Insulin')+':</strong> ' + treatment.insulin + '<br/>' : '') +
+            (treatment.glucose ? '<strong>'+translate('BG')+':</strong> ' + treatment.glucose + (treatment.glucoseType ? ' (' + translate(treatment.glucoseType) + ')': '') + '<br/>' : '') +
+            (treatment.enteredBy ? '<strong>'+translate('Entered by')+':</strong> ' + treatment.enteredBy + '<br/>' : '') +
+            (treatment.notes ? '<strong>'+translate('Notes')+':</strong> ' + treatment.notes : '')
         )
           .style('left', (d3.event.pageX) + 'px')
           .style('top', (d3.event.pageY + 15) + 'px');
