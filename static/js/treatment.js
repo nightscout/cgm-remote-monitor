@@ -61,7 +61,7 @@
 
     if (data.carbs) { text.push(translate('Carbs Given') + ': ' + data.carbs); }
     if (data.insulin) { text.push(translate('Insulin Given') + ': ' + data.insulin); }
-    if (data.preBolus) { text.push(translate('Prebolus') + ': ' + data.preBolus + ' ' + translate('min')); }
+    if (data.preBolus) { text.push(translate('Carb Time') + ': ' + data.preBolus + ' ' + translate('mins')); }
     if (data.notes) { text.push(translate('Notes') + ': ' + data.notes); }
     if (data.enteredBy) { text.push(translate('Entered By') + ': ' + data.enteredBy); }
 
