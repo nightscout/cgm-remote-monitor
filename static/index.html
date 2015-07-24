@@ -165,8 +165,8 @@
             <form id="treatment-form">
                 <fieldset class="treatmentData">
                     <legend class="translate">Log a Treatment</legend>
-                    <label for="eventType" class="">
-                        <span class="translate">Event Type</span>:
+                    <label for="eventType" class="left-column">
+                        <span class="translate">Event Type</span>
                         <select id="eventType">
                             <option value="BG Check" class="translate">BG Check</option>
                             <option value="Snack Bolus" class="translate">Snack Bolus</option>
@@ -187,7 +187,7 @@
                     <fieldset>
                         <legend class="translate">Glucose Reading</legend>
                         <input type="number" step="any" id="glucoseValue" />
-                        <label><br><span class="translate">Measurement Method</span>:<br></label>
+                        <label><br><span class="translate">Measurement Method</span><br></label>
                         <label for="meter">
                             <input type="radio" name="glucoseType" id="meter" value="Finger"/>
                             <span class="translate">Meter</span>
@@ -197,42 +197,37 @@
                             <span class="translate">Sensor<br></span>
                         </label>
                     </fieldset>
-                    <label for="carbsGiven" class="">
-                        <span class="translate">Carbs Given</span>:
-                        <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" class="titletranslate"/>
+                    <label for="carbsGiven" class="left-column short-label">
+                        <span class="translate">Carbs Given</span>
+                        <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" />
                     </label>
-                    <label for="insulinGiven" class="">
-                        <span class="translate">Insulin Given</span>:
+                    <label for="insulinGiven" class="left-column short-label">
+                        <span class="translate">Insulin Given</span>
                         <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate"/>
                     </label>
-                    <label for="preBolus" class="extra-space">
-                        <span class="translate">Eating</span>:
+                    <label for="preBolus" class="left-column short-label extra-space">
+                        <span class="translate">Eating in</span>
                         <select id="preBolus">
-                            <option class="translate" value="-60">60 minutes before</option>
-                            <option class="translate" value="-45">45 minutes before</option>
-                            <option class="translate" value="-30">30 minutes before</option>
-                            <option class="translate" value="-20">20 minutes before</option>
-                            <option class="translate" value="-15">15 minutes before</option>
-                            <option class="translate" value="0" selected>Time in minutes</option>
-                            <option class="translate" value="15">15 minutes after</option>
-                            <option class="translate" value="20">20 minutes after</option>
-                            <option class="translate" value="30">30 minutes after</option>
-                            <option class="translate" value="45">45 minutes after</option>
-                            <option class="translate" value="60">60 minutes after</option>
+                            <option value="0">Time in minutes</option>
+                            <option value="15">15 minutes</option>
+                            <option value="20">20 minutes</option>
+                            <option value="30">30 minutes</option>
+                            <option value="45">45 minutes</option>
+                            <option value="60">60 minutes</option>
                         </select>
                     </label>
 
                     <!-- Label and textarea -->
-                    <label for="notes" class="extra-space translate">Additional Notes, Comments</label>:
+                    <label for="notes" class="extra-space translate">Additional Notes, Comments</label>
                     <textarea id="notes"></textarea><br>
 
-                    <label for="enteredBy" class="extra-space">
-                      <span class="translate">Entered By</span>:
+                    <label for="enteredBy" class="left-column extra-space">
+                      <span class="translate">Entered By</span>
                       <input type="text" id="enteredBy" value="" />
                     </label>
 
                     <div id="eventTime">
-                      <span class="translate">Event Time</span>:
+                      <span class="translate">Event Time</span>
                       <label for="nowtime">
                         <input type="radio" name="nowOrOther" id="nowtime" value="now" checked="checked"/>
                         <span class="translate">Now</span>
