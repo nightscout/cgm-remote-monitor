@@ -77,7 +77,7 @@ input[type=number]:invalid {
   width: 110px;
   display: inline-block;
   white-space: nowrap;
-  overflow-y: hidden;
+  overflow: hidden;
   text-overflow: ellipsis;
   line-height: 22px;
   vertical-align: middle;
