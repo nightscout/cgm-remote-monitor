@@ -150,13 +150,20 @@ describe('Profile', function ( ) {
         }
     ],
     'target_low': 4.5,
-    'target_high': 8
+    'target_high': 8,
+    'units': 'mmol'
 };
 
   var complexProfile = require('../lib/profilefunctions')([complexProfileData]);
 
   var noon = new Date('2015-06-22 12:00:00').getTime();
   var threepm = new Date('2015-06-22 15:00:00').getTime();
+
+  it('should return profile units when configured', function() {
+    var value = complexProfile.getUnits();
+    value.should.equal('mmol');
+  });
+
 
   it('should know what the basal rate is at 12:00 with complex style profiles', function() {
     var value = complexProfile.getBasal(noon);

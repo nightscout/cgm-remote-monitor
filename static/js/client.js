@@ -40,6 +40,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , foucusRangeMS = THREE_HOURS_MS
     , clientAlarms = {}
     , alarmInProgress = false
+    , alarmMessage
     , currentAlarmType = null
     , alarmSound = 'alarm.mp3'
     , urgentAlarmSound = 'alarm2.mp3';
@@ -48,6 +49,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , rawbg = Nightscout.plugins('rawbg')
     , delta = Nightscout.plugins('delta')
     , direction = Nightscout.plugins('direction')
+    , errorcodes = Nightscout.plugins('errorcodes')
+    , translate = Nightscout.language.translate
     , timeAgo = Nightscout.utils.timeAgo;
 
   var jqWindow
@@ -70,6 +73,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , brushInProgress = false
     , clip;
 
+  var container = $('.container')
+    , bgStatus = $('.bgStatus')
+    , currentBG = $('.bgStatus .currentBG')
+    , majorPills = $('.bgStatus .majorPills')
+    , minorPills = $('.bgStatus .minorPills')
+    , statusPills = $('.status .statusPills')
+    ;
+
+  Nightscout.language.set(serverSettings.defaults.language).DOMtranslate();
+  
   function formatTime(time, compact) {
     var timeFormat = getTimeFormat(false, compact);
     time = d3.time.format(timeFormat)(time);
@@ -113,38 +126,38 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       , ago = timeAgo(time, browserSettings);
 
     if (browserSettings.customTitle) {
-      $('h1.customTitle').text(browserSettings.customTitle);
+      $('.customTitle').text(browserSettings.customTitle);
     }
 
     if (ago && ago.status !== 'current') {
       bg_title =  s(ago.value) + s(ago.label, ' - ') + bg_title;
     } else if (latestSGV) {
-      var currentMgdl = latestSGV.y;
+      var currentMgdl = latestSGV.mgdl;
 
       if (currentMgdl < 39) {
-        bg_title = s(errorCodeToDisplay(currentMgdl), ' - ') + bg_title;
+        bg_title = s(errorcodes.toDisplay(currentMgdl), ' - ') + bg_title;
       } else {
-        var deltaDisplay = delta.calc(prevSGV && prevSGV.y, latestSGV && latestSGV.y, sbx).display;
+        var deltaDisplay = delta.calc(prevSGV, latestSGV, sbx).display;
         bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(direction.info(latestSGV).label) + bg_title;
       }
     }
     return bg_title;  
   }
 
-  function updateTitle(message) {
+  function updateTitle(skipPageTitle) {
 
     var bg_title = browserSettings.customTitle || '';
 
-    if (message && alarmInProgress) {
-      //message title + normal generated title for the browser tab
-      bg_title = message.title + ': ' + generateTitle();
-      //full message in header
-      $('h1.customTitle').text(message.title + ' ' + message.message);
+    if (alarmMessage && alarmInProgress) {
+      bg_title = alarmMessage + ': ' + generateTitle();
+      $('.customTitle').text(alarmMessage);
     } else {
       bg_title = generateTitle();
     }
 
-    $(document).attr('title', bg_title);
+    if (!skipPageTitle) {
+      $(document).attr('title', bg_title);
+    }
   }
 
   // initial setup of chart when data is first made available
@@ -223,11 +236,17 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
     // required to happen when 'now' event is sent from websocket.js every minute.  When fixed,
     // remove this code and all references to `type: 'server-forecast'`
-    var lastTime = data.length > 0 ? data[data.length - 1].mills : Date.now();
+    var last = _.last(data);
+    var lastTime = last && last.mills;
+    if (!lastTime) {
+      console.error('Bad Data, last point has no mills', last);
+      lastTime = Date.now();
+    }
+
     var n = Math.ceil(12 * (1 / 2 + (now - lastTime) / SIXTY_MINS_IN_MS)) + 1;
     for (var i = 1; i <= n; i++) {
       data.push({
-        mills: lastTime + (i * FIVE_MINS_IN_MS), y: 100, sgv: scaleBg(100), color: 'none', type: 'server-forecast'
+        mills: lastTime + (i * FIVE_MINS_IN_MS), mgdl: 100, color: 'none', type: 'server-forecast'
       });
     }
   }
@@ -269,7 +288,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
   }
 
   function alarmingNow() {
-    return $('#container').hasClass('alarming');
+    return container.hasClass('alarming');
   }
 
   function inRetroMode() {
@@ -280,27 +299,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var time = brush.extent()[1].getTime();
 
     return !alarmingNow() && time - TWENTY_FIVE_MINS_IN_MS < now;
-  }
-
-  function errorCodeToDisplay(errorCode) {
-    var errorDisplay;
-
-    switch (parseInt(errorCode)) {
-      case 0:  errorDisplay = '??0'; break; //None
-      case 1:  errorDisplay = '?SN'; break; //SENSOR_NOT_ACTIVE
-      case 2:  errorDisplay = '??2'; break; //MINIMAL_DEVIATION
-      case 3:  errorDisplay = '?NA'; break; //NO_ANTENNA
-      case 5:  errorDisplay = '?NC'; break; //SENSOR_NOT_CALIBRATED
-      case 6:  errorDisplay = '?CD'; break; //COUNTS_DEVIATION
-      case 7:  errorDisplay = '??7'; break; //?
-      case 8:  errorDisplay = '??8'; break; //?
-      case 9:  errorDisplay = '?HG'; break; //ABSOLUTE_DEVIATION
-      case 10: errorDisplay = '???'; break; //POWER_DEVIATION
-      case 12: errorDisplay = '?RF'; break; //BAD_RF
-      default: errorDisplay = '?' + parseInt(errorCode) + '?'; break;
-    }
-
-    return errorDisplay;
   }
 
   function brushed(skipTimer) {
@@ -330,23 +328,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     var nowDate = new Date(brushExtent[1] - THIRTY_MINS_IN_MS);
 
-    var bgButton = $('.bgButton')
-      , bgStatus = $('.bgStatus')
-      , currentBG = $('.bgStatus .currentBG')
-      , majorPills = $('.bgStatus .majorPills')
-      , minorPills = $('.bgStatus .minorPills')
-      , statusPills = $('.status .statusPills')
-      ;
-
     function updateCurrentSGV(entry) {
-        var value = entry.y
+        var value = entry.mgdl
           , ago = timeAgo(entry.mills, browserSettings)
           , isCurrent = ago.status === 'current';
 
       if (value === 9) {
         currentBG.text('');
       } else if (value < 39) {
-        currentBG.html(errorCodeToDisplay(value));
+        currentBG.html(errorcodes.toDisplay(value));
       } else if (value < 40) {
         currentBG.text('LOW');
       } else if (value > 400) {
@@ -357,9 +347,9 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
       bgStatus.toggleClass('current', alarmingNow() || (isCurrent && !inRetroMode()));
       if (!alarmingNow()) {
-        bgButton.removeClass('urgent warning inrange');
+        container.removeClass('urgent warning inrange');
         if (isCurrent && !inRetroMode()) {
-          bgButton.addClass(sgvToColoredRange(value));
+          container.addClass(sgvToColoredRange(value));
         }
       }
 
@@ -397,10 +387,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     if (inRetroMode()) {
       var retroTime = brushExtent[1].getTime() - THIRTY_MINS_IN_MS;
 
-      // filter data for -12 and +5 minutes from reference time for retrospective focus data prediction
-      var lookbackTime = 3 * FIVE_MINS_IN_MS + 2 * ONE_MIN_IN_MS;
       nowData = nowData.filter(function(d) {
-        return d.mills >= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS - lookbackTime &&
+        return d.mills >= brushExtent[1].getTime() - (2 * THIRTY_MINS_IN_MS) &&
           d.mills <= brushExtent[1].getTime() - TWENTY_FIVE_MINS_IN_MS;
       });
 
@@ -417,7 +405,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         updateCurrentSGV(focusPoint);
       } else {
         currentBG.text('---');
-        bgButton.removeClass('urgent warning inrange');
+        container.removeClass('urgent warning inrange');
       }
 
       updatePlugins(nowData, retroTime);
@@ -458,6 +446,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       var radius = prevChartWidth > WIDTH_BIG_DOTS ? 4 : (prevChartWidth < WIDTH_SMALL_DOTS ? 2 : 3);
       if (type === 'mbg') {
         radius *= 2;
+      } else if (type === 'forecast') {
+        radius = Math.min(3, radius - 1);
       } else if (type === 'rawbg') {
         radius = Math.min(2, radius - 1);
       }
@@ -471,22 +461,33 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function prepareFocusCircles(sel) {
       var badData = [];
-      sel.attr('cx', function (d) { return xScale(new Date(d.mills)); })
-        .attr('cy', function (d) {
-          if (isNaN(d.sgv)) {
-            badData.push(d);
-            return yScale(scaleBg(450));
-          } else {
-            return yScale(d.sgv);
-          }
-        })
-        .attr('fill', function (d) { return d.color; })
-        .attr('opacity', function (d) { return futureOpacity(d.mills - latestSGV.mills); })
-        .attr('stroke-width', function (d) { return d.type === 'mbg' ? 2 : 0; })
-        .attr('stroke', function (d) {
-          return (isDexcom(d.device) ? 'white' : '#0099ff');
-        })
-        .attr('r', function (d) { return dotRadius(d.type); });
+      sel.attr('cx', function (d) {
+        if (!d) {
+          console.error('Bad data', d);
+          return xScale(new Date(0));
+        } else if (!d.mills) {
+          console.error('Bad data, no mills', d);
+          return xScale(new Date(0));
+        } else {
+          return xScale(new Date(d.mills));
+        }
+      })
+      .attr('cy', function (d) {
+        var scaled = sbx.scaleEntry(d);
+        if (isNaN(scaled)) {
+          badData.push(d);
+          return yScale(scaleBg(450));
+        } else {
+          return yScale(scaled);
+        }
+      })
+      .attr('fill', function (d) { return d.type === 'forecast' ? 'none' : d.color; })
+      .attr('opacity', function (d) { return futureOpacity(d.mills - latestSGV.mills); })
+      .attr('stroke-width', function (d) { return d.type === 'mbg' ? 2 : d.type === 'forecast' ? 1 : 0; })
+      .attr('stroke', function (d) {
+        return (isDexcom(d.device) ? 'white' : d.type === 'forecast' ? d.color : '#0099ff');
+      })
+      .attr('r', function (d) { return dotRadius(d.type); });
 
       if (badData.length > 0) {
         console.warn('Bad Data: isNaN(sgv)', badData);
@@ -507,14 +508,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
             , noiseLabel = '';
 
           if (d.type === 'sgv') {
-            if (rawbg.showRawBGs(d.y, d.noise, cal, sbx)) {
+            if (rawbg.showRawBGs(d.mgdl, d.noise, cal, sbx)) {
               rawbgValue = scaleBg(rawbg.calc(d, cal, sbx));
             }
-            noiseLabel = rawbg.noiseCodeToDisplay(d.y, d.noise);
+            noiseLabel = rawbg.noiseCodeToDisplay(d.mgdl, d.noise);
           }
 
           tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-          tooltip.html('<strong>' + bgType + ' BG:</strong> ' + d.sgv +
+          tooltip.html('<strong>' + bgType + ' BG:</strong> ' + sbx.scaleEntry(d) +
             (d.type === 'mbg' ? '<br/><strong>Device: </strong>' + d.device : '') +
             (rawbgValue ? '<br/><strong>Raw BG:</strong> ' + rawbgValue : '') +
             (noiseLabel ? '<br/><strong>Noise:</strong> ' + noiseLabel : '') +
@@ -590,7 +591,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function prepareTreatCircles(sel) {
       sel.attr('cx', function (d) { return xScale(new Date(d.mills)); })
-        .attr('cy', function (d) { return yScale(d.displayBG); })
+        .attr('cy', function (d) { return yScale(sbx.scaleEntry(d)); })
         .attr('r', function () { return dotRadius('mbg'); })
         .attr('stroke-width', 2)
         .attr('stroke', function (d) { return d.glucose ? 'grey' : 'white'; })
@@ -612,11 +613,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     prepareTreatCircles(treatCircles.enter().append('circle'))
       .on('mouseover', function (d) {
         tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-        tooltip.html('<strong>Time:</strong> ' + formatTime(new Date(d.mills)) + '<br/>' +
-            (d.eventType ? '<strong>Treatment type:</strong> ' + d.eventType + '<br/>' : '') +
-            (d.glucose ? '<strong>BG:</strong> ' + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + '<br/>' : '') +
-            (d.enteredBy ? '<strong>Entered by:</strong> ' + d.enteredBy + '<br/>' : '') +
-            (d.notes ? '<strong>Notes:</strong> ' + d.notes : '')
+        tooltip.html('<strong>'+translate('Time')+':</strong> ' + formatTime(new Date(d.mills)) + '<br/>' +
+            (d.eventType ? '<strong>'+translate('Treatment type')+':</strong> ' + d.eventType + '<br/>' : '') +
+            (d.glucose ? '<strong>'+translate('BG')+':</strong> ' + d.glucose + (d.glucoseType ? ' (' + translate(d.glucoseType) + ')': '') + '<br/>' : '') +
+            (d.enteredBy ? '<strong>'+translate('Entered by')+':</strong> ' + d.enteredBy + '<br/>' : '') +
+            (d.notes ? '<strong>'+translate('Notes')+':</strong> ' + d.notes : '')
         )
           .style('left', (d3.event.pageX) + 'px')
           .style('top', (d3.event.pageY + 15) + 'px');
@@ -944,11 +945,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       var badData = [];
       sel.attr('cx', function (d) { return xScale2(new Date(d.mills)); })
         .attr('cy', function (d) {
-          if (isNaN(d.sgv)) {
+          var scaled = sbx.scaleEntry(d);
+          if (isNaN(scaled)) {
             badData.push(d);
             return yScale2(scaleBg(450));
           } else {
-            return yScale2(d.sgv);
+            return yScale2(scaled);
           }
         })
         .attr('fill', function (d) { return d.color; })
@@ -1022,17 +1024,21 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
   function generateAlarm(file, reason) {
     alarmInProgress = true;
+    alarmMessage = reason && reason.title;
     var selector = '.audio.alarms audio.' + file;
-    d3.select(selector).each(function () {
-      var audio = this;
-      playAlarm(audio);
-      $(this).addClass('playing');
-    });
-    $('.bgButton').addClass(file === urgentAlarmSound ? 'urgent' : 'warning');
-    $('#container').addClass('alarming');
 
-    updateTitle(reason);
+    if (!alarmingNow()) {
+      d3.select(selector).each(function () {
+        var audio = this;
+        playAlarm(audio);
+        $(this).addClass('playing');
+      });
+    }
 
+    container.addClass('alarming').addClass(file === urgentAlarmSound ? 'urgent' : 'warning');
+
+    var skipPageTitle = isTimeAgoAlarmType(currentAlarmType);
+    updateTitle(skipPageTitle);
   }
 
   function playAlarm(audio) {
@@ -1046,7 +1052,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
   function stopAlarm(isClient, silenceTime) {
     alarmInProgress = false;
-    $('.bgButton').removeClass('urgent warning');
+    alarmMessage = null;
+    container.removeClass('urgent warning');
     d3.selectAll('audio.playing').each(function () {
       var audio = this;
       audio.pause();
@@ -1054,78 +1061,22 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     });
 
     closeNotification();
-    $('#container').removeClass('alarming');
+    container.removeClass('alarming');
 
     updateTitle();
 
     // only emit ack if client invoke by button press
     if (isClient) {
       if (isTimeAgoAlarmType(currentAlarmType)) {
-        $('#container').removeClass('alarming-timeago');
+        container.removeClass('alarming-timeago');
         var alarm = getClientAlarm(currentAlarmType);
         alarm.lastAckTime = Date.now();
         alarm.silenceTime = silenceTime;
-        console.info('time ago alarm (' + currentAlarmType + ', not acking to server');
-      } else {
-        socket.emit('ack', currentAlarmType || 'alarm', silenceTime);
       }
+      socket.emit('ack', currentAlarmType || 'alarm', silenceTime);
     }
 
     brushed(false);
-  }
-
-  function displayTreatmentBG(treatment) {
-
-    function calcBGByTime(time) {
-      var withBGs = _.filter(data, function(d) {
-        return d.y > 39 && d.type === 'sgv';
-      });
-
-      var beforeTreatment = _.findLast(withBGs, function (d) {
-        return d.mills <= time;
-      });
-      var afterTreatment = _.find(withBGs, function (d) {
-        return d.mills >= time;
-      });
-
-      var calcedBG = 0;
-      if (beforeTreatment && afterTreatment) {
-        calcedBG = (Number(beforeTreatment.y) + Number(afterTreatment.y)) / 2;
-      } else if (beforeTreatment) {
-        calcedBG = Number(beforeTreatment.y);
-      } else if (afterTreatment) {
-        calcedBG = Number(afterTreatment.y);
-      }
-
-      return calcedBG || 400;
-    }
-
-    var treatmentGlucose = null;
-
-    if (treatment.glucose && isNaN(treatment.glucose)) {
-      console.warn('found an invalid glucose value', treatment);
-    } else {
-      if (treatment.glucose && treatment.units && browserSettings.units) {
-        if (treatment.units !== browserSettings.units) {
-          console.info('found mismatched glucose units, converting ' + treatment.units + ' into ' + browserSettings.units, treatment);
-          if (treatment.units === 'mmol') {
-            //BG is in mmol and display in mg/dl
-            treatmentGlucose = Math.round(treatment.glucose * 18);
-          } else {
-            //BG is in mg/dl and display in mmol
-            treatmentGlucose = scaleBg(treatment.glucose);
-          }
-        } else {
-          treatmentGlucose = treatment.glucose;
-        }
-      } else if (treatment.glucose) {
-        //no units, assume everything is the same
-        console.warn('found a glucose value without any units, maybe from an old version?', treatment);
-        treatmentGlucose = treatment.glucose;
-      }
-    }
-
-    return treatmentGlucose || scaleBg(calcBGByTime(treatment.mills));
   }
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1179,15 +1130,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       .data(arc_data)
       .enter()
       .append('g')
-      .attr('transform', 'translate(' + xScale(new Date(treatment.mills)) + ', ' + yScale(treatment.displayBG) + ')')
+      .attr('transform', 'translate(' + xScale(new Date(treatment.mills)) + ', ' + yScale(sbx.scaleEntry(treatment)) + ')')
       .on('mouseover', function () {
         tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-        tooltip.html('<strong>Time:</strong> ' + formatTime(new Date(treatment.mills)) + '<br/>' + '<strong>Treatment type:</strong> ' + treatment.eventType + '<br/>' +
-            (treatment.carbs ? '<strong>Carbs:</strong> ' + treatment.carbs + '<br/>' : '') +
-            (treatment.insulin ? '<strong>Insulin:</strong> ' + treatment.insulin + '<br/>' : '') +
-            (treatment.glucose ? '<strong>BG:</strong> ' + treatment.glucose + (treatment.glucoseType ? ' (' + treatment.glucoseType + ')': '') + '<br/>' : '') +
-            (treatment.enteredBy ? '<strong>Entered by:</strong> ' + treatment.enteredBy + '<br/>' : '') +
-            (treatment.notes ? '<strong>Notes:</strong> ' + treatment.notes : '')
+        tooltip.html('<strong>'+translate('Time')+':</strong> ' + formatTime(new Date(treatment.mills)) + '<br/>' + '<strong>'+translate('Treatment type')+':</strong> ' + translate(treatment.eventType) + '<br/>' +
+            (treatment.carbs ? '<strong>'+translate('Carbs')+':</strong> ' + treatment.carbs + '<br/>' : '') +
+            (treatment.insulin ? '<strong>'+translate('Insulin')+':</strong> ' + treatment.insulin + '<br/>' : '') +
+            (treatment.glucose ? '<strong>'+translate('BG')+':</strong> ' + treatment.glucose + (treatment.glucoseType ? ' (' + translate(treatment.glucoseType) + ')': '') + '<br/>' : '') +
+            (treatment.enteredBy ? '<strong>'+translate('Entered by')+':</strong> ' + treatment.enteredBy + '<br/>' : '') +
+            (treatment.notes ? '<strong>'+translate('Notes')+':</strong> ' + treatment.notes : '')
         )
           .style('left', (d3.event.pageX) + 'px')
           .style('top', (d3.event.pageY + 15) + 'px');
@@ -1270,12 +1221,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var level = ago.status
       , alarm = getClientAlarm(level + 'TimeAgo');
 
-    if (!alarmingNow() && Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
+    if (Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
       currentAlarmType = alarm.type;
       console.info('generating timeAgoAlarm', alarm.type);
-      $('#container').addClass('alarming-timeago');
-      console.log('ago:', ago);
-      var message = {'title': 'Last data received ', 'message': ago.value + ago.label};
+      container.addClass('alarming-timeago');
+      var message = {'title': 'Last data received ' + [ago.value, ago.label].join(' ')};
       if (level === 'warn') {
         generateAlarm(alarmSound, message);
       } else {
@@ -1303,7 +1253,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       checkTimeAgoAlarm(ago);
     }
 
-    $('#container').toggleClass('alarming-timeago', ago.status !== 'current');
+    container.toggleClass('alarming-timeago', ago.status !== 'current');
 
     if (alarmingNow() && ago.status === 'current' && isTimeAgoAlarmType(currentAlarmType)) {
       stopAlarm(true, ONE_MIN_IN_MS);
@@ -1500,33 +1450,26 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       var temp1 = [ ];
       if (cal && rawbg.isEnabled(sbx)) {
         temp1 = SGVdata.map(function (entry) {
-          var rawbgValue = rawbg.showRawBGs(entry.y, entry.noise, cal, sbx) ? rawbg.calc(entry, cal, sbx) : 0;
+          var rawbgValue = rawbg.showRawBGs(entry.mgdl, entry.noise, cal, sbx) ? rawbg.calc(entry, cal, sbx) : 0;
           if (rawbgValue > 0) {
-            return { mills: entry.mills - 2000, y: rawbgValue, sgv: scaleBg(rawbgValue), color: 'white', type: 'rawbg' };
+            return { mills: entry.mills - 2000, mgdl: rawbgValue, color: 'white', type: 'rawbg' };
           } else {
             return null;
           }
         }).filter(function(entry) { return entry !== null; });
       }
       var temp2 = SGVdata.map(function (obj) {
-        return { mills: obj.mills, y: obj.y, sgv: scaleBg(obj.y), direction: obj.direction, color: sgvToColor(obj.y), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
+        return { mills: obj.mills, mgdl: obj.mgdl, direction: obj.direction, color: sgvToColor(obj.mgdl), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
       });
       data = [];
       data = data.concat(temp1, temp2);
 
       addPlaceholderPoints();
 
-      data = data.concat(MBGdata.map(function (obj) { return { mills: obj.mills, y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
+      data = data.concat(MBGdata.map(function (obj) { return { mills: obj.mills, mgdl: obj.mgdl, color: 'red', type: 'mbg', device: obj.device } }));
 
       data.forEach(function (d) {
-        if (d.y < 39) { d.color = 'transparent'; }
-      });
-
-      // OPTIMIZATION: precalculate treatment location in timeline
-      treatments.forEach(function (d) {
-        d.mills = new Date(d.created_at).getTime();
-        //cache the displayBG for each treatment in DISPLAY_UNITS
-        d.displayBG = displayTreatmentBG(d);
+        if (d.mgdl < 39) { d.color = 'transparent'; }
       });
 
       updateTitle();
@@ -1551,13 +1494,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     //with predicted alarms, latestSGV may still be in target so to see if the alarm
     //  is for a HIGH we can only check if it's >= the bottom of the target
     function isAlarmForHigh() {
-      return latestSGV.y >= app.thresholds.bg_target_bottom;
+      return latestSGV.mgdl >= app.thresholds.bg_target_bottom;
     }
 
     //with predicted alarms, latestSGV may still be in target so to see if the alarm
     //  is for a LOW we can only check if it's <= the top of the target
     function isAlarmForLow() {
-      return latestSGV.y <= app.thresholds.bg_target_top;
+      return latestSGV.mgdl <= app.thresholds.bg_target_top;
     }
 
     socket.on('alarm', function (notify) {
@@ -1569,7 +1512,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         currentAlarmType = 'alarm';
         generateAlarm(alarmSound,notify);
       } else {
-        console.info('alarm was disabled locally', latestSGV.y, browserSettings);
+        console.info('alarm was disabled locally', latestSGV.mgdl, browserSettings);
       }
       brushInProgress = false;
       updateChart(false);
@@ -1584,7 +1527,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         currentAlarmType = 'urgent_alarm';
         generateAlarm(urgentAlarmSound,notify);
       } else {
-        console.info('urgent alarm was disabled locally', latestSGV.y, browserSettings);
+        console.info('urgent alarm was disabled locally', latestSGV.mgdl, browserSettings);
       }
       brushInProgress = false;
       updateChart(false);

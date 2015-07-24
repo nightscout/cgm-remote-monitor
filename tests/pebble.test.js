@@ -20,7 +20,7 @@ function updateMills (entries) {
 ctx.data = require('../lib/data')(env, ctx);
 ctx.data.sgvs = updateMills([
   { device: 'dexcom',
-    y: 91,
+    mgdl: 91,
     direction: 'Flat',
     type: 'sgv',
     filtered: 124048,
@@ -29,7 +29,7 @@ ctx.data.sgvs = updateMills([
     noise: 1
   }
   , { device: 'dexcom',
-    y: 88,
+    mgdl: 88,
     direction: 'Flat',
     type: 'sgv',
     filtered: 120464,
@@ -38,7 +38,7 @@ ctx.data.sgvs = updateMills([
     noise: 1
   }
   , { device: 'dexcom',
-    y: 86,
+    mgdl: 86,
     direction: 'Flat',
     type: 'sgv',
     filtered: 117808,
@@ -47,7 +47,7 @@ ctx.data.sgvs = updateMills([
     noise: 1
   }
   , { device: 'dexcom',
-    y: 84,
+    mgdl: 92,
     direction: 'Flat',
     type: 'sgv',
     filtered: 115680,
@@ -56,7 +56,7 @@ ctx.data.sgvs = updateMills([
     noise: 1
   }
   , { device: 'dexcom',
-    y: 82,
+    mgdl: 90,
     direction: 'Flat',
     type: 'sgv',
     filtered: 113984,
@@ -101,7 +101,7 @@ describe('Pebble Endpoint', function ( ) {
         var bgs = res.body.bgs;
         bgs.length.should.equal(1);
         var bg = bgs[0];
-        bg.sgv.should.equal('82');
+        bg.sgv.should.equal('90');
         bg.bgdelta.should.equal(-2);
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
@@ -126,8 +126,8 @@ describe('Pebble Endpoint', function ( ) {
         var bgs = res.body.bgs;
         bgs.length.should.equal(1);
         var bg = bgs[0];
-        bg.sgv.should.equal('4.6');
-        bg.bgdelta.should.equal(-0.1);
+        bg.sgv.should.equal('5.0');
+        bg.bgdelta.should.equal('-0.1');
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
         bg.datetime.should.equal(now);
@@ -150,7 +150,7 @@ describe('Pebble Endpoint', function ( ) {
         var bgs = res.body.bgs;
         bgs.length.should.equal(2);
         var bg = bgs[0];
-        bg.sgv.should.equal('82');
+        bg.sgv.should.equal('90');
         bg.bgdelta.should.equal(-2);
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
@@ -186,7 +186,7 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
         var bgs = res.body.bgs;
         bgs.length.should.equal(2);
         var bg = bgs[0];
-        bg.sgv.should.equal('82');
+        bg.sgv.should.equal('90');
         bg.bgdelta.should.equal(-2);
         bg.trend.should.equal(4);
         bg.direction.should.equal('Flat');
