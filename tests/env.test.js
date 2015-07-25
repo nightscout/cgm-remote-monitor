@@ -77,4 +77,9 @@ describe('env', function ( ) {
     delete process.env.SCARYPLUGIN_DO_THING;
   });
 
+  it('look for extended settings', function () {
+    var env = require('../env')();
+    env.hasExtendedSetting('PUSHOVER', {'PUSHOVER_API_TOKEN': '12345'}).should.equal(true);
+  });
+
 });
