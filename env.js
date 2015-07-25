@@ -257,7 +257,7 @@ function readENV(varName, defaultValue) {
 
 function hasExtendedSetting(prefix, envs) {
   return _.find(envs, function (value, key) {
-    return key.indexOf(prefix.toUpperCase() + '_') >= 0 || key.indexOf(prefix.toLowerCase() + '_') >= 0
+    return key.indexOf(prefix.toUpperCase() + '_') >= 0 || key.indexOf(prefix.toLowerCase() + '_') >= 0;
   }) !== undefined;
 }
 

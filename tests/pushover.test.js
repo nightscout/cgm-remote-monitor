@@ -1,11 +1,15 @@
 'use strict';
 
-require('should');
+var should = require('should');
 var levels = require('../lib/levels');
 
 describe('pushover', function ( ) {
+
+  var baseurl = 'https://nightscout.test';
+
   var env = {
-    extendedSettings: {
+    baseUrl: baseurl
+    , extendedSettings: {
       pushover: {
         userKey: '12345'
         , apiToken: '6789'
@@ -19,7 +23,6 @@ describe('pushover', function ( ) {
 
     var notify = {
       title: 'Warning, this is a test!'
-      , message: 'details details details details'
       , level: levels.WARN
       , pushoverSound: 'climb'
       , plugin: {name: 'test'}
@@ -27,9 +30,11 @@ describe('pushover', function ( ) {
 
     pushover.sendAPIRequest = function mockedSendAPIRequest (msg) {
       msg.title.should.equal(notify.title);
+      should.not.exist(msg.message);
       msg.priority.should.equal(2);
       msg.retry.should.equal(15 * 60);
       msg.sound.should.equal(notify.pushoverSound);
+      msg.callback.indexOf(baseurl).should.equal(0);
       done();
     };
 
@@ -48,6 +53,7 @@ describe('pushover', function ( ) {
 
     pushover.sendAPIRequest = function mockedSendAPIRequest (msg) {
       msg.title.should.equal(notify.title);
+      msg.message.should.equal(notify.message);
       msg.priority.should.equal(2);
       msg.retry.should.equal(2 * 60);
       msg.sound.should.equal(notify.pushoverSound);

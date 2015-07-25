@@ -20,8 +20,22 @@ describe('maker', function ( ) {
   });
 
   it('send a request', function (done) {
-    maker.sendEvent({name: 'test', level: levels.toLowerCase(levels.WARN)}, function sendCallback (err) {
+    maker.sendEvent({name: 'test', message: 'This is the message', level: levels.toLowerCase(levels.WARN)}, function sendCallback (err) {
       should.not.exist(err);
+      done();
+    });
+  });
+
+  it('not send a request without a name', function (done) {
+    maker.sendEvent({level: levels.toLowerCase(levels.WARN)}, function sendCallback (err) {
+      should.exist(err);
+      done();
+    });
+  });
+
+  it('not send a request without a level', function (done) {
+    maker.sendEvent({name: 'test'}, function sendCallback (err) {
+      should.exist(err);
       done();
     });
   });
