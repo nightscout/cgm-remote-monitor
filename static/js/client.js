@@ -8,7 +8,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , DEBOUNCE_MS = 10
     , TOOLTIP_TRANS_MS = 200 // milliseconds
     , UPDATE_TRANS_MS = 750 // milliseconds
-    , TEN_SEC_IN_MS =  10000
     , ONE_MIN_IN_MS = 60000
     , FIVE_MINS_IN_MS = 300000
     , THREE_HOURS_MS = 3 * 60 * 60 * 1000
@@ -43,6 +42,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , alarmInProgress = false
     , alarmMessage
     , currentAlarmType = null
+    , currentAnnouncement
     , alarmSound = 'alarm.mp3'
     , urgentAlarmSound = 'alarm2.mp3';
 
@@ -51,6 +51,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , delta = Nightscout.plugins('delta')
     , direction = Nightscout.plugins('direction')
     , errorcodes = Nightscout.plugins('errorcodes')
+    , translate = Nightscout.language.translate
     , timeAgo = Nightscout.utils.timeAgo;
 
   var jqWindow
@@ -68,7 +69,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , contextHeight
     , dateFn = function (d) { return new Date(d.mills) }
     , documentHidden = false
-    , visibilityChangedAt = Date.now()
     , brush
     , brushTimer
     , brushInProgress = false
@@ -82,6 +82,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , statusPills = $('.status .statusPills')
     ;
 
+  Nightscout.language.set(serverSettings.defaults.language).DOMtranslate();
+  
   function formatTime(time, compact) {
     var timeFormat = getTimeFormat(false, compact);
     time = d3.time.format(timeFormat)(time);
@@ -124,6 +126,10 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var time = latestSGV ? latestSGV.mills : (prevSGV ? prevSGV.mills : -1)
       , ago = timeAgo(time, browserSettings);
 
+    if (browserSettings.customTitle) {
+      $('.customTitle').text(browserSettings.customTitle);
+    }
+
     if (ago && ago.status !== 'current') {
       bg_title =  s(ago.value) + s(ago.label, ' - ') + bg_title;
     } else if (latestSGV) {
@@ -139,26 +145,35 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     return bg_title;  
   }
 
-  function updateTitle() {
+  function updateTitle(skipPageTitle) {
 
-    var bg_title;
+    var bg_title = browserSettings.customTitle || '';
+
+    var announcementInProgress = false;
 
     if (alarmMessage && alarmInProgress) {
+      bg_title = alarmMessage + ': ' + generateTitle();
       $('.customTitle').text(alarmMessage);
-      if (!isTimeAgoAlarmType(currentAlarmType)) {
-        bg_title = alarmMessage + ': ' + generateTitle();
+    } else if (currentAnnouncement) {
+      announcementInProgress = Date.now() - currentAnnouncement.received < FIVE_MINS_IN_MS;
+      bg_title = generateTitle();
+      if (announcementInProgress) {
+        var aMessage = currentAnnouncement.message.length > 1 ? currentAnnouncement.message : currentAnnouncement.title;
+        bg_title = aMessage + ': ' + bg_title;
+        $('.customTitle').text(aMessage);
+      } else {
+        currentAnnouncement = null;
+        console.info('clearing announcement');
       }
-    } else if (browserSettings.customTitle) {
-      $('.customTitle').text(browserSettings.customTitle);
     } else {
-      $('.customTitle').text('Nightscout');
-    }
-
-    if (bg_title === undefined) {
       bg_title = generateTitle();
     }
 
-    $(document).attr('title', bg_title);
+    container.toggleClass('announcing', announcementInProgress);
+
+    if (!skipPageTitle) {
+      $(document).attr('title', bg_title);
+    }
   }
 
   // initial setup of chart when data is first made available
@@ -237,7 +252,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
     // required to happen when 'now' event is sent from websocket.js every minute.  When fixed,
     // remove this code and all references to `type: 'server-forecast'`
-    var last = _.findLast(data, {type: 'sgv'});
+    var last = _.last(data);
     var lastTime = last && last.mills;
     if (!lastTime) {
       console.error('Bad Data, last point has no mills', last);
@@ -570,7 +585,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     focus.select('.now-line')
       .transition()
-      .duration(UPDATE_TRANS_MS * 1.3)
+      .duration(UPDATE_TRANS_MS)
       .attr('x1', xScale(nowDate))
       .attr('y1', yScale(scaleBg(36)))
       .attr('x2', xScale(nowDate))
@@ -591,14 +606,49 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     focusCircles.attr('clip-path', 'url(#clip)');
 
     function prepareTreatCircles(sel) {
+      function strokeColor (d) {
+        var color = 'white';
+        if (d.isAnnouncement) {
+          color = 'orange';
+        } else if (d.glucose) {
+          color = 'grey';
+        }
+        return color;
+      }
+
+      function fillColor (d) {
+        var color ='grey';
+        if (d.isAnnouncement) {
+          color = 'orange';
+        } else if (d.glucose) {
+          color = 'red';
+        }
+        return color;
+      }
+
       sel.attr('cx', function (d) { return xScale(new Date(d.mills)); })
         .attr('cy', function (d) { return yScale(sbx.scaleEntry(d)); })
         .attr('r', function () { return dotRadius('mbg'); })
         .attr('stroke-width', 2)
-        .attr('stroke', function (d) { return d.glucose ? 'grey' : 'white'; })
-        .attr('fill', function (d) { return d.glucose ? 'red' : 'grey'; });
+        .attr('stroke', strokeColor)
+        .attr('fill', fillColor);
 
       return sel;
+    }
+
+    function treatmentTooltip (d) {
+      return '<strong>'+translate('Time')+':</strong> ' + formatTime(new Date(d.mills)) + '<br/>' +
+        (d.eventType ? '<strong>'+translate('Treatment type')+':</strong> ' + d.eventType + '<br/>' : '') +
+        (d.glucose ? '<strong>'+translate('BG')+':</strong> ' + d.glucose + (d.glucoseType ? ' (' + translate(d.glucoseType) + ')': '') + '<br/>' : '') +
+        (d.enteredBy ? '<strong>'+translate('Entered by')+':</strong> ' + d.enteredBy + '<br/>' : '') +
+        (d.notes ? '<strong>'+translate('Notes')+':</strong> ' + d.notes : '');
+    }
+
+    function announcementTooltip (d) {
+      return '<strong>'+translate('Time')+':</strong> ' + formatTime(new Date(d.mills)) + '<br/>' +
+        (d.eventType ? '<strong>'+translate('Announcement')+'</strong><br/>' : '') +
+        (d.notes && d.notes.length > 1 ? '<strong>'+translate('Message')+':</strong> ' + d.notes : '') +
+        (d.enteredBy ? '<strong>'+translate('Entered by')+':</strong> ' + d.enteredBy + '<br/>' : '');
     }
 
     //NOTE: treatments with insulin or carbs are drawn by drawTreatment()
@@ -614,12 +664,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     prepareTreatCircles(treatCircles.enter().append('circle'))
       .on('mouseover', function (d) {
         tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-        tooltip.html('<strong>Time:</strong> ' + formatTime(new Date(d.mills)) + '<br/>' +
-            (d.eventType ? '<strong>Treatment type:</strong> ' + d.eventType + '<br/>' : '') +
-            (d.glucose ? '<strong>BG:</strong> ' + d.glucose + (d.glucoseType ? ' (' + d.glucoseType + ')': '') + '<br/>' : '') +
-            (d.enteredBy ? '<strong>Entered by:</strong> ' + d.enteredBy + '<br/>' : '') +
-            (d.notes ? '<strong>Notes:</strong> ' + d.notes : '')
-        )
+        tooltip.html(d.isAnnouncement ? announcementTooltip(d) : treatmentTooltip(d))
           .style('left', (d3.event.pageX) + 'px')
           .style('top', (d3.event.pageY + 15) + 'px');
       })
@@ -979,6 +1024,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // update x axis domain
     context.select('.x')
       .call(xAxis2);
+
   }, DEBOUNCE_MS);
 
   function sgvToColor(sgv) {
@@ -1037,7 +1083,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     container.addClass('alarming').addClass(file === urgentAlarmSound ? 'urgent' : 'warning');
 
-    updateTitle();
+    var skipPageTitle = isTimeAgoAlarmType(currentAlarmType);
+    updateTitle(skipPageTitle);
   }
 
   function playAlarm(audio) {
@@ -1132,12 +1179,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       .attr('transform', 'translate(' + xScale(new Date(treatment.mills)) + ', ' + yScale(sbx.scaleEntry(treatment)) + ')')
       .on('mouseover', function () {
         tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-        tooltip.html('<strong>Time:</strong> ' + formatTime(new Date(treatment.mills)) + '<br/>' + '<strong>Treatment type:</strong> ' + treatment.eventType + '<br/>' +
-            (treatment.carbs ? '<strong>Carbs:</strong> ' + treatment.carbs + '<br/>' : '') +
-            (treatment.insulin ? '<strong>Insulin:</strong> ' + treatment.insulin + '<br/>' : '') +
-            (treatment.glucose ? '<strong>BG:</strong> ' + treatment.glucose + (treatment.glucoseType ? ' (' + treatment.glucoseType + ')': '') + '<br/>' : '') +
-            (treatment.enteredBy ? '<strong>Entered by:</strong> ' + treatment.enteredBy + '<br/>' : '') +
-            (treatment.notes ? '<strong>Notes:</strong> ' + treatment.notes : '')
+        tooltip.html('<strong>'+translate('Time')+':</strong> ' + formatTime(new Date(treatment.mills)) + '<br/>' + '<strong>'+translate('Treatment type')+':</strong> ' + translate(treatment.eventType) + '<br/>' +
+            (treatment.carbs ? '<strong>'+translate('Carbs')+':</strong> ' + treatment.carbs + '<br/>' : '') +
+            (treatment.insulin ? '<strong>'+translate('Insulin')+':</strong> ' + treatment.insulin + '<br/>' : '') +
+            (treatment.glucose ? '<strong>'+translate('BG')+':</strong> ' + treatment.glucose + (treatment.glucoseType ? ' (' + translate(treatment.glucoseType) + ')': '') + '<br/>' : '') +
+            (treatment.enteredBy ? '<strong>'+translate('Entered by')+':</strong> ' + treatment.enteredBy + '<br/>' : '') +
+            (treatment.notes ? '<strong>'+translate('Notes')+':</strong> ' + treatment.notes : '')
         )
           .style('left', (d3.event.pageX) + 'px')
           .style('top', (d3.event.pageY + 15) + 'px');
@@ -1220,16 +1267,36 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var level = ago.status
       , alarm = getClientAlarm(level + 'TimeAgo');
 
-    var isStale = browserSettings.alarmTimeAgoWarn && ago.status === 'warn'
-      || browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent';
-
-    if (isStale && Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
+    if (Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
       currentAlarmType = alarm.type;
       console.info('generating timeAgoAlarm', alarm.type);
       container.addClass('alarming-timeago');
       var message = {'title': 'Last data received ' + [ago.value, ago.label].join(' ')};
-      var sound = level === 'warn' ? alarmSound : urgentAlarmSound;
-      generateAlarm(sound, message);
+      if (level === 'warn') {
+        generateAlarm(alarmSound, message);
+      } else {
+        generateAlarm(urgentAlarmSound, message);
+      }
+    }
+  }
+
+  function updateTimeAgo() {
+    var lastEntry = $('#lastEntry')
+      , time = latestSGV ? latestSGV.mills : -1
+      , ago = timeAgo(time, browserSettings)
+      , retroMode = inRetroMode();
+
+    lastEntry.removeClass('current warn urgent');
+    lastEntry.addClass(ago.status);
+
+    if (ago.status !== 'current') {
+      updateTitle();
+    }
+
+    if (
+      (browserSettings.alarmTimeAgoWarn && ago.status === 'warn')
+      || (browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent')) {
+      checkTimeAgoAlarm(ago);
     }
 
     container.toggleClass('alarming-timeago', ago.status !== 'current');
@@ -1237,41 +1304,18 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     if (alarmingNow() && ago.status === 'current' && isTimeAgoAlarmType(currentAlarmType)) {
       stopAlarm(true, ONE_MIN_IN_MS);
     }
-  }
 
-  function updateTimeAgo(forceUpdate) {
-    var lastEntry = $('#lastEntry')
-      , time = latestSGV ? latestSGV.mills : -1
-      , ago = timeAgo(time, browserSettings)
-      , retroMode = inRetroMode();
-
-    //TODO: move this ao a plugin?
-    function updateTimeAgoPill() {
-      if (retroMode || !ago.value) {
-        lastEntry.find('em').hide();
-      } else {
-        lastEntry.find('em').show().text(ago.value);
-      }
-      if (retroMode || ago.label) {
-        lastEntry.find('label').show().text(retroMode ? 'RETRO' : ago.label);
-      } else {
-        lastEntry.find('label').hide();
-      }
-    }
-
-    if (Date.now() - visibilityChangedAt <= TEN_SEC_IN_MS && !forceUpdate) {
-      console.info('visibility is changing now, wait till next tick to check time ago');
+    if (retroMode || !ago.value) {
+      lastEntry.find('em').hide();
     } else {
-      lastEntry.removeClass('current warn urgent');
-      lastEntry.addClass(ago.status);
-
-      if (ago.status !== 'current') {
-        updateTitle();
-      }
-      checkTimeAgoAlarm(ago);
+      lastEntry.find('em').show().text(ago.value);
     }
 
-    updateTimeAgoPill();
+    if (retroMode || ago.label) {
+      lastEntry.find('label').show().text(retroMode ? 'RETRO' : ago.label);
+    } else {
+      lastEntry.find('label').hide();
+    }
   }
 
   function init() {
@@ -1335,19 +1379,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     context.append('g')
       .attr('class', 'y axis');
 
-    function updateTimeAgoSoon() {
-      setTimeout(function updatingTimeAgoNow() {
-        var forceUpdate = true;
-        updateTimeAgo(forceUpdate);
-      }, TEN_SEC_IN_MS);
-    }
-
+    //updateChart is _.debounce'd
     function refreshChart(updateToNow) {
       if (updateToNow) {
         updateBrushToNow();
       }
       updateChart(false);
-      updateTimeAgoSoon();
     }
 
     function visibilityChanged() {
@@ -1356,7 +1393,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
       if (prevHidden && !documentHidden) {
         console.info('Document now visible, updating - ' + (new Date()));
-        visibilityChangedAt = Date.now();
         refreshChart(true);
       }
     }
@@ -1367,7 +1403,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
 
     updateClock();
-    updateTimeAgoSoon();
 
     var silenceDropdown = new Dropdown('.dropdown-menu');
 
@@ -1514,6 +1549,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       return latestSGV.mgdl <= app.thresholds.bg_target_top;
     }
 
+    socket.on('announcement', function (notify) {
+      console.info('announcement received from server');
+      console.log('notify:',notify);
+      currentAnnouncement = notify;
+      currentAnnouncement.received = Date.now();
+      updateTitle();
+    });
+
     socket.on('alarm', function (notify) {
       console.info('alarm received from server');
       console.log('notify:',notify);
@@ -1528,10 +1571,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       brushInProgress = false;
       updateChart(false);
     });
+
     socket.on('urgent_alarm', function (notify) {
       console.info('urgent alarm received from server');
-	  console.log('notify:',notify);
-	  
+      console.log('notify:',notify);
+
       var enabled = (isAlarmForHigh() && browserSettings.alarmUrgentHigh) || (isAlarmForLow() && browserSettings.alarmUrgentLow);
       if (enabled) {
         console.log('Urgent alarm raised!');

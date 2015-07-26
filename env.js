@@ -28,6 +28,7 @@ function config ( ) {
 
   env.isEnabled = isEnabled;
   env.anyEnabled = anyEnabled;
+  env.hasExtendedSetting = hasExtendedSetting;
 
   return env;
 }
@@ -136,13 +137,9 @@ function setEnableAndExtendedSettnigs() {
     env.enable = 'ar2 ' + env.enable;
   }
 
-  // For pushing notifications to Pushover.
-  //TODO: handle PUSHOVER_ as generic plugin props
-  env.pushover_api_token = readENV('PUSHOVER_API_TOKEN');
-  env.pushover_user_key = readENV('PUSHOVER_USER_KEY') || readENV('PUSHOVER_GROUP_KEY');
-  if (env.pushover_api_token && env.pushover_user_key) {
+  //don't require pushover to be enabled to preserve backwards compatibility if there are extendedSettings for it
+  if (hasExtendedSetting('PUSHOVER', process.env)) {
     env.enable += ' pushover';
-    //TODO: after config changes are documented this shouldn't be auto enabled
   }
 
   if (anyEnabled(['careportal', 'pushover', 'maker'])) {
@@ -173,7 +170,7 @@ function setDefaults() {
     , 'alarmTimeAgoWarnMins': 15
     , 'alarmTimeAgoUrgent': true
     , 'alarmTimeAgoUrgentMins': 30
-    , 'language': 'en' // not used yet
+    , 'language': 'en'
   };
 
   // add units from separate variable
@@ -195,6 +192,7 @@ function setDefaults() {
   env.defaults.alarmTimeAgoUrgent = readENV('ALARM_TIMEAGO_URGENT', env.defaults.alarmTimeAgoUrgent);
   env.defaults.alarmTimeAgoUrgentMins = readENV('ALARM_TIMEAGO_URGENT_MINS', env.defaults.alarmTimeAgoUrgentMins);
   env.defaults.showPlugins = readENV('SHOW_PLUGINS', '');
+  env.defaults.language = readENV('LANGUAGE', env.defaults.language);
 
   //TODO: figure out something for some plugins to have them shown by default
   if (env.defaults.showPlugins !== '') {
@@ -255,6 +253,12 @@ function readENV(varName, defaultValue) {
   if (typeof value === 'string' && value.toLowerCase() === 'off') { value = false; }
 
   return value != null ? value : defaultValue;
+}
+
+function hasExtendedSetting(prefix, envs) {
+  return _.find(envs, function (value, key) {
+    return key.indexOf(prefix.toUpperCase() + '_') >= 0 || key.indexOf(prefix.toLowerCase() + '_') >= 0;
+  }) !== undefined;
 }
 
 function findExtendedSettings (enables, envs) {
