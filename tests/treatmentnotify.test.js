@@ -75,7 +75,7 @@ describe('treatmentnotify', function ( ) {
 
   it('Request a notification for an announcement even there is an active snooze', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.treatments = [{mills: now, mgdl: 40, eventType: 'Announcement', notes: 'This not an alarm'}];
+    ctx.data.treatments = [{mills: now, mgdl: 40, eventType: 'Announcement', isAnnouncement: true, notes: 'This not an alarm'}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
 
@@ -105,7 +105,7 @@ describe('treatmentnotify', function ( ) {
 
   it('Request a notification for a non-error announcement', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.treatments = [{mills: now, mgdl: 100, eventType: 'Announcement', notes: 'This not an alarm'}];
+    ctx.data.treatments = [{mills: now, mgdl: 100, eventType: 'Announcement', isAnnouncement: true, notes: 'This not an alarm'}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
 

@@ -86,7 +86,7 @@ describe('multi announcement pushover', function ( ) {
       , level: levels.WARN
       , pushoverSound: 'climb'
       , plugin: {name: 'test'}
-      , announcement: true
+      , isAnnouncement: true
     };
 
     var key1Found = false;
@@ -130,7 +130,7 @@ describe('announcement only pushover', function ( ) {
       , level: levels.WARN
       , pushoverSound: 'climb'
       , plugin: {name: 'test'}
-      , announcement: true
+      , isAnnouncement: true
     };
 
     pushover.sendAPIRequest = function mockedSendAPIRequest (msg) {

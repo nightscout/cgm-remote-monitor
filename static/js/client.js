@@ -42,6 +42,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , alarmInProgress = false
     , alarmMessage
     , currentAlarmType = null
+    , currentAnnouncement
     , alarmSound = 'alarm.mp3'
     , urgentAlarmSound = 'alarm2.mp3';
 
@@ -148,12 +149,27 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     var bg_title = browserSettings.customTitle || '';
 
+    var announcementInProgress = false;
+
     if (alarmMessage && alarmInProgress) {
       bg_title = alarmMessage + ': ' + generateTitle();
       $('.customTitle').text(alarmMessage);
+    } else if (currentAnnouncement) {
+      announcementInProgress = Date.now() - currentAnnouncement.received < FIVE_MINS_IN_MS;
+      bg_title = generateTitle();
+      if (announcementInProgress) {
+        var aMessage = currentAnnouncement.message.length > 1 ? currentAnnouncement.message : currentAnnouncement.title;
+        bg_title = aMessage + ': ' + bg_title;
+        $('.customTitle').text(aMessage);
+      } else {
+        currentAnnouncement = null;
+        console.info('clearing announcement');
+      }
     } else {
       bg_title = generateTitle();
     }
+
+    container.toggleClass('announcing', announcementInProgress);
 
     if (!skipPageTitle) {
       $(document).attr('title', bg_title);
@@ -590,14 +606,49 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     focusCircles.attr('clip-path', 'url(#clip)');
 
     function prepareTreatCircles(sel) {
+      function strokeColor (d) {
+        var color = 'white';
+        if (d.isAnnouncement) {
+          color = 'orange';
+        } else if (d.glucose) {
+          color = 'grey';
+        }
+        return color;
+      }
+
+      function fillColor (d) {
+        var color ='grey';
+        if (d.isAnnouncement) {
+          color = 'orange';
+        } else if (d.glucose) {
+          color = 'red';
+        }
+        return color;
+      }
+
       sel.attr('cx', function (d) { return xScale(new Date(d.mills)); })
         .attr('cy', function (d) { return yScale(sbx.scaleEntry(d)); })
         .attr('r', function () { return dotRadius('mbg'); })
         .attr('stroke-width', 2)
-        .attr('stroke', function (d) { return d.glucose ? 'grey' : 'white'; })
-        .attr('fill', function (d) { return d.glucose ? 'red' : 'grey'; });
+        .attr('stroke', strokeColor)
+        .attr('fill', fillColor);
 
       return sel;
+    }
+
+    function treatmentTooltip (d) {
+      return '<strong>'+translate('Time')+':</strong> ' + formatTime(new Date(d.mills)) + '<br/>' +
+        (d.eventType ? '<strong>'+translate('Treatment type')+':</strong> ' + d.eventType + '<br/>' : '') +
+        (d.glucose ? '<strong>'+translate('BG')+':</strong> ' + d.glucose + (d.glucoseType ? ' (' + translate(d.glucoseType) + ')': '') + '<br/>' : '') +
+        (d.enteredBy ? '<strong>'+translate('Entered by')+':</strong> ' + d.enteredBy + '<br/>' : '') +
+        (d.notes ? '<strong>'+translate('Notes')+':</strong> ' + d.notes : '');
+    }
+
+    function announcementTooltip (d) {
+      return '<strong>'+translate('Time')+':</strong> ' + formatTime(new Date(d.mills)) + '<br/>' +
+        (d.eventType ? '<strong>'+translate('Announcement')+'</strong><br/>' : '') +
+        (d.notes && d.notes.length > 1 ? '<strong>'+translate('Message')+':</strong> ' + d.notes : '') +
+        (d.enteredBy ? '<strong>'+translate('Entered by')+':</strong> ' + d.enteredBy + '<br/>' : '');
     }
 
     //NOTE: treatments with insulin or carbs are drawn by drawTreatment()
@@ -613,12 +664,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     prepareTreatCircles(treatCircles.enter().append('circle'))
       .on('mouseover', function (d) {
         tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-        tooltip.html('<strong>'+translate('Time')+':</strong> ' + formatTime(new Date(d.mills)) + '<br/>' +
-            (d.eventType ? '<strong>'+translate('Treatment type')+':</strong> ' + d.eventType + '<br/>' : '') +
-            (d.glucose ? '<strong>'+translate('BG')+':</strong> ' + d.glucose + (d.glucoseType ? ' (' + translate(d.glucoseType) + ')': '') + '<br/>' : '') +
-            (d.enteredBy ? '<strong>'+translate('Entered by')+':</strong> ' + d.enteredBy + '<br/>' : '') +
-            (d.notes ? '<strong>'+translate('Notes')+':</strong> ' + d.notes : '')
-        )
+        tooltip.html(d.isAnnouncement ? announcementTooltip(d) : treatmentTooltip(d))
           .style('left', (d3.event.pageX) + 'px')
           .style('top', (d3.event.pageY + 15) + 'px');
       })
@@ -1503,6 +1549,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       return latestSGV.mgdl <= app.thresholds.bg_target_top;
     }
 
+    socket.on('announcement', function (notify) {
+      console.info('announcement received from server');
+      console.log('notify:',notify);
+      currentAnnouncement = notify;
+      currentAnnouncement.received = Date.now();
+      updateTitle();
+    });
+
     socket.on('alarm', function (notify) {
       console.info('alarm received from server');
       console.log('notify:',notify);
@@ -1517,10 +1571,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       brushInProgress = false;
       updateChart(false);
     });
+
     socket.on('urgent_alarm', function (notify) {
       console.info('urgent alarm received from server');
-	  console.log('notify:',notify);
-	  
+      console.log('notify:',notify);
+
       var enabled = (isAlarmForHigh() && browserSettings.alarmUrgentHigh) || (isAlarmForLow() && browserSettings.alarmUrgentLow);
       if (enabled) {
         console.log('Urgent alarm raised!');

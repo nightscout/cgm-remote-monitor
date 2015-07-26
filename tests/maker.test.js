@@ -79,7 +79,7 @@ describe('multi announcement maker', function ( ) {
       }
     };
 
-    maker.sendEvent({name: 'test', level: levels.toLowerCase(levels.WARN), announcement: true}, function sendCallback (err) {
+    maker.sendEvent({name: 'test', level: levels.toLowerCase(levels.WARN), isAnnouncement: true}, function sendCallback (err) {
       should.not.exist(err);
     });
   });
