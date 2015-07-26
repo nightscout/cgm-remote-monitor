@@ -1,7 +1,18 @@
+#drawer button, #treatmentDrawer button{
+    font-size: 18px;
+    font-weight: bolder;
+    background-color: #ccc;
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 2px solid #aaa;
+    box-shadow: 2px 2px 0 #eee;
+    width: 100%;
+}
+
 #drawer {
     background-color: #666;
     border-left: 1px solid #999;
-    box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
+    box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
     color: #eee;
     display: none;
     font-size: 16px;
@@ -14,14 +25,32 @@
     top: 0;
     z-index: 1;
 }
-#drawer i {
+
+#drawer i, #treatmentDrawer i {
     opacity: 0.6;
+}
+
+#drawer a, #treatmentDrawer a {
+    color: white;
+}
+
+input[type=number]:invalid {
+    background-color: #FFCCCC;
+}
+
+#drawer .actions {
+    margin: 10px 2px;
+}
+
+#drawer .actions a {
+    float: right;
+    padding: 10px 0;
 }
 
 #treatmentDrawer {
     background-color: #666;
     border-left: 1px solid #999;
-    box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
+    box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
     color: #eee;
     display: none;
     font-size: 16px;
@@ -33,50 +62,70 @@
     width: 300px;
     top: 0;
     z-index: 1;
-}
-#treatmentDrawer i {
-    opacity: 0.6;
-}
-
-#treatmentDrawer a {
-  color: white;
 }
 
 #treatmentDrawer input {
   box-sizing: border-box;
 }
 
-#treatmentDrawer label.left-column {
+#treatmentDrawer .left-column {
   display: block;
   width: 100%;
 }
 
-#treatmentDrawer label.left-column span {
+#treatmentDrawer .left-column span {
   width: 110px;
   display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 22px;
+  vertical-align: middle;
 }
 
-#treatmentDrawer label.left-column input, #treatmentDrawer label.left-column select {
+#treatmentDrawer .left-column input, #treatmentDrawer .left-column select {
   width: 140px;
 }
 
-#treatmentDrawer label.extra-space {
+#treatmentDrawer .extra-space {
   padding-top: 10px;
   display: block;
 }
 
-#eventTime {
+.timeago-mins {
+  width: 25px;
+}
 
+#eventTime {
+    padding-bottom: 15px;
 }
 
 #eventTime > span {
   width: 105px;
   display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 22px;
+  vertical-align: middle;
 }
 
-#eventTime > input {
-  margin-left: 114px;
-  width: 140px;
+#treatmentDrawer .eventdate {
+  width: 130px;
+}
+
+#treatmentDrawer .eventtime {
+  width: 110px;
+}
+
+#eventTime label span {
+  width: 45px;
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 22px;
+  vertical-align: middle;
 }
 
 #treatmentDrawer #glucoseValue {
@@ -137,6 +186,7 @@ dd.numbers label {
 }
 
 h1, legend,
+#toolbar .customTitle,
 #about .appName,
 #about .version {
     font-weight: bold;
@@ -156,9 +206,10 @@ h1, legend,
     top: 0;
     margin: 0;
     height: 44px;
+    text-shadow: 0 0 5px black;
 }
 
-#toolbar h1 {
+#toolbar .customTitle {
     color: #ccc;
     font-size: 16px;
     margin-top: 0;
@@ -176,6 +227,7 @@ h1, legend,
     vertical-align: middle;
     position: absolute;
     right: 0;
+    z-index: 500;
 }
 
 #buttonbar a,
