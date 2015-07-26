@@ -381,13 +381,17 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
       var pluginBase = Nightscout.plugins.base(majorPills, minorPills, statusPills, bgStatus, tooltip);
 
-      sbx = Nightscout.sandbox.clientInit(app, browserSettings, time, pluginBase, {
-        sgvs: sgvs
-        , cals: [cal]
-        , treatments: treatments
-        , profile: Nightscout.profile
-        , uploaderBattery: devicestatusData && devicestatusData.uploaderBattery
-      });
+      sbx = Nightscout.sandbox.clientInit(app
+        , browserSettings
+        , new Date(time).getTime() //make sure we send a timestamp
+        , pluginBase, {
+          sgvs: sgvs
+          , cals: [cal]
+          , treatments: treatments
+          , profile: Nightscout.profile
+          , uploaderBattery: devicestatusData && devicestatusData.uploaderBattery
+        }
+      );
 
       //all enabled plugins get a chance to set properties, even if they aren't shown
       Nightscout.plugins.setProperties(sbx);
