@@ -216,11 +216,12 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   
     * `ENABLE` - `pushover` should be added to the list of plugin, for example: `ENABLE="pushover"`.
     * `PUSHOVER_API_TOKEN` - Used to enable pushover notifications, this token is specific to the application you create from in [Pushover](https://pushover.net/), ***[additional pushover information](#pushover)*** below.
-    * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.
+    * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.  This also support a space delimited list of keys.
+    * `PUSHOVER_ANNOUNCEMENT_KEY` - An optional Pushover user/group key, will be used for system wide user generated announcements.  If not defined this will fallback to `PUSHOVER_USER_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also support a space delimited list of keys.
     * `BASE_URL` - Used for pushover callbacks, usually the URL of your Nightscout site, use https when possible.
     * `API_SECRET` - Used for signing the pushover callback request for acknowledgments.
     
-    For testing/devlopment try [localtunnel](http://localtunnel.me/).
+    For testing/development try [localtunnel](http://localtunnel.me/).
 
 #### IFTTT Maker
  In addition to the normal web based alarms, and pushover, there is also integration for [IFTTT Maker](https://ifttt.com/maker).
@@ -231,7 +232,8 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
  2. Find your secret key on the [maker page](https://ifttt.com/maker)
  3. Configure Nightscout by setting these environment variables:
   * `ENABLE` - `maker` should be added to the list of plugin, for example: `ENABLE="maker"`.
-  * `MAKER_KEY` - Set this to your secret key that you located in step 2, for example: `MAKER_KEY="abcMyExampleabc123defjt1DeNSiftttmak-XQb69p"`
+  * `MAKER_KEY` - Set this to your secret key that you located in step 2, for example: `MAKER_KEY="abcMyExampleabc123defjt1DeNSiftttmak-XQb69p"` This also support a space delimited list of keys.
+  * `MAKER_ANNOUNCEMENT_KEY` - An optional Maker key, will be used for system wide user generated announcements.  If not defined this will fallback to `MAKER_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also support a space delimited list of keys.
  4. [Create a recipe](https://ifttt.com/myrecipes/personal/new) or see [more detailed instructions](lib/plugins/maker-setup.md#create-a-recipe)
  
  Plugins can create custom events, but all events sent to maker will be prefixed with `ns-`.  The core events are:
