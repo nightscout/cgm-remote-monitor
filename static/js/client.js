@@ -1357,21 +1357,36 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       updateTimeAgoSoon();
     }
 
-    function visibilityChanged() {
-      var prevHidden = documentHidden;
-      documentHidden = (document.hidden || document.webkitHidden || document.mozHidden || document.msHidden);
-
-      if (prevHidden && !documentHidden) {
-        console.info('Document now visible, updating - ' + (new Date()));
-        visibilityChangedAt = Date.now();
-        refreshChart(true);
+    (function watchVisibility ( ) {
+      // Set the name of the hidden property and the change event for visibility
+      var hidden, visibilityChange;
+      if (typeof document.hidden !== 'undefined') {
+        hidden = 'hidden';
+        visibilityChange = 'visibilitychange';
+      } else if (typeof document.mozHidden !== 'undefined') {
+        hidden = 'mozHidden';
+        visibilityChange = 'mozvisibilitychange';
+      } else if (typeof document.msHidden !== 'undefined') {
+        hidden = 'msHidden';
+        visibilityChange = 'msvisibilitychange';
+      } else if (typeof document.webkitHidden !== 'undefined') {
+        hidden = 'webkitHidden';
+        visibilityChange = 'webkitvisibilitychange';
       }
-    }
+
+      document.addEventListener(visibilityChange, function visibilityChanged ( ) {
+        var prevHidden = documentHidden;
+        documentHidden = document[hidden];
+
+        if (prevHidden && !documentHidden) {
+          console.info('Document now visible, updating - ' + new Date());
+          visibilityChangedAt = Date.now();
+          refreshChart(true);
+        }
+      });
+    })();
 
     window.onresize = refreshChart;
-
-    document.addEventListener('webkitvisibilitychange', visibilityChanged);
-
 
     updateClock();
     updateTimeAgoSoon();
