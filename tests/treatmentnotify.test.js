@@ -23,7 +23,7 @@ describe('treatmentnotify', function ( ) {
     should.not.exist(ctx.notifications.findHighestAlarm());
     should.exist(ctx.notifications.snoozedBy({level: levels.URGENT}));
 
-    _.first(ctx.notifications.findInfos()).level.should.equal(levels.INFO);
+    _.first(ctx.notifications.findUnSnoozeable()).level.should.equal(levels.INFO);
 
     done();
   });
@@ -38,7 +38,7 @@ describe('treatmentnotify', function ( ) {
     should.not.exist(ctx.notifications.findHighestAlarm());
     should.exist(ctx.notifications.snoozedBy({level: levels.URGENT}));
 
-    should.not.exist(_.first(ctx.notifications.findInfos()));
+    should.not.exist(_.first(ctx.notifications.findUnSnoozeable()));
 
     done();
   });
@@ -53,7 +53,7 @@ describe('treatmentnotify', function ( ) {
     should.not.exist(ctx.notifications.findHighestAlarm());
     should.exist(ctx.notifications.snoozedBy({level: levels.URGENT}));
 
-    _.first(ctx.notifications.findInfos()).level.should.equal(levels.INFO);
+    _.first(ctx.notifications.findUnSnoozeable()).level.should.equal(levels.INFO);
 
     done();
   });
@@ -68,10 +68,59 @@ describe('treatmentnotify', function ( ) {
     should.not.exist(ctx.notifications.findHighestAlarm());
     should.exist(ctx.notifications.snoozedBy({level: levels.URGENT}));
 
-    should.not.exist(_.first(ctx.notifications.findInfos()));
+    should.not.exist(_.first(ctx.notifications.findUnSnoozeable()));
 
     done();
   });
 
+  it('Request a notification for an announcement even there is an active snooze', function (done) {
+    ctx.notifications.initRequests();
+    ctx.data.treatments = [{mills: now, mgdl: 40, eventType: 'Announcement', isAnnouncement: true, notes: 'This not an alarm'}];
+
+    var sbx = require('../lib/sandbox')().serverInit(env, ctx);
+
+    var fakeSnooze = {
+      level: levels.URGENT
+      , title: 'Snoozing alarms for the test'
+      , message: 'testing...'
+      , lengthMills: 60000
+    };
+
+    sbx.notifications.requestSnooze(fakeSnooze);
+
+    treatmentnotify.checkNotifications(sbx);
+
+    var announcement = _.first(ctx.notifications.findUnSnoozeable());
+
+    should.exist(announcement);
+    announcement.title.should.equal('Urgent Announcement');
+    announcement.level.should.equal(levels.URGENT);
+    announcement.pushoverSound.should.equal('persistent');
+    should.deepEqual(ctx.notifications.findHighestAlarm(), announcement);
+    ctx.notifications.snoozedBy(announcement).should.equal(false);
+
+
+    done();
+  });
+
+  it('Request a notification for a non-error announcement', function (done) {
+    ctx.notifications.initRequests();
+    ctx.data.treatments = [{mills: now, mgdl: 100, eventType: 'Announcement', isAnnouncement: true, notes: 'This not an alarm'}];
+
+    var sbx = require('../lib/sandbox')().serverInit(env, ctx);
+
+    treatmentnotify.checkNotifications(sbx);
+
+    var announcement = _.first(ctx.notifications.findUnSnoozeable());
+
+    should.exist(announcement);
+    announcement.title.should.equal('Announcement');
+    announcement.level.should.equal(levels.INFO);
+    should.not.exist(announcement.pushoverSound);
+    should.not.exist(ctx.notifications.findHighestAlarm());
+    ctx.notifications.snoozedBy(announcement).should.equal(false);
+
+    done();
+  });
 
 });
