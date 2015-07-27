@@ -119,63 +119,59 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
   }
 
-  function generateTitle() {
+  function generateTitle ( ) {
 
     function s(value, sep) { return value ? value + ' ' : sep || ''; }
 
-    var bg_title = '';
+    var title = '';
 
     var time = latestSGV ? latestSGV.mills : (prevSGV ? prevSGV.mills : -1)
       , ago = timeAgo(time, browserSettings);
 
     if (ago && ago.status !== 'current') {
-      bg_title =  s(ago.value) + s(ago.label, ' - ') + bg_title;
+      title =  s(ago.value) + s(ago.label, ' - ') + title;
     } else if (latestSGV) {
       var currentMgdl = latestSGV.mgdl;
 
       if (currentMgdl < 39) {
-        bg_title = s(errorcodes.toDisplay(currentMgdl), ' - ') + bg_title;
+        title = s(errorcodes.toDisplay(currentMgdl), ' - ') + title;
       } else {
         var deltaDisplay = delta.calc(prevSGV, latestSGV, sbx).display;
-        bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(direction.info(latestSGV).label) + bg_title;
+        title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(direction.info(latestSGV).label) + title;
       }
     }
-    return bg_title;  
+    return title;
   }
 
-  function updateTitle() {
+  function updateTitle ( ) {
 
-    var bg_title;
+    var windowTitle;
+    var customTitle = browserSettings.customTitle || 'Nightscout';
     var announcementInProgress = false;
 
     if (alarmMessage && alarmInProgress) {
       $('.customTitle').text(alarmMessage);
       if (!isTimeAgoAlarmType(currentAlarmType)) {
-        bg_title = alarmMessage + ': ' + generateTitle();
+        windowTitle = alarmMessage + ': ' + generateTitle();
       }
     } else if (currentAnnouncement) {
       announcementInProgress = Date.now() - currentAnnouncement.received < FIVE_MINS_IN_MS;
-      bg_title = generateTitle();
       if (announcementInProgress) {
         var aMessage = currentAnnouncement.message.length > 1 ? currentAnnouncement.message : currentAnnouncement.title;
-        bg_title = aMessage + ': ' + generateTitle();
+        windowTitle = aMessage + ': ' + generateTitle();
         $('.customTitle').text(aMessage);
       } else {
         currentAnnouncement = null;
-        $('.customTitle').text(bg_title);
+        $('.customTitle').text(customTitle);
         console.info('cleared announcement');
       }
     } else {
-      $('.customTitle').text('Nightscout');
+      $('.customTitle').text(customTitle);
     }
 
     container.toggleClass('announcing', announcementInProgress);
 
-    if (bg_title === undefined) {
-      bg_title = generateTitle();
-    }
-
-    $(document).attr('title', bg_title);
+    $(document).attr('title', windowTitle || generateTitle());
   }
 
   // initial setup of chart when data is first made available
@@ -1271,19 +1267,24 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var level = ago.status
       , alarm = getClientAlarm(level + 'TimeAgo');
 
-    var isStale = browserSettings.alarmTimeAgoWarn && ago.status === 'warn'
-      || browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent';
+    var visibilityChanged = Date.now() - visibilityChangedAt <= ONE_MIN_IN_MS;
 
-    if (isStale && Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
-      currentAlarmType = alarm.type;
-      console.info('generating timeAgoAlarm', alarm.type);
-      container.addClass('alarming-timeago');
-      var message = {'title': 'Last data received ' + [ago.value, ago.label].join(' ')};
-      var sound = level === 'warn' ? alarmSound : urgentAlarmSound;
-      generateAlarm(sound, message);
+    if (!visibilityChanged) {
+      var isStale = !visibilityChanged && (
+        browserSettings.alarmTimeAgoWarn && ago.status === 'warn'
+        || browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent');
+
+      if (isStale && Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
+        currentAlarmType = alarm.type;
+        console.info('generating timeAgoAlarm', alarm.type);
+        container.addClass('alarming-timeago');
+        var message = {'title': 'Last data received ' + [ago.value, ago.label].join(' ')};
+        var sound = level === 'warn' ? alarmSound : urgentAlarmSound;
+        generateAlarm(sound, message);
+      }
+
+      container.toggleClass('alarming-timeago', ago.status !== 'current');
     }
-
-    container.toggleClass('alarming-timeago', ago.status !== 'current');
 
     if (alarmingNow() && ago.status === 'current' && isTimeAgoAlarmType(currentAlarmType)) {
       stopAlarm(true, ONE_MIN_IN_MS);
@@ -1310,7 +1311,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       }
     }
 
-    if (Date.now() - visibilityChangedAt <= TEN_SEC_IN_MS && !forceUpdate) {
+    if (Date.now() - visibilityChangedAt <= ONE_MIN_IN_MS && !forceUpdate) {
       console.info('visibility is changing now, wait till next tick to check time ago');
     } else {
       lastEntry.removeClass('current warn urgent');
