@@ -1453,7 +1453,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       $('.focus-range li').removeClass('selected');
       li.addClass('selected');
       var hours = Number(li.data('hours'));
-      foucusRangeMS = hours * 60 * 60 * 1000;
+      foucusRangeMS = (hours * 60 * 60 * 1000) + THIRTY_MINS_IN_MS;
       refreshChart();
     });
 
