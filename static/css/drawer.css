@@ -76,6 +76,11 @@ input[type=number]:invalid {
 #treatmentDrawer .left-column span {
   width: 110px;
   display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 22px;
+  vertical-align: middle;
 }
 
 #treatmentDrawer .left-column input, #treatmentDrawer .left-column select {
@@ -98,14 +103,29 @@ input[type=number]:invalid {
 #eventTime > span {
   width: 105px;
   display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 22px;
+  vertical-align: middle;
 }
 
 #treatmentDrawer .eventdate {
-  width: 120px;
+  width: 130px;
 }
 
 #treatmentDrawer .eventtime {
   width: 110px;
+}
+
+#eventTime label span {
+  width: 45px;
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 22px;
+  vertical-align: middle;
 }
 
 #treatmentDrawer #glucoseValue {

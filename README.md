@@ -160,6 +160,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
+  * `LANGUAGE` (`en`) - language of Nighscout. If not available english is used
 
 
 ### Plugins
@@ -179,7 +180,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
     * `BWP_SNOOZE_MINS` (`10`) - minutes to snooze when there is enough IOB to cover a high BG.
     * `BWP_SNOOZE` - (`0.10`) If BG is higher then the `target_high` and `BWP` < `BWP_SNOOZE` alarms will be snoozed for `BWP_SNOOZE_MINS`.
   * `cage` (Cannula Age) - Calculates the number of hours since the last `Site Change` treatment that was recorded.
-    * `CAGE_ENABLEALERTS` (`false`) - Set to `true` to enable notifications to remind you of upcoming cannula change.
+    * `CAGE_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications to remind you of upcoming cannula change.
     * `CAGE_INFO` (`44`) - If time since last `Site Change` matches `CAGE_INFO`, user will be warned of upcoming cannula change
     * `CAGE_WARN` (`48`) - If time since last `Site Change` matches `CAGE_WARN`, user will be alarmed to to change the cannula
     * `CAGE_URGENT` (`72`) - If time since last `Site Change` matches `CAGE_URGENT`, user will be issued a persistent warning of overdue change.

@@ -7,6 +7,7 @@ function rawBGsEnabled() {
 }
 
 function getBrowserSettings(storage) {
+  var translate = Nightscout.language.translate;
   var json = {};
 
   function scaleBg(bg) {
@@ -56,10 +57,10 @@ function getBrowserSettings(storage) {
     json.alarmTimeAgoWarnMins = setDefault(json.alarmTimeAgoWarnMins, app.defaults.alarmTimeAgoWarnMins);
     json.alarmTimeAgoUrgent = setDefault(json.alarmTimeAgoUrgent, app.defaults.alarmTimeAgoUrgent);
     json.alarmTimeAgoUrgentMins = setDefault(json.alarmTimeAgoUrgentMins, app.defaults.alarmTimeAgoUrgentMins);
-    $('#alarm-urgenthigh-browser').prop('checked', json.alarmUrgentHigh).next().text('Urgent High Alarm' + appendThresholdValue(app.thresholds.bg_high));
-    $('#alarm-high-browser').prop('checked', json.alarmHigh).next().text('High Alarm' + appendThresholdValue(app.thresholds.bg_target_top));
-    $('#alarm-low-browser').prop('checked', json.alarmLow).next().text('Low Alarm' + appendThresholdValue(app.thresholds.bg_target_bottom));
-    $('#alarm-urgentlow-browser').prop('checked', json.alarmUrgentLow).next().text('Urgent Low Alarm' + appendThresholdValue(app.thresholds.bg_low));
+    $('#alarm-urgenthigh-browser').prop('checked', json.alarmUrgentHigh).next().text(translate('Urgent High Alarm') + appendThresholdValue(app.thresholds.bg_high));
+    $('#alarm-high-browser').prop('checked', json.alarmHigh).next().text(translate('High Alarm') + appendThresholdValue(app.thresholds.bg_target_top));
+    $('#alarm-low-browser').prop('checked', json.alarmLow).next().text(translate('Low Alarm') + appendThresholdValue(app.thresholds.bg_target_bottom));
+    $('#alarm-urgentlow-browser').prop('checked', json.alarmUrgentLow).next().text(translate('Urgent Low Alarm') + appendThresholdValue(app.thresholds.bg_low));
     $('#alarm-timeagowarn-browser').prop('checked', json.alarmTimeAgoWarn);
     $('#alarm-timeagowarnmins-browser').val(json.alarmTimeAgoWarnMins);
     $('#alarm-timeagourgent-browser').prop('checked', json.alarmTimeAgoUrgent);
@@ -103,7 +104,7 @@ function getBrowserSettings(storage) {
         //ignore these, they are always on for now
       } else {
         var id = 'plugin-' + plugin.name;
-        var dd = $('<dd><input type="checkbox" id="' + id + '" value="' + plugin.name + '"/><label for="' + id + '">' + (plugin.label || plugin.name) + '</label></dd>');
+        var dd = $('<dd><input type="checkbox" id="' + id + '" value="' + plugin.name + '"/><label for="' + id + '">' + translate(plugin.label || plugin.name) + '</label></dd>');
         showPluginsSettings.append(dd);
         dd.find('input').prop('checked', json.showPlugins.indexOf(plugin.name) > -1);
       }
