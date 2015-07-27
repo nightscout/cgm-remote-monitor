@@ -269,6 +269,7 @@ function findExtendedSettings (enables, envs) {
             var exts = extended[enable] || {};
             extended[enable] = exts;
             var ext = _.camelCase(key.substring(split + 1).toLowerCase());
+            if (!isNaN(value)) { value = Number(value); }
             exts[ext] = value;
           }
         }
