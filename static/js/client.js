@@ -8,6 +8,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , DEBOUNCE_MS = 10
     , TOOLTIP_TRANS_MS = 200 // milliseconds
     , UPDATE_TRANS_MS = 750 // milliseconds
+    , TEN_SEC_IN_MS =  10000
     , ONE_MIN_IN_MS = 60000
     , FIVE_MINS_IN_MS = 300000
     , THREE_HOURS_MS = 3 * 60 * 60 * 1000
@@ -69,6 +70,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , contextHeight
     , dateFn = function (d) { return new Date(d.mills) }
     , documentHidden = false
+    , visibilityChangedAt = Date.now()
     , brush
     , brushTimer
     , brushInProgress = false
@@ -126,10 +128,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var time = latestSGV ? latestSGV.mills : (prevSGV ? prevSGV.mills : -1)
       , ago = timeAgo(time, browserSettings);
 
-    if (browserSettings.customTitle) {
-      $('.customTitle').text(browserSettings.customTitle);
-    }
-
     if (ago && ago.status !== 'current') {
       bg_title =  s(ago.value) + s(ago.label, ' - ') + bg_title;
     } else if (latestSGV) {
@@ -145,35 +143,39 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     return bg_title;  
   }
 
-  function updateTitle(skipPageTitle) {
+  function updateTitle() {
 
-    var bg_title = browserSettings.customTitle || '';
-
+    var bg_title;
     var announcementInProgress = false;
 
     if (alarmMessage && alarmInProgress) {
-      bg_title = alarmMessage + ': ' + generateTitle();
       $('.customTitle').text(alarmMessage);
+      if (!isTimeAgoAlarmType(currentAlarmType)) {
+        bg_title = alarmMessage + ': ' + generateTitle();
+      }
     } else if (currentAnnouncement) {
       announcementInProgress = Date.now() - currentAnnouncement.received < FIVE_MINS_IN_MS;
       bg_title = generateTitle();
       if (announcementInProgress) {
         var aMessage = currentAnnouncement.message.length > 1 ? currentAnnouncement.message : currentAnnouncement.title;
-        bg_title = aMessage + ': ' + bg_title;
+        bg_title = aMessage + ': ' + generateTitle();
         $('.customTitle').text(aMessage);
       } else {
         currentAnnouncement = null;
-        console.info('clearing announcement');
+        $('.customTitle').text(bg_title);
+        console.info('cleared announcement');
       }
     } else {
-      bg_title = generateTitle();
+      $('.customTitle').text('Nightscout');
     }
 
     container.toggleClass('announcing', announcementInProgress);
 
-    if (!skipPageTitle) {
-      $(document).attr('title', bg_title);
+    if (bg_title === undefined) {
+      bg_title = generateTitle();
     }
+
+    $(document).attr('title', bg_title);
   }
 
   // initial setup of chart when data is first made available
@@ -252,7 +254,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
     // required to happen when 'now' event is sent from websocket.js every minute.  When fixed,
     // remove this code and all references to `type: 'server-forecast'`
-    var last = _.last(data);
+    var last = _.findLast(data, {type: 'sgv'});
     var lastTime = last && last.mills;
     if (!lastTime) {
       console.error('Bad Data, last point has no mills', last);
@@ -589,7 +591,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     focus.select('.now-line')
       .transition()
-      .duration(UPDATE_TRANS_MS)
+      .duration(UPDATE_TRANS_MS * 1.3)
       .attr('x1', xScale(nowDate))
       .attr('y1', yScale(scaleBg(36)))
       .attr('x2', xScale(nowDate))
@@ -1028,7 +1030,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // update x axis domain
     context.select('.x')
       .call(xAxis2);
-
   }, DEBOUNCE_MS);
 
   function sgvToColor(sgv) {
@@ -1087,8 +1088,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     container.addClass('alarming').addClass(file === urgentAlarmSound ? 'urgent' : 'warning');
 
-    var skipPageTitle = isTimeAgoAlarmType(currentAlarmType);
-    updateTitle(skipPageTitle);
+    updateTitle();
   }
 
   function playAlarm(audio) {
@@ -1271,36 +1271,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var level = ago.status
       , alarm = getClientAlarm(level + 'TimeAgo');
 
-    if (Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
+    var isStale = browserSettings.alarmTimeAgoWarn && ago.status === 'warn'
+      || browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent';
+
+    if (isStale && Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
       currentAlarmType = alarm.type;
       console.info('generating timeAgoAlarm', alarm.type);
       container.addClass('alarming-timeago');
       var message = {'title': 'Last data received ' + [ago.value, ago.label].join(' ')};
-      if (level === 'warn') {
-        generateAlarm(alarmSound, message);
-      } else {
-        generateAlarm(urgentAlarmSound, message);
-      }
-    }
-  }
-
-  function updateTimeAgo() {
-    var lastEntry = $('#lastEntry')
-      , time = latestSGV ? latestSGV.mills : -1
-      , ago = timeAgo(time, browserSettings)
-      , retroMode = inRetroMode();
-
-    lastEntry.removeClass('current warn urgent');
-    lastEntry.addClass(ago.status);
-
-    if (ago.status !== 'current') {
-      updateTitle();
-    }
-
-    if (
-      (browserSettings.alarmTimeAgoWarn && ago.status === 'warn')
-      || (browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent')) {
-      checkTimeAgoAlarm(ago);
+      var sound = level === 'warn' ? alarmSound : urgentAlarmSound;
+      generateAlarm(sound, message);
     }
 
     container.toggleClass('alarming-timeago', ago.status !== 'current');
@@ -1308,18 +1288,41 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     if (alarmingNow() && ago.status === 'current' && isTimeAgoAlarmType(currentAlarmType)) {
       stopAlarm(true, ONE_MIN_IN_MS);
     }
+  }
 
-    if (retroMode || !ago.value) {
-      lastEntry.find('em').hide();
-    } else {
-      lastEntry.find('em').show().text(ago.value);
+  function updateTimeAgo(forceUpdate) {
+    var lastEntry = $('#lastEntry')
+      , time = latestSGV ? latestSGV.mills : -1
+      , ago = timeAgo(time, browserSettings)
+      , retroMode = inRetroMode();
+
+    //TODO: move this ao a plugin?
+    function updateTimeAgoPill() {
+      if (retroMode || !ago.value) {
+        lastEntry.find('em').hide();
+      } else {
+        lastEntry.find('em').show().text(ago.value);
+      }
+      if (retroMode || ago.label) {
+        lastEntry.find('label').show().text(retroMode ? 'RETRO' : ago.label);
+      } else {
+        lastEntry.find('label').hide();
+      }
     }
 
-    if (retroMode || ago.label) {
-      lastEntry.find('label').show().text(retroMode ? 'RETRO' : ago.label);
+    if (Date.now() - visibilityChangedAt <= TEN_SEC_IN_MS && !forceUpdate) {
+      console.info('visibility is changing now, wait till next tick to check time ago');
     } else {
-      lastEntry.find('label').hide();
+      lastEntry.removeClass('current warn urgent');
+      lastEntry.addClass(ago.status);
+
+      if (ago.status !== 'current') {
+        updateTitle();
+      }
+      checkTimeAgoAlarm(ago);
     }
+
+    updateTimeAgoPill();
   }
 
   function init() {
@@ -1383,30 +1386,54 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     context.append('g')
       .attr('class', 'y axis');
 
-    //updateChart is _.debounce'd
+    function updateTimeAgoSoon() {
+      setTimeout(function updatingTimeAgoNow() {
+        var forceUpdate = true;
+        updateTimeAgo(forceUpdate);
+      }, TEN_SEC_IN_MS);
+    }
+
     function refreshChart(updateToNow) {
       if (updateToNow) {
         updateBrushToNow();
       }
       updateChart(false);
+      updateTimeAgoSoon();
     }
 
-    function visibilityChanged() {
-      var prevHidden = documentHidden;
-      documentHidden = (document.hidden || document.webkitHidden || document.mozHidden || document.msHidden);
-
-      if (prevHidden && !documentHidden) {
-        console.info('Document now visible, updating - ' + (new Date()));
-        refreshChart(true);
+    (function watchVisibility ( ) {
+      // Set the name of the hidden property and the change event for visibility
+      var hidden, visibilityChange;
+      if (typeof document.hidden !== 'undefined') {
+        hidden = 'hidden';
+        visibilityChange = 'visibilitychange';
+      } else if (typeof document.mozHidden !== 'undefined') {
+        hidden = 'mozHidden';
+        visibilityChange = 'mozvisibilitychange';
+      } else if (typeof document.msHidden !== 'undefined') {
+        hidden = 'msHidden';
+        visibilityChange = 'msvisibilitychange';
+      } else if (typeof document.webkitHidden !== 'undefined') {
+        hidden = 'webkitHidden';
+        visibilityChange = 'webkitvisibilitychange';
       }
-    }
+
+      document.addEventListener(visibilityChange, function visibilityChanged ( ) {
+        var prevHidden = documentHidden;
+        documentHidden = document[hidden];
+
+        if (prevHidden && !documentHidden) {
+          console.info('Document now visible, updating - ' + new Date());
+          visibilityChangedAt = Date.now();
+          refreshChart(true);
+        }
+      });
+    })();
 
     window.onresize = refreshChart;
 
-    document.addEventListener('webkitvisibilitychange', visibilityChanged);
-
-
     updateClock();
+    updateTimeAgoSoon();
 
     var silenceDropdown = new Dropdown('.dropdown-menu');
 
@@ -1426,7 +1453,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       $('.focus-range li').removeClass('selected');
       li.addClass('selected');
       var hours = Number(li.data('hours'));
-      foucusRangeMS = hours * 60 * 60 * 1000;
+      foucusRangeMS = (hours * 60 * 60 * 1000) + THIRTY_MINS_IN_MS;
       refreshChart();
     });
 
