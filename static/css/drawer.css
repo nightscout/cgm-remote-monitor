@@ -76,6 +76,11 @@ input[type=number]:invalid {
 #treatmentDrawer .left-column span {
   width: 110px;
   display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 22px;
+  vertical-align: middle;
 }
 
 #treatmentDrawer .left-column input, #treatmentDrawer .left-column select {
@@ -98,11 +103,29 @@ input[type=number]:invalid {
 #eventTime > span {
   width: 105px;
   display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 22px;
+  vertical-align: middle;
 }
 
-#eventTime > input {
-  margin-left: 114px;
-  width: 140px;
+#treatmentDrawer .eventdate {
+  width: 130px;
+}
+
+#treatmentDrawer .eventtime {
+  width: 110px;
+}
+
+#eventTime label span {
+  width: 45px;
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 22px;
+  vertical-align: middle;
 }
 
 #treatmentDrawer #glucoseValue {
@@ -163,6 +186,7 @@ dd.numbers label {
 }
 
 h1, legend,
+#toolbar .customTitle,
 #about .appName,
 #about .version {
     font-weight: bold;
@@ -185,7 +209,7 @@ h1, legend,
     text-shadow: 0 0 5px black;
 }
 
-#toolbar h1 {
+#toolbar .customTitle {
     color: #ccc;
     font-size: 16px;
     margin-top: 0;
@@ -242,8 +266,9 @@ h1, legend,
     overflow: hidden;
 }
 #notification {
-    top: 5px;
-    z-index: 500;
+    opacity: 0.75;
+    top: 4px;
+    z-index: 99;
 }
 #notification.info a {
     background: #00f;
