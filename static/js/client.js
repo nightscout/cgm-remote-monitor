@@ -597,7 +597,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     focus.select('.now-line')
       .transition()
-      .duration(UPDATE_TRANS_MS * 1.3)
+      .duration(UPDATE_TRANS_MS)
       .attr('x1', xScale(nowDate))
       .attr('y1', yScale(scaleBg(36)))
       .attr('x2', xScale(nowDate))
@@ -1302,13 +1302,12 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
   }
 
-  function updateTimeAgo(forceUpdate) {
+  function updateTimeAgo() {
     var lastEntry = $('#lastEntry')
       , time = latestSGV ? latestSGV.mills : -1
       , ago = timeAgo(time, browserSettings)
       , retroMode = inRetroMode();
 
-    //TODO: move this ao a plugin?
     function updateTimeAgoPill() {
       if (retroMode || !ago.value) {
         lastEntry.find('em').hide();
@@ -1396,8 +1395,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     function updateTimeAgoSoon() {
       setTimeout(function updatingTimeAgoNow() {
-        var forceUpdate = true;
-        updateTimeAgo(forceUpdate);
+        updateTimeAgo();
       }, TEN_SEC_IN_MS);
     }
 
