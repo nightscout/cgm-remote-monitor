@@ -1274,6 +1274,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     return alarmType === 'warnTimeAgo' || alarmType === 'urgentTimeAgo';
   }
 
+  function isStale (ago) {
+    return browserSettings.alarmTimeAgoWarn && ago.status === 'warn'
+      || browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent';
+  }
+
+  function notAcked (alarm) {
+    return Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0);
+  }
+
   function checkTimeAgoAlarm(ago) {
     var level = ago.status
       , alarm = getClientAlarm(level + 'TimeAgo');
@@ -1281,10 +1290,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var visibilityChanged = Date.now() - visibilityChangedAt <= ONE_MIN_IN_MS;
 
     if (!visibilityChanged) {
-      var isStale = browserSettings.alarmTimeAgoWarn && ago.status === 'warn'
-        || browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent';
-
-      if (isStale && Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
+      if (isStale(ago) && notAcked(alarm)) {
         currentAlarmType = alarm.type;
         console.info('generating timeAgoAlarm', alarm.type);
         container.addClass('alarming-timeago');
