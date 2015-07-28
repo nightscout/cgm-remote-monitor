@@ -77,4 +77,27 @@ describe('env', function ( ) {
     delete process.env.SCARYPLUGIN_DO_THING;
   });
 
+  it('check if there are extended settings', function () {
+    var env = require('../env')();
+    env.hasExtendedSetting('PUSHOVER', {'PUSHOVER_API_TOKEN': '12345'}).should.equal(true);
+  });
+
+  it('add pushover to enable if one of the env vars is set', function () {
+    process.env.PUSHOVER_API_TOKEN = '12345';
+
+    var env = require('../env')();
+    env.enable.should.containEql('pushover');
+
+    delete process.env.PUSHOVER_API_TOKEN;
+  });
+
+  it('add pushover to enable if one of the weird azure env vars is set', function () {
+    process.env.CUSTOMCONNSTR_PUSHOVER_API_TOKEN = '12345';
+
+    var env = require('../env')();
+    env.enable.should.containEql('pushover');
+
+    delete process.env.PUSHOVER_API_TOKEN;
+  });
+
 });
