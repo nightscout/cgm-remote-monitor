@@ -120,7 +120,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
   }
 
   function generateTitle ( ) {
-
     function s(value, sep) { return value ? value + ' ' : sep || ''; }
 
     var title = '';
@@ -143,33 +142,45 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     return title;
   }
 
+  function resetCustomTitle ( ) {
+    var customTitle = browserSettings.customTitle || 'Nightscout';
+    $('.customTitle').text(customTitle);
+  }
+
+  function checkAnnouncement() {
+    var result = {
+      inProgress: currentAnnouncement ? Date.now() - currentAnnouncement.received < FIVE_MINS_IN_MS : false
+    };
+
+    if (result.inProgress) {
+      var message = currentAnnouncement.message.length > 1 ? currentAnnouncement.message : currentAnnouncement.title;
+      result.message = message;
+      $('.customTitle').text(message);
+    } else if (currentAnnouncement) {
+      currentAnnouncement = null;
+      console.info('cleared announcement');
+    }
+
+    return result;
+  }
+
   function updateTitle ( ) {
 
     var windowTitle;
-    var customTitle = browserSettings.customTitle || 'Nightscout';
-    var announcementInProgress = false;
+    var announcementStatus = checkAnnouncement();
 
     if (alarmMessage && alarmInProgress) {
       $('.customTitle').text(alarmMessage);
       if (!isTimeAgoAlarmType(currentAlarmType)) {
         windowTitle = alarmMessage + ': ' + generateTitle();
       }
-    } else if (currentAnnouncement) {
-      announcementInProgress = Date.now() - currentAnnouncement.received < FIVE_MINS_IN_MS;
-      if (announcementInProgress) {
-        var aMessage = currentAnnouncement.message.length > 1 ? currentAnnouncement.message : currentAnnouncement.title;
-        windowTitle = aMessage + ': ' + generateTitle();
-        $('.customTitle').text(aMessage);
-      } else {
-        currentAnnouncement = null;
-        $('.customTitle').text(customTitle);
-        console.info('cleared announcement');
-      }
-    } else {
-      $('.customTitle').text(customTitle);
+    } else if (announcementStatus.inProgress && announcementStatus.message) {
+      windowTitle = announcementStatus.message + ': ' + generateTitle();
+    } else  {
+      resetCustomTitle();
     }
 
-    container.toggleClass('announcing', announcementInProgress);
+    container.toggleClass('announcing', announcementStatus.inProgress);
 
     $(document).attr('title', windowTitle || generateTitle());
   }
@@ -1263,6 +1274,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     return alarmType === 'warnTimeAgo' || alarmType === 'urgentTimeAgo';
   }
 
+  function isStale (ago) {
+    return browserSettings.alarmTimeAgoWarn && ago.status === 'warn'
+      || browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent';
+  }
+
+  function notAcked (alarm) {
+    return Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0);
+  }
+
   function checkTimeAgoAlarm(ago) {
     var level = ago.status
       , alarm = getClientAlarm(level + 'TimeAgo');
@@ -1270,11 +1290,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var visibilityChanged = Date.now() - visibilityChangedAt <= ONE_MIN_IN_MS;
 
     if (!visibilityChanged) {
-      var isStale = !visibilityChanged && (
-        browserSettings.alarmTimeAgoWarn && ago.status === 'warn'
-        || browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent');
-
-      if (isStale && Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
+      if (isStale(ago) && notAcked(alarm)) {
         currentAlarmType = alarm.type;
         console.info('generating timeAgoAlarm', alarm.type);
         container.addClass('alarming-timeago');
@@ -1311,7 +1327,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       }
     }
 
-    if (Date.now() - visibilityChangedAt <= ONE_MIN_IN_MS && !forceUpdate) {
+    if (Date.now() - visibilityChangedAt <= ONE_MIN_IN_MS && ago.status !== 'current' && !forceUpdate) {
       console.info('visibility is changing now, wait till next tick to check time ago');
     } else {
       lastEntry.removeClass('current warn urgent');
