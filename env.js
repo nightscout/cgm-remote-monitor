@@ -257,7 +257,10 @@ function readENV(varName, defaultValue) {
 
 function hasExtendedSetting(prefix, envs) {
   return _.find(envs, function (value, key) {
-    return key.indexOf(prefix.toUpperCase() + '_') >= 0 || key.indexOf(prefix.toLowerCase() + '_') >= 0;
+    return key.indexOf(prefix + '_') >= 0
+      || key.indexOf(prefix.toLowerCase() + '_') >= 0
+      || key.indexOf('CUSTOMCONNSTR_' + prefix + '_') >= 0
+      || key.indexOf('CUSTOMCONNSTR_' + prefix.toLowerCase() + '_') >= 0;
   }) !== undefined;
 }
 
@@ -272,6 +275,7 @@ function findExtendedSettings (enables, envs) {
             var exts = extended[enable] || {};
             extended[enable] = exts;
             var ext = _.camelCase(key.substring(split + 1).toLowerCase());
+            if (!isNaN(value)) { value = Number(value); }
             exts[ext] = value;
           }
         }

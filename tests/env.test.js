@@ -91,4 +91,13 @@ describe('env', function ( ) {
     delete process.env.PUSHOVER_API_TOKEN;
   });
 
+  it('add pushover to enable if one of the weird azure env vars is set', function () {
+    process.env.CUSTOMCONNSTR_PUSHOVER_API_TOKEN = '12345';
+
+    var env = require('../env')();
+    env.enable.should.containEql('pushover');
+
+    delete process.env.PUSHOVER_API_TOKEN;
+  });
+
 });
