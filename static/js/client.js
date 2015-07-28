@@ -70,7 +70,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , contextHeight
     , dateFn = function (d) { return new Date(d.mills) }
     , documentHidden = false
-    , visibilityChangedAt = Date.now()
     , brush
     , brushTimer
     , brushInProgress = false
@@ -1287,20 +1286,16 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     var level = ago.status
       , alarm = getClientAlarm(level + 'TimeAgo');
 
-    var visibilityChanged = Date.now() - visibilityChangedAt <= ONE_MIN_IN_MS;
-
-    if (!visibilityChanged) {
-      if (isStale(ago) && notAcked(alarm)) {
-        currentAlarmType = alarm.type;
-        console.info('generating timeAgoAlarm', alarm.type);
-        container.addClass('alarming-timeago');
-        var message = {'title': 'Last data received ' + [ago.value, ago.label].join(' ')};
-        var sound = level === 'warn' ? alarmSound : urgentAlarmSound;
-        generateAlarm(sound, message);
-      }
-
-      container.toggleClass('alarming-timeago', ago.status !== 'current');
+    if (isStale(ago) && notAcked(alarm)) {
+      currentAlarmType = alarm.type;
+      console.info('generating timeAgoAlarm', alarm.type);
+      container.addClass('alarming-timeago');
+      var message = {'title': 'Last data received ' + [ago.value, ago.label].join(' ')};
+      var sound = level === 'warn' ? alarmSound : urgentAlarmSound;
+      generateAlarm(sound, message);
     }
+
+    container.toggleClass('alarming-timeago', ago.status !== 'current');
 
     if (alarmingNow() && ago.status === 'current' && isTimeAgoAlarmType(currentAlarmType)) {
       stopAlarm(true, ONE_MIN_IN_MS);
@@ -1327,17 +1322,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       }
     }
 
-    if (Date.now() - visibilityChangedAt <= ONE_MIN_IN_MS && ago.status !== 'current' && !forceUpdate) {
-      console.info('visibility is changing now, wait till next tick to check time ago');
-    } else {
-      lastEntry.removeClass('current warn urgent');
-      lastEntry.addClass(ago.status);
+    lastEntry.removeClass('current warn urgent');
+    lastEntry.addClass(ago.status);
 
-      if (ago.status !== 'current') {
-        updateTitle();
-      }
-      checkTimeAgoAlarm(ago);
+    if (ago.status !== 'current') {
+      updateTitle();
     }
+    checkTimeAgoAlarm(ago);
 
     updateTimeAgoPill();
   }
@@ -1441,7 +1432,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
         if (prevHidden && !documentHidden) {
           console.info('Document now visible, updating - ' + new Date());
-          visibilityChangedAt = Date.now();
           refreshChart(true);
         }
       });
