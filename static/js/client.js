@@ -659,7 +659,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     function announcementTooltip (d) {
       return '<strong>'+translate('Time')+':</strong> ' + formatTime(new Date(d.mills)) + '<br/>' +
         (d.eventType ? '<strong>'+translate('Announcement')+'</strong><br/>' : '') +
-        (d.notes && d.notes.length > 1 ? '<strong>'+translate('Message')+':</strong> ' + d.notes : '') +
+        (d.notes && d.notes.length > 1 ? '<strong>'+translate('Message')+':</strong> ' + d.notes + '<br/>' : '') +
         (d.enteredBy ? '<strong>'+translate('Entered by')+':</strong> ' + d.enteredBy + '<br/>' : '');
     }
 
