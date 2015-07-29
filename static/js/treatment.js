@@ -1,9 +1,14 @@
 'use strict';
 
 (function () {
+  var translate = Nightscout.language.translate;
+
+  var browserSettings = Nightscout.client.browserSettings;
+  var browserStorage = Nightscout.client.browserStorage;
+
   function initTreatmentDrawer() {
     $('#eventType').val('BG Check');
-    $('#glucoseValue').val('').attr('placeholder', 'Value in ' + browserSettings.units);
+    $('#glucoseValue').val('').attr('placeholder', translate('Value in') + ' ' + browserSettings.units);
     $('#meter').prop('checked', true);
     $('#carbsGiven').val('');
     $('#insulinGiven').val('');
@@ -13,22 +18,6 @@
     $('#nowtime').prop('checked', true);
     $('#eventTimeValue').val(moment().format('HH:mm'));
     $('#eventDateValue').val(moment().format('YYYY-MM-D'));
-  }
-
-  function checkForErrors(data) {
-    var errors = [];
-    if (isNaN(data.glucose)) {
-      errors.push('Blood glucose must be a number');
-    }
-
-    if (isNaN(data.carbs)) {
-      errors.push('Carbs must be a number');
-    }
-
-    if (isNaN(data.insulin)) {
-      errors.push('Insulin must be a number');
-    }
-    return errors;
   }
 
   function prepareData() {
@@ -54,13 +43,8 @@
   function treatmentSubmit(event) {
 
     var data = prepareData();
-    var errors = checkForErrors(data);
 
-    if (errors.length > 0) {
-      window.alert(errors.join('\n'));
-    } else {
-      confirmPost(data);
-    }
+    confirmPost(data);
 
     if (event) {
       event.preventDefault();
@@ -69,22 +53,26 @@
 
   function buildConfirmText(data) {
     var text = [
-      'Please verify that the data entered is correct: '
-      , 'Event type: ' + data.eventType
+      translate('Please verify that the data entered is correct') + ': '
+      , translate('Event Type') + ': ' + translate(data.eventType)
     ];
 
-    if (data.glucose) {
-      text.push('Blood glucose: ' + data.glucose);
-      text.push('Method: ' + data.glucoseType);
+    function pushIf (check, valueText) {
+      if (check) {
+        text.push(valueText);
+      }
     }
 
-    if (data.carbs) { text.push('Carbs Given: ' + data.carbs); }
-    if (data.insulin) { text.push('Insulin Given: ' + data.insulin); }
-    if (data.preBolus) { text.push('Insulin Given: ' + data.insulin); }
-    if (data.notes) { text.push('Notes: ' + data.notes); }
-    if (data.enteredBy) { text.push('Entered By: ' + data.enteredBy); }
+    pushIf(data.glucose, translate('Blood Glucose') + ': ' + data.glucose);
+    pushIf(data.glucoseType, translate('Measurement Method') + ': ' + translate(data.glucoseType));
 
-    text.push('Event Time: ' + (data.eventTime ? data.eventTime.toDate().toLocaleString() : new Date().toLocaleString()));
+    pushIf(data.carbs, translate('Carbs Given') + ': ' + data.carbs);
+    pushIf(data.insulin, translate('Insulin Given') + ': ' + data.insulin);
+    pushIf(data.preBolus, translate('Carb Time') + ': ' + data.preBolus + ' ' + translate('mins'));
+    pushIf(data.notes, translate('Notes') + ': ' + data.notes);
+    pushIf(data.enteredBy, translate('Entered By') + ': ' + data.enteredBy);
+
+    text.push(translate('Event Time') + ': ' + (data.eventTime ? data.eventTime.toDate().toLocaleString() : new Date().toLocaleString()));
     return text.join('\n');
   }
 

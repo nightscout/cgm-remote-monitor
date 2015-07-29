@@ -2,17 +2,6 @@
 
 var openDraw = null;
 
-function rawBGsEnabled() {
-  return serverSettings.enabledOptions && serverSettings.enabledOptions.indexOf('rawbg') > -1;
-}
-
-function setDefault(variable, defaultValue) {
-  if (typeof(variable) === 'object') {
-    return defaultValue;
-  }
-  return variable;
-}
-
 function storeInBrowser(data) {
 
   for (var k in data) {

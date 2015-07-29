@@ -63,7 +63,8 @@ describe('client', function ( ) {
     };
 
     var plugins = require('../lib/plugins/')().registerClientDefaults();
-    var client = require('../lib/client')(plugins, serverSettings);
+    var client = require('../lib/client');
+    client.init(plugins, serverSettings);
   });
 
 });
