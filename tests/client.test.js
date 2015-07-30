@@ -31,7 +31,12 @@ describe('client', function ( ) {
 
   it ('not blow up', function () {
     var serverSettings = {
-      apiEnabled: true, careportalEnabled: true, enabledOptions: 'ar2 careportal delta direction upbat errorcodes', defaults: {
+      name: 'Nightscout'
+      , version: '0.7.0'
+      , apiEnabled: true
+      , careportalEnabled: true
+      , head: 'ae71dca'
+      , settings: {
         units: 'mg/dl'
         , timeFormat: '12'
         , nightMode: false
@@ -42,29 +47,26 @@ describe('client', function ( ) {
         , alarmHigh: true
         , alarmLow: true
         , alarmUrgentLow: true
-        , alarmTimeAgoWarn: true
-        , alarmTimeAgoWarnMins: 15
-        , alarmTimeAgoUrgent: true
-        , alarmTimeAgoUrgentMins: 30
+        , alarmTimeagoWarn: true
+        , alarmTimeagoWarnMins: 15
+        , alarmTimeagoUrgent: true
+        , alarmTimeagoUrgentMins: 30
         , language: 'en'
+        , enable: 'ar2 careportal delta direction upbat errorcodes'
         , showPlugins: 'iob delta direction upbatrawbg'
+        , alarmTypes: 'predict'
+        , thresholds: {
+          bgHigh: 200
+          , bgTargetTop: 170
+          , bgTargetBottom: 80
+          , bgLow: 55
+        }
       }
-      , units: 'mg/dl'
-      , head: 'ae71dca'
-      , version: '0.7.0'
-      , thresholds: {
-        bg_high: 200
-        , bg_target_top: 170
-        , bg_target_bottom: 80
-        , bg_low: 55
-      }
-      , alarm_types: 'predict'
-      , name: 'Nightscout'
     };
 
     var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
-    client.init(plugins, serverSettings);
+    client.init(serverSettings, plugins);
   });
 
 });

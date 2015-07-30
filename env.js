@@ -1,10 +1,13 @@
 'use strict';
 
-var env = { };
 var _ = require('lodash');
+var fs = require('fs');
 var crypto = require('crypto');
 var consts = require('./lib/constants');
-var fs = require('fs');
+
+var env = {
+  settings: require('./lib/settings')()
+};
 
 // Module to constrain all config and environment parsing to one spot.
 // See the
@@ -21,24 +24,11 @@ function config ( ) {
   setAPISecret();
   setVersion();
   setMongo();
-  setAlarmType();
-  setEnableAndExtendedSettnigs();
-  setDefaults();
-  setThresholds();
+  updateSettings();
 
-  env.isEnabled = isEnabled;
-  env.anyEnabled = anyEnabled;
   env.hasExtendedSetting = hasExtendedSetting;
 
   return env;
-}
-
-function isEnabled (feature) {
-  return env.enable.indexOf(feature) > -1;
-}
-
-function anyEnabled (features) {
-  return _.findIndex(features, isEnabled) > -1;
 }
 
 function setSSL() {
@@ -121,121 +111,51 @@ function setMongo() {
   env.mongo_collection = DB_COLLECTION;
 }
 
-//if any of the BG_* thresholds are set, default to `simple` and `predict` otherwise default to only `predict`
-function setAlarmType() {
-  var thresholdsSet = readIntENV('BG_HIGH') || readIntENV('BG_TARGET_TOP') || readIntENV('BG_TARGET_BOTTOM') || readIntENV('BG_LOW');
-  env.alarm_types = readENV('ALARM_TYPES') || (thresholdsSet ? 'simple' : 'predict');
-}
+function updateSettings() {
 
-function setEnableAndExtendedSettnigs() {
-  env.enable = readENV('ENABLE', '');
-  //TODO: maybe get rid of ALARM_TYPES and only use enable?
-  if (env.alarm_types.indexOf('simple') > -1) {
-    env.enable = 'simplealarms ' + env.enable;
-  }
-  if (env.alarm_types.indexOf('predict') > -1) {
-    env.enable = 'ar2 ' + env.enable;
+  var enable = readENV('ENABLE', '');
+
+  function anyEnabled (features) {
+    return _.findIndex(features, function (feature) {
+      return enable.indexOf(feature) > -1;
+    }) > -1;
   }
 
   //don't require pushover to be enabled to preserve backwards compatibility if there are extendedSettings for it
   if (hasExtendedSetting('PUSHOVER', process.env)) {
-    env.enable += ' pushover';
+    enable += ' pushover';
   }
 
   if (anyEnabled(['careportal', 'pushover', 'maker'])) {
-    env.enable += ' treatmentnotify';
+    enable += ' treatmentnotify';
   }
 
   //TODO: figure out something for default plugins, how can they be disabled?
-  env.enable += ' delta direction upbat errorcodes';
+  enable += ' delta direction upbat errorcodes';
 
-  env.extendedSettings = findExtendedSettings(env.enable, process.env);
-}
+  env.extendedSettings = findExtendedSettings(enable, process.env);
 
-function setDefaults() {
 
-  // currently supported keys must defined be here
-  env.defaults = {
-    'units': 'mg/dL'
-    , 'timeFormat': '12'
-    , 'nightMode': false
-    , 'showRawbg': 'never'
-    , 'customTitle': 'Nightscout'
-    , 'theme': 'default'
-    , 'alarmUrgentHigh': true
-    , 'alarmHigh': true
-    , 'alarmLow': true
-    , 'alarmUrgentLow': true
-    , 'alarmTimeAgoWarn': true
-    , 'alarmTimeAgoWarnMins': 15
-    , 'alarmTimeAgoUrgent': true
-    , 'alarmTimeAgoUrgentMins': 30
-    , 'language': 'en'
+  var envNameOverrides = {
+    UNITS: 'DISPLAY_UNITS'
   };
 
-  // add units from separate variable
-  //TODO: figure out where this is used, should only be in 1 spot
-  env.defaults.units = env.DISPLAY_UNITS;
+  env.settings.eachSettingAsEnv(function settingFromEnv (name) {
+    var envName = envNameOverrides[name] || name;
+    return readENV(envName);
+  });
 
-  // Highest priority per line defaults
-  env.defaults.timeFormat = readENV('TIME_FORMAT', env.defaults.timeFormat);
-  env.defaults.nightMode = readENV('NIGHT_MODE', env.defaults.nightMode);
-  env.defaults.showRawbg = readENV('SHOW_RAWBG', env.defaults.showRawbg);
-  env.defaults.customTitle = readENV('CUSTOM_TITLE', env.defaults.customTitle);
-  env.defaults.theme = readENV('THEME', env.defaults.theme);
-  env.defaults.alarmUrgentHigh = readENV('ALARM_URGENT_HIGH', env.defaults.alarmUrgentHigh);
-  env.defaults.alarmHigh = readENV('ALARM_HIGH', env.defaults.alarmHigh);
-  env.defaults.alarmLow = readENV('ALARM_LOW', env.defaults.alarmLow);
-  env.defaults.alarmUrgentLow = readENV('ALARM_URGENT_LOW', env.defaults.alarmUrgentLow);
-  env.defaults.alarmTimeAgoWarn = readENV('ALARM_TIMEAGO_WARN', env.defaults.alarmTimeAgoWarn);
-  env.defaults.alarmTimeAgoWarnMins = readENV('ALARM_TIMEAGO_WARN_MINS', env.defaults.alarmTimeAgoWarnMins);
-  env.defaults.alarmTimeAgoUrgent = readENV('ALARM_TIMEAGO_URGENT', env.defaults.alarmTimeAgoUrgent);
-  env.defaults.alarmTimeAgoUrgentMins = readENV('ALARM_TIMEAGO_URGENT_MINS', env.defaults.alarmTimeAgoUrgentMins);
-  env.defaults.showPlugins = readENV('SHOW_PLUGINS', '');
-  env.defaults.language = readENV('LANGUAGE', env.defaults.language);
-
-  //TODO: figure out something for some plugins to have them shown by default
-  if (env.defaults.showPlugins !== '') {
-    env.defaults.showPlugins += ' delta direction upbat';
-    if (env.defaults.showRawbg === 'always' || env.defaults.showRawbg === 'noise') {
-      env.defaults.showPlugins += 'rawbg';
-    }
+  //TODO: maybe get rid of ALARM_TYPES and only use enable?
+  if (env.settings.alarmTypes.indexOf('simple') > -1) {
+    enable = 'simplealarms ' + enable;
   }
-}
-
-function setThresholds() {
-  env.thresholds = {
-    bg_high: readIntENV('BG_HIGH', 260)
-    , bg_target_top: readIntENV('BG_TARGET_TOP', 180)
-    , bg_target_bottom: readIntENV('BG_TARGET_BOTTOM', 80)
-    , bg_low: readIntENV('BG_LOW', 55)
-  };
-
-  //NOTE: using +/- 1 here to make the thresholds look visibly wrong in the UI
-  //      if all thresholds were set to the same value you should see 4 lines stacked right on top of each other
-  if (env.thresholds.bg_target_bottom >= env.thresholds.bg_target_top) {
-    console.warn('BG_TARGET_BOTTOM(' + env.thresholds.bg_target_bottom + ') was >= BG_TARGET_TOP(' + env.thresholds.bg_target_top + ')');
-    env.thresholds.bg_target_bottom = env.thresholds.bg_target_top - 1;
-    console.warn('BG_TARGET_BOTTOM is now ' + env.thresholds.bg_target_bottom);
+  if (env.settings.alarmTypes.indexOf('predict') > -1) {
+    enable = 'ar2 ' + enable;
   }
 
-  if (env.thresholds.bg_target_top <= env.thresholds.bg_target_bottom) {
-    console.warn('BG_TARGET_TOP(' + env.thresholds.bg_target_top + ') was <= BG_TARGET_BOTTOM(' + env.thresholds.bg_target_bottom + ')');
-    env.thresholds.bg_target_top = env.thresholds.bg_target_bottom + 1;
-    console.warn('BG_TARGET_TOP is now ' + env.thresholds.bg_target_top);
-  }
+  env.settings.enable = enable;
 
-  if (env.thresholds.bg_low >= env.thresholds.bg_target_bottom) {
-    console.warn('BG_LOW(' + env.thresholds.bg_low + ') was >= BG_TARGET_BOTTOM(' + env.thresholds.bg_target_bottom + ')');
-    env.thresholds.bg_low = env.thresholds.bg_target_bottom - 1;
-    console.warn('BG_LOW is now ' + env.thresholds.bg_low);
-  }
-
-  if (env.thresholds.bg_high <= env.thresholds.bg_target_top) {
-    console.warn('BG_HIGH(' + env.thresholds.bg_high + ') was <= BG_TARGET_TOP(' + env.thresholds.bg_target_top + ')');
-    env.thresholds.bg_high = env.thresholds.bg_target_top + 1;
-    console.warn('BG_HIGH is now ' + env.thresholds.bg_high);
-  }
+  env.settings.processRawSettings();
 }
 
 function readIntENV(varName, defaultValue) {

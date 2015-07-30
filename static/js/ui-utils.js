@@ -2,16 +2,6 @@
 
 var openDraw = null;
 
-function storeInBrowser(data) {
-
-  for (var k in data) {
-    if (data.hasOwnProperty(k)) {
-      browserStorage.set(k, data[k]);
-    }
-  }
-
-}
-
 function getQueryParms() {
   var params = {};
   if (location.search) {
@@ -96,56 +86,6 @@ $('#notification').click(function(event) {
   closeNotification();
   event.preventDefault();
 });
-
-$('#save').click(function(event) {
-  function checkedPluginNames() {
-    var checkedPlugins = [];
-    $('#show-plugins input:checked').each(function eachPluginCheckbox(index, checkbox) {
-      checkedPlugins.push($(checkbox).val());
-    });
-    return checkedPlugins.join(' ');
-  }
-
-  storeInBrowser({
-    'units': $('input:radio[name=units-browser]:checked').val(),
-    'alarmUrgentHigh': $('#alarm-urgenthigh-browser').prop('checked'),
-    'alarmHigh': $('#alarm-high-browser').prop('checked'),
-    'alarmLow': $('#alarm-low-browser').prop('checked'),
-    'alarmUrgentLow': $('#alarm-urgentlow-browser').prop('checked'),
-    'alarmTimeAgoWarn': $('#alarm-timeagowarn-browser').prop('checked'),
-    'alarmTimeAgoWarnMins': parseInt($('#alarm-timeagowarnmins-browser').val()) || 15,
-    'alarmTimeAgoUrgent': $('#alarm-timeagourgent-browser').prop('checked'),
-    'alarmTimeAgoUrgentMins': parseInt($('#alarm-timeagourgentmins-browser').val()) || 30,
-    'nightMode': $('#nightmode-browser').prop('checked'),
-    'showRawbg': $('input:radio[name=show-rawbg]:checked').val(),
-    'customTitle': $('input#customTitle').prop('value'),
-    'theme': $('input:radio[name=theme-browser]:checked').val(),
-    'timeFormat': $('input:radio[name=timeformat-browser]:checked').val(),
-    'showPlugins': checkedPluginNames()
-  });
-
-  event.preventDefault();
-  reload();
-});
-
-
-$('#useDefaults').click(function(event) {
-  //remove all known settings, since there might be something else is in localstorage
-  var settings = ['units', 'alarmUrgentHigh', 'alarmHigh', 'alarmLow', 'alarmUrgentLow', 'alarmTimeAgoWarn', 'alarmTimeAgoWarnMins', 'alarmTimeAgoUrgent', 'alarmTimeAgoUrgentMins', 'nightMode', 'showRawbg', 'customTitle', 'theme', 'timeFormat', 'showPlugins'];
-  settings.forEach(function(setting) {
-    browserStorage.remove(setting);
-  });
-  event.preventDefault();
-  reload();
-});
-
-function reload() {
-  // reload for changes to take effect
-  // -- strip '#' so form submission does not fail
-  var url = window.location.href;
-  url = url.replace(/#$/, '');
-  window.location = url;
-}
 
 $(function() {
   // Tooltips can remain in the way on touch screens.
