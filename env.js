@@ -158,10 +158,6 @@ function updateSettings() {
   env.settings.processRawSettings();
 }
 
-function readIntENV(varName, defaultValue) {
-  return parseInt(readENV(varName)) || defaultValue;
-}
-
 function readENV(varName, defaultValue) {
   //for some reason Azure uses this prefix, maybe there is a good reason
   var value = process.env['CUSTOMCONNSTR_' + varName]
