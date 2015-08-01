@@ -17,7 +17,7 @@
     $('#enteredBy').val(browserStorage.get('enteredBy') || '');
     $('#nowtime').prop('checked', true);
     $('#eventTimeValue').val(moment().format('HH:mm'));
-    $('#eventDateValue').val(moment().format('YYYY-MM-D'));
+    $('#eventDateValue').val(moment().format('YYYY-MM-DD'));
   }
 
   function prepareData() {
@@ -102,7 +102,7 @@
       $('#eventTimeValue').focus();
     } else {
       $('#eventTimeValue').val(moment().format('HH:mm'));
-      $('#eventDateValue').val(moment().format('YYYY-MM-D'));
+      $('#eventDateValue').val(moment().format('YYYY-MM-DD'));
     }
     event.preventDefault();
   });
@@ -124,7 +124,7 @@
       moment.add(-1, 'hours');
     }
     $('#eventTimeValue').val(moment.format('HH:mm'));
-    $('#eventDateValue').val(moment.format('YYYY-MM-D'));
+    $('#eventDateValue').val(moment.format('YYYY-MM-DD'));
     $(this).attr('oldminutes', moment.minutes());
     $(this).attr('oldhours', moment.hours());
     event.preventDefault();
