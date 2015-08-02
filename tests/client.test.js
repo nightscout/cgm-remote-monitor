@@ -8,9 +8,12 @@ describe('client', function ( ) {
 
   before(function (done) {
     benv.setup(function() {
+      var $ = require('jquery');
+      $('body').html('<div class="container"><div id="chartContainer"></div></div>');
+
       benv.expose({
-        $: require('jquery')
-        , jQuery: require('jquery')
+        $: $
+        , jQuery: $
         , d3: require('d3')
         , io: {
           connect: function mockConnect ( ) {
@@ -65,8 +68,43 @@ describe('client', function ( ) {
     };
 
     var plugins = require('../lib/plugins/')().registerClientDefaults();
-    var client = require('../lib/client');
+    var client = benv.require('../lib/client');
     client.init(serverSettings, plugins);
+
+    //disable all d3 transitions so most of the other code can run with jsdom
+    d3.timer = function mockTimer() { };
+
+    var now = Date.now();
+
+    client.dataUpdate({
+      sgvs: [
+        { device: 'dexcom'
+          , mgdl: 100
+          , mills: now
+          , direction: 'Flat'
+          , type: 'sgv'
+          , filtered: 113984
+          , unfiltered: 111920
+          , rssi: 179
+          , noise: 1
+        }
+      ]
+      , mbgs: [
+        {mgdl: 100, mills: now}
+      ]
+      , cals: [
+        { device: 'dexcom',
+          slope: 895.8571693029189,
+          intercept: 34281.06876195567,
+          scale: 1,
+          type: 'cal'
+        }
+      ]
+      , devicestatus: {uploaderBattery: 100}
+      , treatments: [
+        {insulin: '1.00', mills: now}
+      ]
+    });
   });
 
 });
