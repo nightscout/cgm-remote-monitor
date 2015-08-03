@@ -5,6 +5,13 @@ var times = require('../lib/times');
 
 var benv = require('benv');
 
+var read = require('fs').readFileSync;
+
+var TEST_TITLE = 'Test Title';
+
+var stored = { };
+var removed = { };
+
 var serverSettings = {
   name: 'Nightscout'
   , version: '0.7.0'
@@ -16,7 +23,7 @@ var serverSettings = {
     , timeFormat: '12'
     , nightMode: false
     , showRawbg: 'noise'
-    , customTitle: 'Nightscout'
+    , customTitle: TEST_TITLE
     , theme: 'colors'
     , alarmUrgentHigh: true
     , alarmHigh: true
@@ -36,6 +43,7 @@ var serverSettings = {
       , bgTargetBottom: 80
       , bgLow: 55
     }
+    , extendedSettings: { }
   }
 };
 
@@ -72,19 +80,32 @@ var nextData = {
 };
 
 describe('client', function ( ) {
-
+  var self = this;
   before(function (done) {
     benv.setup(function() {
-      var $ = require('jquery');
-      $('body').html('<div class="container"><div id="chartContainer"></div></div>');
+      self.$ = require('jquery');
+      self.$.localStorage = {
+        get: function mockGet (name) {
+          return name === 'customTitle' ? undefined : name + '-from-storage';
+        }
+        , set: function mockSet (name, value) {
+          stored[name] = value;
+        }
+        , remove: function mockRemove (name) {
+          removed[name] = true;
+        }
+      };
+
+      var indexHtml = read(__dirname + '/../static/index.html', 'utf8');
+      self.$('body').html(indexHtml);
 
       var d3 = require('d3');
       //disable all d3 transitions so most of the other code can run with jsdom
       d3.timer = function mockTimer() { };
 
       benv.expose({
-        $: $
-        , jQuery: $
+        $: self.$
+        , jQuery: self.$
         , d3: d3
         , io: {
           connect: function mockConnect ( ) {
@@ -126,6 +147,18 @@ describe('client', function ( ) {
     var client = benv.require('../lib/client');
     client.init(serverSettings, plugins);
     client.dataUpdate(nowData);
+  });
+
+  it ('load, store, and clear settings', function () {
+    var plugins = require('../lib/plugins/')().registerClientDefaults();
+    var browserSettings = benv.require('../lib/client/browser-settings.js')(serverSettings, plugins, self.$);
+    browserSettings.units.should.equal('units-from-storage');
+    browserSettings.customTitle.should.equal(TEST_TITLE);
+
+    self.$('#save').click();
+    stored.customTitle.should.equal(TEST_TITLE);
+    self.$('#useDefaults').click();
+    removed.customTitle.should.equal(true);
   });
 
 });
