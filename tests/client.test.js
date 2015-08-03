@@ -34,8 +34,8 @@ var serverSettings = {
     , alarmTimeagoUrgent: true
     , alarmTimeagoUrgentMins: 30
     , language: 'en'
-    , enable: 'ar2 careportal delta direction upbat errorcodes'
-    , showPlugins: 'iob delta direction upbatrawbg'
+    , enable: 'iob rawbg careportal delta direction upbat errorcodes'
+    , showPlugins: 'iob'
     , alarmTypes: 'predict'
     , thresholds: {
       bgHigh: 200
@@ -86,7 +86,7 @@ describe('client', function ( ) {
       self.$ = require('jquery');
       self.$.localStorage = {
         get: function mockGet (name) {
-          return name === 'customTitle' ? undefined : name + '-from-storage';
+          return name === 'alarmTimeagoWarnMins' ? 99 : undefined;
         }
         , set: function mockSet (name, value) {
           stored[name] = value;
@@ -152,7 +152,7 @@ describe('client', function ( ) {
   it ('load, store, and clear settings', function () {
     var plugins = require('../lib/plugins/')().registerClientDefaults();
     var browserSettings = benv.require('../lib/client/browser-settings.js')(serverSettings, plugins, self.$);
-    browserSettings.units.should.equal('units-from-storage');
+    browserSettings.alarmTimeagoWarnMins.should.equal(99);
     browserSettings.customTitle.should.equal(TEST_TITLE);
 
     self.$('#save').click();
