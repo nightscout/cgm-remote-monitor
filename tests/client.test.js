@@ -126,14 +126,14 @@ describe('client', function ( ) {
 
   it ('not blow up with mg/dl', function () {
     var plugins = require('../lib/plugins/')().registerClientDefaults();
-    var client = benv.require('../lib/client');
+    var client = require('../lib/client');
     client.init(serverSettings, plugins);
     client.dataUpdate(nowData);
   });
 
   it ('handle 2 updates', function () {
     var plugins = require('../lib/plugins/')().registerClientDefaults();
-    var client = benv.require('../lib/client');
+    var client = require('../lib/client');
     client.init(serverSettings, plugins);
     client.dataUpdate(nowData);
     client.dataUpdate(nextData);
@@ -144,14 +144,14 @@ describe('client', function ( ) {
     serverSettings.settings.timeFormat = 24;
 
     var plugins = require('../lib/plugins/')().registerClientDefaults();
-    var client = benv.require('../lib/client');
+    var client = require('../lib/client');
     client.init(serverSettings, plugins);
     client.dataUpdate(nowData);
   });
 
   it ('load, store, and clear settings', function () {
     var plugins = require('../lib/plugins/')().registerClientDefaults();
-    var browserSettings = benv.require('../lib/client/browser-settings.js')(serverSettings, plugins, self.$);
+    var browserSettings = require('../lib/client/browser-settings')(serverSettings, plugins, self.$);
     browserSettings.alarmTimeagoWarnMins.should.equal(99);
     browserSettings.customTitle.should.equal(TEST_TITLE);
 
