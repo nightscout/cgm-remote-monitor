@@ -182,15 +182,21 @@ function hasExtendedSetting(prefix, envs) {
 
 function findExtendedSettings (enables, envs) {
   var extended = {};
+
+  function normalizeEnv (key) {
+    return key.toUpperCase().replace('CUSTOMCONNSTR_', '');
+  }
+
   enables.split(' ').forEach(function eachEnable(enable) {
     if (_.trim(enable)) {
       _.forIn(envs, function eachEnvPair (value, key) {
-        if (_.startsWith(key, enable.toUpperCase() + '_') || _.startsWith(key, enable.toLowerCase() + '_')) {
-          var split = key.indexOf('_');
-          if (split > -1 && split <= key.length) {
+        var env = normalizeEnv(key);
+        if (_.startsWith(env, enable.toUpperCase() + '_')) {
+          var split = env.indexOf('_');
+          if (split > -1 && split <= env.length) {
             var exts = extended[enable] || {};
             extended[enable] = exts;
-            var ext = _.camelCase(key.substring(split + 1).toLowerCase());
+            var ext = _.camelCase(env.substring(split + 1).toLowerCase());
             if (!isNaN(value)) { value = Number(value); }
             exts[ext] = value;
           }

@@ -35,23 +35,30 @@ describe('env', function ( ) {
 
   it('check if there are extended settings', function () {
     var env = require('../env')();
-    env.hasExtendedSetting('PUSHOVER', {'PUSHOVER_API_TOKEN': '12345'}).should.equal(true);
+    env.hasExtendedSetting('PUSHOVER', {'PUSHOVER_API_TOKEN': 'abc12345'}).should.equal(true);
+  });
+
+  it('check if there are extended settings for azure', function () {
+    var env = require('../env')();
+    env.hasExtendedSetting('PUSHOVER', {'CUSTOMCONNSTR_PUSHOVER_API_TOKEN': 'abc12345'}).should.equal(true);
   });
 
   it('add pushover to enable if one of the env vars is set', function () {
-    process.env.PUSHOVER_API_TOKEN = '12345';
+    process.env.PUSHOVER_API_TOKEN = 'abc12345';
 
     var env = require('../env')();
     env.settings.enable.should.containEql('pushover');
+    env.extendedSettings.pushover.apiToken.should.equal('abc12345');
 
     delete process.env.PUSHOVER_API_TOKEN;
   });
 
   it('add pushover to enable if one of the weird azure env vars is set', function () {
-    process.env.CUSTOMCONNSTR_PUSHOVER_API_TOKEN = '12345';
+    process.env.CUSTOMCONNSTR_PUSHOVER_API_TOKEN = 'abc12345';
 
     var env = require('../env')();
     env.settings.enable.should.containEql('pushover');
+    env.extendedSettings.pushover.apiToken.should.equal('abc12345');
 
     delete process.env.PUSHOVER_API_TOKEN;
   });
