@@ -96,6 +96,8 @@ describe('client', function ( ) {
         }
       };
 
+      self.$.fn.tipsy = function mockTipsy ( ) { };
+
       var indexHtml = read(__dirname + '/../static/index.html', 'utf8');
       self.$('body').html(indexHtml);
 
@@ -151,7 +153,11 @@ describe('client', function ( ) {
 
   it ('load, store, and clear settings', function () {
     var plugins = require('../lib/plugins/')().registerClientDefaults();
-    var browserSettings = require('../lib/client/browser-settings')(serverSettings, plugins, self.$);
+    var client = require('../lib/client');
+    client.init(serverSettings, plugins);
+    client.dataUpdate(nowData);
+
+    var browserSettings = require('../lib/client/browser-settings')(client, plugins, serverSettings, self.$);
     browserSettings.alarmTimeagoWarnMins.should.equal(99);
     browserSettings.customTitle.should.equal(TEST_TITLE);
 
@@ -159,6 +165,17 @@ describe('client', function ( ) {
     stored.customTitle.should.equal(TEST_TITLE);
     self.$('#useDefaults').click();
     removed.customTitle.should.equal(true);
+  });
+
+  it ('open careportal, and enter a treatment', function () {
+    var plugins = require('../lib/plugins/')().registerClientDefaults();
+    var client = require('../lib/client');
+    client.init(serverSettings, plugins);
+    client.dataUpdate(nowData);
+
+    $('#treatmentDrawerToggle').click();
+    $('#eventDateValue').val('12:12:00');
+    $('#treatmentDrawer').find('button').click();
   });
 
 });
