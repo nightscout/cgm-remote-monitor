@@ -2,60 +2,23 @@
 
 require('should');
 var times = require('../lib/times');
-
 var benv = require('benv');
-
 var read = require('fs').readFileSync;
+var serverSettings = require('./fixtures/default-server-settings');
 
 var TEST_TITLE = 'Test Title';
 
 var stored = { };
 var removed = { };
 
-var serverSettings = {
-  name: 'Nightscout'
-  , version: '0.7.0'
-  , apiEnabled: true
-  , careportalEnabled: true
-  , head: 'ae71dca'
-  , settings: {
-    units: 'mg/dl'
-    , timeFormat: '12'
-    , nightMode: false
-    , showRawbg: 'noise'
-    , customTitle: TEST_TITLE
-    , theme: 'colors'
-    , alarmUrgentHigh: true
-    , alarmHigh: true
-    , alarmLow: true
-    , alarmUrgentLow: true
-    , alarmTimeagoWarn: true
-    , alarmTimeagoWarnMins: 15
-    , alarmTimeagoUrgent: true
-    , alarmTimeagoUrgentMins: 30
-    , language: 'en'
-    , enable: 'iob rawbg careportal delta direction upbat errorcodes'
-    , showPlugins: 'iob'
-    , alarmTypes: 'predict'
-    , thresholds: {
-      bgHigh: 200
-      , bgTargetTop: 170
-      , bgTargetBottom: 80
-      , bgLow: 55
-    }
-    , extendedSettings: { }
-  }
-};
-
 var now = Date.now();
 var next = Date.now() + times.mins(5).msecs;
 
 var nowData = {
   sgvs: [
-    { device: 'dexcom', mgdl: 100, mills: now, direction: 'Flat', type: 'sgv', filtered: 113984, unfiltered: 111920, rssi: 179, noise: 1
-    }
+    { device: 'dexcom', mgdl: 100, mills: now, direction: 'Flat', type: 'sgv', filtered: 113984, unfiltered: 111920, rssi: 179, noise: 1 }
   ], mbgs: [
-    {mgdl: 100, mills: now}
+    { mgdl: 100, mills: now }
   ], cals: [
     { device: 'dexcom',
       slope: 895.8571693029189,
@@ -63,19 +26,18 @@ var nowData = {
       scale: 1,
       type: 'cal'
     }
-  ], devicestatus: {uploaderBattery: 100}
+  ], devicestatus: { uploaderBattery: 100 }
   , treatments: [
-    {insulin: '1.00', mills: now}
+    { insulin: '1.00', mills: now }
   ]
 };
 
 var nextData = {
   sgvs: [
-    { device: 'dexcom', mgdl: 101, mills: next, direction: 'Flat', type: 'sgv', filtered: 113984, unfiltered: 111920, rssi: 179, noise: 1
-    }
+    { device: 'dexcom', mgdl: 101, mills: next, direction: 'Flat', type: 'sgv', filtered: 113984, unfiltered: 111920, rssi: 179, noise: 1 }
   ], mbgs: [ ]
   , cals: []
-  , devicestatus: {uploaderBattery: 100}
+  , devicestatus: { uploaderBattery: 100 }
   , treatments: []
 };
 
@@ -165,17 +127,6 @@ describe('client', function ( ) {
     stored.customTitle.should.equal(TEST_TITLE);
     self.$('#useDefaults').click();
     removed.customTitle.should.equal(true);
-  });
-
-  it ('open careportal, and enter a treatment', function () {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
-    var client = require('../lib/client');
-    client.init(serverSettings, plugins);
-    client.dataUpdate(nowData);
-
-    $('#treatmentDrawerToggle').click();
-    $('#eventDateValue').val('12:12:00');
-    $('#treatmentDrawer').find('button').click();
   });
 
 });
