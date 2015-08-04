@@ -6,7 +6,19 @@ var FIVE_MINS = 5 * 60 * 1000;
 
 describe('mqtt', function ( ) {
 
-  var mqtt = require('../lib/mqtt')({}, {});
+  var self = this;
+
+  before(function () {
+    process.env.MQTT_MONITOR = 'mqtt://user:password@localhost:12345';
+    process.env.MONGO='mongodb://localhost/test_db';
+    process.env.MONGO_COLLECTION='test_sgvs';
+    self.env = require('../env')();
+    self.mqtt = require('../lib/mqtt')(self.env, {});
+  });
+
+  after(function () {
+    delete process.env.MQTT_MONITOR;
+  });
 
   var now = Date.now()
     , prev1 = now - FIVE_MINS
@@ -14,11 +26,7 @@ describe('mqtt', function ( ) {
     ;
 
   it('setup env correctly', function (done) {
-    process.env.MONGO='mongodb://localhost/test_db';
-    process.env.MONGO_COLLECTION='test_sgvs';
-    process.env.MQTT_MONITOR = 'mqtt://user:password@m10.cloudmqtt.com:12345';
-    var env = require('../env')();
-    env.mqtt_client_id.should.equal('fSjoHx8buyCtAc474tg8Dt3');
+    self.env.mqtt_client_id.should.equal('fSjoHx8buyCtAc474tg8Dt3');
     done();
   });
 
@@ -31,7 +39,7 @@ describe('mqtt', function ( ) {
       ]
     };
 
-    var merged = mqtt.sgvSensorMerge(packet);
+    var merged = self.mqtt.sgvSensorMerge(packet);
 
     merged.length.should.equal(packet.sgv.length);
 
@@ -53,7 +61,7 @@ describe('mqtt', function ( ) {
       ]
     };
 
-    var merged = mqtt.sgvSensorMerge(packet);
+    var merged = self.mqtt.sgvSensorMerge(packet);
 
     merged.length.should.equal(packet.sgv.length);
 
@@ -77,7 +85,7 @@ describe('mqtt', function ( ) {
       ]
     };
 
-    var merged = mqtt.sgvSensorMerge(packet);
+    var merged = self.mqtt.sgvSensorMerge(packet);
 
     merged.length.should.equal(packet.sgv.length);
 
@@ -103,7 +111,7 @@ describe('mqtt', function ( ) {
       ]
     };
 
-    var merged = mqtt.sgvSensorMerge(packet);
+    var merged = self.mqtt.sgvSensorMerge(packet);
 
     merged.length.should.equal(packet.sensor.length);
 
