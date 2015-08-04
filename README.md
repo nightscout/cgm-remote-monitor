@@ -92,7 +92,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
 #### Features/Labs
 
-  * `ENABLE` - Used to enable optional features, currently supports: `careportal`
+  * `ENABLE` - Used to enable optional features, expects a space delimited list such as: `careportal rawbg iob`
   * `API_SECRET` - A secret passphrase that must be at least 12 characters long, required to enable `POST` and `PUT`; also required for the Care Portal
   * `BG_HIGH` (`260`) - must be set using mg/dl units; the high BG outside the target range that is considered urgent
   * `BG_TARGET_TOP` (`180`) - must be set using mg/dl units; the top of the target range, also used to draw the line on the chart
@@ -114,11 +114,29 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js
 
+  
+#### Predefined values for your browser settings (optional)
+  * `TIME_FORMAT` (`12`)- possible values `12` or `24`
+  * `NIGHT_MODE` (`off`) - possible values `on` or `off`
+  * `SHOW_RAWBG` (`never`) - possible values `always`, `never` or `noise`
+  * `CUSTOM_TITLE` (`Nightscout`) - Usually name of T1
+  * `THEME` (`default`) - possible values `default` or `colors`
+  * `ALARM_URGENT_HIGH` (`on`) - possible values `on` or `off`
+  * `ALARM_HIGH` (`on`) - possible values `on` or `off`
+  * `ALARM_LOW` (`on`) - possible values `on` or `off`
+  * `ALARM_URGENT_LOW` (`on`) - possible values `on` or `off`
+  * `ALARM_TIMEAGO_WARN` (`on`) - possible values `on` or `off`
+  * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
+  * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
+  * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
+  
+  
 ## Setting environment variables
 Easy to emulate on the commandline:
 
 ```bash
-    echo 'MONGO_CONNECTION="mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout"' >> my.env
+    echo 'MONGO_CONNECTION=mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout' >> my.env
+    echo 'MONGO_COLLECTION=entries' >> my.env
 ```
 
 From now on you can run using
