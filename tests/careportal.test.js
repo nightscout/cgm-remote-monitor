@@ -1,9 +1,7 @@
 'use strict';
 
 require('should');
-var times = require('../lib/times');
 var benv = require('benv');
-var moment = require('moment-timezone');
 var read = require('fs').readFileSync;
 var serverSettings = require('./fixtures/default-server-settings');
 
@@ -83,7 +81,7 @@ describe('client', function ( ) {
           fn();
           done();
         }
-      }
+      };
     };
 
     window.confirm = function mockConfirm (message) {
