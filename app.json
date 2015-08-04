@@ -12,6 +12,11 @@
       "value": "",
       "required": true
     },
+    "DISPLAY_UNITS": {
+      "description": "Server display units for BG values.  Default null value implies 'mg/dl'.  Set to 'mmol' to change the server to mmol mode.",
+      "value": "",
+      "required": false
+    },
     "ENABLE": {
       "description": "Space delimited list of optional features to enable, such as 'careportal'.",
       "value": "",
@@ -51,9 +56,25 @@
       "description": "Pushover user key, required for Pushover notifications. Leave blank if not using Pushover.",
       "value": "",
       "required": false
+    },
+    "CUSTOM_TITLE": {
+      "description": "Customize the name of the website, usually the name of T1.",
+      "value": "",
+      "required": false
+    },
+    "THEME": {
+      "description": "Possible values default or colors",
+      "value": "",
+      "required": false
+    },
+    "SHOW_RAWBG": {
+      "description": "Possible values always, never or noise",
+      "value": "",
+      "required": false
     }
   },
   "addons": [
-    "mongolab:sandbox"
+    "mongolab:sandbox",
+    "papertrail"
   ]
 }
