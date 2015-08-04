@@ -86,19 +86,14 @@ describe('settings', function ( ) {
       , alarmTimeagoUrgentMins: false
       , language: false
       , showPlugins: false
-      , bgHigh: false
-      , bgTargetTop: false
-      , bgTargetBottom: false
-      , bgLow: false
     };
 
     var expectedKeys = _.keys(expected);
-    expectedKeys.length.should.equal(21);
+    expectedKeys.length.should.equal(17);
 
     settings.eachSetting(function markSeenNames(name) {
       expected[name] = true;
     });
-
 
     var filtered = _.filter(expected, function (value) {
       return value;
