@@ -20,15 +20,20 @@ var nowData = {
   ], mbgs: [
     { mgdl: 100, mills: now }
   ], cals: [
-    { device: 'dexcom',
-      slope: 895.8571693029189,
-      intercept: 34281.06876195567,
-      scale: 1,
-      type: 'cal'
+    {
+      device: 'dexcom'
+      , slope: 895.8571693029189
+      , intercept: 34281.06876195567
+      , scale: 1
+      , type: 'cal'
     }
   ], devicestatus: { uploaderBattery: 100 }
   , treatments: [
-    { insulin: '1.00', mills: now }
+    {
+      insulin: '1.00'
+      , carbs: '18'
+      , mills: now
+    }
   ]
 };
 
