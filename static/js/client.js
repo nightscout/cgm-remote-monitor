@@ -899,6 +899,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     .attr('y2', yScale(scaleBg(app.thresholds.bg_low)))
                     .style('stroke-dasharray', ('1, 6'))
                     .attr('stroke', '#777');
+					
+                focus.append('line')
+                    .attr('class', 'target-line')
+                    .attr('x1', xScale(dataRange[0]))
+                    .attr('y1', yScale(5))
+                    .attr('x2', xScale(dataRange[1]))
+                    .attr('y2', yScale(5))
+                    .style('stroke-dasharray', ('1, 6'))
+                    .attr('stroke', '#777');
 
                 // add a y-axis line that opens up the brush extent from the context to the focus
                 focus.append('line')
@@ -1423,10 +1432,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
         var AR = [-0.723, 1.716];
         var dt = actual[lookback].date.getTime();
-        var predictedColor = 'transparent';
+        var predictedColor = 'blue';
         if (browserSettings.theme == 'colors') {
-            predictedColor = 'transparent';
+            predictedColor = 'cyan';
         }
+		predictedColor = 'transparent'
         for (var i = 0; i < CONE.length; i++) {
             y = [y[1], AR[0] * y[0] + AR[1] * y[1]];
             dt = dt + FIVE_MINUTES;
