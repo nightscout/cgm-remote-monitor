@@ -225,7 +225,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 	function graphParam(param,chart) {
 		var returnValue = 0 ;
 		if ( param == 'Max' ) {
-			returnValue = 234 ;
+			returnValue = 162 ;
 		}
 		if ( param == 'Min' ) {
 			returnValue = 45 ;
@@ -1568,8 +1568,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 				, 6
 				, 7
                 , 8
-				, 9
-                , 10
             ];
         } else {
             tickValues = [
