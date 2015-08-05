@@ -61,7 +61,7 @@ function config ( ) {
     'units': 'mmol'
     , 'timeFormat': '12'
     , 'nightMode': false
-    , 'showRawbg': 'always'
+    , 'showRawbg': 'never'
     , 'customTitle': 'CGM - David Rimmer'
     , 'theme': 'colors'
     , 'alarmUrgentHigh': false
