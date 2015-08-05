@@ -1562,13 +1562,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // Tick Values
         if (browserSettings.units == 'mmol') {
             tickValues = [
-                  3.0
-                , Math.round(scaleBg(app.thresholds.bg_low))
-                , Math.round(scaleBg(app.thresholds.bg_target_bottom))
-                , 5.0
-                , Math.round(scaleBg(app.thresholds.bg_target_top))
-                , Math.round(scaleBg(app.thresholds.bg_high))
-                , 12.0 
+                  3
+                , 3.8
+                , 5
+                , 7.5
+                , 12
             ];
         } else {
             tickValues = [
