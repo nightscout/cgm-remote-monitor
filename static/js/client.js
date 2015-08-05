@@ -228,7 +228,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 			returnValue = 162 ;
 		}
 		if ( param == 'Min' ) {
-			returnValue = 45 ;
+			returnValue = 54 ;
 		}
 		return returnValue ;
 	}
@@ -1562,8 +1562,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // Tick Values
         if (browserSettings.units == 'mmol') {
             tickValues = [
-                  3
-                , 4
+                  4
                 , 5
 				, 6
 				, 7
