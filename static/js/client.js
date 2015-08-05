@@ -1565,7 +1565,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                   3.0
                 , Math.round(scaleBg(app.thresholds.bg_low))
                 , Math.round(scaleBg(app.thresholds.bg_target_bottom))
-                , 6.0
+                , 5.0
                 , Math.round(scaleBg(app.thresholds.bg_target_top))
                 , Math.round(scaleBg(app.thresholds.bg_high))
                 , 12.0 
