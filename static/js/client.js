@@ -245,13 +245,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         xScale = d3.time.scale()
             .domain(d3.extent(data, function (d) { return d.date; }));
 
-        yScale = d3.scale.log()
+        yScale = d3.scale.linear()
             .domain([scaleBg(graphParam('Min','y1')), scaleBg(graphParam('Max','y1'))]);
 
         xScale2 = d3.time.scale()
             .domain(d3.extent(data, function (d) { return d.date; }));
 
-        yScale2 = d3.scale.log()
+        yScale2 = d3.scale.linear()
             .domain([scaleBg(graphParam('Min','y2')), scaleBg(graphParam('Max','y2'))]);
 
         var tickFormat = d3.time.format.multi(  [
