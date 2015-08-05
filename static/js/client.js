@@ -1563,10 +1563,13 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         if (browserSettings.units == 'mmol') {
             tickValues = [
                   3
-                , 3.8
+                , 4
                 , 5
-                , 7.5
-                , 12
+				, 6
+				, 7
+                , 8
+				, 9
+                , 10
             ];
         } else {
             tickValues = [
