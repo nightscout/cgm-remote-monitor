@@ -133,9 +133,6 @@ function updateSettings() {
   //TODO: figure out something for default plugins, how can they be disabled?
   enable += ' delta direction upbat errorcodes';
 
-  env.extendedSettings = findExtendedSettings(enable, process.env);
-
-
   var envNameOverrides = {
     UNITS: 'DISPLAY_UNITS'
   };
@@ -154,8 +151,10 @@ function updateSettings() {
   }
 
   env.settings.enable = enable;
-
   env.settings.processRawSettings();
+
+  //should always find extended settings last
+  env.extendedSettings = findExtendedSettings(enable, process.env);
 }
 
 function readENV(varName, defaultValue) {
