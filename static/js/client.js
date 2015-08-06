@@ -145,6 +145,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         }
 
         $(document).attr('title', bg_title);
+		$('title').text(bg_title);
     }
 
     function calcDeltaDisplay(prevEntry, currentEntry) {
