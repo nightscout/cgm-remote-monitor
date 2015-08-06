@@ -28,6 +28,7 @@ function config ( ) {
 
   env.isEnabled = isEnabled;
   env.anyEnabled = anyEnabled;
+  env.hasExtendedSetting = hasExtendedSetting;
 
   return env;
 }
@@ -136,13 +137,9 @@ function setEnableAndExtendedSettnigs() {
     env.enable = 'ar2 ' + env.enable;
   }
 
-  // For pushing notifications to Pushover.
-  //TODO: handle PUSHOVER_ as generic plugin props
-  env.pushover_api_token = readENV('PUSHOVER_API_TOKEN');
-  env.pushover_user_key = readENV('PUSHOVER_USER_KEY') || readENV('PUSHOVER_GROUP_KEY');
-  if (env.pushover_api_token && env.pushover_user_key) {
+  //don't require pushover to be enabled to preserve backwards compatibility if there are extendedSettings for it
+  if (hasExtendedSetting('PUSHOVER', process.env)) {
     env.enable += ' pushover';
-    //TODO: after config changes are documented this shouldn't be auto enabled
   }
 
   if (anyEnabled(['careportal', 'pushover', 'maker'])) {
@@ -258,17 +255,33 @@ function readENV(varName, defaultValue) {
   return value != null ? value : defaultValue;
 }
 
+function hasExtendedSetting(prefix, envs) {
+  return _.find(envs, function (value, key) {
+    return key.indexOf(prefix + '_') >= 0
+      || key.indexOf(prefix.toLowerCase() + '_') >= 0
+      || key.indexOf('CUSTOMCONNSTR_' + prefix + '_') >= 0
+      || key.indexOf('CUSTOMCONNSTR_' + prefix.toLowerCase() + '_') >= 0;
+  }) !== undefined;
+}
+
 function findExtendedSettings (enables, envs) {
   var extended = {};
+
+  function normalizeEnv (key) {
+    return key.toUpperCase().replace('CUSTOMCONNSTR_', '');
+  }
+
   enables.split(' ').forEach(function eachEnable(enable) {
     if (_.trim(enable)) {
       _.forIn(envs, function eachEnvPair (value, key) {
-        if (_.startsWith(key, enable.toUpperCase() + '_') || _.startsWith(key, enable.toLowerCase() + '_')) {
-          var split = key.indexOf('_');
-          if (split > -1 && split <= key.length) {
+        var env = normalizeEnv(key);
+        if (_.startsWith(env, enable.toUpperCase() + '_')) {
+          var split = env.indexOf('_');
+          if (split > -1 && split <= env.length) {
             var exts = extended[enable] || {};
             extended[enable] = exts;
-            var ext = _.camelCase(key.substring(split + 1).toLowerCase());
+            var ext = _.camelCase(env.substring(split + 1).toLowerCase());
+            if (!isNaN(value)) { value = Number(value); }
             exts[ext] = value;
           }
         }

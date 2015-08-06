@@ -8,6 +8,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , DEBOUNCE_MS = 10
     , TOOLTIP_TRANS_MS = 200 // milliseconds
     , UPDATE_TRANS_MS = 750 // milliseconds
+    , TEN_SEC_IN_MS =  10000
     , ONE_MIN_IN_MS = 60000
     , FIVE_MINS_IN_MS = 300000
     , THREE_HOURS_MS = 3 * 60 * 60 * 1000
@@ -42,6 +43,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     , alarmInProgress = false
     , alarmMessage
     , currentAlarmType = null
+    , currentAnnouncement
     , alarmSound = 'alarm.mp3'
     , urgentAlarmSound = 'alarm2.mp3';
 
@@ -116,48 +118,70 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     }
   }
 
-  function generateTitle() {
-
+  function generateTitle ( ) {
     function s(value, sep) { return value ? value + ' ' : sep || ''; }
 
-    var bg_title = '';
+    var title = '';
 
     var time = latestSGV ? latestSGV.mills : (prevSGV ? prevSGV.mills : -1)
       , ago = timeAgo(time, browserSettings);
 
-    if (browserSettings.customTitle) {
-      $('.customTitle').text(browserSettings.customTitle);
-    }
-
     if (ago && ago.status !== 'current') {
-      bg_title =  s(ago.value) + s(ago.label, ' - ') + bg_title;
+      title =  s(ago.value) + s(ago.label, ' - ') + title;
     } else if (latestSGV) {
       var currentMgdl = latestSGV.mgdl;
 
       if (currentMgdl < 39) {
-        bg_title = s(errorcodes.toDisplay(currentMgdl), ' - ') + bg_title;
+        title = s(errorcodes.toDisplay(currentMgdl), ' - ') + title;
       } else {
         var deltaDisplay = delta.calc(prevSGV, latestSGV, sbx).display;
-        bg_title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(direction.info(latestSGV).label) + bg_title;
+        title = s(scaleBg(currentMgdl)) + s(deltaDisplay) + s(direction.info(latestSGV).label) + title;
       }
     }
-    return bg_title;  
+    return title;
   }
 
-  function updateTitle(skipPageTitle) {
+  function resetCustomTitle ( ) {
+    var customTitle = browserSettings.customTitle || 'Nightscout';
+    $('.customTitle').text(customTitle);
+  }
 
-    var bg_title = browserSettings.customTitle || '';
+  function checkAnnouncement() {
+    var result = {
+      inProgress: currentAnnouncement ? Date.now() - currentAnnouncement.received < FIVE_MINS_IN_MS : false
+    };
+
+    if (result.inProgress) {
+      var message = currentAnnouncement.message.length > 1 ? currentAnnouncement.message : currentAnnouncement.title;
+      result.message = message;
+      $('.customTitle').text(message);
+    } else if (currentAnnouncement) {
+      currentAnnouncement = null;
+      console.info('cleared announcement');
+    }
+
+    return result;
+  }
+
+  function updateTitle ( ) {
+
+    var windowTitle;
+    var announcementStatus = checkAnnouncement();
 
     if (alarmMessage && alarmInProgress) {
-      bg_title = alarmMessage + ': ' + generateTitle();
       $('.customTitle').text(alarmMessage);
-    } else {
-      bg_title = generateTitle();
+      if (!isTimeAgoAlarmType(currentAlarmType)) {
+        windowTitle = alarmMessage + ': ' + generateTitle();
+      }
+    } else if (announcementStatus.inProgress && announcementStatus.message) {
+      windowTitle = announcementStatus.message + ': ' + generateTitle();
+    } else  {
+      resetCustomTitle();
     }
 
-    if (!skipPageTitle) {
-      $(document).attr('title', bg_title);
-    }
+    container.toggleClass('announcing', announcementStatus.inProgress);
+
+    $(document).attr('title', windowTitle || generateTitle());
   }
 
   // initial setup of chart when data is first made available
@@ -236,7 +260,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // 2 days before now as x0 and 30 minutes from now for x1 for context plot, but this will be
     // required to happen when 'now' event is sent from websocket.js every minute.  When fixed,
     // remove this code and all references to `type: 'server-forecast'`
-    var last = _.last(data);
+    var last = _.findLast(data, {type: 'sgv'});
     var lastTime = last && last.mills;
     if (!lastTime) {
       console.error('Bad Data, last point has no mills', last);
@@ -365,13 +389,17 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
       var pluginBase = Nightscout.plugins.base(majorPills, minorPills, statusPills, bgStatus, tooltip);
 
-      sbx = Nightscout.sandbox.clientInit(app, browserSettings, time, pluginBase, {
-        sgvs: sgvs
-        , cals: [cal]
-        , treatments: treatments
-        , profile: Nightscout.profile
-        , uploaderBattery: devicestatusData && devicestatusData.uploaderBattery
-      });
+      sbx = Nightscout.sandbox.clientInit(app
+        , browserSettings
+        , new Date(time).getTime() //make sure we send a timestamp
+        , pluginBase, {
+          sgvs: sgvs
+          , cals: [cal]
+          , treatments: treatments
+          , profile: Nightscout.profile
+          , uploaderBattery: devicestatusData && devicestatusData.uploaderBattery
+        }
+      );
 
       //all enabled plugins get a chance to set properties, even if they aren't shown
       Nightscout.plugins.setProperties(sbx);
@@ -590,14 +618,49 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     focusCircles.attr('clip-path', 'url(#clip)');
 
     function prepareTreatCircles(sel) {
+      function strokeColor (d) {
+        var color = 'white';
+        if (d.isAnnouncement) {
+          color = 'orange';
+        } else if (d.glucose) {
+          color = 'grey';
+        }
+        return color;
+      }
+
+      function fillColor (d) {
+        var color ='grey';
+        if (d.isAnnouncement) {
+          color = 'orange';
+        } else if (d.glucose) {
+          color = 'red';
+        }
+        return color;
+      }
+
       sel.attr('cx', function (d) { return xScale(new Date(d.mills)); })
         .attr('cy', function (d) { return yScale(sbx.scaleEntry(d)); })
         .attr('r', function () { return dotRadius('mbg'); })
         .attr('stroke-width', 2)
-        .attr('stroke', function (d) { return d.glucose ? 'grey' : 'white'; })
-        .attr('fill', function (d) { return d.glucose ? 'red' : 'grey'; });
+        .attr('stroke', strokeColor)
+        .attr('fill', fillColor);
 
       return sel;
+    }
+
+    function treatmentTooltip (d) {
+      return '<strong>'+translate('Time')+':</strong> ' + formatTime(new Date(d.mills)) + '<br/>' +
+        (d.eventType ? '<strong>'+translate('Treatment type')+':</strong> ' + d.eventType + '<br/>' : '') +
+        (d.glucose ? '<strong>'+translate('BG')+':</strong> ' + d.glucose + (d.glucoseType ? ' (' + translate(d.glucoseType) + ')': '') + '<br/>' : '') +
+        (d.enteredBy ? '<strong>'+translate('Entered by')+':</strong> ' + d.enteredBy + '<br/>' : '') +
+        (d.notes ? '<strong>'+translate('Notes')+':</strong> ' + d.notes : '');
+    }
+
+    function announcementTooltip (d) {
+      return '<strong>'+translate('Time')+':</strong> ' + formatTime(new Date(d.mills)) + '<br/>' +
+        (d.eventType ? '<strong>'+translate('Announcement')+'</strong><br/>' : '') +
+        (d.notes && d.notes.length > 1 ? '<strong>'+translate('Message')+':</strong> ' + d.notes + '<br/>' : '') +
+        (d.enteredBy ? '<strong>'+translate('Entered by')+':</strong> ' + d.enteredBy + '<br/>' : '');
     }
 
     //NOTE: treatments with insulin or carbs are drawn by drawTreatment()
@@ -613,12 +676,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     prepareTreatCircles(treatCircles.enter().append('circle'))
       .on('mouseover', function (d) {
         tooltip.transition().duration(TOOLTIP_TRANS_MS).style('opacity', .9);
-        tooltip.html('<strong>'+translate('Time')+':</strong> ' + formatTime(new Date(d.mills)) + '<br/>' +
-            (d.eventType ? '<strong>'+translate('Treatment type')+':</strong> ' + d.eventType + '<br/>' : '') +
-            (d.glucose ? '<strong>'+translate('BG')+':</strong> ' + d.glucose + (d.glucoseType ? ' (' + translate(d.glucoseType) + ')': '') + '<br/>' : '') +
-            (d.enteredBy ? '<strong>'+translate('Entered by')+':</strong> ' + d.enteredBy + '<br/>' : '') +
-            (d.notes ? '<strong>'+translate('Notes')+':</strong> ' + d.notes : '')
-        )
+        tooltip.html(d.isAnnouncement ? announcementTooltip(d) : treatmentTooltip(d))
           .style('left', (d3.event.pageX) + 'px')
           .style('top', (d3.event.pageY + 15) + 'px');
       })
@@ -978,7 +1036,6 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     // update x axis domain
     context.select('.x')
       .call(xAxis2);
-
   }, DEBOUNCE_MS);
 
   function sgvToColor(sgv) {
@@ -1037,8 +1094,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
 
     container.addClass('alarming').addClass(file === urgentAlarmSound ? 'urgent' : 'warning');
 
-    var skipPageTitle = isTimeAgoAlarmType(currentAlarmType);
-    updateTitle(skipPageTitle);
+    updateTitle();
   }
 
   function playAlarm(audio) {
@@ -1217,20 +1273,32 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     return alarmType === 'warnTimeAgo' || alarmType === 'urgentTimeAgo';
   }
 
+  function isStale (ago) {
+    return browserSettings.alarmTimeAgoWarn && ago.status === 'warn'
+      || browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent';
+  }
+
+  function notAcked (alarm) {
+    return Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0);
+  }
+
   function checkTimeAgoAlarm(ago) {
     var level = ago.status
       , alarm = getClientAlarm(level + 'TimeAgo');
 
-    if (Date.now() >= (alarm.lastAckTime || 0) + (alarm.silenceTime || 0)) {
+    if (isStale(ago) && notAcked(alarm)) {
       currentAlarmType = alarm.type;
       console.info('generating timeAgoAlarm', alarm.type);
       container.addClass('alarming-timeago');
       var message = {'title': 'Last data received ' + [ago.value, ago.label].join(' ')};
-      if (level === 'warn') {
-        generateAlarm(alarmSound, message);
-      } else {
-        generateAlarm(urgentAlarmSound, message);
-      }
+      var sound = level === 'warn' ? alarmSound : urgentAlarmSound;
+      generateAlarm(sound, message);
+    }
+
+    container.toggleClass('alarming-timeago', ago.status !== 'current');
+
+    if (alarmingNow() && ago.status === 'current' && isTimeAgoAlarmType(currentAlarmType)) {
+      stopAlarm(true, ONE_MIN_IN_MS);
     }
   }
 
@@ -1240,36 +1308,28 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       , ago = timeAgo(time, browserSettings)
       , retroMode = inRetroMode();
 
+    function updateTimeAgoPill() {
+      if (retroMode || !ago.value) {
+        lastEntry.find('em').hide();
+      } else {
+        lastEntry.find('em').show().text(ago.value);
+      }
+      if (retroMode || ago.label) {
+        lastEntry.find('label').show().text(retroMode ? 'RETRO' : ago.label);
+      } else {
+        lastEntry.find('label').hide();
+      }
+    }
+
     lastEntry.removeClass('current warn urgent');
     lastEntry.addClass(ago.status);
 
     if (ago.status !== 'current') {
       updateTitle();
     }
+    checkTimeAgoAlarm(ago);
 
-    if (
-      (browserSettings.alarmTimeAgoWarn && ago.status === 'warn')
-      || (browserSettings.alarmTimeAgoUrgent && ago.status === 'urgent')) {
-      checkTimeAgoAlarm(ago);
-    }
-
-    container.toggleClass('alarming-timeago', ago.status !== 'current');
-
-    if (alarmingNow() && ago.status === 'current' && isTimeAgoAlarmType(currentAlarmType)) {
-      stopAlarm(true, ONE_MIN_IN_MS);
-    }
-
-    if (retroMode || !ago.value) {
-      lastEntry.find('em').hide();
-    } else {
-      lastEntry.find('em').show().text(ago.value);
-    }
-
-    if (retroMode || ago.label) {
-      lastEntry.find('label').show().text(retroMode ? 'RETRO' : ago.label);
-    } else {
-      lastEntry.find('label').hide();
-    }
+    updateTimeAgoPill();
   }
 
   function init() {
@@ -1333,30 +1393,52 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
     context.append('g')
       .attr('class', 'y axis');
 
-    //updateChart is _.debounce'd
+    function updateTimeAgoSoon() {
+      setTimeout(function updatingTimeAgoNow() {
+        updateTimeAgo();
+      }, TEN_SEC_IN_MS);
+    }
+
     function refreshChart(updateToNow) {
       if (updateToNow) {
         updateBrushToNow();
       }
       updateChart(false);
+      updateTimeAgoSoon();
     }
 
-    function visibilityChanged() {
-      var prevHidden = documentHidden;
-      documentHidden = (document.hidden || document.webkitHidden || document.mozHidden || document.msHidden);
-
-      if (prevHidden && !documentHidden) {
-        console.info('Document now visible, updating - ' + (new Date()));
-        refreshChart(true);
+    (function watchVisibility ( ) {
+      // Set the name of the hidden property and the change event for visibility
+      var hidden, visibilityChange;
+      if (typeof document.hidden !== 'undefined') {
+        hidden = 'hidden';
+        visibilityChange = 'visibilitychange';
+      } else if (typeof document.mozHidden !== 'undefined') {
+        hidden = 'mozHidden';
+        visibilityChange = 'mozvisibilitychange';
+      } else if (typeof document.msHidden !== 'undefined') {
+        hidden = 'msHidden';
+        visibilityChange = 'msvisibilitychange';
+      } else if (typeof document.webkitHidden !== 'undefined') {
+        hidden = 'webkitHidden';
+        visibilityChange = 'webkitvisibilitychange';
       }
-    }
+
+      document.addEventListener(visibilityChange, function visibilityChanged ( ) {
+        var prevHidden = documentHidden;
+        documentHidden = document[hidden];
+
+        if (prevHidden && !documentHidden) {
+          console.info('Document now visible, updating - ' + new Date());
+          refreshChart(true);
+        }
+      });
+    })();
 
     window.onresize = refreshChart;
 
-    document.addEventListener('webkitvisibilitychange', visibilityChanged);
-
-
     updateClock();
+    updateTimeAgoSoon();
 
     var silenceDropdown = new Dropdown('.dropdown-menu');
 
@@ -1376,7 +1458,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       $('.focus-range li').removeClass('selected');
       li.addClass('selected');
       var hours = Number(li.data('hours'));
-      foucusRangeMS = hours * 60 * 60 * 1000;
+      foucusRangeMS = (hours * 60 * 60 * 1000) + THIRTY_MINS_IN_MS;
       refreshChart();
     });
 
@@ -1503,6 +1585,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       return latestSGV.mgdl <= app.thresholds.bg_target_top;
     }
 
+    socket.on('announcement', function (notify) {
+      console.info('announcement received from server');
+      console.log('notify:',notify);
+      currentAnnouncement = notify;
+      currentAnnouncement.received = Date.now();
+      updateTitle();
+    });
+
     socket.on('alarm', function (notify) {
       console.info('alarm received from server');
       console.log('notify:',notify);
@@ -1517,10 +1607,11 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
       brushInProgress = false;
       updateChart(false);
     });
+
     socket.on('urgent_alarm', function (notify) {
       console.info('urgent alarm received from server');
-	  console.log('notify:',notify);
-	  
+      console.log('notify:',notify);
+
       var enabled = (isAlarmForHigh() && browserSettings.alarmUrgentHigh) || (isAlarmForLow() && browserSettings.alarmUrgentLow);
       if (enabled) {
         console.log('Urgent alarm raised!');
