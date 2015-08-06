@@ -1033,6 +1033,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     .attr('x2', xScale(currentBrushExtent[1]))
                     .attr('y2', yScale(scaleBg(app.thresholds.bg_low)));
 
+				focus.select('.target-line')
+                    .transition()
+                    .duration(UPDATE_TRANS_MS)
+                    .attr('x1', xScale(currentBrushExtent[0]))
+                    .attr('y1', yScale(5))
+                    .attr('x2', xScale(currentBrushExtent[1]))
+                    .attr('y2', yScale(5));
+
                 // transition open-top line to correct location
                 focus.select('.open-top')
                     .transition()
@@ -1077,6 +1085,14 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     .attr('y1', yScale2(scaleBg(app.thresholds.bg_target_bottom)))
                     .attr('x2', xScale2(dataRange[1]))
                     .attr('y2', yScale2(scaleBg(app.thresholds.bg_target_bottom)));
+					
+				context.select('.target-line')
+                    .transition()
+                    .duration(UPDATE_TRANS_MS)
+                    .attr('x1', xScale(currentBrushExtent[0]))
+                    .attr('y1', yScale(5))
+                    .attr('x2', xScale(currentBrushExtent[1]))
+                    .attr('y2', yScale(5));
             }
         }
 
