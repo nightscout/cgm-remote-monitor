@@ -13,7 +13,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         , THREE_HOURS_MS = 3 * 60 * 60 * 1000
         , TWELVE_HOURS_MS = 12 * 60 * 60 * 1000
         , TWENTY_FIVE_MINS_IN_MS = 1500000
-        , THIRTY_MINS_IN_MS = 1800000
+        , THIRTY_MINS_IN_MS = 600000 // 1800000
         , SIXTY_MINS_IN_MS = 3600000
         , FORMAT_TIME_12 = '%-I:%M %p'
         , FORMAT_TIME_12_COMAPCT = '%-I:%M'
