@@ -901,7 +901,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     .attr('stroke', '#777');
 					
                 focus.append('line')
-                    .attr('class', 'target-line')
+                    .attr('class', 'low-line')
                     .attr('x1', xScale(dataRange[0]))
                     .attr('y1', yScale(5))
                     .attr('x2', xScale(dataRange[1]))
