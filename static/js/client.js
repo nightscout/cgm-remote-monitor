@@ -901,7 +901,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     .attr('stroke', '#777');
 					
                 focus.append('line')
-                    .attr('class', 'low-line')
+                    .attr('class', 'target-line')
                     .attr('x1', xScale(dataRange[0]))
                     .attr('y1', yScale(5))
                     .attr('x2', xScale(dataRange[1]))
@@ -909,7 +909,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     .style('stroke-dasharray', ('1, 6'))
                     .attr('stroke', '#777');
 
-                // add a y-axis line that opens up the brush extent from the context to the focus
+					// add a y-axis line that opens up the brush extent from the context to the focus
                 focus.append('line')
                     .attr('class', 'open-top')
                     .attr('stroke', 'black')
@@ -954,6 +954,15 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     .attr('y2', yScale2(scaleBg(app.thresholds.bg_target_bottom)))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
+					
+                context.append('line')
+                    .attr('class', 'target-line')
+                    .attr('x1', xScale(dataRange[0]))
+                    .attr('y1', yScale(5))
+                    .attr('x2', xScale(dataRange[1]))
+                    .attr('y2', yScale(5))
+                    .style('stroke-dasharray', ('1, 6'))
+                    .attr('stroke', '#777');
 
             } else {
 
