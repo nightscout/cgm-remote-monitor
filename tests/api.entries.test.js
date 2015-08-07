@@ -17,7 +17,10 @@ describe('Entries REST api', function ( ) {
     require('../lib/bootevent')(env).boot(function booted (ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx));
       self.archive = require('../lib/entries')(env, ctx);
-      self.archive.create(load('json'), done);
+
+      var creating = load('json');
+      creating.push({type: 'sgv', sgv: 100, date: Date.now()});
+      self.archive.create(creating, done);
     });
   });
 
@@ -32,7 +35,7 @@ describe('Entries REST api', function ( ) {
   it('gets requested number of entries', function (done) {
     var count = 30;
     request(this.app)
-      .get('/entries.json?count=' + count)
+      .get('/entries.json?find[dateString][$gte]=2014-07-19&count=' + count)
       .expect(200)
       .end(function (err, res) {
         res.body.should.be.instanceof(Array).and.have.lengthOf(count);
@@ -43,7 +46,7 @@ describe('Entries REST api', function ( ) {
   it('gets default number of entries', function (done) {
     var defaultCount = 10;
     request(this.app)
-      .get('/entries.json')
+      .get('/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
       .expect(200)
       .end(function (err, res) {
         res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
@@ -57,6 +60,7 @@ describe('Entries REST api', function ( ) {
       .expect(200)
       .end(function (err, res) {
         res.body.should.be.instanceof(Array).and.have.lengthOf(1);
+        res.body[0].sgv.should.equal(100);
         done();
       });
   });

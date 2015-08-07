@@ -7,6 +7,7 @@ function rawBGsEnabled() {
 }
 
 function getBrowserSettings(storage) {
+  var translate = Nightscout.language.translate;
   var json = {};
 
   function scaleBg(bg) {
@@ -56,10 +57,10 @@ function getBrowserSettings(storage) {
     json.alarmTimeAgoWarnMins = setDefault(json.alarmTimeAgoWarnMins, app.defaults.alarmTimeAgoWarnMins);
     json.alarmTimeAgoUrgent = setDefault(json.alarmTimeAgoUrgent, app.defaults.alarmTimeAgoUrgent);
     json.alarmTimeAgoUrgentMins = setDefault(json.alarmTimeAgoUrgentMins, app.defaults.alarmTimeAgoUrgentMins);
-    $('#alarm-urgenthigh-browser').prop('checked', json.alarmUrgentHigh).next().text('Urgent High Alarm' + appendThresholdValue(app.thresholds.bg_high));
-    $('#alarm-high-browser').prop('checked', json.alarmHigh).next().text('High Alarm' + appendThresholdValue(app.thresholds.bg_target_top));
-    $('#alarm-low-browser').prop('checked', json.alarmLow).next().text('Low Alarm' + appendThresholdValue(app.thresholds.bg_target_bottom));
-    $('#alarm-urgentlow-browser').prop('checked', json.alarmUrgentLow).next().text('Urgent Low Alarm' + appendThresholdValue(app.thresholds.bg_low));
+    $('#alarm-urgenthigh-browser').prop('checked', json.alarmUrgentHigh).next().text(translate('Urgent High Alarm') + appendThresholdValue(app.thresholds.bg_high));
+    $('#alarm-high-browser').prop('checked', json.alarmHigh).next().text(translate('High Alarm') + appendThresholdValue(app.thresholds.bg_target_top));
+    $('#alarm-low-browser').prop('checked', json.alarmLow).next().text(translate('Low Alarm') + appendThresholdValue(app.thresholds.bg_target_bottom));
+    $('#alarm-urgentlow-browser').prop('checked', json.alarmUrgentLow).next().text(translate('Urgent Low Alarm') + appendThresholdValue(app.thresholds.bg_low));
     $('#alarm-timeagowarn-browser').prop('checked', json.alarmTimeAgoWarn);
     $('#alarm-timeagowarnmins-browser').val(json.alarmTimeAgoWarnMins);
     $('#alarm-timeagourgent-browser').prop('checked', json.alarmTimeAgoUrgent);
@@ -103,7 +104,7 @@ function getBrowserSettings(storage) {
         //ignore these, they are always on for now
       } else {
         var id = 'plugin-' + plugin.name;
-        var dd = $('<dd><input type="checkbox" id="' + id + '" value="' + plugin.name + '"/><label for="' + id + '">' + (plugin.label || plugin.name) + '</label></dd>');
+        var dd = $('<dd><input type="checkbox" id="' + id + '" value="' + plugin.name + '"/><label for="' + id + '">' + translate(plugin.label || plugin.name) + '</label></dd>');
         showPluginsSettings.append(dd);
         dd.find('input').prop('checked', json.showPlugins.indexOf(plugin.name) > -1);
       }
@@ -187,40 +188,6 @@ function toggleDrawer(id, openCallback, closeCallback) {
 
 }
 
-function initTreatmentDrawer()  {
-  $('#eventType').val('BG Check');
-  $('#glucoseValue').val('').attr('placeholder', 'Value in ' + browserSettings.units);
-  $('#meter').prop('checked', true);
-  $('#carbsGiven').val('');
-  $('#insulinGiven').val('');
-  $('#preBolus').val(0);
-  $('#notes').val('');
-  $('#enteredBy').val(browserStorage.get('enteredBy') || '');
-  $('#nowtime').prop('checked', true);
-  $('#eventTimeValue').val(currentTime());
-}
-
-function currentTime() {
-  var now = new Date();
-  var hours = now.getHours();
-  var minutes = now.getMinutes();
-
-  if (hours < 10) { hours = '0' + hours; }
-  if (minutes < 10) { minutes = '0' + minutes; }
-
-  return ''+ hours + ':' + minutes;
-}
-
-function formatTime(date) {
-  var hours = date.getHours();
-  var minutes = date.getMinutes();
-  var ampm = hours >= 12 ? 'pm' : 'am';
-  hours = hours % 12;
-  hours = hours ? hours : 12; // the hour '0' should be '12'
-  minutes = minutes < 10 ? '0' + minutes : minutes;
-  return hours + ':' + minutes + ' ' + ampm;
-}
-
 function closeNotification() {
   var notify = $('#notification');
   notify.hide();
@@ -237,7 +204,7 @@ function showNotification(note, type)  {
   notify.addClass(type ? type : 'urgent');
 
   notify.find('span').html(note);
-  notify.css('right', '5px');
+  notify.css('left', 'calc(50% - ' + (notify.width() / 2) + 'px)');
   notify.show();
 }
 
@@ -245,79 +212,6 @@ function showLocalstorageError() {
   var msg = '<b>Settings are disabled.</b><br /><br />Please enable cookies so you may customize your Nightscout site.';
   $('.browserSettings').html('<legend>Settings</legend>'+msg+'');
   $('#save').hide();
-}
-
-
-function treatmentSubmit(event) {
-
-  var data = {};
-  data.enteredBy = $('#enteredBy').val();
-  data.eventType = $('#eventType').val();
-  data.glucose = $('#glucoseValue').val();
-  data.glucoseType = $('#treatment-form input[name=glucoseType]:checked').val();
-  data.carbs = $('#carbsGiven').val();
-  data.insulin = $('#insulinGiven').val();
-  data.preBolus = $('#preBolus').val();
-  data.notes = $('#notes').val();
-  data.units = browserSettings.units;
-
-  var errors = [];
-  if (isNaN(data.glucose)) {
-    errors.push('Blood glucose must be a number');
-  }
-
-  if (isNaN(data.carbs)) {
-    errors.push('Carbs must be a number');
-  }
-
-  if (isNaN(data.insulin)) {
-    errors.push('Insulin must be a number');
-  }
-
-  if (errors.length > 0) {
-    window.alert(errors.join('\n'));
-  } else {
-    var eventTimeDisplay = '';
-    if ($('#treatment-form input[name=nowOrOther]:checked').val() !== 'now') {
-      var value = $('#eventTimeValue').val();
-      var eventTimeParts = value.split(':');
-      data.eventTime = new Date();
-      data.eventTime.setHours(eventTimeParts[0]);
-      data.eventTime.setMinutes(eventTimeParts[1]);
-      data.eventTime.setSeconds(0);
-      data.eventTime.setMilliseconds(0);
-      eventTimeDisplay = formatTime(data.eventTime);
-    }
-
-    var dataJson = JSON.stringify(data, null, ' ');
-
-    var ok = window.confirm(
-        'Please verify that the data entered is correct: ' +
-        '\nEvent type: ' + data.eventType +
-        '\nBlood glucose: ' + data.glucose +
-        '\nMethod: ' + data.glucoseType +
-        '\nCarbs Given: ' + data.carbs +
-        '\nInsulin Given: ' + data.insulin +
-        '\nPre Bolus: ' + data.preBolus +
-        '\nNotes: ' + data.notes +
-        '\nEntered By: ' + data.enteredBy +
-        '\nEvent Time: ' + eventTimeDisplay);
-
-    if (ok) {
-      var xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/v1/treatments/', true);
-      xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-      xhr.send(dataJson);
-
-      browserStorage.set('enteredBy', data.enteredBy);
-
-      closeDrawer('#treatmentDrawer');
-    }
-  }
-
-  if (event) {
-    event.preventDefault();
-  }
 }
 
 
@@ -347,23 +241,6 @@ Dropdown.prototype.open = function (e) {
 $('#drawerToggle').click(function(event) {
   toggleDrawer('#drawer');
   event.preventDefault();
-});
-
-$('#treatmentDrawerToggle').click(function(event) {
-  toggleDrawer('#treatmentDrawer', initTreatmentDrawer);
-  event.preventDefault();
-});
-
-$('#treatmentDrawer').find('button').click(treatmentSubmit);
-
-$('#eventTime input:radio').change(function (){
-  if ($('#othertime').attr('checked')) {
-    $('#eventTimeValue').focus();
-  }
-});
-
-$('#eventTimeValue').focus(function () {
-  $('#othertime').attr('checked', 'checked');
 });
 
 $('#notification').click(function(event) {
@@ -444,3 +321,4 @@ $(function() {
     openDrawer('#drawer');
   }
 });
+

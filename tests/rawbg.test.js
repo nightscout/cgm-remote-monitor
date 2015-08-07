@@ -9,7 +9,7 @@ describe('Raw BG', function ( ) {
   var now = Date.now();
   var pluginBase = {};
   var data = {
-    sgvs: [{unfiltered: 113680, filtered: 111232, y: 110, noise: 1, mills: now}]
+    sgvs: [{unfiltered: 113680, filtered: 111232, mgdl: 110, noise: 1, mills: now}]
     , cals: [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, mills: now}]
   };
   var app = { };
@@ -23,7 +23,7 @@ describe('Raw BG', function ( ) {
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
       name.should.equal('rawbg');
       var result = setter();
-      result.value.should.equal(113);
+      result.mgdl.should.equal(113);
       result.noiseLabel.should.equal('Clean');
       done();
     };

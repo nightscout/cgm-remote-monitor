@@ -27,6 +27,18 @@ body {
     z-index: 2;
 }
 
+#container.announcing .customTitle {
+  color: orange;
+}
+
+#container.alarming.urgent .customTitle {
+  color: red;
+}
+
+#container.alarming.warning .customTitle {
+  color: yellow;
+}
+
 .primary {
     font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
     height: 180px;
@@ -45,15 +57,15 @@ body {
     padding-right: 20px;
 }
 
-.bgButton.urgent {
+.urgent .bgButton {
   color: red;
 }
 
-.bgButton.warning {
+.warning .bgButton {
   color: yellow;
 }
 
-.bgButton.inrange {
+.inrange .bgButton {
   color: #4cff00;
 }
 
@@ -272,11 +284,11 @@ body {
     box-shadow: 2px 2px 0 #ddd;
 }
 
-.alarming .bgButton.urgent {
+.alarming.urgent .bgButton {
     background-color: red;
 }
 
-.alarming .bgButton.warning {
+.alarming.warning .bgButton {
     background-color: yellow;
 }
 
@@ -592,7 +604,7 @@ body {
         height: auto !important;
     }
 
-    #toolbar h1 {
+    #toolbar .customTitle {
         display: none;
     }
 
