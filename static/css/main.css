@@ -27,6 +27,10 @@ body {
     z-index: 2;
 }
 
+#container.announcing .customTitle {
+  color: orange;
+}
+
 #container.alarming.urgent .customTitle {
   color: red;
 }
