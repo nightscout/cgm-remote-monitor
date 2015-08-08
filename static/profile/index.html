@@ -6,38 +6,38 @@
     <link rel="stylesheet" type="text/css" href="/css/main.css" />
     <link rel="stylesheet" type="text/css" href="/css/drawer.css" />
     <link rel="stylesheet" type="text/css" href="/css/profile.css" />
-		<link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">    
-		<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-timepicker-addon.css" />
+    <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">    
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-timepicker-addon/1.4.5/jquery-ui-timepicker-addon.css" />
     </head>
     <body>
         <div id="toolbar">
-			<div id="buttonbar">
-				<b> Status:</b> <span id="pe_status">Not loaded</span>
-			</div>
+      <div id="buttonbar">
+        <b> Status:</b> <span id="pe_status">Not loaded</span>
+      </div>
              <h1 class="customTitle">Nightscout</h1>
             <div id="profile-editor">
                 <h1>Profile editor</h1>
-			</div>
+      </div>
         </div>
-		
-		<br>
-		<form id="pe_form" onsubmit="return profileSubmit();">
-			<fieldset class="browserSettings">
-				<legend>General patient profile settings</legend>
-				<dl>
-					<b>Title: </b>
-					<span id="pe_title"></span>
-				</dl>
-				<dl>
-					<b>Units: </b>
-					<span id="pe_units"></span>
-				</dl>
-				<dl>
-					<b>Time format: </b>
-					<span id="pe_timeformat"></span>
-				</dl>
+    
+    <br>
+    <form id="pe_form" onsubmit="return profileSubmit();">
+      <fieldset class="browserSettings">
+        <legend>General patient profile settings</legend>
         <dl>
-					<b>Timezone: </b>
+          <b>Title: </b>
+          <span id="pe_title"></span>
+        </dl>
+        <dl>
+          <b>Units: </b>
+          <span id="pe_units"></span>
+        </dl>
+        <dl>
+          <b>Time format: </b>
+          <span id="pe_timeformat"></span>
+        </dl>
+        <dl>
+          <b>Timezone: </b>
           <select id="pe_timezone">
             <option value="UTC">UTC</option>
             <option value="Africa/Abidjan">Africa/Abidjan</option>
@@ -447,30 +447,30 @@
             <option value="Pacific/Wallis">Pacific/Wallis</option>
           </select>        
         </dl>
-				<dl>
-					<b title="Represents the typical duration over which insulin takes effect.  Varies per patient and per insulin type. Typically 3-4 hours for most pumped insulin and most patients. Sometimes also called insulin lifetime.">Duration of Insulin Activity (DIA) [hours]: </b>
-					<input type="text" id="pe_dia" />
-				</dl>
-				<dl>
-					<b title="Start of profile validity">Profile valid from: </b>
-					<input type="text" id="pe_validfrom" />
-					<div id="pe_lastrecvalidfrom"></div>
-				</dl>
-			</fieldset>
+        <dl>
+          <b title="Represents the typical duration over which insulin takes effect.  Varies per patient and per insulin type. Typically 3-4 hours for most pumped insulin and most patients. Sometimes also called insulin lifetime.">Duration of Insulin Activity (DIA) [hours]: </b>
+          <input type="text" id="pe_dia" />
+        </dl>
+        <dl>
+          <b title="Start of profile validity">Profile valid from: </b>
+          <input type="text" id="pe_validfrom" />
+          <div id="pe_lastrecvalidfrom"></div>
+        </dl>
+      </fieldset>
 
       <fieldset>
-					<legend title="g carbs per U insulin. The ratio of how many grams of carbohydrates are offset by each U of insulin.">Insulin to carb ratio (IC) [g]:</legend>
-					<div id="pe_ic_placeholder"></div>
+          <legend title="g carbs per U insulin. The ratio of how many grams of carbohydrates are offset by each U of insulin.">Insulin to carb ratio (IC) [g]:</legend>
+          <div id="pe_ic_placeholder"></div>
       </fieldset>
       
       <fieldset>
-					<legend title="mg/dL or mmol/L per U insulin. The ratio of how much BG changes with each U of corrective insulin.">Insulin Sensitivity Factor (ISF) [mg/dL,mmol/L]: </legend>
-					<div id="pe_isf_placeholder"></div>
+          <legend title="mg/dL or mmol/L per U insulin. The ratio of how much BG changes with each U of corrective insulin.">Insulin Sensitivity Factor (ISF) [mg/dL,mmol/L]: </legend>
+          <div id="pe_isf_placeholder"></div>
       </fieldset>
 
       <fieldset>
-				<legend>Carbs
-					(
+        <legend>Carbs
+          (
           <i>
             <input type="checkbox" id="pe_perGIvalues" checked />
             use values specific to GI of food
@@ -497,32 +497,32 @@
             <span title="Value for carbs with low glycemic index">Low: </span><input type="number" id="pe_delay_low" />
           </dl>
         </div>
-			</fieldset>
-			
- 			<fieldset class="browserSettings">
-				<legend>Basal rates [unit/hour]</legend>
-				<div id="pe_basal_placeholder"></div>
-			</fieldset>
+      </fieldset>
+      
+      <fieldset class="browserSettings">
+        <legend>Basal rates [unit/hour]</legend>
+        <div id="pe_basal_placeholder"></div>
+      </fieldset>
 
-			<fieldset class="browserSettings">
-				<legend>Target BG range [mg/dL,mmol/L]</legend>
-				<div id="pe_targetbg_placeholder"></div>
-			</fieldset>
+      <fieldset class="browserSettings">
+        <legend>Target BG range [mg/dL,mmol/L]</legend>
+        <div id="pe_targetbg_placeholder"></div>
+      </fieldset>
 
-			<b><span class="translate">Authentication status</span>: </b>
-			<span id="authentication_placeholder"></span>
+      <b><span class="translate">Authentication status</span>: </b>
+      <span id="authentication_placeholder"></span>
 
-			<button type="submit" id="pe_submit">Update profile</button>
+      <button type="submit" id="pe_submit">Update profile</button>
 
-		</form>
+    </form>
 
-        <script src="/public/js/bundle.js"></script>
-        <script src="/bower_components/jquery/dist/jquery.min.js"></script>
-        <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
-        <script src="/bower_components/jsSHA/src/sha1.js"></script>
-        <script src="/bower_components/jquery-timepicker-addon/jquery-ui-timepicker-addon.js"></script>
-        <script src="/bower_components/jquery-timepicker-addon/jquery-ui-sliderAccess.js"></script>
-        <script src="/hashauth/js/hashauth.js"></script>
-        <script src="/profile/js/profile.js"></script>
-	</body>
+    <script src="/public/js/bundle.js"></script>
+    <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+    <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
+    <script src="/bower_components/jsSHA/src/sha1.js"></script>
+    <script src="/bower_components/jquery-timepicker-addon/jquery-ui-timepicker-addon.js"></script>
+    <script src="/bower_components/jquery-timepicker-addon/jquery-ui-sliderAccess.js"></script>
+    <script src="/hashauth/js/hashauth.js"></script>
+    <script src="/profile/js/profile.js"></script>
+  </body>
 </html>
