@@ -7,14 +7,14 @@ describe('Status REST api', function ( ) {
   var api = require('../lib/api/');
   before(function (done) {
     var env = require('../env')( );
-    env.enable = 'careportal rawbg';
+    env.settings.enable = 'careportal rawbg';
     env.api_secret = 'this is my long pass phrase';
     this.wares = require('../lib/middleware/')(env);
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
     require('../lib/bootevent')(env).boot(function booted (ctx) {
-      self.app.use('/api', api(env, ctx.entries));
+      self.app.use('/api', api(env, ctx));
       done();
     });
   });
@@ -26,7 +26,7 @@ describe('Status REST api', function ( ) {
       .end(function (err, res)  {
         res.body.apiEnabled.should.equal(true);
         res.body.careportalEnabled.should.equal(true);
-        res.body.enabledOptions.should.equal('careportal rawbg');
+        res.body.settings.enable.should.equal('careportal rawbg');
         done( );
       });
   });

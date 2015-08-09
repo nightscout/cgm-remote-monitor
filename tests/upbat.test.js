@@ -4,12 +4,11 @@ require('should');
 
 describe('Uploader Battery', function ( ) {
   var data = {uploaderBattery: 20};
-  var app = { };
   var clientSettings = {};
 
   it('display uploader battery status', function (done) {
     var sandbox = require('../lib/sandbox')();
-    var sbx = sandbox.clientInit(app, clientSettings, Date.now(), {}, data);
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), {}, data);
 
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
       name.should.equal('upbat');
@@ -37,7 +36,7 @@ describe('Uploader Battery', function ( ) {
     };
 
     var sandbox = require('../lib/sandbox')();
-    var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
     var upbat = require('../lib/plugins/upbat')();
     upbat.setProperties(sbx);
     upbat.updateVisualisation(sbx);
