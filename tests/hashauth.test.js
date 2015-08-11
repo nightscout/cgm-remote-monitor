@@ -58,7 +58,7 @@ describe('hashauth', function ( ) {
     hashauth.inlineCode().indexOf('Device not authenticated').should.be.greaterThan(0);
     hashauth.isAuthenticated().should.equal(false);
     var testnull = (hashauth.hash()===null);
-    testnull.should.be.true;
+    testnull.should.equal(true);
   });
 
   it ('should make module authorized', function () {
@@ -124,7 +124,7 @@ describe('hashauth', function ( ) {
     
     hashauth.hash().should.equal('b723e97aa97846eb92d5264f084b2823f57c4aa1');
     var testnull = (localStorage.get('apisecrethash')===null);
-    testnull.should.be.true;
+    testnull.should.equal(true);
     hashauth.isAuthenticated().should.equal(true);
   });
 
