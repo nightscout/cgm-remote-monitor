@@ -160,6 +160,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
+  * `LANGUAGE` (`en`) - language of Nighscout. If not available english is used
 
 
 ### Plugins
@@ -179,7 +180,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
     * `BWP_SNOOZE_MINS` (`10`) - minutes to snooze when there is enough IOB to cover a high BG.
     * `BWP_SNOOZE` - (`0.10`) If BG is higher then the `target_high` and `BWP` < `BWP_SNOOZE` alarms will be snoozed for `BWP_SNOOZE_MINS`.
   * `cage` (Cannula Age) - Calculates the number of hours since the last `Site Change` treatment that was recorded.
-    * `CAGE_ENABLEALERTS` (`false`) - Set to `true` to enable notifications to remind you of upcoming cannula change.
+    * `CAGE_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications to remind you of upcoming cannula change.
     * `CAGE_INFO` (`44`) - If time since last `Site Change` matches `CAGE_INFO`, user will be warned of upcoming cannula change
     * `CAGE_WARN` (`48`) - If time since last `Site Change` matches `CAGE_WARN`, user will be alarmed to to change the cannula
     * `CAGE_URGENT` (`72`) - If time since last `Site Change` matches `CAGE_URGENT`, user will be issued a persistent warning of overdue change.
@@ -193,6 +194,14 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `errorcodes` (CGM Error Codes) - Generates alarms for CGM codes `9` (hourglass) and `10` (???).  **Enabled by default.**
   * `treatmentnotify` (Treatment Notifications) - Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.  Default snooze is 10 minutes, and can be set using the `TREATMENTNOTIFY_SNOOZE_MINS` [extended setting](#extended-settings).
   * `basal` (Basal Profile) - Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile).
+  * `bridge` (Share2Nightscout bridge) - Glucose reading directly from the Share service, uses these extended settings:
+    * `BRIDGE_USER_NAME` - Your user name for the Share service.
+    * `BRIDGE_PASSWORD` - Your password for the Share service.
+    * `BRIDGE_INTERVAL` (`150000` *2.5 minutes*) - The time to wait between each update.
+    * `BRIDGE_MAX_COUNT` (`1`) - The maximum number of records to fetch per update.
+    * `BRIDGE_FIRST_FETCH_COUNT` (`3`) - Changes max count during the very first update only.
+    * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
+    * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (default is one day in minutes).
   
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
  
@@ -215,11 +224,12 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   
     * `ENABLE` - `pushover` should be added to the list of plugin, for example: `ENABLE="pushover"`.
     * `PUSHOVER_API_TOKEN` - Used to enable pushover notifications, this token is specific to the application you create from in [Pushover](https://pushover.net/), ***[additional pushover information](#pushover)*** below.
-    * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.
+    * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.  This also support a space delimited list of keys.
+    * `PUSHOVER_ANNOUNCEMENT_KEY` - An optional Pushover user/group key, will be used for system wide user generated announcements.  If not defined this will fallback to `PUSHOVER_USER_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also support a space delimited list of keys.
     * `BASE_URL` - Used for pushover callbacks, usually the URL of your Nightscout site, use https when possible.
     * `API_SECRET` - Used for signing the pushover callback request for acknowledgments.
     
-    For testing/devlopment try [localtunnel](http://localtunnel.me/).
+    For testing/development try [localtunnel](http://localtunnel.me/).
 
 #### IFTTT Maker
  In addition to the normal web based alarms, and pushover, there is also integration for [IFTTT Maker](https://ifttt.com/maker).
@@ -230,7 +240,8 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
  2. Find your secret key on the [maker page](https://ifttt.com/maker)
  3. Configure Nightscout by setting these environment variables:
   * `ENABLE` - `maker` should be added to the list of plugin, for example: `ENABLE="maker"`.
-  * `MAKER_KEY` - Set this to your secret key that you located in step 2, for example: `MAKER_KEY="abcMyExampleabc123defjt1DeNSiftttmak-XQb69p"`
+  * `MAKER_KEY` - Set this to your secret key that you located in step 2, for example: `MAKER_KEY="abcMyExampleabc123defjt1DeNSiftttmak-XQb69p"` This also support a space delimited list of keys.
+  * `MAKER_ANNOUNCEMENT_KEY` - An optional Maker key, will be used for system wide user generated announcements.  If not defined this will fallback to `MAKER_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also support a space delimited list of keys.
  4. [Create a recipe](https://ifttt.com/myrecipes/personal/new) or see [more detailed instructions](lib/plugins/maker-setup.md#create-a-recipe)
  
  Plugins can create custom events, but all events sent to maker will be prefixed with `ns-`.  The core events are:

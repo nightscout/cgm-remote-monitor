@@ -55,7 +55,7 @@ describe('errorcodes', function ( ) {
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     errorcodes.checkNotifications(sbx);
     should.not.exist(ctx.notifications.findHighestAlarm());
-    var info = _.first(ctx.notifications.findInfos());
+    var info = _.first(ctx.notifications.findUnSnoozeable());
     info.level.should.equal(levels.LOW);
     info.pushoverSound.should.equal('intermission');
 
@@ -71,7 +71,7 @@ describe('errorcodes', function ( ) {
       var sbx = require('../lib/sandbox')().serverInit(env, ctx);
       errorcodes.checkNotifications(sbx);
       should.not.exist(ctx.notifications.findHighestAlarm());
-      _.first(ctx.notifications.findInfos()).level.should.be.lessThan(levels.WARN);
+      _.first(ctx.notifications.findUnSnoozeable()).level.should.be.lessThan(levels.WARN);
     }
     done();
   });

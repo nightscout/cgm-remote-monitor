@@ -10,7 +10,6 @@ html, body {
 }
 body {
     font-family: 'Open Sans', Helvetica, Arial, sans-serif;
-    fill: #fff;
     background: #000;
     color: #bdbdbd;
 }
@@ -25,6 +24,10 @@ body {
     top: 45px;
     width: 100%;
     z-index: 2;
+}
+
+#container.announcing .customTitle {
+  color: orange;
 }
 
 #container.alarming.urgent .customTitle {
@@ -213,28 +216,6 @@ body {
     top: calc(45px + 180px);
 }
 
-.axis path,
-.axis line {
-  fill: none;
-  stroke: #ffffff;
-  shape-rendering: crispEdges;
-}
-
-.open-right, .open-left {
-  shape-rendering: crispEdges;
-}
-.grid path, .axis line {
-  stroke: #bdbdbd;
-  stroke-opacity: 1;
-}
-
-.brush .extent {
-  stroke: #ffffff;
-  stroke-opacity: 0;
-  fill-opacity: 0;
-}
-
-
 #silenceBtn {
     z-index: 99;
     border-radius: 5px;
@@ -314,7 +295,6 @@ body {
     background: white;
     border: 0;
     border-radius: 8px;
-    pointer-events: none;
 }
 
 .alarms {
@@ -555,7 +535,7 @@ body {
     .focus-range {
         position: absolute;
         top: 80px;
-        left: initial;
+        left: auto;
         right: 10px;
         margin: 0;
         width: auto;
@@ -704,7 +684,7 @@ body {
   .focus-range {
         position: absolute;
         top: 40px;
-        left: initial;
+        left: auto;
         right: 35px;
         margin: 0;
         width: auto;

@@ -1,7 +1,7 @@
 'use strict';
 
 var request = require('supertest');
-require('should');
+var should = require('should');
 
 describe('Treatment API', function ( ) {
   var self = this;
@@ -10,7 +10,7 @@ describe('Treatment API', function ( ) {
   before(function (done) {
     process.env.API_SECRET = 'this is my long pass phrase';
     self.env = require('../env')();
-    self.env.enable = 'careportal';
+    self.env.settings.enable = 'careportal';
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
     self.app.enable('api');
@@ -29,10 +29,15 @@ describe('Treatment API', function ( ) {
     self.ctx.bus.on('data-loaded', function dataWasLoaded ( ) {
       self.ctx.data.treatments.length.should.equal(3);
       self.ctx.data.treatments[0].mgdl.should.equal(100);
+      should.not.exist(self.ctx.data.treatments[0].eventTime);
+      should.not.exist(self.ctx.data.treatments[0].notes);
 
-      self.ctx.data.treatments[1].mgdl.should.equal(100);
-      self.ctx.data.treatments[1].insulin.should.equal('2.00');
-      self.ctx.data.treatments[2].carbs.should.equal('30');
+      should.not.exist(self.ctx.data.treatments[1].eventTime);
+      should.not.exist(self.ctx.data.treatments[1].glucose);
+      should.not.exist(self.ctx.data.treatments[1].glucoseType);
+      should.not.exist(self.ctx.data.treatments[1].units);
+      self.ctx.data.treatments[1].insulin.should.equal(2);
+      self.ctx.data.treatments[2].carbs.should.equal(30);
 
       done();
     });
@@ -41,7 +46,7 @@ describe('Treatment API', function ( ) {
       request(self.app)
         .post('/api/treatments/')
         .set('api-secret', self.env.api_secret || '')
-        .send({eventType: 'BG Check', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'})
+        .send({eventType: 'BG Check', glucose: 100, preBolus: '0', glucoseType: 'Finger', units: 'mg/dl', notes: ''})
         .expect(200)
         .end(function (err) {
           if (err) {
@@ -52,7 +57,7 @@ describe('Treatment API', function ( ) {
       request(self.app)
         .post('/api/treatments/')
         .set('api-secret', self.env.api_secret || '')
-        .send({eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: 15, glucose: 100, glucoseType: 'Finger', units: 'mg/dl'})
+        .send({eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucoseType: 'Finger', units: 'mg/dl'})
         .expect(200)
         .end(function (err) {
           if (err) {
