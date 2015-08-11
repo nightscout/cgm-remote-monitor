@@ -1,7 +1,6 @@
 'use strict';
 
 require('should');
-var times = require('../lib/times');
 var benv = require('benv');
 var read = require('fs').readFileSync;
 var serverSettings = require('./fixtures/default-server-settings');
@@ -52,7 +51,7 @@ describe('hashauth', function ( ) {
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) { 
       hashauth.authenticated = false;
       next(true); 
-    }
+    };
 
     client.init(serverSettings, plugins);
 
@@ -71,7 +70,7 @@ describe('hashauth', function ( ) {
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) { 
       hashauth.authenticated = true;
       next(true); 
-    }
+    };
 
     client.init(serverSettings, plugins);
 
@@ -91,7 +90,7 @@ describe('hashauth', function ( ) {
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) { 
       hashauth.authenticated = true;
       next(true); 
-    }
+    };
 
     client.init(serverSettings, plugins);
 
@@ -117,7 +116,7 @@ describe('hashauth', function ( ) {
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) { 
       hashauth.authenticated = true;
       next(true); 
-    }
+    };
 
     client.init(serverSettings, plugins);
 

@@ -66,7 +66,7 @@ describe('client', function ( ) {
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) { 
       hashauth.authenticated = true;
       next(true); 
-    }
+    };
 
 
     client.init(serverSettings, plugins);

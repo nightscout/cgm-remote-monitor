@@ -17,59 +17,59 @@
 
   var defaultprofile = {
       //General values
-      "dia":3,
+      'dia':3,
       
-      // Simple style values, "from" are in minutes from midnight
-      "carbratio": [
+      // Simple style values, 'from' are in minutes from midnight
+      'carbratio': [
         {
-          "time": "00:00",
-          "value": 30
+          'time': '00:00',
+          'value': 30
         }],
-      "carbs_hr":30,
-      "delay": 20,
-      "sens": [
+      'carbs_hr':30,
+      'delay': 20,
+      'sens': [
         {
-          "time": "00:00",
-          "value": 17
+          'time': '00:00',
+          'value': 17
         }],
-      "startDate": new Date(),
-      "timezone": "UTC",
+      'startDate': new Date(),
+      'timezone': 'UTC',
       
       //perGIvalues style values
-      "perGIvalues": false,
-      "carbs_hr_high": 30,
-      "carbs_hr_medium": 30,
-      "carbs_hr_low": 30,
-      "delay_high": 15,
-      "delay_medium": 20,
-      "delay_low": 20,
+      'perGIvalues': false,
+      'carbs_hr_high': 30,
+      'carbs_hr_medium': 30,
+      'carbs_hr_low': 30,
+      'delay_high': 15,
+      'delay_medium': 20,
+      'delay_low': 20,
 
-      "basal":[
+      'basal':[
         {
-          "time": "00:00",
-          "value": 0.1
+          'time': '00:00',
+          'value': 0.1
         }],
-      "target_low":[
+      'target_low':[
         {
-          "time": "00:00",
-          "value": 0
+          'time': '00:00',
+          'value': 0
         }],
-      "target_high":[
+      'target_high':[
         {
-          "time": "00:00",
-          "value": 0
+          'time': '00:00',
+          'value': 0
         }]
   };
   defaultprofile.startDate.setSeconds(0);
   defaultprofile.startDate.setMilliseconds(0);
 
-  var icon_add = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABa0lEQVQ4T6WTzysEYRjHP+/Mrv2hHOTuqJRNOfgPSORHokg4OClHcnVzVygHF6WIcuHMnyCHVRyI3ZYxa23vzOzs7LzamaI0e5i89fTWt/f5vPV5n1cQsXLbHepvfLv5JaLORoZNwMbyFo5vYfsWB0c7xAasLa5T/vCg45Oj48P4gJWFVYxCA63L5PzkND5gfm4Jo+Chd5W5OrtsDYgS1pQ1OTuNUfTQO8tcX9xE+QugYnS/X81MzGP7MpTWkEFVZY1KxcVPV3h27zAtA+oCagIcDfWUCgEje31qfHwK06gHjaF5iXQcHCV5lHmqqgQCNEAI0IsavCVDwNBurxoeGwmaAkDDwvYsqtIh//6AJUoklP97s62BbJYeAqIcpJNZsoM+r2aVbKKOekiBL8An3BuAEiGg1SSKAYnttpFxPdR9Jv4zipxFTUuQKqsfYbFGWfTYuO06yRfxIyweoLuG+iMsFuBfvzFy7FqE33vs2BFqlfN5AAAAAElFTkSuQmCC";
-  var icon_remove = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACrElEQVQ4T42Ty2sTQRzHv5tmk2yyjRNtpfZhL8V6s2KoUNC2XqwgaCsVQcGiFqpHi0c9iRdR/ANE9KR40FIQX4cueKoPaKFoLdSYNtE0abKT1+5s9iW7aUMiHtzTzO7v85md+c6PA4DrHbsPCKIgOWO1pA7dT6YXnXH949SE/F63pqwZtRrO+SCKgjQ5NUV+azpmHj2krMwaJC4c8Erj+/eRyloMMwWFKgbn1nC3ervlK1evkXBLGBZT8SOewotnTylTNLdgeg/pDgZDC2cPHSR8bB22DVC9hFe0SG/H0xFXcHlykjRHRDBWgJcZSCY38Xx2lhqMnRYE34Px/sN9vlQWeoHBAx2yXsRruVAVuFsIBaSJ8+eJGPaBqQV4NROJjTzez89jLBoFn6FgybQL54wS3uTyVDFQ3cL2IYpBv3RhdJSIIQ80tQyv7gEqJvS8AmUlBs7UXPhtjtZgh3UFNYngk86NHCfNAg9dMwHVBPu+CpsVkTXKeJeVG+AGgTOZ3tt6MSKKjy+NjEBjFrR4ElZmA4pdxstMFsyyJu6tZZ7Ux9vwB6EAL50ZGiRECEPPUOixVTRxHlicgSVWxEdZpuZWfNuS2hk48NjwMIkIYZglBnV5Cbqtws/5IaAJmsfCglrEl2y2QeKmEBJ80tixKmxrFpSVr0gV0viQoxho2YUuPohmeFD22PiklLC4ma5JuBvdrfLJI0dJd0s7bM0ES8aR/BXDXGaTskqlL+D3Lwy0tZEePoAd4EA5YF4tYymdonfjmQh3s6dTPjU4SHYGwjAKecSXFyGlM1TdytntE56T+ts7SC/vhw3gm6njc2Kd3vm5Ub1IwQAvnYhGiZpYw1wiWYPrIw7wnBTt7CLOOwdmut14kQQvqt24tfK/utGR6LaF+iRqMf4N/O/8D28HiiCRYqzAAAAAAElFTkSuQmCC";
+  var icon_add = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABa0lEQVQ4T6WTzysEYRjHP+/Mrv2hHOTuqJRNOfgPSORHokg4OClHcnVzVygHF6WIcuHMnyCHVRyI3ZYxa23vzOzs7LzamaI0e5i89fTWt/f5vPV5n1cQsXLbHepvfLv5JaLORoZNwMbyFo5vYfsWB0c7xAasLa5T/vCg45Oj48P4gJWFVYxCA63L5PzkND5gfm4Jo+Chd5W5OrtsDYgS1pQ1OTuNUfTQO8tcX9xE+QugYnS/X81MzGP7MpTWkEFVZY1KxcVPV3h27zAtA+oCagIcDfWUCgEje31qfHwK06gHjaF5iXQcHCV5lHmqqgQCNEAI0IsavCVDwNBurxoeGwmaAkDDwvYsqtIh//6AJUoklP97s62BbJYeAqIcpJNZsoM+r2aVbKKOekiBL8An3BuAEiGg1SSKAYnttpFxPdR9Jv4zipxFTUuQKqsfYbFGWfTYuO06yRfxIyweoLuG+iMsFuBfvzFy7FqE33vs2BFqlfN5AAAAAElFTkSuQmCC';
+  var icon_remove = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACrElEQVQ4T42Ty2sTQRzHv5tmk2yyjRNtpfZhL8V6s2KoUNC2XqwgaCsVQcGiFqpHi0c9iRdR/ANE9KR40FIQX4cueKoPaKFoLdSYNtE0abKT1+5s9iW7aUMiHtzTzO7v85md+c6PA4DrHbsPCKIgOWO1pA7dT6YXnXH949SE/F63pqwZtRrO+SCKgjQ5NUV+azpmHj2krMwaJC4c8Erj+/eRyloMMwWFKgbn1nC3ervlK1evkXBLGBZT8SOewotnTylTNLdgeg/pDgZDC2cPHSR8bB22DVC9hFe0SG/H0xFXcHlykjRHRDBWgJcZSCY38Xx2lhqMnRYE34Px/sN9vlQWeoHBAx2yXsRruVAVuFsIBaSJ8+eJGPaBqQV4NROJjTzez89jLBoFn6FgybQL54wS3uTyVDFQ3cL2IYpBv3RhdJSIIQ80tQyv7gEqJvS8AmUlBs7UXPhtjtZgh3UFNYngk86NHCfNAg9dMwHVBPu+CpsVkTXKeJeVG+AGgTOZ3tt6MSKKjy+NjEBjFrR4ElZmA4pdxstMFsyyJu6tZZ7Ux9vwB6EAL50ZGiRECEPPUOixVTRxHlicgSVWxEdZpuZWfNuS2hk48NjwMIkIYZglBnV5Cbqtws/5IaAJmsfCglrEl2y2QeKmEBJ80tixKmxrFpSVr0gV0viQoxho2YUuPohmeFD22PiklLC4ma5JuBvdrfLJI0dJd0s7bM0ES8aR/BXDXGaTskqlL+D3Lwy0tZEePoAd4EA5YF4tYymdonfjmQh3s6dTPjU4SHYGwjAKecSXFyGlM1TdytntE56T+ts7SC/vhw3gm6njc2Kd3vm5Ub1IwQAvnYhGiZpYw1wiWYPrIw7wnBTt7CLOOwdmut14kQQvqt24tfK/utGR6LaF+iRqMf4N/O/8D28HiiCRYqzAAAAAAElFTkSuQmCC';
   
   var mongoprofiles = [];
 
   // Fetch data from mongo
-  $('#pe_status').hide().text('Loading profile records ...').fadeIn("slow");
+  $('#pe_status').hide().text('Loading profile records ...').fadeIn('slow');
   $.ajax('/api/v1/profile.json', {
     success: function (records) {
       c_profile = {};
@@ -91,18 +91,18 @@
         }
         convertToRanges(c_profile);
         
-        $('#pe_status').hide().text('Values loaded.').fadeIn("slow");
+        $('#pe_status').hide().text('Values loaded.').fadeIn('slow');
         mongoprofiles.unshift(c_profile);
       } else {
         c_profile = _.cloneDeep(defaultprofile);
         mongoprofiles.unshift(c_profile);
-        $('#pe_status').hide().text('Default values used.').fadeIn("slow");
+        $('#pe_status').hide().text('Default values used.').fadeIn('slow');
       }
     },
     error: function () {
       c_profile = _.cloneDeep(defaultprofile);
       mongoprofiles.unshift(c_profile);
-      $('#pe_status').hide().text('Error. Default values used.').fadeIn("slow");
+      $('#pe_status').hide().text('Error. Default values used.').fadeIn('slow');
     }
   }).done(initeditor);
   
@@ -186,11 +186,11 @@
   // Handling html events and setting/getting values
   function switchStyle(event) {
     if (!$('#pe_perGIvalues').is(':checked')) {
-      $('#pe_simple').show("slow");
-      $('#pe_advanced').hide("slow");
+      $('#pe_simple').show('slow');
+      $('#pe_advanced').hide('slow');
     } else {
-      $('#pe_simple').hide("slow");
-      $('#pe_advanced').show("slow");
+      $('#pe_simple').hide('slow');
+      $('#pe_advanced').show('slow');
     }
     if (event) {
       event.preventDefault();
@@ -199,16 +199,16 @@
   
   function fillTimeRanges(event) {
     var mmoltime = [
-      "0:00","0:30","1:00","1:30","2:00","2:30","3:00","3:30","4:00","4:30","5:00","5:30",
-      "6:00","6:30","7:00","7:30","8:00","8:30","9:00","9:30","10:00","10:30","11:00","11:30",
-      "12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30",
-      "18:00","18:30","19:00","19:30","20:00","20:30","21:00","21:30","22:00","22:30","23:00","23:30"
+      '0:00','0:30','1:00','1:30','2:00','2:30','3:00','3:30','4:00','4:30','5:00','5:30',
+      '6:00','6:30','7:00','7:30','8:00','8:30','9:00','9:30','10:00','10:30','11:00','11:30',
+      '12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30',
+      '18:00','18:30','19:00','19:30','20:00','20:30','21:00','21:30','22:00','22:30','23:00','23:30'
     ];
     var mgtime = [
-      "12:00AM","0:30AM","1:00AM","1:30AM","2:00AM","2:30AM","3:00AM","3:30AM","4:00AM","4:30AM","5:00AM","5:30AM",
-      "6:00AM","6:30AM","7:00AM","7:30AM","8:00AM","8:30AM","9:00AM","9:30AM","10:00AM","10:30AM","11:00AM","11:30AM",
-      "12:00PM","0:30PM","1:00PM","1:30PM","2:00PM","2:30PM","3:00PM","3:30PM","4:00PM","4:30PM","5:00PM","5:30PM",
-      "6:00PM","6:30PM","7:00PM","7:30PM","8:00PM","8:30PM","9:00PM","9:30PM","10:00PM","10:30PM","11:00PM","11:30PM"
+      '12:00AM','0:30AM','1:00AM','1:30AM','2:00AM','2:30AM','3:00AM','3:30AM','4:00AM','4:30AM','5:00AM','5:30AM',
+      '6:00AM','6:30AM','7:00AM','7:30AM','8:00AM','8:30AM','9:00AM','9:30AM','10:00AM','10:30AM','11:00AM','11:30AM',
+      '12:00PM','0:30PM','1:00PM','1:30PM','2:00PM','2:30PM','3:00PM','3:30PM','4:00PM','4:30PM','5:00PM','5:30PM',
+      '6:00PM','6:30PM','7:00PM','7:30PM','8:00PM','8:30PM','9:00PM','9:30PM','10:00PM','10:30PM','11:00PM','11:30PM'
     ];
     if (event) {
       GUIToObject();
@@ -332,7 +332,7 @@
       return fillTimeRanges();
     });
 
-    $(".pe_selectabletime").change(fillTimeRanges);
+    $('.pe_selectabletime').change(fillTimeRanges);
 
     objectToGUI();
     if (event) {
@@ -425,7 +425,7 @@
     GUIToObject();
     if (new Date(c_profile.startDate) > new Date()) {
       alert('Date must be set in the past');
-      $('#pe_status').hide().html('Wrong date').fadeIn("slow");
+      $('#pe_status').hide().html('Wrong date').fadeIn('slow');
       return false;
     }
     
@@ -441,7 +441,7 @@
     if ($('#pe_submit').text().indexOf('Create new record')>-1) {
       if (mongoprofiles.length > 1 && (new Date(c_profile.startDate) <= new Date(mongoprofiles[1].validfrom))) {
         alert('Date must be greater than last record '+new Date(mongoprofiles[1].startDate));
-        $('#pe_status').hide().html('Wrong date').fadeIn("slow");
+        $('#pe_status').hide().html('Wrong date').fadeIn('slow');
         return false;
       }
       
@@ -455,13 +455,13 @@
       xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
       xhr.setRequestHeader('api-secret', Nightscout.client.hashauth.hash());
       xhr.onload = function () {
-        $('#pe_status').hide().text(xhr.statusText).fadeIn("slow");
+        $('#pe_status').hide().text(xhr.statusText).fadeIn('slow');
         if (xhr.statusText==='OK') {
           var newprofile = _.cloneDeep(c_profile);
           mongoprofiles.unshift(newprofile);
           initeditor();
         }
-      }
+      };
       xhr.send(dataJson);
     } else {
       // Update record
@@ -472,8 +472,8 @@
       xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
       xhr.setRequestHeader('api-secret', Nightscout.client.hashauth.hash());
       xhr.onload = function () {
-        $('#pe_status').hide().text(xhr.statusText).fadeIn("slow");
-      }
+        $('#pe_status').hide().text(xhr.statusText).fadeIn('slow');
+      };
       xhr.send(dataJson);
     }
     
