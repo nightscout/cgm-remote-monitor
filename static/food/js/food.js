@@ -91,7 +91,7 @@
     $('#fe_category_list').change(function(event) { $('#fe_category').val($('#fe_category_list').val()); fillSubcategories(event,true) });
     $('#fe_subcategory_list').change(function(event) { $('#fe_subcategory').val($('#fe_subcategory_list').val())});
     $('#fe_unit').empty();
-    for (var u=0; u<foodunits.length; u++) $('#fe_unit').append(new Option(foodunits[u],foodunits[u]));
+    for (var u=0; u<foodunits.length; u++) $('#fe_unit').append(new Option(translate(foodunits[u]),foodunits[u]));
   
     // Set values from profile to html
     fillForm();
@@ -176,31 +176,31 @@
     if (event) GUIToObject();
     var html = '';
     $('#fe_data_header').html(
-      '<span class="fs50"></span>'+
-      '<span class="fs200">'+translate('Name')+'</span>'+
-      '<span class="fs150" style="text-align:center;">'+translate('Portion')+'</span>'+
-      '<span class="fs50" style="text-align:center;">'+translate('Unit')+'</span>'+
-      '<span class="fs100" style="text-align:center;">'+translate('Carbs')+' [g]</span>'+
-      '<span class="fs100" style="text-align:center;">'+translate('GI')+' [1-3]</span>'+
-      '<span class="fs150">'+translate('Category')+'</span>'+
-      '<span class="fs150">'+translate('Subcategory')+'</span>'
+      '<span class="width50px"></span>'+
+      '<span class="width200px">'+translate('Name')+'</span>'+
+      '<span class="width150px" style="text-align:center;">'+translate('Portion')+'</span>'+
+      '<span class="width50px" style="text-align:center;">'+translate('Unit')+'</span>'+
+      '<span class="width100px" style="text-align:center;">'+translate('Carbs')+' [g]</span>'+
+      '<span class="width100px" style="text-align:center;">'+translate('GI')+' [1-3]</span>'+
+      '<span class="width150px">'+translate('Category')+'</span>'+
+      '<span class="width150px">'+translate('Subcategory')+'</span>'
     );
     for (var i=0; i<foodlist.length; i++) {
       if (filter.category != '' && foodlist[i].category != filter.category) continue;
       if (filter.subcategory != '' && foodlist[i].subcategory != filter.subcategory) continue;
       if (filter.name!= '' && foodlist[i].name.toLowerCase().indexOf(filter.name.toLowerCase())<0) continue;
       html += '<div index="'+i+'" class="draggablefood" style="background-color:gray;border: 2px solid #000;cursor:move;">';
-      html += '<span class="fs50">';
+      html += '<span class="width50px">';
       html += '<img style="cursor:pointer" title="'+translate('Edit record')+'" src="'+icon_edit+'" href="#" onclick="doEdit('+i+'); return false;"> ';
       html += '<img style="cursor:pointer" title="'+translate('Delete record')+'" src="'+icon_remove+'" href="#" onclick="return deleteFoodRecord('+i+');">';
       html += '</span>';
-      html += '<span class="fs200">'+foodlist[i].name+'</span>';
-      html += '<span class="fs150" style="text-align:center;">'+foodlist[i].portion+'</span>';
-      html += '<span class="fs50" style="text-align:center;">'+foodlist[i].unit+'</span>';
-      html += '<span class="fs100" style="text-align:center;">'+foodlist[i].carbs+'</span>';
-      html += '<span class="fs100" style="text-align:center;">'+foodlist[i].gi+'</span>';
-      html += '<span class="fs150">'+foodlist[i].category+'</span>';
-      html += '<span class="fs150">'+foodlist[i].subcategory+'</span>';
+      html += '<span class="width200px">'+foodlist[i].name+'</span>';
+      html += '<span class="width150px" style="text-align:center;">'+foodlist[i].portion+'</span>';
+      html += '<span class="width50px" style="text-align:center;">'+foodlist[i].unit+'</span>';
+      html += '<span class="width100px" style="text-align:center;">'+foodlist[i].carbs+'</span>';
+      html += '<span class="width100px" style="text-align:center;">'+foodlist[i].gi+'</span>';
+      html += '<span class="width150px">'+foodlist[i].category+'</span>';
+      html += '<span class="width150px">'+foodlist[i].subcategory+'</span>';
       html += '</div>';
     }
     
@@ -270,10 +270,10 @@
 
       if (q.foods.length) {
         html +=
-          '<span class="fs50"></span>'+
-          '<span class="fs200">'+translate('Name')+'</span>'+
-          '<span class="fs150" style="text-align:center;">'+translate('Portion')+' [g,ml]</span>'+
-          '<span class="fs100" style="text-align:center;">'+translate('Carbs')+' [g]</span>'+
+          '<span class="width50px"></span>'+
+          '<span class="width200px">'+translate('Name')+'</span>'+
+          '<span class="width150px" style="text-align:center;">'+translate('Portion')+' [g,ml]</span>'+
+          '<span class="width100px" style="text-align:center;">'+translate('Carbs')+' [g]</span>'+
           '<br>';
       } else {
         html += '<i>-&gt; Drag&drop food here</i>';
@@ -282,12 +282,12 @@
       for (var j=0;j<q.foods.length; j++) {
         var r = q.foods[j];
         html += '<div style="background-color:gray;border: 2px solid" id="fqp_food_'+i+'_'+j+'">';
-        html += '<span class="fs50">';
+        html += '<span class="width50px">';
         html += '<img style="cursor:pointer" title="'+translate('Delete record')+'" src="'+icon_remove+'" href="#" onclick="return deleteQuickpickFood('+i+','+j+');">';
         html += '</span>';
-        html += '<span class="fs200">'+r.name+'</span>';
-        html += '<span class="fs150" style="text-align:center;">'+r.portion+'</span>';
-        html += '<span class="fs100" style="text-align:center;">'+r.carbs+'</span>';
+        html += '<span class="width200px">'+r.name+'</span>';
+        html += '<span class="width150px" style="text-align:center;">'+r.portion+'</span>';
+        html += '<span class="width100px" style="text-align:center;">'+r.carbs+'</span>';
         html += ''+translate('Portions')+': <input type="text" id="fq_portions_'+q._id+'_'+j+'" value="'+r.portions+'" onchange="return savePortions('+i+','+j+',$(this).val());">';
         html += '</div>';
       }
