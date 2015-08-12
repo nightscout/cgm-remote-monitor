@@ -69,6 +69,7 @@
     "pushover-notifications": "0.2.0",
     "request": "^2.58.0",
     "sgvdata": "git://github.com/ktind/sgvdata.git#wip/protobuf",
+    "share2nightscout-bridge": "git://github.com/bewest/share2nightscout-bridge.git#wip/generalize",
     "socket.io": "^1.3.5",
     "d3": "^3.5.6"
   },
