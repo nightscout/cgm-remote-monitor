@@ -4,9 +4,7 @@ var env = { };
 var crypto = require('crypto');
 var consts = require('./lib/constants');
 var fs = require('fs');
-var dotenv = require('dotenv');
-
-dotenv.load();
+var dotenv = require('dotenv').config({path: '/home/demonicpagan/dexcom/cgm-remote-monitor/.env'});
 
 // Module to constrain all config and environment parsing to one spot.
 function config ( ) {
