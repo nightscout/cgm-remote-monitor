@@ -8,22 +8,22 @@
   margin-left: auto;
   text-align: center;
 }
-span.width50px {
+.width50px {
   display: inline-block;
   width: 50px;
 }
 
-span.width100px {
+.width100px {
   display: inline-block;
   width: 100px;
 }
 
-span.width150px {
+.width150px {
   display: inline-block;
   width: 150px;
 }
 
-span.width200px {
+.width200px {
   display: inline-block;
   width: 200px;
 }
