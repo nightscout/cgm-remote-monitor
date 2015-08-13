@@ -630,7 +630,9 @@
   function maybePreventDefault(event,after) {
     if (event) {
       event.preventDefault();
-      if (after) after();
+    }
+    if (after) {
+      after();
     }
 }
 })();
