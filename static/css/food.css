@@ -28,7 +28,7 @@
   width: 200px;
 }
 
-#fe_qpfieldset {
+.sortablequickpick {
   cursor: move;
   background-color: #383838;
 }
