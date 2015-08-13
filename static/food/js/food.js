@@ -70,7 +70,7 @@
           if (r.category && r.subcategory) {
             categories[r.category][r.subcategory] = true;
           }
-        } else if (r.type == 'quickpick') {
+        } else if (r.type === 'quickpick') {
           calculateCarbs(foodquickpick.push(r)-1);
         } else {
           console.log('Unknown food database record');
@@ -122,16 +122,12 @@
     } else {
       $('#fe_editcreate').text(translate('Save record'));
     }
-    if (event) {
-      event.preventDefault();
-    }
+     maybePreventDefault(event);
   }
   
   function fillSubcategories(event,editrec) {
-    if (event) {
-      event.preventDefault();
-      GUIToObject();
-    }
+    maybePreventDefault(event,GUIToObject);
+
     if (!editrec) {
       filter.subcategory = '';
       $('#fe_filter_subcategory').empty().append(new Option(translate('(none)'),''));
@@ -157,10 +153,13 @@
     }
   }
   
-  function doEdit(index) {
+  function doEdit(event) {
+    var index = $(this).attr('index');
     foodrec = _.cloneDeep(foodlist[index]);
     objectToGUI();
     updateSaveButton();
+    maybePreventDefault(event);
+    return false;
   }
   
   function updateFoodArray(newrec) {
@@ -191,9 +190,7 @@
     drawQuickpick();
     
     objectToGUI();
-    if (event) {
-      event.preventDefault();
-    }
+    maybePreventDefault(event);
     return false;
   }
   
@@ -201,64 +198,67 @@
     if (event) {
       GUIToObject();
     }
-    var html = '';
-    $('#fe_data_header').html(
-      '<span class="width50px"></span>'+
-      '<span class="width200px">'+translate('Name')+'</span>'+
-      '<span class="width150px" style="text-align:center;">'+translate('Portion')+'</span>'+
-      '<span class="width50px" style="text-align:center;">'+translate('Unit')+'</span>'+
-      '<span class="width100px" style="text-align:center;">'+translate('Carbs')+' [g]</span>'+
-      '<span class="width100px" style="text-align:center;">'+translate('GI')+' [1-3]</span>'+
-      '<span class="width150px">'+translate('Category')+'</span>'+
-      '<span class="width150px">'+translate('Subcategory')+'</span>'
-    );
+
+    $('#fe_data_header')
+      .empty()
+      .append($('<span>').attr('class','width50px'))
+      .append($('<span>').attr('class','width200px').append(translate('Name')))
+      .append($('<span>').attr('class','width150px').css('text-align','center').append(translate('Portion')))
+      .append($('<span>').attr('class','width50px').css('text-align','center').append(translate('Unit')))
+      .append($('<span>').attr('class','width100px').css('text-align','center').append(translate('Carbs')))
+      .append($('<span>').attr('class','width100px').css('text-align','center').append(translate('GI')+' [1-3]'))
+      .append($('<span>').attr('class','width150px').append(translate('Category')))
+      .append($('<span>').attr('class','width150px').append(translate('Subcategory')));
+
     for (var i=0; i<foodlist.length; i++) {
-      if (filter.category !== '' && foodlist[i].category != filter.category) { continue; }
+      if (filter.category !== '' && foodlist[i].category !== filter.category) { continue; }
       if (filter.subcategory !== '' && foodlist[i].subcategory !== filter.subcategory) { continue; }
       if (filter.name !== '' && foodlist[i].name.toLowerCase().indexOf(filter.name.toLowerCase()) < 0) { continue; }
-      html += '<div index="'+i+'" class="draggablefood" style="background-color:gray;border: 2px solid #000;cursor:move;">';
-      html += '<span class="width50px">';
-      html += '<img style="cursor:pointer" title="'+translate('Edit record')+'" src="'+icon_edit+'" href="#" onclick="doEdit('+i+'); return false;"> ';
-      html += '<img style="cursor:pointer" title="'+translate('Delete record')+'" src="'+icon_remove+'" href="#" onclick="return deleteFoodRecord('+i+');">';
-      html += '</span>';
-      html += '<span class="width200px">'+foodlist[i].name+'</span>';
-      html += '<span class="width150px" style="text-align:center;">'+foodlist[i].portion+'</span>';
-      html += '<span class="width50px" style="text-align:center;">'+foodlist[i].unit+'</span>';
-      html += '<span class="width100px" style="text-align:center;">'+foodlist[i].carbs+'</span>';
-      html += '<span class="width100px" style="text-align:center;">'+foodlist[i].gi+'</span>';
-      html += '<span class="width150px">'+foodlist[i].category+'</span>';
-      html += '<span class="width150px">'+foodlist[i].subcategory+'</span>';
-      html += '</div>';
+      
+      $('#fe_data')
+        .append($('<div>').attr('index',i).addClass('draggablefood')
+          .append($('<span>').addClass('width50px')
+            .append($('<img>').attr('title',translate('Edit record')).attr('src',icon_edit).attr('index',i).attr('class','fe_editimg'))
+            .append($('<img>').attr('title',translate('Delete record')).attr('src',icon_remove).attr('index',i).attr('class','fe_removeimg'))
+          )
+          .append($('<span>').addClass('width200px').append(foodlist[i].name))
+          .append($('<span>').addClass('width150px').css('text-align','center').append(foodlist[i].portion))
+          .append($('<span>').addClass('width50px').css('text-align','center').append(foodlist[i].unit))
+          .append($('<span>').addClass('width100px').css('text-align','center').append(foodlist[i].carbs))
+          .append($('<span>').addClass('width100px').css('text-align','center').append(foodlist[i].gi))
+          .append($('<span>').addClass('width150px').append(foodlist[i].category))
+          .append($('<span>').addClass('width150px').append(foodlist[i].subcategory))
+        );
     }
     
-    html += '';
-    $('#fe_data').html(html);
-
+    $('.fe_editimg').click(doEdit);
+    $('.fe_removeimg').click(deleteFoodRecord);
+    
     $('.draggablefood').draggable({
       helper: function(){
         return $(this).clone().width($(this).width()).height($(this).height());
       },
-//        start: function () { g_actions_dragorigin = 'draggablefood'; },
       scope: 'foodlist',
       revert: 'invalid'
     });
-
-    if (event) {
-      event.preventDefault();
-    }
+    maybePreventDefault(event);
   }
   
-  function deleteQuickpickRecord(index) {
+  function deleteQuickpickRecord(event) {
+    var index = $(this).attr('index');
     foodquickpicktodelete.push(foodquickpick[index]._id);
     foodquickpick.splice(index,1);
     drawQuickpick();
+    maybePreventDefault(event);
     return false;
   }
   
-  function deleteFoodRecord(index) {
+  function deleteFoodRecord(event) {
+    var index = $(this).attr('index');
     deleteRecord(foodlist[index]._id);
     foodlist.splice(index,1);
     fillForm();
+    maybePreventDefault(event);
     return false;
   }
   
@@ -274,9 +274,7 @@
   function showHidden(event) {
     GUIToObject();
     drawQuickpick();
-    if (event) {
-      event.preventDefault();
-    }
+    maybePreventDefault(event);
     return false;
   }
   
@@ -286,47 +284,58 @@
     for (var i=0; i<foodquickpick.length; i++) {
       var q = foodquickpick[i];
       if (showhidden === false && q.hidden) { hiddentotal++; continue; }
-      html += '<fieldset class="sortablequickpick" index="'+i+'" _id="'+q._id+'" style="cursor:move;background-color:#383838" >';
-      html += '<legend>';
-      html += '<img style="cursor:pointer" title="'+translate('Move to the top')+'" src="'+icon_up+'" href="#" onclick="return quickpickMoveToTop('+i+');">';
-      html += ' | <img style="cursor:pointer" title="'+translate('Delete record')+'" src="'+icon_remove+'" href="#" onclick="return deleteQuickpickRecord('+i+');">';
-      html += ' | '+translate('Name')+': <input type="text" class="fq_name" index="'+i+'" value="'+q.name+'">';
-      html += ' <input type="checkbox" class="fq_hidden" index="'+i+'"'+(q.hidden ? ' checked' : '')+'>'+translate('Hidden');
-      html += ' <input type="checkbox" class="fq_hideafteruse" index="'+i+'"'+(q.hideafteruse ? ' checked' : '')+'>'+translate('Hide after use');
-      html += ' | '+translate('Carbs')+': '+q.carbs.toFixed(0) + ' g';
-      html += '</legend>';
-//      html += '<br>';
-
+      $('#fe_picklist')
+        .append($('<fieldset>').attr('id','fe_qpfieldset').addClass('sortablequickpick').attr('index',i).attr('_id',q._id)
+          .append($('<legend>')
+            .append($('<img>').attr('title',translate('Move to the top')).attr('src',icon_up).attr('index',i).addClass('fe_qpupimg'))
+            .append(' | ')
+            .append($('<img>').attr('title',translate('Delete record')).attr('src',icon_remove).attr('index',i).addClass('fe_qpremoveimg'))
+            .append(' | ' + translate('Name') + ': ')
+            .append($('<input type="text">').addClass('fe_qpname').attr('index',i).attr('value',q.name))
+            .append($('<input type="checkbox">').addClass('fq_hidden').attr('index',i).prop('checked',q.hidden ? 'checked' : ''))
+            .append(translate('Hidden'))
+            .append($('<input type="checkbox">').addClass('fq_hideafteruse').attr('index',i).prop('checked',q.hideafteruse ? 'checked' : ''))
+            .append(translate('Hide after use'))
+            .append(' | ' + translate('Carbs') + ': ' + q.carbs.toFixed(0) + ' g')
+          )
+        )
+        
       if (q.foods.length) {
-        html +=
-          '<span class="width50px"></span>'+
-          '<span class="width200px">'+translate('Name')+'</span>'+
-          '<span class="width150px" style="text-align:center;">'+translate('Portion')+' [g,ml]</span>'+
-          '<span class="width100px" style="text-align:center;">'+translate('Carbs')+' [g]</span>'+
-          '<br>';
+        $('#fe_qpfieldset')
+          .append($('<span>').addClass('width50px'))
+          .append($('<span>').addClass('width200px').append(translate('Name')))
+          .append($('<span>').addClass('width150px').css('text-align','center').append(translate('Portion')))
+          .append($('<span>').addClass('width100px').css('text-align','center').append(translate('Carbs')))
+          .append($('<br>'));
       } else {
-        html += '<i>-&gt; Drag&drop food here</i>';
+        $('#fe_qpfieldset')
+          .append($('<i>').append('-&gt; ' + translate('Drag&drop food here')));
       }
 
       for (var j=0;j<q.foods.length; j++) {
         var r = q.foods[j];
-        html += '<div style="background-color:gray;border: 2px solid" id="fqp_food_'+i+'_'+j+'">';
-        html += '<span class="width50px">';
-        html += '<img style="cursor:pointer" title="'+translate('Delete record')+'" src="'+icon_remove+'" href="#" onclick="return deleteQuickpickFood('+i+','+j+');">';
-        html += '</span>';
-        html += '<span class="width200px">'+r.name+'</span>';
-        html += '<span class="width150px" style="text-align:center;">'+r.portion+'</span>';
-        html += '<span class="width100px" style="text-align:center;">'+r.carbs+'</span>';
-        html += ''+translate('Portions')+': <input type="text" id="fq_portions_'+q._id+'_'+j+'" value="'+r.portions+'" onchange="return savePortions('+i+','+j+',$(this).val());">';
-        html += '</div>';
+        $('#fe_qpfieldset')
+          .append($('<div>').attr('id','fqp_food_'+i+'_'+j).addClass('fe_foodinsideqp')
+            .append($('<span>').addClass('width50px')
+              .append($('<img>').attr('title',translate('Delete record')).attr('src',icon_remove).attr('index',i).attr('findex',j).addClass('fe_qpfoodremoveimg'))
+            )
+            .append($('<span>').addClass('width200px').append(r.name))
+            .append($('<span>').addClass('width150px').css('text-align','center').append(r.portion))
+            .append($('<span>').addClass('width100px').css('text-align','center').append(r.carbs))
+            .append(translate('Portions')+': ')
+            .append($('<input type="text">').attr('id','fq_portions_'+q._id+'_'+j).attr('index',i).attr('findex',j).attr('value',r.portions).addClass('fe_qpportions'))
+          )
       }
-      html += '</fieldset>';
     }
     
-    $('#fe_picklist').html(html);
+    $('.fe_qpupimg').click(quickpickMoveToTop);
+    $('.fe_qpremoveimg').click(deleteQuickpickRecord);
+    $('.fe_qpfoodremoveimg').click(deleteQuickpickFood);
+    $('.fe_qpportions').change(savePortions);
+
     $('#fe_quickpick_hiddencount').text(hiddentotal ? (' ('+hiddentotal+')') : '');
 
-    $('.fq_name').change(function (event) {
+    $('.fe_qpname').change(function (event) {
       var index = $(this).attr('index');
       foodquickpick[index].name = $(this).val();
       event.preventDefault();
@@ -361,17 +370,24 @@
     });
   }
   
-  function savePortions(i,j,val) {
-    foodquickpick[i].foods[j].portions=val.replace(/\,/g,'.');
-    calculateCarbs(i);
+  function savePortions(event) {
+    var index = $(this).attr('index');
+    var findex = $(this).attr('findex');
+    var val = parseFloat($(this).val().replace(/\,/g,'.'));
+    foodquickpick[index].foods[findex].portions=val;
+    calculateCarbs(index);
     drawQuickpick();
+    event.preventDefault();
     return false;
   }
   
-  function deleteQuickpickFood(index,findex) {
+  function deleteQuickpickFood(event) {
+    var index = $(this).attr('index');
+    var findex = $(this).attr('findex');
     foodquickpick[index].foods.splice(findex,1);
     calculateCarbs(index);
     drawQuickpick();
+    event.preventDefault();
     return false;
   }
   
@@ -403,14 +419,16 @@
     var oldArrayIndex = ui.item.attr('index');
     var insertBeforArrayIndex = this.childNodes[newHtmlIndex+1].attributes.index.nodeValue;
     foodquickpick.splice(insertBeforArrayIndex, 0, foodquickpick.splice(oldArrayIndex, 1)[0]);
-    //drawQuickpick();
+    maybePreventDefault(event);
     return;
   }
   
-  function quickpickMoveToTop(index) {
+  function quickpickMoveToTop(event) {
+    var index = $(this).attr('index');
     foodquickpick.splice(0, 0, foodquickpick.splice(index, 1)[0]);
     drawQuickpick();
-    return;
+    maybePreventDefault(event);
+    return false;
   }
   
   // fill GUI with values from object
@@ -452,12 +470,10 @@
   }
   
   function clearRec(event) {
-    if (event) {
-      event.preventDefault();
-    }
     foodrec = _.cloneDeep(foodrec_template);
     objectToGUI();
     updateSaveButton();
+    maybePreventDefault(event);
     return false;
   }
   
@@ -482,7 +498,7 @@
       xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
       xhr.onload = function () {
         $('#fe_status').hide().text(xhr.statusText).fadeIn('slow');
-        if (xhr.statusText=='OK') {
+        if (xhr.statusText==='OK') {
           var newrec = JSON.parse(xhr.responseText)[0];
           foodlist.push(newrec);
           if (foodrec.category && !categories[foodrec.category]) {
@@ -494,7 +510,7 @@
           clearRec();
           fillForm();
         }
-      }
+      };
       xhr.send(dataJson);
     } else {
       // Update record
@@ -504,38 +520,33 @@
       xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
       xhr.onload = function () {
         $('#fe_status').hide().text(xhr.statusText).fadeIn('slow');
-        if (xhr.statusText=='OK') {
+        if (xhr.statusText==='OK') {
           updateFoodArray(foodrec);
           clearRec();
           fillForm();
         }
-      }
+      };
       xhr.send(dataJson);
     }
-
-    if (event) {
-      event.preventDefault();
-    }
+    maybePreventDefault(event);
     return false;
   }
 
   function deleteRecord(_id) {
-    if (!Nightscout.auth.isAuthenticated()) {
+    if (!Nightscout.client.hashauth.isAuthenticated()) {
       alert(translate('Your device is not authenticated yet'));
       return false;
     }
       
-    var dataJson = JSON.stringify(_id, null, ' ');
-
     var xhr = new XMLHttpRequest();
     xhr.open('DELETE', '/api/v1/food/'+_id, true);
     xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-    xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
+    xhr.setRequestHeader('api-secret', Nightscout.client.hashauth.hash());
     xhr.onload = function () {
       $('#fe_status').hide().text(xhr.statusText).fadeIn('slow');
       if (xhr.statusText=='OK') {
       }
-    }
+    };
     xhr.send(null);
 
     return false;
@@ -553,42 +564,39 @@
     var xhr = new XMLHttpRequest();
     xhr.open('PUT', '/api/v1/food/', true);
     xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-    xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
+    xhr.setRequestHeader('api-secret', Nightscout.client.hashauth.hash());
     xhr.send(dataJson);
   }
 
   function quickpickCreateRecord(event) {
-    try {
-      var newrec = _.cloneDeep(quickpickrec_template);
-      
-      if (!Nightscout.auth.isAuthenticated()) {
-        alert(translate('Your device is not authenticated yet'));
-        return false;
-      }
-        
-      // remove _id when creating new record
-      delete newrec._id;
-      
-      var dataJson = JSON.stringify(newrec, null, ' ');
-
-      var xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/v1/food/', true);
-      xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-      xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
-      xhr.onload = function () {
-        $('#fe_status').hide().text(xhr.statusText).fadeIn('slow');
-        if (xhr.statusText=='OK') {
-          var newrec = JSON.parse(xhr.responseText)[0];
-          foodquickpick.push(newrec);
-          drawQuickpick();
-        }
-      }
-      xhr.send(dataJson);
-
-      if (event) event.preventDefault();
+    var newrec = _.cloneDeep(quickpickrec_template);
+    
+    if (!Nightscout.auth.isAuthenticated()) {
+      alert(translate('Your device is not authenticated yet'));
       return false;
+    }
+      
+    // remove _id when creating new record
+    delete newrec._id;
+    
+    var dataJson = JSON.stringify(newrec, null, ' ');
 
-    } catch (e) { alert(e.message); return false; }
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/v1/food/', true);
+    xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+    xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
+    xhr.onload = function () {
+      $('#fe_status').hide().text(xhr.statusText).fadeIn('slow');
+      if (xhr.statusText=='OK') {
+        var newrec = JSON.parse(xhr.responseText)[0];
+        foodquickpick.push(newrec);
+        drawQuickpick();
+      }
+    }
+    xhr.send(dataJson);
+
+    maybePreventDefault(event);
+    return false;
   }
 
   function quickpickSave(event) {
@@ -610,10 +618,7 @@
       }
       updateRecord(fqp);
     }
-    
-    if (event) {
-      event.preventDefault();
-    }
+    maybePreventDefault(event);
     return false;
   }
   
@@ -621,4 +626,10 @@
     return (v1<v2?-1:(v1>v2?1:0));
   }
 
+  function maybePreventDefault(event,after) {
+    if (event) {
+      event.preventDefault();
+      after();
+    }
+}
 })();
