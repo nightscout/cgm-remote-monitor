@@ -34,6 +34,8 @@ var env = require('./env')( );
 ///////////////////////////////////////////////////
 var PORT = env.PORT;
 
+console.log('Port:' +PORT);
+
 function create (app) {
   var transport = (env.ssl
                 ? require('https') : require('http'));

@@ -31,7 +31,11 @@
   "config": {
     "blanket": {
       "pattern": [
-        "tests", "lib", "server", "app", "static/js"
+        "tests",
+        "lib",
+        "server",
+        "app",
+        "static/js"
       ],
       "data-cover-never": [
         "node_modules"
@@ -48,6 +52,7 @@
     "bower": "^1.3.8",
     "browserify-express": "^0.1.4",
     "compression": "^1.4.2",
+    "dotenv": "^1.2.0",
     "errorhandler": "^1.1.1",
     "event-stream": "~3.1.5",
     "express": "^4.6.1",
@@ -55,8 +60,8 @@
     "forever": "~0.13.0",
     "git-rev": "git://github.com/bewest/git-rev.git",
     "long": "~2.2.3",
-    "mongodb": "^1.4.7",
     "moment": "2.8.1",
+    "mongodb": "^1.4.7",
     "mqtt": "~0.3.11",
     "pushover-notifications": "0.2.0",
     "sgvdata": "git://github.com/ktind/sgvdata.git#wip/protobuf",

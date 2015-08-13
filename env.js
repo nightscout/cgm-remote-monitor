@@ -4,6 +4,10 @@ var env = { };
 var crypto = require('crypto');
 var consts = require('./lib/constants');
 var fs = require('fs');
+var dotenv = require('dotenv');
+
+dotenv.load();
+
 // Module to constrain all config and environment parsing to one spot.
 function config ( ) {
 
