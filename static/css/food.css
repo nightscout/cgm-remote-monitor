@@ -27,3 +27,23 @@
   display: inline-block;
   width: 200px;
 }
+
+#fe_qpfieldset {
+  cursor: move;
+  background-color: #383838;
+}
+
+.fe_qpeditimg .fe_qpremoveimg .fe_editimg .fe_removeimg .fe_upimg .fe_qpfoodremoveimg {
+  cursor: pointer;
+}
+
+.draggablefood {
+  background-color: gray;
+  cursor: move;
+  border: 2px solid #000;
+}
+
+.fe_foodinsideqp {
+  background-color:gray;
+  border: 2px solid;
+}
