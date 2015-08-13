@@ -91,13 +91,13 @@
     $('#fe_id').change(updateSaveButton);
     $('#fe_quickpick_add').click(quickpickCreateRecord);
     $('#fe_quickpick_save').click(quickpickSave);
-    $('#fe_filter_category').change(fillSubcategories);
+    $('#fe_filter_category').change(fillFilterSubcategories);
     $('#fe_filter_subcategory').change(doFilter);
     $('#fe_quickpick_showhidden').change(showHidden);
     $('#fe_filter_name').on('input',doFilter);
     $('#fe_category_list').change(function(event) { 
       $('#fe_category').val($('#fe_category_list').val()); 
-      fillSubcategories(event,true);
+      fillEditSubcategories(event);
     });
     $('#fe_subcategory_list').change(function(event) { 
       $('#fe_subcategory').val($('#fe_subcategory_list').val());
@@ -125,32 +125,36 @@
      maybePreventDefault(event);
   }
   
-  function fillSubcategories(event,editrec) {
+  function fillFilterSubcategories(event) {
+    var s;
     maybePreventDefault(event,GUIToObject);
 
-    if (!editrec) {
-      filter.subcategory = '';
-      $('#fe_filter_subcategory').empty().append(new Option(translate('(none)'),''));
-      if (filter.category !== '') {
-        for (s in categories[filter.category]) {
-          if (categories.hasOwnProperty(s)) {
-            $('#fe_filter_subcategory').append(new Option(s,s));
-          }
+    filter.subcategory = '';
+    $('#fe_filter_subcategory').empty().append(new Option(translate('(none)'),''));
+    if (filter.category !== '') {
+      for (s in categories[filter.category]) {
+        if (categories.hasOwnProperty(s)) {
+          $('#fe_filter_subcategory').append(new Option(s,s));
         }
       }
-      doFilter();
-    } else {
-      foodrec.subcategory = '';
-      $('#fe_subcategory_list').empty().append(new Option(translate('(none)'),''));
-      if (foodrec.category !== '') {
-        for (s in categories[foodrec.category]) {
-          if (categories.hasOwnProperty(s)) {
-            $('#fe_subcategory_list').append(new Option(s,s));
-          }
-        }
-      }
-      $('#fe_subcategory').val('');
     }
+    doFilter();
+  }
+  
+  function fillEditSubcategories(event) {
+    var s;
+    maybePreventDefault(event,GUIToObject);
+
+    foodrec.subcategory = '';
+    $('#fe_subcategory_list').empty().append(new Option(translate('(none)'),''));
+    if (foodrec.category !== '') {
+      for (s in categories[foodrec.category]) {
+        if (categories.hasOwnProperty(s)) {
+          $('#fe_subcategory_list').append(new Option(s,s));
+        }
+      }
+    }
+    $('#fe_subcategory').val('');
   }
   
   function doEdit(event) {
@@ -186,7 +190,7 @@
         $('#fe_category_list').append(new Option(s,s));
       }
     }
-    fillSubcategories();
+    fillFilterSubcategories();
     drawQuickpick();
     
     objectToGUI();
@@ -262,15 +266,6 @@
     return false;
   }
   
-  function quickpickFindById(_id) {
-    for (var i=0; i<foodquickpick.length; i++) {
-      if (foodquickpick[i]._id === _id) {
-        return foodquickpick[i];
-      }
-    }
-    return null;
-  }
-  
   function showHidden(event) {
     GUIToObject();
     drawQuickpick();
@@ -279,13 +274,13 @@
   }
   
   function drawQuickpick() {
-    var html = '';
     var hiddentotal = 0;
+    $('#fe_picklist').empty();
     for (var i=0; i<foodquickpick.length; i++) {
       var q = foodquickpick[i];
       if (showhidden === false && q.hidden) { hiddentotal++; continue; }
       $('#fe_picklist')
-        .append($('<fieldset>').attr('id','fe_qpfieldset').addClass('sortablequickpick').attr('index',i).attr('_id',q._id)
+        .append($('<fieldset>').attr('id','fe_qpfieldset_'+i).addClass('sortablequickpick').attr('index',i).attr('_id',q._id)
           .append($('<legend>')
             .append($('<img>').attr('title',translate('Move to the top')).attr('src',icon_up).attr('index',i).addClass('fe_qpupimg'))
             .append(' | ')
@@ -298,23 +293,23 @@
             .append(translate('Hide after use'))
             .append(' | ' + translate('Carbs') + ': ' + q.carbs.toFixed(0) + ' g')
           )
-        )
+        );
         
       if (q.foods.length) {
-        $('#fe_qpfieldset')
+        $('#fe_qpfieldset_'+i)
           .append($('<span>').addClass('width50px'))
           .append($('<span>').addClass('width200px').append(translate('Name')))
           .append($('<span>').addClass('width150px').css('text-align','center').append(translate('Portion')))
           .append($('<span>').addClass('width100px').css('text-align','center').append(translate('Carbs')))
           .append($('<br>'));
       } else {
-        $('#fe_qpfieldset')
+        $('#fe_qpfieldset_'+i)
           .append($('<i>').append('-&gt; ' + translate('Drag&drop food here')));
       }
 
       for (var j=0;j<q.foods.length; j++) {
         var r = q.foods[j];
-        $('#fe_qpfieldset')
+        $('#fe_qpfieldset_'+i)
           .append($('<div>').attr('id','fqp_food_'+i+'_'+j).addClass('fe_foodinsideqp')
             .append($('<span>').addClass('width50px')
               .append($('<img>').attr('title',translate('Delete record')).attr('src',icon_remove).attr('index',i).attr('findex',j).addClass('fe_qpfoodremoveimg'))
@@ -324,7 +319,7 @@
             .append($('<span>').addClass('width100px').css('text-align','center').append(r.carbs))
             .append(translate('Portions')+': ')
             .append($('<input type="text">').attr('id','fq_portions_'+q._id+'_'+j).attr('index',i).attr('findex',j).attr('value',r.portions).addClass('fe_qpportions'))
-          )
+          );
       }
     }
     
@@ -415,11 +410,13 @@
   }
   
   function resortArray(event,ui) {
-      var newHtmlIndex = ui.item.index();
+    var newHtmlIndex = ui.item.index();
     var oldArrayIndex = ui.item.attr('index');
-    var insertBeforArrayIndex = this.childNodes[newHtmlIndex+1].attributes.index.nodeValue;
-    foodquickpick.splice(insertBeforArrayIndex, 0, foodquickpick.splice(oldArrayIndex, 1)[0]);
+//    var insertBeforArrayIndex = this.childNodes[newHtmlIndex+1].attributes.index.nodeValue;
+//    foodquickpick.splice(insertBeforArrayIndex, 0, foodquickpick.splice(oldArrayIndex, 1)[0]);
+    foodquickpick.splice(newHtmlIndex, 0, foodquickpick.splice(oldArrayIndex, 1)[0]);
     maybePreventDefault(event);
+    console.log(foodquickpick);
     return;
   }
   
@@ -482,6 +479,7 @@
 
     if (!Nightscout.auth.isAuthenticated()) {
       alert(translate('Your device is not authenticated yet'));
+      maybePreventDefault(event);
       return false;
     }
      
@@ -535,6 +533,7 @@
   function deleteRecord(_id) {
     if (!Nightscout.client.hashauth.isAuthenticated()) {
       alert(translate('Your device is not authenticated yet'));
+      maybePreventDefault(event);
       return false;
     }
       
@@ -544,7 +543,7 @@
     xhr.setRequestHeader('api-secret', Nightscout.client.hashauth.hash());
     xhr.onload = function () {
       $('#fe_status').hide().text(xhr.statusText).fadeIn('slow');
-      if (xhr.statusText=='OK') {
+      if (xhr.statusText==='OK') {
       }
     };
     xhr.send(null);
@@ -556,6 +555,7 @@
   function updateRecord(foodrec) {
     if (!Nightscout.auth.isAuthenticated()) {
       alert(translate('Your device is not authenticated yet'));
+      maybePreventDefault(event);
       return false;
     }
       
@@ -573,6 +573,7 @@
     
     if (!Nightscout.auth.isAuthenticated()) {
       alert(translate('Your device is not authenticated yet'));
+      maybePreventDefault(event);
       return false;
     }
       
@@ -587,12 +588,12 @@
     xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
     xhr.onload = function () {
       $('#fe_status').hide().text(xhr.statusText).fadeIn('slow');
-      if (xhr.statusText=='OK') {
+      if (xhr.statusText==='OK') {
         var newrec = JSON.parse(xhr.responseText)[0];
         foodquickpick.push(newrec);
         drawQuickpick();
       }
-    }
+    };
     xhr.send(dataJson);
 
     maybePreventDefault(event);
@@ -609,7 +610,7 @@
       deleteRecord(foodquickpicktodelete[i]);
     }
     
-    for (var i=0; i<foodquickpick.length; i++) {
+    for (i=0; i<foodquickpick.length; i++) {
       var fqp = foodquickpick[i];
       if (fqp.hidden) {
         fqp.position = HIDDEN;
@@ -629,7 +630,7 @@
   function maybePreventDefault(event,after) {
     if (event) {
       event.preventDefault();
-      after();
+      if (after) after();
     }
 }
 })();
