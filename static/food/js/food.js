@@ -45,10 +45,10 @@
   };
   
   //https://www.iconfinder.com/iconsets/musthave
-  var icon_add = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABa0lEQVQ4T6WTzysEYRjHP+/Mrv2hHOTuqJRNOfgPSORHokg4OClHcnVzVygHF6WIcuHMnyCHVRyI3ZYxa23vzOzs7LzamaI0e5i89fTWt/f5vPV5n1cQsXLbHepvfLv5JaLORoZNwMbyFo5vYfsWB0c7xAasLa5T/vCg45Oj48P4gJWFVYxCA63L5PzkND5gfm4Jo+Chd5W5OrtsDYgS1pQ1OTuNUfTQO8tcX9xE+QugYnS/X81MzGP7MpTWkEFVZY1KxcVPV3h27zAtA+oCagIcDfWUCgEje31qfHwK06gHjaF5iXQcHCV5lHmqqgQCNEAI0IsavCVDwNBurxoeGwmaAkDDwvYsqtIh//6AJUoklP97s62BbJYeAqIcpJNZsoM+r2aVbKKOekiBL8An3BuAEiGg1SSKAYnttpFxPdR9Jv4zipxFTUuQKqsfYbFGWfTYuO06yRfxIyweoLuG+iMsFuBfvzFy7FqE33vs2BFqlfN5AAAAAElFTkSuQmCC";
-  var icon_remove = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACrElEQVQ4T42Ty2sTQRzHv5tmk2yyjRNtpfZhL8V6s2KoUNC2XqwgaCsVQcGiFqpHi0c9iRdR/ANE9KR40FIQX4cueKoPaKFoLdSYNtE0abKT1+5s9iW7aUMiHtzTzO7v85md+c6PA4DrHbsPCKIgOWO1pA7dT6YXnXH949SE/F63pqwZtRrO+SCKgjQ5NUV+azpmHj2krMwaJC4c8Erj+/eRyloMMwWFKgbn1nC3ervlK1evkXBLGBZT8SOewotnTylTNLdgeg/pDgZDC2cPHSR8bB22DVC9hFe0SG/H0xFXcHlykjRHRDBWgJcZSCY38Xx2lhqMnRYE34Px/sN9vlQWeoHBAx2yXsRruVAVuFsIBaSJ8+eJGPaBqQV4NROJjTzez89jLBoFn6FgybQL54wS3uTyVDFQ3cL2IYpBv3RhdJSIIQ80tQyv7gEqJvS8AmUlBs7UXPhtjtZgh3UFNYngk86NHCfNAg9dMwHVBPu+CpsVkTXKeJeVG+AGgTOZ3tt6MSKKjy+NjEBjFrR4ElZmA4pdxstMFsyyJu6tZZ7Ux9vwB6EAL50ZGiRECEPPUOixVTRxHlicgSVWxEdZpuZWfNuS2hk48NjwMIkIYZglBnV5Cbqtws/5IaAJmsfCglrEl2y2QeKmEBJ80tixKmxrFpSVr0gV0viQoxho2YUuPohmeFD22PiklLC4ma5JuBvdrfLJI0dJd0s7bM0ES8aR/BXDXGaTskqlL+D3Lwy0tZEePoAd4EA5YF4tYymdonfjmQh3s6dTPjU4SHYGwjAKecSXFyGlM1TdytntE56T+ts7SC/vhw3gm6njc2Kd3vm5Ub1IwQAvnYhGiZpYw1wiWYPrIw7wnBTt7CLOOwdmut14kQQvqt24tfK/utGR6LaF+iRqMf4N/O/8D28HiiCRYqzAAAAAAElFTkSuQmCC";
-  var icon_edit = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABEUlEQVQ4jZ3MMUsCYQDG8ee8IySQbNCLyyEKG/RLNAXicqvQcAeNLrcFLlE0+xHuNpt8wy04rrYm8Q4HQRE56BSC3lSqU1BwCoxM39dnffj9BWyxXvVeEzvtctBwHyRebNu2Nk2lzMlrgJB+qBEeTByiKYpihl+fIO8jTI9PDJEVF1+K2iw+M6PhDuyag4NkQi/c3FkCK5Z3ZbM76qLltpCbn+vXxq0FABsDy9hzPdBvqvtXvvXzrw1swmsDLPjfACteGeDBfwK8+FdgGwwAIgC0ncsjxGRSH/eiPBgAJADY2z8sJ4JBfNBsDqlADVYMANIzKalv/bHaefKsTH9iPFb8ISsGAJym0+Qinz3jQktbAHcxvx3559eSAAAAAElFTkSuQmCC";
-  var icon_up = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAH3SURBVDhPlZK/a1NRFMe/9/1KotLcwbYiipo2NqmDpTpoiJiguPgPCC7iYAcbYp0LxUGkxVr6Y6lgu6iLm4uCQszi4JS6FHQRFMRBDOJrcvPyEs+97+V3A+2Bw7nvcr6f973nXoZ+8RQTqCGn1hrSuIOCWneF5tfO8MWZ2Ax/NPmYB1kop/Z2iV6AL56O3eNj4TP4Lf7iVnSKm7ByWOuFdAJ88d14lp8Oj+P9jw/Y/vMFBgK4GbnNLUaQpU5Iawbt4gEpzqPiVmirprqi/BRKjo0XW5vFSkmkMevNxAM0bPvidyQuuwJuvUrbdTBWh6ZpGOOjEM4Onn/aKIoyQR6gwBriTHzGs/09j5Jbxo5rw67aEDWhfuOiCkM3cO7wWdQcB68+viyKfyKt4zq2s/H7/OJQEj9Lv6BrOkbCJ/H62xvYBHFAx2Aurh5LITJwAgfMIA6GDiEyPBL8/LVwg2GdPHbF/PllLGwtI2CYlBYsqteOp7H6dhFkxEvHqxqmyGB70szkeU2ya+l0eSQOmh5ECR9SzzzlE8oVsN53IKm0LQGmQRCTXBBAfitAV/QBMBLoTRfyKMqBtN0VfQFymAogXZB4Xw6YD9DJheGDDFrvHUDlytHLSB1J4tJwAonBCwSk1l0ArafciDm6Vtko07+qZrqUz9o1wH8prahHZgYc2gAAAABJRU5ErkJggg==";
+  //var icon_add = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABa0lEQVQ4T6WTzysEYRjHP+/Mrv2hHOTuqJRNOfgPSORHokg4OClHcnVzVygHF6WIcuHMnyCHVRyI3ZYxa23vzOzs7LzamaI0e5i89fTWt/f5vPV5n1cQsXLbHepvfLv5JaLORoZNwMbyFo5vYfsWB0c7xAasLa5T/vCg45Oj48P4gJWFVYxCA63L5PzkND5gfm4Jo+Chd5W5OrtsDYgS1pQ1OTuNUfTQO8tcX9xE+QugYnS/X81MzGP7MpTWkEFVZY1KxcVPV3h27zAtA+oCagIcDfWUCgEje31qfHwK06gHjaF5iXQcHCV5lHmqqgQCNEAI0IsavCVDwNBurxoeGwmaAkDDwvYsqtIh//6AJUoklP97s62BbJYeAqIcpJNZsoM+r2aVbKKOekiBL8An3BuAEiGg1SSKAYnttpFxPdR9Jv4zipxFTUuQKqsfYbFGWfTYuO06yRfxIyweoLuG+iMsFuBfvzFy7FqE33vs2BFqlfN5AAAAAElFTkSuQmCC';
+  var icon_remove = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACrElEQVQ4T42Ty2sTQRzHv5tmk2yyjRNtpfZhL8V6s2KoUNC2XqwgaCsVQcGiFqpHi0c9iRdR/ANE9KR40FIQX4cueKoPaKFoLdSYNtE0abKT1+5s9iW7aUMiHtzTzO7v85md+c6PA4DrHbsPCKIgOWO1pA7dT6YXnXH949SE/F63pqwZtRrO+SCKgjQ5NUV+azpmHj2krMwaJC4c8Erj+/eRyloMMwWFKgbn1nC3ervlK1evkXBLGBZT8SOewotnTylTNLdgeg/pDgZDC2cPHSR8bB22DVC9hFe0SG/H0xFXcHlykjRHRDBWgJcZSCY38Xx2lhqMnRYE34Px/sN9vlQWeoHBAx2yXsRruVAVuFsIBaSJ8+eJGPaBqQV4NROJjTzez89jLBoFn6FgybQL54wS3uTyVDFQ3cL2IYpBv3RhdJSIIQ80tQyv7gEqJvS8AmUlBs7UXPhtjtZgh3UFNYngk86NHCfNAg9dMwHVBPu+CpsVkTXKeJeVG+AGgTOZ3tt6MSKKjy+NjEBjFrR4ElZmA4pdxstMFsyyJu6tZZ7Ux9vwB6EAL50ZGiRECEPPUOixVTRxHlicgSVWxEdZpuZWfNuS2hk48NjwMIkIYZglBnV5Cbqtws/5IaAJmsfCglrEl2y2QeKmEBJ80tixKmxrFpSVr0gV0viQoxho2YUuPohmeFD22PiklLC4ma5JuBvdrfLJI0dJd0s7bM0ES8aR/BXDXGaTskqlL+D3Lwy0tZEePoAd4EA5YF4tYymdonfjmQh3s6dTPjU4SHYGwjAKecSXFyGlM1TdytntE56T+ts7SC/vhw3gm6njc2Kd3vm5Ub1IwQAvnYhGiZpYw1wiWYPrIw7wnBTt7CLOOwdmut14kQQvqt24tfK/utGR6LaF+iRqMf4N/O/8D28HiiCRYqzAAAAAAElFTkSuQmCC';
+  var icon_edit = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABEUlEQVQ4jZ3MMUsCYQDG8ee8IySQbNCLyyEKG/RLNAXicqvQcAeNLrcFLlE0+xHuNpt8wy04rrYm8Q4HQRE56BSC3lSqU1BwCoxM39dnffj9BWyxXvVeEzvtctBwHyRebNu2Nk2lzMlrgJB+qBEeTByiKYpihl+fIO8jTI9PDJEVF1+K2iw+M6PhDuyag4NkQi/c3FkCK5Z3ZbM76qLltpCbn+vXxq0FABsDy9hzPdBvqvtXvvXzrw1swmsDLPjfACteGeDBfwK8+FdgGwwAIgC0ncsjxGRSH/eiPBgAJADY2z8sJ4JBfNBsDqlADVYMANIzKalv/bHaefKsTH9iPFb8ISsGAJym0+Qinz3jQktbAHcxvx3559eSAAAAAElFTkSuQmCC';
+  var icon_up = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAH3SURBVDhPlZK/a1NRFMe/9/1KotLcwbYiipo2NqmDpTpoiJiguPgPCC7iYAcbYp0LxUGkxVr6Y6lgu6iLm4uCQszi4JS6FHQRFMRBDOJrcvPyEs+97+V3A+2Bw7nvcr6f973nXoZ+8RQTqCGn1hrSuIOCWneF5tfO8MWZ2Ax/NPmYB1kop/Z2iV6AL56O3eNj4TP4Lf7iVnSKm7ByWOuFdAJ88d14lp8Oj+P9jw/Y/vMFBgK4GbnNLUaQpU5Iawbt4gEpzqPiVmirprqi/BRKjo0XW5vFSkmkMevNxAM0bPvidyQuuwJuvUrbdTBWh6ZpGOOjEM4Onn/aKIoyQR6gwBriTHzGs/09j5Jbxo5rw67aEDWhfuOiCkM3cO7wWdQcB68+viyKfyKt4zq2s/H7/OJQEj9Lv6BrOkbCJ/H62xvYBHFAx2Aurh5LITJwAgfMIA6GDiEyPBL8/LVwg2GdPHbF/PllLGwtI2CYlBYsqteOp7H6dhFkxEvHqxqmyGB70szkeU2ya+l0eSQOmh5ECR9SzzzlE8oVsN53IKm0LQGmQRCTXBBAfitAV/QBMBLoTRfyKMqBtN0VfQFymAogXZB4Xw6YD9DJheGDDFrvHUDlytHLSB1J4tJwAonBCwSk1l0ArafciDm6Vtko07+qZrqUz9o1wH8prahHZgYc2gAAAABJRU5ErkJggg==';
   
   var foodlist = [];
   var foodquickpick = [];
@@ -58,22 +58,29 @@
   
 
   // Fetch data from mongo
-  $('#fe_status').hide().text('Loading food database ...').fadeIn("slow");
+  $('#fe_status').hide().text('Loading food database ...').fadeIn('slow');
   $.ajax('/api/v1/food.json', {
     success: function (records) {
       records.forEach(function (r) {
-        if (r.type == 'food') {
+        if (r.type === 'food') {
           foodlist.push(r);
-          if (r.category && !categories[r.category]) categories[r.category] = {};
-          if (r.category && r.subcategory) categories[r.category][r.subcategory] = true;
-        } else if (r.type == 'quickpick') calculateCarbs(foodquickpick.push(r)-1);
-        else console.log('Unknown food database record');
+          if (r.category && !categories[r.category]) {
+            categories[r.category] = {};
+          }
+          if (r.category && r.subcategory) {
+            categories[r.category][r.subcategory] = true;
+          }
+        } else if (r.type == 'quickpick') {
+          calculateCarbs(foodquickpick.push(r)-1);
+        } else {
+          console.log('Unknown food database record');
+        }
       });
-      $('#fe_status').hide().text(translate('Database loaded')).fadeIn("slow");
+      $('#fe_status').hide().text(translate('Database loaded')).fadeIn('slow');
       foodquickpick.sort(function (a,b) { return cmp(parseInt(a.position),parseInt(b.position)) });
     },
     error: function () {
-      $('#fe_status').hide().text(translate('Error: Database failed to load')).fadeIn("slow");
+      $('#fe_status').hide().text(translate('Error: Database failed to load')).fadeIn('slow');
     }
   }).done(initeditor);
   
@@ -88,10 +95,18 @@
     $('#fe_filter_subcategory').change(doFilter);
     $('#fe_quickpick_showhidden').change(showHidden);
     $('#fe_filter_name').on('input',doFilter);
-    $('#fe_category_list').change(function(event) { $('#fe_category').val($('#fe_category_list').val()); fillSubcategories(event,true) });
-    $('#fe_subcategory_list').change(function(event) { $('#fe_subcategory').val($('#fe_subcategory_list').val())});
+    $('#fe_category_list').change(function(event) { 
+      $('#fe_category').val($('#fe_category_list').val()); 
+      fillSubcategories(event,true);
+    });
+    $('#fe_subcategory_list').change(function(event) { 
+      $('#fe_subcategory').val($('#fe_subcategory_list').val());
+      event.preventDefault();
+    });
     $('#fe_unit').empty();
-    for (var u=0; u<foodunits.length; u++) $('#fe_unit').append(new Option(translate(foodunits[u]),foodunits[u]));
+    for (var u=0; u<foodunits.length; u++) {
+      $('#fe_unit').append(new Option(translate(foodunits[u]),foodunits[u]));
+    }
   
     // Set values from profile to html
     fillForm();
@@ -102,7 +117,7 @@
   }
   
   function updateSaveButton(event) {
-    if($('#fe_id').val()=='') {
+    if($('#fe_id').val()==='') {
       $('#fe_editcreate').text(translate('Create new record'));
     } else {
       $('#fe_editcreate').text(translate('Save record'));
@@ -120,18 +135,22 @@
     if (!editrec) {
       filter.subcategory = '';
       $('#fe_filter_subcategory').empty().append(new Option(translate('(none)'),''));
-      if (filter.category != '') {
+      if (filter.category !== '') {
         for (s in categories[filter.category]) {
-          $('#fe_filter_subcategory').append(new Option(s,s));
+          if (categories.hasOwnProperty(s)) {
+            $('#fe_filter_subcategory').append(new Option(s,s));
+          }
         }
       }
       doFilter();
     } else {
       foodrec.subcategory = '';
       $('#fe_subcategory_list').empty().append(new Option(translate('(none)'),''));
-      if (foodrec.category != '') {
+      if (foodrec.category !== '') {
         for (s in categories[foodrec.category]) {
-          $('#fe_subcategory_list').append(new Option(s,s));
+          if (categories.hasOwnProperty(s)) {
+            $('#fe_subcategory_list').append(new Option(s,s));
+          }
         }
       }
       $('#fe_subcategory').val('');
@@ -139,17 +158,21 @@
   }
   
   function doEdit(index) {
-    foodrec = clone(foodlist[index]);
+    foodrec = _.cloneDeep(foodlist[index]);
     objectToGUI();
     updateSaveButton();
   }
   
   function updateFoodArray(newrec) {
     for (var i=0; i<foodlist.length; i++) {
-      if (foodlist[i]._id == newrec._id) {
-        foodlist[i] = clone(newrec);
-        if (newrec.category && !categories[newrec.category]) categories[newrec.category] = {};
-        if (newrec.category && newrec.subcategory) categories[newrec.category][newrec.subcategory] = true;
+      if (foodlist[i]._id === newrec._id) {
+        foodlist[i] = _.cloneDeep(newrec);
+        if (newrec.category && !categories[newrec.category]) {
+          categories[newrec.category] = {};
+        }
+        if (newrec.category && newrec.subcategory) {
+          categories[newrec.category][newrec.subcategory] = true;
+        }
         return;
       }
     }
@@ -159,8 +182,10 @@
     $('#fe_filter_category').empty().append(new Option(translate('(none)'),''));
     $('#fe_category_list').empty().append(new Option(translate('(none)'),''));
     for (var s in categories) {
-      $('#fe_filter_category').append(new Option(s,s));
-      $('#fe_category_list').append(new Option(s,s));
+      if (categories.hasOwnProperty(s)) {
+        $('#fe_filter_category').append(new Option(s,s));
+        $('#fe_category_list').append(new Option(s,s));
+      }
     }
     fillSubcategories();
     drawQuickpick();
@@ -173,7 +198,9 @@
   }
   
   function doFilter(event) {
-    if (event) GUIToObject();
+    if (event) {
+      GUIToObject();
+    }
     var html = '';
     $('#fe_data_header').html(
       '<span class="width50px"></span>'+
@@ -186,9 +213,9 @@
       '<span class="width150px">'+translate('Subcategory')+'</span>'
     );
     for (var i=0; i<foodlist.length; i++) {
-      if (filter.category != '' && foodlist[i].category != filter.category) continue;
-      if (filter.subcategory != '' && foodlist[i].subcategory != filter.subcategory) continue;
-      if (filter.name!= '' && foodlist[i].name.toLowerCase().indexOf(filter.name.toLowerCase())<0) continue;
+      if (filter.category !== '' && foodlist[i].category != filter.category) { continue; }
+      if (filter.subcategory !== '' && foodlist[i].subcategory !== filter.subcategory) { continue; }
+      if (filter.name !== '' && foodlist[i].name.toLowerCase().indexOf(filter.name.toLowerCase()) < 0) { continue; }
       html += '<div index="'+i+'" class="draggablefood" style="background-color:gray;border: 2px solid #000;cursor:move;">';
       html += '<span class="width50px">';
       html += '<img style="cursor:pointer" title="'+translate('Edit record')+'" src="'+icon_edit+'" href="#" onclick="doEdit('+i+'); return false;"> ';
@@ -213,7 +240,7 @@
       },
 //        start: function () { g_actions_dragorigin = 'draggablefood'; },
       scope: 'foodlist',
-      revert: "invalid"
+      revert: 'invalid'
     });
 
     if (event) {
@@ -237,7 +264,9 @@
   
   function quickpickFindById(_id) {
     for (var i=0; i<foodquickpick.length; i++) {
-      if (foodquickpick[i]._id == _id) return foodquickpick[i];
+      if (foodquickpick[i]._id === _id) {
+        return foodquickpick[i];
+      }
     }
     return null;
   }
@@ -256,7 +285,7 @@
     var hiddentotal = 0;
     for (var i=0; i<foodquickpick.length; i++) {
       var q = foodquickpick[i];
-      if (showhidden == false && q.hidden) { hiddentotal++; continue; }
+      if (showhidden === false && q.hidden) { hiddentotal++; continue; }
       html += '<fieldset class="sortablequickpick" index="'+i+'" _id="'+q._id+'" style="cursor:move;background-color:#383838" >';
       html += '<legend>';
       html += '<img style="cursor:pointer" title="'+translate('Move to the top')+'" src="'+icon_up+'" href="#" onclick="return quickpickMoveToTop('+i+');">';
@@ -300,22 +329,26 @@
     $('.fq_name').change(function (event) {
       var index = $(this).attr('index');
       foodquickpick[index].name = $(this).val();
+      event.preventDefault();
     });
     $('.fq_hidden').change(function (event) {
       var index = $(this).attr('index');
       foodquickpick[index].hidden = this.checked;
-      if (!this.checked)
+      if (!this.checked) {
         foodquickpick.splice(0, 0, foodquickpick.splice(index, 1)[0]);
+      }
       drawQuickpick();
+      event.preventDefault();
     });
     
     $('.fq_hideafteruse').change(function (event) {
       var index = $(this).attr('index');
       foodquickpick[index].hideafteruse = this.checked;
+      event.preventDefault();
     });
     
     $('.sortablequickpick').droppable({
-      hoverClass: "ui-state-hover",
+      hoverClass: 'ui-state-hover',
       drop: dropFood,
       scope: 'foodlist',
       greedy: true
@@ -323,7 +356,7 @@
     $('#fe_picklist').sortable({
         revert: true
       , axis: 'y'
-      , placeholder: "highlight"
+      , placeholder: 'highlight'
       , update: resortArray
     });
   }
@@ -419,8 +452,10 @@
   }
   
   function clearRec(event) {
-    if (event) event.preventDefault();
-    foodrec = clone(foodrec_template);
+    if (event) {
+      event.preventDefault();
+    }
+    foodrec = _.cloneDeep(foodrec_template);
     objectToGUI();
     updateSaveButton();
     return false;
@@ -433,25 +468,29 @@
       alert(translate('Your device is not authenticated yet'));
       return false;
     }
-      
+     
+    var dataJson = JSON.stringify(foodrec, null, ' ');
+    var xhr;
     if ($('#fe_editcreate').text().indexOf(translate('Create new record'))>-1) {
       
       // remove _id when creating new record
       delete foodrec._id;
       
-      var dataJson = JSON.stringify(foodrec, null, ' ');
-
-      var xhr = new XMLHttpRequest();
+      xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/v1/food/', true);
       xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
       xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
       xhr.onload = function () {
-        $('#fe_status').hide().text(xhr.statusText).fadeIn("slow");
+        $('#fe_status').hide().text(xhr.statusText).fadeIn('slow');
         if (xhr.statusText=='OK') {
           var newrec = JSON.parse(xhr.responseText)[0];
           foodlist.push(newrec);
-          if (foodrec.category && !categories[foodrec.category]) categories[foodrec.category] = {};
-          if (foodrec.category && foodrec.subcategory) categories[foodrec.category][foodrec.subcategory] = true;
+          if (foodrec.category && !categories[foodrec.category]) {
+            categories[foodrec.category] = {};
+          }
+          if (foodrec.category && foodrec.subcategory) {
+            categories[foodrec.category][foodrec.subcategory] = true;
+          }
           clearRec();
           fillForm();
         }
@@ -459,14 +498,12 @@
       xhr.send(dataJson);
     } else {
       // Update record
-      var dataJson = JSON.stringify(foodrec, null, ' ');
-
-      var xhr = new XMLHttpRequest();
+      xhr = new XMLHttpRequest();
       xhr.open('PUT', '/api/v1/food/', true);
       xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
       xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
       xhr.onload = function () {
-        $('#fe_status').hide().text(xhr.statusText).fadeIn("slow");
+        $('#fe_status').hide().text(xhr.statusText).fadeIn('slow');
         if (xhr.statusText=='OK') {
           updateFoodArray(foodrec);
           clearRec();
@@ -476,7 +513,9 @@
       xhr.send(dataJson);
     }
 
-    if (event) event.preventDefault();
+    if (event) {
+      event.preventDefault();
+    }
     return false;
   }
 
@@ -493,7 +532,7 @@
     xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
     xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
     xhr.onload = function () {
-      $('#fe_status').hide().text(xhr.statusText).fadeIn("slow");
+      $('#fe_status').hide().text(xhr.statusText).fadeIn('slow');
       if (xhr.statusText=='OK') {
       }
     }
@@ -520,7 +559,7 @@
 
   function quickpickCreateRecord(event) {
     try {
-      var newrec = clone(quickpickrec_template);
+      var newrec = _.cloneDeep(quickpickrec_template);
       
       if (!Nightscout.auth.isAuthenticated()) {
         alert(translate('Your device is not authenticated yet'));
@@ -537,7 +576,7 @@
       xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
       xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
       xhr.onload = function () {
-        $('#fe_status').hide().text(xhr.statusText).fadeIn("slow");
+        $('#fe_status').hide().text(xhr.statusText).fadeIn('slow');
         if (xhr.statusText=='OK') {
           var newrec = JSON.parse(xhr.responseText)[0];
           foodquickpick.push(newrec);
@@ -564,12 +603,17 @@
     
     for (var i=0; i<foodquickpick.length; i++) {
       var fqp = foodquickpick[i];
-      if (fqp.hidden) fqp.position = HIDDEN;
-      else fqp.position = i;
+      if (fqp.hidden) {
+        fqp.position = HIDDEN;
+      } else {
+        fqp.position = i;
+      }
       updateRecord(fqp);
     }
     
-    if (event) event.preventDefault();
+    if (event) {
+      event.preventDefault();
+    }
     return false;
   }
   
