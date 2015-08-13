@@ -194,6 +194,14 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `errorcodes` (CGM Error Codes) - Generates alarms for CGM codes `9` (hourglass) and `10` (???).  **Enabled by default.**
   * `treatmentnotify` (Treatment Notifications) - Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.  Default snooze is 10 minutes, and can be set using the `TREATMENTNOTIFY_SNOOZE_MINS` [extended setting](#extended-settings).
   * `basal` (Basal Profile) - Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile).
+  * `bridge` (Share2Nightscout bridge) - Glucose reading directly from the Share service, uses these extended settings:
+    * `BRIDGE_USER_NAME` - Your user name for the Share service.
+    * `BRIDGE_PASSWORD` - Your password for the Share service.
+    * `BRIDGE_INTERVAL` (`150000` *2.5 minutes*) - The time to wait between each update.
+    * `BRIDGE_MAX_COUNT` (`1`) - The maximum number of records to fetch per update.
+    * `BRIDGE_FIRST_FETCH_COUNT` (`3`) - Changes max count during the very first update only.
+    * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
+    * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (default is one day in minutes).
   
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
  
