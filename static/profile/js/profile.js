@@ -1,6 +1,10 @@
 'use strict';
 
-
+//for the tests window isn't the global object
+var $ = window.$;
+var _ = window._;
+var moment = window.moment;
+var Nightscout = window.Nightscout;
 
 (function () {
   var c_profile = null;
@@ -123,7 +127,7 @@
     // Load timezones
     $('#pe_timezone').empty();
     moment.tz.names().forEach(function addTz(tz) {
-      $('#pe_timezone').append(new Option(tz,tz));
+      $('#pe_timezone').append('<option value="' + tz + '">' + tz + '</option>');
     });
 
     $('#pe_form').find('button').click(profileSubmit);
@@ -225,17 +229,24 @@
       var tr = $('<tr>');
       var select = $('<select>').attr('class','pe_selectabletime').attr('id',e.prefix+'_from_'+i);
       var lowesttime=-1;
+      var selectedValue;
       for (var t=0;t<48;t++) {
         if (shouldAddTime(i,t,e.array)) { 
-          if (lowesttime === -1) { lowesttime = t*30; } 
-          var selected = toMinutesFromMidnight(c_profile[e.array][i].time) === t*30;
-          select.append(new Option(serverSettings.settings.timeFormat==='24' ? mmoltime[t] : mgtime[t], toTimeString(t*30),selected,selected));
+          if (lowesttime === -1) { lowesttime = t*30; }
+          var label = serverSettings.settings.timeFormat==='24' ? mmoltime[t] : mgtime[t];
+          var value = toTimeString(t*30);
+          if (toMinutesFromMidnight(c_profile[e.array][i].time) === t*30) {
+            selectedValue = value;
           }
+          select.append('<option value="' + value + '">' + label + '</option>');
+        }
       }
+      select.val(selectedValue);
+
       tr.append($('<td>').append('From: ').append(select));
       tr.append($('<td>').append(e.label).append($('<input type="text">').attr('id',e.prefix+'_val_'+i).attr('value',c_profile[e.array][i].value)));
       var icons_td = $('<td>').append($('<img>').attr('class','addsingle').attr('style','cursor:pointer').attr('title','Add new interval before').attr('src',icon_add).attr('array',e.array).attr('pos',i));
-      if (c_profile[e.array].lenght>1) {
+      if (c_profile[e.array].length>1) {
         icons_td.append($('<img>').attr('class','delsingle').attr('style','cursor:pointer').attr('title','Delete interval').attr('src',icon_remove).attr('array',e.array).attr('pos',i));
       }
       tr.append(icons_td);
@@ -281,13 +292,21 @@
       var tr = $('<tr>');
       var select = $('<select>').attr('class','pe_selectabletime').attr('id','pe_targetbg_from_'+i);
       var lowesttime=-1;
+      var selectedValue;
       for (var t=0;t<48;t++) {
         if (shouldAddTime(i,t,'target_low')) {
           if (lowesttime === -1) { lowesttime = t*30; }
-          var selected = toMinutesFromMidnight(c_profile.target_low[i].time) === t*30;
-          select.append(new Option(serverSettings.settings.timeFormat==='24' ? mmoltime[t] : mgtime[t], toTimeString(t*30),selected,selected));
+          var label = serverSettings.settings.timeFormat==='24' ? mmoltime[t] : mgtime[t];
+          var value = toTimeString(t*30);
+          console.info('>>>>>value', value);
+          if (toMinutesFromMidnight(c_profile.target_low[i].time) === t*30) {
+            selectedValue = value;
+            console.info('>>>>>selectedValue', selectedValue);
+          }
+          select.append('<option value="' + value + '">' + label + '</option>');
         }
       }
+      select.val(selectedValue);
       tr.append($('<td>').append('From: ').append(select));
       tr.append($('<td>').append('Low : ').append($('<input type="text">').attr('id','pe_targetbg_low_'+i).attr('value',c_profile.target_low[i].value)));
       tr.append($('<td>').append('High : ').append($('<input type="text">').attr('id','pe_targetbg_high_'+i).attr('value',c_profile.target_high[i].value)));
