@@ -60,8 +60,8 @@
   // Fetch data from mongo
   $('#fe_status').hide().text('Loading food database ...').fadeIn('slow');
   $.ajax('/api/v1/food.json', {
-    success: function (records) {
-      records.forEach(function (r) {
+    success: function ajaxSuccess(records) {
+      records.forEach(function processRecords(r) {
         if (r.type === 'food') {
           foodlist.push(r);
           if (r.category && !categories[r.category]) {
@@ -77,9 +77,9 @@
         }
       });
       $('#fe_status').hide().text(translate('Database loaded')).fadeIn('slow');
-      foodquickpick.sort(function (a,b) { return cmp(parseInt(a.position),parseInt(b.position)) });
+      foodquickpick.sort(function compare(a,b) { return cmp(parseInt(a.position),parseInt(b.position)) });
     },
-    error: function () {
+    error: function ajaxError() {
       $('#fe_status').hide().text(translate('Error: Database failed to load')).fadeIn('slow');
     }
   }).done(initeditor);
@@ -95,11 +95,11 @@
     $('#fe_filter_subcategory').change(doFilter);
     $('#fe_quickpick_showhidden').change(showHidden);
     $('#fe_filter_name').on('input',doFilter);
-    $('#fe_category_list').change(function(event) { 
+    $('#fe_category_list').change(function categoryListChange(event) { 
       $('#fe_category').val($('#fe_category_list').val()); 
       fillEditSubcategories(event);
     });
-    $('#fe_subcategory_list').change(function(event) { 
+    $('#fe_subcategory_list').change(function subcategoryListChange(event) { 
       $('#fe_subcategory').val($('#fe_subcategory_list').val());
       event.preventDefault();
     });
@@ -239,7 +239,7 @@
     $('.fe_removeimg').click(deleteFoodRecord);
     
     $('.draggablefood').draggable({
-      helper: function(){
+      helper: function keepDraggedSize(){
         return $(this).clone().width($(this).width()).height($(this).height());
       },
       scope: 'foodlist',
@@ -274,6 +274,25 @@
   }
   
   function drawQuickpick() {
+    
+    function addHeaderOrHint(q,i) {
+      if (q.foods.length) {
+        $('#fe_qpfieldset_'+i)
+          .append($('<span>').addClass('width50px'))
+          .append($('<span>').addClass('width200px').append(translate('Name')))
+          .append($('<span>').addClass('width150px').css('text-align','center').append(translate('Portion')))
+          .append($('<span>').addClass('width100px').css('text-align','center').append(translate('Carbs')))
+          .append($('<br>'));
+      } else {
+        $('#fe_qpfieldset_'+i)
+          .append($('<i>').append('-&gt; ' + translate('Drag&drop food here')));
+      }
+    }
+    
+    function addHiddenCount(hiddentotal) {
+      $('#fe_quickpick_hiddencount').text(hiddentotal ? (' ('+hiddentotal+')') : '');
+    }
+    
     var hiddentotal = 0;
     $('#fe_picklist').empty();
     for (var i=0; i<foodquickpick.length; i++) {
@@ -295,18 +314,8 @@
           )
         );
         
-      if (q.foods.length) {
-        $('#fe_qpfieldset_'+i)
-          .append($('<span>').addClass('width50px'))
-          .append($('<span>').addClass('width200px').append(translate('Name')))
-          .append($('<span>').addClass('width150px').css('text-align','center').append(translate('Portion')))
-          .append($('<span>').addClass('width100px').css('text-align','center').append(translate('Carbs')))
-          .append($('<br>'));
-      } else {
-        $('#fe_qpfieldset_'+i)
-          .append($('<i>').append('-&gt; ' + translate('Drag&drop food here')));
-      }
-
+      addHeaderOrHint(q,i);
+      
       for (var j=0;j<q.foods.length; j++) {
         var r = q.foods[j];
         $('#fe_qpfieldset_'+i)
@@ -328,14 +337,14 @@
     $('.fe_qpfoodremoveimg').click(deleteQuickpickFood);
     $('.fe_qpportions').change(savePortions);
 
-    $('#fe_quickpick_hiddencount').text(hiddentotal ? (' ('+hiddentotal+')') : '');
-
-    $('.fe_qpname').change(function (event) {
+    addHiddenCount(hiddentotal);
+    
+    $('.fe_qpname').change(function nameChange(event) {
       var index = $(this).attr('index');
       foodquickpick[index].name = $(this).val();
       event.preventDefault();
     });
-    $('.fq_hidden').change(function (event) {
+    $('.fq_hidden').change(function hiddenChange(event) {
       var index = $(this).attr('index');
       foodquickpick[index].hidden = this.checked;
       if (!this.checked) {
@@ -345,7 +354,7 @@
       event.preventDefault();
     });
     
-    $('.fq_hideafteruse').change(function (event) {
+    $('.fq_hideafteruse').change(function hideAfterUseChange(event) {
       var index = $(this).attr('index');
       foodquickpick[index].hideafteruse = this.checked;
       event.preventDefault();
@@ -494,7 +503,7 @@
       xhr.open('POST', '/api/v1/food/', true);
       xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
       xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
-      xhr.onload = function () {
+      xhr.onload = function onload() {
         $('#fe_status').hide().text(xhr.statusText).fadeIn('slow');
         if (xhr.statusText==='OK') {
           var newrec = JSON.parse(xhr.responseText)[0];
@@ -516,7 +525,7 @@
       xhr.open('PUT', '/api/v1/food/', true);
       xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
       xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
-      xhr.onload = function () {
+      xhr.onload = function onload() {
         $('#fe_status').hide().text(xhr.statusText).fadeIn('slow');
         if (xhr.statusText==='OK') {
           updateFoodArray(foodrec);
@@ -541,7 +550,7 @@
     xhr.open('DELETE', '/api/v1/food/'+_id, true);
     xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
     xhr.setRequestHeader('api-secret', Nightscout.client.hashauth.hash());
-    xhr.onload = function () {
+    xhr.onload = function onload() {
       $('#fe_status').hide().text(xhr.statusText).fadeIn('slow');
       if (xhr.statusText==='OK') {
       }
@@ -586,7 +595,7 @@
     xhr.open('POST', '/api/v1/food/', true);
     xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
     xhr.setRequestHeader('api-secret', Nightscout.auth.hash());
-    xhr.onload = function () {
+    xhr.onload = function onload() {
       $('#fe_status').hide().text(xhr.statusText).fadeIn('slow');
       if (xhr.statusText==='OK') {
         var newrec = JSON.parse(xhr.responseText)[0];
