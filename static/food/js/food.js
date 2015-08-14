@@ -3,7 +3,6 @@
 //for the tests window isn't the global object
 var $ = window.$;
 var _ = window._;
-var moment = window.moment;
 var Nightscout = window.Nightscout;
 
 (function () {
@@ -64,7 +63,7 @@ var Nightscout = window.Nightscout;
   
   function restoreBoolValue(record,key) {
     if (typeof record[key] !== 'undefined') {
-      record[key] = record[key] === "true";
+      record[key] = record[key] === 'true';
     }
   }
   
@@ -549,7 +548,7 @@ var Nightscout = window.Nightscout;
         {
             request.setRequestHeader('api-secret', Nightscout.client.hashauth.hash());
         },
-      }).done(function success (response) {
+      }).done(function success () {
         $('#fe_status').hide().text('OK').fadeIn('slow');
         updateFoodArray(foodrec);
         clearRec();
@@ -577,7 +576,7 @@ var Nightscout = window.Nightscout;
       {
           request.setRequestHeader('api-secret', Nightscout.client.hashauth.hash());
       },
-    }).done(function success (response) {
+    }).done(function success () {
       $('#fe_status').hide().text('OK').fadeIn('slow');
      }).fail(function fail() {
       $('#fe_status').hide().text(translate('Error')).fadeIn('slow');
