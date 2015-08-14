@@ -37,9 +37,10 @@
 .sortablequickpick {
   cursor: move;
   background-color: #383838;
+  border-radius: 8px;
 }
 
-.fe_qpeditimg .fe_qpremoveimg .fe_editimg .fe_removeimg .fe_upimg .fe_qpfoodremoveimg {
+.fe_qpeditimg, .fe_qpremoveimg, .fe_editimg, .fe_removeimg, .fe_qpupimg, .fe_qpfoodremoveimg {
   cursor: pointer;
 }
 
