@@ -8,6 +8,12 @@
   margin-left: auto;
   text-align: center;
 }
+
+#fe_form {
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
 .width50px {
   display: inline-block;
   width: 50px;
