@@ -7,9 +7,13 @@
   var Nightscout = window.Nightscout;
 
   var c_profile = null;
-  
-  //var moment = require('moment-timezone');
-  
+
+  //some commonly used selectors
+  var timezoneInput = $('#pe_timezone');
+  var timeInput = $('#pe_time');
+  var dateInput = $('#pe_date');
+  var submitButton = $('#pe_submit');
+
   if (serverSettings === undefined) {
     console.error('server settings were not loaded, will not call init');
   } else {
@@ -28,12 +32,12 @@
           'time': '00:00',
           'value': 30
         }],
-      'carbs_hr':30,
+      'carbs_hr': 20,
       'delay': 20,
       'sens': [
         {
           'time': '00:00',
-          'value': 17
+          'value': 100
         }],
       'startDate': new Date(),
       'timezone': 'UTC',
@@ -125,9 +129,9 @@
   
   function initeditor() {
     // Load timezones
-    $('#pe_timezone').empty();
+    timezoneInput.empty();
     moment.tz.names().forEach(function addTz(tz) {
-      $('#pe_timezone').append('<option value="' + tz + '">' + tz + '</option>');
+      timezoneInput.append('<option value="' + tz + '">' + tz + '</option>');
     });
 
     $('#pe_form').find('button').click(profileSubmit);
@@ -143,8 +147,8 @@
     var lastvalidfrom = new Date(mongoprofiles[1] && mongoprofiles[1].startDate ? mongoprofiles[1].startDate : null);
     
     //timepicker
-    $('#pe_date').on('change', dateChanged);
-    $('#pe_time').on('change', dateChanged);
+    dateInput.on('change', dateChanged);
+    timeInput.on('change', dateChanged);
 
   
     // Set values from profile to html
@@ -165,22 +169,22 @@
   
   // Handling valid from date change
   function dateChanged(event) {
-    var newdate = new Date(Nightscout.client.utils.mergeInputTime($('#pe_time').val(), $('#pe_date').val()));
+    var newdate = new Date(Nightscout.client.utils.mergeInputTime(timeInput.val(), dateInput.val()));
     if (mongoprofiles.length<2 || !mongoprofiles[1].startDate || mongoprofiles.length>=2 && new Date(mongoprofiles[1].startDate).getTime() === newdate.getTime()) {
-      $('#pe_submit').text('Update record').css('display','');
-      $('#pe_time').css({'background-color':'white'});
-      $('#pe_date').css({'background-color':'white'});
-      $('#pe_submit').css({'background-color':'buttonface'});
+      submitButton.text('Update record').css('display','');
+      timeInput.css({'background-color':'white'});
+      dateInput.css({'background-color':'white'});
+      submitButton.css({'background-color':'buttonface'});
     } else if (mongoprofiles.length<2 || new Date(mongoprofiles[1].startDate).getTime() < newdate.getTime()) {
-      $('#pe_submit').text('Create new record').css('display','');
-      $('#pe_time').css({'background-color':'green'});
-      $('#pe_date').css({'background-color':'green'});
-      $('#pe_submit').css({'background-color':'green'});
+      submitButton.text('Create new record').css('display','');
+      timeInput.css({'background-color':'green'});
+      dateInput.css({'background-color':'green'});
+      submitButton.css({'background-color':'green'});
     } else {
-      $('#pe_submit').css('display','none');
-      $('#pe_time').css({'background-color':'red'});
-      $('#pe_date').css({'background-color':'red'});
-      $('#pe_submit').css({'background-color':'red'});
+      submitButton.css('display','none');
+      timeInput.css({'background-color':'red'});
+      dateInput.css({'background-color':'red'});
+      submitButton.css({'background-color':'red'});
     }
     if (event) {
       event.preventDefault();
@@ -202,45 +206,32 @@
   }
   
   function fillTimeRanges(event) {
-    var mmoltime = [
-      '0:00','0:30','1:00','1:30','2:00','2:30','3:00','3:30','4:00','4:30','5:00','5:30',
-      '6:00','6:30','7:00','7:30','8:00','8:30','9:00','9:30','10:00','10:30','11:00','11:30',
-      '12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30',
-      '18:00','18:30','19:00','19:30','20:00','20:30','21:00','21:30','22:00','22:30','23:00','23:30'
-    ];
-    var mgtime = [
-      '12:00AM','0:30AM','1:00AM','1:30AM','2:00AM','2:30AM','3:00AM','3:30AM','4:00AM','4:30AM','5:00AM','5:30AM',
-      '6:00AM','6:30AM','7:00AM','7:30AM','8:00AM','8:30AM','9:00AM','9:30AM','10:00AM','10:30AM','11:00AM','11:30AM',
-      '12:00PM','0:30PM','1:00PM','1:30PM','2:00PM','2:30PM','3:00PM','3:30PM','4:00PM','4:30PM','5:00PM','5:30PM',
-      '6:00PM','6:30PM','7:00PM','7:30PM','8:00PM','8:30PM','9:00PM','9:30PM','10:00PM','10:30PM','11:00PM','11:30PM'
-    ];
     if (event) {
       GUIToObject();
     }
     
-    function shouldAddTime(i,time,array) {
-      if (i===0 && time>0) { return false; }
-      if (i>0 && isNaN(toMinutesFromMidnight(c_profile[array][i-1].time))) { return false; }
-      if (i>0 && toMinutesFromMidnight(c_profile[array][i-1].time) >= time*30) { return false; } 
-      return true;
+    function shouldAddTime(i, time, array) {
+      if (i === 0 && time === 0) {
+        return true;
+      } else if (i === 0) {
+        return false;
+      } else {
+        var minutesFromMidnight = toMinutesFromMidnight(c_profile[array][i - 1].time);
+        return !isNaN(minutesFromMidnight) && minutesFromMidnight < time * 30;
+      }
     }
  
     function addSingleLine(e,i) {
       var tr = $('<tr>');
       var select = $('<select>').attr('class','pe_selectabletime').attr('id',e.prefix+'_from_'+i);
-      var lowesttime=-1;
-      var selectedValue;
+      var lowest = -1;
       for (var t=0;t<48;t++) {
-        if (shouldAddTime(i,t,e.array)) { 
-          if (lowesttime === -1) { lowesttime = t*30; }
-          var label = serverSettings.settings.timeFormat==='24' ? mmoltime[t] : mgtime[t];
-          var value = toTimeString(t*30);
-          if (toMinutesFromMidnight(c_profile[e.array][i].time) === t*30) {
-            selectedValue = value;
-          }
-          select.append('<option value="' + value + '">' + label + '</option>');
+        if (shouldAddTime(i, t, e.array)) {
+          if (lowest === -1) { lowest = t*30; }
+          select.append('<option value="' + toTimeString(t*30) + '">' + toDisplayTime(t*30) + '</option>');
         }
       }
+      var selectedValue = toMinutesFromMidnight(c_profile[e.array][i].time) * 30;
       select.val(selectedValue);
 
       tr.append($('<td>').append('From: ').append(select));
@@ -251,17 +242,17 @@
       }
       tr.append(icons_td);
         
-      if (lowesttime>toMinutesFromMidnight(c_profile[e.array][i].time)) { 
-        c_profile[e.array][i].time = toTimeString(lowesttime);
+      if (lowest>toMinutesFromMidnight(c_profile[e.array][i].time)) {
+        c_profile[e.array][i].time = toTimeString(lowest);
       }
       return tr[0].outerHTML;
     }
     
     // Fill dropdown boxes
-    [{prefix:'pe_basal', array:'basal', label:'Rate: '},
+    _.forEach([{prefix:'pe_basal', array:'basal', label:'Rate: '},
      {prefix:'pe_ic', array:'carbratio', label:'IC: '},
      {prefix:'pe_isf', array:'sens', label:'ISF: '}
-    ].forEach(function (e) {
+    ], function (e) {
       var html = '<table>';
       for (var i=0; i<c_profile[e.array].length; i++) {
         html += addSingleLine(e,i);
@@ -292,18 +283,13 @@
       var tr = $('<tr>');
       var select = $('<select>').attr('class','pe_selectabletime').attr('id','pe_targetbg_from_'+i);
       var lowesttime=-1;
-      var selectedValue;
       for (var t=0;t<48;t++) {
-        if (shouldAddTime(i,t,'target_low')) {
+        if (shouldAddTime(i, t, 'target_low')) {
           if (lowesttime === -1) { lowesttime = t*30; }
-          var label = serverSettings.settings.timeFormat==='24' ? mmoltime[t] : mgtime[t];
-          var value = toTimeString(t*30);
-          if (toMinutesFromMidnight(c_profile.target_low[i].time) === t*30) {
-            selectedValue = value;
-          }
-          select.append('<option value="' + value + '">' + label + '</option>');
+          select.append('<option value="' + toTimeString(t*30) + '">' + toDisplayTime(t*30) + '</option>');
         }
       }
+      var selectedValue = toMinutesFromMidnight(c_profile.target_low[i].time) * 30;
       select.val(selectedValue);
       tr.append($('<td>').append('From: ').append(select));
       tr.append($('<td>').append('Low : ').append($('<input type="text">').attr('id','pe_targetbg_low_'+i).attr('value',c_profile.target_low[i].value)));
@@ -362,8 +348,8 @@
   function objectToGUI() {
 
     $('#pe_dia').val(c_profile.dia);
-    $('#pe_time').val(moment(c_profile.startDate).format('HH:mm'));
-    $('#pe_date').val(moment(c_profile.startDate).format('YYYY-MM-DD'));
+    timeInput.val(moment(c_profile.startDate).format('HH:mm'));
+    dateInput.val(moment(c_profile.startDate).format('YYYY-MM-DD'));
     $('#pe_hr').val(c_profile.carbs_hr);
     $('#pe_perGIvalues').prop('checked', c_profile.perGIvalues);
     $('#pe_hr_high').val(c_profile.carbs_hr_high);
@@ -372,7 +358,7 @@
     $('#pe_delay_high').val(c_profile.delay_high);
     $('#pe_delay_medium').val(c_profile.delay_medium);
     $('#pe_delay_low').val(c_profile.delay_low);
-    $('#pe_timezone').val(c_profile.timezone);
+    timezoneInput.val(c_profile.timezone);
  
     var index;
     [ { prefix:'pe_basal', array:'basal' },
@@ -397,7 +383,7 @@
   function GUIToObject() {
  
     c_profile.dia = parseFloat($('#pe_dia').val());
-    c_profile.startDate = new Date(Nightscout.client.utils.mergeInputTime($('#pe_time').val(), $('#pe_date').val()));
+    c_profile.startDate = new Date(Nightscout.client.utils.mergeInputTime(timeInput.val(), dateInput.val()));
     c_profile.carbs_hr = parseInt($('#pe_hr').val());
     c_profile.delay = 20;
     c_profile.perGIvalues = $('#pe_perGIvalues').is(':checked');
@@ -407,7 +393,7 @@
     c_profile.delay_high = parseInt($('#pe_delay_high').val());
     c_profile.delay_medium = parseInt($('#pe_delay_medium').val());
     c_profile.delay_low = parseInt($('#pe_delay_low').val());
-    c_profile.timezone = $('#pe_timezone').val();
+    c_profile.timezone = timezoneInput.val();
  
     var index;
     [ { prefix:'pe_basal', array:'basal' },
@@ -421,9 +407,10 @@
     });
     
     for (index=0; index<c_profile.target_low.length; index++) {
-      c_profile.target_low[index].time = $('#pe_targetbg_from_'+index).val();
+      var input = $('#pe_targetbg_from_' + index);
+      c_profile.target_low[index].time = input.val();
       c_profile.target_low[index].value = parseFloat($('#pe_targetbg_low_'+index).val());
-      c_profile.target_high[index].time = $('#pe_targetbg_from_'+index).val();
+      c_profile.target_high[index].time = input.val();
       c_profile.target_high[index].value = parseFloat($('#pe_targetbg_high_'+index).val());
     }
   }
@@ -434,8 +421,12 @@
   }
   
   function toTimeString(minfrommidnight) {
-    var time = moment().startOf('day').add(minfrommidnight,'minutes').format('HH:mm');
-    return time;
+    return moment().startOf('day').add(minfrommidnight,'minutes').format('HH:mm');
+  }
+
+  function toDisplayTime (minfrommidnight) {
+    var time = moment().startOf('day').add(minfrommidnight,'minutes');
+    return serverSettings.settings.timeFormat === '24' ? time.format('HH:mm') : time.format('h:mm A');
   }
   
   function profileSubmit(event) {
@@ -467,7 +458,7 @@
 
     adjustedProfile.startDate = adjustedProfile.startDate.toISOString( );
 
-    if ($('#pe_submit').text().indexOf('Create new record')>-1) {
+    if (submitButton.text().indexOf('Create new record')>-1) {
       if (mongoprofiles.length > 1 && (new Date(c_profile.startDate) <= new Date(mongoprofiles[1].validfrom))) {
         alert('Date must be greater than last record '+new Date(mongoprofiles[1].startDate));
         $('#pe_status').hide().html('Wrong date').fadeIn('slow');

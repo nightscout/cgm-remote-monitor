@@ -12,7 +12,7 @@ var nowData = {
 };
 
 
-var defaultprofile = {
+var exampleProfile = {
   //General values
   'dia':3,
 
@@ -27,7 +27,11 @@ var defaultprofile = {
   'sens': [
     {
       'time': '00:00',
-      'value': 17
+      'value': 100
+    }
+    , {
+      'time': '8:00',
+      'value': 80
     }],
   'startDate': new Date(),
   'timezone': 'UTC',
@@ -57,8 +61,8 @@ var defaultprofile = {
       'value': 0
     }]
 };
-defaultprofile.startDate.setSeconds(0);
-defaultprofile.startDate.setMilliseconds(0);
+exampleProfile.startDate.setSeconds(0);
+exampleProfile.startDate.setMilliseconds(0);
 
 
 describe('profile editor', function ( ) {
@@ -78,7 +82,7 @@ describe('profile editor', function ( ) {
         return {
           done: function mockDone (fn) {
             if (opts && opts.success && opts.success.call) {
-              opts.success([defaultprofile]);
+              opts.success([exampleProfile]);
             }
             fn();
           }
