@@ -1,12 +1,11 @@
-'use strict';
-
-//for the tests window isn't the global object
-var $ = window.$;
-var _ = window._;
-var moment = window.moment;
-var Nightscout = window.Nightscout;
-
 (function () {
+  'use strict';
+  //for the tests window isn't the global object
+  var $ = window.$;
+  var _ = window._;
+  var moment = window.moment;
+  var Nightscout = window.Nightscout;
+
   var c_profile = null;
   
   //var moment = require('moment-timezone');
@@ -22,7 +21,7 @@ var Nightscout = window.Nightscout;
   var defaultprofile = {
       //General values
       'dia':3,
-      
+
       // Simple style values, 'from' are in minutes from midnight
       'carbratio': [
         {
@@ -38,7 +37,7 @@ var Nightscout = window.Nightscout;
         }],
       'startDate': new Date(),
       'timezone': 'UTC',
-      
+
       //perGIvalues style values
       'perGIvalues': false,
       'carbs_hr_high': 30,
@@ -82,6 +81,7 @@ var Nightscout = window.Nightscout;
       if (records[0] && records[0].dia) {
         // Use only values(keys) defined in defaultprofile, drop the rest. Preparation for future changes.
         c_profile = _.cloneDeep(defaultprofile);
+        c_profile.created_at = records[0].created_at;
         for (var key in records[0]) {
           if (records[0].hasOwnProperty(key)) {
             if (typeof c_profile[key] !== 'undefined') {
@@ -298,10 +298,8 @@ var Nightscout = window.Nightscout;
           if (lowesttime === -1) { lowesttime = t*30; }
           var label = serverSettings.settings.timeFormat==='24' ? mmoltime[t] : mgtime[t];
           var value = toTimeString(t*30);
-          console.info('>>>>>value', value);
           if (toMinutesFromMidnight(c_profile.target_low[i].time) === t*30) {
             selectedValue = value;
-            console.info('>>>>>selectedValue', selectedValue);
           }
           select.append('<option value="' + value + '">' + label + '</option>');
         }
@@ -452,11 +450,23 @@ var Nightscout = window.Nightscout;
       alert(translate('Your device is not authenticated yet'));
       return false;
     }
-    
+
     c_profile.units = serverSettings.settings.units;
-    
-    var xhr, dataJson;
-    
+
+    var adjustedProfile = _.cloneDeep(c_profile);
+
+    if (!adjustedProfile.perGIvalues) {
+      delete adjustedProfile.perGIvalues;
+      delete adjustedProfile.carbs_hr_high;
+      delete adjustedProfile.carbs_hr_medium;
+      delete adjustedProfile.carbs_hr_low;
+      delete adjustedProfile.delay_high;
+      delete adjustedProfile.delay_medium;
+      delete adjustedProfile.delay_low;
+    }
+
+    adjustedProfile.startDate = adjustedProfile.startDate.toISOString( );
+
     if ($('#pe_submit').text().indexOf('Create new record')>-1) {
       if (mongoprofiles.length > 1 && (new Date(c_profile.startDate) <= new Date(mongoprofiles[1].validfrom))) {
         alert('Date must be greater than last record '+new Date(mongoprofiles[1].startDate));
@@ -465,35 +475,35 @@ var Nightscout = window.Nightscout;
       }
       
       // remove _id when creating new record
-      delete c_profile._id;
-      
-      dataJson = JSON.stringify(c_profile, null, ' ');
+      delete adjustedProfile._id;
 
-      xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/v1/profile/', true);
-      xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-      xhr.setRequestHeader('api-secret', Nightscout.client.hashauth.hash());
-      xhr.onload = function () {
-        $('#pe_status').hide().text(xhr.statusText).fadeIn('slow');
-        if (xhr.statusText==='OK') {
-          var newprofile = _.cloneDeep(c_profile);
-          mongoprofiles.unshift(newprofile);
-          initeditor();
+      $.ajax({
+        method: 'POST'
+        , url: '/api/v1/profile/'
+        , data: adjustedProfile
+        , headers: {
+          'api-secret': Nightscout.client.hashauth.hash()
         }
-      };
-      xhr.send(dataJson);
-    } else {
-      // Update record
-      dataJson = JSON.stringify(c_profile, null, ' ');
+      }).done(function postSuccess (response) {
+        console.info('profile saved', response);
 
-      xhr = new XMLHttpRequest();
-      xhr.open('PUT', '/api/v1/profile/', true);
-      xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-      xhr.setRequestHeader('api-secret', Nightscout.client.hashauth.hash());
-      xhr.onload = function () {
-        $('#pe_status').hide().text(xhr.statusText).fadeIn('slow');
-      };
-      xhr.send(dataJson);
+        //not using the adjustedProfile here (doesn't have the defaults other code needs)
+        var newprofile = _.cloneDeep(c_profile);
+        mongoprofiles.unshift(newprofile);
+        initeditor();
+      });
+    } else {
+      $.ajax({
+        method: 'PUT'
+        , url: '/api/v1/profile/'
+        , data: adjustedProfile
+        , headers: {
+          'api-secret': Nightscout.client.hashauth.hash()
+        }
+      }).done(function putSuccess (response) {
+        console.info('profile updated', response);
+        $('#pe_status').hide().text(response).fadeIn('slow');
+      });
     }
     
     if (event) {

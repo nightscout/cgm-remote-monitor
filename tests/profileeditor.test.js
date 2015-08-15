@@ -130,6 +130,8 @@ describe('profile editor', function ( ) {
     client.init(serverSettings, plugins);
     client.dataUpdate(nowData);
 
+    $('#pe_form').find('button').click();
+
     done();
   });
 
