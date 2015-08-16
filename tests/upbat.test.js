@@ -43,6 +43,36 @@ describe('Uploader Battery', function ( ) {
 
   });
 
+  it('hide the pill if there is no uploader battery status', function (done) {
+    var pluginBase = {
+      updatePillText: function mockedUpdatePillText (plugin, options) {
+        options.hide.should.equal(true);
+        done();
+      }
+    };
+
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, {});
+    var upbat = require('../lib/plugins/upbat')();
+    upbat.setProperties(sbx);
+    upbat.updateVisualisation(sbx);
+  });
+
+  it('hide the pill if there is uploader battery status is -1', function (done) {
+    var pluginBase = {
+      updatePillText: function mockedUpdatePillText (plugin, options) {
+        options.hide.should.equal(true);
+        done();
+      }
+    };
+
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, {uploaderBattery: -1});
+    var upbat = require('../lib/plugins/upbat')();
+    upbat.setProperties(sbx);
+    upbat.updateVisualisation(sbx);
+  });
+
 
 
 });
