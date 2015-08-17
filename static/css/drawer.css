@@ -12,7 +12,7 @@
 #drawer {
     background-color: #666;
     border-left: 1px solid #999;
-    box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
+    box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
     color: #eee;
     display: none;
     font-size: 16px;
@@ -50,7 +50,7 @@ input[type=number]:invalid {
 #treatmentDrawer {
     background-color: #666;
     border-left: 1px solid #999;
-    box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
+    box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
     color: #eee;
     display: none;
     font-size: 16px;
@@ -68,27 +68,32 @@ input[type=number]:invalid {
   box-sizing: border-box;
 }
 
-#treatmentDrawer label.left-column {
+#treatmentDrawer .left-column {
   display: block;
   width: 100%;
 }
 
-#treatmentDrawer label.left-column span {
+#treatmentDrawer .left-column span {
   width: 110px;
   display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 22px;
+  vertical-align: middle;
 }
 
-#treatmentDrawer label.left-column input, #treatmentDrawer label.left-column select {
+#treatmentDrawer .left-column input, #treatmentDrawer .left-column select {
   width: 140px;
 }
 
-#treatmentDrawer label.extra-space {
+#treatmentDrawer .extra-space {
   padding-top: 10px;
   display: block;
 }
 
-input.timeago-mins {
-  width: 40px;
+.timeago-mins {
+  width: 25px;
 }
 
 #eventTime {
@@ -98,11 +103,29 @@ input.timeago-mins {
 #eventTime > span {
   width: 105px;
   display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 22px;
+  vertical-align: middle;
 }
 
-#eventTime > input {
-  margin-left: 114px;
-  width: 140px;
+#treatmentDrawer .eventdate {
+  width: 130px;
+}
+
+#treatmentDrawer .eventtime {
+  width: 110px;
+}
+
+#eventTime label span {
+  width: 45px;
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 22px;
+  vertical-align: middle;
 }
 
 #treatmentDrawer #glucoseValue {
@@ -163,6 +186,7 @@ dd.numbers label {
 }
 
 h1, legend,
+#toolbar .customTitle,
 #about .appName,
 #about .version {
     font-weight: bold;
@@ -185,7 +209,7 @@ h1, legend,
     text-shadow: 0 0 5px black;
 }
 
-#toolbar h1 {
+#toolbar .customTitle {
     color: #ccc;
     font-size: 16px;
     margin-top: 0;
