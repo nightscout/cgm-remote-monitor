@@ -195,7 +195,6 @@ body {
 }
 
 #chartContainer {
-    top: 225px; /*(toolbar height + status height)*/
     left:0;
     right:0;
     bottom:0;
@@ -206,14 +205,8 @@ body {
     position:absolute;
 }
 
-.has-minor-pills #chartContainer {
-  top: 245px;
-}
-
 #chartContainer svg {
-    height: calc(100vh - (180px + 45px));
     width: 100%;
-    top: calc(45px + 180px);
 }
 
 #silenceBtn {
@@ -392,22 +385,8 @@ body {
     }
 
     #chartContainer {
-        top: 165px;
         font-size: 14px;
     }
-
-    #chartContainer svg {
-        height: calc(100vh - 165px);
-    }
-
-    .has-minor-pills #chartContainer {
-      top: 175px;
-    }
-
-    #chartContainer svg {
-        height: calc(100vh - 175px);
-    }
-
 }
 
 @media (max-width: 750px) {
@@ -451,14 +430,6 @@ body {
         line-height: 35px;
         width: 250px;
     }
-
-    #chartContainer {
-        top: 175px;
-    }
-    #chartContainer svg {
-        height: calc(100vh - 165px);
-    }
-
 }
 
 @media (max-width: 400px) {
@@ -544,22 +515,6 @@ body {
     .focus-range li {
         display: block;
     }
-
-    #chartContainer {
-        top: 190px;
-    }
-
-    #chartContainer svg {
-        height: calc(100vh - (190px));
-    }
-
-    .has-minor-pills #chartContainer {
-      top: 210px;
-    }
-
-    .has-minor-pills #chartContainer svg {
-        height: calc(100vh - (210px));
-    }
 }
 
 @media (max-height: 700px) {
@@ -590,20 +545,7 @@ body {
     }
 
     #chartContainer {
-        top: 130px;
         font-size: 10px;
-    }
-
-    #chartContainer svg {
-        height: calc(100vh - 130px);
-    }
-
-    .has-minor-pills #chartContainer {
-        top: 140px;
-    }
-
-    .has-minor-pills #chartContainer svg {
-        height: calc(100vh - 140px);
     }
 }
 
