@@ -51,7 +51,6 @@ describe('basalprofile', function ( ) {
 
   it('update basal profile pill', function (done) {
 
-    var app = {};
     var clientSettings = {};
     var data = {};
 
@@ -64,7 +63,7 @@ describe('basalprofile', function ( ) {
 
     var time = new Date('2015-06-21T00:00:00').getTime();
 
-    var sbx = sandbox.clientInit(app, clientSettings, time, pluginBase, data);
+    var sbx = sandbox.clientInit(clientSettings, time, pluginBase, data);
     sbx.data.profile = profile;
     basal.updateVisualisation(sbx);
 

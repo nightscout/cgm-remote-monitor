@@ -65,7 +65,6 @@ describe('COB', function ( ) {
 
   it('set a pill to the current COB', function (done) {
 
-    var app = {};
     var clientSettings = {};
 
     var data = {
@@ -84,7 +83,7 @@ describe('COB', function ( ) {
     };
 
     var sandbox = require('../lib/sandbox')();
-    var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
     cob.setProperties(sbx);
     cob.updateVisualisation(sbx);
 

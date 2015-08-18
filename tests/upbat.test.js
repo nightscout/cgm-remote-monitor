@@ -4,12 +4,11 @@ require('should');
 
 describe('Uploader Battery', function ( ) {
   var data = {uploaderBattery: 20};
-  var app = { };
   var clientSettings = {};
 
   it('display uploader battery status', function (done) {
     var sandbox = require('../lib/sandbox')();
-    var sbx = sandbox.clientInit(app, clientSettings, Date.now(), {}, data);
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), {}, data);
 
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
       name.should.equal('upbat');
@@ -37,11 +36,41 @@ describe('Uploader Battery', function ( ) {
     };
 
     var sandbox = require('../lib/sandbox')();
-    var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
     var upbat = require('../lib/plugins/upbat')();
     upbat.setProperties(sbx);
     upbat.updateVisualisation(sbx);
 
+  });
+
+  it('hide the pill if there is no uploader battery status', function (done) {
+    var pluginBase = {
+      updatePillText: function mockedUpdatePillText (plugin, options) {
+        options.hide.should.equal(true);
+        done();
+      }
+    };
+
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, {});
+    var upbat = require('../lib/plugins/upbat')();
+    upbat.setProperties(sbx);
+    upbat.updateVisualisation(sbx);
+  });
+
+  it('hide the pill if there is uploader battery status is -1', function (done) {
+    var pluginBase = {
+      updatePillText: function mockedUpdatePillText (plugin, options) {
+        options.hide.should.equal(true);
+        done();
+      }
+    };
+
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, {uploaderBattery: -1});
+    var upbat = require('../lib/plugins/upbat')();
+    upbat.setProperties(sbx);
+    upbat.updateVisualisation(sbx);
   });
 
 

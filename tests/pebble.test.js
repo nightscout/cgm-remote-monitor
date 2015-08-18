@@ -171,7 +171,7 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
   var pebbleRaw = require('../lib/pebble');
   before(function (done) {
     var envRaw = require('../env')( );
-    envRaw.enable = 'rawbg iob';
+    envRaw.settings.enable = 'rawbg iob';
     this.appRaw = require('express')( );
     this.appRaw.enable('api');
     this.appRaw.use('/pebble', pebbleRaw(envRaw, ctx));
