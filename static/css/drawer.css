@@ -43,8 +43,9 @@ input[type=number]:invalid {
 }
 
 #drawer .actions a {
-    float: right;
-    padding: 10px 0;
+  display: block;
+  text-align: right;
+  padding: 10px 0;
 }
 
 #treatmentDrawer {
@@ -137,14 +138,13 @@ input[type=number]:invalid {
 }
 
 #about {
-    margin-top: 1em;
+    margin-bottom: 55px;
 }
 #about div {
-    font-size: 0.75em;
+    font-size: 12px;
 }
 #about .links {
-    margin-top: 1em;
-    margin-bottom: 1em;
+    margin: 10px;
 }
 #about a {
     color: #fff;

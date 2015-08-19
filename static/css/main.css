@@ -12,6 +12,7 @@ body {
   font-family: 'Open Sans', Helvetica, Arial, sans-serif;
   background: #000;
   color: #bdbdbd;
+  overflow: hidden;
 }
 
 .container {
@@ -193,6 +194,7 @@ body {
   display: block;
   position: absolute;
   margin: 2px;
+  overflow: hidden;
 }
 
 #chartContainer svg {
@@ -285,6 +287,7 @@ body {
   background: white;
   border: 0;
   border-radius: 8px;
+  float: right;
 }
 
 .alarms {
