@@ -10,3 +10,5 @@
 .icon-battery-100:before { content: '\e808'; } /* '' */
 .icon-cancel-circled:before { content: '\e809'; } /* '' */
 .icon-volume:before { content: '\e80a'; } /* '' */
+.icon-plus:before { content: '\e80b'; } /* '' */
+.icon-hourglass:before { content: '\e80c'; } /* '' */
