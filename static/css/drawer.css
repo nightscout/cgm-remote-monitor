@@ -246,15 +246,6 @@ h1, legend,
     padding-left: 12px;
 }
 
-.icon-battery-25,
-.icon-battery-50,
-.icon-battery-75,
-.icon-battery-100,
-.icon-angle-double-up {
-    font-size: 21px !important;
-    padding-left: 9px !important;
-}
-
 #notification {
     display: none;
     font-size: 14px;

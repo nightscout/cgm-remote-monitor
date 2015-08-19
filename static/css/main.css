@@ -181,15 +181,6 @@ body {
 
 .statusPills .pill em {
   color: #bdbdbd;
-  background: #000;
-}
-
-.statusPills .pill label {
-  background: #808080;
-}
-
-.pill.upbat label {
-  padding: 0 !important;
 }
 
 #chartContainer {
@@ -370,10 +361,6 @@ body {
     font-size: 15px;
   }
 
-  .pill.upbat label {
-    font-size: 15px !important;
-  }
-
   .focus-range {
     margin: 0;
   }
@@ -499,10 +486,6 @@ body {
     font-size: 15px;
   }
 
-  .pill.upbat label {
-    font-size: 15px !important;
-  }
-
   .focus-range {
     position: absolute;
     top: 60px;
@@ -579,10 +562,6 @@ body {
 
   .statusPills {
     font-size: 15px;
-  }
-
-  .pill.upbat label {
-    font-size: 15px !important;
   }
 
 }
