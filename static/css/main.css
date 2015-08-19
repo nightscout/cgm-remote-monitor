@@ -87,10 +87,12 @@ body {
 
 .bgStatus .majorPills {
   font-size: 30px;
+  line-height: 34px;
 }
 
 .minorPills {
   font-size: 22px;
+  line-height: 25px;
   z-index: 500;
   white-space: normal;
 }
@@ -169,6 +171,7 @@ body {
 }
 .statusPills {
   font-size: 20px;
+  line-height: 23px;
 }
 
 .loading .statusPills {
@@ -351,10 +354,12 @@ body {
 
   .bgStatus .majorPills {
     font-size: 20px;
+    line-height: 24px;
   }
 
   .bgStatus .minorPills {
     font-size: 16px;
+    line-height: 18px;
   }
 
   .status {
@@ -364,6 +369,7 @@ body {
 
   .statusPills {
     font-size: 15px;
+    line-height: 17px;
   }
 
   .focus-range {
@@ -413,10 +419,12 @@ body {
 
   .bgStatus .majorPills {
     font-size: 15px;
+    line-height: 17px;
   }
 
   .bgStatus .minorPills {
     font-size: 12px;
+    line-height: 13px;
   }
 
   .status {
@@ -461,10 +469,12 @@ body {
 
   .bgStatus .majorPills {
     font-size: 15px;
+    line-height: 17px;
   }
 
   .bgStatus .minorPills {
     font-size: 12px;
+    line-height: 13px;
   }
 
   #silenceBtn a {
@@ -489,6 +499,7 @@ body {
     display: inline;
     margin-left: auto;
     font-size: 15px;
+    line-height: 17px;
   }
 
   .focus-range {
@@ -554,10 +565,12 @@ body {
 
   .bgStatus .majorPills {
     font-size: 15px;
+    line-height: 17px;
   }
 
   .bgStatus .minorPills {
     font-size: 12px;
+    line-height: 13px;
   }
 
   .status {
@@ -567,6 +580,7 @@ body {
 
   .statusPills {
     font-size: 15px;
+    line-height: 17px;
   }
 
 }
@@ -595,10 +609,12 @@ body {
 
   .bgStatus .majorPills {
     font-size: 15px;
+    line-height: 17px;
   }
 
   .bgStatus .majorPills {
     font-size: 12px;
+    line-height: 13px;
   }
 
   #silenceBtn {
