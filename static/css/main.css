@@ -40,13 +40,8 @@ body {
 
 .primary {
   font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
-  height: 180px;
   vertical-align: middle;
   clear: both;
-}
-
-.has-minor-pills .primary {
-  height: 200px;
 }
 
 .bgStatus {
@@ -86,6 +81,7 @@ body {
   line-height: 90px;
   vertical-align: middle;
   border: none;
+  background: none;
 }
 
 .bgStatus .majorPills {
@@ -94,8 +90,8 @@ body {
 
 .minorPills {
   font-size: 22px;
-  margin-top: 10px;
   z-index: 500;
+  white-space: normal;
 }
 
 .majorPills > span:not(:first-child) {
@@ -110,21 +106,26 @@ body {
   white-space: nowrap;
   border-radius: 5px;
   border: 2px solid #808080;
+  background: #808080;
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 2px 0;
 }
 
 .pill em, .pill label {
-  padding-left: 2px;
-  padding-right: 2px;
+  padding: 2px;
+  white-space: nowrap;
 }
 
 .pill em {
   font-style: normal;
   font-weight: bold;
+  background: #000;
+  border-radius: 3px;
 }
 
 .pill label {
   color: #000;
-  background: #808080;
 }
 
 .pill.warn em {
@@ -160,7 +161,6 @@ body {
 .status {
   color: #808080;
   font-size: 100px;
-  line-height: 100px;
 }
 .statusBox {
   text-align: center;
@@ -168,7 +168,6 @@ body {
 }
 .statusPills {
   font-size: 20px;
-  line-height: 30px;
 }
 
 .loading .statusPills {
@@ -183,7 +182,6 @@ body {
 .statusPills .pill em {
   color: #bdbdbd;
   background: #000;
-  border-radius: 4px 0 0 4px;
 }
 
 .statusPills .pill label {
@@ -195,18 +193,22 @@ body {
 }
 
 #chartContainer {
-  left:0;
-  right:0;
-  bottom:0;
-  height:auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: auto;
   font-size: 20px;
   background: #111;
   display: block;
-  position:absolute;
+  position: absolute;
+  margin: 2px;
 }
 
 #chartContainer svg {
   width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 #silenceBtn {
@@ -234,6 +236,7 @@ body {
   display: inline-block;
   border-radius: 2px;
   border: 1px solid #808080;
+  padding: 0;
 }
 
 .pill.rawbg em {
@@ -241,6 +244,7 @@ body {
   background-color: black;
   display: block;
   font-size: 20px;
+  border-radius: 0;
 }
 
 .pill.rawbg label {
@@ -359,13 +363,11 @@ body {
 
   .status {
     font-size: 70px;
-    line-height: 60px;
     padding-top: 8px;
   }
 
   .statusPills {
     font-size: 15px;
-    line-height: 40px;
   }
 
   .pill.upbat label {
@@ -427,7 +429,6 @@ body {
 
   .status {
     font-size: 50px;
-    line-height: 35px;
     width: 250px;
   }
 }
@@ -436,7 +437,6 @@ body {
   .primary {
     text-align: center;
     margin-bottom: 0;
-    height: 152px;
   }
 
   .bgStatus {
@@ -505,7 +505,7 @@ body {
 
   .focus-range {
     position: absolute;
-    top: 80px;
+    top: 60px;
     left: auto;
     right: 10px;
     margin: 0;
@@ -574,7 +574,6 @@ body {
 
   .status {
     font-size: 50px;
-    line-height: 40px;
     padding-top: 5px;
   }
 
@@ -594,7 +593,6 @@ body {
     text-align: center;
     width: 220px;
     left: 0;
-    position: absolute;
   }
 
   .bgStatus .currentBG {
@@ -634,11 +632,6 @@ body {
 
   .focus-range li {
     display: block;
-  }
-
-  .status {
-    position: absolute;
-    top: 90px;
   }
 
   .statusBox {
