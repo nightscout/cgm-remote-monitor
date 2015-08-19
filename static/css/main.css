@@ -236,11 +236,13 @@ body {
   display: block;
   font-size: 20px;
   border-radius: 0;
+  padding: 0 2px;
 }
 
 .pill.rawbg label {
   display: block;
   font-size: 14px;
+  padding: 0 2px;
 }
 
 .alarming .bgButton {
