@@ -498,8 +498,8 @@ body {
   .statusPills {
     display: inline;
     margin-left: auto;
-    font-size: 15px;
-    line-height: 17px;
+    font-size: 12px;
+    line-height: 13px;
   }
 
   .focus-range {
@@ -612,7 +612,7 @@ body {
     line-height: 17px;
   }
 
-  .bgStatus .majorPills {
+  .bgStatus .minorPills {
     font-size: 12px;
     line-height: 13px;
   }
@@ -638,4 +638,10 @@ body {
     width: 220px;
   }
 
+  .statusPills {
+    display: inline;
+    margin-left: auto;
+    font-size: 12px;
+    line-height: 13px;
+  }
 }
