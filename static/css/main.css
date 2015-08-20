@@ -131,12 +131,12 @@ body {
   color: #000;
 }
 
-.pill.warn em {
-  color: yellow !important;
+.container .pill.warn em {
+  color: yellow;
 }
 
-.pill.urgent em {
-  color: red !important;
+.container .pill.urgent em {
+  color: red;
 }
 
 .alarming-timeago #lastEntry.pill.warn {
@@ -483,7 +483,7 @@ body {
 
   .status {
     padding-top: 0;
-    font-size: 20px !important;
+    font-size: 20px;
   }
 
   .statusBox {
@@ -531,7 +531,7 @@ body {
 @media (max-height: 480px) {
   #toolbar {
     float: right;
-    height: auto !important;
+    height: auto;
   }
 
   #toolbar .customTitle {
