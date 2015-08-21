@@ -25,6 +25,12 @@
       "src": "entypo"
     },
     {
+      "uid": "7f6916533c0842b6cec699fd773693d3",
+      "css": "hourglass",
+      "code": 59404,
+      "src": "entypo"
+    },
+    {
       "uid": "jh3jpcb1t1bcm80gidkadilh080aq79h",
       "css": "menu",
       "code": 59395,
@@ -59,6 +65,12 @@
       "css": "help-circled",
       "code": 59392,
       "src": "mfglabs"
+    },
+    {
+      "uid": "55e2ff85b1c459c383f46da6e96014b0",
+      "css": "plus",
+      "code": 59403,
+      "src": "elusive"
     },
     {
       "uid": "b59b3b618699b467541f631edd5a02ed",
