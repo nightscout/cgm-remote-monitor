@@ -85,6 +85,9 @@ describe('profile editor', function ( ) {
               opts.success([exampleProfile]);
             }
             fn();
+            return {
+              fail: function () {}
+            }
           }
         };
       };
