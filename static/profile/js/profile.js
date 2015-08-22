@@ -9,6 +9,7 @@
   var c_profile = null;
 
   //some commonly used selectors
+  var peStatus = $('.pe_status');
   var timezoneInput = $('#pe_timezone');
   var timeInput = $('#pe_time');
   var dateInput = $('#pe_date');
@@ -76,7 +77,7 @@
   var mongoprofiles = [];
 
   // Fetch data from mongo
-  $('#pe_status').hide().text('Loading profile records ...').fadeIn('slow');
+  peStatus.hide().text('Loading profile records ...').fadeIn('slow');
   $.ajax('/api/v1/profile.json', {
     success: function (records) {
       c_profile = {};
@@ -99,18 +100,18 @@
         }
         convertToRanges(c_profile);
         
-        $('#pe_status').hide().text('Values loaded.').fadeIn('slow');
+        peStatus.hide().text('Values loaded.').fadeIn('slow');
         mongoprofiles.unshift(c_profile);
       } else {
         c_profile = _.cloneDeep(defaultprofile);
         mongoprofiles.unshift(c_profile);
-        $('#pe_status').hide().text('Default values used.').fadeIn('slow');
+        peStatus.hide().text('Default values used.').fadeIn('slow');
       }
     },
     error: function () {
       c_profile = _.cloneDeep(defaultprofile);
       mongoprofiles.unshift(c_profile);
-      $('#pe_status').hide().text('Error. Default values used.').fadeIn('slow');
+      peStatus.hide().text('Error. Default values used.').fadeIn('slow');
     }
   }).done(initeditor);
   
@@ -433,7 +434,7 @@
     GUIToObject();
     if (new Date(c_profile.startDate) > new Date()) {
       alert('Date must be set in the past');
-      $('#pe_status').hide().html('Wrong date').fadeIn('slow');
+      peStatus.hide().html('Wrong date').fadeIn('slow');
       return false;
     }
     
@@ -458,10 +459,11 @@
 
     adjustedProfile.startDate = adjustedProfile.startDate.toISOString( );
 
+    console.info('saving profile');
     if (submitButton.text().indexOf('Create new record')>-1) {
       if (mongoprofiles.length > 1 && (new Date(c_profile.startDate) <= new Date(mongoprofiles[1].validfrom))) {
         alert('Date must be greater than last record '+new Date(mongoprofiles[1].startDate));
-        $('#pe_status').hide().html('Wrong date').fadeIn('slow');
+        peStatus.hide().html('Wrong date').fadeIn('slow');
         return false;
       }
       
@@ -475,13 +477,17 @@
         , headers: {
           'api-secret': Nightscout.client.hashauth.hash()
         }
-      }).done(function postSuccess (response) {
-        console.info('profile saved', response);
+      }).done(function postSuccess (data, status) {
+        console.info('profile created', data);
+        peStatus.hide().text(status).fadeIn('slow');
 
         //not using the adjustedProfile here (doesn't have the defaults other code needs)
         var newprofile = _.cloneDeep(c_profile);
         mongoprofiles.unshift(newprofile);
         initeditor();
+      }).fail(function(xhr, status, errorThrown)  {
+        console.error('Profile not saved', status, errorThrown);
+        peStatus.hide().text(status).fadeIn('slow');
       });
     } else {
       $.ajax({
@@ -491,12 +497,15 @@
         , headers: {
           'api-secret': Nightscout.client.hashauth.hash()
         }
-      }).done(function putSuccess (response) {
-        console.info('profile updated', response);
-        $('#pe_status').hide().text(response).fadeIn('slow');
+      }).done(function putSuccess (data, status) {
+        console.info('profile updated', data);
+        peStatus.hide().text(status).fadeIn('slow');
+      }).fail(function(xhr, status, errorThrown)  {
+        console.error('Profile not saved', status, errorThrown);
+        peStatus.hide().text(status).fadeIn('slow');
       });
     }
-    
+
     if (event) {
       event.preventDefault();
     }
