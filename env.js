@@ -144,7 +144,7 @@ function findExtendedSettings (envs) {
     return key.toUpperCase().replace('CUSTOMCONNSTR_', '');
   }
 
-  _.forEach(env.settings.enable, function eachEnable(enable) {
+  _.each(env.settings.enable, function eachEnable(enable) {
     if (_.trim(enable)) {
       _.forIn(envs, function eachEnvPair (value, key) {
         var env = normalizeEnv(key);

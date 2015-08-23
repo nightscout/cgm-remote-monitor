@@ -251,7 +251,7 @@
     }
     
     // Fill dropdown boxes
-    _.forEach([{prefix:'pe_basal', array:'basal', label:'Rate: '},
+    _.each([{prefix:'pe_basal', array:'basal', label:'Rate: '},
      {prefix:'pe_ic', array:'carbratio', label:'IC: '},
      {prefix:'pe_isf', array:'sens', label:'ISF: '}
     ], function (e) {
