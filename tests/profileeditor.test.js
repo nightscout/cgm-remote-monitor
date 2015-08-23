@@ -87,7 +87,7 @@ describe('profile editor', function ( ) {
             fn();
             return {
               fail: function () {}
-            }
+            };
           }
         };
       };
