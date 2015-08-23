@@ -10,7 +10,7 @@
     , plugins: require('../lib/plugins/')().registerClientDefaults()
   };
 
-  console.info('Nightscout bundle ready', window.Nightscout);
+  console.info('Nightscout bundle ready');
 
 })();
 
