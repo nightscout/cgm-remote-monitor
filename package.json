@@ -26,6 +26,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "make test",
+    "env": "env",
     "postinstall": "node node_modules/bower/bin/bower install"
   },
   "config": {
