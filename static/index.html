@@ -25,10 +25,10 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.7.0" />
+        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.8.0-dev" />
+        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.8.0-dev" />
         <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.7.0" />
-        <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.7.0" />
+        <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.8.0-dev" />
         <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
     </head>
     <body>
@@ -96,6 +96,25 @@
                         <dd><input type="radio" name="timeformat-browser" id="12-browser" value="12" checked /><label for="12-browser" class="translate">12 hours</label></dd>
                         <dd><input type="radio" name="timeformat-browser" id="24-browser" value="24" /><label for="24-browser" class="translate">24 hours</label></dd>
                     </dl>
+                    <dl>
+                      <dt class="translate">Language</dt>
+                      <dd>
+                        <select id="language">
+                          <option value="bg" class="translate">Bulgarian</option>
+                          <option value="hr" class="translate">Croatian</option>
+                          <option value="cs" class="translate">Czech</option>
+                          <option value="dk" class="translate">Danish</option>
+                          <option value="en" class="translate">English</option>
+                          <option value="fr" class="translate">French</option>
+                          <option value="de" class="translate">German</option>
+                          <option value="it" class="translate">Italian</option>
+                          <option value="pt" class="translate">Portuguese (Brazil)</option>
+                          <option value="ro" class="translate">Romanian</option>
+                          <option value="es" class="translate">Spanish</option>
+                          <option value="sv" class="translate">Swedish</option>
+                        </select>
+                      </dd>
+                    </dl>
                     <dl class="toggle">
                         <dt><span class="translate">Enable Alarms</span> <a class="tip" original-title="When enabled an alarm may sound."><i class="icon-help-circled"></i></a></dt>
                         <dd><input type="checkbox" id="alarm-urgenthigh-browser" /><label for="alarm-urgenthigh-browser" class="translate">Urgent High Alarm</label></dd>
@@ -135,6 +154,7 @@
                     <dl id="show-plugins" class="toggle">
                         <dt class="translate">Show Plugins</dt>
                     </dl>
+                    <a id="editprofilelink" href="/profile/index.html" target="profileeditor" class="translate">Edit treatment Profile</a>
                 </fieldset>
 
                 <div class="actions">
