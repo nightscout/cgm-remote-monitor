@@ -263,9 +263,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `target_high` - Upper target for correction boluses.
   * `target_low` - Lower target for correction boluses.
   
-  Some example profiles are [here](example-profiles.md)
-
-  Additional information can be found [here](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website).
+  Some example profiles are [here](example-profiles.md).
 
 ## Setting environment variables
 Easy to emulate on the commandline:
