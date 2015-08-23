@@ -85,14 +85,9 @@ $ npm install
 #Usage
 
 The data being uploaded from the server to the client is from a
-MongoDB server such as [mongolab][mongodb].  In order to access the
-database, the appropriate credentials need to be filled into the
-[JSON][json] file in the root directory.  SGV data from the database
-is assumed to have the following fields: date, sgv.  Once all that is
-ready, just host your web app on your service of choice.
+MongoDB server such as [mongolab][mongodb].
 
 [mongodb]: https://mongolab.com
-[json]: https://github.com/rnpenguin/cgm-remote-monitor/blob/master/database_configuration.json
 [autoconfigure]: http://nightscout.github.io/pages/configure/
 [mongostring]: http://nightscout.github.io/pages/mongostring/
 [update-fork]: http://nightscout.github.io/pages/update-fork/
@@ -254,73 +249,8 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
 
 ### Treatment Profile
-  Some of the [plugins](#plugins) make use of a treatment profile that is stored in Mongo. To use those plugins there should only be a single doc in the `profile` collection.
+  Some of the [plugins](#plugins) make use of a treatment profile that can be edited using the Profile Editor, see the link in the Settings drawer on your site.
   
-  Example Profile (change it to fit you):
-
-  ```json
-  {
-    "dia": 3,
-    "carbs_hr": 20,
-    "carbratio": 30,
-    "sens": 100,
-    "basal": 0.125,
-    "target_low": 100,
-    "target_high": 120
-  }
-  ```
-  
-  Profile can also use time periods for any field, for example:
-  
-  ```json
-  {
-    "carbratio": [
-      {
-        "time": "00:00",
-        "value": 30
-      },
-      {
-        "time": "06:00",
-        "value": 25
-      },
-      {
-        "time": "14:00",
-        "value": 28
-      }
-    ],
-    "basal": [
-      {
-        "time": "00:00",
-        "value": 0.175
-      },
-      {
-        "time": "02:30",
-        "value": 0.125
-      },
-      {
-        "time": "05:00",
-        "value": 0.075
-      },
-      {
-        "time": "08:00",
-        "value": 0.100
-      },
-      {
-        "time": "14:00",
-        "value": 0.125
-      },
-      {
-        "time": "20:00",
-        "value": 0.175
-      },
-      {
-        "time": "22:00",
-        "value": 0.200
-      }
-    ]
-  }
-  ```
-
   Treatment Profile Fields:
 
   * `timezone` (Time Zone) - time zone local to the patient. *Should be set.*
@@ -332,8 +262,8 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `basal` The basal rate set on the pump.
   * `target_high` - Upper target for correction boluses.
   * `target_low` - Lower target for correction boluses.
-
-  Additional information can be found [here](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website).
+  
+  Some example profiles are [here](example-profiles.md).
 
 ## Setting environment variables
 Easy to emulate on the commandline:
