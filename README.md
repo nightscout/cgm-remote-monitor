@@ -59,6 +59,8 @@ Community maintained fork of the
     - [Core](#core)
     - [Predefined values for your browser settings (optional)](#predefined-values-for-your-browser-settings-optional)
     - [Plugins](#plugins)
+      - [Default Plugins](#default-plugins)
+      - [Built-in/Example Plugins:](#built-inexample-plugins)
       - [Extended Settings](#extended-settings)
       - [Pushover](#pushover)
       - [IFTTT Maker](#ifttt-maker)
@@ -119,7 +121,8 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
 ### Features/Labs
 
-  * `ENABLE` - Used to enable optional features, expects a space delimited list such as: `careportal rawbg iob`, see [plugins](#plugins) below
+  * `ENABLE` - Used to enable optional features, expects a space delimited list, such as: `careportal rawbg iob`, see [plugins](#plugins) below
+  * `DISABLE` - Used to disable default features, expects a space delimited list, such as: `direction upbat`, see [plugins](#plugins) below
   * `API_SECRET` - A secret passphrase that must be at least 12 characters long, required to enable `POST` and `PUT`; also required for the Care Portal
   * `BG_HIGH` (`260`) - must be set using mg/dl units; the high BG outside the target range that is considered urgent
   * `BG_TARGET_TOP` (`180`) - must be set using mg/dl units; the top of the target range, also used to draw the line on the chart
@@ -164,7 +167,23 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
   The built-in/example plugins that are available by default are listed below.  The plugins may still need to be enabled by adding to the `ENABLE` environment variable.
 
-  **Built-in/Example Plugins:**
+#### Default Plugins
+  
+  These can be disabled by setting the `DISABLE` env var, for example `DISABLE="direction upbat"`
+
+  * `delta` (BG Delta) - Calculates and displays the change between the last 2 BG values.
+  * `direction` (BG Direction) - Displays the trend direction.
+  * `upbat` (Uploader Battery) - Displays the most recent battery status from the uploader phone.
+  * `errorcodes` (CGM Error Codes) - Generates alarms for CGM codes `9` (hourglass) and `10` (???).
+  * `ar2` ([Forcasting using AR2 algorithm](https://github.com/nightscout/nightscout.github.io/wiki/Forecasting)) - Generates alarms based on forecasted values.
+    * Enabled by default if no thresholds are set **OR** `ALARM_TYPES` includes `predict`.
+    * Use [extended settings](#extended-settings) to adjust AR2 behavior:
+      * `AR2_USE_RAW` (`false`) - to forecast using `rawbg` values when standard values don't trigger an alarm.
+      * `AR2_CONE_FACTOR` (`2`) - to adjust size of cone, use `0` for a single line.
+  * `simplealarms` (Simple BG Alarms) - Uses `BG_HIGH`, `BG_TARGET_TOP`, `BG_TARGET_BOTTOM`, `BG_LOW` thresholds to generate alarms.
+    * Enabled by default if 1 of these thresholds is set **OR** `ALARM_TYPES` includes `simple`.
+
+#### Built-in/Example Plugins:
 
   * `rawbg` (Raw BG) - Calculates BG using sensor and calibration records from and displays an alternate BG values and noise levels.
   * `iob` (Insulin-on-Board) - Adds the IOB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with insulin doses and the `dia` and `sens` fields from the [treatment profile](#treatment-profile).
@@ -179,14 +198,6 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
     * `CAGE_INFO` (`44`) - If time since last `Site Change` matches `CAGE_INFO`, user will be warned of upcoming cannula change
     * `CAGE_WARN` (`48`) - If time since last `Site Change` matches `CAGE_WARN`, user will be alarmed to to change the cannula
     * `CAGE_URGENT` (`72`) - If time since last `Site Change` matches `CAGE_URGENT`, user will be issued a persistent warning of overdue change.
-  * `delta` (BG Delta) - Calculates and displays the change between the last 2 BG values.  **Enabled by default.**
-  * `direction` (BG Direction) - Displays the trend direction.  **Enabled by default.**
-  * `upbat` (Uploader Battery) - Displays the most recent battery status from the uploader phone.  **Enabled by default.**
-  * `ar2` ([Forcasting using AR2 algorithm](https://github.com/nightscout/nightscout.github.io/wiki/Forecasting)) - Generates alarms based on forecasted values.  **Enabled by default.** Use [extended settings](#extended-settings) to adjust AR2 behavior:
-    * `AR2_USE_RAW` (`false`) - to forecast using `rawbg` values when standard values don't trigger an alarm.
-    * `AR2_CONE_FACTOR` (`2`) - to adjust size of cone, use `0` for a single line.
-  * `simplealarms` (Simple BG Alarms) - Uses  `BG_HIGH`, `BG_TARGET_TOP`, `BG_TARGET_BOTTOM`, `BG_LOW` settings to generate alarms.
-  * `errorcodes` (CGM Error Codes) - Generates alarms for CGM codes `9` (hourglass) and `10` (???).  **Enabled by default.**
   * `treatmentnotify` (Treatment Notifications) - Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.  Default snooze is 10 minutes, and can be set using the `TREATMENTNOTIFY_SNOOZE_MINS` [extended setting](#extended-settings).
   * `basal` (Basal Profile) - Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile).
   * `bridge` (Share2Nightscout bridge) - Glucose reading directly from the Share service, uses these extended settings:
