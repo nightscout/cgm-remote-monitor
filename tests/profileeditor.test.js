@@ -111,7 +111,7 @@ describe('profile editor', function ( ) {
       });
 
       benv.require(__dirname + '/../bundle/bundle.source.js');
-      benv.require(__dirname + '/../static/profile/js/profile.js');
+      benv.require(__dirname + '/../static/profile/js/profileeditor.js');
 
       done();
     });
