@@ -85,14 +85,9 @@ $ npm install
 #Usage
 
 The data being uploaded from the server to the client is from a
-MongoDB server such as [mongolab][mongodb].  In order to access the
-database, the appropriate credentials need to be filled into the
-[JSON][json] file in the root directory.  SGV data from the database
-is assumed to have the following fields: date, sgv.  Once all that is
-ready, just host your web app on your service of choice.
+MongoDB server such as [mongolab][mongodb].
 
 [mongodb]: https://mongolab.com
-[json]: https://github.com/rnpenguin/cgm-remote-monitor/blob/master/database_configuration.json
 [autoconfigure]: http://nightscout.github.io/pages/configure/
 [mongostring]: http://nightscout.github.io/pages/mongostring/
 [update-fork]: http://nightscout.github.io/pages/update-fork/
