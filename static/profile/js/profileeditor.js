@@ -5,6 +5,7 @@
   var _ = window._;
   var moment = window.moment;
   var Nightscout = window.Nightscout;
+  var client = Nightscout.client;
 
   var c_profile = null;
 
@@ -18,10 +19,10 @@
   if (serverSettings === undefined) {
     console.error('server settings were not loaded, will not call init');
   } else {
-    window.Nightscout.client.init(serverSettings, Nightscout.plugins);
+    client.init(serverSettings, Nightscout.plugins);
   }
   
-  var translate = Nightscout.client.translate;
+  var translate = client.translate;
 
   var defaultprofile = {
       //General values
@@ -141,9 +142,9 @@
     $('#pe_perGIvalues').change(switchStyle);
 
     // display status
-    $('#pe_units').text(serverSettings.settings.units);
-    $('#pe_timeformat').text(serverSettings.settings.timeFormat+'h');
-    $('#pe_title').text(serverSettings.settings.customTitle);
+    $('#pe_units').text(client.settings.units);
+    $('#pe_timeformat').text(client.settings.timeFormat+'h');
+    $('#pe_title').text(client.settings.customTitle);
 
     var lastvalidfrom = new Date(mongoprofiles[1] && mongoprofiles[1].startDate ? mongoprofiles[1].startDate : null);
     
@@ -170,7 +171,7 @@
   
   // Handling valid from date change
   function dateChanged(event) {
-    var newdate = new Date(Nightscout.client.utils.mergeInputTime(timeInput.val(), dateInput.val()));
+    var newdate = new Date(client.utils.mergeInputTime(timeInput.val(), dateInput.val()));
     if (mongoprofiles.length<2 || !mongoprofiles[1].startDate || mongoprofiles.length>=2 && new Date(mongoprofiles[1].startDate).getTime() === newdate.getTime()) {
       submitButton.text('Update record').css('display','');
       timeInput.css({'background-color':'white'});
@@ -384,7 +385,7 @@
   function GUIToObject() {
  
     c_profile.dia = parseFloat($('#pe_dia').val());
-    c_profile.startDate = new Date(Nightscout.client.utils.mergeInputTime(timeInput.val(), dateInput.val()));
+    c_profile.startDate = new Date(client.utils.mergeInputTime(timeInput.val(), dateInput.val()));
     c_profile.carbs_hr = parseInt($('#pe_hr').val());
     c_profile.delay = 20;
     c_profile.perGIvalues = $('#pe_perGIvalues').is(':checked');
@@ -427,7 +428,7 @@
 
   function toDisplayTime (minfrommidnight) {
     var time = moment().startOf('day').add(minfrommidnight,'minutes');
-    return serverSettings.settings.timeFormat === '24' ? time.format('HH:mm') : time.format('h:mm A');
+    return client.settings.timeFormat === '24' ? time.format('HH:mm') : time.format('h:mm A');
   }
   
   function profileSubmit(event) {
@@ -438,12 +439,12 @@
       return false;
     }
     
-    if (!Nightscout.client.hashauth.isAuthenticated()) {
+    if (!client.hashauth.isAuthenticated()) {
       alert(translate('Your device is not authenticated yet'));
       return false;
     }
 
-    c_profile.units = serverSettings.settings.units;
+    c_profile.units = client.settings.units;
 
     var adjustedProfile = _.cloneDeep(c_profile);
 
@@ -475,7 +476,7 @@
         , url: '/api/v1/profile/'
         , data: adjustedProfile
         , headers: {
-          'api-secret': Nightscout.client.hashauth.hash()
+          'api-secret': client.hashauth.hash()
         }
       }).done(function postSuccess (data, status) {
         console.info('profile created', data);
@@ -495,7 +496,7 @@
         , url: '/api/v1/profile/'
         , data: adjustedProfile
         , headers: {
-          'api-secret': Nightscout.client.hashauth.hash()
+          'api-secret': client.hashauth.hash()
         }
       }).done(function putSuccess (data, status) {
         console.info('profile updated', data);
