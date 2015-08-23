@@ -154,4 +154,18 @@ describe('settings', function ( ) {
     fresh.alarmTypes.should.equal('simple');
   });
 
+  it('check if a feature isEnabled', function () {
+    var fresh = require('../lib/settings')();
+    fresh.enable = 'feature1';
+    fresh.isEnabled('feature1').should.equal(true);
+    fresh.isEnabled('feature2').should.equal(false);
+  });
+
+  it('check if any listed feature isEnabled', function () {
+    var fresh = require('../lib/settings')();
+    fresh.enable = 'feature1';
+    fresh.isEnabled(['unknown', 'feature1']).should.equal(true);
+    fresh.isEnabled(['unknown', 'feature2']).should.equal(false);
+  });
+
 });
