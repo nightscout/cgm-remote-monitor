@@ -7,7 +7,7 @@ describe('Status REST api', function ( ) {
   var api = require('../lib/api/');
   before(function (done) {
     var env = require('../env')( );
-    env.settings.enable = 'careportal rawbg';
+    env.settings.enable = ['careportal', 'rawbg'];
     env.api_secret = 'this is my long pass phrase';
     this.wares = require('../lib/middleware/')(env);
     this.app = require('express')( );
@@ -26,7 +26,9 @@ describe('Status REST api', function ( ) {
       .end(function (err, res)  {
         res.body.apiEnabled.should.equal(true);
         res.body.careportalEnabled.should.equal(true);
-        res.body.settings.enable.should.equal('careportal rawbg');
+        res.body.settings.enable.length.should.equal(2);
+        res.body.settings.enable.should.containEql('careportal');
+        res.body.settings.enable.should.containEql('rawbg');
         done( );
       });
   });

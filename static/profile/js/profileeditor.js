@@ -5,10 +5,12 @@
   var _ = window._;
   var moment = window.moment;
   var Nightscout = window.Nightscout;
+  var client = Nightscout.client;
 
   var c_profile = null;
 
   //some commonly used selectors
+  var peStatus = $('.pe_status');
   var timezoneInput = $('#pe_timezone');
   var timeInput = $('#pe_time');
   var dateInput = $('#pe_date');
@@ -17,10 +19,10 @@
   if (serverSettings === undefined) {
     console.error('server settings were not loaded, will not call init');
   } else {
-    window.Nightscout.client.init(serverSettings, Nightscout.plugins);
+    client.init(serverSettings, Nightscout.plugins);
   }
   
-  var translate = Nightscout.client.translate;
+  var translate = client.translate;
 
   var defaultprofile = {
       //General values
@@ -76,7 +78,7 @@
   var mongoprofiles = [];
 
   // Fetch data from mongo
-  $('#pe_status').hide().text('Loading profile records ...').fadeIn('slow');
+  peStatus.hide().text('Loading profile records ...').fadeIn('slow');
   $.ajax('/api/v1/profile.json', {
     success: function (records) {
       c_profile = {};
@@ -99,18 +101,18 @@
         }
         convertToRanges(c_profile);
         
-        $('#pe_status').hide().text('Values loaded.').fadeIn('slow');
+        peStatus.hide().text('Values loaded.').fadeIn('slow');
         mongoprofiles.unshift(c_profile);
       } else {
         c_profile = _.cloneDeep(defaultprofile);
         mongoprofiles.unshift(c_profile);
-        $('#pe_status').hide().text('Default values used.').fadeIn('slow');
+        peStatus.hide().text('Default values used.').fadeIn('slow');
       }
     },
     error: function () {
       c_profile = _.cloneDeep(defaultprofile);
       mongoprofiles.unshift(c_profile);
-      $('#pe_status').hide().text('Error. Default values used.').fadeIn('slow');
+      peStatus.hide().text('Error. Default values used.').fadeIn('slow');
     }
   }).done(initeditor);
   
@@ -140,9 +142,9 @@
     $('#pe_perGIvalues').change(switchStyle);
 
     // display status
-    $('#pe_units').text(serverSettings.settings.units);
-    $('#pe_timeformat').text(serverSettings.settings.timeFormat+'h');
-    $('#pe_title').text(serverSettings.settings.customTitle);
+    $('#pe_units').text(client.settings.units);
+    $('#pe_timeformat').text(client.settings.timeFormat+'h');
+    $('#pe_title').text(client.settings.customTitle);
 
     var lastvalidfrom = new Date(mongoprofiles[1] && mongoprofiles[1].startDate ? mongoprofiles[1].startDate : null);
     
@@ -169,7 +171,7 @@
   
   // Handling valid from date change
   function dateChanged(event) {
-    var newdate = new Date(Nightscout.client.utils.mergeInputTime(timeInput.val(), dateInput.val()));
+    var newdate = new Date(client.utils.mergeInputTime(timeInput.val(), dateInput.val()));
     if (mongoprofiles.length<2 || !mongoprofiles[1].startDate || mongoprofiles.length>=2 && new Date(mongoprofiles[1].startDate).getTime() === newdate.getTime()) {
       submitButton.text('Update record').css('display','');
       timeInput.css({'background-color':'white'});
@@ -249,7 +251,7 @@
     }
     
     // Fill dropdown boxes
-    _.forEach([{prefix:'pe_basal', array:'basal', label:'Rate: '},
+    _.each([{prefix:'pe_basal', array:'basal', label:'Rate: '},
      {prefix:'pe_ic', array:'carbratio', label:'IC: '},
      {prefix:'pe_isf', array:'sens', label:'ISF: '}
     ], function (e) {
@@ -383,7 +385,7 @@
   function GUIToObject() {
  
     c_profile.dia = parseFloat($('#pe_dia').val());
-    c_profile.startDate = new Date(Nightscout.client.utils.mergeInputTime(timeInput.val(), dateInput.val()));
+    c_profile.startDate = new Date(client.utils.mergeInputTime(timeInput.val(), dateInput.val()));
     c_profile.carbs_hr = parseInt($('#pe_hr').val());
     c_profile.delay = 20;
     c_profile.perGIvalues = $('#pe_perGIvalues').is(':checked');
@@ -426,23 +428,23 @@
 
   function toDisplayTime (minfrommidnight) {
     var time = moment().startOf('day').add(minfrommidnight,'minutes');
-    return serverSettings.settings.timeFormat === '24' ? time.format('HH:mm') : time.format('h:mm A');
+    return client.settings.timeFormat === '24' ? time.format('HH:mm') : time.format('h:mm A');
   }
   
   function profileSubmit(event) {
     GUIToObject();
     if (new Date(c_profile.startDate) > new Date()) {
       alert('Date must be set in the past');
-      $('#pe_status').hide().html('Wrong date').fadeIn('slow');
+      peStatus.hide().html('Wrong date').fadeIn('slow');
       return false;
     }
     
-    if (!Nightscout.client.hashauth.isAuthenticated()) {
+    if (!client.hashauth.isAuthenticated()) {
       alert(translate('Your device is not authenticated yet'));
       return false;
     }
 
-    c_profile.units = serverSettings.settings.units;
+    c_profile.units = client.settings.units;
 
     var adjustedProfile = _.cloneDeep(c_profile);
 
@@ -458,10 +460,11 @@
 
     adjustedProfile.startDate = adjustedProfile.startDate.toISOString( );
 
+    console.info('saving profile');
     if (submitButton.text().indexOf('Create new record')>-1) {
       if (mongoprofiles.length > 1 && (new Date(c_profile.startDate) <= new Date(mongoprofiles[1].validfrom))) {
         alert('Date must be greater than last record '+new Date(mongoprofiles[1].startDate));
-        $('#pe_status').hide().html('Wrong date').fadeIn('slow');
+        peStatus.hide().html('Wrong date').fadeIn('slow');
         return false;
       }
       
@@ -473,15 +476,19 @@
         , url: '/api/v1/profile/'
         , data: adjustedProfile
         , headers: {
-          'api-secret': Nightscout.client.hashauth.hash()
+          'api-secret': client.hashauth.hash()
         }
-      }).done(function postSuccess (response) {
-        console.info('profile saved', response);
+      }).done(function postSuccess (data, status) {
+        console.info('profile created', data);
+        peStatus.hide().text(status).fadeIn('slow');
 
         //not using the adjustedProfile here (doesn't have the defaults other code needs)
         var newprofile = _.cloneDeep(c_profile);
         mongoprofiles.unshift(newprofile);
         initeditor();
+      }).fail(function(xhr, status, errorThrown)  {
+        console.error('Profile not saved', status, errorThrown);
+        peStatus.hide().text(status).fadeIn('slow');
       });
     } else {
       $.ajax({
@@ -489,14 +496,17 @@
         , url: '/api/v1/profile/'
         , data: adjustedProfile
         , headers: {
-          'api-secret': Nightscout.client.hashauth.hash()
+          'api-secret': client.hashauth.hash()
         }
-      }).done(function putSuccess (response) {
-        console.info('profile updated', response);
-        $('#pe_status').hide().text(response).fadeIn('slow');
+      }).done(function putSuccess (data, status) {
+        console.info('profile updated', data);
+        peStatus.hide().text(status).fadeIn('slow');
+      }).fail(function(xhr, status, errorThrown)  {
+        console.error('Profile not saved', status, errorThrown);
+        peStatus.hide().text(status).fadeIn('slow');
       });
     }
-    
+
     if (event) {
       event.preventDefault();
     }
