@@ -21,7 +21,6 @@ describe('cage', function ( ) {
 
   it('set a pill to the current cannula age', function (done) {
 
-    var app = {};
     var clientSettings = {};
 
     var data = {
@@ -39,7 +38,31 @@ describe('cage', function ( ) {
       }
     };
 
-    var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
+    cage.updateVisualisation(sbx);
+
+  });
+
+  it('set a pill to the current cannula age', function (done) {
+
+    var clientSettings = {};
+
+    var data = {
+      treatments: [
+        {eventType: 'Site Change', notes: 'Foo', mills: Date.now() - 48 * 60 * 60000}
+        , {eventType: 'Site Change', notes: '', mills: Date.now() - 59 * 60000}
+        ]
+    };
+
+    var pluginBase = {
+      updatePillText: function mockedUpdatePillText (plugin, options) {
+        options.value.should.equal('0h');
+        options.info.length.should.equal(1);
+        done();
+      }
+    };
+
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
     cage.updateVisualisation(sbx);
 
   });
@@ -53,7 +76,7 @@ describe('cage', function ( ) {
     ctx.data.treatments = [{eventType: 'Site Change', mills: before}];
 
     var sbx = prepareSandbox();
-    sbx.extendedSettings = { 'enablealerts': 'TRUE' };
+    sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
     cage.checkNotifications(sbx);
 
     var highest = ctx.notifications.findHighestAlarm();
