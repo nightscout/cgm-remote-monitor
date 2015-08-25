@@ -91,4 +91,27 @@ describe('Entries REST api', function ( ) {
         done();
       });
   });
+
+  it('allow deletes', function (done) {
+    var app = this.app;
+
+    request(app)
+      .delete('/entries/sgv?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
+      .expect(200)
+      .end(function (err) {
+        if (err) {
+          done(err);
+        } else {
+          request(app)
+            .get('/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
+            .expect(200)
+            .end(function (err, res) {
+              res.body.should.be.instanceof(Array).and.have.lengthOf(0);
+              done();
+            });
+        }
+      });
+  });
+
+
 });
