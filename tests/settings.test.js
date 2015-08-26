@@ -1,19 +1,17 @@
 'use strict';
 
-require('should');
 var _ = require('lodash');
+var should = require('should');
 
 describe('settings', function ( ) {
   var settings = require('../lib/settings')();
 
   it('have defaults ready', function () {
-    settings.units.should.equal('mg/dL');
     settings.timeFormat.should.equal('12');
     settings.nightMode.should.equal(false);
     settings.showRawbg.should.equal('never');
     settings.customTitle.should.equal('Nightscout');
     settings.theme.should.equal('default');
-    settings.alarmTypes.should.equal('predict');
     settings.alarmUrgentHigh.should.equal(true);
     settings.alarmHigh.should.equal(true);
     settings.alarmLow.should.equal(true);
@@ -27,79 +25,107 @@ describe('settings', function ( ) {
   });
 
   it('support setting from env vars', function () {
-    var expected = {
-      DISPLAY_UNITS: false
-      , TIME_FORMAT: false
-      , NIGHT_MODE: false
-      , SHOW_RAWBG: false
-      , CUSTOM_TITLE: false
-      , THEME: false
-      , ALARM_TYPES: false
-      , ALARM_URGENT_HIGH: false
-      , ALARM_HIGH: false
-      , ALARM_LOW: false
-      , ALARM_URGENT_LOW: false
-      , ALARM_TIMEAGO_WARN: false
-      , ALARM_TIMEAGO_WARN_MINS: false
-      , ALARM_TIMEAGO_URGENT: false
-      , ALARM_TIMEAGO_URGENT_MINS: false
-      , LANGUAGE: false
-      , SHOW_PLUGINS: false
-      , BG_HIGH: false
-      , BG_TARGET_TOP: false
-      , BG_TARGET_BOTTOM: false
-      , BG_LOW: false
+    var expected = [
+      'ENABLE'
+      , 'DISABLE'
+      , 'UNITS'
+      , 'TIME_FORMAT'
+      , 'NIGHT_MODE'
+      , 'SHOW_RAWBG'
+      , 'CUSTOM_TITLE'
+      , 'THEME'
+      , 'ALARM_TYPES'
+      , 'ALARM_URGENT_HIGH'
+      , 'ALARM_HIGH'
+      , 'ALARM_LOW'
+      , 'ALARM_URGENT_LOW'
+      , 'ALARM_TIMEAGO_WARN'
+      , 'ALARM_TIMEAGO_WARN_MINS'
+      , 'ALARM_TIMEAGO_URGENT'
+      , 'ALARM_TIMEAGO_URGENT_MINS'
+      , 'LANGUAGE'
+      , 'SHOW_PLUGINS'
+      , 'BG_HIGH'
+      , 'BG_TARGET_TOP'
+      , 'BG_TARGET_BOTTOM'
+      , 'BG_LOW'
+    ];
 
-    };
+    expected.length.should.equal(23);
 
-    var expectedKeys = _.keys(expected);
-    expectedKeys.length.should.equal(21);
-
+    var seen = { };
     settings.eachSettingAsEnv(function markSeenNames(name) {
-      expected[name] = true;
+      seen[name] = true;
     });
 
 
-    var filtered = _.filter(expected, function (value) {
-      return value;
+    var expectedAndSeen = _.filter(expected, function (name) {
+      return seen[name];
     });
 
-    filtered.length.should.equal(expectedKeys.length);
+    expectedAndSeen.length.should.equal(expected.length);
   });
 
   it('support setting each', function () {
-    var expected = {
-      units: false
-      , timeFormat: false
-      , nightMode: false
-      , showRawbg: false
-      , customTitle: false
-      , theme: false
-      , alarmTypes: false
-      , alarmUrgentHigh: false
-      , alarmHigh: false
-      , alarmLow: false
-      , alarmUrgentLow: false
-      , alarmTimeagoWarn: false
-      , alarmTimeagoWarnMins: false
-      , alarmTimeagoUrgent: false
-      , alarmTimeagoUrgentMins: false
-      , language: false
-      , showPlugins: false
-    };
+    var expected = [
+      'enable'
+      , 'disable'
+      , 'units'
+      , 'timeFormat'
+      , 'nightMode'
+      , 'showRawbg'
+      , 'customTitle'
+      , 'theme'
+      , 'alarmTypes'
+      , 'alarmUrgentHigh'
+      , 'alarmHigh'
+      , 'alarmLow'
+      , 'alarmUrgentLow'
+      , 'alarmTimeagoWarn'
+      , 'alarmTimeagoWarnMins'
+      , 'alarmTimeagoUrgent'
+      , 'alarmTimeagoUrgentMins'
+      , 'language'
+      , 'showPlugins'
+    ];
 
-    var expectedKeys = _.keys(expected);
-    expectedKeys.length.should.equal(17);
+    expected.length.should.equal(19);
 
+    var seen = { };
     settings.eachSetting(function markSeenNames(name) {
-      expected[name] = true;
+      seen[name] = true;
     });
 
-    var filtered = _.filter(expected, function (value) {
-      return value;
+
+    var expectedAndSeen = _.filter(expected, function (name) {
+      return seen[name];
     });
 
-    filtered.length.should.equal(expectedKeys.length);
+    expectedAndSeen.length.should.equal(expected.length);
+
+  });
+
+  it('have default features', function () {
+    var fresh = require('../lib/settings')();
+    fresh.eachSettingAsEnv(function () {
+      return undefined;
+    });
+
+    _.each(fresh.DEFAULT_FEATURES, function eachDefault (feature) {
+      fresh.enable.should.containEql(feature);
+    });
+
+  });
+
+  it('support disabling default features', function () {
+    var fresh = require('../lib/settings')();
+    fresh.eachSettingAsEnv(function (name) {
+      return name === 'DISABLE' ?
+        fresh.DEFAULT_FEATURES.join(' ') + ' ar2' //need to add ar2 here since it will be auto enabled
+        : undefined;
+    });
+
+    fresh.enable.length.should.equal(0);
   });
 
   it('set thresholds', function () {
@@ -115,20 +141,39 @@ describe('settings', function ( ) {
       return userThresholds[name];
     });
 
-    fresh.processRawSettings();
-
     fresh.thresholds.bgHigh.should.equal(200);
     fresh.thresholds.bgTargetTop.should.equal(170);
     fresh.thresholds.bgTargetBottom.should.equal(70);
     fresh.thresholds.bgLow.should.equal(60);
 
-    fresh.alarmTypes.should.equal('simple');
+    should.deepEqual(fresh.alarmTypes, ['simple']);
   });
 
   it('default to predict if no thresholds are set', function () {
     var fresh = require('../lib/settings')();
-    fresh.processRawSettings();
-    fresh.alarmTypes.should.equal('predict');
+    fresh.eachSettingAsEnv(function ( ) {
+      return undefined;
+    });
+
+    should.deepEqual(fresh.alarmTypes, ['predict']);
+  });
+
+  it('ignore junk alarm types', function () {
+    var fresh = require('../lib/settings')();
+    fresh.eachSettingAsEnv(function (name) {
+      return name === 'ALARM_TYPES' ? 'beep bop' : undefined;
+    });
+
+    should.deepEqual(fresh.alarmTypes, ['predict']);
+  });
+
+  it('allow multiple alarm types to be set', function () {
+    var fresh = require('../lib/settings')();
+    fresh.eachSettingAsEnv(function (name) {
+      return name === 'ALARM_TYPES' ? 'predict simple' : undefined;
+    });
+
+    should.deepEqual(fresh.alarmTypes, ['predict', 'simple']);
   });
 
   it('handle screwed up thresholds in a way that will display something that looks wrong', function () {
@@ -144,26 +189,24 @@ describe('settings', function ( ) {
       return screwedUp[name];
     });
 
-    fresh.processRawSettings();
-
     fresh.thresholds.bgHigh.should.equal(91);
     fresh.thresholds.bgTargetTop.should.equal(90);
     fresh.thresholds.bgTargetBottom.should.equal(89);
     fresh.thresholds.bgLow.should.equal(88);
 
-    fresh.alarmTypes.should.equal('simple');
+    should.deepEqual(fresh.alarmTypes, ['simple']);
   });
 
   it('check if a feature isEnabled', function () {
     var fresh = require('../lib/settings')();
-    fresh.enable = 'feature1';
+    fresh.enable = ['feature1'];
     fresh.isEnabled('feature1').should.equal(true);
     fresh.isEnabled('feature2').should.equal(false);
   });
 
   it('check if any listed feature isEnabled', function () {
     var fresh = require('../lib/settings')();
-    fresh.enable = 'feature1';
+    fresh.enable = ['feature1'];
     fresh.isEnabled(['unknown', 'feature1']).should.equal(true);
     fresh.isEnabled(['unknown', 'feature2']).should.equal(false);
   });
