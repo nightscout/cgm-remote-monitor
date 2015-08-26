@@ -21,4 +21,10 @@ describe('language', function ( ) {
     language.translate('Carbs').should.equal('Sacharidy');
   });
 
+  it('translate to Czech uppercase', function () {
+    var language = require('../lib/language')();
+    language.set('cs');
+    language.translateInUpperCase('carbs').should.equal('SACHARIDY');
+  });
+
 });
