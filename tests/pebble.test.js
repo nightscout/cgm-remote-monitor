@@ -165,13 +165,59 @@ describe('Pebble Endpoint', function ( ) {
         done( );
       });
   });
+
+  it('/pebble without battery', function (done) {
+    delete ctx.data.devicestatus.uploaderBattery;
+    request(this.app)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        var bgs = res.body.bgs;
+        bgs.length.should.equal(1);
+        should.not.exist(bgs[0].battery);
+
+        res.body.cals.length.should.equal(0);
+        done( );
+      });
+  });
+
+  it('/pebble with a negative battery', function (done) {
+    ctx.data.devicestatus.uploaderBattery = -1;
+    request(this.app)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        var bgs = res.body.bgs;
+        bgs.length.should.equal(1);
+        should.not.exist(bgs[0].battery);
+
+        res.body.cals.length.should.equal(0);
+        done( );
+      });
+  });
+
+  it('/pebble with a false battery', function (done) {
+    ctx.data.devicestatus.uploaderBattery = false;
+    request(this.app)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        var bgs = res.body.bgs;
+        bgs.length.should.equal(1);
+        should.not.exist(bgs[0].battery);
+
+        res.body.cals.length.should.equal(0);
+        done( );
+      });
+  });
 });
 
 describe('Pebble Endpoint with Raw and IOB', function ( ) {
   var pebbleRaw = require('../lib/pebble');
   before(function (done) {
+    ctx.data.devicestatus.uploaderBattery = 100;
     var envRaw = require('../env')( );
-    envRaw.enable = 'rawbg iob';
+    envRaw.settings.enable = ['rawbg', 'iob'];
     this.appRaw = require('express')( );
     this.appRaw.enable('api');
     this.appRaw.use('/pebble', pebbleRaw(envRaw, ctx));
