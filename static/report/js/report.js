@@ -1,10 +1,24 @@
+(function () {
   'use strict';
+  //for the tests window isn't the global object
+  var $ = window.$;
+  var _ = window._;
+  var moment = window.moment;
+  var Nightscout = window.Nightscout;
+  var client = Nightscout.client;
 
-  var translate = Nightscout.language.translate;
+  Nightscout.reports = Nightscout.reports || {};
+  
+  if (serverSettings === undefined) {
+    console.error('server settings were not loaded, will not call init');
+  } else {
+    client.init(serverSettings, Nightscout.plugins);
+  }
+  
+  var translate = client.translate;
   
   var maxInsulinValue = 0
       ,maxCarbsValue = 0;
-  var containerprefix = 'chart-';
   var maxdays = 3 * 31;
   var datastorage = {};
   var daystoshow = {};
@@ -18,9 +32,9 @@
       ONE_MIN_IN_MS = 60000
     , SIX_MINS_IN_MS =  360000;
 
-  var 
-      SCALE_LINEAR = 0
-    , SCALE_LOG = 1;
+  Nightscout.reports.SCALE_LINEAR = 0;
+  Nightscout.reports.SCALE_LOG = 1;
+  Nightscout.reports.containerprefix = 'chart-';
   
     
   var categories = [];
@@ -60,44 +74,56 @@
     return color;
   }
 
-    $('#info').html('<b>'+translate('Loading profile')+' ...</b>');
-    $.ajax('/api/v1/profile', {
-      success: function (record) {
-        Nightscout.profile.loadData(record);
+    $('#info').html('<b>'+translate('Loading food database')+' ...</b>');
+    $.ajax('/api/v1/food/regular.json', {
+      success: function foodLoadSuccess(records) {
+        records.forEach(function (r) {
+          foodlist.push(r);
+          if (r.category && !categories[r.category]) categories[r.category] = {};
+          if (r.category && r.subcategory) categories[r.category][r.subcategory] = true;
+        });
+        fillForm();
       }
     }).done(function() {
-      $('#info').html('<b>'+translate('Loading food database')+' ...</b>');
-      $.ajax('/api/v1/food/regular.json', {
-        success: function (records) {
-          records.forEach(function (r) {
-            foodlist.push(r);
-            if (r.category && !categories[r.category]) categories[r.category] = {};
-            if (r.category && r.subcategory) categories[r.category][r.subcategory] = true;
-          });
-          fillForm();
-        }
-      }).done(function() {
-        $('#info').html('');
-        $('.presetdates').click(function(e) { var days = $(this).attr('days');  setDataRange(e,days); });
+      $('#info').html('');
+      $('.presetdates').click(function(e) { var days = $(this).attr('days');  setDataRange(e,days); });
 
-        $('#rp_show').click(show);
-        $('#rp_food').change(function (event) { 
-          event.preventDefault(); 
-          $('#rp_enablefood').prop('checked',true);
-        });
-        $('#rp_notes').change(function (event) { 
-          event.preventDefault(); 
-          $('#rp_enablenotes').prop('checked',true);
-        });
-        
-        $('#rp_targetlow').val(targetBGdefault[serverSettings.units].low);
-        $('#rp_targethigh').val(targetBGdefault[serverSettings.units].high);
-        
-        $('.menutab').click(switchtab);
+      $('#rp_show').click(show);
+      $('#rp_food').change(function (event) { 
+        event.preventDefault(); 
+        $('#rp_enablefood').prop('checked',true);
+      });
+      $('#rp_notes').change(function (event) { 
+        event.preventDefault(); 
+        $('#rp_enablenotes').prop('checked',true);
+      });
+      
+      $('#rp_targetlow').val(targetBGdefault[client.settings.units].low);
+      $('#rp_targethigh').val(targetBGdefault[client.settings.units].high);
+      
+      $('.menutab').click(switchtab);
 
-        setDataRange(null,7);
-        
-        });
+      setDataRange(null,7);
+    }).fail(function() {
+      $('#info').html('');
+      $('.presetdates').click(function(e) { var days = $(this).attr('days');  setDataRange(e,days); });
+
+      $('#rp_show').click(show);
+      $('#rp_food').change(function (event) { 
+        event.preventDefault(); 
+        $('#rp_enablefood').prop('checked',true);
+      });
+      $('#rp_notes').change(function (event) { 
+        event.preventDefault(); 
+        $('#rp_enablenotes').prop('checked',true);
+      });
+      
+      $('#rp_targetlow').val(targetBGdefault[client.settings.units].low);
+      $('#rp_targethigh').val(targetBGdefault[client.settings.units].high);
+      
+      $('.menutab').click(switchtab);
+
+      setDataRange(null,7);
     });
 
   function show(event) {
@@ -113,7 +139,7 @@
       carbs: true,
       iob : true,
       cob : true,
-      scale: SCALE_LINEAR
+      scale: Nightscout.reports.SCALE_LINEAR
     };
     
     options.targetLow = parseFloat($('#rp_targetlow').val().replace(',','.'));
@@ -125,7 +151,7 @@
     options.food = $('#rp_optionsfood').is(':checked');
     options.insulin = $('#rp_optionsinsulin').is(':checked');
     options.carbs = $('#rp_optionscarbs').is(':checked');
-    options.scale = $('#rp_linear').is(':checked') ? SCALE_LINEAR : SCALE_LOG;
+    options.scale = $('#rp_linear').is(':checked') ? Nightscout.reports.SCALE_LINEAR : Nightscout.reports.SCALE_LOG;
     options.width = parseInt($('#rp_size :selected').attr('x'));
     options.height = parseInt($('#rp_size :selected').attr('y'));
     
@@ -328,7 +354,7 @@
   
   }
   
-  function localeDate(day) {
+  Nightscout.reports.localeDate = function localeDate(day) {
     var ret = 
       [translate("Sunday"),translate("Monday"),translate("Tuesday"),translate("Wednesday"),translate("Thursday"),translate("Friday"),translate("Saturday")][new Date(day).getDay()];
     ret += ' ';
@@ -336,7 +362,7 @@
     return ret;
   }
   
-  function localeDateTime(day) {
+  Nightscout.reports.localeDateTime = function localeDateTime(day) {
     var ret = new Date(day).toLocaleDateString() + ' ' + new Date(day).toLocaleTimeString();
     return ret;
   }
@@ -359,7 +385,7 @@
     var to = from + 1000 * 60 * 60 * 24;
     var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
     
-    $('#'+containerprefix+day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
+    $('#'+Nightscout.reports.containerprefix+day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
     $.ajax('/api/v1/entries.json'+query, {
       success: function (xhr) {
         xhr.forEach(function (element) {
@@ -396,6 +422,7 @@
         });
          // sometimes cgm contains duplicates.  uniq it.
         data.sgv = cgmData.slice();
+console.log(data.sgv);
         data.sgv.sort(function(a, b) { return a.x - b.x; });
         var lastDate = 0;
         data.sgv = data.sgv.filter(function(d) {
@@ -409,7 +436,7 @@
         data.cal.sort(function(a, b) { return a.x - b.x; });
       }
     }).done(function () {
-      $('#'+containerprefix+day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
+      $('#'+Nightscout.reports.containerprefix+day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
       var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
       $.ajax('/api/v1/treatments.json'+tquery, {
         success: function (xhr) {
@@ -422,7 +449,7 @@
           data.treatments.sort(function(a, b) { return a.mills - b.mills; });
         }
       }).done(function () {
-        $('#'+containerprefix+day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
+        $('#'+Nightscout.reports.containerprefix+day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
         processData(data,day,options);
       });
         
@@ -442,16 +469,16 @@
       temp1 = data.sgv.map(function (entry) {
         var noise = entry.noise || 0;
         var rawBg = rawIsigToRawBg(entry, cal);
-        return { x: entry.x, date: new Date(entry.x - 2 * 1000), y: rawBg, sgv: scaleBg(rawBg), color: 'gray', type: 'rawbg', filtered: entry.filtered, unfiltered: entry.unfiltered }
+        return { x: entry.x, date: new Date(entry.x - 2 * 1000), y: rawBg, sgv: client.utils.scaleMgdl(rawBg), color: 'gray', type: 'rawbg', filtered: entry.filtered, unfiltered: entry.unfiltered }
       }).filter(function(entry) { return entry.y > 0});
     }
     var temp2 = data.sgv.map(function (obj) {
-      return { x: obj.x, date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: sgvToColor(scaleBg(obj.y),options), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered}
+      return { x: obj.x, date: new Date(obj.x), y: obj.y, sgv: client.utils.scaleMgdl(obj.y), color: sgvToColor(client.utils.scaleMgdl(obj.y),options), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered}
     });
     data.sgv = [].concat(temp1, temp2);
 
     //Add MBG's also, pretend they are SGV's
-    data.sgv = data.sgv.concat(data.mbg.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: scaleBg(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
+    data.sgv = data.sgv.concat(data.mbg.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: client.utils.scaleMgdl(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 
     // make sure data range will be exactly 24h
     var from = new Date(new Date(day).getTime() + (new Date().getTimezoneOffset()*60*1000));
@@ -550,7 +577,7 @@
     if (event) event.preventDefault();
   }
   
-    function scaledTreatmentBG(treatment,data) {
+    Nightscout.reports.scaledTreatmentBG = function scaledTreatmentBG(treatment,data) {
 
       var SIX_MINS_IN_MS =  360000;
      
@@ -576,15 +603,15 @@
       if (treatment.glucose && isNaN(treatment.glucose)) {
         console.warn('found an invalid glucose value', treatment);
       } else {
-        if (treatment.glucose && treatment.units && serverSettings.units) {
-          if (treatment.units != serverSettings.units) {
-            console.info('found mismatched glucose units, converting ' + treatment.units + ' into ' + serverSettings.units, treatment);
+        if (treatment.glucose && treatment.units && client.settings.units) {
+          if (treatment.units != client.settings.units) {
+            console.info('found mismatched glucose units, converting ' + treatment.units + ' into ' + client.settings.units, treatment);
             if (treatment.units == 'mmol') {
               //BG is in mmol and display in mg/dl
               treatmentGlucose = Math.round(treatment.glucose * 18)
             } else {
               //BG is in mg/dl and display in mmol
-              treatmentGlucose = scaleBg(treatment.glucose);
+              treatmentGlucose = client.utils.scaleMgdl(treatment.glucose);
             }
           } else {
             treatmentGlucose = treatment.glucose;
@@ -596,13 +623,7 @@
         }
       }
 
-      return treatmentGlucose || scaleBg(calcBGByTime(treatment.mills));
+      return treatmentGlucose || client.utils.scaleMgdl(calcBGByTime(treatment.mills));
     }
 
-  function scaleBg(bg) {
-    if (serverSettings.units === 'mmol') {
-      return Nightscout.units.mgdlToMMOL(bg);
-    } else {
-      return bg;
-    }
-  }
+})();

@@ -1,6 +1,10 @@
 	function report_percentile(datastorage,daystoshow,options) {
+    var Nightscout = window.Nightscout;
+    var client = Nightscout.client;
+    var translate = client.translate;
+
 		var Statician = ss;
-		var window = 30; //minute-window should be a divisor of 60 
+		var minutewindow = 30; //minute-window should be a divisor of 60 
 		
 		var data = [];
 		var days = 0;
@@ -11,14 +15,14 @@
 		
 		var bins = [];
 		for (hour = 0; hour < 24; hour++) {
-			for (minute = 0; minute < 60; minute = minute + window) {
+			for (minute = 0; minute < 60; minute = minute + minutewindow) {
 				var date = new Date();
 				date.setHours(hour);
 				date.setMinutes(minute);
 				var readings = data.filter(function(record) {
 					var recdate = new Date(record.displayTime);
 					return recdate.getHours() == hour && recdate.getMinutes() >= minute &&
-						recdate.getMinutes() < minute + window;;
+						recdate.getMinutes() < minute + minutewindow;
 				});
 				readings = readings.map(function(record) {
 					return record.sgv;

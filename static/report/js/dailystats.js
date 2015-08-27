@@ -1,4 +1,8 @@
 	function report_dailystats(datastorage,daystoshow,options) {
+    var Nightscout = window.Nightscout;
+    var client = Nightscout.client;
+    var translate = client.translate;
+
 		var todo = [];
 //		var data = o[0];
 //		var days = 7;
@@ -39,7 +43,7 @@
 			
 			if (daysRecords.length == 0) {
 				$("<td/>").appendTo(tr);
-				$("<td class=\"tdborder\" style=\"width:160px\">" + localeDate(dayInQuestion) + "</td>").appendTo(tr);
+				$("<td class=\"tdborder\" style=\"width:160px\">" + Nightscout.reports.localeDate(dayInQuestion) + "</td>").appendTo(tr);
 				$('<td  class=\"tdborder\"colspan="10">'+translate('No data available')+'</td>').appendTo(tr);
 				table.append(tr);
 				return;;
@@ -67,7 +71,7 @@
 			var bgValues = daysRecords.map(function(r) { return r.sgv; });
 			$("<td><div id=\"dailystat-chart-" + day.toString() + "\" class=\"inlinepiechart\"></div></td>").appendTo(tr);
 
-			$("<td class=\"tdborder\" style=\"width:160px\">" + localeDate(dayInQuestion) + "</td>").appendTo(tr);
+			$("<td class=\"tdborder\" style=\"width:160px\">" + Nightscout.reports.localeDate(dayInQuestion) + "</td>").appendTo(tr);
 			$("<td class=\"tdborder\">" + Math.floor((100 * stats.lows) / daysRecords.length) + "%</td>").appendTo(tr);
 			$("<td class=\"tdborder\">" + Math.floor((100 * stats.normal) / daysRecords.length) + "%</td>").appendTo(tr);
 			$("<td class=\"tdborder\">" + Math.floor((100 * stats.highs) / daysRecords.length) + "%</td>").appendTo(tr);

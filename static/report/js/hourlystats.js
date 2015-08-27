@@ -1,4 +1,8 @@
 	function report_hourlystats(datastorage,daystoshow,options) {
+    var Nightscout = window.Nightscout;
+    var client = Nightscout.client;
+    var translate = client.translate;
+
 		var report = $("#hourlystats-report");
 		var stats = [];
 		var pivotedByHour = {};

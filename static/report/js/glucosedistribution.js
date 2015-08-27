@@ -1,4 +1,8 @@
 	function report_glucosedistribution(datastorage,daystoshow,options) {
+    var Nightscout = window.Nightscout;
+    var client = Nightscout.client;
+    var translate = client.translate;
+
 		var Statician = ss;
 		var report = $("#glucosedistribution-report");
 		report.empty();

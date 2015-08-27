@@ -1,6 +1,10 @@
   function report_daytoday(datastorage,daystoshow,options) {
-    var translate = Nightscout.language.translate;
-
+    var Nightscout = window.Nightscout;
+    var client = Nightscout.client;
+    var translate = client.translate;
+    var profile = client.sbx.data.profile;
+    var scaledTreatmentBG = Nightscout.reports.scaledTreatmentBG;
+    
     var padding = { top: 15, right: 15, bottom: 30, left: 35 };
     var         
         FORMAT_TIME_12 = '%I'
@@ -12,7 +16,7 @@
       
     function getTimeFormat() {
       var timeFormat = FORMAT_TIME_12;
-      if (serverSettings.defaults.timeFormat == '24') {
+      if (Nightscout.client.settings.timeFormat == '24') {
           timeFormat = FORMAT_TIME_24;
       }
       return timeFormat;
@@ -29,8 +33,8 @@
             , foodtexts = 0;
 
       // Tick Values
-      if (options.scale == SCALE_LOG) {
-        if (serverSettings.units == 'mmol') {
+      if (options.scale == Nightscout.reports.SCALE_LOG) {
+        if (client.settings.units == 'mmol') {
           tickValues = [
               2.0
             , 3.0
@@ -54,7 +58,7 @@
           ];
         }
       } else {
-        if (serverSettings.units == 'mmol') {
+        if (client.settings.units == 'mmol') {
           tickValues = [
               2.0
             , 4.0
@@ -85,9 +89,9 @@
       }
 
       // create svg and g to contain the chart contents
-      charts = d3.select('#'+containerprefix+day).html(
+      charts = d3.select('#'+Nightscout.reports.containerprefix+day).html(
         '<b>'+
-        localeDate(day)+
+        Nightscout.reports.localeDate(day)+
         '</b><br>'
         ).append('svg');
 
@@ -102,12 +106,12 @@
       xScale2 = d3.time.scale()
         .domain(d3.extent(data.sgv, function (d) { return d.date; }));
 
-      if (options.scale == SCALE_LOG) {
+      if (options.scale == Nightscout.reports.SCALE_LOG) {
         yScale2 = d3.scale.log()
-          .domain([scaleBg(36), scaleBg(420)]);
+          .domain([client.utils.scaleMgdl(36), client.utils.scaleMgdl(420)]);
       } else {
         yScale2 = d3.scale.linear()
-          .domain([scaleBg(36), scaleBg(420)]);
+          .domain([client.utils.scaleMgdl(36), client.utils.scaleMgdl(420)]);
       }
 
       yInsulinScale = d3.scale.linear()
@@ -200,7 +204,7 @@
             .attr('cy', function (d) {
               if (isNaN(d.sgv)) {
                   badData.push(d);
-                  return yScale2(scaleBg(450) + padding.top);
+                  return yScale2(client.utils.scaleMgdl(450) + padding.top);
               } else {
                   return yScale2(d.sgv) + padding.top;
               }
@@ -233,15 +237,14 @@
       var iobpolyline = '', cobpolyline = '';
       for (var dt=from; dt < to; dt.add(5, 'minutes')) {
         if (options.iob) {
-          var iob = Nightscout.plugins('iob').calcTotal(data.treatments,Nightscout.profile,dt.toDate()).iob;
+          var iob = Nightscout.plugins('iob').calcTotal(data.treatments,profile,dt.toDate()).iob;
           if (dt!=from) {
             iobpolyline += ', ';
           }
           iobpolyline += (xScale2(dt) + padding.left) + ',' + (yInsulinScale(iob) + padding.top) + ' ';
         }
         if (options.cob) {
-          var cob = Nightscout.plugins('cob').cobTotal(data.treatments,Nightscout.profile,dt.toDate()).cob;
-console.log(dt.toDate().toLocaleTimeString(),cob);
+          var cob = Nightscout.plugins('cob').cobTotal(data.treatments,profile,dt.toDate()).cob;
           if (dt!=from) {
             cobpolyline += ', ';
           }
@@ -308,7 +311,7 @@ console.log(dt.toDate().toLocaleTimeString(),cob);
         }
 
         if (treatment.carbs && options.carbs) {
-          var ic = Nightscout.profile.getCarbRatio(new Date(treatment.mills));
+          var ic = profile.getCarbRatio(new Date(treatment.mills));
           context.append('rect')
             .attr('y',yCarbsScale(treatment.carbs))
             .attr('height', chartHeight-yCarbsScale(treatment.carbs))

@@ -1,4 +1,8 @@
 function report_success(datastorage,daystoshow,options) {
+  var Nightscout = window.Nightscout;
+  var client = Nightscout.client;
+  var translate = client.translate;
+
 	var low = parseInt(options.targetLow),
 		high = parseInt(options.targetHigh);
 
