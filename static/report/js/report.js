@@ -68,7 +68,7 @@
     filter.category = $('#rp_category').val();
     filter.subcategory = '';
     $('#rp_subcategory').empty().append(new Option(translate('(none)'),''));
-    if (filter.category != '') {
+    if (filter.category !== '') {
       for (var s in food_categories[filter.category]) {
         $('#rp_subcategory').append(new Option(s,s));
       }
@@ -84,9 +84,9 @@
     }
     $('#rp_food').empty();
     for (var i=0; i<food_list.length; i++) {
-      if (filter.category != '' && food_list[i].category != filter.category) continue;
-      if (filter.subcategory != '' && food_list[i].subcategory != filter.subcategory) continue;
-      if (filter.name!= '' && food_list[i].name.toLowerCase().indexOf(filter.name.toLowerCase())<0) continue;
+      if (filter.category !== '' && food_list[i].category !== filter.category) continue;
+      if (filter.subcategory !== '' && food_list[i].subcategory !== filter.subcategory) continue;
+      if (filter.name !== '' && food_list[i].name.toLowerCase().indexOf(filter.name.toLowerCase()) < 0) continue;
       var o = '';
       o += food_list[i].name + ' | ';
       o += translate('Portion')+': ' + food_list[i].portion + ' ';
@@ -110,9 +110,9 @@
       , intercept = parseFloat(cal.intercept) || 0
       , slope = parseFloat(cal.slope) || 0;
 
-    if (slope == 0 || unfiltered == 0 || scale == 0) {
+    if (slope === 0 || unfiltered === 0 || scale === 0) {
       raw = 0;
-    } else if (filtered == 0 || sgv < 40) {
+    } else if (filtered === 0 || sgv < 40) {
         raw = scale * (unfiltered - intercept) / slope;
     } else {
         var ratio = scale * (filtered - intercept) / slope / sgv;
@@ -336,13 +336,13 @@
       matchesneeded++;
       for (var d in daystoshow) {
         var day = new Date(d).getDay();
-        if (day==0 && $('#rp_su').is(':checked')) daystoshow[d]++;
-        if (day==1 && $('#rp_mo').is(':checked')) daystoshow[d]++;
-        if (day==2 && $('#rp_tu').is(':checked')) daystoshow[d]++;
-        if (day==3 && $('#rp_we').is(':checked')) daystoshow[d]++;
-        if (day==4 && $('#rp_th').is(':checked')) daystoshow[d]++;
-        if (day==5 && $('#rp_fr').is(':checked')) daystoshow[d]++;
-        if (day==6 && $('#rp_sa').is(':checked')) daystoshow[d]++;
+        if (day===0 && $('#rp_su').is(':checked')) daystoshow[d]++;
+        if (day===1 && $('#rp_mo').is(':checked')) daystoshow[d]++;
+        if (day===2 && $('#rp_tu').is(':checked')) daystoshow[d]++;
+        if (day===3 && $('#rp_we').is(':checked')) daystoshow[d]++;
+        if (day===4 && $('#rp_th').is(':checked')) daystoshow[d]++;
+        if (day===5 && $('#rp_fr').is(':checked')) daystoshow[d]++;
+        if (day===6 && $('#rp_sa').is(':checked')) daystoshow[d]++;
       }
       display();
     }
@@ -353,7 +353,7 @@
       $('#info').html('<b>'+translate('Loading')+' ...</b>');
       $('#charts').html('');
       for (var d in daystoshow) {
-        if (daystoshow[d]==matchesneeded) {
+        if (daystoshow[d]===matchesneeded) {
           if (displayeddays < maxdays) {
             $('#charts').append($('<div id="chart-'+d+'"></div>'));
             loadData(d,options);
@@ -365,7 +365,7 @@
           delete daystoshow[d];
         }
       }
-      if (displayeddays==0) {
+      if (displayeddays===0) {
         $('#charts').html('<b>'+translate('Result is empty')+'</b>');
         $('#info').empty();
       }
@@ -423,7 +423,7 @@
   
   function loadData(day,options) {
     // check for loaded data
-    if (datastorage[day] && day != moment().format('YYYY-MM-DD')) {
+    if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
       showreports(options);
       return;
     }
@@ -465,7 +465,7 @@ console.log(xhr);
                 , rssi: element.rssi
                 , sgv: element.sgv
               });
-            } else if (element.type == 'cal') {
+            } else if (element.type === 'cal') {
               calData.push({
                 x: element.date
                 , d: element.dateString
@@ -553,7 +553,7 @@ console.log(data.sgv);
     
     // for other reports
     data.statsrecords = data.sgv.filter(function(r) {
-      if (r.type) return r.type == 'sgv';
+      if (r.type) return r.type === 'sgv';
       else return true;
     }).map(function (r) { 
       var ret = {};
