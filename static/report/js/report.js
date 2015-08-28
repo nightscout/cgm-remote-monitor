@@ -84,9 +84,9 @@
     }
     $('#rp_food').empty();
     for (var i=0; i<food_list.length; i++) {
-      if (filter.category !== '' && food_list[i].category !== filter.category) continue;
-      if (filter.subcategory !== '' && food_list[i].subcategory !== filter.subcategory) continue;
-      if (filter.name !== '' && food_list[i].name.toLowerCase().indexOf(filter.name.toLowerCase()) < 0) continue;
+      if (filter.category !== '' && food_list[i].category !== filter.category) { continue; }
+      if (filter.subcategory !== '' && food_list[i].subcategory !== filter.subcategory) { continue; }
+      if (filter.name !== '' && food_list[i].name.toLowerCase().indexOf(filter.name.toLowerCase()) < 0) { continue; }
       var o = '';
       o += food_list[i].name + ' | ';
       o += translate('Portion')+': ' + food_list[i].portion + ' ';
@@ -138,8 +138,8 @@
     success: function foodLoadSuccess(records) {
       records.forEach(function (r) {
         food_list.push(r);
-        if (r.category && !food_categories[r.category]) food_categories[r.category] = {};
-        if (r.category && r.subcategory) food_categories[r.category][r.subcategory] = true;
+        if (r.category && !food_categories[r.category]) { food_categories[r.category] = {}; }
+        if (r.category && r.subcategory) { food_categories[r.category][r.subcategory] = true; }
       });
       fillFoodForm();
     }
@@ -224,8 +224,11 @@
         var to = moment($('#rp_to').val());
         
         while (from <= to) {
-          if (daystoshow[from.format('YYYY-MM-DD')]) daystoshow[from.format('YYYY-MM-DD')]++;
-          else daystoshow[from.format('YYYY-MM-DD')] = 1;
+          if (daystoshow[from.format('YYYY-MM-DD')]) { 
+            daystoshow[from.format('YYYY-MM-DD')]++;
+          } else {
+            daystoshow[from.format('YYYY-MM-DD')] = 1;
+          }
           from.add(1, 'days');
         }
       }
@@ -255,8 +258,11 @@
           }).done(function () {
           console.log('Foodfilter: ',treatmentData);
           for (var d=0; d<treatmentData.length; d++) {
-            if (daystoshow[treatmentData[d]]) daystoshow[treatmentData[d]]++;
-            else daystoshow[treatmentData[d]] = 1;
+            if (daystoshow[treatmentData[d]]) {
+              daystoshow[treatmentData[d]]++;
+            } else {
+              daystoshow[treatmentData[d]] = 1;
+            }
           }
           notesfilter();
           });
@@ -288,8 +294,11 @@
           }).done(function () {
             console.log('Notesfilter: ',treatmentData);
             for (var d=0; d<treatmentData.length; d++) {
-              if (daystoshow[treatmentData[d]]) daystoshow[treatmentData[d]]++;
-              else daystoshow[treatmentData[d]] = 1;
+              if (daystoshow[treatmentData[d]]) {
+                daystoshow[treatmentData[d]]++;
+              } else {
+                daystoshow[treatmentData[d]] = 1;
+              }
             }
             eventtypefilter();
           });
@@ -321,8 +330,11 @@
           }).done(function () {
             console.log('Eventtypefilter: ',treatmentData);
             for (var d=0; d<treatmentData.length; d++) {
-              if (daystoshow[treatmentData[d]]) daystoshow[treatmentData[d]]++;
-              else daystoshow[treatmentData[d]] = 1;
+              if (daystoshow[treatmentData[d]]) {
+                daystoshow[treatmentData[d]]++;
+              } else {
+                daystoshow[treatmentData[d]] = 1;
+              }
             }
             daysfilter();
           });
@@ -336,13 +348,13 @@
       matchesneeded++;
       for (var d in daystoshow) {
         var day = new Date(d).getDay();
-        if (day===0 && $('#rp_su').is(':checked')) daystoshow[d]++;
-        if (day===1 && $('#rp_mo').is(':checked')) daystoshow[d]++;
-        if (day===2 && $('#rp_tu').is(':checked')) daystoshow[d]++;
-        if (day===3 && $('#rp_we').is(':checked')) daystoshow[d]++;
-        if (day===4 && $('#rp_th').is(':checked')) daystoshow[d]++;
-        if (day===5 && $('#rp_fr').is(':checked')) daystoshow[d]++;
-        if (day===6 && $('#rp_sa').is(':checked')) daystoshow[d]++;
+        if (day===0 && $('#rp_su').is(':checked')) { daystoshow[d]++; }
+        if (day===1 && $('#rp_mo').is(':checked')) { daystoshow[d]++; }
+        if (day===2 && $('#rp_tu').is(':checked')) { daystoshow[d]++; }
+        if (day===3 && $('#rp_we').is(':checked')) { daystoshow[d]++; }
+        if (day===4 && $('#rp_th').is(':checked')) { daystoshow[d]++; }
+        if (day===5 && $('#rp_fr').is(':checked')) { daystoshow[d]++; }
+        if (day===6 && $('#rp_sa').is(':checked')) { daystoshow[d]++; }
       }
       display();
     }
@@ -380,23 +392,17 @@
   function showreports(options) {
     // wait for all loads
     for (var d in daystoshow) {
-      if (!datastorage[d]) return; // all data not loaded yet
+      if (!datastorage[d]) {
+        return; // all data not loaded yet
+      }
     }
-/*
-    ['daytoday','dailystats','percentile','glucosedistribution','hourlystats','success','treatments','calibrations'].forEach(function (chart) {
-      // jquery plot doesn't draw to hidden div
-      $('#'+chart+'-placeholder').css('display','');
-      eval('report_'+chart+'(datastorage,daystoshow,options);');
-      if (!$('#'+chart).hasClass('selected'))
-        $('#'+chart+'-placeholder').css('display','none');
-    });
-*/
     report_plugins.eachPlugin(function (plugin) {
       // jquery plot doesn't draw to hidden div
       $('#'+plugin.name+'-placeholder').css('display','');
       plugin.report(datastorage,daystoshow,options);
-      if (!$('#'+plugin.name).hasClass('selected'))
+      if (!$('#'+plugin.name).hasClass('selected')) {
         $('#'+plugin.name+'-placeholder').css('display','none');
+      }
     });
     
     $('#info').html('');
@@ -514,8 +520,12 @@ console.log(data.sgv);
   function processData(data,day,options) {
     // treatments
     data.treatments.forEach(function (d) {
-      if (parseFloat(d.insulin) > maxInsulinValue) maxInsulinValue = parseFloat(d.insulin);
-      if (parseFloat(d.carbs) > maxCarbsValue) maxCarbsValue = parseFloat(d.carbs);
+      if (parseFloat(d.insulin) > maxInsulinValue) {
+        maxInsulinValue = parseFloat(d.insulin);
+      }
+      if (parseFloat(d.carbs) > maxCarbsValue) {
+        maxCarbsValue = parseFloat(d.carbs);
+      }
     });
 
     var cal = data.cal[data.cal.length-1];
@@ -543,7 +553,9 @@ console.log(data.sgv);
 
     // clear error data. we don't need it to display them
     data.sgv = data.sgv.filter(function (d) {
-      if (d.y < 39) return false;
+      if (d.y < 39) {
+        return false;
+      }
       return true;
     });
     
@@ -552,8 +564,11 @@ console.log(data.sgv);
     
     // for other reports
     data.statsrecords = data.sgv.filter(function(r) {
-      if (r.type) return r.type === 'sgv';
-      else return true;
+      if (r.type) {
+        return r.type === 'sgv';
+      } else {
+        return true;
+      }
     }).map(function (r) { 
       var ret = {};
       ret.sgv = parseFloat(r.sgv); 
