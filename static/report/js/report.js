@@ -1,3 +1,6 @@
+// TODO:
+// - bypass nightmode in reports
+
 (function () {
   'use strict';
   //for the tests window isn't the global object
@@ -57,14 +60,10 @@
     $('#rp_subcategory').change(doFoodFilter);
     $('#rp_name').on('input',doFoodFilter);
   
-    if (event) event.preventDefault();
-    return false;
+    return maybePreventDefault(event);
   }
 
   function fillFoodSubcategories(event) {
-    if (event) {
-      event.preventDefault();
-    }
     filter.category = $('#rp_category').val();
     filter.subcategory = '';
     $('#rp_subcategory').empty().append(new Option(translate('(none)'),''));
@@ -74,6 +73,7 @@
       }
     }
     doFoodFilter();
+    return maybePreventDefault(event);
   }
 
   function doFoodFilter(event) {
@@ -95,7 +95,7 @@
       $('#rp_food').append(new Option(o,food_list[i]._id));
     }
     
-    if (event) event.preventDefault();
+    return maybePreventDefault(event);
   }
 
   // ****** FOOD CODE END ******
@@ -149,12 +149,12 @@
 
     $('#rp_show').click(show);
     $('#rp_food').change(function (event) { 
-      event.preventDefault(); 
       $('#rp_enablefood').prop('checked',true);
+      return maybePreventDefault(event);
     });
-    $('#rp_notes').change(function (event) { 
-      event.preventDefault(); 
+    $('#rp_notes').change(function (event) {
       $('#rp_enablenotes').prop('checked',true);
+      return maybePreventDefault(event);
     });
     
     $('#rp_targetlow').val(targetBGdefault[client.settings.units].low);
@@ -169,12 +169,12 @@
 
     $('#rp_show').click(show);
     $('#rp_food').change(function (event) { 
-      event.preventDefault(); 
       $('#rp_enablefood').prop('checked',true);
+      return maybePreventDefault(event);
     });
     $('#rp_notes').change(function (event) { 
-      event.preventDefault(); 
       $('#rp_enablenotes').prop('checked',true);
+      return maybePreventDefault(event);
     });
     
     $('#rp_targetlow').val(targetBGdefault[client.settings.units].low);
@@ -374,7 +374,7 @@
     $('#rp_show').css('display','none');
     daystoshow = {};
     datefilter();
-    if (event) event.preventDefault();
+    return maybePreventDefault(event);
   }
   
   function showreports(options) {
@@ -406,8 +406,7 @@
   function setDataRange(event,days) {
     $('#rp_to').val(moment().format('YYYY-MM-DD'));
     $('#rp_from').val(moment().add(-days+1, 'days').format('YYYY-MM-DD'));
-    
-    if (event) event.preventDefault();
+    return maybePreventDefault(event);
   }
   
   function switchreport_handler(event) {
@@ -418,7 +417,7 @@
     
     $('.tabplaceholder').css('display','none');
     $('#'+id+'-placeholder').css('display','');
-  
+    return maybePreventDefault(event);
   }
   
   function loadData(day,options) {
@@ -570,4 +569,10 @@ console.log(data.sgv);
     showreports(options);
   }
 
+  function maybePreventDefault(event) {
+    if (event) {
+      event.preventDefault();
+    }
+    return false;
+  }
 })();
