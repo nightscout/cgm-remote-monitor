@@ -14,7 +14,7 @@
   } else {
     client.init(serverSettings, Nightscout.plugins);
   }
-  
+
   var translate = client.translate;
   
   var maxInsulinValue = 0
@@ -37,8 +37,8 @@
   Nightscout.reports.containerprefix = 'chart-';
   
     
-  var categories = [];
-  var foodlist = [];
+  var food_categories = [];
+  var food_list = [];
   
 
 
@@ -78,11 +78,11 @@
     $.ajax('/api/v1/food/regular.json', {
       success: function foodLoadSuccess(records) {
         records.forEach(function (r) {
-          foodlist.push(r);
-          if (r.category && !categories[r.category]) categories[r.category] = {};
-          if (r.category && r.subcategory) categories[r.category][r.subcategory] = true;
+          food_list.push(r);
+          if (r.category && !food_categories[r.category]) food_categories[r.category] = {};
+          if (r.category && r.subcategory) food_categories[r.category][r.subcategory] = true;
         });
-        fillForm();
+        fillFoodForm();
       }
     }).done(function() {
       $('#info').html('');
@@ -101,7 +101,7 @@
       $('#rp_targetlow').val(targetBGdefault[client.settings.units].low);
       $('#rp_targethigh').val(targetBGdefault[client.settings.units].high);
       
-      $('.menutab').click(switchtab);
+      $('.menutab').click(switchreport_handler);
 
       setDataRange(null,7);
     }).fail(function() {
@@ -121,7 +121,7 @@
       $('#rp_targetlow').val(targetBGdefault[client.settings.units].low);
       $('#rp_targethigh').val(targetBGdefault[client.settings.units].high);
       
-      $('.menutab').click(switchtab);
+      $('.menutab').click(switchreport_handler);
 
       setDataRange(null,7);
     });
@@ -343,7 +343,7 @@
     if (event) event.preventDefault();
   }
   
-  function switchtab(event) {
+  function switchreport_handler(event) {
     var id = $(this).attr('id');
     
     $('.menutab').removeClass('selected');
@@ -386,8 +386,10 @@
     var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
     
     $('#'+Nightscout.reports.containerprefix+day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
+console.log('/api/v1/entries.json'+query);
     $.ajax('/api/v1/entries.json'+query, {
       success: function (xhr) {
+console.log(xhr);
         xhr.forEach(function (element) {
           if (element) {
             if (element.mbg) {
@@ -516,31 +518,31 @@ console.log(data.sgv);
 
   // Filtering food code
   // -------------------
-  var categories = [];
-  var foodlist = [];
+  var food_categories = [];
+  var food_list = [];
   var filter = {
       category: ''
     , subcategory: ''
     , name: ''
   };
 
-  function fillForm(event) {
+  function fillFoodForm(event) {
     $('#rp_category').empty().append(new Option(translate('(none)'),''));
-    for (var s in categories) {
+    for (var s in food_categories) {
       $('#rp_category').append(new Option(s,s));
     }
     filter.category = '';
-    fillSubcategories();
+    fillFoodSubcategories();
     
-    $('#rp_category').change(fillSubcategories);
-    $('#rp_subcategory').change(doFilter);
-    $('#rp_name').on('input',doFilter);
+    $('#rp_category').change(fillFoodSubcategories);
+    $('#rp_subcategory').change(doFoodFilter);
+    $('#rp_name').on('input',doFoodFilter);
   
     if (event) event.preventDefault();
     return false;
   }
 
-  function fillSubcategories(event) {
+  function fillFoodSubcategories(event) {
     if (event) {
       event.preventDefault();
     }
@@ -548,30 +550,30 @@ console.log(data.sgv);
     filter.subcategory = '';
     $('#rp_subcategory').empty().append(new Option(translate('(none)'),''));
     if (filter.category != '') {
-      for (var s in categories[filter.category]) {
+      for (var s in food_categories[filter.category]) {
         $('#rp_subcategory').append(new Option(s,s));
       }
     }
-    doFilter();
+    doFoodFilter();
   }
 
-  function doFilter(event) {
+  function doFoodFilter(event) {
     if (event) {
       filter.category = $('#rp_category').val();
       filter.subcategory = $('#rp_subcategory').val();
       filter.name = $('#rp_name').val();
     }
     $('#rp_food').empty();
-    for (var i=0; i<foodlist.length; i++) {
-      if (filter.category != '' && foodlist[i].category != filter.category) continue;
-      if (filter.subcategory != '' && foodlist[i].subcategory != filter.subcategory) continue;
-      if (filter.name!= '' && foodlist[i].name.toLowerCase().indexOf(filter.name.toLowerCase())<0) continue;
+    for (var i=0; i<food_list.length; i++) {
+      if (filter.category != '' && food_list[i].category != filter.category) continue;
+      if (filter.subcategory != '' && food_list[i].subcategory != filter.subcategory) continue;
+      if (filter.name!= '' && food_list[i].name.toLowerCase().indexOf(filter.name.toLowerCase())<0) continue;
       var o = '';
-      o += foodlist[i].name + ' | ';
-      o += translate('Portion')+': ' + foodlist[i].portion + ' ';
-      o += foodlist[i].unit + ' | ';
-      o += translate('Carbs')+': ' + foodlist[i].carbs+' g';
-      $('#rp_food').append(new Option(o,foodlist[i]._id));
+      o += food_list[i].name + ' | ';
+      o += translate('Portion')+': ' + food_list[i].portion + ' ';
+      o += food_list[i].unit + ' | ';
+      o += translate('Carbs')+': ' + food_list[i].carbs+' g';
+      $('#rp_food').append(new Option(o,food_list[i]._id));
     }
     
     if (event) event.preventDefault();
