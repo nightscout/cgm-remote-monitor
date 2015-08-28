@@ -29,7 +29,7 @@ function create (env, ctx) {
 
   // expose swagger.yaml
   app.get('/swagger.yaml', function (req, res) {
-    res.sendfile(__dirname + '/swagger.yaml');
+    res.sendFile(__dirname + '/swagger.yaml');
   });
 
   //app.get('/package.json', software);

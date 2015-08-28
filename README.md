@@ -160,6 +160,9 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
   * `LANGUAGE` (`en`) - language of Nighscout. If not available english is used
 
+### Nightscout API
+
+  After deploying your site, you can learn more about the Nightscout API looking at https://YOUR-SITE.com/api-docs.html or reviewing [swagger.yaml](swagger.yaml).
 
 ### Plugins
 
