@@ -6,15 +6,14 @@
   var moment = window.moment;
   var Nightscout = window.Nightscout;
   var client = Nightscout.client;
+  var report_plugins = Nightscout.report_plugins;
 
-  Nightscout.reports = Nightscout.reports || {};
-  
   if (serverSettings === undefined) {
     console.error('server settings were not loaded, will not call init');
   } else {
     client.init(serverSettings, Nightscout.plugins);
   }
-
+  
   var translate = client.translate;
   
   var maxInsulinValue = 0
@@ -32,14 +31,74 @@
       ONE_MIN_IN_MS = 60000
     , SIX_MINS_IN_MS =  360000;
 
-  Nightscout.reports.SCALE_LINEAR = 0;
-  Nightscout.reports.SCALE_LOG = 1;
-  Nightscout.reports.containerprefix = 'chart-';
+  report_plugins.setProperty('SCALE_LINEAR', 0);
+  report_plugins.setProperty('SCALE_LOG', 1);
+  report_plugins.setProperty('containerprefix', 'chart-');
   
-    
+  // ****** FOOD CODE START ******
   var food_categories = [];
   var food_list = [];
   
+  var filter = {
+      category: ''
+    , subcategory: ''
+    , name: ''
+  };
+
+  function fillFoodForm(event) {
+    $('#rp_category').empty().append(new Option(translate('(none)'),''));
+    for (var s in food_categories) {
+      $('#rp_category').append(new Option(s,s));
+    }
+    filter.category = '';
+    fillFoodSubcategories();
+    
+    $('#rp_category').change(fillFoodSubcategories);
+    $('#rp_subcategory').change(doFoodFilter);
+    $('#rp_name').on('input',doFoodFilter);
+  
+    if (event) event.preventDefault();
+    return false;
+  }
+
+  function fillFoodSubcategories(event) {
+    if (event) {
+      event.preventDefault();
+    }
+    filter.category = $('#rp_category').val();
+    filter.subcategory = '';
+    $('#rp_subcategory').empty().append(new Option(translate('(none)'),''));
+    if (filter.category != '') {
+      for (var s in food_categories[filter.category]) {
+        $('#rp_subcategory').append(new Option(s,s));
+      }
+    }
+    doFoodFilter();
+  }
+
+  function doFoodFilter(event) {
+    if (event) {
+      filter.category = $('#rp_category').val();
+      filter.subcategory = $('#rp_subcategory').val();
+      filter.name = $('#rp_name').val();
+    }
+    $('#rp_food').empty();
+    for (var i=0; i<food_list.length; i++) {
+      if (filter.category != '' && food_list[i].category != filter.category) continue;
+      if (filter.subcategory != '' && food_list[i].subcategory != filter.subcategory) continue;
+      if (filter.name!= '' && food_list[i].name.toLowerCase().indexOf(filter.name.toLowerCase())<0) continue;
+      var o = '';
+      o += food_list[i].name + ' | ';
+      o += translate('Portion')+': ' + food_list[i].portion + ' ';
+      o += food_list[i].unit + ' | ';
+      o += translate('Carbs')+': ' + food_list[i].carbs+' g';
+      $('#rp_food').append(new Option(o,food_list[i]._id));
+    }
+    
+    if (event) event.preventDefault();
+  }
+
+  // ****** FOOD CODE END ******
 
 
   function rawIsigToRawBg(entry, cal) {
@@ -74,57 +133,57 @@
     return color;
   }
 
-    $('#info').html('<b>'+translate('Loading food database')+' ...</b>');
-    $.ajax('/api/v1/food/regular.json', {
-      success: function foodLoadSuccess(records) {
-        records.forEach(function (r) {
-          food_list.push(r);
-          if (r.category && !food_categories[r.category]) food_categories[r.category] = {};
-          if (r.category && r.subcategory) food_categories[r.category][r.subcategory] = true;
-        });
-        fillFoodForm();
-      }
-    }).done(function() {
-      $('#info').html('');
-      $('.presetdates').click(function(e) { var days = $(this).attr('days');  setDataRange(e,days); });
-
-      $('#rp_show').click(show);
-      $('#rp_food').change(function (event) { 
-        event.preventDefault(); 
-        $('#rp_enablefood').prop('checked',true);
+  $('#info').html('<b>'+translate('Loading food database')+' ...</b>');
+  $.ajax('/api/v1/food/regular.json', {
+    success: function foodLoadSuccess(records) {
+      records.forEach(function (r) {
+        food_list.push(r);
+        if (r.category && !food_categories[r.category]) food_categories[r.category] = {};
+        if (r.category && r.subcategory) food_categories[r.category][r.subcategory] = true;
       });
-      $('#rp_notes').change(function (event) { 
-        event.preventDefault(); 
-        $('#rp_enablenotes').prop('checked',true);
-      });
-      
-      $('#rp_targetlow').val(targetBGdefault[client.settings.units].low);
-      $('#rp_targethigh').val(targetBGdefault[client.settings.units].high);
-      
-      $('.menutab').click(switchreport_handler);
+      fillFoodForm();
+    }
+  }).done(function() {
+    $('#info').html('');
+    $('.presetdates').click(function(e) { var days = $(this).attr('days');  setDataRange(e,days); });
 
-      setDataRange(null,7);
-    }).fail(function() {
-      $('#info').html('');
-      $('.presetdates').click(function(e) { var days = $(this).attr('days');  setDataRange(e,days); });
-
-      $('#rp_show').click(show);
-      $('#rp_food').change(function (event) { 
-        event.preventDefault(); 
-        $('#rp_enablefood').prop('checked',true);
-      });
-      $('#rp_notes').change(function (event) { 
-        event.preventDefault(); 
-        $('#rp_enablenotes').prop('checked',true);
-      });
-      
-      $('#rp_targetlow').val(targetBGdefault[client.settings.units].low);
-      $('#rp_targethigh').val(targetBGdefault[client.settings.units].high);
-      
-      $('.menutab').click(switchreport_handler);
-
-      setDataRange(null,7);
+    $('#rp_show').click(show);
+    $('#rp_food').change(function (event) { 
+      event.preventDefault(); 
+      $('#rp_enablefood').prop('checked',true);
     });
+    $('#rp_notes').change(function (event) { 
+      event.preventDefault(); 
+      $('#rp_enablenotes').prop('checked',true);
+    });
+    
+    $('#rp_targetlow').val(targetBGdefault[client.settings.units].low);
+    $('#rp_targethigh').val(targetBGdefault[client.settings.units].high);
+    
+    $('.menutab').click(switchreport_handler);
+
+    setDataRange(null,7);
+  }).fail(function() {
+    $('#info').html('');
+    $('.presetdates').click(function(e) { var days = $(this).attr('days');  setDataRange(e,days); });
+
+    $('#rp_show').click(show);
+    $('#rp_food').change(function (event) { 
+      event.preventDefault(); 
+      $('#rp_enablefood').prop('checked',true);
+    });
+    $('#rp_notes').change(function (event) { 
+      event.preventDefault(); 
+      $('#rp_enablenotes').prop('checked',true);
+    });
+    
+    $('#rp_targetlow').val(targetBGdefault[client.settings.units].low);
+    $('#rp_targethigh').val(targetBGdefault[client.settings.units].high);
+    
+    $('.menutab').click(switchreport_handler);
+
+    setDataRange(null,7);
+  });
 
   function show(event) {
     var options = {
@@ -139,7 +198,7 @@
       carbs: true,
       iob : true,
       cob : true,
-      scale: Nightscout.reports.SCALE_LINEAR
+      scale: report_plugins.getProperty('SCALE_LINEAR')
     };
     
     options.targetLow = parseFloat($('#rp_targetlow').val().replace(',','.'));
@@ -151,7 +210,7 @@
     options.food = $('#rp_optionsfood').is(':checked');
     options.insulin = $('#rp_optionsinsulin').is(':checked');
     options.carbs = $('#rp_optionscarbs').is(':checked');
-    options.scale = $('#rp_linear').is(':checked') ? Nightscout.reports.SCALE_LINEAR : Nightscout.reports.SCALE_LOG;
+    options.scale = $('#rp_linear').is(':checked') ? report_plugins.getProperty('SCALE_LINEAR') : report_plugins.getProperty('SCALE_LOG');
     options.width = parseInt($('#rp_size :selected').attr('x'));
     options.height = parseInt($('#rp_size :selected').attr('y'));
     
@@ -323,13 +382,21 @@
     for (var d in daystoshow) {
       if (!datastorage[d]) return; // all data not loaded yet
     }
-
+/*
     ['daytoday','dailystats','percentile','glucosedistribution','hourlystats','success','treatments','calibrations'].forEach(function (chart) {
       // jquery plot doesn't draw to hidden div
       $('#'+chart+'-placeholder').css('display','');
       eval('report_'+chart+'(datastorage,daystoshow,options);');
       if (!$('#'+chart).hasClass('selected'))
         $('#'+chart+'-placeholder').css('display','none');
+    });
+*/
+    report_plugins.eachPlugin(function (plugin) {
+      // jquery plot doesn't draw to hidden div
+      $('#'+plugin.name+'-placeholder').css('display','');
+      plugin.report(datastorage,daystoshow,options);
+      if (!$('#'+plugin.name).hasClass('selected'))
+        $('#'+plugin.name+'-placeholder').css('display','none');
     });
     
     $('#info').html('');
@@ -354,19 +421,6 @@
   
   }
   
-  Nightscout.reports.localeDate = function localeDate(day) {
-    var ret = 
-      [translate("Sunday"),translate("Monday"),translate("Tuesday"),translate("Wednesday"),translate("Thursday"),translate("Friday"),translate("Saturday")][new Date(day).getDay()];
-    ret += ' ';
-    ret += new Date(day).toLocaleDateString();
-    return ret;
-  }
-  
-  Nightscout.reports.localeDateTime = function localeDateTime(day) {
-    var ret = new Date(day).toLocaleDateString() + ' ' + new Date(day).toLocaleTimeString();
-    return ret;
-  }
-  
   function loadData(day,options) {
     // check for loaded data
     if (datastorage[day] && day != moment().format('YYYY-MM-DD')) {
@@ -385,7 +439,7 @@
     var to = from + 1000 * 60 * 60 * 24;
     var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
     
-    $('#'+Nightscout.reports.containerprefix+day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
+    $('#'+report_plugins.getProperty('containerprefix')+day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
 console.log('/api/v1/entries.json'+query);
     $.ajax('/api/v1/entries.json'+query, {
       success: function (xhr) {
@@ -438,7 +492,7 @@ console.log(data.sgv);
         data.cal.sort(function(a, b) { return a.x - b.x; });
       }
     }).done(function () {
-      $('#'+Nightscout.reports.containerprefix+day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
+      $('#'+report_plugins.getProperty('containerprefix')+day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
       var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
       $.ajax('/api/v1/treatments.json'+tquery, {
         success: function (xhr) {
@@ -451,7 +505,7 @@ console.log(data.sgv);
           data.treatments.sort(function(a, b) { return a.mills - b.mills; });
         }
       }).done(function () {
-        $('#'+Nightscout.reports.containerprefix+day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
+        $('#'+report_plugins.getProperty('containerprefix')+day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
         processData(data,day,options);
       });
         
@@ -515,117 +569,5 @@ console.log(data.sgv);
     options.maxCarbsValue = maxCarbsValue;
     showreports(options);
   }
-
-  // Filtering food code
-  // -------------------
-  var food_categories = [];
-  var food_list = [];
-  var filter = {
-      category: ''
-    , subcategory: ''
-    , name: ''
-  };
-
-  function fillFoodForm(event) {
-    $('#rp_category').empty().append(new Option(translate('(none)'),''));
-    for (var s in food_categories) {
-      $('#rp_category').append(new Option(s,s));
-    }
-    filter.category = '';
-    fillFoodSubcategories();
-    
-    $('#rp_category').change(fillFoodSubcategories);
-    $('#rp_subcategory').change(doFoodFilter);
-    $('#rp_name').on('input',doFoodFilter);
-  
-    if (event) event.preventDefault();
-    return false;
-  }
-
-  function fillFoodSubcategories(event) {
-    if (event) {
-      event.preventDefault();
-    }
-    filter.category = $('#rp_category').val();
-    filter.subcategory = '';
-    $('#rp_subcategory').empty().append(new Option(translate('(none)'),''));
-    if (filter.category != '') {
-      for (var s in food_categories[filter.category]) {
-        $('#rp_subcategory').append(new Option(s,s));
-      }
-    }
-    doFoodFilter();
-  }
-
-  function doFoodFilter(event) {
-    if (event) {
-      filter.category = $('#rp_category').val();
-      filter.subcategory = $('#rp_subcategory').val();
-      filter.name = $('#rp_name').val();
-    }
-    $('#rp_food').empty();
-    for (var i=0; i<food_list.length; i++) {
-      if (filter.category != '' && food_list[i].category != filter.category) continue;
-      if (filter.subcategory != '' && food_list[i].subcategory != filter.subcategory) continue;
-      if (filter.name!= '' && food_list[i].name.toLowerCase().indexOf(filter.name.toLowerCase())<0) continue;
-      var o = '';
-      o += food_list[i].name + ' | ';
-      o += translate('Portion')+': ' + food_list[i].portion + ' ';
-      o += food_list[i].unit + ' | ';
-      o += translate('Carbs')+': ' + food_list[i].carbs+' g';
-      $('#rp_food').append(new Option(o,food_list[i]._id));
-    }
-    
-    if (event) event.preventDefault();
-  }
-  
-    Nightscout.reports.scaledTreatmentBG = function scaledTreatmentBG(treatment,data) {
-
-      var SIX_MINS_IN_MS =  360000;
-     
-      function calcBGByTime(time) {
-        var closeBGs = data.filter(function(d) {
-          if (!d.y) {
-            return false;
-          } else {
-            return Math.abs((new Date(d.date)).getTime() - time) <= SIX_MINS_IN_MS;
-          }
-        });
-
-        var totalBG = 0;
-        closeBGs.forEach(function(d) {
-          totalBG += Number(d.y);
-        });
-
-        return totalBG > 0 ? (totalBG / closeBGs.length) : 450;
-      }
-
-      var treatmentGlucose = null;
-
-      if (treatment.glucose && isNaN(treatment.glucose)) {
-        console.warn('found an invalid glucose value', treatment);
-      } else {
-        if (treatment.glucose && treatment.units && client.settings.units) {
-          if (treatment.units != client.settings.units) {
-            console.info('found mismatched glucose units, converting ' + treatment.units + ' into ' + client.settings.units, treatment);
-            if (treatment.units == 'mmol') {
-              //BG is in mmol and display in mg/dl
-              treatmentGlucose = Math.round(treatment.glucose * 18)
-            } else {
-              //BG is in mg/dl and display in mmol
-              treatmentGlucose = client.utils.scaleMgdl(treatment.glucose);
-            }
-          } else {
-            treatmentGlucose = treatment.glucose;
-          }
-        } else if (treatment.glucose) {
-          //no units, assume everything is the same
-          console.warn('found an glucose value with any units, maybe from an old version?', treatment);
-          treatmentGlucose = treatment.glucose;
-        }
-      }
-
-      return treatmentGlucose || client.utils.scaleMgdl(calcBGByTime(treatment.mills));
-    }
 
 })();
