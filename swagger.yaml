@@ -26,7 +26,7 @@ paths:
           in: path
           type: string
           description: entry id, such as '55cf81bc436037528ec75fa5' or a type filter such as 'sgv'
-          required: false
+          required: true
         - name: find
           in: query
           description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find paramertes are interpreted as strings.
@@ -50,30 +50,56 @@ paths:
             $ref: '#/definitions/Error'
 
   /entries:
+    get:
+      summary: All Entries matching query
+      description: The Entries endpoint returns information about the Nightscout entries.
+      parameters:
+        - name: find
+          in: query
+          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find paramertes are interpreted as strings.
+          required: false
+          type: string
+        - name: count
+          in: query
+          description: Number of entries to return.
+          required: false
+          type: number
+      tags:
+        - Entries
+      responses:
+        "200":
+          description: An array of entries
+          schema:
+            $ref: '#/definitions/Entries'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+
     post:
-          tags:
-            - Entries
-          summary: Add new entries.
-          description: ""
-          operationId: addEntries
-          consumes:
-            - application/json
-            - text/plain
-          produces:
-            - application/json
-            - text/plain
-          parameters:
-            - in: body
-              name: body
-              description: Entries to be uploaded.
-              required: true
-              schema:
-                $ref: "#/definitions/Entries"
-          responses:
-            "405":
-              description: Invalid input
-            "200":
-              description: Rejected list of entries.  Empty list is success.
+      tags:
+        - Entries
+      summary: Add new entries.
+      description: ""
+      operationId: addEntries
+      consumes:
+        - application/json
+        - text/plain
+      produces:
+        - application/json
+        - text/plain
+      parameters:
+        - in: body
+          name: body
+          description: Entries to be uploaded.
+          required: true
+          schema:
+            $ref: "#/definitions/Entries"
+      responses:
+        "405":
+          description: Invalid input
+        "200":
+          description: Rejected list of entries.  Empty list is success.
 
   /treatments:
     get:
