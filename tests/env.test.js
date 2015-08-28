@@ -33,16 +33,6 @@ describe('env', function ( ) {
     delete process.env.SCARYPLUGIN_DO_THING;
   });
 
-  it('check if there are extended settings', function () {
-    var env = require('../env')();
-    env.hasExtendedSetting('PUSHOVER', {'PUSHOVER_API_TOKEN': 'abc12345'}).should.equal(true);
-  });
-
-  it('check if there are extended settings for azure', function () {
-    var env = require('../env')();
-    env.hasExtendedSetting('PUSHOVER', {'CUSTOMCONNSTR_PUSHOVER_API_TOKEN': 'abc12345'}).should.equal(true);
-  });
-
   it('add pushover to enable if one of the env vars is set', function () {
     process.env.PUSHOVER_API_TOKEN = 'abc12345';
 
