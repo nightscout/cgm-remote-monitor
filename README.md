@@ -58,6 +58,7 @@ Community maintained fork of the
     - [Features/Labs](#featureslabs)
     - [Core](#core)
     - [Predefined values for your browser settings (optional)](#predefined-values-for-your-browser-settings-optional)
+    - [Nightscout API](#nightscout-api)
     - [Plugins](#plugins)
       - [Default Plugins](#default-plugins)
       - [Built-in/Example Plugins:](#built-inexample-plugins)
