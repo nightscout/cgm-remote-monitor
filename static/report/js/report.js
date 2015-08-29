@@ -16,8 +16,12 @@
   } else {
     client.init(serverSettings, Nightscout.plugins);
   }
+ 
+  // init HTML code
+  report_plugins.addHtmlFromPlugins( client );
   
   var translate = client.translate;
+  //language.set(client.settings.language);
   
   var maxInsulinValue = 0
       ,maxCarbsValue = 0;
@@ -34,10 +38,6 @@
       ONE_MIN_IN_MS = 60000
     , SIX_MINS_IN_MS =  360000;
 
-  report_plugins.setProperty('SCALE_LINEAR', 0);
-  report_plugins.setProperty('SCALE_LOG', 1);
-  report_plugins.setProperty('containerprefix', 'chart-');
-  
   // ****** FOOD CODE START ******
   var food_categories = [];
   var food_list = [];
@@ -198,7 +198,7 @@
       carbs: true,
       iob : true,
       cob : true,
-      scale: report_plugins.getProperty('SCALE_LINEAR')
+      scale: report_plugins.consts.SCALE_LINEAR
     };
     
     options.targetLow = parseFloat($('#rp_targetlow').val().replace(',','.'));
@@ -210,7 +210,7 @@
     options.food = $('#rp_optionsfood').is(':checked');
     options.insulin = $('#rp_optionsinsulin').is(':checked');
     options.carbs = $('#rp_optionscarbs').is(':checked');
-    options.scale = $('#rp_linear').is(':checked') ? report_plugins.getProperty('SCALE_LINEAR') : report_plugins.getProperty('SCALE_LOG');
+    options.scale = ( $('#rp_linear').is(':checked') ? report_plugins.consts.SCALE_LINEAR : report_plugins.consts.SCALE_LOG );
     options.width = parseInt($('#rp_size :selected').attr('x'));
     options.height = parseInt($('#rp_size :selected').attr('y'));
     
@@ -363,23 +363,21 @@
       console.log('Total: ',daystoshow,'Needed: ',matchesneeded);
       var displayeddays = 0;
       $('#info').html('<b>'+translate('Loading')+' ...</b>');
-      $('#charts').html('');
       for (var d in daystoshow) {
         if (daystoshow[d]===matchesneeded) {
           if (displayeddays < maxdays) {
-            $('#charts').append($('<div id="chart-'+d+'"></div>'));
+            $('#info').append($('<div id="info-' + d + '"></div>'));
             loadData(d,options);
             displayeddays++;
           } else {
-            $('#charts').append($('<div>'+d+' '+translate('not displayed')+'.</div>'));
+            $('#info').append($('<div>'+d+' '+translate('not displayed')+'.</div>'));
           }
         } else {
           delete daystoshow[d];
         }
       }
       if (displayeddays===0) {
-        $('#charts').html('<b>'+translate('Result is empty')+'</b>');
-        $('#info').empty();
+        $('#info').html('<b>'+translate('Result is empty')+'</b>');
       }
     }
     
@@ -444,7 +442,7 @@
     var to = from + 1000 * 60 * 60 * 24;
     var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
     
-    $('#'+report_plugins.getProperty('containerprefix')+day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
+    $('#info-' + day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
 console.log('/api/v1/entries.json'+query);
     $.ajax('/api/v1/entries.json'+query, {
       success: function (xhr) {
@@ -497,7 +495,7 @@ console.log(data.sgv);
         data.cal.sort(function(a, b) { return a.x - b.x; });
       }
     }).done(function () {
-      $('#'+report_plugins.getProperty('containerprefix')+day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
+      $('#info-' + day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
       var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
       $.ajax('/api/v1/treatments.json'+tquery, {
         success: function (xhr) {
@@ -510,7 +508,7 @@ console.log(data.sgv);
           data.treatments.sort(function(a, b) { return a.mills - b.mills; });
         }
       }).done(function () {
-        $('#'+report_plugins.getProperty('containerprefix')+day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
+        $('#info-' + day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
         processData(data,day,options);
       });
         
