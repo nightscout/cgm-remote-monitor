@@ -1,5 +1,13 @@
 // TODO:
 // - bypass nightmode in reports
+// - optimize .done() on food load
+// - hiding food html
+// - make axis on daytoday better working with thresholds
+// - get rid of /static/report/js/time.js
+// - load css dynamic + optimize
+// - move rp_edittreatmentdialog html to plugin
+// - check if everything is translated
+// - add tests
 
 (function () {
   'use strict';
@@ -21,7 +29,6 @@
   report_plugins.addHtmlFromPlugins( client );
   
   var translate = client.translate;
-  //language.set(client.settings.language);
   
   var maxInsulinValue = 0
       ,maxCarbsValue = 0;
@@ -34,9 +41,7 @@
     'mmol': { low: 4, high: 10 }
   };
   
-  var 
-      ONE_MIN_IN_MS = 60000
-    , SIX_MINS_IN_MS =  360000;
+  var ONE_MIN_IN_MS = 60000;
 
   // ****** FOOD CODE START ******
   var food_categories = [];
@@ -530,7 +535,6 @@ console.log(data.sgv);
     var temp1 = [ ];
     if (cal) {
       temp1 = data.sgv.map(function (entry) {
-        var noise = entry.noise || 0;
         var rawBg = rawIsigToRawBg(entry, cal);
         return { x: entry.x, date: new Date(entry.x - 2 * 1000), y: rawBg, sgv: client.utils.scaleMgdl(rawBg), color: 'gray', type: 'rawbg', filtered: entry.filtered, unfiltered: entry.unfiltered }
       }).filter(function(entry) { return entry.y > 0});
