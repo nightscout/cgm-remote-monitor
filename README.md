@@ -53,6 +53,7 @@ Community maintained fork of the
   - [Updating my version?](#updating-my-version)
   - [What is my mongo string?](#what-is-my-mongo-string)
   - [Configure my uploader to match](#configure-my-uploader-to-match)
+  - [Nightscout API](#nightscout-api)
   - [Environment](#environment)
     - [Required](#required)
     - [Features/Labs](#featureslabs)
@@ -110,6 +111,16 @@ mongo string.  You can copy and paste the text in the gray box into your
 Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
 
+## Nightscout API
+
+The Nightscout API enables direct access to your DData without the need for direct Mongo access.
+You can find CGM data in `/api/v1/entries`, Care Portal Treatments in `/api/v1/treatments`, and Treatment Profiles in `/api/v1/profile`.
+The server status and settings are available from `/api/v1/status.json`.
+Also, by using Swagger you can also generate client code to make working with the Nightscout API.
+
+After deploying your site, you can learn more about the Nightscout API looking at https://YOUR-SITE.com/api-docs.html or reviewing [swagger.yaml](swagger.yaml).
+
+
 ## Environment
 
 `VARIABLE` (default) - description
@@ -159,7 +170,6 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
   * `LANGUAGE` (`en`) - language of Nighscout. If not available english is used
-
 
 ### Plugins
 
