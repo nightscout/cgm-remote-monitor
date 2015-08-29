@@ -57,16 +57,6 @@
         dom_id: 'swagger-ui-container',
         supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
         onComplete: function(/*swaggerApi, swaggerUi*/){
-          if(typeof initOAuth == 'function') {
-            initOAuth({
-              clientId: 'your-client-id',
-              clientSecret: 'your-client-secret',
-              realm: 'your-realms',
-              appName: 'your-app-name',
-              scopeSeparator: ','
-            });
-          }
-
           if(window.SwaggerTranslator) {
             window.SwaggerTranslator.translate();
           }
@@ -88,27 +78,15 @@
       function addApiKeyAuthorization(){
         var key = encodeURIComponent($('#input_apiKey')[0].value);
         if(key && key.trim() !== '') {
-          var apiKeyAuth = new SwaggerClient.ApiKeyAuthorization('api_key', key, 'query');
-          window.swaggerUi.api.clientAuthorizations.add('api_key', apiKeyAuth);
+          var apiKeyAuth = new SwaggerClient.ApiKeyAuthorization('api_secret', key, 'query');
+          window.swaggerUi.api.clientAuthorizations.add('api_secret', apiKeyAuth);
           log('added key ' + key);
         }
       }
 
       $('#input_apiKey').change(addApiKeyAuthorization);
 
-      // if you have an apiKey you would like to pre-populate on the page for demonstration purposes...
-      /*
-       var apiKey = 'myApiKeyXXXX123456789';
-       $('#input_apiKey').val(apiKey);
-       */
-
       window.swaggerUi.load();
-
-//      function log() {
-//        if ('console' in window) {
-//          console.log.apply(console, arguments);
-//        }
-//      }
     });
   </script>
 </head>
@@ -119,7 +97,7 @@
     <a id="logo" href="http://swagger.io">swagger</a>
     <form id='api_selector'>
       <div class='input'><input placeholder="http://example.com/api" id="input_baseUrl" name="baseUrl" type="text"/></div>
-      <div class='input'><input placeholder="api_key" id="input_apiKey" name="apiKey" type="text"/></div>
+      <div class='input'><input placeholder="api_secret" id="input_apiKey" name="apiKey" type="text"/></div>
       <div class='input'><a id="explore" href="#" data-sw-translate>Explore</a></div>
     </form>
   </div>
