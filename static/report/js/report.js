@@ -8,6 +8,9 @@
 // - move rp_edittreatmentdialog html to plugin
 // - check if everything is translated
 // - add tests
+// - optimize merging data inside every plugin
+// - auto check checkbox to enable filter when data changed
+
 
 (function () {
   'use strict';
