@@ -6,9 +6,6 @@ info:
   license:
     name: AGPL 3
     url: https://www.gnu.org/licenses/agpl.txt
-schemes:
-  - http
-  - https
 basePath: /api/v1
 produces:
   - application/json
