@@ -23,7 +23,7 @@ describe('mqtt', function ( ) {
     }
     function written (data, fn) {
       self.results.write(data);
-      fn( );
+      setTimeout(fn, 5);
     }
     self.mqtt = require('../lib/mqtt')(self.env, {entries: { persist: outputs, create: written }, devicestatus: { create: written } });
   });
