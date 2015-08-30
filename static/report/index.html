@@ -84,63 +84,6 @@
     <hr>
     <b><span class="translate">Authentication status</span>: </b><span id="authentication_placeholder"></span>
 
-    <div id="rp_edittreatmentdialog" style="display:none" title="Edit treatment" class="titletranslate">
-        <label for="rp_eventType">
-            <span class="translate">Event Type</span>
-            <select id="rp_eventType">
-                <option value="BG Check" class="translate">BG Check</option>
-                <option value="Snack Bolus" class="translate">Snack Bolus</option>
-                <option value="Meal Bolus" class="translate">Meal Bolus</option>
-                <option value="Correction Bolus" class="translate">Correction Bolus</option>
-                <option value="Carb Correction" class="translate">Carb Correction</option>
-                <option value="Announcement" class="translate">Announcement</option>
-                <option value="Note" class="translate">Note</option>
-                <option value="Question" class="translate">Question</option>
-                <option value="Exercise" class="translate">Exercise</option>
-                <option value="Site Change" class="translate">Pump Site Change</option>
-                <option value="Sensor Start" class="translate">Dexcom Sensor Start</option>
-                <option value="Sensor Change" class="translate">Dexcom Sensor Change</option>
-                <option value="Insulin Change" class="translate">Insulin Cartridge Change</option>
-                <option value="D.A.D. Alert" class="translate">D.A.D. Alert</option>
-                <option value="Bolus Wizard" class="translate">Bolus Wizard</option>
-            </select>
-        </label>
-        <fieldset>
-            <legend class="translate">Glucose Reading</legend>
-            <input type="number" step="any" id="rp_glucoseValue" />
-            <label><br><span class="translate">Measurement Method</span><br></label>
-            <input type="radio" name="rp_bginput" id="rp_bgfromsensor"  value="Sensor">
-            <i title="BG from CGM" class="icon-chart-line titletranslate" style="margin-right:0;margin-left:-0.6em;color:lightgreen"></i>
-            <input type="radio" name="rp_bginput" id="rp_bgfrommeter"  value="Finger">
-            <i title="BG from meter" class="icon-tint titletranslate" style="margin-right:0;margin-left:-0.6em;color:red"></i>
-            <input type="radio" name="rp_bginput" id="rp_bgmanual" value="Manual">
-            <i title="Manual BG" class="icon-sort-numeric titletranslate" style="margin-right:0;margin-left:-0.6em;color:blue"></i>
-        </fieldset>
-        <label for="rp_carbsGiven">
-            <span class="translate">Carbs Given</span>
-            <input type="number" step="any" min="0" id="rp_carbsGiven" placeholder="Amount in grams" />
-        </label>
-        <br>
-        <label for="rp_insulinGiven">
-            <span class="translate">Insulin Given</span>
-            <input type="number" step="0.05" min="0" id="rp_insulinGiven" placeholder="Amount in units" class="titletranslate"/>
-        </label>
-        <br>
-        <label for="rp_adnotes" class="translate">Additional Notes, Comments</label>
-        <textarea id="rp_adnotes" style="width:300px"></textarea><br>
-        <label for="rp_enteredBy" class="left-column extra-space">
-          <span class="translate">Entered By</span>
-          <input type="text" id="rp_enteredBy" value="" />
-        </label>
-        <div id="rp_eventTime">
-          <span class="translate">Event Time</span>
-          <br>
-          <input type="date" id="rp_eventDateValue" class="rp_eventinput"/>
-          <input type="time" id="rp_eventTimeValue" class="rp_eventinput"/>
-       </div>
-     </div>
-    
-    
     <script src="/api/v1/status.js"></script>
     <script src="/public/js/bundle.js"></script>
     <script src="/socket.io/socket.io.js"></script>

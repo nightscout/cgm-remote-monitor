@@ -3,11 +3,12 @@
 // - make axis on daytoday better working with thresholds
 // - get rid of /static/report/js/time.js
 // - load css dynamic + optimize
-// - move rp_edittreatmentdialog html to plugin
 // - check everything is translated
 // - add tests
 // - optimize merging data inside every plugin
 // - pressing Show 2nd time generates d3 errors, previous graphs are not removed
+// - XMLHttpRequest - > $.ajax in treatments.js
+// - finish TREATMENT_AUTH in careportal
 
 
 (function () {
@@ -27,6 +28,8 @@
  
   // init HTML code
   report_plugins.addHtmlFromPlugins( client );
+  // make show() accessible outside for treatments.js
+  report_plugins.show = show;
   
   var translate = client.translate;
   
