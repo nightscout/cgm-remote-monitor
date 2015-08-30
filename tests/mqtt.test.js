@@ -14,7 +14,7 @@ describe('mqtt', function ( ) {
     process.env.MONGO_COLLECTION='test_sgvs';
     self.env = require('../env')();
     self.es = require('event-stream');
-    self.results = self.es.through(function (ch) { this.queue(ch); });
+    self.results = self.es.through(function (ch) { this.push(ch); });
     function outputs (fn) {
       return self.es.writeArray(function (err, results) {
         fn(err, results);
@@ -93,25 +93,36 @@ describe('mqtt', function ( ) {
     console.log('yaploda', '/downloads/protobuf', payload);
     var l = [ ];
     self.results.on('data', function (chunk) {
-      console.log('test data', l.length, chunk.length, chunk);
       l.push(chunk);
+      console.log('test data', l.length, chunk.length, chunk);
       switch (l.length) {
-        case 0: // sgv
+        case 0: // devicestatus
+          break;
+        case 2: // sgv
+          break;
+        case 3: // sgv
           chunk.length.should.equal(1);
-          chunk[0].sgv.should.be.ok;
-          chunk[0].noise.should.be.ok;
-          chunk[0].date.should.be.ok;
-          chunk[0].dateString.should.be.ok;
-          chunk[0].type.should.equal('sgv');
+          var first = chunk[0];
+          console.log("FIRST", first);
+          first.sgv.should.be.ok;
+          first.noise.should.be.ok;
+          first.date.should.be.ok;
+          first.dateString.should.be.ok;
+          first.type.should.equal('sgv');
           break;
-        case 1: // cal
+        case 4: // cal
           break;
-        case 2: // meter
-          done( );
+        case 1: // meter
           break;
         default:
           break;
       }
+      if (l.length >= 5) {
+        self.results.end( );
+      }
+    });
+    self.results.on('end', function (chunk) {
+        done( );
     });
     self.mqtt.client.emit('message', '/downloads/protobuf', payload);
   });
