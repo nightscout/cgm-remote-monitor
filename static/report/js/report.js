@@ -8,6 +8,7 @@
 // - add tests
 // - optimize merging data inside every plugin
 // - Insuling Change vs Insulin Cartridge Change in translations
+// - pressing Show 2nd time generates d3 errors, previous graphs are not removed
 
 
 (function () {
@@ -222,6 +223,9 @@
       , scale: report_plugins.consts.SCALE_LINEAR
       , units: client.settings.units
     };
+
+    // default time range if no time range specified in GUI
+    var timerange = '&find[created_at][$gte]='+new Date('1970-01-01').toISOString();
     
     options.targetLow = parseFloat($('#rp_targetlow').val().replace(',','.'));
     options.targetHigh = parseFloat($('#rp_targethigh').val().replace(',','.'));
@@ -244,7 +248,7 @@
         matchesneeded++;
         var from = moment($('#rp_from').val());
         var to = moment($('#rp_to').val());
-        
+        timerange = '&find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
         while (from <= to) {
           if (daystoshow[from.format('YYYY-MM-DD')]) { 
             daystoshow[from.format('YYYY-MM-DD')]++;
@@ -265,11 +269,11 @@
         var _id = $('#rp_food').val();
         if (_id) {
           var treatmentData;
-          var tquery = '?find[boluscalc.foods._id]='+_id;
+          var tquery = '?find[boluscalc.foods._id]=' + _id + timerange;
           $.ajax('/api/v1/treatments.json'+tquery, {
             success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
-                return moment(treatment.mills).format('YYYY-MM-DD');
+                return moment(treatment.created_at).format('YYYY-MM-DD');
               });
               // unique it
               treatmentData = $.grep(treatmentData, function(v, k){
@@ -301,11 +305,11 @@
         var notes = $('#rp_notes').val();
         if (notes) {
           var treatmentData;
-          var tquery = '?find[notes]=/'+notes+'/i';
-          $.ajax('/api/v1/treatments.json'+tquery, {
+          var tquery = '?find[notes]=/' + notes + '/i';
+          $.ajax('/api/v1/treatments.json' + tquery + timerange, {
             success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
-                return moment(treatment.mills).format('YYYY-MM-DD');
+                return moment(treatment.created_at).format('YYYY-MM-DD');
               });
               // unique it
               treatmentData = $.grep(treatmentData, function(v, k){
@@ -337,11 +341,11 @@
         var eventtype = $('#rp_eventtype').val();
         if (eventtype) {
           var treatmentData;
-          var tquery = '?find[eventType]=/'+eventtype+'/i';
-          $.ajax('/api/v1/treatments.json'+tquery, {
+          var tquery = '?find[eventType]=/' + eventtype + '/i';
+          $.ajax('/api/v1/treatments.json' + tquery + timerange, {
             success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
-                return moment(treatment.mills).format('YYYY-MM-DD');
+                return moment(treatment.created_at).format('YYYY-MM-DD');
               });
               // unique it
               treatmentData = $.grep(treatmentData, function(v, k){
@@ -406,6 +410,7 @@
     
     $('#rp_show').css('display','none');
     daystoshow = {};
+
     datefilter();
     return maybePreventDefault(event);
   }
