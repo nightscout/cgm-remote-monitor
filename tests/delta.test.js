@@ -78,8 +78,26 @@ describe('Delta', function ( ) {
       var result = setter();
       result.mgdl.should.equal(5);
       result.interpolated.should.equal(false);
-      result.scaled.should.equal(0.3);
-      result.display.should.equal('+0.3');
+      result.scaled.should.equal(0.2);
+      result.display.should.equal('+0.2');
+      done();
+    };
+
+    delta.setProperties(sbx);
+  });
+
+  it('should calculate BG Delta in mmol and not show a change because of rounding', function (done) {
+    var clientSettings = { units: 'mmol' };
+    var data = {sgvs: [{mills: before, mgdl: 85}, {mills: now, mgdl: 85}]};
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
+
+    sbx.offerProperty = function mockedOfferProperty (name, setter) {
+      name.should.equal('delta');
+      var result = setter();
+      result.mgdl.should.equal(0);
+      result.interpolated.should.equal(false);
+      result.scaled.should.equal(0);
+      result.display.should.equal('+0');
       done();
     };
 
