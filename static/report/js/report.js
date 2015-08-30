@@ -196,18 +196,19 @@
 
   function show(event) {
     var options = {
-      width: 1000,
-      height: 300,
-      targetLow: 3.5,
-      targetHigh: 10,
-      raw: true,
-      notes: true,
-      food: true,
-      insulin: true,
-      carbs: true,
-      iob : true,
-      cob : true,
-      scale: report_plugins.consts.SCALE_LINEAR
+      width: 1000
+      , height: 300
+      , targetLow: 3.5
+      , targetHigh: 10
+      , raw: true
+      , notes: true
+      , food: true
+      , insulin: true
+      , carbs: true
+      , iob : true
+      , cob : true
+      , scale: report_plugins.consts.SCALE_LINEAR
+      , units: client.settings.units
     };
     
     options.targetLow = parseFloat($('#rp_targetlow').val().replace(',','.'));
