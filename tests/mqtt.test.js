@@ -21,7 +21,11 @@ describe('mqtt', function ( ) {
         self.results.write(err || results);
       });
     }
-    self.mqtt = require('../lib/mqtt')(self.env, {entries: { persist: outputs, create: self.results.write }, devicestatus: { create: self.results.write } });
+    function written (data, fn) {
+      self.results.write(data);
+      fn( );
+    }
+    self.mqtt = require('../lib/mqtt')(self.env, {entries: { persist: outputs, create: written }, devicestatus: { create: written } });
   });
 
   after(function () {
