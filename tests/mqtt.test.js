@@ -13,7 +13,15 @@ describe('mqtt', function ( ) {
     process.env.MONGO='mongodb://localhost/test_db';
     process.env.MONGO_COLLECTION='test_sgvs';
     self.env = require('../env')();
-    self.mqtt = require('../lib/mqtt')(self.env, {});
+    self.es = require('event-stream');
+    self.results = self.es.through(function (ch) { this.queue(ch); });
+    function outputs (fn) {
+      return self.es.writeArray(function (err, results) {
+        fn(err, results);
+        self.results.write(err || results);
+      });
+    }
+    self.mqtt = require('../lib/mqtt')(self.env, {entries: { persist: outputs, create: self.results.write }, devicestatus: { create: self.results.write } });
   });
 
   after(function () {
@@ -71,6 +79,37 @@ describe('mqtt', function ( ) {
 
     done();
 
+  });
+
+  it('downloadProtobuf should dispatch', function (done) {
+
+    var payload = new Buffer('0a1108b70110d6d1fa6318f08df963200428011a1d323031352d30382d32335432323a35333a35352e3634392d30373a303020d7d1fa6328004a1508e0920b10c0850b18b20120d5d1fa6328ef8df963620a534d34313837393135306a053638393250', 'hex');
+
+    // var payload = self.mqtt.downloads.format(packet);
+    console.log('yaploda', '/downloads/protobuf', payload);
+    var l = [ ];
+    self.results.on('data', function (chunk) {
+      console.log('test data', l.length, chunk.length, chunk);
+      l.push(chunk);
+      switch (l.length) {
+        case 0: // sgv
+          chunk.length.should.equal(1);
+          chunk[0].sgv.should.be.ok;
+          chunk[0].noise.should.be.ok;
+          chunk[0].date.should.be.ok;
+          chunk[0].dateString.should.be.ok;
+          chunk[0].type.should.equal('sgv');
+          break;
+        case 1: // cal
+          break;
+        case 2: // meter
+          done( );
+          break;
+        default:
+          break;
+      }
+    });
+    self.mqtt.client.emit('message', '/downloads/protobuf', payload);
   });
 
   it('merge sgvs and sensor records that match up, and get the sgvs that don\'t match', function (done) {
