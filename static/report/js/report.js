@@ -17,7 +17,6 @@
   'use strict';
   //for the tests window isn't the global object
   var $ = window.$;
-  var _ = window._;
   var moment = window.moment;
   var Nightscout = window.Nightscout;
   var client = Nightscout.client;
@@ -538,11 +537,11 @@
     if (cal) {
       temp1 = data.sgv.map(function (entry) {
         var rawBg = rawIsigToRawBg(entry, cal);
-        return { mills: entry.mills, date: new Date(entry.mills - 2 * 1000), y: rawBg, sgv: client.utils.scaleMgdl(rawBg), color: 'gray', type: 'rawbg', filtered: entry.filtered, unfiltered: entry.unfiltered }
+        return { mills: entry.mills, date: new Date(entry.mills - 2 * 1000), y: rawBg, sgv: client.utils.scaleMgdl(rawBg), color: 'gray', type: 'rawbg', filtered: entry.filtered, unfiltered: entry.unfiltered };
       }).filter(function(entry) { return entry.y > 0});
     }
     var temp2 = data.sgv.map(function (obj) {
-      return { mills: obj.mills, date: new Date(obj.mills), y: obj.y, sgv: client.utils.scaleMgdl(obj.y), color: sgvToColor(client.utils.scaleMgdl(obj.y),options), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered}
+      return { mills: obj.mills, date: new Date(obj.mills), y: obj.y, sgv: client.utils.scaleMgdl(obj.y), color: sgvToColor(client.utils.scaleMgdl(obj.y),options), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered};
     });
     data.sgv = [].concat(temp1, temp2);
 
