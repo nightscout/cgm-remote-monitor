@@ -97,6 +97,26 @@ paths:
           description: Invalid input
         "200":
           description: Rejected list of entries.  Empty list is success.
+    delete:
+      tags:
+        - Entries
+      summary: Delete entries matching query.
+      description: "Remove entries, same search syntax as GET."
+      operationId: remove
+      parameters:
+        - name: find
+          in: query
+          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.
+          required: false
+          type: string
+        - name: count
+          in: query
+          description: Number of entries to return.
+          required: false
+          type: number
+      responses:
+        "200":
+          description: Empty list is success.
 
   /treatments:
     get:
