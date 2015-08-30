@@ -6,10 +6,11 @@
 // - get rid of /static/report/js/time.js
 // - load css dynamic + optimize
 // - move rp_edittreatmentdialog html to plugin
-// - check if everything is translated
+// - check everything is translated
 // - add tests
 // - optimize merging data inside every plugin
 // - auto check checkbox to enable filter when data changed
+// - Insuling Change vs Insulin Cartridge Change in translations
 
 
 (function () {
@@ -451,23 +452,21 @@
     var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
     
     $('#info-' + day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
-console.log('/api/v1/entries.json'+query);
     $.ajax('/api/v1/entries.json'+query, {
       success: function (xhr) {
-console.log(xhr);
         xhr.forEach(function (element) {
           if (element) {
             if (element.mbg) {
               mbgData.push({
                 y: element.mbg
-                , x: element.date
+                , mills: element.date
                 , d: element.dateString
                 , device: element.device
               });
             } else if (element.sgv) {
               cgmData.push({
                 y: element.sgv
-                , x: element.date
+                , mills: element.date
                 , d: element.dateString
                 , device: element.device
                 , filtered: element.filtered
@@ -478,7 +477,7 @@ console.log(xhr);
               });
             } else if (element.type === 'cal') {
               calData.push({
-                x: element.date
+                mills: element.date
                 , d: element.dateString
                 , scale: element.scale
                 , intercept: element.intercept
@@ -489,18 +488,17 @@ console.log(xhr);
         });
          // sometimes cgm contains duplicates.  uniq it.
         data.sgv = cgmData.slice();
-console.log(data.sgv);
-        data.sgv.sort(function(a, b) { return a.x - b.x; });
+        data.sgv.sort(function(a, b) { return a.mills - b.mills; });
         var lastDate = 0;
         data.sgv = data.sgv.filter(function(d) {
-          var ok = (lastDate + ONE_MIN_IN_MS) < d.x;
-          lastDate = d.x;
+          var ok = (lastDate + ONE_MIN_IN_MS) < d.mills;
+          lastDate = d.mills;
           return ok;
         });
         data.mbg = mbgData.slice();
-        data.mbg.sort(function(a, b) { return a.x - b.x; });
+        data.mbg.sort(function(a, b) { return a.mills - b.mills; });
         data.cal = calData.slice();
-        data.cal.sort(function(a, b) { return a.x - b.x; });
+        data.cal.sort(function(a, b) { return a.mills - b.mills; });
       }
     }).done(function () {
       $('#info-' + day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
@@ -539,16 +537,16 @@ console.log(data.sgv);
     if (cal) {
       temp1 = data.sgv.map(function (entry) {
         var rawBg = rawIsigToRawBg(entry, cal);
-        return { x: entry.x, date: new Date(entry.x - 2 * 1000), y: rawBg, sgv: client.utils.scaleMgdl(rawBg), color: 'gray', type: 'rawbg', filtered: entry.filtered, unfiltered: entry.unfiltered }
+        return { mills: entry.mills, date: new Date(entry.mills - 2 * 1000), y: rawBg, sgv: client.utils.scaleMgdl(rawBg), color: 'gray', type: 'rawbg', filtered: entry.filtered, unfiltered: entry.unfiltered }
       }).filter(function(entry) { return entry.y > 0});
     }
     var temp2 = data.sgv.map(function (obj) {
-      return { x: obj.x, date: new Date(obj.x), y: obj.y, sgv: client.utils.scaleMgdl(obj.y), color: sgvToColor(client.utils.scaleMgdl(obj.y),options), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered}
+      return { mills: obj.mills, date: new Date(obj.mills), y: obj.y, sgv: client.utils.scaleMgdl(obj.y), color: sgvToColor(client.utils.scaleMgdl(obj.y),options), type: 'sgv', noise: obj.noise, filtered: obj.filtered, unfiltered: obj.unfiltered}
     });
     data.sgv = [].concat(temp1, temp2);
 
     //Add MBG's also, pretend they are SGV's
-    data.sgv = data.sgv.concat(data.mbg.map(function (obj) { return { date: new Date(obj.x), y: obj.y, sgv: client.utils.scaleMgdl(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
+    data.sgv = data.sgv.concat(data.mbg.map(function (obj) { return { date: new Date(obj.mills), y: obj.y, sgv: client.utils.scaleMgdl(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 
     // make sure data range will be exactly 24h
     var from = new Date(new Date(day).getTime() + (new Date().getTimezoneOffset()*60*1000));
@@ -563,9 +561,6 @@ console.log(data.sgv);
       }
       return true;
     });
-    
-    //delete data.cal;
-    //delete data.mbg;
     
     // for other reports
     data.statsrecords = data.sgv.filter(function(r) {
