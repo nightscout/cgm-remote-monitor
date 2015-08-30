@@ -7,7 +7,6 @@
 // - check everything is translated
 // - add tests
 // - optimize merging data inside every plugin
-// - Insuling Change vs Insulin Cartridge Change in translations
 // - pressing Show 2nd time generates d3 errors, previous graphs are not removed
 
 
