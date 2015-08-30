@@ -159,6 +159,13 @@
       return maybePreventDefault(event);
     });
     
+    // fill careportal events
+    $('#rp_eventtype').empty();
+    _.each(client.careportal.events, function eachEvent(event) {
+      $('#rp_eventtype').append('<option value="' + event.val+ '">' + translate(event.name) + '</option>');
+    });
+    $('#rp_eventtype').append('<option value="sensor">' + '>>> ' + translate('All sensor events') + '</option>');
+    
     $('#rp_targetlow').val(targetBGdefault[client.settings.units].low);
     $('#rp_targethigh').val(targetBGdefault[client.settings.units].high);
     
@@ -393,6 +400,7 @@
       }
       if (displayeddays===0) {
         $('#info').html('<b>'+translate('Result is empty')+'</b>');
+        $('#rp_show').css('display','');
       }
     }
     
