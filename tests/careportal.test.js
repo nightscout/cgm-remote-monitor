@@ -72,6 +72,7 @@ describe('client', function ( ) {
     client.init(serverSettings, plugins);
     client.dataUpdate(nowData);
 
+    client.careportal.prepareEvents();
     client.careportal.toggleDrawer();
 
     $('#eventType').val('Snack Bolus');
