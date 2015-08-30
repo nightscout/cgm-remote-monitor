@@ -1,7 +1,5 @@
 // TODO:
 // - bypass nightmode in reports
-// - optimize .done() on food load
-// - hiding food html
 // - make axis on daytoday better working with thresholds
 // - get rid of /static/report/js/time.js
 // - load css dynamic + optimize
@@ -9,7 +7,6 @@
 // - check everything is translated
 // - add tests
 // - optimize merging data inside every plugin
-// - auto check checkbox to enable filter when data changed
 // - Insuling Change vs Insulin Cartridge Change in translations
 
 
@@ -45,6 +42,8 @@
   };
   
   var ONE_MIN_IN_MS = 60000;
+  
+  prepareGUI();
 
   // ****** FOOD CODE START ******
   var food_categories = [];
@@ -106,9 +105,68 @@
     return maybePreventDefault(event);
   }
 
+  $('#info').html('<b>'+translate('Loading food database')+' ...</b>');
+  $.ajax('/api/v1/food/regular.json', {
+    success: function foodLoadSuccess(records) {
+      records.forEach(function (r) {
+        food_list.push(r);
+        if (r.category && !food_categories[r.category]) { food_categories[r.category] = {}; }
+        if (r.category && r.subcategory) { food_categories[r.category][r.subcategory] = true; }
+      });
+      fillFoodForm();
+    }
+  }).done(function() {
+    if (food_list.length) {
+      enableFoodGUI();
+    } else {
+      disableFoodGUI();
+    }
+  }).fail(function() {
+    disableFoodGUI();
+  });
+
+  function enableFoodGUI( ) {
+    $('#info').html('');
+
+    $('#rp_foodgui').css('display','');
+    $('#rp_food').change(function (event) { 
+      $('#rp_enablefood').prop('checked',true);
+      return maybePreventDefault(event);
+    });
+  }
+  
+  function disableFoodGUI(){
+    $('#info').html('');
+    $('#rp_foodgui').css('display','none');
+  }
+  
   // ****** FOOD CODE END ******
 
 
+  function prepareGUI() {
+    $('.presetdates').click(function(event) { 
+      var days = $(this).attr('days');
+      $('#rp_enabledate').prop('checked',true);
+      return setDataRange(event,days);
+    });
+    $('#rp_show').click(show);
+    $('#rp_notes').bind('input', function (event) {
+      $('#rp_enablenotes').prop('checked',true);
+      return maybePreventDefault(event);
+    });
+    $('#rp_eventtype').bind('input', function (event) {
+      $('#rp_enableeventtype').prop('checked',true);
+      return maybePreventDefault(event);
+    });
+    
+    $('#rp_targetlow').val(targetBGdefault[client.settings.units].low);
+    $('#rp_targethigh').val(targetBGdefault[client.settings.units].high);
+    
+    $('.menutab').click(switchreport_handler);
+
+    setDataRange(null,7);
+  }
+  
   function rawIsigToRawBg(entry, cal) {
     var raw = 0
       , unfiltered = parseInt(entry.unfiltered) || 0
@@ -140,58 +198,6 @@
 
     return color;
   }
-
-  $('#info').html('<b>'+translate('Loading food database')+' ...</b>');
-  $.ajax('/api/v1/food/regular.json', {
-    success: function foodLoadSuccess(records) {
-      records.forEach(function (r) {
-        food_list.push(r);
-        if (r.category && !food_categories[r.category]) { food_categories[r.category] = {}; }
-        if (r.category && r.subcategory) { food_categories[r.category][r.subcategory] = true; }
-      });
-      fillFoodForm();
-    }
-  }).done(function() {
-    $('#info').html('');
-    $('.presetdates').click(function(e) { var days = $(this).attr('days');  setDataRange(e,days); });
-
-    $('#rp_show').click(show);
-    $('#rp_food').change(function (event) { 
-      $('#rp_enablefood').prop('checked',true);
-      return maybePreventDefault(event);
-    });
-    $('#rp_notes').change(function (event) {
-      $('#rp_enablenotes').prop('checked',true);
-      return maybePreventDefault(event);
-    });
-    
-    $('#rp_targetlow').val(targetBGdefault[client.settings.units].low);
-    $('#rp_targethigh').val(targetBGdefault[client.settings.units].high);
-    
-    $('.menutab').click(switchreport_handler);
-
-    setDataRange(null,7);
-  }).fail(function() {
-    $('#info').html('');
-    $('.presetdates').click(function(e) { var days = $(this).attr('days');  setDataRange(e,days); });
-
-    $('#rp_show').click(show);
-    $('#rp_food').change(function (event) { 
-      $('#rp_enablefood').prop('checked',true);
-      return maybePreventDefault(event);
-    });
-    $('#rp_notes').change(function (event) { 
-      $('#rp_enablenotes').prop('checked',true);
-      return maybePreventDefault(event);
-    });
-    
-    $('#rp_targetlow').val(targetBGdefault[client.settings.units].low);
-    $('#rp_targethigh').val(targetBGdefault[client.settings.units].high);
-    
-    $('.menutab').click(switchreport_handler);
-
-    setDataRange(null,7);
-  });
 
   function show(event) {
     var options = {
