@@ -46,6 +46,135 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
+  /slice/{storage}/{field}/{type}/{prefix}/{regex}:
+    get:
+      summary: All Entries matching query
+      description: The Entries endpoint returns information about the Nightscout entries.
+      parameters:
+        - name: storage
+          in: path
+          type: string
+          description: Prefix to use in constructing a prefix-based regex, default is `entries`.
+          required: true
+        - name: field
+          in: path
+          type: string
+          description: Name of the field to use Regex against in query object, default is `dateString`.
+          required: true
+        - name: type
+          in: path
+          type: string
+          description: The type field to search against, default is sgv.
+          required: true
+        - name: prefix
+          in: path
+          type: string
+          description: Prefix to use in constructing a prefix-based regex.
+          required: false
+        - name: regex
+          in: path
+          type: string
+          description: Tail part of regexp to use in expanding/construccting a query object.
+          required: false
+        - name: find
+          in: query
+          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find paramertes are interpreted as strings.
+          required: false
+          type: string
+        - name: count
+          in: query
+          description: Number of entries to return.
+          required: false
+          type: number
+      tags:
+        - Entries
+      responses:
+        "200":
+          description: An array of entries
+          schema:
+            $ref: '#/definitions/Entries'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+
+
+  /times/echo/{prefix}/{regex}:
+    get:
+      summary: Echo the query object to be used.
+      description: Echo debug information about the query object constructed.
+      parameters:
+        - name: prefix
+          in: path
+          type: string
+          description: Prefix to use in constructing a prefix-based regex.
+          required: false
+        - name: regex
+          in: path
+          type: string
+          description: Tail part of regexp to use in expanding/construccting a query object.
+          required: false
+        - name: find
+          in: query
+          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find paramertes are interpreted as strings.
+          required: false
+          type: string
+        - name: count
+          in: query
+          description: Number of entries to return.
+          required: false
+          type: number
+      tags:
+        - Entries
+      responses:
+        "200":
+          description: An array of entries
+          schema:
+            $ref: '#/definitions/Entries'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+
+
+  /times/{prefix}/{regex}:
+    get:
+      summary: All Entries matching query
+      description: The Entries endpoint returns information about the Nightscout entries.
+      parameters:
+        - name: prefix
+          in: path
+          type: string
+          description: Prefix to use in constructing a prefix-based regex.
+          required: false
+        - name: regex
+          in: path
+          type: string
+          description: Tail part of regexp to use in expanding/construccting a query object.
+          required: false
+        - name: find
+          in: query
+          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find paramertes are interpreted as strings.
+          required: false
+          type: string
+        - name: count
+          in: query
+          description: Number of entries to return.
+          required: false
+          type: number
+      tags:
+        - Entries
+      responses:
+        "200":
+          description: An array of entries
+          schema:
+            $ref: '#/definitions/Entries'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+
+
   /entries:
     get:
       summary: All Entries matching query
