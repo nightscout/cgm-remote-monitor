@@ -5,7 +5,6 @@
 // - load css dynamic + optimize
 // - check everything is translated
 // - add tests
-// - optimize merging data inside every plugin
 // - XMLHttpRequest - > $.ajax in treatments.js
 // - finish TREATMENT_AUTH in careportal
 
@@ -438,12 +437,14 @@
   }
   
   function showreports(options) {
-    // wait for all loads
-    for (var d in daystoshow) {
-      if (!datastorage[d]) {
-        return; // all data not loaded yet
-      }
-    }
+    // prepare some data used in more reports
+    datastorage.allstatsrecords = [];
+    datastorage.alldays = 0;
+    Object.keys(daystoshow).forEach(function (day) {
+      datastorage.allstatsrecords = datastorage.allstatsrecords.concat(datastorage[day].statsrecords);
+      datastorage.alldays++;
+    });
+
     report_plugins.eachPlugin(function (plugin) {
       // jquery plot doesn't draw to hidden div
       $('#'+plugin.name+'-placeholder').css('display','');
