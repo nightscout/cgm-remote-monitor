@@ -1,10 +1,9 @@
 // TODO:
 // - bypass nightmode in reports
-// - make axis on daytoday better working with thresholds
 // - get rid of /static/report/js/time.js
 // - load css dynamic + optimize
 // - add tests
-// - XMLHttpRequest - > $.ajax in treatments.js
+// - on save/delete treatment ctx.bus.emit('data-received'); is not enough. we must add something like 'data-updated'
 
 (function () {
   'use strict';
