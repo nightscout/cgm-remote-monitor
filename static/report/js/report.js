@@ -131,7 +131,7 @@
   function enableFoodGUI( ) {
     $('#info').html('');
 
-    $('#rp_foodgui').css('display','');
+    $('.rp_foodgui').css('display','');
     $('#rp_food').change(function (event) { 
       $('#rp_enablefood').prop('checked',true);
       return maybePreventDefault(event);
@@ -140,7 +140,7 @@
   
   function disableFoodGUI(){
     $('#info').html('');
-    $('#rp_foodgui').css('display','none');
+    $('.rp_foodgui').css('display','none');
   }
   
   // ****** FOOD CODE END ******
