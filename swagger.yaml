@@ -26,7 +26,7 @@ paths:
           required: true
         - name: find
           in: query
-          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find paramertes are interpreted as strings.
+          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.
           required: false
           type: string
         - name: count
@@ -81,7 +81,7 @@ paths:
           required: false
         - name: find
           in: query
-          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find paramertes are interpreted as strings.
+          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.
           required: false
           type: string
         - name: count
@@ -119,7 +119,7 @@ paths:
           required: false
         - name: find
           in: query
-          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find paramertes are interpreted as strings.
+          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.
           required: false
           type: string
         - name: count
@@ -157,7 +157,7 @@ paths:
           required: false
         - name: find
           in: query
-          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find paramertes are interpreted as strings.
+          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.
           required: false
           type: string
         - name: count
@@ -185,7 +185,7 @@ paths:
       parameters:
         - name: find
           in: query
-          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find paramertes are interpreted as strings.
+          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.
           required: false
           type: string
         - name: count
@@ -264,7 +264,7 @@ paths:
             `find[insulin][$gte]=3`
             `find[carb][$gte]=100`
             `find[eventType]=Correction+Bolus`
-            All find paramertes are interpreted as strings.
+            All find parameters are interpreted as strings.
           required: false
           type: string
         - name: count
