@@ -3,7 +3,6 @@
 // - make axis on daytoday better working with thresholds
 // - get rid of /static/report/js/time.js
 // - load css dynamic + optimize
-// - check everything is translated
 // - add tests
 // - XMLHttpRequest - > $.ajax in treatments.js
 // - finish TREATMENT_AUTH in careportal
