@@ -53,6 +53,8 @@ Community maintained fork of the
   - [Updating my version?](#updating-my-version)
   - [What is my mongo string?](#what-is-my-mongo-string)
   - [Configure my uploader to match](#configure-my-uploader-to-match)
+  - [Nightscout API](#nightscout-api)
+      - [Example Queries](#example-queries)
   - [Environment](#environment)
     - [Required](#required)
     - [Features/Labs](#featureslabs)
@@ -110,6 +112,28 @@ mongo string.  You can copy and paste the text in the gray box into your
 Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
 
+## Nightscout API
+
+The Nightscout API enables direct access to your DData without the need for direct Mongo access.
+You can find CGM data in `/api/v1/entries`, Care Portal Treatments in `/api/v1/treatments`, and Treatment Profiles in `/api/v1/profile`.
+The server status and settings are available from `/api/v1/status.json`.
+
+By default the `/entries` and `/treatments` APIs limit results to the the most recent 10 values from the last 2 days.
+You can get many more results, by using the `count`, `date`, `dateString`, and `created_at` parameters, depending on the type of data you're looking for.
+ 
+#### Example Queries
+
+(replace `http://localhost:1337` with your base url, YOUR-SITE)
+  
+  * 100's: `http://localhost:1337/api/v1/entries.json?find[sgv]=100`
+  * BGs between 2 days: `http://localhost:1337/api/v1/entries/sgv.json?find[dateString][$gte]=2015-08-28&find[dateString][$lte]=2015-08-30`
+  * Juice Box corrections in a year: `http://localhost:1337/api/v1/treatments.json?count=1000&find[carbs]=15&find[eventType]=Carb+Correction&find[created_at][$gte]=2015`
+  * Boluses over 2U: `http://localhost:1337/api/v1/treatments.json?find[insulin][$gte]=2`
+
+The API is Swagger enabled, so you can generate client code to make working with the API easy.
+To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.html or review [swagger.yaml](swagger.yaml).
+
+
 ## Environment
 
 `VARIABLE` (default) - description
@@ -159,7 +183,6 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
   * `LANGUAGE` (`en`) - language of Nighscout. If not available english is used
-
 
 ### Plugins
 
