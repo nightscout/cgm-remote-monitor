@@ -5,8 +5,6 @@
 // - load css dynamic + optimize
 // - add tests
 // - XMLHttpRequest - > $.ajax in treatments.js
-// - finish TREATMENT_AUTH in careportal
-
 
 (function () {
   'use strict';
