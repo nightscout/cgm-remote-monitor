@@ -56,16 +56,19 @@ paths:
           type: string
           description: Prefix to use in constructing a prefix-based regex, default is `entries`.
           required: true
+          default: entries
         - name: field
           in: path
           type: string
           description: Name of the field to use Regex against in query object, default is `dateString`.
+          default: dateString
           required: true
         - name: type
           in: path
           type: string
           description: The type field to search against, default is sgv.
           required: true
+          default: sgv
         - name: prefix
           in: path
           type: string
