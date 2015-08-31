@@ -6,7 +6,6 @@
 // - check everything is translated
 // - add tests
 // - optimize merging data inside every plugin
-// - pressing Show 2nd time generates d3 errors, previous graphs are not removed
 // - XMLHttpRequest - > $.ajax in treatments.js
 // - finish TREATMENT_AUTH in careportal
 
@@ -131,7 +130,7 @@
   function enableFoodGUI( ) {
     $('#info').html('');
 
-    $('#rp_foodgui').css('display','');
+    $('.rp_foodgui').css('display','');
     $('#rp_food').change(function (event) { 
       $('#rp_enablefood').prop('checked',true);
       return maybePreventDefault(event);
@@ -140,7 +139,7 @@
   
   function disableFoodGUI(){
     $('#info').html('');
-    $('#rp_foodgui').css('display','none');
+    $('.rp_foodgui').css('display','none');
   }
   
   // ****** FOOD CODE END ******
@@ -384,19 +383,19 @@
         if (day===5 && $('#rp_fr').is(':checked')) { daystoshow[d]++; }
         if (day===6 && $('#rp_sa').is(':checked')) { daystoshow[d]++; }
       }
+      countDays();
       display();
     }
     
     function display() {
-      console.log('Total: ',daystoshow,'Needed: ',matchesneeded);
-      var displayeddays = 0;
+      var count = 0;
       $('#info').html('<b>'+translate('Loading')+' ...</b>');
       for (var d in daystoshow) {
         if (daystoshow[d]===matchesneeded) {
-          if (displayeddays < maxdays) {
+          if (count < maxdays) {
             $('#info').append($('<div id="info-' + d + '"></div>'));
-            loadData(d,options);
-            displayeddays++;
+            count++;
+            loadData(d, options, dataLoadedCallback);
           } else {
             $('#info').append($('<div>'+d+' '+translate('not displayed')+'.</div>'));
           }
@@ -404,9 +403,30 @@
           delete daystoshow[d];
         }
       }
-      if (displayeddays===0) {
+      if (count===0) {
         $('#info').html('<b>'+translate('Result is empty')+'</b>');
         $('#rp_show').css('display','');
+      }
+    }
+    
+    var dayscount = 0;
+    var loadeddays = 0;
+    
+    function countDays() {
+      for (var d in daystoshow) {
+        if (daystoshow[d]===matchesneeded) {
+          if (dayscount < maxdays) {
+            dayscount++;
+          }
+        }
+      }
+      console.log('Total: ', daystoshow, 'Matches needed: ', matchesneeded, 'Will be loaded: ', dayscount);
+   }
+    
+    function dataLoadedCallback () {
+      loadeddays++;
+      if (loadeddays === dayscount) {
+        showreports(options);
       }
     }
     
@@ -427,6 +447,7 @@
     report_plugins.eachPlugin(function (plugin) {
       // jquery plot doesn't draw to hidden div
       $('#'+plugin.name+'-placeholder').css('display','');
+      //console.log('Drawing ',plugin.name);
       plugin.report(datastorage,daystoshow,options);
       if (!$('#'+plugin.name).hasClass('selected')) {
         $('#'+plugin.name+'-placeholder').css('display','none');
@@ -454,10 +475,10 @@
     return maybePreventDefault(event);
   }
   
-  function loadData(day,options) {
+  function loadData(day, options, callback) {
     // check for loaded data
     if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
-      showreports(options);
+      callback();
       return;
     }
     // patientData = [actual, predicted, mbg, treatment, cal, devicestatusData];
@@ -536,13 +557,13 @@
         }
       }).done(function () {
         $('#info-' + day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
-        processData(data,day,options);
+        processData(data, day, options, callback);
       });
         
     });
   }
 
-  function processData(data,day,options) {
+  function processData(data, day, options, callback) {
     // treatments
     data.treatments.forEach(function (d) {
       if (parseFloat(d.insulin) > maxInsulinValue) {
@@ -602,7 +623,7 @@
     datastorage[day] = data;
     options.maxInsulinValue = maxInsulinValue;
     options.maxCarbsValue = maxCarbsValue;
-    showreports(options);
+    callback();
   }
 
   function maybePreventDefault(event) {
