@@ -1,14 +1,9 @@
 // TODO:
 // - bypass nightmode in reports
-// - make axis on daytoday better working with thresholds
 // - get rid of /static/report/js/time.js
 // - load css dynamic + optimize
-// - check everything is translated
 // - add tests
-// - optimize merging data inside every plugin
-// - XMLHttpRequest - > $.ajax in treatments.js
-// - finish TREATMENT_AUTH in careportal
-
+// - on save/delete treatment ctx.bus.emit('data-received'); is not enough. we must add something like 'data-updated'
 
 (function () {
   'use strict';
@@ -438,12 +433,14 @@
   }
   
   function showreports(options) {
-    // wait for all loads
-    for (var d in daystoshow) {
-      if (!datastorage[d]) {
-        return; // all data not loaded yet
-      }
-    }
+    // prepare some data used in more reports
+    datastorage.allstatsrecords = [];
+    datastorage.alldays = 0;
+    Object.keys(daystoshow).forEach(function (day) {
+      datastorage.allstatsrecords = datastorage.allstatsrecords.concat(datastorage[day].statsrecords);
+      datastorage.alldays++;
+    });
+
     report_plugins.eachPlugin(function (plugin) {
       // jquery plot doesn't draw to hidden div
       $('#'+plugin.name+'-placeholder').css('display','');
