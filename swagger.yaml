@@ -74,11 +74,13 @@ paths:
           type: string
           description: Prefix to use in constructing a prefix-based regex.
           required: false
+          default: 2015
         - name: regex
           in: path
           type: string
           description: Tail part of regexp to use in expanding/construccting a query object.
           required: false
+          default: .*
         - name: find
           in: query
           description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.
