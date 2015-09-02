@@ -89,7 +89,7 @@ describe('authed REST api', function ( ) {
                   done(err);
                 });
               }
-          })
+          });
       });
   });
 
