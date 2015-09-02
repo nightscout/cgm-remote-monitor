@@ -139,12 +139,22 @@
     },
     "ALARM_TIMEAGO_URGENT": {
       "description": "Browser default urgent warning after time of last data exceeds ALARM_TIMEAGO_WARN_MINS alarm enabled vaild settings are on or off",
-      "value": "15",
+      "value": "on",
       "required": false
     },
     "ALARM_TIMEAGO_URGENT_MINS": {
       "description": "Browser default urgent warning after time of last data exceeds ALARM_TIMEAGO_WARN_MINS alarm enabled vaild settings are on or off",
-      "value": "15",
+      "value": "30",
+      "required": false
+    },
+    "MAKER_KEY": {
+      "description": "Maker Key - Set this to your secret key Note for additional info see https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md#ifttt-maker , maker should be added to enable if you want to use maker",
+      "value": "",
+      "required": false
+    },
+    "MAKER_ANNOUNCEMENT_KEY": {
+      "description": "Maker Key - Set this to your secret key for announcements Note for additional info see https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md#ifttt-maker , maker should be added to enable if you want to use maker",
+      "value": "",
       "required": false
     }
   },
