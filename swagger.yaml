@@ -17,16 +17,91 @@ paths:
   /entries/{spec}:
     get:
       summary: All Entries matching query
-      description: The Entries endpoint returns information about the Nightscout entries.
+      description: |
+        The Entries endpoint returns information about the
+        Nightscout entries.
+
       parameters:
         - name: spec
           in: path
           type: string
-          description: entry id, such as '55cf81bc436037528ec75fa5' or a type filter such as 'sgv'
+          description: |
+              entry id, such as `55cf81bc436037528ec75fa5` or a type filter such
+              as `sgv`, `mbg`, etc.
+
+          default: sgv
           required: true
         - name: find
           in: query
-          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find paramertes are interpreted as strings.
+          description: |
+            The query used to find entries, support nested query syntax, for
+            example `find[dateString][$gte]=2015-08-27`.  All find parameters
+            are interpreted as strings.
+          required: false
+          type: string
+        - name: count
+          in: query
+          description: Number of entries to return.
+          required: false
+          type: number
+      tags:
+        - Entries
+      responses:
+        "200":
+          description: An array of entries
+          schema:
+            $ref: '#/definitions/Entries'
+        default:
+          description: Entries
+          schema:
+            $ref: '#/definitions/Entries'
+
+  /slice/{storage}/{field}/{type}/{prefix}/{regex}:
+    get:
+      summary: All Entries matching query
+      description: The Entries endpoint returns information about the Nightscout entries.
+      parameters:
+        - name: storage
+          in: path
+          type: string
+          description: Prefix to use in constructing a prefix-based regex, default is `entries`.
+          required: true
+          default: entries
+        - name: field
+          in: path
+          type: string
+          description: Name of the field to use Regex against in query object, default is `dateString`.
+          default: dateString
+          required: true
+        - name: type
+          in: path
+          type: string
+          description: The type field to search against, default is sgv.
+          required: true
+          default: sgv
+        - name: prefix
+          in: path
+          type: string
+          description: Prefix to use in constructing a prefix-based regex.
+          required: true
+          default: '2015'
+        - name: regex
+          in: path
+          type: string
+          description: |
+            Tail part of regexp to use in expanding/construccting a query object.
+            Regexp also has bash-style brace and glob expansion applied to it,
+            creating ways to search for modal times of day, perhaps using
+            something like this syntax: `T{15..17}:.*`, this would search for
+            all records from 3pm to 5pm.
+          required: true
+          default: .*
+        - name: find
+          in: query
+          description: |
+            The query used to find entries, support nested query syntax, for
+            example `find[dateString][$gte]=2015-08-27`.  All find parameters
+            are interpreted as strings.
           required: false
           type: string
         - name: count
@@ -46,6 +121,140 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
+  /echo/{storage}/{spec}:
+    get:
+      summary: View generated Mongo Query object
+      description: |
+        Information about the mongo query object created by the query.
+
+      parameters:
+        - name: storage
+          in: path
+          type: string
+          description: |
+              `entries`, or `treatments` to select the storage layer.
+
+          default: sgv
+          required: true
+        - name: spec
+          in: path
+          type: string
+          description: |
+              entry id, such as `55cf81bc436037528ec75fa5` or a type filter such
+              as `sgv`, `mbg`, etc.
+              This parameter is optional.
+
+          default: sgv
+          required: true
+        - name: find
+          in: query
+          description: |
+            The query used to find entries, support nested query syntax, for
+            example `find[dateString][$gte]=2015-08-27`.  All find parameters
+            are interpreted as strings.
+          required: false
+          type: string
+        - name: count
+          in: query
+          description: Number of entries to return.
+          required: false
+          type: number
+      tags:
+        - Entries
+        - Debug
+      responses:
+        "200":
+          description: An array of entries
+          schema:
+            $ref: '#/definitions/MongoQuery'
+
+  /times/echo/{prefix}/{regex}:
+    get:
+      summary: Echo the query object to be used.
+      description: Echo debug information about the query object constructed.
+      parameters:
+        - name: prefix
+          in: path
+          type: string
+          description: Prefix to use in constructing a prefix-based regex.
+          required: true
+        - name: regex
+          in: path
+          type: string
+          description: |
+            Tail part of regexp to use in expanding/construccting a query object.
+            Regexp also has bash-style brace and glob expansion applied to it,
+            creating ways to search for modal times of day, perhaps using
+            something like this syntax: `T{15..17}:.*`, this would search for
+            all records from 3pm to 5pm.
+          required: true
+        - name: find
+          in: query
+          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.
+          required: false
+          type: string
+        - name: count
+          in: query
+          description: Number of entries to return.
+          required: false
+          type: number
+      tags:
+        - Entries
+        - Debug
+      responses:
+        "200":
+          description: An array of entries
+          schema:
+            $ref: '#/definitions/MongoQuery'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+
+
+  /times/{prefix}/{regex}:
+    get:
+      summary: All Entries matching query
+      description: The Entries endpoint returns information about the Nightscout entries.
+      parameters:
+        - name: prefix
+          in: path
+          type: string
+          description: Prefix to use in constructing a prefix-based regex.
+          required: true
+        - name: regex
+          in: path
+          type: string
+          description: |
+            Tail part of regexp to use in expanding/construccting a query object.
+            Regexp also has bash-style brace and glob expansion applied to it,
+            creating ways to search for modal times of day, perhaps using
+            something like this syntax: `T{15..17}:.*`, this would search for
+            all records from 3pm to 5pm.
+          required: true
+        - name: find
+          in: query
+          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.
+          required: false
+          type: string
+        - name: count
+          in: query
+          description: Number of entries to return.
+          required: false
+          type: number
+      tags:
+        - Entries
+      responses:
+        "200":
+          description: An array of entries
+          schema:
+            $ref: '#/definitions/Entries'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+
+
   /entries:
     get:
       summary: All Entries matching query
@@ -53,7 +262,7 @@ paths:
       parameters:
         - name: find
           in: query
-          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find paramertes are interpreted as strings.
+          description: The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.
           required: false
           type: string
         - name: count
@@ -132,7 +341,7 @@ paths:
             `find[insulin][$gte]=3`
             `find[carb][$gte]=100`
             `find[eventType]=Correction+Bolus`
-            All find paramertes are interpreted as strings.
+            All find parameters are interpreted as strings.
           required: false
           type: string
         - name: count
@@ -411,6 +620,10 @@ definitions:
 
   ExtendedSettings:
     description: Extended settings of client side plugins
+
+  MongoQuery:
+    description: Mongo Query object.
+
 
   Error:
     properties:
