@@ -121,6 +121,47 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
+  /echo/{storage}/{spec}:
+    get:
+      summary: View generated Mongo Query object
+      description: |
+        Information about the mongo query object created by the query.
+
+      parameters:
+        - name: storage
+          in: path
+          type: string
+          description: |
+              `entries`, or `treatments` to select the storage layer.
+
+          default: sgv
+          required: true
+        - name: spec
+          in: path
+          type: string
+          description: |
+              entry id, such as `55cf81bc436037528ec75fa5` or a type filter such
+              as `sgv`, `mbg`, etc.
+              This parameter is optional.
+
+          default: sgv
+          required: true
+        - name: find
+          in: query
+          description: |
+            The query used to find entries, support nested query syntax, for
+            example `find[dateString][$gte]=2015-08-27`.  All find parameters
+            are interpreted as strings.
+          required: false
+          type: string
+        - name: count
+          in: query
+          description: Number of entries to return.
+          required: false
+          type: number
+      tags:
+        - Entries
+        - Debug
 
   /times/echo/{prefix}/{regex}:
     get:
@@ -154,6 +195,7 @@ paths:
           type: number
       tags:
         - Entries
+        - Debug
       responses:
         "200":
           description: An array of entries
