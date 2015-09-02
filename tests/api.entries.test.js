@@ -95,7 +95,7 @@ describe('Entries REST api', function ( ) {
     var app = this.app;
     var defaultCount = 10;
     request(app)
-      .get('/slice/entries/dateString/sgv/1999-07.json?count=20')
+      .get('/slice/entries/dateString/sgv/1999-07.json?count=20&find[sgv][$lte]=401')
       .expect(200)
       .end(function (err, res) {
         res.body.should.be.instanceof(Array).and.have.lengthOf(0);
