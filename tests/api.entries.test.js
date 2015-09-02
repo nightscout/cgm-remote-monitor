@@ -13,52 +13,32 @@ describe('Entries REST api', function ( ) {
   before(function (done) {
     var env = require('../env')( );
     this.wares = require('../lib/middleware/')(env);
-    // this.archive = null;
+    this.archive = null;
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    var x = 0;
-    function finish ( ) {
-      self.archive.list({ }, function (err, results) {
-        x++;
-        console.log('ALL UP', x, err, results.length);
-        if (results.length >= 30) {
-          return done( );
-        }
-        if (x < 3) {
-          var creating = load('json');
-          self.archive.create(creating, finish);
-        }
-        setTimeout(finish, 500);
-      });
-    }
     bootevent(env).boot(function booted (ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx));
-      console.log('CTX', ctx);
       self.archive = require('../lib/entries')(env, ctx);
 
       var creating = load('json');
       creating.push({type: 'sgv', sgv: 100, date: Date.now()});
-      console.log("ALL INIT", creating.length);
-      self.archive.create(creating, finish);
-      // es.readArray(creating).pipe(self.archive.persist(finish));
+      self.archive.create(creating, done);
     });
   });
 
+  beforeEach(function (done) {
+    var creating = load('json');
+    creating.push({type: 'sgv', sgv: 100, date: Date.now()});
+    this.archive.create(creating, done);
+  });
+
+  afterEach(function (done) {
+    this.archive( ).remove({ }, done);
+  });
+
   after(function (done) {
-    var self = this;
-    var x = 0;
-    function finish ( ) {
-      self.archive.list({ }, function (err, results) {
-        x++;
-        console.log('ALL DOWN', x, results.length);
-        if (results.length < 1) {
-          return done( );
-        }
-        setTimeout(finish, 500);
-      });
-    }
-    this.archive( ).remove({ }, finish);
+    this.archive( ).remove({ }, done);
   });
 
   // keep this test pinned at or near the top in order to validate all
@@ -186,10 +166,10 @@ describe('Entries REST api', function ( ) {
   it('/entries/:model', function (done) {
     var app = this.app;
     request(app)
-      .get('/entries/sgv.json?count=10')
+      .get('/entries/sgv/.json?count=10&find[dateString][$gte]=2014')
       .expect(200)
       .end(function (err, res) {
-        res.body.should.be.instanceof(Array).and.have.lengthOf(5);
+        res.body.should.be.instanceof(Array).and.have.lengthOf(10);
         done( );
       });
   });

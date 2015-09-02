@@ -28,6 +28,16 @@ describe('authed REST api', function ( ) {
     });
   });
 
+  beforeEach(function (done) {
+    var creating = load('json');
+    creating.push({type: 'sgv', sgv: 100, date: Date.now()});
+    this.archive.create(creating, done);
+  });
+
+  afterEach(function (done) {
+    this.archive( ).remove({ }, done);
+  });
+
   after(function (done) {
     this.archive( ).remove({ }, done);
   });
