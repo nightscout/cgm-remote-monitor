@@ -153,10 +153,10 @@ describe('Entries REST api', function ( ) {
   it('/entries/:model', function (done) {
     var app = this.app;
     request(app)
-      .get('/entries/sgv.json?count=4')
+      .get('/entries/sgv.json?count=1')
       .expect(200)
       .end(function (err, res) {
-        res.body.should.be.instanceof(Array).and.have.lengthOf(4);
+        res.body.should.be.instanceof(Array).and.have.lengthOf(1);
         done( );
       });
   });
