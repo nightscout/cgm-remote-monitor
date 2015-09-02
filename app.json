@@ -18,12 +18,12 @@
       "required": false
     },
     "ENABLE": {
-      "description": "Used to enable optional features, expects a space delimited list, such as: careportal rawbg iob, see https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md for more info",
+      "description": "Used to enable optional features, expects a space delimited list, such as: careportal rawbg iob, see https://github.com/nightscout/cgm-remote-monitor/blob/master/README.md for more info",
       "value": "",
       "required": false
     },
     "DISABLE": {
-      "description": "Used to disable default features, expects a space delimited list, such as: direction upbat, see https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md for more info",
+      "description": "Used to disable default features, expects a space delimited list, such as: direction upbat, see https://github.com/nightscout/cgm-remote-monitor/blob/master/README.md for more info",
       "value": "",
       "required": false
     },
@@ -85,6 +85,66 @@
     "BRIDGE_PASSWORD": {
       "description": "Share bridge - Your password for the Share service. ENSURE bridge is in ENABLE if you want to use the share bridge",
       "value": "",
+      "required": false
+    },
+    "TIME_FORMAT": {
+      "description": "Browser default time mode valid settings are 12 or 24",
+      "value": "12",
+      "required": false 
+    },
+    "NIGHT_MODE": {
+      "description": "Browser defaults to night mode valid settings are on or off",
+      "value": "off",
+      "required": false 
+    },
+    "SHOW_RAWBG": {
+      "description": "Browser default raw display mode vaild settings are always never or noise",
+      "value": "never",
+      "required": false 
+    },
+    "THEME": {
+      "description": "Browser default theme setting vaild settings are default or colors",
+      "value": "default",
+      "required": false 
+    },
+    "ALARM_URGENT_HIGH": {
+      "description": "Browser default urgent high alarm enabled vaild settings are on or off",
+      "value": "on",
+      "required": false 
+    },
+    "ALARM_HIGH": {
+      "description": "Browser default high alarm enabled vaild settings are on or off",
+      "value": "on",
+      "required": false
+    },
+    "ALARM_LOW": {
+      "description": "Browser default low alarm enabled vaild settings are on or off",
+      "value": "on",
+      "required": false
+    },
+    "ALARM_URGENT_LOW": {
+      "description": "Browser default urgent low alarm enabled vaild settings are on or off",
+      "value": "on",
+      "required": false
+    },
+    "ALARM_TIMEAGO_WARN": {
+      "description": "Browser default warn after time of last data exceeds ALARM_TIMEAGO_WARN_MINS alarm enabled vaild settings are on or off",
+      "value": "on",
+      "required": false
+    },
+    "ALARM_TIMEAGO_WARN_MINS": {
+      "description": "Browser default minutes since the last reading to trigger a warning",
+      "value": "15",
+      "required": false
+    },
+    "ALARM_TIMEAGO_URGENT": {
+      "description": "Browser default urgent warning after time of last data exceeds ALARM_TIMEAGO_WARN_MINS alarm enabled vaild settings are on or off",
+      "value": "15",
+      "required": false
+    },
+    "ALARM_TIMEAGO_URGENT_MINS": {
+      "description": "Browser default urgent warning after time of last data exceeds ALARM_TIMEAGO_WARN_MINS alarm enabled vaild settings are on or off",
+      "value": "15",
       "required": false
     }
   },
