@@ -28,7 +28,7 @@
       "required": false
     },
     "ALARM_TYPES": {
-      "description": "Nightscout alarm behavior control. Default null value implies 'predict'. For adjustable alarm thresholds (set below), set to 'simple'.",
+      "description": "Alarm behavior currently 2 alarm types are supported simple and predict, and can be used independently or combined. The simple alarm type only compares the current BG to BG_ thresholds above, the predict alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend. predict DOES NOT currently use any of the BG_* ENV's",
       "value": "",
       "required": false
     },
@@ -59,6 +59,11 @@
     },
     "PUSHOVER_USER_KEY": {
       "description": "Pushover user key, required for Pushover notifications. Leave blank if not using Pushover.",
+      "value": "",
+      "required": false
+    },
+    "PUSHOVER_ANNOUNCEMENT_KEY": {
+      "description": "An optional Pushover user/group key, will be used for system wide user generated announcements.  If not defined this will fallback to `PUSHOVER_USER_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also support a space delimited list of keys. Leave blank if not using Pushover",
       "value": "",
       "required": false
     },
@@ -148,12 +153,12 @@
       "required": false
     },
     "MAKER_KEY": {
-      "description": "Maker Key - Set this to your secret key Note for additional info see https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md#ifttt-maker , maker should be added to enable if you want to use maker",
+      "description": "Maker Key - Set this to your secret key Note for additional info see https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md#ifttt-maker , maker should be added to enable if you want to use maker, Leave blank if not using maker",
       "value": "",
       "required": false
     },
     "MAKER_ANNOUNCEMENT_KEY": {
-      "description": "Maker Announcement Key - Set this to your secret key for announcements Note for additional info see https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md#ifttt-maker , maker should be added to enable if you want to use maker",
+      "description": "Maker Announcement Key - Set this to your secret key for announcements Note for additional info see https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md#ifttt-maker , maker should be added to enable if you want to use maker Leave blank if not using maker",
       "value": "",
       "required": false
     }
