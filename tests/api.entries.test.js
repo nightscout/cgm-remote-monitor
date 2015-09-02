@@ -92,12 +92,12 @@ describe('Entries REST api', function ( ) {
       });
   });
 
-  it('allow deletes', function (done) {
+  it('disallow deletes unauthorized', function (done) {
     var app = this.app;
 
     request(app)
       .delete('/entries/sgv?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
-      .expect(200)
+      .expect(401)
       .end(function (err) {
         if (err) {
           done(err);
@@ -106,12 +106,11 @@ describe('Entries REST api', function ( ) {
             .get('/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
             .expect(200)
             .end(function (err, res) {
-              res.body.should.be.instanceof(Array).and.have.lengthOf(0);
+              res.body.should.be.instanceof(Array).and.have.lengthOf(10);
               done();
             });
         }
       });
   });
-
 
 });
