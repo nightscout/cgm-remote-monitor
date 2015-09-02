@@ -2,7 +2,7 @@
 
 var request = require('supertest');
 var load = require('./fixtures/load');
-require('should');
+var should = require('should');
 
 describe('authed REST api', function ( ) {
   var entries = require('../lib/api/entries/');
@@ -54,7 +54,7 @@ describe('authed REST api', function ( ) {
       .end(function (err, res) {
         res.body.status.should.equal(401);
         res.body.message.should.equal('Unauthorized');
-        res.body.description.should.be.ok;
+        should.exist(res.body.description);
         done(err);
       });
   });

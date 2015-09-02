@@ -2,7 +2,6 @@
 
 var request = require('supertest');
 var load = require('./fixtures/load');
-var es = require('event-stream');
 var bootevent = require('../lib/bootevent');
 require('should');
 
@@ -68,7 +67,6 @@ describe('Entries REST api', function ( ) {
   });
 
   it('/echo/ api shows query', function (done) {
-    var defaultCount = 10;
     request(this.app)
       .get('/echo/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
       .expect(200)
@@ -84,7 +82,6 @@ describe('Entries REST api', function ( ) {
 
   it('/slice/ can slice time', function (done) {
     var app = this.app;
-    var defaultCount = 10;
     request(app)
       .get('/slice/entries/dateString/sgv/2014-07.json?count=20')
       .expect(200)
@@ -97,7 +94,6 @@ describe('Entries REST api', function ( ) {
 
   it('/times/echo can describe query', function (done) {
     var app = this.app;
-    var defaultCount = 10;
     request(app)
       .get('/times/echo/2014-07/.*T{00..05}:.json?count=20&find[sgv][$gte]=160')
       .expect(200)
@@ -111,7 +107,6 @@ describe('Entries REST api', function ( ) {
 
   it('/slice/ can slice with multiple prefix', function (done) {
     var app = this.app;
-    var defaultCount = 10;
     request(app)
       .get('/slice/entries/dateString/sgv/2014-07-{17..20}.json?count=20')
       .expect(200)
@@ -123,7 +118,6 @@ describe('Entries REST api', function ( ) {
 
   it('/slice/ can slice time with prefix and no results', function (done) {
     var app = this.app;
-    var defaultCount = 10;
     request(app)
       .get('/slice/entries/dateString/sgv/1999-07.json?count=20&find[sgv][$lte]=401')
       .expect(200)
@@ -135,7 +129,6 @@ describe('Entries REST api', function ( ) {
 
   it('/times/ can get modal times', function (done) {
     var app = this.app;
-    var defaultCount = 10;
     request(app)
       .get('/times/2014-07-/{0..30}T.json?')
       .expect(200)
@@ -157,7 +150,6 @@ describe('Entries REST api', function ( ) {
   });
   it('/times/ can get multiple prefixen and modal minutes and times', function (done) {
     var app = this.app;
-    var defaultCount = 10;
     request(app)
       .get('/times/20{14..15}/T.*:{00..60}.json?')
       .expect(200)
