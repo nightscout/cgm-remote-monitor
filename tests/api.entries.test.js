@@ -67,6 +67,21 @@ describe('Entries REST api', function ( ) {
       });
   });
 
+  it('/echo/ api shows query', function (done) {
+    var defaultCount = 10;
+    request(this.app)
+      .get('/echo/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.be.instanceof(Object);
+        res.body.query.should.be.instanceof(Object);
+        res.body.input.should.be.instanceof(Object);
+        res.body.input.find.should.be.instanceof(Object);
+        res.body.storage.should.equal('entries');
+        done( );
+      });
+  });
+
   it('/slice/ can slice time', function (done) {
     var app = this.app;
     var defaultCount = 10;
@@ -75,6 +90,21 @@ describe('Entries REST api', function ( ) {
       .expect(200)
       .end(function (err, res) {
         res.body.should.be.instanceof(Array).and.have.lengthOf(20);
+        done( );
+      });
+  });
+
+
+  it('/times/echo can describe query', function (done) {
+    var app = this.app;
+    var defaultCount = 10;
+    request(app)
+      .get('/times/echo/2014-07/.*T{00..05}:.json?count=20&find[sgv][$gte]=160')
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.be.instanceof(Object);
+        res.body.req.should.have.property('query');
+        res.body.should.have.property('pattern').with.lengthOf(6);
         done( );
       });
   });
