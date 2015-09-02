@@ -103,7 +103,6 @@ describe('mqtt', function ( ) {
         case 3: // sgv
           chunk.length.should.equal(1);
           var first = chunk[0];
-          console.log("FIRST", first);
           should.exist(first.sgv);
           should.exist(first.noise);
           should.exist(first.date);
