@@ -135,7 +135,7 @@ describe('Entries REST api', function ( ) {
       });
   });
 
-  it('/entries/sgv/ID', function (done) {
+  it('/entries/:id', function (done) {
     var app = this.app;
     this.archive.list({count: 1}, function(err, records) {
       var currentId = records.pop()._id.toString();
@@ -147,8 +147,18 @@ describe('Entries REST api', function ( ) {
           res.body[0]._id.should.equal(currentId);
           done( );
         });
+      });
     });
 
+  it('/entries/:model', function (done) {
+    var app = this.app;
+    request(app)
+      .get('/entries/sgv.json?count=4')
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.be.instanceof(Array).and.have.lengthOf(4);
+        done( );
+      });
   });
 
   it('/entries/preview', function (done) {
