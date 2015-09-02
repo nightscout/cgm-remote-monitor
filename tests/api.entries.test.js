@@ -2,30 +2,63 @@
 
 var request = require('supertest');
 var load = require('./fixtures/load');
+var es = require('event-stream');
+var bootevent = require('../lib/bootevent');
 require('should');
 
 describe('Entries REST api', function ( ) {
   var entries = require('../lib/api/entries/');
 
+  this.timeout(10000);
   before(function (done) {
     var env = require('../env')( );
     this.wares = require('../lib/middleware/')(env);
-    this.archive = null;
+    // this.archive = null;
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    require('../lib/bootevent')(env).boot(function booted (ctx) {
+    var x = 0;
+    function finish ( ) {
+      self.archive.list({ }, function (err, results) {
+        x++;
+        console.log('ALL UP', x, err, results.length);
+        if (results.length >= 30) {
+          return done( );
+        }
+        if (x < 3) {
+          var creating = load('json');
+          self.archive.create(creating, finish);
+        }
+        setTimeout(finish, 500);
+      });
+    }
+    bootevent(env).boot(function booted (ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx));
+      console.log('CTX', ctx);
       self.archive = require('../lib/entries')(env, ctx);
 
       var creating = load('json');
       creating.push({type: 'sgv', sgv: 100, date: Date.now()});
-      self.archive.create(creating, done);
+      console.log("ALL INIT", creating.length);
+      self.archive.create(creating, finish);
+      // es.readArray(creating).pipe(self.archive.persist(finish));
     });
   });
 
   after(function (done) {
-    this.archive( ).remove({ }, done);
+    var self = this;
+    var x = 0;
+    function finish ( ) {
+      self.archive.list({ }, function (err, results) {
+        x++;
+        console.log('ALL DOWN', x, results.length);
+        if (results.length < 1) {
+          return done( );
+        }
+        setTimeout(finish, 500);
+      });
+    }
+    this.archive( ).remove({ }, finish);
   });
 
   // keep this test pinned at or near the top in order to validate all
@@ -153,10 +186,10 @@ describe('Entries REST api', function ( ) {
   it('/entries/:model', function (done) {
     var app = this.app;
     request(app)
-      .get('/entries/sgv.json?count=1')
+      .get('/entries/sgv.json?count=10')
       .expect(200)
       .end(function (err, res) {
-        res.body.should.be.instanceof(Array).and.have.lengthOf(1);
+        res.body.should.be.instanceof(Array).and.have.lengthOf(5);
         done( );
       });
   });
