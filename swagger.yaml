@@ -162,6 +162,11 @@ paths:
       tags:
         - Entries
         - Debug
+      responses:
+        "200":
+          description: An array of entries
+          schema:
+            $ref: '#/definitions/MongoQuery'
 
   /times/echo/{prefix}/{regex}:
     get:
@@ -200,7 +205,7 @@ paths:
         "200":
           description: An array of entries
           schema:
-            $ref: '#/definitions/Entries'
+            $ref: '#/definitions/MongoQuery'
         default:
           description: Unexpected error
           schema:
@@ -615,6 +620,10 @@ definitions:
 
   ExtendedSettings:
     description: Extended settings of client side plugins
+
+  MongoQuery:
+    description: Mongo Query object.
+
 
   Error:
     properties:
