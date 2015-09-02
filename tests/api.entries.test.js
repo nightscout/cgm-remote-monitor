@@ -2,11 +2,14 @@
 
 var request = require('supertest');
 var load = require('./fixtures/load');
+var es = require('event-stream');
+var bootevent = require('../lib/bootevent');
 require('should');
 
 describe('Entries REST api', function ( ) {
   var entries = require('../lib/api/entries/');
 
+  this.timeout(10000);
   before(function (done) {
     var env = require('../env')( );
     this.wares = require('../lib/middleware/')(env);
@@ -14,7 +17,7 @@ describe('Entries REST api', function ( ) {
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    require('../lib/bootevent')(env).boot(function booted (ctx) {
+    bootevent(env).boot(function booted (ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx));
       self.archive = require('../lib/entries')(env, ctx);
 
@@ -22,6 +25,16 @@ describe('Entries REST api', function ( ) {
       creating.push({type: 'sgv', sgv: 100, date: Date.now()});
       self.archive.create(creating, done);
     });
+  });
+
+  beforeEach(function (done) {
+    var creating = load('json');
+    creating.push({type: 'sgv', sgv: 100, date: Date.now()});
+    this.archive.create(creating, done);
+  });
+
+  afterEach(function (done) {
+    this.archive( ).remove({ }, done);
   });
 
   after(function (done) {
@@ -153,10 +166,10 @@ describe('Entries REST api', function ( ) {
   it('/entries/:model', function (done) {
     var app = this.app;
     request(app)
-      .get('/entries/sgv.json?count=1')
+      .get('/entries/sgv/.json?count=10&find[dateString][$gte]=2014')
       .expect(200)
       .end(function (err, res) {
-        res.body.should.be.instanceof(Array).and.have.lengthOf(1);
+        res.body.should.be.instanceof(Array).and.have.lengthOf(10);
         done( );
       });
   });
