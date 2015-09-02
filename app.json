@@ -8,17 +8,22 @@
       "required": true
     },
     "API_SECRET": {
-      "description": "REQUIRED: User generated password used for REST API and optional features (12 character minimum).",
+      "description": "REQUIRED: A secret passphrase that must be at least 12 characters long, required to enable POST and PUT; also required for the Care Portal",
       "value": "",
       "required": true
     },
     "DISPLAY_UNITS": {
-      "description": "Server display units for BG values.  Default null value implies 'mg/dl'.  Set to 'mmol' to change the server to mmol mode.",
+      "description": "Choices: mg/dl and mmol. Setting to mmol puts the entire server into mmol mode by default, no further settings needed.",
       "value": "",
       "required": false
     },
     "ENABLE": {
-      "description": "Space delimited list of optional features to enable, such as 'careportal'.",
+      "description": "Used to enable optional features, expects a space delimited list, such as: careportal rawbg iob, see https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md for more info",
+      "value": "",
+      "required": false
+    },
+    "DISABLE": {
+      "description": "Used to disable default features, expects a space delimited list, such as: direction upbat, see https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md for more info",
       "value": "",
       "required": false
     },
@@ -69,6 +74,16 @@
     },
     "SHOW_RAWBG": {
       "description": "Possible values always, never or noise",
+      "value": "",
+      "required": false
+    },
+    "BRIDGE_USER_NAME": {
+      "description": "Share bridge - Your user name for the Share service. ENSURE bridge is in ENABLE if you want to use the share bridge",
+      "value": "",
+      "required": false
+    },
+    "BRIDGE_PASSWORD": {
+      "description": "Share bridge - Your password for the Share service. ENSURE bridge is in ENABLE if you want to use the share bridge",
       "value": "",
       "required": false
     }
