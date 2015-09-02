@@ -54,6 +54,76 @@ describe('Entries REST api', function ( ) {
       });
   });
 
+  it('/slice/ can slice time', function (done) {
+    var app = this.app;
+    var defaultCount = 10;
+    request(app)
+      .get('/slice/entries/dateString/sgv/2014-07.json?count=20')
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.be.instanceof(Array).and.have.lengthOf(20);
+        done( );
+      });
+  });
+
+  it('/slice/ can slice with multiple prefix', function (done) {
+    var app = this.app;
+    var defaultCount = 10;
+    request(app)
+      .get('/slice/entries/dateString/sgv/2014-07-{17..20}.json?count=20')
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.be.instanceof(Array).and.have.lengthOf(20);
+        done( );
+      });
+  });
+
+  it('/slice/ can slice time with prefix and no results', function (done) {
+    var app = this.app;
+    var defaultCount = 10;
+    request(app)
+      .get('/slice/entries/dateString/sgv/1999-07.json?count=20')
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.be.instanceof(Array).and.have.lengthOf(0);
+        done( );
+      });
+  });
+
+  it('/times/ can get modal times', function (done) {
+    var app = this.app;
+    var defaultCount = 10;
+    request(app)
+      .get('/times/2014-07-/{0..30}T.json?')
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.be.instanceof(Array).and.have.lengthOf(10);
+        done( );
+      });
+  });
+
+  it('/times/ can get modal minutes and times', function (done) {
+    var app = this.app;
+    request(app)
+      .get('/times/20{14..15}-07/T{09..10}.json?')
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.be.instanceof(Array).and.have.lengthOf(10);
+        done( );
+      });
+  });
+  it('/times/ can get multiple prefixen and modal minutes and times', function (done) {
+    var app = this.app;
+    var defaultCount = 10;
+    request(app)
+      .get('/times/20{14..15}/T.*:{00..60}.json?')
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.be.instanceof(Array).and.have.lengthOf(10);
+        done( );
+      });
+  });
+
   it('/entries/current.json', function (done) {
     request(this.app)
       .get('/entries/current.json')
