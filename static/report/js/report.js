@@ -64,7 +64,7 @@
     $('#rp_subcategory').change(doFoodFilter);
     $('#rp_name').on('input',doFoodFilter);
   
-    return maybePreventDefault(event);
+    return maybePrevent(event);
   }
 
   function fillFoodSubcategories(event) {
@@ -77,7 +77,7 @@
       }
     }
     doFoodFilter();
-    return maybePreventDefault(event);
+    return maybePrevent(event);
   }
 
   function doFoodFilter(event) {
@@ -99,7 +99,7 @@
       $('#rp_food').append(new Option(o,food_list[i]._id));
     }
     
-    return maybePreventDefault(event);
+    return maybePrevent(event);
   }
 
   $('#info').html('<b>'+translate('Loading food database')+' ...</b>');
@@ -128,7 +128,7 @@
     $('.rp_foodgui').css('display','');
     $('#rp_food').change(function (event) { 
       $('#rp_enablefood').prop('checked',true);
-      return maybePreventDefault(event);
+      return maybePrevent(event);
     });
   }
   
@@ -149,11 +149,11 @@
     $('#rp_show').click(show);
     $('#rp_notes').bind('input', function (event) {
       $('#rp_enablenotes').prop('checked',true);
-      return maybePreventDefault(event);
+      return maybePrevent(event);
     });
     $('#rp_eventtype').bind('input', function (event) {
       $('#rp_enableeventtype').prop('checked',true);
-      return maybePreventDefault(event);
+      return maybePrevent(event);
     });
     
     // fill careportal events
@@ -429,7 +429,7 @@
     daystoshow = {};
 
     datefilter();
-    return maybePreventDefault(event);
+    return maybePrevent(event);
   }
   
   function showreports(options) {
@@ -458,7 +458,7 @@
   function setDataRange(event,days) {
     $('#rp_to').val(moment().format('YYYY-MM-DD'));
     $('#rp_from').val(moment().add(-days+1, 'days').format('YYYY-MM-DD'));
-    return maybePreventDefault(event);
+    return maybePrevent(event);
   }
   
   function switchreport_handler(event) {
@@ -469,7 +469,7 @@
     
     $('.tabplaceholder').css('display','none');
     $('#'+id+'-placeholder').css('display','');
-    return maybePreventDefault(event);
+    return maybePrevent(event);
   }
   
   function loadData(day, options, callback) {
@@ -623,7 +623,7 @@
     callback();
   }
 
-  function maybePreventDefault(event) {
+  function maybePrevent(event) {
     if (event) {
       event.preventDefault();
     }
