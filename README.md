@@ -53,12 +53,16 @@ Community maintained fork of the
   - [Updating my version?](#updating-my-version)
   - [What is my mongo string?](#what-is-my-mongo-string)
   - [Configure my uploader to match](#configure-my-uploader-to-match)
+  - [Nightscout API](#nightscout-api)
+      - [Example Queries](#example-queries)
   - [Environment](#environment)
     - [Required](#required)
     - [Features/Labs](#featureslabs)
     - [Core](#core)
     - [Predefined values for your browser settings (optional)](#predefined-values-for-your-browser-settings-optional)
     - [Plugins](#plugins)
+      - [Default Plugins](#default-plugins)
+      - [Built-in/Example Plugins:](#built-inexample-plugins)
       - [Extended Settings](#extended-settings)
       - [Pushover](#pushover)
       - [IFTTT Maker](#ifttt-maker)
@@ -85,14 +89,9 @@ $ npm install
 #Usage
 
 The data being uploaded from the server to the client is from a
-MongoDB server such as [mongolab][mongodb].  In order to access the
-database, the appropriate credentials need to be filled into the
-[JSON][json] file in the root directory.  SGV data from the database
-is assumed to have the following fields: date, sgv.  Once all that is
-ready, just host your web app on your service of choice.
+MongoDB server such as [mongolab][mongodb].
 
 [mongodb]: https://mongolab.com
-[json]: https://github.com/rnpenguin/cgm-remote-monitor/blob/master/database_configuration.json
 [autoconfigure]: http://nightscout.github.io/pages/configure/
 [mongostring]: http://nightscout.github.io/pages/mongostring/
 [update-fork]: http://nightscout.github.io/pages/update-fork/
@@ -113,6 +112,28 @@ mongo string.  You can copy and paste the text in the gray box into your
 Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
 
+## Nightscout API
+
+The Nightscout API enables direct access to your DData without the need for direct Mongo access.
+You can find CGM data in `/api/v1/entries`, Care Portal Treatments in `/api/v1/treatments`, and Treatment Profiles in `/api/v1/profile`.
+The server status and settings are available from `/api/v1/status.json`.
+
+By default the `/entries` and `/treatments` APIs limit results to the the most recent 10 values from the last 2 days.
+You can get many more results, by using the `count`, `date`, `dateString`, and `created_at` parameters, depending on the type of data you're looking for.
+ 
+#### Example Queries
+
+(replace `http://localhost:1337` with your base url, YOUR-SITE)
+  
+  * 100's: `http://localhost:1337/api/v1/entries.json?find[sgv]=100`
+  * BGs between 2 days: `http://localhost:1337/api/v1/entries/sgv.json?find[dateString][$gte]=2015-08-28&find[dateString][$lte]=2015-08-30`
+  * Juice Box corrections in a year: `http://localhost:1337/api/v1/treatments.json?count=1000&find[carbs]=15&find[eventType]=Carb+Correction&find[created_at][$gte]=2015`
+  * Boluses over 2U: `http://localhost:1337/api/v1/treatments.json?find[insulin][$gte]=2`
+
+The API is Swagger enabled, so you can generate client code to make working with the API easy.
+To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.html or review [swagger.yaml](swagger.yaml).
+
+
 ## Environment
 
 `VARIABLE` (default) - description
@@ -124,7 +145,8 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
 ### Features/Labs
 
-  * `ENABLE` - Used to enable optional features, expects a space delimited list such as: `careportal rawbg iob`, see [plugins](#plugins) below
+  * `ENABLE` - Used to enable optional features, expects a space delimited list, such as: `careportal rawbg iob`, see [plugins](#plugins) below
+  * `DISABLE` - Used to disable default features, expects a space delimited list, such as: `direction upbat`, see [plugins](#plugins) below
   * `API_SECRET` - A secret passphrase that must be at least 12 characters long, required to enable `POST` and `PUT`; also required for the Care Portal
   * `BG_HIGH` (`260`) - must be set using mg/dl units; the high BG outside the target range that is considered urgent
   * `BG_TARGET_TOP` (`180`) - must be set using mg/dl units; the top of the target range, also used to draw the line on the chart
@@ -160,7 +182,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
-
+  * `LANGUAGE` (`en`) - language of Nighscout. If not available english is used
 
 ### Plugins
 
@@ -168,7 +190,23 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
   The built-in/example plugins that are available by default are listed below.  The plugins may still need to be enabled by adding to the `ENABLE` environment variable.
 
-  **Built-in/Example Plugins:**
+#### Default Plugins
+  
+  These can be disabled by setting the `DISABLE` env var, for example `DISABLE="direction upbat"`
+
+  * `delta` (BG Delta) - Calculates and displays the change between the last 2 BG values.
+  * `direction` (BG Direction) - Displays the trend direction.
+  * `upbat` (Uploader Battery) - Displays the most recent battery status from the uploader phone.
+  * `errorcodes` (CGM Error Codes) - Generates alarms for CGM codes `9` (hourglass) and `10` (???).
+  * `ar2` ([Forcasting using AR2 algorithm](https://github.com/nightscout/nightscout.github.io/wiki/Forecasting)) - Generates alarms based on forecasted values.
+    * Enabled by default if no thresholds are set **OR** `ALARM_TYPES` includes `predict`.
+    * Use [extended settings](#extended-settings) to adjust AR2 behavior:
+      * `AR2_USE_RAW` (`false`) - to forecast using `rawbg` values when standard values don't trigger an alarm.
+      * `AR2_CONE_FACTOR` (`2`) - to adjust size of cone, use `0` for a single line.
+  * `simplealarms` (Simple BG Alarms) - Uses `BG_HIGH`, `BG_TARGET_TOP`, `BG_TARGET_BOTTOM`, `BG_LOW` thresholds to generate alarms.
+    * Enabled by default if 1 of these thresholds is set **OR** `ALARM_TYPES` includes `simple`.
+
+#### Built-in/Example Plugins:
 
   * `rawbg` (Raw BG) - Calculates BG using sensor and calibration records from and displays an alternate BG values and noise levels.
   * `iob` (Insulin-on-Board) - Adds the IOB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with insulin doses and the `dia` and `sens` fields from the [treatment profile](#treatment-profile).
@@ -179,20 +217,20 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
     * `BWP_SNOOZE_MINS` (`10`) - minutes to snooze when there is enough IOB to cover a high BG.
     * `BWP_SNOOZE` - (`0.10`) If BG is higher then the `target_high` and `BWP` < `BWP_SNOOZE` alarms will be snoozed for `BWP_SNOOZE_MINS`.
   * `cage` (Cannula Age) - Calculates the number of hours since the last `Site Change` treatment that was recorded.
-    * `CAGE_ENABLEALERTS` (`false`) - Set to `true` to enable notifications to remind you of upcoming cannula change.
+    * `CAGE_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications to remind you of upcoming cannula change.
     * `CAGE_INFO` (`44`) - If time since last `Site Change` matches `CAGE_INFO`, user will be warned of upcoming cannula change
     * `CAGE_WARN` (`48`) - If time since last `Site Change` matches `CAGE_WARN`, user will be alarmed to to change the cannula
     * `CAGE_URGENT` (`72`) - If time since last `Site Change` matches `CAGE_URGENT`, user will be issued a persistent warning of overdue change.
-  * `delta` (BG Delta) - Calculates and displays the change between the last 2 BG values.  **Enabled by default.**
-  * `direction` (BG Direction) - Displays the trend direction.  **Enabled by default.**
-  * `upbat` (Uploader Battery) - Displays the most recent battery status from the uploader phone.  **Enabled by default.**
-  * `ar2` ([Forcasting using AR2 algorithm](https://github.com/nightscout/nightscout.github.io/wiki/Forecasting)) - Generates alarms based on forecasted values.  **Enabled by default.** Use [extended settings](#extended-settings) to adjust AR2 behavior:
-    * `AR2_USE_RAW` (`false`) - to forecast using `rawbg` values when standard values don't trigger an alarm.
-    * `AR2_CONE_FACTOR` (`2`) - to adjust size of cone, use `0` for a single line.
-  * `simplealarms` (Simple BG Alarms) - Uses  `BG_HIGH`, `BG_TARGET_TOP`, `BG_TARGET_BOTTOM`, `BG_LOW` settings to generate alarms.
-  * `errorcodes` (CGM Error Codes) - Generates alarms for CGM codes `9` (hourglass) and `10` (???).  **Enabled by default.**
   * `treatmentnotify` (Treatment Notifications) - Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.  Default snooze is 10 minutes, and can be set using the `TREATMENTNOTIFY_SNOOZE_MINS` [extended setting](#extended-settings).
   * `basal` (Basal Profile) - Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile).
+  * `bridge` (Share2Nightscout bridge) - Glucose reading directly from the Share service, uses these extended settings:
+    * `BRIDGE_USER_NAME` - Your user name for the Share service.
+    * `BRIDGE_PASSWORD` - Your password for the Share service.
+    * `BRIDGE_INTERVAL` (`150000` *2.5 minutes*) - The time to wait between each update.
+    * `BRIDGE_MAX_COUNT` (`1`) - The maximum number of records to fetch per update.
+    * `BRIDGE_FIRST_FETCH_COUNT` (`3`) - Changes max count during the very first update only.
+    * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
+    * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (default is one day in minutes).
   
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
  
@@ -215,11 +253,12 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   
     * `ENABLE` - `pushover` should be added to the list of plugin, for example: `ENABLE="pushover"`.
     * `PUSHOVER_API_TOKEN` - Used to enable pushover notifications, this token is specific to the application you create from in [Pushover](https://pushover.net/), ***[additional pushover information](#pushover)*** below.
-    * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.
+    * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.  This also support a space delimited list of keys.
+    * `PUSHOVER_ANNOUNCEMENT_KEY` - An optional Pushover user/group key, will be used for system wide user generated announcements.  If not defined this will fallback to `PUSHOVER_USER_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also support a space delimited list of keys.
     * `BASE_URL` - Used for pushover callbacks, usually the URL of your Nightscout site, use https when possible.
     * `API_SECRET` - Used for signing the pushover callback request for acknowledgments.
     
-    For testing/devlopment try [localtunnel](http://localtunnel.me/).
+    For testing/development try [localtunnel](http://localtunnel.me/).
 
 #### IFTTT Maker
  In addition to the normal web based alarms, and pushover, there is also integration for [IFTTT Maker](https://ifttt.com/maker).
@@ -230,7 +269,8 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
  2. Find your secret key on the [maker page](https://ifttt.com/maker)
  3. Configure Nightscout by setting these environment variables:
   * `ENABLE` - `maker` should be added to the list of plugin, for example: `ENABLE="maker"`.
-  * `MAKER_KEY` - Set this to your secret key that you located in step 2, for example: `MAKER_KEY="abcMyExampleabc123defjt1DeNSiftttmak-XQb69p"`
+  * `MAKER_KEY` - Set this to your secret key that you located in step 2, for example: `MAKER_KEY="abcMyExampleabc123defjt1DeNSiftttmak-XQb69p"` This also support a space delimited list of keys.
+  * `MAKER_ANNOUNCEMENT_KEY` - An optional Maker key, will be used for system wide user generated announcements.  If not defined this will fallback to `MAKER_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also support a space delimited list of keys.
  4. [Create a recipe](https://ifttt.com/myrecipes/personal/new) or see [more detailed instructions](lib/plugins/maker-setup.md#create-a-recipe)
  
  Plugins can create custom events, but all events sent to maker will be prefixed with `ns-`.  The core events are:
@@ -243,73 +283,8 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
 
 ### Treatment Profile
-  Some of the [plugins](#plugins) make use of a treatment profile that is stored in Mongo. To use those plugins there should only be a single doc in the `profile` collection.
+  Some of the [plugins](#plugins) make use of a treatment profile that can be edited using the Profile Editor, see the link in the Settings drawer on your site.
   
-  Example Profile (change it to fit you):
-
-  ```json
-  {
-    "dia": 3,
-    "carbs_hr": 20,
-    "carbratio": 30,
-    "sens": 100,
-    "basal": 0.125,
-    "target_low": 100,
-    "target_high": 120
-  }
-  ```
-  
-  Profile can also use time periods for any field, for example:
-  
-  ```json
-  {
-    "carbratio": [
-      {
-        "time": "00:00",
-        "value": 30
-      },
-      {
-        "time": "06:00",
-        "value": 25
-      },
-      {
-        "time": "14:00",
-        "value": 28
-      }
-    ],
-    "basal": [
-      {
-        "time": "00:00",
-        "value": 0.175
-      },
-      {
-        "time": "02:30",
-        "value": 0.125
-      },
-      {
-        "time": "05:00",
-        "value": 0.075
-      },
-      {
-        "time": "08:00",
-        "value": 0.100
-      },
-      {
-        "time": "14:00",
-        "value": 0.125
-      },
-      {
-        "time": "20:00",
-        "value": 0.175
-      },
-      {
-        "time": "22:00",
-        "value": 0.200
-      }
-    ]
-  }
-  ```
-
   Treatment Profile Fields:
 
   * `timezone` (Time Zone) - time zone local to the patient. *Should be set.*
@@ -321,8 +296,8 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
   * `basal` The basal rate set on the pump.
   * `target_high` - Upper target for correction boluses.
   * `target_low` - Lower target for correction boluses.
-
-  Additional information can be found [here](http://www.nightscout.info/wiki/labs/the-nightscout-iob-cob-website).
+  
+  Some example profiles are [here](example-profiles.md).
 
 ## Setting environment variables
 Easy to emulate on the commandline:
