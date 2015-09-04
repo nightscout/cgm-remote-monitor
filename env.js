@@ -4,10 +4,15 @@ var _ = require('lodash');
 var fs = require('fs');
 var crypto = require('crypto');
 var consts = require('./lib/constants');
+<<<<<<< HEAD
+var fs = require('fs');
+var dotenv = require('dotenv').config({path: '/home/demonicpagan/dexcom/cgm-remote-monitor/.env'});
+=======
 
 var env = {
   settings: require('./lib/settings')()
 };
+>>>>>>> dd537101cb16651bfce69cd6f20bcd18a360f8c1
 
 // Module to constrain all config and environment parsing to one spot.
 // See the

@@ -8,7 +8,7 @@ bundle/bundle.out.js
 *.iml
 my.env
 
-*.env
+*?.env
 static/bower_components/
 .*.sw?
 .DS_Store

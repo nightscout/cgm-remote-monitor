@@ -35,6 +35,8 @@ var translate = language.set(env.settings.language).translate;
 ///////////////////////////////////////////////////
 var PORT = env.PORT;
 
+console.log('Port:' +PORT);
+
 function create (app) {
   var transport = (env.ssl
                 ? require('https') : require('http'));
