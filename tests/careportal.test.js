@@ -59,7 +59,7 @@ describe('client', function ( ) {
           done();
           return self.$.ajax();
         }
-        , fail: function mockFail (fn) {
+        , fail: function mockFail ( ) {
           return self.$.ajax();
         }
       };
