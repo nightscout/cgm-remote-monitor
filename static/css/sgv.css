@@ -1,0 +1,28 @@
+body {
+  fill: #fff;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #ffffff;
+  shape-rendering: crispEdges;
+}
+
+.open-right, .open-left {
+  shape-rendering: crispEdges;
+}
+.grid path, .axis line {
+  stroke: #bdbdbd;
+  stroke-opacity: 1;
+}
+
+.brush .extent {
+  stroke: #ffffff;
+  stroke-opacity: 0;
+  fill-opacity: 0;
+}
+
+.tooltip {
+  pointer-events: none;
+}
