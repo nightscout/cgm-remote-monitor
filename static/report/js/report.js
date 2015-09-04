@@ -163,8 +163,8 @@
     });
     $('#rp_eventtype').append('<option value="sensor">' + '>>> ' + translate('All sensor events') + '</option>');
     
-    $('#rp_targetlow').val(targetBGdefault[client.settings.units].low);
-    $('#rp_targethigh').val(targetBGdefault[client.settings.units].high);
+    $('#rp_targetlow').val(targetBGdefault[client.settings.units.toLowerCase()].low);
+    $('#rp_targethigh').val(targetBGdefault[client.settings.units.toLowerCase()].high);
     
     $('.menutab').click(switchreport_handler);
 
