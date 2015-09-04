@@ -140,6 +140,16 @@
   // ****** FOOD CODE END ******
 
 
+  function getTimeZoneOffset () {
+    var offset;
+    if (client.sbx.data.profile.getTimezone()) {
+      offset = moment().tz(client.sbx.data.profile.getTimezone())._offset;
+    } else {
+      offset = new Date().getTimezoneOffset();
+    }
+    return offset;
+  }
+  
   function prepareGUI() {
     $('.presetdates').click(function(event) { 
       var days = $(this).attr('days');
@@ -486,7 +496,7 @@
       , calData = []
       ;
     var dt = new Date(day);
-    var from = dt.getTime() + dt.getTimezoneOffset() * 60 * 1000;
+    var from = dt.getTime() + getTimeZoneOffset() * 60 * 1000;
     var to = from + 1000 * 60 * 60 * 24;
     var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
     
@@ -588,7 +598,7 @@
     data.sgv = data.sgv.concat(data.mbg.map(function (obj) { return { date: new Date(obj.mills), y: obj.y, sgv: client.utils.scaleMgdl(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 
     // make sure data range will be exactly 24h
-    var from = new Date(new Date(day).getTime() + (new Date().getTimezoneOffset()*60*1000));
+    var from = new Date(new Date(day).getTime() + (getTimeZoneOffset() * 60 * 1000));
     var to = new Date(from.getTime() + 1000 * 60 * 60 * 24);
     data.sgv.push({ date: from, y: 40, sgv: 40, color: 'transparent', type: 'rawbg'});
     data.sgv.push({ date: to, y: 40, sgv: 40, color: 'transparent', type: 'rawbg'});
