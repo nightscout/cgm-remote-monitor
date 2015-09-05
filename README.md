@@ -142,18 +142,34 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
 
   * `MONGO_CONNECTION` - Your mongo uri, for example: `mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout`
   * `DISPLAY_UNITS` (`mg/dl`) - Choices: `mg/dl` and `mmol`.  Setting to `mmol` puts the entire server into `mmol` mode by default, no further settings needed.
+  * `BASE_URL` - Used for building links to your sites api, ie pushover callbacks, usually the URL of your Nightscout site you may want https instead of http
 
 ### Features/Labs
 
   * `ENABLE` - Used to enable optional features, expects a space delimited list, such as: `careportal rawbg iob`, see [plugins](#plugins) below
   * `DISABLE` - Used to disable default features, expects a space delimited list, such as: `direction upbat`, see [plugins](#plugins) below
   * `API_SECRET` - A secret passphrase that must be at least 12 characters long, required to enable `POST` and `PUT`; also required for the Care Portal
+
+
+### Alarms
+
+  These alarm setting effect all delivery methods (browser, pushover, maker, etc), some settings can be overridden per client (web browser)
+  
+  * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's
   * `BG_HIGH` (`260`) - must be set using mg/dl units; the high BG outside the target range that is considered urgent
   * `BG_TARGET_TOP` (`180`) - must be set using mg/dl units; the top of the target range, also used to draw the line on the chart
   * `BG_TARGET_BOTTOM` (`80`) - must be set using mg/dl units; the bottom of the target range, also used to draw the line on the chart
   * `BG_LOW` (`55`) - must be set using mg/dl units; the low BG outside the target range that is considered urgent
-  * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's
-  * `BASE_URL` - Used for building links to your sites api, ie pushover callbacks, usually the URL of your Nightscout site you may want https instead of http
+  * `ALARM_URGENT_HIGH` (`on`) - possible values `on` or `off`
+  * `ALARM_URGENT_HIGH_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent high alarms, space separated for options in browser, first used for pushover
+  * `ALARM_HIGH` (`on`) - possible values `on` or `off`
+  * `ALARM_HIGH_MINS` (`30 60 90 120`) - Number of minutes to snooze high alarms, space separated for options in browser, first used for pushover
+  * `ALARM_LOW` (`on`) - possible values `on` or `off`
+  * `ALARM_LOW_MINS` (`30 60 90 120`) - Number of minutes to snooze low alarms, space separated for options in browser, first used for pushover
+  * `ALARM_URGENT_LOW` (`on`) - possible values `on` or `off`
+  * `ALARM_URGENT_LOW_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent low alarms, space separated for options in browser, first used for pushover
+  * `ALARM_URGENT_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent alarms (that aren't tagged as high or low), space separated for options in browser, first used for pushover
+  * `ALARM_WARN_MINS` (`30 60 90 120`) - Number of minutes to snooze warning alarms (that aren't tagged as high or low), space separated for options in browser, first used for pushover
 
 
 ### Core
@@ -173,10 +189,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `SHOW_RAWBG` (`never`) - possible values `always`, `never` or `noise`
   * `CUSTOM_TITLE` (`Nightscout`) - Usually name of T1
   * `THEME` (`default`) - possible values `default` or `colors`
-  * `ALARM_URGENT_HIGH` (`on`) - possible values `on` or `off`
-  * `ALARM_HIGH` (`on`) - possible values `on` or `off`
-  * `ALARM_LOW` (`on`) - possible values `on` or `off`
-  * `ALARM_URGENT_LOW` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_WARN` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
