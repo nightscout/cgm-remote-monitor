@@ -58,6 +58,7 @@ Community maintained fork of the
   - [Environment](#environment)
     - [Required](#required)
     - [Features/Labs](#featureslabs)
+    - [Alarms](#alarms)
     - [Core](#core)
     - [Predefined values for your browser settings (optional)](#predefined-values-for-your-browser-settings-optional)
     - [Plugins](#plugins)
