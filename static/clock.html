@@ -53,7 +53,7 @@
       var rec = xhr[0];
       var last = new Date(rec.date);
       var now = new Date( );
-      if (window.serverSettings.units == 'mmol') {
+      if (window.serverSettings.settings.units == 'mmol') {
         rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
       }
       $('.bgnow').text(rec.sgv);
