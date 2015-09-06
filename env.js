@@ -17,7 +17,6 @@ function config ( ) {
    */
   env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
   env.PORT = readENV('PORT', 1337);
-  env.baseUrl = readENV('BASE_URL');
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
 
   setSSL();
