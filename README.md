@@ -276,7 +276,13 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * `PUSHOVER_ANNOUNCEMENT_KEY` - An optional Pushover user/group key, will be used for system wide user generated announcements.  If not defined this will fallback to `PUSHOVER_USER_KEY` or `PUSHOVER_ALARM_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also support a space delimited list of keys. To disable Announcement pushes set this to `off`.
     * `BASE_URL` - Used for pushover callbacks, usually the URL of your Nightscout site, use https when possible.
     * `API_SECRET` - Used for signing the pushover callback request for acknowledgments.
-    
+
+    If you never want to get info level notifications (treatments) use `PUSHOVER_USER_KEY="off"`
+    If you never want to get an alarm via pushover use `PUSHOVER_ALARM_KEY="off"`
+    If you never want to get an announcement via pushover use `PUSHOVER_ANNOUNCEMENT_KEY="off"`
+  
+    If only `PUSHOVER_USER_KEY` is set it will be used for all info notifications, alarms, and announcements
+
     For testing/development try [localtunnel](http://localtunnel.me/).
 
 #### IFTTT Maker
