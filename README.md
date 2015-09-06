@@ -166,9 +166,9 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `ALARM_HIGH` (`on`) - possible values `on` or `off`
   * `ALARM_HIGH_MINS` (`30 60 90 120`) - Number of minutes to snooze high alarms, space separated for options in browser, first used for pushover
   * `ALARM_LOW` (`on`) - possible values `on` or `off`
-  * `ALARM_LOW_MINS` (`30 60 90 120`) - Number of minutes to snooze low alarms, space separated for options in browser, first used for pushover
+  * `ALARM_LOW_MINS` (`15 30 45 60`) - Number of minutes to snooze low alarms, space separated for options in browser, first used for pushover
   * `ALARM_URGENT_LOW` (`on`) - possible values `on` or `off`
-  * `ALARM_URGENT_LOW_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent low alarms, space separated for options in browser, first used for pushover
+  * `ALARM_URGENT_LOW_MINS` (`15 30 45`) - Number of minutes to snooze urgent low alarms, space separated for options in browser, first used for pushover
   * `ALARM_URGENT_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent alarms (that aren't tagged as high or low), space separated for options in browser, first used for pushover
   * `ALARM_WARN_MINS` (`30 60 90 120`) - Number of minutes to snooze warning alarms (that aren't tagged as high or low), space separated for options in browser, first used for pushover
 
