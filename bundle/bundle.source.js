@@ -7,6 +7,7 @@
 
   window.Nightscout = {
     client: require('../lib/client')
+    , units: require('../lib/units')()
     , plugins: require('../lib/plugins/')().registerClientDefaults()
   };
 
