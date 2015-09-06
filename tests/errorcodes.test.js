@@ -82,4 +82,23 @@ describe('errorcodes', function ( ) {
     errorcodes.toDisplay(10).should.equal('???');
   });
 
+  it('have default code to level mappings', function () {
+    var mapping = errorcodes.buildMappingFromSettings({});
+    mapping[5].should.equal(levels.INFO);
+    mapping[9].should.equal(levels.URGENT);
+    mapping[10].should.equal(levels.URGENT);
+    _.keys(mapping).length.should.equal(3);
+  });
+
+  it('allow config of custom code to level mappings', function () {
+    var mapping = errorcodes.buildMappingFromSettings({
+      info: 'off'
+      , warn: '9 10'
+      , urgent: 'off'
+    });
+    mapping[9].should.equal(levels.WARN);
+    mapping[10].should.equal(levels.WARN);
+    _.keys(mapping).length.should.equal(2);
+  });
+
 });

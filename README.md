@@ -212,6 +212,10 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `direction` (BG Direction) - Displays the trend direction.
   * `upbat` (Uploader Battery) - Displays the most recent battery status from the uploader phone.
   * `errorcodes` (CGM Error Codes) - Generates alarms for CGM codes `9` (hourglass) and `10` (???).
+    * Use [extended settings](#extended-settings) to adjust what errorcodes trigger notifications and alarms:
+      * `ERRORCODES_INFO` (`5`) - By default the needs calibration (blood drop) generates an info level notification, set to a space separate list of number or `off` to disable
+      * `ERRORCODES_WARN` (`off`) - By default there are no warning configured, set to a space separate list of numbers or `off` to disable
+      * `ERRORCODES_URGENT` (`9 10`) - By default the hourglass and ??? generate an urgent alarm, set to a space separate list of numbers or `off` to disable
   * `ar2` ([Forcasting using AR2 algorithm](https://github.com/nightscout/nightscout.github.io/wiki/Forecasting)) - Generates alarms based on forecasted values.
     * Enabled by default if no thresholds are set **OR** `ALARM_TYPES` includes `predict`.
     * Use [extended settings](#extended-settings) to adjust AR2 behavior:
