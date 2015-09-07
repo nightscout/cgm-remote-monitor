@@ -57,6 +57,10 @@ describe('client', function ( ) {
         done: function mockDone (fn) {
           fn();
           done();
+          return self.$.ajax();
+        }
+        , fail: function mockFail ( ) {
+          return self.$.ajax();
         }
       };
     };
@@ -72,6 +76,7 @@ describe('client', function ( ) {
     client.init(serverSettings, plugins);
     client.dataUpdate(nowData);
 
+    client.careportal.prepareEvents();
     client.careportal.toggleDrawer();
 
     $('#eventType').val('Snack Bolus');
