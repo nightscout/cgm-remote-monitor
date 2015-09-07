@@ -34,8 +34,14 @@
   var daystoshow = {};
   
   var targetBGdefault = {
-    'mg/dl': { low: 72, high: 180 },
-    'mmol': { low: 4, high: 10 }
+    'mg/dl': {
+      low: client.settings.thresholds.bgTargetBottom
+      , high: client.settings.thresholds.bgTargetTop
+    }
+    , 'mmol': {
+      low: client.utils.scaleMgdl(client.settings.thresholds.bgTargetBottom)
+      , high: client.utils.scaleMgdl(client.settings.thresholds.bgTargetTop)
+    }
   };
   
   var ONE_MIN_IN_MS = 60000;
