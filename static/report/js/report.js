@@ -456,6 +456,9 @@
       datastorage.allstatsrecords = datastorage.allstatsrecords.concat(datastorage[day].statsrecords);
       datastorage.alldays++;
     });
+    options.maxInsulinValue = maxInsulinValue;
+    options.maxCarbsValue = maxCarbsValue;
+
 
     report_plugins.eachPlugin(function (plugin) {
       // jquery plot doesn't draw to hidden div
@@ -634,8 +637,6 @@
 
     
     datastorage[day] = data;
-    options.maxInsulinValue = maxInsulinValue;
-    options.maxCarbsValue = maxCarbsValue;
     callback();
   }
 
