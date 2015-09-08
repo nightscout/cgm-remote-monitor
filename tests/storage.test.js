@@ -12,7 +12,7 @@ describe('STORAGE', function () {
   });
 
   it('The storage class should be OK.', function (done) {
-    should.exist(require('../lib/storage'));
+    should(require('../lib/storage')).be.ok;
     done();
   });
 
