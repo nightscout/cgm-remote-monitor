@@ -188,7 +188,7 @@ describe('reports', function ( ) {
     result.indexOf('<td>16 (100%)</td><td>11</td><td>8.3</td><td>8.9</td><td>10.6</td><td>11.7</td><td>18.3</td><td>2.7</td>').should.be.greaterThan(-1); // hourlystats
     result.indexOf('<td>Aug 11 2015 - Aug 18 2015</td><td class="">0%</td><td class="">30%</td><td class="">70%</td><td class="">3.3</td><td class="">8.8</td><td class="">11.5</td><td class="bad">12.2</td>').should.be.greaterThan(-1); //success
     result.indexOf('<b style="padding-left:4em">CAL</b>:  Scale: 1.10 Intercept: 31102 Slope: 776.91').should.be.greaterThan(-1); //calibrations
-    result.indexOf('<td>01:45</td><td>Correction Bolus</td><td align="center">250 (Sensor)</td><td align="center">0.75</td><td align="center"></td><td>Mom </td><td></td>').should.be.greaterThan(-1); //treatments
+    result.indexOf('<td>Correction Bolus</td><td align="center">250 (Sensor)</td><td align="center">0.75</td><td align="center"></td><td>Mom </td><td></td>').should.be.greaterThan(-1); //treatments
     
     done();
   });
