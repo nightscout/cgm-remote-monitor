@@ -19,6 +19,24 @@
       "src": "fontawesome"
     },
     {
+      "uid": "83458acd9f38d03ec0226ce82a83c0f4",
+      "css": "tint",
+      "code": 59406,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "ea2d9a8c51ca42b38ef0d2a07f16d9a7",
+      "css": "chart-line",
+      "code": 59407,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "1ee2aeb352153a403df4b441a8bc9bda",
+      "css": "calc",
+      "code": 59405,
+      "src": "fontawesome"
+    },
+    {
       "uid": "c759418c008e9562944080fee617fc76",
       "css": "cancel-circled",
       "code": 59401,
@@ -58,6 +76,12 @@
       "uid": "7wc8mz5d93cbka5pscqjhsej173tqmbs",
       "css": "battery-100",
       "code": 59400,
+      "src": "typicons"
+    },
+    {
+      "uid": "2d220a22480861b15878d1632e31ab47",
+      "css": "sort-numeric",
+      "code": 59408,
       "src": "typicons"
     },
     {
