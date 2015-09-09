@@ -174,6 +174,13 @@ describe('reports', function ( ) {
     
     $('#rp_from').val('2015/08/08');
     $('#rp_to').val('2015/09/07');
+    $('#rp_optionsraw').prop('checked',true);
+    $('#rp_optionsiob').prop('checked',true);
+    $('#rp_optionscob').prop('checked',true);
+    $('#rp_log').prop('checked',true);
+    $('#rp_show').click();
+
+    $('#rp_linear').prop('checked',true);
     $('#rp_show').click();
 
     var result = $('body').html();
