@@ -26,7 +26,8 @@ var someData = {
   '/api/v1/treatments.json?find[created_at][$gte]=2015-08-13T00:00:00.000Z&find[created_at][$lt]=2015-08-14T00:00:00.000Z': [{"enteredBy":"Mom ","eventType":"Correction Bolus","glucose":250,"glucoseType":"Sensor","insulin":0.75,"units":"mg/dl","created_at":"2015-08-13T23:45:56.927Z","_id":"55cd2c3497fa97ac5d8bc53b"},{"enteredBy":"Mom ","eventType":"Correction Bolus","glucose":198,"glucoseType":"Sensor","insulin":1.1,"units":"mg/dl","created_at":"2015-08-13T23:11:00.293Z","_id":"55cd240497fa97ac5d8bc535"}],
   '/api/v1/entries.json?find[date][$gte]=1439510400000&find[date][$lt]=1439596800000&count=10000': [{"_id":"55ce80e338a8d88ad1b49397","unfiltered":179936,"filtered":202080,"direction":"SingleDown","device":"dexcom","rssi":179,"sgv":182,"dateString":"Fri Aug 14 16:58:20 PDT 2015","type":"sgv","date":1439596700000,"noise":1},{"_id":"55ce7fb738a8d88ad1b4938d","unfiltered":192288,"filtered":213792,"direction":"SingleDown","device":"dexcom","rssi":180,"sgv":197,"dateString":"Fri Aug 14 16:53:20 PDT 2015","type":"sgv","date":1439596400000,"noise":1}],
   '/api/v1/treatments.json?find[created_at][$gte]=2015-08-14T00:00:00.000Z&find[created_at][$lt]=2015-08-15T00:00:00.000Z': [{"enteredBy":"Dad","eventType":"Site Change","glucose":268,"glucoseType":"Finger","insulin":1.75,"units":"mg/dl","created_at":"2015-08-14T23:25:50.718Z","_id":"55ce78fe925aa80e7071e5d6"},{"enteredBy":"Mom ","eventType":"Meal Bolus","glucose":89,"glucoseType":"Finger","carbs":54,"insulin":3.15,"units":"mg/dl","created_at":"2015-08-14T21:00:00.000Z","_id":"55ce59bb925aa80e7071e5ba"}],
-  '/api/v1/entries.json?find[date][$gte]=1439596800000&find[date][$lt]=1439683200000&count=10000': [{"_id":"55cfd25f38a8d88ad1b49931","unfiltered":283136,"filtered":304768,"direction":"SingleDown","device":"dexcom","rssi":185,"sgv":306,"dateString":"Sat Aug 15 16:58:16 PDT 2015","type":"sgv","date":1439683096000,"noise":1},{"_id":"55cfd13338a8d88ad1b4992e","unfiltered":302528,"filtered":312576,"direction":"FortyFiveDown","device":"dexcom","rssi":179,"sgv":329,"dateString":"Sat Aug 15 16:53:16 PDT 2015","type":"sgv","date":1439682796000,"noise":1}]
+  '/api/v1/entries.json?find[date][$gte]=1439596800000&find[date][$lt]=1439683200000&count=10000': [{"_id":"55cfd25f38a8d88ad1b49931","unfiltered":283136,"filtered":304768,"direction":"SingleDown","device":"dexcom","rssi":185,"sgv":306,"dateString":"Sat Aug 15 16:58:16 PDT 2015","type":"sgv","date":1439683096000,"noise":1},{"_id":"55cfd13338a8d88ad1b4992e","unfiltered":302528,"filtered":312576,"direction":"FortyFiveDown","device":"dexcom","rssi":179,"sgv":329,"dateString":"Sat Aug 15 16:53:16 PDT 2015","type":"sgv","date":1439682796000,"noise":1}],
+  '/api/v1/food/regular.json':  [{"_id":"552ece84a6947ea011db35bb","type":"food","category":"Zakladni","subcategory":"Sladkosti","name":"Bebe male","portion":18,"carbs":12,"gi":1,"unit":"pcs","created_at":"2015-04-15T20:48:04.966Z"}]
   };
 
 var exampleProfile = [
@@ -144,6 +145,7 @@ describe('reports', function ( ) {
       benv.require(__dirname + '/../bundle/bundle.source.js');
       benv.require(__dirname + '/../static/report/js/report.js');
       benv.require(__dirname + '/../static/report/js/time.js');
+      benv.require(__dirname + '/../bower_components/jQuery-Storage-API/jquery.storageapi.min.js');
 
       done();
     });
@@ -172,16 +174,23 @@ describe('reports', function ( ) {
     // Load profile, we need to operate in UTC
     client.sbx.data.profile.loadData(exampleProfile);
     
+    $('a.presetdates :first').click();
+    $('#rp_notes').val('something');
+    $('#rp_eventtype').val('BG Check');
     $('#rp_from').val('2015/08/08');
     $('#rp_to').val('2015/09/07');
     $('#rp_optionsraw').prop('checked',true);
     $('#rp_optionsiob').prop('checked',true);
     $('#rp_optionscob').prop('checked',true);
+    $('#rp_enableeventtype').click();
+    $('#rp_enablenotes').click();
+    $('#rp_enablefood').click();
     $('#rp_log').prop('checked',true);
     $('#rp_show').click();
 
     $('#rp_linear').prop('checked',true);
     $('#rp_show').click();
+    $('#dailystats').click();
 
     var result = $('body').html();
     //var filesys = require('fs');
