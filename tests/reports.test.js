@@ -145,7 +145,7 @@ describe('reports', function ( ) {
       benv.require(__dirname + '/../bundle/bundle.source.js');
       benv.require(__dirname + '/../static/report/js/report.js');
       benv.require(__dirname + '/../static/report/js/time.js');
-      benv.require(__dirname + '/../bower_components/jQuery-Storage-API/jquery.storageapi.min.js');
+      benv.require(__dirname + '/../static/bower_components/jquery-ui/jquery-ui.min.js');
 
       done();
     });
