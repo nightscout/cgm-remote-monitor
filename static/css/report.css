@@ -18,11 +18,6 @@ body {
 	height: 0.9in;
 }
 
-#glucosedistribution-overviewchart {
-	width: 3.0in;
-	height: 3in;
-	float:left;
-}
 #percentile-chart {
 	width: 100%;
 	height: 100%;
@@ -56,19 +51,11 @@ body {
 	width: 100%;
 }
 
-table.centeraligned td{
+.centeraligned {
 	text-align:center;
 }
-table.centeraligned th{
-	text-align:center;
-}
+
 #dailystats-placeholder td.tdborder {
-	width:80px;
-	border: 1px #ccc solid;
-	margin: 0;
-	padding: 1px;
-}
-#glucosedistribution-placeholder td.tdborder {
 	width:80px;
 	border: 1px #ccc solid;
 	margin: 0;

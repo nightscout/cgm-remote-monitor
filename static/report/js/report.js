@@ -9,6 +9,7 @@
   'use strict';
   //for the tests window isn't the global object
   var $ = window.$;
+  var _ = window._;
   var moment = window.moment;
   var Nightscout = window.Nightscout;
   var client = Nightscout.client;
@@ -59,9 +60,9 @@
   };
 
   function fillFoodForm(event) {
-    $('#rp_category').empty().append(new Option(translate('(none)'),''));
+    $('#rp_category').empty().append('<option>' + translate('(none)') + '</option>');
     for (var s in food_categories) {
-      $('#rp_category').append(new Option(s,s));
+      $('#rp_category').append('<option value="' + s + '">' + s + '</option>');
     }
     filter.category = '';
     fillFoodSubcategories();
@@ -76,10 +77,10 @@
   function fillFoodSubcategories(event) {
     filter.category = $('#rp_category').val();
     filter.subcategory = '';
-    $('#rp_subcategory').empty().append(new Option(translate('(none)'),''));
+    $('#rp_subcategory').empty().append('<option>' + translate('(none)') + '</option>');
     if (filter.category !== '') {
       for (var s in food_categories[filter.category]) {
-        $('#rp_subcategory').append(new Option(s,s));
+        $('#rp_subcategory').append('<option value="' + s + '">' + s + '</option>');
       }
     }
     doFoodFilter();
@@ -456,6 +457,9 @@
       datastorage.allstatsrecords = datastorage.allstatsrecords.concat(datastorage[day].statsrecords);
       datastorage.alldays++;
     });
+    options.maxInsulinValue = maxInsulinValue;
+    options.maxCarbsValue = maxCarbsValue;
+
 
     report_plugins.eachPlugin(function (plugin) {
       // jquery plot doesn't draw to hidden div
@@ -634,8 +638,6 @@
 
     
     datastorage[day] = data;
-    options.maxInsulinValue = maxInsulinValue;
-    options.maxCarbsValue = maxCarbsValue;
     callback();
   }
 
