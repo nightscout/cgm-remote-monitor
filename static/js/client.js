@@ -903,12 +903,38 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 focus.append('line')
                     .attr('class', 'target-line')
                     .attr('x1', xScale(dataRange[0]))
+                    .attr('y1', yScale(4))
+                    .attr('x2', xScale(dataRange[1]))
+                    .attr('y2', yScale(4))
+                    .style('stroke-dasharray', ('1, 6'))
+                    .attr('stroke', '#777');
+
+                focus.append('line')
+                    .attr('class', 'target-line')
+                    .attr('x1', xScale(dataRange[0]))
                     .attr('y1', yScale(5))
                     .attr('x2', xScale(dataRange[1]))
                     .attr('y2', yScale(5))
                     .style('stroke-dasharray', ('1, 6'))
                     .attr('stroke', '#777');
 
+                focus.append('line')
+                    .attr('class', 'target-line')
+                    .attr('x1', xScale(dataRange[0]))
+                    .attr('y1', yScale(6))
+                    .attr('x2', xScale(dataRange[1]))
+                    .attr('y2', yScale(6))
+                    .style('stroke-dasharray', ('1, 6'))
+                    .attr('stroke', '#777');
+                focus.append('line')
+                    .attr('class', 'target-line')
+                    .attr('x1', xScale(dataRange[0]))
+                    .attr('y1', yScale(7))
+                    .attr('x2', xScale(dataRange[1]))
+                    .attr('y2', yScale(7))
+                    .style('stroke-dasharray', ('1, 6'))
+                    .attr('stroke', '#777');
+					
 					// add a y-axis line that opens up the brush extent from the context to the focus
                 focus.append('line')
                     .attr('class', 'open-top')
@@ -958,12 +984,36 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                 context.append('line')
                     .attr('class', 'target-line')
                     .attr('x1', xScale(dataRange[0]))
+                    .attr('y1', yScale(4))
+                    .attr('x2', xScale(dataRange[1]))
+                    .attr('y2', yScale(4))
+                    .style('stroke-dasharray', ('1, 6'))
+                    .attr('stroke', '#777');
+
+                context.append('line')
+                    .attr('class', 'target-line')
+                    .attr('x1', xScale(dataRange[0]))
                     .attr('y1', yScale(5))
                     .attr('x2', xScale(dataRange[1]))
                     .attr('y2', yScale(5))
                     .style('stroke-dasharray', ('1, 6'))
                     .attr('stroke', '#777');
-
+                context.append('line')
+                    .attr('class', 'target-line')
+                    .attr('x1', xScale(dataRange[0]))
+                    .attr('y1', yScale(6))
+                    .attr('x2', xScale(dataRange[1]))
+                    .attr('y2', yScale(7))
+                    .style('stroke-dasharray', ('1, 6'))
+                    .attr('stroke', '#777');
+                context.append('line')
+                    .attr('class', 'target-line')
+                    .attr('x1', xScale(dataRange[0]))
+                    .attr('y1', yScale(7))
+                    .attr('x2', xScale(dataRange[1]))
+                    .attr('y2', yScale(7))
+                    .style('stroke-dasharray', ('1, 6'))
+                    .attr('stroke', '#777');
             } else {
 
                 // for subsequent updates use a transition to animate the axis to the new position
@@ -1037,9 +1087,30 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
+                    .attr('y1', yScale(4))
+                    .attr('x2', xScale(currentBrushExtent[1]))
+                    .attr('y2', yScale(4));
+				focus.select('.target-line')
+                    .transition()
+                    .duration(UPDATE_TRANS_MS)
+                    .attr('x1', xScale(currentBrushExtent[0]))
                     .attr('y1', yScale(5))
                     .attr('x2', xScale(currentBrushExtent[1]))
                     .attr('y2', yScale(5));
+				focus.select('.target-line')
+                    .transition()
+                    .duration(UPDATE_TRANS_MS)
+                    .attr('x1', xScale(currentBrushExtent[0]))
+                    .attr('y1', yScale(6))
+                    .attr('x2', xScale(currentBrushExtent[1]))
+                    .attr('y2', yScale(6));
+				focus.select('.target-line')
+                    .transition()
+                    .duration(UPDATE_TRANS_MS)
+                    .attr('x1', xScale(currentBrushExtent[0]))
+                    .attr('y1', yScale(7))
+                    .attr('x2', xScale(currentBrushExtent[1]))
+                    .attr('y2', yScale(7));
 
                 // transition open-top line to correct location
                 focus.select('.open-top')
@@ -1090,9 +1161,30 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
+                    .attr('y1', yScale(4))
+                    .attr('x2', xScale(currentBrushExtent[1]))
+                    .attr('y2', yScale(4));
+				context.select('.target-line')
+                    .transition()
+                    .duration(UPDATE_TRANS_MS)
+                    .attr('x1', xScale(currentBrushExtent[0]))
                     .attr('y1', yScale(5))
                     .attr('x2', xScale(currentBrushExtent[1]))
                     .attr('y2', yScale(5));
+				context.select('.target-line')
+                    .transition()
+                    .duration(UPDATE_TRANS_MS)
+                    .attr('x1', xScale(currentBrushExtent[0]))
+                    .attr('y1', yScale(6))
+                    .attr('x2', xScale(currentBrushExtent[1]))
+                    .attr('y2', yScale(6));
+				context.select('.target-line')
+                    .transition()
+                    .duration(UPDATE_TRANS_MS)
+                    .attr('x1', xScale(currentBrushExtent[0]))
+                    .attr('y1', yScale(7))
+                    .attr('x2', xScale(currentBrushExtent[1]))
+                    .attr('y2', yScale(7));
             }
         }
 
@@ -1587,7 +1679,8 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
         // Tick Values
         if (browserSettings.units == 'mmol') {
             tickValues = [
-                  4
+				  3
+                , 4
                 , 5
 				, 6
 				, 7
