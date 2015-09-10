@@ -901,7 +901,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     .attr('stroke', '#777');
 					
                 focus.append('line')
-                    .attr('class', 'target-line')
+                    .attr('class', 'target-line4')
                     .attr('x1', xScale(dataRange[0]))
                     .attr('y1', yScale(4))
                     .attr('x2', xScale(dataRange[1]))
@@ -910,7 +910,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     .attr('stroke', '#777');
 
                 focus.append('line')
-                    .attr('class', 'target-line')
+                    .attr('class', 'target-line5')
                     .attr('x1', xScale(dataRange[0]))
                     .attr('y1', yScale(5))
                     .attr('x2', xScale(dataRange[1]))
@@ -919,7 +919,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     .attr('stroke', '#777');
 
                 focus.append('line')
-                    .attr('class', 'target-line')
+                    .attr('class', 'target-line6')
                     .attr('x1', xScale(dataRange[0]))
                     .attr('y1', yScale(6))
                     .attr('x2', xScale(dataRange[1]))
@@ -927,7 +927,7 @@ var app = {}, browserSettings = {}, browserStorage = $.localStorage;
                     .style('stroke-dasharray', ('1, 6'))
                     .attr('stroke', '#777');
                 focus.append('line')
-                    .attr('class', 'target-line')
+                    .attr('class', 'target-line7')
                     .attr('x1', xScale(dataRange[0]))
                     .attr('y1', yScale(7))
                     .attr('x2', xScale(dataRange[1]))
