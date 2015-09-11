@@ -266,7 +266,7 @@ describe('reports', function ( ) {
     //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
     //logfile.write($('body').html());
     
-    console.log(result);
+    //console.log(result);
 
     result.indexOf('Milk now').should.be.greaterThan(-1); // daytoday
     result.indexOf('50 g (1.67U)').should.be.greaterThan(-1); // daytoday
