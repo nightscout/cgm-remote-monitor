@@ -264,8 +264,8 @@ describe('reports', function ( ) {
     $('#rp_show').click();
     $('#dailystats').click();
     
-    $('img.deleteTreatment :first').click();
-    $('img.editTreatment :first').click();
+    $('img.deleteTreatment:first').click();
+    $('img.editTreatment:first').click();
     $('.ui-button:contains("Save")').click()
 
     var result = $('body').html();
