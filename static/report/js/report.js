@@ -103,7 +103,7 @@
       o += translate('Portion')+': ' + food_list[i].portion + ' ';
       o += food_list[i].unit + ' | ';
       o += translate('Carbs')+': ' + food_list[i].carbs+' g';
-      $('#rp_food').append(new Option(o,food_list[i]._id));
+      $('#rp_food').append('<option val="' + food_list[i]._id + '">' + o + '</option>');
     }
     
     return maybePrevent(event);
@@ -238,7 +238,8 @@
     };
 
     // default time range if no time range specified in GUI
-    var timerange = '&find[created_at][$gte]='+new Date('1970-01-01').toISOString();
+    var zone = client.sbx.data.profile.getTimezone();
+    var timerange = '&find[created_at][$gte]='+moment.tz('1970-01-01',zone).toDate().toISOString();
     
     options.targetLow = parseFloat($('#rp_targetlow').val().replace(',','.'));
     options.targetHigh = parseFloat($('#rp_targethigh').val().replace(',','.'));
@@ -261,7 +262,7 @@
         matchesneeded++;
         var from = moment($('#rp_from').val());
         var to = moment($('#rp_to').val());
-        timerange = '&find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
+        timerange = '&find[created_at][$gte]='+moment.tz(from,zone).toDate().toISOString()+'&find[created_at][$lt]='+moment.tz(to,zone).toDate().toISOString();
         while (from <= to) {
           if (daystoshow[from.format('YYYY-MM-DD')]) { 
             daystoshow[from.format('YYYY-MM-DD')]++;
@@ -386,14 +387,16 @@
     function daysfilter() {
       matchesneeded++;
       for (var d in daystoshow) {
-        var day = new Date(d).getDay();
-        if (day===0 && $('#rp_su').is(':checked')) { daystoshow[d]++; }
-        if (day===1 && $('#rp_mo').is(':checked')) { daystoshow[d]++; }
-        if (day===2 && $('#rp_tu').is(':checked')) { daystoshow[d]++; }
-        if (day===3 && $('#rp_we').is(':checked')) { daystoshow[d]++; }
-        if (day===4 && $('#rp_th').is(':checked')) { daystoshow[d]++; }
-        if (day===5 && $('#rp_fr').is(':checked')) { daystoshow[d]++; }
-        if (day===6 && $('#rp_sa').is(':checked')) { daystoshow[d]++; }
+        if (daystoshow.hasOwnProperty(d)) {
+          var day = new Date(d).getDay();
+          if (day===0 && $('#rp_su').is(':checked')) { daystoshow[d]++; }
+          if (day===1 && $('#rp_mo').is(':checked')) { daystoshow[d]++; }
+          if (day===2 && $('#rp_tu').is(':checked')) { daystoshow[d]++; }
+          if (day===3 && $('#rp_we').is(':checked')) { daystoshow[d]++; }
+          if (day===4 && $('#rp_th').is(':checked')) { daystoshow[d]++; }
+          if (day===5 && $('#rp_fr').is(':checked')) { daystoshow[d]++; }
+          if (day===6 && $('#rp_sa').is(':checked')) { daystoshow[d]++; }
+        }
       }
       countDays();
       display();
@@ -410,6 +413,7 @@
             loadData(d, options, dataLoadedCallback);
           } else {
             $('#info').append($('<div>'+d+' '+translate('not displayed')+'.</div>'));
+            delete daystoshow[d];
           }
         } else {
           delete daystoshow[d];
@@ -426,9 +430,11 @@
     
     function countDays() {
       for (var d in daystoshow) {
-        if (daystoshow[d]===matchesneeded) {
-          if (dayscount < maxdays) {
-            dayscount++;
+        if (daystoshow.hasOwnProperty(d)) {
+          if (daystoshow[d]===matchesneeded) {
+            if (dayscount < maxdays) {
+              dayscount++;
+            }
           }
         }
       }
