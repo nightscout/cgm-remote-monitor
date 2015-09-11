@@ -59,7 +59,8 @@ var someData = {
       {'created_at':'2015-09-03T23:25:50.718Z'},
       {'created_at':'2015-09-04T23:25:50.718Z'},
       {'created_at':'2015-09-05T23:25:50.718Z'},
-      {'created_at':'2015-09-06T23:25:50.718Z'}
+      {'created_at':'2015-09-06T23:25:50.718Z'},
+      {'created_at':'2015-09-07T23:25:50.718Z'}
     ],
   '/api/v1/treatments.json?find[notes]=/something/i&find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-09-07T00:00:00.000Z': [
       {'created_at':'2015-08-07T23:25:50.718Z'},
@@ -92,7 +93,8 @@ var someData = {
       {'created_at':'2015-09-03T23:25:50.718Z'},
       {'created_at':'2015-09-04T23:25:50.718Z'},
       {'created_at':'2015-09-05T23:25:50.718Z'},
-      {'created_at':'2015-09-06T23:25:50.718Z'}
+      {'created_at':'2015-09-06T23:25:50.718Z'},
+      {'created_at':'2015-09-07T23:25:50.718Z'}
     ]
   };
 
