@@ -174,10 +174,10 @@ describe('reports', function ( ) {
           done: function mockDone (fn) {
             if (opts && opts.success && opts.success.call) {
               if (someData[url]) {
-                console.log('+++++Data for ' + url + ' sent');
+                //console.log('+++++Data for ' + url + ' sent');
                 opts.success(someData[url]);
               } else {
-                console.log('-----Data for ' + url + ' missing');
+                //console.log('-----Data for ' + url + ' missing');
                 opts.success([]);
               }
             }
@@ -185,7 +185,7 @@ describe('reports', function ( ) {
             return self.$.ajax();
           },
           fail: function mockFail (fn) {
-            fn();
+            fn({status: 400});
             return self.$.ajax();
           }
         };
