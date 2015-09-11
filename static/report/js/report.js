@@ -411,6 +411,7 @@
             loadData(d, options, dataLoadedCallback);
           } else {
             $('#info').append($('<div>'+d+' '+translate('not displayed')+'.</div>'));
+            delete daystoshow[d];
           }
         } else {
           delete daystoshow[d];
