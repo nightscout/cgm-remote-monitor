@@ -95,7 +95,7 @@
     }
     $('#rp_food').empty();
     for (var i=0; i<food_list.length; i++) {
-      if (filter.category !== '' && food_list[i].category !== filter.category) { continue; }
+      if (filter.category !== translate('(none)') && food_list[i].category !== filter.category) { continue; }
       if (filter.subcategory !== '' && food_list[i].subcategory !== filter.subcategory) { continue; }
       if (filter.name !== '' && food_list[i].name.toLowerCase().indexOf(filter.name.toLowerCase()) < 0) { continue; }
       var o = '';
@@ -103,7 +103,7 @@
       o += translate('Portion')+': ' + food_list[i].portion + ' ';
       o += food_list[i].unit + ' | ';
       o += translate('Carbs')+': ' + food_list[i].carbs+' g';
-      $('#rp_food').append(new Option(o,food_list[i]._id));
+      $('#rp_food').append('<option val="' + food_list[i]._id + '">' + o + '</option>');
     }
     
     return maybePrevent(event);
