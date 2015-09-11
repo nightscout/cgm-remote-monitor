@@ -455,6 +455,7 @@
     datastorage.allstatsrecords = [];
     datastorage.alldays = 0;
     Object.keys(daystoshow).forEach(function (day) {
+console.log(day);
       datastorage.allstatsrecords = datastorage.allstatsrecords.concat(datastorage[day].statsrecords);
       datastorage.alldays++;
     });
