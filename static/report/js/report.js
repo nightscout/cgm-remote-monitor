@@ -238,7 +238,7 @@
     };
 
     // default time range if no time range specified in GUI
-    var timerange = '&find[created_at][$gte]='+new Date('1970-01-01').toISOString();
+    var timerange = '&find[created_at][$gte]='+moment('1970-01-01').toDate().toISOString();
     
     options.targetLow = parseFloat($('#rp_targetlow').val().replace(',','.'));
     options.targetHigh = parseFloat($('#rp_targethigh').val().replace(',','.'));
