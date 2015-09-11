@@ -239,7 +239,11 @@ describe('reports', function ( ) {
 
      window.confirm = function mockConfirm () {
        return true;
-     }
+     };
+
+     window.alert = function mockAlert () {
+       return true;
+     };
 
     client.init(serverSettings, plugins);
     client.dataUpdate(nowData);
