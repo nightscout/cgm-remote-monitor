@@ -235,6 +235,9 @@ describe('reports', function ( ) {
       next(true);
     };
 
+     window.confirm = function mockConfirm () {
+       return true;
+     }
 
     client.init(serverSettings, plugins);
     client.dataUpdate(nowData);
@@ -260,6 +263,8 @@ describe('reports', function ( ) {
     $('#rp_linear').prop('checked',true);
     $('#rp_show').click();
     $('#dailystats').click();
+    
+    $('img.deleteTreatment :first').click();
 
     var result = $('body').html();
     //var filesys = require('fs');
