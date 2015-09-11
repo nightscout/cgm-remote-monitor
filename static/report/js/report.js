@@ -95,7 +95,7 @@
     }
     $('#rp_food').empty();
     for (var i=0; i<food_list.length; i++) {
-      if (filter.category !== '' && food_list[i].category !== filter.category) { continue; }
+      if (filter.category !== translate('(none)') && food_list[i].category !== filter.category) { continue; }
       if (filter.subcategory !== '' && food_list[i].subcategory !== filter.subcategory) { continue; }
       if (filter.name !== '' && food_list[i].name.toLowerCase().indexOf(filter.name.toLowerCase()) < 0) { continue; }
       var o = '';
@@ -103,7 +103,7 @@
       o += translate('Portion')+': ' + food_list[i].portion + ' ';
       o += food_list[i].unit + ' | ';
       o += translate('Carbs')+': ' + food_list[i].carbs+' g';
-      $('#rp_food').append(new Option(o,food_list[i]._id));
+      $('#rp_food').append('<option val="' + food_list[i]._id + '">' + o + '</option>');
     }
     
     return maybePrevent(event);
@@ -238,7 +238,8 @@
     };
 
     // default time range if no time range specified in GUI
-    var timerange = '&find[created_at][$gte]='+new Date('1970-01-01').toISOString();
+    var zone = client.sbx.data.profile.getTimezone();
+    var timerange = '&find[created_at][$gte]='+moment.tz('1970-01-01',zone).toDate().toISOString();
     
     options.targetLow = parseFloat($('#rp_targetlow').val().replace(',','.'));
     options.targetHigh = parseFloat($('#rp_targethigh').val().replace(',','.'));
@@ -261,7 +262,7 @@
         matchesneeded++;
         var from = moment($('#rp_from').val());
         var to = moment($('#rp_to').val());
-        timerange = '&find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
+        timerange = '&find[created_at][$gte]='+moment.tz(from,zone).toDate().toISOString()+'&find[created_at][$lt]='+moment.tz(to,zone).toDate().toISOString();
         while (from <= to) {
           if (daystoshow[from.format('YYYY-MM-DD')]) { 
             daystoshow[from.format('YYYY-MM-DD')]++;
