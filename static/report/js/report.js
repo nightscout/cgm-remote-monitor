@@ -240,7 +240,6 @@
     // default time range if no time range specified in GUI
     var zone = client.sbx.data.profile.getTimezone();
     var timerange = '&find[created_at][$gte]='+moment.tz('1970-01-01',zone).toDate().toISOString();
-console.log(timerange,zone);
     
     options.targetLow = parseFloat($('#rp_targetlow').val().replace(',','.'));
     options.targetHigh = parseFloat($('#rp_targethigh').val().replace(',','.'));
@@ -264,7 +263,6 @@ console.log(timerange,zone);
         var from = moment($('#rp_from').val());
         var to = moment($('#rp_to').val());
         timerange = '&find[created_at][$gte]='+moment.tz(from,zone).toDate().toISOString()+'&find[created_at][$lt]='+moment.tz(to,zone).toDate().toISOString();
-console.log(timerange,zone);
         while (from <= to) {
           if (daystoshow[from.format('YYYY-MM-DD')]) { 
             daystoshow[from.format('YYYY-MM-DD')]++;
