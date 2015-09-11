@@ -239,8 +239,8 @@
 
     // default time range if no time range specified in GUI
     var zone = client.sbx.data.profile.getTimezone();
-    var timerange = '&find[created_at][$gte]='+moment.tz('1970-01-01',zone).toDate().toISOString();
-    
+    var timerange = '&find[created_at][$gte]='+moment.tz('2000-01-01',zone).toISOString();
+    //console.log(timerange,zone);    
     options.targetLow = parseFloat($('#rp_targetlow').val().replace(',','.'));
     options.targetHigh = parseFloat($('#rp_targethigh').val().replace(',','.'));
     options.raw = $('#rp_optionsraw').is(':checked');
@@ -260,9 +260,12 @@
     function datefilter() {
       if ($('#rp_enabledate').is(':checked')) {
         matchesneeded++;
-        var from = moment($('#rp_from').val());
-        var to = moment($('#rp_to').val());
-        timerange = '&find[created_at][$gte]='+moment.tz(from,zone).toDate().toISOString()+'&find[created_at][$lt]='+moment.tz(to,zone).toDate().toISOString();
+        var fromdate = new Date($('#rp_from').val());
+        var todate = new Date($('#rp_to').val());
+        var from = moment.tz([fromdate.getFullYear(), fromdate.getMonth(), fromdate.getDate()],zone);
+        var to = moment.tz([todate.getFullYear(), todate.getMonth(), todate.getDate()],zone);
+        timerange = '&find[created_at][$gte]='+from.toISOString()+'&find[created_at][$lt]='+to.toISOString();
+        //console.log($('#rp_from').val(),$('#rp_to').val(),zone,timerange);
         while (from <= to) {
           if (daystoshow[from.format('YYYY-MM-DD')]) { 
             daystoshow[from.format('YYYY-MM-DD')]++;
