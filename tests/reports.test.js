@@ -172,12 +172,14 @@ describe('reports', function ( ) {
         //logfile.write(url+'\n');
         return {
           done: function mockDone (fn) {
-            if (opts && opts.success && opts.success.call && someData[url]) {
-              console.log('+++++Data for ' + url + ' sent');
-              opts.success(someData[url]);
-            } else {
-              console.log('-----Data for ' + url + ' missing');
-              opts.success([]);
+            if (opts && opts.success && opts.success.call) {
+              if (someData[url]) {
+                console.log('+++++Data for ' + url + ' sent');
+                opts.success(someData[url]);
+              } else {
+                console.log('-----Data for ' + url + ' missing');
+                opts.success([]);
+              }
             }
             fn();
             return self.$.ajax();
@@ -266,7 +268,7 @@ describe('reports', function ( ) {
     
     $('img.deleteTreatment:first').click();
     $('img.editTreatment:first').click();
-    $('.ui-button:contains("Save")').click()
+    $('.ui-button:contains("Save")').click();
 
     var result = $('body').html();
     //var filesys = require('fs');
