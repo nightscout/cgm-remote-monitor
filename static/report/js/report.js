@@ -95,7 +95,7 @@
     }
     $('#rp_food').empty();
     for (var i=0; i<food_list.length; i++) {
-      if (filter.category !== translate('(none)') && food_list[i].category !== filter.category) { continue; }
+      if (filter.category !== '' && food_list[i].category !== filter.category) { continue; }
       if (filter.subcategory !== '' && food_list[i].subcategory !== filter.subcategory) { continue; }
       if (filter.name !== '' && food_list[i].name.toLowerCase().indexOf(filter.name.toLowerCase()) < 0) { continue; }
       var o = '';
