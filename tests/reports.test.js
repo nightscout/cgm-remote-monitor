@@ -29,7 +29,7 @@ var someData = {
   '/api/v1/entries.json?find[date][$gte]=1439596800000&find[date][$lt]=1439683200000&count=10000': [{'_id':'55cfd25f38a8d88ad1b49931','unfiltered':283136,'filtered':304768,'direction':'SingleDown','device':'dexcom','rssi':185,'sgv':306,'dateString':'Sat Aug 15 16:58:16 PDT 2015','type':'sgv','date':1439683096000,'noise':1},{'_id':'55cfd13338a8d88ad1b4992e','unfiltered':302528,'filtered':312576,'direction':'FortyFiveDown','device':'dexcom','rssi':179,'sgv':329,'dateString':'Sat Aug 15 16:53:16 PDT 2015','type':'sgv','date':1439682796000,'noise':1}],
   '/api/v1/food/regular.json':  [{'_id':'552ece84a6947ea011db35bb','type':'food','category':'Zakladni','subcategory':'Sladkosti','name':'Bebe male','portion':18,'carbs':12,'gi':1,'unit':'pcs','created_at':'2015-04-15T20:48:04.966Z'}],
   '/api/v1/treatments.json?find[eventType]=/BG Check/i&find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-09-07T00:00:00.000Z': [
-      {"created_at":"2015-08-07T23:25:50.718Z"},
+      {'created_at":"2015-08-07T23:25:50.718Z'},
       {'created_at':'2015-08-08T23:25:50.718Z'},
       {'created_at':'2015-08-09T23:25:50.718Z'},
       {'created_at':'2015-08-10T23:25:50.718Z'},
