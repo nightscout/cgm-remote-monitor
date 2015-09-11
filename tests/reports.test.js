@@ -265,6 +265,8 @@ describe('reports', function ( ) {
     $('#dailystats').click();
     
     $('img.deleteTreatment :first').click();
+    $('img.editTreatment :first').click();
+    $('.ui-button:contains("Save")').click()
 
     var result = $('body').html();
     //var filesys = require('fs');
