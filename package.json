@@ -66,7 +66,7 @@
     "long": "~2.2.3",
     "moment": "2.8.1",
     "moment-timezone": "^0.4.0",
-    "mongodb": "2.0.34",
+    "mongodb": "^2.0.42",
     "mqtt": "~0.3.11",
     "node-cache": "^3.0.0",
     "pushover-notifications": "0.2.0",

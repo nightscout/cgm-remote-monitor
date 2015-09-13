@@ -9,7 +9,7 @@ describe('pushover', function ( ) {
 
   var env = {
     settings: {
-      baseUrl: baseurl
+      baseURL: baseurl
     }
     , extendedSettings: {
       pushover: {
