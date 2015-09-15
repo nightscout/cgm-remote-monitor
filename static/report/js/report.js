@@ -1,8 +1,6 @@
 // TODO:
 // - bypass nightmode in reports
 // - get rid of /static/report/js/time.js
-// - load css dynamic + optimize
-// - add tests
 // - on save/delete treatment ctx.bus.emit('data-received'); is not enough. we must add something like 'data-updated'
 
 (function () {
