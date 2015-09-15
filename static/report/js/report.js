@@ -33,6 +33,7 @@
   var maxdays = 3 * 31;
   var datastorage = {};
   var daystoshow = {};
+  var sorteddaystoshow = [];
   
   var targetBGdefault = {
     'mg/dl': {
@@ -251,6 +252,7 @@
     options.insulin = $('#rp_optionsinsulin').is(':checked');
     options.carbs = $('#rp_optionscarbs').is(':checked');
     options.scale = ( $('#rp_linear').is(':checked') ? report_plugins.consts.SCALE_LINEAR : report_plugins.consts.SCALE_LOG );
+    options.order = ( $('#rp_oldestontop').is(':checked') ? report_plugins.consts.ORDER_OLDESTONTOP : report_plugins.consts.ORDER_NEWESTONTOP );
     options.width = parseInt($('#rp_size :selected').attr('x'));
     options.height = parseInt($('#rp_size :selected').attr('y'));
     
@@ -447,6 +449,15 @@
     function dataLoadedCallback () {
       loadeddays++;
       if (loadeddays === dayscount) {
+        // sort array
+        sorteddaystoshow = [];
+        Object.keys(daystoshow).forEach(function (day) {
+          sorteddaystoshow.push(day);
+        });
+        sorteddaystoshow.sort();
+        if (options.order === report_plugins.consts.ORDER_NEWESTONTOP) {
+          sorteddaystoshow.reverse();
+        }
         showreports(options);
       }
     }
@@ -474,7 +485,7 @@
       // jquery plot doesn't draw to hidden div
       $('#'+plugin.name+'-placeholder').css('display','');
       //console.log('Drawing ',plugin.name);
-      plugin.report(datastorage,daystoshow,options);
+      plugin.report(datastorage,sorteddaystoshow,options);
       if (!$('#'+plugin.name).hasClass('selected')) {
         $('#'+plugin.name+'-placeholder').css('display','none');
       }
