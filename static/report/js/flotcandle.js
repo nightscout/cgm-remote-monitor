@@ -35,6 +35,7 @@
             drawCandle(ctx, serie, width, dt, open, low, close, high);
         }
         function drawCandle(ctx, serie, width, dt, open, low, close, high){
+            var height;
             if (open < close){ //Rising 
                 y = offset.top + serie.yaxis.p2c(open);
                 height = serie.yaxis.p2c(close) - serie.yaxis.p2c(open);  
@@ -56,9 +57,10 @@
             var lowY = serie.yaxis.p2c(low); 
             
             //top
+            var lineX;
             if (highY < y + height){
                 ctx.beginPath();
-                var lineX = x + (width /2);
+                lineX = x + (width /2);
                 ctx.moveTo(lineX,y + height);
                 ctx.lineTo(lineX,highY);
                 ctx.closePath();
