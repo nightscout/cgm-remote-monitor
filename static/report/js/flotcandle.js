@@ -36,15 +36,15 @@
         }
         function drawCandle(ctx, serie, width, dt, open, low, close, high){
             if (open < close){ //Rising 
-                y = offset.top + serie.yaxis.p2c(open) 
+                y = offset.top + serie.yaxis.p2c(open);
                 height = serie.yaxis.p2c(close) - serie.yaxis.p2c(open);  
-                ctx.fillStyle = "#51FF21";
+                ctx.fillStyle = '#51FF21';
             } else { //Decending
-                y = offset.top + serie.yaxis.p2c(close)
+                y = offset.top + serie.yaxis.p2c(close);
                 height = serie.yaxis.p2c(open) - serie.yaxis.p2c(close); 
-                ctx.fillStyle = "#FF0000";
+                ctx.fillStyle = '#FF0000';
             }
-            ctx.strokeStyle = "#000000";
+            ctx.strokeStyle = '#000000';
             ctx.lineWidth = 0;
             x = offset.left + serie.xaxis.p2c(dt);
             
