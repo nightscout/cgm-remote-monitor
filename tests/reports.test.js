@@ -1,6 +1,7 @@
 'use strict';
 
 require('should');
+var _ = require('lodash');
 var benv = require('benv');
 var read = require('fs').readFileSync;
 var serverSettings = require('./fixtures/default-server-settings');
@@ -162,6 +163,20 @@ describe('reports', function ( ) {
 
       self.$.fn.tipsy = function mockTipsy ( ) { };
 
+      self.$.fn.dialog = function mockDialog (opts) {
+        function maybeCall (name, obj) {
+          if (obj[name] && obj[name].call) {
+            obj[name]();
+          }
+
+        }
+        maybeCall('open', opts);
+
+        _.forEach(opts.buttons, function (button) {
+          maybeCall('click', button);
+        });
+      };
+
       var indexHtml = read(__dirname + '/../static/report/index.html', 'utf8');
       self.$('body').html(indexHtml);
 
@@ -214,7 +229,6 @@ describe('reports', function ( ) {
 
       benv.require(__dirname + '/../bundle/bundle.source.js');
       benv.require(__dirname + '/../static/report/js/report.js');
-      benv.require(__dirname + '/../static/bower_components/jquery-ui/jquery-ui.min.js'); 
 
       done();
     });
