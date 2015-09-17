@@ -1,12 +1,8 @@
 (function () {
   'use strict';
   //for the tests window isn't the global object
-  var $ = window.$;
-  var _ = window._;
-  var moment = window.moment;
   var Nightscout = window.Nightscout;
   var client = Nightscout.client;
-  var translate = client.translate;
   var admin_plugins = Nightscout.admin_plugins;
 
   if (serverSettings === undefined) {
