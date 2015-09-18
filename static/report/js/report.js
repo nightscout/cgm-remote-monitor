@@ -186,26 +186,6 @@
     setDataRange(null,7);
   }
   
-  function rawIsigToRawBg(entry, cal) {
-    var raw = 0
-      , unfiltered = parseInt(entry.unfiltered) || 0
-      , filtered = parseInt(entry.filtered) || 0
-      , sgv = entry.y
-      , scale = parseFloat(cal.scale) || 0
-      , intercept = parseFloat(cal.intercept) || 0
-      , slope = parseFloat(cal.slope) || 0;
-
-    if (slope === 0 || unfiltered === 0 || scale === 0) {
-      raw = 0;
-    } else if (filtered === 0 || sgv < 40) {
-        raw = scale * (unfiltered - intercept) / slope;
-    } else {
-        var ratio = scale * (filtered - intercept) / slope / sgv;
-        raw = scale * ( unfiltered - intercept) / slope / ratio;
-    }
-    return Math.round(raw);
-  }
-
   function sgvToColor(sgv,options) {
     var color = 'darkgreen';
 
@@ -610,9 +590,11 @@
 
     var cal = data.cal[data.cal.length-1];
     var temp1 = [ ];
+    var rawbg = Nightscout.plugins('rawbg');
     if (cal) {
       temp1 = data.sgv.map(function (entry) {
-        var rawBg = rawIsigToRawBg(entry, cal);
+        entry.mgdl = entry.y; // value names changed from enchilada
+        var rawBg = rawbg.calc(entry, cal);
         return { mills: entry.mills, date: new Date(entry.mills - 2 * 1000), y: rawBg, sgv: client.utils.scaleMgdl(rawBg), color: 'gray', type: 'rawbg', filtered: entry.filtered, unfiltered: entry.unfiltered };
       }).filter(function(entry) { return entry.y > 0});
     }
