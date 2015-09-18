@@ -6,23 +6,20 @@ describe('sandbox', function ( ) {
   var now = Date.now();
 
   it('init on client', function (done) {
-    var app = {
-      thresholds:{
-        bg_high: 260
-        , bg_target_top: 180
-        , bg_target_bottom: 80
-        , bg_low: 55
-      }
-    };
-
     var clientSettings = {
       units: 'mg/dl'
+      , thresholds:{
+        bgHigh: 260
+        , bgTargetTop: 180
+        , bgTargetBottom: 80
+        , bgLow: 55
+      }
     };
 
     var pluginBase = {};
     var data = {sgvs: [{mgdl: 100, mills: now}]};
 
-    var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
 
     sbx.pluginBase.should.equal(pluginBase);
     sbx.data.should.equal(data);

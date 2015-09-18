@@ -21,7 +21,6 @@ describe('cage', function ( ) {
 
   it('set a pill to the current cannula age', function (done) {
 
-    var app = {};
     var clientSettings = {};
 
     var data = {
@@ -39,14 +38,13 @@ describe('cage', function ( ) {
       }
     };
 
-    var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
     cage.updateVisualisation(sbx);
 
   });
 
   it('set a pill to the current cannula age', function (done) {
 
-    var app = {};
     var clientSettings = {};
 
     var data = {
@@ -64,7 +62,7 @@ describe('cage', function ( ) {
       }
     };
 
-    var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
     cage.updateVisualisation(sbx);
 
   });

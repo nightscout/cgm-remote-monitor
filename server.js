@@ -28,7 +28,7 @@
 
 var env = require('./env')( );
 var language = require('./lib/language')();
-var translate = language.set(env.defaults.language).translate;
+var translate = language.set(env.settings.language).translate;
 
 ///////////////////////////////////////////////////
 // setup http server

@@ -10,7 +10,7 @@ describe('Treatment API', function ( ) {
   before(function (done) {
     process.env.API_SECRET = 'this is my long pass phrase';
     self.env = require('../env')();
-    self.env.enable = 'careportal';
+    self.env.settings.enable = ['careportal'];
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
     self.app.enable('api');
@@ -36,8 +36,8 @@ describe('Treatment API', function ( ) {
       should.not.exist(self.ctx.data.treatments[1].glucose);
       should.not.exist(self.ctx.data.treatments[1].glucoseType);
       should.not.exist(self.ctx.data.treatments[1].units);
-      self.ctx.data.treatments[1].insulin.should.equal('2.00');
-      self.ctx.data.treatments[2].carbs.should.equal('30');
+      self.ctx.data.treatments[1].insulin.should.equal(2);
+      self.ctx.data.treatments[2].carbs.should.equal(30);
 
       done();
     });
@@ -46,7 +46,7 @@ describe('Treatment API', function ( ) {
       request(self.app)
         .post('/api/treatments/')
         .set('api-secret', self.env.api_secret || '')
-        .send({eventType: 'BG Check', glucose: 100, glucoseType: 'Finger', units: 'mg/dl', notes: ''})
+        .send({eventType: 'BG Check', glucose: 100, preBolus: '0', glucoseType: 'Finger', units: 'mg/dl', notes: ''})
         .expect(200)
         .end(function (err) {
           if (err) {
@@ -57,7 +57,7 @@ describe('Treatment API', function ( ) {
       request(self.app)
         .post('/api/treatments/')
         .set('api-secret', self.env.api_secret || '')
-        .send({eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: 15, glucoseType: 'Finger', units: 'mg/dl'})
+        .send({eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucoseType: 'Finger', units: 'mg/dl'})
         .expect(200)
         .end(function (err) {
           if (err) {
