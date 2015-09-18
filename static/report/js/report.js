@@ -368,18 +368,16 @@
     
     function daysfilter() {
       matchesneeded++;
-      for (var d in daystoshow) {
-        if (daystoshow.hasOwnProperty(d)) {
-          var day = new Date(d).getDay();
-          if (day===0 && $('#rp_su').is(':checked')) { daystoshow[d]++; }
-          if (day===1 && $('#rp_mo').is(':checked')) { daystoshow[d]++; }
-          if (day===2 && $('#rp_tu').is(':checked')) { daystoshow[d]++; }
-          if (day===3 && $('#rp_we').is(':checked')) { daystoshow[d]++; }
-          if (day===4 && $('#rp_th').is(':checked')) { daystoshow[d]++; }
-          if (day===5 && $('#rp_fr').is(':checked')) { daystoshow[d]++; }
-          if (day===6 && $('#rp_sa').is(':checked')) { daystoshow[d]++; }
-        }
-      }
+      Object.keys(daystoshow).forEach( function eachDay(d) {
+        var day = new Date(d).getDay();
+        if (day===0 && $('#rp_su').is(':checked')) { daystoshow[d]++; }
+        if (day===1 && $('#rp_mo').is(':checked')) { daystoshow[d]++; }
+        if (day===2 && $('#rp_tu').is(':checked')) { daystoshow[d]++; }
+        if (day===3 && $('#rp_we').is(':checked')) { daystoshow[d]++; }
+        if (day===4 && $('#rp_th').is(':checked')) { daystoshow[d]++; }
+        if (day===5 && $('#rp_fr').is(':checked')) { daystoshow[d]++; }
+        if (day===6 && $('#rp_sa').is(':checked')) { daystoshow[d]++; }
+      });
       countDays();
       display();
     }
