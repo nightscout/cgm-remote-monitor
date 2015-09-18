@@ -58,10 +58,10 @@
   };
 
   function fillFoodForm(event) {
-    $('#rp_category').empty().append('<option>' + translate('(none)') + '</option>');
-    for (var s in food_categories) {
+    $('#rp_category').empty().append('<option value="">' + translate('(none)') + '</option>');
+    Object.keys(food_categories).forEach(function eachCategory(s) {
       $('#rp_category').append('<option value="' + s + '">' + s + '</option>');
-    }
+    });
     filter.category = '';
     fillFoodSubcategories();
     
@@ -75,11 +75,11 @@
   function fillFoodSubcategories(event) {
     filter.category = $('#rp_category').val();
     filter.subcategory = '';
-    $('#rp_subcategory').empty().append('<option>' + translate('(none)') + '</option>');
+    $('#rp_subcategory').empty().append('<option value="">' + translate('(none)') + '</option>');
     if (filter.category !== '') {
-      for (var s in food_categories[filter.category]) {
+      Object.keys(food_categories[filter.category]).forEach(function eachSubCategory(s) {
         $('#rp_subcategory').append('<option value="' + s + '">' + s + '</option>');
-      }
+      });
     }
     doFoodFilter();
     return maybePrevent(event);
