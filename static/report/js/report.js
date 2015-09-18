@@ -58,10 +58,10 @@
   };
 
   function fillFoodForm(event) {
-    $('#rp_category').empty().append('<option>' + translate('(none)') + '</option>');
-    for (var s in food_categories) {
+    $('#rp_category').empty().append('<option value="">' + translate('(none)') + '</option>');
+    Object.keys(food_categories).forEach(function eachCategory(s) {
       $('#rp_category').append('<option value="' + s + '">' + s + '</option>');
-    }
+    });
     filter.category = '';
     fillFoodSubcategories();
     
@@ -75,11 +75,11 @@
   function fillFoodSubcategories(event) {
     filter.category = $('#rp_category').val();
     filter.subcategory = '';
-    $('#rp_subcategory').empty().append('<option>' + translate('(none)') + '</option>');
+    $('#rp_subcategory').empty().append('<option value="">' + translate('(none)') + '</option>');
     if (filter.category !== '') {
-      for (var s in food_categories[filter.category]) {
+      Object.keys(food_categories[filter.category]).forEach(function eachSubCategory(s) {
         $('#rp_subcategory').append('<option value="' + s + '">' + s + '</option>');
-      }
+      });
     }
     doFoodFilter();
     return maybePrevent(event);
@@ -186,26 +186,6 @@
     setDataRange(null,7);
   }
   
-  function rawIsigToRawBg(entry, cal) {
-    var raw = 0
-      , unfiltered = parseInt(entry.unfiltered) || 0
-      , filtered = parseInt(entry.filtered) || 0
-      , sgv = entry.y
-      , scale = parseFloat(cal.scale) || 0
-      , intercept = parseFloat(cal.intercept) || 0
-      , slope = parseFloat(cal.slope) || 0;
-
-    if (slope === 0 || unfiltered === 0 || scale === 0) {
-      raw = 0;
-    } else if (filtered === 0 || sgv < 40) {
-        raw = scale * (unfiltered - intercept) / slope;
-    } else {
-        var ratio = scale * (filtered - intercept) / slope / sgv;
-        raw = scale * ( unfiltered - intercept) / slope / ratio;
-    }
-    return Math.round(raw);
-  }
-
   function sgvToColor(sgv,options) {
     var color = 'darkgreen';
 
@@ -388,18 +368,16 @@
     
     function daysfilter() {
       matchesneeded++;
-      for (var d in daystoshow) {
-        if (daystoshow.hasOwnProperty(d)) {
-          var day = new Date(d).getDay();
-          if (day===0 && $('#rp_su').is(':checked')) { daystoshow[d]++; }
-          if (day===1 && $('#rp_mo').is(':checked')) { daystoshow[d]++; }
-          if (day===2 && $('#rp_tu').is(':checked')) { daystoshow[d]++; }
-          if (day===3 && $('#rp_we').is(':checked')) { daystoshow[d]++; }
-          if (day===4 && $('#rp_th').is(':checked')) { daystoshow[d]++; }
-          if (day===5 && $('#rp_fr').is(':checked')) { daystoshow[d]++; }
-          if (day===6 && $('#rp_sa').is(':checked')) { daystoshow[d]++; }
-        }
-      }
+      Object.keys(daystoshow).forEach( function eachDay(d) {
+        var day = new Date(d).getDay();
+        if (day===0 && $('#rp_su').is(':checked')) { daystoshow[d]++; }
+        if (day===1 && $('#rp_mo').is(':checked')) { daystoshow[d]++; }
+        if (day===2 && $('#rp_tu').is(':checked')) { daystoshow[d]++; }
+        if (day===3 && $('#rp_we').is(':checked')) { daystoshow[d]++; }
+        if (day===4 && $('#rp_th').is(':checked')) { daystoshow[d]++; }
+        if (day===5 && $('#rp_fr').is(':checked')) { daystoshow[d]++; }
+        if (day===6 && $('#rp_sa').is(':checked')) { daystoshow[d]++; }
+      });
       countDays();
       display();
     }
@@ -610,9 +588,11 @@
 
     var cal = data.cal[data.cal.length-1];
     var temp1 = [ ];
+    var rawbg = Nightscout.plugins('rawbg');
     if (cal) {
       temp1 = data.sgv.map(function (entry) {
-        var rawBg = rawIsigToRawBg(entry, cal);
+        entry.mgdl = entry.y; // value names changed from enchilada
+        var rawBg = rawbg.calc(entry, cal);
         return { mills: entry.mills, date: new Date(entry.mills - 2 * 1000), y: rawBg, sgv: client.utils.scaleMgdl(rawBg), color: 'gray', type: 'rawbg', filtered: entry.filtered, unfiltered: entry.unfiltered };
       }).filter(function(entry) { return entry.y > 0});
     }
