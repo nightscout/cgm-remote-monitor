@@ -4,96 +4,48 @@
 
 
 html, body {
-    height: 100%;
-    margin: 0;
-    padding: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 body {
-    font-family: 'Open Sans', Helvetica, Arial, sans-serif;
-    background: white;
-    color: black;
-}
-.inlinepiechart {
-	width: 2.0in;
-	height: 0.9in;
+  font-family: 'Open Sans', Helvetica, Arial, sans-serif;
+  background: white;
+  color: black;
 }
 
-#percentile-chart {
-	width: 100%;
-	height: 100%;
-}
-#hourlystats-overviewchart {
-	width: 100%;
-	min-width: 6.5in;
-	height: 5in;
-}
-#success-placeholder table td {
-	border: 1px #ccc solid;
-	margin: 0;
-	padding: 1px;
+#.centeraligned {
+  text-align:center;
 }
 
-#success-placeholder td.bad {
-	background-color: #fcc;
+ul#tabnav {
+  text-align: left;
+  margin: 1em 0 1em 0;
+  font: bold 11px verdana, arial, sans-serif;
+  border-bottom: 1px solid #6c6;
+  list-style-type: none;
+  padding: 3px 10px 3px 10px;
 }
 
-#success-placeholder td.good {
-	background-color: #cfc;
+ul#tabnav li {
+  display: inline;
 }
 
-#success-placeholder th:first-child {
-	width: 30%;
-}
-#success-placeholder th {
-	width: 10%;
-}
-#success-placeholder table {
-	width: 100%;
-}
-
-.centeraligned {
-	text-align:center;
+ul#tabnav li{
+  padding: 3px 4px;
+  border: 1px solid #6c6;
+  background-color: #cfc;
+  color: #666;
+  margin-right: 0;
+  text-decoration: none;
+  border-bottom: none;
 }
 
-#dailystats-placeholder td.tdborder {
-	width:80px;
-	border: 1px #ccc solid;
-	margin: 0;
-	padding: 1px;
+ul#tabnav li.selected  {
+  background: #fff;
 }
 
-ul#tabnav { /* general settings */
-text-align: left; /* set to left, right or center */
-margin: 1em 0 1em 0; /* set margins as desired */
-font: bold 11px verdana, arial, sans-serif; /* set font as desired */
-border-bottom: 1px solid #6c6; /* set border COLOR as desired */
-list-style-type: none;
-padding: 3px 10px 3px 10px; /* THIRD number must change with respect to padding-top (X) below */
-}
-
-ul#tabnav li { /* do not change */
-display: inline;
-}
-
-ul#tabnav li{ /* settings for all tab links */
-padding: 3px 4px; /* set padding (tab size) as desired; FIRST number must change with respect to padding-top (X) above */
-border: 1px solid #6c6; /* set border COLOR as desired; usually matches border color specified in #tabnav */
-background-color: #cfc; /* set unselected tab background color as desired */
-color: #666; /* set unselected tab link color as desired */
-margin-right: 0px; /* set additional spacing between tabs as desired */
-text-decoration: none;
-border-bottom: none;
-}
-
-ul#tabnav li.selected  { /* settings selected tab */
-background: #fff; /* set desired selected color */
-}
-
-ul#tabnav li:hover { /* settings for hover effect */
-background: #9f9; /* set desired hover color */
-cursor:pointer;
-}
-
-tr.border_bottom td {
-  border-bottom:1pt solid #eee;
+ul#tabnav li:hover {
+  background: #9f9;
+  cursor:pointer;
 }
