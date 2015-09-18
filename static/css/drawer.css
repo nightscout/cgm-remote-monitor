@@ -299,3 +299,25 @@ h1, legend,
   color: #fff;
   font-size: 1.5em;
 }
+
+ul.navigation {
+  padding: 0;
+  margin: 0;
+}
+
+.navigation li {
+  list-style: none;
+  display: block;
+}
+
+.navigation a {
+  text-decoration: none;
+  background-color: #808080;
+  display: block;
+  padding: 5px;
+  margin: 10px 0;
+}
+
+.navigation a:hover {
+  background-color: #989898;
+}
