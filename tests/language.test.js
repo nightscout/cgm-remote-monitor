@@ -24,7 +24,7 @@ describe('language', function ( ) {
   it('translate to Czech uppercase', function () {
     var language = require('../lib/language')();
     language.set('cs');
-    language.translateInUpperCase('carbs').should.equal('SACHARIDY');
+    language.translate('carbs', { ci: true }).should.equal('Sacharidy');
   });
 
 });
