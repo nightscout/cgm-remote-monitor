@@ -25,6 +25,9 @@ function config ( ) {
   setMongo();
   updateSettings();
 
+  // require authorization for entering treatments
+  env.treatments_auth = readENV('TREATMENTS_AUTH',false);
+
   return env;
 }
 
