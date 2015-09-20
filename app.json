@@ -4,7 +4,7 @@
   "env": {
     "MONGO_COLLECTION": {
       "description": "REQUIRED: The mongo collection used for CGM data. Default value is 'entries'. Most users should use the default.",
-      "value": "entries",
+      "value": "CGM",
       "required": true
     },
     "API_SECRET": {
