@@ -9,6 +9,7 @@
     client: require('../lib/client')
     , units: require('../lib/units')()
     , plugins: require('../lib/plugins/')().registerClientDefaults()
+    , report_plugins: require('../lib/report_plugins/')()
   };
 
   console.info('Nightscout bundle ready');
