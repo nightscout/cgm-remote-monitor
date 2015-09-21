@@ -1,8 +1,5 @@
 // TODO:
 // - bypass nightmode in reports
-// - get rid of /static/report/js/time.js
-// - load css dynamic + optimize
-// - add tests
 // - on save/delete treatment ctx.bus.emit('data-received'); is not enough. we must add something like 'data-updated'
 
 (function () {
@@ -33,6 +30,7 @@
   var maxdays = 3 * 31;
   var datastorage = {};
   var daystoshow = {};
+  var sorteddaystoshow = [];
   
   var targetBGdefault = {
     'mg/dl': {
@@ -103,7 +101,7 @@
       o += translate('Portion')+': ' + food_list[i].portion + ' ';
       o += food_list[i].unit + ' | ';
       o += translate('Carbs')+': ' + food_list[i].carbs+' g';
-      $('#rp_food').append(new Option(o,food_list[i]._id));
+      $('#rp_food').append('<option val="' + food_list[i]._id + '">' + o + '</option>');
     }
     
     return maybePrevent(event);
@@ -238,8 +236,9 @@
     };
 
     // default time range if no time range specified in GUI
-    var timerange = '&find[created_at][$gte]='+new Date('1970-01-01').toISOString();
-    
+    var zone = client.sbx.data.profile.getTimezone();
+    var timerange = '&find[created_at][$gte]='+moment.tz('2000-01-01',zone).toISOString();
+    //console.log(timerange,zone);    
     options.targetLow = parseFloat($('#rp_targetlow').val().replace(',','.'));
     options.targetHigh = parseFloat($('#rp_targethigh').val().replace(',','.'));
     options.raw = $('#rp_optionsraw').is(':checked');
@@ -250,6 +249,7 @@
     options.insulin = $('#rp_optionsinsulin').is(':checked');
     options.carbs = $('#rp_optionscarbs').is(':checked');
     options.scale = ( $('#rp_linear').is(':checked') ? report_plugins.consts.SCALE_LINEAR : report_plugins.consts.SCALE_LOG );
+    options.order = ( $('#rp_oldestontop').is(':checked') ? report_plugins.consts.ORDER_OLDESTONTOP : report_plugins.consts.ORDER_NEWESTONTOP );
     options.width = parseInt($('#rp_size :selected').attr('x'));
     options.height = parseInt($('#rp_size :selected').attr('y'));
     
@@ -259,9 +259,12 @@
     function datefilter() {
       if ($('#rp_enabledate').is(':checked')) {
         matchesneeded++;
-        var from = moment($('#rp_from').val());
-        var to = moment($('#rp_to').val());
-        timerange = '&find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
+        var fromdate = new Date($('#rp_from').val());
+        var todate = new Date($('#rp_to').val());
+        var from = moment.tz([fromdate.getFullYear(), fromdate.getMonth(), fromdate.getDate()],zone);
+        var to = moment.tz([todate.getFullYear(), todate.getMonth(), todate.getDate()],zone);
+        timerange = '&find[created_at][$gte]='+from.toISOString()+'&find[created_at][$lt]='+to.toISOString();
+        //console.log($('#rp_from').val(),$('#rp_to').val(),zone,timerange);
         while (from <= to) {
           if (daystoshow[from.format('YYYY-MM-DD')]) { 
             daystoshow[from.format('YYYY-MM-DD')]++;
@@ -286,7 +289,7 @@
           $.ajax('/api/v1/treatments.json'+tquery, {
             success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
-                return moment(treatment.created_at).format('YYYY-MM-DD');
+                return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
               // unique it
               treatmentData = $.grep(treatmentData, function(v, k){
@@ -322,7 +325,7 @@
           $.ajax('/api/v1/treatments.json' + tquery + timerange, {
             success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
-                return moment(treatment.created_at).format('YYYY-MM-DD');
+                return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
               // unique it
               treatmentData = $.grep(treatmentData, function(v, k){
@@ -358,7 +361,7 @@
           $.ajax('/api/v1/treatments.json' + tquery + timerange, {
             success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
-                return moment(treatment.created_at).format('YYYY-MM-DD');
+                return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
               // unique it
               treatmentData = $.grep(treatmentData, function(v, k){
@@ -386,14 +389,16 @@
     function daysfilter() {
       matchesneeded++;
       for (var d in daystoshow) {
-        var day = new Date(d).getDay();
-        if (day===0 && $('#rp_su').is(':checked')) { daystoshow[d]++; }
-        if (day===1 && $('#rp_mo').is(':checked')) { daystoshow[d]++; }
-        if (day===2 && $('#rp_tu').is(':checked')) { daystoshow[d]++; }
-        if (day===3 && $('#rp_we').is(':checked')) { daystoshow[d]++; }
-        if (day===4 && $('#rp_th').is(':checked')) { daystoshow[d]++; }
-        if (day===5 && $('#rp_fr').is(':checked')) { daystoshow[d]++; }
-        if (day===6 && $('#rp_sa').is(':checked')) { daystoshow[d]++; }
+        if (daystoshow.hasOwnProperty(d)) {
+          var day = new Date(d).getDay();
+          if (day===0 && $('#rp_su').is(':checked')) { daystoshow[d]++; }
+          if (day===1 && $('#rp_mo').is(':checked')) { daystoshow[d]++; }
+          if (day===2 && $('#rp_tu').is(':checked')) { daystoshow[d]++; }
+          if (day===3 && $('#rp_we').is(':checked')) { daystoshow[d]++; }
+          if (day===4 && $('#rp_th').is(':checked')) { daystoshow[d]++; }
+          if (day===5 && $('#rp_fr').is(':checked')) { daystoshow[d]++; }
+          if (day===6 && $('#rp_sa').is(':checked')) { daystoshow[d]++; }
+        }
       }
       countDays();
       display();
@@ -410,6 +415,7 @@
             loadData(d, options, dataLoadedCallback);
           } else {
             $('#info').append($('<div>'+d+' '+translate('not displayed')+'.</div>'));
+            delete daystoshow[d];
           }
         } else {
           delete daystoshow[d];
@@ -426,9 +432,11 @@
     
     function countDays() {
       for (var d in daystoshow) {
-        if (daystoshow[d]===matchesneeded) {
-          if (dayscount < maxdays) {
-            dayscount++;
+        if (daystoshow.hasOwnProperty(d)) {
+          if (daystoshow[d]===matchesneeded) {
+            if (dayscount < maxdays) {
+              dayscount++;
+            }
           }
         }
       }
@@ -438,6 +446,15 @@
     function dataLoadedCallback () {
       loadeddays++;
       if (loadeddays === dayscount) {
+        // sort array
+        sorteddaystoshow = [];
+        Object.keys(daystoshow).forEach(function (day) {
+          sorteddaystoshow.push(day);
+        });
+        sorteddaystoshow.sort();
+        if (options.order === report_plugins.consts.ORDER_NEWESTONTOP) {
+          sorteddaystoshow.reverse();
+        }
         showreports(options);
       }
     }
@@ -465,7 +482,7 @@
       // jquery plot doesn't draw to hidden div
       $('#'+plugin.name+'-placeholder').css('display','');
       //console.log('Drawing ',plugin.name);
-      plugin.report(datastorage,daystoshow,options);
+      plugin.report(datastorage,sorteddaystoshow,options);
       if (!$('#'+plugin.name).hasClass('selected')) {
         $('#'+plugin.name+'-placeholder').css('display','none');
       }
