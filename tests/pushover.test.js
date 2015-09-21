@@ -8,9 +8,7 @@ describe('pushover', function ( ) {
   var baseurl = 'https://nightscout.test';
 
   var env = {
-    settings: {
-      baseURL: baseurl
-    }
+    baseUrl: baseurl
     , extendedSettings: {
       pushover: {
         userKey: '12345'
