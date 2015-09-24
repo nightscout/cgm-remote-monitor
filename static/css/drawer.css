@@ -325,7 +325,7 @@ ul.navigation {
 #boluscalcDrawer {
     background-color: #666;
     border-left: 1px solid #999;
-    box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
+    box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
     color: #eee;
     display: none;
     font-size: 16px;
@@ -352,7 +352,7 @@ ul.navigation {
     background: Sienna;
 }
 
-#boluscalcDrawer tr.border_bottom td {
+#boluscalcDrawer .border_bottom td {
   border-bottom:1pt solid #eee;
 }
 
