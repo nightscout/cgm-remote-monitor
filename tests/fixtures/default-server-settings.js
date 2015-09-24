@@ -2,13 +2,13 @@
 
 module.exports = {
   name: 'Nightscout'
-  , version: '0.7.0'
+  , version: '0.8.0'
   , apiEnabled: true
   , careportalEnabled: true
   , head: 'ae71dca'
   , settings: {
     units: 'mg/dl'
-    , timeFormat: '12'
+    , timeFormat: 12
     , nightMode: false
     , showRawbg: 'noise'
     , customTitle: 'Test Title'

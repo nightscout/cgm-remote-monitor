@@ -27,6 +27,11 @@ function create (env, ctx) {
   // pebble data
   app.get('/pebble', ctx.pebble);
 
+  // expose swagger.yaml
+  app.get('/swagger.yaml', function (req, res) {
+    res.sendFile(__dirname + '/swagger.yaml');
+  });
+
   //app.get('/package.json', software);
 
   // define static server
