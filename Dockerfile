@@ -1,9 +1,9 @@
-FROM node:latest
+FROM node:0.12.7
 
 MAINTAINER Nightscout https://github.com/nightscout/
 
 # Installing the required packages.
-RUN apt-get update && apt-get install -y python-software-properties python g++ make git
+RUN apt-get update && apt-get install -y python-software-properties python g++ make git node-gyp
 
 # Upgrade
 RUN apt-get upgrade -y
