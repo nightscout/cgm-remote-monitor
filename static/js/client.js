@@ -806,7 +806,7 @@
 
                 //TODO: alarmHigh/alarmLow probably shouldn't be here
                 if (browserSettings.alarmHigh) {
-                    $('.container .current').toggleClass('high', latestSGV.y > 140);
+                    $('.container .current').toggleClass('high', latestSGV.y > 180);
                 }
                 if (browserSettings.alarmLow) {
                     $('.container .current').toggleClass('low', latestSGV.y < 70);
