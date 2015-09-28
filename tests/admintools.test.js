@@ -90,10 +90,10 @@ describe('admintools', function ( ) {
         //console.log(url,opts);
         if (opts && opts.success && opts.success.call) {
           if (url.indexOf('/api/v1/treatments.json?&find[created_at][$gte]=')===0) {
-            url = '/api/v1/treatments.json?&find[created_at][$gte]='
+            url = '/api/v1/treatments.json?&find[created_at][$gte]=';
           }
           if (url.indexOf('/api/v1/entries.json?&find[date][$gte]=')===0) {
-            url = '/api/v1/entries.json?&find[date][$gte]='
+            url = '/api/v1/entries.json?&find[date][$gte]=';
           }
           return {
             done: function mockDone (fn) {
