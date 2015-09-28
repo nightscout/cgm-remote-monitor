@@ -15,41 +15,41 @@ var nowData = {
 var someData = {
   '/api/v1/devicestatus.json?count=500': [
     {
-    "_id": {
-        "$oid": "56096da3c5d0fef41b212362"
+    '_id': {
+        '$oid': '56096da3c5d0fef41b212362'
     },
-    "uploaderBattery": 37,
-    "created_at": "2015-09-28T16:41:07.144Z"
+    'uploaderBattery': 37,
+    'created_at': '2015-09-28T16:41:07.144Z'
     },
     {
-    "_id": {
-        "$oid": "56096da3c5d0fef41b212363"
+    '_id': {
+        '$oid': '56096da3c5d0fef41b212363'
     },
-    "uploaderBattery": 38,
-    "created_at": "2025-09-28T16:41:07.144Z"
+    'uploaderBattery': 38,
+    'created_at': '2025-09-28T16:41:07.144Z'
     }
   ],
   '/api/v1/treatments.json?&find[created_at][$gte]=': [
       {
-        "_id":  "5609a9203c8104a8195b1c1e",
-        "enteredBy": "",
-        "eventType": "Carb Correction",
-        "carbs": 3,
-        "created_at": "2025-09-28T20:54:00.000Z"
+        '_id':  '5609a9203c8104a8195b1c1e',
+        'enteredBy': '',
+        'eventType': 'Carb Correction',
+        'carbs': 3,
+        'created_at': '2025-09-28T20:54:00.000Z'
       }
     ],
   '/api/v1/entries.json?&find[date][$gte]=': [
       {
-        "_id": "560983f326c5a592d9b9ae0c",
-        "device": "dexcom",
-        "date": 1543464149000,
-        "sgv": 83,
-        "direction": "Flat",
-        "type": "sgv",
-        "filtered": 107632,
-        "unfiltered": 106256,
-        "rssi": 178,
-        "noise": 1
+        '_id': '560983f326c5a592d9b9ae0c',
+        'device': 'dexcom',
+        'date': 1543464149000,
+        'sgv': 83,
+        'direction': 'Flat',
+        'type': 'sgv',
+        'filtered': 107632,
+        'unfiltered': 106256,
+        'rssi': 178,
+        'noise': 1
       }
     ]
   };
@@ -182,7 +182,7 @@ describe('admintools', function ( ) {
     client.init(serverSettings, plugins);
     client.dataUpdate(nowData);
     
-    var result = $('body').html();
+    //var result = $('body').html();
     //var filesys = require('fs');
     //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
     //logfile.write($('body').html());
