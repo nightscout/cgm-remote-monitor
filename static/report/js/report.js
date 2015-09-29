@@ -239,8 +239,8 @@
     function datefilter() {
       if ($('#rp_enabledate').is(':checked')) {
         matchesneeded++;
-        var from = moment.tz($('#rp_from').val() + 'T00:00:00',zone);
-        var to = moment.tz($('#rp_to').val() + 'T23:59:59',zone);
+        var from = moment.tz($('#rp_from').val().replace(/\//g,'-') + 'T00:00:00',zone);
+        var to = moment.tz($('#rp_to').val().replace(/\//g,'-') + 'T23:59:59',zone);
         timerange = '&find[created_at][$gte]='+from.toISOString()+'&find[created_at][$lt]='+to.toISOString();
         //console.log($('#rp_from').val(),$('#rp_to').val(),zone,timerange);
         while (from <= to) {
