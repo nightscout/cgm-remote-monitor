@@ -108,22 +108,21 @@ describe('admintools', function ( ) {
               return self.$.ajax();
             },
             fail: function mockFail (fn) {
-              fn({status: 400});
+              //fn({status: 400});
               return self.$.ajax();
             }
           };
         }
-        if (url && url.method === 'DELETE') {
-          return {
-            done: function mockDone (fn) {
-              fn();
-              return {
-                fail: function mockFail () {
-                }
-              };
+        return {
+          done: function mockDone (fn) {
+            fn({message: 'OK'});
+            return self.$.ajax();
+            },
+          fail: function mockFail (fn) {
+            //fn({status: 400});
+            return self.$.ajax();
             }
-          };
-        }
+        };
       };
 
       self.$.plot = function mockPlot () {
