@@ -107,8 +107,7 @@ describe('admintools', function ( ) {
               fn();
               return self.$.ajax();
             },
-            fail: function mockFail (fn) {
-              //fn({status: 400});
+            fail: function mockFail () {
               return self.$.ajax();
             }
           };
@@ -118,8 +117,7 @@ describe('admintools', function ( ) {
             fn({message: 'OK'});
             return self.$.ajax();
             },
-          fail: function mockFail (fn) {
-            //fn({status: 400});
+          fail: function mockFail () {
             return self.$.ajax();
             }
         };
