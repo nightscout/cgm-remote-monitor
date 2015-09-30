@@ -38,7 +38,7 @@ body {
   border-bottom: none;
 }
 
-#tabnav li.selected  {
+#tabnav .selected  {
   background: #fff;
 }
 
