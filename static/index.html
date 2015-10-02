@@ -49,7 +49,7 @@
             <div class="primary">
                 <div class="bgStatus current">
                     <div class="bgButton ">
-                        <span class="pill rawbg hidden"><em></em><label></label></span>
+                        <span class="pill rawbg"><em></em><label></label></span>
                         <span class="currentBG">---</span>
                         <span class="pill direction"></span>
                     </div>
@@ -175,7 +175,31 @@
                     <legend class="translate">Log a Treatment</legend>
                     <label for="eventType" class="left-column">
                         <span class="translate">Event Type</span>
+<<<<<<< HEAD
+                        <select id="eventType">
+                            <option value="BG Check" class="translate">BG Check</option>
+                            <option value="Note" class="translate">Ketone Check</option>
+                            <option value="Note" class="translate">Note</option>
+                            <option value="Snack Bolus" class="translate">Snack Bolus</option>
+                            <option value="Meal Bolus" class="translate">Meal Bolus</option>
+                            <option value="Correction Bolus" class="translate">Correction Bolus</option>
+                            <option value="Carb Correction" class="translate">Carb Correction</option>
+                            <option value="Announcement" class="translate">Announcement</option>
+<<<<<<< HEAD
+=======
+                            <option value="Note" class="translate">Note</option>
+>>>>>>> parent of a3dfe98... Update index.html
+                            <option value="Question" class="translate">Question</option>
+                            <option value="Exercise" class="translate">Exercise</option>
+                            <option value="Site Change" class="translate">Pump Site Change</option>
+                            <option value="Sensor Start" class="translate">Dexcom Sensor Start</option>
+                            <option value="Sensor Change" class="translate">Dexcom Sensor Change</option>
+                            <option value="Insulin Change" class="translate">Insulin Cartridge Change</option>
+                            <!--option value="D.A.D. Alert" class="translate">D.A.D. Alert</option-->
+                        </select>
+=======
                         <select id="eventType"></select>
+>>>>>>> nightscout/master
                     </label>
 
                     <fieldset>
@@ -198,8 +222,18 @@
                     <label for="insulinGiven" class="left-column short-label">
                         <span class="translate">Insulin Given</span>
                         <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate"/>
-                    </label>
-                    <label for="preBolus" class="left-column short-label extra-space">
+                   <select>
+                        <optgroup label="insulintype">
+                        <option value="lantus">Lantus</option>
+                        <option value="novolog">Novolog</option>
+                        </optgroup>
+                    </select>
+                     <dl class="radio">
+                        <dt class="translate">Insulin Type</dt>
+                        <dd><input type="radio" name="insulinType" id="lantus" value="novolog" /><label for="lantus" class="translate">Lantus</label></dd>
+                        <dd><input type="radio" name="insulinType" id="novolog" value="lantus" /><label for="novolog" class="translate">Novolog</label></dd>
+                    </dl>
+                    <!--label for="preBolus" class="left-column short-label extra-space">
                         <span class="translate">Carb Time</span>
                         <select id="preBolus">
                             <option class="translate" value="-60">60 minutes earlier</option>
@@ -214,7 +248,7 @@
                             <option class="translate" value="45">45 minutes later</option>
                             <option class="translate" value="60">60 minutes later</option>
                         </select>
-                    </label>
+                    </label-->
 
                     <!-- Label and textarea -->
                     <label for="notes" class="extra-space translate">Additional Notes, Comments</label>
