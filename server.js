@@ -27,8 +27,7 @@
 ///////////////////////////////////////////////////
 
 var env = require('./env')( );
-var language = require('./lib/language')();
-var translate = language.set(env.settings.language).translate;
+
 
 ///////////////////////////////////////////////////
 // setup http server
@@ -44,42 +43,25 @@ function create (app) {
   return transport.createServer(app);
 }
 
-require('./lib/bootevent')(env).boot(function booted (ctx) {
+var bootevent = require('./lib/bootevent');
+bootevent(env).boot(function booted (ctx) {
+    env.store = ctx.store;
     var app = require('./app')(env, ctx);
     var server = create(app).listen(PORT);
-    console.log(translate('Listening on port'), PORT);
+    console.log('listening', PORT);
 
     if (env.MQTT_MONITOR) {
-      ctx.mqtt = require('./lib/mqtt')(env, ctx);
+      var mqtt = require('./lib/mqtt')(env, app.entries, app.devicestatus);
       var es = require('event-stream');
-      es.pipeline(ctx.mqtt.entries, ctx.entries.map( ), ctx.mqtt.every(ctx.entries));
+      es.pipeline(mqtt.entries, app.entries.map( ), mqtt.every(app.entries));
     }
 
     ///////////////////////////////////////////////////
     // setup socket io for data and message transmission
     ///////////////////////////////////////////////////
-    var websocket = require('./lib/websocket')(env, ctx, server);
+    var websocket = require('./lib/websocket');
+    var io = websocket(env, server, app.entries, app.treatments, app.profiles, app.devicestatus);
+  })
+;
 
-    ctx.bus.on('data-processed', function() {
-      websocket.update();
-    });
-
-    ctx.bus.on('notification', function(notify) {
-      websocket.emitNotification(notify);
-      if (ctx.mqtt) {
-        ctx.mqtt.emitNotification(notify);
-      }
-    });
-
-    //after startup if there are no alarms send all clear
-    setTimeout(function sendStartupAllClear () {
-      var alarm = ctx.notifications.findHighestAlarm();
-      if (!alarm) {
-        ctx.bus.emit('notification', {
-          clear: true
-          , title: 'All Clear'
-          , message: 'Server started without alarms'
-        });
-      }
-    }, 20000);
-});
+///////////////////////////////////////////////////
