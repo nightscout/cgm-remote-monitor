@@ -30,13 +30,14 @@
         <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
         <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.8.1" />
         <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
+        <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">    
     </head>
     <body>
         <div class="container loading" id="container">
             <div id="toolbar">
                 <div id="buttonbar">
                     <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
-                    <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-cog"></i></a>
+                    <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-menu"></i></a>
                     <a id="treatmentDrawerToggle" class="tip" original-title="Treatments" href="#"><i class="icon-plus"></i></a>
                 </div>
                 <div class="customTitle">Nightscout</div>
@@ -79,8 +80,12 @@
 
         <div id="drawer">
             <form id="settings-form">
+                <ul class="navigation">
+                  <li><a href="/report/index.html" target="reports" class="translate">Reports</a></li>
+                  <li><a id="editprofilelink" href="/profile/index.html" target="profileeditor" class="translate">Profile Editor</a></li>
+                </ul>
                 <fieldset class="browserSettings">
-                    <legend class="translate">Settings</legend>
+                    <legend class="translate icon-cog">Settings</legend>
                     <dl class="radio">
                         <dt class="translate">Units</dt>
                         <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label></dd>
@@ -137,7 +142,6 @@
                     <dl id="show-plugins" class="toggle">
                         <dt class="translate">Show Plugins</dt>
                     </dl>
-                    <a id="editprofilelink" href="/profile/index.html" target="profileeditor" class="translate">Edit treatment Profile</a>
                 </fieldset>
 
                 <div class="actions">
@@ -237,7 +241,6 @@
 
                   <button type="button" class="translate">Submit Form</button>
                 </fieldset>
-                <a href="/treatments.html" target="treatments" class="translate">View all treatments</a>
                 <hr>
                 <span class="translate">Authentication status</span>: </b>
                 <span id="authentication_placeholder"></span>
@@ -254,6 +257,7 @@
         <script src="/socket.io/socket.io.js"></script>
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
+        <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
         <script src="/js/client.js"></script>
     </body>
 </html>
