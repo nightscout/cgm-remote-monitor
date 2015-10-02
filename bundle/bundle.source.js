@@ -1,41 +1,19 @@
 (function () {
-	
-    window.Nightscout = window.Nightscout || {};
 
-	// Default features
+  window._ = require('lodash');
+  window.$ = window.jQuery = require('jquery');
+  window.moment = require('moment-timezone');
+  window.Nightscout = window.Nightscout || {};
 
-    window.Nightscout = {
-        units: require('../lib/units')(),
-        profile: require('../lib/profilefunctions')()
-    };
+  window.Nightscout = {
+    client: require('../lib/client')
+    , units: require('../lib/units')()
+    , plugins: require('../lib/plugins/')().registerClientDefaults()
+    , report_plugins: require('../lib/report_plugins/')()
+    , admin_plugins: require('../lib/admin_plugins/')()
+  };
 
-	// Plugins
-	
-	var inherits = require("inherits");
-	var PluginBase = require('../lib/pluginbase'); // Define any shared functionality in this class
-
-    window.NightscoutPlugins = window.NightscoutPlugins || {};
-
-    window.NightscoutPlugins = {
-        iob: require('../lib/iob')(PluginBase),
-        cob: require('../lib/cob')(PluginBase),
-        bwp: require('../lib/boluswizardpreview')(PluginBase),
-        cage: require('../lib/cannulaage')(PluginBase)
-    };
-	// class inheritance to the plugins from the base + map functions over
-
-	for (var p in window.NightscoutPlugins) {
-		var plugin = window.NightscoutPlugins[p];
-		inherits(plugin, PluginBase);
-		plugin.name = p;
- 
-		for (var n in PluginBase.prototype) {
-      		var item = PluginBase.prototype[n];                      
-	    	plugin[n] = item;
-  		}
-	}
-
-    console.info("Nightscout bundle ready", window.Nightscout);
+  console.info('Nightscout bundle ready');
 
 })();
 
