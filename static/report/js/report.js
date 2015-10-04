@@ -239,10 +239,8 @@
     function datefilter() {
       if ($('#rp_enabledate').is(':checked')) {
         matchesneeded++;
-        var fromdate = new Date($('#rp_from').val());
-        var todate = new Date($('#rp_to').val());
-        var from = moment.tz([fromdate.getFullYear(), fromdate.getMonth(), fromdate.getDate()],zone);
-        var to = moment.tz([todate.getFullYear(), todate.getMonth(), todate.getDate()],zone);
+        var from = moment.tz($('#rp_from').val().replace(/\//g,'-') + 'T00:00:00',zone);
+        var to = moment.tz($('#rp_to').val().replace(/\//g,'-') + 'T23:59:59',zone);
         timerange = '&find[created_at][$gte]='+from.toISOString()+'&find[created_at][$lt]='+to.toISOString();
         //console.log($('#rp_from').val(),$('#rp_to').val(),zone,timerange);
         while (from <= to) {
