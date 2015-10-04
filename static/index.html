@@ -54,7 +54,6 @@
                     </div>
                     <ul class="dropdown-menu" id="silenceBtn">
                         <li><a href="#" data-snooze-time="1800000" class="translate">Silence for 30 minutes</a></li>
-                        <li><a href="#" data-snooze-time="2700000" class="translate">Silence for 45 minutes</a></li>
                         <li><a href="#" data-snooze-time="3600000" class="translate">Silence for 60 minutes</a></li>
                         <li><a href="#" data-snooze-time="5400000" class="translate">Silence for 90 minutes</a></li>
                         <li><a href="#" data-snooze-time="7200000" class="translate">Silence for 120 minutes</a></li>
@@ -179,7 +178,6 @@
                         <span class="translate">Event Type</span>
                         <select id="eventType">
                             <option value="BG Check" class="translate">BG Check</option>
-                            <option value="Note" class="translate">Ketone Check</option>
                             <option value="Note" class="translate">Note</option>
                             <option value="Snack Bolus" class="translate">Snack Bolus</option>
                             <option value="Meal Bolus" class="translate">Meal Bolus</option>
@@ -216,18 +214,7 @@
                     <label for="insulinGiven" class="left-column short-label">
                         <span class="translate">Insulin Given</span>
                         <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate"/>
-                   <select>
-                        <optgroup label="insulintype">
-                        <option value="lantus">Lantus</option>
-                        <option value="novolog">Novolog</option>
-                        </optgroup>
-                    </select>
-                     <dl class="radio">
-                        <dt class="translate">Insulin Type</dt>
-                        <dd><input type="radio" name="insulinType" id="lantus" value="novolog" /><label for="lantus" class="translate">Lantus</label></dd>
-                        <dd><input type="radio" name="insulinType" id="novolog" value="lantus" /><label for="novolog" class="translate">Novolog</label></dd>
-                    </dl>
-                    <!--label for="preBolus" class="left-column short-label extra-space">
+                    <label for="preBolus" class="left-column short-label extra-space">
                         <span class="translate">Carb Time</span>
                         <select id="preBolus">
                             <option class="translate" value="-60">60 minutes earlier</option>
