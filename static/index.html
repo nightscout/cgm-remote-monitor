@@ -179,7 +179,7 @@
                         <select id="eventType"></select>
                     </label>
 
-                    <fieldset>
+                    <fieldset id="bg">
                         <legend class="translate">Glucose Reading</legend>
                         <input type="number" step="any" id="glucoseValue" />
                         <label><br><span class="translate">Measurement Method</span><br></label>
@@ -192,15 +192,19 @@
                             <span class="translate">Sensor<br></span>
                         </label>
                     </fieldset>
-                    <label for="carbsGiven" class="left-column short-label">
+                    <label id="carbsGivenLabel" for="carbsGiven" class="left-column short-label">
                         <span class="translate">Carbs Given</span>
                         <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" class="titletranslate"/>
                     </label>
-                    <label for="insulinGiven" class="left-column short-label">
+                    <label id="insulinGivenLabel" for="insulinGiven" class="left-column short-label">
                         <span class="translate">Insulin Given</span>
                         <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate"/>
                     </label>
-                    <label for="preBolus" class="left-column short-label extra-space">
+                    <label id="durationLabel" for="duration" class="left-column short-label">
+                        <span class="translate">Duration</span>
+                        <input type="number" step="any" min="0" id="duration" placeholder="Duration in minutes" class="titletranslate"/>
+                    </label>
+                    <label id="preBolusLabel" for="preBolus" class="left-column short-label extra-space">
                         <span class="translate">Carb Time</span>
                         <select id="preBolus">
                             <option class="translate" value="-60">60 minutes earlier</option>
