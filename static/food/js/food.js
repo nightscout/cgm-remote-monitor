@@ -631,7 +631,7 @@ var Nightscout = window.Nightscout;
     }).done(function success (response) {
       $('#fe_status').hide().text('OK').fadeIn('slow');
       newrec._id = response[0]._id;
-      foodquickpick.push(newrec);
+      foodquickpick.unshift(newrec);
       drawQuickpick();
     }).fail(function fail() {
       $('#fe_status').hide().text(translate('Error')).fadeIn('slow');
