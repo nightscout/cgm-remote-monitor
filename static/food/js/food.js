@@ -146,7 +146,7 @@ var Nightscout = window.Nightscout;
     $('#fe_filter_subcategory').empty().append(new Option(translate('(none)'),''));
     if (filter.category !== '') {
       for (s in categories[filter.category]) {
-        if (categories.hasOwnProperty(s)) {
+        if (categories[filter.category].hasOwnProperty(s)) {
           $('#fe_filter_subcategory').append(new Option(s,s));
         }
       }
@@ -157,13 +157,16 @@ var Nightscout = window.Nightscout;
   function fillEditSubcategories(event) {
     maybePreventDefault(event,GUIToObject);
 
+    var s;
     foodrec.subcategory = '';
     $('#fe_subcategory_list').empty().append(new Option(translate('(none)'),''));
     if (foodrec.category !== '') {
-      _(categories[foodrec.category]).forEach(function addSubcatOption(s) {
-        $('#fe_subcategory_list').append(new Option(s,s));
+      for (s in categories[foodrec.category]) {
+        if (categories[foodrec.category].hasOwnProperty(s)) {
+          $('#fe_subcategory_list').append(new Option(s,s));
+        }
       }
-    )};
+    }
     $('#fe_subcategory').val('');
   }
   
