@@ -9,7 +9,8 @@ describe('mmconnect', function () {
   var env = {
     extendedSettings: {
       mmconnect: {
-        username: 'nightscout',
+        // 'userName' for consistency with the bridge plugin
+        userName: 'nightscout',
         password: 'wearenotwaiting',
         sgvLimit: '99',
         interval: '12000',
@@ -32,7 +33,7 @@ describe('mmconnect', function () {
       [
         {},
         {mmconnect: {}},
-        {mmconnect: {username: 'nightscout'}},
+        {mmconnect: {userName: 'nightscout'}},
         {mmconnect: {password: 'wearenotwaiting'}}
       ].forEach(function(extendedSettings) {
         should.not.exist(mmconnect.init({extendedSettings: extendedSettings}));
