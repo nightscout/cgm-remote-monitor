@@ -10,12 +10,12 @@ describe('mmconnect', function () {
     extendedSettings: {
       mmconnect: {
         // 'userName' for consistency with the bridge plugin
-        userName: 'nightscout',
-        password: 'wearenotwaiting',
-        sgvLimit: '99',
-        interval: '12000',
-        maxRetryDuration: 1024,
-        verbose: 'true'
+        userName: 'nightscout'
+        , password: 'wearenotwaiting'
+        , sgvLimit: '99'
+        , interval: '12000'
+        , maxRetryDuration: 1024
+        , verbose: 'true'
       }
     }
   };
@@ -31,11 +31,11 @@ describe('mmconnect', function () {
 
     it('should not create a runner if any env vars are absent', function() {
       [
-        {},
-        {mmconnect: {}},
-        {mmconnect: {userName: 'nightscout'}},
-        {mmconnect: {password: 'wearenotwaiting'}}
-      ].forEach(function(extendedSettings) {
+        {}
+        , {mmconnect: {}}
+        , {mmconnect: {userName: 'nightscout'}}
+        , {mmconnect: {password: 'wearenotwaiting'}}
+      ].forEach(function (extendedSettings) {
         should.not.exist(mmconnect.init({extendedSettings: extendedSettings}));
       });
     });
@@ -46,12 +46,12 @@ describe('mmconnect', function () {
 
     it('should set the carelink client config from env', function() {
       mmconnect.getOptions_(env).should.have.properties({
-        username: 'nightscout',
-        password: 'wearenotwaiting',
-        sgvLimit: 99,
-        interval: 12000,
-        maxRetryDuration: 1024,
-        verbose: true
+        username: 'nightscout'
+        , password: 'wearenotwaiting'
+        , sgvLimit: 99
+        , interval: 12000
+        , maxRetryDuration: 1024
+        , verbose: true
       });
     });
 
