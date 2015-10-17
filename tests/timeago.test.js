@@ -38,25 +38,25 @@ describe('timeago', function ( ) {
 
   it('should trigger a warning when data older than 15m', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: now - times.mins(15).msecs, mgdl: 100, type: 'sgv'}];
+    ctx.data.sgvs = [{mills: now - times.mins(15.8).msecs, mgdl: 100, type: 'sgv'}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     timeago.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(levels.WARN);
-    highest.message.should.equal('Last received: 15 mins ago\nBG Now: 100 mg/dl');
+    highest.message.should.equal('Last received: 16 mins ago\nBG Now: 100 mg/dl');
     done();
   });
 
   it('should trigger an urgent alarm when data older than 30m', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: now - times.mins(30).msecs, mgdl: 100, type: 'sgv'}];
+    ctx.data.sgvs = [{mills: now - times.mins(30.8).msecs, mgdl: 100, type: 'sgv'}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     timeago.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(levels.URGENT);
-    highest.message.should.equal('Last received: 30 mins ago\nBG Now: 100 mg/dl');
+    highest.message.should.equal('Last received: 31 mins ago\nBG Now: 100 mg/dl');
     done();
   });
 
