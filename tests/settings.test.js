@@ -8,7 +8,7 @@ describe('settings', function ( ) {
   var settings = require('../lib/settings')();
 
   it('have defaults ready', function () {
-    settings.timeFormat.should.equal('12');
+    settings.timeFormat.should.equal(12);
     settings.nightMode.should.equal(false);
     settings.showRawbg.should.equal('never');
     settings.customTitle.should.equal('Nightscout');
