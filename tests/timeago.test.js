@@ -5,7 +5,6 @@ var times = require('../lib/times');
 describe('timeago', function ( ) {
 
   var timeago = require('../lib/plugins/timeago')();
-  var delta = require('../lib/plugins/delta')();
 
   var env = require('../env')();
   var ctx = {};
@@ -114,6 +113,6 @@ describe('timeago', function ( ) {
       timeago.calcDisplay({ mills: now - times.days(10).msecs }, now)
       , {label: 'long ago'}
     );
-  })
+  });
 
 });
