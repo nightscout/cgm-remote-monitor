@@ -239,10 +239,8 @@
     function datefilter() {
       if ($('#rp_enabledate').is(':checked')) {
         matchesneeded++;
-        var fromdate = new Date($('#rp_from').val());
-        var todate = new Date($('#rp_to').val());
-        var from = moment.tz([fromdate.getFullYear(), fromdate.getMonth(), fromdate.getDate()],zone);
-        var to = moment.tz([todate.getFullYear(), todate.getMonth(), todate.getDate()],zone);
+        var from = moment.tz($('#rp_from').val().replace(/\//g,'-') + 'T00:00:00',zone);
+        var to = moment.tz($('#rp_to').val().replace(/\//g,'-') + 'T23:59:59',zone);
         timerange = '&find[created_at][$gte]='+from.toISOString()+'&find[created_at][$lt]='+to.toISOString();
         //console.log($('#rp_from').val(),$('#rp_to').val(),zone,timerange);
         while (from <= to) {
@@ -384,6 +382,7 @@
     
     function display() {
       var count = 0;
+      sorteddaystoshow = [];
       $('#info').html('<b>'+translate('Loading')+' ...</b>');
       for (var d in daystoshow) {
         if (daystoshow[d]===matchesneeded) {
@@ -421,14 +420,10 @@
       console.log('Total: ', daystoshow, 'Matches needed: ', matchesneeded, 'Will be loaded: ', dayscount);
    }
     
-    function dataLoadedCallback () {
+    function dataLoadedCallback (day) {
       loadeddays++;
+      sorteddaystoshow.push(day);
       if (loadeddays === dayscount) {
-        // sort array
-        sorteddaystoshow = [];
-        Object.keys(daystoshow).forEach(function (day) {
-          sorteddaystoshow.push(day);
-        });
         sorteddaystoshow.sort();
         if (options.order === report_plugins.consts.ORDER_NEWESTONTOP) {
           sorteddaystoshow.reverse();
@@ -448,7 +443,7 @@
     // prepare some data used in more reports
     datastorage.allstatsrecords = [];
     datastorage.alldays = 0;
-    Object.keys(daystoshow).forEach(function (day) {
+    sorteddaystoshow.forEach(function eachDay(day) {
       datastorage.allstatsrecords = datastorage.allstatsrecords.concat(datastorage[day].statsrecords);
       datastorage.alldays++;
     });
@@ -490,7 +485,7 @@
   function loadData(day, options, callback) {
     // check for loaded data
     if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
-      callback();
+      callback(day);
       return;
     }
     // patientData = [actual, predicted, mbg, treatment, cal, devicestatusData];
@@ -635,7 +630,7 @@
 
     
     datastorage[day] = data;
-    callback();
+    callback(day);
   }
 
   function maybePrevent(event) {
