@@ -10,6 +10,7 @@ var nowData = {
   sgvs: [
     { mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' }
   ]
+  , treatments: []
 };
 
 var someData = {
@@ -296,12 +297,12 @@ describe('reports', function ( ) {
 
     result.indexOf('Milk now').should.be.greaterThan(-1); // daytoday
     result.indexOf('50 g (1.67U)').should.be.greaterThan(-1); // daytoday
-    result.indexOf('<td class="tdborder">0%</td><td class="tdborder">100%</td><td class="tdborder">0%</td><td class="tdborder">2</td><td class="tdborder">8.3</td>').should.be.greaterThan(-1); //dailystats
-    result.indexOf('td class="tdborder" style="background-color:#8f8"><strong>Normal: </strong></td><td class="tdborder">38%</td><td class="tdborder">6</td><td class="tdborder">8.7</td><td class="tdborder">8.8</td><td class="tdborder">0.2</td>').should.be.greaterThan(-1); // distribution
-    result.indexOf('<td>16 (100%)</td><td>11</td><td>8.3</td><td>8.9</td><td>10.6</td><td>11.7</td><td>18.3</td><td>2.7</td>').should.be.greaterThan(-1); // hourlystats
+    result.indexOf('<td class="tdborder">0%</td><td class="tdborder">100%</td><td class="tdborder">0%</td><td class="tdborder">2</td>').should.be.greaterThan(-1); //dailystats
+    result.indexOf('td class="tdborder" style="background-color:#8f8"><strong>Normal: </strong></td><td class="tdborder">38%</td><td class="tdborder">6</td>').should.be.greaterThan(-1); // distribution
+    result.indexOf('<td>16 (100%)</td>').should.be.greaterThan(-1); // hourlystats
     result.indexOf('<div id="success-grid">').should.be.greaterThan(-1); //success 
     result.indexOf('<b style="padding-left:4em">CAL</b>:  Scale: 1.10 Intercept: 31102 Slope: 776.91').should.be.greaterThan(-1); //calibrations
-    result.indexOf('<td>Correction Bolus</td><td align="center">250 (Sensor)</td><td align="center">0.75</td><td align="center"></td><td>Mom </td><td></td>').should.be.greaterThan(-1); //treatments
+    result.indexOf('<td>Correction Bolus</td><td align="center">250 (Sensor)</td><td align="center">0.75</td>').should.be.greaterThan(-1); //treatments
     
     done();
   });
