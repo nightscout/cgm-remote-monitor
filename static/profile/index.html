@@ -31,17 +31,17 @@
       <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">
     </head>
     <body>
-        <div id="toolbar">
+    <div id="toolbar">
       <div id="buttonbar">
-        <b> Status:</b> <span id="pe_status">Not loaded</span>
+        <b> Status:</b> <span class="pe_status">Not loaded</span>
       </div>
-             <h1 class="customTitle">Nightscout</h1>
-            <div id="profile-editor">
-                <h1>Profile editor</h1>
-      </div>
-        </div>
-    
-    <br>
+      <h1 class="customTitle">Nightscout</h1>
+    </div>
+
+    <div id="profile-editor">
+      <h1>Profile editor</h1>
+    </div>
+
     <form id="pe_form">
       <fieldset class="browserSettings">
         <legend>General patient profile settings</legend>
@@ -85,14 +85,16 @@
       </fieldset>
 
       <fieldset>
-        <legend>Carbs
-          (
-          <i>
-            <input type="checkbox" id="pe_perGIvalues" checked />
-            use values specific to GI of food
-          </i>
-          )
-        </legend>
+        <legend>Carbs</legend>
+        <!--Re-Enable after integrated into profilefunctions.js-->
+        <!--<legend>Carbs-->
+          <!--(-->
+          <!--<i>-->
+            <!--<input type="checkbox" id="pe_perGIvalues" checked />-->
+            <!--use GI specific values-->
+          <!--</i>-->
+          <!--)-->
+        <!--</legend>-->
         <div id="pe_simple">
           <dl>
             <b title="grams per unit time. Represents both the change in COB per unit of time, as well as the amount of carbs that should take effect over that time.  Carb absorption / activity curves are less well understood than insulin activity, but can be approximated using an initial delay followed by a constant rate of absorption (g/hr).">Carbs activity / absorption rate: [g/hour]</b><br>
@@ -128,6 +130,10 @@
       <b><span class="translate">Authentication status</span>: </b>
       <span id="authentication_placeholder"></span>
 
+      <p>
+        <b> Status:</b> <span class="pe_status">Not loaded</span>
+      </p>
+
       <button type="submit" id="pe_submit">Update profile</button>
 
     </form>
@@ -138,6 +144,6 @@
     <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
     <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
     <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
-    <script src="/profile/js/profile.js"></script>
+    <script src="/profile/js/profileeditor.js"></script>
   </body>
 </html>
