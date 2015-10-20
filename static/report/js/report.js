@@ -180,6 +180,12 @@
     
     $('#rp_targetlow').val(targetBGdefault[client.settings.units.toLowerCase()].low);
     $('#rp_targethigh').val(targetBGdefault[client.settings.units.toLowerCase()].high);
+
+    if (client.settings.scaleY === 'linear') {
+      $('#rp_linear').prop('checked', true);
+    } else {
+      $('#rp_log').prop('checked', true);
+    }
     
     $('.menutab').click(switchreport_handler);
 
@@ -211,7 +217,7 @@
       , carbs: true
       , iob : true
       , cob : true
-      , scale: report_plugins.consts.SCALE_LINEAR
+      , scale: report_plugins.consts.scaleYFromSettings(client)
       , units: client.settings.units
     };
 
