@@ -4,16 +4,17 @@
 var $ = window.$;
 var _ = window._;
 var Nightscout = window.Nightscout;
+var client = Nightscout.client;
 
 (function () {
 
   if (serverSettings === undefined) {
     console.error('server settings were not loaded, will not call init');
   } else {
-    window.Nightscout.client.init(serverSettings, Nightscout.plugins);
+    client.init(serverSettings, Nightscout.plugins);
   }
   
-  var translate = Nightscout.client.translate;
+  var translate = client.translate;
   
   var foodrec_template = { 
       _id: ''
@@ -507,7 +508,7 @@ var Nightscout = window.Nightscout;
   function foodSubmit(event) {
     GUIToObject();
 
-    if (!Nightscout.client.hashauth.isAuthenticated()) {
+    if (!client.hashauth.isAuthenticated()) {
       alert(translate('Your device is not authenticated yet'));
       maybePreventDefault(event);
       return false;
@@ -522,10 +523,9 @@ var Nightscout = window.Nightscout;
         method: 'POST',
         url: '/api/v1/food/',
         data: foodrec,
-        beforeSend: function (request)
-        {
-            request.setRequestHeader('api-secret', Nightscout.client.hashauth.hash());
-        },
+        headers: {
+          'api-secret': client.hashauth.hash()
+        }
       }).done(function success (response) {
         $('#fe_status').hide().text('OK').fadeIn('slow');
         foodrec._id = response[0]._id;
@@ -547,10 +547,9 @@ var Nightscout = window.Nightscout;
         method: 'PUT',
         url: '/api/v1/food/',
         data: foodrec,
-        beforeSend: function (request)
-        {
-            request.setRequestHeader('api-secret', Nightscout.client.hashauth.hash());
-        },
+        headers: {
+          'api-secret': client.hashauth.hash()
+        }
       }).done(function success () {
         $('#fe_status').hide().text('OK').fadeIn('slow');
         updateFoodArray(foodrec);
@@ -565,7 +564,7 @@ var Nightscout = window.Nightscout;
   }
 
   function deleteRecord(_id) {
-    if (!Nightscout.client.hashauth.isAuthenticated()) {
+    if (!client.hashauth.isAuthenticated()) {
       alert(translate('Your device is not authenticated yet'));
       maybePreventDefault(event);
       return false;
@@ -575,10 +574,9 @@ var Nightscout = window.Nightscout;
       method: 'DELETE',
       url: '/api/v1/food/'+_id,
       data: foodrec,
-      beforeSend: function (request)
-      {
-          request.setRequestHeader('api-secret', Nightscout.client.hashauth.hash());
-      },
+      headers: {
+        'api-secret': client.hashauth.hash()
+      }
     }).done(function success () {
       $('#fe_status').hide().text('OK').fadeIn('slow');
      }).fail(function fail() {
@@ -589,7 +587,7 @@ var Nightscout = window.Nightscout;
   }
 
   function updateRecord(foodrec) {
-    if (!Nightscout.client.hashauth.isAuthenticated()) {
+    if (!client.hashauth.isAuthenticated()) {
       alert(translate('Your device is not authenticated yet'));
       maybePreventDefault(event);
       return false;
@@ -599,10 +597,9 @@ var Nightscout = window.Nightscout;
       method: 'PUT',
       url: '/api/v1/food/',
       data: foodrec,
-      beforeSend: function (request)
-      {
-          request.setRequestHeader('api-secret', Nightscout.client.hashauth.hash());
-      },
+      headers: {
+        'api-secret': client.hashauth.hash()
+      }
     }).done(function success (response) {
       console.log('Updated record: ',response);
     });
@@ -611,7 +608,7 @@ var Nightscout = window.Nightscout;
   function quickpickCreateRecord(event) {
     var newrec = _.cloneDeep(quickpickrec_template);
     
-    if (!Nightscout.client.hashauth.isAuthenticated()) {
+    if (!client.hashauth.isAuthenticated()) {
       alert(translate('Your device is not authenticated yet'));
       maybePreventDefault(event);
       return false;
@@ -624,10 +621,9 @@ var Nightscout = window.Nightscout;
       method: 'POST',
       url: '/api/v1/food/',
       data: newrec,
-      beforeSend: function (request)
-      {
-          request.setRequestHeader('api-secret', Nightscout.client.hashauth.hash());
-      },
+      headers: {
+        'api-secret': client.hashauth.hash()
+      }
     }).done(function success (response) {
       $('#fe_status').hide().text('OK').fadeIn('slow');
       newrec._id = response[0]._id;
@@ -642,7 +638,7 @@ var Nightscout = window.Nightscout;
   }
 
   function quickpickSave(event) {
-    if (!Nightscout.client.hashauth.isAuthenticated()) {
+    if (!client.hashauth.isAuthenticated()) {
       alert(translate('Your device is not authenticated yet'));
       return false;
     }
