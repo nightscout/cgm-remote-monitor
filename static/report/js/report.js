@@ -495,8 +495,13 @@
       , treatmentData = []
       , calData = []
       ;
-    var dt = new Date(day);
-    var from = dt.getTime() + getTimeZoneOffset() * 60 * 1000;
+    var from;
+    if (client.sbx.data.profile.getTimezone()) {
+      from = moment(day).tz(client.sbx.data.profile.getTimezone()).startOf('day').format('x');
+    } else {
+      from = moment(day).startOf('day').format('x');
+    }
+    from = parseInt(from);
     var to = from + 1000 * 60 * 60 * 24;
     var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
     
