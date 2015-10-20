@@ -9,6 +9,7 @@ var nowData = {
   sgvs: [
     { mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' }
   ]
+  , treatments: []
 };
 
 describe('client', function ( ) {
@@ -57,6 +58,10 @@ describe('client', function ( ) {
         done: function mockDone (fn) {
           fn();
           done();
+          return self.$.ajax();
+        }
+        , fail: function mockFail ( ) {
+          return self.$.ajax();
         }
       };
     };
@@ -72,6 +77,7 @@ describe('client', function ( ) {
     client.init(serverSettings, plugins);
     client.dataUpdate(nowData);
 
+    client.careportal.prepareEvents();
     client.careportal.toggleDrawer();
 
     $('#eventType').val('Snack Bolus');

@@ -217,7 +217,7 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
   before(function (done) {
     ctx.data.devicestatus.uploaderBattery = 100;
     var envRaw = require('../env')( );
-    envRaw.settings.enable = 'rawbg iob';
+    envRaw.settings.enable = ['rawbg', 'iob'];
     this.appRaw = require('express')( );
     this.appRaw.enable('api');
     this.appRaw.use('/pebble', pebbleRaw(envRaw, ctx));

@@ -10,7 +10,7 @@ describe('Treatment API', function ( ) {
   before(function (done) {
     process.env.API_SECRET = 'this is my long pass phrase';
     self.env = require('../env')();
-    self.env.settings.enable = 'careportal';
+    self.env.settings.enable = ['careportal'];
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
     self.app.enable('api');
