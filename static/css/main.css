@@ -57,15 +57,6 @@ body {
 .bgStatus .currentBG {
     text-decoration: line-through;
 }
-
-.bgStatus .currentBG.error-code {
-    font-size: 80%;
-}
-
-.bgStatus .currentBG.bg-limit {
-    font-size: 80%;
-}
-
 .bgStatus .currentDetails {
     font-size: 25%;
     text-decoration: line-through;
@@ -170,6 +161,7 @@ body {
     cursor: default;
     font-size: 75%;
     margin-top: 15px;
+    margin-right: 37px;
     width: auto;
 
     user-select: none;
@@ -252,9 +244,11 @@ div.tooltip {
 
   .bgStatus {
     width: 50%;
-    font-size: 650%;
   }
 
+  #bgButton {
+    font-size: 120%;
+  }
   .dropdown-menu {
     font-size: 60% !important;
   }
@@ -263,7 +257,10 @@ div.tooltip {
   }
 }
 
-@media (max-width: 750px) {
+@media (max-width: 700px) {
+  #bgButton {
+    font-size: 120%;
+  }
   .dropdown-menu {
     font-size: 60% !important;
   }
@@ -287,6 +284,10 @@ div.tooltip {
         font-size: 70%;
     }
 
+    #notification {
+        margin-top: 148px;
+    }
+
     .status {
         text-align: center;
         margin-bottom: 0;
@@ -298,15 +299,18 @@ div.tooltip {
     #bgButton {display:block;} */
 
     .bgStatus {
-        font-size: 700%;
+        font-size: 750%;
         float: none;
         margin: 0 auto;
-        padding: 20px 0 0 0;
+        padding: 0;
         text-align: center;
         width: 100vw;
     }
     #bgButton {
-        font-size: 100%;
+        font-size: 120%;
+        height: 142px;
+        margin-top: 1vw;
+        width: 98vw;
     }
     .dropdown-menu {
         font-size: 60% !important;
@@ -323,11 +327,6 @@ div.tooltip {
         margin-left: 0;
         width: 100%;
     }
-
-    #container.alarming .time {
-        display: none;
-    }
-
     .timebox {
         text-align: none;
         width: auto;
@@ -371,12 +370,16 @@ div.tooltip {
         padding-bottom: 20px;
     }
 
+    #bgButton {
+        font-size: 70% !important;
+    }
+
     #currentTime {
         font-size: 85%;
     }
 
     #chartContainer {
-        top: 140px;
+        top: 130px;
         font-size: 80%;
     }
     #chartContainer svg {
@@ -388,23 +391,10 @@ div.tooltip {
     .container .status {
         font-size: 70%;
     }
-
-    .bgStatus {
-        padding-top: 20px;
-    }
-
 }
 
 @media (max-height: 480px) and (max-width: 400px) {
     .container .status {
         font-size: 80% !important;
-    }
-}
-
-@media (min-height: 480px) and (max-width: 400px) {
-    #toolbar #iob-cob h1 {
-        left: 60px;
-        right: auto;
-        position: relative;
     }
 }
