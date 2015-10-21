@@ -72,7 +72,7 @@ app.enable('trust proxy'); // Allows req.secure test on heroku https connections
 app.use('/api/v1', api);
 
 // pebble data
-app.get('/pebble', pebble(entriesStorage, treatmentsStorage, devicestatusStorage));
+app.get('/pebble', pebble(entriesStorage, treatmentsStorage, devicestatusStorage, env));
 
 //app.get('/package.json', software);
 
