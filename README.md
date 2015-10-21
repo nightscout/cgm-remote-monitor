@@ -197,8 +197,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
-  * `LANGUAGE` (`en`) - language of Nighscout. If not available english is used
-  * `SCALE_Y` (`log`) - The type of scaling used for the Y axis of the charts system wide
+  * `LANGUAGE` (`en`) - language of Nightscout. If not available english is used
+  * `SCALE_Y` (`log`) - The type of scaling used for the Y axis of the charts system wide.  The default `log` (logarithmic) option will let you see more detail towards the lower range (when it matters most), and makes efficient use screen real estate.  The `linear` option has equidistant tick marks, and looks similar to other common charts.
 
 ### Plugins
 
