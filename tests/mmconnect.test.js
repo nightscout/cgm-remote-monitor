@@ -1,7 +1,9 @@
 /* jshint node: true */
+/* globals describe, it */
 'use strict';
 
-var should = require('should');
+var _ = require('lodash'),
+  should = require('should');
 
 describe('mmconnect', function () {
   var mmconnect = require('../lib/plugins/mmconnect');
@@ -20,16 +22,15 @@ describe('mmconnect', function () {
     }
   };
 
-  describe('init()', function() {
-
-    it('should create a runner if env vars are present', function() {
+  describe('init()', function () {
+    it('should create a runner if env vars are present', function () {
       var runner = mmconnect.init(env);
       should.exist(runner);
       should.exist(runner.run);
       runner.run.should.be.instanceof(Function);
     });
 
-    it('should not create a runner if any env vars are absent', function() {
+    it('should not create a runner if any env vars are absent', function () {
       [
         {}
         , {mmconnect: {}}
@@ -42,9 +43,8 @@ describe('mmconnect', function () {
   });
 
 
-  describe('getOptions_()', function() {
-
-    it('should set the carelink client config from env', function() {
+  describe('getOptions_()', function () {
+    it('should set the carelink client config from env', function () {
       mmconnect.getOptions_(env).should.have.properties({
         username: 'nightscout'
         , password: 'wearenotwaiting'
@@ -55,6 +55,29 @@ describe('mmconnect', function () {
       });
     });
 
+  });
+
+  describe('rawDataEntry_()', function () {
+    it('should generate a "carelink_raw" entry with sgs truncated and PII redacted', function () {
+      var data = {
+        'lastMedicalDeviceDataUpdateServerTime': 1445471797479
+        , 'sgs': _.range(10)
+        , 'firstName': 'sensitive'
+        , 'lastName': 'sensitive'
+        , 'medicalDeviceSerialNumber': 'sensitive'
+      };
+      var entry = mmconnect.rawDataEntry_(data);
+      entry.should.have.properties({
+        'date': 1445471797479
+        , 'type': 'carelink_raw'
+      });
+      entry.data.should.have.properties({
+        'firstName': '<redacted>'
+        , 'lastName': '<redacted>'
+        , 'medicalDeviceSerialNumber': '<redacted>'
+      });
+      entry.data.sgs.length.should.equal(6);
+    });
   });
 
 });
