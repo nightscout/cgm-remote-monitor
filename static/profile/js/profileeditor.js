@@ -261,7 +261,7 @@
           peStatus.hide().text(status).fadeIn('slow');
           mongorecords.splice(currentrecord,1);
           currentrecord = 0;
-          currentprofile = getFirstAvailableProfile(mongorecords[currentrecord]);
+          currentprofile = mongorecords[currentrecord].defaultProfile;
           initRecord();
           dirty = false;
         }).fail(function(xhr, status, errorThrown)  {
@@ -271,7 +271,7 @@
       } else {
           mongorecords.splice(currentrecord,1);
           currentrecord = 0;
-          currentprofile = getFirstAvailableProfile(mongorecords[currentrecord]);
+          currentprofile = mongorecords[currentrecord].defaultProfile;
           initRecord();
           dirty = false;
       }
@@ -287,6 +287,8 @@
     GUIToObject();
     mongorecords.push(_.cloneDeep(mongorecords[currentrecord]));
     currentrecord = mongorecords.length - 1;
+    mongorecords[currentrecord].startDate = new Date().toISOString();
+    currentprofile = mongorecords[currentrecord].defaultProfile;
     initRecord();
     dirty = true;
     
