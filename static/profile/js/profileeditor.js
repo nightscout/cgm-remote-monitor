@@ -289,6 +289,7 @@
     currentrecord = mongorecords.length - 1;
     mongorecords[currentrecord].startDate = new Date().toISOString();
     currentprofile = mongorecords[currentrecord].defaultProfile;
+    delete mongorecords[currentrecord]._id;
     initRecord();
     dirty = true;
     
