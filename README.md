@@ -179,6 +179,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `MONGO_COLLECTION` (`entries`) - The collection used to store SGV, MBG, and CAL records from your CGM device
   * `MONGO_TREATMENTS_COLLECTION` (`treatments`) -The collection used to store treatments entered in the Care Portal, see the `ENABLE` env var above
   * `MONGO_DEVICESTATUS_COLLECTION`(`devicestatus`) - The collection used to store device status information such as uploader battery
+  * `MONGO_PROFILE_COLLECTION`(`profile`) - The collection used to store your profiles
+  * `MONGO_FOOD_COLLECTION`(`food`) - The collection used to store your food database
   * `PORT` (`1337`) - The port that the node.js application will listen on.
   * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js
@@ -250,6 +252,13 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * `BRIDGE_FIRST_FETCH_COUNT` (`3`) - Changes max count during the very first update only.
     * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
     * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (default is one day in minutes).
+  * `mmconnect` (MiniMed Connect bridge) - Transfer real-time MiniMed Connect data from the Medtronic CareLink server into Nightscout ([read more](https://github.com/mddub/minimed-connect-to-nightscout))
+    * `MMCONNECT_USER_NAME` - Your user name for CareLink Connect.
+    * `MMCONNECT_PASSWORD` - Your password for CareLink Connect.
+    * `MMCONNECT_INTERVAL` (`60000` *1 minute*) - Number of milliseconds to wait between requests to the CareLink server.
+    * `MMCONNECT_MAX_RETRY_DURATION` (`32`) - Maximum number of total seconds to spend retrying failed requests before giving up.
+    * `MMCONNECT_SGV_LIMIT` (`24`) - Maximum number of recent sensor glucose values to send to Nightscout on each request.
+    * `MMCONNECT_VERBOSE` - Set this to any truthy value to log CareLink request information to the console.
   
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
  
