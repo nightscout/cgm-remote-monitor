@@ -81,6 +81,10 @@ ctx.data.treatments = updateMills([
   { eventType: 'Snack Bolus', insulin: '1.50', carbs: '22' }
 ]);
 
+ctx.data.pumpStatuses = updateMills([
+  { device: 'connect://paradigm', activeInsulin: 2.9, conduitBatteryLevel: 99 }
+]);
+
 ctx.data.devicestatus.uploaderBattery = 100;
 
 describe('Pebble Endpoint', function ( ) {
@@ -248,6 +252,91 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
         cal.intercept.toFixed(3).should.equal('34281.069');
         cal.scale.should.equal(1);
         done( );
+      });
+  });
+
+});
+
+describe('Pebble Endpoint with pump IOB', function ( ) {
+  var pebbleRaw = require('../lib/pebble');
+
+  function setupApp (modifyEnv) {
+    var envRaw = require('../env')();
+    modifyEnv(envRaw);
+    var appRaw = require('express')();
+    appRaw.enable('api');
+    appRaw.use('/pebble', pebbleRaw(envRaw, ctx));
+    return appRaw;
+  };
+
+  it('should not show pump-reported IOB when pumpiob is disabled', function (done) {
+    var appRaw = setupApp(function(env) {
+      env.settings.enable = [];
+    });
+    request(appRaw)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        should.not.exist(res.body.bgs[0].iob);
+        done();
+      });
+  });
+
+  it('should show pump-reported IOB when pumpiob is enabled', function (done) {
+    var appRaw = setupApp(function(env) {
+      env.settings.enable = ['pumpiob'];
+    });
+    request(appRaw)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        res.body.bgs[0].iob.should.equal('2.9');
+        done();
+      });
+  });
+
+  it('should not show stale data', function (done) {
+    ctx.data.pumpStatuses[0].mills = Date.now() - 7 * 60 * 1000 - 1;
+    var appRaw = setupApp(function(env) {
+      env.settings.enable = ['pumpiob'];
+      env.extendedSettings.pumpiob = {recency: 7};
+    });
+    request(appRaw)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        should.not.exist(res.body.bgs[0].iob);
+        done();
+      });
+  });
+
+  it('should show low battery indicator when too low', function (done) {
+    ctx.data.pumpStatuses[0].conduitBatteryLevel = 40;
+    var appRaw = setupApp(function(env) {
+      env.settings.enable = ['pumpiob'];
+      env.extendedSettings.pumpiob = {pebbleBatteryIndicator: 50};
+    });
+    request(appRaw)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        res.body.bgs[0].iob.should.endWith('*');
+        done();
+      });
+  });
+
+  it('should not show low battery indicator when not too low', function (done) {
+    ctx.data.pumpStatuses[0].conduitBatteryLevel = 40;
+    var appRaw = setupApp(function(env) {
+      env.settings.enable = ['pumpiob'];
+      env.extendedSettings.pumpiob = {pebbleBatteryIndicator: 33};
+    });
+    request(appRaw)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        res.body.bgs[0].iob.should.not.endWith('*');
+        done();
       });
   });
 
