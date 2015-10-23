@@ -256,8 +256,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * `MMCONNECT_INTERVAL` (`60000` *1 minute*) - Number of milliseconds to wait between requests to the CareLink server.
     * `MMCONNECT_MAX_RETRY_DURATION` (`32`) - Maximum number of total seconds to spend retrying failed requests before giving up.
     * `MMCONNECT_SGV_LIMIT` (`24`) - Maximum number of recent sensor glucose values to send to Nightscout on each request.
-    * `MMCONNECT_VERBOSE` - Set this to any truthy value to log CareLink request information to the console.
-    * `MMCONNECT_STORE_RAW_DATA` - Set this to any truthy value to store raw data returned from CareLink as `type: "carelink_raw"` database entries (useful for development).
+    * `MMCONNECT_VERBOSE` - Set this to "true" to log CareLink request information to the console.
+    * `MMCONNECT_STORE_RAW_DATA` - Set this to "true" to store raw data returned from CareLink as `type: "carelink_raw"` database entries (useful for development).
   
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
  

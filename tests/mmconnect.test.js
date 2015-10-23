@@ -43,9 +43,9 @@ describe('mmconnect', function () {
   });
 
 
-  describe('getOptions_()', function () {
+  describe('getOptions()', function () {
     it('should set the carelink client config from env', function () {
-      mmconnect.getOptions_(env).should.have.properties({
+      mmconnect.getOptions(env).should.have.properties({
         username: 'nightscout'
         , password: 'wearenotwaiting'
         , sgvLimit: 99
@@ -57,7 +57,7 @@ describe('mmconnect', function () {
 
   });
 
-  describe('makeRecentSgvFilter_()', function () {
+  describe('makeRecentSgvFilter()', function () {
     function sgv(date) {
       return {type: 'sgv', date: date};
     }
@@ -66,7 +66,7 @@ describe('mmconnect', function () {
     }
 
     it('should return a stateful filter which discards sgvs older than the most recent one seen', function() {
-      var filter = mmconnect.makeRecentSgvFilter_();
+      var filter = mmconnect.makeRecentSgvFilter();
 
       filter([2, 3, 4].map(sgv)).length.should.equal(3);
 
@@ -79,7 +79,7 @@ describe('mmconnect', function () {
     });
 
     it('should return a stateful filter which allows non-sgv entries to be old', function() {
-      var filter = mmconnect.makeRecentSgvFilter_();
+      var filter = mmconnect.makeRecentSgvFilter();
 
       filter([2, 3, 4].map(sgv)).length.should.equal(3);
 
@@ -95,7 +95,7 @@ describe('mmconnect', function () {
     });
   });
 
-  describe('rawDataEntry_()', function () {
+  describe('rawDataEntry()', function () {
     it('should generate a "carelink_raw" entry with sgs truncated and PII redacted', function () {
       var data = {
         'lastMedicalDeviceDataUpdateServerTime': 1445471797479
@@ -104,7 +104,7 @@ describe('mmconnect', function () {
         , 'lastName': 'sensitive'
         , 'medicalDeviceSerialNumber': 'sensitive'
       };
-      var entry = mmconnect.rawDataEntry_(data);
+      var entry = mmconnect.rawDataEntry(data);
       entry.should.have.properties({
         'date': 1445471797479
         , 'type': 'carelink_raw'
