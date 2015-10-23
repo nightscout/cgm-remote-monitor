@@ -23,7 +23,7 @@ function create (env, ctx) {
   //if (env.api_secret) {
   //    console.log("API_SECRET", env.api_secret);
   //}
-  app.use('/api/v1', api);
+  app.use('/api/v1', bodyParser({limit: 1048576 * 50 }), api);
 
 
   // pebble data
