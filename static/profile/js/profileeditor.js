@@ -588,7 +588,6 @@
 
     if (!_.isEqual(oldProfile,c_profile)) {
       dirty = true;
-      console.log('DIRTY');
     }
   }
   
