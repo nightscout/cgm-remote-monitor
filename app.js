@@ -27,6 +27,11 @@ function create (env, ctx) {
   // pebble data
   app.get('/pebble', ctx.pebble);
 
+  // expose swagger.yaml
+  app.get('/swagger.yaml', function (req, res) {
+    res.sendFile(__dirname + '/swagger.yaml');
+  });
+
   //app.get('/package.json', software);
 
   // define static server
@@ -38,8 +43,6 @@ function create (env, ctx) {
 
   var bundle = require('./bundle')();
   app.use(bundle);
-
-// Handle errors with express's errorhandler, to display more readable error messages.
 
   // Handle errors with express's errorhandler, to display more readable error messages.
   var errorhandler = require('errorhandler');

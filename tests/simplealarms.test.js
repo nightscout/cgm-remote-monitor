@@ -1,4 +1,5 @@
 var should = require('should');
+var levels = require('../lib/levels');
 
 describe('simplealarms', function ( ) {
 
@@ -16,7 +17,7 @@ describe('simplealarms', function ( ) {
 
   it('Not trigger an alarm when in range', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: now, y: 100}];
+    ctx.data.sgvs = [{mills: now, mgdl: 100}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     simplealarms.checkNotifications(sbx);
@@ -27,46 +28,46 @@ describe('simplealarms', function ( ) {
 
   it('should trigger a warning when above target', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: before, y: 171}, {x: now, y: 181}];
+    ctx.data.sgvs = [{mills: before, mgdl: 171}, {mills: now, mgdl: 181}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     delta.setProperties(sbx);
     simplealarms.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(ctx.notifications.levels.WARN);
+    highest.level.should.equal(levels.WARN);
     highest.message.should.equal('BG Now: 181 +10 mg/dl');
     done();
   });
 
   it('should trigger a urgent alarm when really high', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: now, y: 400}];
+    ctx.data.sgvs = [{mills: now, mgdl: 400}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     simplealarms.checkNotifications(sbx);
-    ctx.notifications.findHighestAlarm().level.should.equal(ctx.notifications.levels.URGENT);
+    ctx.notifications.findHighestAlarm().level.should.equal(levels.URGENT);
 
     done();
   });
 
   it('should trigger a warning when below target', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: now, y: 70}];
+    ctx.data.sgvs = [{mills: now, mgdl: 70}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     simplealarms.checkNotifications(sbx);
-    ctx.notifications.findHighestAlarm().level.should.equal(ctx.notifications.levels.WARN);
+    ctx.notifications.findHighestAlarm().level.should.equal(levels.WARN);
 
     done();
   });
 
   it('should trigger a urgent alarm when really low', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{x: now, y: 40}];
+    ctx.data.sgvs = [{mills: now, mgdl: 40}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     simplealarms.checkNotifications(sbx);
-    ctx.notifications.findHighestAlarm().level.should.equal(ctx.notifications.levels.URGENT);
+    ctx.notifications.findHighestAlarm().level.should.equal(levels.URGENT);
 
     done();
   });

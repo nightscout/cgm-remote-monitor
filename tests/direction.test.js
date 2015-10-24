@@ -4,11 +4,10 @@ require('should');
 
 describe('BG direction', function ( ) {
   function setupSandbox(data, pluginBase) {
-    var app = { };
     var clientSettings = {};
 
     var sandbox = require('../lib/sandbox')();
-    return sandbox.clientInit(app, clientSettings, Date.now(), pluginBase || {}, data);
+    return sandbox.clientInit(clientSettings, Date.now(), pluginBase || {}, data);
   }
 
   it('set the direction property - Flat', function (done) {
@@ -48,7 +47,7 @@ describe('BG direction', function ( ) {
   it('set a pill to the direction', function (done) {
     var pluginBase = {
       updatePillText: function mockedUpdatePillText (plugin, options) {
-        options.label.should.equal('→');
+        options.label.should.equal('→&#xfe0e;');
         done();
       }
     };

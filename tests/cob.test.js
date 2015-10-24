@@ -18,17 +18,17 @@ describe('COB', function ( ) {
     var treatments = [
       {
         'carbs': '100',
-        'created_at': new Date('2015-05-29T02:03:48.827Z')
+        'mills': new Date('2015-05-29T02:03:48.827Z').getTime()
       },
       {
         'carbs': '10',
-        'created_at': new Date('2015-05-29T03:45:10.670Z')
+        'mills': new Date('2015-05-29T03:45:10.670Z').getTime()
       }
     ];
 
-    var after100 = cob.cobTotal(treatments, profile, new Date('2015-05-29T02:03:49.827Z'));
-    var before10 = cob.cobTotal(treatments, profile, new Date('2015-05-29T03:45:10.670Z'));
-    var after10 = cob.cobTotal(treatments, profile, new Date('2015-05-29T03:45:11.670Z'));
+    var after100 = cob.cobTotal(treatments, profile, new Date('2015-05-29T02:03:49.827Z').getTime());
+    var before10 = cob.cobTotal(treatments, profile, new Date('2015-05-29T03:45:10.670Z').getTime());
+    var after10 = cob.cobTotal(treatments, profile, new Date('2015-05-29T03:45:11.670Z').getTime());
 
     after100.cob.should.equal(100);
     Math.round(before10.cob).should.equal(59);
@@ -40,15 +40,15 @@ describe('COB', function ( ) {
     var treatments = [
       {
         'carbs': '8',
-        'created_at': new Date('2015-05-29T04:40:40.174Z')
+        'mills': new Date('2015-05-29T04:40:40.174Z').getTime()
       }
     ];
 
-    var rightAfterCorrection = new Date('2015-05-29T04:41:40.174Z');
-    var later1 = new Date('2015-05-29T05:04:40.174Z');
-    var later2 = new Date('2015-05-29T05:20:00.174Z');
-    var later3 = new Date('2015-05-29T05:50:00.174Z');
-    var later4 = new Date('2015-05-29T06:50:00.174Z');
+    var rightAfterCorrection = new Date('2015-05-29T04:41:40.174Z').getTime();
+    var later1 = new Date('2015-05-29T05:04:40.174Z').getTime();
+    var later2 = new Date('2015-05-29T05:20:00.174Z').getTime();
+    var later3 = new Date('2015-05-29T05:50:00.174Z').getTime();
+    var later4 = new Date('2015-05-29T06:50:00.174Z').getTime();
 
     var result1 = cob.cobTotal(treatments, profile, rightAfterCorrection);
     var result2 = cob.cobTotal(treatments, profile, later1);
@@ -65,13 +65,12 @@ describe('COB', function ( ) {
 
   it('set a pill to the current COB', function (done) {
 
-    var app = {};
     var clientSettings = {};
 
     var data = {
       treatments: [{
         carbs: '8'
-        , 'created_at': Date.now() - 60000 //1m ago
+        , 'mills': Date.now() - 60000 //1m ago
       }]
       , profile: profile
     };
@@ -84,7 +83,7 @@ describe('COB', function ( ) {
     };
 
     var sandbox = require('../lib/sandbox')();
-    var sbx = sandbox.clientInit(app, clientSettings, Date.now(), pluginBase, data);
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
     cob.setProperties(sbx);
     cob.updateVisualisation(sbx);
 
