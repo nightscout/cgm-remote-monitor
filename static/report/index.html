@@ -27,7 +27,7 @@
       <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-lightness/jquery-ui.min.css">    
     </head>
     <body>
-        <h1><img src="/images/logo1.png">Nightscout reporting</h1>
+        <h1><img src="/images/logo1.png"><span class="translate">Nightscout reporting</span></h1>
     <ul id="tabnav">
     </ul>
     <table>
@@ -96,6 +96,17 @@
         </td>
         <td></td>
       </tr>
+      <tr>
+        <td colspan="2">
+          <span class="translate">Order</span>:
+          <input type="radio" name="rp_sorting" id="rp_oldestontop" checked>
+          <label for="rp_oldestontop" class="translate">oldest on top</label>
+          &nbsp;
+          <input type="radio" name="rp_sorting" id="rp_newestontop">
+          <label for="rp_oldestontop" class="translate">newest on top</label>
+        </td>
+        <td></td>
+      </tr>
     </table>
     <button id="rp_show" class="translate">Show</button>
     <div id="info"></div>
@@ -116,7 +127,6 @@
     <script src="/bower_components/jquery-flot/jquery.flot.fillbetween.js"></script>
     <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
     <script src="/report/js/report.js"></script>
-    <script src="/report/js/time.js"></script>
     <script src="/report/js/flotcandle.js"></script>
     </body>
 </html>

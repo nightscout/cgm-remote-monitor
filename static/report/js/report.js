@@ -1,8 +1,5 @@
 // TODO:
 // - bypass nightmode in reports
-// - get rid of /static/report/js/time.js
-// - load css dynamic + optimize
-// - add tests
 // - on save/delete treatment ctx.bus.emit('data-received'); is not enough. we must add something like 'data-updated'
 
 (function () {
@@ -33,6 +30,7 @@
   var maxdays = 3 * 31;
   var datastorage = {};
   var daystoshow = {};
+  var sorteddaystoshow = [];
   
   var targetBGdefault = {
     'mg/dl': {
@@ -60,10 +58,10 @@
   };
 
   function fillFoodForm(event) {
-    $('#rp_category').empty().append('<option>' + translate('(none)') + '</option>');
-    for (var s in food_categories) {
+    $('#rp_category').empty().append('<option value="">' + translate('(none)') + '</option>');
+    Object.keys(food_categories).forEach(function eachCategory(s) {
       $('#rp_category').append('<option value="' + s + '">' + s + '</option>');
-    }
+    });
     filter.category = '';
     fillFoodSubcategories();
     
@@ -77,11 +75,11 @@
   function fillFoodSubcategories(event) {
     filter.category = $('#rp_category').val();
     filter.subcategory = '';
-    $('#rp_subcategory').empty().append('<option>' + translate('(none)') + '</option>');
+    $('#rp_subcategory').empty().append('<option value="">' + translate('(none)') + '</option>');
     if (filter.category !== '') {
-      for (var s in food_categories[filter.category]) {
+      Object.keys(food_categories[filter.category]).forEach(function eachSubCategory(s) {
         $('#rp_subcategory').append('<option value="' + s + '">' + s + '</option>');
-      }
+      });
     }
     doFoodFilter();
     return maybePrevent(event);
@@ -103,7 +101,7 @@
       o += translate('Portion')+': ' + food_list[i].portion + ' ';
       o += food_list[i].unit + ' | ';
       o += translate('Carbs')+': ' + food_list[i].carbs+' g';
-      $('#rp_food').append(new Option(o,food_list[i]._id));
+      $('#rp_food').append('<option val="' + food_list[i]._id + '">' + o + '</option>');
     }
     
     return maybePrevent(event);
@@ -146,17 +144,6 @@
   
   // ****** FOOD CODE END ******
 
-
-  function getTimeZoneOffset () {
-    var offset;
-    if (client.sbx.data.profile.getTimezone()) {
-      offset = moment().tz(client.sbx.data.profile.getTimezone())._offset;
-    } else {
-      offset = new Date().getTimezoneOffset();
-    }
-    return offset;
-  }
-  
   function prepareGUI() {
     $('.presetdates').click(function(event) { 
       var days = $(this).attr('days');
@@ -182,32 +169,18 @@
     
     $('#rp_targetlow').val(targetBGdefault[client.settings.units.toLowerCase()].low);
     $('#rp_targethigh').val(targetBGdefault[client.settings.units.toLowerCase()].high);
+
+    if (client.settings.scaleY === 'linear') {
+      $('#rp_linear').prop('checked', true);
+    } else {
+      $('#rp_log').prop('checked', true);
+    }
     
     $('.menutab').click(switchreport_handler);
 
     setDataRange(null,7);
   }
   
-  function rawIsigToRawBg(entry, cal) {
-    var raw = 0
-      , unfiltered = parseInt(entry.unfiltered) || 0
-      , filtered = parseInt(entry.filtered) || 0
-      , sgv = entry.y
-      , scale = parseFloat(cal.scale) || 0
-      , intercept = parseFloat(cal.intercept) || 0
-      , slope = parseFloat(cal.slope) || 0;
-
-    if (slope === 0 || unfiltered === 0 || scale === 0) {
-      raw = 0;
-    } else if (filtered === 0 || sgv < 40) {
-        raw = scale * (unfiltered - intercept) / slope;
-    } else {
-        var ratio = scale * (filtered - intercept) / slope / sgv;
-        raw = scale * ( unfiltered - intercept) / slope / ratio;
-    }
-    return Math.round(raw);
-  }
-
   function sgvToColor(sgv,options) {
     var color = 'darkgreen';
 
@@ -233,13 +206,14 @@
       , carbs: true
       , iob : true
       , cob : true
-      , scale: report_plugins.consts.SCALE_LINEAR
+      , scale: report_plugins.consts.scaleYFromSettings(client)
       , units: client.settings.units
     };
 
     // default time range if no time range specified in GUI
-    var timerange = '&find[created_at][$gte]='+new Date('1970-01-01').toISOString();
-    
+    var zone = client.sbx.data.profile.getTimezone();
+    var timerange = '&find[created_at][$gte]='+moment.tz('2000-01-01',zone).toISOString();
+    //console.log(timerange,zone);    
     options.targetLow = parseFloat($('#rp_targetlow').val().replace(',','.'));
     options.targetHigh = parseFloat($('#rp_targethigh').val().replace(',','.'));
     options.raw = $('#rp_optionsraw').is(':checked');
@@ -250,6 +224,7 @@
     options.insulin = $('#rp_optionsinsulin').is(':checked');
     options.carbs = $('#rp_optionscarbs').is(':checked');
     options.scale = ( $('#rp_linear').is(':checked') ? report_plugins.consts.SCALE_LINEAR : report_plugins.consts.SCALE_LOG );
+    options.order = ( $('#rp_oldestontop').is(':checked') ? report_plugins.consts.ORDER_OLDESTONTOP : report_plugins.consts.ORDER_NEWESTONTOP );
     options.width = parseInt($('#rp_size :selected').attr('x'));
     options.height = parseInt($('#rp_size :selected').attr('y'));
     
@@ -259,9 +234,10 @@
     function datefilter() {
       if ($('#rp_enabledate').is(':checked')) {
         matchesneeded++;
-        var from = moment($('#rp_from').val());
-        var to = moment($('#rp_to').val());
-        timerange = '&find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
+        var from = moment.tz($('#rp_from').val().replace(/\//g,'-') + 'T00:00:00',zone);
+        var to = moment.tz($('#rp_to').val().replace(/\//g,'-') + 'T23:59:59',zone);
+        timerange = '&find[created_at][$gte]='+from.toISOString()+'&find[created_at][$lt]='+to.toISOString();
+        //console.log($('#rp_from').val(),$('#rp_to').val(),zone,timerange);
         while (from <= to) {
           if (daystoshow[from.format('YYYY-MM-DD')]) { 
             daystoshow[from.format('YYYY-MM-DD')]++;
@@ -286,7 +262,7 @@
           $.ajax('/api/v1/treatments.json'+tquery, {
             success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
-                return moment(treatment.created_at).format('YYYY-MM-DD');
+                return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
               // unique it
               treatmentData = $.grep(treatmentData, function(v, k){
@@ -322,7 +298,7 @@
           $.ajax('/api/v1/treatments.json' + tquery + timerange, {
             success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
-                return moment(treatment.created_at).format('YYYY-MM-DD');
+                return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
               // unique it
               treatmentData = $.grep(treatmentData, function(v, k){
@@ -358,7 +334,7 @@
           $.ajax('/api/v1/treatments.json' + tquery + timerange, {
             success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
-                return moment(treatment.created_at).format('YYYY-MM-DD');
+                return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
               // unique it
               treatmentData = $.grep(treatmentData, function(v, k){
@@ -385,7 +361,7 @@
     
     function daysfilter() {
       matchesneeded++;
-      for (var d in daystoshow) {
+      Object.keys(daystoshow).forEach( function eachDay(d) {
         var day = new Date(d).getDay();
         if (day===0 && $('#rp_su').is(':checked')) { daystoshow[d]++; }
         if (day===1 && $('#rp_mo').is(':checked')) { daystoshow[d]++; }
@@ -394,13 +370,14 @@
         if (day===4 && $('#rp_th').is(':checked')) { daystoshow[d]++; }
         if (day===5 && $('#rp_fr').is(':checked')) { daystoshow[d]++; }
         if (day===6 && $('#rp_sa').is(':checked')) { daystoshow[d]++; }
-      }
+      });
       countDays();
       display();
     }
     
     function display() {
       var count = 0;
+      sorteddaystoshow = [];
       $('#info').html('<b>'+translate('Loading')+' ...</b>');
       for (var d in daystoshow) {
         if (daystoshow[d]===matchesneeded) {
@@ -410,6 +387,7 @@
             loadData(d, options, dataLoadedCallback);
           } else {
             $('#info').append($('<div>'+d+' '+translate('not displayed')+'.</div>'));
+            delete daystoshow[d];
           }
         } else {
           delete daystoshow[d];
@@ -426,18 +404,25 @@
     
     function countDays() {
       for (var d in daystoshow) {
-        if (daystoshow[d]===matchesneeded) {
-          if (dayscount < maxdays) {
-            dayscount++;
+        if (daystoshow.hasOwnProperty(d)) {
+          if (daystoshow[d]===matchesneeded) {
+            if (dayscount < maxdays) {
+              dayscount++;
+            }
           }
         }
       }
       console.log('Total: ', daystoshow, 'Matches needed: ', matchesneeded, 'Will be loaded: ', dayscount);
    }
     
-    function dataLoadedCallback () {
+    function dataLoadedCallback (day) {
       loadeddays++;
+      sorteddaystoshow.push(day);
       if (loadeddays === dayscount) {
+        sorteddaystoshow.sort();
+        if (options.order === report_plugins.consts.ORDER_NEWESTONTOP) {
+          sorteddaystoshow.reverse();
+        }
         showreports(options);
       }
     }
@@ -453,7 +438,7 @@
     // prepare some data used in more reports
     datastorage.allstatsrecords = [];
     datastorage.alldays = 0;
-    Object.keys(daystoshow).forEach(function (day) {
+    sorteddaystoshow.forEach(function eachDay(day) {
       datastorage.allstatsrecords = datastorage.allstatsrecords.concat(datastorage[day].statsrecords);
       datastorage.alldays++;
     });
@@ -465,7 +450,7 @@
       // jquery plot doesn't draw to hidden div
       $('#'+plugin.name+'-placeholder').css('display','');
       //console.log('Drawing ',plugin.name);
-      plugin.report(datastorage,daystoshow,options);
+      plugin.report(datastorage,sorteddaystoshow,options);
       if (!$('#'+plugin.name).hasClass('selected')) {
         $('#'+plugin.name+'-placeholder').css('display','none');
       }
@@ -495,7 +480,7 @@
   function loadData(day, options, callback) {
     // check for loaded data
     if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
-      callback();
+      callback(day);
       return;
     }
     // patientData = [actual, predicted, mbg, treatment, cal, devicestatusData];
@@ -505,8 +490,13 @@
       , treatmentData = []
       , calData = []
       ;
-    var dt = new Date(day);
-    var from = dt.getTime() + getTimeZoneOffset() * 60 * 1000;
+    var from;
+    if (client.sbx.data.profile.getTimezone()) {
+      from = moment(day).tz(client.sbx.data.profile.getTimezone()).startOf('day').format('x');
+    } else {
+      from = moment(day).startOf('day').format('x');
+    }
+    from = parseInt(from);
     var to = from + 1000 * 60 * 60 * 24;
     var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
     
@@ -593,9 +583,11 @@
 
     var cal = data.cal[data.cal.length-1];
     var temp1 = [ ];
+    var rawbg = Nightscout.plugins('rawbg');
     if (cal) {
       temp1 = data.sgv.map(function (entry) {
-        var rawBg = rawIsigToRawBg(entry, cal);
+        entry.mgdl = entry.y; // value names changed from enchilada
+        var rawBg = rawbg.calc(entry, cal);
         return { mills: entry.mills, date: new Date(entry.mills - 2 * 1000), y: rawBg, sgv: client.utils.scaleMgdl(rawBg), color: 'gray', type: 'rawbg', filtered: entry.filtered, unfiltered: entry.unfiltered };
       }).filter(function(entry) { return entry.y > 0});
     }
@@ -608,7 +600,12 @@
     data.sgv = data.sgv.concat(data.mbg.map(function (obj) { return { date: new Date(obj.mills), y: obj.y, sgv: client.utils.scaleMgdl(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 
     // make sure data range will be exactly 24h
-    var from = new Date(new Date(day).getTime() + (getTimeZoneOffset() * 60 * 1000));
+    var from;
+    if (client.sbx.data.profile.getTimezone()) {
+      from = moment(day).tz(client.sbx.data.profile.getTimezone()).startOf('day').toDate();
+    } else {
+      from = moment(day).startOf('day').toDate();
+    }
     var to = new Date(from.getTime() + 1000 * 60 * 60 * 24);
     data.sgv.push({ date: from, y: 40, sgv: 40, color: 'transparent', type: 'rawbg'});
     data.sgv.push({ date: to, y: 40, sgv: 40, color: 'transparent', type: 'rawbg'});
@@ -638,7 +635,7 @@
 
     
     datastorage[day] = data;
-    callback();
+    callback(day);
   }
 
   function maybePrevent(event) {
