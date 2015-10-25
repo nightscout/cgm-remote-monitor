@@ -26,67 +26,60 @@
 // DB Connection setup and utils
 ///////////////////////////////////////////////////
 
-var software = require('./package.json');
 var env = require('./env')( );
-var store = require('./lib/storage')(env);
-
-
-var express = require('express');
-
-var pushover = require('./lib/pushover')(env);
-///////////////////////////////////////////////////
-// api and json object variables
-///////////////////////////////////////////////////
-var entries = require('./lib/entries')(env.mongo_collection, store);
-var settings = require('./lib/settings')(env.settings_collection, store);
-var treatments = require('./lib/treatments')(env.treatments_collection, store, pushover);
-var devicestatus = require('./lib/devicestatus')(env.devicestatus_collection, store);
-var api = require('./lib/api/')(env, entries, settings, treatments, devicestatus);
-var pebble = require('./lib/pebble');
-///////////////////////////////////////////////////
+var language = require('./lib/language')();
+var translate = language.set(env.settings.language).translate;
 
 ///////////////////////////////////////////////////
 // setup http server
 ///////////////////////////////////////////////////
 var PORT = env.PORT;
 
-var app = express();
-var appInfo = software.name + ' ' + software.version;
-app.set('title', appInfo);
-app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
+function create (app) {
+  var transport = (env.ssl
+                ? require('https') : require('http'));
+  if (env.ssl) {
+    return transport.createServer(env.ssl, app);
+  }
+  return transport.createServer(app);
+}
 
-//if (env.api_secret) {
-//    console.log("API_SECRET", env.api_secret);
-//}
-app.use('/api/v1', api);
+require('./lib/bootevent')(env).boot(function booted (ctx) {
+    var app = require('./app')(env, ctx);
+    var server = create(app).listen(PORT);
+    console.log(translate('Listening on port'), PORT);
 
-// pebble data
-app.get('/pebble', pebble(entries, devicestatus));
+    if (env.MQTT_MONITOR) {
+      ctx.mqtt = require('./lib/mqtt')(env, ctx);
+      var es = require('event-stream');
+      es.pipeline(ctx.mqtt.entries, ctx.entries.map( ), ctx.mqtt.every(ctx.entries));
+    }
 
-//app.get('/package.json', software);
+    ///////////////////////////////////////////////////
+    // setup socket io for data and message transmission
+    ///////////////////////////////////////////////////
+    var websocket = require('./lib/websocket')(env, ctx, server);
 
-// define static server
-//TODO: JC - changed cache to 1 hour from 30d ays to bypass cache hell until we have a real solution
-var staticFiles = express.static(env.static_files, {maxAge: 60 * 60 * 1000});
+    ctx.bus.on('data-processed', function() {
+      websocket.update();
+    });
 
-// serve the static content
-app.use(staticFiles);
+    ctx.bus.on('notification', function(notify) {
+      websocket.emitNotification(notify);
+      if (ctx.mqtt) {
+        ctx.mqtt.emitNotification(notify);
+      }
+    });
 
-// Handle errors with express's errorhandler, to display more readable error messages.
-var errorhandler = require('errorhandler');
-//if (process.env.NODE_ENV === 'development') {
-  app.use(errorhandler());
-//}
-
-store(function ready ( ) {
-  var server = app.listen(PORT);
-  console.log('listening', PORT);
-
-  ///////////////////////////////////////////////////
-  // setup socket io for data and message transmission
-  ///////////////////////////////////////////////////
-  var websocket = require('./lib/websocket');
-  var io = websocket(env, server, entries, treatments);
+    //after startup if there are no alarms send all clear
+    setTimeout(function sendStartupAllClear () {
+      var alarm = ctx.notifications.findHighestAlarm();
+      if (!alarm) {
+        ctx.bus.emit('notification', {
+          clear: true
+          , title: 'All Clear'
+          , message: 'Server started without alarms'
+        });
+      }
+    }, 20000);
 });
-
-///////////////////////////////////////////////////
