@@ -4,302 +4,644 @@
 
 
 html, body {
-    height: 100%;
-    margin: 0;
-    padding: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 body {
-    font-family: 'Open Sans', Helvetica, Arial, sans-serif;
-    fill: #fff;
-    background: #000;
-    color: #808080;
+  font-family: 'Open Sans', Helvetica, Arial, sans-serif;
+  background: #000;
+  color: #bdbdbd;
 }
-
-
-/* BEGIN: Dolphin/Stock Android Browser Fix */
-@media (max-width: 700px) {
-    .bgStatus {
-        width: 100% !important;
-    }
-}
-#chartContainer {
-    top: 225px; /*(toolbar height + status height)*/
-}
-/* END: Dolphin/Stock Android Browser Fix */
-
 
 .container {
-    bottom: 0;
-    display: block;
-    height: 100%;
-    left: 0;
-    margin: 0;
-    padding: 0;
-    top: 45px;
-    width: 100%;
-    z-index: 2;
+  bottom: 0;
+  display: block;
+  height: 100%;
+  left: 0;
+  margin: 0;
+  padding: 0;
+  top: 45px;
+  width: 100%;
+  z-index: 2;
 }
 
-.status {
-    font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
-    height: 180px;
-    vertical-align: middle;
-    clear: both;
+#container.announcing .customTitle {
+  color: orange;
+}
+
+#container.alarming.urgent .customTitle {
+  color: red;
+}
+
+#container.alarming.warning .customTitle {
+  color: yellow;
+}
+
+.primary {
+  font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
+  vertical-align: middle;
+  clear: both;
 }
 
 .bgStatus {
-    float: right;
-    font-size: 900%;
-    margin-right: 25px;
-    text-align: center;
-    white-space: nowrap;
+  float: right;
+  text-align: center;
+  white-space: nowrap;
+  padding-right: 20px;
 }
+
+.urgent .bgButton {
+  color: red;
+}
+
+.warning .bgButton {
+  color: yellow;
+}
+
+.inrange .bgButton {
+  color: #4cff00;
+}
+
 .bgStatus .currentBG {
-    text-decoration: line-through;
+  font-size: 120px;
+  line-height: 100px;
+  text-decoration: line-through;
+  vertical-align: middle;
 }
+
+.bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+  font-size: 90px;
+}
+
+.bgStatus .pill.direction {
+  font-weight: normal;
+  text-decoration: none;
+  font-size: 90px;
+  line-height: 90px;
+  vertical-align: middle;
+  border: none;
+  background: none;
+}
+
+.bgStatus .majorPills {
+  font-size: 30px;
+  line-height: 34px;
+}
+
+.minorPills {
+  font-size: 22px;
+  line-height: 25px;
+  z-index: 500;
+  white-space: normal;
+}
+
+.majorPills > span:not(:first-child) {
+  margin-left: 5px;
+}
+
+.minorPills > span:not(:first-child) {
+  margin-left: 5px;
+}
+
+.pill {
+  white-space: nowrap;
+  border-radius: 5px;
+  border: 2px solid #808080;
+  background: #808080;
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 2px 0;
+}
+
+.pill em, .pill label {
+  padding: 2px;
+  white-space: nowrap;
+}
+
+.pill em {
+  font-style: normal;
+  font-weight: bold;
+  background: #000;
+  border-radius: 3px;
+}
+
+.pill label {
+  color: #000;
+}
+
+.container .pill.warn em {
+  color: yellow;
+}
+
+.container .pill.urgent em {
+  color: red;
+}
+
+.alarming-timeago #lastEntry.pill.warn {
+  border-color: yellow;
+}
+.alarming-timeago #lastEntry.pill.warn label {
+  background: yellow;
+}
+
+.alarming-timeago #lastEntry.pill.urgent {
+  border-color: red;
+}
+.alarming-timeago #lastEntry.pill.urgent label {
+  background: red;
+}
+
 .bgStatus.current .currentBG {
-    text-decoration: none;
-}
-.currentDirection {
-    font-weight: normal;
-    text-decoration: none;
+  text-decoration: none;
 }
 
-.status.toolbarClosed .bgStatus {
-    font-size:990%;
-
+.alarming-timeago .bgStatus.current .currentBG {
+  text-decoration: line-through;
 }
 
-.time {
-    font-size: 600%;
-    padding-top: 15px;
+.status {
+  color: #808080;
+  font-size: 100px;
 }
-.timebox {
-    text-align: center;
-    width: 250px;
+.statusBox {
+  text-align: center;
+  width: 250px;
 }
-.timeOther {
-    font-size: 25%;
+.statusPills {
+  font-size: 20px;
+  line-height: 23px;
 }
-#lastEntry {
-    background: #999;
-    border-radius: 5px;
-    color: #000;
-    padding: 0.25em;
+
+.loading .statusPills {
+  display: none;
 }
-#lastEntry.warn {
-    background: #cc0 !important;
+
+.statusPills .pill {
+  background: #808080;
+  border-color: #808080;
 }
-#lastEntry.urgent {
-    background: #c00 !important;
+
+.statusPills .pill em {
+  color: #bdbdbd;
 }
 
 #chartContainer {
-    background: #111;
-    bottom:0;
-    display: block;
-    height:auto;
-    left:0;
-    position:absolute;
-    right:0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: auto;
+  font-size: 20px;
+  background: #111;
+  display: block;
+  position: absolute;
+  margin: 2px;
+  overflow: hidden;
 }
+
 #chartContainer svg {
-    height: calc(100vh - (180px + 45px));
-    width: 100%;
-    top: calc(45px + 180px);
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
-.axis path,
-.axis line {
-  fill: none;
-  stroke: #ffffff;
-  shape-rendering: crispEdges;
-}
-
-.open-right, .open-left {
-  shape-rendering: crispEdges;
-}
-.grid path, .axis line {
-  stroke: #808080;
-  stroke-opacity: 1;
-}
-
-.brush .extent {
-  stroke: #ffffff;
-  stroke-opacity: 0;
-  fill-opacity: 0;
-}
-
-
-#noButton {
-  padding: 2px;
-}
-
-#bgButton,
 #silenceBtn {
-    z-index: 99;
+  z-index: 99;
+  border-radius: 5px;
+  border: 2px solid #bdbdbd;
 }
 
-#bgButton {
-    background: #ff2035;
-    border: 2px solid #DDD;
-    border-right: 2px solid #ccc;
-    border-bottom: 2px solid #ccc;
-    border-radius: 5px;
-    box-shadow: 2px 4px 6px #ddd;
-    color: #000000;
-    cursor: default;
-    font-size: 75%;
-    margin-top: 15px;
-    margin-right: 37px;
-    width: auto;
-
-    user-select: none;
-    -moz-border-radius: 5px;
-    -webkit-border-radius: 5px;
-    -moz-box-shadow: 2px 2px 4px #ddd;
-    -webkit-box-shadow: 2px 2px 4px #ddd;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    -khtml-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
+#silenceBtn a {
+  font-size: 40px
 }
 
-.bgButton:active {
-    background: #850406;
-    border: 2px solid #999;
-    box-shadow: none;
-
-    -moz-box-shadow: none;
-    -webkit-box-shadow: none;
+.bgButton {
+  margin: 10px;
+  border: 2px solid #000;
+  border-radius: 5px;
+  width: 360px;
 }
+
+.loading .pill.rawbg {
+  display: none;
+}
+
+.pill.rawbg {
+  display: inline-block;
+  border-radius: 2px;
+  border: 1px solid #808080;
+  padding: 0;
+}
+
+.pill.rawbg em {
+  color: white;
+  background-color: black;
+  display: block;
+  font-size: 20px;
+  border-radius: 0;
+  padding: 0 2px;
+}
+
+.pill.rawbg label {
+  display: block;
+  font-size: 14px;
+  padding: 0 2px;
+}
+
+.alarming .bgButton {
+  border-color: #bdbdbd;
+  color: #000;
+  box-shadow: 2px 2px 0 #ddd;
+}
+
+.alarming.urgent .bgButton {
+  background-color: red;
+}
+
+.alarming.warning .bgButton {
+  background-color: yellow;
+}
+
+.alarming .bgButton:active {
+  border: 2px solid #bdbdbd;
+  box-shadow: none;
+  -moz-box-shadow: none;
+  -webkit-box-shadow: none;
+}
+
 
 .button {
-    text-align: center;
-    background: #ababab;
-    margin: 10px auto;
+  text-align: center;
+  background: #ababab;
+  margin: 10px auto;
 }
 
-div.tooltip {   
-        position: absolute;           
-        text-align: left;           
-        width: fit-content;                  
-        height: fit-content;                 
-        padding: 2px;             
-        font: 14px sans-serif;        
-        background: white;   
-        border: 0px;      
-        border-radius: 8px;           
-        pointer-events: none;         
-}
-
-#silenceBtn, #silenceBtn * {
-    font-size: 70%;
+.tooltip {
+  top: 0;
+  left: 0;
+  color: #444;
+  position: absolute;
+  text-align: left;
+  padding: 4px;
+  font-size: 14px;
+  line-height: 15px;
+  background: white;
+  border: 0;
+  border-radius: 8px;
+  float: right;
+  min-width: 150px;
 }
 
 .alarms {
-    display: none;
+  display: none;
 }
 
-#testAlarms {
-    font-size: 20%;
+.loading .focus-range {
+  display: none;
 }
 
-/* Large desktop */
-@media (min-width: 980px) {
-    .content {
-        padding-top: 20px;
-    }
-    .linediv-l {
-        border-right: 1px white solid;
-    }
-    .linedic-r {
-        border-left: 1px white solid;
-    }
+.focus-range {
+  list-style: none;
+  margin: 4px;
+  padding: 0;
+  color: #808080;
+  width: 250px;
+  text-align: center;
 }
 
-@media (max-width: 768px) {
-    #chartContainer {
-        font-size: 150%;
-    }
-    .bgStatus {
-        width: 50%;
-    }
+.focus-range li {
+  display: inline-block;
+  font-size: 18px;
+  white-space: nowrap;
+  border-radius: 5px;
+  border: 2px solid #000;
+  cursor: pointer;
 }
 
-@media (max-width: 700px) {
-    body {
-        font-size: 70%;
-    }
-
-    #notification {
-        margin-top: 148px;
-    }
-
-    .status {
-        text-align: center;
-        margin-bottom: 0;
-        height: 152px;
-    }
-
-    /* Unremark to test alert/silence button + menu. */
-    /* #noButton {display:none;}
-    #bgButton {display:block;} */
-
-    .bgStatus {
-        font-size: 900%;
-        float: none;
-        margin: 0 auto;
-        padding: 0;
-        text-align: center;
-        width: 100vw;
-    }
-    .status.toolbarClosed .bgStatus {
-        font-size: 990%;
-        margin-top: 10px;
-    }
-    #bgButton {
-        font-size: 120%;
-        height: 142px;
-        margin-top: 1vw;
-        width: 98vw;
-    }
-    .dropdown-menu {
-        font-size: 60% !important;
-        margin-left: 2vw;
-        width: 96vw;
-    }
-    .time {
-        margin-bottom: 0.1em;
-        margin-top: -1em;
-        margin-left: 0;
-        width: 100%;
-    }
-    .timebox {
-        text-align: none;
-        width: auto;
-    }
-    #currentTime {
-        display: inline;
-        font-size: 25%;
-        font-weight: bold;
-    }
-    .timeOther {
-        display: inline;
-        margin-left: auto;
-    }
-
-    #chartContainer {
-        top: calc(152px + 45px);
-    }
-    #chartContainer svg {
-        height: calc(100vh - (152px + 45px));
-    }
+.focus-range .selected {
+  border-color: #808080;
+  color: #000;
+  background: #808080;
 }
 
-@media (max-width: 480px) {
+.pill.hidden {
+  display: none;
+}
+
+@media (max-width: 800px) {
+  .bgStatus {
+    width: 300px;
+  }
+
+  .bgButton {
+    width: auto;
+  }
+
+  .bgStatus .currentBG {
+    font-size: 80px;
+    line-height: 80px;
+  }
+
+  .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+    font-size: 70px;
+  }
+
+  .bgStatus .pill.direction {
+    font-size: 70px;
+    line-height: 70px;
+  }
+
+  .bgStatus .majorPills {
+    font-size: 20px;
+    line-height: 24px;
+  }
+
+  .bgStatus .minorPills {
+    font-size: 16px;
+    line-height: 18px;
+  }
+
+  .status {
+    font-size: 70px;
+    padding-top: 8px;
+  }
+
+  .statusPills {
+    font-size: 15px;
+    line-height: 17px;
+  }
+
+  .focus-range {
+    margin: 0;
+  }
+
+  .focus-range li {
+    font-size: 14px;
+  }
+
+  #silenceBtn a {
+    font-size: 30px;
+  }
+
   #chartContainer {
-      font-size: 150%;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 750px) {
+  .bgStatus {
+    width: 240px;
+    padding: 0;
+  }
+
+  .pill.rawbg em {
+    font-size: 14px;
+  }
+
+  .pill.rawbg label {
+    font-size: 12px;
+  }
+
+  .bgStatus .currentBG {
+    font-size: 70px;
+    line-height: 60px;
+  }
+
+  .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+    font-size: 50px;
+  }
+
+  .bgStatus .pill.direction {
+    font-size: 50px;
+    line-height: 50px;
+  }
+
+  .bgStatus .majorPills {
+    font-size: 15px;
+    line-height: 17px;
+  }
+
+  .bgStatus .minorPills {
+    font-size: 12px;
+    line-height: 13px;
+  }
+
+  .status {
+    font-size: 50px;
+    width: 250px;
+  }
+}
+
+@media (max-width: 400px) {
+  .primary {
+    text-align: center;
+    margin-bottom: 0;
+  }
+
+  .bgStatus {
+    float: none;
+    padding: 0;
+    text-align: center;
+    width: 250px;
+  }
+
+
+  .bgButton {
+    margin: 5px;
+    width: auto;
+  }
+
+  .bgStatus .currentBG {
+    font-size: 70px;
+    line-height: 70px;
+  }
+
+  .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+    font-size: 60px;
+    padding-left: 20px;
+  }
+
+  .bgStatus .pill.direction {
+    font-size: 60px;
+    line-height: 60px;
+  }
+
+  .bgStatus .majorPills {
+    font-size: 15px;
+    line-height: 17px;
+  }
+
+  .bgStatus .minorPills {
+    font-size: 12px;
+    line-height: 13px;
+  }
+
+  #silenceBtn a {
+    font-size: 20px;
+  }
+
+  .status {
+    padding-top: 0;
+    font-size: 20px;
+  }
+
+  .statusBox {
+    width: auto;
+  }
+
+  #currentTime {
+    display: inline;
+    vertical-align: middle;
+  }
+
+  .statusPills {
+    display: inline;
+    margin-left: auto;
+    font-size: 12px;
+    line-height: 13px;
+  }
+
+  .focus-range {
+    position: absolute;
+    top: 60px;
+    left: auto;
+    right: 10px;
+    margin: 0;
+    width: auto;
+  }
+
+  .focus-range li {
+    display: block;
+  }
+}
+
+@media (max-height: 700px) {
+  #chartContainer {
+    font-size: 14px;
+  }
+}
+
+@media (max-height: 600px) {
+  #chartContainer {
+    font-size: 12px;
+  }
+}
+
+@media (max-height: 480px) {
+  #toolbar {
+    float: right;
+    height: auto;
+  }
+
+  #toolbar .customTitle {
+    display: none;
+  }
+
+  .container {
+    top: 15px;
+    padding-bottom: 20px;
+  }
+
+  #chartContainer {
+    font-size: 10px;
+  }
+}
+
+@media (max-height: 480px) and (min-width: 400px) {
+  .bgStatus .currentBG {
+    font-size: 70px;
+    line-height: 60px;
+  }
+
+  .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+    font-size: 70px;
+  }
+
+  .bgStatus .pill.direction {
+    font-size: 50px;
+    line-height: 50px;
+  }
+
+  .bgStatus .majorPills {
+    font-size: 15px;
+    line-height: 17px;
+  }
+
+  .bgStatus .minorPills {
+    font-size: 12px;
+    line-height: 13px;
+  }
+
+  .status {
+    font-size: 50px;
+    padding-top: 5px;
+  }
+
+  .statusPills {
+    font-size: 15px;
+    line-height: 17px;
+  }
+
+}
+
+@media (max-height: 480px) and (max-width: 400px) {
+
+  .bgStatus {
+    text-align: center;
+    width: 220px;
+    left: 0;
+  }
+
+  .bgStatus .currentBG {
+    font-size: 60px;
+    line-height: 60px;
+  }
+
+  .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+    font-size: 60px;
+  }
+
+  .bgStatus .pill.direction {
+    font-size: 50px;
+    line-height: 50px;
+  }
+
+  .bgStatus .majorPills {
+    font-size: 15px;
+    line-height: 17px;
+  }
+
+  .bgStatus .minorPills {
+    font-size: 12px;
+    line-height: 13px;
+  }
+
+  #silenceBtn {
+    right: -25px;
+  }
+
+  .focus-range {
+    position: absolute;
+    top: 40px;
+    left: auto;
+    right: 35px;
+    margin: 0;
+    width: auto;
+  }
+
+  .focus-range li {
+    display: block;
+  }
+
+  .statusBox {
+    width: 220px;
+  }
+
+  .statusPills {
+    display: inline;
+    margin-left: auto;
+    font-size: 12px;
+    line-height: 13px;
   }
 }
