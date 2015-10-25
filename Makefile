@@ -22,6 +22,7 @@ MOCHA=./node_modules/mocha/bin/_mocha
 # Pinned from dependency list.
 ISTANBUL=./node_modules/.bin/istanbul
 ANALYZED=./coverage/lcov.info
+export CODACY_REPO_TOKEN=e29ae5cf671f4f918912d9864316207c
 
 all: test
 
@@ -36,6 +37,9 @@ report:
 	test -f ${ANALYZED} && \
 	(npm install codecov.io && cat ${ANALYZED} | \
 	./node_modules/codecov.io/bin/codecov.io.js) || echo "NO COVERAGE"
+	test -f ${ANALYZED} && \
+	(npm install codacy-coverage && cat ${ANALYZED} | \
+	YOURPACKAGE_COVERAGE=1 ./node_modules/codacy-coverage/bin/codacy-coverage.js) || echo "NO COVERAGE"
 
 test:
 	${MONGO_SETTINGS} ${MOCHA} -R tap ${TESTS}
