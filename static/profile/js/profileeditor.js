@@ -313,6 +313,9 @@
       delete record.store[currentprofile];
       dirty = true;
     }
+    if (newpr === currentprofile) { // fake call to update values
+      newpr = newname;
+    }
     currentprofile = newpr;
     initProfile();
 
@@ -611,7 +614,7 @@
       return false;
     }
 
-    GUIToObject(event);
+    profileChange(event);
     var record = mongorecords[currentrecord];
     record.startDate = new Date(client.utils.mergeInputTime(timeInput.val(), dateInput.val())).toISOString( );
     
