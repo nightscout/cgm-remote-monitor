@@ -9,6 +9,7 @@ describe('Throttle', function ( ) {
 
   var api = require('../lib/api/');
   before(function (done) {
+    delete process.env.API_SECRET;
     process.env.API_SECRET = 'this is my long pass phrase';
     self.env = require('../env')();
     this.wares = require('../lib/middleware/')(self.env);
