@@ -245,7 +245,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * `CAGE_WARN` (`48`) - If time since last `Site Change` matches `CAGE_WARN`, user will be alarmed to to change the cannula
     * `CAGE_URGENT` (`72`) - If time since last `Site Change` matches `CAGE_URGENT`, user will be issued a persistent warning of overdue change.
   * `treatmentnotify` (Treatment Notifications) - Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.  Default snooze is 10 minutes, and can be set using the `TREATMENTNOTIFY_SNOOZE_MINS` [extended setting](#extended-settings).
-  * `basal` (Basal Profile) - Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile).
+  * `basal` (Basal Profile) - Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile). Also uses the extended setting:
+    * `BASAL_RENDER` (`none`) - Possible values are `none`, `default`, or `icicle` (inverted)
   * `bridge` (Share2Nightscout bridge) - Glucose reading directly from the Share service, uses these extended settings:
     * `BRIDGE_USER_NAME` - Your user name for the Share service.
     * `BRIDGE_PASSWORD` - Your password for the Share service.
