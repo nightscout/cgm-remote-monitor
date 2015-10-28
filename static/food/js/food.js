@@ -28,7 +28,7 @@ var client = Nightscout.client;
     , unit: 'g'
   };
 
-  var foodunits = ['g', 'ml', 'pcs'];
+  var foodunits = ['g', 'ml', 'pcs', 'oz'];
   
   var foodrec = _.cloneDeep(foodrec_template);
 
