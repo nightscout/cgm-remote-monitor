@@ -82,10 +82,8 @@ describe('profile editor', function ( ) {
       self.$.ajax = function mockAjax (url, opts) {
         return {
           done: function mockDone (fn) {
-            if (opts && opts.success && opts.success.call) {
-              opts.success([exampleProfile]);
-            }
-            fn();
+            exampleProfile._id = 'abcdef';
+            fn(exampleProfile,'success');
             return {
               fail: function () {}
             };
