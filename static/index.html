@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <title>Nightscout</title>
+      <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
+      <meta name="apple-mobile-web-app-capable" content="yes">
+      <title>Nightscout</title>
 
       <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
       <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
@@ -25,12 +25,12 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.8.2-beta2" />
-        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.8.2-beta2" />
-        <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-        <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.8.2-beta2" />
-        <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
-        <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">    
+      <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.8.2-beta2" />
+      <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.8.2-beta2" />
+      <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
+      <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.8.2-beta2" />
+      <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
+      <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">    
     </head>
     <body>
         <div class="container loading" id="container">
@@ -320,7 +320,7 @@
                     <span style="float:right" id="bc_inzulinbg">0.00</span>
                   </td>
                 </tr>
-                <tr class="foodinput">
+                <tr class="foodinput" style="display:none">
                   <td colspan="3" id="bc_gitd">
                     <span class="translate">GI</span>:
                     <select style="float:right;" id="bc_gi">
@@ -334,6 +334,7 @@
                 <tr class="foodinput">
                   <td colspan="3">
                     <span class="translate">Quickpick</span>: 
+                    <br>
                     <select style="float:right;" id="bc_quickpick"></select>
                     <br>
                     <span id="bc_addfoodarea">
@@ -523,6 +524,10 @@
                 <input type="time" id="bc_eventTimeValue" name="bc_eventTimeValue" value="" class="bc_eventtimeinput"/>
               </div>
               <div id="bc_retro" class="translate" style="display:none;width:100%;background-color:red;text-align: center;border: 2px solid black;border-radius: 10px;margin-top:10px;">RETRO MODE</div>
+              <label id="bc_profileLabel" for="preBolus" class="left-column short-label extra-space">
+                <span class="translate">Profile</span>: 
+                <select id="bc_profile" class="insulincalculationpart"></select>
+              </label>
             </fieldset>
             <button type="button" class="translate">Submit Form</button>
           </form>
