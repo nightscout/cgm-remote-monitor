@@ -15,7 +15,6 @@
   var databaseRecords = $('#pe_databaserecords');
   var timeInput = $('#pe_time');
   var dateInput = $('#pe_date');
-  var submitButton = $('#pe_submit');
 
   if (serverSettings === undefined) {
     console.error('server settings were not loaded, will not call init');
@@ -96,12 +95,12 @@
           _.each(mongoprofile.store, function eachStoredProfile (p) {
             // allign with default profile
             for (var key in defaultprofile) {
-              if (!p.hasOwnProperty(key)) {
+              if (defaultprofile.hasOwnProperty(key) && !p.hasOwnProperty(key)) {
                   p[key] = defaultprofile[key];
               }
             }
-            for (var key in p) {
-              if (!defaultprofile.hasOwnProperty(key)) {
+            for (key in p) {
+              if (p.hasOwnProperty(key) && !defaultprofile.hasOwnProperty(key)) {
                   delete p[key];
               }
             }
@@ -307,7 +306,7 @@
     if (currentprofile !== newname) {
       // rename if already exists
       while (record.store[newname]) {
-        newname += '1'
+        newname += '1';
       }
       record.store[newname] = record.store[currentprofile];
       delete record.store[currentprofile];
@@ -325,7 +324,7 @@
   
   function profileAdd (event) {
     var record = mongorecords[currentrecord];
-    var newname = "New profile";
+    var newname = 'New profile';
     while (record.store[newname]) {
       newname += '1'
     }
@@ -355,7 +354,7 @@
   function profileClone (event) {
     GUIToObject();
     var record = mongorecords[currentrecord];
-    var newname = $('#pe_profile_name').val() + " (copy)";
+    var newname = $('#pe_profile_name').val() + ' (copy)';
     while (record.store[newname]) {
       newname += '1'
     }
