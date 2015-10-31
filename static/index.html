@@ -113,6 +113,16 @@
                         </select>
                       </dd>
                     </dl>
+                    <dl>
+                      <dt class="translate">Render Basal</dt>
+                      <dd>
+                        <select id="basalrender">
+                          <option class="translate" value="none">None</option>
+                          <option class="translate" value="default">Default</option>
+                          <option class="translate" value="icicle">Icicle</option>
+                        </select>
+                      </dd>
+                    </dl>
                     <dl class="toggle">
                         <dt><span class="translate">Enable Alarms</span> <a class="tip" original-title="When enabled an alarm may sound."><i class="icon-help-circled"></i></a></dt>
                         <dd><input type="checkbox" id="alarm-urgenthigh-browser" /><label for="alarm-urgenthigh-browser" class="translate">Urgent High Alarm</label></dd>
@@ -211,7 +221,7 @@
                     </label>
                     <label id="durationLabel" for="duration" class="left-column short-label">
                         <span class="translate">Duration</span>
-                        <input type="number" step="any" min="0" id="duration" placeholder="Duration in minutes" class="titletranslate"/>
+                        <input id="duration" placeholder="Duration in minutes" class="titletranslate"/>
                     </label>
                     <label id="percentLabel" for="percent" class="left-column short-label">
                         <span class="translate">Percent</span>
