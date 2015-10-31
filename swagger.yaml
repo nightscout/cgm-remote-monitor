@@ -311,7 +311,7 @@ paths:
         "405":
           description: Invalid input
         "401":
-          description: Unauthorized ( API Secret Incorrect ?)
+          description: Unauthorized 
         "200":
           description: Rejected list of entries.  Empty list is success.
     delete:
