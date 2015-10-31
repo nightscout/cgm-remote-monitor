@@ -9,11 +9,14 @@ info:
 basePath: /api/v1
 produces:
   - application/json
+security:
+  - api_secret: []
 securityDefinitions:
-    key:
-        type: apiKey
-        in: header
-        name: api_secret
+  api_secret:
+    type: apiKey
+    name: api_secret
+    in: header
+    description: The hash of the API_SECRET env var
 
 paths:
 
@@ -418,12 +421,6 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-securityDefinitions:
-  api_secret:
-    type: apiKey
-    name: api_secret
-    in: header
-    description: The hash of the API_SECRET env var
 
 definitions:
   Entry:
