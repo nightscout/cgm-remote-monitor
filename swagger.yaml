@@ -9,8 +9,11 @@ info:
 basePath: /api/v1
 produces:
   - application/json
-security:
-  - api_secret: []
+securityDefinitions:
+    key:
+        type: apiKey
+        in: header
+        name: api_secret
 
 paths:
 
@@ -304,6 +307,8 @@ paths:
       responses:
         "405":
           description: Invalid input
+        "401":
+          description: Unauthorized ( API Secret Incorrect ?)
         "200":
           description: Rejected list of entries.  Empty list is success.
     delete:
