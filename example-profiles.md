@@ -82,40 +82,46 @@ These are only examples, make sure you update all fields to fit your needs
    ```[ { XXX, startDate: xxx }, { YYY, startDate: yyy } ]```
   
    converted data
-   ```[
+   ```
+   [
      {
-       defaultProfile: 'Default'
+       defaultProfile: "Default"
        , store: {
-         'Default' : { XXX }
+         "Default" : { XXX }
        }
        , startDate: xxx
      }
      , {
-       defaultProfile: 'Default'
+       defaultProfile: "Default"
        , store: {
-         'Default' : { YYY }
+         "Default" : { YYY }
        }
        , startDate: yyy
      }
-   ]```
+   ]
+   ```
   
    example of one new profile
   
-     ```{
-       defaultProfile: '2-Weekend'
-       , store: {
-         '1-Weekday' : { AAA }
-         '2-Weekend' : { BBB }
-         '3-Exercise' : { CCC }
-       }
-       , startDate: xxx
-     }```
+  ```
+  {
+    defaultProfile: "2-Weekend"
+    , store: {
+      "1-Weekday" : { AAA }
+      "2-Weekend" : { BBB }
+      "3-Exercise" : { CCC }
+    }
+    , startDate: xxx
+  }
+  ```
   
    for basals currently used profile will be determined by last treatment record of format
-   ```{ 
-     eventType: 'Profile Change'
-     , profile: '2-Weekend'
-   }```
+   ```
+   { 
+     eventType: "Profile Change"
+     , profile: "2-Weekend"
+   }
+   ```
   
    for boluscalc profile used for calculation will be specified by key `profile` 
    
