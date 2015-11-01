@@ -12,7 +12,7 @@ describe('STORAGE', function () {
   });
 
   it('The storage class should be OK.', function (done) {
-    should(require('../lib/storage')).be.ok;
+    should.exist(require('../lib/storage'));
     done();
   });
 
@@ -46,7 +46,7 @@ describe('STORAGE', function () {
 
     (function () {
       return require('../lib/storage')(env, false, true);
-    }).should.throw('URL must be in the format mongodb://user:pass@host:port/dbname');
+    }).should.throw(Error);
 
     done();
   });
