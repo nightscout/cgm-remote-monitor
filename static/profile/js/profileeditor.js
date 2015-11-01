@@ -429,7 +429,7 @@
 
   function toDisplayTime (minfrommidnight) {
     var time = moment().startOf('day').add(minfrommidnight,'minutes');
-    return client.settings.timeFormat === '24' ? time.format('HH:mm') : time.format('h:mm A');
+    return client.settings.timeFormat === 24 ? time.format('HH:mm') : time.format('h:mm A');
   }
   
   function profileSubmit(event) {
