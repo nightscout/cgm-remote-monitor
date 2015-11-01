@@ -30,7 +30,8 @@ var nowData = {
   ], devicestatus: { uploaderBattery: 100 }
   , treatments: [
     {
-      insulin: '1.00'
+      eventType: 'Snack Bolus'
+      , insulin: '1.00'
       , carbs: '18'
       , mills: now
     }
