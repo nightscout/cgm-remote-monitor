@@ -10,6 +10,7 @@
     , units: require('../lib/units')()
     , plugins: require('../lib/plugins/')().registerClientDefaults()
     , report_plugins: require('../lib/report_plugins/')()
+    , admin_plugins: require('../lib/admin_plugins/')()
   };
 
   console.info('Nightscout bundle ready');
