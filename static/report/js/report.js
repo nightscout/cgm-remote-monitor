@@ -169,6 +169,12 @@
     
     $('#rp_targetlow').val(targetBGdefault[client.settings.units.toLowerCase()].low);
     $('#rp_targethigh').val(targetBGdefault[client.settings.units.toLowerCase()].high);
+
+    if (client.settings.scaleY === 'linear') {
+      $('#rp_linear').prop('checked', true);
+    } else {
+      $('#rp_log').prop('checked', true);
+    }
     
     $('.menutab').click(switchreport_handler);
 
@@ -200,7 +206,8 @@
       , carbs: true
       , iob : true
       , cob : true
-      , scale: report_plugins.consts.SCALE_LINEAR
+      , basal : true
+      , scale: report_plugins.consts.scaleYFromSettings(client)
       , units: client.settings.units
     };
 
@@ -213,6 +220,7 @@
     options.raw = $('#rp_optionsraw').is(':checked');
     options.iob = $('#rp_optionsiob').is(':checked');
     options.cob = $('#rp_optionscob').is(':checked');
+    options.basal = $('#rp_optionsbasal').is(':checked');
     options.notes = $('#rp_optionsnotes').is(':checked');
     options.food = $('#rp_optionsfood').is(':checked');
     options.insulin = $('#rp_optionsinsulin').is(':checked');
@@ -414,10 +422,11 @@
       sorteddaystoshow.push(day);
       if (loadeddays === dayscount) {
         sorteddaystoshow.sort();
+        var from = sorteddaystoshow[0];
         if (options.order === report_plugins.consts.ORDER_NEWESTONTOP) {
           sorteddaystoshow.reverse();
         }
-        showreports(options);
+        loadTempBasals(from, function showreportscallback() { showreports(options); });
       }
     }
     
@@ -564,6 +573,24 @@
     });
   }
 
+  function loadTempBasals(from, callback) {
+    $('#info-' + from).html('<b>'+translate('Loading temp basal data') + ' ...</b>');
+    var tquery = '?find[created_at][$gte]='+moment(from).subtract(32, 'days').toISOString()+'&find[eventType][$eq]=Temp Basal';
+    $.ajax('/api/v1/treatments.json'+tquery, {
+      success: function (xhr) {
+        var treatmentData = xhr.map(function (treatment) {
+          var timestamp = new Date(treatment.timestamp || treatment.created_at);
+          treatment.mills = timestamp.getTime();
+          return treatment;
+        });
+        datastorage.tempbasaltreatments = treatmentData.slice();
+        datastorage.tempbasaltreatments.sort(function(a, b) { return a.mills - b.mills; });
+      }
+    }).done(function () {
+      callback();
+    });
+  }
+  
   function processData(data, day, options, callback) {
     // treatments
     data.treatments.forEach(function (d) {
