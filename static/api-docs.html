@@ -82,9 +82,8 @@
           shasum.update( key );
 
           var hexauth = shasum.digest('hex');
-          api_secret_hash = hexauth;
           console.log('hexauth ' + hexauth );
-          var apiKeyAuth = new SwaggerClient.ApiKeyAuthorization('api-secret', hexauth, 'header');
+          var apiKeyAuth = new SwaggerClient.ApiKeyAuthorization('api-secret', key, 'header');
           window.swaggerUi.api.clientAuthorizations.add('api-secret', apiKeyAuth );
           console.log('added key ' + key);
         }
@@ -104,7 +103,6 @@
     <form id='api_selector'>
       <div class='input'><input placeholder="http://example.com/api" id="input_baseUrl" name="baseUrl" type="text"/></div>
       <div class='input'><input placeholder="api_secret" id="input_apiKey" name="apiKey" type="text"/></div>
-      <div class='output'><label id="api_secret_hash" name="api_secret_hash" type="text"/></div>
       <div class='input'><a id="explore" href="#" data-sw-translate>Explore</a></div>
     </form>
   </div>
