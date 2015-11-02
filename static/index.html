@@ -25,10 +25,10 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.8.2-beta2" />
-        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.8.2-beta2" />
+        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.8.2" />
+        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.8.2" />
         <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-        <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.8.2-beta2" />
+        <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.8.2" />
         <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
         <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">    
     </head>
@@ -110,6 +110,16 @@
                           <option class="translate" value="log">Logarithmic</option>
                           <option class="translate" value="linear">Linear</option>
                           <option class="translate" value="log-dynamic">Logarithmic (Dynamic)</option>
+                        </select>
+                      </dd>
+                    </dl>
+                    <dl>
+                      <dt class="translate">Render Basal</dt>
+                      <dd>
+                        <select id="basalrender">
+                          <option class="translate" value="none">None</option>
+                          <option class="translate" value="default">Default</option>
+                          <option class="translate" value="icicle">Icicle</option>
                         </select>
                       </dd>
                     </dl>
@@ -211,7 +221,7 @@
                     </label>
                     <label id="durationLabel" for="duration" class="left-column short-label">
                         <span class="translate">Duration</span>
-                        <input type="number" step="any" min="0" id="duration" placeholder="Duration in minutes" class="titletranslate"/>
+                        <input id="duration" placeholder="Duration in minutes" class="titletranslate"/>
                     </label>
                     <label id="percentLabel" for="percent" class="left-column short-label">
                         <span class="translate">Percent</span>
@@ -274,8 +284,8 @@
             <audio src="/audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
         </div>
 
-        <script src="/api/v1/status.js?v=0.8.2-beta2"></script>
-        <script src="/public/js/bundle.js?v=0.8.2-beta2"></script>
+        <script src="/api/v1/status.js?v=0.8.2"></script>
+        <script src="/public/js/bundle.js?v=0.8.2"></script>
         <script src="/socket.io/socket.io.js"></script>
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
