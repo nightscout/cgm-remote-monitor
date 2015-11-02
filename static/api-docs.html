@@ -47,6 +47,7 @@
   <!-- <script src='lang/en.js' type='text/javascript'></script> -->
 
   <script type="text/javascript">
+    var crypto = require('crypto');
     $(function () {
       // Pre load translate...
       if(window.SwaggerTranslator) {
@@ -83,7 +84,7 @@
 
           var hexauth = shasum.digest('hex');
           console.log('hexauth ' + hexauth );
-          var apiKeyAuth = new SwaggerClient.ApiKeyAuthorization('api-secret', key, 'header');
+          var apiKeyAuth = new SwaggerClient.ApiKeyAuthorization('api-secret', hexauth, 'header');
           window.swaggerUi.api.clientAuthorizations.add('api-secret', apiKeyAuth );
           console.log('added key ' + key);
         }
