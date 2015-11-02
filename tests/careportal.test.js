@@ -9,6 +9,7 @@ var nowData = {
   sgvs: [
     { mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' }
   ]
+  , treatments: []
 };
 
 describe('client', function ( ) {
