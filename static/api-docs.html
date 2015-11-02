@@ -80,8 +80,8 @@
         if(key && key.trim() !== '') {
           var shasum = crypto.createHash('sha1');
           shasum.update( key );
-          log('key raw' + key );
-          log('key hash' + shasum.digest('hex'));
+          console.log('key raw' + key );
+          console.log('key hash' + shasum.digest('hex'));
 
           var apiKeyAuth = new SwaggerClient.ApiKeyAuthorization('api-secret', shasum.digest('hex'), 'header');
           window.swaggerUi.api.clientAuthorizations.add('api-secret', apiKeyAuth );
