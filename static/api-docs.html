@@ -82,20 +82,15 @@
           shasum.update( key );
 
           var hexauth = shasum.digest('hex');
-          log('hexauth ' + hexauth );
+          console.log('hexauth ' + hexauth );
           var apiKeyAuth = new SwaggerClient.ApiKeyAuthorization('api-secret', hexauth, 'header');
           window.swaggerUi.api.clientAuthorizations.add('api-secret', apiKeyAuth );
-          log('added key ' + key);
+          console.log('added key ' + key);
         }
       }
 
       $('#input_apiKey').change(addApiKeyAuthorization);
 
-      function log() {
-        if ('console' in window) {
-          console.log.apply(console, arguments);
-        }
-      }
       window.swaggerUi.load();
     });
   </script>
