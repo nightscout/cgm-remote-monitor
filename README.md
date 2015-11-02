@@ -262,7 +262,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * `MMCONNECT_SGV_LIMIT` (`24`) - Maximum number of recent sensor glucose values to send to Nightscout on each request.
     * `MMCONNECT_VERBOSE` - Set this to "true" to log CareLink request information to the console.
     * `MMCONNECT_STORE_RAW_DATA` - Set this to "true" to store raw data returned from CareLink as `type: "carelink_raw"` database entries (useful for development).
-  * `pumpiob` (Pump Insulin-on-Board) - Display the pump-reported active bolus insulin uploaded from a MiniMed Connect. (The `iob` plugin above calculates IOB based on treatments you have manually entered, whereas `pumpiob` reports what the pump says the active insulin is. If you enable both, Nightscout will show a separate pill for each, but Pebble will show only `pumpiob`.)
+  * `pumpiob` (Pump Insulin-on-Board) - Display the pump-reported active bolus insulin uploaded from a MiniMed Connect. (The `iob` plugin above calculates IOB based on treatments entered in Care Portal, whereas `pumpiob` reports what the pump says the active insulin is. If you enable both, Nightscout will show a separate pill for each, but Pebble will show only `iob`.)
     * `PUMPIOB_RECENCY` (`10`) - Don't show pump IOB data from more than this many minutes ago
     * `PUMPIOB_PEBBLE_BATTERY_INDICATOR` (`25`) - Show a `*` indicator next to IOB on the Pebble [like this](http://imgur.com/0oQltnm) when the battery level of the uploader (MiniMed Connect) is lower than this value. Set to 0 to disable.
 

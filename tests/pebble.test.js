@@ -295,6 +295,19 @@ describe('Pebble Endpoint with pump IOB', function ( ) {
       });
   });
 
+  it('should prioritize the iob plugin over the pumpiob plugin if both are enabled', function (done) {
+    var appRaw = setupApp(function(env) {
+      env.settings.enable = ['iob', 'pumpiob'];
+    });
+    request(appRaw)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        res.body.bgs[0].iob.should.equal('1.50');
+        done();
+      });
+  });
+
   it('should not show stale data', function (done) {
     ctx.data.pumpStatuses[0].mills = Date.now() - 7 * 60 * 1000 - 1;
     var appRaw = setupApp(function(env) {
