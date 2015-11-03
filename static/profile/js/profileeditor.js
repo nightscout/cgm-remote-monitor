@@ -326,7 +326,7 @@
     var record = mongorecords[currentrecord];
     var newname = 'New profile';
     while (record.store[newname]) {
-      newname += '1'
+      newname += '1';
     }
     record.store[newname] = _.cloneDeep(defaultprofile);
     currentprofile = newname;
