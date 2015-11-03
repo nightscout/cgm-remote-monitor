@@ -177,5 +177,17 @@ describe('IOB', function ( ) {
       };
       iob.setProperties(sbx.withExtendedSettings(iob));
     });
+
+    it('should be able to report pump IOB from any point in time', function () {
+      data.pumpStatuses = [
+        {mills: time - 30 * 60 * 1000, type: 'pump_status', activeInsulin: 7.6}
+        , {mills: time - 15 * 60 * 1000, type: 'pump_status', activeInsulin: 9.8}
+      ];
+      var settings = {source: 'pump', pumpRecency: 10};
+      iob.getPumpIOB(data.pumpStatuses, settings, time - 10 * 60 * 1000).iob
+        .should.equal(9.8);
+      iob.getPumpIOB(data.pumpStatuses, settings, time - 25 * 60 * 1000).iob
+        .should.equal(7.6);
+    });
   });
 });
