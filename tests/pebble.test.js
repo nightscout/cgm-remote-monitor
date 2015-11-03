@@ -222,6 +222,7 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
     ctx.data.devicestatus.uploaderBattery = 100;
     var envRaw = require('../env')( );
     envRaw.settings.enable = ['rawbg', 'iob'];
+    envRaw.extendedSettings.iob = {};
     this.appRaw = require('express')( );
     this.appRaw.enable('api');
     this.appRaw.use('/pebble', pebbleRaw(envRaw, ctx));
@@ -267,9 +268,9 @@ describe('Pebble Endpoint with pump IOB', function ( ) {
     appRaw.enable('api');
     appRaw.use('/pebble', pebbleRaw(envRaw, ctx));
     return appRaw;
-  };
+  }
 
-  it('should not show pump-reported IOB when pumpiob is disabled', function (done) {
+  it('should not show pump-reported IOB when iob is disabled', function (done) {
     var appRaw = setupApp(function(env) {
       env.settings.enable = [];
     });
@@ -282,9 +283,10 @@ describe('Pebble Endpoint with pump IOB', function ( ) {
       });
   });
 
-  it('should show pump-reported IOB when pumpiob is enabled', function (done) {
+  it('should show pump-reported IOB when iob is enabled and IOB_SOURCE is "pump"', function (done) {
     var appRaw = setupApp(function(env) {
-      env.settings.enable = ['pumpiob'];
+      env.settings.enable = ['iob'];
+      env.extendedSettings.iob = {source: 'pump'};
     });
     request(appRaw)
       .get('/pebble')
@@ -295,9 +297,10 @@ describe('Pebble Endpoint with pump IOB', function ( ) {
       });
   });
 
-  it('should prioritize the iob plugin over the pumpiob plugin if both are enabled', function (done) {
+  it('should show bolus IOB from treatments when iob is enabled and IOB_SOURCE is not "pump"', function (done) {
     var appRaw = setupApp(function(env) {
-      env.settings.enable = ['iob', 'pumpiob'];
+      env.settings.enable = ['iob'];
+      env.extendedSettings.iob = {source: 'anything but pump'};
     });
     request(appRaw)
       .get('/pebble')
@@ -311,8 +314,8 @@ describe('Pebble Endpoint with pump IOB', function ( ) {
   it('should not show stale data', function (done) {
     ctx.data.pumpStatuses[0].mills = Date.now() - 7 * 60 * 1000 - 1;
     var appRaw = setupApp(function(env) {
-      env.settings.enable = ['pumpiob'];
-      env.extendedSettings.pumpiob = {recency: 7};
+      env.settings.enable = ['iob'];
+      env.extendedSettings.iob = {source: 'pump', pumpRecency: 7};
     });
     request(appRaw)
       .get('/pebble')
@@ -326,8 +329,8 @@ describe('Pebble Endpoint with pump IOB', function ( ) {
   it('should show low battery indicator when too low', function (done) {
     ctx.data.pumpStatuses[0].conduitBatteryLevel = 40;
     var appRaw = setupApp(function(env) {
-      env.settings.enable = ['pumpiob'];
-      env.extendedSettings.pumpiob = {pebbleBatteryIndicator: 50};
+      env.settings.enable = ['iob'];
+      env.extendedSettings.iob = {source: 'pump', pumpBatteryPebble: 50};
     });
     request(appRaw)
       .get('/pebble')
@@ -341,8 +344,8 @@ describe('Pebble Endpoint with pump IOB', function ( ) {
   it('should not show low battery indicator when not too low', function (done) {
     ctx.data.pumpStatuses[0].conduitBatteryLevel = 40;
     var appRaw = setupApp(function(env) {
-      env.settings.enable = ['pumpiob'];
-      env.extendedSettings.pumpiob = {pebbleBatteryIndicator: 33};
+      env.settings.enable = ['iob'];
+      env.extendedSettings.iob = {source: 'pump', pumpBatteryPebble: 33};
     });
     request(appRaw)
       .get('/pebble')

@@ -233,6 +233,9 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
 
   * `rawbg` (Raw BG) - Calculates BG using sensor and calibration records from and displays an alternate BG values and noise levels.
   * `iob` (Insulin-on-Board) - Adds the IOB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with insulin doses and the `dia` and `sens` fields from the [treatment profile](#treatment-profile).
+    * `IOB_SOURCE` (`bolus`) - Set this to `pump` to show the pump-reported active bolus insulin uploaded from a MiniMed Connect, instead of calculating IOB based on Care Portal treatments and the treatment profile.
+    * `IOB_PUMP_RECENCY` (`10`) - If `IOB_SOURCE` is `pump`, don't show pump IOB data from more than this many minutes ago.
+    * `IOB_PUMP_BATTERY_PEBBLE` (`25`) - If `IOB_SOURCE` is `pump`, show a `*` indicator next to IOB on the Pebble [like this](http://imgur.com/0oQltnm) when the battery level of the uploader (MiniMed Connect) is lower than this value. Set to 0 to disable.
   * `cob` (Carbs-on-Board) - Adds the COB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with carb doses and the `carbs_hr`, `carbratio`, and `sens` fields from the [treatment profile](#treatment-profile).
   * `bwp` (Bolus Wizard Preview) - This plugin in intended for the purpose of automatically snoozing alarms when the CGM indicates high blood sugar but there is also insulin on board (IOB) and secondly, alerting to user that it might be beneficial to measure the blood sugar using a glucometer and dosing insulin as calculated by the pump or instructed by trained medicare professionals. ***The values provided by the plugin are provided as a reference based on CGM data and insulin sensitivity you have configured, and are not intended to be used as a reference for bolus calculation.*** The plugin calculates the bolus amount when above your target, generates alarms when you should consider checking and bolusing, and snoozes alarms when there is enough IOB to cover a high BG. Uses the results of the `iob` plugin and `sens`, `target_high`, and `target_low` fields from the [treatment profile](#treatment-profile). Defaults that can be adjusted with [extended setting](#extended-settings)
     * `BWP_WARN` (`0.50`) - If `BWP` is > `BWP_WARN` a warning alarm will be triggered.
@@ -262,9 +265,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * `MMCONNECT_SGV_LIMIT` (`24`) - Maximum number of recent sensor glucose values to send to Nightscout on each request.
     * `MMCONNECT_VERBOSE` - Set this to "true" to log CareLink request information to the console.
     * `MMCONNECT_STORE_RAW_DATA` - Set this to "true" to store raw data returned from CareLink as `type: "carelink_raw"` database entries (useful for development).
-  * `pumpiob` (Pump Insulin-on-Board) - Display the pump-reported active bolus insulin uploaded from a MiniMed Connect. (The `iob` plugin above calculates IOB based on treatments entered in Care Portal, whereas `pumpiob` reports what the pump says the active insulin is. If you enable both, Nightscout will show a separate pill for each, but Pebble will show only `iob`.)
-    * `PUMPIOB_RECENCY` (`10`) - Don't show pump IOB data from more than this many minutes ago
-    * `PUMPIOB_PEBBLE_BATTERY_INDICATOR` (`25`) - Show a `*` indicator next to IOB on the Pebble [like this](http://imgur.com/0oQltnm) when the battery level of the uploader (MiniMed Connect) is lower than this value. Set to 0 to disable.
 
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
  
