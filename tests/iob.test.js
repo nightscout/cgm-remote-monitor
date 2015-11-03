@@ -1,7 +1,6 @@
 'use strict';
 
-var should = require('should');
-
+require('should');
 var sandbox = require('../lib/sandbox')();
 
 describe('IOB', function ( ) {
