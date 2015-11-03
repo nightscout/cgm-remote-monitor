@@ -172,7 +172,7 @@ describe('IOB', function ( ) {
       var sbx = sandbox.clientInit(clientSettings, time, {}, data);
       sbx.offerProperty = function mockedOfferProperty (name, setter) {
         var result = setter();
-        should.not.exist(result);
+        result.should.eql({});
         done();
       };
       iob.setProperties(sbx.withExtendedSettings(iob));

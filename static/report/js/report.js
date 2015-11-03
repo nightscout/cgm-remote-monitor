@@ -489,6 +489,7 @@
       , mbgData = []
       , treatmentData = []
       , calData = []
+      , pumpStatusData = []
       ;
     var from;
     if (client.sbx.data.profile.getTimezone()) {
@@ -532,6 +533,8 @@
                 , intercept: element.intercept
                 , slope: element.slope
               });
+            } else if (element.type === 'pump_status') {
+              pumpStatusData.push(_.merge({mills: element.date}, _.omit(element, '_id')));
             }
           }
         });
@@ -548,6 +551,8 @@
         data.mbg.sort(function(a, b) { return a.mills - b.mills; });
         data.cal = calData.slice();
         data.cal.sort(function(a, b) { return a.mills - b.mills; });
+        data.pumpStatuses = pumpStatusData.slice();
+        data.pumpStatuses.sort(function(a, b) { return a.mills - b.mills; });
       }
     }).done(function () {
       $('#info-' + day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
@@ -578,6 +583,12 @@
       }
       if (parseFloat(d.carbs) > maxCarbsValue) {
         maxCarbsValue = parseFloat(d.carbs);
+      }
+    });
+
+    data.pumpStatuses.forEach(function (d) {
+      if (parseFloat(d.activeInsulin) > maxInsulinValue) {
+        maxInsulinValue = parseFloat(d.activeInsulin);
       }
     });
 
