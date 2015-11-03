@@ -356,7 +356,7 @@
     var record = mongorecords[currentrecord];
     var newname = $('#pe_profile_name').val() + ' (copy)';
     while (record.store[newname]) {
-      newname += '1'
+      newname += '1';
     }
     record.store[newname] = _.cloneDeep(record.store[currentprofile]);
     currentprofile = newname;
