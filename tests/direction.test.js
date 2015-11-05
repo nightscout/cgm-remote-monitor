@@ -47,7 +47,7 @@ describe('BG direction', function ( ) {
   it('set a pill to the direction', function (done) {
     var pluginBase = {
       updatePillText: function mockedUpdatePillText (plugin, options) {
-        options.label.should.equal('→');
+        options.label.should.equal('→&#xfe0e;');
         done();
       }
     };
