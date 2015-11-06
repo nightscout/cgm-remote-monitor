@@ -361,7 +361,7 @@
                     <span style="float:right" id="bc_inzulincarbs"></span>
                   </td>
                 </tr>
-                <tr>
+                <tr class="cobcontrol">
                   <td>
                     <input title="Use COB correction in calculation" type="checkbox" id="bc_usecob" class="insulincalculationpart titletranslate">
                   </td>
@@ -491,20 +491,25 @@
               <hr>
               <label for="bc_preBolus" class="left-column short-label extra-space">
                 <span class="translate">Carb Time</span>:
+                <select id="bc_preBolus">
+                  <option class="translate" value="-60">60 minutes earlier</option>
+                  <option class="translate" value="-45">45 minutes earlier</option>
+                  <option class="translate" value="-30">30 minutes earlier</option>
+                  <option class="translate" value="-20">20 minutes earlier</option>
+                  <option class="translate" value="-15">15 minutes earlier</option>
+                  <option class="translate" value="0" selected>Time in minutes</option>
+                  <option class="translate" value="15">15 minutes later</option>
+                  <option class="translate" value="20">20 minutes later</option>
+                  <option class="translate" value="30">30 minutes later</option>
+                  <option class="translate" value="45">45 minutes later</option>
+                  <option class="translate" value="60">60 minutes later</option>
+                </select>
               </label>
-              <select id="bc_preBolus">
-                <option class="translate" value="-60">60 minutes earlier</option>
-                <option class="translate" value="-45">45 minutes earlier</option>
-                <option class="translate" value="-30">30 minutes earlier</option>
-                <option class="translate" value="-20">20 minutes earlier</option>
-                <option class="translate" value="-15">15 minutes earlier</option>
-                <option class="translate" value="0" selected>Time in minutes</option>
-                <option class="translate" value="15">15 minutes later</option>
-                <option class="translate" value="20">20 minutes later</option>
-                <option class="translate" value="30">30 minutes later</option>
-                <option class="translate" value="45">45 minutes later</option>
-                <option class="translate" value="60">60 minutes later</option>
-              </select>
+              <br>
+              <label id="bc_profileLabel" for="preBolus" class="left-column short-label extra-space">
+                <span class="translate">Profile</span>: 
+                <select id="bc_profile" class="insulincalculationpart"></select>
+              </label>
               <br>
 
               <!-- Label and textarea -->
@@ -531,10 +536,6 @@
                 <input type="time" id="bc_eventTimeValue" name="bc_eventTimeValue" value="" class="bc_eventtimeinput"/>
               </div>
               <div id="bc_retro" class="translate" style="display:none;width:100%;background-color:red;text-align: center;border: 2px solid black;border-radius: 10px;margin-top:10px;">RETRO MODE</div>
-              <label id="bc_profileLabel" for="preBolus" class="left-column short-label extra-space">
-                <span class="translate">Profile</span>: 
-                <select id="bc_profile" class="insulincalculationpart"></select>
-              </label>
             </fieldset>
             <button type="button" class="translate">Submit Form</button>
           </form>
