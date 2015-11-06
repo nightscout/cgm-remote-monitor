@@ -64,7 +64,7 @@
     });
     filter.category = '';
     fillFoodSubcategories();
-    
+
     $('#rp_category').change(fillFoodSubcategories);
     $('#rp_subcategory').change(doFoodFilter);
     $('#rp_name').on('input',doFoodFilter);
@@ -588,8 +588,8 @@
           treatment.mills = timestamp.getTime();
           return treatment;
         });
-        datastorage.tempbasaltreatments = treatmentData.slice();
-        datastorage.tempbasaltreatments.sort(function(a, b) { return a.mills - b.mills; });
+        datastorage.tempbasalTreatments = treatmentData.slice();
+        datastorage.tempbasalTreatments.sort(function(a, b) { return a.mills - b.mills; });
       }
     }).done(function () {
       callback();
