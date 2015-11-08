@@ -1,6 +1,7 @@
 'use strict';
 
 require('should');
+var _ = require('lodash');
 var benv = require('benv');
 var read = require('fs').readFileSync;
 var serverSettings = require('./fixtures/default-server-settings');
@@ -9,64 +10,70 @@ var nowData = {
   sgvs: [
     { mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' }
   ]
-  , treatments: []
 };
-
 
 var exampleProfile = {
-  //General values
-  'dia':3,
+  defaultProfile : 'Default'
+  , store: {
+      'Default' : {
+        //General values
+        'dia':3,
 
-  // Simple style values, 'from' are in minutes from midnight
-  'carbratio': [
-    {
-      'time': '00:00',
-      'value': 30
-    }],
-  'carbs_hr':30,
-  'delay': 20,
-  'sens': [
-    {
-      'time': '00:00',
-      'value': 100
-    }
-    , {
-      'time': '8:00',
-      'value': 80
-    }],
-  'startDate': new Date(),
-  'timezone': 'UTC',
+        // Simple style values, 'from' are in minutes from midnight
+        'carbratio': [
+          {
+            'time': '00:00',
+            'value': 30
+          }],
+        'carbs_hr':30,
+        'delay': 20,
+        'sens': [
+          {
+            'time': '00:00',
+            'value': 100
+          }
+          , {
+            'time': '8:00',
+            'value': 80
+          }],
+        'startDate': new Date(),
+        'timezone': 'UTC',
 
-  //perGIvalues style values
-  'perGIvalues': false,
-  'carbs_hr_high': 30,
-  'carbs_hr_medium': 30,
-  'carbs_hr_low': 30,
-  'delay_high': 15,
-  'delay_medium': 20,
-  'delay_low': 20,
+        //perGIvalues style values
+        'perGIvalues': false,
+        'carbs_hr_high': 30,
+        'carbs_hr_medium': 30,
+        'carbs_hr_low': 30,
+        'delay_high': 15,
+        'delay_medium': 20,
+        'delay_low': 20,
 
-  'basal':[
-    {
-      'time': '00:00',
-      'value': 0.1
-    }],
-  'target_low':[
-    {
-      'time': '00:00',
-      'value': 0
-    }],
-  'target_high':[
-    {
-      'time': '00:00',
-      'value': 0
-    }]
+        'basal':[
+          {
+            'time': '00:00',
+            'value': 0.1
+          }],
+        'target_low':[
+          {
+            'time': '00:00',
+            'value': 0
+          }],
+        'target_high':[
+          {
+            'time': '00:00',
+            'value': 0
+          }]
+      }
+  }
 };
-exampleProfile.startDate.setSeconds(0);
-exampleProfile.startDate.setMilliseconds(0);
 
 
-describe('profile editor', function ( ) {
+var someData = {
+    '/api/v1/profile.json': [exampleProfile]
+  };
+
+
+describe('Profile editor', function ( ) {
   var self = this;
 
   before(function (done) {
@@ -76,20 +83,55 @@ describe('profile editor', function ( ) {
 
       self.$.fn.tipsy = function mockTipsy ( ) { };
 
+      self.$.fn.dialog = function mockDialog (opts) {
+        function maybeCall (name, obj) {
+          if (obj[name] && obj[name].call) {
+            obj[name]();
+          }
+
+        }
+        maybeCall('open', opts);
+
+        _.forEach(opts.buttons, function (button) {
+          maybeCall('click', button);
+        });
+      };
+
       var indexHtml = read(__dirname + '/../static/profile/index.html', 'utf8');
       self.$('body').html(indexHtml);
 
+      //var filesys = require('fs');
+      //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
+      
       self.$.ajax = function mockAjax (url, opts) {
+        //logfile.write(url+'\n');
+        //console.log(url,opts);
+        if (opts && opts.success && opts.success.call) {
+          return {
+            done: function mockDone (fn) {
+                if (someData[url]) {
+                  console.log('+++++Data for ' + url + ' sent');
+                  opts.success(someData[url]);
+                } else {
+                  console.log('-----Data for ' + url + ' missing');
+                  opts.success([]);
+                }
+              fn();
+              return self.$.ajax();
+            },
+            fail: function mockFail () {
+              return self.$.ajax();
+            }
+          };
+        }
         return {
           done: function mockDone (fn) {
-            if (opts && opts.success && opts.success.call) {
-              opts.success([exampleProfile]);
+            fn({message: 'OK'});
+            return self.$.ajax();
+            },
+          fail: function mockFail () {
+            return self.$.ajax();
             }
-            fn();
-            return {
-              fail: function () {}
-            };
-          }
         };
       };
 
@@ -123,7 +165,7 @@ describe('profile editor', function ( ) {
     done();
   });
 
-  it ('don\'t blow up', function (done) {
+  it ('should produce some html', function (done) {
     var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
 
@@ -134,12 +176,26 @@ describe('profile editor', function ( ) {
       next(true);
     };
 
+     window.confirm = function mockConfirm (text) {
+       console.log('Confirm:', text);
+       return true;
+     };
+
+     window.alert = function mockAlert () {
+       return true;
+     };
 
     client.init(serverSettings, plugins);
     client.dataUpdate(nowData);
+    
+    //var result = $('body').html();
+    //var filesys = require('fs');
+    //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
+    //logfile.write($('body').html());
+    
+    //console.log(result);
 
-    $('#pe_form').find('button').click();
-
+    $('#pe_submit').click();
     done();
   });
 
