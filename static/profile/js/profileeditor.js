@@ -147,6 +147,9 @@
   }
   
   function initeditor() {
+    $('#pe_history').toggle(client.settings.extendedSettings.profile && client.settings.extendedSettings.profile.history);
+    $('#pe_multiple').toggle(client.settings.extendedSettings.profile && client.settings.extendedSettings.profile.multiple);
+    
     // Load timezones
     timezoneInput.empty();
     moment.tz.names().forEach(function addTz(tz) {

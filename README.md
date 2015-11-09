@@ -230,6 +230,9 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
       * `AR2_CONE_FACTOR` (`2`) - to adjust size of cone, use `0` for a single line.
   * `simplealarms` (Simple BG Alarms) - Uses `BG_HIGH`, `BG_TARGET_TOP`, `BG_TARGET_BOTTOM`, `BG_LOW` thresholds to generate alarms.
     * Enabled by default if 1 of these thresholds is set **OR** `ALARM_TYPES` includes `simple`.
+  * `profile` (Treatment Profile) - Add link to Profile Editor and allow to enter treatment profile settings. Also uses the extended setting:
+    * `PROFILE_HISTORY` (`off`) - possible values `on` or `off`. Enable/disable NS ability to keep history of your profiles (still experimental)
+    * `PROFILE_MULTIPLE` (`off`) - possible values `on` or `off`. Enable/disable NS ability to handle and switch between multiple treatment profiles
 
 #### Built-in/Example Plugins:
 
