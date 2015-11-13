@@ -197,7 +197,11 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
-  * `LANGUAGE` (`en`) - language of Nighscout. If not available english is used
+  * `LANGUAGE` (`en`) - language of Nightscout. If not available english is used
+  * `SCALE_Y` (`log`) - The type of scaling used for the Y axis of the charts system wide.
+    * The default `log` (logarithmic) option will let you see more detail towards the lower range, while still showing the full CGM range.
+    * The `linear` option has equidistant tick marks, the range used is dynamic so that space at the top of chart isn't wasted.
+    * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale. 
 
 ### Plugins
 
@@ -241,7 +245,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * `CAGE_WARN` (`48`) - If time since last `Site Change` matches `CAGE_WARN`, user will be alarmed to to change the cannula
     * `CAGE_URGENT` (`72`) - If time since last `Site Change` matches `CAGE_URGENT`, user will be issued a persistent warning of overdue change.
   * `treatmentnotify` (Treatment Notifications) - Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.  Default snooze is 10 minutes, and can be set using the `TREATMENTNOTIFY_SNOOZE_MINS` [extended setting](#extended-settings).
-  * `basal` (Basal Profile) - Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile).
+  * `basal` (Basal Profile) - Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile). Also uses the extended setting:
+    * `BASAL_RENDER` (`none`) - Possible values are `none`, `default`, or `icicle` (inverted)
   * `bridge` (Share2Nightscout bridge) - Glucose reading directly from the Share service, uses these extended settings:
     * `BRIDGE_USER_NAME` - Your user name for the Share service.
     * `BRIDGE_PASSWORD` - Your password for the Share service.
@@ -250,6 +255,14 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * `BRIDGE_FIRST_FETCH_COUNT` (`3`) - Changes max count during the very first update only.
     * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
     * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (default is one day in minutes).
+  * `mmconnect` (MiniMed Connect bridge) - Transfer real-time MiniMed Connect data from the Medtronic CareLink server into Nightscout ([read more](https://github.com/mddub/minimed-connect-to-nightscout))
+    * `MMCONNECT_USER_NAME` - Your user name for CareLink Connect.
+    * `MMCONNECT_PASSWORD` - Your password for CareLink Connect.
+    * `MMCONNECT_INTERVAL` (`60000` *1 minute*) - Number of milliseconds to wait between requests to the CareLink server.
+    * `MMCONNECT_MAX_RETRY_DURATION` (`32`) - Maximum number of total seconds to spend retrying failed requests before giving up.
+    * `MMCONNECT_SGV_LIMIT` (`24`) - Maximum number of recent sensor glucose values to send to Nightscout on each request.
+    * `MMCONNECT_VERBOSE` - Set this to "true" to log CareLink request information to the console.
+    * `MMCONNECT_STORE_RAW_DATA` - Set this to "true" to store raw data returned from CareLink as `type: "carelink_raw"` database entries (useful for development).
   
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
  
