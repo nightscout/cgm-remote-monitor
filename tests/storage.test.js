@@ -46,7 +46,7 @@ describe('STORAGE', function () {
 
     (function () {
       return require('../lib/storage')(env, false, true);
-    }).should.throw('URL must be in the format mongodb://user:pass@host:port/dbname');
+    }).should.throw(Error);
 
     done();
   });
