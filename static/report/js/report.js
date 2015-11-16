@@ -364,7 +364,7 @@
     function daysfilter() {
       matchesneeded++;
       Object.keys(daystoshow).forEach( function eachDay(d) {
-        var day = new Date(d).getDay();
+        var day = moment.tz(d,zone).day();
         if (day===0 && $('#rp_su').is(':checked')) { daystoshow[d]++; }
         if (day===1 && $('#rp_mo').is(':checked')) { daystoshow[d]++; }
         if (day===2 && $('#rp_tu').is(':checked')) { daystoshow[d]++; }
