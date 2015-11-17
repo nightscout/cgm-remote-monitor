@@ -313,7 +313,7 @@ function ranger (dom, opts) {
     dots
         .attr("r", 5)
         .attr("title",  function (d) { return d.key; })
-        .attr("color", function (d) { return d.values.color; })
+        .attr("fill", function (d) { return d.values.color; })
         .attr("cx", function (d) {console.log(d); return scales.x(d.values.target); })
         .attr("cy", function (d) { return scales.y(d.values.mean); })
     return dots;
