@@ -124,7 +124,10 @@ function slippy (dom, opt) {
 
 function manager (view, data, opts) {
 
-  var colorize = d3.scale.category20b( );
+  // var colorize = d3.scale.category20b( );
+  var colorize = d3.scale.ordinal( )
+    .domain([0, 10])
+    .range(colorbrewer.Set3[10]);
   var templates = opts.templates;
   var item_opts = opts.item_opts || { };
   var pools = [ ];
@@ -155,9 +158,12 @@ function manager (view, data, opts) {
       , end: end
     } );
     var reticle =  {dom: item, control: control};
-    var lense = ranger(pool, {color: colorize(pools.length) });
+    var color = colorize(pools.length);
+    var lense = ranger(pool, {color: color, begin: begin, end: end });
     var display =  { dom: pool, control: lense };
-    return { reticle: reticle, display: display };
+    reticle.dom.find('.timeline').css('border', '1px solid ' + color);
+    display.dom.css('border-color', color);
+    return { reticle: reticle, display: display, color: color };
   }
 
   function on_refocus (ev, range) {
@@ -299,9 +305,9 @@ function ranger (dom, opts) {
     // dots = chart.selectAll('circle')
     // dots.enter( )
       // .append("circle")
-    console.log('data', my.data);
+    // console.log('data', my.data);
     var selection = dots.selectAll('.dots').data(my.data);
-    console.log('dots', dots, selection);
+    // console.log('dots', dots, selection);
     selection.enter( ).append('circle').attr('class', 'dots');
     selection.exit( ).remove( );
     selection.call(render_circles)
@@ -309,7 +315,7 @@ function ranger (dom, opts) {
   }
 
   function render_circles (dots) {
-    console.log('selection', dots);
+    // console.log('selection', dots);
     dots
         .attr("r", 5)
         .attr("title",  function (d) { return d.key; })
@@ -337,7 +343,7 @@ function ranger (dom, opts) {
     var days = time_in_range(payload, opts);
     my.data = days;
     my( );
-    console.log('got days', days);
+    // console.log('got days', days);
   }
 
   function init ( ) {
