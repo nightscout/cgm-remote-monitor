@@ -124,6 +124,7 @@ function slippy (dom, opt) {
 
 function manager (view, data, opts) {
 
+  var colorize = d3.scale.category20b( );
   var templates = opts.templates;
   var item_opts = opts.item_opts || { };
   var pools = [ ];
@@ -154,7 +155,7 @@ function manager (view, data, opts) {
       , end: end
     } );
     var reticle =  {dom: item, control: control};
-    var lense = ranger(pool, { });
+    var lense = ranger(pool, {color: colorize(pools.length) });
     var display =  { dom: pool, control: lense };
     return { reticle: reticle, display: display };
   }
@@ -289,21 +290,27 @@ function ranger (dom, opts) {
   var chart = { };
 
   function my ( ) {
-    console.log('dots', dots);
     // dots = chart.selectAll('circle')
     // dots.enter( )
       // .append("circle")
+    console.log('data', my.data);
+    var selection = dots.selectAll('.dots').data(my.data);
+    console.log('dots', dots, selection);
+    selection.enter( ).append('circle').attr('class', 'dots');
+    selection.exit( ).remove( );
+    selection.call(render_circles)
+    // .exit( ).remove( );
   }
 
   function render_circles (dots) {
     console.log('selection', dots);
-    dots.append('circle')
-        .attr("class", "dot")
+    dots
         .attr("r", 5)
         .attr("title",  function (d) { return d.key; })
         .attr("color", function (d) { return d.values.color; })
         .attr("cx", function (d) {console.log(d); return scales.x(d.values.target); })
         .attr("cy", function (d) { return scales.y(d.values.mean); })
+    return dots;
   }
 
   function render (selection) {
@@ -322,7 +329,7 @@ function ranger (dom, opts) {
 
   function on_data (payload) {
     var days = time_in_range(payload, opts);
-    dots.data(days).enter( ).call(render_circles).remove( );
+    my.data = days;
     my( );
     console.log('got days', days);
   }
@@ -349,14 +356,7 @@ function ranger (dom, opts) {
       .scale(scales.x)
       .tickFormat(function(d) { return parseInt(d, 10) + "%"; })
       .orient('top')
-        // d3.svg.axis()
-      // .scale(x)
-      // .ticks(my.range.length)
-      // .tickSize(12, 1, 1)
       ;
-      ;
-        // .tickFormat(d3.time.format('%m/%d/%y'))
-        //.tickSize(25, 18);
 
 
     yAxis = d3.svg.axis()
@@ -378,6 +378,10 @@ function ranger (dom, opts) {
       .attr('class', 'ranger-chart')
       ;
 
+    dots = chart.append("g")
+      .attr("transform", "translate(" + margin.left + ", " + (margin.top) + ")")
+      .attr("class", "scatter")
+      ;
     chart.append("g")
       .attr("transform", "translate(" + margin.left + ", " + (margin.top) + ")")
       .attr("class", "x axis")
@@ -389,7 +393,7 @@ function ranger (dom, opts) {
       .attr("class", "y axis")
       .call(yAxis)
       ;
-    dots = chart.selectAll("circle");
+    // dots = chart.selectAll(".dot");
     return my;
   }
 

@@ -38,6 +38,7 @@
       <div id="toolbar">
 
 
+        <a id="Add"></a>
 
 
         <div id="menu_holder">
@@ -56,7 +57,7 @@
                 </a>
               </li>
               <li>
-                <a href="#Add" data-mfb-label="Add" class="mfb-component__button--child">
+                <a href="#Add" data-mfb-label="Add" class="mfb-component__button--child add-button">
                   <i class="mfb-component__child-icon ion-plus"></i>
                 </a>
               </li>
@@ -139,6 +140,12 @@
           var control = slippy(timeline,
             { controls: toolbar.find('.controls')
           } );
+
+          $('window').on('hashchange', route_add);
+          $('#menu').on('click', 'A', route_add);
+          function route_add (ev) {
+            console.log('Add', ev.target, arguments);
+          }
           var compare = { toolbar: toolbar, timeline: timeline, control: control};
           Nightscout.compare = compare;
         });
