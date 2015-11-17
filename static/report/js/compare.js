@@ -164,6 +164,12 @@ function manager (view, data, opts) {
     var display =  { dom: pool, control: lense };
     reticle.dom.find('.timeline').css('border', '1px solid ' + color);
     display.dom.css('border-color', color);
+    reticle.dom.find("span, :input").css('color', color);
+    // reticle.dom.find(".x.axis line").('styl', color);
+    var axis = d3.select(reticle.dom.get(0)).selectAll('.x.axis');
+    axis.selectAll('line').style('stroke', color);
+    axis.selectAll('path').style('stroke', color);
+    axis.selectAll('text').style('color', color);
     return { reticle: reticle, display: display, color: color };
   }
 

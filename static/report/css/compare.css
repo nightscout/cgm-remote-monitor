@@ -42,6 +42,9 @@
   line-height: 120%;
   font-size: 200%;
 }
+.reticle .controls INPUT.end-input {
+  text-align: right;
+}
 
 #menu_holder {
 }
@@ -79,6 +82,7 @@
   left: 0;
   top: 0;
   right: 0;
+  border: 1px solid silver;
 }
 
 #view .observations {
