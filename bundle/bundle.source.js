@@ -3,6 +3,7 @@
   window._ = require('lodash');
   window.$ = window.jQuery = require('jquery');
   window.moment = require('moment-timezone');
+  window.sugar = require('sugar');
   window.Nightscout = window.Nightscout || {};
 
   window.Nightscout = {
