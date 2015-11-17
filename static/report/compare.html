@@ -142,8 +142,9 @@
           } );
 
           $('window').on('hashchange', route_add);
-          $('#menu').on('click', 'A', route_add);
+          $('#menu').on('click', 'A.add-button', route_add);
           function route_add (ev) {
+            pools.add_new( );
             console.log('Add', ev.target, arguments);
           }
           var compare = { toolbar: toolbar, timeline: timeline, control: control};

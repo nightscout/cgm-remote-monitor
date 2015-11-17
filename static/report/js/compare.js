@@ -171,6 +171,12 @@ function manager (view, data, opts) {
     }
   }
 
+  function add_new ( ) {
+    var item = make({ });
+    pools.push(item);
+  }
+
+  manage.add_new = add_new;
 
   return init( );
 }
