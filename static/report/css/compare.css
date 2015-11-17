@@ -74,3 +74,15 @@
   display: block;
 }
 
+#view.collapse  .pool {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+}
+
+#view .observations {
+  position: relative;
+  padding-bottom: 500px;
+}
+

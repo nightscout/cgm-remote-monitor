@@ -131,6 +131,7 @@ function manager (view, data, opts) {
   var templates = opts.templates;
   var item_opts = opts.item_opts || { };
   var pools = [ ];
+  var master = { };
   function manage ( ) {
   }
 
