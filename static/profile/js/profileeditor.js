@@ -84,7 +84,7 @@
   var dirty = false;
 
   // Fetch data from mongo
-  peStatus.hide().text('Loading profile records ...').fadeIn('slow');
+  peStatus.hide().text(translate('Loading profile records ...')).fadeIn('slow');
   $.ajax('/api/v1/profile.json', {
     success: function (records) {
       client.profilefunctions.loadData(records); // do a conversion if needed
@@ -108,7 +108,7 @@
           });
         });
         
-        peStatus.hide().text('Values loaded.').fadeIn('slow');
+        peStatus.hide().text(translate('Values loaded.')).fadeIn('slow');
       } else {
         mongorecords.push({
           defaultProfile: 'Default'
@@ -117,7 +117,7 @@
           }
           , startDate: new Date().toISOString()
         });
-        peStatus.hide().text('Default values used.').fadeIn('slow');
+        peStatus.hide().text(translate('Default values used.')).fadeIn('slow');
       }
     },
     error: function () {
@@ -128,7 +128,7 @@
         }
         , startDate: new Date().toISOString()
       });
-      peStatus.hide().text('Error. Default values used.').fadeIn('slow');
+      peStatus.hide().text(translate('Error. Default values used.')).fadeIn('slow');
     }
   }).done(initeditor);
   
@@ -140,13 +140,16 @@
     if (typeof profile.target_high !== 'object') { profile.target_high = [{ 'time': '00:00', 'value': profile.target_high }]; }
     if (typeof profile.basal !== 'object') { profile.basal = [{ 'time': '00:00', 'value': profile.basal }]; }
     if (profile.target_high.length !== profile.target_low.length) {
-      alert('Time ranges of target_low and target_high don\'t  match. Values are restored to defaults.');
+      alert(translate('Time ranges of target_low and target_high don\'t  match. Values are restored to defaults.'));
       profile.target_low = _.cloneDeep(defaultprofile.target_low);
       profile.target_high = _.cloneDeep(defaultprofile.target_high);
     }
   }
   
   function initeditor() {
+    $('#pe_history').toggle(client.settings.extendedSettings.profile && client.settings.extendedSettings.profile.history);
+    $('#pe_multiple').toggle(client.settings.extendedSettings.profile && client.settings.extendedSettings.profile.multiple);
+    
     // Load timezones
     timezoneInput.empty();
     moment.tz.names().forEach(function addTz(tz) {
@@ -186,7 +189,7 @@
   function initRecord() {
     databaseRecords.empty();
     for (var r = 0; r < mongorecords.length; r++ ) {
-      databaseRecords.append('<option value="' + r + '">Valid from: ' + new Date(mongorecords[r].startDate).toLocaleString() + '</option>');
+      databaseRecords.append('<option value="' + r + '">' + translate('Valid from:') + ' ' + new Date(mongorecords[r].startDate).toLocaleString() + '</option>');
     }
     databaseRecords.val(currentrecord);
     
@@ -408,11 +411,11 @@
       var selectedValue = toMinutesFromMidnight(c_profile[e.array][i].time) * 30;
       select.val(selectedValue);
 
-      tr.append($('<td>').append('From: ').append(select));
+      tr.append($('<td>').append(translate('From') + ': ').append(select));
       tr.append($('<td>').append(e.label).append($('<input type="text">').attr('id',e.prefix+'_val_'+i).attr('value',c_profile[e.array][i].value)));
-      var icons_td = $('<td>').append($('<img>').attr('class','addsingle').attr('style','cursor:pointer').attr('title','Add new interval before').attr('src',icon_add).attr('array',e.array).attr('pos',i));
+      var icons_td = $('<td>').append($('<img>').attr('class','addsingle').attr('style','cursor:pointer').attr('title',translate('Add new interval before')).attr('src',icon_add).attr('array',e.array).attr('pos',i));
       if (c_profile[e.array].length>1) {
-        icons_td.append($('<img>').attr('class','delsingle').attr('style','cursor:pointer').attr('title','Delete interval').attr('src',icon_remove).attr('array',e.array).attr('pos',i));
+        icons_td.append($('<img>').attr('class','delsingle').attr('style','cursor:pointer').attr('title',translate('Delete interval')).attr('src',icon_remove).attr('array',e.array).attr('pos',i));
       }
       tr.append(icons_td);
         
@@ -423,15 +426,15 @@
     }
     
     // Fill dropdown boxes
-    _.each([{prefix:'pe_basal', array:'basal', label:'Rate: '},
-     {prefix:'pe_ic', array:'carbratio', label:'IC: '},
-     {prefix:'pe_isf', array:'sens', label:'ISF: '}
+    _.each([{prefix:'pe_basal', array:'basal', label: translate('Basal rate') + ' : '},
+     {prefix:'pe_ic', array:'carbratio', label: translate('I:C') + ' : '},
+     {prefix:'pe_isf', array:'sens', label: translate('ISF') + ' : '}
     ], function (e) {
       var html = '<table>';
       for (var i=0; i<c_profile[e.array].length; i++) {
         html += addSingleLine(e,i);
       }
-      html += '<tr><td></td><td></td><td><img class="addsingle" style="cursor:pointer" title="Add new interval before" src="'+icon_add+'" array="'+e.array+'" pos="'+i+'" href="#"></td></tr>';
+      html += '<tr><td></td><td></td><td><img class="addsingle" style="cursor:pointer" title="' + translate('Add new interval before') + '" src="'+icon_add+'" array="'+e.array+'" pos="'+i+'" href="#"></td></tr>';
       html += '</table>';
       $('#'+e.prefix+'_placeholder').html(html);
     });
@@ -465,12 +468,12 @@
       }
       var selectedValue = toMinutesFromMidnight(c_profile.target_low[i].time) * 30;
       select.val(selectedValue);
-      tr.append($('<td>').append('From: ').append(select));
-      tr.append($('<td>').append('Low : ').append($('<input type="text">').attr('id','pe_targetbg_low_'+i).attr('value',c_profile.target_low[i].value)));
-      tr.append($('<td>').append('High : ').append($('<input type="text">').attr('id','pe_targetbg_high_'+i).attr('value',c_profile.target_high[i].value)));
-      var icons_td = $('<td>').append($('<img>').attr('class','addtargetbg').attr('style','cursor:pointer').attr('title','Add new interval before').attr('src',icon_add).attr('pos',i));
+      tr.append($('<td>').append(translate('From') + ': ').append(select));
+      tr.append($('<td>').append(translate('Low') + ' : ').append($('<input type="text">').attr('id','pe_targetbg_low_'+i).attr('value',c_profile.target_low[i].value)));
+      tr.append($('<td>').append(translate('High') + ' : ').append($('<input type="text">').attr('id','pe_targetbg_high_'+i).attr('value',c_profile.target_high[i].value)));
+      var icons_td = $('<td>').append($('<img>').attr('class','addtargetbg').attr('style','cursor:pointer').attr('title',translate('Add new interval before')).attr('src',icon_add).attr('pos',i));
       if (c_profile.target_low.length>1) {
-        icons_td.append($('<img>').attr('class','deltargetbg').attr('style','cursor:pointer').attr('title','Delete interval').attr('src',icon_remove).attr('pos',i));
+        icons_td.append($('<img>').attr('class','deltargetbg').attr('style','cursor:pointer').attr('title',translate('Delete interval')).attr('src',icon_remove).attr('pos',i));
       }
       tr.append(icons_td);
       
@@ -487,7 +490,7 @@
     for (var i=0; i<c_profile.target_low.length; i++) {
       html += addBGLine(i);
     }
-    html += '<tr><td></td><td></td><td></td><td><img class="addtargetbg" style="cursor:pointer" title="Add new interval before" src="'+icon_add+'" pos="'+i+'" href="#"></td></tr>';
+    html += '<tr><td></td><td></td><td></td><td><img class="addtargetbg" style="cursor:pointer" title="' + translate('Add new interval before') + '" src="'+icon_add+'" pos="'+i+'" href="#"></td></tr>';
     html += '</table>';
     $('#pe_targetbg_placeholder').html(html);
     
