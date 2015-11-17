@@ -4,7 +4,7 @@
   margin: 0 5%;
   width: 80%;
   position: relative;
-  min-height: 49%;
+  min-height: 1em;
 }
 
 #chartContainer svg {

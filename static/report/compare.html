@@ -143,11 +143,13 @@
             { controls: toolbar.find('.controls')
           } );
 
-          $('window').on('hashchange', route_add);
+          $(window).on('hashchange', route_add);
           $('#menu').on('click', 'A.add-button', route_add);
           function route_add (ev) {
             pools.add_new( );
             console.log('Add', ev.target, arguments);
+            ev.PreventDefault( );
+            return false;
           }
           var compare = { toolbar: toolbar, timeline: timeline, control: control};
           Nightscout.compare = compare;
