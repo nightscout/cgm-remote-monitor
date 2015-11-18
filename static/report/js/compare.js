@@ -22,7 +22,7 @@ function slippy (dom, opt) {
     // var width = dom.width( );
     // var height = dom.height( );
     svg.attr('width', dom_width)
-       // .attr('height', height)
+       .attr('height', height)
        ;
     var begin = scales.x.invert(0);
     var end = scales.x.invert(width);
@@ -52,10 +52,11 @@ function slippy (dom, opt) {
 
   function get_dimensions( ) {
     dom_width = dom.width( );
+    console.log('heigh', dom_height);
+    margin = {top: 20, right: 50, bottom: 20, left: 50};
+    width = dom_width - margin.left - margin.right;
     dom_height = dom.height( );
-    margin = {top: 20, right: 50, bottom: 20, left: 50},
-      width = dom_width - margin.left - margin.right,
-      height = dom_height - margin.top - margin.bottom;
+    height = dom_height - margin.top - margin.bottom;
   }
 
   function init ( ) {
@@ -102,7 +103,25 @@ function slippy (dom, opt) {
     // frame.setRange(begin, end);
     opt.controls.on('change', 'INPUT', refocus);
     frame( );
+    $(window).on('resize', resize);
     return frame;
+  }
+
+  function adjust_sizes (ev) {
+    get_dimensions( );
+    scales.x
+      .rangeRound([0, dom.width( )])
+      ;
+    scales.y
+      .rangeRound([1, dom.height( )])
+      ;
+    chart.selectAll('.x.axis')
+      .call(frame.xAxis)
+  }
+
+  function resize (ev) {
+    adjust_sizes(ev);
+    frame( );
   }
 
   function refocus (ev) {
@@ -244,7 +263,7 @@ function pager (opts) {
     if (opts.callback && opts.callback.call) {
       opts.callback(payload);
     } else {
-      console.log(payload);
+      // console.log(payload);
     }
   }
 
@@ -313,7 +332,7 @@ function ranger (dom, opts) {
     // dots.enter( )
       // .append("circle")
     // console.log('data', my.data);
-    var selection = dots.selectAll('.dots').data(my.data);
+    var selection = dots.selectAll('.dots').data(my.data || [ ]);
     // console.log('dots', dots, selection);
     selection.enter( ).append('circle').attr('class', 'dots');
     selection.exit( ).remove( );
@@ -322,12 +341,11 @@ function ranger (dom, opts) {
   }
 
   function render_circles (dots) {
-    // console.log('selection', dots);
     dots
         .attr("r", 5)
         .attr("title",  function (d) { return d.key; })
         .attr("fill", function (d) { return d.values.color; })
-        .attr("cx", function (d) {console.log(d); return scales.x(d.values.target); })
+        .attr("cx", function (d) { return scales.x(d.values.target); })
         .attr("cy", function (d) { return scales.y(d.values.mean); })
     return dots;
   }
@@ -413,15 +431,42 @@ function ranger (dom, opts) {
       .call(yAxis)
       ;
     // dots = chart.selectAll(".dot");
+    $(window).on('resize', resize);
     return my;
+  }
+
+  function resize (ev) {
+    adjust_frames(ev);
+    my( );
+  }
+  function adjust_frames (ev) {
+    get_dimensions( );
+    root
+      .attr('class', 'ranger')
+      .attr('height', dom_height)
+      .attr('width', dom_width)
+      ;
+    chart
+      .attr("transform", "translate(" + 0 + ", " + (margin.top) + ")")
+      .attr('class', 'ranger-chart')
+      ;
+    scales.x
+      .range([0, width])
+      ;
+    scales.y
+      .rangeRound( [height - (margin.top + margin.bottom), 1] )
+      ;
+    chart.selectAll('.x.axis').call(xAxis);
+    chart.selectAll('.y.axis').call(yAxis);
+
   }
 
   function get_dimensions( ) {
     dom_width = dom.width( );
-    dom_height = dom.height( );
-    margin = {top: 20, right: 50, bottom: 20, left: 50},
-      width = dom_width - margin.left - margin.right,
-      height = dom_height - margin.top - margin.bottom;
+    margin = {top: 20, right: 50, bottom: 20, left: 50};
+    width = dom_width - margin.left - margin.right;
+    dom_height = dom.height( ) - margin.top;
+    height = dom_height - margin.top - margin.bottom;
   }
 
   return init( );

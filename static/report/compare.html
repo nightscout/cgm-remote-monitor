@@ -148,7 +148,7 @@
           function route_add (ev) {
             pools.add_new( );
             console.log('Add', ev.target, arguments);
-            ev.PreventDefault( );
+            ev.preventDefault( );
             return false;
           }
           var compare = { toolbar: toolbar, timeline: timeline, control: control};

@@ -1,6 +1,7 @@
 (function () {
 
   window._ = require('lodash');
+  window.d3 = require('d3');
   window.$ = window.jQuery = require('jquery');
   window.moment = require('moment-timezone');
   window.sugar = require('sugar');
