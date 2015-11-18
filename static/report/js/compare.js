@@ -218,11 +218,20 @@ function pager (opts) {
   query.begin = opts.begin;
   query.end = opts.end;
   var payload;
+  var DATE_FMT = "{yyyy}-{MM}-{dd}";
+
+  var bisect = d3.bisector(function (d) { return Date.create(d.dateString); });
   function page ( ) {
   }
 
   function refresh (start, end) {
     // console.log("PAYLOAD?", payload);
+    var q = {
+      start: Date.create(Date.create(start).format(DATE_FMT))
+    , end: Date.create(Date.create(end).format(DATE_FMT))
+    };
+    var range = d3.time.days(q.start, q.end);
+    console.log('QUERY FOR', range.length, 'days', q, query);
     if (payload) {
       // TODO: soft update, only get deltas against the edges of the
       // cursor.
@@ -242,8 +251,8 @@ function pager (opts) {
 
   function param_string (begin, end) {
     return [
-      "find[dateString][$gte]=" + Date.create(begin).format(Date.ISO8601_DATETIME)
-    , "find[dateString][$lte]=" + Date.create(end).format(Date.ISO8601_DATETIME)
+      "find[dateString][$gte]=" + Date.create(begin).format(DATE_FMT)
+    , "find[dateString][$lte]=" + Date.create(end).format(DATE_FMT)
     ].join('&')
   }
 
