@@ -353,7 +353,8 @@ function ranger (dom, opts) {
 
   function gridlines (selection) {
     selection.selectAll('.x.gridlines')
-      .attr("transform", "translate(0," + height + ")")
+      // .attr("transform", "translate(0," + height + ")")
+      .attr("transform", "translate(" + margin.left + "," + height + ")")
       // .attr("transform", "translate(" + margin.left + ", " + (margin.top) + ")")
       .call(make_x_axis( )
         .tickSize(-height, 0, 0)
@@ -361,7 +362,7 @@ function ranger (dom, opts) {
       )
             
     selection.selectAll('.y.gridlines')
-      // .attr("transform", "translate(" + margin.left + ", " + (margin.top) + ")")
+      .attr("transform", "translate(" + margin.left + ", " + (margin.top) + ")")
       .call(make_y_axis( )
         .tickSize(-width - margin.left, 0, 0)
         .tickValues([40, 80, 120,  180, 240, 300,  400])
