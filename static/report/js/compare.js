@@ -58,11 +58,12 @@ function slippy (dom, opt) {
   }
 
   function init ( ) {
+    get_dimensions( );
     var begin = opt.begin || opt.controls.find('INPUT.begin-input').val( );
     var end = opt.end || opt.controls.find('INPUT.end-input').val( );
     var range = frame.setRange(begin, end);
-    var width = dom.width( );
-    var height = dom.height( );
+    // var width = dom.width( );
+    // var height = dom.height( );
     svg = d3.select(dom.get(0)).append('svg')
       .attr('class', 'slippy-chart')
       ;
