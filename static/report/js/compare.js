@@ -3,7 +3,6 @@
 
 function slippy (dom, opt) {
 
-  console.log(dom, opt);
   var svg = { };
   var chart;
   var container;
@@ -13,7 +12,7 @@ function slippy (dom, opt) {
   var zoomer;
 
   var margin = {top: 20, right: 50, bottom: 20, left: 50};
-  get_dimensions( );
+  // get_dimensions( );
 
 
   function frame ( ) {
@@ -52,7 +51,6 @@ function slippy (dom, opt) {
 
   function get_dimensions( ) {
     dom_width = dom.width( );
-    console.log('heigh', dom_height);
     margin = {top: 20, right: 50, bottom: 20, left: 50};
     width = dom_width - margin.left - margin.right;
     dom_height = dom.height( );
@@ -340,6 +338,38 @@ function ranger (dom, opts) {
     // .exit( ).remove( );
   }
 
+  function make_x_axis ( ) {
+    return d3.svg.axis( )
+      .scale(scales.x)
+      ;
+  }
+
+  function make_y_axis ( ) {
+    return d3.svg.axis()
+      .scale(scales.y)
+      ;
+  }
+
+  function gridlines (selection) {
+    selection.selectAll('.x.gridlines')
+      .attr("transform", "translate(0," + height + ")")
+      // .attr("transform", "translate(" + margin.left + ", " + (margin.top) + ")")
+      .call(make_x_axis( )
+        .tickSize(-height, 0, 0)
+        .tickFormat("")
+      )
+            
+    selection.selectAll('.y.gridlines')
+      // .attr("transform", "translate(" + margin.left + ", " + (margin.top) + ")")
+      .call(make_y_axis( )
+        .tickSize(-width - margin.left, 0, 0)
+        .tickValues([40, 80, 120,  180, 240, 300,  400])
+        .tickFormat("")
+        .orient("left")
+        // .ticks(6)
+      )
+
+  }
   function render_circles (dots) {
     dots
         .attr("r", 5)
@@ -388,16 +418,14 @@ function ranger (dom, opts) {
 
 
     // Axis
-    xAxis = d3.svg.axis( )
+    xAxis = make_x_axis( )
       .ticks(10)
-      .scale(scales.x)
       .tickFormat(function(d) { return parseInt(d, 10) + "%"; })
       .orient('top')
       ;
 
 
-    yAxis = d3.svg.axis()
-      .scale(scales.y)
+    yAxis = make_y_axis( )
       .tickValues([40, 60, 70, 80, 120, 160, 180, 200, 220, 260, 300, 350, 400])
       .tickFormat(d3.format("d"))
       .tickSize(6, 3, 1)
@@ -415,6 +443,12 @@ function ranger (dom, opts) {
       .attr('class', 'ranger-chart')
       ;
 
+    chart.append('g').attr('class', 'x gridlines')
+      .attr("transform", "translate(" + margin.left + ", " + (margin.top) + ")")
+      ;
+    chart.append('g').attr('class', 'y gridlines')
+      .attr("transform", "translate(" + margin.left + ", " + (margin.top) + ")")
+      ;
     dots = chart.append("g")
       .attr("transform", "translate(" + margin.left + ", " + (margin.top) + ")")
       .attr("class", "scatter")
@@ -432,6 +466,7 @@ function ranger (dom, opts) {
       ;
     // dots = chart.selectAll(".dot");
     $(window).on('resize', resize);
+    adjust_frames( );
     return my;
   }
 
@@ -451,13 +486,16 @@ function ranger (dom, opts) {
       .attr('class', 'ranger-chart')
       ;
     scales.x
+      // .range([0, width])
       .range([0, width])
       ;
     scales.y
       .rangeRound( [height - (margin.top + margin.bottom), 1] )
       ;
+
     chart.selectAll('.x.axis').call(xAxis);
     chart.selectAll('.y.axis').call(yAxis);
+    chart.call(gridlines)
 
   }
 

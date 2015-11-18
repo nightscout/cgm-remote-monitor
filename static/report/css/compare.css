@@ -90,3 +90,8 @@
   padding-bottom: 500px;
 }
 
+#view .gridlines line {
+  stroke: silver;
+  stroke-opacity: 60%;
+}
+
