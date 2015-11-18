@@ -3,7 +3,7 @@
 
 function slippy (dom, opt) {
 
-  // console.log(dom, opt);
+  console.log(dom, opt);
   var svg = { };
   var chart;
   var container;
@@ -52,7 +52,7 @@ function slippy (dom, opt) {
 
   function get_dimensions( ) {
     dom_width = dom.width( );
-    // console.log('heigh', dom_height);
+    console.log('heigh', dom_height);
     margin = {top: 20, right: 50, bottom: 20, left: 50};
     width = dom_width - margin.left - margin.right;
     dom_height = dom.height( );
@@ -182,7 +182,7 @@ function manager (view, data, opts) {
     var lense = ranger(pool, {color: color, begin: begin, end: end });
     var display =  { dom: pool, control: lense };
     reticle.dom.find('.timeline').css('border', '1px solid ' + color);
-    // display.dom.css('border-color', color);
+    display.dom.css('border-color', color);
     reticle.dom.find("span, :input").css('color', color);
     // reticle.dom.find(".x.axis line").('styl', color);
     var axis = d3.select(reticle.dom.get(0)).selectAll('.x.axis');
@@ -406,23 +406,31 @@ function ranger (dom, opts) {
 
     root = d3.select(dom.get(0)).append('svg')
       .attr('class', 'ranger')
+      .attr('height', dom_height)
+      .attr('width', dom_width)
       ;
 
     chart = root.append('g')
+      .attr("transform", "translate(" + 0 + ", " + (margin.top) + ")")
       .attr('class', 'ranger-chart')
       ;
 
     dots = chart.append("g")
+      .attr("transform", "translate(" + margin.left + ", " + (margin.top) + ")")
       .attr("class", "scatter")
       ;
     chart.append("g")
+      .attr("transform", "translate(" + margin.left + ", " + (margin.top) + ")")
       .attr("class", "x axis")
+      .call(xAxis)
       ;
     chart.append("g")
+      .attr("transform", "translate(" + margin.left + ", " + (margin.top) + ")")
+      // .attr("transform", "translate(" + dom_width + ", " + (0) + ")")
       .attr("class", "y axis")
+      .call(yAxis)
       ;
     // dots = chart.selectAll(".dot");
-    adjust_frames( );
     $(window).on('resize', resize);
     return my;
   }
@@ -441,10 +449,6 @@ function ranger (dom, opts) {
     chart
       .attr("transform", "translate(" + 0 + ", " + (margin.top) + ")")
       .attr('class', 'ranger-chart')
-      ;
-    dots
-      .attr("transform", "translate(" + margin.left + ", " + (margin.top) + ")")
-      .attr("class", "scatter")
       ;
     scales.x
       .range([0, width])
