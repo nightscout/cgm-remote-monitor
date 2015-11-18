@@ -21,7 +21,7 @@ function slippy (dom, opt) {
     // var width = dom.width( );
     // var height = dom.height( );
     svg.attr('width', dom_width)
-       .attr('height', height)
+       // .attr('height', height - margin.right - margin.left)
        ;
     var begin = scales.x.invert(0);
     var end = scales.x.invert(width);
