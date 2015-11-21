@@ -233,6 +233,7 @@ function pager (opts) {
     var range = d3.time.days(q.start, q.end);
     console.log('QUERY FOR', range.length, 'days', q, query);
     if (payload) {
+      console.log("BISECTED", range.length);
       // TODO: soft update, only get deltas against the edges of the
       // cursor.
       // start.isBefore
@@ -373,7 +374,7 @@ function ranger (dom, opts) {
     selection.selectAll('.y.gridlines')
       .attr("transform", "translate(" + margin.left + ", " + (margin.top) + ")")
       .call(make_y_axis( )
-        .tickSize(-width - margin.left, 0, 0)
+        .tickSize(-width , 0, 0)
         .tickValues([40, 80, 120,  180, 240, 300,  400])
         .tickFormat("")
         .orient("left")
