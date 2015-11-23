@@ -5,6 +5,7 @@
   window.$ = window.jQuery = require('jquery');
   window.moment = require('moment-timezone');
   window.sugar = require('sugar');
+  window.crossfilter = require('crossfilter');
   window.Nightscout = window.Nightscout || {};
 
   window.Nightscout = {

@@ -140,6 +140,47 @@ function slippy (dom, opt) {
   // return frame;
 }
 
+function cached (opts) {
+  var storage = opts.storage || crossfilter([ ]);
+  var dims = {
+    byDate: storage.dimension(dateStringDate)
+  };
+  function api ( ) {
+  }
+
+  function within (start, end) {
+    start = Date.create(start);
+    end = Date.create(end);
+    return dims.byDate.filterRange([start, end]).top(Infinity);
+  }
+
+  function cx ( ) {
+    return storage;
+  }
+
+  function get ( ) {
+  }
+
+  function add (records) {
+    storage.add(records);
+  }
+
+  function dateString (d) { return d.dateString; }
+  function dateStringDate (d) { return Date.create(d.dateString); }
+  function sgv (d) { return d.sgv; }
+  function is_clean (d) { return sgv(d) > 39; }
+  function is_in_range (d) { return sgv(d) >= range.low && sgv(d) <= range.high; }
+  function is_high (d) { return sgv(d) > range.high; }
+  function is_low (d) { return sgv(d) < range.low; }
+
+  api.dims = dims;
+  api.get = get;
+  api.add = add;
+  api.within = within;
+  api.cx = cx;
+  return api;
+}
+
 function manager (view, data, opts) {
 
   // var colorize = d3.scale.category20b( );
@@ -150,6 +191,7 @@ function manager (view, data, opts) {
   var item_opts = opts.item_opts || { };
   var pools = [ ];
   var master = { };
+  var cache = opts.cache || cached({ });
   function manage ( ) {
   }
 
@@ -178,7 +220,7 @@ function manager (view, data, opts) {
     } );
     var reticle =  {dom: item, control: control};
     var color = colorize(pools.length);
-    var lense = ranger(pool, {color: color, begin: begin, end: end });
+    var lense = ranger(pool, {color: color, begin: begin, end: end, cache: cache});
     var display =  { dom: pool, control: lense };
     reticle.dom.find('.timeline').css('border', '1px solid ' + color);
     display.dom.css('border-color', color);
@@ -217,7 +259,9 @@ function pager (opts) {
   var url = opts.url || '/api/v1/entries.json?find[type]=sgv&find[sgv][$gt]=39&count=500000&';
   query.begin = opts.begin;
   query.end = opts.end;
-  var payload;
+  var payload = [ ];
+  var days = { };
+  var cache = opts.cache;
   var DATE_FMT = "{yyyy}-{MM}-{dd}";
 
   var bisect = d3.bisector(function (d) { return Date.create(d.dateString); });
@@ -230,10 +274,15 @@ function pager (opts) {
       start: Date.create(Date.create(start).format(DATE_FMT))
     , end: Date.create(Date.create(end).format(DATE_FMT))
     };
+    query.begin = start;
+    query.end = end;
     var range = d3.time.days(q.start, q.end);
+    days = { };
     console.log('QUERY FOR', range.length, 'days', q, query);
-    if (payload) {
-      console.log("BISECTED", range.length);
+    iter_query(range);
+    return;
+    if (payload && payload.length > 0) {
+      console.log("NUM DAYS", range.length);
       // TODO: soft update, only get deltas against the edges of the
       // cursor.
       // start.isBefore
@@ -242,6 +291,12 @@ function pager (opts) {
       // end.isBefore
       // end.isBetween
       // end.isAfter
+      var holding = {
+          begin: Date.create(payload[0].dateString)
+        , last:  Date.create(payload.slice(-1).pop( ).dateString)
+      }
+      console.log("BISECT LEFT start", bisect.left(payload, { dateString: start }));
+      console.log("BISECT LEFT end", end, bisect.right(payload, { dateString: end }));
       do_query(start, end, first_page);
     } else {
       do_query(start, end, first_page);
@@ -257,8 +312,65 @@ function pager (opts) {
     ].join('&')
   }
 
+  function iter (prev, current, index, tail) {
+  }
+
+  function iter_query (range) {
+    payload = [ ];
+    range.forEach(function (day, i) {
+      var start = day;
+      var end = d3.time.day.offset(start, 1);
+      var data = cache.within(start, end);
+      if (data.length < 10) {
+        do_query(start, end, function _iter_ (resp) {
+          days[Date.create(day).format(DATE_FMT)] = true;
+          collate(resp);
+        });
+      } else {
+        days[Date.create(day).format(DATE_FMT)] = true;
+        payload = payload.concat(data);
+        if (Object.keys(days).length >= range.length) {
+          do_payload( );
+        }
+      }
+    });
+
+  }
+
+  function accrue (begin, end, cb) {
+    var q = {
+      start: Date.create(Date.create(start).format(DATE_FMT))
+    , end: Date.create(Date.create(end).format(DATE_FMT))
+    };
+    var range = d3.time.days(q.start, q.end);
+    if (range.length > 3) {
+      var half = range.length / 2;
+      var head = range.slice(0, half);
+      var tail = range.slice(half);
+      // head.reduce(iter, { });
+      // tail.reduce(iter, { });
+    }
+  }
+
+  function collate (resp) {
+    console.log('payload', payload.length, 'resp', resp.length);
+    payload = payload.concat(resp);
+    cache.add(resp);
+    payload.sort(cmp_dateString);
+    var range = d3.time.days(query.start, query.end);
+    if (Object.keys(days).length >= range.length) {
+      do_payload( );
+    }
+  }
+
+  function cmp_dateString (a, b) {
+    return a.dateString > b.dateString;
+  }
+
   function do_query (begin, end, cb) {
+    var range = d3.time.days(Date.create(begin), Date.create(end));
     var fetch = url + param_string(begin, end);
+    console.log('QUERY FOR', range.length, 'days', query, fetch);
     $.getJSON(fetch, cb);
   }
   
@@ -278,7 +390,8 @@ function pager (opts) {
 
   function init ( ) {
     if (query.begin && query.end) {
-      do_query(query.begin, query.end, first_page);
+      refresh(query.begin, query.end);
+      // do_query(query.begin, query.end, first_page);
     }
     page( );
     return page;
@@ -384,6 +497,7 @@ function ranger (dom, opts) {
   }
   function render_circles (dots) {
     dots
+        .transition( )
         .attr("r", 5)
         .attr("title",  function (d) { return d.key; })
         .attr("fill", function (d) { return d.values.color; })
@@ -414,7 +528,7 @@ function ranger (dom, opts) {
   }
 
   function init ( ) {
-    my.page = pager({begin: opts.begin, end: opts.end, callback: on_data});
+    my.page = pager({begin: opts.begin, end: opts.end, callback: on_data, cache: opts.cache});
     get_dimensions( );
 
     scales.x = d3.scale.linear( )
