@@ -547,7 +547,7 @@ function ranger (dom, opts) {
     xAxis = make_x_axis( )
       .ticks(10)
       .tickFormat(function(d) { return parseInt(d, 10) + "%"; })
-      .orient('top')
+      .orient('bottom')
       ;
 
 
@@ -580,7 +580,7 @@ function ranger (dom, opts) {
       .attr("class", "scatter")
       ;
     chart.append("g")
-      .attr("transform", "translate(" + margin.left + ", " + (margin.top) + ")")
+      .attr("transform", "translate(" + margin.left + ", " + (height - margin.top) + ")")
       .attr("class", "x axis")
       .call(xAxis)
       ;
