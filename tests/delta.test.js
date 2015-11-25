@@ -41,7 +41,6 @@ describe('Delta', function ( ) {
   });
 
   it('should calculate BG Delta by interpolating when more than 5mins apart', function (done) {
-    var clientSettings = { units: 'mg/dl' };
     var data = {sgvs: [{mills: before - SIX_MINS, mgdl: 100}, {mills: now, mgdl: 105}]};
 
     var ctx = {
