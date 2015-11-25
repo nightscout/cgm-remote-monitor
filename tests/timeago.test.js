@@ -11,12 +11,9 @@ describe('timeago', function ( ) {
   ctx.data = require('../lib/data')(env, ctx);
   ctx.notifications = require('../lib/notifications')(env, ctx);
 
-  var now = Date.now();
-
-
   it('Not trigger an alarm when data is current', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: now, mgdl: 100, type: 'sgv'}];
+    ctx.data.sgvs = [{mills: Date.now(), mgdl: 100, type: 'sgv'}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     timeago.checkNotifications(sbx);
@@ -27,7 +24,7 @@ describe('timeago', function ( ) {
 
   it('Not trigger an alarm with future data', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: now + times.mins(15).msecs, mgdl: 100, type: 'sgv'}];
+    ctx.data.sgvs = [{mills: Date.now() + times.mins(15).msecs, mgdl: 100, type: 'sgv'}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     timeago.checkNotifications(sbx);
@@ -38,7 +35,7 @@ describe('timeago', function ( ) {
 
   it('should trigger a warning when data older than 15m', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: now - times.mins(15.8).msecs, mgdl: 100, type: 'sgv'}];
+    ctx.data.sgvs = [{mills: Date.now() - times.mins(16).msecs, mgdl: 100, type: 'sgv'}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     timeago.checkNotifications(sbx);
@@ -50,7 +47,7 @@ describe('timeago', function ( ) {
 
   it('should trigger an urgent alarm when data older than 30m', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: now - times.mins(30.8).msecs, mgdl: 100, type: 'sgv'}];
+    ctx.data.sgvs = [{mills: Date.now() - times.mins(31).msecs, mgdl: 100, type: 'sgv'}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     timeago.checkNotifications(sbx);
@@ -61,6 +58,7 @@ describe('timeago', function ( ) {
   });
 
   it('calc timeago displays', function() {
+    var now = Date.now();
 
     should.deepEqual(
       timeago.calcDisplay({ mills: now + times.mins(15).msecs }, now)
