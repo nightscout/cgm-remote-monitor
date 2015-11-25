@@ -21,8 +21,6 @@ describe('cage', function ( ) {
 
   it('set a pill to the current cannula age', function (done) {
 
-    var clientSettings = {};
-
     var data = {
       sitechangeTreatments: [
         {eventType: 'Site Change', notes: 'Foo', mills: Date.now() - 48 * 60 * 60000}
@@ -30,15 +28,18 @@ describe('cage', function ( ) {
         ]
     };
 
-    var pluginBase = {
-      updatePillText: function mockedUpdatePillText (plugin, options) {
-        options.value.should.equal('24h');
-        options.info[1].value.should.equal('Bar');
-        done();
+    var ctx = {
+      settings: {}
+      , pluginBase: {
+        updatePillText: function mockedUpdatePillText(plugin, options) {
+          options.value.should.equal('24h');
+          options.info[1].value.should.equal('Bar');
+          done();
+        }
       }
     };
 
-    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
     cage.updateVisualisation(sbx);
 
   });
@@ -54,15 +55,18 @@ describe('cage', function ( ) {
         ]
     };
 
-    var pluginBase = {
-      updatePillText: function mockedUpdatePillText (plugin, options) {
-        options.value.should.equal('0h');
-        options.info.length.should.equal(1);
-        done();
+    var ctx = {
+      settings: {}
+      , pluginBase: {
+        updatePillText: function mockedUpdatePillText(plugin, options) {
+          options.value.should.equal('0h');
+          options.info.length.should.equal(1);
+          done();
+        }
       }
     };
 
-    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
     cage.updateVisualisation(sbx);
 
   });
