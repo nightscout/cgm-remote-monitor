@@ -64,7 +64,7 @@
     });
     filter.category = '';
     fillFoodSubcategories();
-    
+
     $('#rp_category').change(fillFoodSubcategories);
     $('#rp_subcategory').change(doFoodFilter);
     $('#rp_name').on('input',doFoodFilter);
@@ -364,7 +364,7 @@
     function daysfilter() {
       matchesneeded++;
       Object.keys(daystoshow).forEach( function eachDay(d) {
-        var day = new Date(d).getDay();
+        var day = moment.tz(d,zone).day();
         if (day===0 && $('#rp_su').is(':checked')) { daystoshow[d]++; }
         if (day===1 && $('#rp_mo').is(':checked')) { daystoshow[d]++; }
         if (day===2 && $('#rp_tu').is(':checked')) { daystoshow[d]++; }
@@ -583,8 +583,8 @@
           treatment.mills = timestamp.getTime();
           return treatment;
         });
-        datastorage.tempbasaltreatments = treatmentData.slice();
-        datastorage.tempbasaltreatments.sort(function(a, b) { return a.mills - b.mills; });
+        datastorage.tempbasalTreatments = treatmentData.slice();
+        datastorage.tempbasalTreatments.sort(function(a, b) { return a.mills - b.mills; });
       }
     }).done(function () {
       callback();

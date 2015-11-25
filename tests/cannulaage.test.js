@@ -22,7 +22,7 @@ describe('cage', function ( ) {
   it('set a pill to the current cannula age', function (done) {
 
     var data = {
-      treatments: [
+      sitechangeTreatments: [
         {eventType: 'Site Change', notes: 'Foo', mills: Date.now() - 48 * 60 * 60000}
         , {eventType: 'Site Change', notes: 'Bar', mills: Date.now() - 24 * 60 * 60000}
         ]
@@ -49,7 +49,7 @@ describe('cage', function ( ) {
     var clientSettings = {};
 
     var data = {
-      treatments: [
+      sitechangeTreatments: [
         {eventType: 'Site Change', notes: 'Foo', mills: Date.now() - 48 * 60 * 60000}
         , {eventType: 'Site Change', notes: '', mills: Date.now() - 59 * 60000}
         ]
@@ -77,7 +77,7 @@ describe('cage', function ( ) {
 
     var before = Date.now() - (48 * 60 * 60 * 1000);
 
-    ctx.data.treatments = [{eventType: 'Site Change', mills: before}];
+    ctx.data.sitechangeTreatments = [{eventType: 'Site Change', mills: before}];
 
     var sbx = prepareSandbox();
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
