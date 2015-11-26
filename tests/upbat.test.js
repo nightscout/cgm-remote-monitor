@@ -3,7 +3,7 @@
 require('should');
 
 describe('Uploader Battery', function ( ) {
-  var data = {uploaderBattery: 20};
+  var data = {devicestatus: [{uploader: {battery: 20}}]};
 
   it('display uploader battery status', function (done) {
     var sandbox = require('../lib/sandbox')();
@@ -78,7 +78,7 @@ describe('Uploader Battery', function ( ) {
     };
 
     var sandbox = require('../lib/sandbox')();
-    var sbx = sandbox.clientInit(ctx, Date.now(), {uploaderBattery: -1});
+    var sbx = sandbox.clientInit(ctx, Date.now(), {devicestatus: [{uploader: {battery: -1}}]});
     var upbat = require('../lib/plugins/upbat')();
     upbat.setProperties(sbx);
     upbat.updateVisualisation(sbx);
