@@ -3,7 +3,7 @@
 require('should');
 
 describe('Uploader Battery', function ( ) {
-  var data = {devicestatus: [{uploader: {battery: 20}}]};
+  var data = {devicestatus: [{mills: Date.now(), uploader: {battery: 20}}]};
 
   it('display uploader battery status', function (done) {
     var sandbox = require('../lib/sandbox')();
