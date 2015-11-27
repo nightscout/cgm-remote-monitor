@@ -53,17 +53,14 @@ describe('Data', function ( ) {
     delta.cals.length.should.equal(1);
   });
 
-  it('delta should include profile and devicestatus object if changed', function() {
+  it('delta should include profile', function() {
     data.sgvs = [{mgdl: 100, mills: before},{mgdl: 100, mills: now}];
     data.profiles = {foo:true};
-    data.devicestatus = {foo:true};
     var newData = data.clone();
     newData.sgvs = [{mgdl: 100, mills:101},{mgdl: 100, mills: before},{mgdl: 100, mills: now}];
     newData.profiles = {bar:true};
-    newData.devicestatus = {bar:true};
     var delta = data.calculateDeltaBetweenDatasets(data,newData);
     delta.profiles.bar.should.equal(true);
-    delta.devicestatus.bar.should.equal(true);
   });
 
   it('update treatment display BGs', function() {
