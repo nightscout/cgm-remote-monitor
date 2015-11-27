@@ -70,54 +70,54 @@ describe('timeago', function ( ) {
 
     should.deepEqual(
       timeago.calcDisplay({ mills: now + times.mins(15).msecs }, now)
-      , {label: 'in the future'}
+      , {label: 'in the future', shortLabel: 'future'}
     );
 
     //TODO: current behavior, we can do better
     //just a little in the future, pretend it's ok
     should.deepEqual(
       timeago.calcDisplay({ mills: now + times.mins(4).msecs }, now)
-      , {value: 1, label: 'min ago'}
+      , {value: 1, label: 'min ago', shortLabel: 'm'}
     );
 
     should.deepEqual(
       timeago.calcDisplay(null, now)
-      , {label: 'time ago'}
+      , {label: 'time ago', shortLabel: 'ago'}
     );
 
     should.deepEqual(
       timeago.calcDisplay({ mills: now }, now)
-      , {value: 1, label: 'min ago'}
+      , {value: 1, label: 'min ago', shortLabel: 'm'}
     );
 
     should.deepEqual(
       timeago.calcDisplay({ mills: now - 1 }, now)
-      , {value: 1, label: 'min ago'}
+      , {value: 1, label: 'min ago', shortLabel: 'm'}
     );
 
     should.deepEqual(
       timeago.calcDisplay({ mills: now - times.sec(30).msecs }, now)
-      , {value: 1, label: 'min ago'}
+      , {value: 1, label: 'min ago', shortLabel: 'm'}
     );
 
     should.deepEqual(
       timeago.calcDisplay({ mills: now - times.mins(30).msecs }, now)
-      , {value: 30, label: 'mins ago'}
+      , {value: 30, label: 'mins ago', shortLabel: 'm'}
     );
 
     should.deepEqual(
       timeago.calcDisplay({ mills: now - times.hours(5).msecs }, now)
-      , {value: 5, label: 'hours ago'}
+      , {value: 5, label: 'hours ago', shortLabel: 'h'}
     );
 
     should.deepEqual(
       timeago.calcDisplay({ mills: now - times.days(5).msecs }, now)
-      , {value: 5, label: 'days ago'}
+      , {value: 5, label: 'days ago', shortLabel: 'd'}
     );
 
     should.deepEqual(
       timeago.calcDisplay({ mills: now - times.days(10).msecs }, now)
-      , {label: 'long ago'}
+      , {label: 'long ago', shortLabel: 'ago'}
     );
   });
 
