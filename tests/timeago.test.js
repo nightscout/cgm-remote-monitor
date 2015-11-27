@@ -7,17 +7,23 @@ describe('timeago', function ( ) {
   var timeago = require('../lib/plugins/timeago')();
 
   var env = require('../env')();
-  env.extendedSettings = {timeago: {enableAlerts: true}};
 
   var ctx = {};
   ctx.data = require('../lib/data')(env, ctx);
   ctx.notifications = require('../lib/notifications')(env, ctx);
 
+  function freshSBX() {
+    //set extendedSettings right before calling withExtendedSettings, there's some strange test interference here
+    env.extendedSettings = {timeago: {enableAlerts: true}};
+    var sbx = require('../lib/sandbox')().serverInit(env, ctx).withExtendedSettings(timeago);
+    return sbx;
+  }
+
   it('Not trigger an alarm when data is current', function (done) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{mills: Date.now(), mgdl: 100, type: 'sgv'}];
 
-    var sbx = require('../lib/sandbox')().serverInit(env, ctx).withExtendedSettings(timeago);
+    var sbx = freshSBX();
     timeago.checkNotifications(sbx);
     should.not.exist(ctx.notifications.findHighestAlarm());
 
@@ -28,7 +34,7 @@ describe('timeago', function ( ) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{mills: Date.now() + times.mins(15).msecs, mgdl: 100, type: 'sgv'}];
 
-    var sbx = require('../lib/sandbox')().serverInit(env, ctx).withExtendedSettings(timeago);
+    var sbx = freshSBX();
     timeago.checkNotifications(sbx);
     should.not.exist(ctx.notifications.findHighestAlarm());
 
@@ -39,7 +45,7 @@ describe('timeago', function ( ) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{mills: Date.now() - times.mins(16).msecs, mgdl: 100, type: 'sgv'}];
 
-    var sbx = require('../lib/sandbox')().serverInit(env, ctx).withExtendedSettings(timeago);
+    var sbx = freshSBX();
     timeago.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(levels.WARN);
@@ -51,7 +57,7 @@ describe('timeago', function ( ) {
     ctx.notifications.initRequests();
     ctx.data.sgvs = [{mills: Date.now() - times.mins(31).msecs, mgdl: 100, type: 'sgv'}];
 
-    var sbx = require('../lib/sandbox')().serverInit(env, ctx).withExtendedSettings(timeago);
+    var sbx = freshSBX();
     timeago.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(levels.URGENT);
