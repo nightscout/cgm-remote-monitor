@@ -1,4 +1,4 @@
 {
-    "url": mongodb://LLLIEFA:MyMONGODBAcc0unt@ds054288.mongolab.com:54288/llliefadb,
-    "collection": entries
+    "url": "mongodb://LLLIEFA:MyMONGODBAcc0unt@ds054288.mongolab.com:54288/llliefadb",
+    "collection": "entries"
 }
