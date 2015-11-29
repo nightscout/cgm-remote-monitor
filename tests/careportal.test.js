@@ -9,6 +9,7 @@ var nowData = {
   sgvs: [
     { mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' }
   ]
+  , treatments: []
 };
 
 describe('client', function ( ) {
@@ -17,13 +18,7 @@ describe('client', function ( ) {
   before(function (done) {
     benv.setup(function() {
       self.$ = require('jquery');
-      self.$.localStorage = {
-        get: function mockGet ( ) {
-          return undefined;
-        }
-        , set: function mockSet ( ) {
-        }
-      };
+      self.$.localStorage = require('./fixtures/localstorage');
 
       self.$.fn.tipsy = function mockTipsy ( ) { };
 
@@ -57,9 +52,32 @@ describe('client', function ( ) {
   it ('open careportal, and enter a treatment', function (done) {
     var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
+
+    self.$.ajax = function mockAjax ( ) {
+      return {
+        done: function mockDone (fn) {
+          fn();
+          done();
+          return self.$.ajax();
+        }
+        , fail: function mockFail ( ) {
+          return self.$.ajax();
+        }
+      };
+    };
+
+    var hashauth = require('../lib/hashauth');
+    hashauth.init(client,$);
+    hashauth.verifyAuthentication = function mockVerifyAuthentication(next) { 
+      hashauth.authenticated = true;
+      next(true); 
+    };
+
+
     client.init(serverSettings, plugins);
     client.dataUpdate(nowData);
 
+    client.careportal.prepareEvents();
     client.careportal.toggleDrawer();
 
     $('#eventType').val('Snack Bolus');
@@ -74,15 +92,6 @@ describe('client', function ( ) {
     client.careportal.eventTimeTypeChange();
     client.careportal.dateTimeFocus();
     client.careportal.dateTimeChange();
-
-    self.$.ajax = function mockAjax ( ) {
-      return {
-        done: function mockDone (fn) {
-          fn();
-          done();
-        }
-      };
-    };
 
     window.confirm = function mockConfirm (message) {
       function containsLine (line) {
