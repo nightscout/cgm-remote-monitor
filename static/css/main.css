@@ -166,11 +166,13 @@ body {
 }
 .statusBox {
   text-align: center;
-  width: 250px;
+  width: 250px; 
+  position: fixed; right:10px; top:30px;
 }
 .statusPills {
   font-size: 20px;
   line-height: 23px;
+  position:fixed; top:5px; left:360px;
 }
 
 .loading .statusPills {
@@ -218,8 +220,8 @@ body {
 
 .bgButton {
   margin: 10px;
-  border: 2px solid #000;
-  border-radius: 5px;
+  /* border: 2px solid #000; */
+  /* border-radius: 5px; */
   width: 360px;
 }
 
@@ -308,6 +310,7 @@ body {
   color: #808080;
   width: 250px;
   text-align: center;
+  position:fixed; top:5px; right:60px;
 }
 
 .focus-range li {
@@ -332,6 +335,7 @@ body {
 @media (max-width: 800px) {
   .bgStatus {
     width: 300px;
+    position:fixed; left:0px; top:30px;
   }
 
   .bgButton {
@@ -355,11 +359,13 @@ body {
   .bgStatus .majorPills {
     font-size: 20px;
     line-height: 24px;
+    position:fixed; top:50px; left:360px;
   }
 
   .bgStatus .minorPills {
     font-size: 16px;
     line-height: 18px;
+    position:fixed; top:100px; left:360px;
   }
 
   .status {
@@ -386,6 +392,7 @@ body {
 
   #chartContainer {
     font-size: 14px;
+    position:fixed; top:40px; 
   }
 }
 
