@@ -194,7 +194,7 @@ body {
 #chartContainer {
   left: 0;
   right: 0;
-  /* bottom: 0; */
+  bottom: 0; 
   top: 200px;
   height: auto;
   font-size: 20px;
