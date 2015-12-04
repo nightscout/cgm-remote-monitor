@@ -81,6 +81,10 @@ ctx.data.treatments = updateMills([
   { eventType: 'Snack Bolus', insulin: '1.50', carbs: '22' }
 ]);
 
+ctx.data.pumpStatuses = updateMills([
+  { device: 'connect://paradigm', activeInsulin: 2.9, conduitBatteryLevel: 99 }
+]);
+
 ctx.data.devicestatus.uploaderBattery = 100;
 
 describe('Pebble Endpoint', function ( ) {
@@ -218,6 +222,7 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
     ctx.data.devicestatus.uploaderBattery = 100;
     var envRaw = require('../env')( );
     envRaw.settings.enable = ['rawbg', 'iob'];
+    envRaw.extendedSettings.iob = {};
     this.appRaw = require('express')( );
     this.appRaw.enable('api');
     this.appRaw.use('/pebble', pebbleRaw(envRaw, ctx));
@@ -248,6 +253,106 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
         cal.intercept.toFixed(3).should.equal('34281.069');
         cal.scale.should.equal(1);
         done( );
+      });
+  });
+
+});
+
+describe('Pebble Endpoint with pump IOB', function ( ) {
+  var pebbleRaw = require('../lib/pebble');
+
+  function setupApp (modifyEnv) {
+    var envRaw = require('../env')();
+    modifyEnv(envRaw);
+    var appRaw = require('express')();
+    appRaw.enable('api');
+    appRaw.use('/pebble', pebbleRaw(envRaw, ctx));
+    return appRaw;
+  }
+
+  it('should not show pump-reported IOB when iob is disabled', function (done) {
+    var appRaw = setupApp(function(env) {
+      env.settings.enable = [];
+    });
+    request(appRaw)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        should.not.exist(res.body.bgs[0].iob);
+        done();
+      });
+  });
+
+  it('should show pump-reported IOB when iob is enabled and IOB_SOURCE is "pump"', function (done) {
+    var appRaw = setupApp(function(env) {
+      env.settings.enable = ['iob'];
+      env.extendedSettings.iob = {source: 'pump'};
+    });
+    request(appRaw)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        res.body.bgs[0].iob.should.equal('2.9');
+        done();
+      });
+  });
+
+  it('should show bolus IOB from treatments when iob is enabled and IOB_SOURCE is not "pump"', function (done) {
+    var appRaw = setupApp(function(env) {
+      env.settings.enable = ['iob'];
+      env.extendedSettings.iob = {source: 'anything but pump'};
+    });
+    request(appRaw)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        res.body.bgs[0].iob.should.equal('1.50');
+        done();
+      });
+  });
+
+  it('should not show stale data', function (done) {
+    ctx.data.pumpStatuses[0].mills = Date.now() - 7 * 60 * 1000 - 1;
+    var appRaw = setupApp(function(env) {
+      env.settings.enable = ['iob'];
+      env.extendedSettings.iob = {source: 'pump', pumpRecency: 7};
+    });
+    request(appRaw)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        should.not.exist(res.body.bgs[0].iob);
+        done();
+      });
+  });
+
+  it('should show low battery indicator when too low', function (done) {
+    ctx.data.pumpStatuses[0].conduitBatteryLevel = 40;
+    var appRaw = setupApp(function(env) {
+      env.settings.enable = ['iob'];
+      env.extendedSettings.iob = {source: 'pump', pumpBatteryPebble: 50};
+    });
+    request(appRaw)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        res.body.bgs[0].iob.should.endWith('*');
+        done();
+      });
+  });
+
+  it('should not show low battery indicator when not too low', function (done) {
+    ctx.data.pumpStatuses[0].conduitBatteryLevel = 40;
+    var appRaw = setupApp(function(env) {
+      env.settings.enable = ['iob'];
+      env.extendedSettings.iob = {source: 'pump', pumpBatteryPebble: 33};
+    });
+    request(appRaw)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        res.body.bgs[0].iob.should.not.endWith('*');
+        done();
       });
   });
 

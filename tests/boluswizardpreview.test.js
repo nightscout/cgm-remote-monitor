@@ -136,7 +136,7 @@ describe('boluswizardpreview', function ( ) {
     data.profile = require('../lib/profilefunctions')([profileData]);
     var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
     var iob = require('../lib/plugins/iob')();
-    sbx.properties.iob = iob.calcTotal(data.treatments, data.profile, now);
+    sbx.properties.iob = iob.calc(sbx, now);
 
     var results = boluswizardpreview.calc(sbx);
     
@@ -172,7 +172,7 @@ describe('boluswizardpreview', function ( ) {
     data.profile = require('../lib/profilefunctions')([profileData]);
     var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
     var iob = require('../lib/plugins/iob')();
-    sbx.properties.iob = iob.calcTotal(data.treatments, data.profile, now);
+    sbx.properties.iob = iob.calc(sbx, now);
 
     var results = boluswizardpreview.calc(sbx);
     

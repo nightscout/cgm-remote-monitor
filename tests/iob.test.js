@@ -1,6 +1,7 @@
 'use strict';
 
 require('should');
+var sandbox = require('../lib/sandbox')();
 
 describe('IOB', function ( ) {
   var iob = require('../lib/plugins/iob')();
@@ -100,5 +101,92 @@ describe('IOB', function ( ) {
 
   });
 
+  describe('bolus IOB and pump IOB modes', function () {
+    var time = Date.now()
+      , treatments = [{mills: time - 1, insulin: '1.00'}]
+      , profileData = [{dia: 4, sens: 0}]
+      , profile = require('../lib/profilefunctions')([profileData])
+      , pumpStatuses = [{mills: time - 1, type: 'pump_status', activeInsulin: 4.2}]
+      , data = {treatments: treatments, profile: profile, pumpStatuses: pumpStatuses};
 
+    it('should calculate bolus IOB based on treatments by default', function(done) {
+
+      var clientSettings = {iob: {}};
+      var sbx = sandbox.clientInit(clientSettings, Date.now(), {}, data);
+      sbx.offerProperty = function mockedOfferProperty (name, setter) {
+        name.should.equal('iob');
+        var result = setter();
+        result.display.should.equal(iob.calcTotal(treatments, profile, time).display);
+        done();
+      };
+      iob.setProperties(sbx.withExtendedSettings(iob));
+
+    });
+
+    it('should report pump IOB when source is "pump"', function(done) {
+
+      var clientSettings = {extendedSettings: {iob: {source: 'pump'}}};
+      var sbx = sandbox.clientInit(clientSettings, Date.now(), {}, data);
+      sbx.offerProperty = function mockedOfferProperty (name, setter) {
+        name.should.equal('iob');
+        var result = setter();
+        result.display.should.equal(iob.getPumpIOB(pumpStatuses, clientSettings.extendedSettings.iob, time).display);
+        done();
+      };
+      iob.setProperties(sbx.withExtendedSettings(iob));
+
+    });
+
+  });
+
+  describe('pump IOB', function () {
+    var time, data;
+
+    beforeEach(function () {
+      time = Date.now();
+      data = {
+        pumpStatuses: [
+          {mills: time - 5 * 60 * 1000, type: 'pump_status', activeInsulin: 1.2}
+        ]
+      };
+    });
+
+    it('should show the IOB from the most recent pump_status entry', function (done) {
+      data.pumpStatuses.push(
+        {mills: time - 1, type: 'pump_status', activeInsulin: 3.4}
+      );
+      var clientSettings = {extendedSettings: {iob: {source: 'pump'}}};
+      var sbx = sandbox.clientInit(clientSettings, time, {}, data);
+      sbx.offerProperty = function mockedOfferProperty (name, setter) {
+        var result = setter();
+        result.iob.should.equal(3.4);
+        done();
+      };
+      iob.setProperties(sbx.withExtendedSettings(iob));
+    });
+
+    it('should not show stale data', function (done) {
+      data.pumpStatuses[0].mills = time - 7 * 60 * 1000 - 1;
+      var clientSettings = {extendedSettings: {iob: {source: 'pump', pumpRecency: 7}}};
+      var sbx = sandbox.clientInit(clientSettings, time, {}, data);
+      sbx.offerProperty = function mockedOfferProperty (name, setter) {
+        var result = setter();
+        result.should.eql({});
+        done();
+      };
+      iob.setProperties(sbx.withExtendedSettings(iob));
+    });
+
+    it('should be able to report pump IOB from any point in time', function () {
+      data.pumpStatuses = [
+        {mills: time - 30 * 60 * 1000, type: 'pump_status', activeInsulin: 7.6}
+        , {mills: time - 15 * 60 * 1000, type: 'pump_status', activeInsulin: 9.8}
+      ];
+      var settings = {source: 'pump', pumpRecency: 10};
+      iob.getPumpIOB(data.pumpStatuses, settings, time - 10 * 60 * 1000).iob
+        .should.equal(9.8);
+      iob.getPumpIOB(data.pumpStatuses, settings, time - 25 * 60 * 1000).iob
+        .should.equal(7.6);
+    });
+  });
 });
