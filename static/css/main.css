@@ -65,7 +65,7 @@ body {
 }
 
 .bgStatus .currentBG {
-  font-size: 120px;
+  font-size: 100px;
   line-height: 100px;
   text-decoration: line-through;
   vertical-align: middle;
@@ -227,6 +227,7 @@ body {
   /* border: 2px solid #000; */
   /* border-radius: 5px; */
   width: 360px;
+  position: fixed: top:30px; left:0px;
 }
 
 .loading .pill.rawbg {
