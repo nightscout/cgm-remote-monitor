@@ -100,11 +100,11 @@ body {
 }
 
 .majorPills > span:not(:first-child) {
-  margin-left: 5px;
+  margin-left: 5px;position:fixed; top:50px; left:360px;
 }
 
 .minorPills > span:not(:first-child) {
-  margin-left: 5px;
+  margin-left: 5px;position:fixed; top:100px; left:360px;
 }
 
 .pill {
@@ -194,7 +194,8 @@ body {
 #chartContainer {
   left: 0;
   right: 0;
-  bottom: 0;
+  /* bottom: 0; */
+  top: 200px;
   height: auto;
   font-size: 20px;
   background: #111;
