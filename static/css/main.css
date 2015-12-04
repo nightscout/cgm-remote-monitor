@@ -45,10 +45,11 @@ body {
 }
 
 .bgStatus {
-  float: right;
-  text-align: center;
+  /* float: right; */
+  /* text-align: center; */
   white-space: nowrap;
   padding-right: 20px;
+  position: fixed: top:30px; left:30px;
 }
 
 .urgent .bgButton {
