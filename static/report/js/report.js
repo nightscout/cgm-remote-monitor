@@ -450,10 +450,10 @@
 
     datastorage.treatments = [];
     datastorage.combobolusTreatments = [];
-    for (var day in daystoshow) {
+    Object.keys(daystoshow).forEach( function eachDay(day) {
       datastorage.treatments = datastorage.treatments.concat(datastorage[day].treatments);
       datastorage.combobolusTreatments = datastorage.combobolusTreatments.concat(datastorage[day].combobolusTreatments);
-    }
+    });
     
     report_plugins.eachPlugin(function (plugin) {
       // jquery plot doesn't draw to hidden div
