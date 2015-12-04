@@ -88,6 +88,7 @@ body {
 .bgStatus .majorPills {
   font-size: 30px;
   line-height: 34px;
+  position:fixed; top:50px; left:360px;
 }
 
 .minorPills {
@@ -95,6 +96,7 @@ body {
   line-height: 25px;
   z-index: 500;
   white-space: normal;
+  position:fixed; top:100px; left:360px;
 }
 
 .majorPills > span:not(:first-child) {
