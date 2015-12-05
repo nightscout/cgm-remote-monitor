@@ -1,6 +1,6 @@
 {
   "name": "nightscout",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "dependencies": {
     "jquery": "2.1.0",
     "jQuery-Storage-API": "~1.7.2",
