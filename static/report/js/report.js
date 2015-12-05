@@ -101,7 +101,7 @@
       o += translate('Portion')+': ' + food_list[i].portion + ' ';
       o += food_list[i].unit + ' | ';
       o += translate('Carbs')+': ' + food_list[i].carbs+' g';
-      $('#rp_food').append('<option val="' + food_list[i]._id + '">' + o + '</option>');
+      $('#rp_food').append('<option value="' + food_list[i]._id + '">' + o + '</option>');
     }
     
     return maybePrevent(event);
