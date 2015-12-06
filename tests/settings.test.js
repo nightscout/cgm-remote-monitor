@@ -56,9 +56,10 @@ describe('settings', function ( ) {
       , 'BG_TARGET_TOP'
       , 'BG_TARGET_BOTTOM'
       , 'BG_LOW'
+      , 'SCALE_Y'
     ];
 
-    expected.length.should.equal(23);
+    expected.length.should.equal(24);
 
     var seen = { };
     settings.eachSettingAsEnv(function markSeenNames(name) {
