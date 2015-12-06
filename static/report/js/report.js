@@ -101,7 +101,7 @@
       o += translate('Portion')+': ' + food_list[i].portion + ' ';
       o += food_list[i].unit + ' | ';
       o += translate('Carbs')+': ' + food_list[i].carbs+' g';
-      $('#rp_food').append('<option val="' + food_list[i]._id + '">' + o + '</option>');
+      $('#rp_food').append('<option value="' + food_list[i]._id + '">' + o + '</option>');
     }
     
     return maybePrevent(event);
@@ -448,7 +448,13 @@
     options.maxInsulinValue = maxInsulinValue;
     options.maxCarbsValue = maxCarbsValue;
 
-
+    datastorage.treatments = [];
+    datastorage.combobolusTreatments = [];
+    Object.keys(daystoshow).forEach( function eachDay(day) {
+      datastorage.treatments = datastorage.treatments.concat(datastorage[day].treatments);
+      datastorage.combobolusTreatments = datastorage.combobolusTreatments.concat(datastorage[day].combobolusTreatments);
+    });
+    
     report_plugins.eachPlugin(function (plugin) {
       // jquery plot doesn't draw to hidden div
       $('#'+plugin.name+'-placeholder').css('display','');
@@ -564,6 +570,10 @@
           });
           data.treatments = treatmentData.slice();
           data.treatments.sort(function(a, b) { return a.mills - b.mills; });
+          // filter & prepare 'Combo Bolus' events
+          data.combobolusTreatments = data.treatments.filter( function filterComboBoluses(t) {
+            return t.eventType === 'Combo Bolus';
+          }).sort(function (a,b) { return a.mills > b.mills; });
         }
       }).done(function () {
         $('#info-' + day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
