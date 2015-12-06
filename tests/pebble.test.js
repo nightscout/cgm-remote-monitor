@@ -81,7 +81,7 @@ ctx.data.treatments = updateMills([
   { eventType: 'Snack Bolus', insulin: '1.50', carbs: '22' }
 ]);
 
-ctx.data.devicestatus.uploaderBattery = 100;
+ctx.data.devicestatus = [{uploader: {battery: 100}}];
 
 describe('Pebble Endpoint', function ( ) {
   var pebble = require('../lib/pebble');
@@ -167,7 +167,7 @@ describe('Pebble Endpoint', function ( ) {
   });
 
   it('/pebble without battery', function (done) {
-    delete ctx.data.devicestatus.uploaderBattery;
+    ctx.data.devicestatus = [];
     request(this.app)
       .get('/pebble')
       .expect(200)
@@ -182,7 +182,7 @@ describe('Pebble Endpoint', function ( ) {
   });
 
   it('/pebble with a negative battery', function (done) {
-    ctx.data.devicestatus.uploaderBattery = -1;
+    ctx.data.devicestatus = [{uploader: {battery: -1}}];
     request(this.app)
       .get('/pebble')
       .expect(200)
@@ -197,7 +197,7 @@ describe('Pebble Endpoint', function ( ) {
   });
 
   it('/pebble with a false battery', function (done) {
-    ctx.data.devicestatus.uploaderBattery = false;
+    ctx.data.devicestatus = [{uploader: {battery: false}}];
     request(this.app)
       .get('/pebble')
       .expect(200)
@@ -215,7 +215,7 @@ describe('Pebble Endpoint', function ( ) {
 describe('Pebble Endpoint with Raw and IOB', function ( ) {
   var pebbleRaw = require('../lib/pebble');
   before(function (done) {
-    ctx.data.devicestatus.uploaderBattery = 100;
+    ctx.data.devicestatus = [{uploader: {battery: 100}}];
     var envRaw = require('../env')( );
     envRaw.settings.enable = ['rawbg', 'iob'];
     this.appRaw = require('express')( );
