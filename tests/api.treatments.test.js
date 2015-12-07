@@ -42,7 +42,7 @@ describe('Treatment API', function ( ) {
       self.ctx.data.treatments[2].carbs.should.equal(30);
 
       //if travis is slow the 2 posts take long enough that 2 data-loaded events are emitted
-      if (!doneCalled) done();
+      if (!doneCalled) { done(); }
 
       doneCalled = true;
 
