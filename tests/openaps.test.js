@@ -1,5 +1,6 @@
 'use strict';
 
+var _ = require('lodash');
 var should = require('should');
 var moment = require('moment');
 
@@ -69,7 +70,8 @@ describe('openaps', function ( ) {
       , pluginBase: {
         updatePillText: function mockedUpdatePillText(plugin, options) {
           options.label.should.equal('OpenAPS ⌁');
-          options.value.should.equal('1m ago');
+          options.value.should.equal('2m ago');
+          _.last(options.info).value.should.equal('1m ago');
           done();
         }
       }
