@@ -46,8 +46,6 @@ describe('cage', function ( ) {
 
   it('set a pill to the current cannula age', function (done) {
 
-    var clientSettings = {};
-
     var data = {
       sitechangeTreatments: [
         {eventType: 'Site Change', notes: 'Foo', mills: Date.now() - 48 * 60 * 60000}
