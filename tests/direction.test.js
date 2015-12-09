@@ -4,10 +4,14 @@ require('should');
 
 describe('BG direction', function ( ) {
   function setupSandbox(data, pluginBase) {
-    var clientSettings = {};
+    var ctx = {
+      settings: {}
+      , pluginBase: pluginBase || {}
+    };
+
 
     var sandbox = require('../lib/sandbox')();
-    return sandbox.clientInit(clientSettings, Date.now(), pluginBase || {}, data);
+    return sandbox.clientInit(ctx, Date.now(), data);
   }
 
   it('set the direction property - Flat', function (done) {

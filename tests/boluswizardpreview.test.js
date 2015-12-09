@@ -129,12 +129,16 @@ describe('boluswizardpreview', function ( ) {
     };
 
     var sandbox = require('../lib/sandbox')();
-    var pluginBase = {};
-    var clientSettings = { units: 'mmol' };
+    var ctx = {
+      settings: {
+        units: 'mmol'
+      }
+      , pluginBase: {}
+    };
     var data = {sgvs: [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}]};
     data.treatments = [{mills: now, insulin: '1.0'}];
     data.profile = require('../lib/profilefunctions')([profileData]);
-    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
     var iob = require('../lib/plugins/iob')();
     sbx.properties.iob = iob.calcTotal(data.treatments, data.profile, now);
 
@@ -165,12 +169,16 @@ describe('boluswizardpreview', function ( ) {
     };
 
     var sandbox = require('../lib/sandbox')();
-    var pluginBase = {};
-    var clientSettings = { units: 'mmol' };
+    var ctx = {
+      settings: {
+        units: 'mmol'
+      }
+      , pluginBase: {}
+    };
     var data = {sgvs: [{mills: before, mgdl: 175}, {mills: now, mgdl: 153}]};
     data.treatments = [{mills: now, insulin: '0.45'}];
     data.profile = require('../lib/profilefunctions')([profileData]);
-    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
     var iob = require('../lib/plugins/iob')();
     sbx.properties.iob = iob.calcTotal(data.treatments, data.profile, now);
 
@@ -257,15 +265,16 @@ describe('boluswizardpreview', function ( ) {
   });
 
   it('set a pill to the BWP with infos', function (done) {
-    var pluginBase = {
-      updatePillText: function mockedUpdatePillText (plugin, options) {
-        options.label.should.equal('BWP');
-        options.value.should.equal('0.50U');
-        done();
+    var ctx = {
+      settings: {}
+      , pluginBase: {
+        updatePillText: function mockedUpdatePillText(plugin, options) {
+          options.label.should.equal('BWP');
+          options.value.should.equal('0.50U');
+          done();
+        }
       }
     };
-
-    var clientSettings = {};
 
     var loadedProfile = require('../lib/profilefunctions')();
     loadedProfile.loadData([profile]);
@@ -276,16 +285,11 @@ describe('boluswizardpreview', function ( ) {
       , profile: loadedProfile
     };
 
-    var sbx = require('../lib/sandbox')().clientInit(clientSettings, Date.now(), pluginBase, data);
+    var sbx = require('../lib/sandbox')().clientInit(ctx, Date.now(), data);
 
     iob.setProperties(sbx);
     boluswizardpreview.setProperties(sbx);
     boluswizardpreview.updateVisualisation(sbx);
-
-    ctx.notifications.resetStateForTests();
-    ctx.notifications.initRequests();
-    ctx.data.profiles = [profile];
-
   });
 
 });
