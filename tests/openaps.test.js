@@ -71,7 +71,9 @@ describe('openaps', function ( ) {
         updatePillText: function mockedUpdatePillText(plugin, options) {
           options.label.should.equal('OpenAPS ⌁');
           options.value.should.equal('2m ago');
-          _.last(options.info).value.should.equal('1m ago');
+          var first = _.first(options.info);
+          first.label.should.equal('1m ago');
+          first.value.should.equal('Enacted');
           done();
         }
       }
