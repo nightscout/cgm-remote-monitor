@@ -112,11 +112,11 @@ input[type=number]:invalid {
 }
 
 #treatmentDrawer .eventdate {
-  width: 130px;
+  width: 120px;
 }
 
 #treatmentDrawer .eventtime {
-  width: 110px;
+  width: 80px;
 }
 
 #eventTime label span {
