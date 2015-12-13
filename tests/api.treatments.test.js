@@ -26,6 +26,8 @@ describe('Treatment API', function ( ) {
   });
 
   it('post a some treatments', function (done) {
+    var doneCalled = false;
+
     self.ctx.bus.on('data-loaded', function dataWasLoaded ( ) {
       self.ctx.data.treatments.length.should.equal(3);
       self.ctx.data.treatments[0].mgdl.should.equal(100);
@@ -39,7 +41,11 @@ describe('Treatment API', function ( ) {
       self.ctx.data.treatments[1].insulin.should.equal(2);
       self.ctx.data.treatments[2].carbs.should.equal(30);
 
-      done();
+      //if travis is slow the 2 posts take long enough that 2 data-loaded events are emitted
+      if (!doneCalled) { done(); }
+
+      doneCalled = true;
+
     });
 
     self.ctx.treatments().remove({ }, function ( ) {
