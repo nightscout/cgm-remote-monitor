@@ -237,7 +237,7 @@ h1, legend,
   height: 44px;
   line-height: 44px;
 }
-#buttonbar i.selected {
+#buttonbar .selected {
   color: red;
 }
 #buttonbar a {
