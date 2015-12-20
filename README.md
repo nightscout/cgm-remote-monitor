@@ -218,6 +218,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `delta` (BG Delta) - Calculates and displays the change between the last 2 BG values.
   * `direction` (BG Direction) - Displays the trend direction.
   * `upbat` (Uploader Battery) - Displays the most recent battery status from the uploader phone.
+  * `timeago` (Time Ago) - Displays the time since last CGM entry.  Supports the `TIMEAGO_ENABLE_ALERTS` [extended setting](#extended-settings) for server side stale data alarms via Pushover and IFTTT.
+  * `devicestatus` (Device Status) - Used by `upbat` and other plugins to display device status info.  Supports the `DEVICESTATUS_ADVANCED="true"` [extended setting](#extended-settings) to send all device statuses to the client for retrospective use and to support other plugins.
   * `errorcodes` (CGM Error Codes) - Generates alarms for CGM codes `9` (hourglass) and `10` (???).
     * Use [extended settings](#extended-settings) to adjust what errorcodes trigger notifications and alarms:
       * `ERRORCODES_INFO` (`1 2 3 4 5 6 7 8`) - By default the needs calibration (blood drop) and other codes below 9 generate an info level notification, set to a space separate list of number or `off` to disable
@@ -282,6 +284,12 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * `MMCONNECT_SGV_LIMIT` (`24`) - Maximum number of recent sensor glucose values to send to Nightscout on each request.
     * `MMCONNECT_VERBOSE` - Set this to "true" to log CareLink request information to the console.
     * `MMCONNECT_STORE_RAW_DATA` - Set this to "true" to store raw data returned from CareLink as `type: "carelink_raw"` database entries (useful for development).
+  * `openaps` (OpenAPS) - Integrated OpenAPS loop monitoring, uses these extended settings:
+    * Requires `DEVICESTATUS_ADVANCED="true"` to be set
+    * `OPENAPS_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when OpenAPS isn't looping.  If OpenAPS is going to offline for a period of time, you can add an `OpenAPS Offline` event for the expected duration from Careportal to avoid getting alerts. 
+    * `OPENAPS_WARN` (`30`) - The number of minutes since the last loop that needs to be exceed before an alert is triggered 
+    * `OPENAPS_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceed before an urgent alarm is triggered
+
   
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
  
