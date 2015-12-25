@@ -12,7 +12,7 @@ describe('boluswizardpreview', function ( ) {
   var env = require('../env')();
   env.testMode = true;
   var ctx = {};
-  ctx.data = require('../lib/data')(env, ctx);
+  ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
 
   function prepareSandbox ( ) {
@@ -40,9 +40,9 @@ describe('boluswizardpreview', function ( ) {
 
   it('should calculate IOB results correctly with 0 IOB', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}];
-    ctx.data.treatments = [];
-    ctx.data.profiles = [profile];
+    ctx.ddata.sgvs = [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}];
+    ctx.ddata.treatments = [];
+    ctx.ddata.profiles = [profile];
 
     var sbx = prepareSandbox();
     var results = boluswizardpreview.calc(sbx);
@@ -59,8 +59,8 @@ describe('boluswizardpreview', function ( ) {
 
   it('should calculate IOB results correctly with 1.0 U IOB', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}];
-    ctx.data.treatments = [{mills: now, insulin: '1.0'}];
+    ctx.ddata.sgvs = [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}];
+    ctx.ddata.treatments = [{mills: now, insulin: '1.0'}];
     
     var profile = {
       dia: 3
@@ -69,7 +69,7 @@ describe('boluswizardpreview', function ( ) {
       , target_low: 50
     };
 
-    ctx.data.profiles = [profile];
+    ctx.ddata.profiles = [profile];
 
     var sbx = prepareSandbox();
     var results = boluswizardpreview.calc(sbx);
@@ -86,8 +86,8 @@ describe('boluswizardpreview', function ( ) {
 
   it('should calculate IOB results correctly with 1.0 U IOB resulting in going low', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}];
-    ctx.data.treatments = [{mills: now, insulin: '1.0'}];
+    ctx.ddata.sgvs = [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}];
+    ctx.ddata.treatments = [{mills: now, insulin: '1.0'}];
     
     var profile = {
       dia: 3
@@ -98,7 +98,7 @@ describe('boluswizardpreview', function ( ) {
     };
 
     
-    ctx.data.profiles = [profile];
+    ctx.ddata.profiles = [profile];
 
     var sbx = prepareSandbox();
     var results = boluswizardpreview.calc(sbx);
@@ -197,9 +197,9 @@ describe('boluswizardpreview', function ( ) {
 
   it('Not trigger an alarm when in range', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: before, mgdl: 95}, {mills: now, mgdl: 100}];
-    ctx.data.treatments = [];
-    ctx.data.profiles = [profile];
+    ctx.ddata.sgvs = [{mills: before, mgdl: 95}, {mills: now, mgdl: 100}];
+    ctx.ddata.treatments = [];
+    ctx.ddata.profiles = [profile];
 
     var sbx = prepareSandbox();
     boluswizardpreview.checkNotifications(sbx);
@@ -211,9 +211,9 @@ describe('boluswizardpreview', function ( ) {
 
   it('trigger a warning when going out of range', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: before, mgdl: 175}, {mills: now, mgdl: 180}];
-    ctx.data.treatments = [];
-    ctx.data.profiles = [profile];
+    ctx.ddata.sgvs = [{mills: before, mgdl: 175}, {mills: now, mgdl: 180}];
+    ctx.ddata.treatments = [];
+    ctx.ddata.profiles = [profile];
 
     var sbx = prepareSandbox();
     boluswizardpreview.checkNotifications(sbx);
@@ -227,9 +227,9 @@ describe('boluswizardpreview', function ( ) {
 
   it('trigger an urgent alarms when going too high', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: before, mgdl: 295}, {mills: now, mgdl: 300}];
-    ctx.data.treatments = [];
-    ctx.data.profiles = [profile];
+    ctx.ddata.sgvs = [{mills: before, mgdl: 295}, {mills: now, mgdl: 300}];
+    ctx.ddata.treatments = [];
+    ctx.ddata.profiles = [profile];
 
     var sbx = prepareSandbox();
     boluswizardpreview.checkNotifications(sbx);
@@ -242,9 +242,9 @@ describe('boluswizardpreview', function ( ) {
 
     ctx.notifications.resetStateForTests();
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: before, mgdl: 295}, {mills: now, mgdl: 300}];
-    ctx.data.treatments = [{mills: before, insulin: '5.0'}];
-    ctx.data.profiles = [profile];
+    ctx.ddata.sgvs = [{mills: before, mgdl: 295}, {mills: now, mgdl: 300}];
+    ctx.ddata.treatments = [{mills: before, insulin: '5.0'}];
+    ctx.ddata.profiles = [profile];
 
     var sbx = prepareSandbox();
 
