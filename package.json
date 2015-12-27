@@ -44,7 +44,6 @@
     }
   },
   "engines": {
-    "node": "0.10.40"
   },
   "dependencies": {
     "async": "^0.9.0",
