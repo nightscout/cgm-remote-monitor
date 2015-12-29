@@ -13,6 +13,12 @@ function create (env, ctx) {
   app.set('title', appInfo);
   app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
 
+  // Enables cors to allow cross domain api calls
+  if(env.settings.enable.indexOf('cors') > -1){
+    var cors = require('cors');
+    app.use(cors());
+  }
+
   app.use(compression({filter: function shouldCompress(req, res) {
     //TODO: return false here if we find a condition where we don't want to compress
     // fallback to standard filter function
@@ -54,4 +60,3 @@ function create (env, ctx) {
   return app;
 }
 module.exports = create;
-
