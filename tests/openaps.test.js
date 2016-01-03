@@ -101,6 +101,34 @@ describe('openaps', function ( ) {
 
   });
 
+  it('check the recieved flag to see if it was received', function (done) {
+    var ctx = {
+      settings: {
+        units: 'mg/dl'
+      }
+      , notifications: require('../lib/notifications')(env, ctx)
+    };
+
+    ctx.notifications.initRequests();
+
+    var notStatus = _.cloneDeep(status);
+    notStatus.openaps.enacted.recieved = false;
+    var sbx = require('../lib/sandbox')().clientInit(ctx, now, {devicestatus: [notStatus]});
+
+    sbx.offerProperty = function mockedOfferProperty (name, setter) {
+      name.should.equal('openaps');
+      var result = setter();
+      should.exist(result);
+      result.status.symbol.should.equal('x');
+      result.status.code.should.equal('notenacted');
+      should.ok(result.status.when.isSame(now));
+      done();
+    };
+
+    openaps.setProperties(sbx);
+
+  });
+
   it('generate an alart for a stuck loop', function (done) {
     var ctx = {
       settings: {
