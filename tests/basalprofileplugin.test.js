@@ -7,7 +7,7 @@ describe('basalprofile', function ( ) {
   var sandbox = require('../lib/sandbox')();
   var env = require('../env')();
   var ctx = {};
-  ctx.data = require('../lib/data')(env, ctx);
+  ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
 
   var profileData = 
