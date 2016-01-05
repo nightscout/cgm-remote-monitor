@@ -30,16 +30,17 @@
       <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
       <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.9.0-dev" />
       <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
-      <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">    
+      <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">
     </head>
     <body>
         <div class="container loading" id="container">
             <div id="toolbar">
                 <div id="buttonbar">
+                    <a id="editbutton" class="tip" original-title="Edit Mode" href="#" style="display:none;"><i class="icon-edit"></i></a>
                     <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
                     <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-menu"></i></a>
-                    <a id="treatmentDrawerToggle" class="tip" original-title="Care Portal" href="#"><i class="icon-plus"></i></a>
-                    <a id="boluscalcDrawerToggle" class="tip" original-title="Bolus Wizard" href="#"><i class="icon-calc"></i></a>
+                    <a id="treatmentDrawerToggle" class="tip" original-title="Care Portal" href="#" style="display:none;"><i class="icon-plus"></i></a>
+                    <a id="boluscalcDrawerToggle" class="tip" original-title="Bolus Wizard" href="#" style="display:none;"><i class="icon-calc"></i></a>
                 </div>
                 <div class="customTitle">Nightscout</div>
             </div>
@@ -62,7 +63,6 @@
                     <div class="statusBox">
                         <div id="currentTime">---</div>
                         <div class="statusPills">
-                            <span id="lastEntry" class="pill"><em></em><label></label></span>
                         </div>
                     </div>
                 </div>
@@ -146,6 +146,10 @@
                         <dt><span class="translate">Night Mode</span> <a class="tip" original-title="When enabled the page will be dimmed from 10pm - 6am."><i class="icon-help-circled"></i></a></dt>
                         <dd><input type="checkbox" name="nightmode-browser" id="nightmode-browser" /><label for="nightmode-browser" class="translate">Enable</label></dd>
                     </dl>
+                    <dl class="toggle">
+                        <dt><span class="translate">Edit Mode</span> <a class="tip" original-title="When enabled icon to start edit mode is visible"><i class="icon-help-circled"></i></a></dt>
+                        <dd><input type="checkbox" name="editmode-browser" id="editmode-browser" /><label for="editmode-browser" class="translate">Enable</label></dd>
+                    </dl>
                     <dl id="show-rawbg-option" class="toggle">
                       <dt><span class="translate">Show Raw BG Data</span> <a class="tip" original-title="When enabled small white dots will be disaplyed for raw BG data"><i class="icon-help-circled"></i></a></dt>
                       <dd><input type="radio" name="show-rawbg" id="show-rawbg-never" value="never"/><label for="show-rawbg-never" class="translate">Never</label></dd>
@@ -220,6 +224,12 @@
                     <label id="insulinGivenLabel" for="insulinGiven" class="left-column short-label">
                         <span class="translate">Insulin Given</span>
                         <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate"/>
+                    </label>
+                    <label id="insulinSplitLabel" for="insulinSplit" class="left-column short-label">
+                        <span class="translate">Split</span>
+                        <input type="number" step="5" min="0" max="100" style="width:50px" id="insulinSplitNow" placeholder="% now" class="titletranslate"/>%
+                        :
+                        <input type="number" step="5" min="0" max="100" style="width:50px" id="insulinSplitExt" placeholder="% extended" class="titletranslate"/>%
                     </label>
                     <label id="durationLabel" for="duration" class="left-column short-label">
                         <span class="translate">Duration</span>
@@ -333,12 +343,12 @@
                 </tr>
                 <tr class="foodinput foodcontrol">
                   <td colspan="3">
-                    <span class="translate">Quickpick</span>: 
+                    <span class="translate">Quickpick</span>:
                     <br>
                     <select style="float:right;" id="bc_quickpick"></select>
                     <br>
                     <span id="bc_addfoodarea">
-                      <span class="translate">or</span> 
+                      <span class="translate">or</span>
                       <a href="#" style="float:right;" id="bc_addfromdatabase">
                         <span class="translate">Add from database</span>
                       </a>
@@ -507,7 +517,7 @@
               </label>
               <br>
               <label id="bc_profileLabel" for="preBolus" class="left-column short-label extra-space">
-                <span class="translate">Profile</span>: 
+                <span class="translate">Profile</span>:
                 <select id="bc_profile" class="insulincalculationpart"></select>
               </label>
               <br>
@@ -539,7 +549,7 @@
             </fieldset>
             <button type="button" class="translate">Submit Form</button>
           </form>
-          
+
           <div id="bc_addfooddialog" style="display:none" title="Add food from your database" class="titletranslate">
             <fieldset class="browserSettings">
               <legend class="translate">Filter</legend>
@@ -554,7 +564,7 @@
             <span class="translate">Portions</span>: <input type="number" step="0.1" min="0" value="1" size="3" id="bc_addportions">
           </div>
         </div>
-    
+
 
         <div class="audio alarms">
             <audio src="/audio/alarm.mp3" preload="auto" loop="true" class="alarm mp3" type="audio/mp3"></audio>

@@ -64,9 +64,6 @@ describe('COB', function ( ) {
   });
 
   it('set a pill to the current COB', function (done) {
-
-    var clientSettings = {};
-
     var data = {
       treatments: [{
         carbs: '8'
@@ -75,15 +72,18 @@ describe('COB', function ( ) {
       , profile: profile
     };
 
-    var pluginBase = {
-      updatePillText: function mockedUpdatePillText (plugin, options) {
-        options.value.should.equal('8g');
-        done();
+    var ctx = {
+      settings: {}
+      , pluginBase: {
+        updatePillText: function mockedUpdatePillText (plugin, options) {
+          options.value.should.equal('8g');
+          done();
+        }
       }
     };
 
     var sandbox = require('../lib/sandbox')();
-    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
     cob.setProperties(sbx);
     cob.updateVisualisation(sbx);
 

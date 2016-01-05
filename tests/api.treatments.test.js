@@ -26,20 +26,26 @@ describe('Treatment API', function ( ) {
   });
 
   it('post a some treatments', function (done) {
+    var doneCalled = false;
+
     self.ctx.bus.on('data-loaded', function dataWasLoaded ( ) {
-      self.ctx.data.treatments.length.should.equal(3);
-      self.ctx.data.treatments[0].mgdl.should.equal(100);
-      should.not.exist(self.ctx.data.treatments[0].eventTime);
-      should.not.exist(self.ctx.data.treatments[0].notes);
+      self.ctx.ddata.treatments.length.should.equal(3);
+      self.ctx.ddata.treatments[0].mgdl.should.equal(100);
+      should.not.exist(self.ctx.ddata.treatments[0].eventTime);
+      should.not.exist(self.ctx.ddata.treatments[0].notes);
 
-      should.not.exist(self.ctx.data.treatments[1].eventTime);
-      should.not.exist(self.ctx.data.treatments[1].glucose);
-      should.not.exist(self.ctx.data.treatments[1].glucoseType);
-      should.not.exist(self.ctx.data.treatments[1].units);
-      self.ctx.data.treatments[1].insulin.should.equal(2);
-      self.ctx.data.treatments[2].carbs.should.equal(30);
+      should.not.exist(self.ctx.ddata.treatments[1].eventTime);
+      should.not.exist(self.ctx.ddata.treatments[1].glucose);
+      should.not.exist(self.ctx.ddata.treatments[1].glucoseType);
+      should.not.exist(self.ctx.ddata.treatments[1].units);
+      self.ctx.ddata.treatments[1].insulin.should.equal(2);
+      self.ctx.ddata.treatments[2].carbs.should.equal(30);
 
-      done();
+      //if travis is slow the 2 posts take long enough that 2 data-loaded events are emitted
+      if (!doneCalled) { done(); }
+
+      doneCalled = true;
+
     });
 
     self.ctx.treatments().remove({ }, function ( ) {
