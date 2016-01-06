@@ -4,10 +4,11 @@ var request = require('supertest');
 var should = require('should');
 
 describe('Treatment API', function ( ) {
+  this.timeout(10000);
   var self = this;
 
   var api = require('../lib/api/');
-  before(function (done) {
+  beforeEach(function (done) {
     process.env.API_SECRET = 'this is my long pass phrase';
     self.env = require('../env')();
     self.env.settings.enable = ['careportal'];
@@ -25,7 +26,7 @@ describe('Treatment API', function ( ) {
     delete process.env.API_SECRET;
   });
 
-  it('post a some treatments', function (done) {
+  it('post single treatments', function (done) {
     var doneCalled = false;
 
     self.ctx.bus.on('data-loaded', function dataWasLoaded ( ) {
@@ -74,4 +75,70 @@ describe('Treatment API', function ( ) {
     });
   });
 
+  it('post a treatment array', function (done) {
+
+    self.ctx.bus.on('data-loaded', function dataWasLoaded ( ) {
+      self.ctx.ddata.treatments.length.should.equal(3);
+      self.ctx.ddata.treatments[0].mgdl.should.equal(100);
+      should.not.exist(self.ctx.ddata.treatments[0].eventTime);
+      should.not.exist(self.ctx.ddata.treatments[0].notes);
+
+      should.not.exist(self.ctx.ddata.treatments[1].eventTime);
+      should.not.exist(self.ctx.ddata.treatments[1].glucose);
+      should.not.exist(self.ctx.ddata.treatments[1].glucoseType);
+      should.not.exist(self.ctx.ddata.treatments[1].units);
+      self.ctx.ddata.treatments[1].insulin.should.equal(2);
+      self.ctx.ddata.treatments[2].carbs.should.equal(30);
+
+      done();
+    });
+
+    self.ctx.treatments().remove({ }, function ( ) {
+      request(self.app)
+        .post('/api/treatments/')
+        .set('api-secret', self.env.api_secret || '')
+        .send([
+          {eventType: 'BG Check', glucose: 100, preBolus: '0', glucoseType: 'Finger', units: 'mg/dl', notes: ''}
+          , {eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucoseType: 'Finger', units: 'mg/dl'}
+         ])
+        .expect(200)
+        .end(function (err) {
+          if (err) {
+            done(err);
+          }
+        });
+    });
+  });
+
+  it('post a treatment array and dedupe', function (done) {
+
+    self.ctx.bus.on('data-loaded', function dataWasLoaded ( ) {
+      self.ctx.ddata.treatments.length.should.equal(1);
+      self.ctx.ddata.treatments[0].mgdl.should.equal(100);
+      done();
+    });
+
+    self.ctx.treatments().remove({ }, function ( ) {
+      var now = (new Date()).toISOString();
+      request(self.app)
+        .post('/api/treatments/')
+        .set('api-secret', self.env.api_secret || '')
+        .send([
+          {eventType: 'BG Check', glucose: 100, created_at: now}
+          , {eventType: 'BG Check', glucose: 100, created_at: now}
+          , {eventType: 'BG Check', glucose: 100, created_at: now}
+          , {eventType: 'BG Check', glucose: 100, created_at: now}
+          , {eventType: 'BG Check', glucose: 100, created_at: now}
+          , {eventType: 'BG Check', glucose: 100, created_at: now}
+          , {eventType: 'BG Check', glucose: 100, created_at: now}
+          , {eventType: 'BG Check', glucose: 100, created_at: now}
+        ])
+        .expect(200)
+        .end(function (err) {
+          if (err) {
+            done(err);
+          }
+        });
+    });
+  });
 });
