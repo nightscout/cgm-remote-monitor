@@ -132,7 +132,7 @@ describe('Treatment API', function ( ) {
         .post('/api/treatments/')
         .set('api-secret', self.env.api_secret || '')
         .send([
-          {eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucoseType: 'Finger', units: 'mg/dl'}
+          {eventType: 'BG Check', glucose: 100, created_at: now}
           , {eventType: 'BG Check', glucose: 100, created_at: now}
           , {eventType: 'BG Check', glucose: 100, created_at: now}
           , {eventType: 'BG Check', glucose: 100, created_at: now}
@@ -140,7 +140,7 @@ describe('Treatment API', function ( ) {
           , {eventType: 'BG Check', glucose: 100, created_at: now}
           , {eventType: 'BG Check', glucose: 100, created_at: now}
           , {eventType: 'BG Check', glucose: 100, created_at: now}
-          , {eventType: 'BG Check', glucose: 100, created_at: now}
+          , {eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucoseType: 'Finger', units: 'mg/dl'}
         ])
         .expect(200)
         .end(function (err) {
