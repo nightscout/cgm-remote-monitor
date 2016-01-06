@@ -4,7 +4,7 @@ var request = require('supertest');
 var should = require('should');
 
 describe('Treatment API', function ( ) {
-  this.timeout(10000);
+  this.timeout(2000);
   var self = this;
 
   var api = require('../lib/api/');
@@ -113,7 +113,7 @@ describe('Treatment API', function ( ) {
   it('post a treatment array and dedupe', function (done) {
 
     self.ctx.bus.on('data-loaded', function dataWasLoaded ( ) {
-      self.ctx.ddata.treatments.length.should.equal(1);
+      self.ctx.ddata.treatments.length.should.equal(3);
       self.ctx.ddata.treatments[0].mgdl.should.equal(100);
       done();
     });
@@ -124,7 +124,8 @@ describe('Treatment API', function ( ) {
         .post('/api/treatments/')
         .set('api-secret', self.env.api_secret || '')
         .send([
-          {eventType: 'BG Check', glucose: 100, created_at: now}
+          {eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucoseType: 'Finger', units: 'mg/dl'}
+          , {eventType: 'BG Check', glucose: 100, created_at: now}
           , {eventType: 'BG Check', glucose: 100, created_at: now}
           , {eventType: 'BG Check', glucose: 100, created_at: now}
           , {eventType: 'BG Check', glucose: 100, created_at: now}
