@@ -5,7 +5,7 @@ var should = require('should');
 var moment = require('moment');
 
 var env = require('../env')();
-var openaps = require('../lib/plugins/openaps')();
+var pump = require('../lib/plugins/pump')();
 var sandbox = require('../lib/sandbox')();
 var levels = require('../lib/levels');
 
@@ -60,7 +60,7 @@ var status = {
   }
 };
 
-describe('openaps', function ( ) {
+describe('pump', function ( ) {
 
   it('set the property and update the pill', function (done) {
     var ctx = {
@@ -69,11 +69,11 @@ describe('openaps', function ( ) {
       }
       , pluginBase: {
         updatePillText: function mockedUpdatePillText(plugin, options) {
-          options.label.should.equal('OpenAPS ⌁');
-          options.value.should.equal('2m ago');
+          options.label.should.equal('Res');
+          options.value.should.equal('86.4U');
           var first = _.first(options.info);
-          first.label.should.equal('1m ago');
-          first.value.should.equal('Enacted');
+          first.label.should.equal('Battery');
+          first.value.should.equal('1.52v');
           done();
         }
       }
@@ -83,74 +83,25 @@ describe('openaps', function ( ) {
 
     var unmockedOfferProperty = sbx.offerProperty;
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
-      name.should.equal('openaps');
+      name.should.equal('pump');
       var result = setter();
       should.exist(result);
-      result.status.symbol.should.equal('⌁');
-      result.status.code.should.equal('enacted');
-      should.ok(result.status.when.isSame(now));
+      result.status.level.should.equal(levels.NONE);
+      result.status.voltage.should.equal(1.52);
+      result.status.reservoir.should.equal(86.4);
 
       sbx.offerProperty = unmockedOfferProperty;
       unmockedOfferProperty(name, setter);
 
     };
 
-    openaps.setProperties(sbx);
+    pump.setProperties(sbx);
 
-    openaps.updateVisualisation(sbx);
-
-  });
-
-  it('check the recieved flag to see if it was received', function (done) {
-    var ctx = {
-      settings: {
-        units: 'mg/dl'
-      }
-      , notifications: require('../lib/notifications')(env, ctx)
-    };
-
-    ctx.notifications.initRequests();
-
-    var notStatus = _.cloneDeep(status);
-    notStatus.openaps.enacted.recieved = false;
-    var sbx = require('../lib/sandbox')().clientInit(ctx, now, {devicestatus: [notStatus]});
-
-    sbx.offerProperty = function mockedOfferProperty (name, setter) {
-      name.should.equal('openaps');
-      var result = setter();
-      should.exist(result);
-      result.status.symbol.should.equal('x');
-      result.status.code.should.equal('notenacted');
-      should.ok(result.status.when.isSame(now));
-      done();
-    };
-
-    openaps.setProperties(sbx);
+    pump.updateVisualisation(sbx);
 
   });
 
-  it('generate an alart for a stuck loop', function (done) {
-    var ctx = {
-      settings: {
-        units: 'mg/dl'
-      }
-      , notifications: require('../lib/notifications')(env, ctx)
-    };
-
-    ctx.notifications.initRequests();
-
-    var sbx = sandbox.clientInit(ctx, now.add(1, 'hours').valueOf(), {devicestatus: [status]});
-    sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
-    openaps.setProperties(sbx);
-    openaps.checkNotifications(sbx);
-
-    var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(levels.URGENT);
-    highest.title.should.equal('OpenAPS isn\'t looping');
-    done();
-  });
-
-  it('not generate an alert for a stuck loop, when there is an offline marker', function (done) {
+  it('not generate an alert when pump is ok', function (done) {
     var ctx = {
       settings: {
         units: 'mg/dl'
@@ -162,14 +113,68 @@ describe('openaps', function ( ) {
 
     var sbx = sandbox.clientInit(ctx, now.add(1, 'hours').valueOf(), {
       devicestatus: [status]
-      , treatments: [{eventType: 'OpenAPS Offline', mills: now.valueOf(), duration: 60}]
     });
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
-    openaps.setProperties(sbx);
-    openaps.checkNotifications(sbx);
+    pump.setProperties(sbx);
+    pump.checkNotifications(sbx);
 
     var highest = ctx.notifications.findHighestAlarm();
     should.not.exist(highest);
+
+    done();
+  });
+
+  it('generate an alert when battery is low', function (done) {
+    var ctx = {
+      settings: {
+        units: 'mg/dl'
+      }
+      , notifications: require('../lib/notifications')(env, ctx)
+    };
+
+    ctx.notifications.initRequests();
+
+    var lowBattStatus = _.cloneDeep(status);
+    lowBattStatus.pump.battery.voltage = 1.33;
+
+    var sbx = sandbox.clientInit(ctx, now.add(1, 'hours').valueOf(), {
+      devicestatus: [lowBattStatus]
+    });
+    sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
+    pump.setProperties(sbx);
+    pump.checkNotifications(sbx);
+
+    var highest = ctx.notifications.findHighestAlarm();
+    highest.level.should.equal(levels.WARN);
+    highest.title.should.equal('Warning, Pump Battery Low');
+
+    done();
+  });
+
+  it('generate an urgent alarm when battery is really low', function (done) {
+    var ctx = {
+      settings: {
+        units: 'mg/dl'
+      }
+      , notifications: require('../lib/notifications')(env, ctx)
+    };
+
+    ctx.notifications.initRequests();
+
+    var lowBattStatus = _.cloneDeep(status);
+    lowBattStatus.pump.battery.voltage = 1.00;
+
+    var sbx = sandbox.clientInit(ctx, now.add(1, 'hours').valueOf(), {
+      devicestatus: [lowBattStatus]
+    });
+    sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
+    pump.setProperties(sbx);
+    pump.checkNotifications(sbx);
+
+    var highest = ctx.notifications.findHighestAlarm();
+    highest.level.should.equal(levels.URGENT);
+    highest.title.should.equal('URGENT: Pump Battery Low');
+
     done();
   });
 
