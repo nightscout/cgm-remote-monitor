@@ -26,69 +26,16 @@
 // DB Connection setup and utils
 ///////////////////////////////////////////////////
 
-var software = require('./package.json');
 var env = require('./env')( );
-var pushover = require('./lib/pushover')(env);
-
-var entries = require('./lib/entries');
-var treatments = require('./lib/treatments');
-var devicestatus = require('./lib/devicestatus');
-
-var store = require('./lib/storage')(env, function() {
-    console.info("Mongo ready");
-    entries.ensureIndexes(env.mongo_collection, store);
-    treatments.ensureIndexes(env.treatments_collection, store);
-    devicestatus.ensureIndexes(env.devicestatus_collection, store);
-});
-
-
-var express = require('express');
-
-///////////////////////////////////////////////////
-// api and json object variables
-///////////////////////////////////////////////////
-var entriesStorage = entries.storage(env.mongo_collection, store, pushover);
-var settings = require('./lib/settings')(env.settings_collection, store);
-var treatmentsStorage = treatments.storage(env.treatments_collection, store, pushover);
-var devicestatusStorage = devicestatus.storage(env.devicestatus_collection, store);
-var api = require('./lib/api/')(env, entriesStorage, settings, treatmentsStorage, devicestatusStorage);
-var pebble = require('./lib/pebble');
-///////////////////////////////////////////////////
+var language = require('./lib/language')();
+var translate = language.set(env.settings.language).translate;
 
 ///////////////////////////////////////////////////
 // setup http server
 ///////////////////////////////////////////////////
 var PORT = env.PORT;
 
-var app = express();
-var appInfo = software.name + ' ' + software.version;
-app.set('title', appInfo);
-app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
-
-//if (env.api_secret) {
-//    console.log("API_SECRET", env.api_secret);
-//}
-app.use('/api/v1', api);
-
-// pebble data
-app.get('/pebble', pebble(entriesStorage, devicestatusStorage));
-
-//app.get('/package.json', software);
-
-// define static server
-//TODO: JC - changed cache to 1 hour from 30d ays to bypass cache hell until we have a real solution
-var staticFiles = express.static(env.static_files, {maxAge: 60 * 60 * 1000});
-
-// serve the static content
-app.use(staticFiles);
-
-// Handle errors with express's errorhandler, to display more readable error messages.
-var errorhandler = require('errorhandler');
-//if (process.env.NODE_ENV === 'development') {
-  app.use(errorhandler());
-//}
-
-function create ( ) {
+function create (app) {
   var transport = (env.ssl
                 ? require('https') : require('http'));
   if (env.ssl) {
@@ -97,15 +44,42 @@ function create ( ) {
   return transport.createServer(app);
 }
 
-store(function ready ( ) {
-  var server = create( ).listen(PORT);
-  console.log('listening', PORT);
+require('./lib/bootevent')(env).boot(function booted (ctx) {
+    var app = require('./app')(env, ctx);
+    var server = create(app).listen(PORT);
+    console.log(translate('Listening on port'), PORT);
 
-  ///////////////////////////////////////////////////
-  // setup socket io for data and message transmission
-  ///////////////////////////////////////////////////
-  var websocket = require('./lib/websocket');
-  var io = websocket(env, server, entriesStorage, treatmentsStorage);
+    if (env.MQTT_MONITOR) {
+      ctx.mqtt = require('./lib/mqtt')(env, ctx);
+      var es = require('event-stream');
+      es.pipeline(ctx.mqtt.entries, ctx.entries.map( ), ctx.mqtt.every(ctx.entries));
+    }
+
+    ///////////////////////////////////////////////////
+    // setup socket io for data and message transmission
+    ///////////////////////////////////////////////////
+    var websocket = require('./lib/websocket')(env, ctx, server);
+
+    ctx.bus.on('data-processed', function() {
+      websocket.update();
+    });
+
+    ctx.bus.on('notification', function(notify) {
+      websocket.emitNotification(notify);
+      if (ctx.mqtt) {
+        ctx.mqtt.emitNotification(notify);
+      }
+    });
+
+    //after startup if there are no alarms send all clear
+    setTimeout(function sendStartupAllClear () {
+      var alarm = ctx.notifications.findHighestAlarm();
+      if (!alarm) {
+        ctx.bus.emit('notification', {
+          clear: true
+          , title: 'All Clear'
+          , message: 'Server started without alarms'
+        });
+      }
+    }, 20000);
 });
-
-///////////////////////////////////////////////////
