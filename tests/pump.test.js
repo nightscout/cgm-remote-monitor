@@ -69,11 +69,8 @@ describe('pump', function ( ) {
       }
       , pluginBase: {
         updatePillText: function mockedUpdatePillText(plugin, options) {
-          options.label.should.equal('Res');
-          options.value.should.equal('86.4U');
-          var first = _.first(options.info);
-          first.label.should.equal('Battery');
-          first.value.should.equal('1.52v');
+          options.label.should.equal('Pump');
+          options.value.should.equal('86.4U 1.52v');
           done();
         }
       }
