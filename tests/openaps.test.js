@@ -129,7 +129,7 @@ describe('openaps', function ( ) {
 
   });
 
-  it('generate an alart for a stuck loop', function (done) {
+  it('generate an alert for a stuck loop', function (done) {
     var ctx = {
       settings: {
         units: 'mg/dl'

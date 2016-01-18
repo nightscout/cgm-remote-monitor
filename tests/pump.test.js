@@ -9,7 +9,7 @@ var pump = require('../lib/plugins/pump')();
 var sandbox = require('../lib/sandbox')();
 var levels = require('../lib/levels');
 
-var now = moment('2015-12-05T11:05:00-08:00');
+var now = moment();
 
 var status = {
   mills: now.valueOf(),
@@ -20,43 +20,11 @@ var status = {
     },
     status: {
       status: 'normal',
-      timestamp: '2015-12-05T18:59:37.000Z',
       bolusing: false,
       suspended: false
     },
     reservoir: 86.4,
-    clock: '2015-12-05T10:58:47-08:00'
-  },
-  openaps: {
-    suggested: {
-      bg: 147,
-      temp: 'absolute',
-      snoozeBG: 125,
-      timestamp: '2015-12-05T19:02:42.000Z',
-      rate: 0.75,
-      reason: 'Eventual BG 125>120, no temp, setting 0.75U/hr',
-      eventualBG: 125,
-      duration: 30,
-      tick: '+1'
-    },
-    iob: {
-      timestamp: '2015-12-05T19:02:42.000Z',
-      bolusiob: 0,
-      iob: 0.6068340736133333,
-      activity: 0.016131569664902996
-    },
-    enacted: {
-      bg: 147,
-      temp: 'absolute',
-      snoozeBG: 125,
-      recieved: true,
-      reason: 'Eventual BG 125>120, no temp, setting 0.75U/hr',
-      rate: 0.75,
-      eventualBG: 125,
-      timestamp: '2015-12-05T19:03:00.000Z',
-      duration: 30,
-      tick: '+1'
-    }
+    clock: now.valueOf()
   }
 };
 
@@ -69,11 +37,8 @@ describe('pump', function ( ) {
       }
       , pluginBase: {
         updatePillText: function mockedUpdatePillText(plugin, options) {
-          options.label.should.equal('Res');
+          options.label.should.equal('Pump');
           options.value.should.equal('86.4U');
-          var first = _.first(options.info);
-          first.label.should.equal('Battery');
-          first.value.should.equal('1.52v');
           done();
         }
       }
@@ -86,9 +51,9 @@ describe('pump', function ( ) {
       name.should.equal('pump');
       var result = setter();
       should.exist(result);
-      result.status.level.should.equal(levels.NONE);
-      result.status.voltage.should.equal(1.52);
-      result.status.reservoir.should.equal(86.4);
+      result.data.level.should.equal(levels.NONE);
+      result.data.battery.value.should.equal(1.52);
+      result.data.reservoir.value.should.equal(86.4);
 
       sbx.offerProperty = unmockedOfferProperty;
       unmockedOfferProperty(name, setter);
@@ -111,7 +76,7 @@ describe('pump', function ( ) {
 
     ctx.notifications.initRequests();
 
-    var sbx = sandbox.clientInit(ctx, now.add(1, 'hours').valueOf(), {
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {
       devicestatus: [status]
     });
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
@@ -137,7 +102,7 @@ describe('pump', function ( ) {
     var lowBattStatus = _.cloneDeep(status);
     lowBattStatus.pump.battery.voltage = 1.33;
 
-    var sbx = sandbox.clientInit(ctx, now.add(1, 'hours').valueOf(), {
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {
       devicestatus: [lowBattStatus]
     });
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
@@ -164,7 +129,7 @@ describe('pump', function ( ) {
     var lowBattStatus = _.cloneDeep(status);
     lowBattStatus.pump.battery.voltage = 1.00;
 
-    var sbx = sandbox.clientInit(ctx, now.add(1, 'hours').valueOf(), {
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {
       devicestatus: [lowBattStatus]
     });
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
