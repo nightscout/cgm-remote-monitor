@@ -288,8 +288,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `pump` (Pump) - Generic Pump Monitoring, with support for OpenAPS, MiniMed Connect, RileyLink, t:slim, with more on the way
     * Requires `DEVICESTATUS_ADVANCED="true"` to be set
     * `PUMP_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications for Pump battery and reservoir.
-    * `PUMP_FIELDS` (`reservoir battery`) - The fields to display by default.  Any field in warning or alarm state will also be displayed. Any of the following fields: `reservoir`, `battery`, `clock`, `status`
-    * `PUMP_RETRO_FIELDS` (`reservoir battery clock`) - The fields to display in retro mode. Any field in warning or alarm state will also be displayed. Any of the above fields.
+    * `PUMP_FIELDS` (`reservoir battery`) - The fields to display by default.  Any of the following fields: `reservoir`, `battery`, `clock`, `status`
+    * `PUMP_RETRO_FIELDS` (`reservoir battery clock`) - The fields to display in retro mode. Any of the above fields.
     * `PUMP_WARN_CLOCK` (`30`) - The number of minutes ago that needs to be exceed before an alert is triggered.
     * `PUMP_URGENT_CLOCK` (`60`) - The number of minutes ago that needs to be exceed before an urgent alarm is triggered.
     * `PUMP_WARN_RES` (`10`) - The number of units remaining, a warning will be triggered when dropping below this threshold.
