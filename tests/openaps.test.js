@@ -13,7 +13,8 @@ var now = moment('2015-12-05T11:05:00-08:00');
 
 var status = {
   mills: now.valueOf(),
-  pump: {
+  device: 'openaps://abusypi'
+  , pump: {
     battery: {
       status: 'normal',
       voltage: 1.52
@@ -73,7 +74,7 @@ describe('openaps', function ( ) {
           options.value.should.equal('2m ago');
           var first = _.first(options.info);
           first.label.should.equal('1m ago');
-          first.value.should.equal('Enacted');
+          first.value.should.equal('update from abusypi');
           done();
         }
       }
