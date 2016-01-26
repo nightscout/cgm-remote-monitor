@@ -143,4 +143,27 @@ describe('pump', function ( ) {
     done();
   });
 
+  it('not generate an alert for a stale pump data, when there is an offline marker', function (done) {
+    var ctx = {
+      settings: {
+        units: 'mg/dl'
+      }
+      , notifications: require('../lib/notifications')(env, ctx)
+    };
+
+    ctx.notifications.initRequests();
+
+    var sbx = sandbox.clientInit(ctx, now.add(1, 'hours').valueOf(), {
+      devicestatus: [status]
+      , treatments: [{eventType: 'OpenAPS Offline', mills: now.valueOf(), duration: 60}]
+    });
+    sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
+    pump.setProperties(sbx);
+    pump.checkNotifications(sbx);
+
+    var highest = ctx.notifications.findHighestAlarm();
+    should.not.exist(highest);
+    done();
+  });
+
 });
