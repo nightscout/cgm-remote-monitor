@@ -66,7 +66,7 @@
           'time': '00:00',
           'value': 0
         }]
-      ,startDate: new Date().toISOString()
+      ,startDate: new Date(0).toISOString()
   };
 
 //  , 'startDate': new Date()
