@@ -127,10 +127,10 @@ describe('openaps', function ( ) {
           options.value.should.equal('2m ago');
           var first = _.first(options.info);
           first.label.should.equal('1m ago');
-          first.value.should.equal('abusypi ⌁ Enacted');
+          first.value.should.equal('update from abusypi ⌁ Enacted');
           var last = _.last(options.info);
           last.label.should.equal('1h ago');
-          last.value.should.equal('awaitingpi ◉ Waiting');
+          last.value.should.equal('update from awaitingpi ◉ Waiting');
           done();
         }
       }
