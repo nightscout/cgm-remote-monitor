@@ -60,7 +60,7 @@
     "express": "^4.6.1",
     "express-extension-to-accept": "0.0.2",
     "forever": "~0.13.0",
-    "git-rev": "git://github.com/bewest/git-rev.git",
+    "git-rev": "git://github.com/mayaalinder/git-rev.git",
     "jquery": "^2.1.4",
     "lodash": "^3.9.1",
     "long": "~2.2.3",
