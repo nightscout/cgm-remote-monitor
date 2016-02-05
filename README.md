@@ -63,7 +63,32 @@ Community maintained fork of the
     - [Predefined values for your browser settings (optional)](#predefined-values-for-your-browser-settings-optional)
     - [Plugins](#plugins)
       - [Default Plugins](#default-plugins)
+        - [`delta` (BG Delta)](#delta-bg-delta)
+        - [`direction` (BG Direction)](#direction-bg-direction)
+        - [`upbat` (Uploader Battery)](#upbat-uploader-battery)
+        - [`timeago` (Time Ago)](#timeago-time-ago)
+        - [`devicestatus` (Device Status)](#devicestatus-device-status)
+        - [`errorcodes` (CGM Error Codes)](#errorcodes-cgm-error-codes)
+        - [`ar2` (AR2 Forecasting)](#ar2-ar2-forecasting)
+        - [`simplealarms` (Simple BG Alarms)](#simplealarms-simple-bg-alarms)
+        - [`profile` (Treatment Profile)](#profile-treatment-profile)
       - [Built-in/Example Plugins:](#built-inexample-plugins)
+        - [`careportal` (Careportal)](#careportal-careportal)
+        - [`boluscalc` (Bolus Wizard)](#boluscalc-bolus-wizard)
+        - [`food` (Custom Foods)](#food-custom-foods)
+        - [`rawbg` (Raw BG)](#rawbg-raw-bg)
+        - [`iob` (Insulin-on-Board)](#iob-insulin-on-board)
+        - [`cob` (Carbs-on-Board)](#cob-carbs-on-board)
+        - [`bwp` (Bolus Wizard Preview)](#bwp-bolus-wizard-preview)
+        - [`cage` (Cannula Age)](#cage-cannula-age)
+        - [`sage` (Sensor Age)](#sage-sensor-age)
+        - [`iage` (Insulin Age)](#iage-insulin-age)
+        - [`treatmentnotify` (Treatment Notifications)](#treatmentnotify-treatment-notifications)
+        - [`basal` (Basal Profile)](#basal-basal-profile)
+        - [`bridge` (Share2Nightscout bridge)](#bridge-share2nightscout-bridge)
+        - [`mmconnect` (MiniMed Connect bridge)](#mmconnect-minimed-connect-bridge)
+        - [`pump` (Pump Monitoring)](#pump-pump-monitoring)
+        - [`openaps` (OpenAPS)](#openaps-openaps)
       - [Extended Settings](#extended-settings)
       - [Pushover](#pushover)
       - [IFTTT Maker](#ifttt-maker)
@@ -179,6 +204,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `MONGO_COLLECTION` (`entries`) - The collection used to store SGV, MBG, and CAL records from your CGM device
   * `MONGO_TREATMENTS_COLLECTION` (`treatments`) -The collection used to store treatments entered in the Care Portal, see the `ENABLE` env var above
   * `MONGO_DEVICESTATUS_COLLECTION`(`devicestatus`) - The collection used to store device status information such as uploader battery
+  * `MONGO_PROFILE_COLLECTION`(`profile`) - The collection used to store your profiles
+  * `MONGO_FOOD_COLLECTION`(`food`) - The collection used to store your food database
   * `PORT` (`1337`) - The port that the node.js application will listen on.
   * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js
@@ -202,6 +229,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * The default `log` (logarithmic) option will let you see more detail towards the lower range, while still showing the full CGM range.
     * The `linear` option has equidistant tick marks, the range used is dynamic so that space at the top of chart isn't wasted.
     * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale. 
+  * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enable or disable icon allowing enter treatments edit mode
 
 ### Plugins
 
@@ -213,56 +241,141 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   
   These can be disabled by setting the `DISABLE` env var, for example `DISABLE="direction upbat"`
 
-  * `delta` (BG Delta) - Calculates and displays the change between the last 2 BG values.
-  * `direction` (BG Direction) - Displays the trend direction.
-  * `upbat` (Uploader Battery) - Displays the most recent battery status from the uploader phone.
-  * `errorcodes` (CGM Error Codes) - Generates alarms for CGM codes `9` (hourglass) and `10` (???).
-    * Use [extended settings](#extended-settings) to adjust what errorcodes trigger notifications and alarms:
-      * `ERRORCODES_INFO` (`1 2 3 4 5 6 7 8`) - By default the needs calibration (blood drop) and other codes below 9 generate an info level notification, set to a space separate list of number or `off` to disable
-      * `ERRORCODES_WARN` (`off`) - By default there are no warning configured, set to a space separate list of numbers or `off` to disable
-      * `ERRORCODES_URGENT` (`9 10`) - By default the hourglass and ??? generate an urgent alarm, set to a space separate list of numbers or `off` to disable
-  * `ar2` ([Forcasting using AR2 algorithm](https://github.com/nightscout/nightscout.github.io/wiki/Forecasting)) - Generates alarms based on forecasted values.
-    * Enabled by default if no thresholds are set **OR** `ALARM_TYPES` includes `predict`.
-    * Use [extended settings](#extended-settings) to adjust AR2 behavior:
-      * `AR2_USE_RAW` (`false`) - to forecast using `rawbg` values when standard values don't trigger an alarm.
-      * `AR2_CONE_FACTOR` (`2`) - to adjust size of cone, use `0` for a single line.
-  * `simplealarms` (Simple BG Alarms) - Uses `BG_HIGH`, `BG_TARGET_TOP`, `BG_TARGET_BOTTOM`, `BG_LOW` thresholds to generate alarms.
-    * Enabled by default if 1 of these thresholds is set **OR** `ALARM_TYPES` includes `simple`.
+##### `delta` (BG Delta)
+  Calculates and displays the change between the last 2 BG values.
 
-#### Built-in/Example Plugins:
+##### `direction` (BG Direction)
+  Displays the trend direction.
 
-  * `rawbg` (Raw BG) - Calculates BG using sensor and calibration records from and displays an alternate BG values and noise levels.
-  * `iob` (Insulin-on-Board) - Adds the IOB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with insulin doses and the `dia` and `sens` fields from the [treatment profile](#treatment-profile).
-  * `cob` (Carbs-on-Board) - Adds the COB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with carb doses and the `carbs_hr`, `carbratio`, and `sens` fields from the [treatment profile](#treatment-profile).
-  * `bwp` (Bolus Wizard Preview) - This plugin in intended for the purpose of automatically snoozing alarms when the CGM indicates high blood sugar but there is also insulin on board (IOB) and secondly, alerting to user that it might be beneficial to measure the blood sugar using a glucometer and dosing insulin as calculated by the pump or instructed by trained medicare professionals. ***The values provided by the plugin are provided as a reference based on CGM data and insulin sensitivity you have configured, and are not intended to be used as a reference for bolus calculation.*** The plugin calculates the bolus amount when above your target, generates alarms when you should consider checking and bolusing, and snoozes alarms when there is enough IOB to cover a high BG. Uses the results of the `iob` plugin and `sens`, `target_high`, and `target_low` fields from the [treatment profile](#treatment-profile). Defaults that can be adjusted with [extended setting](#extended-settings)
-    * `BWP_WARN` (`0.50`) - If `BWP` is > `BWP_WARN` a warning alarm will be triggered.
-    * `BWP_URGENT` (`1.00`) - If `BWP` is > `BWP_URGENT` an urgent alarm will be triggered.
-    * `BWP_SNOOZE_MINS` (`10`) - minutes to snooze when there is enough IOB to cover a high BG.
-    * `BWP_SNOOZE` - (`0.10`) If BG is higher then the `target_high` and `BWP` < `BWP_SNOOZE` alarms will be snoozed for `BWP_SNOOZE_MINS`.
-  * `cage` (Cannula Age) - Calculates the number of hours since the last `Site Change` treatment that was recorded.
-    * `CAGE_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications to remind you of upcoming cannula change.
-    * `CAGE_INFO` (`44`) - If time since last `Site Change` matches `CAGE_INFO`, user will be warned of upcoming cannula change
-    * `CAGE_WARN` (`48`) - If time since last `Site Change` matches `CAGE_WARN`, user will be alarmed to to change the cannula
-    * `CAGE_URGENT` (`72`) - If time since last `Site Change` matches `CAGE_URGENT`, user will be issued a persistent warning of overdue change.
-  * `treatmentnotify` (Treatment Notifications) - Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.  Default snooze is 10 minutes, and can be set using the `TREATMENTNOTIFY_SNOOZE_MINS` [extended setting](#extended-settings).
-  * `basal` (Basal Profile) - Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile). Also uses the extended setting:
-    * `BASAL_RENDER` (`none`) - Possible values are `none`, `default`, or `icicle` (inverted)
-  * `bridge` (Share2Nightscout bridge) - Glucose reading directly from the Share service, uses these extended settings:
-    * `BRIDGE_USER_NAME` - Your user name for the Share service.
-    * `BRIDGE_PASSWORD` - Your password for the Share service.
-    * `BRIDGE_INTERVAL` (`150000` *2.5 minutes*) - The time to wait between each update.
-    * `BRIDGE_MAX_COUNT` (`1`) - The maximum number of records to fetch per update.
-    * `BRIDGE_FIRST_FETCH_COUNT` (`3`) - Changes max count during the very first update only.
-    * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
-    * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (default is one day in minutes).
-  * `mmconnect` (MiniMed Connect bridge) - Transfer real-time MiniMed Connect data from the Medtronic CareLink server into Nightscout ([read more](https://github.com/mddub/minimed-connect-to-nightscout))
-    * `MMCONNECT_USER_NAME` - Your user name for CareLink Connect.
-    * `MMCONNECT_PASSWORD` - Your password for CareLink Connect.
-    * `MMCONNECT_INTERVAL` (`60000` *1 minute*) - Number of milliseconds to wait between requests to the CareLink server.
-    * `MMCONNECT_MAX_RETRY_DURATION` (`32`) - Maximum number of total seconds to spend retrying failed requests before giving up.
-    * `MMCONNECT_SGV_LIMIT` (`24`) - Maximum number of recent sensor glucose values to send to Nightscout on each request.
-    * `MMCONNECT_VERBOSE` - Set this to "true" to log CareLink request information to the console.
-    * `MMCONNECT_STORE_RAW_DATA` - Set this to "true" to store raw data returned from CareLink as `type: "carelink_raw"` database entries (useful for development).
+##### `upbat` (Uploader Battery)
+  Displays the most recent battery status from the uploader phone.
+
+##### `timeago` (Time Ago)
+  Displays the time since last CGM entry.  Supports the `TIMEAGO_ENABLE_ALERTS` [extended setting](#extended-settings) for server side stale data alarms via Pushover and IFTTT.
+
+##### `devicestatus` (Device Status)
+  Used by `upbat` and other plugins to display device status info.  Supports the `DEVICESTATUS_ADVANCED="true"` [extended setting](#extended-settings) to send all device statuses to the client for retrospective use and to support other plugins.
+
+##### `errorcodes` (CGM Error Codes)
+  Generates alarms for CGM codes `9` (hourglass) and `10` (???).
+  * Use [extended settings](#extended-settings) to adjust what errorcodes trigger notifications and alarms:
+    * `ERRORCODES_INFO` (`1 2 3 4 5 6 7 8`) - By default the needs calibration (blood drop) and other codes below 9 generate an info level notification, set to a space separate list of number or `off` to disable
+    * `ERRORCODES_WARN` (`off`) - By default there are no warning configured, set to a space separate list of numbers or `off` to disable
+    * `ERRORCODES_URGENT` (`9 10`) - By default the hourglass and ??? generate an urgent alarm, set to a space separate list of numbers or `off` to disable
+
+##### `ar2` (AR2 Forecasting)
+  Generates alarms based on forecasted values. See [Forecasting using AR2 algorithm](https://github.com/nightscout/nightscout.github.io/wiki/Forecasting)
+  * Enabled by default if no thresholds are set **OR** `ALARM_TYPES` includes `predict`.
+  * Use [extended settings](#extended-settings) to adjust AR2 behavior:
+    * `AR2_USE_RAW` (`false`) - to forecast using `rawbg` values when standard values don't trigger an alarm.
+    * `AR2_CONE_FACTOR` (`2`) - to adjust size of cone, use `0` for a single line.
+
+##### `simplealarms` (Simple BG Alarms)
+  Uses `BG_HIGH`, `BG_TARGET_TOP`, `BG_TARGET_BOTTOM`, `BG_LOW` thresholds to generate alarms.
+  * Enabled by default if 1 of these thresholds is set **OR** `ALARM_TYPES` includes `simple`.
+
+##### `profile` (Treatment Profile)
+  Add link to Profile Editor and allow to enter treatment profile settings. Also uses the extended setting:
+  * `PROFILE_HISTORY` (`off`) - possible values `on` or `off`. Enable/disable NS ability to keep history of your profiles (still experimental)
+  * `PROFILE_MULTIPLE` (`off`) - possible values `on` or `off`. Enable/disable NS ability to handle and switch between multiple treatment profiles
+
+#### Advanced Plugins:
+
+##### `careportal` (Careportal)
+  An optional form to enter treatments.
+  
+##### `boluscalc` (Bolus Wizard)
+
+##### `food` (Custom Foods)
+  An option plugin to enable adding foods from database in Bolus Wizard and enable .
+
+##### `rawbg` (Raw BG)
+  Calculates BG using sensor and calibration records from and displays an alternate BG values and noise levels.
+
+##### `iob` (Insulin-on-Board)
+  Adds the IOB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with insulin doses and the `dia` and `sens` fields from the [treatment profile](#treatment-profile).
+
+##### `cob` (Carbs-on-Board)
+  Adds the COB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with carb doses and the `carbs_hr`, `carbratio`, and `sens` fields from the [treatment profile](#treatment-profile).
+
+##### `bwp` (Bolus Wizard Preview)
+  This plugin in intended for the purpose of automatically snoozing alarms when the CGM indicates high blood sugar but there is also insulin on board (IOB) and secondly, alerting to user that it might be beneficial to measure the blood sugar using a glucometer and dosing insulin as calculated by the pump or instructed by trained medicare professionals. ***The values provided by the plugin are provided as a reference based on CGM data and insulin sensitivity you have configured, and are not intended to be used as a reference for bolus calculation.*** The plugin calculates the bolus amount when above your target, generates alarms when you should consider checking and bolusing, and snoozes alarms when there is enough IOB to cover a high BG. Uses the results of the `iob` plugin and `sens`, `target_high`, and `target_low` fields from the [treatment profile](#treatment-profile). Defaults that can be adjusted with [extended setting](#extended-settings)
+  * `BWP_WARN` (`0.50`) - If `BWP` is > `BWP_WARN` a warning alarm will be triggered.
+  * `BWP_URGENT` (`1.00`) - If `BWP` is > `BWP_URGENT` an urgent alarm will be triggered.
+  * `BWP_SNOOZE_MINS` (`10`) - minutes to snooze when there is enough IOB to cover a high BG.
+  * `BWP_SNOOZE` - (`0.10`) If BG is higher then the `target_high` and `BWP` < `BWP_SNOOZE` alarms will be snoozed for `BWP_SNOOZE_MINS`.
+
+##### `cage` (Cannula Age)
+  Calculates the number of hours since the last `Site Change` treatment that was recorded.
+  * `CAGE_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications to remind you of upcoming cannula change.
+  * `CAGE_INFO` (`44`) - If time since last `Site Change` matches `CAGE_INFO`, user will be warned of upcoming cannula change
+  * `CAGE_WARN` (`48`) - If time since last `Site Change` matches `CAGE_WARN`, user will be alarmed to to change the cannula
+  * `CAGE_URGENT` (`72`) - If time since last `Site Change` matches `CAGE_URGENT`, user will be issued a persistent warning of overdue change.
+  * `CAGE_DISPLAY` (`hours`) - Possible values are 'hours' or 'days'. If 'days' is selected and age of canula is greater than 24h number is displayed in days and hours
+
+#####  `sage` (Sensor Age)
+  Calculates the number of days and hours since the last `Sensor Start` and `Sensor Change` treatment that was recorded.
+  * `SAGE_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications to remind you of upcoming sensor change.
+  * `SAGE_INFO` (`144`) - If time since last sensor event matches `SAGE_INFO`, user will be warned of upcoming sensor change
+  * `SAGE_WARN` (`164`) - If time since last sensor event matches `SAGE_WARN`, user will be alarmed to to change/restart the sensor
+  * `SAGE_URGENT` (`166`) - If time since last sensor event matches `SAGE_URGENT`, user will be issued a persistent warning of overdue change.
+
+##### `iage` (Insulin Age)
+  Calculates the number of days and hours since the last `Insulin Change` treatment that was recorded.
+  * `IAGE_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications to remind you of upcoming insulin reservoir change.
+  * `IAGE_INFO` (`44`) - If time since last `Insulin Change` matches `IAGE_INFO`, user will be warned of upcoming insulin reservoir change
+  * `IAGE_WARN` (`48`) - If time since last `Insulin Change` matches `IAGE_WARN`, user will be alarmed to to change the insulin reservoir
+  * `IAGE_URGENT` (`72`) - If time since last `Insulin Change` matches `IAGE_URGENT`, user will be issued a persistent warning of overdue change.
+
+##### `treatmentnotify` (Treatment Notifications)
+  Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.  Default snooze is 10 minutes, and can be set using the `TREATMENTNOTIFY_SNOOZE_MINS` [extended setting](#extended-settings).
+
+##### `basal` (Basal Profile)
+  Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile). Also uses the extended setting:
+  * `BASAL_RENDER` (`none`) - Possible values are `none`, `default`, or `icicle` (inverted)
+
+##### `bridge` (Share2Nightscout bridge)
+  Glucose reading directly from the Share service, uses these extended settings:
+  * `BRIDGE_USER_NAME` - Your user name for the Share service.
+  * `BRIDGE_PASSWORD` - Your password for the Share service.
+  * `BRIDGE_INTERVAL` (`150000` *2.5 minutes*) - The time to wait between each update.
+  * `BRIDGE_MAX_COUNT` (`1`) - The maximum number of records to fetch per update.
+  * `BRIDGE_FIRST_FETCH_COUNT` (`3`) - Changes max count during the very first update only.
+  * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
+  * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (default is one day in minutes).
+
+##### `mmconnect` (MiniMed Connect bridge)
+  Transfer real-time MiniMed Connect data from the Medtronic CareLink server into Nightscout ([read more](https://github.com/mddub/minimed-connect-to-nightscout))
+  * `MMCONNECT_USER_NAME` - Your user name for CareLink Connect.
+  * `MMCONNECT_PASSWORD` - Your password for CareLink Connect.
+  * `MMCONNECT_INTERVAL` (`60000` *1 minute*) - Number of milliseconds to wait between requests to the CareLink server.
+  * `MMCONNECT_MAX_RETRY_DURATION` (`32`) - Maximum number of total seconds to spend retrying failed requests before giving up.
+  * `MMCONNECT_SGV_LIMIT` (`24`) - Maximum number of recent sensor glucose values to send to Nightscout on each request.
+  * `MMCONNECT_VERBOSE` - Set this to "true" to log CareLink request information to the console.
+  * `MMCONNECT_STORE_RAW_DATA` - Set this to "true" to store raw data returned from CareLink as `type: "carelink_raw"` database entries (useful for development).
+
+##### `pump` (Pump Monitoring)
+  Generic Pump Monitoring for OpenAPS, MiniMed Connect, RileyLink, t:slim, with more on the way
+  * Requires `DEVICESTATUS_ADVANCED="true"` to be set
+  * `PUMP_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications for Pump battery and reservoir.
+  * `PUMP_FIELDS` (`reservoir battery`) - The fields to display by default.  Any of the following fields: `reservoir`, `battery`, `clock`, `status`, and `device`
+  * `PUMP_RETRO_FIELDS` (`reservoir battery clock`) - The fields to display in retro mode. Any of the above fields.
+  * `PUMP_WARN_CLOCK` (`30`) - The number of minutes ago that needs to be exceed before an alert is triggered.
+  * `PUMP_URGENT_CLOCK` (`60`) - The number of minutes ago that needs to be exceed before an urgent alarm is triggered.
+  * `PUMP_WARN_RES` (`10`) - The number of units remaining, a warning will be triggered when dropping below this threshold.
+  * `PUMP_URGENT_RES` (`5`) - The number of units remaining, an urgent alarm will be triggered when dropping below this threshold.
+  * `PUMP_WARN_BATT_P` (`30`) - The % of the pump battery remaining, a warning will be triggered when dropping below this threshold.
+  * `PUMP_URGENT_BATT_P` (`20`) - The % of the pump battery remaining, an urgent alarm will be triggered when dropping below this threshold.
+  * `PUMP_WARN_BATT_V` (`1.35`) - The voltage (if percent isn't available) of the pump battery, a warning will be triggered when dropping below this threshold.
+  * `PUMP_URGENT_BATT_V` (`1.30`) - The  voltage (if percent isn't available) of the pump battery, an urgent alarm will be triggered when dropping below this threshold.
+
+##### `openaps` (OpenAPS)
+  Integrated OpenAPS loop monitoring, uses these extended settings:
+  * Requires `DEVICESTATUS_ADVANCED="true"` to be set
+  * `OPENAPS_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when OpenAPS isn't looping.  If OpenAPS is going to offline for a period of time, you can add an `OpenAPS Offline` event for the expected duration from Careportal to avoid getting alerts. 
+  * `OPENAPS_WARN` (`30`) - The number of minutes since the last loop that needs to be exceed before an alert is triggered 
+  * `OPENAPS_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceed before an urgent alarm is triggered
+
   
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
  
