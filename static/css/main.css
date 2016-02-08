@@ -138,17 +138,17 @@ body {
   color: red;
 }
 
-.alarming-timeago #lastEntry.pill.warn {
+.alarming-timeago .timeago.pill.warn {
   border-color: yellow;
 }
-.alarming-timeago #lastEntry.pill.warn label {
+.alarming-timeago .timeago.pill.warn label {
   background: yellow;
 }
 
-.alarming-timeago #lastEntry.pill.urgent {
+.alarming-timeago .timeago.pill.urgent {
   border-color: red;
 }
-.alarming-timeago #lastEntry.pill.urgent label {
+.alarming-timeago .timeago.pill.urgent label {
   background: red;
 }
 
@@ -180,6 +180,7 @@ body {
 .statusPills .pill {
   background: #808080;
   border-color: #808080;
+  margin-right: 5px;
 }
 
 .statusPills .pill em {
@@ -292,6 +293,7 @@ body {
   border-radius: 8px;
   float: right;
   min-width: 150px;
+  max-width: 400px;
 }
 
 .alarms {
