@@ -17,8 +17,8 @@ function updateMills (entries) {
   return entries;
 }
 
-ctx.data = require('../lib/data')(env, ctx);
-ctx.data.sgvs = updateMills([
+ctx.ddata = require('../lib/data/ddata')();
+ctx.ddata.sgvs = updateMills([
   { device: 'dexcom',
     mgdl: 91,
     direction: 'Flat',
@@ -66,7 +66,7 @@ ctx.data.sgvs = updateMills([
   }
 ]);
 
-ctx.data.cals = updateMills([
+ctx.ddata.cals = updateMills([
   { device: 'dexcom',
     slope: 895.8571693029189,
     intercept: 34281.06876195567,
@@ -75,13 +75,13 @@ ctx.data.cals = updateMills([
   }
 ]);
 
-ctx.data.profiles = [{dia: 4 }];
+ctx.ddata.profiles = [{dia: 4 }];
 
-ctx.data.treatments = updateMills([
+ctx.ddata.treatments = updateMills([
   { eventType: 'Snack Bolus', insulin: '1.50', carbs: '22' }
 ]);
 
-ctx.data.devicestatus.uploaderBattery = 100;
+ctx.ddata.devicestatus = [{uploader: {battery: 100}}];
 
 describe('Pebble Endpoint', function ( ) {
   var pebble = require('../lib/pebble');
@@ -167,7 +167,7 @@ describe('Pebble Endpoint', function ( ) {
   });
 
   it('/pebble without battery', function (done) {
-    delete ctx.data.devicestatus.uploaderBattery;
+    ctx.ddata.devicestatus = [];
     request(this.app)
       .get('/pebble')
       .expect(200)
@@ -182,7 +182,7 @@ describe('Pebble Endpoint', function ( ) {
   });
 
   it('/pebble with a negative battery', function (done) {
-    ctx.data.devicestatus.uploaderBattery = -1;
+    ctx.ddata.devicestatus = [{uploader: {battery: -1}}];
     request(this.app)
       .get('/pebble')
       .expect(200)
@@ -197,7 +197,7 @@ describe('Pebble Endpoint', function ( ) {
   });
 
   it('/pebble with a false battery', function (done) {
-    ctx.data.devicestatus.uploaderBattery = false;
+    ctx.ddata.devicestatus = [{uploader: {battery: false}}];
     request(this.app)
       .get('/pebble')
       .expect(200)
@@ -215,7 +215,7 @@ describe('Pebble Endpoint', function ( ) {
 describe('Pebble Endpoint with Raw and IOB', function ( ) {
   var pebbleRaw = require('../lib/pebble');
   before(function (done) {
-    ctx.data.devicestatus.uploaderBattery = 100;
+    ctx.ddata.devicestatus = [{uploader: {battery: 100}}];
     var envRaw = require('../env')( );
     envRaw.settings.enable = ['rawbg', 'iob'];
     this.appRaw = require('express')( );
