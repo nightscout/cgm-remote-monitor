@@ -137,10 +137,11 @@ describe('boluswizardpreview', function ( ) {
     };
     var data = {sgvs: [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}]};
     data.treatments = [{mills: now, insulin: '1.0'}];
+    data.devicestatus = [];
     data.profile = require('../lib/profilefunctions')([profileData]);
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
     var iob = require('../lib/plugins/iob')();
-    sbx.properties.iob = iob.calcTotal(data.treatments, data.profile, now);
+    sbx.properties.iob = iob.calcTotal(data.treatments, data.devicestatus, data.profile, now);
 
     var results = boluswizardpreview.calc(sbx);
     
@@ -177,10 +178,11 @@ describe('boluswizardpreview', function ( ) {
     };
     var data = {sgvs: [{mills: before, mgdl: 175}, {mills: now, mgdl: 153}]};
     data.treatments = [{mills: now, insulin: '0.45'}];
+    data.devicestatus = [];
     data.profile = require('../lib/profilefunctions')([profileData]);
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
     var iob = require('../lib/plugins/iob')();
-    sbx.properties.iob = iob.calcTotal(data.treatments, data.profile, now);
+    sbx.properties.iob = iob.calcTotal(data.treatments, data.devicestatus, data.profile, now);
 
     var results = boluswizardpreview.calc(sbx);
     
@@ -282,6 +284,7 @@ describe('boluswizardpreview', function ( ) {
     var data = {
       sgvs: [{mills: before, mgdl: 295}, {mills: now, mgdl: 300}]
       , treatments: [{mills: before, insulin: '1.5'}]
+      , devicestatus: []
       , profile: loadedProfile
     };
 

@@ -449,9 +449,11 @@
     options.maxCarbsValue = maxCarbsValue;
 
     datastorage.treatments = [];
+    datastorage.devicestatus = [];
     datastorage.combobolusTreatments = [];
     Object.keys(daystoshow).forEach( function eachDay(day) {
       datastorage.treatments = datastorage.treatments.concat(datastorage[day].treatments);
+      datastorage.devicestatus = datastorage.devicestatus.concat(datastorage[day].devicestatus);
       datastorage.combobolusTreatments = datastorage.combobolusTreatments.concat(datastorage[day].combobolusTreatments);
     });
     
@@ -507,61 +509,65 @@
     }
     from = parseInt(from);
     var to = from + 1000 * 60 * 60 * 24;
-    var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
-    
-    $('#info-' + day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
-    $.ajax('/api/v1/entries.json'+query, {
-      success: function (xhr) {
-        xhr.forEach(function (element) {
-          if (element) {
-            if (element.mbg) {
-              mbgData.push({
-                y: element.mbg
-                , mills: element.date
-                , d: element.dateString
-                , device: element.device
-              });
-            } else if (element.sgv) {
-              cgmData.push({
-                y: element.sgv
-                , mills: element.date
-                , d: element.dateString
-                , device: element.device
-                , filtered: element.filtered
-                , unfiltered: element.unfiltered
-                , noise: element.noise
-                , rssi: element.rssi
-                , sgv: element.sgv
-              });
-            } else if (element.type === 'cal') {
-              calData.push({
-                mills: element.date
-                , d: element.dateString
-                , scale: element.scale
-                , intercept: element.intercept
-                , slope: element.slope
-              });
+
+    function loadCGMData() {
+      $('#info-' + day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
+      var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
+      return $.ajax('/api/v1/entries.json'+query, {
+        success: function (xhr) {
+          xhr.forEach(function (element) {
+            if (element) {
+              if (element.mbg) {
+                mbgData.push({
+                  y: element.mbg
+                  , mills: element.date
+                  , d: element.dateString
+                  , device: element.device
+                });
+              } else if (element.sgv) {
+                cgmData.push({
+                  y: element.sgv
+                  , mills: element.date
+                  , d: element.dateString
+                  , device: element.device
+                  , filtered: element.filtered
+                  , unfiltered: element.unfiltered
+                  , noise: element.noise
+                  , rssi: element.rssi
+                  , sgv: element.sgv
+                });
+              } else if (element.type === 'cal') {
+                calData.push({
+                  mills: element.date
+                  , d: element.dateString
+                  , scale: element.scale
+                  , intercept: element.intercept
+                  , slope: element.slope
+                });
+              }
             }
-          }
-        });
-         // sometimes cgm contains duplicates.  uniq it.
-        data.sgv = cgmData.slice();
-        data.sgv.sort(function(a, b) { return a.mills - b.mills; });
-        var lastDate = 0;
-        data.sgv = data.sgv.filter(function(d) {
-          var ok = (lastDate + ONE_MIN_IN_MS) < d.mills;
-          lastDate = d.mills;
-          return ok;
-        });
-        data.mbg = mbgData.slice();
-        data.mbg.sort(function(a, b) { return a.mills - b.mills; });
-        data.cal = calData.slice();
-        data.cal.sort(function(a, b) { return a.mills - b.mills; });
-      }
-    }).done(function () {
+          });
+           // sometimes cgm contains duplicates.  uniq it.
+          data.sgv = cgmData.slice();
+          data.sgv.sort(function(a, b) { return a.mills - b.mills; });
+          var lastDate = 0;
+          data.sgv = data.sgv.filter(function(d) {
+            var ok = (lastDate + ONE_MIN_IN_MS) < d.mills;
+            lastDate = d.mills;
+            return ok;
+          });
+          data.mbg = mbgData.slice();
+          data.mbg.sort(function(a, b) { return a.mills - b.mills; });
+          data.cal = calData.slice();
+          data.cal.sort(function(a, b) { return a.mills - b.mills; });
+        }
+      });
+    }
+
+    function loadTreatmentData() {
       $('#info-' + day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
       var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
-      $.ajax('/api/v1/treatments.json'+tquery, {
+      return $.ajax('/api/v1/treatments.json'+tquery, {
         success: function (xhr) {
           treatmentData = xhr.map(function (treatment) {
             var timestamp = new Date(treatment.timestamp || treatment.created_at);
@@ -575,11 +581,30 @@
             return t.eventType === 'Combo Bolus';
           }).sort(function (a,b) { return a.mills > b.mills; });
         }
-      }).done(function () {
-        $('#info-' + day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
-        processData(data, day, options, callback);
       });
-        
+    }
+
+    function loadDevicestatusData() {
+      if(options.iob || options.cob) {
+        $('#info-' + day).html('<b>'+translate('Loading device status data of')+' '+day+' ...</b>');
+        var tquery = '?find[created_at][$gte]=' + new Date(from).toISOString() + '&find[created_at][$lt]=' + new Date(to).toISOString() + '&count=10000';
+        return $.ajax('/api/v1/devicestatus.json'+tquery, {
+          success: function (xhr) {
+            data.devicestatus = xhr.map(function (devicestatus) {
+              devicestatus.mills = new Date(devicestatus.timestamp || devicestatus.created_at).getTime();
+              return devicestatus;
+            });
+          }
+        });
+      } else {
+        data.devicestatus = [];
+        return $.Deferred().resolve();
+      }
+    }
+
+    $.when(loadCGMData(), loadTreatmentData(), loadDevicestatusData()).done(function () {
+      $('#info-' + day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
+      processData(data, day, options, callback);
     });
   }
 
