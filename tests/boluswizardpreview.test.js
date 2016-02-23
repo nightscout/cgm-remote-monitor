@@ -223,7 +223,7 @@ describe('boluswizardpreview', function ( ) {
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Warning, Check BG, time to bolus?');
-    highest.message.should.equal('BG Now: 180 +5 ↗ mg/dl\nBG 15m: 187 mg/dl\nBWP: 0.66U\nIOB: 0U');
+    highest.message.should.equal('BG Now: 180 +5 ↗ mg/dl\nBG 15m: 187 mg/dl\nBWP: 0.66U');
     done();
   });
 
