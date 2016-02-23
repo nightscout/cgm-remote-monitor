@@ -9,11 +9,10 @@ var pump = require('../lib/plugins/pump')();
 var sandbox = require('../lib/sandbox')();
 var levels = require('../lib/levels');
 
-var now = moment();
-
-var status = {
-  mills: now.valueOf(),
-  pump: {
+var statuses = [{
+  created_at: '2015-12-05T17:35:00.000Z'
+  , device: 'openaps://farawaypi'
+  , pump: {
     battery: {
       status: 'normal',
       voltage: 1.52
@@ -24,9 +23,31 @@ var status = {
       suspended: false
     },
     reservoir: 86.4,
-    clock: now.valueOf()
+    clock: '2015-12-05T17:32:00.000Z'
   }
-};
+}, {
+  created_at: '2015-12-05T19:05:00.000Z'
+  , device: 'openaps://abusypi'
+  , pump: {
+    battery: {
+      status: 'normal',
+      voltage: 1.52
+    },
+    status: {
+      status: 'normal',
+      bolusing: false,
+      suspended: false
+    },
+    reservoir: 86.4,
+    clock: '2015-12-05T19:02:00.000Z'
+  }
+}];
+
+var now = moment(statuses[1].created_at);
+
+_.forEach(statuses, function updateMills (status) {
+  status.mills = moment(status.created_at).valueOf();
+});
 
 describe('pump', function ( ) {
 
@@ -44,7 +65,7 @@ describe('pump', function ( ) {
       }
     };
 
-    var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: [status]});
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
 
     var unmockedOfferProperty = sbx.offerProperty;
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
@@ -77,7 +98,7 @@ describe('pump', function ( ) {
     ctx.notifications.initRequests();
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
-      devicestatus: [status]
+      devicestatus: statuses
     });
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
     pump.setProperties(sbx);
@@ -99,11 +120,11 @@ describe('pump', function ( ) {
 
     ctx.notifications.initRequests();
 
-    var lowBattStatus = _.cloneDeep(status);
-    lowBattStatus.pump.battery.voltage = 1.33;
+    var lowBattStatuses = _.cloneDeep(statuses);
+    lowBattStatuses[1].pump.battery.voltage = 1.33;
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
-      devicestatus: [lowBattStatus]
+      devicestatus: lowBattStatuses
     });
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
     pump.setProperties(sbx);
@@ -126,11 +147,11 @@ describe('pump', function ( ) {
 
     ctx.notifications.initRequests();
 
-    var lowBattStatus = _.cloneDeep(status);
-    lowBattStatus.pump.battery.voltage = 1.00;
+    var lowBattStatuses = _.cloneDeep(statuses);
+    lowBattStatuses[1].pump.battery.voltage = 1.00;
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
-      devicestatus: [lowBattStatus]
+      devicestatus: lowBattStatuses
     });
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
     pump.setProperties(sbx);
@@ -154,7 +175,7 @@ describe('pump', function ( ) {
     ctx.notifications.initRequests();
 
     var sbx = sandbox.clientInit(ctx, now.add(1, 'hours').valueOf(), {
-      devicestatus: [status]
+      devicestatus: statuses
       , treatments: [{eventType: 'OpenAPS Offline', mills: now.valueOf(), duration: 60}]
     });
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
