@@ -16,12 +16,12 @@
   color: #eee;
   display: none;
   font-size: 16px;
-  height: 100%;
-  overflow-y: auto;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   position: absolute;
   margin-top: 45px;
   right: -200px;
-  width: 300px;
   top: 0;
   z-index: 1;
 }
@@ -55,12 +55,12 @@ input[type=number]:invalid {
   color: #eee;
   display: none;
   font-size: 16px;
-  height: 100%;
-  overflow-y: auto;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   position: absolute;
   margin-top: 45px;
   right: -200px;
-  width: 300px;
   top: 0;
   z-index: 1;
 }
@@ -332,8 +332,9 @@ ul.navigation {
     color: #eee;
     display: none;
     font-size: 16px;
-    height: 100%;
-    overflow-y: auto;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
     position: absolute;
     margin-top: 45px;
     right: -200px;
