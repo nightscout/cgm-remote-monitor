@@ -64,7 +64,7 @@
     });
     filter.category = '';
     fillFoodSubcategories();
-    
+
     $('#rp_category').change(fillFoodSubcategories);
     $('#rp_subcategory').change(doFoodFilter);
     $('#rp_name').on('input',doFoodFilter);
@@ -101,7 +101,7 @@
       o += translate('Portion')+': ' + food_list[i].portion + ' ';
       o += food_list[i].unit + ' | ';
       o += translate('Carbs')+': ' + food_list[i].carbs+' g';
-      $('#rp_food').append('<option val="' + food_list[i]._id + '">' + o + '</option>');
+      $('#rp_food').append('<option value="' + food_list[i]._id + '">' + o + '</option>');
     }
     
     return maybePrevent(event);
@@ -206,6 +206,7 @@
       , carbs: true
       , iob : true
       , cob : true
+      , basal : true
       , scale: report_plugins.consts.scaleYFromSettings(client)
       , units: client.settings.units
     };
@@ -219,6 +220,7 @@
     options.raw = $('#rp_optionsraw').is(':checked');
     options.iob = $('#rp_optionsiob').is(':checked');
     options.cob = $('#rp_optionscob').is(':checked');
+    options.basal = $('#rp_optionsbasal').is(':checked');
     options.notes = $('#rp_optionsnotes').is(':checked');
     options.food = $('#rp_optionsfood').is(':checked');
     options.insulin = $('#rp_optionsinsulin').is(':checked');
@@ -362,7 +364,7 @@
     function daysfilter() {
       matchesneeded++;
       Object.keys(daystoshow).forEach( function eachDay(d) {
-        var day = new Date(d).getDay();
+        var day = moment.tz(d,zone).day();
         if (day===0 && $('#rp_su').is(':checked')) { daystoshow[d]++; }
         if (day===1 && $('#rp_mo').is(':checked')) { daystoshow[d]++; }
         if (day===2 && $('#rp_tu').is(':checked')) { daystoshow[d]++; }
@@ -420,10 +422,11 @@
       sorteddaystoshow.push(day);
       if (loadeddays === dayscount) {
         sorteddaystoshow.sort();
+        var from = sorteddaystoshow[0];
         if (options.order === report_plugins.consts.ORDER_NEWESTONTOP) {
           sorteddaystoshow.reverse();
         }
-        showreports(options);
+        loadTempBasals(from, function showreportscallback() { showreports(options); });
       }
     }
     
@@ -445,7 +448,13 @@
     options.maxInsulinValue = maxInsulinValue;
     options.maxCarbsValue = maxCarbsValue;
 
-
+    datastorage.treatments = [];
+    datastorage.combobolusTreatments = [];
+    Object.keys(daystoshow).forEach( function eachDay(day) {
+      datastorage.treatments = datastorage.treatments.concat(datastorage[day].treatments);
+      datastorage.combobolusTreatments = datastorage.combobolusTreatments.concat(datastorage[day].combobolusTreatments);
+    });
+    
     report_plugins.eachPlugin(function (plugin) {
       // jquery plot doesn't draw to hidden div
       $('#'+plugin.name+'-placeholder').css('display','');
@@ -561,6 +570,10 @@
           });
           data.treatments = treatmentData.slice();
           data.treatments.sort(function(a, b) { return a.mills - b.mills; });
+          // filter & prepare 'Combo Bolus' events
+          data.combobolusTreatments = data.treatments.filter( function filterComboBoluses(t) {
+            return t.eventType === 'Combo Bolus';
+          }).sort(function (a,b) { return a.mills > b.mills; });
         }
       }).done(function () {
         $('#info-' + day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
@@ -570,6 +583,24 @@
     });
   }
 
+  function loadTempBasals(from, callback) {
+    $('#info-' + from).html('<b>'+translate('Loading temp basal data') + ' ...</b>');
+    var tquery = '?find[created_at][$gte]='+moment(from).subtract(32, 'days').toISOString()+'&find[eventType][$eq]=Temp Basal';
+    $.ajax('/api/v1/treatments.json'+tquery, {
+      success: function (xhr) {
+        var treatmentData = xhr.map(function (treatment) {
+          var timestamp = new Date(treatment.timestamp || treatment.created_at);
+          treatment.mills = timestamp.getTime();
+          return treatment;
+        });
+        datastorage.tempbasalTreatments = treatmentData.slice();
+        datastorage.tempbasalTreatments.sort(function(a, b) { return a.mills - b.mills; });
+      }
+    }).done(function () {
+      callback();
+    });
+  }
+  
   function processData(data, day, options, callback) {
     // treatments
     data.treatments.forEach(function (d) {
