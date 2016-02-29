@@ -28,7 +28,6 @@
       //General values
       'dia':3,
 
-      // Simple style values, 'from' are in minutes from midnight
       'carbratio': [
         {
           'time': '00:00',
@@ -67,6 +66,7 @@
           'time': '00:00',
           'value': 0
         }]
+      ,startDate: new Date(0).toISOString()
   };
 
 //  , 'startDate': new Date()
@@ -87,6 +87,9 @@
   peStatus.hide().text(translate('Loading profile records ...')).fadeIn('slow');
   $.ajax('/api/v1/profile.json', {
     success: function (records) {
+      if (!records.length) {
+        records.push(defaultprofile);
+      }
       client.profilefunctions.loadData(records); // do a conversion if needed
       mongorecords = client.profilefunctions.data;
       // create new profile to be edited from last record
