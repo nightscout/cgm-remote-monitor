@@ -70,18 +70,19 @@ describe('Profile', function ( ) {
   });
 
   it('should know how to reload data and still know what the low target is with old style profiles', function() {
-  
-  var profileData2 = {
-    'dia': 3,
-    'carbs_hr': 30,
-    'carbratio': 7,
-    'sens': 35,
-    'target_low': 50,
-    'target_high': 120
-  };
 
-    profile.loadData([profileData2]);
-    var dia = profile.getLowBGTarget(now);
+    var profile2 = require('../lib/profilefunctions')([profileData]);
+    var profileData2 = {
+      'dia': 3,
+      'carbs_hr': 30,
+      'carbratio': 7,
+      'sens': 35,
+      'target_low': 50,
+      'target_high': 120
+    };
+
+    profile2.loadData([profileData2]);
+    var dia = profile2.getLowBGTarget(now);
     dia.should.equal(50);
   });
 

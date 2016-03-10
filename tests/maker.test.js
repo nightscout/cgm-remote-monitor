@@ -1,14 +1,15 @@
 var should = require('should');
+var levels = require('../lib/levels');
 
 describe('maker', function ( ) {
   var maker = require('../lib/plugins/maker')({extendedSettings: {maker: {key: '12345'}}});
 
   //prevent any calls to iftt
-  function noOpMakeRequest (event, eventName, callback) {
+  function noOpMakeRequest (key, event, eventName, callback) {
     if (callback) { callback(); }
   }
 
-  maker.makeRequest = noOpMakeRequest;
+  maker.makeKeyRequest = noOpMakeRequest;
 
   it('turn values to a query', function (done) {
     maker.valuesToQuery({
@@ -19,18 +20,32 @@ describe('maker', function ( ) {
   });
 
   it('send a request', function (done) {
-    maker.sendEvent({name: 'test'}, function sendCallback (err) {
+    maker.sendEvent({name: 'test', message: 'This is the message', level: levels.toLowerCase(levels.WARN)}, function sendCallback (err) {
       should.not.exist(err);
       done();
     });
   });
 
+  it('not send a request without a name', function (done) {
+    maker.sendEvent({level: levels.toLowerCase(levels.WARN)}, function sendCallback (err) {
+      should.exist(err);
+      done();
+    });
+  });
+
+  it('not send a request without a level', function (done) {
+    maker.sendEvent({name: 'test'}, function sendCallback (err) {
+      should.exist(err);
+      done();
+    });
+  });
+
   it('send a allclear, but only once', function (done) {
-    function mockedToTestSingleDone (event, eventName, callback) {
+    function mockedToTestSingleDone (key, event, eventName, callback) {
       callback(); done();
     }
 
-    maker.makeRequest = mockedToTestSingleDone;
+    maker.makeKeyRequest = mockedToTestSingleDone;
     maker.sendAllClear({}, function sendCallback (err, result) {
       should.not.exist(err);
       result.sent.should.equal(true);
@@ -40,6 +55,32 @@ describe('maker', function ( ) {
     maker.sendAllClear({}, function sendCallback (err, result) {
       should.not.exist(err);
       result.sent.should.equal(false);
+    });
+  });
+});
+
+
+describe('multi announcement maker', function ( ) {
+  var maker = require('../lib/plugins/maker')({extendedSettings: {maker: {key: 'use announcementKey instead', announcementKey: '12345 6789'}}});
+
+  it('send 2 requests for the 2 keys', function (done) {
+
+    var key1Found = false;
+    var key2Found = false;
+
+    maker.makeKeyRequest = function expect2Keys (key, event, eventName, callback) {
+      if (callback) { callback(); }
+
+      key1Found = key1Found || key === '12345';
+      key2Found = key2Found || key === '6789';
+
+      if (eventName === 'ns-warning-test' && key1Found && key2Found) {
+        done();
+      }
+    };
+
+    maker.sendEvent({name: 'test', level: levels.toLowerCase(levels.WARN), isAnnouncement: true}, function sendCallback (err) {
+      should.not.exist(err);
     });
   });
 
