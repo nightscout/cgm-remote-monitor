@@ -8,7 +8,7 @@ describe('cage', function ( ) {
   var sandbox = require('../lib/sandbox')();
   var env = require('../env')();
   var ctx = {};
-  ctx.data = require('../lib/data')(env, ctx);
+  ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
 
   function prepareSandbox ( ) {
@@ -75,7 +75,7 @@ describe('cage', function ( ) {
 
     var before = Date.now() - (48 * 60 * 60 * 1000);
 
-    ctx.data.sitechangeTreatments = [{eventType: 'Site Change', mills: before}];
+    ctx.ddata.sitechangeTreatments = [{eventType: 'Site Change', mills: before}];
 
     var sbx = prepareSandbox();
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
