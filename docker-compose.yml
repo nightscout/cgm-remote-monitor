@@ -1,7 +1,3 @@
-broker:
-  image: 'prologic/mosquitto:latest'
-  ports:
-    - '1883:1883'
 database:
   image: 'tutum/mongodb:latest'
   environment:
@@ -10,11 +6,9 @@ nightscout:
   build: .
   environment:
     - API_SECRET=mylittlesecret
-    - 'MONGO_CONNECTION=mongodb://admin:notinproduction@database/admin'
-    - 'MQTT_MONITOR=mqtt://broker'
+    - MONGO_CONNECTION=mongodb://admin:notinproduction@database/admin
     - PORT=1337
   links:
-    - broker
     - database
   ports:
     - '1337:1337'
