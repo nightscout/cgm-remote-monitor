@@ -250,7 +250,7 @@
           from.add(1, 'days');
         }
       }
-      console.log('Dayfilter: ',daystoshow);
+      //console.log('Dayfilter: ',daystoshow);
       foodfilter();
     }
 
@@ -274,7 +274,7 @@
               treatmentData.sort(function(a, b) { return a > b; });
             }
           }).done(function () {
-          console.log('Foodfilter: ',treatmentData);
+          //console.log('Foodfilter: ',treatmentData);
           for (var d=0; d<treatmentData.length; d++) {
             if (daystoshow[treatmentData[d]]) {
               daystoshow[treatmentData[d]]++;
@@ -310,7 +310,7 @@
               treatmentData.sort(function(a, b) { return a > b; });
             }
           }).done(function () {
-            console.log('Notesfilter: ',treatmentData);
+            //console.log('Notesfilter: ',treatmentData);
             for (var d=0; d<treatmentData.length; d++) {
               if (daystoshow[treatmentData[d]]) {
                 daystoshow[treatmentData[d]]++;
@@ -346,7 +346,7 @@
               treatmentData.sort(function(a, b) { return a > b; });
             }
           }).done(function () {
-            console.log('Eventtypefilter: ',treatmentData);
+            //console.log('Eventtypefilter: ',treatmentData);
             for (var d=0; d<treatmentData.length; d++) {
               if (daystoshow[treatmentData[d]]) {
                 daystoshow[treatmentData[d]]++;
@@ -415,7 +415,7 @@
           }
         }
       }
-      console.log('Total: ', daystoshow, 'Matches needed: ', matchesneeded, 'Will be loaded: ', dayscount);
+      //console.log('Total: ', daystoshow, 'Matches needed: ', matchesneeded, 'Will be loaded: ', dayscount);
    }
     
     function dataLoadedCallback (day) {
@@ -430,7 +430,7 @@
         loadTempBasals(from, function loadTempBasalsCallback() { 
           loadProfileSwitch(from, function loadProfileSwitchCallback() { 
             $('#info > b').html('<b>'+translate('Rendering')+' ...</b>');
-            setTimeout(function () {showreports(options); }, 0);
+            window.setTimeout(function () {showreports(options); }, 0);
             }) 
           });
       }
@@ -494,7 +494,7 @@
   
   function loadData(day, options, callback) {
     // check for loaded data
-    if (options.openAps && !datastorage[day].devicestatuses) {
+    if (options.openAps && datastorage[day] && !datastorage[day].devicestatuses) {
       // OpenAPS requested but data not loaded. Load anyway ...
     } else if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
       callback(day);
