@@ -276,7 +276,7 @@ describe('reports', function ( ) {
        return true;
      };
 
-     window.setTimeout = function mockSetTimeout (call, delay) {
+     window.setTimeout = function mockSetTimeout (call) {
        call();
      };
 

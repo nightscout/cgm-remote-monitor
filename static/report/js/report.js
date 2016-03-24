@@ -431,7 +431,7 @@
           loadProfileSwitch(from, function loadProfileSwitchCallback() { 
             $('#info > b').html('<b>'+translate('Rendering')+' ...</b>');
             window.setTimeout(function () {showreports(options); }, 0);
-            }) 
+            });
           });
       }
     }
