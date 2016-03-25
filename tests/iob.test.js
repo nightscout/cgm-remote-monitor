@@ -165,7 +165,7 @@ describe('IOB', function() {
       var devicestatus = [{
         device: 'connect://paradigm',
         mills: time - 1,
-        pump: { iob: 0.87 },
+        pump: { iob: { bolusiob: 0.87 } },
         connect: { sensorState: 'copacetic' },
       }];
       iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
