@@ -158,8 +158,8 @@ function findExtendedSettings (envs) {
             extended[enable] = exts;
             var ext = _.camelCase(env.substring(split + 1).toLowerCase());
             if (!isNaN(value)) { value = Number(value); }
-            if (typeof value === 'string' && value.toLowerCase() === 'on') { value = true; }
-            if (typeof value === 'string' && value.toLowerCase() === 'off') { value = false; }
+            if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
+            if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
             exts[ext] = value;
           }
         }
