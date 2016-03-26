@@ -127,6 +127,21 @@ function updateSettings() {
   env.extendedSettings = findExtendedSettings(process.env);
 }
 
+/**
+ * Converts an env string value to a boolean
+ * @param {string} env    the env string
+ * @returns {boolean|null} true if value is (case-insensitively) equal to 'on' or 'true', false if value is (case-insensitively) equal to 'off' or 'false', or whatever was passed in if neither condition is met
+ */
+function envToBool(value) {
+  if (typeof value === 'string') {
+    var valLowerCase = value.toLowerCase();
+
+    if (valLowerCase === 'on' || valLowerCase === 'true') { value = true; }
+    else if (valLowerCase === 'off' || valLowerCase === 'false') { value = false; }
+  }
+  return value;
+}
+
 function readENV(varName, defaultValue) {
   //for some reason Azure uses this prefix, maybe there is a good reason
   var value = process.env['CUSTOMCONNSTR_' + varName]
@@ -134,8 +149,7 @@ function readENV(varName, defaultValue) {
     || process.env[varName]
     || process.env[varName.toLowerCase()];
 
-  if (typeof value === 'string' && value.toLowerCase() === 'on') { value = true; }
-  if (typeof value === 'string' && value.toLowerCase() === 'off') { value = false; }
+  value = envToBool(value);
 
   return value != null ? value : defaultValue;
 }
@@ -145,6 +159,25 @@ function findExtendedSettings (envs) {
 
   function normalizeEnv (key) {
     return key.toUpperCase().replace('CUSTOMCONNSTR_', '');
+  }
+
+  function eachEnable(enable) {
+    if (_.trim(enable)) {
+      _.forIn(envs, function eachEnvPair (value, key) {
+        var env = normalizeEnv(key);
+        if (_.startsWith(env, enable.toUpperCase() + '_')) {
+          var split = env.indexOf('_');
+          if (split > -1 && split <= env.length) {
+            var exts = extended[enable] || {};
+            extended[enable] = exts;
+            var ext = _.camelCase(env.substring(split + 1).toLowerCase());
+            if (_.isNumber(value)) { value = Number(value); }
+            value = envToBool(value);
+            exts[ext] = value;
+          }
+        }
+      });
+    }
   }
 
   _.each(env.settings.enable, function eachEnable(enable) {
@@ -158,8 +191,7 @@ function findExtendedSettings (envs) {
             extended[enable] = exts;
             var ext = _.camelCase(env.substring(split + 1).toLowerCase());
             if (!isNaN(value)) { value = Number(value); }
-            if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
-            if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
+            value = envToBool(value);
             exts[ext] = value;
           }
         }
