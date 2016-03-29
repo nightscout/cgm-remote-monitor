@@ -78,7 +78,7 @@ selectNodeVersion () {
       exitWithMessageOnError "getting node version failed"
     fi
     
-    if [[ -e "$DEPLOYMENT_TEMP/.tmp" ]]; then
+    if [[ -e "$DEPLOYMENT_TEMP/__npmVersion.tmp" ]]; then
       NPM_JS_PATH=`cat "$DEPLOYMENT_TEMP/__npmVersion.tmp"`
       exitWithMessageOnError "getting npm version failed"
     fi
