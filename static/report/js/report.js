@@ -220,6 +220,7 @@
     options.raw = $('#rp_optionsraw').is(':checked');
     options.iob = $('#rp_optionsiob').is(':checked');
     options.cob = $('#rp_optionscob').is(':checked');
+    options.openAps = $('#rp_optionsopenaps').is(':checked');
     options.basal = $('#rp_optionsbasal').is(':checked');
     options.notes = $('#rp_optionsnotes').is(':checked');
     options.food = $('#rp_optionsfood').is(':checked');
@@ -249,7 +250,7 @@
           from.add(1, 'days');
         }
       }
-      console.log('Dayfilter: ',daystoshow);
+      //console.log('Dayfilter: ',daystoshow);
       foodfilter();
     }
 
@@ -273,7 +274,7 @@
               treatmentData.sort(function(a, b) { return a > b; });
             }
           }).done(function () {
-          console.log('Foodfilter: ',treatmentData);
+          //console.log('Foodfilter: ',treatmentData);
           for (var d=0; d<treatmentData.length; d++) {
             if (daystoshow[treatmentData[d]]) {
               daystoshow[treatmentData[d]]++;
@@ -309,7 +310,7 @@
               treatmentData.sort(function(a, b) { return a > b; });
             }
           }).done(function () {
-            console.log('Notesfilter: ',treatmentData);
+            //console.log('Notesfilter: ',treatmentData);
             for (var d=0; d<treatmentData.length; d++) {
               if (daystoshow[treatmentData[d]]) {
                 daystoshow[treatmentData[d]]++;
@@ -345,7 +346,7 @@
               treatmentData.sort(function(a, b) { return a > b; });
             }
           }).done(function () {
-            console.log('Eventtypefilter: ',treatmentData);
+            //console.log('Eventtypefilter: ',treatmentData);
             for (var d=0; d<treatmentData.length; d++) {
               if (daystoshow[treatmentData[d]]) {
                 daystoshow[treatmentData[d]]++;
@@ -414,7 +415,7 @@
           }
         }
       }
-      console.log('Total: ', daystoshow, 'Matches needed: ', matchesneeded, 'Will be loaded: ', dayscount);
+      //console.log('Total: ', daystoshow, 'Matches needed: ', matchesneeded, 'Will be loaded: ', dayscount);
    }
     
     function dataLoadedCallback (day) {
@@ -426,7 +427,12 @@
         if (options.order === report_plugins.consts.ORDER_NEWESTONTOP) {
           sorteddaystoshow.reverse();
         }
-        loadTempBasals(from, function showreportscallback() { showreports(options); });
+        loadTempBasals(from, function loadTempBasalsCallback() { 
+          loadProfileSwitch(from, function loadProfileSwitchCallback() { 
+            $('#info > b').html('<b>'+translate('Rendering')+' ...</b>');
+            window.setTimeout(function () {showreports(options); }, 0);
+            });
+          });
       }
     }
     
@@ -488,7 +494,9 @@
   
   function loadData(day, options, callback) {
     // check for loaded data
-    if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
+    if (options.openAps && datastorage[day] && !datastorage[day].devicestatuses) {
+      // OpenAPS requested but data not loaded. Load anyway ...
+    } else if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
       callback(day);
       return;
     }
@@ -498,6 +506,7 @@
       , mbgData = []
       , treatmentData = []
       , calData = []
+      , devicestatusData = []
       ;
     var from;
     if (client.sbx.data.profile.getTimezone()) {
@@ -576,15 +585,35 @@
           }).sort(function (a,b) { return a.mills > b.mills; });
         }
       }).done(function () {
-        $('#info-' + day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
-        processData(data, day, options, callback);
+        if (options.openAps) {
+          $('#info-' + day).html('<b>'+translate('Loading OpenAPS data of')+' '+day+' ...</b>');
+          var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
+          tquery += '?find[openaps][$exists]=true&count=1000';
+          $.ajax('/api/v1/devicestatus.json'+tquery, {
+            success: function (xhr) {
+              devicestatusData = xhr.map(function (status) {
+                var timestamp = new Date(status.created_at);
+                status.mills = timestamp.getTime();
+                return status;
+              });
+              data.devicestatuses = devicestatusData.slice();
+              data.devicestatuses.sort(function(a, b) { return a.mills - b.mills; });
+            }
+          }).done(function () {
+            $('#info-' + day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
+            processData(data, day, options, callback);
+          });
+        } else {
+            $('#info-' + day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
+            processData(data, day, options, callback);
+        }
       });
         
     });
   }
 
   function loadTempBasals(from, callback) {
-    $('#info-' + from).html('<b>'+translate('Loading temp basal data') + ' ...</b>');
+    $('#info > b').html('<b>'+translate('Loading temp basal data') + ' ...</b>');
     var tquery = '?find[created_at][$gte]='+moment(from).subtract(32, 'days').toISOString()+'&find[eventType][$eq]=Temp Basal';
     $.ajax('/api/v1/treatments.json'+tquery, {
       success: function (xhr) {
@@ -593,8 +622,26 @@
           treatment.mills = timestamp.getTime();
           return treatment;
         });
-        datastorage.tempbasalTreatments = treatmentData.slice();
+        datastorage.tempbasalTreatments = Nightscout.client.ddata.processTempBasals(treatmentData.slice());
         datastorage.tempbasalTreatments.sort(function(a, b) { return a.mills - b.mills; });
+      }
+    }).done(function () {
+      callback();
+    });
+  }
+  
+  function loadProfileSwitch(from, callback) {
+    $('#info > b').html('<b>'+translate('Loading profile switch data') + ' ...</b>');
+    var tquery = '?find[eventType][$eq]=Profile Switch';
+    $.ajax('/api/v1/treatments.json'+tquery, {
+      success: function (xhr) {
+        var treatmentData = xhr.map(function (treatment) {
+          var timestamp = new Date(treatment.timestamp || treatment.created_at);
+          treatment.mills = timestamp.getTime();
+          return treatment;
+        });
+        datastorage.profileSwitchTreatments = treatmentData.slice();
+        datastorage.profileSwitchTreatments.sort(function(a, b) { return a.mills - b.mills; });
       }
     }).done(function () {
       callback();
@@ -649,6 +696,17 @@
       return true;
     });
     
+    data.sgv = data.sgv.map(function eachSgv (sgv) {
+      var status = _.find(data.devicestatuses, function (d) {
+        return d.mills >= sgv.mills && d.mills < sgv.mills + 5 * 60 * 1000;
+      });
+      
+      if (status) {
+        sgv.openaps = status.openaps;
+      }
+      return sgv;
+    });
+    
     // for other reports
     data.statsrecords = data.sgv.filter(function(r) {
       if (r.type) {
@@ -666,6 +724,7 @@
 
     
     datastorage[day] = data;
+    $('#info-' + day).html('');
     callback(day);
   }
 

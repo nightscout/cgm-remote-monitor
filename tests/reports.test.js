@@ -95,7 +95,24 @@ var someData = {
       {'created_at':'2015-09-05T00:00:00.000Z'},
       {'created_at':'2015-09-06T00:00:00.000Z'},
       {'created_at':'2015-09-07T00:00:00.000Z'}
+    ],
+    '/api/v1/devicestatus.json&find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-09-07T23:59:59.000Z?find[openaps][$exists]=true&count=1000': [
+      {
+        'openaps': {
+            'suggested': {
+                'temp': 'absolute',
+                'bg': 67,
+                'tick': '+6',
+                'eventualBG': 145,
+                'snoozeBG': 145,
+                'reason': 'BG 67<74.5, delta 6>0; no high-temp to cancel',
+                'timestamp': '2015-08-31T00:00:00.000Z'
+            }
+        },
+        'created_at': '2015-08-31T00:00:00.000Z'
+      }
     ]
+
   };
 
 var exampleProfile = [
@@ -259,6 +276,10 @@ describe('reports', function ( ) {
        return true;
      };
 
+     window.setTimeout = function mockSetTimeout (call) {
+       call();
+     };
+
     client.init(serverSettings, plugins);
     client.dataUpdate(nowData);
     
@@ -278,6 +299,7 @@ describe('reports', function ( ) {
     $('#rp_enablefood').click();
     $('#rp_enablefood').click();
     $('#rp_log').prop('checked',true);
+    $('#rp_optionsopenaps').prop('checked',true);
     $('#rp_show').click();
 
     $('#rp_linear').prop('checked',true);
