@@ -202,26 +202,11 @@ describe('reports', function ( ) {
       //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
       
       self.$.ajax = function mockAjax (url, opts) {
-        //logfile.write(url+'\n');
-        return {
-          done: function mockDone (fn) {
-            if (opts && opts.success && opts.success.call) {
-              if (someData[url]) {
-                //console.log('+++++Data for ' + url + ' sent');
-                opts.success(someData[url]);
-              } else {
-                //console.log('-----Data for ' + url + ' missing');
-                opts.success([]);
-              }
-            }
-            fn();
-            return self.$.ajax();
-          },
-          fail: function mockFail (fn) {
-            fn({status: 400});
-            return self.$.ajax();
-          }
-        };
+        var returnVal = someData[url] || [];
+        if (opts && typeof opts.success === 'function') {
+          opts.success(returnVal);
+        }
+        return self.$.Deferred().resolveWith(returnVal);
       };
 
       self.$.plot = function mockPlot () {
