@@ -111,7 +111,7 @@ describe('IOB', function() {
     var profile = require('../lib/profilefunctions')([{ dia: 3, sens: 0 }]);
     var treatments = [{
       mills: time - 1,
-      insulin: '3.00',
+      insulin: '3.00'
     }];
     var treatmentIOB = iob.fromTreatments(treatments, profile, time).iob;
 
@@ -121,15 +121,15 @@ describe('IOB', function() {
         iob: {
            iob: 0.047,
            basaliob: -0.298,
-           activity: 0.0147,
-         },
-      },
+           activity: 0.0147
+         }
+      }
     };
 
     it('should fall back to treatment data if no devicestatus data', function() {
       iob.calcTotal(treatments, [], profile, time).should.containEql({
         source: 'Care Portal',
-        iob: treatmentIOB,
+        iob: treatmentIOB
       });
     });
 
@@ -137,7 +137,7 @@ describe('IOB', function() {
       var devicestatus = [{
         device: 'openaps://pi1',
         mills: time - 1,
-        openaps: {},
+        openaps: {}
       }];
       iob.calcTotal(treatments, devicestatus, profile, time).iob.should.equal(treatmentIOB);
     });
@@ -146,7 +146,7 @@ describe('IOB', function() {
       var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - iob.RECENCY_THRESHOLD - 1 })];
       iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
         source: 'Care Portal',
-        iob: treatmentIOB,
+        iob: treatmentIOB
       });
     });
 
@@ -157,7 +157,37 @@ describe('IOB', function() {
         basaliob: -0.298,
         activity: 0.0147,
         source: 'OpenAPS',
-        device: 'openaps://pi1',
+        device: 'openaps://pi1'
+      });
+    });
+
+    it('should return IOB data from openaps post AMA (an array)', function () {
+      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - 1, iob: [{
+        iob: 0.047,
+        basaliob: -0.298,
+        activity: 0.0147
+      }]})];
+      iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
+        iob: 0.047,
+        basaliob: -0.298,
+        activity: 0.0147,
+        source: 'OpenAPS',
+        device: 'openaps://pi1'
+      });
+    });
+
+    it('should return IOB data from openaps from multiple devices', function () {
+      var devicestatus = [
+        _.merge(OPENAPS_DEVICESTATUS, { mills: time - 1000, iob: 10 })
+        , _.merge(OPENAPS_DEVICESTATUS, { mills: time - 1 })
+        , _.merge(OPENAPS_DEVICESTATUS, { mills: time - 20000, iob: 2 })
+      ];
+      iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
+        iob: 0.047,
+        basaliob: -0.298,
+        activity: 0.0147,
+        source: 'OpenAPS',
+        device: 'openaps://pi1'
       });
     });
 
@@ -166,12 +196,12 @@ describe('IOB', function() {
         device: 'connect://paradigm',
         mills: time - 1,
         pump: { iob: { bolusiob: 0.87 } },
-        connect: { sensorState: 'copacetic' },
+        connect: { sensorState: 'copacetic' }
       }];
       iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
         iob: 0.87,
         source: 'MM Connect',
-        device: 'connect://paradigm',
+        device: 'connect://paradigm'
       });
     });
 
