@@ -4,6 +4,7 @@ var request = require('supertest');
 var should = require('should');
 var Stream = require('stream');
 
+var levels = require('../lib/levels');
 var notificationsAPI = require('../lib/api/notifications-api');
 
 function examplePlugin () {}
@@ -21,7 +22,7 @@ describe('Notifications API', function ( ) {
 
     var ctx = {
       bus: new Stream
-      , data: {
+      , ddata: {
         lastUpdated: Date.now()
       }
     };
@@ -41,7 +42,7 @@ describe('Notifications API', function ( ) {
     var exampleWarn = {
       title: 'test'
       , message: 'testing'
-      , level: notifications.levels.WARN
+      , level: levels.WARN
       , plugin: examplePlugin
     };
 

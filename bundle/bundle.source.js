@@ -1,17 +1,19 @@
 (function () {
 
   window._ = require('lodash');
+  window.$ = window.jQuery = require('jquery');
+  window.moment = require('moment-timezone');
   window.Nightscout = window.Nightscout || {};
 
   window.Nightscout = {
-    units: require('../lib/units')(),
-    utils: require('../lib/utils')(),
-    profile: require('../lib/profilefunctions')(),
-    plugins: require('../lib/plugins/')().registerClientDefaults(),
-    sandbox: require('../lib/sandbox')()
+    client: require('../lib/client')
+    , units: require('../lib/units')()
+    , plugins: require('../lib/plugins/')().registerClientDefaults()
+    , report_plugins: require('../lib/report_plugins/')()
+    , admin_plugins: require('../lib/admin_plugins/')()
   };
 
-  console.info('Nightscout bundle ready', window.Nightscout);
+  console.info('Nightscout bundle ready');
 
 })();
 

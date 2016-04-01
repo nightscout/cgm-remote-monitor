@@ -1,13 +1,15 @@
 var should = require('should');
 var Stream = require('stream');
 
+var levels = require('../lib/levels');
+
 describe('notifications', function ( ) {
 
   var env = {testMode: true};
 
   var ctx = {
     bus: new Stream
-    , data: {
+    , ddata: {
       lastUpdated: Date.now()
     }
   };
@@ -19,40 +21,40 @@ describe('notifications', function ( ) {
   var exampleInfo = {
     title: 'test'
     , message: 'testing'
-    , level: notifications.levels.INFO
+    , level: levels.INFO
     , plugin: examplePlugin
   };
 
   var exampleWarn = {
     title: 'test'
     , message: 'testing'
-    , level: notifications.levels.WARN
+    , level: levels.WARN
     , plugin: examplePlugin
   };
 
   var exampleUrgent = {
     title: 'test'
     , message: 'testing'
-    , level: notifications.levels.URGENT
+    , level: levels.URGENT
     , plugin: examplePlugin
   };
 
   var exampleSnooze = {
-    level: notifications.levels.WARN
+    level: levels.WARN
     , title: 'exampleSnooze'
     , message: 'exampleSnooze message'
     , lengthMills: 10000
   };
 
   var exampleSnoozeNone = {
-    level: notifications.levels.WARN
+    level: levels.WARN
     , title: 'exampleSnoozeNone'
     , message: 'exampleSnoozeNone message'
     , lengthMills: 1
   };
 
   var exampleSnoozeUrgent = {
-    level: notifications.levels.URGENT
+    level: levels.URGENT
     , title: 'exampleSnoozeUrgent'
     , message: 'exampleSnoozeUrgent message'
     , lengthMills: 10000
@@ -132,8 +134,8 @@ describe('notifications', function ( ) {
     should.not.exist(notifications.findHighestAlarm());
     notifications.process();
 
-    var alarm = notifications.getAlarmForTests(notifications.levels.WARN);
-    alarm.level.should.equal(notifications.levels.WARN);
+    var alarm = notifications.getAlarmForTests(levels.WARN);
+    alarm.level.should.equal(levels.WARN);
     alarm.silenceTime.should.equal(1);
     alarm.lastAckTime.should.be.approximately(Date.now(), 2000);
     should.not.exist(alarm.lastEmitTime);

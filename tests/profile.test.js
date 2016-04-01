@@ -70,18 +70,19 @@ describe('Profile', function ( ) {
   });
 
   it('should know how to reload data and still know what the low target is with old style profiles', function() {
-  
-  var profileData2 = {
-    'dia': 3,
-    'carbs_hr': 30,
-    'carbratio': 7,
-    'sens': 35,
-    'target_low': 50,
-    'target_high': 120
-  };
 
-    profile.loadData([profileData2]);
-    var dia = profile.getLowBGTarget(now);
+    var profile2 = require('../lib/profilefunctions')([profileData]);
+    var profileData2 = {
+      'dia': 3,
+      'carbs_hr': 30,
+      'carbratio': 7,
+      'sens': 35,
+      'target_low': 50,
+      'target_high': 120
+    };
+
+    profile2.loadData([profileData2]);
+    var dia = profile2.getLowBGTarget(now);
     dia.should.equal(50);
   });
 
@@ -150,13 +151,20 @@ describe('Profile', function ( ) {
         }
     ],
     'target_low': 4.5,
-    'target_high': 8
+    'target_high': 8,
+    'units': 'mmol'
 };
 
   var complexProfile = require('../lib/profilefunctions')([complexProfileData]);
 
   var noon = new Date('2015-06-22 12:00:00').getTime();
   var threepm = new Date('2015-06-22 15:00:00').getTime();
+
+  it('should return profile units when configured', function() {
+    var value = complexProfile.getUnits();
+    value.should.equal('mmol');
+  });
+
 
   it('should know what the basal rate is at 12:00 with complex style profiles', function() {
     var value = complexProfile.getBasal(noon);
