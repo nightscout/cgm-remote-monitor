@@ -220,6 +220,7 @@
     options.raw = $('#rp_optionsraw').is(':checked');
     options.iob = $('#rp_optionsiob').is(':checked');
     options.cob = $('#rp_optionscob').is(':checked');
+    options.openAps = $('#rp_optionsopenaps').is(':checked');
     options.basal = $('#rp_optionsbasal').is(':checked');
     options.notes = $('#rp_optionsnotes').is(':checked');
     options.food = $('#rp_optionsfood').is(':checked');
@@ -249,7 +250,7 @@
           from.add(1, 'days');
         }
       }
-      console.log('Dayfilter: ',daystoshow);
+      //console.log('Dayfilter: ',daystoshow);
       foodfilter();
     }
 
@@ -273,7 +274,7 @@
               treatmentData.sort(function(a, b) { return a > b; });
             }
           }).done(function () {
-          console.log('Foodfilter: ',treatmentData);
+          //console.log('Foodfilter: ',treatmentData);
           for (var d=0; d<treatmentData.length; d++) {
             if (daystoshow[treatmentData[d]]) {
               daystoshow[treatmentData[d]]++;
@@ -309,7 +310,7 @@
               treatmentData.sort(function(a, b) { return a > b; });
             }
           }).done(function () {
-            console.log('Notesfilter: ',treatmentData);
+            //console.log('Notesfilter: ',treatmentData);
             for (var d=0; d<treatmentData.length; d++) {
               if (daystoshow[treatmentData[d]]) {
                 daystoshow[treatmentData[d]]++;
@@ -345,7 +346,7 @@
               treatmentData.sort(function(a, b) { return a > b; });
             }
           }).done(function () {
-            console.log('Eventtypefilter: ',treatmentData);
+            //console.log('Eventtypefilter: ',treatmentData);
             for (var d=0; d<treatmentData.length; d++) {
               if (daystoshow[treatmentData[d]]) {
                 daystoshow[treatmentData[d]]++;
@@ -414,7 +415,7 @@
           }
         }
       }
-      console.log('Total: ', daystoshow, 'Matches needed: ', matchesneeded, 'Will be loaded: ', dayscount);
+      //console.log('Total: ', daystoshow, 'Matches needed: ', matchesneeded, 'Will be loaded: ', dayscount);
    }
     
     function dataLoadedCallback (day) {
@@ -426,7 +427,12 @@
         if (options.order === report_plugins.consts.ORDER_NEWESTONTOP) {
           sorteddaystoshow.reverse();
         }
-        loadTempBasals(from, function showreportscallback() { showreports(options); });
+        loadTempBasals(from, function loadTempBasalsCallback() { 
+          loadProfileSwitch(from, function loadProfileSwitchCallback() { 
+            $('#info > b').html('<b>'+translate('Rendering')+' ...</b>');
+            window.setTimeout(function () {showreports(options); }, 0);
+            });
+          });
       }
     }
     
@@ -449,9 +455,11 @@
     options.maxCarbsValue = maxCarbsValue;
 
     datastorage.treatments = [];
+    datastorage.devicestatus = [];
     datastorage.combobolusTreatments = [];
     Object.keys(daystoshow).forEach( function eachDay(day) {
       datastorage.treatments = datastorage.treatments.concat(datastorage[day].treatments);
+      datastorage.devicestatus = datastorage.devicestatus.concat(datastorage[day].devicestatus);
       datastorage.combobolusTreatments = datastorage.combobolusTreatments.concat(datastorage[day].combobolusTreatments);
     });
     
@@ -488,7 +496,9 @@
   
   function loadData(day, options, callback) {
     // check for loaded data
-    if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
+    if (options.openAps && datastorage[day] && !datastorage[day].devicestatus) {
+      // OpenAPS requested but data not loaded. Load anyway ...
+    } else if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
       callback(day);
       return;
     }
@@ -507,61 +517,65 @@
     }
     from = parseInt(from);
     var to = from + 1000 * 60 * 60 * 24;
-    var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
-    
-    $('#info-' + day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
-    $.ajax('/api/v1/entries.json'+query, {
-      success: function (xhr) {
-        xhr.forEach(function (element) {
-          if (element) {
-            if (element.mbg) {
-              mbgData.push({
-                y: element.mbg
-                , mills: element.date
-                , d: element.dateString
-                , device: element.device
-              });
-            } else if (element.sgv) {
-              cgmData.push({
-                y: element.sgv
-                , mills: element.date
-                , d: element.dateString
-                , device: element.device
-                , filtered: element.filtered
-                , unfiltered: element.unfiltered
-                , noise: element.noise
-                , rssi: element.rssi
-                , sgv: element.sgv
-              });
-            } else if (element.type === 'cal') {
-              calData.push({
-                mills: element.date
-                , d: element.dateString
-                , scale: element.scale
-                , intercept: element.intercept
-                , slope: element.slope
-              });
+
+    function loadCGMData() {
+      $('#info-' + day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
+      var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
+      return $.ajax('/api/v1/entries.json'+query, {
+        success: function (xhr) {
+          xhr.forEach(function (element) {
+            if (element) {
+              if (element.mbg) {
+                mbgData.push({
+                  y: element.mbg
+                  , mills: element.date
+                  , d: element.dateString
+                  , device: element.device
+                });
+              } else if (element.sgv) {
+                cgmData.push({
+                  y: element.sgv
+                  , mills: element.date
+                  , d: element.dateString
+                  , device: element.device
+                  , filtered: element.filtered
+                  , unfiltered: element.unfiltered
+                  , noise: element.noise
+                  , rssi: element.rssi
+                  , sgv: element.sgv
+                });
+              } else if (element.type === 'cal') {
+                calData.push({
+                  mills: element.date
+                  , d: element.dateString
+                  , scale: element.scale
+                  , intercept: element.intercept
+                  , slope: element.slope
+                });
+              }
             }
-          }
-        });
-         // sometimes cgm contains duplicates.  uniq it.
-        data.sgv = cgmData.slice();
-        data.sgv.sort(function(a, b) { return a.mills - b.mills; });
-        var lastDate = 0;
-        data.sgv = data.sgv.filter(function(d) {
-          var ok = (lastDate + ONE_MIN_IN_MS) < d.mills;
-          lastDate = d.mills;
-          return ok;
-        });
-        data.mbg = mbgData.slice();
-        data.mbg.sort(function(a, b) { return a.mills - b.mills; });
-        data.cal = calData.slice();
-        data.cal.sort(function(a, b) { return a.mills - b.mills; });
-      }
-    }).done(function () {
+          });
+           // sometimes cgm contains duplicates.  uniq it.
+          data.sgv = cgmData.slice();
+          data.sgv.sort(function(a, b) { return a.mills - b.mills; });
+          var lastDate = 0;
+          data.sgv = data.sgv.filter(function(d) {
+            var ok = (lastDate + ONE_MIN_IN_MS) < d.mills;
+            lastDate = d.mills;
+            return ok;
+          });
+          data.mbg = mbgData.slice();
+          data.mbg.sort(function(a, b) { return a.mills - b.mills; });
+          data.cal = calData.slice();
+          data.cal.sort(function(a, b) { return a.mills - b.mills; });
+        }
+      });
+    }
+
+    function loadTreatmentData() {
       $('#info-' + day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
       var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
-      $.ajax('/api/v1/treatments.json'+tquery, {
+      return $.ajax('/api/v1/treatments.json'+tquery, {
         success: function (xhr) {
           treatmentData = xhr.map(function (treatment) {
             var timestamp = new Date(treatment.timestamp || treatment.created_at);
@@ -575,16 +589,35 @@
             return t.eventType === 'Combo Bolus';
           }).sort(function (a,b) { return a.mills > b.mills; });
         }
-      }).done(function () {
-        $('#info-' + day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
-        processData(data, day, options, callback);
       });
-        
+    }
+
+    function loadDevicestatusData() {
+      if(options.iob || options.cob || options.openAps) {
+        $('#info-' + day).html('<b>'+translate('Loading device status data of')+' '+day+' ...</b>');
+        var tquery = '?find[created_at][$gte]=' + new Date(from).toISOString() + '&find[created_at][$lt]=' + new Date(to).toISOString() + '&count=10000';
+        return $.ajax('/api/v1/devicestatus.json'+tquery, {
+          success: function (xhr) {
+            data.devicestatus = xhr.map(function (devicestatus) {
+              devicestatus.mills = new Date(devicestatus.timestamp || devicestatus.created_at).getTime();
+              return devicestatus;
+            });
+          }
+        });
+      } else {
+        data.devicestatus = [];
+        return $.Deferred().resolve();
+      }
+    }
+
+    $.when(loadCGMData(), loadTreatmentData(), loadDevicestatusData()).done(function () {
+      $('#info-' + day).html('<b>'+translate('Processing data of')+' '+day+' ...</b>');
+      processData(data, day, options, callback);
     });
   }
 
   function loadTempBasals(from, callback) {
-    $('#info-' + from).html('<b>'+translate('Loading temp basal data') + ' ...</b>');
+    $('#info > b').html('<b>'+translate('Loading temp basal data') + ' ...</b>');
     var tquery = '?find[created_at][$gte]='+moment(from).subtract(32, 'days').toISOString()+'&find[eventType][$eq]=Temp Basal';
     $.ajax('/api/v1/treatments.json'+tquery, {
       success: function (xhr) {
@@ -593,8 +626,26 @@
           treatment.mills = timestamp.getTime();
           return treatment;
         });
-        datastorage.tempbasalTreatments = treatmentData.slice();
+        datastorage.tempbasalTreatments = Nightscout.client.ddata.processTempBasals(treatmentData.slice());
         datastorage.tempbasalTreatments.sort(function(a, b) { return a.mills - b.mills; });
+      }
+    }).done(function () {
+      callback();
+    });
+  }
+  
+  function loadProfileSwitch(from, callback) {
+    $('#info > b').html('<b>'+translate('Loading profile switch data') + ' ...</b>');
+    var tquery = '?find[eventType][$eq]=Profile Switch';
+    $.ajax('/api/v1/treatments.json'+tquery, {
+      success: function (xhr) {
+        var treatmentData = xhr.map(function (treatment) {
+          var timestamp = new Date(treatment.timestamp || treatment.created_at);
+          treatment.mills = timestamp.getTime();
+          return treatment;
+        });
+        datastorage.profileSwitchTreatments = treatmentData.slice();
+        datastorage.profileSwitchTreatments.sort(function(a, b) { return a.mills - b.mills; });
       }
     }).done(function () {
       callback();
@@ -649,6 +700,17 @@
       return true;
     });
     
+    data.sgv = data.sgv.map(function eachSgv (sgv) {
+      var status = _.find(data.devicestatus, function (d) {
+        return d.mills >= sgv.mills && d.mills < sgv.mills + 5 * 60 * 1000;
+      });
+      
+      if (status && status.openaps) {
+        sgv.openaps = status.openaps;
+      }
+      return sgv;
+    });
+    
     // for other reports
     data.statsrecords = data.sgv.filter(function(r) {
       if (r.type) {
@@ -666,6 +728,7 @@
 
     
     datastorage[day] = data;
+    $('#info-' + day).html('');
     callback(day);
   }
 
