@@ -8,3 +8,5 @@ node_js:
 services: mongodb
 script: make travis
 after_script: make report
+env:
+  - CXX=g++-4.8
