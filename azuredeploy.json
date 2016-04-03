@@ -100,6 +100,10 @@
                             "name": "DISPLAY_UNITS",
                             "value": "[parameters('displayUnits')]"
                         },
+                        {
+                            "name": "API_SECRET",
+                            "value": "[parameters('apiSecret')]"
+                        },
                         
                         {
                             "name": "THEME",
