@@ -50,7 +50,20 @@
         "apiSecret": {
             "type": "string",
             "defaultValue": "Enter an API secret. Must be at least 12 characters"
+        },
+        "theme": {
+        "type": "string",
+	    "defaultValue": "colors",
+        },
+        "time_format": {
+        "type": "string",
+	    "defaultValue": "24",
+        },
+        "language": {
+        "type": "string",
+	    "defaultValue": "EN",
         }
+        
     },
     "resources": [
         {
@@ -87,10 +100,22 @@
                             "name": "DISPLAY_UNITS",
                             "value": "[parameters('displayUnits')]"
                         },
+                        
                         {
-                            "name": "API_SECRET",
-                            "value": "[parameters('apiSecret')]"
+                            "name": "THEME",
+                            "value": "[parameters('theme')]"
+                        },
+                         {
+                            "name": "TIME_FORMAT",
+                            "value": "[parameters('time_format')]"
+                        },
+                        
+                        {
+                            "name": "LANGUAGE",
+                            "value": "[parameters('language')]"
                         }
+                        
+                        
                     ]
                 }
             },
