@@ -32,7 +32,8 @@
         },
         "repoUrl": {
             "type": "string"
-        },
+			
+			        },
         "branch": {
             "type": "string"
         },
@@ -49,8 +50,140 @@
         },
         "apiSecret": {
             "type": "string",
+			"minLength": "12",
             "defaultValue": "Enter an API secret. Must be at least 12 characters"
-        }
+        },
+        "treatment_auth": {
+        "type": "string",
+		"allowedValues": [
+                "on",
+                "off"
+            ],
+	    "defaultValue": "on"
+        },    
+		"theme": {
+        "type": "string",
+		 "allowedValues": [
+                "default",
+                "colors"
+            ],
+	    "defaultValue": "colors",
+        },
+        "time_format": {
+        "type": "string",
+		"allowedValues": [
+                "12",
+                "24"
+            ],
+	    "defaultValue": "24",
+        },
+        "language": {
+        "type": "string",
+		"allowedValues": [
+                "bg",
+				"cs",
+				"dk",
+				"de",
+				"en",
+				"es",
+				"fr",
+				"he",
+				"hr",
+				"it",
+				"nb",
+				"pl",
+				"pt",
+				"ro",
+				"sv",
+				"fi"
+            ],
+	    "defaultValue": "de",
+         },
+		 "custom_title": {
+        "type": "string",
+	    "defaultValue": "Nightscout",
+         },
+		 "alarm_high": {
+      "type": "string",
+	  "allowedValues": [
+                "on",
+                "off"
+            ],
+	  "defaultValue": "off",
+      },
+	  "alarm_low": {
+      "type": "string",
+	  "allowedValues": [
+                "on",
+                "off"
+            ],
+	  "defaultValue": "off",
+      },
+	  "alarm_timeago_urgent": {
+      "type": "string",
+	  "allowedValues": [
+                "on",
+                "off"
+            ],
+	  "defaultValue": "off",
+      },
+	  "alarm_timeago_warn": {
+      "type": "string",
+	  "allowedValues": [
+                "on",
+                "off"
+            ],
+	  "defaultValue": "off",
+      },
+	  "alarm_urgent_high": {
+      "type": "string",
+	  "allowedValues": [
+                "on",
+                "off"
+            ],
+	  "defaultValue": "off",
+      },
+	  "alarm_urgent_low": {
+      "type": "string",
+	  "allowedValues": [
+                "on",
+                "off"
+            ],
+	  "defaultValue": "off",
+      },
+	  "basal_render": {
+      "type": "string",
+	  "allowedValues": [
+                "default",
+                "icicle"
+            ],
+	  "defaultValue": "default",
+      },
+	  "enable": {
+      "type": "string",
+	  "defaultValue": "basal bwp cage careportal cob openaps pump rawbg sage treatmentnotify",
+      },
+	  "night_mode": {
+      "type": "string",
+	  "allowedValues": [
+                "on",
+                "off"
+            ],
+	  "defaultValue": "off",
+      },
+	  "show_plugins": {
+      "type": "string",
+	  "defaultValue": "basal bwp cage cob openaps pump rawbg sage",
+      },
+	  "show_rawbg": {
+      "type": "string",
+	  "allowedValues": [
+                "always",
+                "never",
+				"noise"
+            ],
+	  "defaultValue": "never",
+      }
     },
     "resources": [
         {
@@ -90,7 +223,74 @@
                         {
                             "name": "API_SECRET",
                             "value": "[parameters('apiSecret')]"
-                        }
+                        },
+						{
+							"name": "TREATMENT_AUTH",
+							"value": "[parameters('TREATMENT_AUTH')]"
+                        },
+                        {
+                            "name": "THEME",
+                            "value": "[parameters('theme')]"
+                        },
+                         {
+                            "name": "TIME_FORMAT",
+                            "value": "[parameters('time_format')]"
+                        },
+                        
+                        {
+                            "name": "LANGUAGE",
+                            "value": "[parameters('language')]"
+                         },
+						 {
+                            "name": "CUSTOM_TITLE",
+                            "value": "[parameters('custom_title')]"
+                         },
+						 {
+						 "name": "ALARM_HIGH",
+						 "value": "[parameters('alarm_high')]"
+						 },
+						{
+						"name": "ALARM_LOW" ,
+						"value": "[parameters('alarm_low')]"
+						},
+						{
+						"name": "ALARM_TIMEAGO_URGENT" ,
+						"value": "[parameters('alarm_timeago_urgent')]"
+						},
+						{
+						"name": "ALARM_TIMEAGO_WARN" ,
+						"value": "[parameters('alarm_timeago_warn')]"
+						},
+						{
+						"name": "ALARM_URGENT_HIGH" ,
+						"value": "[parameters('alarm_urgent_high')]"
+						},
+						{
+						"name": "ALARM_URGENT_LOW",
+						"value": "[parameters('alarm_urgent_low')]"
+						},
+						{
+                        			"name": "BASAL_RENDER" ,
+						"value": "[parameters('basal_render')]"
+						},
+						{
+                                         	"name": "ENABLE" ,
+						"value": "[parameters('enable')]"
+						},
+						{
+                        			"name": "NIGHT_MODE" ,
+						"value": "[parameters('night_mode')]"
+						},
+						{
+						"name":	"SHOW_PLUGINS" ,
+						"value": "[parameters('show_plugins')]"
+						},
+						{
+                        			"name": "SHOW_RAWBG" ,
+						"value": "[parameters('show_rawbg')]"
+						}
+          
+          
                     ]
                 }
             },
