@@ -5,7 +5,7 @@ var should = require('should');
 
 //Mocked ctx
 var ctx = {};
-var env = {};
+// var env = {}; Unused variable
 var now = Date.now();
 
 function updateMills (entries) {
