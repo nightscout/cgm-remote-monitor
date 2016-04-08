@@ -97,7 +97,7 @@
 				"sv",
 				"fi"
             ],
-	    "defaultValue": "de",
+	    "defaultValue": "en",
          },
 		 "custom_title": {
         "type": "string",
@@ -173,7 +173,7 @@
       },
 	  "show_plugins": {
       "type": "string",
-	  "defaultValue": "basal bwp cage cob openaps pump rawbg sage",
+	  "defaultValue": "basal bwp cage careportal cob openaps pump rawbg sage",
       },
 	  "show_rawbg": {
       "type": "string",
