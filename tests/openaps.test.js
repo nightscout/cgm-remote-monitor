@@ -64,7 +64,12 @@ var statuses = [{
       eventualBG: 125,
       timestamp: '2015-12-05T19:03:00.000Z',
       duration: 30,
-      tick: '+1'
+      tick: '+1',
+      predBGs: {
+        IOB: [100, 100, 100, 100]
+        , aCOB: [100, 100, 100, 100]
+        , COB: [100, 100, 100, 100]
+      }
     }
   }
 }
@@ -126,7 +131,7 @@ _.forEach(statuses, function updateMills (status) {
 
 describe('openaps', function ( ) {
 
-  it('set the property and update the pill', function (done) {
+  it('set the property and update the pill and add forecast points', function (done) {
     var ctx = {
       settings: {
         units: 'mg/dl'
@@ -141,6 +146,9 @@ describe('openaps', function ( ) {
           var last = _.last(options.info);
           last.label.should.equal('1h ago');
           last.value.should.equal('awaitingpi ◉ Waiting');
+        }
+        , addForecastPoints: function mockAddForecastPoints(points) {
+          points.length.should.equal(12);
           done();
         }
       }
