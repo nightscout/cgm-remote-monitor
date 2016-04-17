@@ -1,4 +1,4 @@
-#drawer button, #treatmentDrawer button{
+#drawer button, #treatmentDrawer button, #boluscalcDrawer button{
   font-size: 18px;
   font-weight: bolder;
   background-color: #ccc;
@@ -16,12 +16,12 @@
   color: #eee;
   display: none;
   font-size: 16px;
-  height: 100%;
-  overflow-y: auto;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   position: absolute;
   margin-top: 45px;
   right: -200px;
-  width: 300px;
   top: 0;
   z-index: 1;
 }
@@ -55,12 +55,12 @@ input[type=number]:invalid {
   color: #eee;
   display: none;
   font-size: 16px;
-  height: 100%;
-  overflow-y: auto;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   position: absolute;
   margin-top: 45px;
   right: -200px;
-  width: 300px;
   top: 0;
   z-index: 1;
 }
@@ -237,6 +237,9 @@ h1, legend,
   height: 44px;
   line-height: 44px;
 }
+#buttonbar .selected {
+  color: red;
+}
 #buttonbar a {
   float: left;
   text-decoration: none;
@@ -320,4 +323,44 @@ ul.navigation {
 
 .navigation a:hover {
   background-color: #989898;
+}
+
+#boluscalcDrawer {
+    background-color: #666;
+    border-left: 1px solid #999;
+    box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
+    color: #eee;
+    display: none;
+    font-size: 16px;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    position: absolute;
+    margin-top: 45px;
+    right: -200px;
+    width: 320px;
+    top: 0;
+    z-index: 1;
+}
+
+#boluscalcDrawer a {
+  color: white;
+  font-size: 12px;
+}
+
+#boluscalcDrawer .insulincalculation {
+    background: gray;
+}
+
+#boluscalcDrawer .insulintotalcalculation {
+    background: Sienna;
+}
+
+#boluscalcDrawer .border_bottom td {
+  border-bottom:1pt solid #eee;
+}
+
+#boluscalcDrawer .foodinput {
+   background: #505050;
+   margin: 10px;
 }
