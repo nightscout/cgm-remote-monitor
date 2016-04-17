@@ -137,7 +137,7 @@ describe('openaps', function ( ) {
         units: 'mg/dl'
       }
       , pluginBase: {
-        updatePillText: function mockedUpdatePillText(plugin, options) {
+        updatePillText: function mockedUpdatePillText (plugin, options) {
           options.label.should.equal('OpenAPS ⌁');
           options.value.should.equal('2m ago');
           var first = _.first(options.info);
@@ -147,7 +147,7 @@ describe('openaps', function ( ) {
           last.label.should.equal('1h ago');
           last.value.should.equal('awaitingpi ◉ Waiting');
         }
-        , addForecastPoints: function mockAddForecastPoints(points) {
+        , addForecastPoints: function mockAddForecastPoints (points) {
           points.length.should.equal(12);
           done();
         }
