@@ -5,7 +5,7 @@ var should = require('should');
 
 //Mocked ctx
 var ctx = {};
-var env = {};
+// var env = {}; Unused variable
 var now = Date.now();
 
 function updateMills (entries) {
@@ -215,7 +215,6 @@ describe('Pebble Endpoint', function ( ) {
 describe('Pebble Endpoint with Raw and IOB', function ( ) {
   var pebbleRaw = require('../lib/pebble');
   before(function (done) {
-    ctx.ddata.devicestatus = [{uploader: {battery: 100}}];
     var envRaw = require('../env')( );
     envRaw.settings.enable = ['rawbg', 'iob'];
     this.appRaw = require('express')( );
@@ -225,6 +224,7 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
   });
 
   it('/pebble', function (done) {
+    ctx.ddata.devicestatus = [{uploader: {battery: 100}}];
     request(this.appRaw)
       .get('/pebble?count=2')
       .expect(200)
@@ -241,6 +241,7 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
         bg.unfiltered.should.equal(111920);
         bg.noise.should.equal(1);
         bg.battery.should.equal('100');
+        bg.iob.should.equal('1.50');
 
         res.body.cals.length.should.equal(1);
         var cal = res.body.cals[0];
@@ -248,6 +249,35 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
         cal.intercept.toFixed(3).should.equal('34281.069');
         cal.scale.should.equal(1);
         done( );
+      });
+  });
+
+  it('/pebble with no treatments', function (done) {
+    ctx.ddata.treatments = [];
+    request(this.appRaw)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        var bgs = res.body.bgs;
+        bgs.length.should.equal(1);
+        var bg = bgs[0];
+        bg.iob.should.equal(0);
+        done();
+      });
+  });
+
+  it('/pebble with IOB from devicestatus', function (done) {
+    ctx.ddata.treatments = [];
+    ctx.ddata.devicestatus = updateMills([{pump: {iob: {bolusiob: 2.3}}}]);
+    request(this.appRaw)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        var bgs = res.body.bgs;
+        bgs.length.should.equal(1);
+        var bg = bgs[0];
+        bg.iob.should.equal('2.30');
+        done();
       });
   });
 
