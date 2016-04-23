@@ -49,7 +49,7 @@
             </div>
             <div class="primary">
                 <div class="bgStatus current">
-                    <div class="bgButton ">
+                    <div class="bgButton">
                         <span class="pill rawbg hidden"><em></em><label></label></span>
                         <span class="currentBG">---</span>
                         <span class="pill direction"></span>
@@ -71,7 +71,9 @@
                     <li data-hours="6" class="translate">6HR</li>
                     <li data-hours="12" class="translate">12HR</li>
                     <li data-hours="24" class="translate">24HR</li>
+                    <li>...</li>
                 </ul>
+                <ul class="dropdown-menu" id="viewMenu"></ul>
             </div>
             <div class="row-fluid section1">
                 <div id="chartContainer"></div>
@@ -203,6 +205,22 @@
                         <span class="translate">Event Type</span>
                         <select id="eventType"></select>
                     </label>
+                    <label id="reasonLabel" for="reason" class="left-column">
+                        <span class="translate">Reason</span>
+                        <select id="reason"></select>
+                    </label>
+
+                    <fieldset id="targets">
+                      <legend class="translate">Targets</legend>
+                      <label for="targetTop" class="left-column">
+                        <span class="translate">Top</span>
+                        <input type="number" step="any" id="targetTop" />
+                      </label>
+                      <label for="targetBottom" class="left-column">
+                        <span class="translate">Bottom</span>
+                        <input type="number" step="any" id="targetBottom" />
+                      </label>
+                    </fieldset>
 
                     <fieldset id="bg">
                         <legend class="translate">Glucose Reading</legend>
