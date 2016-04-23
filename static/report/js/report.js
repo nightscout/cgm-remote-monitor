@@ -618,7 +618,7 @@
 
   function loadTempBasals(from, callback) {
     $('#info > b').html('<b>'+translate('Loading temp basal data') + ' ...</b>');
-    var tquery = '?find[created_at][$gte]='+moment(from).subtract(32, 'days').toISOString()+'&find[eventType][$eq]=Temp Basal';
+    var tquery = '?find[created_at][$gte]='+moment(from).subtract(1, 'days').toISOString()+'&find[eventType][$eq]=Temp Basal';
     $.ajax('/api/v1/treatments.json'+tquery, {
       success: function (xhr) {
         var treatmentData = xhr.map(function (treatment) {
