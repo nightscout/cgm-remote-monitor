@@ -1,4 +1,5 @@
-var _ = require('lodash');
+'use strict';
+
 var express = require('express');
 var compression = require('compression');
 var bodyParser = require('body-parser');
@@ -15,14 +16,7 @@ function create (env, ctx) {
   app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
 
   if (ctx.bootErrors && ctx.bootErrors.length > 0) {
-    var errors = _.map(ctx.bootErrors, function (obj) {
-      obj.err = _.pick(obj.err, Object.getOwnPropertyNames(obj.err))
-      return obj;
-    });
-    app.get('/', function (req, res) {
-      res.setHeader('content-type', 'application/json');
-      res.json(errors);
-    });
+    app.get('*', require('./lib/booterror')(ctx));
     return app;
   }
 
