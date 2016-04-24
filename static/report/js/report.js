@@ -427,11 +427,9 @@
         if (options.order === report_plugins.consts.ORDER_NEWESTONTOP) {
           sorteddaystoshow.reverse();
         }
-        loadTempBasals(from, function loadTempBasalsCallback() { 
-          loadProfileSwitch(from, function loadProfileSwitchCallback() { 
-            $('#info > b').html('<b>'+translate('Rendering')+' ...</b>');
-            window.setTimeout(function () {showreports(options); }, 0);
-            });
+        loadProfileSwitch(from, function loadProfileSwitchCallback() {
+          $('#info > b').html('<b>'+translate('Rendering')+' ...</b>');
+          window.setTimeout(function () {showreports(options); }, 0);
           });
       }
     }
@@ -457,10 +455,12 @@
     datastorage.treatments = [];
     datastorage.devicestatus = [];
     datastorage.combobolusTreatments = [];
+    datastorage.tempbasalTreatments = [];
     Object.keys(daystoshow).forEach( function eachDay(day) {
       datastorage.treatments = datastorage.treatments.concat(datastorage[day].treatments);
       datastorage.devicestatus = datastorage.devicestatus.concat(datastorage[day].devicestatus);
       datastorage.combobolusTreatments = datastorage.combobolusTreatments.concat(datastorage[day].combobolusTreatments);
+      datastorage.tempbasalTreatments = datastorage.tempbasalTreatments.concat(datastorage[day].tempbasalTreatments);
     });
     
     report_plugins.eachPlugin(function (plugin) {
@@ -584,10 +584,14 @@
           });
           data.treatments = treatmentData.slice();
           data.treatments.sort(function(a, b) { return a.mills - b.mills; });
-          // filter & prepare 'Combo Bolus' events
+          // filter 'Combo Bolus' events
           data.combobolusTreatments = data.treatments.filter( function filterComboBoluses(t) {
             return t.eventType === 'Combo Bolus';
-          }).sort(function (a,b) { return a.mills > b.mills; });
+          });
+          // filter temp basal treatments
+          data.tempbasalTreatments = data.treatments.filter(function filterTempBasals(t) {
+            return t.eventType === 'Temp Basal';
+          });
         }
       });
     }
@@ -616,24 +620,6 @@
     });
   }
 
-  function loadTempBasals(from, callback) {
-    $('#info > b').html('<b>'+translate('Loading temp basal data') + ' ...</b>');
-    var tquery = '?find[created_at][$gte]='+moment(from).subtract(1, 'days').toISOString()+'&find[eventType][$eq]=Temp Basal';
-    $.ajax('/api/v1/treatments.json'+tquery, {
-      success: function (xhr) {
-        var treatmentData = xhr.map(function (treatment) {
-          var timestamp = new Date(treatment.timestamp || treatment.created_at);
-          treatment.mills = timestamp.getTime();
-          return treatment;
-        });
-        datastorage.tempbasalTreatments = Nightscout.client.ddata.processTempBasals(treatmentData.slice());
-        datastorage.tempbasalTreatments.sort(function(a, b) { return a.mills - b.mills; });
-      }
-    }).done(function () {
-      callback();
-    });
-  }
-  
   function loadProfileSwitch(from, callback) {
     $('#info > b').html('<b>'+translate('Loading profile switch data') + ' ...</b>');
     var tquery = '?find[eventType][$eq]=Profile Switch';
