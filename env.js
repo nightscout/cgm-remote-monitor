@@ -19,6 +19,10 @@ function config ( ) {
   env.PORT = readENV('PORT', 1337);
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
 
+  if (env.err) {
+    delete env.err;
+  }
+
   setSSL();
   setAPISecret();
   setVersion();
