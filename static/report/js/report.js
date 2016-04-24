@@ -375,6 +375,7 @@
         if (day===6 && $('#rp_sa').is(':checked')) { daystoshow[d]++; }
       });
       countDays();
+      addPreviousDayTreatments();
       display();
     }
     
@@ -383,16 +384,12 @@
       sorteddaystoshow = [];
       $('#info').html('<b>'+translate('Loading')+' ...</b>');
       for (var d in daystoshow) {
-        if (daystoshow[d]===matchesneeded) {
-          if (count < maxdays) {
-            $('#info').append($('<div id="info-' + d + '"></div>'));
-            count++;
-            loadData(d, options, dataLoadedCallback);
-          } else {
-            $('#info').append($('<div>'+d+' '+translate('not displayed')+'.</div>'));
-            delete daystoshow[d];
-          }
+        if (count < maxdays) {
+          $('#info').append($('<div id="info-' + d + '"></div>'));
+          count++;
+          loadData(d, options, dataLoadedCallback);
         } else {
+          $('#info').append($('<div>'+d+' '+translate('not displayed')+'.</div>'));
           delete daystoshow[d];
         }
       }
@@ -412,13 +409,35 @@
             if (dayscount < maxdays) {
               dayscount++;
             }
+          } else {
+            delete daystoshow[d];
           }
         }
       }
       //console.log('Total: ', daystoshow, 'Matches needed: ', matchesneeded, 'Will be loaded: ', dayscount);
    }
     
+     function addPreviousDayTreatments() {
+      for (var d in daystoshow) {
+        if (daystoshow.hasOwnProperty(d)) {
+            if (dayscount < maxdays) {
+              var day = moment.tz(d,zone);
+              var previous = day.subtract(1,'days');
+              var formated = previous.format('YYYY-MM-DD');
+              if (!daystoshow[formated]) {
+                daystoshow[formated] = { treatmentsonly: true};
+                console.log('Adding ' + formated + ' for loading treatments');
+              }
+            }
+        }
+      }
+      //console.log('Total: ', daystoshow, 'Matches needed: ', matchesneeded, 'Will be loaded: ', dayscount);
+   }
+    
     function dataLoadedCallback (day) {
+      if (daystoshow[day].treatmentsonly) {
+        return;
+      }
       loadeddays++;
       sorteddaystoshow.push(day);
       if (loadeddays === dayscount) {
@@ -446,8 +465,10 @@
     datastorage.allstatsrecords = [];
     datastorage.alldays = 0;
     sorteddaystoshow.forEach(function eachDay(day) {
-      datastorage.allstatsrecords = datastorage.allstatsrecords.concat(datastorage[day].statsrecords);
-      datastorage.alldays++;
+      if (!daystoshow[day].treatmentsonly) {
+        datastorage.allstatsrecords = datastorage.allstatsrecords.concat(datastorage[day].statsrecords);
+        datastorage.alldays++;
+      }
     });
     options.maxInsulinValue = maxInsulinValue;
     options.maxCarbsValue = maxCarbsValue;
@@ -463,6 +484,15 @@
       datastorage.tempbasalTreatments = datastorage.tempbasalTreatments.concat(datastorage[day].tempbasalTreatments);
     });
     
+     for (var d in daystoshow) {
+        if (daystoshow.hasOwnProperty(d)) {
+          if (daystoshow[d].treatmentsonly) {
+            delete daystoshow[d];
+            delete datastorage[d];
+          }
+        }
+     }
+
     report_plugins.eachPlugin(function (plugin) {
       // jquery plot doesn't draw to hidden div
       $('#'+plugin.name+'-placeholder').css('display','');
