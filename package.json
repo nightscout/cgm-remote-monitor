@@ -62,7 +62,7 @@
     "forever": "~0.13.0",
     "git-rev": "git://github.com/bewest/git-rev.git",
     "jquery": "^2.1.4",
-    "lodash": "^3.9.1",
+    "lodash": "^4.0.0",
     "long": "~2.2.3",
     "minimed-connect-to-nightscout": "git://github.com/mddub/minimed-connect-to-nightscout#v1.0.0",
     "moment": "2.10.6",
