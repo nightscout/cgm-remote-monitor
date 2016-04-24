@@ -140,8 +140,8 @@ function readENV(varName, defaultValue) {
     || process.env[varName]
     || process.env[varName.toLowerCase()];
 
-  if (typeof value === 'string' && value.toLowerCase() === 'on') { value = true; }
-  if (typeof value === 'string' && value.toLowerCase() === 'off') { value = false; }
+  if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
+  if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
 
   return value != null ? value : defaultValue;
 }
