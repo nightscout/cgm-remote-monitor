@@ -210,6 +210,9 @@ describe('Profile editor', function ( ) {
     $('#pe_profiles option').length.should.be.equal(1);
     $('#pe_profile_add').click();
     $('#pe_profiles option').length.should.be.equal(2);
+    $('#pe_profile_name').val('Test');
+    $('#pe_profiles option').val('Default');
+    $('#pe_profiles option').val('Test');
     $('#pe_profile_remove').click();
     $('#pe_profiles option').length.should.be.equal(1);
     $('#pe_profile_clone').click();
