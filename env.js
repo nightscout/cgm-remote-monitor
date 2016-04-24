@@ -87,7 +87,7 @@ function setVersion() {
 }
 
 function setMongo() {
-  env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI');
+  env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI') || readENV('MONGODB_URI');
   env.mongo_collection = readENV('MONGO_COLLECTION', 'entries');
   env.MQTT_MONITOR = readENV('MQTT_MONITOR', null);
   if (env.MQTT_MONITOR) {
@@ -140,8 +140,8 @@ function readENV(varName, defaultValue) {
     || process.env[varName]
     || process.env[varName.toLowerCase()];
 
-  if (typeof value === 'string' && value.toLowerCase() === 'on') { value = true; }
-  if (typeof value === 'string' && value.toLowerCase() === 'off') { value = false; }
+  if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
+  if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
 
   return value != null ? value : defaultValue;
 }
