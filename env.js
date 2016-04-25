@@ -17,8 +17,11 @@ function config ( ) {
    */
   env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
   env.PORT = readENV('PORT', 1337);
-  env.baseUrl = readENV('BASE_URL');
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
+
+  if (env.err) {
+    delete env.err;
+  }
 
   setSSL();
   setAPISecret();
@@ -26,7 +29,8 @@ function config ( ) {
   setMongo();
   updateSettings();
 
-  env.hasExtendedSetting = hasExtendedSetting;
+  // require authorization for entering treatments
+  env.treatments_auth = readENV('TREATMENTS_AUTH',false);
 
   return env;
 }
@@ -54,12 +58,14 @@ function setAPISecret() {
   // if a passphrase was provided, get the hex digest to mint a single token
   if (useSecret) {
     if (readENV('API_SECRET').length < consts.MIN_PASSPHRASE_LENGTH) {
-      var msg = ['API_SECRET should be at least', consts.MIN_PASSPHRASE_LENGTH, 'characters'];
-      throw new Error(msg.join(' '));
+      var msg = ['API_SECRET should be at least', consts.MIN_PASSPHRASE_LENGTH, 'characters'].join(' ');
+      console.error(msg);
+      env.err = {desc: msg};
+    } else {
+      var shasum = crypto.createHash('sha1');
+      shasum.update(readENV('API_SECRET'));
+      env.api_secret = shasum.digest('hex');
     }
-    var shasum = crypto.createHash('sha1');
-    shasum.update(readENV('API_SECRET'));
-    env.api_secret = shasum.digest('hex');
   }
 }
 
@@ -81,7 +87,7 @@ function setVersion() {
 }
 
 function setMongo() {
-  env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI');
+  env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI') || readENV('MONGODB_URI');
   env.mongo_collection = readENV('MONGO_COLLECTION', 'entries');
   env.MQTT_MONITOR = readENV('MQTT_MONITOR', null);
   if (env.MQTT_MONITOR) {
@@ -100,6 +106,7 @@ function setMongo() {
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
+  env.food_collection = readENV('MONGO_FOOD_COLLECTION', 'food');
 
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.
@@ -113,26 +120,6 @@ function setMongo() {
 
 function updateSettings() {
 
-  var enable = readENV('ENABLE', '');
-
-  function anyEnabled (features) {
-    return _.findIndex(features, function (feature) {
-      return enable.indexOf(feature) > -1;
-    }) > -1;
-  }
-
-  //don't require pushover to be enabled to preserve backwards compatibility if there are extendedSettings for it
-  if (hasExtendedSetting('PUSHOVER', process.env)) {
-    enable += ' pushover';
-  }
-
-  if (anyEnabled(['careportal', 'pushover', 'maker'])) {
-    enable += ' treatmentnotify';
-  }
-
-  //TODO: figure out something for default plugins, how can they be disabled?
-  enable += ' delta direction upbat errorcodes';
-
   var envNameOverrides = {
     UNITS: 'DISPLAY_UNITS'
   };
@@ -142,19 +129,8 @@ function updateSettings() {
     return readENV(envName);
   });
 
-  //TODO: maybe get rid of ALARM_TYPES and only use enable?
-  if (env.settings.alarmTypes.indexOf('simple') > -1) {
-    enable = 'simplealarms ' + enable;
-  }
-  if (env.settings.alarmTypes.indexOf('predict') > -1) {
-    enable = 'ar2 ' + enable;
-  }
-
-  env.settings.enable = enable;
-  env.settings.processRawSettings();
-
   //should always find extended settings last
-  env.extendedSettings = findExtendedSettings(enable, process.env);
+  env.extendedSettings = findExtendedSettings(process.env);
 }
 
 function readENV(varName, defaultValue) {
@@ -164,29 +140,20 @@ function readENV(varName, defaultValue) {
     || process.env[varName]
     || process.env[varName.toLowerCase()];
 
-  if (typeof value === 'string' && value.toLowerCase() === 'on') { value = true; }
-  if (typeof value === 'string' && value.toLowerCase() === 'off') { value = false; }
+  if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
+  if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
 
   return value != null ? value : defaultValue;
 }
 
-function hasExtendedSetting(prefix, envs) {
-  return _.find(envs, function (value, key) {
-    return key.indexOf(prefix + '_') >= 0
-      || key.indexOf(prefix.toLowerCase() + '_') >= 0
-      || key.indexOf('CUSTOMCONNSTR_' + prefix + '_') >= 0
-      || key.indexOf('CUSTOMCONNSTR_' + prefix.toLowerCase() + '_') >= 0;
-  }) !== undefined;
-}
-
-function findExtendedSettings (enables, envs) {
+function findExtendedSettings (envs) {
   var extended = {};
 
   function normalizeEnv (key) {
     return key.toUpperCase().replace('CUSTOMCONNSTR_', '');
   }
 
-  enables.split(' ').forEach(function eachEnable(enable) {
+  _.each(env.settings.enable, function eachEnable(enable) {
     if (_.trim(enable)) {
       _.forIn(envs, function eachEnvPair (value, key) {
         var env = normalizeEnv(key);
@@ -197,6 +164,8 @@ function findExtendedSettings (enables, envs) {
             extended[enable] = exts;
             var ext = _.camelCase(env.substring(split + 1).toLowerCase());
             if (!isNaN(value)) { value = Number(value); }
+            if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
+            if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
             exts[ext] = value;
           }
         }
