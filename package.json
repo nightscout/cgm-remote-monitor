@@ -64,7 +64,7 @@
     "jquery": "^2.1.4",
     "lodash": "^4.0.0",
     "long": "~2.2.3",
-    "minimed-connect-to-nightscout": "git://github.com/mddub/minimed-connect-to-nightscout#v1.0.0",
+    "minimed-connect-to-nightscout": "git://github.com/mddub/minimed-connect-to-nightscout#v1.1.0",
     "moment": "2.10.6",
     "moment-timezone": "^0.4.0",
     "parse-duration": "^0.1.1",
