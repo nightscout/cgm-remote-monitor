@@ -1,8 +1,7 @@
 @import url("//fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic");
 @import url("//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800");
 @import url("/glyphs/css/fontello.css");
-@import url("//fonts.googleapis.com/css?family=Roboto:400,100,300|Roboto+Mono:400,100,300,500,700");
-@import url("//fonts.googleapis.com/icon?family=Material+Icons");
+@import url("//fonts.googleapis.com/css?family=Roboto:400,100,300|Roboto+Mono:400,100,300,500,700")
 
 
 html, body {
@@ -132,6 +131,7 @@ body {
   border-radius: 8px;
   padding-left:4px;
   margin-left:1px;
+  color: #607D8B;
 }
 
 .pill label {
