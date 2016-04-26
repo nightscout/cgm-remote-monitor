@@ -420,26 +420,24 @@
      function addPreviousDayTreatments() {
       for (var d in daystoshow) {
         if (daystoshow.hasOwnProperty(d)) {
-            if (dayscount < maxdays) {
-              var day = moment.tz(d,zone);
-              var previous = day.subtract(1,'days');
-              var formated = previous.format('YYYY-MM-DD');
-              if (!daystoshow[formated]) {
-                daystoshow[formated] = { treatmentsonly: true};
-                console.log('Adding ' + formated + ' for loading treatments');
-              }
-            }
+          var day = moment.tz(d,zone);
+          var previous = day.subtract(1,'days');
+          var formated = previous.format('YYYY-MM-DD');
+          if (!daystoshow[formated]) {
+            daystoshow[formated] = { treatmentsonly: true};
+            console.log('Adding ' + formated + ' for loading treatments');
+            dayscount++;
+          }
         }
       }
       //console.log('Total: ', daystoshow, 'Matches needed: ', matchesneeded, 'Will be loaded: ', dayscount);
    }
     
     function dataLoadedCallback (day) {
-      if (daystoshow[day].treatmentsonly) {
-        return;
-      }
       loadeddays++;
-      sorteddaystoshow.push(day);
+      if (!daystoshow[day].treatmentsonly) {
+        sorteddaystoshow.push(day);
+      }
       if (loadeddays === dayscount) {
         sorteddaystoshow.sort();
         var from = sorteddaystoshow[0];
