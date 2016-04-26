@@ -8,15 +8,15 @@ describe('treatmentnotify', function ( ) {
 
   var env = require('../env')();
   var ctx = {};
-  ctx.data = require('../lib/data')(env, ctx);
+  ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
 
   var now = Date.now();
 
   it('Request a snooze for a recent treatment and request an info notify', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: now, mgdl: 100}];
-    ctx.data.treatments = [{eventType: 'BG Check', glucose: '100', mills: now}];
+    ctx.ddata.sgvs = [{mills: now, mgdl: 100}];
+    ctx.ddata.treatments = [{eventType: 'BG Check', glucose: '100', mills: now}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     treatmentnotify.checkNotifications(sbx);
@@ -30,8 +30,8 @@ describe('treatmentnotify', function ( ) {
 
   it('Not Request a snooze for an older treatment and not request an info notification', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: now, mgdl: 100}];
-    ctx.data.treatments = [{mills: now - (15 * 60 * 1000)}];
+    ctx.ddata.sgvs = [{mills: now, mgdl: 100}];
+    ctx.ddata.treatments = [{mills: now - (15 * 60 * 1000)}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     treatmentnotify.checkNotifications(sbx);
@@ -45,8 +45,8 @@ describe('treatmentnotify', function ( ) {
 
   it('Request a snooze for a recent calibration and request an info notify', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: now, mgdl: 100}];
-    ctx.data.mbgs = [{mgdl: '100', mills: now}];
+    ctx.ddata.sgvs = [{mills: now, mgdl: 100}];
+    ctx.ddata.mbgs = [{mgdl: '100', mills: now}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     treatmentnotify.checkNotifications(sbx);
@@ -60,8 +60,8 @@ describe('treatmentnotify', function ( ) {
 
   it('Not Request a snooze for an older calibration treatment and not request an info notification', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: now, mgdl: 100}];
-    ctx.data.mbgs = [{mgdl: '100', mills: now - (15 * 60 * 1000)}];
+    ctx.ddata.sgvs = [{mills: now, mgdl: 100}];
+    ctx.ddata.mbgs = [{mgdl: '100', mills: now - (15 * 60 * 1000)}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     treatmentnotify.checkNotifications(sbx);
@@ -75,7 +75,7 @@ describe('treatmentnotify', function ( ) {
 
   it('Request a notification for an announcement even there is an active snooze', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.treatments = [{mills: now, mgdl: 40, eventType: 'Announcement', isAnnouncement: true, notes: 'This not an alarm'}];
+    ctx.ddata.treatments = [{mills: now, mgdl: 40, eventType: 'Announcement', isAnnouncement: true, notes: 'This not an alarm'}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
 
@@ -105,7 +105,7 @@ describe('treatmentnotify', function ( ) {
 
   it('Request a notification for a non-error announcement', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.treatments = [{mills: now, mgdl: 100, eventType: 'Announcement', isAnnouncement: true, notes: 'This not an alarm'}];
+    ctx.ddata.treatments = [{mills: now, mgdl: 100, eventType: 'Announcement', isAnnouncement: true, notes: 'This not an alarm'}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
 
