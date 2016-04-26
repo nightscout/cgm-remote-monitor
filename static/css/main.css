@@ -1,7 +1,8 @@
 @import url("//fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic");
 @import url("//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800");
 @import url("/glyphs/css/fontello.css");
-@import url("//fonts.googleapis.com/css?family=Roboto:400,100,300|Roboto+Mono:400,100,300,500,700")
+@import url("//fonts.googleapis.com/css?family=Roboto:400,100,300|Roboto+Mono:400,100,300,500,700");
+@import url("//fonts.googleapis.com/icon?family=Material+Icons");
 
 
 html, body {
@@ -55,15 +56,15 @@ body {
 }
 
 .urgent .bgButton {
-  color: red;
+  color: #DB4437;
 }
 
 .warning .bgButton {
-  color: yellow;
+  color: #FFEB3B;
 }
 
 .inrange .bgButton {
-  color: #4cff00;
+  color: #8BC34A;
 }
 
 .bgStatus .currentBG {
@@ -201,11 +202,12 @@ body {
   bottom: 0;
   height: auto;
   font-size: 20px;
-  background: #111;
+  background: #050707;
   display: block;
   position: absolute;
-  margin: 2px;
+  margin: 0px;
   overflow: hidden;
+  font-family:'Roboto Mono';
 }
 
 #chartContainer svg {
