@@ -547,6 +547,12 @@
     var to = from + 1000 * 60 * 60 * 24;
 
     function loadCGMData() {
+      if (daystoshow[day].treatmentsonly) {
+        data.sgv = [];
+        data.mbg = [];
+        data.cal = [];
+        return $.Deferred().resolve();
+      }
       $('#info-' + day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
       var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
       return $.ajax('/api/v1/entries.json'+query, {
@@ -625,6 +631,10 @@
     }
 
     function loadDevicestatusData() {
+      if (daystoshow[day].treatmentsonly) {
+        data.devicestatus = [];
+        return $.Deferred().resolve();
+      }
       if(options.iob || options.cob || options.openAps) {
         $('#info-' + day).html('<b>'+translate('Loading device status data of')+' '+day+' ...</b>');
         var tquery = '?find[created_at][$gte]=' + new Date(from).toISOString() + '&find[created_at][$lt]=' + new Date(to).toISOString() + '&count=10000';
@@ -667,6 +677,12 @@
   }
   
   function processData(data, day, options, callback) {
+    if (daystoshow[day].treatmentsonly) {
+      datastorage[day] = data;
+      $('#info-' + day).html('');
+      callback(day);
+      return;
+    }
     // treatments
     data.treatments.forEach(function (d) {
       if (parseFloat(d.insulin) > maxInsulinValue) {
