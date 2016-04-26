@@ -13,6 +13,8 @@ body {
   font-family: 'Roboto', Helvetica, Arial, sans-serif;
   background: #000;
   color: #bdbdbd;
+  margin: 0;
+  padding: 0;
 }
 
 .container {
@@ -69,6 +71,7 @@ body {
   line-height: 100px;
   text-decoration: line-through;
   vertical-align: middle;
+  font-family: 'Roboto+Mono'
 }
 
 .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
