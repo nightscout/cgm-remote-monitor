@@ -219,9 +219,9 @@ h1, legend,
   overflow: hidden;
 }
 #buttonbar {
-  padding-right: 10px;
-  height: 44px;
-  opacity: 0.75;
+  /*padding-right: 10px;*/
+  height: 54px;
+  /*opacity: 0.75;*/
   vertical-align: middle;
   position: absolute;
   right: 0;
@@ -230,15 +230,17 @@ h1, legend,
 
 #buttonbar a,
 #buttonbar i {
-  color: #ccc;
-  font-size: 16px;
+  color: rgba(255,255,255,0.86);
+  font-size: 24px;
   height: 44px;
-  line-height: 44px;
+  line-height: 54px;
 }
 #buttonbar a {
   float: left;
   text-decoration: none;
-  width: 34px;
+  width: 48px;
+  text-align:center;
+  padding-bottom:12px;
 }
 #buttonbar i {
   padding-left: 12px;
