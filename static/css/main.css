@@ -11,7 +11,7 @@ html, body {
 }
 body {
   font-family: 'Roboto', Helvetica, Arial, sans-serif;
-  background: #000;
+  background: #111619;
   color: #111619;
   margin: 0;
   padding: 0;
@@ -169,8 +169,9 @@ body {
 }
 
 .status {
-  /*color: #808080;*/
-  font-size: 100px;
+  color: #607D8B;
+  font-size: 60px;
+  font-family:;
 }
 .statusBox {
   text-align: center;
