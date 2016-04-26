@@ -12,7 +12,7 @@ html, body {
 body {
   font-family: 'Roboto', Helvetica, Arial, sans-serif;
   background: #000;
-  color: #bdbdbd;
+  color: #111619;
   margin: 0;
   padding: 0;
 }
@@ -71,7 +71,7 @@ body {
   line-height: 100px;
   text-decoration: line-through;
   vertical-align: middle;
-  font-family: 'Roboto+Mono'
+  font-family: 'Roboto Mono'
 }
 
 .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
@@ -111,27 +111,31 @@ body {
 .pill {
   white-space: nowrap;
   border-radius: 5px;
-  border: 2px solid #808080;
-  background: #808080;
+  border: 2px solid #111619;
+  background: #111619;
   display: inline-block;
   margin-bottom: 4px;
   padding: 2px 0;
 }
 
 .pill em, .pill label {
-  padding: 2px;
+  padding: 2px 4px 2px 2px;
   white-space: nowrap;
+  padding-left:10px;
 }
 
 .pill em {
   font-style: normal;
   font-weight: bold;
-  background: #000;
-  border-radius: 3px;
+  /*background: #263238;*/
+  border-radius: 8px;
+  padding-left:4px;
+  margin-left:1px;
 }
 
 .pill label {
-  color: #000;
+  color: #263238;
+  font-family: 'Roboto Mono'
 }
 
 .container .pill.warn em {
@@ -165,7 +169,7 @@ body {
 }
 
 .status {
-  color: #808080;
+  /*color: #808080;*/
   font-size: 100px;
 }
 .statusBox {
@@ -182,12 +186,12 @@ body {
 }
 
 .statusPills .pill {
-  background: #808080;
-  border-color: #808080;
+  background: #111619;
+  border-color: #111619;
 }
 
 .statusPills .pill em {
-  color: #bdbdbd;
+  color: #607D8B;
 }
 
 #chartContainer {
@@ -222,7 +226,7 @@ body {
 
 .bgButton {
   margin: 10px;
-  border: 2px solid #000;
+  border: 2px solid #111619;
   border-radius: 5px;
   width: 360px;
 }
@@ -309,7 +313,7 @@ body {
   list-style: none;
   margin: 4px;
   padding: 0;
-  color: #808080;
+  color: #263238;
   width: 250px;
   text-align: center;
 }
@@ -318,15 +322,17 @@ body {
   display: inline-block;
   font-size: 18px;
   white-space: nowrap;
-  border-radius: 5px;
-  border: 2px solid #000;
+  border-radius: 8px;
+  border: 2px solid #111619;
   cursor: pointer;
+  font-family: 'Roboto Mono';
 }
 
 .focus-range .selected {
-  border-color: #808080;
-  color: #000;
-  background: #808080;
+  border-color: #263238;
+  color: #607D8B;
+  background: #263238;
+  padding:2px;
 }
 
 .pill.hidden {
@@ -487,7 +493,7 @@ body {
 
   .status {
     padding-top: 0;
-    font-size: 20px;
+    font-size: 60px;
   }
 
   .statusBox {
@@ -639,6 +645,7 @@ body {
   }
 
   .statusBox {
+    padding-top: 16px;
     width: 220px;
   }
 
