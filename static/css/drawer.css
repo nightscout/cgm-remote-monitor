@@ -201,20 +201,18 @@ h1, legend,
 }
 
 #toolbar {
-  background: url(/images/logo2.png) no-repeat 3px 3px #333;
-  border-bottom: 1px solid #999;
+  background: url(/images/logo2.png) no-repeat 16px 10px #1C3AA9;
   top: 0;
   margin: 0;
-  height: 44px;
-  text-shadow: 0 0 5px black;
+  height: 56px;
 }
 
 #toolbar .customTitle {
-  color: #ccc;
+  color: #fff;
   font-size: 16px;
   margin-top: 0;
-  margin-left: 42px;
-  padding-top: 10px;
+  margin-left: 62px;
+  padding-top: 19px;
   padding-right: 150px;
   white-space: nowrap;
   text-overflow: ellipsis;
