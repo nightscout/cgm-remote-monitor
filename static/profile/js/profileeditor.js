@@ -28,7 +28,6 @@
       //General values
       'dia':3,
 
-      // Simple style values, 'from' are in minutes from midnight
       'carbratio': [
         {
           'time': '00:00',
@@ -67,6 +66,7 @@
           'time': '00:00',
           'value': 0
         }]
+      ,startDate: new Date(0).toISOString()
   };
 
 //  , 'startDate': new Date()
@@ -87,6 +87,9 @@
   peStatus.hide().text(translate('Loading profile records ...')).fadeIn('slow');
   $.ajax('/api/v1/profile.json', {
     success: function (records) {
+      if (!records.length) {
+        records.push(defaultprofile);
+      }
       client.profilefunctions.loadData(records); // do a conversion if needed
       mongorecords = client.profilefunctions.data;
       // create new profile to be edited from last record
@@ -140,7 +143,7 @@
     if (typeof profile.target_high !== 'object') { profile.target_high = [{ 'time': '00:00', 'value': profile.target_high }]; }
     if (typeof profile.basal !== 'object') { profile.basal = [{ 'time': '00:00', 'value': profile.basal }]; }
     if (profile.target_high.length !== profile.target_low.length) {
-      alert(translate('Time ranges of target_low and target_high don\'t  match. Values are restored to defaults.'));
+      window.alert(translate('Time ranges of target_low and target_high don\'t  match. Values are restored to defaults.'));
       profile.target_low = _.cloneDeep(defaultprofile.target_low);
       profile.target_high = _.cloneDeep(defaultprofile.target_high);
     }
@@ -612,7 +615,7 @@
   
   function profileSubmit(event) {
     if (!client.hashauth.isAuthenticated()) {
-      alert(translate('Your device is not authenticated yet'));
+      window.alert(translate('Your device is not authenticated yet'));
       return false;
     }
 
@@ -637,6 +640,16 @@
       }
     }
     adjustedRecord.defaultProfile = currentprofile;
+    
+    if (record.convertedOnTheFly) {
+      var result = window.confirm(translate('Profile is going to be saved in newer format used in Nightscout 0.9.0 and above and will not be usable in older versions anymore.\nAre you sure?'));
+      if (!result) {
+        return;
+      }
+    }
+    
+    delete record.convertedOnTheFly;
+    delete adjustedRecord.convertedOnTheFly;
 
     console.info('saving profile');
     

@@ -11,7 +11,7 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 [![Stories in Ready][ready-img]][waffle]
 [![Stories in Progress][progress-img]][waffle]
 
-[![Deploy to Heroku][heroku-img]][heroku-url]
+[![Deploy to Azure](http://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/) [![Deploy to Heroku][heroku-img]][heroku-url]
 
 This acts as a web-based CGM (Continuous Glucose Monitor) to allow
 multiple caregivers to remotely view a patient's glucose data in
@@ -224,6 +224,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
+  * `SHOW_FORECAST` (`ar2`) - plugin forecasts that should be shown by default, supports space delimited values such as `"ar2 openaps"` 
   * `LANGUAGE` (`en`) - language of Nightscout. If not available english is used
   * `SCALE_Y` (`log`) - The type of scaling used for the Y axis of the charts system wide.
     * The default `log` (logarithmic) option will let you see more detail towards the lower range, while still showing the full CGM range.
@@ -375,6 +376,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `OPENAPS_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when OpenAPS isn't looping.  If OpenAPS is going to offline for a period of time, you can add an `OpenAPS Offline` event for the expected duration from Careportal to avoid getting alerts. 
   * `OPENAPS_WARN` (`30`) - The number of minutes since the last loop that needs to be exceed before an alert is triggered 
   * `OPENAPS_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceed before an urgent alarm is triggered
+  * `OPENAPS_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display by default.  Any of the following fields: `status-symbol`, `status-label`, `iob`, `meal-assist`, `freq`, and `rssi`
+  * `OPENAPS_RETRO_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display in retro mode. Any of the above fields.
 
   
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
