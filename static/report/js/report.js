@@ -626,7 +626,7 @@
           treatment.mills = timestamp.getTime();
           return treatment;
         });
-        datastorage.tempbasalTreatments = Nightscout.client.ddata.processTempBasals(treatmentData.slice());
+        datastorage.tempbasalTreatments = Nightscout.client.ddata.processDurations(treatmentData.slice());
         datastorage.tempbasalTreatments.sort(function(a, b) { return a.mills - b.mills; });
       }
     }).done(function () {
