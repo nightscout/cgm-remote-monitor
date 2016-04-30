@@ -234,6 +234,7 @@ h1, legend,
   font-size: 24px;
   height: 44px;
   line-height: 54px;
+  padding-right: 8px
 }
 #buttonbar a {
   float: left;
