@@ -65,7 +65,8 @@
         "type": "string",
 		 "allowedValues": [
                 "default",
-                "colors"
+                "colors",
+                "colorblindfriendly"
             ],
 	    "defaultValue": "colors",
         },
