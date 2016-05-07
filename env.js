@@ -100,6 +100,7 @@ function setMongo() {
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
+  env.food_collection = readENV('MONGO_FOOD_COLLECTION', 'food');
 
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.
@@ -157,6 +158,8 @@ function findExtendedSettings (envs) {
             extended[enable] = exts;
             var ext = _.camelCase(env.substring(split + 1).toLowerCase());
             if (!isNaN(value)) { value = Number(value); }
+            if (typeof value === 'string' && value.toLowerCase() === 'on') { value = true; }
+            if (typeof value === 'string' && value.toLowerCase() === 'off') { value = false; }
             exts[ext] = value;
           }
         }
