@@ -486,6 +486,10 @@ The setup script will install OS packages then run `npm install`.
 The Vagrant VM serves to your host machine only on 192.168.33.10, you can access
 the web interface on [http://192.168.33.10:1337](http://192.168.33.10:1337)
 
+### Local installation
+
+If you have access to local computing resources and want to maintain more control over your data, you can host Nightscout and its database outside of the cloud. Windows Server supports MongoDB, Node.js, and Nightscout [installed on a single system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10. 
+
 More questions?
 ---------------
 
