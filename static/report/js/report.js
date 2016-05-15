@@ -144,17 +144,6 @@
   
   // ****** FOOD CODE END ******
 
-
-  function getTimeZoneOffset () {
-    var offset;
-    if (client.sbx.data.profile.getTimezone()) {
-      offset = moment().tz(client.sbx.data.profile.getTimezone())._offset;
-    } else {
-      offset = new Date().getTimezoneOffset();
-    }
-    return offset;
-  }
-  
   function prepareGUI() {
     $('.presetdates').click(function(event) { 
       var days = $(this).attr('days');
@@ -180,6 +169,12 @@
     
     $('#rp_targetlow').val(targetBGdefault[client.settings.units.toLowerCase()].low);
     $('#rp_targethigh').val(targetBGdefault[client.settings.units.toLowerCase()].high);
+
+    if (client.settings.scaleY === 'linear') {
+      $('#rp_linear').prop('checked', true);
+    } else {
+      $('#rp_log').prop('checked', true);
+    }
     
     $('.menutab').click(switchreport_handler);
 
@@ -211,7 +206,8 @@
       , carbs: true
       , iob : true
       , cob : true
-      , scale: report_plugins.consts.SCALE_LINEAR
+      , basal : true
+      , scale: report_plugins.consts.scaleYFromSettings(client)
       , units: client.settings.units
     };
 
@@ -224,6 +220,7 @@
     options.raw = $('#rp_optionsraw').is(':checked');
     options.iob = $('#rp_optionsiob').is(':checked');
     options.cob = $('#rp_optionscob').is(':checked');
+    options.basal = $('#rp_optionsbasal').is(':checked');
     options.notes = $('#rp_optionsnotes').is(':checked');
     options.food = $('#rp_optionsfood').is(':checked');
     options.insulin = $('#rp_optionsinsulin').is(':checked');
@@ -239,10 +236,8 @@
     function datefilter() {
       if ($('#rp_enabledate').is(':checked')) {
         matchesneeded++;
-        var fromdate = new Date($('#rp_from').val());
-        var todate = new Date($('#rp_to').val());
-        var from = moment.tz([fromdate.getFullYear(), fromdate.getMonth(), fromdate.getDate()],zone);
-        var to = moment.tz([todate.getFullYear(), todate.getMonth(), todate.getDate()],zone);
+        var from = moment.tz($('#rp_from').val().replace(/\//g,'-') + 'T00:00:00',zone);
+        var to = moment.tz($('#rp_to').val().replace(/\//g,'-') + 'T23:59:59',zone);
         timerange = '&find[created_at][$gte]='+from.toISOString()+'&find[created_at][$lt]='+to.toISOString();
         //console.log($('#rp_from').val(),$('#rp_to').val(),zone,timerange);
         while (from <= to) {
@@ -384,6 +379,7 @@
     
     function display() {
       var count = 0;
+      sorteddaystoshow = [];
       $('#info').html('<b>'+translate('Loading')+' ...</b>');
       for (var d in daystoshow) {
         if (daystoshow[d]===matchesneeded) {
@@ -421,19 +417,16 @@
       console.log('Total: ', daystoshow, 'Matches needed: ', matchesneeded, 'Will be loaded: ', dayscount);
    }
     
-    function dataLoadedCallback () {
+    function dataLoadedCallback (day) {
       loadeddays++;
+      sorteddaystoshow.push(day);
       if (loadeddays === dayscount) {
-        // sort array
-        sorteddaystoshow = [];
-        Object.keys(daystoshow).forEach(function (day) {
-          sorteddaystoshow.push(day);
-        });
         sorteddaystoshow.sort();
+        var from = sorteddaystoshow[0];
         if (options.order === report_plugins.consts.ORDER_NEWESTONTOP) {
           sorteddaystoshow.reverse();
         }
-        showreports(options);
+        loadTempBasals(from, function showreportscallback() { showreports(options); });
       }
     }
     
@@ -448,7 +441,7 @@
     // prepare some data used in more reports
     datastorage.allstatsrecords = [];
     datastorage.alldays = 0;
-    Object.keys(daystoshow).forEach(function (day) {
+    sorteddaystoshow.forEach(function eachDay(day) {
       datastorage.allstatsrecords = datastorage.allstatsrecords.concat(datastorage[day].statsrecords);
       datastorage.alldays++;
     });
@@ -490,7 +483,7 @@
   function loadData(day, options, callback) {
     // check for loaded data
     if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
-      callback();
+      callback(day);
       return;
     }
     // patientData = [actual, predicted, mbg, treatment, cal, devicestatusData];
@@ -500,8 +493,13 @@
       , treatmentData = []
       , calData = []
       ;
-    var dt = new Date(day);
-    var from = dt.getTime() + getTimeZoneOffset() * 60 * 1000;
+    var from;
+    if (client.sbx.data.profile.getTimezone()) {
+      from = moment(day).tz(client.sbx.data.profile.getTimezone()).startOf('day').format('x');
+    } else {
+      from = moment(day).startOf('day').format('x');
+    }
+    from = parseInt(from);
     var to = from + 1000 * 60 * 60 * 24;
     var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
     
@@ -575,6 +573,24 @@
     });
   }
 
+  function loadTempBasals(from, callback) {
+    $('#info-' + from).html('<b>'+translate('Loading temp basal data') + ' ...</b>');
+    var tquery = '?find[created_at][$gte]='+moment(from).subtract(32, 'days').toISOString()+'&find[eventType][$eq]=Temp Basal';
+    $.ajax('/api/v1/treatments.json'+tquery, {
+      success: function (xhr) {
+        var treatmentData = xhr.map(function (treatment) {
+          var timestamp = new Date(treatment.timestamp || treatment.created_at);
+          treatment.mills = timestamp.getTime();
+          return treatment;
+        });
+        datastorage.tempbasaltreatments = treatmentData.slice();
+        datastorage.tempbasaltreatments.sort(function(a, b) { return a.mills - b.mills; });
+      }
+    }).done(function () {
+      callback();
+    });
+  }
+  
   function processData(data, day, options, callback) {
     // treatments
     data.treatments.forEach(function (d) {
@@ -605,7 +621,12 @@
     data.sgv = data.sgv.concat(data.mbg.map(function (obj) { return { date: new Date(obj.mills), y: obj.y, sgv: client.utils.scaleMgdl(obj.y), color: 'red', type: 'mbg', device: obj.device } }));
 
     // make sure data range will be exactly 24h
-    var from = new Date(new Date(day).getTime() + (getTimeZoneOffset() * 60 * 1000));
+    var from;
+    if (client.sbx.data.profile.getTimezone()) {
+      from = moment(day).tz(client.sbx.data.profile.getTimezone()).startOf('day').toDate();
+    } else {
+      from = moment(day).startOf('day').toDate();
+    }
     var to = new Date(from.getTime() + 1000 * 60 * 60 * 24);
     data.sgv.push({ date: from, y: 40, sgv: 40, color: 'transparent', type: 'rawbg'});
     data.sgv.push({ date: to, y: 40, sgv: 40, color: 'transparent', type: 'rawbg'});
@@ -635,7 +656,7 @@
 
     
     datastorage[day] = data;
-    callback();
+    callback(day);
   }
 
   function maybePrevent(event) {
