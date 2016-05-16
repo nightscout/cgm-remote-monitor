@@ -27,12 +27,14 @@ low values, which can be cleared by any watcher of the data.
 Community maintained fork of the
 [original cgm-remote-monitor][original].
 
+[![Coverage Status](https://coveralls.io/repos/github/nightscout/cgm-remote-monitor/badge.svg?branch=dev)](https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=dev)
+
 [build-img]: https://img.shields.io/travis/nightscout/cgm-remote-monitor.svg
 [build-url]: https://travis-ci.org/nightscout/cgm-remote-monitor
 [dependency-img]: https://img.shields.io/david/nightscout/cgm-remote-monitor.svg
 [dependency-url]: https://david-dm.org/nightscout/cgm-remote-monitor
-[coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/master.svg
-[coverage-url]: https://coveralls.io/r/nightscout/cgm-remote-monitor?branch=master
+[coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/dev.svg
+[coverage-url]: https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=dev
 [codacy-img]: https://www.codacy.com/project/badge/f79327216860472dad9afda07de39d3b
 [codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
 [gitter-img]: https://img.shields.io/badge/Gitter-Join%20Chat%20%E2%86%92-1dce73.svg
@@ -95,6 +97,7 @@ Community maintained fork of the
     - [Treatment Profile](#treatment-profile)
   - [Setting environment variables](#setting-environment-variables)
     - [Vagrant install](#vagrant-install)
+  - [Installation on Windows](#installation-on-windows)
   - [More questions?](#more-questions)
   - [License](#license)
 
@@ -485,6 +488,10 @@ The setup script will install OS packages then run `npm install`.
 
 The Vagrant VM serves to your host machine only on 192.168.33.10, you can access
 the web interface on [http://192.168.33.10:1337](http://192.168.33.10:1337)
+
+## Installation on Windows
+
+If you have access to local computing resources and want to maintain more control over your data, you can host Nightscout and its database outside of the cloud. Windows Server supports MongoDB, Node.js, and Nightscout [installed on a single system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10. 
 
 More questions?
 ---------------
