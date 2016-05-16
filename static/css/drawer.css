@@ -10,9 +10,9 @@
 }
 
 #drawer {
-  background-color: #666;
-  border-left: 1px solid #999;
-  box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
+  background-color: #111619;
+  /*border-left: 1px solid #999;
+  box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);*/
   color: #eee;
   display: none;
   font-size: 16px;
@@ -58,7 +58,7 @@ input[type=number]:invalid {
   height: 100%;
   overflow-y: auto;
   position: absolute;
-  margin-top: 45px;
+  margin-top: 56px;
   right: -200px;
   width: 300px;
   top: 0;
@@ -152,7 +152,7 @@ input[type=number]:invalid {
 
 form {
   margin: 0;
-  padding: 0 10px;
+  padding: 0 16px;
 }
 
 .serverSettings {
