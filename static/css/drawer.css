@@ -10,16 +10,16 @@
 }
 
 #drawer {
-  background-color: #111619;
-  /*border-left: 1px solid #999;
-  box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);*/
+  background-color: #263238;
+  /*border-left: 1px solid #999;*/
+  box-shadow: 0 14px 28px rgba(38,50,56,1), 0px 50px 36px 20px rgba(17,22,25,.82);
   color: #eee;
   display: none;
   font-size: 16px;
   height: 100%;
   overflow-y: auto;
   position: absolute;
-  margin-top: 45px;
+  margin-top: 56px;
   right: -200px;
   width: 300px;
   top: 0;
