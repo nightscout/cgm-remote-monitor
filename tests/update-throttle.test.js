@@ -28,10 +28,9 @@ describe('Throttle', function ( ) {
 
   it('only update once when there are multiple posts', function (done) {
 
-    //if the data-loaded event is triggered more than once the test will fail
-    self.ctx.bus.on('data-loaded', function dataWasLoaded ( ) {
+    self.ctx.dataloader.update = function mockedUpdate () {
       done();
-    });
+    };
 
     function post () {
       request(self.app)
