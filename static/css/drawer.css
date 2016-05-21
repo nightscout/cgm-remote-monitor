@@ -84,6 +84,10 @@ input[type=number]:invalid {
   vertical-align: middle;
 }
 
+#treatmentDrawer fieldset fieldset .left-column span {
+  width: 96px;
+}
+
 #treatmentDrawer .left-column input, #treatmentDrawer .left-column select {
   width: 140px;
 }
