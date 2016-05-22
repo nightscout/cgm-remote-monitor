@@ -104,7 +104,7 @@ describe('pump', function ( ) {
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm();
+    var highest = ctx.notifications.findHighestAlarm('Pump');
     should.not.exist(highest);
 
     done();
@@ -130,7 +130,7 @@ describe('pump', function ( ) {
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm();
+    var highest = ctx.notifications.findHighestAlarm('Pump');
     highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Warning, Pump Battery Low');
 
@@ -157,7 +157,7 @@ describe('pump', function ( ) {
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm();
+    var highest = ctx.notifications.findHighestAlarm('Pump');
     highest.level.should.equal(levels.URGENT);
     highest.title.should.equal('URGENT: Pump Battery Low');
 
@@ -182,7 +182,7 @@ describe('pump', function ( ) {
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm();
+    var highest = ctx.notifications.findHighestAlarm('Pump');
     should.not.exist(highest);
     done();
   });
