@@ -75,7 +75,6 @@ describe('Treatment API', function ( ) {
     var doneCalled = false;
 
     self.ctx.bus.on('data-loaded', function dataWasLoaded ( ) {
-      console.info('>>>self.ctx.ddata.treatments', self.ctx.ddata.treatments);
       self.ctx.ddata.treatments.length.should.equal(3);
       self.ctx.ddata.treatments[0].mgdl.should.equal(100);
       should.not.exist(self.ctx.ddata.treatments[0].eventTime);
