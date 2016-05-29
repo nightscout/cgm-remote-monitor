@@ -35,9 +35,6 @@ report:
 	(npm install coveralls && cat ${ANALYZED} | \
 	./node_modules/.bin/coveralls) || echo "NO COVERAGE"
 	test -f ${ANALYZED} && \
-	(npm install codecov.io && cat ${ANALYZED} | \
-	./node_modules/codecov.io/bin/codecov.io.js) || echo "NO COVERAGE"
-	test -f ${ANALYZED} && \
 	(npm install codacy-coverage && cat ${ANALYZED} | \
 	YOURPACKAGE_COVERAGE=1 ./node_modules/codacy-coverage/bin/codacy-coverage.js) || echo "NO COVERAGE"
 
