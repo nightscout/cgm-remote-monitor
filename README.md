@@ -8,8 +8,6 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 [![Coverage Status][coverage-img]][coverage-url]
 [![Codacy Badge][codacy-img]][codacy-url]
 [![Gitter chat][gitter-img]][gitter-url]
-[![Stories in Ready][ready-img]][waffle]
-[![Stories in Progress][progress-img]][waffle]
 
 [![Deploy to Azure](http://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/) [![Deploy to Heroku][heroku-img]][heroku-url]
 
@@ -37,9 +35,6 @@ Community maintained fork of the
 [codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
 [gitter-img]: https://img.shields.io/badge/Gitter-Join%20Chat%20%E2%86%92-1dce73.svg
 [gitter-url]: https://gitter.im/nightscout/public
-[ready-img]: https://badge.waffle.io/nightscout/cgm-remote-monitor.svg?label=ready&title=Ready
-[waffle]: https://waffle.io/nightscout/cgm-remote-monitor
-[progress-img]: https://badge.waffle.io/nightscout/cgm-remote-monitor.svg?label=in+progress&title=In+Progress
 [heroku-img]: https://www.herokucdn.com/deploy/button.png
 [heroku-url]: https://heroku.com/deploy
 [original]: https://github.com/rnpenguin/cgm-remote-monitor
@@ -72,7 +67,7 @@ Community maintained fork of the
         - [`ar2` (AR2 Forecasting)](#ar2-ar2-forecasting)
         - [`simplealarms` (Simple BG Alarms)](#simplealarms-simple-bg-alarms)
         - [`profile` (Treatment Profile)](#profile-treatment-profile)
-      - [Built-in/Example Plugins:](#built-inexample-plugins)
+      - [Advanced Plugins](#advanced-plugins)
         - [`careportal` (Careportal)](#careportal-careportal)
         - [`boluscalc` (Bolus Wizard)](#boluscalc-bolus-wizard)
         - [`food` (Custom Foods)](#food-custom-foods)
