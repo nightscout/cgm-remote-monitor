@@ -523,7 +523,9 @@ function ranger (dom, opts) {
   function on_data (payload) {
     var days = time_in_range(payload, opts);
     my.data = days;
-    my( );
+    if (dots && dots.selectAll) {
+      my( );
+    }
     // console.log('got days', days);
   }
 
