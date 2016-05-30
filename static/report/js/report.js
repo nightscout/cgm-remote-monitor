@@ -78,7 +78,7 @@
     filter.subcategory = '';
     $('#rp_subcategory').empty().append('<option value="">' + translate('(none)') + '</option>');
     if (filter.category !== '') {
-      Object.keys(food_categories[filter.category]).forEach(function eachSubCategory(s) {
+      Object.keys(food_categories[filter.category] || {}).forEach(function eachSubCategory(s) {
         $('#rp_subcategory').append('<option value="' + s + '">' + s + '</option>');
       });
     }

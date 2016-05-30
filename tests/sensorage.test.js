@@ -31,7 +31,7 @@ describe('sage', function ( ) {
       , pluginBase: {
         updatePillText: function mockedUpdatePillText(plugin, options) {
           options.value.should.equal('3d0h');
-          options.info[0].label.should.equal('Sensor Change');
+          options.info[0].label.should.equal('Sensor Insert');
           options.info[1].should.match({ label: 'Duration', value: '15 days 0 hours' });
           options.info[2].should.match({ label: 'Notes:', value: 'Foo' });
           options.info[3].label.should.equal('Sensor Start');
@@ -86,7 +86,7 @@ describe('sage', function ( ) {
       , pluginBase: {
         updatePillText: function mockedUpdatePillText(plugin, options) {
           options.value.should.equal('3d0h');
-          options.info[0].label.should.equal('Sensor Change');
+          options.info[0].label.should.equal('Sensor Insert');
           options.info[1].should.match({ label: 'Duration', value: '3 days 0 hours' });
           options.info[2].should.match({ label: 'Notes:', value: 'Foo' });
           done();
@@ -114,7 +114,7 @@ describe('sage', function ( ) {
         updatePillText: function mockedUpdatePillText(plugin, options) {
           options.value.should.equal('3d0h');
           options.info.length.should.equal(3);
-          options.info[0].label.should.equal('Sensor Change');
+          options.info[0].label.should.equal('Sensor Insert');
           options.info[1].should.match({ label: 'Duration', value: '3 days 0 hours' });
           options.info[2].should.match({ label: 'Notes:', value: 'Foo' });
           done();
