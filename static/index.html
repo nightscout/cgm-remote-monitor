@@ -25,10 +25,10 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.9.0-dev" />
-      <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.9.0-dev" />
+      <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.9.0-beta3" />
+      <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.9.0-beta3" />
       <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-      <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.9.0-dev" />
+      <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.9.0-beta3" />
       <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
       <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">
     </head>
@@ -67,7 +67,7 @@
                     </div>
                 </div>
                 <ul class="focus-range">
-                    <li class="selected translate" data-hours="3">3HR</li>
+                    <li data-hours="3" class="translate">3HR</li>
                     <li data-hours="6" class="translate">6HR</li>
                     <li data-hours="12" class="translate">12HR</li>
                     <li data-hours="24" class="translate">24HR</li>
@@ -166,6 +166,7 @@
                         <dt class="translate">Theme</dt>
                         <dd><input type="radio" name="theme-browser" id="theme-default-browser" value="default" checked /><label for="theme-default-browser" class="translate">Default</label></dd>
                         <dd><input type="radio" name="theme-browser" id="theme-colors-browser" value="colors" /><label for="theme-colors-browser" class="translate">Colors</label></dd>
+                        <dd><input type="radio" name="theme-browser" id="theme-colorblindfriendly-browser" value="colorblindfriendly" /><label for="theme-colorblindfriendly-browser" class="translate">Colorblind-friendly colors</label></dd>
                     </dl>
                     <dl id="show-plugins" class="toggle">
                         <dt class="translate">Show Plugins</dt>
@@ -190,7 +191,6 @@
                         <a href="https://github.com/nightscout/cgm-remote-monitor/releases" target="_blank">Release Notes</a><br />
                         <a href="http://github.com/nightscout/cgm-remote-monitor" target="_blank">Open Source</a><br />
                         <a href="http://www.nightscout.info" target="_blank">Nightscout Info</a><br />
-                        <a href="http://www.nightscoutfoundation.org/donations/" target="_blank">Help Support Nightscout</a><br />
                         <a href="https://www.facebook.com/groups/cgminthecloud/" target="_blank">CGM in the Cloud</a><br />
                     </div>
                 </fieldset>
@@ -589,8 +589,8 @@
             <audio src="/audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
         </div>
 
-        <script src="/api/v1/status.js?v=0.9.0-dev"></script>
-        <script src="/public/js/bundle.js?v=0.9.0-dev"></script>
+        <script src="/api/v1/status.js?v=0.9.0-beta3"></script>
+        <script src="/public/js/bundle.js?v=0.9.0-beta3"></script>
         <script src="/socket.io/socket.io.js"></script>
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>

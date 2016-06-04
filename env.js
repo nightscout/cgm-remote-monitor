@@ -19,6 +19,10 @@ function config ( ) {
   env.PORT = readENV('PORT', 1337);
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
 
+  if (env.err) {
+    delete env.err;
+  }
+
   setSSL();
   setAPISecret();
   setVersion();
@@ -54,12 +58,14 @@ function setAPISecret() {
   // if a passphrase was provided, get the hex digest to mint a single token
   if (useSecret) {
     if (readENV('API_SECRET').length < consts.MIN_PASSPHRASE_LENGTH) {
-      var msg = ['API_SECRET should be at least', consts.MIN_PASSPHRASE_LENGTH, 'characters'];
-      throw new Error(msg.join(' '));
+      var msg = ['API_SECRET should be at least', consts.MIN_PASSPHRASE_LENGTH, 'characters'].join(' ');
+      console.error(msg);
+      env.err = {desc: msg};
+    } else {
+      var shasum = crypto.createHash('sha1');
+      shasum.update(readENV('API_SECRET'));
+      env.api_secret = shasum.digest('hex');
     }
-    var shasum = crypto.createHash('sha1');
-    shasum.update(readENV('API_SECRET'));
-    env.api_secret = shasum.digest('hex');
   }
 }
 
@@ -81,7 +87,7 @@ function setVersion() {
 }
 
 function setMongo() {
-  env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI');
+  env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI') || readENV('MONGODB_URI');
   env.mongo_collection = readENV('MONGO_COLLECTION', 'entries');
   env.MQTT_MONITOR = readENV('MQTT_MONITOR', null);
   if (env.MQTT_MONITOR) {
@@ -134,8 +140,8 @@ function readENV(varName, defaultValue) {
     || process.env[varName]
     || process.env[varName.toLowerCase()];
 
-  if (typeof value === 'string' && value.toLowerCase() === 'on') { value = true; }
-  if (typeof value === 'string' && value.toLowerCase() === 'off') { value = false; }
+  if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
+  if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
 
   return value != null ? value : defaultValue;
 }

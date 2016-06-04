@@ -75,7 +75,7 @@ ctx.ddata.cals = updateMills([
   }
 ]);
 
-ctx.ddata.profiles = [{dia: 4 }];
+ctx.ddata.profiles = [{dia: 4, sens: 70, carbratio: 15, carbs_hr: 30}];
 
 ctx.ddata.treatments = updateMills([
   { eventType: 'Snack Bolus', insulin: '1.50', carbs: '22' }
@@ -111,6 +111,7 @@ describe('Pebble Endpoint', function ( ) {
         should.not.exist(bg.noise);
         should.not.exist(bg.rssi);
         should.not.exist(bg.iob);
+        should.not.exist(bg.cob);
         bg.battery.should.equal('100');
 
         res.body.cals.length.should.equal(0);
@@ -212,11 +213,11 @@ describe('Pebble Endpoint', function ( ) {
   });
 });
 
-describe('Pebble Endpoint with Raw and IOB', function ( ) {
+describe('Pebble Endpoint with Raw and IOB and COB', function ( ) {
   var pebbleRaw = require('../lib/pebble');
   before(function (done) {
     var envRaw = require('../env')( );
-    envRaw.settings.enable = ['rawbg', 'iob'];
+    envRaw.settings.enable = ['rawbg', 'iob', 'cob'];
     this.appRaw = require('express')( );
     this.appRaw.enable('api');
     this.appRaw.use('/pebble', pebbleRaw(envRaw, ctx));
@@ -242,6 +243,7 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
         bg.noise.should.equal(1);
         bg.battery.should.equal('100');
         bg.iob.should.equal('1.50');
+        bg.cob.should.equal(22);
 
         res.body.cals.length.should.equal(1);
         var cal = res.body.cals[0];
@@ -262,6 +264,7 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
         bgs.length.should.equal(1);
         var bg = bgs[0];
         bg.iob.should.equal(0);
+        bg.cob.should.equal(0);
         done();
       });
   });
@@ -277,6 +280,7 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
         bgs.length.should.equal(1);
         var bg = bgs[0];
         bg.iob.should.equal('2.30');
+        bg.cob.should.equal(0);
         done();
       });
   });
