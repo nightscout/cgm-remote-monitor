@@ -6,11 +6,8 @@ var benv = require('benv');
 var read = require('fs').readFileSync;
 var serverSettings = require('./fixtures/default-server-settings');
 
-var nowData = {
-  sgvs: [
-    { mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' }
-  ]
-};
+var nowData = require('../lib/data/ddata')();
+nowData.sgvs.push({ mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' });
 
 var exampleProfile = {
   defaultProfile : 'Default'
@@ -56,12 +53,12 @@ var exampleProfile = {
         'target_low':[
           {
             'time': '00:00',
-            'value': 0
+            'value': 100
           }],
         'target_high':[
           {
             'time': '00:00',
-            'value': 0
+            'value': 120
           }]
       }
   }
@@ -190,10 +187,55 @@ describe('Profile editor', function ( ) {
     
     //var result = $('body').html();
     //var filesys = require('fs');
-    //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
+    //var logfile = filesys.createWriteStream('out.html', { flags: 'a'} )
     //logfile.write($('body').html());
     
-    //console.log(result);
+    // database records manipulation
+    $('#pe_databaserecords option').length.should.be.equal(1);
+    $('#pe_records_add').click();
+    $('#pe_databaserecords option').length.should.be.equal(2);
+    $('#pe_records_remove').click();
+    $('#pe_databaserecords option').length.should.be.equal(1);
+    $('#pe_records_clone').click();
+    $('#pe_databaserecords option').length.should.be.equal(2);
+    $('#pe_databaserecords option').val(0);
+
+    //console.log($('#pe_databaserecords').html());
+    //console.log($('#pe_databaserecords').val());
+
+    // database records manipulation
+    $('#pe_profiles option').length.should.be.equal(1);
+    $('#pe_profile_add').click();
+    $('#pe_profiles option').length.should.be.equal(2);
+    $('#pe_profile_name').val('Test');
+    $('#pe_profiles option').val('Default');
+    $('#pe_profiles option').val('Test');
+    $('#pe_profile_remove').click();
+    $('#pe_profiles option').length.should.be.equal(1);
+    $('#pe_profile_clone').click();
+    $('#pe_profiles option').length.should.be.equal(2);
+    $('#pe_profiles option').val('Default');
+
+    //console.log($('#pe_profiles').html());
+    //console.log($('#pe_profiles').val());
+
+
+    // I:C range
+    $('#pe_ic_val_0').val().should.be.equal('30');
+    $('#pe_ic_placeholder').find('img.addsingle').click();
+    $('#pe_ic_val_0').val().should.be.equal('0');
+    $('#pe_ic_val_1').val().should.be.equal('30');
+    $('#pe_ic_placeholder').find('img.delsingle').click();
+    $('#pe_ic_val_0').val().should.be.equal('30');
+
+    // traget bg range
+    $('#pe_targetbg_low_0').val().should.be.equal('100');
+    $('#pe_targetbg_placeholder').find('img.addtargetbg').click();
+    $('#pe_targetbg_low_0').val().should.be.equal('0');
+    $('#pe_targetbg_low_1').val().should.be.equal('100');
+    $('#pe_targetbg_placeholder').find('img.deltargetbg').click();
+    $('#pe_targetbg_low_0').val().should.be.equal('100');
+
 
     $('#pe_submit').click();
     done();
