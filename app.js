@@ -1,7 +1,6 @@
 
 var express = require('express');
 var compression = require('compression');
-var bodyParser = require('body-parser');
 function create (env, ctx) {
   ///////////////////////////////////////////////////
   // api and json object variables
@@ -18,12 +17,11 @@ function create (env, ctx) {
     // fallback to standard filter function
     return compression.filter(req, res);
   }}));
-  // app.use(bodyParser({limit: 1048576 * 50, extended: true }));
 
   //if (env.api_secret) {
   //    console.log("API_SECRET", env.api_secret);
   //}
-  app.use('/api/v1', bodyParser({limit: 1048576 * 50 }), api);
+  app.use('/api/v1', api);
 
 
   // pebble data
