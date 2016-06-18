@@ -104,11 +104,66 @@ describe('pump', function ( ) {
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm();
+    var highest = ctx.notifications.findHighestAlarm('Pump');
     should.not.exist(highest);
 
     done();
   });
+
+  it('generate an alert when reservoir is low', function (done) {
+    var ctx = {
+      settings: {
+        units: 'mg/dl'
+      }
+      , notifications: require('../lib/notifications')(env, ctx)
+    };
+
+    ctx.notifications.initRequests();
+
+    var lowResStatuses = _.cloneDeep(statuses);
+    lowResStatuses[1].pump.reservoir = 0.5;
+
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {
+      devicestatus: lowResStatuses
+    });
+    sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
+    pump.setProperties(sbx);
+    pump.checkNotifications(sbx);
+
+    var highest = ctx.notifications.findHighestAlarm('Pump');
+    highest.level.should.equal(levels.URGENT);
+    highest.title.should.equal('URGENT: Pump Reservoir Low');
+
+    done();
+  });
+
+  it('generate an alert when reservoir is 0', function (done) {
+    var ctx = {
+      settings: {
+        units: 'mg/dl'
+      }
+      , notifications: require('../lib/notifications')(env, ctx)
+    };
+
+    ctx.notifications.initRequests();
+
+    var lowResStatuses = _.cloneDeep(statuses);
+    lowResStatuses[1].pump.reservoir = 0;
+
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {
+      devicestatus: lowResStatuses
+    });
+    sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
+    pump.setProperties(sbx);
+    pump.checkNotifications(sbx);
+
+    var highest = ctx.notifications.findHighestAlarm('Pump');
+    highest.level.should.equal(levels.URGENT);
+    highest.title.should.equal('URGENT: Pump Reservoir Low');
+
+    done();
+  });
+
 
   it('generate an alert when battery is low', function (done) {
     var ctx = {
@@ -130,7 +185,7 @@ describe('pump', function ( ) {
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm();
+    var highest = ctx.notifications.findHighestAlarm('Pump');
     highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Warning, Pump Battery Low');
 
@@ -157,7 +212,7 @@ describe('pump', function ( ) {
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm();
+    var highest = ctx.notifications.findHighestAlarm('Pump');
     highest.level.should.equal(levels.URGENT);
     highest.title.should.equal('URGENT: Pump Battery Low');
 
@@ -182,7 +237,7 @@ describe('pump', function ( ) {
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm();
+    var highest = ctx.notifications.findHighestAlarm('Pump');
     should.not.exist(highest);
     done();
   });
