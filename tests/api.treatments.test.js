@@ -17,6 +17,7 @@ describe('Treatment API', function ( ) {
     self.app.enable('api');
     require('../lib/bootevent')(self.env).boot(function booted(ctx) {
       self.ctx = ctx;
+      self.ctx.ddata = require('../lib/data/ddata')();
       self.app.use('/api', api(self.env, ctx));
       done();
     });
@@ -36,9 +37,6 @@ describe('Treatment API', function ( ) {
       should.not.exist(self.ctx.ddata.treatments[0].notes);
 
       should.not.exist(self.ctx.ddata.treatments[1].eventTime);
-      should.not.exist(self.ctx.ddata.treatments[1].glucose);
-      should.not.exist(self.ctx.ddata.treatments[1].glucoseType);
-      should.not.exist(self.ctx.ddata.treatments[1].units);
       self.ctx.ddata.treatments[1].insulin.should.equal(2);
       self.ctx.ddata.treatments[2].carbs.should.equal(30);
 
@@ -63,7 +61,7 @@ describe('Treatment API', function ( ) {
       request(self.app)
         .post('/api/treatments/')
         .set('api-secret', self.env.api_secret || '')
-        .send({eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucoseType: 'Finger', units: 'mg/dl'})
+        .send({eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'})
         .expect(200)
         .end(function (err) {
           if (err) {
@@ -79,16 +77,8 @@ describe('Treatment API', function ( ) {
 
     self.ctx.bus.on('data-loaded', function dataWasLoaded ( ) {
       self.ctx.ddata.treatments.length.should.equal(3);
-      self.ctx.ddata.treatments[0].mgdl.should.equal(100);
       should.not.exist(self.ctx.ddata.treatments[0].eventTime);
-      should.not.exist(self.ctx.ddata.treatments[0].notes);
-
       should.not.exist(self.ctx.ddata.treatments[1].eventTime);
-      should.not.exist(self.ctx.ddata.treatments[1].glucose);
-      should.not.exist(self.ctx.ddata.treatments[1].glucoseType);
-      should.not.exist(self.ctx.ddata.treatments[1].units);
-      self.ctx.ddata.treatments[1].insulin.should.equal(2);
-      self.ctx.ddata.treatments[2].carbs.should.equal(30);
 
       //if travis is slow the 2 posts take long enough that 2 data-loaded events are emitted
       if (!doneCalled) { done(); }
@@ -102,7 +92,7 @@ describe('Treatment API', function ( ) {
         .set('api-secret', self.env.api_secret || '')
         .send([
           {eventType: 'BG Check', glucose: 100, preBolus: '0', glucoseType: 'Finger', units: 'mg/dl', notes: ''}
-          , {eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucoseType: 'Finger', units: 'mg/dl'}
+          , {eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'}
          ])
         .expect(200)
         .end(function (err) {
@@ -132,15 +122,15 @@ describe('Treatment API', function ( ) {
         .post('/api/treatments/')
         .set('api-secret', self.env.api_secret || '')
         .send([
-          {eventType: 'BG Check', glucose: 100, created_at: now}
-          , {eventType: 'BG Check', glucose: 100, created_at: now}
-          , {eventType: 'BG Check', glucose: 100, created_at: now}
-          , {eventType: 'BG Check', glucose: 100, created_at: now}
-          , {eventType: 'BG Check', glucose: 100, created_at: now}
-          , {eventType: 'BG Check', glucose: 100, created_at: now}
-          , {eventType: 'BG Check', glucose: 100, created_at: now}
-          , {eventType: 'BG Check', glucose: 100, created_at: now}
-          , {eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucoseType: 'Finger', units: 'mg/dl'}
+          {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now}
+          , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now}
+          , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now}
+          , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now}
+          , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now}
+          , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now}
+          , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now}
+          , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now}
+          , {eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'}
         ])
         .expect(200)
         .end(function (err) {
