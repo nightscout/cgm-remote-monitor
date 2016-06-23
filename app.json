@@ -8,22 +8,27 @@
       "required": true
     },
     "API_SECRET": {
-      "description": "REQUIRED: User generated password used for REST API and optional features (12 character minimum).",
+      "description": "REQUIRED: A secret passphrase that must be at least 12 characters long, required to enable POST and PUT; also required for the Care Portal",
       "value": "",
       "required": true
     },
     "DISPLAY_UNITS": {
-      "description": "Server display units for BG values.  Default null value implies 'mg/dl'.  Set to 'mmol' to change the server to mmol mode.",
+      "description": "Choices: mg/dl and mmol. Setting to mmol puts the entire server into mmol mode by default, no further settings needed.",
       "value": "",
       "required": false
     },
     "ENABLE": {
-      "description": "Space delimited list of optional features to enable, such as 'careportal'.",
+      "description": "Used to enable optional features, expects a space delimited list, such as: careportal rawbg iob, see https://github.com/nightscout/cgm-remote-monitor/blob/master/README.md for more info",
+      "value": "",
+      "required": false
+    },
+    "DISABLE": {
+      "description": "Used to disable default features, expects a space delimited list, such as: direction upbat, see https://github.com/nightscout/cgm-remote-monitor/blob/master/README.md for more info",
       "value": "",
       "required": false
     },
     "ALARM_TYPES": {
-      "description": "Nightscout alarm behavior control. Default null value implies 'predict'. For adjustable alarm thresholds (set below), set to 'simple'.",
+      "description": "Alarm behavior currently 2 alarm types are supported simple and predict, and can be used independently or combined. The simple alarm type only compares the current BG to BG_ thresholds above, the predict alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend. predict DOES NOT currently use any of the BG_* ENV's",
       "value": "",
       "required": false
     },
@@ -54,6 +59,106 @@
     },
     "PUSHOVER_USER_KEY": {
       "description": "Pushover user key, required for Pushover notifications. Leave blank if not using Pushover.",
+      "value": "",
+      "required": false
+    },
+    "PUSHOVER_ANNOUNCEMENT_KEY": {
+      "description": "An optional Pushover user/group key, will be used for system wide user generated announcements.  If not defined this will fallback to `PUSHOVER_USER_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also support a space delimited list of keys. Leave blank if not using Pushover",
+      "value": "",
+      "required": false
+    },
+    "CUSTOM_TITLE": {
+      "description": "Customize the name of the website, usually the name of T1.",
+      "value": "",
+      "required": false
+    },
+    "THEME": {
+      "description": "Possible values default, colors or colorblindfriendly",
+      "value": "",
+      "required": false
+    },
+    "SHOW_RAWBG": {
+      "description": "Possible values always, never or noise",
+      "value": "",
+      "required": false
+    },
+    "BRIDGE_USER_NAME": {
+      "description": "Share bridge - Your user name for the Share service. ENSURE bridge is in ENABLE if you want to use the share bridge",
+      "value": "",
+      "required": false
+    },
+    "BRIDGE_PASSWORD": {
+      "description": "Share bridge - Your password for the Share service. ENSURE bridge is in ENABLE if you want to use the share bridge",
+      "value": "",
+      "required": false
+    },
+    "TIME_FORMAT": {
+      "description": "Browser default time mode valid settings are 12 or 24",
+      "value": "12",
+      "required": false 
+    },
+    "NIGHT_MODE": {
+      "description": "Browser defaults to night mode valid settings are on or off",
+      "value": "off",
+      "required": false 
+    },
+    "SHOW_RAWBG": {
+      "description": "Browser default raw display mode vaild settings are always never or noise",
+      "value": "never",
+      "required": false 
+    },
+    "THEME": {
+      "description": "Browser default theme setting vaild settings are default or colors",
+      "value": "default",
+      "required": false 
+    },
+    "ALARM_URGENT_HIGH": {
+      "description": "Browser default urgent high alarm enabled vaild settings are on or off",
+      "value": "on",
+      "required": false 
+    },
+    "ALARM_HIGH": {
+      "description": "Browser default high alarm enabled vaild settings are on or off",
+      "value": "on",
+      "required": false
+    },
+    "ALARM_LOW": {
+      "description": "Browser default low alarm enabled vaild settings are on or off",
+      "value": "on",
+      "required": false
+    },
+    "ALARM_URGENT_LOW": {
+      "description": "Browser default urgent low alarm enabled vaild settings are on or off",
+      "value": "on",
+      "required": false
+    },
+    "ALARM_TIMEAGO_WARN": {
+      "description": "Browser default warn after time of last data exceeds ALARM_TIMEAGO_WARN_MINS alarm enabled vaild settings are on or off",
+      "value": "on",
+      "required": false
+    },
+    "ALARM_TIMEAGO_WARN_MINS": {
+      "description": "Browser default minutes since the last reading to trigger a warning",
+      "value": "15",
+      "required": false
+    },
+    "ALARM_TIMEAGO_URGENT": {
+      "description": "Browser default urgent warning after time of last data exceeds ALARM_TIMEAGO_URGENT_MINS alarm enabled vaild settings are on or off",
+      "value": "on",
+      "required": false
+    },
+    "ALARM_TIMEAGO_URGENT_MINS": {
+      "description": "Browser default minutes since last reading to trigger an urgent alarm",
+      "value": "30",
+      "required": false
+    },
+    "MAKER_KEY": {
+      "description": "Maker Key - Set this to your secret key Note for additional info see https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md#ifttt-maker , maker should be added to enable if you want to use maker, Leave blank if not using maker",
+      "value": "",
+      "required": false
+    },
+    "MAKER_ANNOUNCEMENT_KEY": {
+      "description": "Maker Announcement Key - Set this to your secret key for announcements Note for additional info see https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md#ifttt-maker , maker should be added to enable if you want to use maker Leave blank if not using maker",
       "value": "",
       "required": false
     }

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+    <head>
+      <title>Nightscout reporting</title>
+
+      <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
+      <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
+      <link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png">
+      <link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png">
+      <link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png">
+      <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
+      <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
+      <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
+      <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
+      <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
+      <link rel="icon" type="image/png" href="/images/android-chrome-192x192.png" sizes="192x192">
+      <link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96">
+      <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
+      <link rel="manifest" href="/manifest.json">
+      <link rel="shortcut icon" href="/images/favicon.ico">
+      <meta name="msapplication-TileColor" content="#00a300">
+      <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
+      <meta name="msapplication-config" content="/browserconfig.xml">
+      <meta name="theme-color" content="#333333">
+
+      <link rel="stylesheet" type="text/css" href="/css/report.css?v=0.9.0-beta3" />
+      <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-lightness/jquery-ui.min.css">    
+    </head>
+    <body>
+        <h1><img src="/images/logo1.png"><span class="translate">Nightscout reporting</span></h1>
+    <ul id="tabnav">
+    </ul>
+    <table>
+      <tr>
+        <td><input type="checkbox" id="rp_enabledate" checked></td>
+        <td>
+          <span class="translate">From</span>: <input type="date" id="rp_from">
+          <span class="translate">To</span>: <input type="date" id="rp_to">
+          <a href="#" days="1" class="presetdates"><span class="translate">Today</span></a>
+          <a href="#" days="2" class="presetdates"><span class="translate">Last 2 days</span></a>
+          <a href="#" days="3" class="presetdates"><span class="translate">Last 3 days</span></a>
+          <a href="#" days="7" class="presetdates"><span class="translate">Last week</span></a>
+          <a href="#" days="14" class="presetdates"><span class="translate">Last 2 weeks</span></a>
+          <a href="#" days="31" class="presetdates"><span class="translate">Last month</span></a>
+          <a href="#" days="90" class="presetdates"><span class="translate">Last 3 months</span></a>
+        </td>
+       </tr>
+      <tr class="rp_foodgui" style="display:none">
+        <td></td>
+        <td>
+          <span class="translate">Category</span>: <select id="rp_category"></select>
+          <span class="translate">Subcategory</span>: <select id="rp_subcategory"></select>
+          <span class="translate">Name</span>: <input type="text" id="rp_name"></select>
+        </td>
+ 
+      </tr>
+      <tr class="rp_foodgui" style="display:none">
+        <td>
+          <input type="checkbox" id="rp_enablefood">
+        </td>
+        <td>
+          <span class="translate">Food</span>: <select id="rp_food"></select>
+        </td>
+       </tr>
+      <tr>
+        <td><input type="checkbox" id="rp_enablenotes"></td>
+        <td>
+          <span class="translate">Notes contain</span>: <input type="text" id="rp_notes"></select>
+        </td>
+       </tr>
+      <tr>
+      <tr>
+        <td><input type="checkbox" id="rp_enableeventtype"></td>
+        <td>
+          <span class="translate">Event Type</span>: <select id="rp_eventtype"></select>
+        </td>
+       </tr>
+      <tr>
+        <td colspan="2">
+          <input type="checkbox" id="rp_mo" checked><span class="translate">Mo</span>
+          <input type="checkbox" id="rp_tu" checked><span class="translate">Tu</span>
+          <input type="checkbox" id="rp_we" checked><span class="translate">We</span>
+          <input type="checkbox" id="rp_th" checked><span class="translate">Th</span>
+          <input type="checkbox" id="rp_fr" checked><span class="translate">Fr</span>
+          <input type="checkbox" id="rp_sa" checked><span class="translate">Sa</span>
+          <input type="checkbox" id="rp_su" checked><span class="translate">Su</span>
+        </td>
+        <td></td>
+      </tr>
+      <tr>
+        <td colspan="2">
+          <span class="translate">Target bg range bottom</span>:
+          <input type="number" size="3" id="rp_targetlow">
+          <span class="translate">top</span>:
+          <input type="number" size="3" id="rp_targethigh">
+        </td>
+        <td></td>
+      </tr>
+      <tr>
+        <td colspan="2">
+          <span class="translate">Order</span>:
+          <input type="radio" name="rp_sorting" id="rp_oldestontop" checked>
+          <label for="rp_oldestontop" class="translate">oldest on top</label>
+          &nbsp;
+          <input type="radio" name="rp_sorting" id="rp_newestontop">
+          <label for="rp_oldestontop" class="translate">newest on top</label>
+        </td>
+        <td></td>
+      </tr>
+    </table>
+    <button id="rp_show" class="translate">Show</button>
+    <div id="info"></div>
+    <hr>
+    <div id="pluginchartplaceholders"></div>
+
+    <hr>
+    <b><span class="translate">Authentication status</span>: </b><span id="authentication_placeholder"></span>
+
+    <script src="/api/v1/status.js?v=0.9.0-beta3"></script>
+    <script src="/public/js/bundle.js?v=0.9.0-beta3"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
+    <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
+    <script src="/bower_components/jquery-flot/jquery.flot.js"></script>
+    <script src="/bower_components/jquery-flot/jquery.flot.pie.js"></script>
+    <script src="/bower_components/jquery-flot/jquery.flot.time.js"></script>
+    <script src="/bower_components/jquery-flot/jquery.flot.fillbetween.js"></script>
+    <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
+    <script src="/report/js/report.js?v=0.9.0-beta3"></script>
+    <script src="/report/js/flotcandle.js"></script>
+    </body>
+</html>
