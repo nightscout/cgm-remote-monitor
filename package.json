@@ -69,7 +69,7 @@
     "minimed-connect-to-nightscout": "git://github.com/mddub/minimed-connect-to-nightscout#v1.1.0",
     "moment": "2.10.6",
     "moment-timezone": "^0.4.0",
-    "mongodb": "^2.0.42",
+    "mongodb": "2.1.18",
     "mqtt": "~0.3.11",
     "node-cache": "^3.0.0",
     "parse-duration": "^0.1.1",
