@@ -1,4 +1,4 @@
 {
-    "url": null,
-    "collection": null
+    "url": "mongodb://heroku_app35988297:tn0s999kpi8fil6aasjjf2b5oc@ds061731.mongolab.com:61731/heroku_app35988297",
+    "collection": "entries"
 }
