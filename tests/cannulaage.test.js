@@ -81,7 +81,7 @@ describe('cage', function ( ) {
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
     cage.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm();
+    var highest = ctx.notifications.findHighestAlarm('CAGE');
     highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Cannula age 48 hours');
     done();
