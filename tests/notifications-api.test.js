@@ -27,6 +27,8 @@ describe('Notifications API', function ( ) {
       }
     };
 
+    ctx.authorization = require('../lib/authorization')(env, ctx);
+
     var notifications = require('../lib/notifications')(env, ctx);
     ctx.notifications = notifications;
 
