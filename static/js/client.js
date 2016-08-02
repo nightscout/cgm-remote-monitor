@@ -1,10 +1,10 @@
 'use strict';
 
-if (serverSettings === undefined) {
+if (this.serverSettings === undefined) {
   console.error('server settings were not loaded, will not call init');
 } else {
-  if (authorized) {
-    authorized.lat = Date.now();
+  if (this.authorized) {
+    this.authorized.lat = Date.now();
   }
-  window.Nightscout.client.init(serverSettings, Nightscout.plugins, authorized);
+  window.Nightscout.client.init(this.serverSettings, Nightscout.plugins, this.authorized);
 }
