@@ -8,7 +8,10 @@
   if (serverSettings === undefined) {
     console.error('server settings were not loaded, will not call init');
   } else {
-    client.init(serverSettings, Nightscout.plugins);
+    if (authorized) {
+      authorized.lat = Date.now();
+    }
+    client.init(serverSettings, Nightscout.plugins, authorized);
   }
   
   // init HTML code
