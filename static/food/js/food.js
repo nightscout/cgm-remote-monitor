@@ -523,9 +523,7 @@ var client = Nightscout.client;
         method: 'POST',
         url: '/api/v1/food/',
         data: foodrec,
-        headers: {
-          'api-secret': client.hashauth.hash()
-        }
+        headers: client.headers()
       }).done(function success (response) {
         $('#fe_status').hide().text('OK').fadeIn('slow');
         foodrec._id = response[0]._id;
@@ -547,9 +545,7 @@ var client = Nightscout.client;
         method: 'PUT',
         url: '/api/v1/food/',
         data: foodrec,
-        headers: {
-          'api-secret': client.hashauth.hash()
-        }
+        headers: client.headers()
       }).done(function success () {
         $('#fe_status').hide().text('OK').fadeIn('slow');
         updateFoodArray(foodrec);
@@ -574,9 +570,7 @@ var client = Nightscout.client;
       method: 'DELETE',
       url: '/api/v1/food/'+_id,
       data: foodrec,
-      headers: {
-        'api-secret': client.hashauth.hash()
-      }
+      headers: client.headers()
     }).done(function success () {
       $('#fe_status').hide().text('OK').fadeIn('slow');
      }).fail(function fail() {
@@ -597,9 +591,7 @@ var client = Nightscout.client;
       method: 'PUT',
       url: '/api/v1/food/',
       data: foodrec,
-      headers: {
-        'api-secret': client.hashauth.hash()
-      }
+      headers: client.headers()
     }).done(function success (response) {
       console.log('Updated record: ',response);
     });
@@ -621,9 +613,7 @@ var client = Nightscout.client;
       method: 'POST',
       url: '/api/v1/food/',
       data: newrec,
-      headers: {
-        'api-secret': client.hashauth.hash()
-      }
+      headers: client.headers()
     }).done(function success (response) {
       $('#fe_status').hide().text('OK').fadeIn('slow');
       newrec._id = response[0]._id;

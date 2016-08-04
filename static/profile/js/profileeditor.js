@@ -258,9 +258,7 @@
         $.ajax({
           method: 'DELETE'
           , url: '/api/v1/profile/'+mongorecords[currentrecord]._id
-          , headers: {
-            'api-secret': client.hashauth.hash()
-          }
+          , headers: client.headers()
         }).done(function postSuccess () {
           console.info('profile deleted');
           peStatus.hide().text(status).fadeIn('slow');
@@ -657,9 +655,7 @@
       method: 'PUT'
       , url: '/api/v1/profile/'
       , data: adjustedRecord
-      , headers: {
-        'api-secret': client.hashauth.hash()
-      }
+      , headers: client.headers()
     }).done(function postSuccess (data, status) {
       console.info('profile saved', data);
       peStatus.hide().text(status).fadeIn('slow');
