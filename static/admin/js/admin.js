@@ -4,6 +4,7 @@
   var Nightscout = window.Nightscout;
   var client = Nightscout.client;
   var admin_plugins = Nightscout.admin_plugins;
+  var authorized = serverSettings.authorized;
 
   if (serverSettings === undefined) {
     console.error('server settings were not loaded, will not call init');
