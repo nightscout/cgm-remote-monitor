@@ -35,7 +35,7 @@ function config ( ) {
   return env;
 }
 
-function setSSL() {
+function setSSL ( ) {
   env.SSL_KEY = readENV('SSL_KEY');
   env.SSL_CERT = readENV('SSL_CERT');
   env.SSL_CA = readENV('SSL_CA');
@@ -51,7 +51,7 @@ function setSSL() {
 }
 
 // A little ugly, but we don't want to read the secret into a var
-function setAPISecret() {
+function setAPISecret ( ) {
   var useSecret = (readENV('API_SECRET') && readENV('API_SECRET').length > 0);
   //TODO: should we clear API_SECRET from process env?
   env.api_secret = null;
@@ -65,11 +65,40 @@ function setAPISecret() {
       var shasum = crypto.createHash('sha1');
       shasum.update(readENV('API_SECRET'));
       env.api_secret = shasum.digest('hex');
+
+      loadOtherKeys();
     }
   }
 }
 
-function setVersion() {
+function loadOtherKeys ( ) {
+  var raw = readENV('OTHER_KEYS');
+  if (raw) {
+    var permission2Key = { };
+    var keys = decodeURIComponent(raw).toLowerCase().split(' ');
+    _.forEach(keys, function eachKey (key) {
+      var shasum = crypto.createHash('sha1');
+      shasum.update(key);
+      var hashed = shasum.digest('hex');
+
+      var rawPermissions = readENV('OTHER_KEYS_' + key.toUpperCase());
+      if (rawPermissions) {
+        var permissions = decodeURIComponent(rawPermissions).toLowerCase().split(' ');
+        _.forEach(permissions, function eachPerm (perm) {
+          if (permission2Key[perm]) {
+            permission2Key[perm].push(hashed);
+          } else {
+            permission2Key[perm] = [hashed];
+          }
+        });
+      }
+    });
+
+    console.info('>>>>permission2Key', permission2Key);
+  }
+}
+
+function setVersion ( ) {
   var software = require('./package.json');
   var git = require('git-rev');
 
@@ -86,7 +115,7 @@ function setVersion() {
   env.name = software.name;
 }
 
-function setMongo() {
+function setMongo ( ) {
   env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI') || readENV('MONGODB_URI');
   env.mongo_collection = readENV('MONGO_COLLECTION', 'entries');
   env.MQTT_MONITOR = readENV('MQTT_MONITOR', null);
@@ -118,7 +147,7 @@ function setMongo() {
   env.mongo_collection = DB_COLLECTION;
 }
 
-function updateSettings() {
+function updateSettings ( ) {
 
   var envNameOverrides = {
     UNITS: 'DISPLAY_UNITS'
@@ -133,7 +162,7 @@ function updateSettings() {
   env.extendedSettings = findExtendedSettings(process.env);
 }
 
-function readENV(varName, defaultValue) {
+function readENV (varName, defaultValue) {
   //for some reason Azure uses this prefix, maybe there is a good reason
   var value = process.env['CUSTOMCONNSTR_' + varName]
     || process.env['CUSTOMCONNSTR_' + varName.toLowerCase()]
@@ -156,13 +185,13 @@ function findExtendedSettings (envs) {
   _.each(env.settings.enable, function eachEnable(enable) {
     if (_.trim(enable)) {
       _.forIn(envs, function eachEnvPair (value, key) {
-        var env = normalizeEnv(key);
-        if (_.startsWith(env, enable.toUpperCase() + '_')) {
-          var split = env.indexOf('_');
-          if (split > -1 && split <= env.length) {
+        var key = normalizeEnv(key);
+        if (_.startsWith(key, enable.toUpperCase() + '_')) {
+          var split = key.indexOf('_');
+          if (split > -1 && split <= key.length) {
             var exts = extended[enable] || {};
             extended[enable] = exts;
-            var ext = _.camelCase(env.substring(split + 1).toLowerCase());
+            var ext = _.camelCase(key.substring(split + 1).toLowerCase());
             if (!isNaN(value)) { value = Number(value); }
             if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
             if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
