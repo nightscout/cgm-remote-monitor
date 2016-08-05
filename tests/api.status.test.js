@@ -44,6 +44,27 @@ describe('Status REST api', function ( ) {
       });
   });
 
+  it('/status.svg', function (done) {
+    request(this.app)
+      .get('/api/status.svg')
+      .end(function(err, res) {
+        res.statusCode.should.equal(302);
+        done();
+      });
+  });
+
+  it('/status.txt', function (done) {
+    request(this.app)
+      .get('/api/status.txt')
+      .expect(200, 'STATUS OK')
+      .end(function(err, res, body) {
+        res.type.should.equal('text/plain');
+        res.statusCode.should.equal(200);
+        done();
+      });
+  });
+
+
   it('/status.js', function (done) {
     request(this.app)
       .get('/api/status.js')
