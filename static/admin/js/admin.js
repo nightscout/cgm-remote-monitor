@@ -4,15 +4,11 @@
   var Nightscout = window.Nightscout;
   var client = Nightscout.client;
   var admin_plugins = Nightscout.admin_plugins;
-  var authorized = serverSettings.authorized;
 
   if (serverSettings === undefined) {
     console.error('server settings were not loaded, will not call init');
   } else {
-    if (authorized) {
-      authorized.lat = Date.now();
-    }
-    client.init(serverSettings, Nightscout.plugins, authorized);
+    client.init(serverSettings, Nightscout.plugins);
   }
   
   // init HTML code
