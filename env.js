@@ -31,7 +31,6 @@ function config ( ) {
 
   // require authorization for entering treatments
   env.treatments_auth = readENV('TREATMENTS_AUTH', true);
-  env.devicestatus_auth = readENV('DEVICESTATUS_AUTH', true);
 
   return env;
 }

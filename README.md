@@ -172,7 +172,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `DISABLE` - Used to disable default features, expects a space delimited list, such as: `direction upbat`, see [plugins](#plugins) below
   * `API_SECRET` - A secret passphrase that must be at least 12 characters long, required to enable `POST` and `PUT`; also required for the Care Portal
   * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. When on device must be authenticated by entering `API_SECRET` to create treatments
-  * `DEVICESTATUS_AUTH` (`on`) - possible values `on` or `off`. When on device must be authenticated by entering `API_SECRET` to create treatments
   * `AUTH_DEFAULT_ROLES` (`readable`) - possible values `readable`, `denied`, or any valid role
     name.  When `readable`, anyone can view Nightscout without a token.
     Setting it to `denied` will require a token from every visit.
