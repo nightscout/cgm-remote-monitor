@@ -12,6 +12,7 @@ describe('authed REST api', function ( ) {
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'this is my long pass phrase';
     var env = require('../env')( );
+    env.settings.authDefaultRoles = 'readable';
     this.wares = require('../lib/middleware/')(env);
     this.archive = null;
     this.app = require('express')( );
