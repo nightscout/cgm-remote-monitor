@@ -23,6 +23,11 @@ body {
   z-index: 2;
 }
 
+a, a:visited, a:link {
+  color: #2196f3;
+  text-decoration: none;
+}
+
 #container.announcing .customTitle {
   color: orange;
 }
