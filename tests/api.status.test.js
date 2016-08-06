@@ -57,7 +57,7 @@ describe('Status REST api', function ( ) {
     request(this.app)
       .get('/api/status.txt')
       .expect(200, 'STATUS OK')
-      .end(function(err, res, body) {
+      .end(function(err, res) {
         res.type.should.equal('text/plain');
         res.statusCode.should.equal(200);
         done();
