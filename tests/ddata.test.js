@@ -1,7 +1,7 @@
 
 'use strict';
 
-require('should');
+var should = require('should');
 
 
 describe('ddata', function ( ) {
@@ -14,16 +14,14 @@ describe('ddata', function ( ) {
     var libddata = require('../lib/data/ddata');
     // should.be.Function(libddata);
     var ddata = libddata( );
-    // should.be.ok(ddata);
-    // ({}).should.exist( );
+    should.exist(ddata);
     ddata = ctx.ddata.clone( );
-    // ddata.should.be.ok( );
+    should.exist(ddata);
     done( );
   });
   it('has #clone( )', function (done) {
     var ddata = ctx.ddata.clone( );
-    // ({}).should.be.ok( );
-    // ddata.should.be.ok( );
+    should.exist(ddata);
     done( );
   });
 });
