@@ -5,7 +5,6 @@ var should = require('should');
 
 
 describe('ddata', function ( ) {
-  // var cage = require('../lib/plugins/cannulaage')();
   var sandbox = require('../lib/sandbox')();
   var env = require('../env')();
   var ctx = {};
@@ -13,7 +12,6 @@ describe('ddata', function ( ) {
 
   it('should be a module', function (done) {
     var libddata = require('../lib/data/ddata');
-    // should.be.Function(libddata);
     var ddata = libddata( );
     should.exist(ddata);
     should.exist(libddata);
