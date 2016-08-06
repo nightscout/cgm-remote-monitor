@@ -7,6 +7,25 @@ var serverSettings = require('./fixtures/default-server-settings');
 
 describe('hashauth', function ( ) {
   var self = this;
+  var headless = require('./fixtures/headless')(benv, this);
+
+  before(function (done) {
+    done( );
+  });
+
+  after(function (done) {
+    done( );
+  });
+
+  beforeEach(function (done) {
+    headless.setup({ }, done);
+  });
+
+  afterEach(function (done) {
+    headless.teardown( );
+    done( );
+  });
+  /*
   before(function (done) {
     benv.setup(function() {
       self.$ = require('jquery');
@@ -41,6 +60,7 @@ describe('hashauth', function ( ) {
     benv.teardown();
     done();
   });
+  */
 
   it ('should make module unauthorized', function () {
     var plugins = require('../lib/plugins/')().registerClientDefaults();
