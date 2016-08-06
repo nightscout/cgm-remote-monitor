@@ -86,7 +86,8 @@
   // Fetch data from mongo
   peStatus.hide().text(translate('Loading profile records ...')).fadeIn('slow');
   $.ajax('/api/v1/profile.json', {
-    success: function (records) {
+    headers: client.headers()
+    , success: function (records) {
       if (!records.length) {
         records.push(defaultprofile);
       }
@@ -122,8 +123,8 @@
         });
         peStatus.hide().text(translate('Default values used.')).fadeIn('slow');
       }
-    },
-    error: function () {
+    }
+    , error: function () {
       mongorecords.push({
         defaultProfile: 'Default'
         , store : {
