@@ -136,12 +136,9 @@ function updateSettings() {
   //should always find extended settings last
   env.extendedSettings = findExtendedSettings(process.env);
 
-  console.info('>>>authDefaultRoles', env.settings.authDefaultRoles);
   if (!readENV('TREATMENTS_AUTH', true)) {
     env.settings.authDefaultRoles = env.settings.authDefaultRoles || [ ];
     env.settings.authDefaultRoles += ' careportal';
-
-    console.info('>>>added careportal to authDefaultRoles', env.settings.authDefaultRoles);
   }
 
 

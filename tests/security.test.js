@@ -10,7 +10,6 @@ describe('API_SECRET', function ( ) {
   var scope = this;
   function setup_app (env, fn) {
     require('../lib/bootevent')(env).boot(function booted (ctx) {
-      console.info('>>>ctx.authorization', ctx.authorization);
       ctx.app = api(env, ctx);
       scope.app = ctx.app;
       scope.entries = ctx.entries;
