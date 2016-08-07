@@ -71,7 +71,8 @@ var client = Nightscout.client;
   // Fetch data from mongo
   $('#fe_status').hide().text('Loading food database ...').fadeIn('slow');
   $.ajax('/api/v1/food.json', {
-    success: function ajaxSuccess(records) {
+    headers: client.headers()
+    , success: function ajaxSuccess(records) {
       records.forEach(function processRecords(r) {
         restoreBoolValue(r,'hidden');
         restoreBoolValue(r,'hideafteruse');
@@ -92,8 +93,8 @@ var client = Nightscout.client;
       });
       $('#fe_status').hide().text(translate('Database loaded')).fadeIn('slow');
       foodquickpick.sort(function compare(a,b) { return cmp(parseInt(a.position),parseInt(b.position)) });
-    },
-    error: function ajaxError() {
+    }
+    , error: function ajaxError() {
       $('#fe_status').hide().text(translate('Error: Database failed to load')).fadeIn('slow');
     }
   }).done(initeditor);

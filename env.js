@@ -29,10 +29,6 @@ function config ( ) {
   setMongo();
   updateSettings();
 
-  // require authorization for entering treatments
-  env.treatments_auth = readENV('TREATMENTS_AUTH', true);
-  env.devicestatus_auth = readENV('DEVICESTATUS_AUTH', true);
-
   return env;
 }
 
@@ -66,6 +62,12 @@ function setAPISecret() {
       var shasum = crypto.createHash('sha1');
       shasum.update(readENV('API_SECRET'));
       env.api_secret = shasum.digest('hex');
+
+      if (!readENV('TREATMENTS_AUTH', true)) {
+
+      }
+
+
     }
   }
 }
@@ -133,6 +135,16 @@ function updateSettings() {
 
   //should always find extended settings last
   env.extendedSettings = findExtendedSettings(process.env);
+
+  console.info('>>>authDefaultRoles', env.settings.authDefaultRoles);
+  if (!readENV('TREATMENTS_AUTH', true)) {
+    env.settings.authDefaultRoles = env.settings.authDefaultRoles || [ ];
+    env.settings.authDefaultRoles += ' careportal';
+
+    console.info('>>>added careportal to authDefaultRoles', env.settings.authDefaultRoles);
+  }
+
+
 }
 
 function readENV(varName, defaultValue) {
