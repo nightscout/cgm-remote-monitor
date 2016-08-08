@@ -46,6 +46,7 @@ input[type=number]:invalid {
   display: block;
   text-align: right;
   padding: 10px 0;
+  text-decoration: underline;
 }
 
 #treatmentDrawer {
@@ -152,6 +153,7 @@ input[type=number]:invalid {
 }
 #about a {
   color: #fff;
+  text-decoration: underline;
 }
 
 form {
@@ -317,8 +319,8 @@ ul.navigation {
   display: block;
 }
 
-.navigation a {
-  text-decoration: none;
+.navigation li a {
+  text-decoration: none !important;
   background-color: #808080;
   display: block;
   padding: 5px;

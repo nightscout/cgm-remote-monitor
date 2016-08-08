@@ -1,4 +1,5 @@
-'use strict';
+// don't 'use strict' since we're setting serverSettings globally
+serverSettings = null;
 
 var params = {};
 if (window.location.search) {
