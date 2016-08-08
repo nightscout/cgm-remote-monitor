@@ -60,6 +60,19 @@ describe('authed REST api', function ( ) {
       });
   });
 
+  it('/entries/preview', function (done) {
+    var known_key = this.known_key;
+    request(this.app)
+      .post('/entries/preview.json')
+      .set('api-secret', known_key)
+      .send(load('json'))
+      .expect(201)
+      .end(function (err, res) {
+        res.body.should.be.instanceof(Array).and.have.lengthOf(30);
+        done();
+      });
+  });
+
   it('allow authorized POST', function (done) {
     var app = this.app;
     var known_key = this.known_key;
