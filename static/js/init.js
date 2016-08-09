@@ -6,12 +6,8 @@ serverSettings = {
    'apiEnabled':false,
    'careportalEnabled':false,
    'boluscalcEnabled':false,
-   'settings':{
-     'enable':[],
-     'thresholds':{}
-   },
-   'extendedSettings':{
-   },
+   'settings':{ },
+   'extendedSettings':{ },
    'authorized':null
 };
 
