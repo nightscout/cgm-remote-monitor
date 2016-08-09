@@ -1,18 +1,18 @@
 // don't 'use strict' since we're setting serverSettings globally
 serverSettings = {
-   "status":"unauthorized",
-   "name":"Nightscout",
-   "version":"unknown",
-   "apiEnabled":false,
-   "careportalEnabled":false,
-   "boluscalcEnabled":false,
-   "settings":{
-     "enable":[],
-     "thresholds":{}
+   'status':'unauthorized',
+   'name':'Nightscout',
+   'version':'unknown',
+   'apiEnabled':false,
+   'careportalEnabled':false,
+   'boluscalcEnabled':false,
+   'settings':{
+     'enable':[],
+     'thresholds':{}
    },
-   "extendedSettings":{
+   'extendedSettings':{
    },
-   "authorized":null
+   'authorized':null
 };
 
 var params = {};
