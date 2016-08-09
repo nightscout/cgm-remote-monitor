@@ -319,7 +319,7 @@ ul.navigation {
   display: block;
 }
 
-#drawer .navigation li a {
+.navigation a {
   text-decoration: none;
   background-color: #808080;
   display: block;
