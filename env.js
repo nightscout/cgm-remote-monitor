@@ -136,12 +136,9 @@ function updateSettings() {
   //should always find extended settings last
   env.extendedSettings = findExtendedSettings(process.env);
 
-  console.info('>>>authDefaultRoles', env.settings.authDefaultRoles);
-  if (!readENV('TREATMENTS_AUTH', true)) {
-    env.settings.authDefaultRoles = env.settings.authDefaultRoles || [ ];
+  if (!readENVTruthy('TREATMENTS_AUTH', true)) {
+    env.settings.authDefaultRoles = env.settings.authDefaultRoles || "";
     env.settings.authDefaultRoles += ' careportal';
-
-    console.info('>>>added careportal to authDefaultRoles', env.settings.authDefaultRoles);
   }
 
 
@@ -154,10 +151,15 @@ function readENV(varName, defaultValue) {
     || process.env[varName]
     || process.env[varName.toLowerCase()];
 
-  if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
-  if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
 
   return value != null ? value : defaultValue;
+}
+
+function readENVTruthy(varName, defaultValue) {
+  var value = readENV(varName, defaultValue);
+  if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
+  if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
+  return value;
 }
 
 function findExtendedSettings (envs) {

@@ -345,6 +345,15 @@ a, a:visited, a:link {
   display: none;
 }
 
+#authorizationstatus a {
+  color: #2196f3;
+  text-decoration: underline;
+}
+
+#authorizationstatus .small {
+  font-size: 12px;
+}
+
 @media (max-width: 800px) {
   .bgStatus {
     width: 300px;
