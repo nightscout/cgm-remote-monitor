@@ -6,11 +6,8 @@ var benv = require('benv');
 var read = require('fs').readFileSync;
 var serverSettings = require('./fixtures/default-server-settings');
 
-var nowData = {
-  sgvs: [
-    { mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' }
-  ]
-};
+var nowData = require('../lib/data/ddata')();
+nowData.sgvs.push({ mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' });
 
 var exampleProfile = {
   defaultProfile : 'Default'
