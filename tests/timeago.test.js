@@ -25,7 +25,7 @@ describe('timeago', function ( ) {
 
     var sbx = freshSBX();
     timeago.checkNotifications(sbx);
-    should.not.exist(ctx.notifications.findHighestAlarm());
+    should.not.exist(ctx.notifications.findHighestAlarm('Time Ago'));
 
     done();
   });
@@ -36,7 +36,7 @@ describe('timeago', function ( ) {
 
     var sbx = freshSBX();
     timeago.checkNotifications(sbx);
-    should.not.exist(ctx.notifications.findHighestAlarm());
+    should.not.exist(ctx.notifications.findHighestAlarm('Time Ago'));
 
     done();
   });
@@ -47,7 +47,7 @@ describe('timeago', function ( ) {
 
     var sbx = freshSBX();
     timeago.checkNotifications(sbx);
-    var highest = ctx.notifications.findHighestAlarm();
+    var highest = ctx.notifications.findHighestAlarm('Time Ago');
     highest.level.should.equal(levels.WARN);
     highest.message.should.equal('Last received: 16 mins ago\nBG Now: 100 mg/dl');
     done();
@@ -59,7 +59,7 @@ describe('timeago', function ( ) {
 
     var sbx = freshSBX();
     timeago.checkNotifications(sbx);
-    var highest = ctx.notifications.findHighestAlarm();
+    var highest = ctx.notifications.findHighestAlarm('Time Ago');
     highest.level.should.equal(levels.URGENT);
     highest.message.should.equal('Last received: 31 mins ago\nBG Now: 100 mg/dl');
     done();

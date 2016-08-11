@@ -162,7 +162,7 @@
       },
 	  "enable": {
       "type": "string",
-	  "defaultValue": "basal bwp cage careportal cob openaps pump rawbg sage treatmentnotify",
+	  "defaultValue": "basal bwp cage careportal cob rawbg sage iage treatmentnotify boluscalc profile",
       },
 	  "night_mode": {
       "type": "string",
@@ -174,7 +174,7 @@
       },
 	  "show_plugins": {
       "type": "string",
-	  "defaultValue": "basal bwp cage careportal cob openaps pump rawbg sage",
+	  "defaultValue": "careportal",
       },
 	  "show_rawbg": {
       "type": "string",

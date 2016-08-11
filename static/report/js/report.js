@@ -26,7 +26,8 @@
   var translate = client.translate;
   
   var maxInsulinValue = 0
-      ,maxCarbsValue = 0;
+      ,maxCarbsValue = 0
+      ,maxDailyCarbsValue = 0;
   var maxdays = 3 * 31;
   var datastorage = {};
   var daystoshow = {};
@@ -77,7 +78,7 @@
     filter.subcategory = '';
     $('#rp_subcategory').empty().append('<option value="">' + translate('(none)') + '</option>');
     if (filter.category !== '') {
-      Object.keys(food_categories[filter.category]).forEach(function eachSubCategory(s) {
+      Object.keys(food_categories[filter.category] || {}).forEach(function eachSubCategory(s) {
         $('#rp_subcategory').append('<option value="' + s + '">' + s + '</option>');
       });
     }
@@ -470,6 +471,7 @@
     });
     options.maxInsulinValue = maxInsulinValue;
     options.maxCarbsValue = maxCarbsValue;
+    options.maxDailyCarbsValue = maxDailyCarbsValue;
 
     datastorage.treatments = [];
     datastorage.devicestatus = [];
@@ -684,6 +686,7 @@
       return;
     }
     // treatments
+    data.dailyCarbs = 0;
     data.treatments.forEach(function (d) {
       if (parseFloat(d.insulin) > maxInsulinValue) {
         maxInsulinValue = parseFloat(d.insulin);
@@ -691,7 +694,13 @@
       if (parseFloat(d.carbs) > maxCarbsValue) {
         maxCarbsValue = parseFloat(d.carbs);
       }
+      if (d.carbs) {
+        data.dailyCarbs += d.carbs;
+      }
     });
+    if (data.dailyCarbs > maxDailyCarbsValue) {
+      maxDailyCarbsValue = data.dailyCarbs;
+    }
 
     var cal = data.cal[data.cal.length-1];
     var temp1 = [ ];
