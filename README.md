@@ -8,8 +8,6 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 [![Coverage Status][coverage-img]][coverage-url]
 [![Codacy Badge][codacy-img]][codacy-url]
 [![Gitter chat][gitter-img]][gitter-url]
-[![Stories in Ready][ready-img]][waffle]
-[![Stories in Progress][progress-img]][waffle]
 
 [![Deploy to Azure](http://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/) [![Deploy to Heroku][heroku-img]][heroku-url]
 
@@ -37,9 +35,6 @@ Community maintained fork of the
 [codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
 [gitter-img]: https://img.shields.io/badge/Gitter-Join%20Chat%20%E2%86%92-1dce73.svg
 [gitter-url]: https://gitter.im/nightscout/public
-[ready-img]: https://badge.waffle.io/nightscout/cgm-remote-monitor.svg?label=ready&title=Ready
-[waffle]: https://waffle.io/nightscout/cgm-remote-monitor
-[progress-img]: https://badge.waffle.io/nightscout/cgm-remote-monitor.svg?label=in+progress&title=In+Progress
 [heroku-img]: https://www.herokucdn.com/deploy/button.png
 [heroku-url]: https://heroku.com/deploy
 [original]: https://github.com/rnpenguin/cgm-remote-monitor
@@ -72,7 +67,7 @@ Community maintained fork of the
         - [`ar2` (AR2 Forecasting)](#ar2-ar2-forecasting)
         - [`simplealarms` (Simple BG Alarms)](#simplealarms-simple-bg-alarms)
         - [`profile` (Treatment Profile)](#profile-treatment-profile)
-      - [Built-in/Example Plugins:](#built-inexample-plugins)
+      - [Advanced Plugins](#advanced-plugins)
         - [`careportal` (Careportal)](#careportal-careportal)
         - [`boluscalc` (Bolus Wizard)](#boluscalc-bolus-wizard)
         - [`food` (Custom Foods)](#food-custom-foods)
@@ -95,6 +90,7 @@ Community maintained fork of the
     - [Treatment Profile](#treatment-profile)
   - [Setting environment variables](#setting-environment-variables)
     - [Vagrant install](#vagrant-install)
+  - [Installation on Windows](#installation-on-windows)
   - [More questions?](#more-questions)
   - [License](#license)
 
@@ -252,7 +248,13 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Displays the most recent battery status from the uploader phone.
 
 ##### `timeago` (Time Ago)
-  Displays the time since last CGM entry.  Supports the `TIMEAGO_ENABLE_ALERTS` [extended setting](#extended-settings) for server side stale data alarms via Pushover and IFTTT.
+  Displays the time since last CGM entry. Use these [extended setting](#extended-settings) to adjust behavior:
+  * `TIMEAGO_ENABLE_ALERTS` (`false`) - Set to `true` to enable stale data alarms  via Pushover and IFTTT.
+  * `ALARM_TIMEAGO_WARN` (`on`) - possible values `on` or `off`
+  * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
+  * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
+  * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
+
 
 ##### `devicestatus` (Device Status)
   Used by `upbat` and other plugins to display device status info.  Supports the `DEVICESTATUS_ADVANCED="true"` [extended setting](#extended-settings) to send all device statuses to the client for retrospective use and to support other plugins.
@@ -485,6 +487,10 @@ The setup script will install OS packages then run `npm install`.
 
 The Vagrant VM serves to your host machine only on 192.168.33.10, you can access
 the web interface on [http://192.168.33.10:1337](http://192.168.33.10:1337)
+
+## Installation on Windows
+
+If you have access to local computing resources and want to maintain more control over your data, you can host Nightscout and its database outside of the cloud. Windows Server supports MongoDB, Node.js, and Nightscout [installed on a single system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10. 
 
 More questions?
 ---------------
