@@ -5,7 +5,7 @@ var should = require('should');
 var moment = require('moment');
 
 var env = require('../env')();
-var openaps = require('../lib/plugins/loop')();
+var loop = require('../lib/plugins/loop')();
 var sandbox = require('../lib/sandbox')();
 var levels = require('../lib/levels');
 
@@ -95,7 +95,7 @@ _.forEach(statuses, function updateMills (status) {
   status.mills = moment(status.created_at).valueOf();
 });
 
-describe('openaps', function ( ) {
+describe('loop', function ( ) {
 
   it('set the property and update the pill and add forecast points', function (done) {
     var ctx = {
@@ -105,16 +105,13 @@ describe('openaps', function ( ) {
       , pluginBase: {
         updatePillText: function mockedUpdatePillText (plugin, options) {
           options.label.should.equal('Loop ⌁');
-          options.value.should.equal('2m ago');
+          options.value.should.equal('1m ago');
           var first = _.first(options.info);
           first.label.should.equal('1m ago');
-          first.value.should.equal('abusypi ⌁ Enacted @ -55dB');
-          var last = _.last(options.info);
-          last.label.should.equal('1h ago');
-          last.value.should.equal('awaitingpi ◉ Waiting');
+          first.value.should.equal(', <b>Temp Basal Started</b> 0.88 for 30m');
         }
         , addForecastPoints: function mockAddForecastPoints (points) {
-          points.length.should.equal(12);
+          points.length.should.equal(6);
           done();
         }
       }
@@ -135,9 +132,9 @@ describe('openaps', function ( ) {
       unmockedOfferProperty(name, setter);
     };
 
-    openaps.setProperties(sbx);
+    loop.setProperties(sbx);
 
-    openaps.updateVisualisation(sbx);
+    loop.updateVisualisation(sbx);
 
   });
 
@@ -152,19 +149,19 @@ describe('openaps', function ( ) {
     ctx.notifications.initRequests();
 
     var notStatuses = _.cloneDeep(statuses);
-    notStatuses[0].openaps.enacted.recieved = false;
+    notStatuses[0].loop.enacted.received = false;
     var sbx = require('../lib/sandbox')().clientInit(ctx, now, {devicestatus: notStatuses});
 
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
-      name.should.equal('openaps');
+      name.should.equal('loop');
       var result = setter();
       should.exist(result);
-      result.status.symbol.should.equal('x');
-      result.status.code.should.equal('notenacted');
+      result.display.symbol.should.equal('x');
+      result.display.code.should.equal('notenacted');
       done();
     };
 
-    openaps.setProperties(sbx);
+    loop.setProperties(sbx);
 
   });
 
@@ -178,14 +175,14 @@ describe('openaps', function ( ) {
 
     ctx.notifications.initRequests();
 
-    var sbx = sandbox.clientInit(ctx, now.add(1, 'hours').valueOf(), {devicestatus: statuses});
+    var sbx = sandbox.clientInit(ctx, now.add(2, 'hours').valueOf(), {devicestatus: statuses});
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
-    openaps.setProperties(sbx);
-    openaps.checkNotifications(sbx);
+    loop.setProperties(sbx);
+    loop.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm('OpenAPS');
+    var highest = ctx.notifications.findHighestAlarm('Loop');
     highest.level.should.equal(levels.URGENT);
-    highest.title.should.equal('OpenAPS isn\'t looping');
+    highest.title.should.equal('Loop isn\'t looping');
     done();
   });
 
