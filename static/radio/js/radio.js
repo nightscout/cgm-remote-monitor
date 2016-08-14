@@ -41,6 +41,7 @@ function createLoop (synth, sgvs) {
     synth.triggerAttackRelease(note, "16n",  time);
   }
   var seq = new Tone.Sequence(callback, sgvs, "16n");
+  seq.loop = false;
   return seq;
 }
 
@@ -58,7 +59,7 @@ $(document).ready(function ( ) {
   synth.chain(new Tone.Volume(-26), Tone.Master);
   // synth.toMaster();
   Tone.Transport.timeSignature = [ 3, 2 ];
-  Tone.Transport.bpm = 320;
+  Tone.Transport.bpm.value = 320;
 
   function play_next (time) {
     var sgv = sgvs.shift( );
@@ -80,6 +81,8 @@ $(document).ready(function ( ) {
     var new_loop = createLoop(synth, sgvs);
     if (loop) {
       loop.stop( );
+      loop.dispose( );
+      loop = null;
     }
     loop = new_loop;
     Nightscout.client.radio.loop = loop;
