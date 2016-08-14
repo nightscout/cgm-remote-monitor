@@ -38,9 +38,9 @@ function convert (opts) {
 function createLoop (synth, sgvs) {
   function callback (time, note) {
     console.log(time, note);
-    synth.triggerAttackRelease(note, "8n",  time);
+    synth.triggerAttackRelease(note, "16n",  time);
   }
-  var seq = new Tone.Sequence(callback, sgvs, "8n");
+  var seq = new Tone.Sequence(callback, sgvs, "16n");
   return seq;
 }
 
@@ -55,8 +55,9 @@ $(document).ready(function ( ) {
   var converter = convert( );
   var synth = new Tone.PolySynth(16, Tone.MonoSynth);
   // default volume always makes my ears bleed
-  synth.connect(new Tone.Volume(-36), Tone.Master);
-  synth.toMaster();
+  var vol = 
+  synth.chain(new Tone.Volume(-36), Tone.Master);
+  // synth.toMaster();
   Tone.Transport.timeSignature = [ 3, 2 ];
   Tone.Transport.bpm = 220;
 
@@ -82,9 +83,15 @@ $(document).ready(function ( ) {
       loop.stop( );
     }
     loop = new_loop;
+    Nightscout.client.radio.loop = loop;
     loop.start( );
   }
 
+  Nightscout.client.radio = {
+    converter: converter
+  , synth: synth
+  , loop: loop
+  };
 
   Nightscout.client.socket.on('dataUpdate', function (update) {
     play_data( );
