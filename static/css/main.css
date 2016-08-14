@@ -1,31 +1,25 @@
 @import url("//fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic");
 @import url("//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800");
 @import url("/glyphs/css/fontello.css");
-@import url("//fonts.googleapis.com/css?family=Roboto:400,100,300|Roboto+Mono:400,100,300,500,700")
 
 
 html, body {
-  height: 100%;
   margin: 0;
   padding: 0;
 }
 body {
-  font-family: 'Roboto', Helvetica, Arial, sans-serif;
-  background: #111619;
-  color: #111619;
-  margin: 0;
-  padding: 0;
+  font-family: 'Open Sans', Helvetica, Arial, sans-serif;
+  background: #000;
+  color: #bdbdbd;
 }
 
 .container {
   bottom: 0;
   display: block;
-  height: 100%;
   left: 0;
   margin: 0;
   padding: 0;
   top: 45px;
-  width: 100%;
   z-index: 2;
 }
 
@@ -42,7 +36,7 @@ body {
 }
 
 .primary {
-  font-family: 'Roboto', Helvetica, Arial, sans-serif;
+  font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
   vertical-align: middle;
   clear: both;
 }
@@ -55,15 +49,15 @@ body {
 }
 
 .urgent .bgButton {
-  color: #DB4437;
+  color: red;
 }
 
 .warning .bgButton {
-  color: #FFEB3B;
+  color: yellow;
 }
 
 .inrange .bgButton {
-  color: #8BC34A;
+  color: #4cff00;
 }
 
 .bgStatus .currentBG {
@@ -71,7 +65,6 @@ body {
   line-height: 100px;
   text-decoration: line-through;
   vertical-align: middle;
-  font-family: 'Roboto Mono'
 }
 
 .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
@@ -86,7 +79,6 @@ body {
   vertical-align: middle;
   border: none;
   background: none;
-  font-family:'Roboto Mono';
 }
 
 .bgStatus .majorPills {
@@ -112,32 +104,27 @@ body {
 .pill {
   white-space: nowrap;
   border-radius: 5px;
-  border: 2px solid #111619;
-  background: #111619;
+  border: 2px solid #808080;
+  background: #808080;
   display: inline-block;
   margin-bottom: 4px;
   padding: 2px 0;
 }
 
 .pill em, .pill label {
-  padding: 2px 4px 2px 2px;
+  padding: 2px;
   white-space: nowrap;
-  padding-left:10px;
 }
 
 .pill em {
   font-style: normal;
   font-weight: bold;
-  /*background: #263238;*/
-  border-radius: 8px;
-  padding-left:4px;
-  margin-left:1px;
-  color: #607D8B;
+  background: #000;
+  border-radius: 3px;
 }
 
 .pill label {
-  color: #263238;
-  font-family: 'Roboto Mono'
+  color: #000;
 }
 
 .container .pill.warn em {
@@ -148,17 +135,17 @@ body {
   color: red;
 }
 
-.alarming-timeago #lastEntry.pill.warn {
+.alarming-timeago .timeago.pill.warn {
   border-color: yellow;
 }
-.alarming-timeago #lastEntry.pill.warn label {
+.alarming-timeago .timeago.pill.warn label {
   background: yellow;
 }
 
-.alarming-timeago #lastEntry.pill.urgent {
+.alarming-timeago .timeago.pill.urgent {
   border-color: red;
 }
-.alarming-timeago #lastEntry.pill.urgent label {
+.alarming-timeago .timeago.pill.urgent label {
   background: red;
 }
 
@@ -171,9 +158,8 @@ body {
 }
 
 .status {
-  color: #607D8B;
-  font-size: 60px;
-  font-family:;
+  color: #808080;
+  font-size: 100px;
 }
 .statusBox {
   text-align: center;
@@ -189,12 +175,13 @@ body {
 }
 
 .statusPills .pill {
-  background: #111619;
-  border-color: #111619;
+  background: #808080;
+  border-color: #808080;
+  margin-right: 5px;
 }
 
 .statusPills .pill em {
-  color: #607D8B;
+  color: #bdbdbd;
 }
 
 #chartContainer {
@@ -203,12 +190,11 @@ body {
   bottom: 0;
   height: auto;
   font-size: 20px;
-  background: #050707;
+  background: #111;
   display: block;
   position: absolute;
-  margin: 0px;
+  margin: 2px;
   overflow: hidden;
-  font-family:'Roboto Mono';
 }
 
 #chartContainer svg {
@@ -218,10 +204,21 @@ body {
   padding: 0;
 }
 
-#silenceBtn {
+#silenceBtn, #viewMenu {
   z-index: 99;
   border-radius: 5px;
   border: 2px solid #bdbdbd;
+}
+
+#viewMenu {
+  left: 150px;
+  right: inherit;
+  font-size: 18px;
+}
+
+#viewMenu li label input[type="checkbox"] {
+  height: 14px;
+  margin-right: 5px;
 }
 
 #silenceBtn a {
@@ -230,8 +227,9 @@ body {
 
 .bgButton {
   margin: 10px;
-  border: 2px solid #111619;
+  border: 2px solid #000;
   border-radius: 5px;
+  display: inline-block;
   width: 360px;
 }
 
@@ -303,6 +301,7 @@ body {
   border-radius: 8px;
   float: right;
   min-width: 150px;
+  max-width: 400px;
 }
 
 .alarms {
@@ -317,7 +316,7 @@ body {
   list-style: none;
   margin: 4px;
   padding: 0;
-  color: #263238;
+  color: #808080;
   width: 250px;
   text-align: center;
 }
@@ -326,17 +325,15 @@ body {
   display: inline-block;
   font-size: 18px;
   white-space: nowrap;
-  border-radius: 8px;
-  border: 2px solid #111619;
+  border-radius: 5px;
+  border: 2px solid #000;
   cursor: pointer;
-  font-family: 'Roboto Mono';
 }
 
 .focus-range .selected {
-  border-color: #263238;
-  color: #607D8B;
-  background: #263238;
-  padding:2px;
+  border-color: #808080;
+  color: #000;
+  background: #808080;
 }
 
 .pill.hidden {
@@ -495,9 +492,16 @@ body {
     font-size: 20px;
   }
 
+  #viewMenu {
+    left: inherit;
+    top: 170px;
+    right: 10px;
+    text-align: left;
+  }
+
   .status {
     padding-top: 0;
-    font-size: 60px;
+    font-size: 20px;
   }
 
   .statusBox {
@@ -649,7 +653,6 @@ body {
   }
 
   .statusBox {
-    padding-top: 16px;
     width: 220px;
   }
 

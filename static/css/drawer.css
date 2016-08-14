@@ -1,28 +1,27 @@
-#drawer button, #treatmentDrawer button{
-    font-family: Roboto;
-    font-size: 16px;
-    font-weight: 500;
-    text-transform: uppercase;
-    background-color: #8BC34A;
-    padding: 8px;
-    border: none;
-    border-radius: 4px;
-    width: 100%;
+#drawer button, #treatmentDrawer button, #boluscalcDrawer button{
+  font-size: 18px;
+  font-weight: bolder;
+  background-color: #ccc;
+  padding: 5px 10px;
+  border-radius: 5px;
+  border: 2px solid #aaa;
+  box-shadow: 2px 2px 0 #eee;
+  width: 100%;
 }
 
 #drawer {
-  background-color: #263238;
-  /*border-left: 1px solid #999;*/
-  box-shadow: 0 14px 28px rgba(38,50,56,1), 0px 50px 36px 20px rgba(17,22,25,.82);
+  background-color: #666;
+  border-left: 1px solid #999;
+  box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
   color: #eee;
   display: none;
   font-size: 16px;
-  height: 100%;
-  overflow-y: auto;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   position: absolute;
-  margin-top: 56px;
+  margin-top: 45px;
   right: -200px;
-  width: 320px;
   top: 0;
   z-index: 1;
 }
@@ -56,12 +55,12 @@ input[type=number]:invalid {
   color: #eee;
   display: none;
   font-size: 16px;
-  height: 100%;
-  overflow-y: auto;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   position: absolute;
-  margin-top: 56px;
+  margin-top: 45px;
   right: -200px;
-  width: 300px;
   top: 0;
   z-index: 1;
 }
@@ -83,6 +82,10 @@ input[type=number]:invalid {
   text-overflow: ellipsis;
   line-height: 22px;
   vertical-align: middle;
+}
+
+#treatmentDrawer fieldset fieldset .left-column span {
+  width: 96px;
 }
 
 #treatmentDrawer .left-column input, #treatmentDrawer .left-column select {
@@ -153,7 +156,7 @@ input[type=number]:invalid {
 
 form {
   margin: 0;
-  padding: 0 16px;
+  padding: 0 10px;
 }
 
 .serverSettings {
@@ -190,8 +193,8 @@ h1, legend,
 #toolbar .customTitle,
 #about .appName,
 #about .version {
-  font-weight: 500;
-  /*text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);*/
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
 #about .appName {
   font-size: 1em;
@@ -202,27 +205,29 @@ h1, legend,
 }
 
 #toolbar {
-  background: url(/images/logo2.png) no-repeat 16px 10px #263238;
+  background: url(/images/logo2.png) no-repeat 3px 3px #333;
+  border-bottom: 1px solid #999;
   top: 0;
   margin: 0;
-  height: 56px;
+  height: 44px;
+  text-shadow: 0 0 5px black;
 }
 
 #toolbar .customTitle {
-  color: #fff;
+  color: #ccc;
   font-size: 16px;
   margin-top: 0;
-  margin-left: 62px;
-  padding-top: 19px;
+  margin-left: 42px;
+  padding-top: 10px;
   padding-right: 150px;
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
 }
 #buttonbar {
-  /*padding-right: 10px;*/
-  height: 54px;
-  /*opacity: 0.75;*/
+  padding-right: 10px;
+  height: 44px;
+  opacity: 0.75;
   vertical-align: middle;
   position: absolute;
   right: 0;
@@ -231,18 +236,18 @@ h1, legend,
 
 #buttonbar a,
 #buttonbar i {
-  color: rgba(255,255,255,0.86);
-  font-size: 24px;
+  color: #ccc;
+  font-size: 16px;
   height: 44px;
-  line-height: 54px;
-  padding-right: 8px
+  line-height: 44px;
+}
+#buttonbar .selected {
+  color: red;
 }
 #buttonbar a {
   float: left;
   text-decoration: none;
-  width: 48px;
-  text-align:center;
-  padding-bottom:12px;
+  width: 34px;
 }
 #buttonbar i {
   padding-left: 12px;
@@ -313,19 +318,53 @@ ul.navigation {
 }
 
 .navigation a {
-    text-decoration: none;
-    background-color: #607D8B;
-    display: block;
-    padding: 12px;
-    margin: 8px 0;
-    text-transform: uppercase;
-    text-align: center;
-    border-radius: 4px;
-    box-shadow:0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
-    transition: box-shadow 0.2s ease-out;
+  text-decoration: none;
+  background-color: #808080;
+  display: block;
+  padding: 5px;
+  margin: 10px 0;
 }
 
 .navigation a:hover {
-  box-shadow: 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12), 0 5px 5px -3px rgba(0, 0, 0, 0.4);
-  transition: box-shadow 0.2s ease-out;
+  background-color: #989898;
+}
+
+#boluscalcDrawer {
+    background-color: #666;
+    border-left: 1px solid #999;
+    box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
+    color: #eee;
+    display: none;
+    font-size: 16px;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    position: absolute;
+    margin-top: 45px;
+    right: -200px;
+    width: 320px;
+    top: 0;
+    z-index: 1;
+}
+
+#boluscalcDrawer a {
+  color: white;
+  font-size: 12px;
+}
+
+#boluscalcDrawer .insulincalculation {
+    background: gray;
+}
+
+#boluscalcDrawer .insulintotalcalculation {
+    background: Sienna;
+}
+
+#boluscalcDrawer .border_bottom td {
+  border-bottom:1pt solid #eee;
+}
+
+#boluscalcDrawer .foodinput {
+   background: #505050;
+   margin: 10px;
 }
