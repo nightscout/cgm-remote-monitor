@@ -11,7 +11,6 @@ var levels = require('../lib/levels');
 
 var statuses = [
   {
-     "_id":"57af7e6bc16ea70b00886182",
      "created_at":"2016-08-13T20:09:15Z",
      "device":"loop://ExamplePhone",
      "loop":{
@@ -39,6 +38,17 @@ var statuses = [
            "timestamp":"2016-08-13T20:05:00Z",
            "iob":0.1733152537837709
         },
+        "name":"Loop"
+     }
+  },
+  {
+     "created_at":"2016-08-13T20:04:15Z",
+     "device":"loop://ExamplePhone",
+     "loop":{
+        "version":"0.9.1",
+        "recommendedBolus":0,
+        "timestamp":"2016-08-13T20:04:15Z",
+        "failureReason":"SomeError",
         "name":"Loop"
      }
   },
@@ -97,7 +107,7 @@ _.forEach(statuses, function updateMills (status) {
 
 describe('loop', function ( ) {
 
-  it('set the property and update the pill and add forecast points', function (done) {
+  it('should set the property and update the pill and add forecast points', function (done) {
     var ctx = {
       settings: {
         units: 'mg/dl'
@@ -133,12 +143,51 @@ describe('loop', function ( ) {
     };
 
     loop.setProperties(sbx);
+    loop.updateVisualisation(sbx);
+  });
+
+  it('should show errors', function (done) {
+    var ctx = {
+      settings: {
+        units: 'mg/dl'
+      }
+      , pluginBase: {
+        updatePillText: function mockedUpdatePillText (plugin, options) {
+          options.label.should.equal('Loop x');
+          options.value.should.equal('1m ago');
+          var first = _.first(options.info);
+          first.label.should.equal('1m ago');
+          first.value.should.equal('Error: SomeError');
+          done();
+        }
+      }
+    };
+
+    var errorTime = moment(statuses[1].created_at);
+
+    var sbx = sandbox.clientInit(ctx, errorTime.valueOf(), {devicestatus: statuses});
+
+    var unmockedOfferProperty = sbx.offerProperty;
+    sbx.offerProperty = function mockedOfferProperty (name, setter) {
+      name.should.equal('loop');
+      var result = setter();
+      should.exist(result);
+
+      result.display.symbol.should.equal('x');
+      result.display.code.should.equal('error');
+
+      sbx.offerProperty = unmockedOfferProperty;
+      unmockedOfferProperty(name, setter);
+    };
+
+    loop.setProperties(sbx);
 
     loop.updateVisualisation(sbx);
 
   });
 
-  it('check the recieved flag to see if it was received', function (done) {
+
+  it('should check the recieved flag to see if it was received', function (done) {
     var ctx = {
       settings: {
         units: 'mg/dl'
@@ -157,15 +206,14 @@ describe('loop', function ( ) {
       var result = setter();
       should.exist(result);
       result.display.symbol.should.equal('x');
-      result.display.code.should.equal('notenacted');
+      result.display.code.should.equal('error');
       done();
     };
 
     loop.setProperties(sbx);
-
   });
 
-  it('generate an alert for a stuck loop', function (done) {
+  it('should generate an alert for a stuck loop', function (done) {
     var ctx = {
       settings: {
         units: 'mg/dl'
