@@ -57,8 +57,8 @@ $(document).ready(function ( ) {
   // default volume always makes my ears bleed
   synth.connect(new Tone.Volume(-26), Tone.Master);
   synth.toMaster();
-  Tone.Transport.timeSignature = [ 12, 8 ];
-  Tone.Transport.bpm = 180;
+  Tone.Transport.timeSignature = [ 3, 2 ];
+  Tone.Transport.bpm = 220;
 
   function play_next (time) {
     var sgv = sgvs.shift( );
@@ -73,10 +73,15 @@ $(document).ready(function ( ) {
   }
 
   // var loop = new Tone.Loop(play_next, "4n");
+  var loop;
   function play_data ( ) {
     var sgvs = Nightscout.client.sbx.data.sgvs.slice( ).map(glucose).map(converter.freq);
     console.log('last two hours', sgvs.length);
-    var loop = createLoop(synth, sgvs);
+    var new_loop = createLoop(synth, sgvs);
+    if (loop) {
+      loop.stop( );
+    }
+    loop = new_loop;
     loop.start( );
   }
 
