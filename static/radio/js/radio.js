@@ -55,8 +55,7 @@ $(document).ready(function ( ) {
   var converter = convert( );
   var synth = new Tone.PolySynth(16, Tone.MonoSynth);
   // default volume always makes my ears bleed
-  var vol = 
-  synth.chain(new Tone.Volume(-36), Tone.Master);
+  synth.chain(new Tone.Volume(-27), Tone.Master);
   // synth.toMaster();
   Tone.Transport.timeSignature = [ 3, 2 ];
   Tone.Transport.bpm = 220;
