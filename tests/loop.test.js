@@ -11,21 +11,21 @@ var levels = require('../lib/levels');
 
 var statuses = [
   {
-     "created_at":"2016-08-13T20:09:15Z",
-     "device":"loop://ExamplePhone",
-     "loop":{
-        "enacted":{
-           "timestamp":"2016-08-13T20:09:15Z",
-           "rate":0.875,
-           "duration":30,
-           "received":true
+     'created_at':'2016-08-13T20:09:15Z',
+     'device':'loop://ExamplePhone',
+     'loop':{
+        'enacted':{
+           'timestamp':'2016-08-13T20:09:15Z',
+           'rate':0.875,
+           'duration':30,
+           'received':true
         },
-        "version":"0.9.1",
-        "recommendedBolus":0,
-        "timestamp":"2016-08-13T20:09:15Z",
-        "predicted":{
-           "startDate":"2016-08-13T20:03:47Z",
-           "values":[
+        'version':'0.9.1',
+        'recommendedBolus':0,
+        'timestamp':'2016-08-13T20:09:15Z',
+        'predicted':{
+           'startDate':'2016-08-13T20:03:47Z',
+           'values':[
               149,
               149,
               148,
@@ -34,67 +34,67 @@ var statuses = [
               147
            ]
         },
-        "iob":{
-           "timestamp":"2016-08-13T20:05:00Z",
-           "iob":0.1733152537837709
+        'iob':{
+           'timestamp':'2016-08-13T20:05:00Z',
+           'iob':0.1733152537837709
         },
-        "name":"Loop"
+        'name':'Loop'
      }
   },
   {
-     "created_at":"2016-08-13T20:04:15Z",
-     "device":"loop://ExamplePhone",
-     "loop":{
-        "version":"0.9.1",
-        "recommendedBolus":0,
-        "timestamp":"2016-08-13T20:04:15Z",
-        "failureReason":"SomeError",
-        "name":"Loop"
+     'created_at':'2016-08-13T20:04:15Z',
+     'device':'loop://ExamplePhone',
+     'loop':{
+        'version':'0.9.1',
+        'recommendedBolus':0,
+        'timestamp':'2016-08-13T20:04:15Z',
+        'failureReason':'SomeError',
+        'name':'Loop'
      }
   },
   {
-    "created_at":"2016-08-13T01:13:20Z",
-    "device":"loop://ExamplePhone",
-    "loop":{
-      "timestamp":"2016-08-13T01:18:20Z",
-      "version":"0.9.1",
-      "iob":{
-        "timestamp":"2016-08-13T01:15:00Z",
-        "iob":-0.1205140849137931
+    'created_at':'2016-08-13T01:13:20Z',
+    'device':'loop://ExamplePhone',
+    'loop':{
+      'timestamp':'2016-08-13T01:18:20Z',
+      'version':'0.9.1',
+      'iob':{
+        'timestamp':'2016-08-13T01:15:00Z',
+        'iob':-0.1205140849137931
       },
-      "name":"Loop"
+      'name':'Loop'
     }
   },
   {
-    "created_at":"2016-08-13T01:13:20Z",
-    "device":"loop://ExamplePhone",
-    "loop":{
-      "timestamp":"2016-08-13T01:13:20Z",
-      "version":"0.9.1",
-      "iob":{
-        "timestamp":"2016-08-13T01:10:00Z",
-        "iob":-0.1205140849137931
+    'created_at':'2016-08-13T01:13:20Z',
+    'device':'loop://ExamplePhone',
+    'loop':{
+      'timestamp':'2016-08-13T01:13:20Z',
+      'version':'0.9.1',
+      'iob':{
+        'timestamp':'2016-08-13T01:10:00Z',
+        'iob':-0.1205140849137931
       },
-      "failureReason":"StaleDataError(\"Glucose Date: 2016-08-12 23:23:49 +0000 or Pump status date: 2016-08-13 01:13:10 +0000 older than 15.0 min\")",
-      "name":"Loop"
+      'failureReason':'StaleDataError(\"Glucose Date: 2016-08-12 23:23:49 +0000 or Pump status date: 2016-08-13 01:13:10 +0000 older than 15.0 min\")',
+      'name':'Loop'
     }
   },
   {
-    "created_at":"2016-08-13T01:13:15Z",
-    "pump":{
-      "reservoir":90.5,
-      "clock":"2016-08-13T01:13:10Z",
-      "battery":{
-        "status":"normal",
-        "voltage":1.5
+    'created_at':'2016-08-13T01:13:15Z',
+    'pump':{
+      'reservoir':90.5,
+      'clock':'2016-08-13T01:13:10Z',
+      'battery':{
+        'status':'normal',
+        'voltage':1.5
       },
-      "pumpID":"543204"
+      'pumpID':'543204'
     },
-    "device":"loop://ExamplePhone",
-    "uploader":{
-      "timestamp":"2016-08-13T01:13:15Z",
-      "battery":43,
-      "name":"ExamplePhone"
+    'device':'loop://ExamplePhone',
+    'uploader':{
+      'timestamp':'2016-08-13T01:13:15Z',
+      'battery':43,
+      'name':'ExamplePhone'
     }
   }
 ];
