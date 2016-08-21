@@ -1,4 +1,4 @@
 {
-    "url": null,
-    "collection": null
+    "url": "mongodb://kirabakira:26ye87p3@ds013366.mlab.com:13366/cgmdexcomdb",
+    "collection": "insuline"
 }
