@@ -8,7 +8,9 @@ describe('pushover', function ( ) {
   var baseurl = 'https://nightscout.test';
 
   var env = {
-    baseUrl: baseurl
+    settings: {
+      baseURL: baseurl
+    }
     , extendedSettings: {
       pushover: {
         userKey: '12345'
@@ -56,6 +58,41 @@ describe('pushover', function ( ) {
       msg.message.should.equal(notify.message);
       msg.priority.should.equal(2);
       msg.retry.should.equal(2 * 60);
+      msg.sound.should.equal(notify.pushoverSound);
+      done();
+    };
+
+    pushover.send(notify);
+  });
+
+});
+
+describe('support legacy pushover groupkey', function ( ) {
+  var env = {
+    extendedSettings: {
+      pushover: {
+        groupKey: 'abcd'
+        , apiToken: '6789'
+      }
+    }
+  };
+
+  var pushover = require('../lib/plugins/pushover')(env);
+
+  it('send', function (done) {
+
+    var notify = {
+      title: 'Warning, this is a test!'
+      , message: 'details details details details'
+      , level: levels.WARN
+      , pushoverSound: 'climb'
+      , plugin: {name: 'test'}
+      , isAnnouncement: true
+    };
+
+    pushover.sendAPIRequest = function mockedSendAPIRequest (msg) {
+      msg.title.should.equal(notify.title);
+      msg.priority.should.equal(2);
       msg.sound.should.equal(notify.pushoverSound);
       done();
     };

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+    <head>
+      <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
+      <meta name="apple-mobile-web-app-capable" content="yes">
+      <title>Profile Editor: Nightscout</title>
+
+      <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
+      <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
+      <link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png">
+      <link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png">
+      <link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png">
+      <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
+      <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
+      <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
+      <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
+      <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
+      <link rel="icon" type="image/png" href="/images/android-chrome-192x192.png" sizes="192x192">
+      <link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96">
+      <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
+      <link rel="manifest" href="/manifest.json">
+      <link rel="shortcut icon" href="/images/favicon.ico">
+      <meta name="msapplication-TileColor" content="#00a300">
+      <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
+      <meta name="msapplication-config" content="/browserconfig.xml">
+      <meta name="theme-color" content="#333333">
+
+      <link rel="stylesheet" type="text/css" href="/css/main.css" />
+      <link rel="stylesheet" type="text/css" href="/css/drawer.css" />
+      <link rel="stylesheet" type="text/css" href="/css/profile.css" />
+      <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">
+    </head>
+    <body>
+    <div id="toolbar">
+      <div id="buttonbar">
+        <b> <span class="translate">Status</span>:</b> <span class="pe_status translate">Not loaded</span>
+      </div>
+      <h1 class="customTitle translate">Nightscout</h1>
+    </div>
+
+    <div id="profile-editor">
+      <h1 class="translate">Profile Editor</h1>
+    </div>
+
+    <form id="pe_form">
+      <fieldset class="browserSettings">
+        <legend class="translate">General profile settings</legend>
+        <dl>
+          <b><span class="translate">Title</span>: </b>
+          <span id="pe_title"></span>
+        </dl>
+        <dl>
+          <b><span class="translate">Units</span>: </b>
+          <span id="pe_units"></span>
+        </dl>
+        <dl>
+          <b><span class="translate">Date format</span>: </b>
+          <span id="pe_timeformat"></span>
+        </dl>
+      </fieldset>
+
+      <fieldset class="browserSettings">
+        <legend id="pe_history" style="display:none">
+          <span class="translate">Database records</span>:
+          <select id="pe_databaserecords"></select>
+          &nbsp;
+          <img id="pe_records_add" title="Add new record" class="titletranslate" style="cursor:pointer" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABa0lEQVQ4T6WTzysEYRjHP+/Mrv2hHOTuqJRNOfgPSORHokg4OClHcnVzVygHF6WIcuHMnyCHVRyI3ZYxa23vzOzs7LzamaI0e5i89fTWt/f5vPV5n1cQsXLbHepvfLv5JaLORoZNwMbyFo5vYfsWB0c7xAasLa5T/vCg45Oj48P4gJWFVYxCA63L5PzkND5gfm4Jo+Chd5W5OrtsDYgS1pQ1OTuNUfTQO8tcX9xE+QugYnS/X81MzGP7MpTWkEFVZY1KxcVPV3h27zAtA+oCagIcDfWUCgEje31qfHwK06gHjaF5iXQcHCV5lHmqqgQCNEAI0IsavCVDwNBurxoeGwmaAkDDwvYsqtIh//6AJUoklP97s62BbJYeAqIcpJNZsoM+r2aVbKKOekiBL8An3BuAEiGg1SSKAYnttpFxPdR9Jv4zipxFTUuQKqsfYbFGWfTYuO06yRfxIyweoLuG+iMsFuBfvzFy7FqE33vs2BFqlfN5AAAAAElFTkSuQmCC">
+          &nbsp;
+          <img id="pe_records_remove" title="Remove this record" class="titletranslate" style="cursor:pointer" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACrElEQVQ4T42Ty2sTQRzHv5tmk2yyjRNtpfZhL8V6s2KoUNC2XqwgaCsVQcGiFqpHi0c9iRdR/ANE9KR40FIQX4cueKoPaKFoLdSYNtE0abKT1+5s9iW7aUMiHtzTzO7v85md+c6PA4DrHbsPCKIgOWO1pA7dT6YXnXH949SE/F63pqwZtRrO+SCKgjQ5NUV+azpmHj2krMwaJC4c8Erj+/eRyloMMwWFKgbn1nC3ervlK1evkXBLGBZT8SOewotnTylTNLdgeg/pDgZDC2cPHSR8bB22DVC9hFe0SG/H0xFXcHlykjRHRDBWgJcZSCY38Xx2lhqMnRYE34Px/sN9vlQWeoHBAx2yXsRruVAVuFsIBaSJ8+eJGPaBqQV4NROJjTzez89jLBoFn6FgybQL54wS3uTyVDFQ3cL2IYpBv3RhdJSIIQ80tQyv7gEqJvS8AmUlBs7UXPhtjtZgh3UFNYngk86NHCfNAg9dMwHVBPu+CpsVkTXKeJeVG+AGgTOZ3tt6MSKKjy+NjEBjFrR4ElZmA4pdxstMFsyyJu6tZZ7Ux9vwB6EAL50ZGiRECEPPUOixVTRxHlicgSVWxEdZpuZWfNuS2hk48NjwMIkIYZglBnV5Cbqtws/5IaAJmsfCglrEl2y2QeKmEBJ80tixKmxrFpSVr0gV0viQoxho2YUuPohmeFD22PiklLC4ma5JuBvdrfLJI0dJd0s7bM0ES8aR/BXDXGaTskqlL+D3Lwy0tZEePoAd4EA5YF4tYymdonfjmQh3s6dTPjU4SHYGwjAKecSXFyGlM1TdytntE56T+ts7SC/vhw3gm6njc2Kd3vm5Ub1IwQAvnYhGiZpYw1wiWYPrIw7wnBTt7CLOOwdmut14kQQvqt24tfK/utGR6LaF+iRqMf4N/O/8D28HiiCRYqzAAAAAAElFTkSuQmCC">
+          &nbsp;
+          <img id="pe_records_clone" title="Clone this record to new" class="titletranslate" style="cursor:pointer" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACSklEQVQ4T5VTYU9SYRR+zn0vXhDEFyRBXcpmbZnZsOXsI2xpVnNcv/ilufET8h/oL8h/gN/aWhs2yjKt26rPSvUh5yQodQlqgKQCd5fbLg2jxlycT+/OOc85z/OcvYSa8MoRLqimUEuzOSgwBl0nFFUtW1K1J/Ho6Hxtr/H2yQqnarJ3fFHucNnC57tdXIUJhydl6CAwIhwfFXCwf5hUC6XpjYXAQgUcUngRzkxlgHc0Kl+57I443S7s5VQwxqCVCYVSGfkTFSQQmsQmHGVzKJ78nJMs2izBohRg8ZFB293iSPQPdPOiqiOdyiGdysdKmp4t64LXxlu9otUKTVdhkSSUjgooHOez7R1uvr2bA10cfx66cb0n3GS14tPHrWz6R34i+fT2m6q0rruv7tvs9gdOtxNk0mA2SRB0gqVZwGb8AOSbXIkMDV+Qt7cy2IinJ+LRWxWNf5ur+Kx2vub0OABRg2QSIYqEr/EMaHjqrdJ/tce/upqIxR76B/8FVzySFc7MzWvtnW6vyjSAAFFgyBkSrt17n7jU1+ldjcVn1x+PzNTZzkWLTXF5zvmYmaEslCEIxnUE7H07AA1NvVPaO9r8X5Kpic+Pfp+oNvpCH/R6rKo5GphUIq1Oh7y++T2wv/LHvLNAtTXqHX8Zkqyt4XQ6M73/emzuf4GnDLg/wu0tbYliqTifWhqZbniAAfCMLs/oRMHU0s26VzjTA6PI/QqXJC1BxAZ3XwSSjbA4/UyesWU/Y2Jw51mgIRmnA4ytXXcU385iINYIg1+OJdcoyf/hkgAAAABJRU5ErkJggg==">
+          &nbsp;
+        </legend>
+        <br>
+        <dl>
+          <b title="Start of record validity" class="titletranslate"><span class="translate">Record valid from</span>: </b>
+          <input type="date" id="pe_date" />
+          <input type="time" id="pe_time" />
+        </dl>
+
+        <fieldset class="browserSettings pe_stored_profile">
+          <legend id="pe_multiple" style="display:none">
+            <b><span class="translate">Stored profiles</span>: </b>
+            <select id="pe_profiles">
+            </select>
+            <img id="pe_profile_add" title="Add new record" class="titletranslate" style="cursor:pointer" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABa0lEQVQ4T6WTzysEYRjHP+/Mrv2hHOTuqJRNOfgPSORHokg4OClHcnVzVygHF6WIcuHMnyCHVRyI3ZYxa23vzOzs7LzamaI0e5i89fTWt/f5vPV5n1cQsXLbHepvfLv5JaLORoZNwMbyFo5vYfsWB0c7xAasLa5T/vCg45Oj48P4gJWFVYxCA63L5PzkND5gfm4Jo+Chd5W5OrtsDYgS1pQ1OTuNUfTQO8tcX9xE+QugYnS/X81MzGP7MpTWkEFVZY1KxcVPV3h27zAtA+oCagIcDfWUCgEje31qfHwK06gHjaF5iXQcHCV5lHmqqgQCNEAI0IsavCVDwNBurxoeGwmaAkDDwvYsqtIh//6AJUoklP97s62BbJYeAqIcpJNZsoM+r2aVbKKOekiBL8An3BuAEiGg1SSKAYnttpFxPdR9Jv4zipxFTUuQKqsfYbFGWfTYuO06yRfxIyweoLuG+iMsFuBfvzFy7FqE33vs2BFqlfN5AAAAAElFTkSuQmCC">
+            &nbsp;
+            <img id="pe_profile_remove" title="Remove this record" class="titletranslate" style="cursor:pointer" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACrElEQVQ4T42Ty2sTQRzHv5tmk2yyjRNtpfZhL8V6s2KoUNC2XqwgaCsVQcGiFqpHi0c9iRdR/ANE9KR40FIQX4cueKoPaKFoLdSYNtE0abKT1+5s9iW7aUMiHtzTzO7v85md+c6PA4DrHbsPCKIgOWO1pA7dT6YXnXH949SE/F63pqwZtRrO+SCKgjQ5NUV+azpmHj2krMwaJC4c8Erj+/eRyloMMwWFKgbn1nC3ervlK1evkXBLGBZT8SOewotnTylTNLdgeg/pDgZDC2cPHSR8bB22DVC9hFe0SG/H0xFXcHlykjRHRDBWgJcZSCY38Xx2lhqMnRYE34Px/sN9vlQWeoHBAx2yXsRruVAVuFsIBaSJ8+eJGPaBqQV4NROJjTzez89jLBoFn6FgybQL54wS3uTyVDFQ3cL2IYpBv3RhdJSIIQ80tQyv7gEqJvS8AmUlBs7UXPhtjtZgh3UFNYngk86NHCfNAg9dMwHVBPu+CpsVkTXKeJeVG+AGgTOZ3tt6MSKKjy+NjEBjFrR4ElZmA4pdxstMFsyyJu6tZZ7Ux9vwB6EAL50ZGiRECEPPUOixVTRxHlicgSVWxEdZpuZWfNuS2hk48NjwMIkIYZglBnV5Cbqtws/5IaAJmsfCglrEl2y2QeKmEBJ80tixKmxrFpSVr0gV0viQoxho2YUuPohmeFD22PiklLC4ma5JuBvdrfLJI0dJd0s7bM0ES8aR/BXDXGaTskqlL+D3Lwy0tZEePoAd4EA5YF4tYymdonfjmQh3s6dTPjU4SHYGwjAKecSXFyGlM1TdytntE56T+ts7SC/vhw3gm6njc2Kd3vm5Ub1IwQAvnYhGiZpYw1wiWYPrIw7wnBTt7CLOOwdmut14kQQvqt24tfK/utGR6LaF+iRqMf4N/O/8D28HiiCRYqzAAAAAAElFTkSuQmCC">
+            &nbsp;
+            <img id="pe_profile_clone" title="Clone this record to new" class="titletranslate" style="cursor:pointer" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACSklEQVQ4T5VTYU9SYRR+zn0vXhDEFyRBXcpmbZnZsOXsI2xpVnNcv/ilufET8h/oL8h/gN/aWhs2yjKt26rPSvUh5yQodQlqgKQCd5fbLg2jxlycT+/OOc85z/OcvYSa8MoRLqimUEuzOSgwBl0nFFUtW1K1J/Ho6Hxtr/H2yQqnarJ3fFHucNnC57tdXIUJhydl6CAwIhwfFXCwf5hUC6XpjYXAQgUcUngRzkxlgHc0Kl+57I443S7s5VQwxqCVCYVSGfkTFSQQmsQmHGVzKJ78nJMs2izBohRg8ZFB293iSPQPdPOiqiOdyiGdysdKmp4t64LXxlu9otUKTVdhkSSUjgooHOez7R1uvr2bA10cfx66cb0n3GS14tPHrWz6R34i+fT2m6q0rruv7tvs9gdOtxNk0mA2SRB0gqVZwGb8AOSbXIkMDV+Qt7cy2IinJ+LRWxWNf5ur+Kx2vub0OABRg2QSIYqEr/EMaHjqrdJ/tce/upqIxR76B/8FVzySFc7MzWvtnW6vyjSAAFFgyBkSrt17n7jU1+ldjcVn1x+PzNTZzkWLTXF5zvmYmaEslCEIxnUE7H07AA1NvVPaO9r8X5Kpic+Pfp+oNvpCH/R6rKo5GphUIq1Oh7y++T2wv/LHvLNAtTXqHX8Zkqyt4XQ6M73/emzuf4GnDLg/wu0tbYliqTifWhqZbniAAfCMLs/oRMHU0s26VzjTA6PI/QqXJC1BxAZ3XwSSjbA4/UyesWU/Y2Jw51mgIRmnA4ytXXcU385iINYIg1+OJdcoyf/hkgAAAABJRU5ErkJggg==">
+            &nbsp;
+          </legend>
+          <dl>
+            <b><span class="translate">Name</span>: </b>
+            <input type="text" id="pe_profile_name" style="width:150px">
+          </dl>
+          <dl>
+            <b><span class="translate">Timezone</span>: </b>
+            <select id="pe_timezone">
+            </select>        
+          </dl>
+          <dl>
+            <b title="Represents the typical duration over which insulin takes effect.  Varies per patient and per insulin type. Typically 3-4 hours for most pumped insulin and most patients. Sometimes also called insulin lifetime." class="titletranslate"><span class="translate">Duration of Insulin Activity (DIA)</span> [<span class="translate">hours</span>]: </b>
+            <input type="text" id="pe_dia" />
+          </dl>
+
+          <fieldset>
+              <legend title="g carbs per U insulin. The ratio of how many grams of carbohydrates are offset by each U of insulin." class="titletranslate"><span class="translate">Insulin to carb ratio (I:C)</span> [<span class="trasnlate">g</span>]:</legend>
+              <div id="pe_ic_placeholder"></div>
+          </fieldset>
+          
+          <fieldset>
+              <legend title="mg/dL or mmol/L per U insulin. The ratio of how much BG changes with each U of corrective insulin." class="titletranslate"><span class="translate">Insulin Sensitivity Factor (ISF)</span> [mg/dL/U,mmol/L/U]: </legend>
+              <div id="pe_isf_placeholder"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend class="translate">Carbs</legend>
+            <!--Re-Enable after integrated into profilefunctions.js-->
+            <!--<legend>Carbs-->
+              <!--(-->
+              <!--<i>-->
+                <!--<input type="checkbox" id="pe_perGIvalues" checked />-->
+                <!--use GI specific values-->
+              <!--</i>-->
+              <!--)-->
+            <!--</legend>-->
+            <div id="pe_simple">
+              <dl>
+                <b title="grams per unit time. Represents both the change in COB per unit of time, as well as the amount of carbs that should take effect over that time.  Carb absorption / activity curves are less well understood than insulin activity, but can be approximated using an initial delay followed by a constant rate of absorption (g/hr)." class="titletranslate"><span class="translate">Carbs activity / absorption rate</span>: [<span class="translate">g/hour</span>]</b><br>
+                <input type="number" id="pe_hr" />
+              </dl>
+            </div>
+            <div id="pe_advanced">
+              <dl>
+                <b title="grams per unit time. Represents both the change in COB per unit of time, as well as the amount of carbs that should take effect over that time.  Carb absorption / activity curves are less well understood than insulin activity, but can be approximated using an initial delay followed by a constant rate of absorption (g/hr)." class="titletranslate"><span class="translate">Carbs activity / absorption rate</span>: [<span class="translate">g/hour</span>]</b><br>
+                <span title="Value for carbs with high glycemic index">High: </span><input type="number" id="pe_hr_high" />
+                <span title="Value for carbs with medium glycemic index">Medium: </span><input type="number" id="pe_hr_medium" />
+                <span title="Value for carbs with low glycemic index">Low: </span><input type="number" id="pe_hr_low" />
+              </dl>
+              <dl>
+                <b title="minutes. Initial time before carbs are being absorbed.">Carbs absorption delay: [min]</b><br>
+                <span title="Value for carbs with high glycemic index">High: </span><input type="number" id="pe_delay_high" />
+                <span title="Value for carbs with medium glycemic index">Medium: </span><input type="number" id="pe_delay_medium" />
+                <span title="Value for carbs with low glycemic index">Low: </span><input type="number" id="pe_delay_low" />
+              </dl>
+            </div>
+          </fieldset>
+          
+          <fieldset class="browserSettings">
+            <legend class="translate">Basal rates [unit/hour]</legend>
+            <div id="pe_basal_placeholder"></div>
+          </fieldset>
+
+          <fieldset class="browserSettings">
+            <legend class="translate">Target BG range [mg/dL,mmol/L]</legend>
+            <div id="pe_targetbg_placeholder"></div>
+          </fieldset>
+
+        </fieldset>
+
+        <button type="submit" id="pe_submit" class="translate">Save</button>
+        
+      </fieldset>
+
+      <b><span class="translate">Authentication status</span>: </b>
+      <span id="authentication_placeholder"></span>
+
+      <p>
+        <b> <span class="translate">Status</span>:</b> <span class="pe_status" class="translate">Not loaded</span>
+      </p>
+
+    </form>
+
+    <script src="/api/v1/status.js"></script>
+    <script src="/public/js/bundle.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
+    <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
+    <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
+    <script src="/profile/js/profileeditor.js"></script>
+  </body>
+</html>
