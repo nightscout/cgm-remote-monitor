@@ -558,7 +558,7 @@
         return $.Deferred().resolve();
       }
       $('#info-' + day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
-      var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
+      var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=100000';
       return $.ajax('/api/v1/entries.json'+query, {
         success: function (xhr) {
           xhr.forEach(function (element) {
