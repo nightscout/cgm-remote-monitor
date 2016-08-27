@@ -86,7 +86,8 @@
   // Fetch data from mongo
   peStatus.hide().text(translate('Loading profile records ...')).fadeIn('slow');
   $.ajax('/api/v1/profile.json', {
-    success: function (records) {
+    headers: client.headers()
+    , success: function (records) {
       if (!records.length) {
         records.push(defaultprofile);
       }
@@ -122,8 +123,8 @@
         });
         peStatus.hide().text(translate('Default values used.')).fadeIn('slow');
       }
-    },
-    error: function () {
+    }
+    , error: function () {
       mongorecords.push({
         defaultProfile: 'Default'
         , store : {
@@ -143,7 +144,7 @@
     if (typeof profile.target_high !== 'object') { profile.target_high = [{ 'time': '00:00', 'value': profile.target_high }]; }
     if (typeof profile.basal !== 'object') { profile.basal = [{ 'time': '00:00', 'value': profile.basal }]; }
     if (profile.target_high.length !== profile.target_low.length) {
-      alert(translate('Time ranges of target_low and target_high don\'t  match. Values are restored to defaults.'));
+      window.alert(translate('Time ranges of target_low and target_high don\'t  match. Values are restored to defaults.'));
       profile.target_low = _.cloneDeep(defaultprofile.target_low);
       profile.target_high = _.cloneDeep(defaultprofile.target_high);
     }
@@ -258,9 +259,7 @@
         $.ajax({
           method: 'DELETE'
           , url: '/api/v1/profile/'+mongorecords[currentrecord]._id
-          , headers: {
-            'api-secret': client.hashauth.hash()
-          }
+          , headers: client.headers()
         }).done(function postSuccess () {
           console.info('profile deleted');
           peStatus.hide().text(status).fadeIn('slow');
@@ -615,7 +614,7 @@
   
   function profileSubmit(event) {
     if (!client.hashauth.isAuthenticated()) {
-      alert(translate('Your device is not authenticated yet'));
+      window.alert(translate('Your device is not authenticated yet'));
       return false;
     }
 
@@ -640,6 +639,16 @@
       }
     }
     adjustedRecord.defaultProfile = currentprofile;
+    
+    if (record.convertedOnTheFly) {
+      var result = window.confirm(translate('Profile is going to be saved in newer format used in Nightscout 0.9.0 and above and will not be usable in older versions anymore.\nAre you sure?'));
+      if (!result) {
+        return;
+      }
+    }
+    
+    delete record.convertedOnTheFly;
+    delete adjustedRecord.convertedOnTheFly;
 
     console.info('saving profile');
     
@@ -647,9 +656,7 @@
       method: 'PUT'
       , url: '/api/v1/profile/'
       , data: adjustedRecord
-      , headers: {
-        'api-secret': client.hashauth.hash()
-      }
+      , headers: client.headers()
     }).done(function postSuccess (data, status) {
       console.info('profile saved', data);
       peStatus.hide().text(status).fadeIn('slow');
