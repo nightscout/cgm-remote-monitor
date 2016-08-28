@@ -7,6 +7,25 @@ var serverSettings = require('./fixtures/default-server-settings');
 
 describe('hashauth', function ( ) {
   var self = this;
+  var headless = require('./fixtures/headless')(benv, this);
+
+  before(function (done) {
+    done( );
+  });
+
+  after(function (done) {
+    done( );
+  });
+
+  beforeEach(function (done) {
+    headless.setup({ }, done);
+  });
+
+  afterEach(function (done) {
+    headless.teardown( );
+    done( );
+  });
+  /*
   before(function (done) {
     benv.setup(function() {
       self.$ = require('jquery');
@@ -41,6 +60,7 @@ describe('hashauth', function ( ) {
     benv.teardown();
     done();
   });
+  */
 
   it ('should make module unauthorized', function () {
     var plugins = require('../lib/plugins/')().registerClientDefaults();
@@ -55,7 +75,7 @@ describe('hashauth', function ( ) {
 
     client.init(serverSettings, plugins);
 
-    hashauth.inlineCode().indexOf('Device not authenticated').should.be.greaterThan(0);
+    hashauth.inlineCode().indexOf('Not authorized').should.be.greaterThan(0);
     hashauth.isAuthenticated().should.equal(false);
     var testnull = (hashauth.hash()===null);
     testnull.should.equal(true);
@@ -74,7 +94,7 @@ describe('hashauth', function ( ) {
 
     client.init(serverSettings, plugins);
 
-    hashauth.inlineCode().indexOf('Device authenticated').should.be.greaterThan(0);
+    hashauth.inlineCode().indexOf('Admin authorized').should.be.greaterThan(0);
     hashauth.isAuthenticated().should.equal(true);
   });
 
@@ -137,7 +157,7 @@ describe('hashauth', function ( ) {
     
     localStorage.remove('apisecrethash');
 
-    hashauth.init(client,$);
+    hashauth.init(client, self.$);
 
     client.init(serverSettings, plugins);
 
