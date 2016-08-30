@@ -64,8 +64,8 @@ body {
 }
 
 .bgStatus .currentBG {
-  font-size: 120px;
-  line-height: 100px;
+  font-size: 220px;
+  line-height: 200px;
   text-decoration: line-through;
   vertical-align: middle;
 }
