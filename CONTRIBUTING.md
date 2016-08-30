@@ -1,3 +1,19 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**
+
+- [Contributing to cgm-remote-monitor](#contributing-to-cgm-remote-monitor)
+  - [Design](#design)
+  - [Develop on `dev`](#develop-on-dev)
+  - [Style Guide](#style-guide)
+  - [Create a prototype](#create-a-prototype)
+  - [Submit a pull request](#submit-a-pull-request)
+  - [Comments and issues](#comments-and-issues)
+  - [Co-ordination](#co-ordination)
+  - [Other Dev Tips](#other-dev-tips)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 
 # Contributing to cgm-remote-monitor
 
@@ -29,6 +45,25 @@ design.
 
 We develop on the `dev` branch.
 You can get the dev branch checked out using `git checkout dev`.
+
+## Style Guide
+
+Some simple rules, that will make it easier to maintain our codebase:
+
+* All indenting should use 2 space where possible (js, css, html, etc)
+* A space before function parameters, such as: `function boom (name, callback) { }`, this makes searching for calls easier
+* Name your callback functions, such as `boom('the name', function afterBoom ( result ) { }`
+* Don't include author names in the header of your files, if you need to give credit to someone else do it in the commit comment.
+* Use single quotes.
+* Use the comma first style, for example:
+
+  ```javascript
+  var data = {
+    value: 'the value'
+    , detail: 'the details...'
+    , time: Date.now()
+  };
+  ```
 
 ## Create a prototype
 
@@ -77,3 +112,13 @@ the version correctly.  See sem-ver for versioning strategy.
 Every commit is tested by travis.  We encourage adding tests to
 validate your design.  We encourage discussing your use cases to help
 everyone get a better understanding of your design.
+
+## Other Dev Tips
+
+* Join the [Gitter chat][gitter-url]
+* Get a local dev environment setup if you haven't already
+* Try breaking up big features/improvements into small parts.  It's much easier to accept small PR's
+* Create tests for your new code, and for the old code too.  We are aiming for a full test coverage.
+* If your going to be working in old code that needs lots of reformatting consider doing the clean as a separate PR.
+* If you can find others to help test your PR is will help get them merged in sooner.
+ 
