@@ -23,6 +23,11 @@ body {
   z-index: 2;
 }
 
+a, a:visited, a:link {
+  color: #2196f3;
+  text-decoration: none;
+}
+
 #container.announcing .customTitle {
   color: orange;
 }
@@ -338,6 +343,15 @@ body {
 
 .pill.hidden {
   display: none;
+}
+
+#authorizationstatus a {
+  color: #2196f3;
+  text-decoration: underline;
+}
+
+#authorizationstatus .small {
+  font-size: 12px;
 }
 
 @media (max-width: 800px) {
