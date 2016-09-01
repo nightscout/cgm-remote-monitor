@@ -6,8 +6,8 @@ var _ =require('lodash');
 var FIVE_MINS = 300000;
 var SIX_MINS = 360000;
 
-describe('Delta', function ( ) {
-  var delta = require('../lib/plugins/delta')();
+describe('BG Now', function ( ) {
+  var bgnow = require('../lib/plugins/bgnow')();
   var sandbox = require('../lib/sandbox')();
 
   var now = Date.now();
@@ -29,15 +29,15 @@ describe('Delta', function ( ) {
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
 
-    delta.setProperties(sbx);
+    bgnow.setProperties(sbx);
 
-    var prop = sbx.properties.delta;
+    var prop = sbx.properties.bgnow.delta;
     prop.mgdl.should.equal(5);
     prop.interpolated.should.equal(false);
     prop.scaled.should.equal(5);
     prop.display.should.equal('+5');
 
-    delta.updateVisualisation(sbx);
+    bgnow.updateVisualisation(sbx);
   });
 
   it('should calculate BG Delta by interpolating when more than 5mins apart', function (done) {
@@ -59,16 +59,16 @@ describe('Delta', function ( ) {
       }
     };
 
-    var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    var sbx = sandbox.clientInit(ctx, now, data);
 
-    delta.setProperties(sbx);
+    bgnow.setProperties(sbx);
 
-    var prop = sbx.properties.delta;
+    var prop = sbx.properties.bgnow.delta;
     prop.mgdl.should.equal(2);
     prop.interpolated.should.equal(true);
     prop.scaled.should.equal(2);
     prop.display.should.equal('+2');
-    delta.updateVisualisation(sbx);
+    bgnow.updateVisualisation(sbx);
 
   });
 
@@ -84,8 +84,8 @@ describe('Delta', function ( ) {
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
 
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
-      name.should.equal('delta');
-      var result = setter();
+      name.should.equal('bgnow');
+      var result = setter().delta;
       result.mgdl.should.equal(5);
       result.interpolated.should.equal(false);
       result.scaled.should.equal(0.2);
@@ -93,7 +93,7 @@ describe('Delta', function ( ) {
       done();
     };
 
-    delta.setProperties(sbx);
+    bgnow.setProperties(sbx);
   });
 
   it('should calculate BG Delta in mmol and not show a change because of rounding', function (done) {
@@ -108,8 +108,8 @@ describe('Delta', function ( ) {
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
 
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
-      name.should.equal('delta');
-      var result = setter();
+      name.should.equal('bgnow');
+      var result = setter().delta;
       result.mgdl.should.equal(0);
       result.interpolated.should.equal(false);
       result.scaled.should.equal(0);
@@ -117,7 +117,7 @@ describe('Delta', function ( ) {
       done();
     };
 
-    delta.setProperties(sbx);
+    bgnow.setProperties(sbx);
   });
 
   it('should calculate BG Delta in mmol by interpolating when more than 5mins apart', function (done) {
@@ -132,8 +132,8 @@ describe('Delta', function ( ) {
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
 
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
-      name.should.equal('delta');
-      var result = setter();
+      name.should.equal('bgnow');
+      var result = setter().delta;
       result.mgdl.should.equal(2);
       result.interpolated.should.equal(true);
       result.scaled.should.equal(0.1);
@@ -141,7 +141,7 @@ describe('Delta', function ( ) {
       done();
     };
 
-    delta.setProperties(sbx);
+    bgnow.setProperties(sbx);
   });
 
 });
