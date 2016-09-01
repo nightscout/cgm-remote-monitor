@@ -276,7 +276,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Generates alarms based on forecasted values. See [Forecasting using AR2 algorithm](https://github.com/nightscout/nightscout.github.io/wiki/Forecasting)
   * Enabled by default if no thresholds are set **OR** `ALARM_TYPES` includes `predict`.
   * Use [extended settings](#extended-settings) to adjust AR2 behavior:
-    * `AR2_USE_RAW` (`false`) - to forecast using `rawbg` values when standard values don't trigger an alarm.
     * `AR2_CONE_FACTOR` (`2`) - to adjust size of cone, use `0` for a single line.
 
 ##### `simplealarms` (Simple BG Alarms)
