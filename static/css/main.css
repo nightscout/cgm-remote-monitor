@@ -165,7 +165,7 @@ body {
   font-size: 100px;
 }
 .statusBox {
-  text-align: center;
+  text-align: left;
   width: 250px;
 }
 .statusPills {
