@@ -190,7 +190,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  height: auto;
+  height: 0;
   font-size: 20px;
   background: #111;
   display: block;
@@ -200,8 +200,8 @@ body {
 }
 
 #chartContainer svg {
-  width: 100%;
-  height: 100%;
+  width: 0;
+  height: 0;
   margin: 0;
   padding: 0;
 }
