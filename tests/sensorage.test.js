@@ -43,6 +43,7 @@ describe('sage', function ( ) {
     };
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    sage.setProperties(sbx);
     sage.updateVisualisation(sbx);
 
   });
@@ -69,6 +70,7 @@ describe('sage', function ( ) {
     };
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    sage.setProperties(sbx);
     sage.updateVisualisation(sbx);
 
   });
@@ -95,6 +97,7 @@ describe('sage', function ( ) {
     };
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    sage.setProperties(sbx);
     sage.updateVisualisation(sbx);
 
   });
@@ -123,6 +126,7 @@ describe('sage', function ( ) {
     };
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    sage.setProperties(sbx);
     sage.updateVisualisation(sbx);
 
   });
@@ -136,6 +140,7 @@ describe('sage', function ( ) {
 
     var sbx = prepareSandbox();
     sbx.extendedSettings = { 'enableAlerts': true };
+    sage.setProperties(sbx);
     sage.checkNotifications(sbx);
 
     var highest = ctx.notifications.findHighestAlarm('SAGE');
@@ -153,6 +158,7 @@ describe('sage', function ( ) {
 
     var sbx = prepareSandbox();
     sbx.extendedSettings = { 'enableAlerts': true };
+    sage.setProperties(sbx);
     sage.checkNotifications(sbx);
 
     should.not.exist(ctx.notifications.findHighestAlarm('SAGE'));
