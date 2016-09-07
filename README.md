@@ -248,7 +248,13 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Displays the most recent battery status from the uploader phone.
 
 ##### `timeago` (Time Ago)
-  Displays the time since last CGM entry.  Supports the `TIMEAGO_ENABLE_ALERTS` [extended setting](#extended-settings) for server side stale data alarms via Pushover and IFTTT.
+  Displays the time since last CGM entry. Use these [extended setting](#extended-settings) to adjust behavior:
+  * `TIMEAGO_ENABLE_ALERTS` (`false`) - Set to `true` to enable stale data alarms  via Pushover and IFTTT.
+  * `ALARM_TIMEAGO_WARN` (`on`) - possible values `on` or `off`
+  * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
+  * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
+  * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
+
 
 ##### `devicestatus` (Device Status)
   Used by `upbat` and other plugins to display device status info.  Supports the `DEVICESTATUS_ADVANCED="true"` [extended setting](#extended-settings) to send all device statuses to the client for retrospective use and to support other plugins.
