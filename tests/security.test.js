@@ -14,19 +14,9 @@ describe('API_SECRET', function ( ) {
       ctx.app = api(env, wares, ctx);
       scope.app = ctx.app;
       scope.entries = ctx.entries;
-      ctx.entries.create(load('json'), function () {
-        fn(ctx);
-      });
+      fn(ctx);
     });
   }
-  /*
-  before(function (done) {
-
-  });
-  */
-  after(function (done) {
-    scope.entries( ).remove({ }, done);
-  });
 
   it('should work fine absent', function (done) {
     delete process.env.API_SECRET;
