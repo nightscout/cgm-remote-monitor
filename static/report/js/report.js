@@ -265,7 +265,8 @@
           var treatmentData;
           var tquery = '?find[boluscalc.foods._id]=' + _id + timerange;
           $.ajax('/api/v1/treatments.json'+tquery, {
-            success: function (xhr) {
+            headers: client.headers()
+            , success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
                 return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
@@ -338,7 +339,8 @@
           var treatmentData;
           var tquery = '?find[eventType]=/' + eventtype + '/i';
           $.ajax('/api/v1/treatments.json' + tquery + timerange, {
-            success: function (xhr) {
+            headers: client.headers()
+            , success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
                 return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
@@ -560,7 +562,8 @@
       $('#info-' + day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
       var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
       return $.ajax('/api/v1/entries.json'+query, {
-        success: function (xhr) {
+        headers: client.headers()
+        , success: function (xhr) {
           xhr.forEach(function (element) {
             if (element) {
               if (element.mbg) {
@@ -614,7 +617,8 @@
       $('#info-' + day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
       var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
       return $.ajax('/api/v1/treatments.json'+tquery, {
-        success: function (xhr) {
+        headers: client.headers()
+        , success: function (xhr) {
           treatmentData = xhr.map(function (treatment) {
             var timestamp = new Date(treatment.timestamp || treatment.created_at);
             treatment.mills = timestamp.getTime();
@@ -643,7 +647,8 @@
         $('#info-' + day).html('<b>'+translate('Loading device status data of')+' '+day+' ...</b>');
         var tquery = '?find[created_at][$gte]=' + new Date(from).toISOString() + '&find[created_at][$lt]=' + new Date(to).toISOString() + '&count=10000';
         return $.ajax('/api/v1/devicestatus.json'+tquery, {
-          success: function (xhr) {
+          headers: client.headers()
+          , success: function (xhr) {
             data.devicestatus = xhr.map(function (devicestatus) {
               devicestatus.mills = new Date(devicestatus.timestamp || devicestatus.created_at).getTime();
               return devicestatus;
@@ -666,7 +671,8 @@
     $('#info > b').html('<b>'+translate('Loading profile switch data') + ' ...</b>');
     var tquery = '?find[eventType][$eq]=Profile Switch';
     $.ajax('/api/v1/treatments.json'+tquery, {
-      success: function (xhr) {
+      headers: client.headers()
+      , success: function (xhr) {
         var treatmentData = xhr.map(function (treatment) {
           var timestamp = new Date(treatment.timestamp || treatment.created_at);
           treatment.mills = timestamp.getTime();
