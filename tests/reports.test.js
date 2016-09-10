@@ -173,74 +173,35 @@ exampleProfile[0].startDate.setMilliseconds(0);
 
 describe('reports', function ( ) {
   var self = this;
+  var headless = require('./fixtures/headless')(benv, this);
 
   before(function (done) {
-    benv.setup(function() {
-      self.$ = require('jquery');
-      self.$.localStorage = require('./fixtures/localstorage');
-
-      self.$.fn.tipsy = function mockTipsy ( ) { };
-
-      self.$.fn.dialog = function mockDialog (opts) {
-        function maybeCall (name, obj) {
-          if (obj[name] && obj[name].call) {
-            obj[name]();
-          }
-
-        }
-        maybeCall('open', opts);
-
-        _.forEach(opts.buttons, function (button) {
-          maybeCall('click', button);
-        });
-      };
-
-      var indexHtml = read(__dirname + '/../static/report/index.html', 'utf8');
-      self.$('body').html(indexHtml);
-
-      //var filesys = require('fs');
-      //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
-      
-      self.$.ajax = function mockAjax (url, opts) {
-        var returnVal = someData[url] || [];
-        if (opts && typeof opts.success === 'function') {
-          opts.success(returnVal);
-        }
-        return self.$.Deferred().resolveWith(returnVal);
-      };
-
-      self.$.plot = function mockPlot () {
-      };
-
-      var d3 = require('d3');
-      //disable all d3 transitions so most of the other code can run with jsdom
-      d3.timer = function mockTimer() { };
-
-      benv.expose({
-        $: self.$
-        , jQuery: self.$
-        , d3: d3
-        , serverSettings: serverSettings
-        , io: {
-          connect: function mockConnect ( ) {
-            return {
-              on: function mockOn ( ) { }
-            };
-          }
-        }
-      });
-
-      benv.require(__dirname + '/../bundle/bundle.source.js');
-      benv.require(__dirname + '/../static/report/js/report.js');
-
-      done();
-    });
+    done( );
   });
 
   after(function (done) {
-    benv.teardown(true);
-    done();
+    done( );
   });
+
+  beforeEach(function (done) {
+    var opts = {
+      htmlFile: __dirname + '/../static/report/index.html'
+    , mockProfileEditor: true
+    , serverSettings: serverSettings
+    , mockSimpleAjax: someData
+    , benvRequires: [
+        __dirname + '/../bundle/bundle.source.js'
+      , __dirname + '/../static/report/js/report.js'
+      ]
+    };
+    headless.setup(opts, done);
+  });
+
+  afterEach(function (done) {
+    headless.teardown( );
+    done( );
+  });
+
 
   it ('should produce some html', function (done) {
     var plugins = require('../lib/plugins/')().registerClientDefaults();
@@ -300,7 +261,7 @@ describe('reports', function ( ) {
     //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
     //logfile.write($('body').html());
     
-    //console.log(result);
+    // console.log(result);
 
     result.indexOf('Milk now').should.be.greaterThan(-1); // daytoday
     result.indexOf('50 g (1.67U)').should.be.greaterThan(-1); // daytoday
