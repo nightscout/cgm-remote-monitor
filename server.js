@@ -46,7 +46,7 @@ function create (app) {
 
 require('./lib/bootevent')(env).boot(function booted (ctx) {
     var app = require('./app')(env, ctx);
-    var server = create(app).listen(PORT);
+    var server = create(app).listen(PORT, '::');
     console.log(translate('Listening on port'), PORT);
 
     if (ctx.bootErrors && ctx.bootErrors.length > 0) {
