@@ -25,12 +25,14 @@ low values, which can be cleared by any watcher of the data.
 Community maintained fork of the
 [original cgm-remote-monitor][original].
 
+[![Coverage Status](https://coveralls.io/repos/github/nightscout/cgm-remote-monitor/badge.svg?branch=dev)](https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=dev)
+
 [build-img]: https://img.shields.io/travis/nightscout/cgm-remote-monitor.svg
 [build-url]: https://travis-ci.org/nightscout/cgm-remote-monitor
 [dependency-img]: https://img.shields.io/david/nightscout/cgm-remote-monitor.svg
 [dependency-url]: https://david-dm.org/nightscout/cgm-remote-monitor
-[coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/master.svg
-[coverage-url]: https://coveralls.io/r/nightscout/cgm-remote-monitor?branch=master
+[coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/dev.svg
+[coverage-url]: https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=dev
 [codacy-img]: https://www.codacy.com/project/badge/f79327216860472dad9afda07de39d3b
 [codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
 [gitter-img]: https://img.shields.io/badge/Gitter-Join%20Chat%20%E2%86%92-1dce73.svg
@@ -388,12 +390,12 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
 
 ##### `loop` (Loop)
-    iOS Loop app monitoring, uses these extended settings:
-    * Requires `DEVICESTATUS_ADVANCED="true"` to be set
-    * `LOOP_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when Loop isn't looping.
-    * `LOOP_WARN` (`30`) - The number of minutes since the last loop that needs to be exceeded before an alert is triggered
-    * `LOOP_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceeded before an urgent alarm is triggered
-    * Add `loop` to `SHOW_FORECAST` to show forecasted BG.
+  iOS Loop app monitoring, uses these extended settings:
+  * Requires `DEVICESTATUS_ADVANCED="true"` to be set
+  * `LOOP_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when Loop isn't looping.
+  * `LOOP_WARN` (`30`) - The number of minutes since the last loop that needs to be exceeded before an alert is triggered
+  * `LOOP_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceeded before an urgent alarm is triggered
+  * Add `loop` to `SHOW_FORECAST` to show forecasted BG.
 
 
 #### Extended Settings
