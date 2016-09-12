@@ -390,12 +390,12 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
 
 ##### `loop` (Loop)
-    iOS Loop app monitoring, uses these extended settings:
-    * Requires `DEVICESTATUS_ADVANCED="true"` to be set
-    * `LOOP_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when Loop isn't looping.
-    * `LOOP_WARN` (`30`) - The number of minutes since the last loop that needs to be exceeded before an alert is triggered
-    * `LOOP_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceeded before an urgent alarm is triggered
-    * Add `loop` to `SHOW_FORECAST` to show forecasted BG.
+  iOS Loop app monitoring, uses these extended settings:
+  * Requires `DEVICESTATUS_ADVANCED="true"` to be set
+  * `LOOP_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when Loop isn't looping.
+  * `LOOP_WARN` (`30`) - The number of minutes since the last loop that needs to be exceeded before an alert is triggered
+  * `LOOP_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceeded before an urgent alarm is triggered
+  * Add `loop` to `SHOW_FORECAST` to show forecasted BG.
 
 
 #### Extended Settings
