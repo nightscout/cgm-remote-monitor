@@ -9,6 +9,7 @@ var nowData = {
   sgvs: [
     { mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' }
   ]
+  , treatments: []
 };
 
 describe('client', function ( ) {
@@ -108,6 +109,8 @@ describe('client', function ( ) {
       return true;
     };
 
+    window.alert = function mockAlert() {};
+    
     client.careportal.save();
   });
 
