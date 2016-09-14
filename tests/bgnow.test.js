@@ -174,7 +174,7 @@ describe('BG Now', function ( ) {
 
     var gotbgnow = false;
     var gotdelta = false;
-    var gotbuckets = false
+    var gotbuckets = false;
 
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
       if (name === 'bgnow') {
