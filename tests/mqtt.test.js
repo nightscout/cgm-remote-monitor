@@ -1,6 +1,6 @@
 'use strict';
 
-require('should');
+var should = require('should');
 
 var FIVE_MINS = 5 * 60 * 1000;
 
@@ -103,11 +103,10 @@ describe('mqtt', function ( ) {
         case 3: // sgv
           chunk.length.should.equal(1);
           var first = chunk[0];
-          console.log("FIRST", first);
-          first.sgv.should.be.ok;
-          first.noise.should.be.ok;
-          first.date.should.be.ok;
-          first.dateString.should.be.ok;
+          should.exist(first.sgv);
+          should.exist(first.noise);
+          should.exist(first.date);
+          should.exist(first.dateString);
           first.type.should.equal('sgv');
           break;
         case 4: // cal
@@ -121,7 +120,7 @@ describe('mqtt', function ( ) {
         self.results.end( );
       }
     });
-    self.results.on('end', function (chunk) {
+    self.results.on('end', function ( ) {
         done( );
     });
     self.mqtt.client.emit('message', '/downloads/protobuf', payload);
