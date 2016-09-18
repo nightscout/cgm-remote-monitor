@@ -25,12 +25,14 @@ low values, which can be cleared by any watcher of the data.
 Community maintained fork of the
 [original cgm-remote-monitor][original].
 
+[![Coverage Status](https://coveralls.io/repos/github/nightscout/cgm-remote-monitor/badge.svg?branch=dev)](https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=dev)
+
 [build-img]: https://img.shields.io/travis/nightscout/cgm-remote-monitor.svg
 [build-url]: https://travis-ci.org/nightscout/cgm-remote-monitor
 [dependency-img]: https://img.shields.io/david/nightscout/cgm-remote-monitor.svg
 [dependency-url]: https://david-dm.org/nightscout/cgm-remote-monitor
-[coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/master.svg
-[coverage-url]: https://coveralls.io/r/nightscout/cgm-remote-monitor?branch=master
+[coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/dev.svg
+[coverage-url]: https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=dev
 [codacy-img]: https://www.codacy.com/project/badge/f79327216860472dad9afda07de39d3b
 [codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
 [gitter-img]: https://img.shields.io/badge/Gitter-Join%20Chat%20%E2%86%92-1dce73.svg
@@ -84,6 +86,7 @@ Community maintained fork of the
         - [`mmconnect` (MiniMed Connect bridge)](#mmconnect-minimed-connect-bridge)
         - [`pump` (Pump Monitoring)](#pump-pump-monitoring)
         - [`openaps` (OpenAPS)](#openaps-openaps)
+        - [`loop` (Loop)](#loop-loop)
       - [Extended Settings](#extended-settings)
       - [Pushover](#pushover)
       - [IFTTT Maker](#ifttt-maker)
@@ -142,11 +145,11 @@ The server status and settings are available from `/api/v1/status.json`.
 
 By default the `/entries` and `/treatments` APIs limit results to the the most recent 10 values from the last 2 days.
 You can get many more results, by using the `count`, `date`, `dateString`, and `created_at` parameters, depending on the type of data you're looking for.
- 
+
 #### Example Queries
 
 (replace `http://localhost:1337` with your base url, YOUR-SITE)
-  
+
   * 100's: `http://localhost:1337/api/v1/entries.json?find[sgv]=100`
   * BGs between 2 days: `http://localhost:1337/api/v1/entries/sgv.json?find[dateString][$gte]=2015-08-28&find[dateString][$lte]=2015-08-30`
   * Juice Box corrections in a year: `http://localhost:1337/api/v1/treatments.json?count=1000&find[carbs]=15&find[eventType]=Carb+Correction&find[created_at][$gte]=2015`
@@ -171,13 +174,16 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `ENABLE` - Used to enable optional features, expects a space delimited list, such as: `careportal rawbg iob`, see [plugins](#plugins) below
   * `DISABLE` - Used to disable default features, expects a space delimited list, such as: `direction upbat`, see [plugins](#plugins) below
   * `API_SECRET` - A secret passphrase that must be at least 12 characters long, required to enable `POST` and `PUT`; also required for the Care Portal
-  * `TREATMENTS_AUTH` (`off`) - possible values `on` or `off`. When on device must be authenticated by entering `API_SECRET` to create treatments
+  * `AUTH_DEFAULT_ROLES` (`readable`) - possible values `readable`, `denied`, or any valid role
+    name.  When `readable`, anyone can view Nightscout without a token.
+    Setting it to `denied` will require a token from every visit, using `status-only` will enable api-secret based login.
+  * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. Deprecated, if set to `off` the `careportal` role will be added to `AUTH_DEFAULT_ROLES`
 
 
 ### Alarms
 
   These alarm setting effect all delivery methods (browser, pushover, maker, etc), some settings can be overridden per client (web browser)
-  
+
   * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's
   * `BG_HIGH` (`260`) - must be set using mg/dl units; the high BG outside the target range that is considered urgent
   * `BG_TARGET_TOP` (`180`) - must be set using mg/dl units; the top of the target range, also used to draw the line on the chart
@@ -220,12 +226,12 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
-  * `SHOW_FORECAST` (`ar2`) - plugin forecasts that should be shown by default, supports space delimited values such as `"ar2 openaps"` 
+  * `SHOW_FORECAST` (`ar2`) - plugin forecasts that should be shown by default, supports space delimited values such as `"ar2 openaps"`
   * `LANGUAGE` (`en`) - language of Nightscout. If not available english is used
   * `SCALE_Y` (`log`) - The type of scaling used for the Y axis of the charts system wide.
     * The default `log` (logarithmic) option will let you see more detail towards the lower range, while still showing the full CGM range.
     * The `linear` option has equidistant tick marks, the range used is dynamic so that space at the top of chart isn't wasted.
-    * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale. 
+    * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale.
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enable or disable icon allowing enter treatments edit mode
 
 ### Plugins
@@ -235,7 +241,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   The built-in/example plugins that are available by default are listed below.  The plugins may still need to be enabled by adding to the `ENABLE` environment variable.
 
 #### Default Plugins
-  
+
   These can be disabled by setting the `DISABLE` env var, for example `DISABLE="direction upbat"`
 
 ##### `delta` (BG Delta)
@@ -248,7 +254,13 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Displays the most recent battery status from the uploader phone.
 
 ##### `timeago` (Time Ago)
-  Displays the time since last CGM entry.  Supports the `TIMEAGO_ENABLE_ALERTS` [extended setting](#extended-settings) for server side stale data alarms via Pushover and IFTTT.
+  Displays the time since last CGM entry. Use these [extended setting](#extended-settings) to adjust behavior:
+  * `TIMEAGO_ENABLE_ALERTS` (`false`) - Set to `true` to enable stale data alarms  via Pushover and IFTTT.
+  * `ALARM_TIMEAGO_WARN` (`on`) - possible values `on` or `off`
+  * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
+  * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
+  * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
+
 
 ##### `devicestatus` (Device Status)
   Used by `upbat` and other plugins to display device status info.  Supports the `DEVICESTATUS_ADVANCED="true"` [extended setting](#extended-settings) to send all device statuses to the client for retrospective use and to support other plugins.
@@ -280,7 +292,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
 
 ##### `careportal` (Careportal)
   An optional form to enter treatments.
-  
+
 ##### `boluscalc` (Bolus Wizard)
 
 ##### `food` (Custom Foods)
@@ -369,15 +381,22 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
 ##### `openaps` (OpenAPS)
   Integrated OpenAPS loop monitoring, uses these extended settings:
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set
-  * `OPENAPS_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when OpenAPS isn't looping.  If OpenAPS is going to offline for a period of time, you can add an `OpenAPS Offline` event for the expected duration from Careportal to avoid getting alerts. 
-  * `OPENAPS_WARN` (`30`) - The number of minutes since the last loop that needs to be exceed before an alert is triggered 
+  * `OPENAPS_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when OpenAPS isn't looping.  If OpenAPS is going to offline for a period of time, you can add an `OpenAPS Offline` event for the expected duration from Careportal to avoid getting alerts.
+  * `OPENAPS_WARN` (`30`) - The number of minutes since the last loop that needs to be exceed before an alert is triggered
   * `OPENAPS_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceed before an urgent alarm is triggered
   * `OPENAPS_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display by default.  Any of the following fields: `status-symbol`, `status-label`, `iob`, `meal-assist`, `freq`, and `rssi`
   * `OPENAPS_RETRO_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display in retro mode. Any of the above fields.
 
-  
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
- 
+
+##### `loop` (Loop)
+  iOS Loop app monitoring, uses these extended settings:
+  * Requires `DEVICESTATUS_ADVANCED="true"` to be set
+  * `LOOP_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when Loop isn't looping.
+  * `LOOP_WARN` (`30`) - The number of minutes since the last loop that needs to be exceeded before an alert is triggered
+  * `LOOP_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceeded before an urgent alarm is triggered
+  * Add `loop` to `SHOW_FORECAST` to show forecasted BG.
+
 
 #### Extended Settings
   Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
@@ -394,7 +413,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   You’ll need to [Create a Pushover Application](https://pushover.net/apps/build).  You only need to set the Application name, you can ignore all the other settings, but setting an Icon is a nice touch.  Maybe you'd like to use [this one](https://raw.githubusercontent.com/nightscout/cgm-remote-monitor/master/static/images/large.png)?
 
   Pushover is configured using the following Environment Variables:
-  
+
     * `ENABLE` - `pushover` should be added to the list of plugin, for example: `ENABLE="pushover"`.
     * `PUSHOVER_API_TOKEN` - Used to enable pushover notifications, this token is specific to the application you create from in [Pushover](https://pushover.net/), ***[additional pushover information](#pushover)*** below.
     * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.  This also supports a space delimited list of keys.  To disable `INFO` level pushes set this to `off`.
@@ -406,16 +425,16 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     If you never want to get info level notifications (treatments) use `PUSHOVER_USER_KEY="off"`
     If you never want to get an alarm via pushover use `PUSHOVER_ALARM_KEY="off"`
     If you never want to get an announcement via pushover use `PUSHOVER_ANNOUNCEMENT_KEY="off"`
-  
+
     If only `PUSHOVER_USER_KEY` is set it will be used for all info notifications, alarms, and announcements
 
     For testing/development try [localtunnel](http://localtunnel.me/).
 
 #### IFTTT Maker
  In addition to the normal web based alarms, and pushover, there is also integration for [IFTTT Maker](https://ifttt.com/maker).
-  
+
  With Maker you are able to integrate with all the other [IFTTT Channels](https://ifttt.com/channels).  For example you can send a tweet when there is an alarm, change the color of hue light, send an email, send and sms, and so much more.
- 
+
  1. Setup IFTTT account: [login](https://ifttt.com/login) or [create an account](https://ifttt.com/join)
  2. Find your secret key on the [maker page](https://ifttt.com/maker)
  3. Configure Nightscout by setting these environment variables:
@@ -423,7 +442,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `MAKER_KEY` - Set this to your secret key that you located in step 2, for example: `MAKER_KEY="abcMyExampleabc123defjt1DeNSiftttmak-XQb69p"` This also support a space delimited list of keys.
   * `MAKER_ANNOUNCEMENT_KEY` - An optional Maker key, will be used for system wide user generated announcements.  If not defined this will fallback to `MAKER_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also support a space delimited list of keys.
  4. [Create a recipe](https://ifttt.com/myrecipes/personal/new) or see [more detailed instructions](lib/plugins/maker-setup.md#create-a-recipe)
- 
+
  Plugins can create custom events, but all events sent to maker will be prefixed with `ns-`.  The core events are:
   * `ns-event` - This event is sent to the maker service for all alarms and notifications.  This is good catch all event for general logging.
   * `ns-allclear` - This event is sent to the maker service when an alarm has been ack'd or when the server starts up without triggering any alarms.  For example, you could use this event to turn a light to green.
@@ -435,7 +454,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
 
 ### Treatment Profile
   Some of the [plugins](#plugins) make use of a treatment profile that can be edited using the Profile Editor, see the link in the Settings drawer on your site.
-  
+
   Treatment Profile Fields:
 
   * `timezone` (Time Zone) - time zone local to the patient. *Should be set.*
@@ -447,7 +466,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `basal` The basal rate set on the pump.
   * `target_high` - Upper target for correction boluses.
   * `target_low` - Lower target for correction boluses.
-  
+
   Some example profiles are [here](example-profiles.md).
 
 ## Setting environment variables
@@ -484,7 +503,7 @@ the web interface on [http://192.168.33.10:1337](http://192.168.33.10:1337)
 
 ## Installation on Windows
 
-If you have access to local computing resources and want to maintain more control over your data, you can host Nightscout and its database outside of the cloud. Windows Server supports MongoDB, Node.js, and Nightscout [installed on a single system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10. 
+If you have access to local computing resources and want to maintain more control over your data, you can host Nightscout and its database outside of the cloud. Windows Server supports MongoDB, Node.js, and Nightscout [installed on a single system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
 
 More questions?
 ---------------

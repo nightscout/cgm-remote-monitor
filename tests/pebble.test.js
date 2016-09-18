@@ -83,14 +83,20 @@ ctx.ddata.treatments = updateMills([
 
 ctx.ddata.devicestatus = [{uploader: {battery: 100}}];
 
+var bootevent = require('../lib/bootevent');
 describe('Pebble Endpoint', function ( ) {
   var pebble = require('../lib/pebble');
   before(function (done) {
     var env = require('../env')( );
+    env.settings.authDefaultRoles = 'readable';
     this.app = require('express')( );
     this.app.enable('api');
-    this.app.use('/pebble', pebble(env, ctx));
-    done();
+    var self = this;
+    bootevent(env).boot(function booted (context) {
+      context.ddata = ctx.ddata.clone( );
+      self.app.use('/pebble', pebble(env, context));
+      done();
+    });
   });
 
   it('/pebble default(1) count', function (done) {
@@ -216,12 +222,17 @@ describe('Pebble Endpoint', function ( ) {
 describe('Pebble Endpoint with Raw and IOB and COB', function ( ) {
   var pebbleRaw = require('../lib/pebble');
   before(function (done) {
-    var envRaw = require('../env')( );
-    envRaw.settings.enable = ['rawbg', 'iob', 'cob'];
+    var env = require('../env')( );
+    env.settings.enable = ['rawbg', 'iob', 'cob'];
+    env.settings.authDefaultRoles = 'readable';
     this.appRaw = require('express')( );
     this.appRaw.enable('api');
-    this.appRaw.use('/pebble', pebbleRaw(envRaw, ctx));
-    done();
+    var self = this;
+    bootevent(env).boot(function booted (context) {
+      context.ddata = ctx.ddata.clone( );
+      self.appRaw.use('/pebble', pebbleRaw(env, context));
+      done();
+    });
   });
 
   it('/pebble', function (done) {
