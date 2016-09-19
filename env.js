@@ -29,9 +29,6 @@ function config ( ) {
   setMongo();
   updateSettings();
 
-  // require authorization for entering treatments
-  env.treatments_auth = readENV('TREATMENTS_AUTH',false);
-
   return env;
 }
 
@@ -65,6 +62,12 @@ function setAPISecret() {
       var shasum = crypto.createHash('sha1');
       shasum.update(readENV('API_SECRET'));
       env.api_secret = shasum.digest('hex');
+
+      if (!readENV('TREATMENTS_AUTH', true)) {
+
+      }
+
+
     }
   }
 }
@@ -103,6 +106,7 @@ function setMongo() {
       console.info('MQTT configured to use a custom client id, it will override the default: ', env.mqtt_client_id);
     }
   }
+  env.authentication_collections_prefix = readENV('MONGO_AUTHENTICATION_COLLECTIONS_PREFIX', 'auth_');
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
@@ -131,6 +135,13 @@ function updateSettings() {
 
   //should always find extended settings last
   env.extendedSettings = findExtendedSettings(process.env);
+
+  if (!readENVTruthy('TREATMENTS_AUTH', true)) {
+    env.settings.authDefaultRoles = env.settings.authDefaultRoles || "";
+    env.settings.authDefaultRoles += ' careportal';
+  }
+
+
 }
 
 function readENV(varName, defaultValue) {
@@ -140,10 +151,15 @@ function readENV(varName, defaultValue) {
     || process.env[varName]
     || process.env[varName.toLowerCase()];
 
-  if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
-  if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
 
   return value != null ? value : defaultValue;
+}
+
+function readENVTruthy(varName, defaultValue) {
+  var value = readENV(varName, defaultValue);
+  if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
+  if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
+  return value;
 }
 
 function findExtendedSettings (envs) {
