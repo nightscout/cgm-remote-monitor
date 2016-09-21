@@ -496,8 +496,18 @@
     report_plugins.eachPlugin(function (plugin) {
       // jquery plot doesn't draw to hidden div
       $('#'+plugin.name+'-placeholder').css('display','');
-      //console.log('Drawing ',plugin.name);
-      plugin.report(datastorage,sorteddaystoshow,options);
+      console.log('Drawing ',plugin.name);
+
+	  var skipRender = false;
+
+	  if (plugin.name == 'daytoday' && ! $('#daytoday').hasClass('selected')) skipRender = true;
+	  if (plugin.name == 'treatments' && ! $('#treatments').hasClass('selected')) skipRender = true;
+      
+      if (skipRender) {
+      	console.log('Skipping ',plugin.name);
+      } else {
+	      plugin.report(datastorage,sorteddaystoshow,options);  
+      }
       if (!$('#'+plugin.name).hasClass('selected')) {
         $('#'+plugin.name+'-placeholder').css('display','none');
       }
