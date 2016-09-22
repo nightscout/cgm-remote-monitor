@@ -32,6 +32,8 @@ function create (env, ctx) {
   //}
   app.use('/api/v1', bodyParser({limit: 1048576 * 50 }), api);
 
+  app.use('/api/v2/properties', ctx.properties);
+  app.use('/api/v2/authorization', ctx.authorization.endpoints);
 
   // pebble data
   app.get('/pebble', ctx.pebble);
