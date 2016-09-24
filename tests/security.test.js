@@ -10,23 +10,12 @@ describe('API_SECRET', function ( ) {
   var scope = this;
   function setup_app (env, fn) {
     require('../lib/bootevent')(env).boot(function booted (ctx) {
-      var wares = require('../lib/middleware/')(env);
-      ctx.app = api(env, wares, ctx);
+      ctx.app = api(env, ctx);
       scope.app = ctx.app;
       scope.entries = ctx.entries;
-      ctx.entries.create(load('json'), function () {
-        fn(ctx);
-      });
+      fn(ctx);
     });
   }
-  /*
-  before(function (done) {
-
-  });
-  */
-  after(function (done) {
-    scope.entries( ).remove({ }, done);
-  });
 
   it('should work fine absent', function (done) {
     delete process.env.API_SECRET;
@@ -87,11 +76,9 @@ describe('API_SECRET', function ( ) {
   it('should not work short', function ( ) {
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'tooshort';
-    var env;
-    (function ( ) {
-      env = require('../env')( );
-    }).should.throw( );
-    should.not.exist(env);
+    var env = require('../env')( );
+    should.not.exist(env.api_secret);
+    env.err.desc.should.startWith('API_SECRET should be at least');
   });
 
   function ping_status (app, fn) {

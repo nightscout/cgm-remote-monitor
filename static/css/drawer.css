@@ -46,6 +46,7 @@ input[type=number]:invalid {
   display: block;
   text-align: right;
   padding: 10px 0;
+  text-decoration: underline;
 }
 
 #treatmentDrawer {
@@ -82,6 +83,10 @@ input[type=number]:invalid {
   text-overflow: ellipsis;
   line-height: 22px;
   vertical-align: middle;
+}
+
+#treatmentDrawer fieldset fieldset .left-column span {
+  width: 96px;
 }
 
 #treatmentDrawer .left-column input, #treatmentDrawer .left-column select {
@@ -148,6 +153,7 @@ input[type=number]:invalid {
 }
 #about a {
   color: #fff;
+  text-decoration: underline;
 }
 
 form {

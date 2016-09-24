@@ -15,40 +15,25 @@ var nowData = {
 describe('client', function ( ) {
   var self = this;
 
+  var headless = require('./fixtures/headless')(benv, this);
+
   before(function (done) {
-    benv.setup(function() {
-      self.$ = require('jquery');
-      self.$.localStorage = require('./fixtures/localstorage');
-
-      self.$.fn.tipsy = function mockTipsy ( ) { };
-
-      var indexHtml = read(__dirname + '/../static/index.html', 'utf8');
-      self.$('body').html(indexHtml);
-
-      var d3 = require('d3');
-      //disable all d3 transitions so most of the other code can run with jsdom
-      d3.timer = function mockTimer() { };
-
-      benv.expose({
-        $: self.$
-        , jQuery: self.$
-        , d3: d3
-        , io: {
-          connect: function mockConnect ( ) {
-            return {
-              on: function mockOn ( ) { }
-            };
-          }
-        }
-      });
-      done();
-    });
+    done( );
   });
 
   after(function (done) {
-    benv.teardown();
-    done();
+    done( );
   });
+
+  beforeEach(function (done) {
+    headless.setup({ }, done);
+  });
+
+  afterEach(function (done) {
+    headless.teardown( );
+    done( );
+  });
+
   it ('open careportal, and enter a treatment', function (done) {
     var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');

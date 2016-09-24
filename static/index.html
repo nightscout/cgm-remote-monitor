@@ -25,10 +25,10 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.9.0-dev" />
-      <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.9.0-dev" />
+      <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.9.0-beta3" />
+      <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.9.0-beta3" />
       <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-      <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.9.0-dev" />
+      <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.9.0-beta3" />
       <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
       <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">
     </head>
@@ -39,6 +39,7 @@
                     <a id="editbutton" class="tip" original-title="Edit Mode" href="#" style="display:none;"><i class="icon-edit"></i></a>
                     <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
                     <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-menu"></i></a>
+                    <a id="lockedToggle" class="tip" original-title="Token needed for Care Portal" href="#" style="display:none;"><i class="icon-lock"></i></a>
                     <a id="treatmentDrawerToggle" class="tip" original-title="Care Portal" href="#" style="display:none;"><i class="icon-plus"></i></a>
                     <a id="boluscalcDrawerToggle" class="tip" original-title="Bolus Wizard" href="#" style="display:none;"><i class="icon-calc"></i></a>
                 </div>
@@ -49,7 +50,7 @@
             </div>
             <div class="primary">
                 <div class="bgStatus current">
-                    <div class="bgButton ">
+                    <div class="bgButton">
                         <span class="pill rawbg hidden"><em></em><label></label></span>
                         <span class="currentBG">---</span>
                         <span class="pill direction"></span>
@@ -67,11 +68,13 @@
                     </div>
                 </div>
                 <ul class="focus-range">
-                    <li class="selected translate" data-hours="3">3HR</li>
+                    <li data-hours="3" class="translate">3HR</li>
                     <li data-hours="6" class="translate">6HR</li>
                     <li data-hours="12" class="translate">12HR</li>
                     <li data-hours="24" class="translate">24HR</li>
+                    <li>...</li>
                 </ul>
+                <ul class="dropdown-menu" id="viewMenu"></ul>
             </div>
             <div class="row-fluid section1">
                 <div id="chartContainer"></div>
@@ -164,6 +167,7 @@
                         <dt class="translate">Theme</dt>
                         <dd><input type="radio" name="theme-browser" id="theme-default-browser" value="default" checked /><label for="theme-default-browser" class="translate">Default</label></dd>
                         <dd><input type="radio" name="theme-browser" id="theme-colors-browser" value="colors" /><label for="theme-colors-browser" class="translate">Colors</label></dd>
+                        <dd><input type="radio" name="theme-browser" id="theme-colorblindfriendly-browser" value="colorblindfriendly" /><label for="theme-colorblindfriendly-browser" class="translate">Colorblind-friendly colors</label></dd>
                     </dl>
                     <dl id="show-plugins" class="toggle">
                         <dt class="translate">Show Plugins</dt>
@@ -174,6 +178,9 @@
                   <button type="button" id="save" class="translate">Save</button>
                   <a id="useDefaults" class="pull-right translate" href="">Reset, and use defaults</a>
                 </div>
+
+                <hr>
+                <span id="authentication_placeholder"></span>
 
                 <fieldset id="about">
                     <legend class="translate">About</legend>
@@ -188,7 +195,6 @@
                         <a href="https://github.com/nightscout/cgm-remote-monitor/releases" target="_blank">Release Notes</a><br />
                         <a href="http://github.com/nightscout/cgm-remote-monitor" target="_blank">Open Source</a><br />
                         <a href="http://www.nightscout.info" target="_blank">Nightscout Info</a><br />
-                        <a href="http://www.nightscoutfoundation.org/donations/" target="_blank">Help Support Nightscout</a><br />
                         <a href="https://www.facebook.com/groups/cgminthecloud/" target="_blank">CGM in the Cloud</a><br />
                     </div>
                 </fieldset>
@@ -203,6 +209,22 @@
                         <span class="translate">Event Type</span>
                         <select id="eventType"></select>
                     </label>
+                    <label id="reasonLabel" for="reason" class="left-column">
+                        <span class="translate">Reason</span>
+                        <select id="reason"></select>
+                    </label>
+
+                    <fieldset id="targets">
+                      <legend class="translate">Targets</legend>
+                      <label for="targetTop" class="left-column">
+                        <span class="translate">Top</span>
+                        <input type="number" step="any" id="targetTop" />
+                      </label>
+                      <label for="targetBottom" class="left-column">
+                        <span class="translate">Bottom</span>
+                        <input type="number" step="any" id="targetBottom" />
+                      </label>
+                    </fieldset>
 
                     <fieldset id="bg">
                         <legend class="translate">Glucose Reading</legend>
@@ -289,9 +311,6 @@
 
                   <button type="button" class="translate">Submit Form</button>
                 </fieldset>
-                <hr>
-                <span class="translate">Authentication status</span>: </b>
-                <span id="authentication_placeholder"></span>
             </form>
         </div>
 
@@ -571,8 +590,8 @@
             <audio src="/audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
         </div>
 
-        <script src="/api/v1/status.js?v=0.9.0-dev"></script>
-        <script src="/public/js/bundle.js?v=0.9.0-dev"></script>
+        <script src="/js/init.js"></script>
+        <script src="/public/js/bundle.js?v=0.9.0-beta3"></script>
         <script src="/socket.io/socket.io.js"></script>
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>

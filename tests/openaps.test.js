@@ -28,12 +28,12 @@ var statuses = [{
   },
   mmtune: {
     scanDetails: [
-      ["916.640",4,-64]
-      , ["916.660",5,-55]
-      , ["916.680",5,-59]
+      ['916.640',4,-64]
+      , ['916.660',5,-55]
+      , ['916.680',5,-59]
     ]
     , setFreq: 916.66
-    , timestamp:" 2015-12-05T18:59:37.000Z"
+    , timestamp:' 2015-12-05T18:59:37.000Z'
     , usedDefault: false
   },
   openaps: {
@@ -64,7 +64,12 @@ var statuses = [{
       eventualBG: 125,
       timestamp: '2015-12-05T19:03:00.000Z',
       duration: 30,
-      tick: '+1'
+      tick: '+1',
+      predBGs: {
+        IOB: [100, 100, 100, 100]
+        , aCOB: [100, 100, 100, 100]
+        , COB: [100, 100, 100, 100]
+      }
     }
   }
 }
@@ -126,21 +131,24 @@ _.forEach(statuses, function updateMills (status) {
 
 describe('openaps', function ( ) {
 
-  it('set the property and update the pill', function (done) {
+  it('set the property and update the pill and add forecast points', function (done) {
     var ctx = {
       settings: {
         units: 'mg/dl'
       }
       , pluginBase: {
-        updatePillText: function mockedUpdatePillText(plugin, options) {
+        updatePillText: function mockedUpdatePillText (plugin, options) {
           options.label.should.equal('OpenAPS ⌁');
           options.value.should.equal('2m ago');
           var first = _.first(options.info);
           first.label.should.equal('1m ago');
-          first.value.should.equal('abusypi ⌁ Enacted 916.66MHz @ -55dB');
+          first.value.should.equal('abusypi ⌁ Enacted @ -55dB');
           var last = _.last(options.info);
           last.label.should.equal('1h ago');
           last.value.should.equal('awaitingpi ◉ Waiting');
+        }
+        , addForecastPoints: function mockAddForecastPoints (points) {
+          points.length.should.equal(12);
           done();
         }
       }
@@ -210,7 +218,7 @@ describe('openaps', function ( ) {
     openaps.setProperties(sbx);
     openaps.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm();
+    var highest = ctx.notifications.findHighestAlarm('OpenAPS');
     highest.level.should.equal(levels.URGENT);
     highest.title.should.equal('OpenAPS isn\'t looping');
     done();
@@ -234,7 +242,7 @@ describe('openaps', function ( ) {
     openaps.setProperties(sbx);
     openaps.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm();
+    var highest = ctx.notifications.findHighestAlarm('OpenAPS');
     should.not.exist(highest);
     done();
   });
