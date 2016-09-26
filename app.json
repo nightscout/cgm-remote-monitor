@@ -34,22 +34,22 @@
     },
     "BG_HIGH": {
       "description": "Urgent high BG alarm. Default null value implies 260. Must be set in mg/dL. Only used with simple alarms.",
-      "value": "",
+      "value": "324",
       "required": false
     },
     "BG_TARGET_TOP": {
       "description": "Non-urgent high BG alarm, the top of your target range. Default null value implies 180. Must be set in mg/dL. Only used with simple alarms.",
-      "value": "",
+      "value": "234",
       "required": false
     },
     "BG_TARGET_BOTTOM": {
       "description": "Non urgent low BG alarm, the bottom of your target range. Default null value implies 80. Must be set in mg/dL. Only used with simple alarms.",
-      "value": "",
+      "value": "90",
       "required": false
     },
     "BG_LOW": {
       "description": "Urgent Low BG alarm. Default null value implies 55. Must be set in mg/dL. Only used with simple alarms.",
-      "value": "",
+      "value": "86.4",
       "required": false
     },
     "PUSHOVER_API_TOKEN": {
@@ -69,7 +69,7 @@
     },
     "CUSTOM_TITLE": {
       "description": "Customize the name of the website, usually the name of T1.",
-      "value": "",
+      "value": "Ethan W.",
       "required": false
     },
     "THEME": {
