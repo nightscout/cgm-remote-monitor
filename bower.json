@@ -1,13 +1,12 @@
 {
   "name": "nightscout",
-  "version": "0.8.0",
+  "version": "0.8.5",
   "dependencies": {
-    "angularjs": "1.3.0-beta.19",
-    "bootstrap": "~3.2.0",
     "jquery": "2.1.0",
     "jQuery-Storage-API": "~1.7.2",
     "tipsy-jmalonzo": "~1.0.1",
     "jquery-ui": "~1.11.3",
+    "jquery-flot": "0.8.3",
     "swagger-ui": "~2.1.2"
   },
   "resolutions": {
