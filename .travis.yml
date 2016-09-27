@@ -4,7 +4,5 @@ node_js:
   - "0.10"
   - "0.12"
 services: mongodb
-before_script:
-  - mongo tunaogluidildb --eval 'db.addUser("tunaogluidil", "Snt159snt");'
 script: make travis
 after_script: make report
