@@ -144,7 +144,6 @@ describe('IOB', function() {
 
     it('should fall back to treatments if openaps devicestatus is present but too stale', function() {
       var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - iob.RECENCY_THRESHOLD - 1, openaps: {iob: {timestamp: time - iob.RECENCY_THRESHOLD - 1} } })];
-      console.info('>>>devicestatus', devicestatus);
       iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
         source: 'Care Portal',
         iob: treatmentIOB
