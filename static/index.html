@@ -36,18 +36,18 @@
         <div class="container loading" id="container">
             <div id="toolbar">
                 <div id="buttonbar">
-                    <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
-                    <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-menu"></i></a>
-                    <a id="treatmentDrawerToggle" class="tip" original-title="Treatments" href="#"><i class="icon-plus"></i></a>
+                    <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#" aria-label="Test Alarms"><i class="icon-volume"></i></a>
+                    <a id="drawerToggle" class="tip" original-title="Settings" href="#" aria-label="Settings" ><i class="icon-menu"></i></a>
+                    <a id="treatmentDrawerToggle" class="tip" original-title="Treatments" href="#" aria-label="Log a Treatment"><i class="icon-plus"></i></a>
                 </div>
                 <div class="customTitle">Nightscout</div>
             </div>
             <div id="notification">
-                <a href="#"><span></span><i class="icon-cancel-circled"></i></a>
+                <a href="#" aria-label="cancel" ><span></span><i class="icon-cancel-circled"></i></a>
             </div>
             <div class="primary">
                 <div class="bgStatus current">
-                    <div class="bgButton ">
+                    <div class="bgButton " aria-live="assertive" >
                         <span class="pill rawbg hidden"><em></em><label></label></span>
                         <span class="currentBG">---</span>
                         <span class="pill direction"></span>
