@@ -12,12 +12,8 @@
   var client = Nightscout.client;
   var report_plugins = Nightscout.report_plugins;
 
-  if (serverSettings === undefined) {
-    console.error('server settings were not loaded, will not call init');
-  } else {
-    client.init(serverSettings, Nightscout.plugins);
-  }
- 
+  client.init(Nightscout.plugins, function loaded () {
+
   // init HTML code
   report_plugins.addHtmlFromPlugins( client );
   // make show() accessible outside for treatments.js
@@ -785,4 +781,5 @@
     }
     return false;
   }
+  });
 })();
