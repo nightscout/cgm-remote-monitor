@@ -49,15 +49,38 @@ function headless (benv, binding) {
       if (opts.mockSimpleAjax) {
         someData = opts.mockSimpleAjax;
         self.$.ajax = function mockAjax (url, opts) {
+          if (url && url.url) {
+            url = url.url;
+          }
+
           var returnVal = someData[url] || [];
           if (opts && typeof opts.success === 'function') {
             opts.success(returnVal);
+            return self.$.Deferred().resolveWith(returnVal);
+          } else {
+            return {
+              done: function mockDone (fn) {
+                if (url.indexOf('status.json') > -1) {
+                  fn(serverSettings);
+                } else {
+                  fn({message: 'OK'});
+                }
+                return self.$.ajax();
+              },
+              fail: function mockFail () {
+                return self.$.ajax();
+              }
+            };
           }
-          return self.$.Deferred().resolveWith(returnVal);
         };
       }
       if (opts.mockAjax) {
         self.$.ajax = function mockAjax (url, opts) {
+
+          if (url && url.url) {
+            url = url.url;
+          }
+
           //logfile.write(url+'\n');
           //console.log(url,opts);
           if (opts && opts.success && opts.success.call) {
@@ -80,7 +103,11 @@ function headless (benv, binding) {
           }
           return {
             done: function mockDone (fn) {
-              fn({message: 'OK'});
+              if (url.indexOf('status.json') > -1) {
+                fn(serverSettings);
+              } else {
+                fn({message: 'OK'});
+              }
               return self.$.ajax();
               },
             fail: function mockFail () {

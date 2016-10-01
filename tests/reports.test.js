@@ -226,7 +226,7 @@ describe('reports', function ( ) {
        call();
      };
 
-    client.init(serverSettings, plugins);
+    client.init(plugins);
     client.dataUpdate(nowData);
     
     // Load profile, we need to operate in UTC
