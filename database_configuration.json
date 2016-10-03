@@ -1,4 +1,4 @@
 {
-    "url": null,
-    "collection": null
+    "url": mongodb://test:test@ds021943.mlab.com:21943/test,
+    "collection": entries
 }
