@@ -17,7 +17,6 @@ function config ( ) {
    */
   env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
   env.PORT = readENV('PORT', 1337);
-  env.baseUrl = readENV('BASE_URL');
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
 
   setSSL();
@@ -25,6 +24,9 @@ function config ( ) {
   setVersion();
   setMongo();
   updateSettings();
+
+  // require authorization for entering treatments
+  env.treatments_auth = readENV('TREATMENTS_AUTH',false);
 
   return env;
 }
@@ -79,7 +81,7 @@ function setVersion() {
 }
 
 function setMongo() {
-  env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI');
+  env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI') || readENV('MONGODB_URI');
   env.mongo_collection = readENV('MONGO_COLLECTION', 'entries');
   env.MQTT_MONITOR = readENV('MQTT_MONITOR', null);
   if (env.MQTT_MONITOR) {
