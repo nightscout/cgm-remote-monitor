@@ -26,7 +26,8 @@
   var translate = client.translate;
   
   var maxInsulinValue = 0
-      ,maxCarbsValue = 0;
+      ,maxCarbsValue = 0
+      ,maxDailyCarbsValue = 0;
   var maxdays = 3 * 31;
   var datastorage = {};
   var daystoshow = {};
@@ -77,7 +78,7 @@
     filter.subcategory = '';
     $('#rp_subcategory').empty().append('<option value="">' + translate('(none)') + '</option>');
     if (filter.category !== '') {
-      Object.keys(food_categories[filter.category]).forEach(function eachSubCategory(s) {
+      Object.keys(food_categories[filter.category] || {}).forEach(function eachSubCategory(s) {
         $('#rp_subcategory').append('<option value="' + s + '">' + s + '</option>');
       });
     }
@@ -109,7 +110,8 @@
 
   $('#info').html('<b>'+translate('Loading food database')+' ...</b>');
   $.ajax('/api/v1/food/regular.json', {
-    success: function foodLoadSuccess(records) {
+    headers: client.headers()
+    , success: function foodLoadSuccess(records) {
       records.forEach(function (r) {
         food_list.push(r);
         if (r.category && !food_categories[r.category]) { food_categories[r.category] = {}; }
@@ -299,7 +301,8 @@
           var treatmentData;
           var tquery = '?find[notes]=/' + notes + '/i';
           $.ajax('/api/v1/treatments.json' + tquery + timerange, {
-            success: function (xhr) {
+            headers: client.headers()
+            , success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
                 return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
@@ -470,6 +473,7 @@
     });
     options.maxInsulinValue = maxInsulinValue;
     options.maxCarbsValue = maxCarbsValue;
+    options.maxDailyCarbsValue = maxDailyCarbsValue;
 
     datastorage.treatments = [];
     datastorage.devicestatus = [];
@@ -660,7 +664,7 @@
 
   function loadProfileSwitch(from, callback) {
     $('#info > b').html('<b>'+translate('Loading profile switch data') + ' ...</b>');
-    var tquery = '?find[eventType][$eq]=Profile Switch';
+    var tquery = '?find[eventType]=Profile Switch';
     $.ajax('/api/v1/treatments.json'+tquery, {
       success: function (xhr) {
         var treatmentData = xhr.map(function (treatment) {
@@ -684,6 +688,7 @@
       return;
     }
     // treatments
+    data.dailyCarbs = 0;
     data.treatments.forEach(function (d) {
       if (parseFloat(d.insulin) > maxInsulinValue) {
         maxInsulinValue = parseFloat(d.insulin);
@@ -691,7 +696,13 @@
       if (parseFloat(d.carbs) > maxCarbsValue) {
         maxCarbsValue = parseFloat(d.carbs);
       }
+      if (d.carbs) {
+        data.dailyCarbs += d.carbs;
+      }
     });
+    if (data.dailyCarbs > maxDailyCarbsValue) {
+      maxDailyCarbsValue = data.dailyCarbs;
+    }
 
     var cal = data.cal[data.cal.length-1];
     var temp1 = [ ];

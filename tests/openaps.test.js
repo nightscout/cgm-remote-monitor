@@ -218,7 +218,7 @@ describe('openaps', function ( ) {
     openaps.setProperties(sbx);
     openaps.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm();
+    var highest = ctx.notifications.findHighestAlarm('OpenAPS');
     highest.level.should.equal(levels.URGENT);
     highest.title.should.equal('OpenAPS isn\'t looping');
     done();
@@ -242,7 +242,7 @@ describe('openaps', function ( ) {
     openaps.setProperties(sbx);
     openaps.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm();
+    var highest = ctx.notifications.findHighestAlarm('OpenAPS');
     should.not.exist(highest);
     done();
   });
