@@ -664,7 +664,7 @@
 
   function loadProfileSwitch(from, callback) {
     $('#info > b').html('<b>'+translate('Loading profile switch data') + ' ...</b>');
-    var tquery = '?find[eventType][$eq]=Profile Switch';
+    var tquery = '?find[eventType]=Profile Switch';
     $.ajax('/api/v1/treatments.json'+tquery, {
       success: function (xhr) {
         var treatmentData = xhr.map(function (treatment) {

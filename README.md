@@ -251,11 +251,14 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Displays the trend direction.
 
 ##### `upbat` (Uploader Battery)
-  Displays the most recent battery status from the uploader phone.
+  Displays the most recent battery status from the uploader phone. . Use these [extended setting](#extended-settings) to adjust behavior:
+  * `UPBAT_ENABLE_ALERTS` (`false`) - Set to `true` to enable uploader battery alarms via Pushover and IFTTT.
+  * `UPBAT_WARN` (`30`) - Minimum battery percent to trigger warning.
+  * `UPBAT_URGENT` (`20`) - Minimum battery percent to trigger urgent alarm.
 
 ##### `timeago` (Time Ago)
   Displays the time since last CGM entry. Use these [extended setting](#extended-settings) to adjust behavior:
-  * `TIMEAGO_ENABLE_ALERTS` (`false`) - Set to `true` to enable stale data alarms  via Pushover and IFTTT.
+  * `TIMEAGO_ENABLE_ALERTS` (`false`) - Set to `true` to enable stale data alarms via Pushover and IFTTT.
   * `ALARM_TIMEAGO_WARN` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
@@ -276,7 +279,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Generates alarms based on forecasted values. See [Forecasting using AR2 algorithm](https://github.com/nightscout/nightscout.github.io/wiki/Forecasting)
   * Enabled by default if no thresholds are set **OR** `ALARM_TYPES` includes `predict`.
   * Use [extended settings](#extended-settings) to adjust AR2 behavior:
-    * `AR2_USE_RAW` (`false`) - to forecast using `rawbg` values when standard values don't trigger an alarm.
     * `AR2_CONE_FACTOR` (`2`) - to adjust size of cone, use `0` for a single line.
 
 ##### `simplealarms` (Simple BG Alarms)
