@@ -81,7 +81,7 @@ function setVersion() {
 }
 
 function setMongo() {
-  env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI');
+  env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI') || readENV('MONGODB_URI');
   env.mongo_collection = readENV('MONGO_COLLECTION', 'entries');
   env.MQTT_MONITOR = readENV('MQTT_MONITOR', null);
   if (env.MQTT_MONITOR) {
