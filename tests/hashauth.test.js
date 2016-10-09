@@ -18,7 +18,7 @@ describe('hashauth', function ( ) {
   });
 
   beforeEach(function (done) {
-    headless.setup({ }, done);
+    headless.setup({mockAjax: true}, done);
   });
 
   afterEach(function (done) {
@@ -73,7 +73,7 @@ describe('hashauth', function ( ) {
       next(true); 
     };
 
-    client.init(serverSettings, plugins);
+    client.init(plugins);
 
     hashauth.inlineCode().indexOf('Not authorized').should.be.greaterThan(0);
     hashauth.isAuthenticated().should.equal(false);
@@ -92,7 +92,7 @@ describe('hashauth', function ( ) {
       next(true); 
     };
 
-    client.init(serverSettings, plugins);
+    client.init(plugins);
 
     hashauth.inlineCode().indexOf('Admin authorized').should.be.greaterThan(0);
     hashauth.isAuthenticated().should.equal(true);
@@ -113,7 +113,7 @@ describe('hashauth', function ( ) {
     };
     hashauth.updateSocketAuth = function mockUpdateSocketAuth() {};
 
-    client.init(serverSettings, plugins);
+    client.init(plugins);
 
     hashauth.processSecret('this is my long pass phrase',true);
     
@@ -139,7 +139,7 @@ describe('hashauth', function ( ) {
       next(true); 
     };
 
-    client.init(serverSettings, plugins);
+    client.init(plugins);
 
     hashauth.processSecret('this is my long pass phrase',false);
     
@@ -159,7 +159,7 @@ describe('hashauth', function ( ) {
 
     hashauth.init(client, self.$);
 
-    client.init(serverSettings, plugins);
+    client.init(plugins);
 
     window.alert = function mockConfirm (message) {
       function containsLine (line) {
