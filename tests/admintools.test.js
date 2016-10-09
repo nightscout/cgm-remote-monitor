@@ -145,7 +145,18 @@ describe('admintools', function ( ) {
         , io: {
           connect: function mockConnect ( ) {
             return {
-              on: function mockOn ( ) { }
+              on: function mockOn (event, callback) {
+                if ('connect' === event && callback) {
+                  callback();
+                }
+              }
+              , emit: function mockEmit (event, data, callback) {
+                if ('authorize' === event && callback) {
+                  callback({
+                    read: true
+                  })
+                }
+              }
             };
           }
         }
