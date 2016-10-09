@@ -135,7 +135,7 @@ function headless (benv, binding) {
                 if ('authorize' === event && callback) {
                   callback({
                     read: true
-                  })
+                  });
                 }
               }
             };

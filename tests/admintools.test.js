@@ -154,7 +154,7 @@ describe('admintools', function ( ) {
                 if ('authorize' === event && callback) {
                   callback({
                     read: true
-                  })
+                  });
                 }
               }
             };
