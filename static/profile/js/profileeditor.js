@@ -16,12 +16,8 @@
   var timeInput = $('#pe_time');
   var dateInput = $('#pe_date');
 
-  if (serverSettings === undefined) {
-    console.error('server settings were not loaded, will not call init');
-  } else {
-    client.init(serverSettings, Nightscout.plugins);
-  }
-  
+  client.init(Nightscout.plugins);
+
   var translate = client.translate;
 
   var defaultprofile = {
@@ -86,7 +82,8 @@
   // Fetch data from mongo
   peStatus.hide().text(translate('Loading profile records ...')).fadeIn('slow');
   $.ajax('/api/v1/profile.json', {
-    success: function (records) {
+    headers: client.headers()
+    , success: function (records) {
       if (!records.length) {
         records.push(defaultprofile);
       }
@@ -122,8 +119,8 @@
         });
         peStatus.hide().text(translate('Default values used.')).fadeIn('slow');
       }
-    },
-    error: function () {
+    }
+    , error: function () {
       mongorecords.push({
         defaultProfile: 'Default'
         , store : {
@@ -258,9 +255,7 @@
         $.ajax({
           method: 'DELETE'
           , url: '/api/v1/profile/'+mongorecords[currentrecord]._id
-          , headers: {
-            'api-secret': client.hashauth.hash()
-          }
+          , headers: client.headers()
         }).done(function postSuccess () {
           console.info('profile deleted');
           peStatus.hide().text(status).fadeIn('slow');
@@ -657,9 +652,7 @@
       method: 'PUT'
       , url: '/api/v1/profile/'
       , data: adjustedRecord
-      , headers: {
-        'api-secret': client.hashauth.hash()
-      }
+      , headers: client.headers()
     }).done(function postSuccess (data, status) {
       console.info('profile saved', data);
       peStatus.hide().text(status).fadeIn('slow');
