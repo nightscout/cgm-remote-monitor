@@ -209,6 +209,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `MONGO_PROFILE_COLLECTION`(`profile`) - The collection used to store your profiles
   * `MONGO_FOOD_COLLECTION`(`food`) - The collection used to store your food database
   * `PORT` (`1337`) - The port that the node.js application will listen on.
+  * `HOSTNAME` - The hostname that the node.js application will listen on, null by default for any hostname for IPv6 you may need to use `::`.
   * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js
