@@ -188,6 +188,14 @@
         "noise"
       ],
       "defaultValue": "never",
+    },
+    "devicestatus_advanced": {
+      "type": "string",
+      "allowedValues": [
+        "true",
+        "false"
+      ],
+      "defaultValue": "false",
     }
   },
   "resources": [{
@@ -273,6 +281,9 @@
           }, {
             "name": "SHOW_RAWBG",
             "value": "[parameters('show_rawbg')]"
+          }, {
+            "name": "DEVICESTATUS_ADVANCED",
+            "value": "[parameters('devicestatus_advanced')]"
           }
         ]
       }
