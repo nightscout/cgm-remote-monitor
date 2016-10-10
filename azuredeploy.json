@@ -91,12 +91,16 @@
 				"he",
 				"hr",
 				"it",
+        "nl",
 				"nb",
 				"pl",
 				"pt",
 				"ro",
+        "ru",
+        "sk",
 				"sv",
-				"fi"
+				"fi",
+        "ko"
             ],
 	    "defaultValue": "en",
          },
