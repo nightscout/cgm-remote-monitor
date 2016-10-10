@@ -151,10 +151,11 @@
     "basal_render": {
       "type": "string",
       "allowedValues": [
+        "none",
         "default",
         "icicle"
       ],
-      "defaultValue": "default",
+      "defaultValue": "none",
     },
     "enable": {
       "type": "string",
