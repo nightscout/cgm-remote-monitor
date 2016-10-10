@@ -53,14 +53,6 @@
       "minLength": "12",
       "defaultValue": "Enter an API secret. Must be at least 12 characters"
     },
-    "treatment_auth": {
-      "type": "string",
-      "allowedValues": [
-        "on",
-        "off"
-      ],
-      "defaultValue": "on"
-    },
     "theme": {
       "type": "string",
       "allowedValues": [
@@ -232,17 +224,12 @@
             "name": "API_SECRET",
             "value": "[parameters('apiSecret')]"
           }, {
-            "name": "TREATMENT_AUTH",
-            "value": "[parameters('TREATMENT_AUTH')]"
-          }, {
             "name": "THEME",
             "value": "[parameters('theme')]"
           }, {
             "name": "TIME_FORMAT",
             "value": "[parameters('time_format')]"
-          },
-
-          {
+          }, {
             "name": "LANGUAGE",
             "value": "[parameters('language')]"
           }, {
