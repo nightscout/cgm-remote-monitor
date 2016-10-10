@@ -46,7 +46,7 @@ describe('ddata', function ( ) {
     var time = date.getTime( );
     var cutoff = 1000 * 60 * 5;
     var max = 1000 * 60 * 60 * 24 * 2;
-    var pieces = ctx.ddata.split(time, cutoff, max);
+    var pieces = ctx.ddata.splitRecent(time, cutoff, max);
     should.exist(pieces);
     should.exist(pieces.first);
     should.exist(pieces.last);
