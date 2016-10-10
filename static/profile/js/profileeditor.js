@@ -16,12 +16,8 @@
   var timeInput = $('#pe_time');
   var dateInput = $('#pe_date');
 
-  if (serverSettings === undefined) {
-    console.error('server settings were not loaded, will not call init');
-  } else {
-    client.init(serverSettings, Nightscout.plugins);
-  }
-  
+  client.init(Nightscout.plugins);
+
   var translate = client.translate;
 
   var defaultprofile = {
