@@ -157,6 +157,15 @@
       ],
       "defaultValue": "none",
     },
+    "scale_y": {
+      "type": "string",
+      "allowedValues": [
+        "log",
+        "linear",
+        "log-dynamic"
+      ],
+      "defaultValue": "log",
+    },
     "enable": {
       "type": "string",
       "defaultValue": "basal bwp cage careportal cob rawbg sage iage treatmentnotify boluscalc profile",
@@ -265,6 +274,9 @@
           }, {
             "name": "BASAL_RENDER",
             "value": "[parameters('basal_render')]"
+          }, {
+            "name": "SCALE_Y",
+            "value": "[parameters('scale_y')]"
           }, {
             "name": "ENABLE",
             "value": "[parameters('enable')]"
