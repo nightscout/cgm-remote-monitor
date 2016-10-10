@@ -120,7 +120,7 @@ describe('Profile editor', function ( ) {
        return true;
      };
 
-    client.init(serverSettings, plugins);
+    client.init(plugins);
     client.dataUpdate(nowData);
     
     //var result = $('body').html();
