@@ -49,7 +49,6 @@ describe('ddata', function ( ) {
     var pieces = ctx.ddata.splitRecent(time, cutoff, max);
     should.exist(pieces);
     should.exist(pieces.first);
-    should.exist(pieces.last);
     should.exist(pieces.rest);
 
     done( );
