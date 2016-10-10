@@ -189,6 +189,14 @@
         "false"
       ],
       "defaultValue": "false",
+    },
+    "profile_multiple": {
+      "type": "string",
+      "allowedValues": [
+        "on",
+        "off"
+      ],
+      "defaultValue": "off",
     }
   },
   "resources": [{
@@ -272,6 +280,9 @@
           }, {
             "name": "DEVICESTATUS_ADVANCED",
             "value": "[parameters('devicestatus_advanced')]"
+          }, {
+            "name": "PROFILE_MULTIPLE",
+            "value": "[parameters('profile_multiple')]"
           }
         ]
       }
