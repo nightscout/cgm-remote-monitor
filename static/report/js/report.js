@@ -24,7 +24,7 @@
   var maxInsulinValue = 0
       ,maxCarbsValue = 0
       ,maxDailyCarbsValue = 0;
-  var maxdays = 3 * 31;
+  var maxdays = 6 * 31;
   var datastorage = {};
   var daystoshow = {};
   var sorteddaystoshow = [];
