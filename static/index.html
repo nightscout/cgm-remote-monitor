@@ -25,18 +25,19 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.8.0" />
-        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.8.0" />
+        <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.8.5" />
+        <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.8.5" />
         <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-        <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.8.0" />
+        <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.8.5" />
         <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
+        <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">    
     </head>
     <body>
         <div class="container loading" id="container">
             <div id="toolbar">
                 <div id="buttonbar">
                     <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
-                    <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-cog"></i></a>
+                    <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-menu"></i></a>
                     <a id="treatmentDrawerToggle" class="tip" original-title="Treatments" href="#"><i class="icon-plus"></i></a>
                 </div>
                 <div class="customTitle">Nightscout</div>
@@ -44,7 +45,6 @@
             <div id="notification">
                 <a href="#"><span></span><i class="icon-cancel-circled"></i></a>
             </div>
-
             <div class="primary">
                 <div class="bgStatus current">
                     <div class="bgButton ">
@@ -52,12 +52,7 @@
                         <span class="currentBG">---</span>
                         <span class="pill direction"></span>
                     </div>
-                    <ul class="dropdown-menu" id="silenceBtn">
-                        <li><a href="#" data-snooze-time="1800000" class="translate">Silence for 30 minutes</a></li>
-                        <li><a href="#" data-snooze-time="3600000" class="translate">Silence for 60 minutes</a></li>
-                        <li><a href="#" data-snooze-time="5400000" class="translate">Silence for 90 minutes</a></li>
-                        <li><a href="#" data-snooze-time="7200000" class="translate">Silence for 120 minutes</a></li>
-                    </ul>
+                    <ul class="dropdown-menu" id="silenceBtn"></ul>
                     <div class="majorPills"></div>
                     <div class="minorPills"></div>
                 </div>
@@ -84,8 +79,13 @@
 
         <div id="drawer">
             <form id="settings-form">
+                <ul class="navigation">
+                  <li><a href="/report/index.html" target="reports" class="translate">Reports</a></li>
+                  <li><a id="editprofilelink" href="/profile/index.html" target="profileeditor" class="translate">Profile Editor</a></li>
+                  <li><a id="admintoolslink" href="/admin/index.html" target="admintools" class="translate">Admin Tools</a></li>
+                </ul>
                 <fieldset class="browserSettings">
-                    <legend class="translate">Settings</legend>
+                    <legend class="translate icon-cog">Settings</legend>
                     <dl class="radio">
                         <dt class="translate">Units</dt>
                         <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label></dd>
@@ -100,6 +100,26 @@
                       <dt class="translate">Language</dt>
                       <dd>
                         <select id="language">
+                        </select>
+                      </dd>
+                    </dl>
+                    <dl>
+                      <dt class="translate">Scale</dt>
+                      <dd>
+                        <select id="scaleY">
+                          <option class="translate" value="log">Logarithmic</option>
+                          <option class="translate" value="linear">Linear</option>
+                          <option class="translate" value="log-dynamic">Logarithmic (Dynamic)</option>
+                        </select>
+                      </dd>
+                    </dl>
+                    <dl>
+                      <dt class="translate">Render Basal</dt>
+                      <dd>
+                        <select id="basalrender">
+                          <option class="translate" value="none">None</option>
+                          <option class="translate" value="default">Default</option>
+                          <option class="translate" value="icicle">Icicle</option>
                         </select>
                       </dd>
                     </dl>
@@ -142,7 +162,6 @@
                     <dl id="show-plugins" class="toggle">
                         <dt class="translate">Show Plugins</dt>
                     </dl>
-                    <a id="editprofilelink" href="/profile/index.html" target="profileeditor" class="translate">Edit treatment Profile</a>
                 </fieldset>
 
                 <div class="actions">
@@ -176,25 +195,10 @@
                     <legend class="translate">Log a Treatment</legend>
                     <label for="eventType" class="left-column">
                         <span class="translate">Event Type</span>
-                        <select id="eventType">
-                            <option value="BG Check" class="translate">BG Check</option>
-                            <option value="Snack Bolus" class="translate">Snack Bolus</option>
-                            <option value="Meal Bolus" class="translate">Meal Bolus</option>
-                            <option value="Correction Bolus" class="translate">Correction Bolus</option>
-                            <option value="Carb Correction" class="translate">Carb Correction</option>
-                            <option value="Announcement" class="translate">Announcement</option>
-                            <option value="Note" class="translate">Note</option>
-                            <option value="Question" class="translate">Question</option>
-                            <option value="Exercise" class="translate">Exercise</option>
-                            <option value="Site Change" class="translate">Pump Site Change</option>
-                            <option value="Sensor Start" class="translate">Dexcom Sensor Start</option>
-                            <option value="Sensor Change" class="translate">Dexcom Sensor Change</option>
-                            <option value="Insulin Change" class="translate">Insulin Cartridge Change</option>
-                            <option value="D.A.D. Alert" class="translate">D.A.D. Alert</option>
-                        </select>
+                        <select id="eventType"></select>
                     </label>
 
-                    <fieldset>
+                    <fieldset id="bg">
                         <legend class="translate">Glucose Reading</legend>
                         <input type="number" step="any" id="glucoseValue" />
                         <label><br><span class="translate">Measurement Method</span><br></label>
@@ -207,15 +211,27 @@
                             <span class="translate">Sensor<br></span>
                         </label>
                     </fieldset>
-                    <label for="carbsGiven" class="left-column short-label">
+                    <label id="carbsGivenLabel" for="carbsGiven" class="left-column short-label">
                         <span class="translate">Carbs Given</span>
                         <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" class="titletranslate"/>
                     </label>
-                    <label for="insulinGiven" class="left-column short-label">
+                    <label id="insulinGivenLabel" for="insulinGiven" class="left-column short-label">
                         <span class="translate">Insulin Given</span>
                         <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate"/>
                     </label>
-                    <label for="preBolus" class="left-column short-label extra-space">
+                    <label id="durationLabel" for="duration" class="left-column short-label">
+                        <span class="translate">Duration</span>
+                        <input id="duration" placeholder="Duration in minutes" class="titletranslate"/>
+                    </label>
+                    <label id="percentLabel" for="percent" class="left-column short-label">
+                        <span class="translate">Percent</span>
+                        <input type="number" step="10" id="percent" placeholder="Basal change in %" class="titletranslate"/>
+                    </label>
+                    <label id="absoluteLabel" for="absolute" class="left-column short-label">
+                        <span class="translate">Basal value</span>
+                        <input type="number" step="0.05" id="absolute" placeholder="Absolute basal value" class="titletranslate"/>
+                    </label>
+                    <label id="preBolusLabel" for="preBolus" class="left-column short-label extra-space">
                         <span class="translate">Carb Time</span>
                         <select id="preBolus">
                             <option class="translate" value="-60">60 minutes earlier</option>
@@ -257,7 +273,9 @@
 
                   <button type="button" class="translate">Submit Form</button>
                 </fieldset>
-                <a href="/treatments.html" target="treatments" class="translate">View all treatments</a>
+                <hr>
+                <span class="translate">Authentication status</span>: </b>
+                <span id="authentication_placeholder"></span>
             </form>
         </div>
 
@@ -266,11 +284,12 @@
             <audio src="/audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
         </div>
 
-        <script src="/api/v1/status.js"></script>
-        <script src="/public/js/bundle.js"></script>
+        <script src="/api/v1/status.js?v=0.8.5"></script>
+        <script src="/public/js/bundle.js?v=0.8.5"></script>
         <script src="/socket.io/socket.io.js"></script>
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
+        <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
         <script src="/js/client.js"></script>
     </body>
 </html>

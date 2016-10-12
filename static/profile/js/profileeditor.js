@@ -122,6 +122,7 @@
     if (typeof profile.sens !== 'object') { profile.sens = [{ 'time': '00:00', 'value': profile.sens }]; }
     if (typeof profile.target_low !== 'object') { profile.target_low = [{ 'time': '00:00', 'value': profile.target_low }]; }
     if (typeof profile.target_high !== 'object') { profile.target_high = [{ 'time': '00:00', 'value': profile.target_high }]; }
+    if (typeof profile.basal !== 'object') { profile.basal = [{ 'time': '00:00', 'value': profile.basal }]; }
     if (profile.target_high.length !== profile.target_low.length) {
       alert('Time ranges of target_low and target_high don\'t  match. Values are restored to defaults.');
       profile.target_low = _.cloneDeep(defaultprofile.target_low);
@@ -428,7 +429,7 @@
 
   function toDisplayTime (minfrommidnight) {
     var time = moment().startOf('day').add(minfrommidnight,'minutes');
-    return client.settings.timeFormat === '24' ? time.format('HH:mm') : time.format('h:mm A');
+    return client.settings.timeFormat === 24 ? time.format('HH:mm') : time.format('h:mm A');
   }
   
   function profileSubmit(event) {
