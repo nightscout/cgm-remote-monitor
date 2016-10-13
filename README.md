@@ -27,12 +27,14 @@ low values, which can be cleared by any watcher of the data.
 Community maintained fork of the
 [original cgm-remote-monitor][original].
 
+[![Coverage Status](https://coveralls.io/repos/github/nightscout/cgm-remote-monitor/badge.svg?branch=dev)](https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=dev)
+
 [build-img]: https://img.shields.io/travis/nightscout/cgm-remote-monitor.svg
 [build-url]: https://travis-ci.org/nightscout/cgm-remote-monitor
 [dependency-img]: https://img.shields.io/david/nightscout/cgm-remote-monitor.svg
 [dependency-url]: https://david-dm.org/nightscout/cgm-remote-monitor
-[coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/master.svg
-[coverage-url]: https://coveralls.io/r/nightscout/cgm-remote-monitor?branch=master
+[coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/dev.svg
+[coverage-url]: https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=dev
 [codacy-img]: https://www.codacy.com/project/badge/f79327216860472dad9afda07de39d3b
 [codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
 [gitter-img]: https://img.shields.io/badge/Gitter-Join%20Chat%20%E2%86%92-1dce73.svg
@@ -58,6 +60,7 @@ Community maintained fork of the
   - [Environment](#environment)
     - [Required](#required)
     - [Features/Labs](#featureslabs)
+    - [Alarms](#alarms)
     - [Core](#core)
     - [Predefined values for your browser settings (optional)](#predefined-values-for-your-browser-settings-optional)
     - [Plugins](#plugins)
@@ -142,18 +145,35 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
 
   * `MONGO_CONNECTION` - Your mongo uri, for example: `mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout`
   * `DISPLAY_UNITS` (`mg/dl`) - Choices: `mg/dl` and `mmol`.  Setting to `mmol` puts the entire server into `mmol` mode by default, no further settings needed.
+  * `BASE_URL` - Used for building links to your sites api, ie pushover callbacks, usually the URL of your Nightscout site you may want https instead of http
 
 ### Features/Labs
 
   * `ENABLE` - Used to enable optional features, expects a space delimited list, such as: `careportal rawbg iob`, see [plugins](#plugins) below
   * `DISABLE` - Used to disable default features, expects a space delimited list, such as: `direction upbat`, see [plugins](#plugins) below
   * `API_SECRET` - A secret passphrase that must be at least 12 characters long, required to enable `POST` and `PUT`; also required for the Care Portal
+  * `TREATMENTS_AUTH` (`off`) - possible values `on` or `off`. When on device must be authenticated by entering `API_SECRET` to create treatments
+
+
+### Alarms
+
+  These alarm setting effect all delivery methods (browser, pushover, maker, etc), some settings can be overridden per client (web browser)
+  
+  * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's
   * `BG_HIGH` (`260`) - must be set using mg/dl units; the high BG outside the target range that is considered urgent
   * `BG_TARGET_TOP` (`180`) - must be set using mg/dl units; the top of the target range, also used to draw the line on the chart
   * `BG_TARGET_BOTTOM` (`80`) - must be set using mg/dl units; the bottom of the target range, also used to draw the line on the chart
   * `BG_LOW` (`55`) - must be set using mg/dl units; the low BG outside the target range that is considered urgent
-  * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's
-  * `BASE_URL` - Used for building links to your sites api, ie pushover callbacks, usually the URL of your Nightscout site you may want https instead of http
+  * `ALARM_URGENT_HIGH` (`on`) - possible values `on` or `off`
+  * `ALARM_URGENT_HIGH_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent high alarms, space separated for options in browser, first used for pushover
+  * `ALARM_HIGH` (`on`) - possible values `on` or `off`
+  * `ALARM_HIGH_MINS` (`30 60 90 120`) - Number of minutes to snooze high alarms, space separated for options in browser, first used for pushover
+  * `ALARM_LOW` (`on`) - possible values `on` or `off`
+  * `ALARM_LOW_MINS` (`15 30 45 60`) - Number of minutes to snooze low alarms, space separated for options in browser, first used for pushover
+  * `ALARM_URGENT_LOW` (`on`) - possible values `on` or `off`
+  * `ALARM_URGENT_LOW_MINS` (`15 30 45`) - Number of minutes to snooze urgent low alarms, space separated for options in browser, first used for pushover
+  * `ALARM_URGENT_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent alarms (that aren't tagged as high or low), space separated for options in browser, first used for pushover
+  * `ALARM_WARN_MINS` (`30 60 90 120`) - Number of minutes to snooze warning alarms (that aren't tagged as high or low), space separated for options in browser, first used for pushover
 
 
 ### Core
@@ -165,6 +185,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js
+  * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
 
 
 ### Predefined values for your browser settings (optional)
@@ -173,16 +194,16 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `SHOW_RAWBG` (`never`) - possible values `always`, `never` or `noise`
   * `CUSTOM_TITLE` (`Nightscout`) - Usually name of T1
   * `THEME` (`default`) - possible values `default` or `colors`
-  * `ALARM_URGENT_HIGH` (`on`) - possible values `on` or `off`
-  * `ALARM_HIGH` (`on`) - possible values `on` or `off`
-  * `ALARM_LOW` (`on`) - possible values `on` or `off`
-  * `ALARM_URGENT_LOW` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_WARN` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
-  * `LANGUAGE` (`en`) - language of Nighscout. If not available english is used
+  * `LANGUAGE` (`en`) - language of Nightscout. If not available english is used
+  * `SCALE_Y` (`log`) - The type of scaling used for the Y axis of the charts system wide.
+    * The default `log` (logarithmic) option will let you see more detail towards the lower range, while still showing the full CGM range.
+    * The `linear` option has equidistant tick marks, the range used is dynamic so that space at the top of chart isn't wasted.
+    * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale. 
 
 ### Plugins
 
@@ -198,6 +219,10 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `direction` (BG Direction) - Displays the trend direction.
   * `upbat` (Uploader Battery) - Displays the most recent battery status from the uploader phone.
   * `errorcodes` (CGM Error Codes) - Generates alarms for CGM codes `9` (hourglass) and `10` (???).
+    * Use [extended settings](#extended-settings) to adjust what errorcodes trigger notifications and alarms:
+      * `ERRORCODES_INFO` (`1 2 3 4 5 6 7 8`) - By default the needs calibration (blood drop) and other codes below 9 generate an info level notification, set to a space separate list of number or `off` to disable
+      * `ERRORCODES_WARN` (`off`) - By default there are no warning configured, set to a space separate list of numbers or `off` to disable
+      * `ERRORCODES_URGENT` (`9 10`) - By default the hourglass and ??? generate an urgent alarm, set to a space separate list of numbers or `off` to disable
   * `ar2` ([Forcasting using AR2 algorithm](https://github.com/nightscout/nightscout.github.io/wiki/Forecasting)) - Generates alarms based on forecasted values.
     * Enabled by default if no thresholds are set **OR** `ALARM_TYPES` includes `predict`.
     * Use [extended settings](#extended-settings) to adjust AR2 behavior:
@@ -222,7 +247,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * `CAGE_WARN` (`48`) - If time since last `Site Change` matches `CAGE_WARN`, user will be alarmed to to change the cannula
     * `CAGE_URGENT` (`72`) - If time since last `Site Change` matches `CAGE_URGENT`, user will be issued a persistent warning of overdue change.
   * `treatmentnotify` (Treatment Notifications) - Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.  Default snooze is 10 minutes, and can be set using the `TREATMENTNOTIFY_SNOOZE_MINS` [extended setting](#extended-settings).
-  * `basal` (Basal Profile) - Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile).
+  * `basal` (Basal Profile) - Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile). Also uses the extended setting:
+    * `BASAL_RENDER` (`none`) - Possible values are `none`, `default`, or `icicle` (inverted)
   * `bridge` (Share2Nightscout bridge) - Glucose reading directly from the Share service, uses these extended settings:
     * `BRIDGE_USER_NAME` - Your user name for the Share service.
     * `BRIDGE_PASSWORD` - Your password for the Share service.
@@ -231,6 +257,14 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * `BRIDGE_FIRST_FETCH_COUNT` (`3`) - Changes max count during the very first update only.
     * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
     * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (default is one day in minutes).
+  * `mmconnect` (MiniMed Connect bridge) - Transfer real-time MiniMed Connect data from the Medtronic CareLink server into Nightscout ([read more](https://github.com/mddub/minimed-connect-to-nightscout))
+    * `MMCONNECT_USER_NAME` - Your user name for CareLink Connect.
+    * `MMCONNECT_PASSWORD` - Your password for CareLink Connect.
+    * `MMCONNECT_INTERVAL` (`60000` *1 minute*) - Number of milliseconds to wait between requests to the CareLink server.
+    * `MMCONNECT_MAX_RETRY_DURATION` (`32`) - Maximum number of total seconds to spend retrying failed requests before giving up.
+    * `MMCONNECT_SGV_LIMIT` (`24`) - Maximum number of recent sensor glucose values to send to Nightscout on each request.
+    * `MMCONNECT_VERBOSE` - Set this to "true" to log CareLink request information to the console.
+    * `MMCONNECT_STORE_RAW_DATA` - Set this to "true" to store raw data returned from CareLink as `type: "carelink_raw"` database entries (useful for development).
   
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
  
@@ -253,11 +287,18 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   
     * `ENABLE` - `pushover` should be added to the list of plugin, for example: `ENABLE="pushover"`.
     * `PUSHOVER_API_TOKEN` - Used to enable pushover notifications, this token is specific to the application you create from in [Pushover](https://pushover.net/), ***[additional pushover information](#pushover)*** below.
-    * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.  This also support a space delimited list of keys.
-    * `PUSHOVER_ANNOUNCEMENT_KEY` - An optional Pushover user/group key, will be used for system wide user generated announcements.  If not defined this will fallback to `PUSHOVER_USER_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also support a space delimited list of keys.
+    * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.  This also supports a space delimited list of keys.  To disable `INFO` level pushes set this to `off`.
+    * `PUSHOVER_ALARM_KEY` - An optional Pushover user/group key, will be used for system wide alarms (level > `WARN`).  If not defined this will fallback to `PUSHOVER_USER_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also support a space delimited list of keys.  To disable Alarm pushes set this to `off`.
+    * `PUSHOVER_ANNOUNCEMENT_KEY` - An optional Pushover user/group key, will be used for system wide user generated announcements.  If not defined this will fallback to `PUSHOVER_USER_KEY` or `PUSHOVER_ALARM_KEY`.  This also support a space delimited list of keys. To disable Announcement pushes set this to `off`.
     * `BASE_URL` - Used for pushover callbacks, usually the URL of your Nightscout site, use https when possible.
     * `API_SECRET` - Used for signing the pushover callback request for acknowledgments.
-    
+
+    If you never want to get info level notifications (treatments) use `PUSHOVER_USER_KEY="off"`
+    If you never want to get an alarm via pushover use `PUSHOVER_ALARM_KEY="off"`
+    If you never want to get an announcement via pushover use `PUSHOVER_ANNOUNCEMENT_KEY="off"`
+  
+    If only `PUSHOVER_USER_KEY` is set it will be used for all info notifications, alarms, and announcements
+
     For testing/development try [localtunnel](http://localtunnel.me/).
 
 #### IFTTT Maker
