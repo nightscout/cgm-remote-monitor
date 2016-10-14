@@ -12,6 +12,7 @@ describe('authed REST api', function ( ) {
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'this is my long pass phrase';
     var env = require('../env')( );
+    env.settings.authDefaultRoles = 'readable';
     this.wares = require('../lib/middleware/')(env);
     this.archive = null;
     this.app = require('express')( );
@@ -56,6 +57,19 @@ describe('authed REST api', function ( ) {
         res.body.message.should.equal('Unauthorized');
         should.exist(res.body.description);
         done(err);
+      });
+  });
+
+  it('/entries/preview', function (done) {
+    var known_key = this.known_key;
+    request(this.app)
+      .post('/entries/preview.json')
+      .set('api-secret', known_key)
+      .send(load('json'))
+      .expect(201)
+      .end(function (err, res) {
+        res.body.should.be.instanceof(Array).and.have.lengthOf(30);
+        done();
       });
   });
 
