@@ -13,7 +13,7 @@
   display: inline;
 }
 
-.dropdown-menu li a {
+.dropdown-menu li a, .dropdown-menu li label {
   display: block;
   text-decoration: none;
   white-space: nowrap;
