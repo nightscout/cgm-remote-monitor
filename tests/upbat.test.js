@@ -15,10 +15,10 @@ describe('Uploader Battery', function ( ) {
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
       name.should.equal('upbat');
       var result = setter();
-      result.value.should.equal(20);
       result.display.should.equal('20%');
       result.status.should.equal('urgent');
-      result.level.should.equal(25);
+      result.min.value.should.equal(20);
+      result.min.level.should.equal(25);
       done();
     };
 
