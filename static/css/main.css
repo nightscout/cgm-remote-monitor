@@ -4,7 +4,6 @@
 
 
 html, body {
-  height: 100%;
   margin: 0;
   padding: 0;
 }
@@ -17,13 +16,16 @@ body {
 .container {
   bottom: 0;
   display: block;
-  height: 100%;
   left: 0;
   margin: 0;
   padding: 0;
   top: 45px;
-  width: 100%;
   z-index: 2;
+}
+
+a, a:visited, a:link {
+  color: #2196f3;
+  text-decoration: none;
 }
 
 #container.announcing .customTitle {
@@ -138,17 +140,17 @@ body {
   color: red;
 }
 
-.alarming-timeago #lastEntry.pill.warn {
+.alarming-timeago .timeago.pill.warn {
   border-color: yellow;
 }
-.alarming-timeago #lastEntry.pill.warn label {
+.alarming-timeago .timeago.pill.warn label {
   background: yellow;
 }
 
-.alarming-timeago #lastEntry.pill.urgent {
+.alarming-timeago .timeago.pill.urgent {
   border-color: red;
 }
-.alarming-timeago #lastEntry.pill.urgent label {
+.alarming-timeago .timeago.pill.urgent label {
   background: red;
 }
 
@@ -180,6 +182,7 @@ body {
 .statusPills .pill {
   background: #808080;
   border-color: #808080;
+  margin-right: 5px;
 }
 
 .statusPills .pill em {
@@ -206,10 +209,21 @@ body {
   padding: 0;
 }
 
-#silenceBtn {
+#silenceBtn, #viewMenu {
   z-index: 99;
   border-radius: 5px;
   border: 2px solid #bdbdbd;
+}
+
+#viewMenu {
+  left: 150px;
+  right: inherit;
+  font-size: 18px;
+}
+
+#viewMenu li label input[type="checkbox"] {
+  height: 14px;
+  margin-right: 5px;
 }
 
 #silenceBtn a {
@@ -220,6 +234,7 @@ body {
   margin: 10px;
   border: 2px solid #000;
   border-radius: 5px;
+  display: inline-block;
   width: 360px;
 }
 
@@ -291,6 +306,7 @@ body {
   border-radius: 8px;
   float: right;
   min-width: 150px;
+  max-width: 400px;
 }
 
 .alarms {
@@ -327,6 +343,15 @@ body {
 
 .pill.hidden {
   display: none;
+}
+
+#authorizationstatus a {
+  color: #2196f3;
+  text-decoration: underline;
+}
+
+#authorizationstatus .small {
+  font-size: 12px;
 }
 
 @media (max-width: 800px) {
@@ -479,6 +504,13 @@ body {
 
   #silenceBtn a {
     font-size: 20px;
+  }
+
+  #viewMenu {
+    left: inherit;
+    top: 170px;
+    right: 10px;
+    text-align: left;
   }
 
   .status {
