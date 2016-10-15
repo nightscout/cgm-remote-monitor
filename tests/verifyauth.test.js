@@ -8,7 +8,8 @@ describe('verifyauth', function ( ) {
   var scope = this;
   function setup_app (env, fn) {
     require('../lib/bootevent')(env).boot(function booted (ctx) {
-      ctx.app = api(env, ctx);
+      var wares = require('../lib/middleware/')(env);
+      ctx.app = api(env, wares, ctx);
       scope.app = ctx.app;
       fn(ctx);
     });

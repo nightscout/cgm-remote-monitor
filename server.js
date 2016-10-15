@@ -34,7 +34,6 @@ var translate = language.set(env.settings.language).translate;
 // setup http server
 ///////////////////////////////////////////////////
 var PORT = env.PORT;
-var HOSTNAME = env.HOSTNAME;
 
 function create (app) {
   var transport = (env.ssl
@@ -47,12 +46,8 @@ function create (app) {
 
 require('./lib/bootevent')(env).boot(function booted (ctx) {
     var app = require('./app')(env, ctx);
-    var server = create(app).listen(PORT, HOSTNAME);
-    console.log(translate('Listening on port'), PORT, HOSTNAME);
-
-    if (ctx.bootErrors && ctx.bootErrors.length > 0) {
-      return;
-    }
+    var server = create(app).listen(PORT);
+    console.log(translate('Listening on port'), PORT);
 
     if (env.MQTT_MONITOR) {
       ctx.mqtt = require('./lib/mqtt')(env, ctx);
