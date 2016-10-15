@@ -26,9 +26,11 @@ describe('COB', function ( ) {
       }
     ];
 
-    var after100 = cob.cobTotal(treatments, profile, new Date('2015-05-29T02:03:49.827Z').getTime());
-    var before10 = cob.cobTotal(treatments, profile, new Date('2015-05-29T03:45:10.670Z').getTime());
-    var after10 = cob.cobTotal(treatments, profile, new Date('2015-05-29T03:45:11.670Z').getTime());
+    var devicestatus = [];
+
+    var after100 = cob.cobTotal(treatments, devicestatus, profile, new Date('2015-05-29T02:03:49.827Z').getTime());
+    var before10 = cob.cobTotal(treatments, devicestatus, profile, new Date('2015-05-29T03:45:10.670Z').getTime());
+    var after10 = cob.cobTotal(treatments, devicestatus, profile, new Date('2015-05-29T03:45:11.670Z').getTime());
 
     after100.cob.should.equal(100);
     Math.round(before10.cob).should.equal(59);
@@ -44,17 +46,19 @@ describe('COB', function ( ) {
       }
     ];
 
+    var devicestatus = [];
+
     var rightAfterCorrection = new Date('2015-05-29T04:41:40.174Z').getTime();
     var later1 = new Date('2015-05-29T05:04:40.174Z').getTime();
     var later2 = new Date('2015-05-29T05:20:00.174Z').getTime();
     var later3 = new Date('2015-05-29T05:50:00.174Z').getTime();
     var later4 = new Date('2015-05-29T06:50:00.174Z').getTime();
 
-    var result1 = cob.cobTotal(treatments, profile, rightAfterCorrection);
-    var result2 = cob.cobTotal(treatments, profile, later1);
-    var result3 = cob.cobTotal(treatments, profile, later2);
-    var result4 = cob.cobTotal(treatments, profile, later3);
-    var result5 = cob.cobTotal(treatments, profile, later4);
+    var result1 = cob.cobTotal(treatments, devicestatus, profile, rightAfterCorrection);
+    var result2 = cob.cobTotal(treatments, devicestatus, profile, later1);
+    var result3 = cob.cobTotal(treatments, devicestatus, profile, later2);
+    var result4 = cob.cobTotal(treatments, devicestatus, profile, later3);
+    var result5 = cob.cobTotal(treatments, devicestatus, profile, later4);
 
     result1.cob.should.equal(8);
     result2.cob.should.equal(6);
@@ -64,9 +68,6 @@ describe('COB', function ( ) {
   });
 
   it('set a pill to the current COB', function (done) {
-
-    var clientSettings = {};
-
     var data = {
       treatments: [{
         carbs: '8'
@@ -75,15 +76,18 @@ describe('COB', function ( ) {
       , profile: profile
     };
 
-    var pluginBase = {
-      updatePillText: function mockedUpdatePillText (plugin, options) {
-        options.value.should.equal('8g');
-        done();
+    var ctx = {
+      settings: {}
+      , pluginBase: {
+        updatePillText: function mockedUpdatePillText (plugin, options) {
+          options.value.should.equal('8g');
+          done();
+        }
       }
     };
 
     var sandbox = require('../lib/sandbox')();
-    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
     cob.setProperties(sbx);
     cob.updateVisualisation(sbx);
 
