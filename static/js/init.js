@@ -19,10 +19,14 @@ if (window.location.search) {
 }
 
 var token = params.token;
+var secret = $.localStorage.get('apisecrethash');
 
 var script = window.document.createElement('script');
 var src = '/api/v1/status.js?t=' + new Date().getTime();
-if (token) {
+
+if (secret) {
+  src += '&secret=' + secret;
+} else if (token) {
   src += '&token=' + token;
 }
 script.setAttribute('src', src);

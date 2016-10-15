@@ -4,7 +4,7 @@ var levels = require('../lib/levels');
 describe('simplealarms', function ( ) {
 
   var simplealarms = require('../lib/plugins/simplealarms')();
-  var delta = require('../lib/plugins/delta')();
+  var bgnow = require('../lib/plugins/bgnow')();
 
   var env = require('../env')();
   var ctx = {};
@@ -31,7 +31,7 @@ describe('simplealarms', function ( ) {
     ctx.ddata.sgvs = [{mills: before, mgdl: 171}, {mills: now, mgdl: 181}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
-    delta.setProperties(sbx);
+    bgnow.setProperties(sbx);
     simplealarms.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(levels.WARN);
