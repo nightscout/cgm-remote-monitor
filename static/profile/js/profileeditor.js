@@ -16,7 +16,7 @@
   var timeInput = $('#pe_time');
   var dateInput = $('#pe_date');
 
-  client.init(Nightscout.plugins, function loaded () {
+  client.init(function loaded () {
 
   var translate = client.translate;
 

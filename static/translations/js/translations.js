@@ -6,7 +6,7 @@
     var Nightscout = window.Nightscout;
     var client = Nightscout.client;
 
-    client.init(Nightscout.plugins, function loaded() {
+    client.init(function loaded() {
 
         var language = client.language;
         var result = {};
