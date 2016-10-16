@@ -12,12 +12,12 @@ describe('STORAGE', function () {
   });
 
   it('The storage class should be OK.', function (done) {
-    should.exist(require('../lib/storage'));
+    should.exist(require('../lib/storage/mongo-storage'));
     done();
   });
 
   it('After initializing the storage class it should re-use the open connection', function (done) {
-    var store = require('../lib/storage');
+    var store = require('../lib/storage/mongo-storage');
     store(env, function (err1, db1) {
       should.not.exist(err1);
 
@@ -31,11 +31,11 @@ describe('STORAGE', function () {
   });
 
   it('When no connection-string is given the storage-class should throw an error.', function (done) {
-    delete env.mongo;
-    should.not.exist(env.mongo);
+    delete env.storageURI;
+    should.not.exist(env.storageURI);
 
     (function () {
-      return require('../lib/storage')(env, false, true);
+      return require('../lib/storage/mongo-storage')(env, false, true);
     }).should.throw('MongoDB connection string is missing');
 
     done();
@@ -45,7 +45,7 @@ describe('STORAGE', function () {
     env.mongo = 'This is not a MongoDB connection-string';
 
     (function () {
-      return require('../lib/storage')(env, false, true);
+      return require('../lib/storage/mongo-storage')(env, false, true);
     }).should.throw(Error);
 
     done();
