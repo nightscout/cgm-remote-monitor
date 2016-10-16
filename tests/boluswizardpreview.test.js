@@ -5,9 +5,12 @@ var levels = require('../lib/levels');
 describe('boluswizardpreview', function ( ) {
 
   var boluswizardpreview = require('../lib/plugins/boluswizardpreview')();
-  var ar2 = require('../lib/plugins/ar2')();
+  var ar2 = require('../lib/plugins/ar2')({
+    settings: {}
+    , language: require('../lib/language')()
+  });
   var iob = require('../lib/plugins/iob')();
-  var delta = require('../lib/plugins/delta')();
+  var bgnow = require('../lib/plugins/bgnow')();
 
   var env = require('../env')();
   env.testMode = true;
@@ -17,9 +20,9 @@ describe('boluswizardpreview', function ( ) {
 
   function prepareSandbox ( ) {
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
-    iob.setProperties(sbx);
+    bgnow.setProperties(sbx);
     ar2.setProperties(sbx);
-    delta.setProperties(sbx);
+    iob.setProperties(sbx);
     boluswizardpreview.setProperties(sbx);
     sbx.offerProperty('direction', function setFakeDirection() {
       return {value: 'FortyFiveUp', label: '↗', entity: '&#8599;'};
