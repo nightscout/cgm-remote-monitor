@@ -64,8 +64,10 @@ describe('basalprofile', function ( ) {
 
     var time = new Date('2015-06-21T00:00:00').getTime();
 
+
     var sbx = sandbox.clientInit(ctx, time, data);
     sbx.data.profile = profile;
+    basal.setProperties(sbx);
     basal.updateVisualisation(sbx);
 
   });
