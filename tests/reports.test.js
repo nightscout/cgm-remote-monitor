@@ -232,6 +232,7 @@ describe('reports', function ( ) {
       // Load profile, we need to operate in UTC
       client.sbx.data.profile.loadData(exampleProfile);
 
+      $('#treatments').addClass('selected');
       $('a.presetdates :first').click();
       $('#rp_notes').val('something');
       $('#rp_eventtype').val('BG Check');
