@@ -40,6 +40,7 @@ describe('cage', function ( ) {
     };
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    cage.setProperties(sbx);
     cage.updateVisualisation(sbx);
 
   });
@@ -65,6 +66,7 @@ describe('cage', function ( ) {
     };
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    cage.setProperties(sbx);
     cage.updateVisualisation(sbx);
 
   });
@@ -79,6 +81,7 @@ describe('cage', function ( ) {
 
     var sbx = prepareSandbox();
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
+    cage.setProperties(sbx);
     cage.checkNotifications(sbx);
 
     var highest = ctx.notifications.findHighestAlarm('CAGE');
