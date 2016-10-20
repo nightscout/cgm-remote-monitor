@@ -8,7 +8,10 @@ var SIX_MINS = 360000;
 
 describe('ar2', function ( ) {
 
-  var ar2 = require('../lib/plugins/ar2')();
+  var ar2 = require('../lib/plugins/ar2')({
+    settings: {}
+    , language: require('../lib/language')()
+  });
   var bgnow = require('../lib/plugins/bgnow')();
 
   var env = require('../env')();
