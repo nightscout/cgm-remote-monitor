@@ -24,7 +24,8 @@
             });
         });
 
-        var table = $('<table>').append('<tr><th>Language</th><th>Code</th><th>Translated</th><th>Not translated</th><th>Percent</th><th>Missing</th></tr>');
+        var table = $('<table>').append('<tr><th>Language</th><th>Code</th><th>Translated</th><th>Not translated</th><th>Percent</th></tr>');
+        var table2 = $('<table>').append('<tr><th>Language</th><th>Code</th><th>Missing</th></tr>');
         language.languages.forEach(function eachLanguage(l) {
             if (l.code === 'en') {
                 return;
@@ -35,12 +36,19 @@
             tr.append($('<td>').append(result[l.code].ok));
             tr.append($('<td>').append(result[l.code].missing));
             tr.append($('<td>').append((result[l.code].ok / result[l.code].total * 100).toFixed(1) + '%'));
-            tr.append($('<td>').attr('width', '300px').append(result[l.code].keys.join('<br>')));
+
+            var tr2 = $('<tr>');
+            tr2.append($('<td>').append(l.language));
+            tr2.append($('<td>').append(l.code));
+            tr2.append($('<td>').attr('width', '300px').append(result[l.code].keys.join('<br>')));
 
             table.append(tr);
+            table2.append(tr2);
         });
 
         var placeholder = $('#translations');
         placeholder.html(table);
+        placeholder.append('<br>');
+        placeholder.append(table2);
     });
 })();
