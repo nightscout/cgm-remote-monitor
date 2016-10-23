@@ -12,7 +12,7 @@
   var client = Nightscout.client;
   var report_plugins = Nightscout.report_plugins;
 
-  client.init(Nightscout.plugins, function loaded () {
+  client.init(function loaded () {
 
   // init HTML code
   report_plugins.addHtmlFromPlugins( client );
@@ -720,7 +720,7 @@
 
     var cal = data.cal[data.cal.length-1];
     var temp1 = [ ];
-    var rawbg = Nightscout.plugins('rawbg');
+    var rawbg = client.rawbg;
     if (cal) {
       temp1 = data.sgv.map(function (entry) {
         entry.mgdl = entry.y; // value names changed from enchilada

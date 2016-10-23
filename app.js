@@ -5,11 +5,6 @@ var compression = require('compression');
 var bodyParser = require('body-parser');
 
 function create (env, ctx) {
-  ///////////////////////////////////////////////////
-  // api and json object variables
-  ///////////////////////////////////////////////////
-  var api = require('./lib/api/')(env, ctx);
-
   var app = express();
   var appInfo = env.name + ' ' + env.version;
   app.set('title', appInfo);
@@ -19,6 +14,11 @@ function create (env, ctx) {
     app.get('*', require('./lib/booterror')(ctx));
     return app;
   }
+
+  ///////////////////////////////////////////////////
+  // api and json object variables
+  ///////////////////////////////////////////////////
+  var api = require('./lib/api/')(env, ctx);
 
   app.use(compression({filter: function shouldCompress(req, res) {
     //TODO: return false here if we find a condition where we don't want to compress
