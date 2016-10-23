@@ -3,6 +3,9 @@ var Stream = require('stream');
 var levels = require('../lib/levels');
 
 describe('boluswizardpreview', function ( ) {
+  var env = require('../env')();
+  env.testMode = true;
+
   var ctx = {
     settings: {}
     , language: require('../lib/language')()
@@ -14,9 +17,6 @@ describe('boluswizardpreview', function ( ) {
   var ar2 = require('../lib/plugins/ar2')(ctx);
   var iob = require('../lib/plugins/iob')(ctx);
   var bgnow = require('../lib/plugins/bgnow')(ctx);
-
-  var env = require('../env')();
-  env.testMode = true;
 
   function prepareSandbox ( ) {
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
