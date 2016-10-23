@@ -17,16 +17,18 @@ function config ( ) {
    */
   env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
   env.PORT = readENV('PORT', 1337);
+  env.HOSTNAME = readENV('HOSTNAME', null);
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
+
+  if (env.err) {
+    delete env.err;
+  }
 
   setSSL();
   setAPISecret();
   setVersion();
   setMongo();
   updateSettings();
-
-  // require authorization for entering treatments
-  env.treatments_auth = readENV('TREATMENTS_AUTH',false);
 
   return env;
 }
@@ -54,12 +56,20 @@ function setAPISecret() {
   // if a passphrase was provided, get the hex digest to mint a single token
   if (useSecret) {
     if (readENV('API_SECRET').length < consts.MIN_PASSPHRASE_LENGTH) {
-      var msg = ['API_SECRET should be at least', consts.MIN_PASSPHRASE_LENGTH, 'characters'];
-      throw new Error(msg.join(' '));
+      var msg = ['API_SECRET should be at least', consts.MIN_PASSPHRASE_LENGTH, 'characters'].join(' ');
+      console.error(msg);
+      env.err = {desc: msg};
+    } else {
+      var shasum = crypto.createHash('sha1');
+      shasum.update(readENV('API_SECRET'));
+      env.api_secret = shasum.digest('hex');
+
+      if (!readENV('TREATMENTS_AUTH', true)) {
+
+      }
+
+
     }
-    var shasum = crypto.createHash('sha1');
-    shasum.update(readENV('API_SECRET'));
-    env.api_secret = shasum.digest('hex');
   }
 }
 
@@ -97,9 +107,11 @@ function setMongo() {
       console.info('MQTT configured to use a custom client id, it will override the default: ', env.mqtt_client_id);
     }
   }
+  env.authentication_collections_prefix = readENV('MONGO_AUTHENTICATION_COLLECTIONS_PREFIX', 'auth_');
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
+  env.food_collection = readENV('MONGO_FOOD_COLLECTION', 'food');
 
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.
@@ -124,6 +136,13 @@ function updateSettings() {
 
   //should always find extended settings last
   env.extendedSettings = findExtendedSettings(process.env);
+
+  if (!readENVTruthy('TREATMENTS_AUTH', true)) {
+    env.settings.authDefaultRoles = env.settings.authDefaultRoles || "";
+    env.settings.authDefaultRoles += ' careportal';
+  }
+
+
 }
 
 function readENV(varName, defaultValue) {
@@ -133,10 +152,15 @@ function readENV(varName, defaultValue) {
     || process.env[varName]
     || process.env[varName.toLowerCase()];
 
-  if (typeof value === 'string' && value.toLowerCase() === 'on') { value = true; }
-  if (typeof value === 'string' && value.toLowerCase() === 'off') { value = false; }
 
   return value != null ? value : defaultValue;
+}
+
+function readENVTruthy(varName, defaultValue) {
+  var value = readENV(varName, defaultValue);
+  if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
+  if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
+  return value;
 }
 
 function findExtendedSettings (envs) {
@@ -157,6 +181,8 @@ function findExtendedSettings (envs) {
             extended[enable] = exts;
             var ext = _.camelCase(env.substring(split + 1).toLowerCase());
             if (!isNaN(value)) { value = Number(value); }
+            if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
+            if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
             exts[ext] = value;
           }
         }
