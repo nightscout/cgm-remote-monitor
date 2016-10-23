@@ -1,7 +1,6 @@
 'use strict';
 
 var should = require('should');
-var assert = require('assert');
 
 describe('openaps storage', function () {
 
