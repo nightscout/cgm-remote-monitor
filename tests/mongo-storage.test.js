@@ -3,7 +3,7 @@
 var should = require('should');
 var assert = require('assert');
 
-describe('STORAGE', function () {
+describe('mongo storage', function () {
   var env = require('../env')();
 
   before(function (done) {
@@ -11,7 +11,7 @@ describe('STORAGE', function () {
     done();
   });
 
-  it('The storage class should be OK.', function (done) {
+  it('The module should be OK.', function (done) {
     should.exist(require('../lib/storage/mongo-storage'));
     done();
   });
@@ -42,7 +42,7 @@ describe('STORAGE', function () {
   });
 
   it('An invalid connection-string should throw an error.', function (done) {
-    env.mongo = 'This is not a MongoDB connection-string';
+    env.storageURI = 'This is not a MongoDB connection-string';
 
     (function () {
       return require('../lib/storage/mongo-storage')(env, false, true);
