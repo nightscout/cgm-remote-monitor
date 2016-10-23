@@ -5,7 +5,10 @@ var levels = require('../lib/levels');
 describe('boluswizardpreview', function ( ) {
 
   var boluswizardpreview = require('../lib/plugins/boluswizardpreview')();
-  var ar2 = require('../lib/plugins/ar2')();
+  var ar2 = require('../lib/plugins/ar2')({
+    settings: {}
+    , language: require('../lib/language')()
+  });
   var iob = require('../lib/plugins/iob')();
   var bgnow = require('../lib/plugins/bgnow')();
 
