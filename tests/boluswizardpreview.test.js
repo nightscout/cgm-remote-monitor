@@ -143,7 +143,6 @@ describe('boluswizardpreview', function ( ) {
     data.devicestatus = [];
     data.profile = require('../lib/profilefunctions')([profileData]);
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
-    var iob = require('../lib/plugins/iob')();
     sbx.properties.iob = iob.calcTotal(data.treatments, data.devicestatus, data.profile, now);
 
     var results = boluswizardpreview.calc(sbx);
@@ -184,7 +183,6 @@ describe('boluswizardpreview', function ( ) {
     data.devicestatus = [];
     data.profile = require('../lib/profilefunctions')([profileData]);
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
-    var iob = require('../lib/plugins/iob')();
     sbx.properties.iob = iob.calcTotal(data.treatments, data.devicestatus, data.profile, now);
 
     var results = boluswizardpreview.calc(sbx);
