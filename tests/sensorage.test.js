@@ -5,12 +5,13 @@ var times = require('../lib/times');
 var levels = require('../lib/levels');
 
 describe('sage', function ( ) {
-  var sage = require('../lib/plugins/sensorage')();
-  var sandbox = require('../lib/sandbox')();
   var env = require('../env')();
   var ctx = {};
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
+  ctx.language = require('../lib/language')();
+  var sage = require('../lib/plugins/sensorage')(ctx);
+  var sandbox = require('../lib/sandbox')();
 
   function prepareSandbox ( ) {
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
