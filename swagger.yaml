@@ -482,7 +482,7 @@ definitions:
       units:
         type: string
         description: The units for the glucose value, mg/dl or mmol.
-      notes:
+      notes: mmol
         type: string
         description: Description/notes of treatment.
       enteredBy:
@@ -554,7 +554,7 @@ definitions:
       theme:
         type: string
         description: Default theme to be displayed system wide, `default` or `colors`.
-      language:
+      language: colors
         type: string
         description: Default language code to be used system wide
       showPlugins:
