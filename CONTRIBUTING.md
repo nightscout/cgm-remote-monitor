@@ -54,6 +54,7 @@ Some simple rules, that will make it easier to maintain our codebase:
 * A space before function parameters, such as: `function boom (name, callback) { }`, this makes searching for calls easier
 * Name your callback functions, such as `boom('the name', function afterBoom ( result ) { }`
 * Don't include author names in the header of your files, if you need to give credit to someone else do it in the commit comment.
+* Use single quotes.
 * Use the comma first style, for example:
 
   ```javascript
@@ -95,10 +96,8 @@ appropriate.
 
 ## Co-ordination
 
-There is a google groups nightscout-core developers list where lots of
-people discuss Nightscout.  Most cgm-remote-monitor hackers use
-github's ticketing system, along with Facebook cgm-in-the-cloud, and
-gitter system.
+Most cgm-remote-monitor hackers use github's ticketing system, along with Facebook cgm-in-the-cloud, and
+gitter.
 
 We use git-flow, with `master` as our production, stable branch, and
 `dev` is used to queue up for upcoming releases.  Everything else is
