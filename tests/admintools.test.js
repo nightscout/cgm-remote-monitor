@@ -57,7 +57,7 @@ var someData = {
 
 describe('admintools', function ( ) {
   var self = this;
-  this.timeout(5000);
+  this.timeout(10000);
   before(function (done) {
     benv.setup(function() {
       self.$ = require('jquery');

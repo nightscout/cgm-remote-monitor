@@ -5,7 +5,7 @@ var should = require('should');
 var language = require('../lib/language')();
 
 describe('Treatment API', function ( ) {
-  this.timeout(2000);
+  this.timeout(10000);
   var self = this;
 
   var api = require('../lib/api/');
