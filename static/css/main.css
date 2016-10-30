@@ -4,643 +4,676 @@
 
 
 html, body {
-    height: 100%;
-    margin: 0;
-    padding: 0;
+  margin: 0;
+  padding: 0;
 }
 body {
-    font-family: 'Open Sans', Helvetica, Arial, sans-serif;
-    fill: #fff;
-    background: #000;
-    color: #bdbdbd;
+  font-family: 'Open Sans', Helvetica, Arial, sans-serif;
+  background: #000;
+  color: #bdbdbd;
 }
 
 .container {
-    bottom: 0;
-    display: block;
-    height: 100%;
-    left: 0;
-    margin: 0;
-    padding: 0;
-    top: 45px;
-    width: 100%;
-    z-index: 2;
+  bottom: 0;
+  display: block;
+  left: 0;
+  margin: 0;
+  padding: 0;
+  top: 45px;
+  z-index: 2;
 }
 
-.status {
-    font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
-    height: 180px;
-    vertical-align: middle;
-    clear: both;
+a, a:visited, a:link {
+  color: #2196f3;
+  text-decoration: none;
 }
 
-.bgStatus {
-    float: right;
-    text-align: center;
-    white-space: nowrap;
-    padding-right: 20px;
+#container.announcing .customTitle {
+  color: orange;
 }
 
-.bgButton.urgent {
+#container.alarming.urgent .customTitle {
   color: red;
 }
 
-.bgButton.warning {
+#container.alarming.warning .customTitle {
   color: yellow;
 }
 
-.bgButton.inrange {
+.primary {
+  font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
+  vertical-align: middle;
+  clear: both;
+}
+
+.bgStatus {
+  float: right;
+  text-align: center;
+  white-space: nowrap;
+  padding-right: 20px;
+}
+
+.urgent .bgButton {
+  color: red;
+}
+
+.warning .bgButton {
+  color: yellow;
+}
+
+.inrange .bgButton {
   color: #4cff00;
 }
 
 .bgStatus .currentBG {
-    font-size: 120px;
-    line-height: 100px;
-    text-decoration: line-through;
-    vertical-align: middle;
+  font-size: 120px;
+  line-height: 100px;
+  text-decoration: line-through;
+  vertical-align: middle;
 }
 
 .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
   font-size: 90px;
 }
 
-.bgStatus .currentDirection {
-    font-weight: normal;
-    text-decoration: none;
-    font-size: 90px;
-    line-height: 90px;
-    vertical-align: middle;
+.bgStatus .pill.direction {
+  font-weight: normal;
+  text-decoration: none;
+  font-size: 90px;
+  line-height: 90px;
+  vertical-align: middle;
+  border: none;
+  background: none;
 }
 
-.bgStatus .currentDetails {
-    font-size: 30px;
+.bgStatus .majorPills {
+  font-size: 30px;
+  line-height: 34px;
 }
 
-.currentDetails > span:not(:first-child) {
-    margin-left: 5px;
+.minorPills {
+  font-size: 22px;
+  line-height: 25px;
+  z-index: 500;
+  white-space: normal;
+}
+
+.majorPills > span:not(:first-child) {
+  margin-left: 5px;
+}
+
+.minorPills > span:not(:first-child) {
+  margin-left: 5px;
 }
 
 .pill {
-    white-space: nowrap;
-    border-radius: 5px;
-    border: 2px solid #808080;
+  white-space: nowrap;
+  border-radius: 5px;
+  border: 2px solid #808080;
+  background: #808080;
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 2px 0;
 }
 
-.pill * {
-    padding-left: 2px;
-    padding-right: 2px;
+.pill em, .pill label {
+  padding: 2px;
+  white-space: nowrap;
 }
 
 .pill em {
-    font-style: normal;
-    font-weight: bold;
+  font-style: normal;
+  font-weight: bold;
+  background: #000;
+  border-radius: 3px;
 }
 
 .pill label {
-    color: #000;
-    background: #808080;
+  color: #000;
 }
 
-.pill.warn em {
-    color: yellow !important;
+.container .pill.warn em {
+  color: yellow;
 }
 
-.pill.urgent em {
-    color: red !important;
+.container .pill.urgent em {
+  color: red;
 }
 
-.alarming-timeago #lastEntry.pill.warn {
+.alarming-timeago .timeago.pill.warn {
   border-color: yellow;
 }
-.alarming-timeago #lastEntry.pill.warn label {
+.alarming-timeago .timeago.pill.warn label {
   background: yellow;
 }
 
-.alarming-timeago #lastEntry.pill.urgent {
+.alarming-timeago .timeago.pill.urgent {
   border-color: red;
 }
-.alarming-timeago #lastEntry.pill.urgent label {
+.alarming-timeago .timeago.pill.urgent label {
   background: red;
 }
 
 .bgStatus.current .currentBG {
-    text-decoration: none;
+  text-decoration: none;
 }
 
 .alarming-timeago .bgStatus.current .currentBG {
   text-decoration: line-through;
 }
 
-.time {
-    color: #808080;
-    font-size: 100px;
-    line-height: 100px;
+.status {
+  color: #808080;
+  font-size: 100px;
 }
-.timebox {
-    text-align: center;
-    width: 250px;
+.statusBox {
+  text-align: center;
+  width: 250px;
 }
-.timeOther {
-    font-size: 20px;
-    line-height: 30px;
-}
-
-.loading .timeOther {
-    display: none;
+.statusPills {
+  font-size: 20px;
+  line-height: 23px;
 }
 
-.timeOther .pill {
-    background: #808080;
-    border-color: #808080;
+.loading .statusPills {
+  display: none;
 }
 
-.timeOther .pill em {
-    color: #bdbdbd;
-    background: #000;
-    border-radius: 4px 0 0 4px;
+.statusPills .pill {
+  background: #808080;
+  border-color: #808080;
+  margin-right: 5px;
 }
 
-.timeOther .pill label {
-    background: #808080;
-}
-
-#uploaderBattery label {
-    padding: 0 !important;
+.statusPills .pill em {
+  color: #bdbdbd;
 }
 
 #chartContainer {
-    top: 225px; /*(toolbar height + status height)*/
-    left:0;
-    right:0;
-    bottom:0;
-    height:auto;
-    font-size: 20px;
-    background: #111;
-    display: block;
-    position:absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: auto;
+  font-size: 20px;
+  background: #111;
+  display: block;
+  position: absolute;
+  margin: 2px;
+  overflow: hidden;
 }
 
 #chartContainer svg {
-    height: calc(100vh - (180px + 45px));
-    width: 100%;
-    top: calc(45px + 180px);
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
-.axis path,
-.axis line {
-  fill: none;
-  stroke: #ffffff;
-  shape-rendering: crispEdges;
+#silenceBtn, #viewMenu {
+  z-index: 99;
+  border-radius: 5px;
+  border: 2px solid #bdbdbd;
 }
 
-.open-right, .open-left {
-  shape-rendering: crispEdges;
-}
-.grid path, .axis line {
-  stroke: #bdbdbd;
-  stroke-opacity: 1;
+#viewMenu {
+  left: 150px;
+  right: inherit;
+  font-size: 18px;
 }
 
-.brush .extent {
-  stroke: #ffffff;
-  stroke-opacity: 0;
-  fill-opacity: 0;
+#viewMenu li label input[type="checkbox"] {
+  height: 14px;
+  margin-right: 5px;
 }
 
-
-#silenceBtn {
-    z-index: 99;
-    border-radius: 5px;
-    border: 2px solid #bdbdbd;
-}
-
-#silenceBtn * {
-    font-size: 40px
+#silenceBtn a {
+  font-size: 40px
 }
 
 .bgButton {
   margin: 10px;
   border: 2px solid #000;
   border-radius: 5px;
+  display: inline-block;
   width: 360px;
 }
 
-.loading .bgButton .rawnoise {
-    display: none;
+.loading .pill.rawbg {
+  display: none;
 }
 
-.bgButton .rawnoise {
-    display: inline-block;
-    border-radius: 2px;
-    border: 1px solid #808080;
+.pill.rawbg {
+  display: inline-block;
+  border-radius: 2px;
+  border: 1px solid #808080;
+  padding: 0;
 }
 
-.bgButton .rawnoise em {
-    color: white;
-    background-color: black;
-    display: block;
-    font-size: 20px;
+.pill.rawbg em {
+  color: white;
+  background-color: black;
+  display: block;
+  font-size: 20px;
+  border-radius: 0;
+  padding: 0 2px;
 }
 
-.bgButton .rawnoise label {
-    display: block;
-    font-size: 14px;
+.pill.rawbg label {
+  display: block;
+  font-size: 14px;
+  padding: 0 2px;
 }
 
 .alarming .bgButton {
-    border-color: #bdbdbd;
-    color: #000;
-    box-shadow: 2px 2px 0 #ddd;
+  border-color: #bdbdbd;
+  color: #000;
+  box-shadow: 2px 2px 0 #ddd;
 }
 
-.alarming .bgButton.urgent {
-    background-color: red;
+.alarming.urgent .bgButton {
+  background-color: red;
 }
 
-.alarming .bgButton.warning {
-    background-color: yellow;
+.alarming.warning .bgButton {
+  background-color: yellow;
 }
 
 .alarming .bgButton:active {
-    border: 2px solid #bdbdbd;
-    box-shadow: none;
-    -moz-box-shadow: none;
-    -webkit-box-shadow: none;
+  border: 2px solid #bdbdbd;
+  box-shadow: none;
+  -moz-box-shadow: none;
+  -webkit-box-shadow: none;
 }
 
 
 .button {
-    text-align: center;
-    background: #ababab;
-    margin: 10px auto;
+  text-align: center;
+  background: #ababab;
+  margin: 10px auto;
 }
 
-div.tooltip {
-    color: #444;
-    position: absolute;
-    text-align: left;
-    padding: 4px;
-    font-size: 14px;
-    line-height: 15px;
-    background: white;
-    border: 0;
-    border-radius: 8px;
-    pointer-events: none;
+.tooltip {
+  top: 0;
+  left: 0;
+  color: #444;
+  position: absolute;
+  text-align: left;
+  padding: 4px;
+  font-size: 14px;
+  line-height: 15px;
+  background: white;
+  border: 0;
+  border-radius: 8px;
+  float: right;
+  min-width: 150px;
+  max-width: 400px;
 }
 
 .alarms {
-    display: none;
+  display: none;
 }
 
 .loading .focus-range {
-    display: none;
+  display: none;
 }
 
 .focus-range {
-    list-style: none;
-    margin: 4px;
-    padding: 0;
-    color: #808080;
-    width: 250px;
-    text-align: center;
+  list-style: none;
+  margin: 4px;
+  padding: 0;
+  color: #808080;
+  width: 250px;
+  text-align: center;
 }
 
 .focus-range li {
-    display: inline-block;
-    font-size: 18px;
-    white-space: nowrap;
-    border-radius: 5px;
-    border: 2px solid #000;
-    cursor: pointer;
+  display: inline-block;
+  font-size: 18px;
+  white-space: nowrap;
+  border-radius: 5px;
+  border: 2px solid #000;
+  cursor: pointer;
 }
 
-.focus-range li.selected {
-    border-color: #808080;
-    color: #000;
-    background: #808080;
+.focus-range .selected {
+  border-color: #808080;
+  color: #000;
+  background: #808080;
+}
+
+.pill.hidden {
+  display: none;
+}
+
+#authorizationstatus a {
+  color: #2196f3;
+  text-decoration: underline;
+}
+
+#authorizationstatus .small {
+  font-size: 12px;
 }
 
 @media (max-width: 800px) {
-    .bgStatus {
-        width: 300px;
-    }
+  .bgStatus {
+    width: 300px;
+  }
 
-    .bgButton {
-        width: auto;
-    }
+  .bgButton {
+    width: auto;
+  }
 
-    .bgStatus .currentBG {
-        font-size: 80px;
-        line-height: 80px;
-    }
+  .bgStatus .currentBG {
+    font-size: 80px;
+    line-height: 80px;
+  }
 
-    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
-      font-size: 70px;
-    }
+  .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+    font-size: 70px;
+  }
 
-    .bgStatus .currentDirection {
-        font-size: 70px;
-        line-height: 70px;
-    }
+  .bgStatus .pill.direction {
+    font-size: 70px;
+    line-height: 70px;
+  }
 
-    .bgStatus .currentDetails {
-        font-size: 20px;
-    }
+  .bgStatus .majorPills {
+    font-size: 20px;
+    line-height: 24px;
+  }
 
-    .time {
-        font-size: 70px;
-        line-height: 60px;
-        padding-top: 8px;
-    }
+  .bgStatus .minorPills {
+    font-size: 16px;
+    line-height: 18px;
+  }
 
-    .timeOther {
-        font-size: 15px;
-        line-height: 40px;
-    }
+  .status {
+    font-size: 70px;
+    padding-top: 8px;
+  }
 
-    #uploaderBattery label {
-        font-size: 15px !important;
-    }
+  .statusPills {
+    font-size: 15px;
+    line-height: 17px;
+  }
 
-    .focus-range {
-        margin: 0;
-    }
+  .focus-range {
+    margin: 0;
+  }
 
-    .focus-range li {
-        font-size: 14px;
-    }
+  .focus-range li {
+    font-size: 14px;
+  }
 
-    #silenceBtn * {
-        font-size: 30px;
-    }
+  #silenceBtn a {
+    font-size: 30px;
+  }
 
-    #chartContainer {
-        top: 185px;
-        font-size: 14px;
-    }
-    #chartContainer svg {
-        height: calc(100vh - 185px);
-    }
-
+  #chartContainer {
+    font-size: 14px;
+  }
 }
 
 @media (max-width: 750px) {
-    .bgStatus {
-        width: 240px;
-        padding: 0;
-    }
+  .bgStatus {
+    width: 240px;
+    padding: 0;
+  }
 
-    .bgButton .rawnoise em {
-        font-size: 14px;
-    }
+  .pill.rawbg em {
+    font-size: 14px;
+  }
 
-    .bgButton .rawnoise label {
-        font-size: 12px;
-    }
+  .pill.rawbg label {
+    font-size: 12px;
+  }
 
-    .bgStatus .currentBG {
-        font-size: 70px;
-        line-height: 60px;
-    }
+  .bgStatus .currentBG {
+    font-size: 70px;
+    line-height: 60px;
+  }
 
-    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
-      font-size: 50px;
-    }
+  .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+    font-size: 50px;
+  }
 
-    .bgStatus .currentDirection {
-        font-size: 50px;
-        line-height: 50px;
-    }
+  .bgStatus .pill.direction {
+    font-size: 50px;
+    line-height: 50px;
+  }
 
-    .bgStatus .currentDetails {
-        font-size: 15px;
-    }
+  .bgStatus .majorPills {
+    font-size: 15px;
+    line-height: 17px;
+  }
 
-    .time {
-        font-size: 50px;
-        line-height: 40px;
-        width: 250px;
-    }
+  .bgStatus .minorPills {
+    font-size: 12px;
+    line-height: 13px;
+  }
 
-    #chartContainer {
-        top: 165px;
-    }
-    #chartContainer svg {
-        height: calc(100vh - 165px);
-    }
-
+  .status {
+    font-size: 50px;
+    width: 250px;
+  }
 }
 
 @media (max-width: 400px) {
-    .status {
-        text-align: center;
-        margin-bottom: 0;
-        height: 152px;
-    }
+  .primary {
+    text-align: center;
+    margin-bottom: 0;
+  }
 
-    .bgStatus {
-        float: none;
-        padding: 0;
-        text-align: center;
-        width: 250px;
-    }
+  .bgStatus {
+    float: none;
+    padding: 0;
+    text-align: center;
+    width: 250px;
+  }
 
 
-    .bgButton {
-        margin: 5px;
-        width: auto;
-    }
+  .bgButton {
+    margin: 5px;
+    width: auto;
+  }
 
-    .bgStatus .currentBG {
-        font-size: 70px;
-        line-height: 70px;
-    }
+  .bgStatus .currentBG {
+    font-size: 70px;
+    line-height: 70px;
+  }
 
-    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
-        font-size: 60px;
-        padding-left: 20px;
-    }
+  .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+    font-size: 60px;
+    padding-left: 20px;
+  }
 
-    .bgStatus .currentDirection {
-        font-size: 60px;
-        line-height: 60px;
-    }
+  .bgStatus .pill.direction {
+    font-size: 60px;
+    line-height: 60px;
+  }
 
-    .bgStatus .currentDetails {
-        font-size: 15px;
-    }
+  .bgStatus .majorPills {
+    font-size: 15px;
+    line-height: 17px;
+  }
 
-    #silenceBtn * {
-      font-size: 20px;
-    }
+  .bgStatus .minorPills {
+    font-size: 12px;
+    line-height: 13px;
+  }
 
-    .time {
-        padding-top: 0;
-        font-size: 20px !important;
-    }
+  #silenceBtn a {
+    font-size: 20px;
+  }
 
-    .timebox {
-        width: auto;
-    }
+  #viewMenu {
+    left: inherit;
+    top: 170px;
+    right: 10px;
+    text-align: left;
+  }
 
-    #currentTime {
-        display: inline;
-        vertical-align: middle;
-    }
+  .status {
+    padding-top: 0;
+    font-size: 20px;
+  }
 
-    .timeOther {
-        display: inline;
-        margin-left: auto;
-        font-size: 15px;
-    }
+  .statusBox {
+    width: auto;
+  }
 
-    #uploaderBattery label {
-        font-size: 15px !important;
-    }
+  #currentTime {
+    display: inline;
+    vertical-align: middle;
+  }
 
-    .focus-range {
-        position: absolute;
-        top: 80px;
-        left: initial;
-        right: 10px;
-        margin: 0;
-        width: auto;
-    }
+  .statusPills {
+    display: inline;
+    margin-left: auto;
+    font-size: 12px;
+    line-height: 13px;
+  }
 
-    .focus-range li {
-        display: block;
-    }
+  .focus-range {
+    position: absolute;
+    top: 60px;
+    left: auto;
+    right: 10px;
+    margin: 0;
+    width: auto;
+  }
 
-    #chartContainer {
-        top: 190px;
-    }
-    #chartContainer svg {
-        height: calc(100vh - (190px));
-    }
+  .focus-range li {
+    display: block;
+  }
 }
 
 @media (max-height: 700px) {
-    #chartContainer {
-        font-size: 14px;
-    }
+  #chartContainer {
+    font-size: 14px;
+  }
 }
 
 @media (max-height: 600px) {
-    #chartContainer {
-        font-size: 12px;
-    }
+  #chartContainer {
+    font-size: 12px;
+  }
 }
 
 @media (max-height: 480px) {
-    #toolbar {
-        float: right;
-        height: auto !important;
-    }
+  #toolbar {
+    float: right;
+    height: auto;
+  }
 
-    #toolbar h1 {
-        display: none;
-    }
+  #toolbar .customTitle {
+    display: none;
+  }
 
-    .container {
-        top: 15px;
-        padding-bottom: 20px;
-    }
+  .container {
+    top: 15px;
+    padding-bottom: 20px;
+  }
 
-    #chartContainer {
-        top: 130px;
-        font-size: 10px;
-    }
-    #chartContainer svg {
-        height: calc(100vh - 130px);
-    }
+  #chartContainer {
+    font-size: 10px;
+  }
 }
 
 @media (max-height: 480px) and (min-width: 400px) {
-    .bgStatus .currentBG {
-        font-size: 70px;
-        line-height: 60px;
-    }
+  .bgStatus .currentBG {
+    font-size: 70px;
+    line-height: 60px;
+  }
 
-    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
-        font-size: 70px;
-    }
+  .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+    font-size: 70px;
+  }
 
-    .bgStatus .currentDirection {
-        font-size: 50px;
-        line-height: 50px;
-    }
+  .bgStatus .pill.direction {
+    font-size: 50px;
+    line-height: 50px;
+  }
 
-    .bgStatus .currentDetails {
-        font-size: 15px;
-    }
+  .bgStatus .majorPills {
+    font-size: 15px;
+    line-height: 17px;
+  }
 
-    .time {
-        font-size: 50px;
-        line-height: 40px;
-        padding-top: 5px;
-    }
+  .bgStatus .minorPills {
+    font-size: 12px;
+    line-height: 13px;
+  }
 
-    .timeOther {
-        font-size: 15px;
-    }
+  .status {
+    font-size: 50px;
+    padding-top: 5px;
+  }
 
-    #uploaderBattery label {
-        font-size: 15px !important;
-    }
+  .statusPills {
+    font-size: 15px;
+    line-height: 17px;
+  }
 
 }
 
 @media (max-height: 480px) and (max-width: 400px) {
 
-    .bgStatus {
-        text-align: center;
-        width: 220px;
-        left: 0;
-        position: absolute;
-    }
+  .bgStatus {
+    text-align: center;
+    width: 220px;
+    left: 0;
+  }
 
-    .bgStatus .currentBG {
-        font-size: 60px;
-        line-height: 60px;
-    }
+  .bgStatus .currentBG {
+    font-size: 60px;
+    line-height: 60px;
+  }
 
-    .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
-        font-size: 60px;
-    }
+  .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
+    font-size: 60px;
+  }
 
-    .bgStatus .currentDirection {
-        font-size: 50px;
-        line-height: 50px;
-    }
+  .bgStatus .pill.direction {
+    font-size: 50px;
+    line-height: 50px;
+  }
 
-    .bgStatus .currentDetails {
-        font-size: 15px;
-    }
+  .bgStatus .majorPills {
+    font-size: 15px;
+    line-height: 17px;
+  }
 
-    #silenceBtn {
-      right: -25px;
-    }
+  .bgStatus .minorPills {
+    font-size: 12px;
+    line-height: 13px;
+  }
+
+  #silenceBtn {
+    right: -25px;
+  }
 
   .focus-range {
-        position: absolute;
-        top: 40px;
-        left: initial;
-        right: 35px;
-        margin: 0;
-        width: auto;
-    }
+    position: absolute;
+    top: 40px;
+    left: auto;
+    right: 35px;
+    margin: 0;
+    width: auto;
+  }
 
-    .focus-range li {
-        display: block;
-    }
+  .focus-range li {
+    display: block;
+  }
 
-    .time {
-        position: absolute;
-        top: 90px;
-    }
+  .statusBox {
+    width: 220px;
+  }
 
-    .timebox {
-        width: 220px;
-    }
-
+  .statusPills {
+    display: inline;
+    margin-left: auto;
+    font-size: 12px;
+    line-height: 13px;
+  }
 }
