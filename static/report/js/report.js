@@ -12,12 +12,8 @@
   var client = Nightscout.client;
   var report_plugins = Nightscout.report_plugins;
 
-  if (serverSettings === undefined) {
-    console.error('server settings were not loaded, will not call init');
-  } else {
-    client.init(serverSettings, Nightscout.plugins);
-  }
- 
+  client.init(function loaded () {
+
   // init HTML code
   report_plugins.addHtmlFromPlugins( client );
   // make show() accessible outside for treatments.js
@@ -28,7 +24,7 @@
   var maxInsulinValue = 0
       ,maxCarbsValue = 0
       ,maxDailyCarbsValue = 0;
-  var maxdays = 3 * 31;
+  var maxdays = 6 * 31;
   var datastorage = {};
   var daystoshow = {};
   var sorteddaystoshow = [];
@@ -265,7 +261,8 @@
           var treatmentData;
           var tquery = '?find[boluscalc.foods._id]=' + _id + timerange;
           $.ajax('/api/v1/treatments.json'+tquery, {
-            success: function (xhr) {
+            headers: client.headers()
+            , success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
                 return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
@@ -338,7 +335,8 @@
           var treatmentData;
           var tquery = '?find[eventType]=/' + eventtype + '/i';
           $.ajax('/api/v1/treatments.json' + tquery + timerange, {
-            success: function (xhr) {
+            headers: client.headers()
+            , success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
                 return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
@@ -498,8 +496,20 @@
     report_plugins.eachPlugin(function (plugin) {
       // jquery plot doesn't draw to hidden div
       $('#'+plugin.name+'-placeholder').css('display','');
-      //console.log('Drawing ',plugin.name);
-      plugin.report(datastorage,sorteddaystoshow,options);
+
+      console.log('Drawing ',plugin.name);
+
+      var skipRender = false;
+
+      if (plugin.name == 'daytoday' && ! $('#daytoday').hasClass('selected')) skipRender = true;
+      if (plugin.name == 'treatments' && ! $('#treatments').hasClass('selected')) skipRender = true;
+
+      if (skipRender) {
+        console.log('Skipping ',plugin.name);
+      } else {
+      	plugin.report(datastorage,sorteddaystoshow,options);  
+      }
+
       if (!$('#'+plugin.name).hasClass('selected')) {
         $('#'+plugin.name+'-placeholder').css('display','none');
       }
@@ -560,7 +570,8 @@
       $('#info-' + day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
       var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
       return $.ajax('/api/v1/entries.json'+query, {
-        success: function (xhr) {
+        headers: client.headers()
+        , success: function (xhr) {
           xhr.forEach(function (element) {
             if (element) {
               if (element.mbg) {
@@ -614,7 +625,8 @@
       $('#info-' + day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
       var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
       return $.ajax('/api/v1/treatments.json'+tquery, {
-        success: function (xhr) {
+        headers: client.headers()
+        , success: function (xhr) {
           treatmentData = xhr.map(function (treatment) {
             var timestamp = new Date(treatment.timestamp || treatment.created_at);
             treatment.mills = timestamp.getTime();
@@ -643,7 +655,8 @@
         $('#info-' + day).html('<b>'+translate('Loading device status data of')+' '+day+' ...</b>');
         var tquery = '?find[created_at][$gte]=' + new Date(from).toISOString() + '&find[created_at][$lt]=' + new Date(to).toISOString() + '&count=10000';
         return $.ajax('/api/v1/devicestatus.json'+tquery, {
-          success: function (xhr) {
+          headers: client.headers()
+          , success: function (xhr) {
             data.devicestatus = xhr.map(function (devicestatus) {
               devicestatus.mills = new Date(devicestatus.timestamp || devicestatus.created_at).getTime();
               return devicestatus;
@@ -664,9 +677,10 @@
 
   function loadProfileSwitch(from, callback) {
     $('#info > b').html('<b>'+translate('Loading profile switch data') + ' ...</b>');
-    var tquery = '?find[eventType][$eq]=Profile Switch';
+    var tquery = '?find[eventType]=Profile Switch';
     $.ajax('/api/v1/treatments.json'+tquery, {
-      success: function (xhr) {
+      headers: client.headers()
+      , success: function (xhr) {
         var treatmentData = xhr.map(function (treatment) {
           var timestamp = new Date(treatment.timestamp || treatment.created_at);
           treatment.mills = timestamp.getTime();
@@ -706,7 +720,7 @@
 
     var cal = data.cal[data.cal.length-1];
     var temp1 = [ ];
-    var rawbg = Nightscout.plugins('rawbg');
+    var rawbg = client.rawbg;
     if (cal) {
       temp1 = data.sgv.map(function (entry) {
         entry.mgdl = entry.y; // value names changed from enchilada
@@ -779,4 +793,5 @@
     }
     return false;
   }
+  });
 })();
