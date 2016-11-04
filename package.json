@@ -62,7 +62,7 @@
     "express-extension-to-accept": "0.0.2",
     "forever": "~0.15.2",
     "git-rev": "git://github.com/bewest/git-rev.git",
-    "jquery": "^3.1.1",
+    "jquery": "^2.1.4",
     "jsonwebtoken": "^7.1.9",
     "lodash": "^4.16.4",
     "long": "~3.2.0",
@@ -72,7 +72,7 @@
     "moment-timezone": "^0.5.6",
     "mongodb": "2.2.10",
     "mongomock": "^0.1.2",
-    "mqtt": "~2.0.1",
+    "mqtt": "~0.3.11",
     "node-cache": "^4.1.0",
     "parse-duration": "^0.1.1",
     "pushover-notifications": "0.2.3",
@@ -82,7 +82,6 @@
     "shiro-trie": "^0.3.8",
     "simple-statistics": "~0.7.0",
     "socket.io": "^1.5.0",
-    "sugar": "^2.0.1",
     "traverse": "^0.6.6"
   },
   "devDependencies": {
