@@ -5,12 +5,13 @@ var times = require('../lib/times');
 var levels = require('../lib/levels');
 
 describe('sage', function ( ) {
-  var sage = require('../lib/plugins/sensorage')();
-  var sandbox = require('../lib/sandbox')();
   var env = require('../env')();
   var ctx = {};
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
+  ctx.language = require('../lib/language')();
+  var sage = require('../lib/plugins/sensorage')(ctx);
+  var sandbox = require('../lib/sandbox')();
 
   function prepareSandbox ( ) {
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
@@ -33,16 +34,17 @@ describe('sage', function ( ) {
           options.value.should.equal('3d0h');
           options.info[0].label.should.equal('Sensor Insert');
           options.info[1].should.match({ label: 'Duration', value: '15 days 0 hours' });
-          options.info[2].should.match({ label: 'Notes:', value: 'Foo' });
+          options.info[2].should.match({ label: 'Notes', value: 'Foo' });
           options.info[3].label.should.equal('Sensor Start');
           options.info[4].should.match({ label: 'Duration', value: '3 days 0 hours' });
-          options.info[5].should.match({ label: 'Notes:', value: 'Bar' });
+          options.info[5].should.match({ label: 'Notes', value: 'Bar' });
           done();
         }
       }
     };
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    sage.setProperties(sbx);
     sage.updateVisualisation(sbx);
 
   });
@@ -62,13 +64,14 @@ describe('sage', function ( ) {
           options.value.should.equal('3d0h');
           options.info[0].label.should.equal('Sensor Start');
           options.info[1].should.match({ label: 'Duration', value: '3 days 0 hours' });
-          options.info[2].should.match({ label: 'Notes:', value: 'Bar' });
+          options.info[2].should.match({ label: 'Notes', value: 'Bar' });
           done();
         }
       }
     };
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    sage.setProperties(sbx);
     sage.updateVisualisation(sbx);
 
   });
@@ -88,13 +91,14 @@ describe('sage', function ( ) {
           options.value.should.equal('3d0h');
           options.info[0].label.should.equal('Sensor Insert');
           options.info[1].should.match({ label: 'Duration', value: '3 days 0 hours' });
-          options.info[2].should.match({ label: 'Notes:', value: 'Foo' });
+          options.info[2].should.match({ label: 'Notes', value: 'Foo' });
           done();
         }
       }
     };
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    sage.setProperties(sbx);
     sage.updateVisualisation(sbx);
 
   });
@@ -116,13 +120,14 @@ describe('sage', function ( ) {
           options.info.length.should.equal(3);
           options.info[0].label.should.equal('Sensor Insert');
           options.info[1].should.match({ label: 'Duration', value: '3 days 0 hours' });
-          options.info[2].should.match({ label: 'Notes:', value: 'Foo' });
+          options.info[2].should.match({ label: 'Notes', value: 'Foo' });
           done();
         }
       }
     };
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    sage.setProperties(sbx);
     sage.updateVisualisation(sbx);
 
   });
@@ -136,6 +141,7 @@ describe('sage', function ( ) {
 
     var sbx = prepareSandbox();
     sbx.extendedSettings = { 'enableAlerts': true };
+    sage.setProperties(sbx);
     sage.checkNotifications(sbx);
 
     var highest = ctx.notifications.findHighestAlarm('SAGE');
@@ -153,6 +159,7 @@ describe('sage', function ( ) {
 
     var sbx = prepareSandbox();
     sbx.extendedSettings = { 'enableAlerts': true };
+    sage.setProperties(sbx);
     sage.checkNotifications(sbx);
 
     should.not.exist(ctx.notifications.findHighestAlarm('SAGE'));

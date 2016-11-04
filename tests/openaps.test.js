@@ -4,8 +4,11 @@ var _ = require('lodash');
 var should = require('should');
 var moment = require('moment');
 
+var ctx = {
+  language: require('../lib/language')()
+};
 var env = require('../env')();
-var openaps = require('../lib/plugins/openaps')();
+var openaps = require('../lib/plugins/openaps')(ctx);
 var sandbox = require('../lib/sandbox')();
 var levels = require('../lib/levels');
 
