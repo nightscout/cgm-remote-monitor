@@ -8,11 +8,14 @@
 Nightscout/Alexa
 ======================================
 ##Setup
-Sign in to https://developer.amazon.com/ and navigate to the "Alexa" tab. Select "Getting started" in "Alexa Skills Kit"
-Click on "Add a new skill". Fill in "Nightscout" as the name and "nightscout" as the invocation name (feel free to use other names as you see fit).
-This skill will not use the "Audio Player".
-Click Next
-Enter the following in the "Intent schema" box
+
+### 1) Make sure to add `alexa` to the list of plugins in your `ENABLE` setting
+### 2) Sign in to https://developer.amazon.com/ and navigate to the "Alexa" tab. Select "Getting started" in "Alexa Skills Kit"
+    * Click on "Add a new skill". Fill in "Nightscout" as the name and "nightscout" as the invocation name (feel free to use other names as you see fit).
+    * This skill will not use the "Audio Player".
+    * Click Next
+### 3) Enter the following in the "Intent schema" box
+
 ```javascript
 {
     "intents" : [
@@ -43,8 +46,8 @@ Enter the following in the "Intent schema" box
     ]
 }
 ```
-   
-Add a custom slot named "LIST_OF_METRICS" with the following values
+
+### 4) Add a custom slot named "LIST_OF_METRICS" with the following values
 ```
 bg
 blood glucose
@@ -62,7 +65,8 @@ forecast
 raw bg
 raw blood glucose
 ```
-Enter the following for "Sample Utterances"
+
+### 5) Enter the following for "Sample Utterances"
 ```
 NSStatus How am I doing
 UploaderBattery How is my uploader battery
@@ -76,16 +80,15 @@ InsulinRemaining How much insulin does {pwd} have left
 InsulinRemaining How much insulin does {pwd} have remaining
 LastLoop When was my last loop
 ```
-Click next. Select "HTTPS" for your service endpoint. In the HTTPS URL enter the following
+### 6) Click next. Select "HTTPS" for your service endpoint. 
+  * In the HTTPS URL enter the following: ``https://<your nightscout host>/api/v1/alexa``
+  * Select "No" for Account Linking    * Select the appropriate certificate type. For heroku this is typically "My development endpoint is a sub-domain of a domain that has a wildcard certificate from a certificate authority"
+  * Click "Next"
+  * Enable the skill if it isn't already.
 
-``https://<your nightscout host>/api/v1/alexa``
+### 7) You should now be able to interact with Nightscout via Alexa.
 
-Select "No" for Account Linking.
-Select the appropriate certificate type. For heroku this is typically "My development endpoint is a sub-domain of a domain that has a wildcard certificate from a certificate authority"
-Click "Next"
-Enable the skill if it isn't already.
 
-You should now be able to interact with Nightscout via Alexa.
 ##Adding alexa support to a plugin
 This document assumes some familiarity with the Alexa interface. You can find more information [here](https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/getting-started-guide).
 
