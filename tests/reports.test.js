@@ -204,7 +204,6 @@ describe('reports', function ( ) {
 
 
   it ('should produce some html', function (done) {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
 
     var hashauth = require('../lib/hashauth');
@@ -226,12 +225,13 @@ describe('reports', function ( ) {
        call();
      };
 
-    client.init(plugins, function afterInit ( ) {
+    client.init(function afterInit ( ) {
       client.dataUpdate(nowData);
 
       // Load profile, we need to operate in UTC
       client.sbx.data.profile.loadData(exampleProfile);
 
+      $('#treatments').addClass('selected');
       $('a.presetdates :first').click();
       $('#rp_notes').val('something');
       $('#rp_eventtype').val('BG Check');
