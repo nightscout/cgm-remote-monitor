@@ -3,7 +3,11 @@
 require('should');
 
 describe('COB', function ( ) {
-  var cob = require('../lib/plugins/cob')();
+  var ctx = {};
+  ctx.settings = {};
+  ctx.language = require('../lib/language')();
+
+  var cob = require('../lib/plugins/cob')(ctx);
   
   var profileData = {
     sens: 95
@@ -76,14 +80,11 @@ describe('COB', function ( ) {
       , profile: profile
     };
 
-    var ctx = {
-      settings: {}
-      , pluginBase: {
+    ctx.pluginBase = {
         updatePillText: function mockedUpdatePillText (plugin, options) {
           options.value.should.equal('8g');
           done();
         }
-      }
     };
 
     var sandbox = require('../lib/sandbox')();
