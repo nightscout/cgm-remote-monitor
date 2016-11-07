@@ -1,6 +1,6 @@
 bower_components/
 node_modules/
-
+.vscode/
 
 bundle/bundle.out.js
 
