@@ -11,6 +11,7 @@ describe('Entries REST api', function ( ) {
   this.timeout(10000);
   before(function (done) {
     var env = require('../env')( );
+    env.settings.authDefaultRoles = 'readable';
     this.wares = require('../lib/middleware/')(env);
     this.archive = null;
     this.app = require('express')( );
@@ -196,13 +197,13 @@ describe('Entries REST api', function ( ) {
       });
   });
 
-  it('/entries/preview', function (done) {
+  it('disallow POST by readable /entries/preview', function (done) {
     request(this.app)
       .post('/entries/preview.json')
       .send(load('json'))
-      .expect(201)
+      .expect(401)
       .end(function (err, res) {
-        res.body.should.be.instanceof(Array).and.have.lengthOf(30);
+        // res.body.should.be.instanceof(Array).and.have.lengthOf(30);
         done();
       });
   });
