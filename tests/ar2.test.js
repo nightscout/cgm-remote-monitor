@@ -7,17 +7,17 @@ var FIVE_MINS = 300000;
 var SIX_MINS = 360000;
 
 describe('ar2', function ( ) {
-
-  var ar2 = require('../lib/plugins/ar2')({
+  var ctx = {
     settings: {}
     , language: require('../lib/language')()
-  });
-  var bgnow = require('../lib/plugins/bgnow')();
-
-  var env = require('../env')();
-  var ctx = {};
+  };
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
+
+  var ar2 = require('../lib/plugins/ar2')(ctx);
+  var bgnow = require('../lib/plugins/bgnow')(ctx);
+
+  var env = require('../env')();
 
   var now = Date.now();
   var before = now - FIVE_MINS;
