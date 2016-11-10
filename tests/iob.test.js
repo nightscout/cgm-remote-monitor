@@ -4,8 +4,10 @@ require('should');
 var _ = require('lodash');
 
 describe('IOB', function() {
+  var ctx = {};
+  ctx.language = require('../lib/language')();
 
-  var iob = require('../lib/plugins/iob')();
+  var iob = require('../lib/plugins/iob')(ctx);
 
   describe('from treatments', function ( ) {
 

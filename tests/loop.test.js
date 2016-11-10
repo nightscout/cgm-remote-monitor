@@ -4,8 +4,11 @@ var _ = require('lodash');
 var should = require('should');
 var moment = require('moment');
 
+var ctx = {
+  language: require('../lib/language')()
+};
 var env = require('../env')();
-var loop = require('../lib/plugins/loop')();
+var loop = require('../lib/plugins/loop')(ctx);
 var sandbox = require('../lib/sandbox')();
 var levels = require('../lib/levels');
 
@@ -125,7 +128,8 @@ describe('loop', function ( ) {
           done();
         }
       }
-    };
+      , language: require('../lib/language')()
+   };
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
 
@@ -160,6 +164,7 @@ describe('loop', function ( ) {
           first.value.should.equal('Error: SomeError');
           done();
         }
+      , language: require('../lib/language')()
       }
     };
 
@@ -193,6 +198,7 @@ describe('loop', function ( ) {
         units: 'mg/dl'
       }
       , notifications: require('../lib/notifications')(env, ctx)
+      , language: require('../lib/language')()
     };
 
     ctx.notifications.initRequests();
@@ -219,6 +225,7 @@ describe('loop', function ( ) {
         units: 'mg/dl'
       }
       , notifications: require('../lib/notifications')(env, ctx)
+      , language: require('../lib/language')()
     };
 
     ctx.notifications.initRequests();
