@@ -2,13 +2,16 @@ require('should');
 
 describe('basalprofile', function ( ) {
 
-  var basal = require('../lib/plugins/basalprofile')();
-
   var sandbox = require('../lib/sandbox')();
   var env = require('../env')();
-  var ctx = {};
+  var ctx = {
+    settings: {}
+    , language: require('../lib/language')()
+  };
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
+
+  var basal = require('../lib/plugins/basalprofile')(ctx);
 
   var profileData = 
   {
@@ -60,6 +63,7 @@ describe('basalprofile', function ( ) {
           done();
         }
       }
+      , language: require('../lib/language')()
     };
 
     var time = new Date('2015-06-21T00:00:00').getTime();
