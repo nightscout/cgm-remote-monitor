@@ -8,6 +8,7 @@ describe('Status REST api', function ( ) {
   before(function (done) {
     var env = require('../env')( );
     env.settings.enable = ['careportal', 'rawbg'];
+    env.settings.authDefaultRoles = 'readable';
     env.api_secret = 'this is my long pass phrase';
     this.wares = require('../lib/middleware/')(env);
     this.app = require('express')( );
@@ -42,6 +43,27 @@ describe('Status REST api', function ( ) {
         done();
       });
   });
+
+  it('/status.svg', function (done) {
+    request(this.app)
+      .get('/api/status.svg')
+      .end(function(err, res) {
+        res.statusCode.should.equal(302);
+        done();
+      });
+  });
+
+  it('/status.txt', function (done) {
+    request(this.app)
+      .get('/api/status.txt')
+      .expect(200, 'STATUS OK')
+      .end(function(err, res) {
+        res.type.should.equal('text/plain');
+        res.statusCode.should.equal(200);
+        done();
+      });
+  });
+
 
   it('/status.js', function (done) {
     request(this.app)
