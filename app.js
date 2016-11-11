@@ -1,5 +1,6 @@
 'use strict';
 
+var _ = require('lodash');
 var express = require('express');
 var compression = require('compression');
 var bodyParser = require('body-parser');
@@ -13,6 +14,23 @@ function create (env, ctx) {
   if (ctx.bootErrors && ctx.bootErrors.length > 0) {
     app.get('*', require('./lib/booterror')(ctx));
     return app;
+  }
+
+  if (env.settings.isEnabled('cors')) {
+    var allowOrigin = _.get(env, 'extendedSettings.cors.allowOrigin') || '*';
+    console.info('Enabled CORS, allow-origin:', allowOrigin);
+    app.use(function allowCrossDomain (req, res, next) {
+      res.header('Access-Control-Allow-Origin', allowOrigin);
+      res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+
+      // intercept OPTIONS method
+      if ('OPTIONS' === req.method) {
+        res.send(200);
+      } else {
+        next();
+      }
+    });
   }
 
   ///////////////////////////////////////////////////
