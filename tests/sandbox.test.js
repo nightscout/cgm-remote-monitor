@@ -11,8 +11,8 @@ describe('sandbox', function ( ) {
         units: 'mg/dl'
         , thresholds:{
           bgHigh: 260
-          , bgTargetTop: 180
-          , bgTargetBottom: 80
+          , bgTargetTop: 150
+          , bgTargetBottom: 60
           , bgLow: 55
         }
       }
