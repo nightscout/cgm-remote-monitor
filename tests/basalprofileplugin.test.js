@@ -92,7 +92,7 @@ describe('basalprofile', function ( ) {
     sbx.data.profile = profile;
 
     basal.alexa.intentHandlers.length.should.equal(1);
-    basal.alexa.rollupHandlers.length.should.equal(1);  
+    basal.alexa.rollupHandlers.length.should.equal(1);
 
     basal.alexa.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Current Basal');
