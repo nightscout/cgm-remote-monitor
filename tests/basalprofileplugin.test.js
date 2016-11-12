@@ -92,15 +92,15 @@ describe('basalprofile', function ( ) {
     sbx.data.profile = profile;
 
     basal.alexa.intentHandlers.length.should.equal(1);
-    basal.alexa.rollupHandlers.length.should.equal(1);
+    basal.alexa.rollupHandlers.length.should.equal(1);  
 
     basal.alexa.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Current Basal');
-      response.should.equal('Your current basal is 0.1 units per hour');
+      response.should.equal('Your current basal is 0.3 units per hour');
 
       basal.alexa.rollupHandlers[0].rollupHandler([], sbx, function callback (err, response) {
         should.not.exist(err);
-        response.results.should.equal('Your current basal is 0.1 units per hour');
+        response.results.should.equal('Your current basal is 0.3 units per hour');
         response.priority.should.equal(1);
         done();
       });
