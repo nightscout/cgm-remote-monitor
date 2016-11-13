@@ -1,7 +1,7 @@
 'use strict';
 
-require('should');
 var _ = require('lodash');
+var should = require('should');
 
 describe('IOB', function() {
   var ctx = {};
@@ -207,6 +207,35 @@ describe('IOB', function() {
         device: 'connect://paradigm'
       });
     });
+
+    it('should handle alexa requests', function (done) {
+
+      var sbx = {
+        properties: {
+          iob: {
+            iob: 1.5
+          }
+        }
+      };
+
+      iob.alexa.intentHandlers.length.should.equal(1);
+      iob.alexa.rollupHandlers.length.should.equal(1);
+
+      iob.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+        title.should.equal('Current IOB');
+        response.should.equal('You have 1.5 units of insulin on board');
+
+        iob.alexa.rollupHandlers[0].rollupHandler([], sbx, function callback (err, response) {
+          should.not.exist(err);
+          response.results.should.equal('and you have 1.5 units of insulin on board.');
+          response.priority.should.equal(2);
+          done();
+        });
+
+      }, [], sbx);
+
+    });
+
 
   });
 
