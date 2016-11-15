@@ -101,7 +101,6 @@ describe('Profile editor', function ( ) {
   });
 
   it ('should produce some html', function (done) {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
 
     var hashauth = require('../lib/hashauth');
@@ -120,7 +119,7 @@ describe('Profile editor', function ( ) {
        return true;
      };
 
-    client.init(serverSettings, plugins);
+    client.init();
     client.dataUpdate(nowData);
     
     //var result = $('body').html();
