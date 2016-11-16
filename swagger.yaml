@@ -553,7 +553,7 @@ definitions:
         description: Should Night mode be enabled by default?
       theme:
         type: string
-        description: Default theme to be displayed system wide, `default` or `colors`.
+        description: Default theme to be displayed system wide, `default`, `colors`, `colorblindfriendly`.
       language:
         type: string
         description: Default language code to be used system wide
