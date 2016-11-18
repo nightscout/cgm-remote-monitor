@@ -8,7 +8,7 @@ describe('Plugins', function ( ) {
   it('should find client plugins, but not server only plugins', function (done) {
     var plugins = require('../lib/plugins/')().registerClientDefaults();
 
-    plugins('delta').name.should.equal('delta');
+    plugins('bgnow').name.should.equal('bgnow');
     plugins('rawbg').name.should.equal('rawbg');
 
     //server only plugin
