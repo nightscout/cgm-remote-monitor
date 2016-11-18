@@ -46,3 +46,20 @@ body {
   background: #9f9;
   cursor:pointer;
 }
+
+.tooltip {
+  top: 0;
+  left: 0;
+  color: #444;
+  position: absolute;
+  text-align: left;
+  padding: 4px;
+  font-size: 14px;
+  line-height: 15px;
+  background: white;
+  border: 2px solid black;
+  border-radius: 8px;
+  float: right;
+  min-width: 150px;
+  max-width: 400px;
+}
