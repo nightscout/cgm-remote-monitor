@@ -75,3 +75,53 @@ These are only examples, make sure you update all fields to fit your needs
     ]
   }
   ```
+  
+##Starting 0.9.0 profile data will be converted following way
+  
+   source (result from api call) - only [0] used now
+   ```[ { XXX, startDate: xxx }, { YYY, startDate: yyy } ]```
+  
+   converted data
+   ```
+   [
+     {
+       defaultProfile: "Default"
+       , store: {
+         "Default" : { XXX }
+       }
+       , startDate: xxx
+     }
+     , {
+       defaultProfile: "Default"
+       , store: {
+         "Default" : { YYY }
+       }
+       , startDate: yyy
+     }
+   ]
+   ```
+  
+   example of one new profile
+  
+  ```
+  {
+    defaultProfile: "2-Weekend"
+    , store: {
+      "1-Weekday" : { AAA }
+      "2-Weekend" : { BBB }
+      "3-Exercise" : { CCC }
+    }
+    , startDate: xxx
+  }
+  ```
+  
+   for basals currently used profile will be determined by last treatment record of format
+   ```
+   { 
+     eventType: "Profile Change"
+     , profile: "2-Weekend"
+   }
+   ```
+  
+   for boluscalc profile used for calculation will be specified by key `profile` 
+   
