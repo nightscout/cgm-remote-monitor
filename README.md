@@ -153,6 +153,7 @@ You can get many more results, by using the `count`, `date`, `dateString`, and `
 (replace `http://localhost:1337` with your base url, YOUR-SITE)
 
   * 100's: `http://localhost:1337/api/v1/entries.json?find[sgv]=100`
+  * Count of 100's in a month: `http://localhost:1337/api/v1/count/entries/where?find[dateString][$gte]=2016-09&find[dateString][$lte]=2016-10&find[sgv]=100`
   * BGs between 2 days: `http://localhost:1337/api/v1/entries/sgv.json?find[dateString][$gte]=2015-08-28&find[dateString][$lte]=2015-08-30`
   * Juice Box corrections in a year: `http://localhost:1337/api/v1/treatments.json?count=1000&find[carbs]=15&find[eventType]=Carb+Correction&find[created_at][$gte]=2015`
   * Boluses over 2U: `http://localhost:1337/api/v1/treatments.json?find[insulin][$gte]=2`
