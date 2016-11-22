@@ -4,6 +4,7 @@
 
 
 html, body {
+  height: 100%;
   margin: 0;
   padding: 0;
 }
@@ -16,16 +17,13 @@ body {
 .container {
   bottom: 0;
   display: block;
+  height: 100%;
   left: 0;
   margin: 0;
   padding: 0;
   top: 45px;
+  width: 100%;
   z-index: 2;
-}
-
-a, a:visited, a:link {
-  color: #2196f3;
-  text-decoration: none;
 }
 
 #container.announcing .customTitle {
@@ -140,17 +138,17 @@ a, a:visited, a:link {
   color: red;
 }
 
-.alarming-timeago .timeago.pill.warn {
+.alarming-timeago #lastEntry.pill.warn {
   border-color: yellow;
 }
-.alarming-timeago .timeago.pill.warn label {
+.alarming-timeago #lastEntry.pill.warn label {
   background: yellow;
 }
 
-.alarming-timeago .timeago.pill.urgent {
+.alarming-timeago #lastEntry.pill.urgent {
   border-color: red;
 }
-.alarming-timeago .timeago.pill.urgent label {
+.alarming-timeago #lastEntry.pill.urgent label {
   background: red;
 }
 
@@ -182,7 +180,6 @@ a, a:visited, a:link {
 .statusPills .pill {
   background: #808080;
   border-color: #808080;
-  margin-right: 5px;
 }
 
 .statusPills .pill em {
@@ -209,21 +206,10 @@ a, a:visited, a:link {
   padding: 0;
 }
 
-#silenceBtn, #viewMenu {
+#silenceBtn {
   z-index: 99;
   border-radius: 5px;
   border: 2px solid #bdbdbd;
-}
-
-#viewMenu {
-  left: 150px;
-  right: inherit;
-  font-size: 18px;
-}
-
-#viewMenu li label input[type="checkbox"] {
-  height: 14px;
-  margin-right: 5px;
 }
 
 #silenceBtn a {
@@ -234,7 +220,6 @@ a, a:visited, a:link {
   margin: 10px;
   border: 2px solid #000;
   border-radius: 5px;
-  display: inline-block;
   width: 360px;
 }
 
@@ -306,7 +291,6 @@ a, a:visited, a:link {
   border-radius: 8px;
   float: right;
   min-width: 150px;
-  max-width: 400px;
 }
 
 .alarms {
@@ -343,15 +327,6 @@ a, a:visited, a:link {
 
 .pill.hidden {
   display: none;
-}
-
-#authorizationstatus a {
-  color: #2196f3;
-  text-decoration: underline;
-}
-
-#authorizationstatus .small {
-  font-size: 12px;
 }
 
 @media (max-width: 800px) {
@@ -504,13 +479,6 @@ a, a:visited, a:link {
 
   #silenceBtn a {
     font-size: 20px;
-  }
-
-  #viewMenu {
-    left: inherit;
-    top: 170px;
-    right: 10px;
-    text-align: left;
   }
 
   .status {

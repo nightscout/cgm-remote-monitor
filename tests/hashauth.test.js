@@ -7,25 +7,6 @@ var serverSettings = require('./fixtures/default-server-settings');
 
 describe('hashauth', function ( ) {
   var self = this;
-  var headless = require('./fixtures/headless')(benv, this);
-
-  before(function (done) {
-    done( );
-  });
-
-  after(function (done) {
-    done( );
-  });
-
-  beforeEach(function (done) {
-    headless.setup({mockAjax: true}, done);
-  });
-
-  afterEach(function (done) {
-    headless.teardown( );
-    done( );
-  });
-  /*
   before(function (done) {
     benv.setup(function() {
       self.$ = require('jquery');
@@ -60,7 +41,6 @@ describe('hashauth', function ( ) {
     benv.teardown();
     done();
   });
-  */
 
   it ('should make module unauthorized', function () {
     var plugins = require('../lib/plugins/')().registerClientDefaults();
@@ -73,9 +53,9 @@ describe('hashauth', function ( ) {
       next(true); 
     };
 
-    client.init(plugins);
+    client.init(serverSettings, plugins);
 
-    hashauth.inlineCode().indexOf('Not authorized').should.be.greaterThan(0);
+    hashauth.inlineCode().indexOf('Device not authenticated').should.be.greaterThan(0);
     hashauth.isAuthenticated().should.equal(false);
     var testnull = (hashauth.hash()===null);
     testnull.should.equal(true);
@@ -92,9 +72,9 @@ describe('hashauth', function ( ) {
       next(true); 
     };
 
-    client.init(plugins);
+    client.init(serverSettings, plugins);
 
-    hashauth.inlineCode().indexOf('Admin authorized').should.be.greaterThan(0);
+    hashauth.inlineCode().indexOf('Device authenticated').should.be.greaterThan(0);
     hashauth.isAuthenticated().should.equal(true);
   });
 
@@ -111,9 +91,8 @@ describe('hashauth', function ( ) {
       hashauth.authenticated = true;
       next(true); 
     };
-    hashauth.updateSocketAuth = function mockUpdateSocketAuth() {};
 
-    client.init(plugins);
+    client.init(serverSettings, plugins);
 
     hashauth.processSecret('this is my long pass phrase',true);
     
@@ -139,7 +118,7 @@ describe('hashauth', function ( ) {
       next(true); 
     };
 
-    client.init(plugins);
+    client.init(serverSettings, plugins);
 
     hashauth.processSecret('this is my long pass phrase',false);
     
@@ -157,9 +136,9 @@ describe('hashauth', function ( ) {
     
     localStorage.remove('apisecrethash');
 
-    hashauth.init(client, self.$);
+    hashauth.init(client,$);
 
-    client.init(plugins);
+    client.init(serverSettings, plugins);
 
     window.alert = function mockConfirm (message) {
       function containsLine (line) {
