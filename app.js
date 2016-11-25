@@ -1,15 +1,11 @@
 'use strict';
 
+var _ = require('lodash');
 var express = require('express');
 var compression = require('compression');
 var bodyParser = require('body-parser');
 
 function create (env, ctx) {
-  ///////////////////////////////////////////////////
-  // api and json object variables
-  ///////////////////////////////////////////////////
-  var api = require('./lib/api/')(env, ctx);
-
   var app = express();
   var appInfo = env.name + ' ' + env.version;
   app.set('title', appInfo);
@@ -19,6 +15,29 @@ function create (env, ctx) {
     app.get('*', require('./lib/booterror')(ctx));
     return app;
   }
+
+  if (env.settings.isEnabled('cors')) {
+    var allowOrigin = _.get(env, 'extendedSettings.cors.allowOrigin') || '*';
+    console.info('Enabled CORS, allow-origin:', allowOrigin);
+    app.use(function allowCrossDomain (req, res, next) {
+      res.header('Access-Control-Allow-Origin', allowOrigin);
+      res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+
+      // intercept OPTIONS method
+      if ('OPTIONS' === req.method) {
+        res.send(200);
+      } else {
+        next();
+      }
+    });
+  }
+
+  ///////////////////////////////////////////////////
+  // api and json object variables
+  ///////////////////////////////////////////////////
+  var api = require('./lib/api/')(env, ctx);
+  var ddata = require('./lib/data/endpoints')(env, ctx);
 
   app.use(compression({filter: function shouldCompress(req, res) {
     //TODO: return false here if we find a condition where we don't want to compress
@@ -34,6 +53,7 @@ function create (env, ctx) {
 
   app.use('/api/v2/properties', ctx.properties);
   app.use('/api/v2/authorization', ctx.authorization.endpoints);
+  app.use('/api/v2/ddata', ddata);
 
   // pebble data
   app.get('/pebble', ctx.pebble);
