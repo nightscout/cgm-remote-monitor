@@ -1,4 +1,4 @@
 {
-    "url": "mongodb://t1parent:wearenotwaiting@kahana.mongohq.com:10035/nicholascgm",
-    "collection": "cgm"
+    "url": null,
+    "collection": null
 }
