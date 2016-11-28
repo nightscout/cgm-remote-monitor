@@ -15,10 +15,10 @@ describe('Uploader Battery', function ( ) {
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
       name.should.equal('upbat');
       var result = setter();
-      result.value.should.equal(20);
       result.display.should.equal('20%');
       result.status.should.equal('urgent');
-      result.level.should.equal(25);
+      result.min.value.should.equal(20);
+      result.min.level.should.equal(25);
       done();
     };
 
@@ -84,6 +84,26 @@ describe('Uploader Battery', function ( ) {
     upbat.updateVisualisation(sbx);
   });
 
+  it('should handle alexa requests', function (done) {
 
+    var ctx = {
+      settings: {}
+    };
+
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    var upbat = require('../lib/plugins/upbat')();
+    upbat.setProperties(sbx);
+
+    upbat.alexa.intentHandlers.length.should.equal(1);
+
+    upbat.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+      title.should.equal('Uploader battery');
+      response.should.equal('Your uploader battery is at 20%');
+
+      done();
+    }, [], sbx);
+
+  });
 
 });
