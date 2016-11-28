@@ -71,7 +71,7 @@ var someData = {
 
 
 describe('Profile editor', function ( ) {
-  var self = this;
+  this.timeout(10000);
   var headless = require('./fixtures/headless')(benv, this);
 
   before(function (done) {
