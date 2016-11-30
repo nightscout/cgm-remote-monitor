@@ -16,12 +16,8 @@
   var timeInput = $('#pe_time');
   var dateInput = $('#pe_date');
 
-  if (serverSettings === undefined) {
-    console.error('server settings were not loaded, will not call init');
-  } else {
-    client.init(serverSettings, Nightscout.plugins);
-  }
-  
+  client.init(function loaded () {
+
   var translate = client.translate;
 
   var defaultprofile = {
@@ -77,7 +73,7 @@
   var icon_remove = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACrElEQVQ4T42Ty2sTQRzHv5tmk2yyjRNtpfZhL8V6s2KoUNC2XqwgaCsVQcGiFqpHi0c9iRdR/ANE9KR40FIQX4cueKoPaKFoLdSYNtE0abKT1+5s9iW7aUMiHtzTzO7v85md+c6PA4DrHbsPCKIgOWO1pA7dT6YXnXH949SE/F63pqwZtRrO+SCKgjQ5NUV+azpmHj2krMwaJC4c8Erj+/eRyloMMwWFKgbn1nC3ervlK1evkXBLGBZT8SOewotnTylTNLdgeg/pDgZDC2cPHSR8bB22DVC9hFe0SG/H0xFXcHlykjRHRDBWgJcZSCY38Xx2lhqMnRYE34Px/sN9vlQWeoHBAx2yXsRruVAVuFsIBaSJ8+eJGPaBqQV4NROJjTzez89jLBoFn6FgybQL54wS3uTyVDFQ3cL2IYpBv3RhdJSIIQ80tQyv7gEqJvS8AmUlBs7UXPhtjtZgh3UFNYngk86NHCfNAg9dMwHVBPu+CpsVkTXKeJeVG+AGgTOZ3tt6MSKKjy+NjEBjFrR4ElZmA4pdxstMFsyyJu6tZZ7Ux9vwB6EAL50ZGiRECEPPUOixVTRxHlicgSVWxEdZpuZWfNuS2hk48NjwMIkIYZglBnV5Cbqtws/5IaAJmsfCglrEl2y2QeKmEBJ80tixKmxrFpSVr0gV0viQoxho2YUuPohmeFD22PiklLC4ma5JuBvdrfLJI0dJd0s7bM0ES8aR/BXDXGaTskqlL+D3Lwy0tZEePoAd4EA5YF4tYymdonfjmQh3s6dTPjU4SHYGwjAKecSXFyGlM1TdytntE56T+ts7SC/vhw3gm6njc2Kd3vm5Ub1IwQAvnYhGiZpYw1wiWYPrIw7wnBTt7CLOOwdmut14kQQvqt24tfK/utGR6LaF+iRqMf4N/O/8D28HiiCRYqzAAAAAAElFTkSuQmCC';
   //var icon_clone = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACSklEQVQ4T5VTYU9SYRR+zn0vXhDEFyRBXcpmbZnZsOXsI2xpVnNcv/ilufET8h/oL8h/gN/aWhs2yjKt26rPSvUh5yQodQlqgKQCd5fbLg2jxlycT+/OOc85z/OcvYSa8MoRLqimUEuzOSgwBl0nFFUtW1K1J/Ho6Hxtr/H2yQqnarJ3fFHucNnC57tdXIUJhydl6CAwIhwfFXCwf5hUC6XpjYXAQgUcUngRzkxlgHc0Kl+57I443S7s5VQwxqCVCYVSGfkTFSQQmsQmHGVzKJ78nJMs2izBohRg8ZFB293iSPQPdPOiqiOdyiGdysdKmp4t64LXxlu9otUKTVdhkSSUjgooHOez7R1uvr2bA10cfx66cb0n3GS14tPHrWz6R34i+fT2m6q0rruv7tvs9gdOtxNk0mA2SRB0gqVZwGb8AOSbXIkMDV+Qt7cy2IinJ+LRWxWNf5ur+Kx2vub0OABRg2QSIYqEr/EMaHjqrdJ/tce/upqIxR76B/8FVzySFc7MzWvtnW6vyjSAAFFgyBkSrt17n7jU1+ldjcVn1x+PzNTZzkWLTXF5zvmYmaEslCEIxnUE7H07AA1NvVPaO9r8X5Kpic+Pfp+oNvpCH/R6rKo5GphUIq1Oh7y++T2wv/LHvLNAtTXqHX8Zkqyt4XQ6M73/emzuf4GnDLg/wu0tbYliqTifWhqZbniAAfCMLs/oRMHU0s26VzjTA6PI/QqXJC1BxAZ3XwSSjbA4/UyesWU/Y2Jw51mgIRmnA4ytXXcU385iINYIg1+OJdcoyf/hkgAAAABJRU5ErkJggg==';
   //var icon_apply = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACh0lEQVQ4T5XSXUhTYRgH8P85O+fMOZ3H2WButc7MD3AQWyaYIRZEqANpt9HHCiwvIhWim8gPiqArJailVmdhJGEI3USk4rAQc1MnTdMitZhtfm86ncvcYhMls2i9l+/Hj//zvA+B/1kmcKSArGIohmNIZoIMkRVE1O95sOQaOXCCK+KUYgWcy99gne2zRA1Q9VR1/u7DVcVcIdyrLshFCtQPNyIqgG6gtWImduB69lVM+r9EQqvEajQM8dEBokcxnSWas0fSElMw5B1EdlIuLM43GJxz1P0zgfhhjDFDmsFf1pVixOeASqTGgt+Llk+tEwCt2wDuQgsSWghgxwXYNxvL8iwbIoLjN3KvsQQVRCAUgIyWg3c0wRdYPmoz2C0E7qE2NUFdnpa4D73TfZgLLNThIirCCGuW8MWpRcYC9TF8DYwhPU6DtvEO2Kb666zF9sidMBC6lVsJES1EiCDwZPQZHHMfzBJB7ONdcbLOm3mVcP9wQi5UwO2bQdP7pxOi9aDOYrB7NgATQnfyb2Mq4AJN0eDiU9A82oL+6UFcyS7DXqkSfixDKpDB1P8Ai98Xdd1661aZBO6jNif5YPm5zFOYXZsCQzHYE8dhZP4jspK1mAm6oYpR49Xn1+iZtNW81fdU/zp8kSaSDSSfpzxkPK85jfn1WawSK9BI9mMJXkiFSXAvzYAfMNu79O90v0/u1jdKzPER5IzmJLyhefiJFchFyWApKUzWRnj8Hp1F370VfRPaNgfKZgWfIlEZL2WVQsAASUIZ2sY60Ou01bQXdm2L/kcgvJn5PJ3nElTG0qwSuHwutAy32tsLunZE/ysQPsh5caCaoYRlQgHjoUnC8PK4ZUf0TeAnGJ/iJEGClrwAAAAASUVORK5CYII=';
-  
+
   var mongorecords = [];
   var currentrecord = 0;
   var currentprofile = null;
@@ -111,7 +107,7 @@
             convertToRanges(p);
           });
         });
-        
+
         peStatus.hide().text(translate('Values loaded.')).fadeIn('slow');
       } else {
         mongorecords.push({
@@ -135,7 +131,7 @@
       peStatus.hide().text(translate('Error. Default values used.')).fadeIn('slow');
     }
   }).done(initeditor);
-  
+
   // convert simple values to ranges if needed
   function convertToRanges(profile) {
     if (typeof profile.carbratio !== 'object') { profile.carbratio = [{ 'time': '00:00', 'value': profile.carbratio }]; }
@@ -149,11 +145,11 @@
       profile.target_high = _.cloneDeep(defaultprofile.target_high);
     }
   }
-  
+
   function initeditor() {
     $('#pe_history').toggle(client.settings.extendedSettings.profile && client.settings.extendedSettings.profile.history);
     $('#pe_multiple').toggle(client.settings.extendedSettings.profile && client.settings.extendedSettings.profile.multiple);
-    
+
     // Load timezones
     timezoneInput.empty();
     moment.tz.names().forEach(function addTz(tz) {
@@ -161,7 +157,7 @@
     });
 
     $('#pe_form').find('button').click(profileSubmit);
-    
+
     $('#pe_profiles').unbind().bind('change', profileChange);
     $('#pe_profile_add').unbind().bind('click', profileAdd);
     $('#pe_profile_remove').unbind().bind('click', profileRemove);
@@ -181,39 +177,39 @@
     $('#pe_title').text(client.settings.customTitle);
 
     currentprofile = mongorecords[currentrecord].defaultProfile;
-    
+
     // prepare basal profiles
     initRecord();
     // hide unused style of ratios
     switchStyle();
-    
+
     console.log('Done initeditor()');
   }
-  
+
   function initRecord() {
     databaseRecords.empty();
     for (var r = 0; r < mongorecords.length; r++ ) {
       databaseRecords.append('<option value="' + r + '">' + translate('Valid from:') + ' ' + new Date(mongorecords[r].startDate).toLocaleString() + '</option>');
     }
     databaseRecords.val(currentrecord);
-    
+
     timeInput.val(moment(mongorecords[currentrecord].startDate).format('HH:mm'));
     dateInput.val(moment(mongorecords[currentrecord].startDate).format('YYYY-MM-DD'));
-  
+
     initProfile();
   }
-  
+
   function initProfile() {
     var record = mongorecords[currentrecord];
     // fill profilenames
     $('#pe_profiles').empty();
-    
+
     for (var key in record.store) {
-      if (record.store.hasOwnProperty(key)) {     
+      if (record.store.hasOwnProperty(key)) {
         $('#pe_profiles').append('<option value="' + key + '">' + key + '</option>');
       }
     }
-    
+
     $('#pe_profiles').val(currentprofile);
     $('#pe_profile_name').val(currentprofile);
 
@@ -222,7 +218,7 @@
     // Set values from profile to html
     fillTimeRanges();
   }
-  
+
   // Handling of record list box change
   function recordChange (event) {
     if (dirty && window.confirm(translate('Save current record before switching to new?'))) {
@@ -296,7 +292,7 @@
     delete mongorecords[currentrecord]._id;
     initRecord();
     dirty = true;
-    
+
     maybePreventDefault(event);
   }
 
@@ -306,7 +302,7 @@
     var newpr = $('#pe_profiles').val();
     // copy values from html to c_profile
     GUIToObject();
-    
+
     var newname = $('#pe_profile_name').val();
     if (currentprofile !== newname) {
       // rename if already exists
@@ -326,7 +322,7 @@
     maybePreventDefault(event);
     return false;
   }
-  
+
   function profileAdd (event) {
     var record = mongorecords[currentrecord];
     var newname = 'New profile';
@@ -341,7 +337,7 @@
     maybePreventDefault(event);
     return false;
   }
-  
+
   function profileRemove (event) {
     var record = mongorecords[currentrecord];
     var availableProfile = getFirstAvailableProfile(record);
@@ -355,7 +351,7 @@
     maybePreventDefault(event);
     return false;
   }
-  
+
   function profileClone (event) {
     GUIToObject();
     var record = mongorecords[currentrecord];
@@ -371,7 +367,7 @@
     maybePreventDefault(event);
     return false;
   }
-  
+
   // Handling html events and setting/getting values
   function switchStyle(event) {
     if (!$('#pe_perGIvalues').is(':checked')) {
@@ -383,12 +379,12 @@
     }
     maybePreventDefault(event);
   }
-  
+
   function fillTimeRanges(event) {
     if (event) {
       GUIToObject();
     }
-    
+
     function shouldAddTime(i, time, array) {
       if (i === 0 && time === 0) {
         return true;
@@ -399,7 +395,7 @@
         return !isNaN(minutesFromMidnight) && minutesFromMidnight < time * 30;
       }
     }
- 
+
     function addSingleLine(e,i) {
       var tr = $('<tr>');
       var select = $('<select>').attr('class','pe_selectabletime').attr('id',e.prefix+'_from_'+i);
@@ -420,13 +416,13 @@
         icons_td.append($('<img>').attr('class','delsingle').attr('style','cursor:pointer').attr('title',translate('Delete interval')).attr('src',icon_remove).attr('array',e.array).attr('pos',i));
       }
       tr.append(icons_td);
-        
+
       if (lowest>toMinutesFromMidnight(c_profile[e.array][i].time)) {
         c_profile[e.array][i].time = toTimeString(lowest);
       }
       return tr[0].outerHTML;
     }
-    
+
     // Fill dropdown boxes
     _.each([{prefix:'pe_basal', array:'basal', label: translate('Basal rate') + ' : '},
      {prefix:'pe_ic', array:'carbratio', label: translate('I:C') + ' : '},
@@ -440,19 +436,19 @@
       html += '</table>';
       $('#'+e.prefix+'_placeholder').html(html);
     });
-    
+
     $('.addsingle').click(function addsingle_click() {
       var array = $(this).attr('array');
       var pos = $(this).attr('pos');
-      GUIToObject(); 
+      GUIToObject();
       c_profile[array].splice(pos,0,{time:'00:00',value:0});
       return fillTimeRanges();
     });
-    
+
     $('.delsingle').click(function delsingle_click() {
       var array = $(this).attr('array');
       var pos = $(this).attr('pos');
-      GUIToObject(); 
+      GUIToObject();
       c_profile[array].splice(pos,1);
       c_profile[array][0].time = '00:00';
       return fillTimeRanges();
@@ -478,15 +474,15 @@
         icons_td.append($('<img>').attr('class','deltargetbg').attr('style','cursor:pointer').attr('title',translate('Delete interval')).attr('src',icon_remove).attr('pos',i));
       }
       tr.append(icons_td);
-      
+
       // Fix time to correct value after add or change
       if (lowesttime>toMinutesFromMidnight(c_profile.target_low[i].time)) {
         c_profile.target_low[i].time = toTimeString(lowesttime);
       }
       return tr[0].outerHTML;
     }
-    
-    
+
+
     // target BG
     var html = '<table>';
     for (var i=0; i<c_profile.target_low.length; i++) {
@@ -495,10 +491,10 @@
     html += '<tr><td></td><td></td><td></td><td><img class="addtargetbg" style="cursor:pointer" title="' + translate('Add new interval before') + '" src="'+icon_add+'" pos="'+i+'" href="#"></td></tr>';
     html += '</table>';
     $('#pe_targetbg_placeholder').html(html);
-    
+
     $('.addtargetbg').click(function addtargetbg_click() {
       var pos = $(this).attr('pos');
-      GUIToObject(); 
+      GUIToObject();
       c_profile.target_low.splice(pos,0,{time:'00:00',value:0});
       c_profile.target_high.splice(pos,0,{time:'00:00',value:0});
       dirty = true;
@@ -507,7 +503,7 @@
 
     $('.deltargetbg').click(function deltargetbg_click() {
       var pos = $(this).attr('pos');
-      GUIToObject(); 
+      GUIToObject();
       c_profile.target_low.splice(pos,1);
       c_profile.target_high.splice(pos,1);
       c_profile.target_low[0].time = '00:00';
@@ -522,7 +518,7 @@
     maybePreventDefault(event);
     return false;
   }
-  
+
   // fill GUI with values from c_profile object
   function objectToGUI() {
 
@@ -536,7 +532,7 @@
     $('#pe_delay_medium').val(c_profile.delay_medium);
     $('#pe_delay_low').val(c_profile.delay_low);
     timezoneInput.val(c_profile.timezone);
- 
+
     var index;
     [ { prefix:'pe_basal', array:'basal' },
       { prefix:'pe_ic',    array:'carbratio' },
@@ -547,7 +543,7 @@
         $('#'+e.prefix+'_val_'+index).val(c_profile[e.array][index].value);
       }
     });
-    
+
     for (index=0; index<c_profile.target_low.length; index++) {
       $('#pe_targetbg_from_'+index).val(c_profile.target_low[index].time);
       $('#pe_targetbg_low_'+index).val(c_profile.target_low[index].value);
@@ -555,11 +551,13 @@
     }
     //console.info(JSON.stringify(c_profile));
   }
-  
+
   // Grab values from html GUI to object
   function GUIToObject() {
     var oldProfile = _.cloneDeep(c_profile);
-    
+
+    c_profile.units = client.settings.units;
+
     c_profile.dia = parseFloat($('#pe_dia').val());
     c_profile.carbs_hr = parseInt($('#pe_hr').val());
     c_profile.delay = 20;
@@ -571,7 +569,7 @@
     c_profile.delay_medium = parseInt($('#pe_delay_medium').val());
     c_profile.delay_low = parseInt($('#pe_delay_low').val());
     c_profile.timezone = timezoneInput.val();
- 
+
     var index;
     [ { prefix:'pe_basal', array:'basal' },
       { prefix:'pe_ic',    array:'carbratio' },
@@ -582,7 +580,7 @@
         c_profile[e.array][index].value = parseFloat($('#'+e.prefix+'_val_'+index).val());
       }
     });
-    
+
     for (index=0; index<c_profile.target_low.length; index++) {
       var input = $('#pe_targetbg_from_' + index);
       c_profile.target_low[index].time = input.val();
@@ -590,19 +588,18 @@
       c_profile.target_high[index].time = input.val();
       c_profile.target_high[index].value = parseFloat($('#pe_targetbg_high_'+index).val());
     }
-    
-    c_profile.units = client.settings.units;
+
 
     if (!_.isEqual(oldProfile,c_profile)) {
       dirty = true;
     }
   }
-  
+
   function toMinutesFromMidnight(time) {
     var split = time.split(':');
     return parseInt(split[0])*60 + parseInt(split[1]);
   }
-  
+
   function toTimeString(minfrommidnight) {
     return moment().startOf('day').add(minfrommidnight,'minutes').format('HH:mm');
   }
@@ -611,7 +608,7 @@
     var time = moment().startOf('day').add(minfrommidnight,'minutes');
     return client.settings.timeFormat === 24 ? time.format('HH:mm') : time.format('h:mm A');
   }
-  
+
   function profileSubmit(event) {
     if (!client.hashauth.isAuthenticated()) {
       window.alert(translate('Your device is not authenticated yet'));
@@ -621,7 +618,7 @@
     profileChange(event);
     var record = mongorecords[currentrecord];
     record.startDate = new Date(client.utils.mergeInputTime(timeInput.val(), dateInput.val())).toISOString( );
-    
+
     var adjustedRecord = _.cloneDeep(record);
 
     for (var key in adjustedRecord.store) {
@@ -639,19 +636,20 @@
       }
     }
     adjustedRecord.defaultProfile = currentprofile;
-    
+    adjustedRecord.units = client.settings.units;
+
     if (record.convertedOnTheFly) {
       var result = window.confirm(translate('Profile is going to be saved in newer format used in Nightscout 0.9.0 and above and will not be usable in older versions anymore.\nAre you sure?'));
       if (!result) {
         return;
       }
     }
-    
+
     delete record.convertedOnTheFly;
     delete adjustedRecord.convertedOnTheFly;
 
     console.info('saving profile');
-    
+
     $.ajax({
       method: 'PUT'
       , url: '/api/v1/profile/'
@@ -669,11 +667,11 @@
     });
     return false;
   }
-  
+
   function getFirstAvailableProfile(record) {
     var availableProfiles = [];
     for (var key in record.store) {
-      if (record.store.hasOwnProperty(key)) {     
+      if (record.store.hasOwnProperty(key)) {
         if (key !== currentprofile) {
           availableProfiles.push(key);
         }
@@ -681,11 +679,11 @@
     }
     return availableProfiles.length ? availableProfiles[0] : null;
   }
-  
+
   function maybePreventDefault (event) {
     if (event) {
       event.preventDefault();
     }
   }
-
+  });
 })();
