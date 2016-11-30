@@ -1,3 +1,3 @@
 'use strict';
 
-window.Nightscout.client.init(Nightscout.plugins);
+window.Nightscout.client.init();
