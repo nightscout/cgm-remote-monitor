@@ -223,11 +223,11 @@ describe('IOB', function() {
 
       iob.alexa.intentHandlers[0].intentHandler(function next(title, response) {
         title.should.equal('Current IOB');
-        response.should.equal('You have 1.5 units of insulin on board');
+        response.should.equal('You have 1.50 units of insulin on board');
 
         iob.alexa.rollupHandlers[0].rollupHandler([], sbx, function callback (err, response) {
           should.not.exist(err);
-          response.results.should.equal('and you have 1.5 units of insulin on board.');
+          response.results.should.equal('and you have 1.50 units of insulin on board.');
           response.priority.should.equal(2);
           done();
         });
