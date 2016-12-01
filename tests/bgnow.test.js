@@ -7,7 +7,10 @@ var FIVE_MINS = 300000;
 var SIX_MINS = 360000;
 
 describe('BG Now', function ( ) {
-  var bgnow = require('../lib/plugins/bgnow')();
+  var ctx = {
+    language: require('../lib/language')()
+  };
+  var bgnow = require('../lib/plugins/bgnow')(ctx);
   var sandbox = require('../lib/sandbox')();
 
   var now = Date.now();
@@ -23,6 +26,7 @@ describe('BG Now', function ( ) {
           options.info.length.should.equal(0);
           done();
         }
+      , language: { translate: function(text) { return text; } }
       }
     };
     var data = {sgvs: [{mills: before, mgdl: 100}, {mills: now, mgdl: 105}]};
@@ -57,6 +61,7 @@ describe('BG Now', function ( ) {
           done();
         }
       }
+      , language: require('../lib/language')()
     };
 
     var sbx = sandbox.clientInit(ctx, now, data);
@@ -78,6 +83,7 @@ describe('BG Now', function ( ) {
         units: 'mmol'
       }
       , pluginBase: {}
+      , language: require('../lib/language')()
     };
 
     var data = {sgvs: [{mills: before, mgdl: 100}, {mills: now, mgdl: 105}]};
@@ -122,6 +128,7 @@ describe('BG Now', function ( ) {
         units: 'mmol'
       }
       , pluginBase: {}
+      , language: require('../lib/language')()
     };
 
     var data = {sgvs: [{mills: before, mgdl: 85}, {mills: now, mgdl: 85}]};
@@ -167,6 +174,7 @@ describe('BG Now', function ( ) {
         units: 'mmol'
       }
       , pluginBase: {}
+      , language: require('../lib/language')()
     };
 
     var data = {sgvs: [{mills: before - SIX_MINS, mgdl: 100}, {mills: now, mgdl: 105}]};
