@@ -4,12 +4,15 @@ var levels = require('../lib/levels');
 describe('simplealarms', function ( ) {
 
   var simplealarms = require('../lib/plugins/simplealarms')();
-  var bgnow = require('../lib/plugins/bgnow')();
 
   var env = require('../env')();
-  var ctx = {};
+  var ctx = {
+    settings: {}
+    , language: require('../lib/language')()
+  };
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
+  var bgnow = require('../lib/plugins/bgnow')(ctx);
 
   var now = Date.now();
   var before = now - (5 * 60 * 1000);
