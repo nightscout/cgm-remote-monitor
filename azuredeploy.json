@@ -40,6 +40,10 @@
     "mongoConnection": {
       "type": "string"
     },
+    "mongoCollection": {
+      "type": "string",
+      "defaultValue": "entries"
+    }, 
     "displayUnits": {
       "type": "string",
       "allowedValues": [
@@ -77,6 +81,7 @@
         "cs",
         "dk",
         "de",
+        "el",
         "en",
         "es",
         "fr",
@@ -235,7 +240,11 @@
         "appSettings": [{
             "name": "MONGO_CONNECTION",
             "value": "[parameters('mongoConnection')]"
-          }, {
+          }, 
+            {
+            "name": "MONGO_COLLECTION",
+            "value": "[parameters('mongoCollection')]"         
+          }, {            
             "name": "DISPLAY_UNITS",
             "value": "[parameters('displayUnits')]"
           }, {
