@@ -35,7 +35,6 @@ describe('client', function ( ) {
   });
 
   it ('open careportal, and enter a treatment', function (done) {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
 
     var hashauth = require('../lib/hashauth');
@@ -46,7 +45,7 @@ describe('client', function ( ) {
     };
 
 
-    client.init(plugins);
+    client.init();
     client.dataUpdate(nowData);
 
     client.careportal.prepareEvents();
