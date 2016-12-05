@@ -37,6 +37,7 @@ function create (env, ctx) {
   // api and json object variables
   ///////////////////////////////////////////////////
   var api = require('./lib/api/')(env, ctx);
+  var ddata = require('./lib/data/endpoints')(env, ctx);
 
   app.use(compression({filter: function shouldCompress(req, res) {
     //TODO: return false here if we find a condition where we don't want to compress
@@ -52,6 +53,7 @@ function create (env, ctx) {
 
   app.use('/api/v2/properties', ctx.properties);
   app.use('/api/v2/authorization', ctx.authorization.endpoints);
+  app.use('/api/v2/ddata', ddata);
 
   // pebble data
   app.get('/pebble', ctx.pebble);
