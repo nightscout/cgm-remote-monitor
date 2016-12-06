@@ -3,7 +3,11 @@
 require('should');
 
 describe('COB', function ( ) {
-  var cob = require('../lib/plugins/cob')();
+  var ctx = {};
+  ctx.settings = {};
+  ctx.language = require('../lib/language')();
+
+  var cob = require('../lib/plugins/cob')(ctx);
   
   var profileData = {
     sens: 95
@@ -76,14 +80,11 @@ describe('COB', function ( ) {
       , profile: profile
     };
 
-    var ctx = {
-      settings: {}
-      , pluginBase: {
+    ctx.pluginBase = {
         updatePillText: function mockedUpdatePillText (plugin, options) {
           options.value.should.equal('8g');
           done();
         }
-      }
     };
 
     var sandbox = require('../lib/sandbox')();
@@ -93,5 +94,27 @@ describe('COB', function ( ) {
 
   });
 
+  it('should handle alexa requests', function (done) {
+    var data = {
+      treatments: [{
+        carbs: '8'
+        , 'mills': Date.now() - 60000 //1m ago
+      }]
+      , profile: profile
+    };
+
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    cob.setProperties(sbx);
+
+    cob.alexa.intentHandlers.length.should.equal(1);
+
+    cob.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+      title.should.equal('Current COB');
+      response.should.equal('You have 8 carbohydrates on board');
+      done();
+    }, [], sbx);
+
+  });
 
 });
