@@ -112,6 +112,7 @@ function setStorage() {
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
   env.food_collection = readENV('MONGO_FOOD_COLLECTION', 'food');
+  env.azurepush_collection = readENV('MONGO_AZUREPUSH_COLLECTION', 'azurepush');
 
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.
