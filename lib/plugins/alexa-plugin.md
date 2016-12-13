@@ -7,9 +7,12 @@
 
 Nightscout/Alexa
 ======================================
+
+> Please note that your hosted montitor must support the Alexa plug-in which exposes an endpoint to the Alexa skill you will create below. Please see [updating my version here](https://github.com/nightscout/cgm-remote-monitor#updating-my-version) for steps
+
 ##Setup
 
-### 1) Make sure to add `alexa` to the list of plugins in your `ENABLE` setting
+### 1) Make sure to add `alexa` to the list of plugins in your `ENABLE` setting (note: environment variables are set in the configuration section for your monitor typically Azure, Heroku, etc.)
 ### 2) Sign in to https://developer.amazon.com/ and navigate to the "Alexa" tab. Select "Getting started" in "Alexa Skills Kit"
     * Click on "Add a new skill". Fill in "Nightscout" as the name and "nightscout" as the invocation name (feel free to use other names as you see fit).
     * This skill will not use the "Audio Player".
