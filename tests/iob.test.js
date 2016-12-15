@@ -37,6 +37,45 @@ describe('IOB', function() {
 
   });
 
+  it('should handle Google Home requests', function (done) {
+
+    var sbx = {
+      properties: {
+        iob: {
+          iob: 1.5
+        }
+      }
+    };
+
+    iob.googleHome.intentHandlers.length.should.equal(1);
+
+    var req = {
+      "result": {
+        "source": "agent",
+        "resolvedQuery": "How much insulin do I have on board?",
+        "action": "",
+        "actionIncomplete": false,
+        "parameters": {
+          "metric": "insulin"
+        },
+        "contexts": [],
+        "metadata": {
+          "intentId": "23e5db40-96b2-42f5-aa02-edc766706ca6",
+          "webhookUsed": "false",
+          "webhookForSlotFillingUsed": "false",
+          "intentName": "CurrentMetric"
+        }
+      }
+    };
+
+    iob.googleHome.intentHandlers[0].intentHandler(req, function next(response) {
+      response.should.equal('You have 1.50 units of insulin on board');
+
+      done();
+    }, sbx);
+
+  });
+
   describe('from treatments', function ( ) {
 
     it('should calculate IOB', function() {

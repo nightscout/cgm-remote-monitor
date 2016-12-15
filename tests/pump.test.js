@@ -273,4 +273,62 @@ describe('pump', function ( ) {
 
   });
 
+  it('should handle Google Home requests', function (done) {
+    var ctx = {
+      settings: {
+        units: 'mg/dl'
+      }
+      , notifications: require('../lib/notifications')(env, ctx)
+      , language: require('../lib/language')()
+    };
+
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
+    pump.setProperties(sbx);
+
+    pump.googleHome.intentHandlers.length.should.equal(2);
+
+    var resevoirReq = {
+      "result": {
+        "source": "agent",
+        "resolvedQuery": "How much insulin do I have remaining?",
+        "action": "",
+        "actionIncomplete": false,
+        "contexts": [],
+        "metadata": {
+          "intentId": "23e5db40-96b2-42f5-aa02-edc766706ca6",
+          "webhookUsed": "false",
+          "webhookForSlotFillingUsed": "false",
+          "intentName": "InsulinRemaining"
+        }
+      }
+    };
+
+    var batteryReq = {
+      "result": {
+        "source": "agent",
+        "resolvedQuery": "How is my pump battery?",
+        "action": "",
+        "actionIncomplete": false,
+        "contexts": [],
+        "metadata": {
+          "intentId": "23e5db40-96b2-42f5-aa02-edc766706ca6",
+          "webhookUsed": "false",
+          "webhookForSlotFillingUsed": "false",
+          "intentName": "PumpBattery"
+        }
+      }
+    };
+
+    pump.googleHome.intentHandlers[0].intentHandler(resevoirReq, function next(response) {
+      response.should.equal('You have 86.4 units remaining');
+
+      pump.googleHome.intentHandlers[1].intentHandler(batteryReq, function next(response) {
+        response.should.equal('Your battery is at 1.52 volts');
+        done();
+      }, sbx);
+
+    }, sbx);
+
+  });
+
 });

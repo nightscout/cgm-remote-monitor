@@ -108,4 +108,47 @@ describe('basalprofile', function ( ) {
     }, [], sbx);
   });
 
+it('should handle Google Home requests', function (done) {
+    var data = {};
+
+    var ctx = {
+      settings: {}
+      , pluginBase: { }
+      , language: require('../lib/language')()
+    };
+
+    var time = new Date('2015-06-21T00:00:00').getTime();
+
+
+    var sbx = sandbox.clientInit(ctx, time, data);
+    sbx.data.profile = profile;
+
+    basal.googleHome.intentHandlers.length.should.equal(1);
+
+    var req = {
+      "result": {
+        "source": "agent",
+        "resolvedQuery": "What is my current basal?",
+        "action": "",
+        "actionIncomplete": false,
+        "parameters": {
+          "metric": "basal"
+        },
+        "contexts": [],
+        "metadata": {
+          "intentId": "23e5db40-96b2-42f5-aa02-edc766706ca6",
+          "webhookUsed": "false",
+          "webhookForSlotFillingUsed": "false",
+          "intentName": "CurrentMetric"
+        }
+      }
+    };
+
+    basal.googleHome.intentHandlers[0].intentHandler(req, function next(response) {
+      response.should.equal('Your current basal is 0.175 units per hour');
+
+      done();
+    }, sbx);
+  });
+
 });

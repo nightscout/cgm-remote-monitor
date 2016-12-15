@@ -61,43 +61,41 @@ describe('Raw BG', function ( ) {
 
     rawbg.setProperties(sbx);
 
-    rawbg.googleHome.intentHandlers.length.should.equal(2);
+    rawbg.googleHome.intentHandlers.length.should.equal(1);
 
     var req = {
-      "id": "b6b30104-0629-408a-b781-9fc265ac1df1",
-      "timestamp": "2016-12-11T18:44:51.422Z",
       "result": {
         "source": "agent",
         "resolvedQuery": "What\'s my raw blood glucose?",
         "action": "",
         "actionIncomplete": false,
         "parameters": {
-          "readingType": "raw blood glucose"
+          "metric": "raw blood glucose"
         },
         "contexts": [],
         "metadata": {
           "intentId": "c57a04a2-2f0c-4f86-b1cc-8af4c3314d6c",
           "webhookUsed": "false",
           "webhookForSlotFillingUsed": "false",
-          "intentName": "current_raw_bg"
-        },
-        "score": 1
-      },
-      "status": {
-        "code": 200,
-        "errorType": "success"
-      },
-      "sessionId": "4a7727af-90ce-4a1a-9732-0cc67c1dedf3"
+          "intentName": "CurrentMetric"
+        }
+      }
     }
 
-    rawbg.googleHome.intentHandlers[0].intentName.should.equal('current_raw_bg');
-    rawbg.googleHome.intentHandlers[0].intentHandler(req.result, function next(response) {
+    var intentHandler = rawbg.googleHome.intentHandlers[0];
+
+    intentHandler.intent.should.equal('CurrentMetric');
+    intentHandler.routableSlot.should.equal('metric');
+    intentHandler.slots.length.should.equal(3);
+    intentHandler.slots[0].should.equal('raw bg');
+    intentHandler.slots[1].should.equal('raw blood glucose');
+    intentHandler.slots[2].should.equal('raw blood sugar');
+
+    intentHandler.intentHandler(req.result, function next(response) {
       response.should.equal('Your current raw blood glucose is 113');
     }, sbx);
 
     var reqGivenName = {
-       "id": "28987593-8afe-4dbc-89b6-863e3c2f2186",
-       "timestamp": "2016-12-11T17:30:46.296Z",
        "result": {
          "source": "agent",
          "resolvedQuery": "What\'s Rick\'s raw blood glucose?",
@@ -105,26 +103,19 @@ describe('Raw BG', function ( ) {
          "actionIncomplete": false,
          "parameters": {
            "givenName": "Rick",
-           "readingType": "raw blood glucose"
+           "metric": "raw blood glucose"
          },
          "contexts": [],
          "metadata": {
            "intentId": "87a05d96-586a-4538-91bc-589d3e467e28",
            "webhookUsed": "false",
            "webhookForSlotFillingUsed": "false",
-           "intentName": "current_bg_given_name"
-         },
-         "score": 1
-       },
-       "status": {
-         "code": 200,
-         "errorType": "success"
-       },
-       "sessionId": "4a7727af-90ce-4a1a-9732-0cc67c1dedf3"
+           "intentName": "CurrentMetric"
+         }
+       }
      };
 
-    rawbg.googleHome.intentHandlers[1].intentName.should.equal('current_raw_bg_given_name');
-    rawbg.googleHome.intentHandlers[1].intentHandler(reqGivenName.result, function next(response) {
+    intentHandler.intentHandler(reqGivenName.result, function next(response) {
       response.should.equal('Rick\'s current raw blood glucose is 113');
 
       done();

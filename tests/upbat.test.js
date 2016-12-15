@@ -106,4 +106,42 @@ describe('Uploader Battery', function ( ) {
 
   });
 
+  it('should handle Google Home requests', function (done) {
+
+    var ctx = {
+      settings: {}
+    };
+
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    var upbat = require('../lib/plugins/upbat')();
+    upbat.setProperties(sbx);
+
+    upbat.googleHome.intentHandlers.length.should.equal(1);
+
+    var req = {
+       "result": {
+         "source": "agent",
+         "resolvedQuery": "What\'s my uploader battery?",
+         "action": "",
+         "actionIncomplete": false,
+         "contexts": [],
+         "metadata": {
+           "intentId": "87a05d96-586a-4538-91bc-589d3e467e28",
+           "webhookUsed": "false",
+           "webhookForSlotFillingUsed": "false",
+           "intentName": "UploaderBattery"
+         },
+         "score": 1
+       }
+     };
+
+    upbat.googleHome.intentHandlers[0].intentHandler(req.result, function next(response) {
+      response.should.equal('Your uploader battery is at 20%');
+
+      done();
+    }, sbx);
+
+  });
+
 });

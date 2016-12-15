@@ -154,9 +154,40 @@ describe('ar2', function ( ) {
 
     ar2.alexa.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('AR2 Forecast');
-      response.should.equal('You are expected to be between 109 and 120 over the in 30 minutes');
+      response.should.equal('You are expected to be between 109 and 120 over the next 30 minutes');
       done();
     }, [], sbx);
+  });
+
+  it('should handle Google Home requests', function (done) {
+    ctx.ddata.sgvs = [{mgdl: 100, mills: before}, {mgdl: 105, mills: now}];
+    var sbx = prepareSandbox();
+
+    ar2.googleHome.intentHandlers.length.should.equal(1);
+
+    var req = {
+      "result": {
+        "source": "agent",
+        "resolvedQuery": "Whats my ar2?",
+        "action": "",
+        "actionIncomplete": false,
+        "parameters": {
+          "metric": "ar2"
+        },
+        "contexts": [],
+        "metadata": {
+          "intentId": "23e5db40-96b2-42f5-aa02-edc766706ca6",
+          "webhookUsed": "false",
+          "webhookForSlotFillingUsed": "false",
+          "intentName": "CurrentMetric"
+        }
+      }
+    };
+
+    ar2.googleHome.intentHandlers[0].intentHandler(req, function next(response) {
+      response.should.equal('You are expected to be between 109 and 120 over the next 30 minutes');
+      done();
+    }, sbx);
   });
 
 });

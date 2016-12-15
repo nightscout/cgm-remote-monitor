@@ -278,4 +278,68 @@ describe('openaps', function ( ) {
 
   });
 
+  it('should handle Google Home requests', function (done) {
+    var ctx = {
+      settings: {
+        units: 'mg/dl'
+      }
+      , notifications: require('../lib/notifications')(env, ctx)
+      , language: require('../lib/language')()
+    };
+
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
+    openaps.setProperties(sbx);
+
+    openaps.googleHome.intentHandlers.length.should.equal(2);
+
+    var req = {
+      "result": {
+        "source": "agent",
+        "resolvedQuery": "What is my Open APS forecast?",
+        "action": "",
+        "actionIncomplete": false,
+        "parameters": {
+          "metric": "open aps forecast"
+        },
+        "contexts": [],
+        "metadata": {
+          "intentId": "23e5db40-96b2-42f5-aa02-edc766706ca6",
+          "webhookUsed": "false",
+          "webhookForSlotFillingUsed": "false",
+          "intentName": "CurrentMetric"
+        }
+      }
+    };
+
+    var loopReq = {
+      "result": {
+        "source": "agent",
+        "resolvedQuery": "When was my last loop?",
+        "action": "",
+        "actionIncomplete": false,
+        "parameters": {
+          "metric": "loop forecast"
+        },
+        "contexts": [],
+        "metadata": {
+          "intentId": "23e5db40-96b2-42f5-aa02-edc766706ca6",
+          "webhookUsed": "false",
+          "webhookForSlotFillingUsed": "false",
+          "intentName": "LastLoop"
+        }
+      }
+    };
+
+    openaps.googleHome.intentHandlers[0].intentHandler(req, function next(response) {
+      response.should.equal('The Open APS eventual BG is 125');
+
+      openaps.googleHome.intentHandlers[1].intentHandler(loopReq, function next(response) {
+        response.should.equal('The last successful loop was 2 minutes ago');
+        done();
+      }, sbx);
+
+    }, sbx);
+
+  });
+
 });

@@ -257,7 +257,7 @@ describe('loop', function ( ) {
 
     loop.alexa.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Loop Forecast');
-      response.should.equal('According to the loop forecast you are expected to be between 147 and 149 over the next in 25 minutes');
+      response.should.equal('According to the loop forecast you are expected to be between 147 and 149 over the next 25 minutes');
 
       loop.alexa.intentHandlers[1].intentHandler(function next(title, response) {
         title.should.equal('Last loop');
@@ -266,6 +266,70 @@ describe('loop', function ( ) {
       }, [], sbx);
 
     }, [], sbx);
+
+  });
+
+  it('should handle Google Home requests', function (done) {
+    var ctx = {
+      settings: {
+        units: 'mg/dl'
+      }
+      , notifications: require('../lib/notifications')(env, ctx)
+      , language: require('../lib/language')()
+    };
+
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
+    loop.setProperties(sbx);
+
+    loop.googleHome.intentHandlers.length.should.equal(2);
+
+    var forecastReq = {
+      "result": {
+        "source": "agent",
+        "resolvedQuery": "What is my loop forecast?",
+        "action": "",
+        "actionIncomplete": false,
+        "parameters": {
+          "metric": "loop forecast"
+        },
+        "contexts": [],
+        "metadata": {
+          "intentId": "23e5db40-96b2-42f5-aa02-edc766706ca6",
+          "webhookUsed": "false",
+          "webhookForSlotFillingUsed": "false",
+          "intentName": "CurrentMetric"
+        }
+      }
+    };
+
+    var lastLoopReq = {
+      "result": {
+        "source": "agent",
+        "resolvedQuery": "When was my last loop?",
+        "action": "",
+        "actionIncomplete": false,
+        "parameters": {
+          "metric": "loop forecast"
+        },
+        "contexts": [],
+        "metadata": {
+          "intentId": "23e5db40-96b2-42f5-aa02-edc766706ca6",
+          "webhookUsed": "false",
+          "webhookForSlotFillingUsed": "false",
+          "intentName": "LastLoop"
+        }
+      }
+    };
+
+    loop.googleHome.intentHandlers[0].intentHandler(forecastReq, function next(response) {
+      response.should.equal('According to the loop forecast you are expected to be between 147 and 149 over the next 25 minutes');
+
+      loop.googleHome.intentHandlers[1].intentHandler(lastLoopReq, function next(response) {
+        response.should.equal('The last successful loop was a few seconds ago');
+        done();
+      }, sbx);
+
+    }, sbx);
 
   });
 
