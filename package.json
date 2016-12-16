@@ -75,6 +75,7 @@
     "mongomock": "^0.1.2",
     "mqtt": "~0.3.11",
     "node-cache": "^3.0.0",
+    "node-trello": "^1.1.2",
     "parse-duration": "^0.1.1",
     "pushover-notifications": "0.2.0",
     "request": "^2.58.0",
