@@ -3,7 +3,6 @@
 var browserify_express = require('browserify-express');
 
 function bundle(env) {
-  console.info('>>>debug', env.debug);
   return browserify_express({
     entry: __dirname + '/bundle.source.js',
     watch: __dirname + '/../lib/',
