@@ -62,10 +62,9 @@
       $('.bgnow').toggleClass('stale', (now - last > threshold));
 
       var today = new Date(),
-            h = today.getHours(),
+            h = today.getHours() % 12 || 12,
             m = today.getMinutes();
-	    if (h > 12) h = h - 12;
-	    if (m < 10) m = "0" + m;
+      if (m < 10) m = "0" + m;
       $('.clock').text(h + ":" + m);
     }
 
