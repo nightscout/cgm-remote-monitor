@@ -113,7 +113,7 @@ describe('COB', function ( ) {
 
     cob.alexa.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Current COB');
-      response.should.equal('You have 8 carbohydrates on board');
+      response.should.equal('You have 8.00 carbohydrates on board');
       done();
     }, [], sbx);
 
@@ -154,7 +154,7 @@ describe('COB', function ( ) {
     };
 
     cob.googleHome.intentHandlers[0].intentHandler(req, function next(response) {
-      response.should.equal('You have 8 carbohydrates on board');
+      response.should.equal('You have 8.00 carbohydrates on board');
       done();
     }, sbx);
 
