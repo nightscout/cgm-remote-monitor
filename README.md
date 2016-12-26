@@ -87,6 +87,8 @@ Community maintained fork of the
         - [`pump` (Pump Monitoring)](#pump-pump-monitoring)
         - [`openaps` (OpenAPS)](#openaps-openaps)
         - [`loop` (Loop)](#loop-loop)
+        - [`alexa` (Amazon Alexa)](#alexa-amazon-alexa)
+        - [`cors` (CORS)](#cors-cors)
       - [Extended Settings](#extended-settings)
       - [Pushover](#pushover)
       - [IFTTT Maker](#ifttt-maker)
@@ -151,6 +153,7 @@ You can get many more results, by using the `count`, `date`, `dateString`, and `
 (replace `http://localhost:1337` with your base url, YOUR-SITE)
 
   * 100's: `http://localhost:1337/api/v1/entries.json?find[sgv]=100`
+  * Count of 100's in a month: `http://localhost:1337/api/v1/count/entries/where?find[dateString][$gte]=2016-09&find[dateString][$lte]=2016-10&find[sgv]=100`
   * BGs between 2 days: `http://localhost:1337/api/v1/entries/sgv.json?find[dateString][$gte]=2015-08-28&find[dateString][$lte]=2015-08-30`
   * Juice Box corrections in a year: `http://localhost:1337/api/v1/treatments.json?count=1000&find[carbs]=15&find[eventType]=Carb+Correction&find[created_at][$gte]=2015`
   * Boluses over 2U: `http://localhost:1337/api/v1/treatments.json?find[insulin][$gte]=2`
@@ -177,6 +180,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `AUTH_DEFAULT_ROLES` (`readable`) - possible values `readable`, `denied`, or any valid role
     name.  When `readable`, anyone can view Nightscout without a token.
     Setting it to `denied` will require a token from every visit, using `status-only` will enable api-secret based login.
+  * `IMPORT_CONFIG` - Used to import settings and extended settings from a url such as a gist.  Structure of file should be something like: `{"settings": {"theme": "colors"}, "extendedSettings": {"upbat": {"enableAlerts": true}}}`
   * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. Deprecated, if set to `off` the `careportal` role will be added to `AUTH_DEFAULT_ROLES`
 
 
@@ -209,10 +213,12 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `MONGO_PROFILE_COLLECTION`(`profile`) - The collection used to store your profiles
   * `MONGO_FOOD_COLLECTION`(`food`) - The collection used to store your food database
   * `PORT` (`1337`) - The port that the node.js application will listen on.
+  * `HOSTNAME` - The hostname that the node.js application will listen on, null by default for any hostname for IPv6 you may need to use `::`.
   * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js
   * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
+  * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
 
 
 ### Predefined values for your browser settings (optional)
@@ -251,11 +257,14 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Displays the trend direction.
 
 ##### `upbat` (Uploader Battery)
-  Displays the most recent battery status from the uploader phone.
+  Displays the most recent battery status from the uploader phone. . Use these [extended setting](#extended-settings) to adjust behavior:
+  * `UPBAT_ENABLE_ALERTS` (`false`) - Set to `true` to enable uploader battery alarms via Pushover and IFTTT.
+  * `UPBAT_WARN` (`30`) - Minimum battery percent to trigger warning.
+  * `UPBAT_URGENT` (`20`) - Minimum battery percent to trigger urgent alarm.
 
 ##### `timeago` (Time Ago)
   Displays the time since last CGM entry. Use these [extended setting](#extended-settings) to adjust behavior:
-  * `TIMEAGO_ENABLE_ALERTS` (`false`) - Set to `true` to enable stale data alarms  via Pushover and IFTTT.
+  * `TIMEAGO_ENABLE_ALERTS` (`false`) - Set to `true` to enable stale data alarms via Pushover and IFTTT.
   * `ALARM_TIMEAGO_WARN` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
@@ -276,7 +285,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Generates alarms based on forecasted values. See [Forecasting using AR2 algorithm](https://github.com/nightscout/nightscout.github.io/wiki/Forecasting)
   * Enabled by default if no thresholds are set **OR** `ALARM_TYPES` includes `predict`.
   * Use [extended settings](#extended-settings) to adjust AR2 behavior:
-    * `AR2_USE_RAW` (`false`) - to forecast using `rawbg` values when standard values don't trigger an alarm.
     * `AR2_CONE_FACTOR` (`2`) - to adjust size of cone, use `0` for a single line.
 
 ##### `simplealarms` (Simple BG Alarms)
@@ -397,6 +405,12 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `LOOP_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceeded before an urgent alarm is triggered
   * Add `loop` to `SHOW_FORECAST` to show forecasted BG.
 
+##### `alexa` (Amazon Alexa)
+  Integration with Amazon Alexa, [detailed setup instructions](lib/plugins/alexa-plugin.md)
+
+##### `cors` (CORS)
+  Enabled [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) so other websites can make request to your Nightscout site, uses these extended settings:
+  * `CORS_ALLOW_ORIGIN` (`*`) - The list of sites that are allow to make requests
 
 #### Extended Settings
   Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
