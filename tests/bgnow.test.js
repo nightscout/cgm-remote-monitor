@@ -1,7 +1,7 @@
 'use strict';
 
-require('should');
-var _ =require('lodash');
+var should = require('should');
+var _ = require('lodash');
 
 var FIVE_MINS = 300000;
 var SIX_MINS = 360000;
@@ -23,7 +23,7 @@ describe('BG Now', function ( ) {
         updatePillText: function mockedUpdatePillText (plugin, options) {
           options.label.should.equal(ctx.settings.units);
           options.value.should.equal('+5');
-          options.info.length.should.equal(0);
+          should.not.exist(options.info);
           done();
         }
       , language: { translate: function(text) { return text; } }
