@@ -1,5 +1,7 @@
 'use strict';
 
+var _ = require('lodash');
+
 require('should');
 
 describe('COB', function ( ) {
@@ -91,6 +93,101 @@ describe('COB', function ( ) {
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
     cob.setProperties(sbx);
     cob.updateVisualisation(sbx);
+
+  });
+
+  it('should handle alexa requests', function (done) {
+    var data = {
+      treatments: [{
+        carbs: '8'
+        , 'mills': Date.now() - 60000 //1m ago
+      }]
+      , profile: profile
+    };
+
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    cob.setProperties(sbx);
+
+    cob.alexa.intentHandlers.length.should.equal(1);
+
+    cob.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+      title.should.equal('Current COB');
+      response.should.equal('You have 8 carbohydrates on board');
+      done();
+    }, [], sbx);
+
+  });
+
+  describe('from devicestatus', function () {
+    var time = Date.now();
+    var treatments = [{
+      mills: time - 1,
+      carbs: '20'
+    }];
+
+    var OPENAPS_DEVICESTATUS = {
+      device: 'openaps://pi1',
+      openaps: {
+        enacted: {
+          COB: 30
+        }
+      }
+    };
+
+    var treatmentCOB = cob.fromTreatments(treatments, OPENAPS_DEVICESTATUS, profile, time).cob;
+
+    it('should fall back to treatment data if no devicestatus data', function() {
+      cob.cobTotal(treatments, [], profile, time).should.containEql({
+        source: 'Care Portal',
+        cob: treatmentCOB
+      });
+    });
+
+    it('should fall back to treatments if openaps devicestatus is present but empty', function() {
+      var devicestatus = [{
+        device: 'openaps://pi1',
+        mills: time - 1,
+        openaps: {}
+      }];
+      cob.cobTotal(treatments, devicestatus, profile, time).cob.should.equal(treatmentCOB);
+    });
+
+    it('should fall back to treatments if openaps devicestatus is present but too stale', function() {
+      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - cob.RECENCY_THRESHOLD - 1, openaps: {enacted: {COB: 5, timestamp: time - cob.RECENCY_THRESHOLD - 1} } })];
+      cob.cobTotal(treatments, devicestatus, profile, time).should.containEql({
+        source: 'Care Portal',
+        cob: treatmentCOB
+      });
+    });
+
+    it('should return COB data from OpenAPS', function () {
+      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - 1, openaps: {enacted: {COB: 5, timestamp: time - 1} } })];
+      cob.cobTotal(treatments, devicestatus, profile, time).should.containEql({
+        cob: 5,
+        source: 'OpenAPS',
+        device: 'openaps://pi1'
+      });
+    });
+
+    it('should return COB data from Loop', function () {
+
+      var LOOP_DEVICESTATUS = {
+        device: 'loop://iPhone',
+        loop: {
+          cob: {
+            cob: 5
+          }
+        }
+      };
+
+      var devicestatus = [_.merge(LOOP_DEVICESTATUS, { mills: time - 1, loop: {cob: {timestamp: time - 1} } })];
+      cob.cobTotal(treatments, devicestatus, profile, time).should.containEql({
+        cob: 5,
+        source: 'Loop',
+        device: 'loop://iPhone'
+      });
+    });
 
   });
 
