@@ -35,37 +35,22 @@
     <body>
         <div class="container loading" id="container">
             <div id="toolbar">
-                <div id="buttonbar" >
-                    <a id="editbutton" class="tip" original-title="Edit Mode" href="#" style="display:none;"><i class="icon-edit"></i></a>
-                    <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
-                    <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-menu"></i></a>
-                    <a id="lockedToggle" class="tip" original-title="Token needed for Care Portal" href="#" style="display:none;"><i class="icon-lock"></i></a>
-                    <a id="treatmentDrawerToggle" class="tip" original-title="Care Portal" href="#" style="display:none;"><i class="icon-plus"></i></a>
-                    <a id="boluscalcDrawerToggle" class="tip" original-title="Bolus Wizard" href="#" style="display:none;"><i class="icon-calc"></i></a>
+                <div id="buttonbar" role="navigation" aria-label="Menu" >
+                    <a id="editbutton" class="tip" original-title="Edit Mode" aria-label="Edit Mode" href="#" style="display:none;"><i class="icon-edit"></i></a>
+                    <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" aria-label="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
+                    <a id="drawerToggle" class="tip" original-title="Settings" aria-label="Settings" href="#"><i class="icon-menu"></i></a>
+                    <a id="lockedToggle" class="tip" original-title="Token needed for Care Portal" aria-label="Token needed for Care Portal" href="#" style="display:none;"><i class="icon-lock"></i></a>
+                    <a id="treatmentDrawerToggle" class="tip" original-title="Care Portal" aria-label="Care Portal" href="#" style="display:none;"><i class="icon-plus"></i></a>
+                    <a id="boluscalcDrawerToggle" class="tip" original-title="Bolus Wizard" aria-label="Bolus Wizard" href="#" style="display:none;"><i class="icon-calc"></i></a>
                 </div>
-                <script>
-//this is to provide necessary accessibility fixes to make
-//use with screen readers
-$(document).ready(function () {
-	var linkMenu = $('#buttonbar');
-	linkMenu.attrs('role', 'region').attrs('aria-label', 'links');
-	linkMenu.find( 'a'.each( function(){
-		var thisLink = $(this);
-console.log('found link ' , thisLink);
-		thisLink.attrs( 'aria-label', thisLink.attrs('original-title') );
-	});
-	$('div.bgButton').attrs('aria-live', 'assertive');
-console.log( 'ending ready');
-});
-                </script>
                 <div class="customTitle">Nightscout</div>
             </div>
-            <div id="notification">
-                <a href="#" aria-label="cancel" ><span></span><i class="icon-cancel-circled"></i></a>
+            <div id="notification" role="region" aria-label="Notification">
+                <a href="#"  aria-label="cancel" ><span></span><i class="icon-cancel-circled"></i></a>
             </div>
-            <div class="primary">
+            <div class="primary" >
                 <div class="bgStatus current">
-                    <div class="bgButton">
+                    <div class="bgButton" aria-live="assertive">
                         <span class="pill rawbg hidden"><em></em><label></label></span>
                         <span class="currentBG">---</span>
                         <span class="pill direction"></span>
