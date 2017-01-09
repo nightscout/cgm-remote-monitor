@@ -175,7 +175,6 @@ describe('admintools', function ( ) {
   });
 
   it ('should produce some html', function (done) {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
 
     var hashauth = require('../lib/hashauth');
@@ -194,7 +193,7 @@ describe('admintools', function ( ) {
        return true;
      };
 
-    client.init(plugins);
+    client.init();
     client.dataUpdate(nowData);
     
     //var result = $('body').html();
