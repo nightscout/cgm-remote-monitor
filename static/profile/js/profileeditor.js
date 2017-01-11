@@ -16,7 +16,7 @@
   var timeInput = $('#pe_time');
   var dateInput = $('#pe_date');
 
-  client.init(Nightscout.plugins, function loaded () {
+  client.init(function loaded () {
 
   var translate = client.translate;
 
@@ -556,6 +556,8 @@
   function GUIToObject() {
     var oldProfile = _.cloneDeep(c_profile);
 
+    c_profile.units = client.settings.units;
+
     c_profile.dia = parseFloat($('#pe_dia').val());
     c_profile.carbs_hr = parseInt($('#pe_hr').val());
     c_profile.delay = 20;
@@ -587,7 +589,6 @@
       c_profile.target_high[index].value = parseFloat($('#pe_targetbg_high_'+index).val());
     }
 
-    c_profile.units = client.settings.units;
 
     if (!_.isEqual(oldProfile,c_profile)) {
       dirty = true;
@@ -635,6 +636,7 @@
       }
     }
     adjustedRecord.defaultProfile = currentprofile;
+    adjustedRecord.units = client.settings.units;
 
     if (record.convertedOnTheFly) {
       var result = window.confirm(translate('Profile is going to be saved in newer format used in Nightscout 0.9.0 and above and will not be usable in older versions anymore.\nAre you sure?'));
