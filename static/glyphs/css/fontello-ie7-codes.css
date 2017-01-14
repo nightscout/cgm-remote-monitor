@@ -12,3 +12,11 @@
 .icon-volume { *zoom: expression( this.runtimeStyle['zoom'] = '1', this.innerHTML = '&#xe80a;&nbsp;'); }
 .icon-plus { *zoom: expression( this.runtimeStyle['zoom'] = '1', this.innerHTML = '&#xe80b;&nbsp;'); }
 .icon-hourglass { *zoom: expression( this.runtimeStyle['zoom'] = '1', this.innerHTML = '&#xe80c;&nbsp;'); }
+.icon-calc { *zoom: expression( this.runtimeStyle['zoom'] = '1', this.innerHTML = '&#xe80d;&nbsp;'); }
+.icon-tint { *zoom: expression( this.runtimeStyle['zoom'] = '1', this.innerHTML = '&#xe80e;&nbsp;'); }
+.icon-chart-line { *zoom: expression( this.runtimeStyle['zoom'] = '1', this.innerHTML = '&#xe80f;&nbsp;'); }
+.icon-sort-numeric { *zoom: expression( this.runtimeStyle['zoom'] = '1', this.innerHTML = '&#xe810;&nbsp;'); }
+.icon-edit { *zoom: expression( this.runtimeStyle['zoom'] = '1', this.innerHTML = '&#xe811;&nbsp;'); }
+.icon-lock { *zoom: expression( this.runtimeStyle['zoom'] = '1', this.innerHTML = '&#xe812;&nbsp;'); }
+.icon-lock-open { *zoom: expression( this.runtimeStyle['zoom'] = '1', this.innerHTML = '&#xe813;&nbsp;'); }
+.icon-trash-empty { *zoom: expression( this.runtimeStyle['zoom'] = '1', this.innerHTML = '&#xe814;&nbsp;'); }
