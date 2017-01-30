@@ -223,6 +223,7 @@
     options.notes = $('#rp_optionsnotes').is(':checked');
     options.food = $('#rp_optionsfood').is(':checked');
     options.insulin = $('#rp_optionsinsulin').is(':checked');
+    options.insulindistribution = $('#rp_optionsdistribution').is(':checked');
     options.carbs = $('#rp_optionscarbs').is(':checked');
     options.scale = ( $('#rp_linear').is(':checked') ? report_plugins.consts.SCALE_LINEAR : report_plugins.consts.SCALE_LOG );
     options.order = ( $('#rp_oldestontop').is(':checked') ? report_plugins.consts.ORDER_OLDESTONTOP : report_plugins.consts.ORDER_NEWESTONTOP );
@@ -483,6 +484,7 @@
       datastorage.combobolusTreatments = datastorage.combobolusTreatments.concat(datastorage[day].combobolusTreatments);
       datastorage.tempbasalTreatments = datastorage.tempbasalTreatments.concat(datastorage[day].tempbasalTreatments);
     });
+    datastorage.tempbasalTreatments = Nightscout.client.ddata.processDurations(datastorage.tempbasalTreatments);
     
      for (var d in daystoshow) {
         if (daystoshow.hasOwnProperty(d)) {
