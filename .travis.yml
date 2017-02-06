@@ -1,5 +1,5 @@
 language: node_js
-sudo: false
+sudo: required
 node_js:
   - 0.10
   - 0.12
@@ -10,7 +10,9 @@ matrix:
   allow_failures:
     - node_js: 4
     - node_js: 5
-services: mongodb
+services:
+  - mongodb
+  - docker
 script: make travis
 after_script: make report
 env:
