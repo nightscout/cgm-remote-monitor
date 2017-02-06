@@ -191,6 +191,14 @@ describe('IOB', function() {
       });
     });
 
+    it('should not blow up with null IOB data from openaps', function () {
+      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - 1, openaps: {iob: null } })];
+      iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
+        source: 'Care Portal',
+        display: '3.00'
+      });
+    });
+
     it('should return IOB data from openaps post AMA (an array)', function () {
       var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - 1, openaps: {iob: [{
         iob: 0.047,
