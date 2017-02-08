@@ -3,23 +3,26 @@ var Stream = require('stream');
 var levels = require('../lib/levels');
 
 describe('boluswizardpreview', function ( ) {
-
-  var boluswizardpreview = require('../lib/plugins/boluswizardpreview')();
-  var ar2 = require('../lib/plugins/ar2')();
-  var iob = require('../lib/plugins/iob')();
-  var delta = require('../lib/plugins/delta')();
-
   var env = require('../env')();
   env.testMode = true;
-  var ctx = {};
+
+  var ctx = {
+    settings: {}
+    , language: require('../lib/language')()
+  };
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
 
+  var boluswizardpreview = require('../lib/plugins/boluswizardpreview')(ctx);
+  var ar2 = require('../lib/plugins/ar2')(ctx);
+  var iob = require('../lib/plugins/iob')(ctx);
+  var bgnow = require('../lib/plugins/bgnow')(ctx);
+
   function prepareSandbox ( ) {
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
-    iob.setProperties(sbx);
+    bgnow.setProperties(sbx);
     ar2.setProperties(sbx);
-    delta.setProperties(sbx);
+    iob.setProperties(sbx);
     boluswizardpreview.setProperties(sbx);
     sbx.offerProperty('direction', function setFakeDirection() {
       return {value: 'FortyFiveUp', label: '↗', entity: '&#8599;'};
@@ -137,10 +140,10 @@ describe('boluswizardpreview', function ( ) {
     };
     var data = {sgvs: [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}]};
     data.treatments = [{mills: now, insulin: '1.0'}];
+    data.devicestatus = [];
     data.profile = require('../lib/profilefunctions')([profileData]);
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
-    var iob = require('../lib/plugins/iob')();
-    sbx.properties.iob = iob.calcTotal(data.treatments, data.profile, now);
+    sbx.properties.iob = iob.calcTotal(data.treatments, data.devicestatus, data.profile, now);
 
     var results = boluswizardpreview.calc(sbx);
     
@@ -177,10 +180,10 @@ describe('boluswizardpreview', function ( ) {
     };
     var data = {sgvs: [{mills: before, mgdl: 175}, {mills: now, mgdl: 153}]};
     data.treatments = [{mills: now, insulin: '0.45'}];
+    data.devicestatus = [];
     data.profile = require('../lib/profilefunctions')([profileData]);
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
-    var iob = require('../lib/plugins/iob')();
-    sbx.properties.iob = iob.calcTotal(data.treatments, data.profile, now);
+    sbx.properties.iob = iob.calcTotal(data.treatments, data.devicestatus, data.profile, now);
 
     var results = boluswizardpreview.calc(sbx);
     
@@ -221,7 +224,7 @@ describe('boluswizardpreview', function ( ) {
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Warning, Check BG, time to bolus?');
-    highest.message.should.equal('BG Now: 180 +5 ↗ mg/dl\nBG 15m: 187 mg/dl\nBWP: 0.66U\nIOB: 0U');
+    highest.message.should.equal('BG Now: 180 +5 ↗ mg/dl\nBG 15m: 187 mg/dl\nBWP: 0.66U');
     done();
   });
 
@@ -282,6 +285,7 @@ describe('boluswizardpreview', function ( ) {
     var data = {
       sgvs: [{mills: before, mgdl: 295}, {mills: now, mgdl: 300}]
       , treatments: [{mills: before, insulin: '1.5'}]
+      , devicestatus: []
       , profile: loadedProfile
     };
 
