@@ -42,7 +42,7 @@
       var rec = xhr[0];
       var last = new Date(rec.date);
       var now = new Date( );
-      var bgNum = Number(rec.sgv);
+      var bgNum = parseFloat(rec.sgv);
       var red = 'rgba(213,9,21,1)';
       var yellow = 'rgba(233,205,53,1)';
       var green = 'rgba(134,207,70,1)';
@@ -50,16 +50,16 @@
         rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
       }
       $('.bgnow').text(rec.sgv);
-      if (rec.sgv < 4) {
+      if (bgNum < 4) {
       	$('body').css('background-color', red);
       }
-      if (4 <= rec.sgv < 10) {
+      if (4 <= bgNum < 10) {
       	$('body').css('background-color', green);
       }
-      if (10 <= rec.sgv < 15) {
+      if (10 <= bgNum < 15) {
       	$('body').css('background-color', yellow);
       }
-      if (rec.sgv >= 15) {
+      if (bgNum >= 15) {
       	$('body').css('background-color', red);
       }
       var threshold = 1000 * 60 * 13;
