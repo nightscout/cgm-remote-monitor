@@ -30,7 +30,7 @@
     	top: 50%;
     	transform:
       		perspective(1px)
-      		translateY(50%);
+      		translateY(60%);
     }
     .bgnow {
     	font-size: 35vmin;
@@ -43,7 +43,7 @@
 <body>
   <div class="main">
     <div class="bgnow"></div>
-    <div style="text-align: center"><img src="images/Flat.png" width="100%" /></div>
+    <div style="text-align: center"><img class="arrow" src="images/Up.png" width="50" /></div>
   </div>
   <script src="/bower_components/jquery/dist/jquery.min.js"></script>
   <script src="/api/v1/status.js"></script>
@@ -74,7 +74,8 @@
       		
       		break;
       	case "Flat":
-      		
+      		('.arrow').src('images/Flat.png');
+      		('.arrow').width('107');
       		break;
       	case "FortyFiveDown":
       		
