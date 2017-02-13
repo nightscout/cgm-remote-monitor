@@ -115,7 +115,7 @@
       	$('body').css('background-color', red);
       }
       var threshold = 1000 * 60 * 13;
-      $('.bgnow').toggleClass('stale', (now - last > threshold));
+      $('.bgnow').addClass('stale', (now - last > threshold));
     }
 
     function init ( ) {
