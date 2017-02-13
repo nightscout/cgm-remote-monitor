@@ -18,9 +18,6 @@
   <style type="text/css">
     .center {
       text-align: center;
-    }
-    .bgnow {
-      font-size: 35vmin;
       font-family: 'ubuntu';
       color: white;
       position: relative;
@@ -29,8 +26,15 @@
       	perspective(1px)
       	translateY(50%);
     }
+    .bgnow {
+    	font-size: 35vmin;
+    }
     .arrow {
     	font-size: 20vmin;
+    	transform:
+      		perspective(1px)
+      		translateY(-20%)
+      		translateX(80%);
     }
     .stale {
       text-decoration: line-through;
