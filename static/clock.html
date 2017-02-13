@@ -42,15 +42,13 @@
       var rec = xhr[0];
       var last = new Date(rec.date);
       var now = new Date( );
-      var bgNum = parseFloat(rec.sgv);
-      console.log('rec.sgv', rec.sgv);
-      console.log('bgNum', bgNum);
-      var red = 'rgba(213,9,21,1)';
-      var yellow = 'rgba(233,205,53,1)';
-      var green = 'rgba(134,207,70,1)';
       if (window.serverSettings.settings.units == 'mmol') {
         rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
       }
+      var bgNum = parseFloat(rec.sgv);
+      var red = 'rgba(213,9,21,1)';
+      var yellow = 'rgba(233,205,53,1)';
+      var green = 'rgba(134,207,70,1)';
       $('.bgnow').text(rec.sgv);
       if (bgNum < 4) {
       	$('body').css('background-color', red);
