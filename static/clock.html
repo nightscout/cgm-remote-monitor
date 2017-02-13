@@ -17,7 +17,7 @@
       top: 50%;
       transform:
       	perspective(1px)
-      	translateY(-25%);
+      	translateY(8%);
     }
     .stale {
       text-decoration: line-through;
@@ -48,13 +48,16 @@
       }
       $('.bgnow').text(rec.sgv);
       if (bgNum < 4.0) {
-      	$('body').css('background-color','red');
+      	$('body').css('background-color','rgba(213,9,21,1)');
       }
       if (4.0 <= bgNum < 10.0) {
       	$('body').css('background-color','rgba(117,206,0,1)');
       }
-      if (bgNum >= 10.0) {
-      	$('body').css('background-color','yellow');
+      if (10.0 <= bgNum < 15.0) {
+      	$('body').css('background-color','rgba(233,205,53,1)');
+      }
+      if (bgNum >= 15.0) {
+      	$('body').css('background-color','rgba(213,9,21,1)');
       }
       var threshold = 1000 * 60 * 13;
       $('.bgnow').toggleClass('stale', (now - last > threshold));
