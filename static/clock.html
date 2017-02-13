@@ -14,27 +14,22 @@
   <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
   <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
-  <link rel='stylesheet' type='text/css' href='/css/main.css' />
   <style type="text/css">
-    .center {
+    body {
       text-align: center;
       font-family: 'ubuntu';
+      font-weight: 'bold';
       color: white;
-      position: relative;
-      top: 50%;
-      transform:
-      	perspective(1px)
-      	translateY(50%);
+    }
+    .main {
+    	position: relative;
+    	top: 50%;
+    	transform:
+      		perspective(1px)
+      		translateY(50%);
     }
     .bgnow {
     	font-size: 35vmin;
-    }
-    .arrow {
-    	font-size: 20vmin;
-    	transform:
-      		perspective(1px)
-      		translateY(-20%)
-      		translateX(80%);
     }
     .stale {
       text-decoration: line-through;
@@ -42,8 +37,8 @@
   </style>
 </head>
 <body>
-  <div class="center">
-    <div class="bgnow"></div><div class="arrow">▶</div>
+  <div class="main">
+    <div class="bgnow"></div>
   </div>
   <script src="/bower_components/jquery/dist/jquery.min.js"></script>
   <script src="/api/v1/status.js"></script>
