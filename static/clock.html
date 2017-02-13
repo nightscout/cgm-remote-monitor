@@ -43,21 +43,24 @@
       var last = new Date(rec.date);
       var now = new Date( );
       var bgNum = Number(rec.sgv);
+      var red = 'rgba(213,9,21,1)';
+      var yellow = 'rgba(233,205,53,1)';
+      var green = 'rgba(134,207,70,1)';
       if (window.serverSettings.settings.units == 'mmol') {
         rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
       }
       $('.bgnow').text(rec.sgv);
-      if (bgNum < 4.0) {
-      	$('body').css('background-color','rgba(213,9,21,1)');
+      if (bgNum < 4) {
+      	$('body').css('background-color', red);
       }
-      if (4.0 <= bgNum < 10.0) {
-      	$('body').css('background-color','rgba(117,206,0,1)');
+      if (4 <= bgNum < 10) {
+      	$('body').css('background-color', green);
       }
-      if (10.0 <= bgNum < 15.0) {
-      	$('body').css('background-color','rgba(233,205,53,1)');
+      if (10 <= bgNum < 15) {
+      	$('body').css('background-color', yellow);
       }
-      if (bgNum >= 15.0) {
-      	$('body').css('background-color','rgba(213,9,21,1)');
+      if (bgNum >= 15) {
+      	$('body').css('background-color', red);
       }
       var threshold = 1000 * 60 * 13;
       $('.bgnow').toggleClass('stale', (now - last > threshold));
