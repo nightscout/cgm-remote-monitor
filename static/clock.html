@@ -2,8 +2,18 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Sam's Dex</title>
   <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
+  <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
+  <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
+  <link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png">
+  <link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
   <link rel='stylesheet' type='text/css' href='/css/main.css' />
   <style type="text/css">
     .center {
@@ -17,7 +27,7 @@
       top: 50%;
       transform:
       	perspective(1px)
-      	translateY(8%);
+      	translateY(50%);
     }
     .stale {
       text-decoration: line-through;
@@ -26,7 +36,7 @@
 </head>
 <body>
   <div class="center">
-    <h1 class="bgnow"></h1>
+    <h1 class="bgnow"></h1><h1 class="arrow">▶</h1>
   </div>
   <script src="/bower_components/jquery/dist/jquery.min.js"></script>
   <script src="/api/v1/status.js"></script>
@@ -49,7 +59,23 @@
       var red = 'rgba(213,9,21,1)';
       var yellow = 'rgba(233,205,53,1)';
       var green = 'rgba(134,207,70,1)';
+      
+      var direction = rec.direction;
+      
+      switch (direction) {
+      	case "FortyFiveUp":
+      		
+      		break;
+      	case "Flat":
+      		
+      		break;
+      	case "FortyFiveDown":
+      		
+      		break;
+      }
+      
       $('.bgnow').text(rec.sgv);
+      
       if (bgNum < 4) {
       	$('body').css('background-color', red);
       }
