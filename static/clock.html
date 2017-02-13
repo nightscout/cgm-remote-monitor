@@ -8,36 +8,19 @@
   <style type="text/css">
     .center {
       text-align: center;
-      padding: 0;
-      margin: 0;
     }
     h1 {
-      padding: 0;
-      margin: 0;
-      font-size: 50vmin;
+      font-size: 35vmin;
+      font-family: 'ubuntu';
       color: white;
       position: relative;
       top: 50%;
       transform:
       	perspective(1px)
-      	translateY(7%);
+      	translateY(-25%);
     }
-    html, body {
-      padding: 0;
-      margin: 0;
-      height: 100%;
-    }
-    html {
-    }
-    body {
-      font-size: 100%;
-      min-height: 100%;
-
-    }
-
     .stale {
       text-decoration: line-through;
-
     }
   </style>
 </head>
@@ -63,8 +46,14 @@
         rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
       }
       $('.bgnow').text(rec.sgv);
-      if (true) {
-      	$('body').css('background-color','green');
+      if (rec.svg < 4.0) {
+      	$('body').css('background-color','red');
+      }
+      if (4.0 <= rec.svg < 10.0) {
+      	$('body').css('background-color','rgba(117,206,0,1)');
+      }
+      if (rec.svg >= 10.0) {
+      	$('body').css('background-color','yellow');
       }
       var threshold = 1000 * 60 * 13;
       $('.bgnow').toggleClass('stale', (now - last > threshold));
