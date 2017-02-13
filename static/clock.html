@@ -43,7 +43,7 @@
 <body>
   <div class="main">
     <div class="bgnow"></div>
-    <div style="text-align: center"><img class="arrow" src="images/Up.png" width="50" /></div>
+    <div style="text-align: center"><img id="arrow" src="" width="" /></div>
   </div>
   <script src="/bower_components/jquery/dist/jquery.min.js"></script>
   <script src="/api/v1/status.js"></script>
@@ -70,15 +70,33 @@
       var direction = rec.direction;
       
       switch (direction) {
+      	case "DoubleUp":
+      		$('#arrow').attr('src', 'images/DoubleUp.png');
+      		$('#arrow').attr('width', '153');
+      		break;
+      	case "SingleUp":
+      		$('#arrow').attr('src', 'images/SingleUp.png');
+      		$('#arrow').attr('width', '77');
+      		break;
       	case "FortyFiveUp":
-      		
+      		$('#arrow').attr('src', 'images/FortyFiveUp.png');
+      		$('#arrow').attr('width', '85');
       		break;
       	case "Flat":
-      		('.arrow').src('images/Flat.png');
-      		('.arrow').width('107');
+      		$('#arrow').attr('src', 'images/Flat.png');
+      		$('#arrow').attr('width', '107');
       		break;
       	case "FortyFiveDown":
-      		
+      		$('#arrow').attr('src', 'images/FortyFiveDown.png');
+      		$('#arrow').attr('width', '85');
+      		break;
+      	case "SingleDown":
+      		$('#arrow').attr('src', 'images/SingleDown.png');
+      		$('#arrow').attr('width', '77');
+      		break;
+      	case "DoubleDown":
+      		$('#arrow').attr('src', 'images/DoubleDown.png');
+      		$('#arrow').attr('width', '153');
       		break;
       }
       
