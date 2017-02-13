@@ -25,10 +25,10 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.9.0-beta3" />
-      <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.9.0-beta3" />
+      <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.9.3-dev-20161224" />
+      <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.9.3-dev-20161224" />
       <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-      <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.9.0-beta3" />
+      <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.9.3-dev-20161224" />
       <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
       <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">
     </head>
@@ -39,6 +39,7 @@
                     <a id="editbutton" class="tip" original-title="Edit Mode" href="#" style="display:none;"><i class="icon-edit"></i></a>
                     <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
                     <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-menu"></i></a>
+                    <a id="lockedToggle" class="tip" original-title="Token needed for Care Portal" href="#" style="display:none;"><i class="icon-lock"></i></a>
                     <a id="treatmentDrawerToggle" class="tip" original-title="Care Portal" href="#" style="display:none;"><i class="icon-plus"></i></a>
                     <a id="boluscalcDrawerToggle" class="tip" original-title="Bolus Wizard" href="#" style="display:none;"><i class="icon-calc"></i></a>
                 </div>
@@ -178,6 +179,9 @@
                   <a id="useDefaults" class="pull-right translate" href="">Reset, and use defaults</a>
                 </div>
 
+                <hr>
+                <span id="authentication_placeholder"></span>
+
                 <fieldset id="about">
                     <legend class="translate">About</legend>
                     <div class="appName"></div>
@@ -224,7 +228,7 @@
 
                     <fieldset id="bg">
                         <legend class="translate">Glucose Reading</legend>
-                        <input type="number" step="any" id="glucoseValue" />
+                        <input type="number" step="any" id="glucoseValue" pattern="\d*" />
                         <label><br><span class="translate">Measurement Method</span><br></label>
                         <label for="meter">
                             <input type="radio" name="glucoseType" id="meter" value="Finger"/>
@@ -237,17 +241,17 @@
                     </fieldset>
                     <label id="carbsGivenLabel" for="carbsGiven" class="left-column short-label">
                         <span class="translate">Carbs Given</span>
-                        <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" class="titletranslate"/>
+                        <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" class="titletranslate" pattern="\d*" />
                     </label>
                     <label id="insulinGivenLabel" for="insulinGiven" class="left-column short-label">
                         <span class="translate">Insulin Given</span>
-                        <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate"/>
+                        <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate" pattern="[0-9.]*" />
                     </label>
                     <label id="insulinSplitLabel" for="insulinSplit" class="left-column short-label">
                         <span class="translate">Split</span>
-                        <input type="number" step="5" min="0" max="100" style="width:50px" id="insulinSplitNow" placeholder="% now" class="titletranslate"/>%
+                        <input type="number" step="5" min="0" max="100" style="width:50px" id="insulinSplitNow" placeholder="% now" class="titletranslate" pattern="\d*" />%
                         :
-                        <input type="number" step="5" min="0" max="100" style="width:50px" id="insulinSplitExt" placeholder="% extended" class="titletranslate"/>%
+                        <input type="number" step="5" min="0" max="100" style="width:50px" id="insulinSplitExt" placeholder="% extended" class="titletranslate" pattern="\d*" />%
                     </label>
                     <label id="durationLabel" for="duration" class="left-column short-label">
                         <span class="translate">Duration</span>
@@ -255,7 +259,7 @@
                     </label>
                     <label id="percentLabel" for="percent" class="left-column short-label">
                         <span class="translate">Percent</span>
-                        <input type="number" step="10" id="percent" placeholder="Basal change in %" class="titletranslate"/>
+                        <input type="number" step="10" id="percent" placeholder="Basal change in %" class="titletranslate" pattern="\d*" />
                     </label>
                     <label id="profileLabel" for="profile" class="left-column short-label">
                         <span class="translate">Profile</span>
@@ -307,9 +311,6 @@
 
                   <button type="button" class="translate">Submit Form</button>
                 </fieldset>
-                <hr>
-                <span class="translate">Authentication status</span>: </b>
-                <span id="authentication_placeholder"></span>
             </form>
         </div>
 
@@ -326,7 +327,7 @@
                   <td>
                     <span class="translate">BG</span>:
                     <span style="float:right;">
-                      <input type="text" size="3" id="bc_bg" class="insulincalculationpart">
+                      <input type="number" size="3" id="bc_bg" class="insulincalculationpart" pattern="[0-9.]*" >
                     </span>
                   </td>
                   <td>
@@ -382,7 +383,7 @@
                   <td>
                     <span class="translate">Carbs</span>:
                     <span style="float:right;">
-                      <input type="text" size="3" id="bc_carbs" value="0" class="insulincalculationpart"> g
+                      <input type="number" size="3" id="bc_carbs" value="0" class="insulincalculationpart" pattern="\d*" > g
                     </span>
                   </td>
                   <td id="bc_inzulincarbstd" class="insulincalculation">
@@ -589,8 +590,7 @@
             <audio src="/audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
         </div>
 
-        <script src="/api/v1/status.js?v=0.9.0-beta3"></script>
-        <script src="/public/js/bundle.js?v=0.9.0-beta3"></script>
+        <script src="/public/js/bundle.js?v=0.9.3-dev-20161224"></script>
         <script src="/socket.io/socket.io.js"></script>
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
