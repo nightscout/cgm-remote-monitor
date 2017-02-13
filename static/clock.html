@@ -14,7 +14,13 @@
     h1 {
       padding: 0;
       margin: 0;
-      font-size: 60vmin;
+      font-size: 50vmin;
+      color: white;
+      position: relative;
+      top: 50%;
+      transform:
+      	perspective(1px)
+      	translateY(7%);
     }
     html, body {
       padding: 0;
@@ -57,6 +63,9 @@
         rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
       }
       $('.bgnow').text(rec.sgv);
+      if (true) {
+      	$('body').css('background-color','green');
+      }
       var threshold = 1000 * 60 * 13;
       $('.bgnow').toggleClass('stale', (now - last > threshold));
     }
