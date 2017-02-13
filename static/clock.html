@@ -19,7 +19,7 @@
     .center {
       text-align: center;
     }
-    h1 {
+    .bgnow {
       font-size: 35vmin;
       font-family: 'ubuntu';
       color: white;
@@ -29,6 +29,9 @@
       	perspective(1px)
       	translateY(50%);
     }
+    .arrow {
+    	font-size: 20vmin;
+    }
     .stale {
       text-decoration: line-through;
     }
@@ -36,7 +39,7 @@
 </head>
 <body>
   <div class="center">
-    <h1 class="bgnow"></h1><h1 class="arrow">▶</h1>
+    <div class="bgnow"></div><div class="arrow">▶</div>
   </div>
   <script src="/bower_components/jquery/dist/jquery.min.js"></script>
   <script src="/api/v1/status.js"></script>
