@@ -50,16 +50,16 @@
         rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
       }
       $('.bgnow').text(rec.sgv);
-      if (bgNum < 4) {
+      if (rec.sgv < 4) {
       	$('body').css('background-color', red);
       }
-      if (4 <= bgNum < 10) {
+      if (4 <= rec.sgv < 10) {
       	$('body').css('background-color', green);
       }
-      if (10 <= bgNum < 15) {
+      if (10 <= rec.sgv < 15) {
       	$('body').css('background-color', yellow);
       }
-      if (bgNum >= 15) {
+      if (rec.sgv >= 15) {
       	$('body').css('background-color', red);
       }
       var threshold = 1000 * 60 * 13;
