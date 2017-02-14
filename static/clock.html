@@ -27,11 +27,11 @@
       color: white;
     }
     .main {
-    	position: relative;
-    	top: 50%;
-    	transform:
-      		perspective(1px)
-      		translateY(30%);
+    	display: inline-flex;
+    	height: 100%;
+    }
+    .inner {
+    	margin: auto 0px;
     }
     .bgnow {
     	font-size: 40vmin;
@@ -45,8 +45,10 @@
 <body>
 
   <div class="main">
-    <div class="bgnow"></div>
-    <div style="text-align: center"><img id="arrow" src="" width="" /></div>
+  	<div class="inner">
+		<div class="bgnow"></div>
+		<div style="text-align: center"><br /><img id="arrow" src="" width="" /></div>
+	</div>
   </div>
   
   <script src="/bower_components/jquery/dist/jquery.min.js"></script>
