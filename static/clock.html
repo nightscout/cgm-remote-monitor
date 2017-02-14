@@ -111,10 +111,10 @@
       if (bgNum < LowThresh) {
       	$('body').css('background-color', red);
       }
-      if (LowThresh <= bgNum < MedThresh) {
+      if ((LowThresh <= bgNum) && (bgNum < MedThresh)) {
       	$('body').css('background-color', green);
       }
-      if (MedThresh <= bgNum < HighThresh) {
+      if ((MedThresh <= bgNum) && (bgNum < HighThresh)) {
       	$('body').css('background-color', yellow);
       }
       if (bgNum >= HighThresh) {
