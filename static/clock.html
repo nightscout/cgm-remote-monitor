@@ -18,7 +18,6 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
   
   <style type="text/css">
-
 	@import url("//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800");
   
     body {
@@ -110,19 +109,17 @@
 
 		$('.bgnow').text(rec.sgv);
 
-		console.log("high", HighThresh);
-
 		if (bgNum < LowThresh) {
-		$('body').css('background-color', red);
+			$('body').css('background-color', red);
 		}
 		if ((LowThresh <= bgNum) && (bgNum < MedThresh)) {
-		$('body').css('background-color', green);
+			$('body').css('background-color', green);
 		}
 		if ((MedThresh <= bgNum) && (bgNum < HighThresh)) {
-		$('body').css('background-color', yellow);
+			$('body').css('background-color', yellow);
 		}
 		if (bgNum >= HighThresh) {
-		$('body').css('background-color', red);
+			$('body').css('background-color', red);
 		}
 
 		var threshold = 1000 * 60 * 13;
