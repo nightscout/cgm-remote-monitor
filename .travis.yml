@@ -1,5 +1,5 @@
 language: node_js
-sudo: false
+sudo: required
 node_js:
   - 0.10
   - 0.12
@@ -10,11 +10,21 @@ matrix:
   allow_failures:
     - node_js: 4
     - node_js: 5
-services: mongodb
+services:
+  - mongodb
+  - docker
 script: make travis
+after_success:
+  - nvm version
+  - if [[ ! -z "$DOCKER_USER" ]] && [[ "$(nvm version)" = "v0.12."* ]]; then docker login -u ${DOCKER_USER} -p ${DOCKER_PASS} && git checkout -- . && git clean -fd . && make docker_release; fi
 after_script: make report
 env:
-  - CXX=g++-4.8
+  global:
+    - CXX=g++-4.8
+    - secure: "QW33rAsCulSORXkSQK9fQotS5GuXwsr3P0KX+R0CE88N0rNE1gZuKZL5cIfYvHTdd4BiReMWja6Cox+QJJC/lu3UKZTPdArT5yUMvJ1AP8nbzzEYR1gKMy7DmcQ7OaZ8lD8LGG27P1+uRTiQ+94FmR31izg8jVXjD6ogEAayDMy5in3HoklnG+07RLdqo/8N5N7LoPcajHG051m/DRxvREdLg2L9K4yMqGKi1fpNFFti8L8jm5jAlylDlL9NGWdUj/4G1NeNIjkFrYZFodvd6R8oBDf8C6V6Tj0yvdyUQBLivTD9B8gKUWpyqE9fuy1Hz7UrZ9I9m7X6G5WPneVBRFRJpoRtg/VjiNrmbDUkBJXeXniGm2pi8dxcxV8lQ0m7D3S2UkJwNutEkGt9tp5y/RSEUo+7x8AnOIBb+H8f0SitUX9j3z1rzHfr4FGzW0EYprM9u8xzruOaZWF2yFe42YrJFgh22WWauhTtm1lgTO25xv/YP+wiVyshgswXgRuKPan5nal7WnIzP++yhAvAwYGs9z7zhQ9h63AaEav+4rjzJPHlD0hh2Y0lkVvcwTafkmPwVEkhV9R+QqhXX2Y2UcTMr77zJGE5S545WOWQpf2GmCewduixzCgjPEXLAhAI67biJRUxYaiLyZrAk8XouA9P8FzIcvqsOpfzWXcNXAc="
+    - secure: "c9XEIaL9ZvhpPwXN893Ek3dNp5c1fMb1TzAiK37EzLxNbyVtB5vOXw3qQGFtgwJBA/2DodDQL4ZwuR5EEJgSfpPrH3D/A6BFTIXOGzvPwmqSTYY6fV3LOmEf8AIy4Y2N2AitMkjrGHS0GfwTOr23horrVSnjXHwsGilN9wcNIuh2RDCknRTxJWY9eK6hOh4/F+TSW7hESQH1Zzk0pDUt127wifmkhBf93GmJPpX8b8/fmb6osNkfCUdy0Ec7h7SafJWXcSxrp8p+AP2m54f8EtiKY07pN0pt8RKu66fh4BEQPUp4P2/u26oWHC2P1o2meAtoFde2Fzk5BjFCKgy3DZcIFjJ9BFUpMzYFQ5WtNAcHPHvIjTUz63peFsXsAq7dlwBjWbAUJWtyvk8CGvLCI20/Q2qSEB4RciEXYGaGdQmCLuPnmTwN9Pa1CF1bIYWgK7ztYhe02GDUJJa3AikqIdEDnI0eodKmkTa+Do9nrLgZLWhG8HXm06SySICClnhqUmbAAHuliQxSdnDixuwhgcBkkPX/5Ta/pHIz0u5r9mdGKShKg1irC1alV4jtr6dJU7ly/orhW8zvoV1mu6C75lnc3aeqc1CVPMyowLUS+y+XQpOiGds57n0UlRFq38LE5n06ODv1x2eMFf8Wk+pbxgaOI4Co338A4opRjLPbULs="
+    - secure: "ZfFaKGU6OxyPFWuFT4eqIzpxJDZB9ABEe3L+mlyH6trhzFcA3EMghhAwuJOm4tvaRrn32l378b451qrcJ84TmKHB8KxYo7krAfIb5zf49A08YoCMpqKqITSS13jCiEuM0Yua8epXRbHzEiEuq8xGV1fqXZ3Wvii/IA0qVV2RTaM="
+    - secure: "AKz1AcG+xxnAPlMf7twqho6TsCwjafSHFObiUVP7J47t74HLklbKzI3hH7mJpkpYLhRDYGbQSzgP1Is00Hy4EwJyChocKMnWIsY2+5mGg1fkV5I2L1sncLtxyLakFw2TBQFvju7f7FaYtpvv9L3mt9i5JZ4E7BmSO+YBDv53uTA="
 addons:
   apt:
     sources:
