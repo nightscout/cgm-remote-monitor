@@ -63,13 +63,11 @@
       console.log('query');
       $.ajax('/api/v1/entries/current.json', { success: render });
     }
-
     function render (xhr) {
 		console.log('xhr', xhr);
 		var rec = xhr[0];
 		var last = new Date(rec.date);
 		var now = new Date( );
-
 		var LowThresh = parseFloat("4");	// Set low/med/high thresholds here.
 		var MedThresh = parseFloat("10");	// Below Low will be red; between Low & Med
 		var HighThresh = parseFloat("15");	// is green; between Med & High is yellow;
@@ -77,20 +75,15 @@
 											// that's your site setting.
 											// Would love to just pull these from the main
 											// NS settings, but not sure how to call.
-
 		if (window.serverSettings.settings.units == 'mmol') {
 		rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
 		}
 		var bgNum = parseFloat(rec.sgv);
-
 		var red = 'rgba(213,9,21,1)';		// These are the particular shades of 
 		var yellow = 'rgba(233,205,53,1)';	// red, yellow, and green. Tweak if you like.
 		var green = 'rgba(134,207,70,1)';
-
 		var direction = rec.direction;
-
 		$('#arrow').attr('src', 'images/'+direction+'.png');
-
 		switch (direction) {
 		case "DoubleUp":
 			$('#arrow').attr('width', '153');
@@ -114,9 +107,7 @@
 			$('#arrow').attr('width', '153');
 			break;
 		}
-
 		$('.bgnow').text(rec.sgv);
-
 		if (bgNum < LowThresh) {
 			$('body').css('background-color', red);
 		}
@@ -129,19 +120,15 @@
 		if (bgNum >= HighThresh) {
 			$('body').css('background-color', red);
 		}
-
 		var threshold = 1000 * 60 * 13;
 		$('.bgnow').toggleClass('stale', (now - last > threshold));
 		}
-
     function init ( ) {
       console.log('init');
       query( );
       setInterval(query, 1 * 60 * 1000);
     }
-
     init( );
   </script>
 </body>
 </html>
-
