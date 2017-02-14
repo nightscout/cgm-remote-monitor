@@ -21,17 +21,19 @@
 	@import url("//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800");
   
     body {
-      text-align: center;
-      font-family: 'Open Sans';
-      font-weight: 700;
-      color: white;
+		margin: 0;
+		padding: 0;
+		overflow: hidden;
+		text-align: center;
+		font-family: 'Open Sans';
+		font-weight: 700;
+		color: white;
     }
     .main {
-    	display: inline-flex;
-    	height: 100%;
+    	display: inline-flex; height: 100vmax;
     }
     .inner {
-    	margin: 40% auto;
+    	margin: 50% auto;
     }
     .bgnow {
     	font-size: 40vmin;
@@ -71,7 +73,8 @@
 		var LowThresh = parseFloat("4");	// Set low/med/high thresholds here.
 		var MedThresh = parseFloat("10");	// Below Low will be red; between Low & Med
 		var HighThresh = parseFloat("15");	// is green; between Med & High is yellow;
-											// above High is red.
+											// above High is red. Use mg/dl numbers if
+											// that's your site setting.
 
 		if (window.serverSettings.settings.units == 'mmol') {
 		rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
