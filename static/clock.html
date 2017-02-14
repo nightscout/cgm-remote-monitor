@@ -3,21 +3,23 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Sam's Dex</title>
+  
+  <title>NS StatusBoard</title>
+  
   <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
-  <link rel="apple-touch-icon" sizes="57x57" href="/images/DashIcons/apple-touch-icon-57x57.png">
-  <link rel="apple-touch-icon" sizes="60x60" href="/images/DashIcons/apple-touch-icon-60x60.png">
-  <link rel="apple-touch-icon" sizes="72x72" href="/images/DashIcons/apple-touch-icon-72x72.png">
-  <link rel="apple-touch-icon" sizes="76x76" href="/images/DashIcons/apple-touch-icon-76x76.png">
-  <link rel="apple-touch-icon" sizes="114x114" href="/images/DashIcons/apple-touch-icon-114x114.png">
-  <link rel="apple-touch-icon" sizes="120x120" href="/images/DashIcons/apple-touch-icon-120x120.png">
-  <link rel="apple-touch-icon" sizes="144x144" href="/images/DashIcons/apple-touch-icon-144x144.png">
-  <link rel="apple-touch-icon" sizes="152x152" href="/images/DashIcons/apple-touch-icon-152x152.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/images/DashIcons/apple-touch-icon-180x180.png">
+  <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
+  <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
+  <link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png">
+  <link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
+  
   <style type="text/css">
-  	@import url("//fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic");
+
 	@import url("//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800");
-	@import url("/glyphs/css/fontello.css");
   
     body {
       text-align: center;
@@ -36,18 +38,22 @@
     	font-size: 40vmin;
     }
     .stale {
-      text-decoration: line-through;
+    	text-decoration: line-through;
     }
   </style>
 </head>
+
 <body>
+
   <div class="main">
     <div class="bgnow"></div>
     <div style="text-align: center"><img id="arrow" src="" width="" /></div>
   </div>
+  
   <script src="/bower_components/jquery/dist/jquery.min.js"></script>
   <script src="/api/v1/status.js"></script>
   <script src="/public/js/bundle.js"></script>
+  
   <script type="text/javascript">
     function query ( ) {
       console.log('query');
@@ -55,75 +61,73 @@
     }
 
     function render (xhr) {
-      console.log('xhr', xhr);
-      var rec = xhr[0];
-      var last = new Date(rec.date);
-      var now = new Date( );
-      if (window.serverSettings.settings.units == 'mmol') {
-        rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
-      }
-      var bgNum = parseFloat(rec.sgv);
-      var red = 'rgba(213,9,21,1)';
-      var yellow = 'rgba(233,205,53,1)';
-      var green = 'rgba(134,207,70,1)';
-      
-      var direction = rec.direction;
-      
-      switch (direction) {
-      	case "DoubleUp":
-      		$('#arrow').attr('src', 'images/DoubleUp.png');
-      		$('#arrow').attr('width', '153');
-      		break;
-      	case "SingleUp":
-      		$('#arrow').attr('src', 'images/SingleUp.png');
-      		$('#arrow').attr('width', '77');
-      		break;
-      	case "FortyFiveUp":
-      		$('#arrow').attr('src', 'images/FortyFiveUp.png');
-      		$('#arrow').attr('width', '85');
-      		break;
-      	case "Flat":
-      		$('#arrow').attr('src', 'images/Flat.png');
-      		$('#arrow').attr('width', '107');
-      		break;
-      	case "FortyFiveDown":
-      		$('#arrow').attr('src', 'images/FortyFiveDown.png');
-      		$('#arrow').attr('width', '85');
-      		break;
-      	case "SingleDown":
-      		$('#arrow').attr('src', 'images/SingleDown.png');
-      		$('#arrow').attr('width', '77');
-      		break;
-      	case "DoubleDown":
-      		$('#arrow').attr('src', 'images/DoubleDown.png');
-      		$('#arrow').attr('width', '153');
-      		break;
-      }
-      
-      $('.bgnow').text(rec.sgv);
-      
-      var LowThresh = parseFloat("4");
-      var MedThresh = parseFloat("10");
-      var HighThresh = parseFloat("15");
-      
-      console.log("high", HighThresh);
-      
-      if (bgNum < LowThresh) {
-      	$('body').css('background-color', red);
-      }
-      if ((LowThresh <= bgNum) && (bgNum < MedThresh)) {
-      	$('body').css('background-color', green);
-      }
-      if ((MedThresh <= bgNum) && (bgNum < HighThresh)) {
-      	$('body').css('background-color', yellow);
-      }
-      if (bgNum >= HighThresh) {
-      	$('body').css('background-color', red);
-      }
-      
-      var threshold = 1000 * 60 * 13;
-      $('.bgnow').toggleClass('stale', (now - last > threshold));
-    }
+		console.log('xhr', xhr);
+		var rec = xhr[0];
+		var last = new Date(rec.date);
+		var now = new Date( );
+
+		var LowThresh = parseFloat("4");	// Set low/med/high thresholds here.
+		var MedThresh = parseFloat("10");	// Below Low will be red; between Low & Med
+		var HighThresh = parseFloat("15");	// is green; between Med & High is yellow;
+											// above High is red.
+
+		if (window.serverSettings.settings.units == 'mmol') {
+		rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
+		}
+		var bgNum = parseFloat(rec.sgv);
+
+		var red = 'rgba(213,9,21,1)';		// These are the particular shades of 
+		var yellow = 'rgba(233,205,53,1)';	// red, yellow, and green. Tweak if you like.
+		var green = 'rgba(134,207,70,1)';
+
+		var direction = rec.direction;
+
+		$('#arrow').attr('src', 'images/'+direction+'.png');
+
+		switch (direction) {
+		case "DoubleUp":
+			$('#arrow').attr('width', '153');
+			break;
+		case "SingleUp":
+			$('#arrow').attr('width', '77');
+			break;
+		case "FortyFiveUp":
+			$('#arrow').attr('width', '85');
+			break;
+		case "Flat":
+			$('#arrow').attr('width', '107');
+			break;
+		case "FortyFiveDown":
+			$('#arrow').attr('width', '85');
+			break;
+		case "SingleDown":
+			$('#arrow').attr('width', '77');
+			break;
+		case "DoubleDown":
+			$('#arrow').attr('width', '153');
+			break;
+		}
+
+		$('.bgnow').text(rec.sgv);
+
+		console.log("high", HighThresh);
+
+		if (bgNum < LowThresh) {
+		$('body').css('background-color', red);
+		}
+		if ((LowThresh <= bgNum) && (bgNum < MedThresh)) {
+		$('body').css('background-color', green);
+		}
+		if ((MedThresh <= bgNum) && (bgNum < HighThresh)) {
+		$('body').css('background-color', yellow);
+		}
+		if (bgNum >= HighThresh) {
+		$('body').css('background-color', red);
+		}
+
+		var threshold = 1000 * 60 * 13;
+		$('.bgnow').toggleClass('stale', (now - last > threshold));
+		}
 
     function init ( ) {
       console.log('init');
