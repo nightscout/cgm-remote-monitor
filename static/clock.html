@@ -102,22 +102,27 @@
       
       $('.bgnow').text(rec.sgv);
       
-      console.log('bgNum', bgNum);
+      var LowThresh = parseFloat("4");
+      var MedThresh = parseFloat("10");
+      var HighThresh = parseFloat("15");
       
-      if (bgNum < 4) {
+      console.log("high", HighThresh);
+      
+      if (bgNum < LowThresh) {
       	$('body').css('background-color', red);
       }
-      if (4 <= bgNum < 10) {
+      if (LowThresh <= bgNum < MedThresh) {
       	$('body').css('background-color', green);
       }
-      if (10 <= bgNum < 15) {
+      if (MedThresh <= bgNum < HighThresh) {
       	$('body').css('background-color', yellow);
       }
-      if (bgNum >= 15) {
+      if (bgNum >= HighThresh) {
       	$('body').css('background-color', red);
       }
+      
       var threshold = 1000 * 60 * 13;
-      $('.bgnow').addClass('stale', (now - last > threshold));
+      $('.bgnow').toggleClass('stale', (now - last > threshold));
     }
 
     function init ( ) {
