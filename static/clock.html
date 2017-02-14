@@ -30,9 +30,9 @@
 		color: white;
     }
     .main {
-    	display: inline-flex; height: 100vmax;
-    }
-    .inner {
+    	display: inline-flex; height: 100vmax;	// My CSS is super rusty; this is the best
+    }											// I could manage. Needs work to support
+    .inner {									// landscape better, at the very least.
     	margin: 30vmin auto;
     }
     .bgnow {
@@ -75,6 +75,8 @@
 		var HighThresh = parseFloat("15");	// is green; between Med & High is yellow;
 											// above High is red. Use mg/dl numbers if
 											// that's your site setting.
+											// Would love to just pull these from the main
+											// NS settings, but not sure how to call.
 
 		if (window.serverSettings.settings.units == 'mmol') {
 		rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
