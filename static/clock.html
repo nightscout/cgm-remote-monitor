@@ -25,6 +25,7 @@
 		margin: 0 0;
 		padding: 0;
 		overflow: hidden;
+		background-color: rgba(134,207,70,1);
     }
     main {
     	display: -webkit-box;			// Lots of vertical centering redundancy here
@@ -51,8 +52,15 @@
 		font-size: 40vmin;
 		color: white;
     }
+    .arrow {
+    	width: 100%;
+    }
+    img#arrow {
+    	width: 35vmin;
+	  }
     .stale {
     	color: black;
+    	background-color: grey;
     }
   </style>
 </head>
@@ -62,7 +70,7 @@
   <main>
   	<div class="inner">
 		<div class="bgnow"></div>
-		<div class="arrow"><img id="arrow" src="" width="" /></div>
+		<div class="arrow"><img id="arrow" src=""/></div>
 	</div>
   </main>
   
@@ -91,41 +99,19 @@
 											// NS settings, but not sure how to call.
 
 		if (window.serverSettings.settings.units == 'mmol') {
-		rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
+			rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
 		}
 		var bgNum = parseFloat(rec.sgv);
 
-		var red = 'rgba(213,9,21,1)';		// These are the particular shades of 
-		var yellow = 'rgba(233,205,53,1)';	// red, yellow, and green. Tweak if you like.
+		var red = 'rgba(213,9,21,1)';					// These are the particular shades of 
+		var yellow = 'rgba(233,205,53,1)';				// red, yellow, and green.
 		var green = 'rgba(134,207,70,1)';
 
 		var direction = rec.direction;
 
-		$('#arrow').attr('src', 'images/'+direction+'.png');
+		$('#arrow').attr('src', 'images/'+direction+'.svg');	// Insert the trend arrow.
 
-		var arrowWidth = '100';
-		
-		switch (direction) {				// Arrow images are different widths.
-			case "DoubleUp":
-			case "DoubleDown":
-				arrowWidth = '153';
-				break;
-			case "SingleUp":
-			case "SingleDown":
-				arrowWidth = '77';
-				break;
-			case "FortyFiveUp":
-			case "FortyFiveDown":
-				arrowWidth = '85';
-				break;
-			case "Flat":
-				arrowWidth = '107';
-				break;
-		}
-		
-		$('#arrow').attr('width', arrowWidth);	// Set the correct arrow width.
-
-		$('.bgnow').text(rec.sgv);				// Insert the BG value text.
+		$('.bgnow').text(rec.sgv);						// Insert the BG value text.
 
 		if (bgNum < LowThresh) {
 			$('body').css('background-color', red);		// Threshold background coloring.
@@ -140,9 +126,10 @@
 			$('body').css('background-color', red);
 		}
 
-		var threshold = 1000 * 60 * 13;		// Time before data considered stale.
+		var threshold = 1000 * 60 * 13;					// Time before data considered stale.
 		
 		$('.bgnow').toggleClass('stale', (now - last > threshold));		// Restyle BG if stale.
+		$('body').toggleClass('stale', (now - last > threshold));		// Restyle background too.
 	}
 
     function init ( ) {
