@@ -26,6 +26,7 @@
 		padding: 0;
 		overflow: hidden;
 		background-color: rgba(134,207,70,1);
+		color: white;
     }
     main {
     	display: -webkit-box;			// Lots of vertical centering redundancy here
@@ -50,7 +51,6 @@
     	font-family: 'Open Sans';
 		font-weight: 700;
 		font-size: 40vmin;
-		color: white;
     }
     .arrow {
     	width: 100%;
@@ -128,8 +128,7 @@
 
 		var threshold = 1000 * 60 * 13;					// Time before data considered stale.
 		
-		$('.bgnow').toggleClass('stale', (now - last > threshold));		// Restyle BG if stale.
-		$('body').toggleClass('stale', (now - last > threshold));		// Restyle background too.
+		$('body').toggleClass('stale', (now - last > threshold));		// Restyle if stale.
 	}
 
     function init ( ) {
