@@ -1,0 +1,14 @@
+database:
+  image: 'tutum/mongodb:latest'
+  environment:
+    - MONGODB_PASS=notinproduction
+nightscout:
+  build: .
+  environment:
+    - API_SECRET=mylittlesecret
+    - MONGO_CONNECTION=mongodb://admin:notinproduction@database/admin
+    - PORT=1337
+  links:
+    - database
+  ports:
+    - '1337:1337'
