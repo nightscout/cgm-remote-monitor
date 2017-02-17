@@ -25,7 +25,6 @@
 		margin: 0 0;
 		padding: 0;
 		overflow: hidden;
-		background-color: rgba(134,207,70,1);
 		color: white;
     }
     main {
@@ -79,6 +78,7 @@
   <script src="/public/js/bundle.js"></script>
   
   <script type="text/javascript">
+    
     function query ( ) {
       console.log('query');
       $.ajax('/api/v1/entries/current.json', { success: render });
@@ -95,8 +95,6 @@
 		var HighThresh = parseFloat("15");	// is green; between Med & High is yellow;
 											// above High is red. Use mg/dl numbers if
 											// that's your site setting.
-											// Would love to just pull these from the main
-											// NS settings, but not sure how to call.
 
 		if (window.serverSettings.settings.units == 'mmol') {
 			rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
