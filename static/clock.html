@@ -59,7 +59,6 @@
 	  }
     .stale {
     	color: black;
-    	background-color: grey;
     }
   </style>
 </head>
@@ -127,6 +126,10 @@
 		var threshold = 1000 * 60 * 13;					// Time before data considered stale.
 		
 		$('body').toggleClass('stale', (now - last > threshold));		// Restyle if stale.
+
+		if (now - last > threshold) {									// Restyle body bg too.
+			$('body').css('background-color', 'grey');
+		}
 	}
 
     function init ( ) {
