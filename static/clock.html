@@ -90,10 +90,11 @@
 			var now = new Date( );
 			
 			/*
-				Set low/med/high thresholds here.
-				Below Low will be red; between Low & Med
-				is green; between Med & High is yellow;
-				above High is red. Use mg/dl numbers if
+				Set low/med/high thresholds here. Below Low will be red;
+				between Low & Med is green; between Med & High is yellow;
+				above High is red.
+				
+				Expects mmol/L values by default; use mg/dl numbers if
 				that's your site setting.
 			*/
 
@@ -106,10 +107,7 @@
 			}
 			var bgNum = parseFloat(rec.sgv);
 
-			/*
-				These are the particular shades of red, yellow, and green.
-			*/
-			
+			// These are the particular shades of red, yellow, and green.
 			var red = 'rgba(213,9,21,1)';
 			var yellow = 'rgba(233,205,53,1)';
 			var green = 'rgba(134,207,70,1)';
