@@ -115,13 +115,16 @@
 			var green = 'rgba(134,207,70,1)';
 
 			var direction = rec.direction;
+			
+			// Insert the trend arrow.
+			$('#arrow').attr('src', 'images/'+direction+'.svg');
 
-			$('#arrow').attr('src', 'images/'+direction+'.svg');	// Insert the trend arrow.
+			// Insert the BG value text.
+			$('.bgnow').text(rec.sgv);
 
-			$('.bgnow').text(rec.sgv);								// Insert the BG value text.
-
+			// Threshold background coloring.
 			if (bgNum < LowThresh) {
-				$('body').css('background-color', red);				// Threshold background coloring.
+				$('body').css('background-color', red);
 			}
 			if ((LowThresh <= bgNum) && (bgNum < MedThresh)) {
 				$('body').css('background-color', green);
@@ -132,13 +135,16 @@
 			if (bgNum >= HighThresh) {
 				$('body').css('background-color', red);
 			}
-
-			var staleMinutes = 13;										// Time before data considered stale.
+			
+			// Time before data considered stale.
+			var staleMinutes = 13;										
 			var threshold = 1000 * 60 * staleMinutes;			
-		
-			$('body').toggleClass('stale', (now - last > threshold));	// Restyle if stale.
 
-			if (now - last > threshold) {								// Restyle body bg too.
+			// Restyle if stale.	
+			$('body').toggleClass('stale', (now - last > threshold));	
+
+			// Restyle body bg too.
+			if (now - last > threshold) {
 				$('body').css('background-color', 'grey');
 			}
 		}
