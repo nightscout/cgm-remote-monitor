@@ -1,159 +1,147 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   
-	<title>Nightscout</title>
+  <title>NS StatusBoard</title>
   
-	<link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
-	<link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
-	<link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
-	<link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png">
-	<link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png">
-	<link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png">
-	<link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
-	<link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
-	<link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
-	<link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
+  <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
+  <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
+  <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
+  <link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png">
+  <link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
   
-	<style type="text/css">
-		@import url("//fonts.googleapis.com/css?family=Open+Sans:700");
+  <style type="text/css">
+	@import url("//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800");
   
-		body {
-			text-align: center;
-			margin: 0 0;
-			padding: 0;
-			overflow: hidden;
-			color: white;
-		}
-		main {
-			display: -webkit-box;
-			display: -ms-flexbox;
-			display: -webkit-flex;
-			display: flex;
-			-webkit-box-align: center;
-			-webkit-flex-align: center;
-			-ms-flex-align: center;
-			-webkit-align-items: center;
-			align-items: center;
-			height: 100vh;
-			width: 100%;
-			margin: 0 0;
-			padding: 0;
-		}											
-		.inner {
-			width: 100%;
-			-webkit-transform: translateY(-5%);
-		}
-		.bgnow {
-			font-family: 'Open Sans';
-			font-weight: 700;
-			font-size: 40vmin;
-		}
-		.arrow {
-			width: 100%;
-		}
-		img#arrow {
-			width: 40vmin;
-		}
-		.stale {
-			color: black;
-		}
-	</style>
+    body {
+		margin: 0;
+		padding: 0;
+		overflow: hidden;
+		text-align: center;
+		font-family: 'Open Sans';
+		font-weight: 700;
+		color: white;
+    }
+    .main {
+    	display: inline-flex; height: 100vmax;	// My CSS is super rusty; this is the best
+    }											// I could manage. Needs work to support
+    .inner {									// landscape better, at the very least.
+    	margin: 30vmin auto;
+    }
+    .bgnow {
+    	font-size: 40vmin;
+    	width: 100%;
+    }
+    .stale {
+    	text-decoration: line-through;
+    }
+  </style>
 </head>
 
 <body>
 
-	<main>
-		<div class="inner">
-			<div class="bgnow"></div>
-			<div class="arrow"><img id="arrow" src=""/></div>
-		</div>
-	</main>
+  <div class="main">
+  	<div class="inner">
+		<div class="bgnow"></div>
+		<div class="arrow"><img id="arrow" src="" width="" /></div>
+	</div>
+  </div>
   
-	<script src="/bower_components/jquery/dist/jquery.min.js"></script>
-	<script src="/api/v1/status.js"></script>
-	<script src="/public/js/bundle.js"></script>
+  <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+  <script src="/api/v1/status.js"></script>
+  <script src="/public/js/bundle.js"></script>
   
-	<script type="text/javascript">
-	
-		function query ( ) {
-			console.log('query');
-			$.ajax('/api/v1/entries/current.json', { success: render });
+  <script type="text/javascript">
+    function query ( ) {
+      console.log('query');
+      $.ajax('/api/v1/entries/current.json', { success: render });
+    }
+
+    function render (xhr) {
+		console.log('xhr', xhr);
+		var rec = xhr[0];
+		var last = new Date(rec.date);
+		var now = new Date( );
+
+		var LowThresh = parseFloat("4");	// Set low/med/high thresholds here.
+		var MedThresh = parseFloat("10");	// Below Low will be red; between Low & Med
+		var HighThresh = parseFloat("15");	// is green; between Med & High is yellow;
+											// above High is red. Use mg/dl numbers if
+											// that's your site setting.
+											// Would love to just pull these from the main
+											// NS settings, but not sure how to call.
+
+		if (window.serverSettings.settings.units == 'mmol') {
+		rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
+		}
+		var bgNum = parseFloat(rec.sgv);
+
+		var red = 'rgba(213,9,21,1)';		// These are the particular shades of 
+		var yellow = 'rgba(233,205,53,1)';	// red, yellow, and green. Tweak if you like.
+		var green = 'rgba(134,207,70,1)';
+
+		var direction = rec.direction;
+
+		$('#arrow').attr('src', 'images/'+direction+'.png');
+
+		switch (direction) {
+		case "DoubleUp":
+			$('#arrow').attr('width', '153');
+			break;
+		case "SingleUp":
+			$('#arrow').attr('width', '77');
+			break;
+		case "FortyFiveUp":
+			$('#arrow').attr('width', '85');
+			break;
+		case "Flat":
+			$('#arrow').attr('width', '107');
+			break;
+		case "FortyFiveDown":
+			$('#arrow').attr('width', '85');
+			break;
+		case "SingleDown":
+			$('#arrow').attr('width', '77');
+			break;
+		case "DoubleDown":
+			$('#arrow').attr('width', '153');
+			break;
 		}
 
-		function render (xhr) {
-			console.log('xhr', xhr);
-			var rec = xhr[0];
-			var last = new Date(rec.date);
-			var now = new Date( );
-			
-			/*
-				Set low/med/high thresholds here. Below Low will be red;
-				between Low & Med is green; between Med & High is yellow;
-				above High is red.
-				
-				Expects mmol/L values by default; use mg/dl numbers if
-				that's your site setting.
-			*/
+		$('.bgnow').text(rec.sgv);
 
-			var LowThresh = parseFloat("4");
-			var MedThresh = parseFloat("10");
-			var HighThresh = parseFloat("15");
-
-			if (window.serverSettings.settings.units == 'mmol') {
-				rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
-			}
-			var bgNum = parseFloat(rec.sgv);
-
-			// These are the particular shades of red, yellow, and green.
-			var red = 'rgba(213,9,21,1)';
-			var yellow = 'rgba(233,205,53,1)';
-			var green = 'rgba(134,207,70,1)';
-
-			var direction = rec.direction;
-			
-			// Insert the trend arrow.
-			$('#arrow').attr('src', 'images/'+direction+'.svg');
-
-			// Insert the BG value text.
-			$('.bgnow').text(rec.sgv);
-
-			// Threshold background coloring.
-			if (bgNum < LowThresh) {
-				$('body').css('background-color', red);
-			}
-			if ((LowThresh <= bgNum) && (bgNum < MedThresh)) {
-				$('body').css('background-color', green);
-			}
-			if ((MedThresh <= bgNum) && (bgNum < HighThresh)) {
-				$('body').css('background-color', yellow);
-			}
-			if (bgNum >= HighThresh) {
-				$('body').css('background-color', red);
-			}
-			
-			// Time before data considered stale.
-			var staleMinutes = 13;										
-			var threshold = 1000 * 60 * staleMinutes;			
-
-			// Restyle if stale.	
-			$('body').toggleClass('stale', (now - last > threshold));	
-
-			// Restyle body bg too.
-			if (now - last > threshold) {
-				$('body').css('background-color', 'grey');
-			}
+		if (bgNum < LowThresh) {
+			$('body').css('background-color', red);
+		}
+		if ((LowThresh <= bgNum) && (bgNum < MedThresh)) {
+			$('body').css('background-color', green);
+		}
+		if ((MedThresh <= bgNum) && (bgNum < HighThresh)) {
+			$('body').css('background-color', yellow);
+		}
+		if (bgNum >= HighThresh) {
+			$('body').css('background-color', red);
 		}
 
-		function init ( ) {
-			console.log('init');
-			query( );
-			setInterval(query, 1 * 60 * 1000);
+		var threshold = 1000 * 60 * 13;
+		$('.bgnow').toggleClass('stale', (now - last > threshold));
 		}
 
-		init( );
-	</script>
+    function init ( ) {
+      console.log('init');
+      query( );
+      setInterval(query, 1 * 60 * 1000);
+    }
+
+    init( );
+  </script>
 </body>
 </html>
+
