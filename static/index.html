@@ -228,7 +228,7 @@
 
                     <fieldset id="bg">
                         <legend class="translate">Glucose Reading</legend>
-                        <input type="number" step="any" id="glucoseValue" />
+                        <input type="number" step="any" id="glucoseValue" pattern="\d*" />
                         <label><br><span class="translate">Measurement Method</span><br></label>
                         <label for="meter">
                             <input type="radio" name="glucoseType" id="meter" value="Finger"/>
@@ -241,17 +241,17 @@
                     </fieldset>
                     <label id="carbsGivenLabel" for="carbsGiven" class="left-column short-label">
                         <span class="translate">Carbs Given</span>
-                        <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" class="titletranslate"/>
+                        <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" class="titletranslate" pattern="\d*" />
                     </label>
                     <label id="insulinGivenLabel" for="insulinGiven" class="left-column short-label">
                         <span class="translate">Insulin Given</span>
-                        <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate"/>
+                        <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate" pattern="[0-9.]*" />
                     </label>
                     <label id="insulinSplitLabel" for="insulinSplit" class="left-column short-label">
                         <span class="translate">Split</span>
-                        <input type="number" step="5" min="0" max="100" style="width:50px" id="insulinSplitNow" placeholder="% now" class="titletranslate"/>%
+                        <input type="number" step="5" min="0" max="100" style="width:50px" id="insulinSplitNow" placeholder="% now" class="titletranslate" pattern="\d*" />%
                         :
-                        <input type="number" step="5" min="0" max="100" style="width:50px" id="insulinSplitExt" placeholder="% extended" class="titletranslate"/>%
+                        <input type="number" step="5" min="0" max="100" style="width:50px" id="insulinSplitExt" placeholder="% extended" class="titletranslate" pattern="\d*" />%
                     </label>
                     <label id="durationLabel" for="duration" class="left-column short-label">
                         <span class="translate">Duration</span>
@@ -259,7 +259,7 @@
                     </label>
                     <label id="percentLabel" for="percent" class="left-column short-label">
                         <span class="translate">Percent</span>
-                        <input type="number" step="10" id="percent" placeholder="Basal change in %" class="titletranslate"/>
+                        <input type="number" step="10" id="percent" placeholder="Basal change in %" class="titletranslate" pattern="\d*" />
                     </label>
                     <label id="profileLabel" for="profile" class="left-column short-label">
                         <span class="translate">Profile</span>
@@ -327,7 +327,7 @@
                   <td>
                     <span class="translate">BG</span>:
                     <span style="float:right;">
-                      <input type="text" size="3" id="bc_bg" class="insulincalculationpart">
+                      <input type="number" size="3" id="bc_bg" class="insulincalculationpart" pattern="[0-9.]*" >
                     </span>
                   </td>
                   <td>
@@ -383,7 +383,7 @@
                   <td>
                     <span class="translate">Carbs</span>:
                     <span style="float:right;">
-                      <input type="text" size="3" id="bc_carbs" value="0" class="insulincalculationpart"> g
+                      <input type="number" size="3" id="bc_carbs" value="0" class="insulincalculationpart" pattern="\d*" > g
                     </span>
                   </td>
                   <td id="bc_inzulincarbstd" class="insulincalculation">
