@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  
+  <title>NS StatusBoard</title>
+  
+  <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
+  <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
+  <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
+  <link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png">
+  <link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
+  
+  <style type="text/css">
+	@import url("//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800");
+  
+    body {
+		margin: 0;
+		padding: 0;
+		overflow: hidden;
+		text-align: center;
+		font-family: 'Ubuntu', Helvetica, Arial, sans-serif;
+		font-weight: 700;
+		color: white;
+    }
+    .main {
+    	display: inline-flex; height: 100vmax;	// My CSS is super rusty; this is the best
+    }											// I could manage. Needs work to support
+    .inner {									// landscape better, at the very least.
+    	margin: 30vmin auto;
+    }
+    .bgnow {
+    	font-size: 44vmin;
+    	width: 100%;
+    }
+    .stale {
+    	text-decoration: line-through;
+    }
+    .arrow {
+    	font-size: 44vmin;
+    	width: 100%;
+	margin-top: -15vmin;
+    }	  
+    img#arrow {
+    	height: 35vmin;
+    	width: 50vmin;
+	  }
+  </style>
+</head>
+
+<body>
+
+  <div class="main">
+  	<div class="inner">
+		<div class="bgnow"></div>
+//		<div class="arrow"></div>
+	</div>
+  </div>
+  
+  <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+  <script src="/api/v1/status.js"></script>
+  <script src="/public/js/bundle.js"></script>
+  
+  <script type="text/javascript">
+    function query ( ) {
+      console.log('query');
+      $.ajax('/api/v1/entries/current.json', { success: render });
+    }
+    function render (xhr) {
+		console.log('xhr', xhr);
+		var rec = xhr[0];
+		var last = new Date(rec.date);
+		var now = new Date( );
+		var LowThresh = parseFloat("70");	// Set low/med/high thresholds here.
+		var MedThresh = parseFloat("140");	// Below Low will be red; between Low & Med
+		var HighThresh = parseFloat("180");	// is green; between Med & High is yellow;
+											// above High is red. Use mg/dl numbers if
+											// that's your site setting.
+											// Would love to just pull these from the main
+											// NS settings, but not sure how to call.
+		if (window.serverSettings.settings.units == 'mmol') {
+		rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
+		}
+		var bgNum = parseFloat(rec.sgv);
+		var red = 'rgba(213,9,21,1)';		// These are the particular shades of 
+		var yellow = 'rgba(233,205,53,1)';	// red, yellow, and green. Tweak if you like.
+		var green = 'rgba(134,207,70,1)';
+		var blue = 'rgba(102,204,204,1)';	    
+		var direction = rec.direction;
+	   	var arrow = ""; //arrows
+//		$('#arrow').attr('src', 'images/'+direction+'.svg');
+
+		switch (direction) {				// Arrow images are different widths.
+			case "DoubleUp":
+				arrow = "↑↑";
+				break;
+			case "DoubleDown":
+				arrow = "↓↓";
+				break;
+			case "SingleUp":
+				arrow = "↑";
+				break;				
+			case "SingleDown":
+				arrow = "↓";
+				break;
+			case "FortyFiveUp":
+				arrow = "↗";
+				break;				
+			case "FortyFiveDown":
+				arrow = "↘";
+				break;
+			case "Flat":
+				arrow = "→";			
+				break;
+		}
+	    
+		$('.bgnow').text(rec.sgv + " " + arrow);
+//	    	$('.arrow').text(arrow);
+	        var title = rec.sgv + " " + arrow;
+	    	$('title').text(title);
+		if (bgNum < LowThresh) {
+			$('body').css('background-color', blue);
+		}
+		if ((LowThresh <= bgNum) && (bgNum < MedThresh)) {
+			$('body').css('background-color', green);
+		}
+		if ((MedThresh <= bgNum) && (bgNum < HighThresh)) {
+			$('body').css('background-color', yellow);
+		}
+		if (bgNum >= HighThresh) {
+			$('body').css('background-color', red);
+		}
+		var threshold = 1000 * 60 * 13;
+		$('.bgnow').toggleClass('stale', (now - last > threshold));
+		}
+    function init ( ) {
+      console.log('init');
+      query( );
+      setInterval(query, 1 * 60 * 1000);
+    }
+    init( );
+  </script>
+</body>
+</html>
