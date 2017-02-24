@@ -89,28 +89,27 @@
 			var last = new Date(rec.date);
 			var now = new Date( );
 			
-			/*
-				Set low/med/high thresholds here. Below Low will be red;
-				between Low & Med is green; between Med & High is yellow;
-				above High is red.
-				
-				Expects mmol/L values by default; use mg/dl numbers if
-				that's your site setting.
-			*/
+			var bgHigh = window.serverSettings.settings.thresholds.bgHigh;
+			var bgLow = window.serverSettings.settings.thresholds.bgLow;
+			var bgTargetBottom = window.serverSettings.settings.thresholds.bgTargetBottom;
+			var bgTargetTop = window.serverSettings.settings.thresholds.bgTargetTop;
 
-			var LowThresh = parseFloat("4");
-			var MedThresh = parseFloat("10");
-			var HighThresh = parseFloat("15");
-
+			// Convert BG to mmol/L if necessary.
 			if (window.serverSettings.settings.units == 'mmol') {
 				rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
+				bgHigh = Nightscout.units.mgdlToMMOL(bgHigh);
+				bgLow = Nightscout.units.mgdlToMMOL(bgLow);
+				bgTargetBottom = Nightscout.units.mgdlToMMOL(bgTargetBottom);
+				bgTargetTop = Nightscout.units.mgdlToMMOL(bgTargetTop);
 			}
+			
 			var bgNum = parseFloat(rec.sgv);
 
-			// These are the particular shades of red, yellow, and green.
+			// These are the particular shades of red, yellow, green, and blue.
 			var red = 'rgba(213,9,21,1)';
-			var yellow = 'rgba(233,205,53,1)';
+			var yellow = 'rgba(233,190,43,1)';
 			var green = 'rgba(134,207,70,1)';
+			var blue = 'rgba(78,143,207,1)';
 
 			var direction = rec.direction;
 			
@@ -121,16 +120,19 @@
 			$('.bgnow').text(rec.sgv);
 
 			// Threshold background coloring.
-			if (bgNum < LowThresh) {
+			if (bgNum < bgLow) {
 				$('body').css('background-color', red);
 			}
-			if ((LowThresh <= bgNum) && (bgNum < MedThresh)) {
+			if ((bgLow <= bgNum) && (bgNum < bgTargetBottom)) {
+				$('body').css('background-color', blue);
+			}
+			if ((bgTargetBottom <= bgNum) && (bgNum < bgTargetTop)) {
 				$('body').css('background-color', green);
 			}
-			if ((MedThresh <= bgNum) && (bgNum < HighThresh)) {
+			if ((bgTargetTop <= bgNum) && (bgNum < bgHigh)) {
 				$('body').css('background-color', yellow);
 			}
-			if (bgNum >= HighThresh) {
+			if (bgNum >= bgHigh) {
 				$('body').css('background-color', red);
 			}
 			
