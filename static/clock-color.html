@@ -25,7 +25,9 @@
 			margin: 0 0;
 			padding: 0;
 			overflow: hidden;
+			font-family: 'Open Sans';
 			color: white;
+			background-color: rgba(134,207,70,1);
 		}
 		main {
 			display: -webkit-box;
@@ -33,7 +35,6 @@
 			display: -webkit-flex;
 			display: flex;
 			-webkit-box-align: center;
-			-webkit-flex-align: center;
 			-ms-flex-align: center;
 			-webkit-align-items: center;
 			align-items: center;
@@ -46,19 +47,37 @@
 			width: 100%;
 			-webkit-transform: translateY(-5%);
 		}
-		.bgnow {
-			font-family: 'Open Sans';
+		#bgnow {
 			font-weight: 700;
 			font-size: 40vmin;
 		}
-		.arrow {
-			width: 100%;
+		#trend {
+			display: -webkit-box;
+			display: -ms-flexbox;
+			display: -webkit-flex;
+			display: flex;
+			-webkit-box-align: center;
+			-ms-flex-align: center;
+			-webkit-align-items: center;
+			align-items: center;
+			justify-content: center;
 		}
 		img#arrow {
 			width: 40vmin;
 		}
+		#staleTime {
+			display: inline;
+			font-size: 10vmin;
+			line-height: 8vmin;
+		}
+		#staleNum {
+			font-size: 6vmin;
+		}
 		.stale {
 			color: black;
+		}
+		.invisible {
+			display: none;
 		}
 	</style>
 </head>
@@ -67,8 +86,13 @@
 
 	<main>
 		<div class="inner">
-			<div class="bgnow"></div>
-			<div class="arrow"><img id="arrow" src=""/></div>
+			<div id="bgnow"></div>
+			<div id="trend">
+				<img id="arrow" src=""/>
+				<div id="staleTime" class="invisible">Last BG<br>
+					<span id="staleNum"></span>
+				</div>
+			</div>
 		</div>
 	</main>
   
@@ -85,9 +109,11 @@
 
 		function render (xhr) {
 			console.log('xhr', xhr);
+			
 			var rec = xhr[0];
 			var last = new Date(rec.date);
 			var now = new Date( );
+			var elapsedMins = Math.round(((now - last) / 1000) / 60);
 			
 			var bgHigh = window.serverSettings.settings.thresholds.bgHigh;
 			var bgLow = window.serverSettings.settings.thresholds.bgLow;
@@ -117,7 +143,10 @@
 			$('#arrow').attr('src', 'images/'+direction+'.svg');
 
 			// Insert the BG value text.
-			$('.bgnow').text(rec.sgv);
+			$('#bgnow').text(rec.sgv);
+			
+			// Insert the BG stale time text.
+			$('#staleNum').text(elapsedMins+' mins ago');
 
 			// Threshold background coloring.
 			if (bgNum < bgLow) {
@@ -141,11 +170,12 @@
 			var threshold = 1000 * 60 * staleMinutes;			
 
 			// Restyle if stale.	
-			$('body').toggleClass('stale', (now - last > threshold));	
-
-			// Restyle body bg too.
+			$('body').toggleClass('stale', (now - last > threshold));
+			
+			// Restyle body bg, and make the "Last BG x mins ago" visible too.
 			if (now - last > threshold) {
 				$('body').css('background-color', 'grey');
+				$('#staleTime').toggleClass('invisible');
 			}
 		}
 
