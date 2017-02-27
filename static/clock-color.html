@@ -70,15 +70,13 @@
 			line-height: 8vmin;
 			text-align: left;
 			padding-left: 2vw;
+			display: none;
 		}
 		#staleNum {
 			font-size: 6vmin;
 		}
 		.stale {
 			color: black;
-		}
-		.invisible {
-			display: none;
 		}
 	</style>
 </head>
@@ -92,7 +90,7 @@
 				<div id="arrowDiv">
 					<img id="arrow" src=""/>
 				</div>
-				<div id="staleTime" class="invisible">Last BG<br>
+				<div id="staleTime">Last BG<br>
 					<span id="staleNum"></span>
 				</div>
 			</div>
@@ -178,9 +176,10 @@
 			// Restyle body bg, and make the "Last BG x mins ago" visible too.
 			if (now - last > threshold) {
 				$('body').css('background-color', 'grey');
-				$('#staleTime').toggleClass('invisible');
+				$('#staleTime').css('display', 'flex');
 				$('#arrowDiv').css('text-align', 'right');
 			} else {
+				$('#staleTime').css('display', 'none');
 				$('#arrowDiv').css('text-align', 'center');
 			}
 		}
