@@ -1,4 +1,4 @@
-var should = require('should');
+0var should = require('should');
 var levels = require('../lib/levels');
 
 describe('simplealarms', function ( ) {
@@ -31,7 +31,7 @@ describe('simplealarms', function ( ) {
 
   it('should trigger a warning when above target', function (done) {
     ctx.notifications.initRequests();
-    ctx.ddata.sgvs = [{mills: before, mgdl: 171}, {mills: now, mgdl: 181}];
+    ctx.ddata.sgvs = [{mills: before, mgdl: 191}, {mills: now, mgdl: 201}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     bgnow.setProperties(sbx);
@@ -44,7 +44,7 @@ describe('simplealarms', function ( ) {
 
   it('should trigger a urgent alarm when really high', function (done) {
     ctx.notifications.initRequests();
-    ctx.ddata.sgvs = [{mills: now, mgdl: 400}];
+    ctx.ddata.sgvs = [{mills: now, mgdl: 290}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     simplealarms.checkNotifications(sbx);
@@ -55,7 +55,7 @@ describe('simplealarms', function ( ) {
 
   it('should trigger a warning when below target', function (done) {
     ctx.notifications.initRequests();
-    ctx.ddata.sgvs = [{mills: now, mgdl: 70}];
+    ctx.ddata.sgvs = [{mills: now, mgdl: 80}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     simplealarms.checkNotifications(sbx);
@@ -66,7 +66,7 @@ describe('simplealarms', function ( ) {
 
   it('should trigger a urgent alarm when really low', function (done) {
     ctx.notifications.initRequests();
-    ctx.ddata.sgvs = [{mills: now, mgdl: 40}];
+    ctx.ddata.sgvs = [{mills: now, mgdl: 60}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     simplealarms.checkNotifications(sbx);
