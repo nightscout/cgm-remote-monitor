@@ -10,6 +10,7 @@ var nowData = {
   sgvs: [
     { mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' }
   ]
+  , treatments: []
 };
 
 var someData = {
@@ -29,7 +30,7 @@ var someData = {
   '/api/v1/treatments.json?find[created_at][$gte]=2015-08-14T00:00:00.000Z&find[created_at][$lt]=2015-08-15T00:00:00.000Z': [{'enteredBy':'Dad','eventType':'Site Change','glucose':268,'glucoseType':'Finger','insulin':1.75,'units':'mg/dl','created_at':'2015-08-14T00:00:00.000Z','_id':'55ce78fe925aa80e7071e5d6'},{'enteredBy':'Mom ','eventType':'Meal Bolus','glucose':89,'glucoseType':'Finger','carbs':54,'insulin':3.15,'units':'mg/dl','created_at':'2015-08-14T21:00:00.000Z','_id':'55ce59bb925aa80e7071e5ba'}],
   '/api/v1/entries.json?find[date][$gte]=1439596800000&find[date][$lt]=1439683200000&count=10000': [{'_id':'55cfd25f38a8d88ad1b49931','unfiltered':283136,'filtered':304768,'direction':'SingleDown','device':'dexcom','rssi':185,'sgv':306,'dateString':'Sat Aug 15 16:58:16 PDT 2015','type':'sgv','date':1439683096000,'noise':1},{'_id':'55cfd13338a8d88ad1b4992e','unfiltered':302528,'filtered':312576,'direction':'FortyFiveDown','device':'dexcom','rssi':179,'sgv':329,'dateString':'Sat Aug 15 16:53:16 PDT 2015','type':'sgv','date':1439682796000,'noise':1}],
   '/api/v1/food/regular.json':  [{'_id':'552ece84a6947ea011db35bb','type':'food','category':'Zakladni','subcategory':'Sladkosti','name':'Bebe male','portion':18,'carbs':12,'gi':1,'unit':'pcs','created_at':'2015-04-15T20:48:04.966Z'}],
-  '/api/v1/treatments.json?find[eventType]=/BG Check/i&find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-09-07T00:00:00.000Z': [
+  '/api/v1/treatments.json?find[eventType]=/BG Check/i&find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-09-07T23:59:59.000Z': [
       {'created_at':'2015-08-08T00:00:00.000Z'},
       {'created_at':'2015-08-09T00:00:00.000Z'},
       {'created_at':'2015-08-10T00:00:00.000Z'},
@@ -62,7 +63,7 @@ var someData = {
       {'created_at':'2015-09-06T00:00:00.000Z'},
       {'created_at':'2015-09-07T00:00:00.000Z'}
     ],
-  '/api/v1/treatments.json?find[notes]=/something/i&find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-09-07T00:00:00.000Z': [
+  '/api/v1/treatments.json?find[notes]=/something/i&find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-09-07T23:59:59.000Z': [
       {'created_at':'2015-08-08T00:00:00.000Z'},
       {'created_at':'2015-08-09T00:00:00.000Z'},
       {'created_at':'2015-08-10T00:00:00.000Z'},
@@ -94,7 +95,24 @@ var someData = {
       {'created_at':'2015-09-05T00:00:00.000Z'},
       {'created_at':'2015-09-06T00:00:00.000Z'},
       {'created_at':'2015-09-07T00:00:00.000Z'}
+    ],
+    '/api/v1/devicestatus.json&find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-09-07T23:59:59.000Z?find[openaps][$exists]=true&count=1000': [
+      {
+        'openaps': {
+            'suggested': {
+                'temp': 'absolute',
+                'bg': 67,
+                'tick': '+6',
+                'eventualBG': 145,
+                'snoozeBG': 145,
+                'reason': 'BG 67<74.5, delta 6>0; no high-temp to cancel',
+                'timestamp': '2015-08-31T00:00:00.000Z'
+            }
+        },
+        'created_at': '2015-08-31T00:00:00.000Z'
+      }
     ]
+
   };
 
 var exampleProfile = [
@@ -155,92 +173,37 @@ exampleProfile[0].startDate.setMilliseconds(0);
 
 describe('reports', function ( ) {
   var self = this;
+  var headless = require('./fixtures/headless')(benv, this);
 
   before(function (done) {
-    benv.setup(function() {
-      self.$ = require('jquery');
-      self.$.localStorage = require('./fixtures/localstorage');
-
-      self.$.fn.tipsy = function mockTipsy ( ) { };
-
-      self.$.fn.dialog = function mockDialog (opts) {
-        function maybeCall (name, obj) {
-          if (obj[name] && obj[name].call) {
-            obj[name]();
-          }
-
-        }
-        maybeCall('open', opts);
-
-        _.forEach(opts.buttons, function (button) {
-          maybeCall('click', button);
-        });
-      };
-
-      var indexHtml = read(__dirname + '/../static/report/index.html', 'utf8');
-      self.$('body').html(indexHtml);
-
-      //var filesys = require('fs');
-      //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
-      
-      self.$.ajax = function mockAjax (url, opts) {
-        //logfile.write(url+'\n');
-        return {
-          done: function mockDone (fn) {
-            if (opts && opts.success && opts.success.call) {
-              if (someData[url]) {
-                //console.log('+++++Data for ' + url + ' sent');
-                opts.success(someData[url]);
-              } else {
-                //console.log('-----Data for ' + url + ' missing');
-                opts.success([]);
-              }
-            }
-            fn();
-            return self.$.ajax();
-          },
-          fail: function mockFail (fn) {
-            fn({status: 400});
-            return self.$.ajax();
-          }
-        };
-      };
-
-      self.$.plot = function mockPlot () {
-      };
-
-      var d3 = require('d3');
-      //disable all d3 transitions so most of the other code can run with jsdom
-      d3.timer = function mockTimer() { };
-
-      benv.expose({
-        $: self.$
-        , jQuery: self.$
-        , d3: d3
-        , serverSettings: serverSettings
-        , io: {
-          connect: function mockConnect ( ) {
-            return {
-              on: function mockOn ( ) { }
-            };
-          }
-        }
-      });
-
-      benv.require(__dirname + '/../bundle/bundle.source.js');
-      benv.require(__dirname + '/../static/report/js/report.js');
-
-      done();
-    });
+    done( );
   });
 
   after(function (done) {
-    benv.teardown(true);
-    done();
+    done( );
   });
 
+  beforeEach(function (done) {
+    var opts = {
+      htmlFile: __dirname + '/../static/report/index.html'
+    , mockProfileEditor: true
+    , serverSettings: serverSettings
+    , mockSimpleAjax: someData
+    , benvRequires: [
+        __dirname + '/../bundle/bundle.source.js'
+      , __dirname + '/../static/report/js/report.js'
+      ]
+    };
+    headless.setup(opts, done);
+  });
+
+  afterEach(function (done) {
+    headless.teardown( );
+    done( );
+  });
+
+
   it ('should produce some html', function (done) {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
 
     var hashauth = require('../lib/hashauth');
@@ -258,52 +221,59 @@ describe('reports', function ( ) {
        return true;
      };
 
-    client.init(serverSettings, plugins);
-    client.dataUpdate(nowData);
-    
-    // Load profile, we need to operate in UTC
-    client.sbx.data.profile.loadData(exampleProfile);
-    
-    $('a.presetdates :first').click();
-    $('#rp_notes').val('something');
-    $('#rp_eventtype').val('BG Check');
-    $('#rp_from').val('2015/08/08');
-    $('#rp_to').val('2015/09/07');
-    $('#rp_optionsraw').prop('checked',true);
-    $('#rp_optionsiob').prop('checked',true);
-    $('#rp_optionscob').prop('checked',true);
-    $('#rp_enableeventtype').click();
-    $('#rp_enablenotes').click();
-    $('#rp_enablefood').click();
-    $('#rp_enablefood').click();
-    $('#rp_log').prop('checked',true);
-    $('#rp_show').click();
+     window.setTimeout = function mockSetTimeout (call) {
+       call();
+     };
 
-    $('#rp_linear').prop('checked',true);
-    $('#rp_show').click();
-    $('#dailystats').click();
-    
-    $('img.deleteTreatment:first').click();
-    $('img.editTreatment:first').click();
-    $('.ui-button:contains("Save")').click();
+    client.init(function afterInit ( ) {
+      client.dataUpdate(nowData);
 
-    var result = $('body').html();
-    //var filesys = require('fs');
-    //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
-    //logfile.write($('body').html());
-    
-    //console.log(result);
+      // Load profile, we need to operate in UTC
+      client.sbx.data.profile.loadData(exampleProfile);
 
-    result.indexOf('Milk now').should.be.greaterThan(-1); // daytoday
-    result.indexOf('50 g (1.67U)').should.be.greaterThan(-1); // daytoday
-    result.indexOf('<td class="tdborder">0%</td><td class="tdborder">100%</td><td class="tdborder">0%</td><td class="tdborder">2</td><td class="tdborder">8.3</td>').should.be.greaterThan(-1); //dailystats
-    result.indexOf('td class="tdborder" style="background-color:#8f8"><strong>Normal: </strong></td><td class="tdborder">38%</td><td class="tdborder">6</td><td class="tdborder">8.7</td><td class="tdborder">8.8</td><td class="tdborder">0.2</td>').should.be.greaterThan(-1); // distribution
-    result.indexOf('<td>16 (100%)</td><td>11</td><td>8.3</td><td>8.9</td><td>10.6</td><td>11.7</td><td>18.3</td><td>2.7</td>').should.be.greaterThan(-1); // hourlystats
-    result.indexOf('<div id="success-grid">').should.be.greaterThan(-1); //success 
-    result.indexOf('<b style="padding-left:4em">CAL</b>:  Scale: 1.10 Intercept: 31102 Slope: 776.91').should.be.greaterThan(-1); //calibrations
-    result.indexOf('<td>Correction Bolus</td><td align="center">250 (Sensor)</td><td align="center">0.75</td><td align="center"></td><td>Mom </td><td></td>').should.be.greaterThan(-1); //treatments
-    
-    done();
+      $('#treatments').addClass('selected');
+      $('a.presetdates :first').click();
+      $('#rp_notes').val('something');
+      $('#rp_eventtype').val('BG Check');
+      $('#rp_from').val('2015/08/08');
+      $('#rp_to').val('2015/09/07');
+      $('#rp_optionsraw').prop('checked', true);
+      $('#rp_optionsiob').prop('checked', true);
+      $('#rp_optionscob').prop('checked', true);
+      $('#rp_enableeventtype').click();
+      $('#rp_enablenotes').click();
+      $('#rp_enablefood').click();
+      $('#rp_enablefood').click();
+      $('#rp_log').prop('checked', true);
+      $('#rp_optionsopenaps').prop('checked', true);
+      $('#rp_show').click();
+
+      $('#rp_linear').prop('checked', true);
+      $('#rp_show').click();
+      $('#dailystats').click();
+
+      $('img.deleteTreatment:first').click();
+      $('img.editTreatment:first').click();
+      $('.ui-button:contains("Save")').click();
+
+      var result = $('body').html();
+      //var filesys = require('fs');
+      //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
+      //logfile.write($('body').html());
+
+      // console.log(result);
+
+      result.indexOf('Milk now').should.be.greaterThan(-1); // daytoday
+      result.indexOf('50 g (1.67U)').should.be.greaterThan(-1); // daytoday
+      result.indexOf('<td class="tdborder">0%</td><td class="tdborder">100%</td><td class="tdborder">0%</td><td class="tdborder">2</td>').should.be.greaterThan(-1); //dailystats
+      result.indexOf('td class="tdborder" style="background-color:#8f8"><strong>Normal: </strong></td><td class="tdborder">38%</td><td class="tdborder">6</td>').should.be.greaterThan(-1); // distribution
+      result.indexOf('<td>16 (100%)</td>').should.be.greaterThan(-1); // hourlystats
+      result.indexOf('<div id="success-grid">').should.be.greaterThan(-1); //success
+      result.indexOf('<b style="padding-left:4em">CAL</b>:  Scale: 1.10 Intercept: 31102 Slope: 776.91').should.be.greaterThan(-1); //calibrations
+      result.indexOf('<td>Correction Bolus</td><td align="center">250 (Sensor)</td><td align="center">0.75</td>').should.be.greaterThan(-1); //treatments
+
+      done();
+    });
   });
 
 });
