@@ -56,27 +56,19 @@
 			-webkit-align-items: center;
 			align-items: center;
 			justify-content: center;
+			flex-direction: column;
 		}
 		#arrowDiv {
 			flex-grow: 1;
 			text-align: center;
 		}
 		img#arrow {
-			height: 28vmin;
+			height: 30vmin;
 		}
 		#staleTime {
 			flex-grow: 1;
-			font-size: 10vmin;
-			line-height: 8vmin;
-			text-align: left;
-			padding-left: 2vw;
-			display: none;
-		}
-		#staleNum {
 			font-size: 6vmin;
-		}
-		.stale {
-			color: black;
+			display: none;
 		}
 	</style>
 </head>
@@ -87,12 +79,8 @@
 		<div class="inner">
 			<div id="bgnow"></div>
 			<div id="trend">
-				<div id="arrowDiv">
-					<img id="arrow" src=""/>
-				</div>
-				<div id="staleTime">Last BG<br>
-					<span id="staleNum"></span>
-				</div>
+				<div id="arrowDiv"><img id="arrow" src=""/></div>
+				<div id="staleTime"></div>
 			</div>
 		</div>
 	</main>
@@ -147,7 +135,7 @@
 			$('#bgnow').text(rec.sgv);
 			
 			// Insert the BG stale time text.
-			$('#staleNum').text(elapsedMins+' mins ago');
+			$('#staleTime').text(elapsedMins+' minutes ago');
 
 			// Threshold background coloring.
 			if (bgNum < bgLow) {
@@ -169,18 +157,15 @@
 			// Time before data considered stale.
 			var staleMinutes = 13;										
 			var threshold = 1000 * 60 * staleMinutes;			
-
-			// Restyle if stale.	
-			$('body').toggleClass('stale', (now - last > threshold));
 			
 			// Restyle body bg, and make the "Last BG x mins ago" visible too.
 			if (now - last > threshold) {
 				$('body').css('background-color', 'grey');
-				$('#staleTime').css('display', 'flex');
-				$('#arrowDiv').css('text-align', 'right');
+				$('body').css('color', 'black');
+				$('#staleTime').css('display', 'box');
 			} else {
 				$('#staleTime').css('display', 'none');
-				$('#arrowDiv').css('text-align', 'center');
+				$('body').css('color', 'white');
 			}
 		}
 
