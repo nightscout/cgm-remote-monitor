@@ -27,7 +27,7 @@
 			overflow: hidden;
 			font-family: 'Open Sans';
 			color: white;
-			background-color: rgba(134,207,70,1);
+			background-color: white;
 		}
 		main {
 			display: -webkit-box;
@@ -158,11 +158,11 @@
 			var staleMinutes = 13;										
 			var threshold = 1000 * 60 * staleMinutes;			
 			
-			// Restyle body bg, and make the "Last BG x mins ago" visible too.
+			// Restyle body bg, and make the "x minutes ago" visible too.
 			if (now - last > threshold) {
 				$('body').css('background-color', 'grey');
 				$('body').css('color', 'black');
-				$('#staleTime').css('display', 'box');
+				$('#staleTime').css('display', 'block');
 			} else {
 				$('#staleTime').css('display', 'none');
 				$('body').css('color', 'white');
