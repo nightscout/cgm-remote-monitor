@@ -1,6 +1,8 @@
 'use strict';
 
 var request = require('supertest');
+var language = require('../lib/language')();
+
 require('should');
 
 describe('Status REST api', function ( ) {
@@ -8,12 +10,13 @@ describe('Status REST api', function ( ) {
   before(function (done) {
     var env = require('../env')( );
     env.settings.enable = ['careportal', 'rawbg'];
+    env.settings.authDefaultRoles = 'readable';
     env.api_secret = 'this is my long pass phrase';
     this.wares = require('../lib/middleware/')(env);
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    require('../lib/bootevent')(env).boot(function booted (ctx) {
+    require('../lib/bootevent')(env, language).boot(function booted (ctx) {
       self.app.use('/api', api(env, ctx));
       done();
     });
@@ -42,6 +45,27 @@ describe('Status REST api', function ( ) {
         done();
       });
   });
+
+  it('/status.svg', function (done) {
+    request(this.app)
+      .get('/api/status.svg')
+      .end(function(err, res) {
+        res.statusCode.should.equal(302);
+        done();
+      });
+  });
+
+  it('/status.txt', function (done) {
+    request(this.app)
+      .get('/api/status.txt')
+      .expect(200, 'STATUS OK')
+      .end(function(err, res) {
+        res.type.should.equal('text/plain');
+        res.statusCode.should.equal(200);
+        done();
+      });
+  });
+
 
   it('/status.js', function (done) {
     request(this.app)
