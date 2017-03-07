@@ -485,6 +485,7 @@
       datastorage.tempbasalTreatments = datastorage.tempbasalTreatments.concat(datastorage[day].tempbasalTreatments);
     });
     datastorage.tempbasalTreatments = Nightscout.client.ddata.processDurations(datastorage.tempbasalTreatments);
+    datastorage.treatments.sort(function sort(a, b) {return a.mills - b.mills; });
     
      for (var d in daystoshow) {
         if (daystoshow.hasOwnProperty(d)) {
