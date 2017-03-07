@@ -541,7 +541,7 @@
   
   function loadData(day, options, callback) {
     // check for loaded data
-    if (options.openAps && datastorage[day] && !datastorage[day].devicestatus) {
+    if ((options.openAps || options.iob || options.cob) && datastorage[day] && !datastorage[day].devicestatus.length) {
       // OpenAPS requested but data not loaded. Load anyway ...
     } else if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
       callback(day);
