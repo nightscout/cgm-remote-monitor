@@ -74,7 +74,7 @@ describe('hashauth', function ( ) {
 
     client.init();
 
-    hashauth.inlineCode().indexOf('Not authorized').should.be.greaterThan(0);
+    hashauth.inlineCode().indexOf('Unauthorized').should.be.greaterThan(0);
     hashauth.isAuthenticated().should.equal(false);
     var testnull = (hashauth.hash()===null);
     testnull.should.equal(true);
