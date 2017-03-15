@@ -112,6 +112,10 @@ describe('Treatment API', function ( ) {
               var sorted = _.sortBy(list, function (treatment) {
                 return treatment.created_at;
               });
+
+              if (sorted.length !== 3) {
+                console.info('unexpected result length, sorted treatments:', sorted);
+              }
               sorted.length.should.equal(3);
               sorted[0].glucose.should.equal(100);
 
