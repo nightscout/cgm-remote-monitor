@@ -1,7 +1,7 @@
 language: node_js
 sudo: required
 node_js:
-  - 4
+  - 6
 matrix:
   fast_finish: true
 services:
