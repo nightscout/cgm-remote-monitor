@@ -25,32 +25,32 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.9.3-dev-20161224" />
-      <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.9.3-dev-20161224" />
+      <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.9.3-dev-20170318" />
+      <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.9.3-dev-20170318" />
       <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-      <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.9.3-dev-20161224" />
+      <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.9.3-dev-20170318" />
       <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
       <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">
     </head>
     <body>
         <div class="container loading" id="container">
             <div id="toolbar">
-                <div id="buttonbar">
-                    <a id="editbutton" class="tip" original-title="Edit Mode" href="#" style="display:none;"><i class="icon-edit"></i></a>
-                    <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
-                    <a id="drawerToggle" class="tip" original-title="Settings" href="#"><i class="icon-menu"></i></a>
-                    <a id="lockedToggle" class="tip" original-title="Token needed for Care Portal" href="#" style="display:none;"><i class="icon-lock"></i></a>
-                    <a id="treatmentDrawerToggle" class="tip" original-title="Care Portal" href="#" style="display:none;"><i class="icon-plus"></i></a>
-                    <a id="boluscalcDrawerToggle" class="tip" original-title="Bolus Wizard" href="#" style="display:none;"><i class="icon-calc"></i></a>
+                <div id="buttonbar" role="navigation" aria-label="Menu" >
+                    <a id="editbutton" class="tip" original-title="Edit Mode" aria-label="Edit Mode" href="#" style="display:none;"><i class="icon-edit"></i></a>
+                    <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" aria-label="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
+                    <a id="drawerToggle" class="tip" original-title="Settings" aria-label="Settings" href="#"><i class="icon-menu"></i></a>
+                    <a id="lockedToggle" class="tip" original-title="Token needed for Care Portal" aria-label="Token needed for Care Portal" href="#" style="display:none;"><i class="icon-lock"></i></a>
+                    <a id="treatmentDrawerToggle" class="tip" original-title="Care Portal" aria-label="Care Portal" href="#" style="display:none;"><i class="icon-plus"></i></a>
+                    <a id="boluscalcDrawerToggle" class="tip" original-title="Bolus Wizard" aria-label="Bolus Wizard" href="#" style="display:none;"><i class="icon-calc"></i></a>
                 </div>
                 <div class="customTitle">Nightscout</div>
             </div>
-            <div id="notification">
-                <a href="#"><span></span><i class="icon-cancel-circled"></i></a>
+            <div id="notification" role="region" aria-label="Notification">
+                <a href="#"  aria-label="cancel" ><span></span><i class="icon-cancel-circled"></i></a>
             </div>
-            <div class="primary">
+            <div class="primary" >
                 <div class="bgStatus current">
-                    <div class="bgButton">
+                    <div class="bgButton" aria-live="assertive" role="contentinfo" aria-label="Blood Sugar">  
                         <span class="pill rawbg hidden"><em></em><label></label></span>
                         <span class="currentBG">---</span>
                         <span class="pill direction"></span>
@@ -77,13 +77,13 @@
                 <ul class="dropdown-menu" id="viewMenu"></ul>
             </div>
             <div class="row-fluid section1">
-                <div id="chartContainer"></div>
+                <div id="chartContainer" role="region" aria-label="Chart"></div>
             </div>
         </div>
 
         <div id="drawer">
-            <form id="settings-form">
-                <ul class="navigation">
+            <form id="settings-form" role="form" >
+                <ul class="navigation" role="navigation" aria-label="Settings">
                   <li><a href="/report/index.html" target="reports" class="translate">Reports</a></li>
                   <li class="profilecontrol"><a id="editprofilelink" href="/profile/index.html" target="profileeditor" class="translate">Profile Editor</a></li>
                   <li class="foodcontrol"><a id="editfoodlink" href="/food/index.html" target="foodeditor" class="translate">Food Editor</a></li>
@@ -189,7 +189,7 @@
                     <div>head <span class="head"></span></div>
                     <p>
                       <div>License: <a href="http://www.gnu.org/licenses/agpl.html" target="_blank">AGPL</a></div>
-                      <div>Copyright © 2015 <a href="http://www.nightscoutfoundation.org/" target="_blank">The Nightscout Foundation</a></div>
+                      <div>Copyright © 2017 <a href="https://github.com/nightscout/cgm-remote-monitor/graphs/contributors" target="_blank">Nightscout contributors</a></div>
                     </p>
                     <div class="links">
                         <a href="https://github.com/nightscout/cgm-remote-monitor/releases" target="_blank">Release Notes</a><br />
@@ -590,7 +590,7 @@
             <audio src="/audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
         </div>
 
-        <script src="/public/js/bundle.js?v=0.9.3-dev-20161224"></script>
+        <script src="/public/js/bundle.js?v=0.9.3-dev-20170318"></script>
         <script src="/socket.io/socket.io.js"></script>
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
