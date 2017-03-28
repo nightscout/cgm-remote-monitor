@@ -8,12 +8,7 @@ var client = Nightscout.client;
 
 (function () {
 
-  if (serverSettings === undefined) {
-    console.error('server settings were not loaded, will not call init');
-  } else {
-    client.init(serverSettings, Nightscout.plugins);
-  }
-  
+client.init(function loaded () {
   var translate = client.translate;
   
   var foodrec_template = { 
@@ -662,5 +657,6 @@ var client = Nightscout.client;
     if (after) {
       after();
     }
-}
+  }
+});
 })();
