@@ -62,6 +62,7 @@
     "express-extension-to-accept": "0.0.2",
     "forever": "~0.15.2",
     "git-rev": "git://github.com/bewest/git-rev.git",
+    "heapdump": "^0.3.7",
     "jquery": "^2.1.4",
     "jsonwebtoken": "^7.1.9",
     "lodash": "^4.16.4",
