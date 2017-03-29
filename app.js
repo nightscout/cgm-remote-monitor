@@ -67,7 +67,7 @@ function create (env, ctx) {
     var heapdump = require('heapdump');
     app.get('/api/v2/dumps/start', function (req, res) {
       var path = new Date().toISOString() + '.heapsnapshot';
-      path = _.replace(path, ':', '-');
+      path = path.replace(/:/g, '-');
       console.info('writing dump to', path);
       heapdump.writeSnapshot(path);
       res.send('wrote dump to ' + path);
