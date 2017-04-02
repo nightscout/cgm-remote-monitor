@@ -113,7 +113,7 @@ Clone this repo then install dependencies into the root of the project:
 $ npm install
 ```
 
-#Usage
+# Usage
 
 The data being uploaded from the server to the client is from a
 MongoDB server such as [mongolab][mongodb].
