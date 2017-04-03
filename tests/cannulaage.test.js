@@ -4,13 +4,14 @@ require('should');
 var levels = require('../lib/levels');
 
 describe('cage', function ( ) {
-  var cage = require('../lib/plugins/cannulaage')();
-  var sandbox = require('../lib/sandbox')();
   var env = require('../env')();
   var ctx = {};
-  ctx.data = require('../lib/data')(env, ctx);
+  ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
+  ctx.language = require('../lib/language')();
 
+  var cage = require('../lib/plugins/cannulaage')(ctx);
+  var sandbox = require('../lib/sandbox')();
   function prepareSandbox ( ) {
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     sbx.offerProperty('iob', function () {
@@ -21,48 +22,52 @@ describe('cage', function ( ) {
 
   it('set a pill to the current cannula age', function (done) {
 
-    var clientSettings = {};
-
     var data = {
-      treatments: [
+      sitechangeTreatments: [
         {eventType: 'Site Change', notes: 'Foo', mills: Date.now() - 48 * 60 * 60000}
         , {eventType: 'Site Change', notes: 'Bar', mills: Date.now() - 24 * 60 * 60000}
         ]
     };
 
-    var pluginBase = {
-      updatePillText: function mockedUpdatePillText (plugin, options) {
-        options.value.should.equal('24h');
-        options.info[1].value.should.equal('Bar');
-        done();
+    var ctx = {
+      settings: {}
+      , pluginBase: {
+        updatePillText: function mockedUpdatePillText(plugin, options) {
+          options.value.should.equal('24h');
+          options.info[1].value.should.equal('Bar');
+          done();
+        }
       }
     };
 
-    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    cage.setProperties(sbx);
     cage.updateVisualisation(sbx);
 
   });
 
   it('set a pill to the current cannula age', function (done) {
 
-    var clientSettings = {};
-
     var data = {
-      treatments: [
+      sitechangeTreatments: [
         {eventType: 'Site Change', notes: 'Foo', mills: Date.now() - 48 * 60 * 60000}
         , {eventType: 'Site Change', notes: '', mills: Date.now() - 59 * 60000}
         ]
     };
 
-    var pluginBase = {
-      updatePillText: function mockedUpdatePillText (plugin, options) {
-        options.value.should.equal('0h');
-        options.info.length.should.equal(1);
-        done();
+    var ctx = {
+      settings: {}
+      , pluginBase: {
+        updatePillText: function mockedUpdatePillText(plugin, options) {
+          options.value.should.equal('0h');
+          options.info.length.should.equal(1);
+          done();
+        }
       }
     };
 
-    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    cage.setProperties(sbx);
     cage.updateVisualisation(sbx);
 
   });
@@ -73,13 +78,14 @@ describe('cage', function ( ) {
 
     var before = Date.now() - (48 * 60 * 60 * 1000);
 
-    ctx.data.treatments = [{eventType: 'Site Change', mills: before}];
+    ctx.ddata.sitechangeTreatments = [{eventType: 'Site Change', mills: before}];
 
     var sbx = prepareSandbox();
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
+    cage.setProperties(sbx);
     cage.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm();
+    var highest = ctx.notifications.findHighestAlarm('CAGE');
     highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Cannula age 48 hours');
     done();
