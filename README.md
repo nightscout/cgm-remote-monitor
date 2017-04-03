@@ -218,6 +218,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js
   * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
+  * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
 
 
 ### Predefined values for your browser settings (optional)
@@ -532,7 +533,9 @@ License
 [agpl-3]: http://www.gnu.org/licenses/agpl-3.0.txt
 
     cgm-remote-monitor - web app to broadcast cgm readings
-    Copyright (C) 2015 The Nightscout Foundation, http://www.nightscoutfoundation.org.
+    Copyright (C) 2017 Nightscout contributors.  See the COPYRIGHT file
+    at the root directory of this distribution and at
+    https://github.com/nightscout/cgm-remote-monitor/blob/master/COPYRIGHT
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published
