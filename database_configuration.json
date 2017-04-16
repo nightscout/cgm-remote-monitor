@@ -1,4 +1,4 @@
 {
-    "url": null,
-    "collection": null
+    "url": "mongodb://kieranhunter:kieran123@ds045679.mongolab.com:45679/kieranhunter",
+    "collection": "kieranhunter"
 }
