@@ -228,7 +228,7 @@
 
                     <fieldset id="bg">
                         <legend class="translate">Glucose Reading</legend>
-                        <input type="number" step="any" id="glucoseValue" pattern="\d*" />
+                        <input type="number" step="any" id="glucoseValue" pattern="[0-9.,]*" />
                         <label><br><span class="translate">Measurement Method</span><br></label>
                         <label for="meter">
                             <input type="radio" name="glucoseType" id="meter" value="Finger"/>
@@ -245,7 +245,7 @@
                     </label>
                     <label id="insulinGivenLabel" for="insulinGiven" class="left-column short-label">
                         <span class="translate">Insulin Given</span>
-                        <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate" pattern="[0-9.]*" />
+                        <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate" pattern="[0-9.,]*" />
                     </label>
                     <label id="insulinSplitLabel" for="insulinSplit" class="left-column short-label">
                         <span class="translate">Split</span>
