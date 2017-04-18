@@ -1,0 +1,24 @@
+FROM node:0.12
+
+MAINTAINER Nightscout Contributors
+
+RUN apt-get update && \
+  apt-get -y dist-upgrade && \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    git \
+    nodejs \
+    nodejs-legacy \
+    npm && \
+  apt-get -y clean
+
+RUN mkdir -p /opt/app
+ADD . /opt/app
+WORKDIR /opt/app
+
+RUN npm install && \
+  npm run postinstall && \
+  npm run env
+
+EXPOSE 1337
+
+CMD ["node", "server.js"]
