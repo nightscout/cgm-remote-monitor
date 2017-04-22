@@ -40,6 +40,8 @@
     <h1 class="bgnow"></h1>
   </div>
   <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+  <script src="/api/v1/status.js"></script>
+  <script src="/public/js/bundle.js"></script>
   <script type="text/javascript">
     function query ( ) {
       console.log('query');
@@ -51,6 +53,9 @@
       var rec = xhr[0];
       var last = new Date(rec.date);
       var now = new Date( );
+      if (window.serverSettings.settings.units == 'mmol') {
+        rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
+      }
       $('.bgnow').text(rec.sgv);
       var threshold = 1000 * 60 * 13;
       $('.bgnow').toggleClass('stale', (now - last > threshold));
