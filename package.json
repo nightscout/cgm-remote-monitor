@@ -60,7 +60,7 @@
     "expand-braces": "^0.1.1",
     "express": "^4.6.1",
     "express-extension-to-accept": "0.0.2",
-    "forever": "~0.13.0",
+    "forever": "~0.15.3",
     "git-rev": "git://github.com/bewest/git-rev.git",
     "jquery": "^2.1.4",
     "jsonwebtoken": "7.1.9",
