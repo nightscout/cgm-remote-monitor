@@ -19,7 +19,7 @@
     },
     "ENABLE": {
       "description": "Used to enable optional features, expects a space delimited list, such as: careportal rawbg iob, see https://github.com/nightscout/cgm-remote-monitor/blob/master/README.md for more info",
-      "value": "",
+      "value": "iob",
       "required": false
     },
     "DISABLE": {
