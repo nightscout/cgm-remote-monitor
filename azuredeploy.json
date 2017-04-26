@@ -185,7 +185,7 @@
     },
     "show_plugins": {
       "type": "string",
-      "defaultValue": "careportal",
+      "defaultValue": "careportal iob",
     },
     "show_rawbg": {
       "type": "string",

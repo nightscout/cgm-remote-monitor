@@ -69,12 +69,12 @@
     },
     "CUSTOM_TITLE": {
       "description": "Customize the name of the website, usually the name of T1.",
-      "value": "",
+      "value": "Sam's BG",
       "required": false
     },
     "THEME": {
       "description": "Possible values default, colors or colorblindfriendly",
-      "value": "",
+      "value": "colors",
       "required": false
     },
     "SHOW_RAWBG": {
