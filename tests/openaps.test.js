@@ -4,8 +4,11 @@ var _ = require('lodash');
 var should = require('should');
 var moment = require('moment');
 
+var ctx = {
+  language: require('../lib/language')()
+};
 var env = require('../env')();
-var openaps = require('../lib/plugins/openaps')();
+var openaps = require('../lib/plugins/openaps')(ctx);
 var sandbox = require('../lib/sandbox')();
 var levels = require('../lib/levels');
 
@@ -213,7 +216,7 @@ describe('openaps', function ( ) {
 
     ctx.notifications.initRequests();
 
-    var sbx = sandbox.clientInit(ctx, now.add(1, 'hours').valueOf(), {devicestatus: statuses});
+    var sbx = sandbox.clientInit(ctx, now.clone().add(1, 'hours').valueOf(), {devicestatus: statuses});
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
     openaps.setProperties(sbx);
     openaps.checkNotifications(sbx);
@@ -234,7 +237,7 @@ describe('openaps', function ( ) {
 
     ctx.notifications.initRequests();
 
-    var sbx = sandbox.clientInit(ctx, now.add(1, 'hours').valueOf(), {
+    var sbx = sandbox.clientInit(ctx, now.clone().add(1, 'hours').valueOf(), {
       devicestatus: statuses
       , treatments: [{eventType: 'OpenAPS Offline', mills: now.valueOf(), duration: 60}]
     });
@@ -245,6 +248,34 @@ describe('openaps', function ( ) {
     var highest = ctx.notifications.findHighestAlarm('OpenAPS');
     should.not.exist(highest);
     done();
+  });
+
+  it('should handle alexa requests', function (done) {
+    var ctx = {
+      settings: {
+        units: 'mg/dl'
+      }
+      , notifications: require('../lib/notifications')(env, ctx)
+      , language: require('../lib/language')()
+    };
+
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
+    openaps.setProperties(sbx);
+
+    openaps.alexa.intentHandlers.length.should.equal(2);
+
+    openaps.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+      title.should.equal('Loop Forecast');
+      response.should.equal('The OpenAPS Eventual BG is 125');
+
+      openaps.alexa.intentHandlers[1].intentHandler(function next(title, response) {
+        title.should.equal('Last loop');
+        response.should.equal('The last successful loop was 2 minutes ago');
+        done();
+      }, [], sbx);
+
+    }, [], sbx);
+
   });
 
 });
