@@ -446,10 +446,14 @@
         if (options.order === report_plugins.consts.ORDER_NEWESTONTOP) {
           sorteddaystoshow.reverse();
         }
-        loadProfileSwitch(from, function loadProfileSwitchCallback() {
-          $('#info > b').html('<b>'+translate('Rendering')+' ...</b>');
-          window.setTimeout(function () {showreports(options); }, 0);
+        loadProfileSwitch(function loadProfileSwitchCallback() {
+          loadProfiles(function loadProfilesCallback() {
+            $('#info > b').html('<b>' + translate('Rendering') + ' ...</b>');
+            window.setTimeout(function () {
+              showreports(options);
+            }, 0);
           });
+        });
       }
     }
     
@@ -678,7 +682,7 @@
     });
   }
 
-  function loadProfileSwitch(from, callback) {
+  function loadProfileSwitch(callback) {
     $('#info > b').html('<b>'+translate('Loading profile switch data') + ' ...</b>');
     var tquery = '?find[eventType]=Profile Switch';
     $.ajax('/api/v1/treatments.json'+tquery, {
@@ -696,7 +700,21 @@
       callback();
     });
   }
-  
+
+  function loadProfiles(callback) {
+    $('#info > b').html('<b>'+translate('Loading profiles') + ' ...</b>');
+    $.ajax('/api/v1/profile.json', {
+      headers: client.headers()
+      , success: function (records) {
+        datastorage.profiles = records;
+      }
+      , error: function () {
+       datastorage.profiles = [];
+      }
+    }).done(callback);
+  }
+
+
   function processData(data, day, options, callback) {
     if (daystoshow[day].treatmentsonly) {
       datastorage[day] = data;
