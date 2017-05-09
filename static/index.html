@@ -25,10 +25,10 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.9.3-dev-20170318" />
-      <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.9.3-dev-20170318" />
+      <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.10.0-dev-20170423" />
+      <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.10.0-dev-20170423" />
       <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-      <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.9.3-dev-20170318" />
+      <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.10.0-dev-20170423" />
       <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
       <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">
     </head>
@@ -228,7 +228,7 @@
 
                     <fieldset id="bg">
                         <legend class="translate">Glucose Reading</legend>
-                        <input type="number" step="any" id="glucoseValue" pattern="\d*" />
+                        <input type="number" step="any" id="glucoseValue" pattern="[0-9.,]*" />
                         <label><br><span class="translate">Measurement Method</span><br></label>
                         <label for="meter">
                             <input type="radio" name="glucoseType" id="meter" value="Finger"/>
@@ -245,7 +245,7 @@
                     </label>
                     <label id="insulinGivenLabel" for="insulinGiven" class="left-column short-label">
                         <span class="translate">Insulin Given</span>
-                        <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate" pattern="[0-9.]*" />
+                        <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate" pattern="[0-9.,]*" />
                     </label>
                     <label id="insulinSplitLabel" for="insulinSplit" class="left-column short-label">
                         <span class="translate">Split</span>
@@ -590,7 +590,7 @@
             <audio src="/audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
         </div>
 
-        <script src="/public/js/bundle.js?v=0.9.3-dev-20170318"></script>
+        <script src="/public/js/bundle.js?v=0.10.0-dev-20170423"></script>
         <script src="/socket.io/socket.io.js"></script>
         <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
         <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
