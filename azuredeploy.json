@@ -1,0 +1,325 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "siteName": {
+      "type": "string"
+    },
+    "hostingPlanName": {
+      "type": "string"
+    },
+    "siteLocation": {
+      "type": "string"
+    },
+    "sku": {
+      "type": "string",
+      "allowedValues": [
+        "Free",
+        "Shared",
+        "Basic",
+        "Standard"
+      ],
+      "defaultValue": "Free"
+    },
+    "workerSize": {
+      "type": "string",
+      "allowedValues": [
+        "0",
+        "1",
+        "2"
+      ],
+      "defaultValue": "0"
+    },
+    "repoUrl": {
+      "type": "string"
+
+    },
+    "branch": {
+      "type": "string"
+    },
+    "mongoConnection": {
+      "type": "string"
+    },
+    "mongoCollection": {
+      "type": "string",
+      "defaultValue": "entries"
+    }, 
+    "displayUnits": {
+      "type": "string",
+      "allowedValues": [
+        "mg/dl",
+        "mmol"
+      ],
+      "defaultValue": "mg/dl"
+    },
+    "apiSecret": {
+      "type": "string",
+      "minLength": "12",
+      "defaultValue": "Enter an API secret. Must be at least 12 characters"
+    },
+    "theme": {
+      "type": "string",
+      "allowedValues": [
+        "default",
+        "colors",
+        "colorblindfriendly"
+      ],
+      "defaultValue": "colors",
+    },
+    "time_format": {
+      "type": "string",
+      "allowedValues": [
+        "12",
+        "24"
+      ],
+      "defaultValue": "24",
+    },
+    "language": {
+      "type": "string",
+      "allowedValues": [
+        "bg",
+        "cs",
+        "dk",
+        "de",
+        "el",
+        "en",
+        "es",
+        "fr",
+        "he",
+        "hr",
+        "it",
+        "nl",
+        "nb",
+        "pl",
+        "pt",
+        "ro",
+        "ru",
+        "sk",
+        "sv",
+        "fi",
+        "ko"
+      ],
+      "defaultValue": "en",
+    },
+    "custom_title": {
+      "type": "string",
+      "defaultValue": "Nightscout",
+    },
+    "alarm_high": {
+      "type": "string",
+      "allowedValues": [
+        "on",
+        "off"
+      ],
+      "defaultValue": "off",
+    },
+    "alarm_low": {
+      "type": "string",
+      "allowedValues": [
+        "on",
+        "off"
+      ],
+      "defaultValue": "off",
+    },
+    "alarm_timeago_urgent": {
+      "type": "string",
+      "allowedValues": [
+        "on",
+        "off"
+      ],
+      "defaultValue": "off",
+    },
+    "alarm_timeago_warn": {
+      "type": "string",
+      "allowedValues": [
+        "on",
+        "off"
+      ],
+      "defaultValue": "off",
+    },
+    "alarm_urgent_high": {
+      "type": "string",
+      "allowedValues": [
+        "on",
+        "off"
+      ],
+      "defaultValue": "off",
+    },
+    "alarm_urgent_low": {
+      "type": "string",
+      "allowedValues": [
+        "on",
+        "off"
+      ],
+      "defaultValue": "off",
+    },
+    "basal_render": {
+      "type": "string",
+      "allowedValues": [
+        "none",
+        "default",
+        "icicle"
+      ],
+      "defaultValue": "none",
+    },
+    "scale_y": {
+      "type": "string",
+      "allowedValues": [
+        "log",
+        "linear",
+        "log-dynamic"
+      ],
+      "defaultValue": "log",
+    },
+    "enable": {
+      "type": "string",
+      "defaultValue": "basal bwp cage careportal cob rawbg sage iage treatmentnotify boluscalc profile",
+    },
+    "night_mode": {
+      "type": "string",
+      "allowedValues": [
+        "on",
+        "off"
+      ],
+      "defaultValue": "off",
+    },
+    "show_plugins": {
+      "type": "string",
+      "defaultValue": "careportal",
+    },
+    "show_rawbg": {
+      "type": "string",
+      "allowedValues": [
+        "always",
+        "never",
+        "noise"
+      ],
+      "defaultValue": "never",
+    },
+    "devicestatus_advanced": {
+      "type": "string",
+      "allowedValues": [
+        "true",
+        "false"
+      ],
+      "defaultValue": "false",
+    },
+    "profile_multiple": {
+      "type": "string",
+      "allowedValues": [
+        "on",
+        "off"
+      ],
+      "defaultValue": "off",
+    }
+  },
+  "resources": [{
+    "apiVersion": "2015-04-01",
+    "name": "[parameters('hostingPlanName')]",
+    "type": "Microsoft.Web/serverFarms",
+    "location": "[parameters('siteLocation')]",
+    "properties": {
+      "sku": "[parameters('sku')]",
+      "workerSize": "[parameters('workerSize')]",
+      "numberOfWorkers": 1
+    }
+  }, {
+    "apiVersion": "2015-08-01",
+    "name": "[parameters('siteName')]",
+    "type": "Microsoft.Web/Sites",
+    "location": "[parameters('siteLocation')]",
+    "dependsOn": [
+      "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]"
+    ],
+    "tags": {
+      "[concat('hidden-related:', resourceGroup().id, '/providers/Microsoft.Web/serverfarms/', parameters('hostingPlanName'))]": "empty"
+    },
+    "properties": {
+      "serverFarmId": "[parameters('hostingPlanName')]",
+      "siteConfig": {
+        "appSettings": [{
+            "name": "MONGO_CONNECTION",
+            "value": "[parameters('mongoConnection')]"
+          }, 
+            {
+            "name": "MONGO_COLLECTION",
+            "value": "[parameters('mongoCollection')]"         
+          }, {            
+            "name": "DISPLAY_UNITS",
+            "value": "[parameters('displayUnits')]"
+          }, {
+            "name": "API_SECRET",
+            "value": "[parameters('apiSecret')]"
+          }, {
+            "name": "THEME",
+            "value": "[parameters('theme')]"
+          }, {
+            "name": "TIME_FORMAT",
+            "value": "[parameters('time_format')]"
+          }, {
+            "name": "LANGUAGE",
+            "value": "[parameters('language')]"
+          }, {
+            "name": "CUSTOM_TITLE",
+            "value": "[parameters('custom_title')]"
+          }, {
+            "name": "ALARM_HIGH",
+            "value": "[parameters('alarm_high')]"
+          }, {
+            "name": "ALARM_LOW",
+            "value": "[parameters('alarm_low')]"
+          }, {
+            "name": "ALARM_TIMEAGO_URGENT",
+            "value": "[parameters('alarm_timeago_urgent')]"
+          }, {
+            "name": "ALARM_TIMEAGO_WARN",
+            "value": "[parameters('alarm_timeago_warn')]"
+          }, {
+            "name": "ALARM_URGENT_HIGH",
+            "value": "[parameters('alarm_urgent_high')]"
+          }, {
+            "name": "ALARM_URGENT_LOW",
+            "value": "[parameters('alarm_urgent_low')]"
+          }, {
+            "name": "BASAL_RENDER",
+            "value": "[parameters('basal_render')]"
+          }, {
+            "name": "SCALE_Y",
+            "value": "[parameters('scale_y')]"
+          }, {
+            "name": "ENABLE",
+            "value": "[parameters('enable')]"
+          }, {
+            "name": "NIGHT_MODE",
+            "value": "[parameters('night_mode')]"
+          }, {
+            "name": "SHOW_PLUGINS",
+            "value": "[parameters('show_plugins')]"
+          }, {
+            "name": "SHOW_RAWBG",
+            "value": "[parameters('show_rawbg')]"
+          }, {
+            "name": "DEVICESTATUS_ADVANCED",
+            "value": "[parameters('devicestatus_advanced')]"
+          }, {
+            "name": "PROFILE_MULTIPLE",
+            "value": "[parameters('profile_multiple')]"
+          }
+        ]
+      }
+    },
+    "resources": [{
+      "apiVersion": "2015-08-01",
+      "name": "web",
+      "type": "sourcecontrols",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/Sites', parameters('siteName'))]"
+      ],
+      "properties": {
+        "RepoUrl": "[parameters('repoUrl')]",
+        "branch": "[parameters('branch')]",
+        "IsManualIntegration": true
+      }
+    }]
+  }]
+}
