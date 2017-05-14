@@ -4,9 +4,11 @@ var _ = require('lodash');
 var express = require('express');
 var compression = require('compression');
 var bodyParser = require('body-parser');
+var wwwhisper = require('connect-wwwhisper');
 
 function create (env, ctx) {
   var app = express();
+  app.use(wwwhisper());
   var appInfo = env.name + ' ' + env.version;
   app.set('title', appInfo);
   app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
@@ -38,7 +40,7 @@ function create (env, ctx) {
   ///////////////////////////////////////////////////
   var api = require('./lib/api/')(env, ctx);
   var ddata = require('./lib/data/endpoints')(env, ctx);
-
+  
   app.use(compression({filter: function shouldCompress(req, res) {
     //TODO: return false here if we find a condition where we don't want to compress
     // fallback to standard filter function
