@@ -2,7 +2,6 @@
 
 var request = require('supertest');
 var should = require('should');
-var language = require('../lib/language')();
 
 //Mocked ctx
 var ctx = {};
@@ -93,7 +92,7 @@ describe('Pebble Endpoint', function ( ) {
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    bootevent(env, language).boot(function booted (context) {
+    bootevent(env).boot(function booted (context) {
       context.ddata = ctx.ddata.clone( );
       self.app.use('/pebble', pebble(env, context));
       done();
@@ -229,7 +228,7 @@ describe('Pebble Endpoint with Raw and IOB and COB', function ( ) {
     this.appRaw = require('express')( );
     this.appRaw.enable('api');
     var self = this;
-    bootevent(env, language).boot(function booted (context) {
+    bootevent(env).boot(function booted (context) {
       context.ddata = ctx.ddata.clone( );
       self.appRaw.use('/pebble', pebbleRaw(env, context));
       done();
