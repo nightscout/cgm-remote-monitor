@@ -2,7 +2,7 @@
 // Prep step before autotune.js can run; pulls in meal (carb) data and calls categorize.js 
 
 var tz = require('moment-timezone');
-var find_meals = require('../meal/history');
+var find_meals = require('oref0/lib/meal/history');
 var sum = require('./categorize');
 
 function generate (inputs) {
@@ -19,7 +19,7 @@ function generate (inputs) {
   , basalprofile: inputs.profile.basalprofile
   };
 
-    var autotune_prep_output = sum(opts);
+  var autotune_prep_output = sum(opts);
   return autotune_prep_output;
 }
 
