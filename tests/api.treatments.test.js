@@ -2,6 +2,7 @@
 
 var request = require('supertest');
 var should = require('should');
+var language = require('../lib/language')();
 
 describe('Treatment API', function ( ) {
   this.timeout(2000);
@@ -16,7 +17,7 @@ describe('Treatment API', function ( ) {
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
     self.app.enable('api');
-    require('../lib/bootevent')(self.env).boot(function booted(ctx) {
+    require('../lib/bootevent')(self.env, language).boot(function booted(ctx) {
       self.ctx = ctx;
       self.ctx.ddata = require('../lib/data/ddata')();
       self.app.use('/api', api(self.env, ctx));
