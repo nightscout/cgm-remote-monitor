@@ -72,7 +72,7 @@ function create (env, ctx) {
   // serve the static content
   app.use(staticFiles);
 
-  var bundle = require('./bundle')();
+  var bundle = require('./bundle')(env);
   app.use(bundle);
 
   // Handle errors with express's errorhandler, to display more readable error messages.
