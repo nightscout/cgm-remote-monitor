@@ -6,39 +6,44 @@
   <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
   <link rel='stylesheet' type='text/css' href='/css/main.css' />
   <style type="text/css">
+  	@import url("//fonts.googleapis.com/css?family=Open+Sans:700");
+    body {
+		text-align: center;
+		margin: 0 0;
+		padding: 0;
+		overflow: hidden;
+		font-family: 'Open Sans';
+	}
+	main {
+		display: -webkit-box;
+		display: -ms-flexbox;
+		display: -webkit-flex;
+		display: flex;
+		-webkit-box-align: center;
+		-ms-flex-align: center;
+		-webkit-align-items: center;
+		align-items: center;
+		height: 100vh;
+	}
     .center {
-      text-align: center;
-      padding: 0;
-      margin: 0;
+		width: 100%;
+		-webkit-transform: translateY(-3%);
     }
     h1 {
-      padding: 0;
-      margin: 0;
-      font-size: 3500%;
+		font-weight: 700;
+		font-size: 50vmin;
     }
-    html, body {
-      padding: 0;
-      margin: 0;
-      height: 100%;
-    }
-    html {
-    }
-    body {
-      font-size: 100%;
-      min-height: 100%;
-
-    }
-
     .stale {
       text-decoration: line-through;
-
     }
   </style>
 </head>
 <body>
-  <div class="center">
-    <h1 class="bgnow"></h1>
-  </div>
+	<main>
+		<div class="center">
+			<h1 class="bgnow"></h1>
+		</div>
+	</main>
   <script src="/bower_components/jquery/dist/jquery.min.js"></script>
   <script src="/api/v1/status.js"></script>
   <script src="/public/js/bundle.js"></script>
