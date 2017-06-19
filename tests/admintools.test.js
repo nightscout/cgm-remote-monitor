@@ -57,7 +57,7 @@ var someData = {
 
 describe('admintools', function ( ) {
   var self = this;
-
+  this.timeout(10000);
   before(function (done) {
     benv.setup(function() {
       self.$ = require('jquery');
@@ -175,7 +175,6 @@ describe('admintools', function ( ) {
   });
 
   it ('should produce some html', function (done) {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
 
     var hashauth = require('../lib/hashauth');
@@ -194,7 +193,7 @@ describe('admintools', function ( ) {
        return true;
      };
 
-    client.init(plugins);
+    client.init();
     client.dataUpdate(nowData);
     
     //var result = $('body').html();
