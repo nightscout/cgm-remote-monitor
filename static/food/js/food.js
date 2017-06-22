@@ -8,7 +8,7 @@ var client = Nightscout.client;
 
 (function () {
 
-client.init(function loaded () {
+client.init(Nightscout.plugins, function loaded () {
   var translate = client.translate;
   
   var foodrec_template = { 
