@@ -3,7 +3,6 @@
 var request = require('supertest');
 var load = require('./fixtures/load');
 var should = require('should');
-var language = require('../lib/language')();
 
 describe('authed REST api', function ( ) {
   var entries = require('../lib/api/entries/');
@@ -20,7 +19,7 @@ describe('authed REST api', function ( ) {
     this.app.enable('api');
     var self = this;
     self.known_key = known;
-    require('../lib/bootevent')(env, language).boot(function booted (ctx) {
+    require('../lib/bootevent')(env).boot(function booted (ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx));
       self.archive = require('../lib/entries')(env, ctx);
 
