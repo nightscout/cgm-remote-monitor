@@ -16,12 +16,12 @@
   color: #eee;
   display: none;
   font-size: 16px;
-  height: 100%;
-  overflow-y: auto;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   position: absolute;
   margin-top: 45px;
   right: -200px;
-  width: 300px;
   top: 0;
   z-index: 1;
 }
@@ -46,6 +46,7 @@ input[type=number]:invalid {
   display: block;
   text-align: right;
   padding: 10px 0;
+  text-decoration: underline;
 }
 
 #treatmentDrawer {
@@ -55,12 +56,12 @@ input[type=number]:invalid {
   color: #eee;
   display: none;
   font-size: 16px;
-  height: 100%;
-  overflow-y: auto;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   position: absolute;
   margin-top: 45px;
   right: -200px;
-  width: 300px;
   top: 0;
   z-index: 1;
 }
@@ -82,6 +83,10 @@ input[type=number]:invalid {
   text-overflow: ellipsis;
   line-height: 22px;
   vertical-align: middle;
+}
+
+#treatmentDrawer fieldset fieldset .left-column span {
+  width: 96px;
 }
 
 #treatmentDrawer .left-column input, #treatmentDrawer .left-column select {
@@ -148,6 +153,7 @@ input[type=number]:invalid {
 }
 #about a {
   color: #fff;
+  text-decoration: underline;
 }
 
 form {
@@ -221,7 +227,7 @@ h1, legend,
   overflow: hidden;
 }
 #buttonbar {
-  padding-right: 10px;
+  padding-right: 15px;
   height: 44px;
   opacity: 0.75;
   vertical-align: middle;
@@ -332,8 +338,9 @@ ul.navigation {
     color: #eee;
     display: none;
     font-size: 16px;
-    height: 100%;
-    overflow-y: auto;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
     position: absolute;
     margin-top: 45px;
     right: -200px;

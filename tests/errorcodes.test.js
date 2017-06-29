@@ -19,7 +19,7 @@ describe('errorcodes', function ( ) {
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     errorcodes.checkNotifications(sbx);
-    should.not.exist(ctx.notifications.findHighestAlarm());
+    should.not.exist(ctx.notifications.findHighestAlarm('CGM Error Code'));
 
     done();
   });
@@ -30,7 +30,7 @@ describe('errorcodes', function ( ) {
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     errorcodes.checkNotifications(sbx);
-    ctx.notifications.findHighestAlarm().level.should.equal(levels.URGENT);
+    ctx.notifications.findHighestAlarm('CGM Error Code').level.should.equal(levels.URGENT);
 
     done();
   });
@@ -41,7 +41,7 @@ describe('errorcodes', function ( ) {
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     errorcodes.checkNotifications(sbx);
-    var findHighestAlarm = ctx.notifications.findHighestAlarm();
+    var findHighestAlarm = ctx.notifications.findHighestAlarm('CGM Error Code');
     findHighestAlarm.level.should.equal(levels.URGENT);
     findHighestAlarm.pushoverSound.should.equal('alien');
 
@@ -54,7 +54,7 @@ describe('errorcodes', function ( ) {
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     errorcodes.checkNotifications(sbx);
-    should.not.exist(ctx.notifications.findHighestAlarm());
+    should.not.exist(ctx.notifications.findHighestAlarm('CGM Error Code'));
     var info = _.first(ctx.notifications.findUnSnoozeable());
     info.level.should.equal(levels.INFO);
     info.pushoverSound.should.equal('intermission');
@@ -70,7 +70,7 @@ describe('errorcodes', function ( ) {
 
       var sbx = require('../lib/sandbox')().serverInit(env, ctx);
       errorcodes.checkNotifications(sbx);
-      should.not.exist(ctx.notifications.findHighestAlarm());
+      should.not.exist(ctx.notifications.findHighestAlarm('CGM Error Code'));
       _.first(ctx.notifications.findUnSnoozeable()).level.should.be.lessThan(levels.WARN);
     }
     done();

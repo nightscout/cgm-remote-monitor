@@ -4,7 +4,6 @@
 
 
 html, body {
-  height: 100%;
   margin: 0;
   padding: 0;
 }
@@ -17,13 +16,16 @@ body {
 .container {
   bottom: 0;
   display: block;
-  height: 100%;
   left: 0;
   margin: 0;
   padding: 0;
   top: 45px;
-  width: 100%;
   z-index: 2;
+}
+
+a, a:visited, a:link {
+  color: #2196f3;
+  text-decoration: none;
 }
 
 #container.announcing .customTitle {
@@ -207,10 +209,21 @@ body {
   padding: 0;
 }
 
-#silenceBtn {
+#silenceBtn, #viewMenu {
   z-index: 99;
   border-radius: 5px;
   border: 2px solid #bdbdbd;
+}
+
+#viewMenu {
+  left: 150px;
+  right: inherit;
+  font-size: 18px;
+}
+
+#viewMenu li label input[type="checkbox"] {
+  height: 14px;
+  margin-right: 5px;
 }
 
 #silenceBtn a {
@@ -332,6 +345,15 @@ body {
   display: none;
 }
 
+#authorizationstatus a {
+  color: #2196f3;
+  text-decoration: underline;
+}
+
+#authorizationstatus .small {
+  font-size: 12px;
+}
+
 @media (max-width: 800px) {
   .bgStatus {
     width: 300px;
@@ -395,7 +417,7 @@ body {
 @media (max-width: 750px) {
   .bgStatus {
     width: 240px;
-    padding: 0;
+    padding: 0 0 20px 0;
   }
 
   .pill.rawbg em {
@@ -482,6 +504,13 @@ body {
 
   #silenceBtn a {
     font-size: 20px;
+  }
+
+  #viewMenu {
+    left: inherit;
+    top: 170px;
+    right: 10px;
+    text-align: left;
   }
 
   .status {
