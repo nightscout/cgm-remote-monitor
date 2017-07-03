@@ -493,7 +493,7 @@ Easy to emulate on the commandline:
 
 From now on you can run using
 ```bash
-    $ env $(cat my.env) PORT=1337 node server.js
+    $ (eval $(cat my.env | sed 's/^/export /') && PORT=1337 node server.js)
 ```
 
 Your hosting provider probably has a way to set these through their GUI.
