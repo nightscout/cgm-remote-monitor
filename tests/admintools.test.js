@@ -86,6 +86,9 @@ describe('admintools', function ( ) {
       //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
       
       self.$.ajax = function mockAjax (url, opts) {
+        if (url && url.url) {
+          url = url.url;
+        }
         //logfile.write(url+'\n');
         //console.log(url,opts);
         if (opts && opts.success && opts.success.call) {
@@ -114,7 +117,11 @@ describe('admintools', function ( ) {
         }
         return {
           done: function mockDone (fn) {
-            fn({message: 'OK'});
+            if (url.indexOf('status.json') > -1) {
+              fn(serverSettings);
+            } else {
+              fn({message: 'OK'});
+            }
             return self.$.ajax();
             },
           fail: function mockFail () {
@@ -138,7 +145,18 @@ describe('admintools', function ( ) {
         , io: {
           connect: function mockConnect ( ) {
             return {
-              on: function mockOn ( ) { }
+              on: function mockOn (event, callback) {
+                if ('connect' === event && callback) {
+                  callback();
+                }
+              }
+              , emit: function mockEmit (event, data, callback) {
+                if ('authorize' === event && callback) {
+                  callback({
+                    read: true
+                  });
+                }
+              }
             };
           }
         }
@@ -157,7 +175,6 @@ describe('admintools', function ( ) {
   });
 
   it ('should produce some html', function (done) {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
 
     var hashauth = require('../lib/hashauth');
@@ -176,7 +193,7 @@ describe('admintools', function ( ) {
        return true;
      };
 
-    client.init(serverSettings, plugins);
+    client.init();
     client.dataUpdate(nowData);
     
     //var result = $('body').html();
