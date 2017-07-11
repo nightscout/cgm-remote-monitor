@@ -1,15 +1,9 @@
-FROM node:0.12
+FROM node:6.10.0
 
 MAINTAINER Nightscout Contributors
 
 RUN apt-get update && \
-  apt-get -y dist-upgrade && \
-  DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    git \
-    nodejs \
-    nodejs-legacy \
-    npm && \
-  apt-get -y clean
+  apt-get -y dist-upgrade
 
 RUN mkdir -p /opt/app
 ADD . /opt/app
