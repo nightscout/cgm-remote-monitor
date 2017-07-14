@@ -113,7 +113,7 @@ Clone this repo then install dependencies into the root of the project:
 $ npm install
 ```
 
-#Usage
+# Usage
 
 The data being uploaded from the server to the client is from a
 MongoDB server such as [mongolab][mongodb].
@@ -494,7 +494,7 @@ Easy to emulate on the commandline:
 
 From now on you can run using
 ```bash
-    $ env $(cat my.env) PORT=1337 node server.js
+    $ (eval $(cat my.env | sed 's/^/export /') && PORT=1337 node server.js)
 ```
 
 Your hosting provider probably has a way to set these through their GUI.
@@ -534,7 +534,9 @@ License
 [agpl-3]: http://www.gnu.org/licenses/agpl-3.0.txt
 
     cgm-remote-monitor - web app to broadcast cgm readings
-    Copyright (C) 2015 The Nightscout Foundation, http://www.nightscoutfoundation.org.
+    Copyright (C) 2017 Nightscout contributors.  See the COPYRIGHT file
+    at the root directory of this distribution and at
+    https://github.com/nightscout/cgm-remote-monitor/blob/master/COPYRIGHT
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published
