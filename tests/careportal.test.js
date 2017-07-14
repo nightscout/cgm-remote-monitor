@@ -26,7 +26,7 @@ describe('client', function ( ) {
   });
 
   beforeEach(function (done) {
-    headless.setup({ }, done);
+    headless.setup({mockAjax: true}, done);
   });
 
   afterEach(function (done) {
@@ -35,21 +35,7 @@ describe('client', function ( ) {
   });
 
   it ('open careportal, and enter a treatment', function (done) {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
-
-    self.$.ajax = function mockAjax ( ) {
-      return {
-        done: function mockDone (fn) {
-          fn();
-          done();
-          return self.$.ajax();
-        }
-        , fail: function mockFail ( ) {
-          return self.$.ajax();
-        }
-      };
-    };
 
     var hashauth = require('../lib/hashauth');
     hashauth.init(client,$);
@@ -59,11 +45,10 @@ describe('client', function ( ) {
     };
 
 
-    client.init(serverSettings, plugins);
+    client.init();
     client.dataUpdate(nowData);
 
     client.careportal.prepareEvents();
-    client.careportal.toggleDrawer();
 
     $('#eventType').val('Snack Bolus');
     $('#glucoseValue').val('100');
@@ -97,6 +82,8 @@ describe('client', function ( ) {
     window.alert = function mockAlert() {};
     
     client.careportal.save();
+
+    done();
   });
 
 });
