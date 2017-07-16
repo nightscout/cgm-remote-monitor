@@ -4,11 +4,8 @@ var _ = require('lodash');
 var should = require('should');
 var moment = require('moment');
 
-var ctx = {
-  language: require('../lib/language')()
-};
 var env = require('../env')();
-var pump = require('../lib/plugins/pump')(ctx);
+var pump = require('../lib/plugins/pump')();
 var sandbox = require('../lib/sandbox')();
 var levels = require('../lib/levels');
 
@@ -107,66 +104,11 @@ describe('pump', function ( ) {
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm('Pump');
+    var highest = ctx.notifications.findHighestAlarm();
     should.not.exist(highest);
 
     done();
   });
-
-  it('generate an alert when reservoir is low', function (done) {
-    var ctx = {
-      settings: {
-        units: 'mg/dl'
-      }
-      , notifications: require('../lib/notifications')(env, ctx)
-    };
-
-    ctx.notifications.initRequests();
-
-    var lowResStatuses = _.cloneDeep(statuses);
-    lowResStatuses[1].pump.reservoir = 0.5;
-
-    var sbx = sandbox.clientInit(ctx, now.valueOf(), {
-      devicestatus: lowResStatuses
-    });
-    sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
-    pump.setProperties(sbx);
-    pump.checkNotifications(sbx);
-
-    var highest = ctx.notifications.findHighestAlarm('Pump');
-    highest.level.should.equal(levels.URGENT);
-    highest.title.should.equal('URGENT: Pump Reservoir Low');
-
-    done();
-  });
-
-  it('generate an alert when reservoir is 0', function (done) {
-    var ctx = {
-      settings: {
-        units: 'mg/dl'
-      }
-      , notifications: require('../lib/notifications')(env, ctx)
-    };
-
-    ctx.notifications.initRequests();
-
-    var lowResStatuses = _.cloneDeep(statuses);
-    lowResStatuses[1].pump.reservoir = 0;
-
-    var sbx = sandbox.clientInit(ctx, now.valueOf(), {
-      devicestatus: lowResStatuses
-    });
-    sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
-    pump.setProperties(sbx);
-    pump.checkNotifications(sbx);
-
-    var highest = ctx.notifications.findHighestAlarm('Pump');
-    highest.level.should.equal(levels.URGENT);
-    highest.title.should.equal('URGENT: Pump Reservoir Low');
-
-    done();
-  });
-
 
   it('generate an alert when battery is low', function (done) {
     var ctx = {
@@ -188,7 +130,7 @@ describe('pump', function ( ) {
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm('Pump');
+    var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Warning, Pump Battery Low');
 
@@ -215,7 +157,7 @@ describe('pump', function ( ) {
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm('Pump');
+    var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(levels.URGENT);
     highest.title.should.equal('URGENT: Pump Battery Low');
 
@@ -240,37 +182,9 @@ describe('pump', function ( ) {
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
-    var highest = ctx.notifications.findHighestAlarm('Pump');
+    var highest = ctx.notifications.findHighestAlarm();
     should.not.exist(highest);
     done();
-  });
-
-  it('should handle alexa requests', function (done) {
-    var ctx = {
-      settings: {
-        units: 'mg/dl'
-      }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
-    };
-
-    var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
-    pump.setProperties(sbx);
-
-    pump.alexa.intentHandlers.length.should.equal(2);
-
-    pump.alexa.intentHandlers[0].intentHandler(function next(title, response) {
-      title.should.equal('Remaining insulin');
-      response.should.equal('You have 86.4 units remaining');
-
-      pump.alexa.intentHandlers[1].intentHandler(function next(title, response) {
-        title.should.equal('Pump battery');
-        response.should.equal('Your battery is at 1.52 volts');
-        done();
-      }, [], sbx);
-
-    }, [], sbx);
-
   });
 
 });

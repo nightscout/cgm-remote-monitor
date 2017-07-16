@@ -4,25 +4,21 @@ require('should');
 var benv = require('benv');
 
 describe('pluginbase', function ( ) {
-  var headless = require('./fixtures/headless')(benv, this);
 
   before(function (done) {
-    done( );
+    benv.setup(function() {
+      benv.expose({
+        $: require('jquery')
+        , jQuery: require('jquery')
+      });
+      done();
+    });
   });
 
   after(function (done) {
-    done( );
+    benv.teardown();
+    done();
   });
-
-  beforeEach(function (done) {
-    headless.setup({ }, done);
-  });
-
-  afterEach(function (done) {
-    headless.teardown( );
-    done( );
-  });
-
 
   it('does stuff', function() {
 
