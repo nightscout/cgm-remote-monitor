@@ -96,7 +96,7 @@ describe('treatmentnotify', function ( ) {
     announcement.title.should.equal('Urgent Announcement');
     announcement.level.should.equal(levels.URGENT);
     announcement.pushoverSound.should.equal('persistent');
-    should.deepEqual(ctx.notifications.findHighestAlarm('Announcement'), announcement);
+    should.deepEqual(ctx.notifications.findHighestAlarm(), announcement);
     ctx.notifications.snoozedBy(announcement).should.equal(false);
 
 

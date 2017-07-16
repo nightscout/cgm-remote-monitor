@@ -23,11 +23,6 @@ body {
   z-index: 2;
 }
 
-a, a:visited, a:link {
-  color: #2196f3;
-  text-decoration: none;
-}
-
 #container.announcing .customTitle {
   color: orange;
 }
@@ -345,15 +340,6 @@ a, a:visited, a:link {
   display: none;
 }
 
-#authorizationstatus a {
-  color: #2196f3;
-  text-decoration: underline;
-}
-
-#authorizationstatus .small {
-  font-size: 12px;
-}
-
 @media (max-width: 800px) {
   .bgStatus {
     width: 300px;
@@ -417,7 +403,7 @@ a, a:visited, a:link {
 @media (max-width: 750px) {
   .bgStatus {
     width: 240px;
-    padding: 0 0 20px 0;
+    padding: 0;
   }
 
   .pill.rawbg em {
