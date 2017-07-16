@@ -12,8 +12,12 @@
   var client = Nightscout.client;
   var report_plugins = Nightscout.report_plugins;
 
-  client.init(function loaded () {
-
+  if (serverSettings === undefined) {
+    console.error('server settings were not loaded, will not call init');
+  } else {
+    client.init(serverSettings, Nightscout.plugins);
+  }
+ 
   // init HTML code
   report_plugins.addHtmlFromPlugins( client );
   // make show() accessible outside for treatments.js
@@ -22,9 +26,8 @@
   var translate = client.translate;
   
   var maxInsulinValue = 0
-      ,maxCarbsValue = 0
-      ,maxDailyCarbsValue = 0;
-  var maxdays = 6 * 31;
+      ,maxCarbsValue = 0;
+  var maxdays = 3 * 31;
   var datastorage = {};
   var daystoshow = {};
   var sorteddaystoshow = [];
@@ -74,7 +77,7 @@
     filter.subcategory = '';
     $('#rp_subcategory').empty().append('<option value="">' + translate('(none)') + '</option>');
     if (filter.category !== '') {
-      Object.keys(food_categories[filter.category] || {}).forEach(function eachSubCategory(s) {
+      Object.keys(food_categories[filter.category]).forEach(function eachSubCategory(s) {
         $('#rp_subcategory').append('<option value="' + s + '">' + s + '</option>');
       });
     }
@@ -106,8 +109,7 @@
 
   $('#info').html('<b>'+translate('Loading food database')+' ...</b>');
   $.ajax('/api/v1/food/regular.json', {
-    headers: client.headers()
-    , success: function foodLoadSuccess(records) {
+    success: function foodLoadSuccess(records) {
       records.forEach(function (r) {
         food_list.push(r);
         if (r.category && !food_categories[r.category]) { food_categories[r.category] = {}; }
@@ -261,8 +263,7 @@
           var treatmentData;
           var tquery = '?find[boluscalc.foods._id]=' + _id + timerange;
           $.ajax('/api/v1/treatments.json'+tquery, {
-            headers: client.headers()
-            , success: function (xhr) {
+            success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
                 return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
@@ -298,8 +299,7 @@
           var treatmentData;
           var tquery = '?find[notes]=/' + notes + '/i';
           $.ajax('/api/v1/treatments.json' + tquery + timerange, {
-            headers: client.headers()
-            , success: function (xhr) {
+            success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
                 return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
@@ -335,8 +335,7 @@
           var treatmentData;
           var tquery = '?find[eventType]=/' + eventtype + '/i';
           $.ajax('/api/v1/treatments.json' + tquery + timerange, {
-            headers: client.headers()
-            , success: function (xhr) {
+            success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
                 return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
@@ -376,7 +375,6 @@
         if (day===6 && $('#rp_sa').is(':checked')) { daystoshow[d]++; }
       });
       countDays();
-      addPreviousDayTreatments();
       display();
     }
     
@@ -385,12 +383,16 @@
       sorteddaystoshow = [];
       $('#info').html('<b>'+translate('Loading')+' ...</b>');
       for (var d in daystoshow) {
-        if (count < maxdays) {
-          $('#info').append($('<div id="info-' + d + '"></div>'));
-          count++;
-          loadData(d, options, dataLoadedCallback);
+        if (daystoshow[d]===matchesneeded) {
+          if (count < maxdays) {
+            $('#info').append($('<div id="info-' + d + '"></div>'));
+            count++;
+            loadData(d, options, dataLoadedCallback);
+          } else {
+            $('#info').append($('<div>'+d+' '+translate('not displayed')+'.</div>'));
+            delete daystoshow[d];
+          }
         } else {
-          $('#info').append($('<div>'+d+' '+translate('not displayed')+'.</div>'));
           delete daystoshow[d];
         }
       }
@@ -410,24 +412,6 @@
             if (dayscount < maxdays) {
               dayscount++;
             }
-          } else {
-            delete daystoshow[d];
-          }
-        }
-      }
-      //console.log('Total: ', daystoshow, 'Matches needed: ', matchesneeded, 'Will be loaded: ', dayscount);
-   }
-    
-     function addPreviousDayTreatments() {
-      for (var d in daystoshow) {
-        if (daystoshow.hasOwnProperty(d)) {
-          var day = moment.tz(d,zone);
-          var previous = day.subtract(1,'days');
-          var formated = previous.format('YYYY-MM-DD');
-          if (!daystoshow[formated]) {
-            daystoshow[formated] = { treatmentsonly: true};
-            console.log('Adding ' + formated + ' for loading treatments');
-            dayscount++;
           }
         }
       }
@@ -436,18 +420,18 @@
     
     function dataLoadedCallback (day) {
       loadeddays++;
-      if (!daystoshow[day].treatmentsonly) {
-        sorteddaystoshow.push(day);
-      }
+      sorteddaystoshow.push(day);
       if (loadeddays === dayscount) {
         sorteddaystoshow.sort();
         var from = sorteddaystoshow[0];
         if (options.order === report_plugins.consts.ORDER_NEWESTONTOP) {
           sorteddaystoshow.reverse();
         }
-        loadProfileSwitch(from, function loadProfileSwitchCallback() {
-          $('#info > b').html('<b>'+translate('Rendering')+' ...</b>');
-          window.setTimeout(function () {showreports(options); }, 0);
+        loadTempBasals(from, function loadTempBasalsCallback() { 
+          loadProfileSwitch(from, function loadProfileSwitchCallback() { 
+            $('#info > b').html('<b>'+translate('Rendering')+' ...</b>');
+            window.setTimeout(function () {showreports(options); }, 0);
+            });
           });
       }
     }
@@ -464,53 +448,26 @@
     datastorage.allstatsrecords = [];
     datastorage.alldays = 0;
     sorteddaystoshow.forEach(function eachDay(day) {
-      if (!daystoshow[day].treatmentsonly) {
-        datastorage.allstatsrecords = datastorage.allstatsrecords.concat(datastorage[day].statsrecords);
-        datastorage.alldays++;
-      }
+      datastorage.allstatsrecords = datastorage.allstatsrecords.concat(datastorage[day].statsrecords);
+      datastorage.alldays++;
     });
     options.maxInsulinValue = maxInsulinValue;
     options.maxCarbsValue = maxCarbsValue;
-    options.maxDailyCarbsValue = maxDailyCarbsValue;
 
     datastorage.treatments = [];
     datastorage.devicestatus = [];
     datastorage.combobolusTreatments = [];
-    datastorage.tempbasalTreatments = [];
     Object.keys(daystoshow).forEach( function eachDay(day) {
       datastorage.treatments = datastorage.treatments.concat(datastorage[day].treatments);
       datastorage.devicestatus = datastorage.devicestatus.concat(datastorage[day].devicestatus);
       datastorage.combobolusTreatments = datastorage.combobolusTreatments.concat(datastorage[day].combobolusTreatments);
-      datastorage.tempbasalTreatments = datastorage.tempbasalTreatments.concat(datastorage[day].tempbasalTreatments);
     });
-    datastorage.tempbasalTreatments = Nightscout.client.ddata.processDurations(datastorage.tempbasalTreatments);
     
-     for (var d in daystoshow) {
-        if (daystoshow.hasOwnProperty(d)) {
-          if (daystoshow[d].treatmentsonly) {
-            delete daystoshow[d];
-            delete datastorage[d];
-          }
-        }
-     }
-
     report_plugins.eachPlugin(function (plugin) {
       // jquery plot doesn't draw to hidden div
       $('#'+plugin.name+'-placeholder').css('display','');
-
-      console.log('Drawing ',plugin.name);
-
-      var skipRender = false;
-
-      if (plugin.name == 'daytoday' && ! $('#daytoday').hasClass('selected')) skipRender = true;
-      if (plugin.name == 'treatments' && ! $('#treatments').hasClass('selected')) skipRender = true;
-
-      if (skipRender) {
-        console.log('Skipping ',plugin.name);
-      } else {
-      	plugin.report(datastorage,sorteddaystoshow,options);  
-      }
-
+      //console.log('Drawing ',plugin.name);
+      plugin.report(datastorage,sorteddaystoshow,options);
       if (!$('#'+plugin.name).hasClass('selected')) {
         $('#'+plugin.name+'-placeholder').css('display','none');
       }
@@ -562,17 +519,10 @@
     var to = from + 1000 * 60 * 60 * 24;
 
     function loadCGMData() {
-      if (daystoshow[day].treatmentsonly) {
-        data.sgv = [];
-        data.mbg = [];
-        data.cal = [];
-        return $.Deferred().resolve();
-      }
       $('#info-' + day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
       var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
       return $.ajax('/api/v1/entries.json'+query, {
-        headers: client.headers()
-        , success: function (xhr) {
+        success: function (xhr) {
           xhr.forEach(function (element) {
             if (element) {
               if (element.mbg) {
@@ -626,8 +576,7 @@
       $('#info-' + day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
       var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
       return $.ajax('/api/v1/treatments.json'+tquery, {
-        headers: client.headers()
-        , success: function (xhr) {
+        success: function (xhr) {
           treatmentData = xhr.map(function (treatment) {
             var timestamp = new Date(treatment.timestamp || treatment.created_at);
             treatment.mills = timestamp.getTime();
@@ -635,29 +584,20 @@
           });
           data.treatments = treatmentData.slice();
           data.treatments.sort(function(a, b) { return a.mills - b.mills; });
-          // filter 'Combo Bolus' events
+          // filter & prepare 'Combo Bolus' events
           data.combobolusTreatments = data.treatments.filter( function filterComboBoluses(t) {
             return t.eventType === 'Combo Bolus';
-          });
-          // filter temp basal treatments
-          data.tempbasalTreatments = data.treatments.filter(function filterTempBasals(t) {
-            return t.eventType === 'Temp Basal';
-          });
+          }).sort(function (a,b) { return a.mills > b.mills; });
         }
       });
     }
 
     function loadDevicestatusData() {
-      if (daystoshow[day].treatmentsonly) {
-        data.devicestatus = [];
-        return $.Deferred().resolve();
-      }
       if(options.iob || options.cob || options.openAps) {
         $('#info-' + day).html('<b>'+translate('Loading device status data of')+' '+day+' ...</b>');
         var tquery = '?find[created_at][$gte]=' + new Date(from).toISOString() + '&find[created_at][$lt]=' + new Date(to).toISOString() + '&count=10000';
         return $.ajax('/api/v1/devicestatus.json'+tquery, {
-          headers: client.headers()
-          , success: function (xhr) {
+          success: function (xhr) {
             data.devicestatus = xhr.map(function (devicestatus) {
               devicestatus.mills = new Date(devicestatus.timestamp || devicestatus.created_at).getTime();
               return devicestatus;
@@ -676,12 +616,29 @@
     });
   }
 
+  function loadTempBasals(from, callback) {
+    $('#info > b').html('<b>'+translate('Loading temp basal data') + ' ...</b>');
+    var tquery = '?find[created_at][$gte]='+moment(from).subtract(1, 'days').toISOString()+'&find[eventType][$eq]=Temp Basal';
+    $.ajax('/api/v1/treatments.json'+tquery, {
+      success: function (xhr) {
+        var treatmentData = xhr.map(function (treatment) {
+          var timestamp = new Date(treatment.timestamp || treatment.created_at);
+          treatment.mills = timestamp.getTime();
+          return treatment;
+        });
+        datastorage.tempbasalTreatments = Nightscout.client.ddata.processTempBasals(treatmentData.slice());
+        datastorage.tempbasalTreatments.sort(function(a, b) { return a.mills - b.mills; });
+      }
+    }).done(function () {
+      callback();
+    });
+  }
+  
   function loadProfileSwitch(from, callback) {
     $('#info > b').html('<b>'+translate('Loading profile switch data') + ' ...</b>');
-    var tquery = '?find[eventType]=Profile Switch';
+    var tquery = '?find[eventType][$eq]=Profile Switch';
     $.ajax('/api/v1/treatments.json'+tquery, {
-      headers: client.headers()
-      , success: function (xhr) {
+      success: function (xhr) {
         var treatmentData = xhr.map(function (treatment) {
           var timestamp = new Date(treatment.timestamp || treatment.created_at);
           treatment.mills = timestamp.getTime();
@@ -696,14 +653,7 @@
   }
   
   function processData(data, day, options, callback) {
-    if (daystoshow[day].treatmentsonly) {
-      datastorage[day] = data;
-      $('#info-' + day).html('');
-      callback(day);
-      return;
-    }
     // treatments
-    data.dailyCarbs = 0;
     data.treatments.forEach(function (d) {
       if (parseFloat(d.insulin) > maxInsulinValue) {
         maxInsulinValue = parseFloat(d.insulin);
@@ -711,17 +661,11 @@
       if (parseFloat(d.carbs) > maxCarbsValue) {
         maxCarbsValue = parseFloat(d.carbs);
       }
-      if (d.carbs) {
-        data.dailyCarbs += d.carbs;
-      }
     });
-    if (data.dailyCarbs > maxDailyCarbsValue) {
-      maxDailyCarbsValue = data.dailyCarbs;
-    }
 
     var cal = data.cal[data.cal.length-1];
     var temp1 = [ ];
-    var rawbg = client.rawbg;
+    var rawbg = Nightscout.plugins('rawbg');
     if (cal) {
       temp1 = data.sgv.map(function (entry) {
         entry.mgdl = entry.y; // value names changed from enchilada
@@ -794,5 +738,4 @@
     }
     return false;
   }
-  });
 })();

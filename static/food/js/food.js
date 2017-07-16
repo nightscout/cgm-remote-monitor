@@ -8,7 +8,12 @@ var client = Nightscout.client;
 
 (function () {
 
-client.init(function loaded () {
+  if (serverSettings === undefined) {
+    console.error('server settings were not loaded, will not call init');
+  } else {
+    client.init(serverSettings, Nightscout.plugins);
+  }
+  
   var translate = client.translate;
   
   var foodrec_template = { 
@@ -66,8 +71,7 @@ client.init(function loaded () {
   // Fetch data from mongo
   $('#fe_status').hide().text('Loading food database ...').fadeIn('slow');
   $.ajax('/api/v1/food.json', {
-    headers: client.headers()
-    , success: function ajaxSuccess(records) {
+    success: function ajaxSuccess(records) {
       records.forEach(function processRecords(r) {
         restoreBoolValue(r,'hidden');
         restoreBoolValue(r,'hideafteruse');
@@ -88,8 +92,8 @@ client.init(function loaded () {
       });
       $('#fe_status').hide().text(translate('Database loaded')).fadeIn('slow');
       foodquickpick.sort(function compare(a,b) { return cmp(parseInt(a.position),parseInt(b.position)) });
-    }
-    , error: function ajaxError() {
+    },
+    error: function ajaxError() {
       $('#fe_status').hide().text(translate('Error: Database failed to load')).fadeIn('slow');
     }
   }).done(initeditor);
@@ -519,7 +523,9 @@ client.init(function loaded () {
         method: 'POST',
         url: '/api/v1/food/',
         data: foodrec,
-        headers: client.headers()
+        headers: {
+          'api-secret': client.hashauth.hash()
+        }
       }).done(function success (response) {
         $('#fe_status').hide().text('OK').fadeIn('slow');
         foodrec._id = response[0]._id;
@@ -541,7 +547,9 @@ client.init(function loaded () {
         method: 'PUT',
         url: '/api/v1/food/',
         data: foodrec,
-        headers: client.headers()
+        headers: {
+          'api-secret': client.hashauth.hash()
+        }
       }).done(function success () {
         $('#fe_status').hide().text('OK').fadeIn('slow');
         updateFoodArray(foodrec);
@@ -566,7 +574,9 @@ client.init(function loaded () {
       method: 'DELETE',
       url: '/api/v1/food/'+_id,
       data: foodrec,
-      headers: client.headers()
+      headers: {
+        'api-secret': client.hashauth.hash()
+      }
     }).done(function success () {
       $('#fe_status').hide().text('OK').fadeIn('slow');
      }).fail(function fail() {
@@ -587,7 +597,9 @@ client.init(function loaded () {
       method: 'PUT',
       url: '/api/v1/food/',
       data: foodrec,
-      headers: client.headers()
+      headers: {
+        'api-secret': client.hashauth.hash()
+      }
     }).done(function success (response) {
       console.log('Updated record: ',response);
     });
@@ -609,7 +621,9 @@ client.init(function loaded () {
       method: 'POST',
       url: '/api/v1/food/',
       data: newrec,
-      headers: client.headers()
+      headers: {
+        'api-secret': client.hashauth.hash()
+      }
     }).done(function success (response) {
       $('#fe_status').hide().text('OK').fadeIn('slow');
       newrec._id = response[0]._id;
@@ -657,6 +671,5 @@ client.init(function loaded () {
     if (after) {
       after();
     }
-  }
-});
+}
 })();

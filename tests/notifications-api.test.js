@@ -25,14 +25,7 @@ describe('Notifications API', function ( ) {
       , ddata: {
         lastUpdated: Date.now()
       }
-      , store: {
-        collection: function ( ) {
-          return { };
-        }
-      }
     };
-
-    ctx.authorization = require('../lib/authorization')(env, ctx);
 
     var notifications = require('../lib/notifications')(env, ctx);
     ctx.notifications = notifications;
