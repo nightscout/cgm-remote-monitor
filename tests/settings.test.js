@@ -2,20 +2,27 @@
 
 var _ = require('lodash');
 var should = require('should');
+var levels = require('../lib/levels');
 
 describe('settings', function ( ) {
   var settings = require('../lib/settings')();
 
   it('have defaults ready', function () {
-    settings.timeFormat.should.equal('12');
+    settings.timeFormat.should.equal(12);
     settings.nightMode.should.equal(false);
     settings.showRawbg.should.equal('never');
     settings.customTitle.should.equal('Nightscout');
     settings.theme.should.equal('default');
     settings.alarmUrgentHigh.should.equal(true);
+    settings.alarmUrgentHighMins.should.eql([30, 60, 90, 120]);
     settings.alarmHigh.should.equal(true);
+    settings.alarmHighMins.should.eql([30, 60, 90, 120]);
     settings.alarmLow.should.equal(true);
+    settings.alarmLowMins.should.eql([15, 30, 45, 60]);
     settings.alarmUrgentLow.should.equal(true);
+    settings.alarmUrgentLowMins.should.eql([15, 30, 45]);
+    settings.alarmUrgentMins.should.eql([30, 60, 90, 120]);
+    settings.alarmWarnMins.should.eql([30, 60, 90, 120]);
     settings.alarmTimeagoWarn.should.equal(true);
     settings.alarmTimeagoWarnMins.should.equal(15);
     settings.alarmTimeagoUrgent.should.equal(true);
@@ -49,9 +56,10 @@ describe('settings', function ( ) {
       , 'BG_TARGET_TOP'
       , 'BG_TARGET_BOTTOM'
       , 'BG_LOW'
+      , 'SCALE_Y'
     ];
 
-    expected.length.should.equal(23);
+    expected.length.should.equal(24);
 
     var seen = { };
     settings.eachSettingAsEnv(function markSeenNames(name) {
@@ -126,6 +134,22 @@ describe('settings', function ( ) {
     });
 
     fresh.enable.length.should.equal(0);
+  });
+
+  it('parse custom snooze mins', function () {
+    var userSetting = {
+      ALARM_URGENT_LOW_MINS: '5 10 15'
+    };
+
+    var fresh = require('../lib/settings')();
+    fresh.eachSettingAsEnv(function (name) {
+      return userSetting[name];
+    });
+
+    fresh.alarmUrgentLowMins.should.eql([5, 10, 15]);
+
+    fresh.snoozeMinsForAlarmEvent({eventName: 'low', level: levels.URGENT}).should.eql([5, 10, 15]);
+    fresh.snoozeFirstMinsForAlarmEvent({eventName: 'low', level: levels.URGENT}).should.equal(5);
   });
 
   it('set thresholds', function () {
