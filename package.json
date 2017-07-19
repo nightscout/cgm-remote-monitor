@@ -43,7 +43,7 @@
       ]
     }
   },
-  "engines": {
+  "engines": {6.11.1
     "node": "0.10.x"
   },
   "dependencies": {
