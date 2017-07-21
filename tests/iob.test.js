@@ -5,7 +5,6 @@ var should = require('should');
 
 describe('IOB', function() {
   var ctx = {};
-  ctx.language.set('en');
   ctx.language = require('../lib/language')();
   ctx.language.set('en');
 
