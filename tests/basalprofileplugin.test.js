@@ -8,6 +8,7 @@ describe('basalprofile', function ( ) {
     settings: {}
     , language: require('../lib/language')()
   };
+  ctx.language.set('en');
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
 
