@@ -223,6 +223,7 @@
     options.notes = $('#rp_optionsnotes').is(':checked');
     options.food = $('#rp_optionsfood').is(':checked');
     options.insulin = $('#rp_optionsinsulin').is(':checked');
+    options.insulindistribution = $('#rp_optionsdistribution').is(':checked');
     options.carbs = $('#rp_optionscarbs').is(':checked');
     options.scale = ( $('#rp_linear').is(':checked') ? report_plugins.consts.SCALE_LINEAR : report_plugins.consts.SCALE_LOG );
     options.order = ( $('#rp_oldestontop').is(':checked') ? report_plugins.consts.ORDER_OLDESTONTOP : report_plugins.consts.ORDER_NEWESTONTOP );
