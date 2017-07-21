@@ -1,6 +1,6 @@
 {
   "name": "nightscout",
-  "version": "0.9.2",
+  "version": "0.10.0-dev-20170716",
   "dependencies": {
     "colorbrewer": "~1.0.0",
     "jquery": "2.1.0",
