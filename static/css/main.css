@@ -417,7 +417,7 @@ a, a:visited, a:link {
 @media (max-width: 750px) {
   .bgStatus {
     width: 240px;
-    padding: 0;
+    padding: 0 0 20px 0;
   }
 
   .pill.rawbg em {
