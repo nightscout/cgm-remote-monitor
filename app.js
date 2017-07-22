@@ -63,6 +63,18 @@ function create (env, ctx) {
     res.sendFile(__dirname + '/swagger.yaml');
   });
 
+  if (env.settings.isEnabled('dumps')) {
+    var heapdump = require('heapdump');
+    app.get('/api/v2/dumps/start', function (req, res) {
+      var path = new Date().toISOString() + '.heapsnapshot';
+      path = path.replace(/:/g, '-');
+      console.info('writing dump to', path);
+      heapdump.writeSnapshot(path);
+      res.send('wrote dump to ' + path);
+    });
+  }
+
+
   //app.get('/package.json', software);
 
   // define static server
@@ -72,7 +84,7 @@ function create (env, ctx) {
   // serve the static content
   app.use(staticFiles);
 
-  var bundle = require('./bundle')();
+  var bundle = require('./bundle')(env);
   app.use(bundle);
 
   // Handle errors with express's errorhandler, to display more readable error messages.
