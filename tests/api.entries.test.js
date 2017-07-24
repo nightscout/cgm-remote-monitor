@@ -3,7 +3,6 @@
 var request = require('supertest');
 var load = require('./fixtures/load');
 var bootevent = require('../lib/bootevent');
-var language = require('../lib/language')();
 require('should');
 
 describe('Entries REST api', function ( ) {
@@ -12,13 +11,12 @@ describe('Entries REST api', function ( ) {
   this.timeout(10000);
   before(function (done) {
     var env = require('../env')( );
-    env.settings.authDefaultRoles = 'readable';
     this.wares = require('../lib/middleware/')(env);
     this.archive = null;
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    bootevent(env, language).boot(function booted (ctx) {
+    bootevent(env).boot(function booted (ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx));
       self.archive = require('../lib/entries')(env, ctx);
 
@@ -198,13 +196,13 @@ describe('Entries REST api', function ( ) {
       });
   });
 
-  it('disallow POST by readable /entries/preview', function (done) {
+  it('/entries/preview', function (done) {
     request(this.app)
       .post('/entries/preview.json')
       .send(load('json'))
-      .expect(401)
+      .expect(201)
       .end(function (err, res) {
-        // res.body.should.be.instanceof(Array).and.have.lengthOf(30);
+        res.body.should.be.instanceof(Array).and.have.lengthOf(30);
         done();
       });
   });
