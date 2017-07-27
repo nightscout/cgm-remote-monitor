@@ -51,6 +51,34 @@
     </form>
     <br>
  
+    <b>Temp basal</b><br>
+    <form method=post action="https://beetusbot.herokuapp.com/api/v1/treatments.json">
+      <input type=hidden name=enteredBy value="QuickEntry" />
+      <input type=hidden name=eventType value="Temp Basal Start" />
+      <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
+      <input type=number name=duration placeholder="Duration in minutes" /><br>
+      <input type=number name=percent placeholder="Basal change in %" /><br>
+      <input type=submit name=notes value="Engine braking" /><input type=submit name=notes value="Super bolus" /><input type=submit name=notes value="Other" />
+    </form>
+    <br>
+    <form method=post action="https://beetusbot.herokuapp.com/api/v1/treatments.json">
+      <input type=hidden name=enteredBy value="QuickEntry" />
+      <input type=hidden name=eventType value="Temp Basal End" />
+      <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
+      <input type=submit name=notes value="Resume normal" />
+    </form>
+    <br>
+    
+    <b>Exercise</b><br>
+    <form method=post action="https://beetusbot.herokuapp.com/api/v1/treatments.json">
+      <input type=hidden name=enteredBy value="QuickEntry" />
+      <input type=hidden name=eventType value="Exercise" />
+      <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
+      <input type=number name=duration placeholder="Duration in minutes" /><br>
+      <input type=submit name=notes value="Yoga" /><input type=submit name=notes value="Dance" /><input type=submit name=notes value="Other" />
+    </form>
+    <br>
+    
     <b>BG Only (Finger Test)</b><br>
     <form method=post action="https://beetusbot.herokuapp.com/api/v1/treatments.json">
       <input type=hidden name=enteredBy value="QuickEntry" />
@@ -61,6 +89,6 @@
       <input type=submit name=notes value="Calibration" /><input type=submit name=notes value="Low" /><input type=submit name=notes value="Just Checking" />
     </form>
     <br>
-    
+      
   </body>
 </html>
