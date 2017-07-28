@@ -12,6 +12,9 @@
 
     <style>
       body {padding: 30px 30px 30px 30px;}
+      input[type=submit] {width: 50%;}
+      input[type=number] {width: 80%;}
+      form {max-width: 250px;}
     </style>
     
   </head>
@@ -28,9 +31,9 @@
       <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
       <input type=number name=carbs placeholder="Carbs in grams" /> Carbs<br>
       <input type=number step=0.1 name=insulinGiven placeholder="Units" /> Bolus Units<br>
-      <input type=number name=insulinSplitNow placeholder="Now" value="100" style="width: 45%;">% : <input type=number name=insulinSplitExt placeholder="Later" value="0" style="width: 45%;">% Extended split<br>
+      <input type=number name=insulinSplitNow placeholder="Now" value="100" style="width: 40%;" />% : <input type=number name=insulinSplitExt placeholder="Later" value="0" style="width: 40%;" />% Extended split<br>
       <input type=number name=duration placeholder="Duration in minutes" /> Extended duration<br>
-      <input type=checkbox name="preBolus" value="15" checked>Eat in 15 minutes<br>
+      <input type=checkbox name="preBolus" value="15" checked />Eat in 15 minutes<br>
       <input type=submit name=eventType value="Meal Bolus" /><input type=submit name=eventType value="Snack Bolus" /><br>
       <input type=submit name=eventType value="Combo Bolus" />
     </form>
@@ -41,8 +44,9 @@
       <input type=hidden name=enteredBy value="QuickEntry" />
       <input type=hidden name=eventType value="Carb Correction" />
       <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
-      <input type=number name=carbs placeholder="Carbs in grams" /><br>
-      <input type=submit name=notes value="Meal" /><input type=submit name=notes value="Snack" /><input type=submit name=notes value="Low" />
+      <input type=number name=carbs placeholder="Carbs in grams" /> Carbs<br>
+      <input type=submit name=notes value="Meal" /><input type=submit name=notes value="Snack" /><br>
+      <input type=submit name=notes value="Low" />
     </form>
     <br>
 
@@ -50,7 +54,7 @@
     <form method=post action="https://beetusbot.herokuapp.com/api/v1/treatments.json">
       <input type=hidden name=enteredBy value="QuickEntry" />
       <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
-      <input type=number step=0.1 name=insulinGiven placeholder="Units" /><br>
+      <input type=number step=0.1 name=insulinGiven placeholder="Units" /> Bolus Units<br>
       <input type=submit name=eventType value="Correction Bolus" />
     </form>
     <br>
@@ -60,9 +64,10 @@
       <input type=hidden name=enteredBy value="QuickEntry" />
       <input type=hidden name=eventType value="Temp Basal Start" />
       <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
-      <input type=number name=duration placeholder="Duration in minutes" /><br>
-      <input type=number name=percent placeholder="Basal change in %" /><br>
-      <input type=submit name=notes value="Engine braking" /><input type=submit name=notes value="Super bolus" /><input type=submit name=notes value="Other" />
+      <input type=number name=duration placeholder="Duration in minutes" /> Duration<br>
+      <input type=number name=percent placeholder="Basal change in %" /> % Change<br>
+      <input type=submit name=notes value="Engine braking" /><input type=submit name=notes value="Super bolus" /><br>
+      <input type=submit name=notes value="Other" />
     </form>
     <br>
     <form method=post action="https://beetusbot.herokuapp.com/api/v1/treatments.json">
@@ -79,7 +84,8 @@
       <input type=hidden name=eventType value="Exercise" />
       <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
       <input type=number name=duration placeholder="Duration in minutes" /><br>
-      <input type=submit name=notes value="Yoga" /><input type=submit name=notes value="Dance" /><input type=submit name=notes value="Other" />
+      <input type=submit name=notes value="Yoga" /><input type=submit name=notes value="Dance" /><br>
+      <input type=submit name=notes value="Other" />
     </form>
     <br>
     
@@ -90,12 +96,13 @@
       <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
       <input type=hidden name=glucoseType value="Finger" />
       <input type=number name=glucose placeholder="BG in mg/dL" /><br>
-      <input type=submit name=notes value="Calibration" /><input type=submit name=notes value="Low" /><input type=submit name=notes value="Just Checking" />
+      <input type=submit name=notes value="Calibration" /><input type=submit name=notes value="Low" /><br>
+      <input type=submit name=notes value="Just Checking" />
     </form>
     <br>
     
     <b>Add note</b><br>
-    <form method=post action="https://beetusbot.herokuapp.com/api/v1/treatments.json">
+    <form method=post action="https://beetusbot.herokuapp.com/api/v1/treatments.json" style="max-width: 250px;>
       <input type=hidden name=enteredBy value="QuickEntry" />
       <input type=hidden name=eventType value="Note" />
       <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
