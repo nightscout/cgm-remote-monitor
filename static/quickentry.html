@@ -32,7 +32,7 @@
       <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
       <input type=number name=carbs placeholder="Carbs in grams" min="0" /> Carbs<br>
       <input type=number step=0.1 name=insulin placeholder="Units" min="0" /> Bolus Units<br>
-      <input type=number name=percent placeholder="Now" value="100" style="width: 21%;" step="5"/>% : <input type=number name=split placeholder="Later" value="0" style="width: 21%;" step="5"/>% Extended split<br>
+      <input type=number name=percent placeholder="Now" value=100 style="width: 21%;" step=5 min=0 max=100 />% : <input type=number name=split placeholder="Later" value=0 style="width: 21%;" step=5 min=0 max=100/>% Extended split<br>
       <input type=number name=duration placeholder="Duration in minutes" min="0" /> Extended duration<br>
       <input type=checkbox name=prebolus value="15" checked />Eat in 15 minutes<br>
       <input type=submit name=eventType value="Meal Bolus" /><input type=submit name=eventType value="Snack Bolus" /><br>
@@ -45,7 +45,7 @@
       <input type=hidden name=enteredBy value="QuickEntry" />
       <input type=hidden name=eventType value="Carb Correction" />
       <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
-      <input type=number name=carbs placeholder="Carbs in grams" min="0" /> Carbs<br>
+      <input type=number name=carbs placeholder="Carbs in grams" min=0 /> Carbs<br>
       <input type=submit name=notes value="Meal" /><input type=submit name=notes value="Snack" /><br>
       <input type=submit name=notes value="Low" />
     </form>
@@ -55,7 +55,7 @@
     <form method=post action="https://beetusbot.herokuapp.com/api/v1/treatments.json">
       <input type=hidden name=enteredBy value="QuickEntry" />
       <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
-      <input type=number step=0.1 name=insulin placeholder="Units" min="0" /> Bolus Units<br>
+      <input type=number step=0.1 name=insulin placeholder="Units" min=0 /> Bolus Units<br>
       <input type=submit name=eventType value="Correction Bolus" />
     </form>
     <br>
@@ -65,8 +65,8 @@
       <input type=hidden name=enteredBy value="QuickEntry" />
       <input type=hidden name=eventType value="Temp Basal Start" />
       <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
-      <input type=number name=duration placeholder="Duration in minutes" min="0" /> Duration<br>
-      <input type=number name=percent placeholder="Basal change in %" min="-100" /> % Change<br>
+      <input type=number name=duration placeholder="Duration in minutes" min=0 /> Duration<br>
+      <input type=number name=percent placeholder="Basal change in %" min=-100 /> % Change<br>
       <input type=submit name=notes value="Engine braking" /><input type=submit name=notes value="Super bolus" /><br>
       <input type=submit name=notes value="Other" />
     </form>
@@ -84,7 +84,7 @@
       <input type=hidden name=enteredBy value="QuickEntry" />
       <input type=hidden name=eventType value="Exercise" />
       <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
-      <input type=number name=duration placeholder="Duration in minutes" min="0" /> Duration<br>
+      <input type=number name=duration placeholder="Duration in minutes" min=0 /> Duration<br>
       <input type=submit name=notes value="Yoga" /><input type=submit name=notes value="Dance" /><br>
       <input type=submit name=notes value="Other" />
     </form>
@@ -96,7 +96,7 @@
       <input type=hidden name=eventType value="BG Check" />
       <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
       <input type=hidden name=glucoseType value="Finger" />
-      <input type=number name=glucose placeholder="BG in mg/dL" min="0" /> mg/dL<br>
+      <input type=number name=glucose placeholder="BG in mg/dL" min=0 /> mg/dL<br>
       <input type=submit name=notes value="Calibration" /><input type=submit name=notes value="Low" /><br>
       <input type=submit name=notes value="Just Checking" />
     </form>
