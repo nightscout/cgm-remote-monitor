@@ -36,7 +36,7 @@
       <input type=number name=duration placeholder="Duration in minutes" min="0" /> Extended duration<br>
       <input type=checkbox name=prebolus value="15" checked />Eat in 15 minutes<br>
       <input type=submit name=eventType value="Meal Bolus" /><input type=submit name=eventType value="Snack Bolus" /><br>
-      <input type=submit name=eventType value="Combo Bolus" />
+      <input type=submit name=eventType value="Combo Bolus" onclick="(n.enteredinsulin=n.insulin,n.insulin=n.enteredinsulin*n.splitNow/100,n.relative=60*(n.enteredinsulin*n.splitExt/100/n.duration))" />
     </form>
     <br>
 
