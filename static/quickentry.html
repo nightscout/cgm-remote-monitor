@@ -26,9 +26,11 @@
       <input type=number name=glucose placeholder="BG in mg/dL" /> BG<br>
       <input type=number name=carbs placeholder="Carbs in grams" /> Carbs<br>
       <input type=number step=0.1 name=insulin placeholder="Units" /> Bolus Units<br>
+      <input type=number name=insulinSplitNow placeholder="Now" value="100">% : <input type=number name=insulinSplitExt placeholder="Later" value="0">% Extended split<br>
+      <input type=number name=duration placeholder="Duration in minutes" /> Extended duration<br>
       <input type=checkbox name="preBolus" value="15" checked>Eat in 15 minutes<br>
       <input type=submit name=eventType value="Meal Bolus" /><input type=submit name=eventType value="Snack Bolus" /><br>
-      <input type=submit name=eventType value="Correction Bolus" />
+      <input type=submit name=eventType value="Correction Bolus" /><input type=submit name=eventType value="Combo Bolus" />
     </form>
     <br>
 
