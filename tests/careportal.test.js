@@ -49,6 +49,7 @@ describe('client', function ( ) {
     client.dataUpdate(nowData);
 
     client.careportal.prepareEvents();
+    client.careportal.toggleDrawer();
 
     $('#eventType').val('Snack Bolus');
     $('#glucoseValue').val('100');
