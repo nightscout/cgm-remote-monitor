@@ -173,7 +173,7 @@
     },
     "enable": {
       "type": "string",
-      "defaultValue": "basal bwp cage careportal iob cob rawbg sage iage treatmentnotify boluscalc profile food",
+      "defaultValue": "basal bwp cage careportal cob rawbg sage iage treatmentnotify boluscalc profile",
     },
     "night_mode": {
       "type": "string",
@@ -211,10 +211,6 @@
         "off"
       ],
       "defaultValue": "off",
-    },
-    "auth_default_roles": {
-      "type": "string",
-      "defaultValue": "readable devicestatus-upload",
     }
   },
   "resources": [{
@@ -308,9 +304,6 @@
           }, {
             "name": "PROFILE_MULTIPLE",
             "value": "[parameters('profile_multiple')]"
-          }, {
-            "name": "AUTH_DEFAULT_ROLES",
-            "value": "[parameters('auth_default_roles')]"
           }
         ]
       }
