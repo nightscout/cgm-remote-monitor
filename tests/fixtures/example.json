@@ -2,7 +2,7 @@
   {
     "type": "sgv",
     "sgv": "5",
-    "dateString": "07\/19\/2014 10:49:15 AM",
+    "dateString": "2014-07-19T10:49:15.000-07:00",
     "date": 1405792155000,
     "device": "dexcom",
     "direction": "NOT COMPUTABLE"
@@ -10,7 +10,7 @@
   {
     "type": "sgv",
     "sgv": "5",
-    "dateString": "07\/19\/2014 10:44:15 AM",
+    "dateString": "2014-07-19T10:44:15.000-07:00",
     "date": 1405791855000,
     "device": "dexcom",
     "direction": "NOT COMPUTABLE"
@@ -18,7 +18,7 @@
   {
     "type": "sgv",
     "sgv": "5",
-    "dateString": "07\/19\/2014 10:39:15 AM",
+    "dateString": "2014-07-19T10:39:15.000-07:00",
     "date": 1405791555000,
     "device": "dexcom",
     "direction": "NOT COMPUTABLE"
@@ -26,7 +26,7 @@
   {
     "type": "sgv",
     "sgv": "5",
-    "dateString": "07\/19\/2014 10:34:15 AM",
+    "dateString": "2014-07-19T10:34:15.000-07:00",
     "date": 1405791255000,
     "device": "dexcom",
     "direction": "NOT COMPUTABLE"
@@ -34,7 +34,7 @@
   {
     "type": "sgv",
     "sgv": "5",
-    "dateString": "07\/19\/2014 10:29:15 AM",
+    "dateString": "2014-07-19T10:29:15.000-07:00",
     "date": 1405790955000,
     "device": "dexcom",
     "direction": "NOT COMPUTABLE"
@@ -42,7 +42,7 @@
   {
     "type": "sgv",
     "sgv": "5",
-    "dateString": "07\/19\/2014 10:24:15 AM",
+    "dateString": "2014-07-19T10:24:15.000-07:00",
     "date": 1405790655000,
     "device": "dexcom",
     "direction": "NOT COMPUTABLE"
@@ -50,7 +50,7 @@
   {
     "type": "sgv",
     "sgv": "5",
-    "dateString": "07\/19\/2014 10:19:15 AM",
+    "dateString": "2014-07-19T10:19:15.000-07:00",
     "date": 1405790355000,
     "device": "dexcom",
     "direction": "NOT COMPUTABLE"
@@ -58,7 +58,7 @@
   {
     "type": "sgv",
     "sgv": "5",
-    "dateString": "07\/19\/2014 10:14:15 AM",
+    "dateString": "2014-07-19T10:14:15.000-07:00",
     "date": 1405790055000,
     "device": "dexcom",
     "direction": "NOT COMPUTABLE"
@@ -66,7 +66,7 @@
   {
     "type": "sgv",
     "sgv": "5",
-    "dateString": "07\/19\/2014 10:09:15 AM",
+    "dateString": "2014-07-19T10:09:15.000-07:00",
     "date": 1405789755000,
     "device": "dexcom",
     "direction": "NOT COMPUTABLE"
@@ -74,7 +74,7 @@
   {
     "type": "sgv",
     "sgv": "5",
-    "dateString": "07\/19\/2014 10:04:15 AM",
+    "dateString": "2014-07-19T10:04:15.000-07:00",
     "date": 1405789455000,
     "device": "dexcom",
     "direction": "NOT COMPUTABLE"
@@ -82,7 +82,7 @@
   {
     "type": "sgv",
     "sgv": "5",
-    "dateString": "07\/19\/2014 09:59:15 AM",
+    "dateString": "2014-07-19T09:59:15.000-07:00",
     "date": 1405789155000,
     "device": "dexcom",
     "direction": "NOT COMPUTABLE"
@@ -90,7 +90,7 @@
   {
     "type": "sgv",
     "sgv": "5",
-    "dateString": "07\/19\/2014 09:54:15 AM",
+    "dateString": "2014-07-19T09:54:15.000-07:00",
     "date": 1405788855000,
     "device": "dexcom",
     "direction": "NOT COMPUTABLE"
@@ -98,7 +98,7 @@
   {
     "type": "sgv",
     "sgv": "178",
-    "dateString": "07\/19\/2014 03:59:15 AM",
+    "dateString": "2014-07-19T03:59:15.000-07:00",
     "date": 1405767555000,
     "device": "dexcom",
     "direction": "Flat"
@@ -106,7 +106,7 @@
   {
     "type": "sgv",
     "sgv": "179",
-    "dateString": "07\/19\/2014 03:54:15 AM",
+    "dateString": "2014-07-19T03:54:15.000-07:00",
     "date": 1405767255000,
     "device": "dexcom",
     "direction": "Flat"
@@ -114,7 +114,7 @@
   {
     "type": "sgv",
     "sgv": "178",
-    "dateString": "07\/19\/2014 03:49:15 AM",
+    "dateString": "2014-07-19T03:49:15.000-07:00",
     "date": 1405766955000,
     "device": "dexcom",
     "direction": "Flat"
@@ -122,7 +122,7 @@
   {
     "type": "sgv",
     "sgv": "177",
-    "dateString": "07\/19\/2014 03:44:15 AM",
+    "dateString": "2014-07-19T03:44:15.000-07:00",
     "date": 1405766655000,
     "device": "dexcom",
     "direction": "Flat"
@@ -130,7 +130,7 @@
   {
     "type": "sgv",
     "sgv": "176",
-    "dateString": "07\/19\/2014 03:39:15 AM",
+    "dateString": "2014-07-19T03:39:15.000-07:00",
     "date": 1405766355000,
     "device": "dexcom",
     "direction": "Flat"
@@ -138,7 +138,7 @@
   {
     "type": "sgv",
     "sgv": "176",
-    "dateString": "07\/19\/2014 03:34:15 AM",
+    "dateString": "2014-07-19T03:34:15.000-07:00",
     "date": 1405766055000,
     "device": "dexcom",
     "direction": "Flat"
@@ -146,7 +146,7 @@
   {
     "type": "sgv",
     "sgv": "175",
-    "dateString": "07\/19\/2014 03:29:16 AM",
+    "dateString": "2014-07-19T03:29:16.000-07:00",
     "date": 1405765756000,
     "device": "dexcom",
     "direction": "Flat"
@@ -154,7 +154,7 @@
   {
     "type": "sgv",
     "sgv": "174",
-    "dateString": "07\/19\/2014 03:24:15 AM",
+    "dateString": "2014-07-19T03:24:15.000-07:00",
     "date": 1405765455000,
     "device": "dexcom",
     "direction": "Flat"
@@ -162,7 +162,7 @@
   {
     "type": "sgv",
     "sgv": "174",
-    "dateString": "07\/19\/2014 03:19:15 AM",
+    "dateString": "2014-07-19T03:19:15.000-07:00",
     "date": 1405765155000,
     "device": "dexcom",
     "direction": "Flat"
@@ -170,7 +170,7 @@
   {
     "type": "sgv",
     "sgv": "175",
-    "dateString": "07\/19\/2014 03:14:15 AM",
+    "dateString": "2014-07-19T03:14:15.000-07:00",
     "date": 1405764855000,
     "device": "dexcom",
     "direction": "Flat"
@@ -178,7 +178,7 @@
   {
     "type": "sgv",
     "sgv": "176",
-    "dateString": "07\/19\/2014 03:09:15 AM",
+    "dateString": "2014-07-19T03:09:15.000-07:00",
     "date": 1405764555000,
     "device": "dexcom",
     "direction": "Flat"
@@ -186,7 +186,7 @@
   {
     "type": "sgv",
     "sgv": "176",
-    "dateString": "07\/19\/2014 03:04:15 AM",
+    "dateString": "2014-07-19T03:04:15.000-07:00",
     "date": 1405764255000,
     "device": "dexcom",
     "direction": "Flat"
@@ -194,7 +194,7 @@
   {
     "type": "sgv",
     "sgv": "173",
-    "dateString": "07\/19\/2014 02:59:15 AM",
+    "dateString": "2014-07-19T02:59:15.000-07:00",
     "date": 1405763955000,
     "device": "dexcom",
     "direction": "Flat"
@@ -202,7 +202,7 @@
   {
     "type": "sgv",
     "sgv": "171",
-    "dateString": "07\/19\/2014 02:54:15 AM",
+    "dateString": "2014-07-19T02:54:15.000-07:00",
     "date": 1405763655000,
     "device": "dexcom",
     "direction": "Flat"
@@ -210,7 +210,7 @@
   {
     "type": "sgv",
     "sgv": "170",
-    "dateString": "07\/19\/2014 02:49:15 AM",
+    "dateString": "2014-07-19T02:49:15.000-07:00",
     "date": 1405763355000,
     "device": "dexcom",
     "direction": "Flat"
@@ -218,7 +218,7 @@
   {
     "type": "sgv",
     "sgv": "171",
-    "dateString": "07\/19\/2014 02:44:15 AM",
+    "dateString": "2014-07-19T02:44:15.000-07:00",
     "date": 1405763055000,
     "device": "dexcom",
     "direction": "Flat"
@@ -226,7 +226,7 @@
   {
     "type": "sgv",
     "sgv": "169",
-    "dateString": "07\/19\/2014 02:39:15 AM",
+    "dateString": "2014-07-19T02:39:15.000-07:00",
     "date": 1405762755000,
     "device": "dexcom",
     "direction": "Flat"
@@ -234,7 +234,7 @@
   {
     "type": "sgv",
     "sgv": "169",
-    "dateString": "07\/19\/2014 02:34:15 AM",
+    "dateString": "2014-07-19T02:34:15.000-07:00",
     "date": 1405762455000,
     "device": "dexcom",
     "direction": "Flat"
