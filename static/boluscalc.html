@@ -46,7 +46,9 @@
     
     <script language="javascript">
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", function(data) {
-        console.log("data: "+ data[0]);
+        var paresedData = JSON.parse(data);
+        var innerdata = parsedData[0]
+        console.log("data: "+ innerdata.sgv);
         //document.getElementById("BG").value = parseInt(data.sgv);
       });
     </script>
