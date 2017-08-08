@@ -44,6 +44,12 @@
     </form>
     <br>
     
+    <script language="javascript">
+      $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", function(data) {
+        document.getElementById("BG").value = data.sgv;
+      });
+    </script>
+    
     <div id="results"></div>
     
     <script language="javascript">
