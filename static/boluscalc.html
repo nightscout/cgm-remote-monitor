@@ -28,20 +28,20 @@
   <body>
 
     <b>Test form</b>
-    <form name="testform">
-      <input type=number name="carbs" placeholder="Carbs in grams" min="0" /> Carbs<br>
-      <input type=number step=0.1 name="insulin" placeholder="Units" min="0" /> Bolus Units<br>
+    <form>
+      <input type=number name="carbs" id="carbs" placeholder="Carbs in grams" min="0" /> Carbs<br>
+      <input type=number step=0.1 name="insulin" id="insulin" placeholder="Units" min="0" /> Bolus Units<br>
       <input type=submit name="sendTheData" id="sendTheData" value="Submit" /><br>
     </form>
     <br>
     
     <script language="javascript">
+      console.log("Am I losing it?");
       $('#sendTheData').onsubmit = function () {
           var firstInput = parseFloat($("#carbs"));
           var secondInput = parseFloat($("#insulin"));
           console.log("Testing 1 2 3");
           console.log(firstInput/secondInput);
-          return false;
       };
     </script>
       
