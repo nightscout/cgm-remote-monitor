@@ -55,32 +55,31 @@
           var sensitivity = parseFloat($("#sensitivity").val());
           var carbRatio = parseFloat($("#carbRatio").val());
           var CU = (carbs/10.0);
+          console.log("CU: "+ CU);
           var FPU = (protein*4.0+fat*9.0)/100.0;
+          console.log("FPU: "+ FPU);
           var IRFactor = (10.0/carbRatio);
+          console.log("IRFactor: "+ IRFactor);
           var CDI = (CU + FPU) * IRFactor;
+          console.log("CDI: "+ CDI);
           var CU_perc = CU / (CU + FPU);
+          console.log("CU_perc: "+ CU_perc);
           var correction = ((bg - 100)/sensitivity) - corrIOB;
+          console.log("Correction: "+ correction);
           if (CU_perc < 0.2) { var NB = 0; }
           else if (CU_perc >= 0.2 && CU_perc <= 0.8) { var NB = CU * IRFactor * (1 - correction); }
           else { var NB = CU * IRFactor; }
-          if ((FPU < 1.0) || ((FPU >= 1.0) && (CU_Perc > 0.8))) { var SB = 0; }
+          console.log("NB: "+ NB);
+          if ((FPU < 1.0) || ((FPU >= 1.0) && (CU_perc > 0.8))) { var SB = 0; }
           else if ((FPU >= 1.0) && (CU_perc < 0.2)) { var SB = FPU * IRFactor; }
           else if ((FPU >= 1.0) && (CU_perc >= 0.2) && (CU_perc <= 0.8) ) { var SB = FPU * IRFactor * (1 - correction); }
+          console.log("SB: "+ SB);
           if ((FPU < 1.0) || (CU_perc > 0.8)) { var T_hours = 0; }
           else if ((FPU >= 1.0) && (FPU < 2.0)) { var T_hours = 3; }
           else if ((FPU >= 2.0) && (FPU < 3.0)) { var T_hours = 4; }
           else if ((FPU >= 3.0) && (FPU < 4.0)) { var T_hours = 5; }
           else { var T_hours = 8; }
           var T_mins = T_hours * 60;
-          
-          console.log("CU: "+ CU);
-          console.log("FPU: "+ FPU);
-          console.log("IRFactor: "+ IRFactor);
-          console.log("CDI: "+ CDI);
-          console.log("CU_perc: "+ CU_perc);
-          console.log("Correction: "+ correction);
-          console.log("NB: "+ NB);
-          console.log("SB: "+ SB);
           console.log("T_hours: "+ T_hours);
       };
       console.log("Function maybe ran");
