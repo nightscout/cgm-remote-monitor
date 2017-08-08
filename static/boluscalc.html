@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <title>Bolus Calc Advanced</title>
+    
+    <link rel="shortcut icon" href="https://beetusbot.herokuapp.com/images/favicon.ico">
 
     <!-- Bootstrap -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous"> 
@@ -21,7 +23,7 @@
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
-    <!-- <script src="js/bootstrap.min.js"></script> -->
+    <script src="https://beetusbot.herokuapp.com/js/bootstrap.min.js"></script>
     
     
   </head>
@@ -42,6 +44,8 @@
     </form>
     <br>
     
+    <div id="results"></div>
+    
     <script language="javascript">
       //console.log("Page loaded");
       function testfunction() {
@@ -55,32 +59,32 @@
           var sensitivity = parseFloat($("#sensitivity").val());
           var carbRatio = parseFloat($("#carbRatio").val());
           var CU = (carbs/10.0);
-          document.write("CU: "+ CU+ "<br/>");
+          document.getElementById("results").innerHTML = "CU: "+ CU+ "<br/>";
           //console.log("CU: "+ CU);
           var FPU = (protein*4.0+fat*9.0)/100.0;
-          document.write("FPU: "+ FPU+ "<br/>");
+          document.getElementById("results").innerHTML += "FPU: "+ FPU+ "<br/>";
           //console.log("FPU: "+ FPU);
           var IRFactor = (10.0/carbRatio);
-          document.write("IRFactor: "+ IRFactor+ "<br/>");
+          document.getElementById("results").innerHTML += "IRFactor: "+ IRFactor+ "<br/>";
           //console.log("IRFactor: "+ IRFactor);
           var CDI = (CU + FPU) * IRFactor;
-          document.write("CDI: "+ CDI+ "<br/>");
+          document.getElementById("results").innerHTML += "CDI: "+ CDI+ "<br/>";
           //console.log("CDI: "+ CDI);
           var CU_perc = CU / (CU + FPU);
-          document.write("CU_perc: "+ CU_perc+ "<br/>");
+          document.getElementById("results").innerHTML += "CU_perc: "+ CU_perc+ "<br/>";
           //console.log("CU_perc: "+ CU_perc);
           var correction = ((bg - 100)/sensitivity) - corrIOB;
-          document.write("Correction: "+ correction+ "<br/>");
+          document.getElementById("results").innerHTML += "Correction: "+ correction+ "<br/>";
           //console.log("Correction: "+ correction);
           if (CU_perc < 0.2) { var NB = 0; }
           else if (CU_perc >= 0.2 && CU_perc <= 0.8) { var NB = CU * IRFactor * (1 - correction); }
           else { var NB = CU * IRFactor; }
-          document.write("NB: "+ NB+ "<br/>");
+          document.getElementById("results").innerHTML += "NB: "+ NB+ "<br/>";
           //console.log("NB: "+ NB);
           if ((FPU < 1.0) || ((FPU >= 1.0) && (CU_perc > 0.8))) { var SB = 0; }
           else if ((FPU >= 1.0) && (CU_perc < 0.2)) { var SB = FPU * IRFactor; }
           else if ((FPU >= 1.0) && (CU_perc >= 0.2) && (CU_perc <= 0.8) ) { var SB = FPU * IRFactor * (1 - correction); }
-          document.write("SB: "+ SB+ "<br/>");
+          document.getElementById("results").innerHTML += "SB: "+ SB+ "<br/>";
           //console.log("SB: "+ SB);
           if ((FPU < 1.0) || (CU_perc > 0.8)) { var T_hours = 0; }
           else if ((FPU >= 1.0) && (FPU < 2.0)) { var T_hours = 3; }
@@ -88,7 +92,7 @@
           else if ((FPU >= 3.0) && (FPU < 4.0)) { var T_hours = 5; }
           else { var T_hours = 8; }
           var T_mins = T_hours * 60;
-          document.write("T_hours: "+ T_hours+ "<br/>");
+          document.getElementById("results").innerHTML += "T_hours: "+ T_hours+ "<br/>";
           //console.log("T_hours: "+ T_hours);
           console.log("Function ran");
       };
