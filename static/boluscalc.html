@@ -23,8 +23,11 @@
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <!-- <script src="js/bootstrap.min.js"></script> -->
     <script language="javascript">
-      $("form").on('submit', function (e) {
-          alert("test box");
+      sendTheData.on('click', function () {
+          var firstInput = parseFloat(input.attr('carbs'));
+          var secondInput = parseFloat(input.attr('insulin'));
+          console.log("Testing 1 2 3");
+          console.log(firstInput/secondInput);
           return false;
       });
     </script>
@@ -34,9 +37,9 @@
 
     <b>Test form</b>
     <form name="testform">
-      <input type=number name=carbs placeholder="Carbs in grams" min="0" /> Carbs<br>
-      <input type=number step=0.1 name=insulin placeholder="Units" min="0" /> Bolus Units<br>
-      <input type=submit name=submit value="Submit" /><br>
+      <input type=number name="carbs" placeholder="Carbs in grams" min="0" /> Carbs<br>
+      <input type=number step=0.1 name="insulin" placeholder="Units" min="0" /> Bolus Units<br>
+      <input type=submit name="sendTheData" value="Submit" /><br>
     </form>
     <br>
       
