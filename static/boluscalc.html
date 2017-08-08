@@ -1,1 +1,44 @@
-Test
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Bolus Calc Advanced</title>
+
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous"> 
+
+    <style>
+      body {padding: 30px 30px 30px 30px;}
+      input[type=submit] {width: 50%;}
+      input[type=number] {width: 50%;}
+      input[type=text] {width: 100%;}
+      form {max-width: 300px;}
+    </style>
+    
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="js/bootstrap.min.js"></script>
+    <script>
+      $("testform").on('submit'), function test() {
+          alert("test box");
+          return false;
+      });
+    </script>
+    
+  </head>
+  <body>
+
+    <b>Test form</b>
+    <form name="testform">
+      <input type=number name=carbs placeholder="Carbs in grams" min="0" /> Carbs<br>
+      <input type=number step=0.1 name=insulin placeholder="Units" min="0" /> Bolus Units<br>
+      <input type=submit name=submit value="Submit" /><br>
+    </form>
+    <br>
+      
+  </body>
+</html>
