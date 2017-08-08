@@ -22,15 +22,7 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <!-- <script src="js/bootstrap.min.js"></script> -->
-    <script language="javascript">
-      sendTheData.on('click', function () {
-          var firstInput = parseFloat(input.attr('carbs'));
-          var secondInput = parseFloat(input.attr('insulin'));
-          console.log("Testing 1 2 3");
-          console.log(firstInput/secondInput);
-          return false;
-      });
-    </script>
+    
     
   </head>
   <body>
@@ -39,9 +31,19 @@
     <form name="testform">
       <input type=number name="carbs" placeholder="Carbs in grams" min="0" /> Carbs<br>
       <input type=number step=0.1 name="insulin" placeholder="Units" min="0" /> Bolus Units<br>
-      <input type=submit name="sendTheData" value="Submit" /><br>
+      <input type=submit name="sendTheData" id="sendTheData" value="Submit" /><br>
     </form>
     <br>
+    
+    <script language="javascript">
+      $('#sendTheData').on('click', function () {
+          var firstInput = parseFloat(input.attr('carbs'));
+          var secondInput = parseFloat(input.attr('insulin'));
+          console.log("Testing 1 2 3");
+          console.log(firstInput/secondInput);
+          return false;
+      });
+    </script>
       
   </body>
 </html>
