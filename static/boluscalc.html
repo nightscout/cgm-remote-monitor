@@ -28,21 +28,22 @@
   <body>
 
     <b>Test form</b>
-    <form>
+    <form onsubmit="testfunction()">
       <input type=number name="carbs" id="carbs" placeholder="Carbs in grams" min="0" /> Carbs<br>
       <input type=number step=0.1 name="insulin" id="insulin" placeholder="Units" min="0" /> Bolus Units<br>
-      <input type=submit name="sendTheData" id="sendTheData" value="Submit" /><br>
+      <input type=submit name="submit" id="submit" value="Submit" /><br>
     </form>
     <br>
     
     <script language="javascript">
-      console.log("Am I losing it?");
-      $('#sendTheData').onsubmit = function () {
-          var firstInput = parseFloat($("#carbs"));
-          var secondInput = parseFloat($("#insulin"));
+      console.log("Page loaded");
+      function testfunction() {
+          var firstInput = parseFloat($("#carbs").val());
+          var secondInput = parseFloat($("#insulin").val());
           console.log("Testing 1 2 3");
           console.log(firstInput/secondInput);
       };
+      console.log("Function maybe ran");
     </script>
       
   </body>
