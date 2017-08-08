@@ -29,8 +29,15 @@
 
     <b>Test form</b>
     <form onsubmit="testfunction()">
-      <input type=number name="carbs" id="carbs" placeholder="Carbs in grams" min="0" /> Carbs<br>
-      <input type=number step=0.1 name="insulin" id="insulin" placeholder="Units" min="0" /> Bolus Units<br>
+      <input type=number name="BG" id="BG" placeholder="BG in mg/dL" min="0" /> BG<br>
+      <input type=number step=0.1 name="carbs" id="carbs" placeholder="Carbs in grams" min="0" /> Carbs<br>
+      <input type=number step=0.1 name="fat" id="fat" placeholder="Fat in grams" min="0" /> Fat<br>
+      <input type=number step=0.1 name="protein" id="protein" placeholder="Protein in grams" min="0" /> Protein<br>
+      <input type=number step=0.1 name="fiber" id="fiber" placeholder="Fiber in grams" min="0" /> Fiber<br>
+      <input type=number step=0.01 name="corrIOB" id="corrIOB" placeholder="Units" min="0" /> Correction IOB<br>
+      <input type=number step=0.01 name="basal" id="basal" placeholder="Units/hr" min="0" /> Basal units/hr<br>
+      <input type=number name="sensitivity" id="sensitivity" placeholder="mg/dL per unit" min="0" /> Sensitivity<br>
+      <input type=number name="carbRatio" id="carbRatio" placeholder="Carbs per unit" min="0" /> Carb Ratio<br>
       <input type=submit name="submit" id="submit" value="Submit" /><br>
     </form>
     <br>
@@ -38,10 +45,43 @@
     <script language="javascript">
       console.log("Page loaded");
       function testfunction() {
-          var firstInput = parseFloat($("#carbs").val());
-          var secondInput = parseFloat($("#insulin").val());
-          console.log("Testing 1 2 3");
-          console.log(firstInput/secondInput);
+          var bg = parseFloat($("#BG").val());
+          var carbs = parseFloat($("#carbs").val());
+          var fat = parseFloat($("#fat").val());
+          var protein = parseFloat($("#protein").val());
+          var fiber = parseFloat($("#fiber").val());
+          var corrIOB = parseFloat($("#corrIOB").val());
+          var basal = parseFloat($("#basal").val());
+          var sensitivity = parseFloat($("#sensitivity").val());
+          var carbRatio = parseFloat($("#carbRatio").val());
+          var CU = (carbs/10.0);
+          var FPU = (protein*4.0+fat*9.0)/100.0;
+          var IRFactor = (10.0/carbRatio);
+          var CDI = (CU + FPU) * IRFactor;
+          var CU_perc = CU / (CU + FPU);
+          var correction = ((bg - 100)/sensitivity) - corrIOB;
+          if (CU_perc < 0.2) { var NB = 0; }
+          else if (CU_perc >= 0.2 && CU_perc <= 0.8) { var NB = CU * IRFactor * (1 - correction); }
+          else { var NB = CU * IRFactor; }
+          if ((FPU < 1.0) || ((FPU >= 1.0) && (CU_Perc > 0.8))) { var SB = 0; }
+          else if ((FPU >= 1.0) && (CU_perc < 0.2)) { var SB = FPU * IRFactor; }
+          else if ((FPU >= 1.0) && (CU_perc >= 0.2) && (CU_perc <= 0.8) ) { var SB = FPU * IRFactor * (1 - correction); }
+          if ((FPU < 1.0) || (CU_perc > 0.8)) { var T_hours = 0; }
+          else if ((FPU >= 1.0) && (FPU < 2.0)) { var T_hours = 3; }
+          else if ((FPU >= 2.0) && (FPU < 3.0)) { var T_hours = 4; }
+          else if ((FPU >= 3.0) && (FPU < 4.0)) { var T_hours = 5; }
+          else { var T_hours = 8; }
+          var T_mins = T_hours * 60;
+          
+          console.log("CU: "+ CU);
+          console.log("FPU: "+ FPU);
+          console.log("IRFactor: "+ IRFactor);
+          console.log("CDI: "+ CDI);
+          console.log("CU_perc: "+ CU_perc);
+          console.log("Correction: "+ correction);
+          console.log("NB: "+ NB);
+          console.log("SB: "+ SB);
+          console.log("T_hours: "+ T_hours);
       };
       console.log("Function maybe ran");
     </script>
