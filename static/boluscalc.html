@@ -46,10 +46,8 @@
     
     <script language="javascript">
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", function(data) {
-        //var parsedData = JSON.parse(data);
-        //var innerdata = parsedData[0]
-        console.log("data: "+ data[0].sgv);
-        //document.getElementById("BG").value = parseInt(data.sgv);
+        //console.log("data: "+ data[0].sgv);
+        document.getElementById("BG").value = parseInt(data[0].sgv);
       });
     </script>
     
