@@ -36,13 +36,13 @@
     <br>
     
     <script language="javascript">
-      $('#sendTheData').on('click', function () {
-          var firstInput = parseFloat(input.attr('carbs'));
-          var secondInput = parseFloat(input.attr('insulin'));
+      $('#sendTheData').onsubmit = function () {
+          var firstInput = parseFloat($("#carbs"));
+          var secondInput = parseFloat($("#insulin"));
           console.log("Testing 1 2 3");
           console.log(firstInput/secondInput);
           return false;
-      });
+      };
     </script>
       
   </body>
