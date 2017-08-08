@@ -50,7 +50,6 @@
       //console.log("Page loaded");
       $("#testform").submit(function(e) {
           e.preventDefault();
-          $(this).ajaxSubmit();
           var bg = parseFloat($("#BG").val());
           var carbs = parseFloat($("#carbs").val());
           var fat = parseFloat($("#fat").val());
@@ -97,6 +96,7 @@
           document.getElementById("results").innerHTML += "T_hours: "+ T_hours+ "<br/>";
           //console.log("T_hours: "+ T_hours);
           console.log("Function ran");
+          return false;
       });
       
     </script>
