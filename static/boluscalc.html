@@ -23,14 +23,14 @@
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
-    <script src="https://beetusbot.herokuapp.com/js/bootstrap.min.js"></script>
+    <!--<script src="https://beetusbot.herokuapp.com/js/bootstrap.min.js"></script>-->
     
     
   </head>
   <body>
 
     <b>Test form</b>
-    <form onsubmit="testfunction()">
+    <form name="testform" id="testform">
       <input type=number name="BG" id="BG" placeholder="BG in mg/dL" min="0" /> BG<br>
       <input type=number step=0.1 name="carbs" id="carbs" placeholder="Carbs in grams" min="0" /> Carbs<br>
       <input type=number step=0.1 name="fat" id="fat" placeholder="Fat in grams" min="0" /> Fat<br>
@@ -48,7 +48,9 @@
     
     <script language="javascript">
       //console.log("Page loaded");
-      function testfunction() {
+      $("#testform").submit(function(e) {
+          e.preventDefault();
+          $(this).ajaxSubmit();
           var bg = parseFloat($("#BG").val());
           var carbs = parseFloat($("#carbs").val());
           var fat = parseFloat($("#fat").val());
@@ -95,7 +97,7 @@
           document.getElementById("results").innerHTML += "T_hours: "+ T_hours+ "<br/>";
           //console.log("T_hours: "+ T_hours);
           console.log("Function ran");
-      };
+      });
       
     </script>
       
