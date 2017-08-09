@@ -45,8 +45,8 @@
     <br>
     
     <script language="javascript">
-      'use strict';
-      var _ = require('lodash');
+      //'use strict';
+      //var _ = require('lodash');
       
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", function(data) {
         document.getElementById("BG").value = parseInt(data[0].sgv);
@@ -55,7 +55,7 @@
         //console.log("data: "+ data[0].sgv);
         //document.getElementById("BG").value = parseInt(data[0][0][0].carbratio[);
       //});
-      var profile = sbx.data.profile;
+      /*var profile = sbx.data.profile;
       var currBG = sbx.lastScaledSGV();
       console.log("BG: "+ currBG);
       var currBasal = profile.getBasal(sbx.time);
@@ -63,7 +63,7 @@
       var currRatio = profile.getCarbRatio(sbx.time);
       console.log("Carb Ratio: "+ currRatio);
       var currSensitivity = profile.getSensitivity(sbx.time);
-      console.log("Sensitivity: "+ currSensitivity);
+      console.log("Sensitivity: "+ currSensitivity);*/
       
     </script>
     
