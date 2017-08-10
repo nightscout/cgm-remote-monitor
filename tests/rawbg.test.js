@@ -3,21 +3,26 @@
 require('should');
 
 describe('Raw BG', function ( ) {
-  var rawbg = require('../lib/plugins/rawbg')();
-  var sandbox = require('../lib/sandbox')();
+  var rawbg = require('../lib/plugins/rawbg')({
+    settings: {}
+    , language: require('../lib/language')()
+  });
 
   var now = Date.now();
-  var pluginBase = {};
   var data = {
     sgvs: [{unfiltered: 113680, filtered: 111232, mgdl: 110, noise: 1, mills: now}]
     , cals: [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, mills: now}]
   };
-  var clientSettings = {
-    units: 'mg/dl'
+  var ctx = {
+    settings: {
+      units: 'mg/dl'
+    }
+    , pluginBase: {}
   };
 
   it('should calculate Raw BG', function (done) {
-    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
 
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
       name.should.equal('rawbg');
@@ -31,5 +36,22 @@ describe('Raw BG', function ( ) {
 
   });
 
+  it('should handle alexa requests', function (done) {
+
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
+
+    rawbg.setProperties(sbx);
+
+    rawbg.alexa.intentHandlers.length.should.equal(1);
+
+    rawbg.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+      title.should.equal('Current Raw BG');
+      response.should.equal('Your raw bg is 113');
+
+      done();
+    }, [], sbx);
+
+  });
 
 });
