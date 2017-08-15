@@ -60,5 +60,23 @@ module.exports = {
     path: path.resolve(__dirname, '.'),
     filename: './tmp/js/bundle.js'
   },
-    plugins: pluginArray
+    plugins: pluginArray,
+    module: {
+     rules: [
+       {
+         test: /\.css$/,
+         use: [
+           'style-loader',
+           'css-loader'
+         ]
+       },
+		{
+         test: /\.(png|svg|jpg|gif)$/,
+         use: [
+           'file-loader'
+         ]
+      }
+     ]
+   }
 };
+

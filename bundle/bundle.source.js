@@ -1,3 +1,10 @@
+import '../static/css/drawer.css';
+import '../static/css/main.css';
+import '../static/css/dropdown.css';
+import '../static/css/sgv.css';
+import '../static/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css';
+import '../static/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css';
+   
 (function () {
 
   window._ = require('lodash');
