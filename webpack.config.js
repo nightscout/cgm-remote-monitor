@@ -58,7 +58,7 @@ module.exports = {
   },
   output: {
     path: path.resolve(__dirname, '.'),
-    filename: './static/js/bundle.js'
+    filename: './tmp/js/bundle.js'
   },
     plugins: pluginArray
 };

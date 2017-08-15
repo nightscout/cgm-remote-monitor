@@ -27,7 +27,7 @@
     "start": "node server.js",
     "test": "make test",
     "env": "env",
-    "postinstall": "node node_modules/bower/bin/bower --allow-root install"
+    "postinstall": "node node_modules/bower/bin/bower --allow-root install && webpack --config webpack.config.js"
   },
   "config": {
     "blanket": {

@@ -100,6 +100,14 @@ function create(env, ctx) {
     // serve the static content
     app.use(staticFiles);
 
+    var tmpFiles = express.static('tmp', {
+        maxAge: maxAge
+    });
+
+    // serve the static content
+    app.use(tmpFiles);
+
+
     /*
       var bundle = require('./bundle')(env);
       app.use(bundle);
@@ -127,13 +135,12 @@ app.use(minify({
   onerror: undefined,
 }));
 
-var BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
- 
-// ... 
-plugins: [new BundleAnalyzerPlugin()]
 
+// if this is dev environment, package scripts on the fly
+// if production, rely on postinstall script to run packaging for us
 
-
+if (process.env.NODE_ENV === 'development') {
+   
     var webpack = require("webpack");
     var webpack_conf = require('./webpack.config');
 
@@ -152,7 +159,7 @@ plugins: [new BundleAnalyzerPlugin()]
         //     console.log(json.errors); // => array of errors
         //    console.log(json.warnings); // => array of warnings
     });
-
+}
 
     // Handle errors with express's errorhandler, to display more readable error messages.
     var errorhandler = require('errorhandler');
