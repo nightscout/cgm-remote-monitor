@@ -2,15 +2,25 @@ import '../static/css/drawer.css';
 import '../static/css/main.css';
 import '../static/css/dropdown.css';
 import '../static/css/sgv.css';
-import '../static/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css';
-import '../static/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css';
+import '../node_modules/jquery.tipsy/src/jquery.tipsy.css';
+
    
 (function () {
 
   window._ = require('lodash');
   window.d3 = require('d3');
   window.$ = window.jQuery = require('jquery');
+  
+  window.tipsy = require('jquery.tipsy');
+  
+  window.jqui = require('jquery-ui/ui/core');
+  
+  window.Storage = require('js-storage');
+  
+  window.flot = require('flot');
+  
   window.moment = require('moment-timezone');
+  
 //  window.sugar = require('sugar');
 //  window.crossfilter = require('crossfilter');
   window.Nightscout = window.Nightscout || {};
@@ -26,3 +36,4 @@ import '../static/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.cs
 
 })();
 
+//import '../node_modules/jquery.tipsy/src/jquery.tipsy.js';
