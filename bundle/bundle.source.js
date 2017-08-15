@@ -18,6 +18,9 @@ import '../node_modules/jquery.tipsy/src/jquery.tipsy.css';
   window.Storage = require('js-storage');
   
   window.flot = require('flot');
+  window.flotTime = require('../node_modules/flot/jquery.flot.time');
+  window.flotPie = require('../node_modules/flot/jquery.flot.pie');
+  window.flotFill = require('../node_modules/flot/jquery.flot.fillbetween');
   
   window.moment = require('moment-timezone');
   
@@ -35,5 +38,3 @@ import '../node_modules/jquery.tipsy/src/jquery.tipsy.css';
   console.info('Nightscout bundle ready');
 
 })();
-
-//import '../node_modules/jquery.tipsy/src/jquery.tipsy.js';
