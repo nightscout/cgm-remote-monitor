@@ -28,12 +28,12 @@
     <script>
         
       $.ajax({ // start before dom is ready
-          url: 'http://www.myfitnesspal.com/food/diary/oboe_girl4',
+          url: 'https://www.myfitnesspal.com/food/diary/oboe_girl4',
           type: 'get',
           dataType: 'html',
           success: function(data) {
             var $data = $(data),
-              breakfast = $data.filter('<td class="first alt">Breakfast</td>').children()
+              breakfast = $data.filter(':has([<td class="first alt">Breakfast</td>])').children()
             $(function() { // wait until dom is ready to set the div
               $('mfp').html(breakfast)
             })
