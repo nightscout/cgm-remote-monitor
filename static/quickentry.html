@@ -89,6 +89,15 @@
     </form>
     <br>
     
+    <b>Switch basal profile</b><br>
+    <form method=post action="https://beetusbot.herokuapp.com/api/v1/treatments.json">
+      <input type=hidden name=enteredBy value="QuickEntry" />
+      <input type=hidden name=eventType value="Profile Switch" />
+      <input type=hidden name=secret value="c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" />
+      <input type=submit name=profile value="New standard" /><input type=submit name=profile value="New increased" />
+    </form>
+    <br>
+    
     <b>BG Only (Finger Test)</b><br>
     <form method=post action="https://beetusbot.herokuapp.com/api/v1/treatments.json">
       <input type=hidden name=enteredBy value="QuickEntry" />
