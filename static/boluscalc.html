@@ -47,7 +47,6 @@
     <script language="javascript">
       //'use strict';
       //var _ = require('lodash');
-      console.log("Test 1");
       
       var currentBG = 0;
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", function(data) {
@@ -60,7 +59,7 @@
         currProfile = data[0].defaultProfile;
         console.log("Profile: "+ currProfile);
         basalProfile = data[0].store[currProfile].basal;
-        //console.log("data: "+ data[0].store[currProfile].basal);
+        console.log("data: "+ data[0].store[currProfile].basal);
       });
       var today = new Date(); // for now
       var hours = today.getHours(); 
