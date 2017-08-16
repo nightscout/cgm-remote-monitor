@@ -26,8 +26,6 @@
     <!--<script src="https://beetusbot.herokuapp.com/js/bootstrap.min.js"></script>-->
     
     <script language="javascript">
-      
-      (function() {
         
       var today = new Date(); // for now
       var hours = today.getHours(); 
@@ -39,22 +37,21 @@
       
       var currentBG;
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", function(data) {
-        currentBG = parseInt(data[0].sgv);
+        global.currentBG = parseInt(data[0].sgv);
       });
       
       var currProfile;
-      var basalProfile;
       var currentBasal;
       
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
-        currProfile = data[0].defaultProfile;
+        global.currProfile = data[0].defaultProfile;
         //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
         var basalProfile = data[0].store[currProfile].basal;  
         //console.log("Length of object: " + Object.keys(basalProfile).length);
         for (i = 1; i < Object.keys(basalProfile).length; i++){
           //console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
           if (timeStr < basalProfile[i].time) {
-            currentBasal = basalProfile[i-1].value;
+            global.currentBasal = basalProfile[i-1].value;
             break; 
           }
         }
@@ -67,8 +64,6 @@
       window.document.onload = function(e){
         document.getElementById("BG").value = currentBG;
       }
-      
-      })();
      
     </script>
     
