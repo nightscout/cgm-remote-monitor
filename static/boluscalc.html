@@ -37,13 +37,13 @@
       var timeStr = hours+":"+minutes;
       console.log("Time: "+ timeStr);
       
-      var currentBG = 0;
+      //var currentBG = 0;
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", function(data) {
         currentBG = parseInt(data[0].sgv);
       });
       
-      var currProfile = "";
-      var currentBasal = "";
+      //var currProfile = "";
+      //var currentBasal = "";
       
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
         currProfile = data[0].defaultProfile;
