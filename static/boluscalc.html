@@ -46,7 +46,7 @@
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
         this.currProfile = data[0].defaultProfile;
         //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
-        var basalProfile = data[0].store[currProfile].basal;  
+        var basalProfile = data[0].store[this.currProfile].basal;  
         //console.log("Length of object: " + Object.keys(basalProfile).length);
         for (i = 1; i < Object.keys(basalProfile).length; i++){
           //console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
@@ -58,11 +58,11 @@
       });
       
       console.log("OUTSIDE LOOP");
-      console.log("Profile: "+ currProfile);
-      console.log("Current basal: "+ currentBasal);
+      console.log("Profile: "+ this.currProfile);
+      console.log("Current basal: "+ this.currentBasal);
       
       window.document.onload = function(e){
-        document.getElementById("BG").value = currentBG;
+        document.getElementById("BG").value = this.currentBG;
       }
      
     </script>
