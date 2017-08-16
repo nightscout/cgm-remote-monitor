@@ -28,9 +28,10 @@
     <script>
         
       $.ajax({ // start before dom is ready
-          url: 'https://www.myfitnesspal.com/food/diary/oboe_girl4',
+          url: 'http://www.myfitnesspal.com/food/diary/oboe_girl4',
           type: 'get',
           dataType: 'html',
+          crossOrigin: true,
           success: function(data) {
             var $data = $(data),
               breakfast = $data.filter(':has([<td class="first alt">Breakfast</td>])').children()
