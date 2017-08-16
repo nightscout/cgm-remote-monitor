@@ -27,7 +27,7 @@
     
     <script>
         
-      $.ajax({ // start before dom is ready
+      /*$.ajax({ // start before dom is ready
           url: 'http://www.myfitnesspal.com/food/diary/oboe_girl4',
           type: 'get',
           dataType: 'html',
@@ -39,7 +39,12 @@
               $('mfp').html(breakfast)
             })
           }
-        });
+        });*/
+      
+      var encodedUrl = encodeURIComponent('http://www.myfitnesspal.com/food/diary/oboe_girl4');
+      $.get('https://beetusbot.herokuapp.com/getcontent?url=' + encodedUrl, function(data) {
+          console.log(typeof data);
+      });
 
       (function() { // Begin scoping function
         
