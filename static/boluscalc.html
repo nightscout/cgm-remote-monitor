@@ -54,14 +54,16 @@
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
         var currProfile = data[0].defaultProfile;
         console.log("Profile: "+ currProfile);
-        var basalProfile = data[0].store[currProfile].basal;
+        var basalProfile = JSON.parse(data[0].store[currProfile].basal);
         //console.log("data: "+ data[0].store[currProfile].basal);
         //document.getElementById("BG").value = parseInt(data[0][0][0].carbratio[);
       });
       var today = new Date(); // for now
       var hours = today.getHours(); 
       var minutes = today.getMinutes(); 
-      var timeStr = hours+":"+minutes;
+      var minuteStr = minutes.toStr();
+      if (minutes < 10) { minuteStr = "0"+minuteStr; }
+      var timeStr = hours+":"+minuteStr;
       console.log("Time: "+ timeStr);
       
       var currentBasal = "0.0";
