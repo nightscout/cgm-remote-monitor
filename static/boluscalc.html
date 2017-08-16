@@ -60,10 +60,10 @@
       });
       var today = new Date(); // for now
       var hours = today.getHours(); 
+      if (hours < 10) { hours = "0"+hours; }
       var minutes = today.getMinutes(); 
-      var minuteStr = minutes.toStr();
-      if (minutes < 10) { minuteStr = "0"+minuteStr; }
-      var timeStr = hours+":"+minuteStr;
+      if (minutes < 10) { minutes = "0"+minutes; }
+      var timeStr = hours+":"+minutes;
       console.log("Time: "+ timeStr);
       
       var currentBasal = "0.0";
