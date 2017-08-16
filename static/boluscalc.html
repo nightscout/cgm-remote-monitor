@@ -53,7 +53,6 @@
              //console.log("Length of object: " + Object.keys(basalProfile).length);
              if(timeStr > basalProfile[Object.keys(basalProfile).length-1].time){
                  currSens = parseFloat(basalProfile[Object.keys(basalProfile).length-1].value);
-                 break; 
                }
              else{
                for (i = 1; i < Object.keys(basalProfile).length; i++){
@@ -67,7 +66,6 @@
              var sensProfile = data[0].store[currProfile].sens;  
              if(timeStr > sensProfile[Object.keys(sensProfile).length-1].time){
                  currSens = parseFloat(sensProfile[Object.keys(sensProfile).length-1].value);
-                 break; 
                }
              else{
                for (i = 1; i < Object.keys(sensProfile).length; i++){
