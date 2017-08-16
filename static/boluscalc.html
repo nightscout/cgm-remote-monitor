@@ -54,17 +54,7 @@
         document.getElementById("BG").value = currentBG;
       });
       var currProfile;
-      var basalProfile = [];
-      $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
-        currProfile = data[0].defaultProfile;
-        console.log("Profile: "+ currProfile);
-        //console.log("data: "+ data[0].store[currProfile].basal[1].time);
-        //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
-        $.each(data[0].store[currProfile].basal,function(index, value){
-              basalProfile.push(value);
-        });
-        //basalProfile = data[0].store[currProfile].basal;   
-      });
+      var basalProfile;
       var today = new Date(); // for now
       var hours = today.getHours(); 
       if (hours < 10) { hours = "0"+hours; }
@@ -74,14 +64,25 @@
       console.log("Time: "+ timeStr);
       
       var currentBasal = "0.0";
-      console.log("Basal profile array: "+basalProfile);
-      for (i = 1; i < basalProfile.length; i++) { 
-        console.log("Basal profile time compare"+basalProfile[i].time);
-        if (timeStr < basalProfile[i].time) {
-          currentBasal = basalProfile[i-1].value;
-          break; 
+      
+      $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
+        currProfile = data[0].defaultProfile;
+        console.log("Profile: "+ currProfile);
+        //console.log("data: "+ data[0].store[currProfile].basal[1].time);
+        //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
+        basalProfile = data[0].store[currProfile].basal;  
+        console.log("Basal profile array: "+basalProfile);
+        console.log("Length of object: " + Object.keys(basalProfile).length);
+        for (i = 1; i < Object.keys(basalProfile).length; i++){
+          if (timeStr < basalProfile[i].time) {
+            currentBasal = basalProfile[i-1].value;
+            break; 
+          }
         }
-      }
+        //$.each(data[0].store[currProfile].basal,function(index, value){      
+        //});
+      });
+      
       console.log("Current basal: "+ currentBasal);
       /*var profile = sbx.data.profile;
       var currBG = sbx.lastScaledSGV();
