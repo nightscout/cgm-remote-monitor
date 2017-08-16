@@ -45,10 +45,6 @@
     <br>
     
     <script language="javascript">
-      //'use strict';
-      //var _ = require('lodash');
-      
-      (function() { // Begin scoping function
       
       var today = new Date(); // for now
       var hours = today.getHours(); 
@@ -58,49 +54,34 @@
       var timeStr = hours+":"+minutes;
       console.log("Time: "+ timeStr);
       
-      var currentBG = 0;
+      //var currentBG = 0;
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", function(data) {
-        currentBG = parseInt(data[0].sgv);
+        window.currentBG = parseInt(data[0].sgv);
         document.getElementById("BG").value = currentBG;
       });
       
-      var currProfile;
-      var basalProfile;
-      var currentBasal;
+      //var currProfile;
+      //var basalProfile;
+      //var currentBasal;
       
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
-        currProfile = data[0].defaultProfile;
-        console.log("Profile: "+ currProfile);
-        //console.log("data: "+ data[0].store[currProfile].basal[1].time);
+        window.currProfile = data[0].defaultProfile;
         //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
-        basalProfile = data[0].store[currProfile].basal;  
-        //console.log("Basal profile array: "+basalProfile);
+        var basalProfile = data[0].store[currProfile].basal;  
         //console.log("Length of object: " + Object.keys(basalProfile).length);
         for (i = 1; i < Object.keys(basalProfile).length; i++){
           //console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
           if (timeStr < basalProfile[i].time) {
-            currentBasal = basalProfile[i-1].value;
+            window.currentBasal = basalProfile[i-1].value;
             break; 
           }
         }
-        console.log("Current basal inside loop: "+ currentBasal);
-        //$.each(data[0].store[currProfile].basal,function(index, value){      
-        //});
       });
       
-      console.log("Current basal outside loop: "+ currentBasal);
-      /*var profile = sbx.data.profile;
-      var currBG = sbx.lastScaledSGV();
-      console.log("BG: "+ currBG);
-      var currBasal = profile.getBasal(sbx.time);
-      console.log("Basal: "+ currBasal);
-      var currRatio = profile.getCarbRatio(sbx.time);
-      console.log("Carb Ratio: "+ currRatio);
-      var currSensitivity = profile.getSensitivity(sbx.time);
-      console.log("Sensitivity: "+ currSensitivity);*/
-      
-      })(); // End scoping function  
-      
+      console.log("OUTSIDE LOOP");
+      console.log("Profile: "+ currProfile);
+      console.log("Current basal: "+ currentBasal);
+     
     </script>
     
     <div id="results"></div>
