@@ -48,13 +48,8 @@
       //'use strict';
       //var _ = require('lodash');
       
-      var currentBG = 0;
-      $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", function(data) {
-        currentBG = parseInt(data[0].sgv);
-        document.getElementById("BG").value = currentBG;
-      });
-      var currProfile;
-      var basalProfile;
+      (function() { // Begin scoping function
+      
       var today = new Date(); // for now
       var hours = today.getHours(); 
       if (hours < 10) { hours = "0"+hours; }
@@ -63,7 +58,15 @@
       var timeStr = hours+":"+minutes;
       console.log("Time: "+ timeStr);
       
-      var currentBasal = "0.0";
+      var currentBG = 0;
+      $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", function(data) {
+        currentBG = parseInt(data[0].sgv);
+        document.getElementById("BG").value = currentBG;
+      });
+      
+      var currProfile;
+      var basalProfile;
+      var currentBasal;
       
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
         currProfile = data[0].defaultProfile;
@@ -74,10 +77,9 @@
         //console.log("Basal profile array: "+basalProfile);
         //console.log("Length of object: " + Object.keys(basalProfile).length);
         for (i = 1; i < Object.keys(basalProfile).length; i++){
-          console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
+          //console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
           if (timeStr < basalProfile[i].time) {
-            var newIndex = i-1;
-            currentBasal = basalProfile[newIndex].value;
+            currentBasal = basalProfile[i-1].value;
             break; 
           }
         }
@@ -96,6 +98,8 @@
       console.log("Carb Ratio: "+ currRatio);
       var currSensitivity = profile.getSensitivity(sbx.time);
       console.log("Sensitivity: "+ currSensitivity);*/
+      
+      })(); // End scoping function  
       
     </script>
     
