@@ -27,6 +27,19 @@
     
     <script>
         
+      $.ajax({ // start before dom is ready
+          url: 'www.myfitnesspal.com/food/diary/oboe_girl4',
+          type: 'get',
+          dataType: 'html',
+          success: function(data) {
+            var $data = $(data),
+              breakfast = $data.filter('<td class="first alt">Breakfast</td>').children()
+            $(function() { // wait until dom is ready to set the div
+              $('mfp').html(breakfast)
+            })
+          }
+        });
+
       (function() { // Begin scoping function
         
       var today = new Date(); // for now
@@ -139,6 +152,8 @@
     <br>
     
     <div id="results"></div>
+    
+    <div id="mfp"></div>
     
     <script>
       //console.log("Page loaded");
