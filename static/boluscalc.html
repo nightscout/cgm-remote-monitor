@@ -40,6 +40,7 @@
       var currBG = 0;
       var currProfile = "";
       var currBasal = "";
+      var currSens = "";
       
       function getCustomJSON(URL, type, callback){
         
@@ -50,14 +51,33 @@
              //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
              var basalProfile = data[0].store[currProfile].basal;  
              //console.log("Length of object: " + Object.keys(basalProfile).length);
-             for (i = 1; i < Object.keys(basalProfile).length; i++){
-               //console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
-               if (timeStr < basalProfile[i].time) {
-                 currBasal = basalProfile[i-1].value;
+             if(timeStr > basalProfile[Object.keys(basalProfile).length-1].time){
+                 currSens = parseFloat(basalProfile[Object.keys(basalProfile).length-1].value);
                  break; 
                }
+             else{
+               for (i = 1; i < Object.keys(basalProfile).length; i++){
+                 //console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
+                 if (timeStr < basalProfile[i].time) {
+                   currBasal = parseFloat(basalProfile[i-1].value);
+                   break; 
+                 }
+               }
              }
-             callback(currProfile,currBasal);
+             var sensProfile = data[0].store[currProfile].sens;  
+             if(timeStr > sensProfile[Object.keys(sensProfile).length-1].time){
+                 currSens = parseFloat(sensProfile[Object.keys(sensProfile).length-1].value);
+                 break; 
+               }
+             else{
+               for (i = 1; i < Object.keys(sensProfile).length; i++){
+                 if (timeStr < sensProfile[i].time) {
+                   currSens = parseFloat(sensProfile[i-1].value);
+                   break; 
+                 }
+               }
+             }
+             callback(currProfile,currBasal,currSens);
            }
            if(type == "BG") {
              currBG = parseInt(data[0].sgv);
@@ -67,9 +87,9 @@
       }
 
       getCustomJSON("https://beetusbot.herokuapp.com/api/v1/profile.json","profile",function(returndata){
-        console.log("OUTSIDE LOOP");
         console.log("Profile: "+ currProfile);
-        console.log("Current basal: "+ currBasal);
+        document.getElementById("basal").value = currBasal;
+        document.getElementById("sensitivity").value = currSens;
       });
         
       getCustomJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1","BG",function(returndata){      
