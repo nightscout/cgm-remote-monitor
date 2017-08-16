@@ -47,19 +47,20 @@
     <script language="javascript">
       //'use strict';
       //var _ = require('lodash');
+      console.log("Test 1");
       
       var currentBG = 0;
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", function(data) {
         currentBG = parseInt(data[0].sgv);
         document.getElementById("BG").value = currentBG;
       });
-      var basalProfile = [];
+      var currProfile;
+      var basalProfile;
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
-        var currProfile = data[0].defaultProfile;
+        currProfile = data[0].defaultProfile;
         console.log("Profile: "+ currProfile);
         basalProfile = data[0].store[currProfile].basal;
         //console.log("data: "+ data[0].store[currProfile].basal);
-        //document.getElementById("BG").value = parseInt(data[0][0][0].carbratio[);
       });
       var today = new Date(); // for now
       var hours = today.getHours(); 
@@ -70,7 +71,7 @@
       console.log("Time: "+ timeStr);
       
       var currentBasal = "0.0";
-      console.log("Basal profile array"+basalProfile);
+      console.log("Basal profile array: "+basalProfile);
       for (i = 1; i < basalProfile.length; i++) { 
         console.log("Basal profile time compare"+basalProfile[i].time);
         if (timeStr < basalProfile[i].time) {
