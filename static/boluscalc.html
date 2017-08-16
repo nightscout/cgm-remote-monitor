@@ -39,8 +39,7 @@
       
       var currentBG = 0;
         
-      var currentBGJSON = $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1")
-      .done(function(data){
+      var currentBGJSON = $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1").then(function(data){
         console.log("Inside loop BG: "+parseInt(data[0].sgv));
         currentBG = parseInt(data[0].sgv);
       });
@@ -48,9 +47,8 @@
       var currProfile = "";
       var currentBasal = "";
       
-      var currentProfileJSON = $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json")
-      .done(function(data){
-        console.log("Inside loop Profile: "+data[0].defaultProfile;
+      var currentProfileJSON = $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json").then(function(data){
+        console.log("Inside loop Profile: "+data[0].defaultProfile);
         currProfile = data[0].defaultProfile;
         //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
         var basalProfile = data[0].store[currProfile].basal;  
