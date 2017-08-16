@@ -38,38 +38,46 @@
       console.log("Time: "+ timeStr);
       
       currentBG = 0;
-        
-      var currentBGJSON = $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1").then(function(data){
-        //console.log("Inside loop BG: "+parseInt(data[0].sgv));
-        currentBG = parseInt(data[0].sgv);
-        console.log("Inside loop BG: "+currentBG);
-      });
-        
       currProfile = "";
       currentBasal = "";
       
-      var currentProfileJSON = $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json").then(function(data){
-        currProfile = data[0].defaultProfile;
-        console.log("Inside loop Profile: "+currProfile);
-        //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
-        var basalProfile = data[0].store[currProfile].basal;  
-        //console.log("Length of object: " + Object.keys(basalProfile).length);
-        for (i = 1; i < Object.keys(basalProfile).length; i++){
-          //console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
-          if (timeStr < basalProfile[i].time) {
-            currBasal = basalProfile[i-1].value;
-            break; 
-          }
-        }
-      });
-      
-      console.log("OUTSIDE LOOP");
-      console.log("Profile: "+ currProfile);
-      console.log("Current basal: "+ currentBasal);
-      
-      window.document.onload = function(e){
-        document.getElementById("BG").value = currentBG;
+      function getCustomJSON(URL, type){
+         return $.getJSON(URL).then(function(data){
+           if(type == "profile") {
+             var tempProfile = data[0].defaultProfile;
+             //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
+             var basalProfile = data[0].store[currProfile].basal;  
+             //console.log("Length of object: " + Object.keys(basalProfile).length);
+             for (i = 1; i < Object.keys(basalProfile).length; i++){
+               //console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
+               if (timeStr < basalProfile[i].time) {
+                 var tempBasal = basalProfile[i-1].value;
+                 break; 
+               }
+             }
+           }
+           if(type == "BG") {
+             var tempBG = parseInt(data[0].sgv);
+           }
+           return {
+             currProfile:tempProfile,
+             currBasal:tempBasal,
+             currBG:tempBG
+           }
+         });
       }
+
+      getCustomJSON("https://beetusbot.herokuapp.com/api/v1/profile.json","profile").then(function(returndata){
+        console.log("OUTSIDE LOOP");
+        console.log("Profile: "+ currProfile);
+        console.log("Current basal: "+ currentBasal);
+      });
+        
+      getCustomJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1","BG").then(function(returndata){      
+        //window.document.onload = function(e){
+          document.getElementById("BG").value = currentBG;
+        //}
+      });
      
       })();         // End scoping function
       
