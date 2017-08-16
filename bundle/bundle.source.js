@@ -13,8 +13,6 @@ window.d3 = require('d3');
 
 require('jquery.tipsy');
 
-require('crossfilter');
-
 window.Storage = require('js-storage');
 
 require('flot');

@@ -102,12 +102,6 @@ module.exports = {
                     loader: 'expose-loader',
                     options: '$'
                 }]
-            }, {
-                test: require.resolve('crossfilter'),
-                use: [{
-                    loader: 'expose-loader',
-                    options: 'crossfilter'
-                }]
             }
         ]
     }
