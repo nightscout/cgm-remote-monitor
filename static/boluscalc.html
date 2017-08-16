@@ -53,11 +53,12 @@
       });
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
         console.log("data: "+ data[0].defaultProfile);
+        console.log("data: "+ data[0].store.(data[0].defaultProfile).basal);
         //document.getElementById("BG").value = parseInt(data[0][0][0].carbratio[);
       });
       var today = new Date(); // for now
-      var hours = d.getHours(); 
-      var minutes = d.getMinutes(); 
+      var hours = today.getHours(); 
+      var minutes = today.getMinutes(); 
       console.log("Time: "+ hours+":"+minutes);
       /*var profile = sbx.data.profile;
       var currBG = sbx.lastScaledSGV();
