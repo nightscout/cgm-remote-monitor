@@ -8,12 +8,7 @@ var client = Nightscout.client;
 
 (function () {
 
-  if (serverSettings === undefined) {
-    console.error('server settings were not loaded, will not call init');
-  } else {
-    client.init(serverSettings, Nightscout.plugins);
-  }
-  
+client.init(function loaded () {
   var translate = client.translate;
   
   var foodrec_template = { 
@@ -71,7 +66,8 @@ var client = Nightscout.client;
   // Fetch data from mongo
   $('#fe_status').hide().text('Loading food database ...').fadeIn('slow');
   $.ajax('/api/v1/food.json', {
-    success: function ajaxSuccess(records) {
+    headers: client.headers()
+    , success: function ajaxSuccess(records) {
       records.forEach(function processRecords(r) {
         restoreBoolValue(r,'hidden');
         restoreBoolValue(r,'hideafteruse');
@@ -92,8 +88,8 @@ var client = Nightscout.client;
       });
       $('#fe_status').hide().text(translate('Database loaded')).fadeIn('slow');
       foodquickpick.sort(function compare(a,b) { return cmp(parseInt(a.position),parseInt(b.position)) });
-    },
-    error: function ajaxError() {
+    }
+    , error: function ajaxError() {
       $('#fe_status').hide().text(translate('Error: Database failed to load')).fadeIn('slow');
     }
   }).done(initeditor);
@@ -523,9 +519,7 @@ var client = Nightscout.client;
         method: 'POST',
         url: '/api/v1/food/',
         data: foodrec,
-        headers: {
-          'api-secret': client.hashauth.hash()
-        }
+        headers: client.headers()
       }).done(function success (response) {
         $('#fe_status').hide().text('OK').fadeIn('slow');
         foodrec._id = response[0]._id;
@@ -547,9 +541,7 @@ var client = Nightscout.client;
         method: 'PUT',
         url: '/api/v1/food/',
         data: foodrec,
-        headers: {
-          'api-secret': client.hashauth.hash()
-        }
+        headers: client.headers()
       }).done(function success () {
         $('#fe_status').hide().text('OK').fadeIn('slow');
         updateFoodArray(foodrec);
@@ -574,9 +566,7 @@ var client = Nightscout.client;
       method: 'DELETE',
       url: '/api/v1/food/'+_id,
       data: foodrec,
-      headers: {
-        'api-secret': client.hashauth.hash()
-      }
+      headers: client.headers()
     }).done(function success () {
       $('#fe_status').hide().text('OK').fadeIn('slow');
      }).fail(function fail() {
@@ -597,9 +587,7 @@ var client = Nightscout.client;
       method: 'PUT',
       url: '/api/v1/food/',
       data: foodrec,
-      headers: {
-        'api-secret': client.hashauth.hash()
-      }
+      headers: client.headers()
     }).done(function success (response) {
       console.log('Updated record: ',response);
     });
@@ -621,9 +609,7 @@ var client = Nightscout.client;
       method: 'POST',
       url: '/api/v1/food/',
       data: newrec,
-      headers: {
-        'api-secret': client.hashauth.hash()
-      }
+      headers: client.headers()
     }).done(function success (response) {
       $('#fe_status').hide().text('OK').fadeIn('slow');
       newrec._id = response[0]._id;
@@ -671,5 +657,6 @@ var client = Nightscout.client;
     if (after) {
       after();
     }
-}
+  }
+});
 })();
