@@ -51,10 +51,14 @@
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", function(data) {
         document.getElementById("BG").value = parseInt(data[0].sgv);
       });
-      //$.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
-        //console.log("data: "+ data[0].sgv);
+      $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
+        console.log("data: "+ data[0].defaultProfile);
         //document.getElementById("BG").value = parseInt(data[0][0][0].carbratio[);
-      //});
+      });
+      var today = new Date(); // for now
+      var hours = d.getHours(); 
+      var minutes = d.getMinutes(); 
+      console.log("Time: "+ hours+":"+minutes);
       /*var profile = sbx.data.profile;
       var currBG = sbx.lastScaledSGV();
       console.log("BG: "+ currBG);
