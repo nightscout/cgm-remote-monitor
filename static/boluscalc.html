@@ -38,34 +38,31 @@
       console.log("Time: "+ timeStr);
       
       var currentBG = 0;
-      var setIntValue = function(intValue,type) {
-        if(type == "BG") { currentBG = intValue; }
+        
+      $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", processCurrentBG);
+        
+      function processCurrentBG(data){
+         currentBG = parseInt(data[0].sgv);
       }
-      $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", function(data) {
-        setIntValue(parseInt(data[0].sgv), "BG");
-      });
         
       var currProfile = "";
       var currentBasal = "";
-        
-      var setStrValue = function(strValue,type) {
-        if(type == "profile") { currProfile = strValue; }
-        if(type == "basal") { currentBasal = strValue; }
-      }
       
-      $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
-        setStrValue(data[0].defaultProfile,"profile");
+      $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", processProfileData);
+      
+      function processProfileData(data){
+        currProfile = data[0].defaultProfile;
         //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
         var basalProfile = data[0].store[currProfile].basal;  
         //console.log("Length of object: " + Object.keys(basalProfile).length);
         for (i = 1; i < Object.keys(basalProfile).length; i++){
           //console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
           if (timeStr < basalProfile[i].time) {
-            setStrValue(basalProfile[i-1].value,"basal");
+            currBasal = basalProfile[i-1].value;
             break; 
           }
         }
-      });
+      }
       
       console.log("OUTSIDE LOOP");
       console.log("Profile: "+ currProfile);
