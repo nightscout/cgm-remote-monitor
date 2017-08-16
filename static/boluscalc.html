@@ -58,9 +58,9 @@
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
         currProfile = data[0].defaultProfile;
         console.log("Profile: "+ currProfile);
-        console.log("data: "+ data[0].store[currProfile].basal);
-        console.log("Type of data: " + typeof (data[0].store[currProfile].basal));
-        $.each(data[0].store[currProfile].basal,function(innerdata){
+        console.log("data: "+ data[0].store[currProfile].basal[0]);
+        console.log("Type of data: " + typeof (data[0].store[currProfile].basal[0]));
+        $.each(data[0].store[currProfile].basal[0],function(innerdata){
               basalProfile += innerdata;
         });
         //basalProfile = data[0].store[currProfile].basal;   
