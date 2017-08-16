@@ -113,13 +113,16 @@ function create(env, ctx) {
       app.use(bundle);
     */
 
+if (process.env.NODE_ENV !== 'development') {
+
+console.log('Production environment detected, enabling Minify');
+
 var minify = require('express-minify');
 
 //app.use(minify());
 
 var myUglifyJS = require('uglify-js');
 var myCssmin = require('cssmin');
-
 
 app.use(minify({
   js_match: /\.js/,
@@ -135,6 +138,7 @@ app.use(minify({
   onerror: undefined,
 }));
 
+}
 
 // if this is dev environment, package scripts on the fly
 // if production, rely on postinstall script to run packaging for us

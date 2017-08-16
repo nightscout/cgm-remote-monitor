@@ -1,18 +1,27 @@
 const path = require('path');
 const webpack = require('webpack');
 
-var pluginArray = [
-    new webpack.optimize.UglifyJsPlugin({
+var pluginArray = [];
+
+if (process.env.NODE_ENV !== 'development') {
+
+    console.log('Production environment detected, enabling UglifyJsPlugin');
+
+	var uglify =     new webpack.optimize.UglifyJsPlugin({
         compress: {
-            warnings: false,
+            warnings: false
         },
         output: {
-            comments: false,
-        },
-    })
-];
+            comments: false
+        }
+    });
+    
+    pluginArray.push(uglify);
+
+}
 
 if (process.env.NODE_ENV === 'development') {
+
 
     console.log('Development environment detected, enabling Bundle Analyzer');
 
@@ -52,32 +61,45 @@ if (process.env.NODE_ENV === 'development') {
 
 }
 
+var jq = new webpack.ProvidePlugin({
+      $: "jquery",
+      jQuery: "jquery",
+      "window.jQuery": "jquery'",
+      "window.$": "jquery"
+  });
+
+pluginArray.push(jq);
+
 module.exports = {
     context: path.resolve(__dirname, '.'),
     entry: {
         app: './bundle/bundle.source.js'
     },
     output: {
-        path: path.resolve(__dirname, '.'),
-        filename: './tmp/js/bundle.js'
+        path: path.resolve(__dirname, './tmp'),
+        publicPath:'/',
+        filename: 'js/bundle.js'
     },
      devtool: "#inline-source-map"
     ,
     plugins: pluginArray,
     module: {
         rules: [{
-                test: /\.css$/,
-                use: [
-                    'style-loader',
-                    'css-loader'
-                ]
-            },
-            {
-                test: /\.(png|svg|jpg|gif)$/,
-                use: [
-                    'file-loader'
-                ]
-            }
+      test: /\.(jpe?g|png|gif)$/i,
+      loader:"file-loader",
+      query:{
+        name:'[name].[ext]',
+        outputPath:'images/'
+        //the images will be emmited to public/assets/images/ folder 
+        //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png); 
+      }
+    },
+    {
+      test: /\.css$/,
+      loaders: ["style-loader","css-loader"]
+    }
         ]
     }
 };
+
+

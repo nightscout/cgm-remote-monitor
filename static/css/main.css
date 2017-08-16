@@ -61,11 +61,12 @@
   /* text-shadow: 1px 1px 1px rgba(127, 127, 127, 0.3); */
 }
  
-.icon-volume-up:before { content: '\e800'; } /* '' */
+.icon-volume:before { content: '\e800'; } /* '' */
 .icon-plus:before { content: '\e801'; } /* '' */
 .icon-edit:before { content: '\e802'; } /* '' */
 .icon-lock:before { content: '\e803'; } /* '' */
 .icon-menu:before { content: '\f0c9'; } /* '' */
+.icon-calc:before { content: '\f1ec'; } /* '' */
 
 html, body {
   margin: 0;

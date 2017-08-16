@@ -9,11 +9,15 @@ import '../node_modules/jquery.tipsy/src/jquery.tipsy.css';
 
   window._ = require('lodash');
   window.d3 = require('d3');
-  window.$ = window.jQuery = require('jquery');
+
+	require('webpack-jquery-ui');
+
+//  window.$ = window.jQuery = require('jquery');
   
-  window.tipsy = require('jquery.tipsy');
+require('jquery.tipsy');
   
-  window.jqui = require('jquery-ui/ui/core');
+//  window.jqui = require('jquery-ui/ui/core');
+//  window.jqui = require('jquery-ui/ui/dialog');
   
   window.Storage = require('js-storage');
   
