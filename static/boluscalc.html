@@ -70,6 +70,7 @@
       console.log("Time: "+ timeStr);
       
       var currentBasal = "0.0";
+      console.log("Basal profile array"+basalProfile);
       for (i = 1; i < basalProfile.length; i++) { 
         console.log("Basal profile time compare"+basalProfile[i].time);
         if (timeStr < basalProfile[i].time) {
