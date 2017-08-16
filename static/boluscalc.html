@@ -54,12 +54,16 @@
         document.getElementById("BG").value = currentBG;
       });
       var currProfile;
-      var basalProfile;
+      var basalProfile = [];
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
         currProfile = data[0].defaultProfile;
         console.log("Profile: "+ currProfile);
-        basalProfile = data[0].store[currProfile].basal;
         console.log("data: "+ data[0].store[currProfile].basal);
+        console.log("Type of data: " + typeof (data[0].store[currProfile].basal));
+        $.each(data[0].store[currProfile].basal,function(innerdata){
+              basalProfile += innerdata;
+        });
+        //basalProfile = data[0].store[currProfile].basal;   
       });
       var today = new Date(); // for now
       var hours = today.getHours(); 
