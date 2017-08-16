@@ -71,9 +71,10 @@
         //console.log("data: "+ data[0].store[currProfile].basal[1].time);
         //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
         basalProfile = data[0].store[currProfile].basal;  
-        console.log("Basal profile array: "+basalProfile);
-        console.log("Length of object: " + Object.keys(basalProfile).length);
+        //console.log("Basal profile array: "+basalProfile);
+        //console.log("Length of object: " + Object.keys(basalProfile).length);
         for (i = 1; i < Object.keys(basalProfile).length; i++){
+          console.log("Basal profile time"+i+ basalProfile[i].time);
           if (timeStr < basalProfile[i].time) {
             currentBasal = basalProfile[i-1].value;
             break; 
