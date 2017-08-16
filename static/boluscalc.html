@@ -25,6 +25,48 @@
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <!--<script src="https://beetusbot.herokuapp.com/js/bootstrap.min.js"></script>-->
     
+    <script language="javascript">
+      
+      var today = new Date(); // for now
+      var hours = today.getHours(); 
+      if (hours < 10) { hours = "0"+hours; }
+      var minutes = today.getMinutes(); 
+      if (minutes < 10) { minutes = "0"+minutes; }
+      var timeStr = hours+":"+minutes;
+      console.log("Time: "+ timeStr);
+      
+      var currentBG;
+      $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", function(data) {
+        currentBG = parseInt(data[0].sgv);
+      });
+      
+      var currProfile;
+      var basalProfile;
+      var currentBasal;
+      
+      $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
+        currProfile = data[0].defaultProfile;
+        //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
+        var basalProfile = data[0].store[currProfile].basal;  
+        //console.log("Length of object: " + Object.keys(basalProfile).length);
+        for (i = 1; i < Object.keys(basalProfile).length; i++){
+          //console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
+          if (timeStr < basalProfile[i].time) {
+            currentBasal = basalProfile[i-1].value;
+            break; 
+          }
+        }
+      });
+      
+      console.log("OUTSIDE LOOP");
+      console.log("Profile: "+ currProfile);
+      console.log("Current basal: "+ currentBasal);
+      
+      window.document.onload = function(e){
+        document.getElementById("BG").value = currentBG;
+      }
+     
+    </script>
     
   </head>
   <body>
@@ -43,46 +85,6 @@
       <input type=submit name="submit" id="submit" value="Submit" /><br>
     </form>
     <br>
-    
-    <script language="javascript">
-      
-      var today = new Date(); // for now
-      var hours = today.getHours(); 
-      if (hours < 10) { hours = "0"+hours; }
-      var minutes = today.getMinutes(); 
-      if (minutes < 10) { minutes = "0"+minutes; }
-      var timeStr = hours+":"+minutes;
-      console.log("Time: "+ timeStr);
-      
-      //var currentBG = 0;
-      $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", function(data) {
-        window.currentBG = parseInt(data[0].sgv);
-        document.getElementById("BG").value = currentBG;
-      });
-      
-      //var currProfile;
-      //var basalProfile;
-      //var currentBasal;
-      
-      $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
-        window.currProfile = data[0].defaultProfile;
-        //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
-        var basalProfile = data[0].store[currProfile].basal;  
-        //console.log("Length of object: " + Object.keys(basalProfile).length);
-        for (i = 1; i < Object.keys(basalProfile).length; i++){
-          //console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
-          if (timeStr < basalProfile[i].time) {
-            window.currentBasal = basalProfile[i-1].value;
-            break; 
-          }
-        }
-      });
-      
-      console.log("OUTSIDE LOOP");
-      console.log("Profile: "+ currProfile);
-      console.log("Current basal: "+ currentBasal);
-     
-    </script>
     
     <div id="results"></div>
     
