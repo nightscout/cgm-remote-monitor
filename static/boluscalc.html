@@ -74,17 +74,19 @@
         //console.log("Basal profile array: "+basalProfile);
         //console.log("Length of object: " + Object.keys(basalProfile).length);
         for (i = 1; i < Object.keys(basalProfile).length; i++){
-          console.log("Basal profile time"+i+ basalProfile[i].time);
+          console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
           if (timeStr < basalProfile[i].time) {
-            currentBasal = basalProfile[i-1].value;
+            var newIndex = i-1;
+            currentBasal = basalProfile[newIndex].value;
             break; 
           }
         }
+        console.log("Current basal inside loop: "+ currentBasal);
         //$.each(data[0].store[currProfile].basal,function(index, value){      
         //});
       });
       
-      console.log("Current basal: "+ currentBasal);
+      console.log("Current basal outside loop: "+ currentBasal);
       /*var profile = sbx.data.profile;
       var currBG = sbx.lastScaledSGV();
       console.log("BG: "+ currBG);
