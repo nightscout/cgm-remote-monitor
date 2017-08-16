@@ -83,9 +83,8 @@ function create(env, ctx) {
 
     //app.get('/package.json', software);
 
-    // define static server
-    
-    var maxAge = 60*60*1000;
+    // Allow static resources to be cached for week
+    var maxAge = 7*24*60*60*1000;
     
     if (process.env.NODE_ENV === 'development') {
     	maxAge = 10;

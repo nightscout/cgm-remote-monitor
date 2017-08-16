@@ -60,6 +60,7 @@
     "errorhandler": "^1.5.0",
     "event-stream": "^3.3.4",
     "expand-braces": "^0.1.2",
+    "expose-loader": "^0.7.3",
     "express": "^4.15.4",
     "express-extension-to-accept": "0.0.2",
     "express-minify": "^0.2.0",
@@ -68,6 +69,8 @@
     "forever": "^0.15.3",
     "git-rev": "git://github.com/bewest/git-rev.git",
     "heapdump": "^0.3.9",
+    "jquery": "^2.2.4",
+    "jquery-ui-bundle": "^1.12.1",
     "jquery.tipsy": "^1.0.3",
     "js-storage": "^1.0.1",
     "jsonwebtoken": "^7.4.2",
@@ -94,8 +97,7 @@
     "sugar": "^1.5.0",
     "traverse": "^0.6.6",
     "uglify-js": "^3.0.27",
-    "webpack": "^3.5.4",
-    "webpack-jquery-ui": "^1.0.0"
+    "webpack": "^3.5.4"
   },
   "devDependencies": {
     "benv": "3.3.0",

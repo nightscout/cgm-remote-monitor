@@ -74,7 +74,7 @@ html, body {
 }
 
 body {
-  font-family: Helvetica, Arial, sans-serif;
+  font-family: Verdana, Helvetica, Arial, sans-serif;
   background: #000;
   color: #bdbdbd;
 }
@@ -107,7 +107,7 @@ a, a:visited, a:link {
 }
 
 .primary {
-  font-family: Helvetica, Arial, sans-serif;
+  font-family: Verdana, Helvetica, Arial, sans-serif;
   vertical-align: middle;
   clear: both;
 }

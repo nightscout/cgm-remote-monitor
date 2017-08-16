@@ -7,7 +7,7 @@ if (process.env.NODE_ENV !== 'development') {
 
     console.log('Production environment detected, enabling UglifyJsPlugin');
 
-	var uglify =     new webpack.optimize.UglifyJsPlugin({
+    var uglify = new webpack.optimize.UglifyJsPlugin({
         compress: {
             warnings: false
         },
@@ -15,7 +15,7 @@ if (process.env.NODE_ENV !== 'development') {
             comments: false
         }
     });
-    
+
     pluginArray.push(uglify);
 
 }
@@ -62,11 +62,11 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 var jq = new webpack.ProvidePlugin({
-      $: "jquery",
-      jQuery: "jquery",
-      "window.jQuery": "jquery'",
-      "window.$": "jquery"
-  });
+    $: "jquery",
+    jQuery: "jquery",
+    "window.jQuery": "jquery'",
+    "window.$": "jquery"
+});
 
 pluginArray.push(jq);
 
@@ -77,29 +77,38 @@ module.exports = {
     },
     output: {
         path: path.resolve(__dirname, './tmp'),
-        publicPath:'/',
+        publicPath: '/',
         filename: 'js/bundle.js'
     },
-     devtool: "#inline-source-map"
-    ,
+    devtool: "#inline-source-map",
     plugins: pluginArray,
     module: {
         rules: [{
-      test: /\.(jpe?g|png|gif)$/i,
-      loader:"file-loader",
-      query:{
-        name:'[name].[ext]',
-        outputPath:'images/'
-        //the images will be emmited to public/assets/images/ folder 
-        //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png); 
-      }
-    },
-    {
-      test: /\.css$/,
-      loaders: ["style-loader","css-loader"]
-    }
+                test: /\.(jpe?g|png|gif)$/i,
+                loader: "file-loader",
+                query: {
+                    name: '[name].[ext]',
+                    outputPath: 'images/'
+                        //the images will be emmited to public/assets/images/ folder 
+                        //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png); 
+                }
+            },
+            {
+                test: /\.css$/,
+                loaders: ["style-loader", "css-loader"]
+            }, {
+                test: require.resolve('jquery'),
+                use: [{
+                    loader: 'expose-loader',
+                    options: '$'
+                }]
+            }, {
+                test: require.resolve('crossfilter'),
+                use: [{
+                    loader: 'expose-loader',
+                    options: 'crossfilter'
+                }]
+            }
         ]
     }
 };
-
-
