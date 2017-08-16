@@ -52,8 +52,9 @@
         document.getElementById("BG").value = parseInt(data[0].sgv);
       });
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
-        console.log("data: "+ data[0].defaultProfile);
-        console.log("data: "+ data[0].store.(data[0].defaultProfile).basal);
+        var currProfile = data[0].defaultProfile;
+        console.log("data: "+ currProfile);
+        console.log("data: "+ data[0].store.currProfile.basal);
         //document.getElementById("BG").value = parseInt(data[0][0][0].carbratio[);
       });
       var today = new Date(); // for now
