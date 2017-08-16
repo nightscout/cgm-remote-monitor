@@ -58,10 +58,10 @@
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
         currProfile = data[0].defaultProfile;
         console.log("Profile: "+ currProfile);
-        console.log("data: "+ data[0].store[currProfile].basal[1].time);
-        console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
-        $.each(data[0].store[currProfile].basal,function(innerdata){
-              basalProfile.push(innerdata[0]);
+        //console.log("data: "+ data[0].store[currProfile].basal[1].time);
+        //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
+        $.each(data[0].store[currProfile].basal,function(index, value){
+              basalProfile.push(value);
         });
         //basalProfile = data[0].store[currProfile].basal;   
       });
