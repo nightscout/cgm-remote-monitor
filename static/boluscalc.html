@@ -37,19 +37,20 @@
       var timeStr = hours+":"+minutes;
       console.log("Time: "+ timeStr);
       
-      var currentBG = 0;
+      currentBG = 0;
         
       var currentBGJSON = $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1").then(function(data){
-        console.log("Inside loop BG: "+parseInt(data[0].sgv));
+        //console.log("Inside loop BG: "+parseInt(data[0].sgv));
         currentBG = parseInt(data[0].sgv);
+        console.log("Inside loop BG: "+currentBG);
       });
         
-      var currProfile = "";
-      var currentBasal = "";
+      currProfile = "";
+      currentBasal = "";
       
       var currentProfileJSON = $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json").then(function(data){
-        console.log("Inside loop Profile: "+data[0].defaultProfile);
         currProfile = data[0].defaultProfile;
+        console.log("Inside loop Profile: "+currProfile);
         //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
         var basalProfile = data[0].store[currProfile].basal;  
         //console.log("Length of object: " + Object.keys(basalProfile).length);
