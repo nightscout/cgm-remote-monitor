@@ -27,6 +27,8 @@
     
     <script language="javascript">
       
+      (function() {
+        
       var today = new Date(); // for now
       var hours = today.getHours(); 
       if (hours < 10) { hours = "0"+hours; }
@@ -37,7 +39,7 @@
       
       var currentBG;
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1", function(data) {
-        window.currentBG = parseInt(data[0].sgv);
+        currentBG = parseInt(data[0].sgv);
       });
       
       var currProfile;
@@ -45,26 +47,28 @@
       var currentBasal;
       
       $.getJSON("https://beetusbot.herokuapp.com/api/v1/profile.json", function(data) {
-        window.currProfile = data[0].defaultProfile;
+        currProfile = data[0].defaultProfile;
         //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
-        var basalProfile = data[0].store[window.currProfile].basal;  
+        var basalProfile = data[0].store[currProfile].basal;  
         //console.log("Length of object: " + Object.keys(basalProfile).length);
         for (i = 1; i < Object.keys(basalProfile).length; i++){
           //console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
           if (timeStr < basalProfile[i].time) {
-            window.currentBasal = basalProfile[i-1].value;
+            currentBasal = basalProfile[i-1].value;
             break; 
           }
         }
       });
       
       console.log("OUTSIDE LOOP");
-      console.log("Profile: "+ window.currProfile);
-      console.log("Current basal: "+ window.currentBasal);
+      console.log("Profile: "+ currProfile);
+      console.log("Current basal: "+ currentBasal);
       
       window.document.onload = function(e){
         document.getElementById("BG").value = currentBG;
       }
+      
+      })();
      
     </script>
     
