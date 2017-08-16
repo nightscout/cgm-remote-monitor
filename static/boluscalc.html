@@ -74,13 +74,13 @@
          });
       }
 
-      getCustomJSON("https://beetusbot.herokuapp.com/api/v1/profile.json","profile").then(function(returndata){
+      getCustomJSON("https://beetusbot.herokuapp.com/api/v1/profile.json","profile").done(function(returndata){
         console.log("OUTSIDE LOOP");
         console.log("Profile: "+ currProfile);
         console.log("Current basal: "+ currentBasal);
       });
         
-      getCustomJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1","BG").then(function(returndata){      
+      getCustomJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1","BG").done(function(returndata){      
         //window.document.onload = function(e){
           document.getElementById("BG").value = currentBG;
         //}
