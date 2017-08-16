@@ -42,7 +42,11 @@
       currentBasal = "";
       
       function getCustomJSON(URL, type){
-         return $.getJSON(URL).then(function(data){
+         var def = $.Deferred();
+        
+         $.getJSON(URL)
+           .done(function(data){
+           
            if(type == "profile") {
              var tempProfile = data[0].defaultProfile;
              //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
@@ -55,16 +59,18 @@
                  break; 
                }
              }
+             def.resolve({
+              currProfile:tempProfile,
+              currBasal:tempBasal
+             });
            }
            if(type == "BG") {
              var tempBG = parseInt(data[0].sgv);
+             def.resolve({
+              currBG:tempBG
+             });
            }
-           return {
-             currProfile:tempProfile,
-             currBasal:tempBasal,
-             currBG:tempBG
-           }
-         });
+           return def;
       }
 
       getCustomJSON("https://beetusbot.herokuapp.com/api/v1/profile.json","profile").then(function(returndata){
