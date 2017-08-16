@@ -39,8 +39,9 @@
       
       var currBG = 0;
       var currProfile = "";
-      var currBasal = "";
-      var currSens = "";
+      var currBasal = 0.0;
+      var currSens = 0.0;
+      var currCarbRatio = 0.0;
       
       function getCustomJSON(URL, type, callback){
         
@@ -49,10 +50,12 @@
            if(type == "profile") {
              currProfile = data[0].defaultProfile;
              //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
-             var basalProfile = data[0].store[currProfile].basal;  
              //console.log("Length of object: " + Object.keys(basalProfile).length);
+             
+             // Define current basal 
+             var basalProfile = data[0].store[currProfile].basal;  
              if(timeStr > basalProfile[Object.keys(basalProfile).length-1].time){
-                 currSens = parseFloat(basalProfile[Object.keys(basalProfile).length-1].value);
+                 currBasal = parseFloat(basalProfile[Object.keys(basalProfile).length-1].value);
                }
              else{
                for (i = 1; i < Object.keys(basalProfile).length; i++){
@@ -63,6 +66,7 @@
                  }
                }
              }
+             // Define current sensitivity
              var sensProfile = data[0].store[currProfile].sens;  
              if(timeStr > sensProfile[Object.keys(sensProfile).length-1].time){
                  currSens = parseFloat(sensProfile[Object.keys(sensProfile).length-1].value);
@@ -75,9 +79,24 @@
                  }
                }
              }
-             callback(currProfile,currBasal,currSens);
+             // Define current carb ratio
+             var ratioProfile = data[0].store[currProfile].carbratio;  
+             if(timeStr > ratioProfile[Object.keys(ratioProfile).length-1].time){
+                 currCarbRatio = parseFloat(ratioProfile[Object.keys(ratioProfile).length-1].value);
+               }
+             else{
+               for (i = 1; i < Object.keys(ratioProfile).length; i++){
+                 if (timeStr < ratioProfile[i].time) {
+                   currCarbRatio = parseFloat(ratioProfile[i-1].value);
+                   break; 
+                 }
+               }
+             }
+             // Return values
+             callback(currProfile,currBasal,currSens,currCarbRatio);
            }
            if(type == "BG") {
+             // Define current BG
              currBG = parseInt(data[0].sgv);
              callback(currBG);
            }
@@ -88,6 +107,7 @@
         console.log("Profile: "+ currProfile);
         document.getElementById("basal").value = currBasal;
         document.getElementById("sensitivity").value = currSens;
+        document.getElementById("carbRatio").value = currCarbRatio; 
       });
         
       getCustomJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1","BG",function(returndata){      
