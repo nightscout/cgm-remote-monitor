@@ -143,8 +143,13 @@
       }
         
       getMealData("Breakfast",function(returndata){
-        //var breakfastTotalsRef = data.indexOf('<div id="meals_copy_to_0" class="quick_add_meals_list hidden">',breakfastStart);
-        //var breakfastCals = data.indexOf('<td>',breakfastTotalsRef)
+        var totalsRef = mealCode.indexOf('<div id="meals_copy_to_0" class="quick_add_meals_list hidden">');
+        var carbsStart = mealCode.indexOf('<span class="macro-value">',totalsRef)+26;
+        console.log("Carbs starting index: "+carbsStart);
+        var carbsEnd = mealCode.indexOf('</span>',carbsStart);
+        console.log("Carbs ending index: "+carbsEnd);
+        var carbs = parseFloat(mealCode.substring(carbsStart,carbsEnd));
+        document.getElementById("carbs").value += carbs; 
         document.getElementById("mfp").innerHTML += mealCode;   
       });
         
