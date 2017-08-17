@@ -139,19 +139,18 @@
       
       $(document).ready(function(){
         $.ajax({
-                    url: 'http://www.myfitnesspal.com/food/diary/oboe_girl4',
-                    dataType: 'jsonp',
-                    success: function(dataWeGotViaJsonp){
-                        var text = '';
-                        var len = dataWeGotViaJsonp.length;
-                        for(var i=0;i<len;i++){
-                            dataBit = dataWeGotViaJsonp[i];
-                            text += dataBit['text']
-                        }
-                        console.log("Successful JSONp pull!"); 
-                        document.getElementById("mfp").innerHTML += text;
-                    }
-                });
+            url: 'http://www.myfitnesspal.com/food/diary/oboe_girl4',
+            method: 'GET',
+            headers: {
+               'Access-Control-Allow-Origin': '*'
+            },
+            success: function(data){
+               document.getElementById("mfp").innerHTML += "Much success!";
+            },
+            error: function(data){
+               document.getElementById("mfp").innerHTML += "Much failure!";
+            }
+         });
       })
       
     </script>
