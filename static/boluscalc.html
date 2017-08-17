@@ -126,8 +126,8 @@
             dataType: 'html',
             crossOrigin: true,
             success: function(data){
-               var breakfastStart = data.indexOf("<tr class="meal_header"><td class="first alt">Breakfast</td>");
-               var lunchStart = data.indexOf("<tr class="meal_header"><td class="first alt">Lunch</td>");
+               var breakfastStart = data.indexOf('<tr class="meal_header"><td class="first alt">Breakfast</td>');
+               var lunchStart = data.indexOf('<tr class="meal_header"><td class="first alt">Lunch</td>');
                var breakfastCode = data.substring(breakfastStart,lunchStart);
                document.getElementById("mfp").innerHTML += breakfastCode;
             },
