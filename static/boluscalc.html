@@ -126,7 +126,7 @@
             dataType: 'html',
             crossOrigin: true,
             success: function(data){
-               console.log(typeof data);
+               console.log(data);
                allTheData = data;
                var breakfastStart = allTheData.indexOf('<tr class="meal_header"><td class="first alt">Breakfast</td>');
                console.log("Breakfast starting index: "+breakfastStart);
