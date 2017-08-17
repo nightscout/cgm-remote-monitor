@@ -118,7 +118,6 @@
       })();         // End scoping function
       
       $(document).ready(function(){
-        var allTheData = '';
         var breakfastCode = '';
         $.ajax({
             url: 'http://www.myfitnesspal.com/food/diary/oboe_girl4',
@@ -126,13 +125,12 @@
             dataType: 'html',
             crossOrigin: true,
             success: function(data){
-               console.log(data);
-               allTheData = data;
-               var breakfastStart = allTheData.indexOf('<tr class="meal_header">');
+               //console.log(data);
+               var breakfastStart = data.indexOf('<tr class="meal_header">');
                console.log("Breakfast starting index: "+breakfastStart);
-               var lunchStart = allTheData.indexOf('<tr class="meal_header">',breakfastStart);
+               var lunchStart = data.indexOf('<tr class="meal_header">',breakfastStart+24);
                console.log("Breakfast ending index: "+lunchStart);
-               breakfastCode = allTheData.substring(breakfastStart,lunchStart);
+               breakfastCode = data.substring(breakfastStart,lunchStart);
                console.log("Breakfast code: "+breakfastCode);
                document.getElementById("mfp").innerHTML += breakfastCode;
             },
