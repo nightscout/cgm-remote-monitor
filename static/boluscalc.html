@@ -24,6 +24,7 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <!--<script src="https://beetusbot.herokuapp.com/js/bootstrap.min.js"></script>-->
+    <script type="text/javascript" src="https://beetusbot.herokuapp.com/lib/plugins/jquery.ajax-cross-origin.min.js"></script>
     
     <script>
         
@@ -123,9 +124,7 @@
             url: 'http://www.myfitnesspal.com/food/diary/oboe_girl4',
             method: 'GET',
             dataType: 'html',
-            headers: {
-               'Access-Control-Allow-Origin': 'https://beetusbot.herokuapp.com/boluscalc.html'
-            },
+            crossOrigin: true,
             success: function(data){
                document.getElementById("mfp").innerHTML += "Much success!";
             },
