@@ -110,35 +110,45 @@
       });
         
       getCustomJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1","BG",function(returndata){      
-        //window.document.onload = function(e){
-          document.getElementById("BG").value = currBG;
-        //}
+        document.getElementById("BG").value = currBG;
       });
-     
-      })();         // End scoping function
-      
-      $(document).ready(function(){
-        var breakfastCode = '';
-        $.ajax({
+
+      var mealCode = '';  
+      var carbs = 0;
+      var fat = 0;
+      var protein = 0;
+      var fiber = 0;
+      function getMealData(mealName, callback){
+         $.ajax({
             url: 'http://www.myfitnesspal.com/food/diary/oboe_girl4',
             method: 'GET',
             dataType: 'html',
             crossOrigin: true,
             success: function(data){
                //console.log(data);
-               var breakfastStart = data.indexOf('<tr class="meal_header">');
-               console.log("Breakfast starting index: "+breakfastStart);
-               var lunchStart = data.indexOf('<tr class="meal_header">',breakfastStart+24);
-               console.log("Breakfast ending index: "+lunchStart);
-               breakfastCode = data.substring(breakfastStart,lunchStart);
-               console.log("Breakfast code: "+breakfastCode);
-               document.getElementById("mfp").innerHTML += breakfastCode;
+               if(mealName == "Breakfast"){
+                var breakfastStart = data.indexOf('<tr class="meal_header">');
+                //console.log("Breakfast starting index: "+breakfastStart);
+                var lunchStart = data.indexOf('<tr class="meal_header">',breakfastStart+24);
+                //console.log("Breakfast ending index: "+lunchStart);
+                mealCode = data.substring(breakfastStart,lunchStart);
+               //console.log("Breakfast code: "+breakfastCode);
+               callback(mealCode);
+               
             },
             error: function(data){
                document.getElementById("mfp").innerHTML += "MyFitnessPal data could not be pulled";
             }
-         });
-      })
+         }); 
+      }
+        
+      getMealData("Breakfast",function(returndata){
+        //var breakfastTotalsRef = data.indexOf('<div id="meals_copy_to_0" class="quick_add_meals_list hidden">',breakfastStart);
+        //var breakfastCals = data.indexOf('<td>',breakfastTotalsRef)
+        document.getElementById("mfp").innerHTML += mealCode;   
+      });
+        
+      })();         // End scoping function
       
     </script>
     
