@@ -133,8 +133,8 @@
                 //console.log("Breakfast ending index: "+lunchStart);
                 mealCode = data.substring(breakfastStart,lunchStart);
                //console.log("Breakfast code: "+breakfastCode);
+               }
                callback(mealCode);
-               
             },
             error: function(data){
                document.getElementById("mfp").innerHTML += "MyFitnessPal data could not be pulled";
