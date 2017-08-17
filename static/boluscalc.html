@@ -27,25 +27,6 @@
     
     <script>
         
-      /*$.ajax({ // start before dom is ready
-          url: 'http://www.myfitnesspal.com/food/diary/oboe_girl4',
-          type: 'get',
-          dataType: 'html',
-          crossOrigin: true,
-          success: function(data) {
-            var $data = $(data),
-              breakfast = $data.filter(':has([<td class="first alt">Breakfast</td>])').children()
-            $(function() { // wait until dom is ready to set the div
-              $('mfp').html(breakfast)
-            })
-          }
-        });
-      
-      var encodedUrl = encodeURIComponent('http://www.myfitnesspal.com/food/diary/oboe_girl4');
-      $.get('https://beetusbot.herokuapp.com/getcontent?url=' + encodedUrl, function(data) {
-          console.log(typeof data);
-      });*/
-      
       (function() { // Begin scoping function
         
       var today = new Date(); // for now
@@ -141,8 +122,9 @@
         $.ajax({
             url: 'http://www.myfitnesspal.com/food/diary/oboe_girl4',
             method: 'GET',
+            dataType: 'html',
             headers: {
-               'Access-Control-Allow-Origin': '*'
+               'Access-Control-Allow-Origin': 'https://beetusbot.herokuapp.com/boluscalc.html'
             },
             success: function(data){
                document.getElementById("mfp").innerHTML += "Much success!";
