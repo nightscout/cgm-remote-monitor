@@ -128,16 +128,16 @@
             success: function(data){
                console.log(data);
                allTheData = data;
-               var breakfastStart = allTheData.indexOf('<tr class="meal_header"><td class="first alt">Breakfast</td>');
+               var breakfastStart = allTheData.indexOf('<tr class="meal_header">');
                console.log("Breakfast starting index: "+breakfastStart);
-               var lunchStart = allTheData.indexOf('<tr class="meal_header"><td class="first alt">Lunch</td>');
+               var lunchStart = allTheData.indexOf('<tr class="meal_header">',breakfastStart);
                console.log("Breakfast ending index: "+lunchStart);
                breakfastCode = allTheData.substring(breakfastStart,lunchStart);
                console.log("Breakfast code: "+breakfastCode);
                document.getElementById("mfp").innerHTML += breakfastCode;
             },
             error: function(data){
-               document.getElementById("mfp").innerHTML += "Much failure!";
+               document.getElementById("mfp").innerHTML += "MyFitnessPal data could not be pulled";
             }
          });
       })
