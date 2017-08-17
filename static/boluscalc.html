@@ -36,7 +36,6 @@
       var minutes = today.getMinutes(); 
       if (minutes < 10) { minutes = "0"+minutes; }
       var timeStr = hours+":"+minutes;
-      console.log("Time: "+ timeStr);
       
       var currBG = 0;
       var currProfile = "";
@@ -105,7 +104,6 @@
       }
 
       getCustomJSON("https://beetusbot.herokuapp.com/api/v1/profile.json","profile",function(returndata){
-        console.log("Profile: "+ currProfile);
         document.getElementById("basal").value = currBasal;
         document.getElementById("sensitivity").value = currSens;
         document.getElementById("carbRatio").value = currCarbRatio; 
@@ -120,6 +118,7 @@
       })();         // End scoping function
       
       $(document).ready(function(){
+        var allTheData = '';
         var breakfastCode = '';
         $.ajax({
             url: 'http://www.myfitnesspal.com/food/diary/oboe_girl4',
@@ -127,11 +126,13 @@
             dataType: 'html',
             crossOrigin: true,
             success: function(data){
-               var breakfastStart = data.indexOf('<tr class="meal_header"><td class="first alt">Breakfast</td>');
+               console.log(typeof data);
+               allTheData = data;
+               var breakfastStart = allTheData.indexOf('<tr class="meal_header"><td class="first alt">Breakfast</td>');
                console.log("Breakfast starting index: "+breakfastStart);
-               var lunchStart = data.indexOf('<tr class="meal_header"><td class="first alt">Lunch</td>');
+               var lunchStart = allTheData.indexOf('<tr class="meal_header"><td class="first alt">Lunch</td>');
                console.log("Breakfast ending index: "+lunchStart);
-               breakfastCode = data.substring(breakfastStart,lunchStart);
+               breakfastCode = allTheData.substring(breakfastStart,lunchStart);
                console.log("Breakfast code: "+breakfastCode);
                document.getElementById("mfp").innerHTML += breakfastCode;
             },
