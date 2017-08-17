@@ -39,12 +39,19 @@
               $('mfp').html(breakfast)
             })
           }
-        });*/
+        });
       
       var encodedUrl = encodeURIComponent('http://www.myfitnesspal.com/food/diary/oboe_girl4');
       $.get('https://beetusbot.herokuapp.com/getcontent?url=' + encodedUrl, function(data) {
           console.log(typeof data);
-      });
+      });*/
+      
+      var url = 'http://www.myfitnesspal.com/food/diary/oboe_girl4';
+      var xhr = createCORSRequest('GET', url);
+      xhr.send();
+      var text = xhr.responseText;
+      var title = getTitle(text);
+      console.log("MFP title: "+title);
 
       (function() { // Begin scoping function
         
