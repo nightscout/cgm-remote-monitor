@@ -175,7 +175,7 @@
       $(function () {
         $.get('https://beetusbot.herokuapp.com/index.html', function (response) {
         var source = $('' + response + '');
-        $('#mfp').html(source.find('.pill iob').html());
+        $('#mfp').html(source.find('.iob').html());
         });
         });
         
