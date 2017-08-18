@@ -48,7 +48,7 @@ function getCustomJSON(URL, type, callback){
                }
              }
              // Return values
-             callback(currProfile,currBasal,currSens,currCarbRatio);
+             callback([currProfile,currBasal,currSens,currCarbRatio]);
            }
            if(type == "BG") {
              // Define current BG
