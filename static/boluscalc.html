@@ -125,15 +125,19 @@
             dataType: 'html',
             crossOrigin: true,
             success: function(data){
-               //console.log(data);
-               if(mealName == "Breakfast"){
-                var breakfastStart = data.indexOf('<tr class="meal_header">');
-                //console.log("Breakfast starting index: "+breakfastStart);
-                var lunchStart = data.indexOf('<tr class="meal_header">',breakfastStart+24);
-                //console.log("Breakfast ending index: "+lunchStart);
-                mealCode = data.substring(breakfastStart,lunchStart);
-               //console.log("Breakfast code: "+breakfastCode);
-               }
+               var breakfastStart = data.indexOf('<tr class="meal_header">');
+               var lunchStart = data.indexOf('<tr class="meal_header">',breakfastStart+24); 
+               var dinnerStart = data.indexOf('<tr class="meal_header">',lunchStart+24); 
+               var aftSnackStart = data.indexOf('<tr class="meal_header">',dinnerStart+24); 
+               var mornSnackStart = data.indexOf('<tr class="meal_header">',aftSnackStart+24); 
+               var eveSnackStart = data.indexOf('<tr class="meal_header">',mornSnackStart+24); 
+               var end = data.indexOf('<tr class="spacer">',eveSnackStart+24);
+               if(mealName == "Breakfast"){ mealCode = data.substring(breakfastStart,lunchStart); }
+               else if(mealName == "Lunch"){ mealCode = data.substring(lunchStart,dinnerStart); }
+               else if(mealName == "Dinner"){ mealCode = data.substring(dinnerStart,aftSnackStart); }
+               else if(mealName == "Afternoon Snack"){ mealCode = data.substring(aftSnackStart,mornSnackStart); }
+               else if(mealName == "Morning Snack"){ mealCode = data.substring(mornSnackStart,eveSnackStart); }
+               else if(mealName == "Evening Snack"){ mealCode = data.substring(eveSnackStart,end); }
                callback(mealCode);
             },
             error: function(data){
@@ -144,13 +148,28 @@
         
       getMealData("Breakfast",function(returndata){
         var totalsRef = mealCode.indexOf('<div id="meals_copy_to_0" class="quick_add_meals_list hidden">');
+        // Carbs
         var carbsStart = mealCode.indexOf('<span class="macro-value">',totalsRef)+26;
-        console.log("Carbs starting index: "+carbsStart);
+        //console.log("Carbs starting index: "+carbsStart);
         var carbsEnd = mealCode.indexOf('</span>',carbsStart);
-        console.log("Carbs ending index: "+carbsEnd);
-        var carbs = parseFloat(mealCode.substring(carbsStart,carbsEnd));
+        //console.log("Carbs ending index: "+carbsEnd);
+        carbs = parseFloat(mealCode.substring(carbsStart,carbsEnd));
         document.getElementById("carbs").value += carbs; 
-        document.getElementById("mfp").innerHTML += mealCode;   
+        // Fat
+        var fatStart = mealCode.indexOf('<span class="macro-value">',carbsEnd)+26;
+        var fatEnd = mealCode.indexOf('</span>',fatStart);
+        fat = parseFloat(mealCode.substring(fatStart,fatEnd));
+        document.getElementById("fat").value += fat;  
+        // Protein
+        var proteinStart = mealCode.indexOf('<span class="macro-value">',fatEnd)+26;
+        var proteinEnd = mealCode.indexOf('</span>',proteinStart);
+        protein = parseFloat(mealCode.substring(proteinStart,proteinEnd));
+        document.getElementById("protein").value += protein;  
+        // Fiber
+        var fiberStart = mealCode.indexOf('<td>',proteinEnd)+4;
+        var fiberEnd = mealCode.indexOf('</td>',fiberStart);
+        fiber = parseFloat(mealCode.substring(fiberStart,fiberEnd));
+        document.getElementById("fat").value += fat;  
       });
         
       })();         // End scoping function
