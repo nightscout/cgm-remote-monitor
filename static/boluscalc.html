@@ -172,6 +172,15 @@
         document.getElementById("fiber").value += fiber;  
       });
         
+      $(function () {
+        $.get('index.html', function (response) {
+        var source = $('
+        ' + response + '
+        ');
+        $('#mfp').html(source.find('<span class="pill iob">').html());
+        });
+        });
+        
       })();         // End scoping function
       
     </script>
