@@ -50,9 +50,9 @@
             url: URL,
             method: 'GET',
             dataType: 'json',
-            crossOrigin: true,
+            //crossOrigin: true,
             success: function(inputData){
-              var data = jQuery.parseJSON(inputData);
+              var data = parseJSON(inputData);
             	if(type == "profile") {
                  currProfile = data[0].defaultProfile;
                  //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
