@@ -52,7 +52,7 @@
             dataType: 'json',
             //crossOrigin: true,
             success: function(inputData){
-              var data = inputData; //jQuery.parseJSON
+              var data = inputData; //jQuery.parseJSON(inputData);
             	if(type == "profile") {
                  currProfile = data[0].defaultProfile;
                  //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
@@ -146,13 +146,10 @@
             }
          }); 
       }
-      
-      getMFPData(function(returnData){
-      	document.getElementById("errors").innerHTML += "";
-      });
-      
+        
       function getMealData(mealName){
-        var breakfastStart = mfpCode.indexOf('<tr class="meal_header">');
+        getMFPData(function(returnData){
+      		var breakfastStart = mfpCode.indexOf('<tr class="meal_header">');
         var lunchStart = mfpCode.indexOf('<tr class="meal_header">',breakfastStart+24); 
         var dinnerStart = mfpCode.indexOf('<tr class="meal_header">',lunchStart+24); 
         var aftSnackStart = mfpCode.indexOf('<tr class="meal_header">',dinnerStart+24); 
@@ -188,7 +185,8 @@
         var fiberEnd = mealCode.indexOf('</td>',fiberStart);
         fiber = parseFloat(mealCode.substring(fiberStart,fiberEnd));
         document.getElementById("fiber").value = fiber; 
-        bolusCalc();
+        bolusCalcWFood();
+        }); 
       }
       
  			$("#BreakfastButton").click(function() { getMealData("Breakfast"); });
@@ -197,54 +195,82 @@
       $("#MornSnackButton").click(function() { getMealData("Morning Snack"); });
       $("#AftSnackButton").click(function() { getMealData("Afternoon Snack"); });
       $("#EveSnackButton").click(function() { getMealData("Evening Snack"); });
+      $("#NoMealButton").click(function() { bolusCalc(); });
 
 			var newBolus = 0;
       var newBolusExt = 0;
-      function bolusCalc(){
+      var newBolusCorr = 0;
+      var newBolusSuper = 0;
+      var newBolusCarbs = 0;
+      var newBolusProtein = 0;
+      function bolusCalcWFood(){
         if(currBG>160){
-          newBolus += (currBG-100)/currSens + currBasal; //Correction + Super bolus
-          newBolus += ((carbs-(fiber/2))/currCarbRatio); //Carbs
+          newBolusCorr = (currBG-100)/currSens; //Correction
+          newBolusSuper = currBasal; //Super bolus
+          newBolusCarbs = (carbs/currCarbRatio); //Carbs
           if(fat>20){
-            newBolusExt += (((fat-20)/2)/currCarbRatio); //Fat
+            newBolusExt = (((fat-20)/2)/currCarbRatio); //Fat
           }
           if((carbs<=20) && (protein>20)){ 
-            newBolus += ((protein-20)/2)/currCarbRatio; //Protein
+            newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
           }
         }
         else if(currBG>110){
-          newBolus += (currBG-100)/currSens; //Correction
-          newBolus += ((carbs-(fiber/2))/currCarbRatio); //Carbs
+          newBolusCorr = (currBG-100)/currSens; //Correction
+          newBolusCarbs = (carbs/currCarbRatio); //Carbs
           if(fat>20){
-            newBolusExt += (((fat-20)/2)/currCarbRatio); //Fat
+            newBolusExt = (((fat-20)/2)/currCarbRatio); //Fat
           }
           if((carbs<=20) && (protein>20)){ 
-            newBolus += ((protein-20)/2)/currCarbRatio; //Protein
+            newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
           }
           //**Optional Super Bolus if time to eat < 15 or carbs > 30 or fat < 20
         }
         else if(currBG>70){
-          newBolus += ((carbs-(fiber/2))/currCarbRatio); //Carbs
+          newBolusCorr = (currBG-100)/currSens; //Correction
+          newBolusCarbs = (carbs/currCarbRatio); //Carbs
           if(fat>20){
-            newBolusExt += (((fat-20)/2)/currCarbRatio); //Fat
+            newBolusExt = (((fat-20)/2)/currCarbRatio); //Fat
           }
           if((carbs<=20) && (protein>20)){ 
-            newBolus += ((protein-20)/2)/currCarbRatio; //Protein
+            newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
           }
           //**Optional Super Bolus if time to eat and carbs > 30
         }
         else{
-          newBolus += (currBG-100)/currSens; //Correction UP
-          newBolus += ((carbs-(fiber/2))/currCarbRatio); //Carbs
+          newBolusCorr = (currBG-100)/currSens; //Correction UP
+          newBolusCarbs = (carbs/currCarbRatio); //Carbs
           if(fat>20){
-            newBolusExt += (((fat-20)/2)/currCarbRatio); //Fat
+            newBolusExt = (((fat-20)/2)/currCarbRatio); //Fat
           }
           if((carbs<=20) && (protein>20)){ 
-            newBolus += ((protein-20)/2)/currCarbRatio; //Protein
+            newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
           }
         }
-        document.getElementById("results").innerHTML += "Recommended bolus: "+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 2 hours"; 
+        newBolus = newBolusCorr+newBolusSuper+newBolusCarbs+newBolusProtein;
+        document.getElementById("results").innerHTML = "Recommended bolus: "+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 2 hours.<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
       }
-       
+      
+      function bolusCalc(){
+        if(currBG>160){
+          newBolus += (currBG-100)/currSens + currBasal; //Correction + Super bolus
+          // Add super bolus messaging
+        }
+        else if(currBG>110){
+          newBolus += (currBG-100)/currSens; //Correction
+        }
+        else if(currBG>70){
+          newBolus += 0;
+        }
+        else{
+          newBolus += (currBG-100)/currSens; //Correction UP
+          // ** Add recommended carbs
+        }
+        document.getElementById("results").innerHTML = "Recommended bolus: "+newBolus.toFixed(2); 
+      }
+      
+      
+        
       })();         // End scoping function
       
       });
@@ -254,26 +280,26 @@
   </head>
   <body>
 
-    <b>World's most excellent form</b><br>
+    <b>World's most excellent form</b><br/>
     <form name="mainform" id="mainform">
-      Load meal:<br>
-      <input id="BreakfastButton" type="button" value="Breakfast" /><input id="LunchButton" type="button" value="Lunch" /><br>
-      <input id="DinnerButton" type="button" value="Dinner" /><input id="MornSnackButton" type="button" value="Morning Snack" /><br>
-      <input id="AftSnackButton" type="button" value="Afternoon Snack" /><input id="EveSnackButton" type="button" value="Evening Snack" /><br>
-      Results:<br>
-      <input type=number step=0.1 name="carbs" id="carbs" placeholder="Carbs in grams" min="0" /> Carbs<br>
-      <input type=number step=0.1 name="fat" id="fat" placeholder="Fat in grams" min="0" /> Fat<br>
-      <input type=number step=0.1 name="protein" id="protein" placeholder="Protein in grams" min="0" /> Protein<br>
-      <input type=number step=0.1 name="fiber" id="fiber" placeholder="Fiber in grams" min="0" /> Fiber<br><br>
-      Current data from Nightscout:<br>
-      <input type=number name="BG" id="BG" placeholder="BG in mg/dL" min="0" /> BG<br>
-      <input type=number step=0.01 name="corrIOB" id="corrIOB" placeholder="Units" min="0" /> Correction IOB<br>
-      <input type=number step=0.01 name="basal" id="basal" placeholder="Units/hr" min="0" /> Basal units/hr<br>
-      <input type=number name="sensitivity" id="sensitivity" placeholder="mg/dL per unit" min="0" /> Sensitivity<br>
-      <input type=number name="carbRatio" id="carbRatio" placeholder="Carbs per unit" min="0" /> Carb Ratio<br>
-      <input type=submit name="submit" id="submit" value="Submit" /><br>
+      Load meal:<br/>
+      <input id="BreakfastButton" type="button" value="Breakfast" /><input id="LunchButton" type="button" value="Lunch" /><br/>
+      <input id="DinnerButton" type="button" value="Dinner" /><input id="MornSnackButton" type="button" value="Morning Snack" /><br/>
+      <input id="AftSnackButton" type="button" value="Afternoon Snack" /><input id="EveSnackButton" type="button" value="Evening Snack" /><br/>
+      Results:<br/>
+      <input type="number" step="0.1" id="carbs" placeholder="Carbs in grams" min="0" /> Carbs<br/>
+      <input type="number" step="0.1" id="fat" placeholder="Fat in grams" min="0" /> Fat<br/>
+      <input type="number" step="0.1" id="protein" placeholder="Protein in grams" min="0" /> Protein<br/>
+      <input type="number" step="0.1" id="fiber" placeholder="Fiber in grams" min="0" /> Fiber<br/><br/>
+      Current data from Nightscout:<br/>
+      <input type="number" id="BG" placeholder="BG in mg/dL" min="0" /> BG<br/>
+      <input type="number" step="0.01" id="corrIOB" placeholder="Units" min="0" /> Correction IOB<br/>
+      <input type="number" step="0.01" id="basal" placeholder="Units/hr" min="0" /> Basal units/hr<br/>
+      <input type="number" id="sensitivity" placeholder="mg/dL per unit" min="0" /> Sensitivity<br/>
+      <input type="number" id="carbRatio" placeholder="Carbs per unit" min="0" /> Carb Ratio<br/>
+      <input type="button" id="NoMealButton" value="No meal" /><br/><br/><input type="submit" id="submit" value="Submit to NS" /><br/>
     </form>
-    <br>
+    <br/>
     
     <div id="results"></div>
     
