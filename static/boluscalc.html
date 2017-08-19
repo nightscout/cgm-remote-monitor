@@ -196,8 +196,8 @@
         
         getHTML( '/index.html', function (response) { 
         var someElem = document.querySelector( '#mfp' );
-        var someOtherElem = response.querySelector( '.iob' );
-        someElem.innerHTML = response.getElementByID("container").innerHTML;
+        var someOtherElem = response.querySelector( '#container' );
+        someElem.innerHTML = someOtherElem.innerHTML;
     });
         
       })();         // End scoping function
