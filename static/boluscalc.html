@@ -15,6 +15,7 @@
     <style>
       body {padding: 30px 30px 30px 30px;}
       input[type=submit] {width: 50%;}
+      input[type=button] {width: 50%;}
       input[type=number] {width: 50%;}
       input[type=text] {width: 100%;}
       form {max-width: 300px;}
@@ -26,9 +27,10 @@
     <!--<script src="https://beetusbot.herokuapp.com/js/bootstrap.min.js"></script>-->
     <script type="text/javascript" src="https://beetusbot.herokuapp.com/js/jquery.ajax-cross-origin.min.js"></script>
     
-    <script>
+    <script type="text/javascript">
         
-      (function() { // Begin scoping function
+      $(document).ready(function(){
+	(function() { // Begin scoping function
         
       var today = new Date(); // for now
       var hours = today.getHours(); 
@@ -44,65 +46,74 @@
       var currCarbRatio = 0.0;
       
       function getCustomJSON(URL, type, callback){
-        
-         $.getJSON(URL,function(data){
-           
-           if(type == "profile") {
-             currProfile = data[0].defaultProfile;
-             //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
-             //console.log("Length of object: " + Object.keys(basalProfile).length);
-             
-             // Define current basal 
-             var basalProfile = data[0].store[currProfile].basal;  
-             if(timeStr > basalProfile[Object.keys(basalProfile).length-1].time){
-                 currBasal = parseFloat(basalProfile[Object.keys(basalProfile).length-1].value);
-               }
-             else{
-               for (i = 1; i < Object.keys(basalProfile).length; i++){
-                 //console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
-                 if (timeStr < basalProfile[i].time) {
-                   currBasal = parseFloat(basalProfile[i-1].value);
-                   break; 
-                 }
-               }
-             }
-             // Define current sensitivity
-             var sensProfile = data[0].store[currProfile].sens;  
-             if(timeStr > sensProfile[Object.keys(sensProfile).length-1].time){
-                 currSens = parseFloat(sensProfile[Object.keys(sensProfile).length-1].value);
-               }
-             else{
-               for (i = 1; i < Object.keys(sensProfile).length; i++){
-                 if (timeStr < sensProfile[i].time) {
-                   currSens = parseFloat(sensProfile[i-1].value);
-                   break; 
-                 }
-               }
-             }
-             // Define current carb ratio
-             var ratioProfile = data[0].store[currProfile].carbratio;  
-             if(timeStr > ratioProfile[Object.keys(ratioProfile).length-1].time){
-                 currCarbRatio = parseFloat(ratioProfile[Object.keys(ratioProfile).length-1].value);
-               }
-             else{
-               for (i = 1; i < Object.keys(ratioProfile).length; i++){
-                 if (timeStr < ratioProfile[i].time) {
-                   currCarbRatio = parseFloat(ratioProfile[i-1].value);
-                   break; 
-                 }
-               }
-             }
-             // Return values
-             callback(currProfile,currBasal,currSens,currCarbRatio);
-           }
-           if(type == "BG") {
-             // Define current BG
-             currBG = parseInt(data[0].sgv);
-             callback(currBG);
-           }
-          });
-      }
+        $.ajax({
+            url: URL,
+            method: 'GET',
+            dataType: 'json',
+            crossOrigin: true,
+            success: function(inputData){
+              var data = jQuery.parseJSON(inputData);
+            	if(type == "profile") {
+                 currProfile = data[0].defaultProfile;
+                 //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
+                 //console.log("Length of object: " + Object.keys(basalProfile).length);
 
+                 // Define current basal 
+                 var basalProfile = data[0].store[currProfile].basal;  
+                 if(timeStr > basalProfile[Object.keys(basalProfile).length-1].time){
+                     currBasal = parseFloat(basalProfile[Object.keys(basalProfile).length-1].value);
+                   }
+                 else{
+                   for (i = 1; i < Object.keys(basalProfile).length; i++){
+                     //console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
+                     if (timeStr < basalProfile[i].time) {
+                       currBasal = parseFloat(basalProfile[i-1].value);
+                       break; 
+                     }
+                   }
+                 }
+                 // Define current sensitivity
+                 var sensProfile = data[0].store[currProfile].sens;  
+                 if(timeStr > sensProfile[Object.keys(sensProfile).length-1].time){
+                     currSens = parseFloat(sensProfile[Object.keys(sensProfile).length-1].value);
+                   }
+                 else{
+                   for (i = 1; i < Object.keys(sensProfile).length; i++){
+                     if (timeStr < sensProfile[i].time) {
+                       currSens = parseFloat(sensProfile[i-1].value);
+                       break; 
+                     }
+                   }
+                 }
+                 // Define current carb ratio
+                 var ratioProfile = data[0].store[currProfile].carbratio;  
+                 if(timeStr > ratioProfile[Object.keys(ratioProfile).length-1].time){
+                     currCarbRatio = parseFloat(ratioProfile[Object.keys(ratioProfile).length-1].value);
+                   }
+                 else{
+                   for (i = 1; i < Object.keys(ratioProfile).length; i++){
+                     if (timeStr < ratioProfile[i].time) {
+                       currCarbRatio = parseFloat(ratioProfile[i-1].value);
+                       break; 
+                     }
+                   }
+                 }
+                 // Return values
+                 callback(currProfile,currBasal,currSens,currCarbRatio);
+               }
+               if(type == "BG") {
+                 // Define current BG
+                 currBG = parseInt(data[0].sgv);
+                 callback(currBG);
+               }
+               
+            },
+            error: function(data){
+            	document.getElementById("errors").innerHTML = "Derp derp derp.";
+            }
+            });    
+      }
+      
       getCustomJSON("https://beetusbot.herokuapp.com/api/v1/profile.json","profile",function(returndata){
         document.getElementById("basal").value = currBasal;
         document.getElementById("sensitivity").value = currSens;
@@ -113,107 +124,102 @@
         document.getElementById("BG").value = currBG;
       });
 
+			var mfpCode = '';
       var mealCode = '';  
       var carbs = 0;
       var fat = 0;
       var protein = 0;
       var fiber = 0;
-      function getMealData(mealName, callback){
-         $.ajax({
+      
+      function getMFPData(callback){
+      	$.ajax({
             url: 'http://www.myfitnesspal.com/food/diary/oboe_girl4',
             method: 'GET',
             dataType: 'html',
             crossOrigin: true,
             success: function(data){
-               var breakfastStart = data.indexOf('<tr class="meal_header">');
-               var lunchStart = data.indexOf('<tr class="meal_header">',breakfastStart+24); 
-               var dinnerStart = data.indexOf('<tr class="meal_header">',lunchStart+24); 
-               var aftSnackStart = data.indexOf('<tr class="meal_header">',dinnerStart+24); 
-               var mornSnackStart = data.indexOf('<tr class="meal_header">',aftSnackStart+24); 
-               var eveSnackStart = data.indexOf('<tr class="meal_header">',mornSnackStart+24); 
-               var end = data.indexOf('<tr class="spacer">',eveSnackStart+24);
-               if(mealName == "Breakfast"){ mealCode = data.substring(breakfastStart,lunchStart); }
-               else if(mealName == "Lunch"){ mealCode = data.substring(lunchStart,dinnerStart); }
-               else if(mealName == "Dinner"){ mealCode = data.substring(dinnerStart,aftSnackStart); }
-               else if(mealName == "Afternoon Snack"){ mealCode = data.substring(aftSnackStart,mornSnackStart); }
-               else if(mealName == "Morning Snack"){ mealCode = data.substring(mornSnackStart,eveSnackStart); }
-               else if(mealName == "Evening Snack"){ mealCode = data.substring(eveSnackStart,end); }
-               callback(mealCode);
+               mfpCode = data;
+               callback(mfpCode);
             },
             error: function(data){
-               document.getElementById("mfp").innerHTML += "MyFitnessPal data could not be pulled";
+               document.getElementById("errors").innerHTML += "MyFitnessPal data could not be pulled";
             }
          }); 
       }
-        
-      getMealData("Breakfast",function(returndata){
-        var totalsRef = mealCode.indexOf('<div id="meals_copy_to_0" class="quick_add_meals_list hidden">');
+      
+      getMFPData(function(returnData){
+      	document.getElementById("errors").innerHTML += "";
+      });
+      
+      function getMealData(mealName){
+        var breakfastStart = mfpCode.indexOf('<tr class="meal_header">');
+        var lunchStart = mfpCode.indexOf('<tr class="meal_header">',breakfastStart+24); 
+        var dinnerStart = mfpCode.indexOf('<tr class="meal_header">',lunchStart+24); 
+        var aftSnackStart = mfpCode.indexOf('<tr class="meal_header">',dinnerStart+24); 
+        var mornSnackStart = mfpCode.indexOf('<tr class="meal_header">',aftSnackStart+24); 
+        var eveSnackStart = mfpCode.indexOf('<tr class="meal_header">',mornSnackStart+24); 
+        var end = mfpCode.indexOf('<tr class="spacer">',eveSnackStart+24);
+        if(mealName == "Breakfast"){ mealCode = mfpCode.substring(breakfastStart,lunchStart); }
+        else if(mealName == "Lunch"){ mealCode = mfpCode.substring(lunchStart,dinnerStart); }
+        else if(mealName == "Dinner"){ mealCode = mfpCode.substring(dinnerStart,aftSnackStart); }
+        else if(mealName == "Afternoon Snack"){ mealCode = mfpCode.substring(aftSnackStart,mornSnackStart); }
+        else if(mealName == "Morning Snack"){ mealCode = mfpCode.substring(mornSnackStart,eveSnackStart); }
+        else if(mealName == "Evening Snack"){ mealCode = mfpCode.substring(eveSnackStart,end); }
+        var totalsRef = mealCode.indexOf('class="quick_add_meals_list hidden">');
         // Carbs
         var carbsStart = mealCode.indexOf('<span class="macro-value">',totalsRef)+26;
         //console.log("Carbs starting index: "+carbsStart);
         var carbsEnd = mealCode.indexOf('</span>',carbsStart);
         //console.log("Carbs ending index: "+carbsEnd);
         carbs = parseFloat(mealCode.substring(carbsStart,carbsEnd));
-        document.getElementById("carbs").value += carbs; 
+        document.getElementById("carbs").value = carbs; 
         // Fat
         var fatStart = mealCode.indexOf('<span class="macro-value">',carbsEnd)+26;
         var fatEnd = mealCode.indexOf('</span>',fatStart);
         fat = parseFloat(mealCode.substring(fatStart,fatEnd));
-        document.getElementById("fat").value += fat;  
+        document.getElementById("fat").value = fat;  
         // Protein
         var proteinStart = mealCode.indexOf('<span class="macro-value">',fatEnd)+26;
         var proteinEnd = mealCode.indexOf('</span>',proteinStart);
         protein = parseFloat(mealCode.substring(proteinStart,proteinEnd));
-        document.getElementById("protein").value += protein;  
+        document.getElementById("protein").value = protein;  
         // Fiber
         var fiberStart = mealCode.indexOf('<td>',proteinEnd)+4;
         var fiberEnd = mealCode.indexOf('</td>',fiberStart);
         fiber = parseFloat(mealCode.substring(fiberStart,fiberEnd));
-        document.getElementById("fiber").value += fiber;  
-      });
-        
-      var getHTML = function ( url, callback ) {
+        document.getElementById("fiber").value = fiber; 
+      }
+      
+ 			$("#BreakfastButton").click(function() { getMealData("Breakfast"); });
+      $("#LunchButton").click(function() { getMealData("Lunch"); });
+      $("#DinnerButton").click(function() { getMealData("Dinner"); });
+      $("#MornSnackButton").click(function() { getMealData("Morning Snack"); });
+      $("#AftSnackButton").click(function() { getMealData("Afternoon Snack"); });
+      $("#EveSnackButton").click(function() { getMealData("Evening Snack"); });
 
-            // Feature detection
-            if ( !window.XMLHttpRequest ) return;
-
-            // Create new request
-            var xhr = new XMLHttpRequest();
-
-            // Setup callback
-            xhr.onload = function() {
-                if ( callback && typeof( callback ) === 'function' ) {
-                    callback( this.responseXML );
-                }
-            }
-
-            // Get the HTML
-            xhr.open( 'GET', url );
-            xhr.responseType = 'document';
-            xhr.send();
-
-        };
-        
-        getHTML( '/index.html', function (response) { 
-        var someElem = document.querySelector( '#mfp' );
-        var someOtherElem = response.querySelector( '#container' );
-        someElem.innerHTML = someOtherElem.innerHTML;
-    });
         
       })();         // End scoping function
+      
+      });
       
     </script>
     
   </head>
   <body>
 
-    <b>Test form</b>
-    <form name="testform" id="testform">
-      <input type=number name="BG" id="BG" placeholder="BG in mg/dL" min="0" /> BG<br>
+    <b>World's most excellent form</b><br>
+    <form name="mainform" id="mainform">
+      Load meal:<br>
+      <input id="BreakfastButton" type="button" value="Breakfast" /><input id="LunchButton" type="button" value="Lunch" /><br>
+      <input id="DinnerButton" type="button" value="Dinner" /><input id="MornSnackButton" type="button" value="Morning Snack" /><br>
+      <input id="AftSnackButton" type="button" value="Afternoon Snack" /><input id="EveSnackButton" type="button" value="Evening Snack" /><br>
+      Results:<br>
       <input type=number step=0.1 name="carbs" id="carbs" placeholder="Carbs in grams" min="0" /> Carbs<br>
       <input type=number step=0.1 name="fat" id="fat" placeholder="Fat in grams" min="0" /> Fat<br>
       <input type=number step=0.1 name="protein" id="protein" placeholder="Protein in grams" min="0" /> Protein<br>
-      <input type=number step=0.1 name="fiber" id="fiber" placeholder="Fiber in grams" min="0" /> Fiber<br>
+      <input type=number step=0.1 name="fiber" id="fiber" placeholder="Fiber in grams" min="0" /> Fiber<br><br>
+      Current data from Nightscout:<br>
+      <input type=number name="BG" id="BG" placeholder="BG in mg/dL" min="0" /> BG<br>
       <input type=number step=0.01 name="corrIOB" id="corrIOB" placeholder="Units" min="0" /> Correction IOB<br>
       <input type=number step=0.01 name="basal" id="basal" placeholder="Units/hr" min="0" /> Basal units/hr<br>
       <input type=number name="sensitivity" id="sensitivity" placeholder="mg/dL per unit" min="0" /> Sensitivity<br>
@@ -224,7 +230,7 @@
     
     <div id="results"></div>
     
-    <div id="mfp"></div>
+    <div id="errors"></div>
     
     <script>
       //console.log("Page loaded");
