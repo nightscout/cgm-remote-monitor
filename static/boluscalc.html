@@ -188,6 +188,7 @@
         var fiberEnd = mealCode.indexOf('</td>',fiberStart);
         fiber = parseFloat(mealCode.substring(fiberStart,fiberEnd));
         document.getElementById("fiber").value = fiber; 
+        bolusCalc();
       }
       
  			$("#BreakfastButton").click(function() { getMealData("Breakfast"); });
@@ -197,7 +198,53 @@
       $("#AftSnackButton").click(function() { getMealData("Afternoon Snack"); });
       $("#EveSnackButton").click(function() { getMealData("Evening Snack"); });
 
-        
+			var newBolus = 0;
+      var newBolusExt = 0;
+      function bolusCalc(){
+        if(currBG>160){
+          newBolus += (currBG-100)/currSens + currBasal; //Correction + Super bolus
+          newBolus += ((carbs-(fiber/2)/currCarbRatio); //Carbs
+          if(fat>20){
+            newBolusExt += (((fat-20)/2)/currCarbRatio); //Fat
+          }
+          if((carbs<=20) && (protein>20)){ 
+            newBolus += ((protein-20)/2)/currCarbRatio; //Protein
+          }
+        }
+        else if(currBG>110){
+          newBolus += (currBG-100)/currSens; //Correction
+          newBolus += ((carbs-(fiber/2)/currCarbRatio); //Carbs
+          if(fat>20){
+            newBolusExt += (((fat-20)/2)/currCarbRatio); //Fat
+          }
+          if((carbs<=20) && (protein>20)){ 
+            newBolus += ((protein-20)/2)/currCarbRatio; //Protein
+          }
+          //**Optional Super Bolus if time to eat < 15 or carbs > 30 or fat < 20
+        }
+        else if(currBG>70){
+          newBolus += ((carbs-(fiber/2)/currCarbRatio); //Carbs
+          if(fat>20){
+            newBolusExt += (((fat-20)/2)/currCarbRatio); //Fat
+          }
+          if((carbs<=20) && (protein>20)){ 
+            newBolus += ((protein-20)/2)/currCarbRatio; //Protein
+          }
+          //**Optional Super Bolus if time to eat and carbs > 30
+        }
+        else{
+          newBolus += (currBG-100)/currSens; //Correction UP
+          newBolus += ((carbs-(fiber/2)/currCarbRatio); //Carbs
+          if(fat>20){
+            newBolusExt += (((fat-20)/2)/currCarbRatio); //Fat
+          }
+          if((carbs<=20) && (protein>20)){ 
+            newBolus += ((protein-20)/2)/currCarbRatio; //Protein
+          }
+        }
+        document.getElementById("results").innerHTML += "Recommended bolus: "+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 2 hours"; 
+      }
+       
       })();         // End scoping function
       
       });
