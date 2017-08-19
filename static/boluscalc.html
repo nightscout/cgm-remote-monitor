@@ -52,7 +52,7 @@
             dataType: 'json',
             //crossOrigin: true,
             success: function(inputData){
-              var data = parseJSON(inputData);
+              var data = inputData; //jQuery.parseJSON
             	if(type == "profile") {
                  currProfile = data[0].defaultProfile;
                  //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
