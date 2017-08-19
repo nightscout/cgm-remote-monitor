@@ -203,7 +203,7 @@
       function bolusCalc(){
         if(currBG>160){
           newBolus += (currBG-100)/currSens + currBasal; //Correction + Super bolus
-          newBolus += ((carbs-(fiber/2)/currCarbRatio); //Carbs
+          newBolus += ((carbs-(fiber/2))/currCarbRatio); //Carbs
           if(fat>20){
             newBolusExt += (((fat-20)/2)/currCarbRatio); //Fat
           }
@@ -213,7 +213,7 @@
         }
         else if(currBG>110){
           newBolus += (currBG-100)/currSens; //Correction
-          newBolus += ((carbs-(fiber/2)/currCarbRatio); //Carbs
+          newBolus += ((carbs-(fiber/2))/currCarbRatio); //Carbs
           if(fat>20){
             newBolusExt += (((fat-20)/2)/currCarbRatio); //Fat
           }
@@ -223,7 +223,7 @@
           //**Optional Super Bolus if time to eat < 15 or carbs > 30 or fat < 20
         }
         else if(currBG>70){
-          newBolus += ((carbs-(fiber/2)/currCarbRatio); //Carbs
+          newBolus += ((carbs-(fiber/2))/currCarbRatio); //Carbs
           if(fat>20){
             newBolusExt += (((fat-20)/2)/currCarbRatio); //Fat
           }
@@ -234,7 +234,7 @@
         }
         else{
           newBolus += (currBG-100)/currSens; //Correction UP
-          newBolus += ((carbs-(fiber/2)/currCarbRatio); //Carbs
+          newBolus += ((carbs-(fiber/2))/currCarbRatio); //Carbs
           if(fat>20){
             newBolusExt += (((fat-20)/2)/currCarbRatio); //Fat
           }
