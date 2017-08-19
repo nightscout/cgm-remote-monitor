@@ -172,12 +172,7 @@
         document.getElementById("fiber").value += fiber;  
       });
         
-      $(function () {
-        $.get('https://beetusbot.herokuapp.com/index.html', function (response) {
-        var source = $('' + response + '');
-        $('#mfp').html(source.find('.iob').html());
-        });
-        });
+      $("#mfp").load("index.html");
         
       })();         // End scoping function
       
