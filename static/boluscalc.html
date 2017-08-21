@@ -197,14 +197,36 @@
         }); 
       }
       
- 			$("#BreakfastButton").click(function() { getMealData("Breakfast"); });
-      $("#LunchButton").click(function() { getMealData("Lunch"); });
-      $("#DinnerButton").click(function() { getMealData("Dinner"); });
-      $("#MornSnackButton").click(function() { getMealData("Morning Snack"); });
-      $("#AftSnackButton").click(function() { getMealData("Afternoon Snack"); });
-      $("#EveSnackButton").click(function() { getMealData("Evening Snack"); });
-      $("#NoMealButton").click(function() { bolusCalc(); });
-      $("#TestButton").click(function() { runTest(); });
+ 			$("#BreakfastButton").click(function() { eventType = "Meal Bolus"; getMealData("Breakfast"); });
+      $("#LunchButton").click(function() { getMealData("Lunch"); eventType = "Meal Bolus"; });
+      $("#DinnerButton").click(function() { getMealData("Dinner"); eventType = "Meal Bolus"; });
+      $("#MornSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Morning Snack"); });
+      $("#AftSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Afternoon Snack"); });
+      $("#EveSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Evening Snack"); });
+      $("#NoMealButton").click(function() { eventType = "Correction Bolus"; bolusCalc(); });
+      $("#TestButton").click(function() { eventType = "Meal Bolus"; runTest(); });
+      $("#mainform").submit(function( event ) {
+ 
+          // Stop form from submitting normally
+          event.preventDefault();
+
+          // Get some values from elements on the page:
+          var $form = $( this ),
+           
+          // Send the data using post 
+					if(eventType == "Correction Bolus"){
+          var posting = $.post( "https://beetusbot.herokuapp.com/api/v1/treatments.json", { "enteredBy":"BolusCalc","insulin":newBolus,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          }
+          else{
+          var posting = $.post( "https://beetusbot.herokuapp.com/api/v1/treatments.json", { "enteredBy":"BolusCalc","carbs":carbs,"insulin":newBolus,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          }
+          
+          // Put the results in a div
+          posting.done(function( data ) {
+            var content = $( data ).find( "#content" );
+            $( "#submission" ).empty().append( content );
+          });
+        });
 
 			var newBolus = 0;
       var newBolusExt = 0;
@@ -400,7 +422,8 @@
       <input type="number" step="0.1" id="fiber" placeholder="Fiber in grams" min="0" /> Fiber<br/><br/>
       <input type="button" id="TestButton" value="Process Test Data" /><br/><br/><input type="submit" id="submit" value="Submit to NS" /><br/>
     </form>
-    
+    <div id="submission"></div>
+    <br/>
     <div id="resultsBG"></div>
     <br/>
     <div id="results"></div>
