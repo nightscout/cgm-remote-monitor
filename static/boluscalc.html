@@ -40,6 +40,9 @@
       var timeStr = hours+":"+minutes;
       
       var currBG = 0;
+      var delta30mins = 0;
+      var delta60mins = 0;
+      var BGtrend = "";
       var currProfile = "";
       var currBasal = 0.0;
       var currSens = 0.0;
@@ -50,9 +53,9 @@
             url: URL,
             method: 'GET',
             dataType: 'json',
-            //crossOrigin: true,
+            crossOrigin: true,
             success: function(inputData){
-              var data = inputData; //jQuery.parseJSON(inputData);
+              var data = jQuery.parseJSON(inputData);
             	if(type == "profile") {
                  currProfile = data[0].defaultProfile;
                  //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
@@ -104,7 +107,10 @@
                if(type == "BG") {
                  // Define current BG
                  currBG = parseInt(data[0].sgv);
-                 callback(currBG);
+                 delta30mins = parseInt(data[0].sgv)-parseInt(data[5].sgv);
+                 delta60mins = parseInt(data[0].sgv)-parseInt(data[11].sgv);
+                 BGtrend = data[0].direction;
+                 callback(currBG,delta30mins,delta60mins,BGtrend);
                }
                
             },
@@ -120,10 +126,10 @@
         document.getElementById("carbRatio").value = currCarbRatio; 
       });
         
-      getCustomJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=1","BG",function(returndata){      
-        document.getElementById("BG").value = currBG;
+      getCustomJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=12","BG",function(returndata){      
+        document.getElementById("BG").value = currBG;   
       });
-
+      
 			var mfpCode = '';
       var mealCode = '';  
       var carbs = 0;
@@ -206,6 +212,7 @@
       var newBolusProtein = 0;
       var additionalMessage = '';
       var addCarbs = 0;
+      var trendChar = '';
       
       function bolusCalcWFood(){
       	newBolus = 0;
@@ -216,6 +223,13 @@
       	newBolusProtein = 0;
       	additionalMessage = '';
         addCarbs = 0;
+        if(BGtrend == "FortyFiveUp") { currBG += 25; trendChar='&#x2197';}
+        if(BGtrend == "SingleUp") { currBG += 50; trendChar='&#x2B06';}
+        if(BGtrend == "DoubleUp") { currBG += 75; trendChar='&#x23EB';}
+        if(BGtrend == "FortyFiveDown") { currBG -= 25; trendChar='&#x2198';}
+        if(BGtrend == "SingleDown") { currBG -= 50; trendChar='&#x2B07';}
+        if(BGtrend == "DoubleDown") { currBG -= 75; trendChar='&#x23EC';}
+        if(BGtrend == "Flat") {trendChar='&#x27A1';}
         if(currBG>160){
           newBolusCorr = (currBG-100)/currSens; //Correction
           newBolusSuper = currBasal; //Super bolus
@@ -274,10 +288,10 @@
         newBolus = newBolusCorr+newBolusSuper+newBolusCarbs+newBolusProtein;
         if(newBolus<0){
         	addCarbs = (100-currBG)/(currSens/currCarbRatio);
-          document.getElementById("results").innerHTML = "Need more carbs! Eat "+addCarbs+"g."
+          document.getElementById("results").innerHTML = "Need more carbs! Eat "+addCarbs+"g. &#x1F36C"+"<br/><br/>BG Trend: "+trendChar;
         }
         else{
-          document.getElementById("results").innerHTML = "Recommended bolus: "+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 2 hours. "+ additionalMessage +"<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
+          document.getElementById("results").innerHTML = "Recommended bolus: "+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 2 hours. "+ additionalMessage +"<br/><br/>BG Trend: "+trendChar+"<br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
         }
       }
       
@@ -301,15 +315,17 @@
         }
         else{
           newBolusCorr = (currBG-100)/currSens; //Correction UP
-          // ** Add recommended carbs
         }
         newBolus = newBolusCorr + newBolusSuper;
         if(newBolus<0){
         	addCarbs = (100-currBG)/(currSens/currCarbRatio);
-          document.getElementById("results").innerHTML = "Need more carbs! Eat "+addCarbs+"g."
+          document.getElementById("results").innerHTML = "Need more carbs! Eat "+addCarbs+"g. &#x1F36C"+"<br/><br/>BG Trend: "+trendChar;
+        }
+        else if (newBolus==0){
+          document.getElementById("results").innerHTML = "All good! &#x1F600";
         }
         else{ 
-          document.getElementById("results").innerHTML = "Recommended bolus: "+newBolus.toFixed(2)+". "+ additionalMessage +"<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2);  
+          document.getElementById("results").innerHTML = "Recommended bolus: "+newBolus.toFixed(2)+". "+ additionalMessage +"<br/><br/>BG Trend: "+trendChar+"<br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2);  
         }
       }
       
@@ -332,8 +348,6 @@
       }
         
       })();         // End scoping function
-      
-      });
       
       });
       
