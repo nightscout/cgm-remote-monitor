@@ -18,6 +18,7 @@
       input[type=button] {width: 50%;}
       input[type=number] {width: 50%;}
       input[type=text] {width: 100%;}
+      div {max-width: 300px;}
       form {max-width: 300px;}
     </style>
     
@@ -127,7 +128,8 @@
       });
         
       getCustomJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=12","BG",function(returndata){      
-        document.getElementById("BG").value = currBG;   
+        document.getElementById("BG").value = currBG; 
+        BGtrends();
       });
       
 			var mfpCode = '';
@@ -213,6 +215,10 @@
       var additionalMessage = '';
       var addCarbs = 0;
       var trendChar = '';
+      var trendText = '';
+      var totalBolus = 0;
+      var percentNow = 0;
+      var percentExt = 0;
       
       function bolusCalcWFood(){
       	newBolus = 0;
@@ -223,13 +229,10 @@
       	newBolusProtein = 0;
       	additionalMessage = '';
         addCarbs = 0;
-        if(BGtrend == "FortyFiveUp") { currBG += 25; trendChar='&#x2197';}
-        if(BGtrend == "SingleUp") { currBG += 50; trendChar='&#x2B06';}
-        if(BGtrend == "DoubleUp") { currBG += 75; trendChar='&#x23EB';}
-        if(BGtrend == "FortyFiveDown") { currBG -= 25; trendChar='&#x2198';}
-        if(BGtrend == "SingleDown") { currBG -= 50; trendChar='&#x2B07';}
-        if(BGtrend == "DoubleDown") { currBG -= 75; trendChar='&#x23EC';}
-        if(BGtrend == "Flat") {trendChar='&#x27A1';}
+        totalBolus = 0;
+        percentNow = 0;
+        percentExt = 0;
+        
         if(currBG>160){
           newBolusCorr = (currBG-100)/currSens; //Correction
           newBolusSuper = currBasal; //Super bolus
@@ -286,12 +289,20 @@
           }
         }
         newBolus = newBolusCorr+newBolusSuper+newBolusCarbs+newBolusProtein;
+        totalBolus = newBolus + newBolusExt;
+        percentNow = (newBolus/totalBolus)*100;
+        percentExt = (newBolusExt/totalBolus)*100;
         if(newBolus<0){
         	addCarbs = (100-currBG)/(currSens/currCarbRatio);
-          document.getElementById("results").innerHTML = "Need more carbs! Eat "+addCarbs+"g. &#x1F36C"+"<br/><br/>BG Trend: "+trendChar;
+          document.getElementById("results").innerHTML = "Need more carbs! Eat "+addCarbs+"g. &#x1F36C";
         }
         else{
-          document.getElementById("results").innerHTML = "Recommended bolus: "+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 2 hours. "+ additionalMessage +"<br/><br/>BG Trend: "+trendChar+"<br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
+        	if(newBolusExt == 0){
+          	document.getElementById("results").innerHTML = "Recommended bolus: "+ totalBolus.toFixed(2)+". "+ additionalMessage +"<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
+          }
+          else{
+          	document.getElementById("results").innerHTML = "Recommended bolus: "+ totalBolus.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 2 hours. "+ additionalMessage +"<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
+          }
         }
       }
       
@@ -301,7 +312,6 @@
       	newBolusSuper = 0;
       	additionalMessage = '';
         addCarbs = 0;
-      // ** Add directional additions or subtractions
         if(currBG>160){
           newBolusCorr = (currBG-100)/currSens;
           newBolusSuper = currBasal; //Correction + Super bolus
@@ -319,14 +329,28 @@
         newBolus = newBolusCorr + newBolusSuper;
         if(newBolus<0){
         	addCarbs = (100-currBG)/(currSens/currCarbRatio);
-          document.getElementById("results").innerHTML = "Need more carbs! Eat "+addCarbs+"g. &#x1F36C"+"<br/><br/>BG Trend: "+trendChar;
+          document.getElementById("results").innerHTML = "Need more carbs! Eat "+addCarbs+"g. &#x1F36C";
         }
         else if (newBolus==0){
           document.getElementById("results").innerHTML = "All good! &#x1F600";
         }
         else{ 
-          document.getElementById("results").innerHTML = "Recommended bolus: "+newBolus.toFixed(2)+". "+ additionalMessage +"<br/><br/>BG Trend: "+trendChar+"<br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2);  
+          document.getElementById("results").innerHTML = "Recommended bolus: "+newBolus.toFixed(2)+". "+ additionalMessage +"<br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2);  
         }
+      }
+      
+      function BGtrends(){
+      	trendChar = '';
+        trendText = '';
+      	if(BGtrend == "FortyFiveUp") { currBG += 25; trendChar='&#x2197';}
+        if(BGtrend == "SingleUp") { currBG += 50; trendChar='&#x2B06';}
+        if(BGtrend == "DoubleUp") { currBG += 75; trendChar='&#x23EB';}
+        if(BGtrend == "FortyFiveDown") { currBG -= 25; trendChar='&#x2198';}
+        if(BGtrend == "SingleDown") { currBG -= 50; trendChar='&#x2B07';}
+        if(BGtrend == "DoubleDown") { currBG -= 75; trendChar='&#x23EC';}
+        if(BGtrend == "Flat") {trendChar='&#x27A1';}
+        trendText = "<br/><br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+"<br/>60 min delta: "+delta60mins;
+        document.getElementById("resultsBG").innerHTML = trendText;
       }
       
       function runTest(){
@@ -358,6 +382,13 @@
 
     <b>World's most excellent form</b><br/>
     <form name="mainform" id="mainform">
+      Current data from Nightscout:<br/>
+      <input type="number" id="BG" placeholder="BG in mg/dL" min="0" /> BG<br/>
+      <!--<input type="number" step="0.01" id="corrIOB" placeholder="Units" min="0" /> Correction IOB<br/>-->
+      <input type="number" step="0.01" id="basal" placeholder="Units/hr" min="0" /> Basal units/hr<br/>
+      <input type="number" id="sensitivity" placeholder="mg/dL per unit" min="0" /> Sensitivity<br/>
+      <input type="number" id="carbRatio" placeholder="Carbs per unit" min="0" /> Carb Ratio<br/>
+      <input type="button" id="NoMealButton" value="No meal" /><br/><br/>
       Load meal:<br/>
       <input id="BreakfastButton" type="button" value="Breakfast" /><input id="LunchButton" type="button" value="Lunch" /><br/>
       <input id="DinnerButton" type="button" value="Dinner" /><input id="MornSnackButton" type="button" value="Morning Snack" /><br/>
@@ -367,18 +398,13 @@
       <input type="number" step="0.1" id="fat" placeholder="Fat in grams" min="0" /> Fat<br/>
       <input type="number" step="0.1" id="protein" placeholder="Protein in grams" min="0" /> Protein<br/>
       <input type="number" step="0.1" id="fiber" placeholder="Fiber in grams" min="0" /> Fiber<br/><br/>
-      Current data from Nightscout:<br/>
-      <input type="number" id="BG" placeholder="BG in mg/dL" min="0" /> BG<br/>
-      <input type="number" step="0.01" id="corrIOB" placeholder="Units" min="0" /> Correction IOB<br/>
-      <input type="number" step="0.01" id="basal" placeholder="Units/hr" min="0" /> Basal units/hr<br/>
-      <input type="number" id="sensitivity" placeholder="mg/dL per unit" min="0" /> Sensitivity<br/>
-      <input type="number" id="carbRatio" placeholder="Carbs per unit" min="0" /> Carb Ratio<br/>
-      <input type="button" id="NoMealButton" value="No meal" /><br/><br/><input type="button" id="TestButton" value="Process Test Data" /><br/><br/><input type="submit" id="submit" value="Submit to NS" /><br/>
+      <input type="button" id="TestButton" value="Process Test Data" /><br/><br/><input type="submit" id="submit" value="Submit to NS" /><br/>
     </form>
+    
+    <div id="resultsBG"></div>
     <br/>
-    
     <div id="results"></div>
-    
+    <br/>
     <div id="errors"></div>
     
     <script>
