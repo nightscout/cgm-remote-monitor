@@ -38,11 +38,10 @@
 	//Static
 	var BGgoal = 90;
 	var hostname = location.protocol + '//' + location.host;
-	console.log("Hostname: "+hostname);
 	var MFPurl = "http://www.myfitnesspal.com/food/diary/oboe_girl4";
-	var profileURL = "https://beetusbot.herokuapp.com/api/v1/profile.json";
-	var entriesURL = "https://beetusbot.herokuapp.com/api/v1/entries.json";
-	var treatmentsURL = "https://beetusbot.herokuapp.com/api/v1/treatments.json";
+	var profileURL = hostname+"/api/v1/profile.json";
+	var entriesURL = hostname+"/api/v1/entries.json";
+	var treatmentsURL = hostname+"/api/v1/treatments.json";
 		
 	//Dynamic
 	var today;
