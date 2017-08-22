@@ -80,6 +80,7 @@
       var totalBolus = 0;
       var percentNow = 0;
       var percentExt = 0;
+      var prebolus = 0;
 		
 	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ DEFINE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -120,6 +121,7 @@
 		totalBolus = 0;
 		percentNow = 0;
 		percentExt = 0;
+		prebolus = 0;
 
 		document.getElementById("submission_meal").innerHTML = "";
 		document.getElementById("results_meal").innerHTML = "";
@@ -283,17 +285,20 @@
         totalBolus = 0;
         percentNow = 0;
         percentExt = 0;
+	prebolus = 0;
         
         if(currBG>160){
           newBolusCorr = (currBG-BGgoal)/currSens; //Correction
           newBolusSuper = currBasal; //Super bolus
           newBolusCarbs = ((carbs-(fiber/2))/currCarbRatio); //Carbs
+		prebolus = 15;
           additionalMessage = "Super bolus, wait till bend.";
           if(fat>20){
             newBolusExt = (((fat-20)/2)/currCarbRatio); //Fat
           }
           if((carbs<=20) && (protein>20)){ 
             newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
+	    prebolus = 15;
             additionalMessage = "Super bolus, wait till bend if possible.";
           }
         }
@@ -302,6 +307,7 @@
           newBolusCarbs = ((carbs-(fiber/2))/currCarbRatio); //Carbs
           if((carbs>30) || (fat<20)){
           	newBolusSuper = currBasal; //Super bolus
+		  prebolus = 15;
             additionalMessage = "Super bolus, wait till bend if possible.";
           }
           else{
@@ -354,6 +360,7 @@
           else{
           	document.getElementById("results_meal").innerHTML = "Recommended bolus: "+ totalBolus.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 2 hours. "+ additionalMessage +"<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
           }
+	  document.getElementById("prebolus").value = prebolus;
         }
       }
       
@@ -475,17 +482,40 @@
 	  posting.fail(function( data) {
 	    document.getElementById("submission_correction").innerHTML = "Data NOT submitted &#x1F44E";  
 	  });
+	      
+	  if(newBolusSuper>0){
+		  var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":eventType,"notes":basalnotes,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+		  // Put the results in a div
+		  posting2.done(function( data ) {
+		    document.getElementById("submission_correction").innerHTML += " plus super bolus temp basal.";
+		  }); 
+		  posting2.fail(function( data) {
+		    document.getElementById("submission_correction").innerHTML += " WITHOUT super bolus temp basal.";  
+		  });
+	  }
         });		
       $("#mealform").submit(function( event ) {
           event.preventDefault();
+	  var $form = $( this ),
+	    prebolus = $form.find( "select[id='prebolus']" ).val();
 	  var finalCarbs = (carbs-(fiber/2));
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":finalCarbs,"insulin":newBolus,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":finalCarbs,"insulin":newBolus,"eventType":eventType,"preBolus":prebolus,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
           posting.done(function( data ) {
             document.getElementById("submission_meal").innerHTML = "Data submitted &#x1F44D";
           }); 
 	  posting.fail(function( data) {
 	    document.getElementById("submission_meal").innerHTML = "Data NOT submitted &#x1F44E";  
 	  });
+	      if(newBolusSuper>0){
+		  var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":eventType,"notes":basalnotes,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+		  // Put the results in a div
+		  posting2.done(function( data ) {
+		    document.getElementById("submission_correction").innerHTML += " plus super bolus temp basal.";
+		  }); 
+		  posting2.fail(function( data) {
+		    document.getElementById("submission_correction").innerHTML += " WITHOUT super bolus temp basal.";  
+		  });
+	  }
         });
 	$("#carbsonlyform").submit(function( event ) {
           event.preventDefault();
@@ -538,7 +568,17 @@
       <input type="number" step="0.1" id="carbs" placeholder="Carbs in grams" min="0" /> Carbs<br/>
       <input type="number" step="0.1" id="fat" placeholder="Fat in grams" min="0" /> Fat<br/>
       <input type="number" step="0.1" id="protein" placeholder="Protein in grams" min="0" /> Protein<br/>
-      <input type="number" step="0.1" id="fiber" placeholder="Fiber in grams" min="0" /> Fiber<br/><br/>
+      <input type="number" step="0.1" id="fiber" placeholder="Fiber in grams" min="0" /> Fiber<br/>
+	<select id="prebolus">
+	  <option value="0" selected="selected">0</option>
+	  <option value="5">5</option>
+		<option value="10">10</option>
+		<option value="15">15</option>
+		<option value="20">20</option>
+		<option value="25">25</option>
+		<option value="30">30</option>
+	</select> Carb time   
+	    <br/>
       <!--<input type="button" id="TestButton" value="Process Test Data" /><br/><br/>-->
       <input type="submit" id="submit_meal" value="Submit meal/snack" /><br/>
     </form>
