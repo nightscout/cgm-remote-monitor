@@ -122,13 +122,13 @@
       }
       
       getCustomJSON("https://beetusbot.herokuapp.com/api/v1/profile.json","profile",function(returndata){
-        document.getElementById("basal").value = currBasal;
+        /*document.getElementById("basal").value = currBasal;
         document.getElementById("sensitivity").value = currSens;
-        document.getElementById("carbRatio").value = currCarbRatio; 
+        document.getElementById("carbRatio").value = currCarbRatio; */
       });
         
       getCustomJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=12","BG",function(returndata){      
-        document.getElementById("BG").value = currBG; 
+        //document.getElementById("BG").value = currBG; 
         BGtrends();
       });
       
@@ -428,6 +428,7 @@
   <body>
 
     <div id="resultsBG"></div>
+	  <br/>
     <b>Meal or Snack</b><br/>
     <form id="mealform">
       Load meal:<br/>
