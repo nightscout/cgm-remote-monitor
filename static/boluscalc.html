@@ -393,7 +393,8 @@
           document.getElementById("results_correction").innerHTML = "All good! &#x1F600";
         }
         else{ 
-          document.getElementById("results_correction").innerHTML = "Recommended bolus: "+newBolus.toFixed(2)+". "+ additionalMessage +"<br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2);  
+          document.getElementById("results_correction").innerHTML = "Recommended bolus: "+newBolus.toFixed(2)+". "+ additionalMessage +"<br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2);
+	  document.getElementById("corrdose").value = newBolus;
         }
       }
       
@@ -468,32 +469,7 @@
       $("#CorrOnly").click(function() { resetVars(); eventType = "Correction Bolus"; bolusCalc(); });
       $("#EngineBraking").click(function() { eventType = "Temp Basal Start"; setTemp("Engine Braking"); });
       $("#SuperBolus").click(function() { eventType = "Temp Basal Start"; setTemp("Super Bolus"); });
-      //$("#TestButton").click(function() { eventType = "Meal Bolus"; runTest(); });
-      $("#correctionform").submit(function( event ) {
-          // Stop form from submitting normally
-          event.preventDefault();
-          // Get some values from elements on the page
-          // Send the data using post 
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":newBolus,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
-          // Put the results in a div
-          posting.done(function( data ) {
-            document.getElementById("submission_correction").innerHTML = "Data submitted &#x1F44D";
-          }); 
-	  posting.fail(function( data) {
-	    document.getElementById("submission_correction").innerHTML = "Data NOT submitted &#x1F44E";  
-	  });
-	      
-	  if(newBolusSuper>0){
-		  var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":eventType,"notes":basalnotes,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
-		  // Put the results in a div
-		  posting2.done(function( data ) {
-		    document.getElementById("submission_correction").innerHTML += " plus super bolus temp basal.";
-		  }); 
-		  posting2.fail(function( data) {
-		    document.getElementById("submission_correction").innerHTML += " WITHOUT super bolus temp basal.";  
-		  });
-	  }
-        });		
+      //$("#TestButton").click(function() { eventType = "Meal Bolus"; runTest(); });	
       $("#mealform").submit(function( event ) {
           event.preventDefault();
 	  var $form = $( this ),
@@ -517,6 +493,33 @@
 		  });
 	  }
         });
+	$("#correctionform").submit(function( event ) {
+          // Stop form from submitting normally
+          event.preventDefault();
+          // Get some values from elements on the page
+	var $form = $( this ),
+	    corrdose = $form.find( "input[id='corrdose']" ).val();
+          // Send the data using post 
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":corrdose,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          // Put the results in a div
+          posting.done(function( data ) {
+            document.getElementById("submission_correction").innerHTML = "Data submitted &#x1F44D";
+          }); 
+	  posting.fail(function( data) {
+	    document.getElementById("submission_correction").innerHTML = "Data NOT submitted &#x1F44E";  
+	  });
+	      
+	  if(newBolusSuper>0){
+		  var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":eventType,"notes":basalnotes,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+		  // Put the results in a div
+		  posting2.done(function( data ) {
+		    document.getElementById("submission_correction").innerHTML += " plus super bolus temp basal.";
+		  }); 
+		  posting2.fail(function( data) {
+		    document.getElementById("submission_correction").innerHTML += " WITHOUT super bolus temp basal.";  
+		  });
+	  }
+        });	
 	$("#carbsonlyform").submit(function( event ) {
           event.preventDefault();
 	  var $form = $( this ),
@@ -588,6 +591,7 @@
 	  <br/>
     <b>Correction Only</b><br/>	  
     <form id="correctionform">
+	    <input type="number" id="corrdose" step="0.01" placeholder="Units" min="0" /> Units<br>
 	    <input type="button" id="CorrOnly" value="Suggest correction" />
 	    <input type="submit" id="submit_correction" value="Submit correction" />
 	  </form>
