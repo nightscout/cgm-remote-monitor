@@ -363,6 +363,21 @@
         document.getElementById("BG").value = currBG; 
         bolusCalcWFood();
       }
+	
+	var basalnotes = '';
+	function setTemp(type){
+		if(type == "Engine Braking"){
+			document.getElementById("basalduration").value = 30; 
+			document.getElementById("basalpercent").value = -100; 	
+			basalnotes = "Engine Braking";
+		}
+		if(type == "Super Bolus"){
+			document.getElementById("basalduration").value = 60; 
+			document.getElementById("basalpercent").value = -100; 
+			basalnotes = "Super Bolus";
+		}
+	}
+	
 		
       $("#BreakfastButton").click(function() { eventType = "Meal Bolus"; getMealData("Breakfast"); });
       $("#LunchButton").click(function() { eventType = "Meal Bolus"; getMealData("Lunch");  });
@@ -371,6 +386,8 @@
       $("#AftSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Afternoon Snack"); });
       $("#EveSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Evening Snack"); });
       $("#CorrOnly").click(function() { eventType = "Correction Bolus"; bolusCalc(); });
+      $("#EngineBraking").click(function() { eventType = "Temp Basal Start"; setTemp("Engine Braking"); });
+      $("#SuperBolus").click(function() { eventType = "Temp Basal Start"; setTemp("Super Bolus"); });
       //$("#TestButton").click(function() { eventType = "Meal Bolus"; runTest(); });
       $("#correctionform").submit(function( event ) {
           // Stop form from submitting normally
@@ -412,6 +429,24 @@
           }); 
 	  posting.fail(function( data) {
 	    document.getElementById("submission_carbsonly").innerHTML = "Data NOT submitted &#x1F44E";  
+	  });
+        });
+	$("#tempbasalform").submit(function( event ) {
+          event.preventDefault();
+          // Get some values from elements on the page:
+	  var $form = $( this ),
+	    basald = $form.find( "input[id='basalduration']" ).val(),
+	    basalp = $form.find( "input[id='basalpercent']" ).val();
+	  if(eventType == '') { eventType = "Temp Basal Start"; }
+          // Send the data using post 
+          var posting = $.post( "https://beetusbot.herokuapp.com/api/v1/treatments.json", { "enteredBy":"BolusCalc","duration":basald,"percent":basalp,"eventType":eventType,"notes":basalnotes,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          
+          // Put the results in a div
+          posting.done(function( data ) {
+            document.getElementById("submission_tempbasal").innerHTML = "Data submitted &#x1F44D";
+          }); 
+	  posting.fail(function( data) {
+	    document.getElementById("submission_tempbasal").innerHTML = "Data NOT submitted &#x1F44E";  
 	  });
         });
       
@@ -461,7 +496,16 @@
 	<input type="submit" id="submit_carbs" value="Submit carbs" /><br/>
 	  </form>
 	  <div id="submission_carbsonly"></div>
-    
+	  <br/>
+	  <b>Temp Basal</b><br/>	
+	<form id="tempbasalform">
+	<input type="number" id="basalduration" placeholder="Duration in minutes" min="0" /> Duration<br>
+      	<input type="number" id="basalpercent" placeholder="Basal change in %" min="-100" /> % Change<br>
+	<input type="button" id="EngineBraking" value="Engine braking" /><input type="button" id="SuperBolus" value="Super bolus" />	
+	<input type="submit" id="submit_tempbasal" value="Submit" /><br/>
+	  </form>
+	  <div id="submission_tempbasal"></div>
+    <br/>
 	  
 	  <div id="errors"></div>
 
