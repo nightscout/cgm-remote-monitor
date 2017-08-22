@@ -286,14 +286,14 @@
         percentExt = (newBolusExt/totalBolus)*100;
         if(newBolus<0){
         	addCarbs = (100-currBG)/(currSens/currCarbRatio);
-          document.getElementById("results").innerHTML = "Need more carbs! Eat "+addCarbs+"g. &#x1F36C";
+          document.getElementById("results_meal").innerHTML = "Need more carbs! Eat "+addCarbs+"g. &#x1F36C";
         }
         else{
         	if(newBolusExt == 0){
-          	document.getElementById("results").innerHTML = "Recommended bolus: "+ totalBolus.toFixed(2)+". "+ additionalMessage +"<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
+          	document.getElementById("results_meal").innerHTML = "Recommended bolus: "+ totalBolus.toFixed(2)+". "+ additionalMessage +"<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
           }
           else{
-          	document.getElementById("results").innerHTML = "Recommended bolus: "+ totalBolus.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 2 hours. "+ additionalMessage +"<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
+          	document.getElementById("results_meal").innerHTML = "Recommended bolus: "+ totalBolus.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 2 hours. "+ additionalMessage +"<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
           }
         }
       }
@@ -324,16 +324,17 @@
           document.getElementById("results").innerHTML = "Need more carbs! Eat "+addCarbs+"g. &#x1F36C";
         }
         else if (newBolus==0){
-          document.getElementById("results").innerHTML = "All good! &#x1F600";
+          document.getElementById("results_correction").innerHTML = "All good! &#x1F600";
         }
         else{ 
-          document.getElementById("results").innerHTML = "Recommended bolus: "+newBolus.toFixed(2)+". "+ additionalMessage +"<br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2);  
+          document.getElementById("results_correction").innerHTML = "Recommended bolus: "+newBolus.toFixed(2)+". "+ additionalMessage +"<br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2);  
         }
       }
       
       function BGtrends(){
       	trendChar = '';
         trendText = '';
+	var origBG = currBG;
       	if(BGtrend == "FortyFiveUp") { currBG += 25; trendChar='&#x2197';}
         if(BGtrend == "SingleUp") { currBG += 50; trendChar='&#x2B06';}
         if(BGtrend == "DoubleUp") { currBG += 75; trendChar='&#x23EB';}
@@ -341,7 +342,7 @@
         if(BGtrend == "SingleDown") { currBG -= 50; trendChar='&#x2B07';}
         if(BGtrend == "DoubleDown") { currBG -= 75; trendChar='&#x23EC';}
         if(BGtrend == "Flat") {trendChar='&#x27A1';}
-        trendText = "<br/><br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+"<br/>60 min delta: "+delta60mins;
+        trendText = "BG: "+origBG+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+"<br/>60 min delta: "+delta60mins;
         document.getElementById("resultsBG").innerHTML = trendText;
       }
 	
@@ -369,30 +370,35 @@
       $("#MornSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Morning Snack"); });
       $("#AftSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Afternoon Snack"); });
       $("#EveSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Evening Snack"); });
-      $("#CorrOnly").click(function() { eventType = "Correction Bolus"; bolusCalc(); });
-      $("#TestButton").click(function() { eventType = "Meal Bolus"; runTest(); });
-      $("#mainform").submit(function( event ) {
+      //$("#TestButton").click(function() { eventType = "Meal Bolus"; runTest(); });
+      $("#correctionform").submit(function( event ) {
+	  bolusCalc();
           // Stop form from submitting normally
           event.preventDefault();
-          // Get some values from elements on the page:
-	  var finalCarbs = (carbs-(fiber/2));
+          // Get some values from elements on the page
+	  eventType = "Correction Bolus";
           // Send the data using post 
-	  if(eventType == "Correction Bolus"){
           var posting = $.post( "https://beetusbot.herokuapp.com/api/v1/treatments.json", { "enteredBy":"BolusCalc","insulin":newBolus,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
-          }
-          else{
-          var posting = $.post( "https://beetusbot.herokuapp.com/api/v1/treatments.json", { "enteredBy":"BolusCalc","carbs":finalCarbs,"insulin":newBolus,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
-          }
           // Put the results in a div
           posting.done(function( data ) {
-            document.getElementById("submission1").innerHTML = "Data submitted &#x1F44D";
+            document.getElementById("submission_correction").innerHTML = "Data submitted &#x1F44D";
           }); 
 	  posting.fail(function( data) {
-	    document.getElementById("submission1").innerHTML = "Data NOT submitted &#x1F44E";  
+	    document.getElementById("submission_correction").innerHTML = "Data NOT submitted &#x1F44E";  
+	  });
+        });		
+      $("#mealform").submit(function( event ) {
+          event.preventDefault();
+	  var finalCarbs = (carbs-(fiber/2));
+          var posting = $.post( "https://beetusbot.herokuapp.com/api/v1/treatments.json", { "enteredBy":"BolusCalc","carbs":finalCarbs,"insulin":newBolus,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          posting.done(function( data ) {
+            document.getElementById("submission_meal").innerHTML = "Data submitted &#x1F44D";
+          }); 
+	  posting.fail(function( data) {
+	    document.getElementById("submission_meal").innerHTML = "Data NOT submitted &#x1F44E";  
 	  });
         });
-	$("#carbsonly").submit(function( event ) {
-          // Stop form from submitting normally
+	$("#carbsonlyform").submit(function( event ) {
           event.preventDefault();
           // Get some values from elements on the page:
 	  var $form = $( this ),
@@ -403,10 +409,10 @@
           
           // Put the results in a div
           posting.done(function( data ) {
-            document.getElementById("submission2").innerHTML = "Data submitted &#x1F44D";
+            document.getElementById("submission_carbsonly").innerHTML = "Data submitted &#x1F44D";
           }); 
 	  posting.fail(function( data) {
-	    document.getElementById("submission2").innerHTML = "Data NOT submitted &#x1F44E";  
+	    document.getElementById("submission_carbsonly").innerHTML = "Data NOT submitted &#x1F44E";  
 	  });
         });
       
@@ -421,15 +427,9 @@
   </head>
   <body>
 
-    <b>World's most excellent form</b><br/>
-    <form id="mainform">
-      Current data from Nightscout:<br/>
-      <input type="number" id="BG" placeholder="BG in mg/dL" min="0" /> BG<br/>
-      <!--<input type="number" step="0.01" id="corrIOB" placeholder="Units" min="0" /> Correction IOB<br/>-->
-      <input type="number" step="0.01" id="basal" placeholder="Units/hr" min="0" /> Basal units/hr<br/>
-      <input type="number" id="sensitivity" placeholder="mg/dL per unit" min="0" /> Sensitivity<br/>
-      <input type="number" id="carbRatio" placeholder="Carbs per unit" min="0" /> Carb Ratio<br/>
-      <input type="button" id="CorrOnly" value="Correction Only" /><br/><br/>
+    <div id="resultsBG"></div>
+    <b>Meal or Snack</b><br/>
+    <form id="mealform">
       Load meal:<br/>
       <input id="BreakfastButton" type="button" value="Breakfast" /><input id="LunchButton" type="button" value="Lunch" /><br/>
       <input id="DinnerButton" type="button" value="Dinner" /><input id="MornSnackButton" type="button" value="Morning Snack" /><br/>
@@ -440,22 +440,27 @@
       <input type="number" step="0.1" id="protein" placeholder="Protein in grams" min="0" /> Protein<br/>
       <input type="number" step="0.1" id="fiber" placeholder="Fiber in grams" min="0" /> Fiber<br/><br/>
       <!--<input type="button" id="TestButton" value="Process Test Data" /><br/><br/>-->
-      <input type="submit" id="submit" value="Submit to NS" /><br/>
+      <input type="submit" id="submit" value="Submit meal/snack" /><br/>
     </form>
-    <div id="submission1"></div>
-    <div id="resultsBG"></div>
+    <div id="submission_meal"></div>
     <br/>
-    <div id="results"></div>
-    <br/>
-    <div id="errors"></div>
-	<br/>
-	  
-	<form id="carbsonly">
-	<input type="number" step="0.1" id="corrCarbs" placeholder="Carbs in grams" min="0" value="8"/> Carbs<br/>
-	<input type="submit" id="submit" value="Submit to NS" /><br/>
+    <div id="results_meal"></div>
+    <b>Correction Only</b><br/>	  
+    <form id="correctionForm">
+	    <input type="button" id="CorrOnly" value="Correction Only" />
 	  </form>
-	  <div id="submission2"></div>
+	  <div id="submission_correction"></div>
+	  <br/>
+    <div id="results_correction"></div>
+<b>Carbs Only</b><br/>	
+	<form id="carbsonlyform">
+	<input type="number" step="0.1" id="corrCarbs" placeholder="Carbs in grams" min="0" value="8"/> Carbs<br/>
+	<input type="submit" id="submit" value="Submit carb correction" /><br/>
+	  </form>
+	  <div id="submission_carbsonly"></div>
     
+	  
+	  <div id="errors"></div>
 
   </body>
 </html>
