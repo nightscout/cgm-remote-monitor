@@ -37,7 +37,7 @@
       
 	//Static
 	var BGgoal = 90;
-	var hostname = $('<a>').prop('href', url).prop('hostname');
+	var hostname = location.protocol + '//' + location.host;
 	console.log("Hostname: "+hostname);
 	var MFPurl = "http://www.myfitnesspal.com/food/diary/oboe_girl4";
 	var profileURL = "https://beetusbot.herokuapp.com/api/v1/profile.json";
