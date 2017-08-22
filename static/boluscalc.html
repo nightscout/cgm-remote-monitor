@@ -32,14 +32,18 @@
         
       $(document).ready(function(){
 	(function() { // Begin scoping function
-        
-      var today = new Date(); // for now
-      var hours = today.getHours(); 
-      if (hours < 10) { hours = "0"+hours; }
-      var minutes = today.getMinutes(); 
-      if (minutes < 10) { minutes = "0"+minutes; }
-      var timeStr = hours+":"+minutes;
       
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~ INSTANTIATE VARIABLES ~~~~~~~~~~~~~~~~~~~~~~~~~
+      
+	//Static
+	var BGgoal = 90;
+		
+	//Dynamic
+	var today;
+      var hours = 0;
+      var minutes = 0;
+      var timeStr = '';
+		
       var currBG = 0;
       var delta30mins = 0;
       var delta60mins = 0;
@@ -47,7 +51,79 @@
       var currProfile = "";
       var currBasal = 0.0;
       var currSens = 0.0;
-      var currCarbRatio = 0.0;
+      var currCarbRatio = 0.0;	
+		
+      var mfpCode = '';
+      var mealCode = '';  
+      var carbs = 0;
+      var fat = 0;
+      var protein = 0;
+      var fiber = 0;
+      var eventType = '';
+	var basalnotes = '';
+		
+	var newBolus = 0;
+      var newBolusExt = 0;
+      var newBolusCorr = 0;
+      var newBolusSuper = 0;
+      var newBolusCarbs = 0;
+      var newBolusProtein = 0;
+      var additionalMessage = '';
+      var addCarbs = 0;
+      var trendChar = '';
+      var trendText = '';
+      var totalBolus = 0;
+      var percentNow = 0;
+      var percentExt = 0;
+		
+	
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~ DEFINE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
+	function getDate(){
+		today = new Date(); // for now
+      hours = today.getHours(); 
+      if (hours < 10) { hours = "0"+hours; }
+      minutes = today.getMinutes(); 
+      if (minutes < 10) { minutes = "0"+minutes; }
+      timeStr = hours+":"+minutes;
+	}
+		
+	function resetVars(){
+	getDate();
+		
+	getCustomJSON("https://beetusbot.herokuapp.com/api/v1/profile.json","profile",function(returndata){
+      });
+        
+      getCustomJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=12","BG",function(returndata){      
+        BGtrends();
+      });
+		
+	mfpCode = '';
+      mealCode = '';  
+      resetMealData();
+		
+      eventType = '';
+	basalnotes = '';
+		
+	newBolus = 0;
+      	newBolusExt = 0;
+      	newBolusCorr = 0;
+      	newBolusSuper = 0;
+      	newBolusCarbs = 0;
+      	newBolusProtein = 0;
+      	additionalMessage = '';
+        addCarbs = 0;
+        totalBolus = 0;
+        percentNow = 0;
+        percentExt = 0;
+	
+	document.getElementById("submission_meal").innerHTML = "";
+	document.getElementById("results_meal").innerHTML = "";
+	document.getElementById("submission_correction").innerHTML = "";
+	document.getElementById("results_correction").innerHTML = "";
+	document.getElementById("submission_carbsonly").innerHTML = "";
+	document.getElementById("submission_tempbasal").innerHTML = "";
+		
+	}
       
       function getCustomJSON(URL, type, callback){
         $.ajax({
@@ -121,25 +197,6 @@
             });    
       }
       
-      getCustomJSON("https://beetusbot.herokuapp.com/api/v1/profile.json","profile",function(returndata){
-        /*document.getElementById("basal").value = currBasal;
-        document.getElementById("sensitivity").value = currSens;
-        document.getElementById("carbRatio").value = currCarbRatio; */
-      });
-        
-      getCustomJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=12","BG",function(returndata){      
-        //document.getElementById("BG").value = currBG; 
-        BGtrends();
-      });
-      
-      var mfpCode = '';
-      var mealCode = '';  
-      var carbs = 0;
-      var fat = 0;
-      var protein = 0;
-      var fiber = 0;
-      var eventType = '';
-      
       function getMFPData(callback){
       	$.ajax({
             url: 'http://www.myfitnesspal.com/food/diary/oboe_girl4',
@@ -158,7 +215,7 @@
         
       function getMealData(mealName){
         getMFPData(function(returnData){
-      		var breakfastStart = mfpCode.indexOf('<tr class="meal_header">');
+      	var breakfastStart = mfpCode.indexOf('<tr class="meal_header">');
         var lunchStart = mfpCode.indexOf('<tr class="meal_header">',breakfastStart+24); 
         var dinnerStart = mfpCode.indexOf('<tr class="meal_header">',lunchStart+24); 
         var aftSnackStart = mfpCode.indexOf('<tr class="meal_header">',dinnerStart+24); 
@@ -197,20 +254,17 @@
         bolusCalcWFood();
         }); 
       }	
-
-      var newBolus = 0;
-      var newBolusExt = 0;
-      var newBolusCorr = 0;
-      var newBolusSuper = 0;
-      var newBolusCarbs = 0;
-      var newBolusProtein = 0;
-      var additionalMessage = '';
-      var addCarbs = 0;
-      var trendChar = '';
-      var trendText = '';
-      var totalBolus = 0;
-      var percentNow = 0;
-      var percentExt = 0;
+		
+	function resetMealData(){
+		carbs = 0;
+		fat = 0;
+		protein = 0;
+		fiber = 0;
+		document.getElementById("carbs").value = carbs;
+		document.getElementById("fat").value = fat;  
+		document.getElementById("protein").value = protein;  
+		document.getElementById("fiber").value = fiber; 
+	}
       
       function bolusCalcWFood(){
       	newBolus = 0;
@@ -226,7 +280,7 @@
         percentExt = 0;
         
         if(currBG>160){
-          newBolusCorr = (currBG-100)/currSens; //Correction
+          newBolusCorr = (currBG-BGgoal)/currSens; //Correction
           newBolusSuper = currBasal; //Super bolus
           newBolusCarbs = ((carbs-(fiber/2))/currCarbRatio); //Carbs
           additionalMessage = "Super bolus, wait till bend.";
@@ -239,7 +293,7 @@
           }
         }
         else if(currBG>110){
-          newBolusCorr = (currBG-100)/currSens; //Correction
+          newBolusCorr = (currBG-BGgoal)/currSens; //Correction
           newBolusCarbs = ((carbs-(fiber/2))/currCarbRatio); //Carbs
           if((carbs>30) || (fat<20)){
           	newBolusSuper = currBasal; //Super bolus
@@ -257,7 +311,7 @@
           }
         }
         else if(currBG>70){
-          newBolusCorr = (currBG-100)/currSens; //Correction
+          newBolusCorr = (currBG-BGgoal)/currSens; //Correction
           newBolusCarbs = ((carbs-(fiber/2))/currCarbRatio); //Carbs
           if(carbs>30){
           	newBolusSuper = currBasal; //Super bolus
@@ -271,7 +325,7 @@
           }
         }
         else{
-          newBolusCorr = (currBG-100)/currSens; //Correction UP
+          newBolusCorr = (currBG-BGgoal)/currSens; //Correction UP
           newBolusCarbs = ((carbs-(fiber/2))/currCarbRatio); //Carbs
           if(fat>20){
             newBolusExt = (((fat-20)/2)/currCarbRatio); //Fat
@@ -285,7 +339,7 @@
         percentNow = (newBolus/totalBolus)*100;
         percentExt = (newBolusExt/totalBolus)*100;
         if(newBolus<0){
-        	addCarbs = (100-currBG)/(currSens/currCarbRatio);
+        	addCarbs = (BGgoal-currBG)/(currSens/currCarbRatio);
           document.getElementById("results_meal").innerHTML = "Need more carbs! Eat "+addCarbs+"g. &#x1F36C";
         }
         else{
@@ -305,22 +359,22 @@
       	additionalMessage = '';
         addCarbs = 0;
         if(currBG>160){
-          newBolusCorr = (currBG-100)/currSens;
+          newBolusCorr = (currBG-BGgoal)/currSens;
           newBolusSuper = currBasal; //Correction + Super bolus
           additionalMessage = "Add super bolus."
         }
         else if(currBG>110){
-          newBolusCorr = (currBG-100)/currSens; //Correction
+          newBolusCorr = (currBG-BGgoal)/currSens; //Correction
         }
         else if(currBG>70){
           newBolusCorr = 0;
         }
         else{
-          newBolusCorr = (currBG-100)/currSens; //Correction UP
+          newBolusCorr = (currBG-BGgoal)/currSens; //Correction UP
         }
         newBolus = newBolusCorr + newBolusSuper;
         if(newBolus<0){
-        	addCarbs = (100-currBG)/(currSens/currCarbRatio);
+        	addCarbs = (BGgoal-currBG)/(currSens/currCarbRatio);
           document.getElementById("results_correction").innerHTML = "Need more carbs! Eat "+addCarbs+"g. &#x1F36C";
         }
         else if (newBolus==0){
@@ -345,6 +399,19 @@
         trendText = "BG: "+origBG+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+"<br/>60 min delta: "+delta60mins;
         document.getElementById("resultsBG").innerHTML = trendText;
       }
+		
+	function setTemp(type){
+		if(type == "Engine Braking"){
+			document.getElementById("basalduration").value = 30; 
+			document.getElementById("basalpercent").value = -100; 	
+			basalnotes = "Engine Braking";
+		}
+		if(type == "Super Bolus"){
+			document.getElementById("basalduration").value = 60; 
+			document.getElementById("basalpercent").value = -100; 
+			basalnotes = "Super Bolus";
+		}
+	}
 	
 	function randomIntFromInterval(min,max){
           return Math.floor(Math.random()*(max-min+1)+min);
@@ -363,29 +430,30 @@
         document.getElementById("BG").value = currBG; 
         bolusCalcWFood();
       }
+
 	
-	var basalnotes = '';
-	function setTemp(type){
-		if(type == "Engine Braking"){
-			document.getElementById("basalduration").value = 30; 
-			document.getElementById("basalpercent").value = -100; 	
-			basalnotes = "Engine Braking";
-		}
-		if(type == "Super Bolus"){
-			document.getElementById("basalduration").value = 60; 
-			document.getElementById("basalpercent").value = -100; 
-			basalnotes = "Super Bolus";
-		}
-	}
-	
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~ RUN FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
 		
-      $("#BreakfastButton").click(function() { eventType = "Meal Bolus"; getMealData("Breakfast"); });
-      $("#LunchButton").click(function() { eventType = "Meal Bolus"; getMealData("Lunch");  });
-      $("#DinnerButton").click(function() { eventType = "Meal Bolus"; getMealData("Dinner");  });
-      $("#MornSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Morning Snack"); });
-      $("#AftSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Afternoon Snack"); });
-      $("#EveSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Evening Snack"); });
-      $("#CorrOnly").click(function() { eventType = "Correction Bolus"; bolusCalc(); });
+	getCustomJSON("https://beetusbot.herokuapp.com/api/v1/profile.json","profile",function(returndata){
+        /*document.getElementById("basal").value = currBasal;
+        document.getElementById("sensitivity").value = currSens;
+        document.getElementById("carbRatio").value = currCarbRatio; */
+      });
+        
+      getCustomJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=12","BG",function(returndata){      
+        //document.getElementById("BG").value = currBG; 
+        BGtrends();
+      });
+		
+	// ~~	
+		
+      $("#BreakfastButton").click(function() { resetVars(); eventType = "Meal Bolus"; getMealData("Breakfast"); });
+      $("#LunchButton").click(function() { resetVars(); eventType = "Meal Bolus"; getMealData("Lunch");  });
+      $("#DinnerButton").click(function() { resetVars(); eventType = "Meal Bolus"; getMealData("Dinner");  });
+      $("#MornSnackButton").click(function() { resetVars(); eventType = "Snack Bolus"; getMealData("Morning Snack"); });
+      $("#AftSnackButton").click(function() { resetVars(); eventType = "Snack Bolus"; getMealData("Afternoon Snack"); });
+      $("#EveSnackButton").click(function() { resetVars(); eventType = "Snack Bolus"; getMealData("Evening Snack"); });
+      $("#CorrOnly").click(function() { resetVars(); eventType = "Correction Bolus"; bolusCalc(); });
       $("#EngineBraking").click(function() { eventType = "Temp Basal Start"; setTemp("Engine Braking"); });
       $("#SuperBolus").click(function() { eventType = "Temp Basal Start"; setTemp("Super Bolus"); });
       //$("#TestButton").click(function() { eventType = "Meal Bolus"; runTest(); });
@@ -416,14 +484,10 @@
         });
 	$("#carbsonlyform").submit(function( event ) {
           event.preventDefault();
-          // Get some values from elements on the page:
 	  var $form = $( this ),
 	    corrCarbs = $form.find( "input[id='corrCarbs']" ).val();
 	  eventType = "Carb Correction";
-          // Send the data using post 
           var posting = $.post( "https://beetusbot.herokuapp.com/api/v1/treatments.json", { "enteredBy":"BolusCalc","carbs":corrCarbs,"eventType":eventType,"notes":"Low","secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
-          
-          // Put the results in a div
           posting.done(function( data ) {
             document.getElementById("submission_carbsonly").innerHTML = "Data submitted &#x1F44D";
           }); 
@@ -433,15 +497,11 @@
         });
 	$("#tempbasalform").submit(function( event ) {
           event.preventDefault();
-          // Get some values from elements on the page:
 	  var $form = $( this ),
 	    basald = $form.find( "input[id='basalduration']" ).val(),
 	    basalp = $form.find( "input[id='basalpercent']" ).val();
 	  if(eventType == '') { eventType = "Temp Basal Start"; }
-          // Send the data using post 
           var posting = $.post( "https://beetusbot.herokuapp.com/api/v1/treatments.json", { "enteredBy":"BolusCalc","duration":basald,"percent":basalp,"eventType":eventType,"notes":basalnotes,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
-          
-          // Put the results in a div
           posting.done(function( data ) {
             document.getElementById("submission_tempbasal").innerHTML = "Data submitted &#x1F44D";
           }); 
