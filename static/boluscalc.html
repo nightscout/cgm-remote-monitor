@@ -212,20 +212,25 @@
 
           // Get some values from elements on the page:
           var $form = $( this );
+	      
+	  var finalCarbs = (carbs-(fiber/2));
            
           // Send the data using post 
 					if(eventType == "Correction Bolus"){
           var posting = $.post( "https://beetusbot.herokuapp.com/api/v1/treatments.json", { "enteredBy":"BolusCalc","insulin":newBolus,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
           }
           else{
-          var posting = $.post( "https://beetusbot.herokuapp.com/api/v1/treatments.json", { "enteredBy":"BolusCalc","carbs":carbs,"insulin":newBolus,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          var posting = $.post( "https://beetusbot.herokuapp.com/api/v1/treatments.json", { "enteredBy":"BolusCalc","carbs":finalCarbs,"insulin":newBolus,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
           }
           
           // Put the results in a div
           posting.done(function( data ) {
-            var content = $( data ).find( "#content" );
-            $( "#submission" ).empty().append( content );
+            document.getElementById("submission").innerHTML = "Data submitted &#x1F44D";
           });
+	      
+	  posting.fail(function( data) {
+	    document.getElementById("submission").innerHTML = "Data NOT submitted &#x1F44E";  
+	  });
         });
 
 			var newBolus = 0;
