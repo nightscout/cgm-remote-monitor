@@ -321,7 +321,7 @@
         newBolus = newBolusCorr + newBolusSuper;
         if(newBolus<0){
         	addCarbs = (100-currBG)/(currSens/currCarbRatio);
-          document.getElementById("results").innerHTML = "Need more carbs! Eat "+addCarbs+"g. &#x1F36C";
+          document.getElementById("results_correction").innerHTML = "Need more carbs! Eat "+addCarbs+"g. &#x1F36C";
         }
         else if (newBolus==0){
           document.getElementById("results_correction").innerHTML = "All good! &#x1F600";
@@ -370,13 +370,12 @@
       $("#MornSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Morning Snack"); });
       $("#AftSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Afternoon Snack"); });
       $("#EveSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Evening Snack"); });
+      $("#CorrOnly").click(function() { eventType = "Correction Bolus"; bolusCalc(); });
       //$("#TestButton").click(function() { eventType = "Meal Bolus"; runTest(); });
       $("#correctionform").submit(function( event ) {
-	  bolusCalc();
           // Stop form from submitting normally
           event.preventDefault();
           // Get some values from elements on the page
-	  eventType = "Correction Bolus";
           // Send the data using post 
           var posting = $.post( "https://beetusbot.herokuapp.com/api/v1/treatments.json", { "enteredBy":"BolusCalc","insulin":newBolus,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
           // Put the results in a div
@@ -441,14 +440,16 @@
       <input type="number" step="0.1" id="protein" placeholder="Protein in grams" min="0" /> Protein<br/>
       <input type="number" step="0.1" id="fiber" placeholder="Fiber in grams" min="0" /> Fiber<br/><br/>
       <!--<input type="button" id="TestButton" value="Process Test Data" /><br/><br/>-->
-      <input type="submit" id="submit" value="Submit meal/snack" /><br/>
+      <input type="submit" id="submit_meal" value="Submit meal/snack" /><br/>
     </form>
     <div id="submission_meal"></div>
     <br/>
     <div id="results_meal"></div>
+	  <br/>
     <b>Correction Only</b><br/>	  
     <form id="correctionForm">
-	    <input type="button" id="CorrOnly" value="Correction Only" />
+	    <input type="button" id="CorrOnly" value="Suggest correction" />
+	    <input type="submit" id="submit_correction" value="Submit correction" />
 	  </form>
 	  <div id="submission_correction"></div>
 	  <br/>
@@ -456,7 +457,7 @@
 <b>Carbs Only</b><br/>	
 	<form id="carbsonlyform">
 	<input type="number" step="0.1" id="corrCarbs" placeholder="Carbs in grams" min="0" value="8"/> Carbs<br/>
-	<input type="submit" id="submit" value="Submit carb correction" /><br/>
+	<input type="submit" id="submit_carbs" value="Submit carb correction" /><br/>
 	  </form>
 	  <div id="submission_carbsonly"></div>
     
