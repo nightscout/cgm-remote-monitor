@@ -198,8 +198,8 @@
       }
       
  			$("#BreakfastButton").click(function() { eventType = "Meal Bolus"; getMealData("Breakfast"); });
-      $("#LunchButton").click(function() { getMealData("Lunch"); eventType = "Meal Bolus"; });
-      $("#DinnerButton").click(function() { getMealData("Dinner"); eventType = "Meal Bolus"; });
+      $("#LunchButton").click(function() { eventType = "Meal Bolus"; getMealData("Lunch");  });
+      $("#DinnerButton").click(function() { eventType = "Meal Bolus"; getMealData("Dinner");  });
       $("#MornSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Morning Snack"); });
       $("#AftSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Afternoon Snack"); });
       $("#EveSnackButton").click(function() { eventType = "Snack Bolus"; getMealData("Evening Snack"); });
@@ -211,7 +211,7 @@
           event.preventDefault();
 
           // Get some values from elements on the page:
-          var $form = $( this ),
+          var $form = $( this );
            
           // Send the data using post 
 					if(eventType == "Correction Bolus"){
