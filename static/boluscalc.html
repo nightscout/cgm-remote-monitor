@@ -37,6 +37,12 @@
       
 	//Static
 	var BGgoal = 90;
+	var hostname = $('<a>').prop('href', url).prop('hostname');
+	console.log("Hostname: "+hostname);
+	var MFPurl = "http://www.myfitnesspal.com/food/diary/oboe_girl4";
+	var profileURL = "https://beetusbot.herokuapp.com/api/v1/profile.json";
+	var entriesURL = "https://beetusbot.herokuapp.com/api/v1/entries.json";
+	var treatmentsURL = "https://beetusbot.herokuapp.com/api/v1/treatments.json";
 		
 	//Dynamic
 	var today;
@@ -88,40 +94,40 @@
 	}
 		
 	function resetVars(){
-	getDate();
-		
-	getCustomJSON("https://beetusbot.herokuapp.com/api/v1/profile.json","profile",function(returndata){
-      });
-        
-      getCustomJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=12","BG",function(returndata){      
-        BGtrends();
-      });
-		
-	mfpCode = '';
-      mealCode = '';  
-      resetMealData();
-		
-      eventType = '';
-	basalnotes = '';
-		
-	newBolus = 0;
-      	newBolusExt = 0;
-      	newBolusCorr = 0;
-      	newBolusSuper = 0;
-      	newBolusCarbs = 0;
-      	newBolusProtein = 0;
-      	additionalMessage = '';
-        addCarbs = 0;
-        totalBolus = 0;
-        percentNow = 0;
-        percentExt = 0;
-	
-	document.getElementById("submission_meal").innerHTML = "";
-	document.getElementById("results_meal").innerHTML = "";
-	document.getElementById("submission_correction").innerHTML = "";
-	document.getElementById("results_correction").innerHTML = "";
-	document.getElementById("submission_carbsonly").innerHTML = "";
-	document.getElementById("submission_tempbasal").innerHTML = "";
+		getDate();
+
+		getCustomJSON(profileURL,"profile",function(returndata){
+	      });
+
+	      getCustomJSON(entriesURL+"?count=12","BG",function(returndata){      
+		BGtrends();
+	      });
+
+		mfpCode = '';
+	      mealCode = '';  
+	      resetMealData();
+
+	      eventType = '';
+		basalnotes = '';
+
+		newBolus = 0;
+		newBolusExt = 0;
+		newBolusCorr = 0;
+		newBolusSuper = 0;
+		newBolusCarbs = 0;
+		newBolusProtein = 0;
+		additionalMessage = '';
+		addCarbs = 0;
+		totalBolus = 0;
+		percentNow = 0;
+		percentExt = 0;
+
+		document.getElementById("submission_meal").innerHTML = "";
+		document.getElementById("results_meal").innerHTML = "";
+		document.getElementById("submission_correction").innerHTML = "";
+		document.getElementById("results_correction").innerHTML = "";
+		document.getElementById("submission_carbsonly").innerHTML = "";
+		document.getElementById("submission_tempbasal").innerHTML = "";
 		
 	}
       
@@ -199,7 +205,7 @@
       
       function getMFPData(callback){
       	$.ajax({
-            url: 'http://www.myfitnesspal.com/food/diary/oboe_girl4',
+            url: MFPurl,
             method: 'GET',
             dataType: 'html',
             crossOrigin: true,
@@ -260,10 +266,10 @@
 		fat = 0;
 		protein = 0;
 		fiber = 0;
-		document.getElementById("carbs").value = carbs;
-		document.getElementById("fat").value = fat;  
-		document.getElementById("protein").value = protein;  
-		document.getElementById("fiber").value = fiber; 
+		document.getElementById("carbs").value = '';
+		document.getElementById("fat").value = '';  
+		document.getElementById("protein").value = '';  
+		document.getElementById("fiber").value = ''; 
 	}
       
       function bolusCalcWFood(){
@@ -432,20 +438,20 @@
       }
 
 	
-	// ~~~~~~~~~~~~~~~~~~~~~~~~~ RUN FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~ RUN FUNCTIONS ON PAGE LOAD ~~~~~~~~~~~~~~~~~~~~~~~~~
 		
-	getCustomJSON("https://beetusbot.herokuapp.com/api/v1/profile.json","profile",function(returndata){
+	getCustomJSON(profileURL,"profile",function(returndata){
         /*document.getElementById("basal").value = currBasal;
         document.getElementById("sensitivity").value = currSens;
         document.getElementById("carbRatio").value = currCarbRatio; */
       });
         
-      getCustomJSON("https://beetusbot.herokuapp.com/api/v1/entries.json?count=12","BG",function(returndata){      
+      getCustomJSON(entriesURL+"?count=12","BG",function(returndata){      
         //document.getElementById("BG").value = currBG; 
         BGtrends();
       });
 		
-	// ~~	
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~ SET BUTTON ACTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~	
 		
       $("#BreakfastButton").click(function() { resetVars(); eventType = "Meal Bolus"; getMealData("Breakfast"); });
       $("#LunchButton").click(function() { resetVars(); eventType = "Meal Bolus"; getMealData("Lunch");  });
@@ -462,7 +468,7 @@
           event.preventDefault();
           // Get some values from elements on the page
           // Send the data using post 
-          var posting = $.post( "https://beetusbot.herokuapp.com/api/v1/treatments.json", { "enteredBy":"BolusCalc","insulin":newBolus,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":newBolus,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
           // Put the results in a div
           posting.done(function( data ) {
             document.getElementById("submission_correction").innerHTML = "Data submitted &#x1F44D";
@@ -474,7 +480,7 @@
       $("#mealform").submit(function( event ) {
           event.preventDefault();
 	  var finalCarbs = (carbs-(fiber/2));
-          var posting = $.post( "https://beetusbot.herokuapp.com/api/v1/treatments.json", { "enteredBy":"BolusCalc","carbs":finalCarbs,"insulin":newBolus,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":finalCarbs,"insulin":newBolus,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
           posting.done(function( data ) {
             document.getElementById("submission_meal").innerHTML = "Data submitted &#x1F44D";
           }); 
@@ -487,7 +493,7 @@
 	  var $form = $( this ),
 	    corrCarbs = $form.find( "input[id='corrCarbs']" ).val();
 	  eventType = "Carb Correction";
-          var posting = $.post( "https://beetusbot.herokuapp.com/api/v1/treatments.json", { "enteredBy":"BolusCalc","carbs":corrCarbs,"eventType":eventType,"notes":"Low","secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":corrCarbs,"eventType":eventType,"notes":"Low","secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
           posting.done(function( data ) {
             document.getElementById("submission_carbsonly").innerHTML = "Data submitted &#x1F44D";
           }); 
@@ -501,7 +507,7 @@
 	    basald = $form.find( "input[id='basalduration']" ).val(),
 	    basalp = $form.find( "input[id='basalpercent']" ).val();
 	  if(eventType == '') { eventType = "Temp Basal Start"; }
-          var posting = $.post( "https://beetusbot.herokuapp.com/api/v1/treatments.json", { "enteredBy":"BolusCalc","duration":basald,"percent":basalp,"eventType":eventType,"notes":basalnotes,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":basald,"percent":basalp,"eventType":eventType,"notes":basalnotes,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
           posting.done(function( data ) {
             document.getElementById("submission_tempbasal").innerHTML = "Data submitted &#x1F44D";
           }); 
