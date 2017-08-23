@@ -443,10 +443,6 @@
         document.getElementById("BG").value = currBG; 
         bolusCalcWFood();
       }
-		
-	function sendExercise(event){
-	  
-	}
 
 	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ RUN FUNCTIONS ON PAGE LOAD ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -505,7 +501,8 @@
 	      event.preventDefault();
 	  var $form = $( this ),
 	    exercisetime = $form.find( "input[id='exerciseduration']" ).val();
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":"Other","eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+	  var mytime = document.getElementById("exerciseduration").value;
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":mytime,"notes":"Other","eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
           posting.done(function( data ) {
             document.getElementById("submission_exercise").innerHTML = "Data submitted &#x1F44D";
           }); 
@@ -540,7 +537,7 @@
           // Stop form from submitting normally
           event.preventDefault();
           // Get some values from elements on the page
-	var $form = $( this ),
+	  var $form = $( this ),
 	    corrdose = $form.find( "input[id='corrdose']" ).val();
           // Send the data using post 
           var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":corrdose,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
@@ -632,7 +629,7 @@
 	  <br/>
     <b>Correction Only</b><br/>	  
     <form id="correctionform">
-	    <input type="number" id="corrdose" step="0.01" min="0" /> Units<br>
+	    <input type="number" id="corrdose" step="0.01" min="0" /> Units<br/>
 	    <input type="button" id="CorrOnly" value="Suggest correction" />
 	    <input type="submit" id="submit_correction" value="Submit correction" />
 	  </form>
@@ -649,8 +646,8 @@
 	  <br/>
 	  <b>Temp Basal</b><br/>	
 	<form id="tempbasalform">
-	<input type="number" id="basalduration" placeholder="Duration in minutes" min="0" /> Duration<br>
-      	<input type="number" id="basalpercent" placeholder="Basal change in %" min="-100" /> % Change<br>
+	<input type="number" id="basalduration" placeholder="Duration in minutes" min="0" /> Duration<br/>
+      	<input type="number" id="basalpercent" placeholder="Basal change in %" min="-100" /> % Change<br/>
 	<input type="button" id="EngineBraking" value="Engine braking" /><input type="button" id="SuperBolus" value="Super bolus" /><br/>	
 	<input type="submit" id="submit_tempbasal" value="Submit" /><br/>
 	  </form>
@@ -658,7 +655,7 @@
     <br/>
 	  <b>Exercise</b><br/>	
 	<form id="exerciseform">
-	<input type="number" id="exerciseduration" placeholder="Duration in minutes" min="0" /> Duration<br>
+	<input type="number" id="exerciseduration" placeholder="Duration in minutes" min="0" /> Duration<br/>
 	<input type="button" id="Dance" value="Dance" /><input type="button" id="Yoga" value="Yoga" /><br/>
 	<input type="button" id="Other" value="Other" />
 	  </form>
