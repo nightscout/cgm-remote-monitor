@@ -4,14 +4,10 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
     <title>Bolus Calc Advanced</title>
-    
     <link rel="shortcut icon" href="https://beetusbot.herokuapp.com/images/favicon.ico">
-
     <!-- Bootstrap -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous"> 
-
     <style>
       body {padding: 30px 30px 30px 30px;}
       input[type=submit] {width: 50%;}
@@ -21,7 +17,6 @@
       div {max-width: 300px;}
       form {max-width: 300px;}
     </style>
-    
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
@@ -29,7 +24,6 @@
     <script type="text/javascript" src="https://beetusbot.herokuapp.com/js/jquery.ajax-cross-origin.min.js"></script>
     
     <script type="text/javascript">
-        
       $(document).ready(function(){
 	(function() { // Begin scoping function
       
@@ -458,29 +452,36 @@
       }
 
 	function sendExercise(event,type){
-		eventType = "Exercise"; 
-	      event.preventDefault();
+	  eventType = "Exercise"; 
+	  event.preventDefault();
 	  var exercisetime = document.getElementById("exerciseduration").value;
+	  var exerciseSuggestion = '';
+	  if(type == "Dance"){
+		 exerciseSuggestion = "Expect a BG drop of "+ exercisetime + " to be adjusted by " + (exercisetime/currSens).toFixed(2) + " less insulin or " + (exercisetime/(currSens/currCarbRatio)).toFixed(0) + " carbs. Set a 12 hour post-exercise temp basal of -20%."
+	  }
+	  if(type == "Yoga"){
+		 exerciseSuggestion = "30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high. Set a 12 hour post-exercise temp basal of -10%."
+	  }
+	  if(type == "Other"){
+		  exerciseSuggestion = "If aerobic, expect a BG drop of "+ exercisetime + " to be adjusted by " + (exercisetime/currSens).toFixed(2) + " less insulin or " + (exercisetime/(currSens/currCarbRatio)).toFixed(0) + " carbs. Set a 12 hour post-exercise temp basal of -20%.<br/><br/>If anaerobic, 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high. Set a 12 hour post-exercise temp basal of -10%."
+	  }
           var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":type,"eventType":eventType,"secret":secret } );
           posting.done(function( data ) {
-            document.getElementById("submission_exercise").innerHTML = "Data submitted &#x1F44D";
+            document.getElementById("submission_exercise").innerHTML = "Data submitted &#x1F44D "+exerciseSuggestion;
           }); 
 	  posting.fail(function( data) {
-	    document.getElementById("submission_exercise").innerHTML = "Data NOT submitted &#x1F44E";  
+	    document.getElementById("submission_exercise").innerHTML = "Data NOT submitted &#x1F44E "+exerciseSuggestion;  
 	  });
 	}
 		
 		
 		
 	function postData(input, callback){
-			console.log(input);
 			var posting = $.post( treatmentsURL, input );
 			  posting.done(function( data ) {
-			    //console.log("Within posting - "+UTCtimeStr);
 			    callback(data);
 			  }); 
 			  posting.fail(function( data) {
-			    //console.log("Didn't add extended bolus drip");  
 			    callback(data);
 			  });
 	}
@@ -537,11 +538,7 @@
 		for (t = 0; t < 12; t++){
 			newDate.setTime(newDate.getTime() + 10*60*1000);
 			//Format new time
-			/*UTCMonth = newDate.getUTCMonth()+1;
-			if(UTCMonth<10){ UTCMonth = "0"+UTCMonth; }*/
 			UTCtimeStr = newDate.toJSON();
-			//UTCdateStr = Date.UTC(newDate.getUTCFullYear(), UTCMonth, newDate.getUTCDate());
-			//console.log(UTCtimeStr+": "+insulinDiv);
 			//Send fractional insulin amounts to NS
 			postData({ "enteredBy":"BolusCalc","insulin":insulinDiv,"created_at":UTCtimeStr,"secret":secret },function(data){
 			});	
@@ -556,13 +553,13 @@
 	    document.getElementById("submission_meal").innerHTML = "Data NOT submitted &#x1F44E";  
 	  });
 	      if(newBolusSuper>0){
-		  var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":eventType,"notes":basalnotes,"secret":secret } );
+		  var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":"Temp Basal","notes":"Super bolus","secret":secret } );
 		  // Put the results in a div
 		  posting2.done(function( data ) {
-		    document.getElementById("submission_correction").innerHTML += " plus super bolus temp basal.";
+		    document.getElementById("submission_meal").innerHTML += " plus super bolus temp basal.";
 		  }); 
 		  posting2.fail(function( data) {
-		    document.getElementById("submission_correction").innerHTML += " WITHOUT super bolus temp basal.";  
+		    document.getElementById("submission_meal").innerHTML += " WITHOUT super bolus temp basal.";  
 		  });
 	  }
         });
