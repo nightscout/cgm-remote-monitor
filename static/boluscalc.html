@@ -483,31 +483,13 @@
       $("#SuperBolus").click(function() { eventType = "Temp Basal Start"; setTemp("Super Bolus"); });
       //$("#TestButton").click(function() { eventType = "Meal Bolus"; runTest(); });
       $("#Dance").click(function(event) { 
-	      eventType = "Exercise"; 
-	      event.preventDefault();
-	  var exercisetime = document.getElementById("exerciseduration").value;
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":"Dance","eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
-          posting.done(function( data ) {
-            document.getElementById("submission_exercise").innerHTML = "Data submitted &#x1F44D";
-          }); 
-	  posting.fail(function( data) {
-	    document.getElementById("submission_exercise").innerHTML = "Data NOT submitted &#x1F44E";  
-	  });
+	      sendExercise(event,"Dance");
       });
       $("#Yoga").click(function(event) { 
 	     sendExercise(event,"Yoga"); 
       });
       $("#Other").click(function(event) { 
-	      eventType = "Exercise"; 
-	      event.preventDefault();
-	  var exercisetime = document.getElementById("exerciseduration").value;
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":"Other","eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
-          posting.done(function( data ) {
-            document.getElementById("submission_exercise").innerHTML = "Data submitted &#x1F44D";
-          }); 
-	  posting.fail(function( data) {
-	    document.getElementById("submission_exercise").innerHTML = "Data NOT submitted &#x1F44E";  
-	  });
+	      sendExercise(event,"Other");
       });	
       $("#mealform").submit(function( event ) {
           event.preventDefault();
