@@ -356,7 +356,7 @@
             newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
           }
         }
-        newBolus = newBolusCorr+newBolusSuper+newBolusCarbs+newBolusProtein;
+        newBolus = newBolusCorr+newBolusSuper+newBolusCarbs;
 	newBolusExt = newBolusFat + newBolusProtein;
         totalBolus = newBolus + newBolusExt;
         percentNow = (newBolus/totalBolus)*100;
