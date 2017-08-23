@@ -42,6 +42,7 @@
 	var profileURL = hostname+"/api/v1/profile.json";
 	var entriesURL = hostname+"/api/v1/entries.json";
 	var treatmentsURL = hostname+"/api/v1/treatments.json";
+	var secret = "c96c4972f2f35a0b74e91b75dccf0d3807a16ad1";
 		
 	//Dynamic
 	var today;
@@ -460,7 +461,7 @@
 		eventType = "Exercise"; 
 	      event.preventDefault();
 	  var exercisetime = document.getElementById("exerciseduration").value;
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":type,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":type,"eventType":eventType,"secret":secret } );
           posting.done(function( data ) {
             document.getElementById("submission_exercise").innerHTML = "Data submitted &#x1F44D";
           }); 
@@ -473,19 +474,18 @@
 		//Get time
 		today = new Date(); // for now
 		//Divide time
-		var newTime;
 		var insulinDiv = newBolusExt/12.0;
 		var t;
 		for (t = 1; t < 13; t++){
-			newTime = new Date(today.getTime() + (120/12)*60000*t);
+			today.settime(today.getTime() + (120/12)*60000*t);
 			//Format new time
-			var UTCMonth = newTime.getUTCMonth();
+			var UTCMonth = today.getUTCMonth();
 			UTCMonth += 1;
 			if(UTCMonth<10){ UTCMonth = "0"+UTCMonth; }
-			UTCtimeStr = newTime.toJSON();
-			UTCdateStr = Date.UTC(newTime.getUTCFullYear(), UTCMonth, newTime.getUTCDate());
+			UTCtimeStr = today.toJSON();
+			UTCdateStr = Date.UTC(today.getUTCFullYear(), UTCMonth, today.getUTCDate());
 			//Send fractional insulin amounts to NS
-			var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":insulinDiv,"date":UTCdateStr,"dateString":UTCtimeStr,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+			var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":insulinDiv,"date":UTCdateStr,"dateString":UTCtimeStr,"secret":secret } );
 			  posting.done(function( data ) {
 			    console.log(UTCtimeStr+": "+insulinDiv);
 			  }); 
@@ -493,6 +493,7 @@
 			    console.log("Didn't add extended bolus drip");  
 			  });
 		}
+		today = new Date(); // for now
 	}
 	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ RUN FUNCTIONS ON PAGE LOAD ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -537,7 +538,7 @@
 	    prebolus = $form.find( "select[id='prebolus']" ).val();
 	  var finalCarbs = (carbs-(fiber/2));
 	  if(newBolusExt > 0){ extBolusDrip(); }
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":finalCarbs,"insulin":newBolus,"eventType":eventType,"preBolus":prebolus,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":finalCarbs,"insulin":newBolus,"eventType":eventType,"preBolus":prebolus,"secret":secret } );
           posting.done(function( data ) {
             document.getElementById("submission_meal").innerHTML = "Data submitted &#x1F44D";
           }); 
@@ -545,7 +546,7 @@
 	    document.getElementById("submission_meal").innerHTML = "Data NOT submitted &#x1F44E";  
 	  });
 	      if(newBolusSuper>0){
-		  var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":eventType,"notes":basalnotes,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+		  var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":eventType,"notes":basalnotes,"secret":secret } );
 		  // Put the results in a div
 		  posting2.done(function( data ) {
 		    document.getElementById("submission_correction").innerHTML += " plus super bolus temp basal.";
@@ -562,7 +563,7 @@
 	  var $form = $( this ),
 	    corrdose = $form.find( "input[id='corrdose']" ).val();
           // Send the data using post 
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":corrdose,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":corrdose,"eventType":eventType,"secret":secret } );
           // Put the results in a div
           posting.done(function( data ) {
             document.getElementById("submission_correction").innerHTML = "Data submitted &#x1F44D";
@@ -572,7 +573,7 @@
 	  });
 	      
 	  if(newBolusSuper>0){
-		  var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":eventType,"notes":basalnotes,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+		  var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":eventType,"notes":basalnotes,"secret":secret } );
 		  // Put the results in a div
 		  posting2.done(function( data ) {
 		    document.getElementById("submission_correction").innerHTML += " plus super bolus temp basal.";
@@ -587,7 +588,7 @@
 	  var $form = $( this ),
 	    corrCarbs = $form.find( "input[id='corrCarbs']" ).val();
 	  eventType = "Carb Correction";
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":corrCarbs,"eventType":eventType,"notes":"Low","secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":corrCarbs,"eventType":eventType,"notes":"Low","secret":secret } );
           posting.done(function( data ) {
             document.getElementById("submission_carbsonly").innerHTML = "Data submitted &#x1F44D";
           }); 
@@ -601,7 +602,7 @@
 	    basald = $form.find( "input[id='basalduration']" ).val(),
 	    basalp = $form.find( "input[id='basalpercent']" ).val();
 	  if(eventType == '') { eventType = "Temp Basal Start"; }
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":basald,"percent":basalp,"eventType":eventType,"notes":basalnotes,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":basald,"percent":basalp,"eventType":eventType,"notes":basalnotes,"secret":secret } );
           posting.done(function( data ) {
             document.getElementById("submission_tempbasal").innerHTML = "Data submitted &#x1F44D";
           }); 
