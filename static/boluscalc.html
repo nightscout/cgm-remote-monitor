@@ -497,8 +497,8 @@
       $("#AftSnackButton").click(function() { resetVars(); eventType = "Snack Bolus"; getMealData("Afternoon Snack"); });
       $("#EveSnackButton").click(function() { resetVars(); eventType = "Snack Bolus"; getMealData("Evening Snack"); });
       $("#CorrOnly").click(function() { resetVars(); eventType = "Correction Bolus"; bolusCalc(); });
-      $("#EngineBraking").click(function() { resetVars(); eventType = "Temp Basal Start"; setTemp("Engine Braking"); });
-      $("#SuperBolus").click(function() { resetVars(); eventType = "Temp Basal Start"; setTemp("Super Bolus"); });
+      $("#EngineBraking").click(function() { resetVars(); eventType = "Temp Basal"; setTemp("Engine Braking"); });
+      $("#SuperBolus").click(function() { resetVars(); eventType = "Temp Basal"; setTemp("Super Bolus"); });
       //$("#TestButton").click(function() { eventType = "Meal Bolus"; runTest(); });
       $("#Dance").click(function(event) { 
 	      resetVars();
@@ -598,7 +598,7 @@
 	  var $form = $( this ),
 	    basald = $form.find( "input[id='basalduration']" ).val(),
 	    basalp = $form.find( "input[id='basalpercent']" ).val();
-	  if(eventType == '') { eventType = "Temp Basal Start"; }
+	  if(eventType == '') { eventType = "Temp Basal"; }
           var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":basald,"percent":basalp,"eventType":eventType,"notes":basalnotes,"secret":secret } );
           posting.done(function( data ) {
             document.getElementById("submission_tempbasal").innerHTML = "Data submitted &#x1F44D";
@@ -614,10 +614,17 @@
 	  var insulinreco = (pumpoffduration/60)*currBasal;
           var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":insulinreco,"notes":"Shower","secret":secret } );
           posting.done(function( data ) {
-            document.getElementById("submission_removepump").innerHTML = "Data submitted &#x1F44D Bolus "+insulinreco+" units before removing";
+            document.getElementById("submission_removepump").innerHTML = "Data submitted &#x1F44D Bolus "+insulinreco+" units before removing.";
           }); 
 	  posting.fail(function( data) {
-	    document.getElementById("submission_removepump").innerHTML = "Data NOT submitted &#x1F44E Bolus "+insulinreco+" units before removing";  
+	    document.getElementById("submission_removepump").innerHTML = "Data NOT submitted &#x1F44E Bolus "+insulinreco+" units before removing.";  
+	  });
+	  var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","eventType":"Temp Basal","duration":pumpoffduration,"notes":"Shower","secret":secret } );
+          posting2.done(function( data ) {
+            document.getElementById("submission_removepump").innerHTML += " Temp basal set.";
+          }); 
+	  posting2.fail(function( data) {
+	    document.getElementById("submission_removepump").innerHTML += " Temp basal NOT set.";  
 	  });
         });
       
