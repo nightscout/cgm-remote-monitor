@@ -40,11 +40,10 @@
 		
 	//Dynamic
 	var today;
-      var hours = 0;
-      var minutes = 0;
-      var timeStr = '';
+        var hours = 0;
+        var minutes = 0;
+        var timeStr = '';
 	var UTCtimeStr = '';
-	var UTCdateStr;
 		
       var currBG = 0;
       var delta30mins = 0;
@@ -89,13 +88,8 @@
 	      minutes = today.getMinutes(); 
 	      if (minutes < 10) { minutes = "0"+minutes; }
 	      timeStr = hours+":"+minutes;
-		var UTCMonth = today.getUTCMonth();
-		UTCMonth += 1;
-		if(UTCMonth<10){ UTCMonth = "0"+UTCMonth; }
 		UTCtimeStr = today.toJSON();
-		//console.log(UTCtimeStr);
-		UTCdateStr = Date.UTC(today.getUTCFullYear(), UTCMonth, today.getUTCDate());
-		//console.log(UTCdateStr);
+
 	}
 		
 	function resetVars(){
@@ -264,7 +258,7 @@
         var fiberEnd = mealCode.indexOf('</td>',fiberStart);
         fiber = parseFloat(mealCode.substring(fiberStart,fiberEnd));
         document.getElementById("fiber").value = fiber; 
-        bolusCalcWFood();
+        bolusCalcWFood(mealName);
         }); 
       }	
 		
@@ -279,7 +273,7 @@
 		document.getElementById("fiber").value = ''; 
 	}
       
-      function bolusCalcWFood(){
+      function bolusCalcWFood(mealName){
       	newBolus = 0;
       	newBolusExt = 0;
       	newBolusCorr = 0;
@@ -293,16 +287,13 @@
         percentNow = 0;
         percentExt = 0;
 	prebolus = 0;
-        
+        if(mealName == "Breakfast"){ fiber = fiber / 2; }
         if(currBG>160){
           newBolusCorr = (currBG-BGgoal)/currSens; //Correction
           newBolusSuper = currBasal; //Super bolus
-          newBolusCarbs = ((carbs-(fiber/2))/currCarbRatio); //Carbs
-	prebolus = 15;
+          newBolusCarbs = ((carbs-fiber)/currCarbRatio); //Carbs
+	  prebolus = 15;
           additionalMessage = "Super bolus, wait till bend.";
-          if(fat>20){
-            newBolusFat = (((fat-20)/2)/currCarbRatio); //Fat
-          }
           if((carbs<=20) && (protein>20)){ 
             newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
             additionalMessage = "Super bolus, wait till bend if possible.";
@@ -310,7 +301,7 @@
         }
         else if(currBG>110){
           newBolusCorr = (currBG-BGgoal)/currSens; //Correction
-          newBolusCarbs = ((carbs-(fiber/2))/currCarbRatio); //Carbs
+          newBolusCarbs = ((carbs-fiber)/currCarbRatio); //Carbs
           if((carbs>30) || (fat<20)){
           	newBolusSuper = currBasal; //Super bolus
 		  prebolus = 15;
@@ -320,22 +311,16 @@
           newBolusSuper = currBasal; //Super bolus
           additionalMessage = "Super bolus if eating immediately.";
           }
-          if(fat>20){
-            newBolusFat = (((fat-20)/2)/currCarbRatio); //Fat
-          }
           if((carbs<=20) && (protein>20)){ 
             newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
           }
         }
         else if(currBG>70){
           newBolusCorr = (currBG-BGgoal)/currSens; //Correction
-          newBolusCarbs = ((carbs-(fiber/2))/currCarbRatio); //Carbs
+          newBolusCarbs = ((carbs-fiber)/currCarbRatio); //Carbs
           if(carbs>30){
           	newBolusSuper = currBasal; //Super bolus
             additionalMessage = "Super bolus if eating immediately.";
-          }
-          if(fat>20){
-            newBolusFat = (((fat-20)/2)/currCarbRatio); //Fat
           }
           if((carbs<=20) && (protein>20)){ 
             newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
@@ -343,14 +328,16 @@
         }
         else{
           newBolusCorr = (currBG-BGgoal)/currSens; //Correction UP
-          newBolusCarbs = ((carbs-(fiber/2))/currCarbRatio); //Carbs
-          if(fat>20){
-            newBolusFat = (((fat-20)/2)/currCarbRatio); //Fat
-          }
+          newBolusCarbs = ((carbs-fiber)/currCarbRatio); //Carbs
           if((carbs<=20) && (protein>20)){ 
             newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
           }
         }
+	if(fat>20){
+            //newBolusFat = (((fat-20)/2)/currCarbRatio); //Fat
+	      newBolusFat = newBolusCarbs*.1;
+	      newBolusCarbs = newBolusCarbs*.9;
+          }
         newBolus = newBolusCorr+newBolusSuper+newBolusCarbs;
 	newBolusExt = newBolusFat + newBolusProtein;
         totalBolus = newBolus + newBolusExt;
@@ -510,16 +497,19 @@
       $("#AftSnackButton").click(function() { resetVars(); eventType = "Snack Bolus"; getMealData("Afternoon Snack"); });
       $("#EveSnackButton").click(function() { resetVars(); eventType = "Snack Bolus"; getMealData("Evening Snack"); });
       $("#CorrOnly").click(function() { resetVars(); eventType = "Correction Bolus"; bolusCalc(); });
-      $("#EngineBraking").click(function() { eventType = "Temp Basal Start"; setTemp("Engine Braking"); });
-      $("#SuperBolus").click(function() { eventType = "Temp Basal Start"; setTemp("Super Bolus"); });
+      $("#EngineBraking").click(function() { resetVars(); eventType = "Temp Basal Start"; setTemp("Engine Braking"); });
+      $("#SuperBolus").click(function() { resetVars(); eventType = "Temp Basal Start"; setTemp("Super Bolus"); });
       //$("#TestButton").click(function() { eventType = "Meal Bolus"; runTest(); });
       $("#Dance").click(function(event) { 
+	      resetVars();
 	      sendExercise(event,"Dance");
       });
       $("#Yoga").click(function(event) { 
+	      resetVars();
 	     sendExercise(event,"Yoga"); 
       });
       $("#Other").click(function(event) { 
+	      resetVars();
 	      sendExercise(event,"Other");
       });	
       $("#mealform").submit(function( event ) {
