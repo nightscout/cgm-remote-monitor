@@ -544,7 +544,6 @@
 			UTCdateStr = Date.UTC(newDate.getUTCFullYear(), UTCMonth, newDate.getUTCDate());
 			console.log(UTCtimeStr+": "+insulinDiv);
 			//Send fractional insulin amounts to NS
-			
 			postData({ "enteredBy":"BolusCalc","insulin":insulinDiv,"date":UTCdateStr,"dateString":UTCtimeStr,"secret":secret },function(data){	
 			});
 			
