@@ -443,6 +443,10 @@
         document.getElementById("BG").value = currBG; 
         bolusCalcWFood();
       }
+		
+	function sendExercise(event){
+	  
+	}
 
 	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ RUN FUNCTIONS ON PAGE LOAD ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -469,7 +473,46 @@
       $("#CorrOnly").click(function() { resetVars(); eventType = "Correction Bolus"; bolusCalc(); });
       $("#EngineBraking").click(function() { eventType = "Temp Basal Start"; setTemp("Engine Braking"); });
       $("#SuperBolus").click(function() { eventType = "Temp Basal Start"; setTemp("Super Bolus"); });
-      //$("#TestButton").click(function() { eventType = "Meal Bolus"; runTest(); });	
+      //$("#TestButton").click(function() { eventType = "Meal Bolus"; runTest(); });
+      $("#Dance").click(function(event) { 
+	      eventType = "Exercise"; 
+	      event.preventDefault();
+	  var $form = $( this ),
+	    exercisetime = $form.find( "select[id='exerciseduration']" ).val();
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":"Dance","eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          posting.done(function( data ) {
+            document.getElementById("submission_exercise").innerHTML = "Data submitted &#x1F44D";
+          }); 
+	  posting.fail(function( data) {
+	    document.getElementById("submission_exercise").innerHTML = "Data NOT submitted &#x1F44E";  
+	  });
+      });
+      $("#Yoga").click(function(event) { 
+	      eventType = "Exercise"; 
+	      event.preventDefault();
+	  var $form = $( this ),
+	    exercisetime = $form.find( "select[id='exerciseduration']" ).val();
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":"Yoga","eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          posting.done(function( data ) {
+            document.getElementById("submission_exercise").innerHTML = "Data submitted &#x1F44D";
+          }); 
+	  posting.fail(function( data) {
+	    document.getElementById("submission_exercise").innerHTML = "Data NOT submitted &#x1F44E";  
+	  });
+      });
+      $("#Other").click(function(event) { 
+	      eventType = "Exercise"; 
+	      event.preventDefault();
+	  var $form = $( this ),
+	    exercisetime = $form.find( "select[id='exerciseduration']" ).val();
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":"Other","eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          posting.done(function( data ) {
+            document.getElementById("submission_exercise").innerHTML = "Data submitted &#x1F44D";
+          }); 
+	  posting.fail(function( data) {
+	    document.getElementById("submission_exercise").innerHTML = "Data NOT submitted &#x1F44E";  
+	  });
+      });	
       $("#mealform").submit(function( event ) {
           event.preventDefault();
 	  var $form = $( this ),
@@ -548,8 +591,6 @@
 	  });
         });
       
-      
-        
       })();         // End scoping function
       
       });
@@ -591,7 +632,7 @@
 	  <br/>
     <b>Correction Only</b><br/>	  
     <form id="correctionform">
-	    <input type="number" id="corrdose" step="0.01" placeholder="Units" min="0" /> Units<br>
+	    <input type="number" id="corrdose" step="0.01" min="0" /> Units<br>
 	    <input type="button" id="CorrOnly" value="Suggest correction" />
 	    <input type="submit" id="submit_correction" value="Submit correction" />
 	  </form>
@@ -610,10 +651,18 @@
 	<form id="tempbasalform">
 	<input type="number" id="basalduration" placeholder="Duration in minutes" min="0" /> Duration<br>
       	<input type="number" id="basalpercent" placeholder="Basal change in %" min="-100" /> % Change<br>
-	<input type="button" id="EngineBraking" value="Engine braking" /><input type="button" id="SuperBolus" value="Super bolus" />	
+	<input type="button" id="EngineBraking" value="Engine braking" /><input type="button" id="SuperBolus" value="Super bolus" /><br/>	
 	<input type="submit" id="submit_tempbasal" value="Submit" /><br/>
 	  </form>
 	  <div id="submission_tempbasal"></div>
+    <br/>
+	  <b>Exercise</b><br/>	
+	<form id="exerciseform">
+	<input type="number" id="exerciseduration" placeholder="Duration in minutes" min="0" /> Duration<br>
+	<input type="button" id="Dance" value="Dance" /><input type="button" id="Yoga" value="Yoga" /><br/>
+	<input type="button" id="Other" value="Other" />
+	  </form>
+	  <div id="submission_exercise"></div>
     <br/>
 	  
 	  <div id="errors"></div>
