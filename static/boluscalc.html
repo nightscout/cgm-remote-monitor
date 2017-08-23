@@ -73,6 +73,7 @@
       var newBolusSuper = 0;
       var newBolusCarbs = 0;
       var newBolusProtein = 0;
+	var newBolusFat = 0;
       var additionalMessage = '';
       var addCarbs = 0;
       var trendChar = '';
@@ -86,11 +87,11 @@
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ DEFINE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
 	function getDate(){
 		today = new Date(); // for now
-      hours = today.getHours(); 
-      if (hours < 10) { hours = "0"+hours; }
-      minutes = today.getMinutes(); 
-      if (minutes < 10) { minutes = "0"+minutes; }
-      timeStr = hours+":"+minutes;
+	      hours = today.getHours(); 
+	      if (hours < 10) { hours = "0"+hours; }
+	      minutes = today.getMinutes(); 
+	      if (minutes < 10) { minutes = "0"+minutes; }
+	      timeStr = hours+":"+minutes;
 	}
 		
 	function resetVars(){
@@ -116,6 +117,7 @@
 		newBolusSuper = 0;
 		newBolusCarbs = 0;
 		newBolusProtein = 0;
+		newBolusFat = 0;
 		additionalMessage = '';
 		addCarbs = 0;
 		totalBolus = 0;
@@ -280,6 +282,7 @@
       	newBolusSuper = 0;
       	newBolusCarbs = 0;
       	newBolusProtein = 0;
+	newBolusFat = 0;
       	additionalMessage = '';
         addCarbs = 0;
         totalBolus = 0;
@@ -291,14 +294,13 @@
           newBolusCorr = (currBG-BGgoal)/currSens; //Correction
           newBolusSuper = currBasal; //Super bolus
           newBolusCarbs = ((carbs-(fiber/2))/currCarbRatio); //Carbs
-		prebolus = 15;
+	prebolus = 15;
           additionalMessage = "Super bolus, wait till bend.";
           if(fat>20){
-            newBolusExt = (((fat-20)/2)/currCarbRatio); //Fat
+            newBolusFat = (((fat-20)/2)/currCarbRatio); //Fat
           }
           if((carbs<=20) && (protein>20)){ 
             newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
-	    prebolus = 15;
             additionalMessage = "Super bolus, wait till bend if possible.";
           }
         }
@@ -315,7 +317,7 @@
           additionalMessage = "Super bolus if eating immediately.";
           }
           if(fat>20){
-            newBolusExt = (((fat-20)/2)/currCarbRatio); //Fat
+            newBolusFat = (((fat-20)/2)/currCarbRatio); //Fat
           }
           if((carbs<=20) && (protein>20)){ 
             newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
@@ -329,7 +331,7 @@
             additionalMessage = "Super bolus if eating immediately.";
           }
           if(fat>20){
-            newBolusExt = (((fat-20)/2)/currCarbRatio); //Fat
+            newBolusFat = (((fat-20)/2)/currCarbRatio); //Fat
           }
           if((carbs<=20) && (protein>20)){ 
             newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
@@ -339,13 +341,14 @@
           newBolusCorr = (currBG-BGgoal)/currSens; //Correction UP
           newBolusCarbs = ((carbs-(fiber/2))/currCarbRatio); //Carbs
           if(fat>20){
-            newBolusExt = (((fat-20)/2)/currCarbRatio); //Fat
+            newBolusFat = (((fat-20)/2)/currCarbRatio); //Fat
           }
           if((carbs<=20) && (protein>20)){ 
             newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
           }
         }
         newBolus = newBolusCorr+newBolusSuper+newBolusCarbs+newBolusProtein;
+	newBolusExt = newBolusFat + newBolusProtein;
         totalBolus = newBolus + newBolusExt;
         percentNow = (newBolus/totalBolus)*100;
         percentExt = (newBolusExt/totalBolus)*100;
@@ -402,12 +405,12 @@
       	trendChar = '';
         trendText = '';
 	var origBG = currBG;
-      	if(BGtrend == "FortyFiveUp") { currBG += 25; trendChar='&#x2197';}
-        if(BGtrend == "SingleUp") { currBG += 50; trendChar='&#x2B06';}
-        if(BGtrend == "DoubleUp") { currBG += 75; trendChar='&#x23EB';}
-        if(BGtrend == "FortyFiveDown") { currBG -= 25; trendChar='&#x2198';}
-        if(BGtrend == "SingleDown") { currBG -= 50; trendChar='&#x2B07';}
-        if(BGtrend == "DoubleDown") { currBG -= 75; trendChar='&#x23EC';}
+      	if(BGtrend == "FortyFiveUp") { currBG += 15; trendChar='&#x2197';}
+        if(BGtrend == "SingleUp") { currBG += 30; trendChar='&#x2B06';}
+        if(BGtrend == "DoubleUp") { currBG += 50; trendChar='&#x23EB';}
+        if(BGtrend == "FortyFiveDown") { currBG -= 15; trendChar='&#x2198';}
+        if(BGtrend == "SingleDown") { currBG -= 30; trendChar='&#x2B07';}
+        if(BGtrend == "DoubleDown") { currBG -= 50; trendChar='&#x23EC';}
         if(BGtrend == "Flat") {trendChar='&#x27A1';}
         trendText = "BG: "+origBG+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+"<br/>60 min delta: "+delta60mins;
         document.getElementById("resultsBG").innerHTML = trendText;
