@@ -478,21 +478,22 @@
 		var insulinDiv = newBolusExt/12.0;
 		var t;
 		for (t = 0; t < 12; t++){
-			newDate.setMinutes(newDate.getMinutes() + 10);
+			newDate.setTime(newDate.getTime() + 10*60*1000);
 			//Format new time
 			var UTCMonth = newDate.getUTCMonth();
 			UTCMonth += 1;
 			if(UTCMonth<10){ UTCMonth = "0"+UTCMonth; }
 			UTCtimeStr = newDate.toJSON();
 			UTCdateStr = Date.UTC(newDate.getUTCFullYear(), UTCMonth, newDate.getUTCDate());
+			console.log(UTCtimeStr+": "+insulinDiv);
 			//Send fractional insulin amounts to NS
-			var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":insulinDiv,"date":UTCdateStr,"dateString":UTCtimeStr,"secret":secret } );
+			/*var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":insulinDiv,"date":UTCdateStr,"dateString":UTCtimeStr,"secret":secret } );
 			  posting.done(function( data ) {
 			    console.log(UTCtimeStr+": "+insulinDiv);
 			  }); 
 			  posting.fail(function( data) {
 			    console.log("Didn't add extended bolus drip");  
-			  });
+			  });*/
 		}
 	}
 	
