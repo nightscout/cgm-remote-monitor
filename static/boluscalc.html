@@ -142,8 +142,6 @@
               var data = inputData; //jQuery.parseJSON(inputData);
             	if(type == "profile") {
                  currProfile = data[0].defaultProfile;
-                 //console.log("Type of data: " + typeof (data[0].store[currProfile].basal[1].time));
-                 //console.log("Length of object: " + Object.keys(basalProfile).length);
 
                  // Define current basal 
                  var basalProfile = data[0].store[currProfile].basal;  
@@ -403,7 +401,9 @@
         if(BGtrend == "SingleDown") { currBG -= 30; trendChar='&#x2B07';}
         if(BGtrend == "DoubleDown") { currBG -= 50; trendChar='&#x23EC';}
         if(BGtrend == "Flat") {trendChar='&#x27A1';}
-        trendText = "BG: "+origBG+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+"<br/>60 min delta: "+delta60mins;
+	var trendWarn = '';
+	if((delta60mins >= 30) || (delta60mins <= -30)){ trendWarn = " &#x2757";
+        trendText = "BG: "+origBG+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+"<br/>60 min delta: "+delta60mins+trendWarn;
         document.getElementById("resultsBG").innerHTML = trendText;
       }
 		
@@ -607,6 +607,19 @@
 	    document.getElementById("submission_tempbasal").innerHTML = "Data NOT submitted &#x1F44E";  
 	  });
         });
+	$("#removepumpform").submit(function( event ) {
+          event.preventDefault();
+	  var $form = $( this ),
+	    pumpoffduration = $form.find( "input[id='pumpoffduration']" ).val();
+	  var insulinreco = (pumpoffduration/60)*currBasal;
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":insulinreco,"notes":"Shower","secret":secret } );
+          posting.done(function( data ) {
+            document.getElementById("submission_removepump").innerHTML = "Data submitted &#x1F44D Bolus "+insulinreco+" units before removing";
+          }); 
+	  posting.fail(function( data) {
+	    document.getElementById("submission_removepump").innerHTML = "Data NOT submitted &#x1F44E Bolus "+insulinreco+" units before removing";  
+	  });
+        });
       
       })();         // End scoping function
       
@@ -680,6 +693,13 @@
 	<input type="button" id="Other" value="Other" />
 	  </form>
 	  <div id="submission_exercise"></div>
+    <br/>
+	   <b>Remove Pump</b><br/>	
+	<form id="removepumpform">
+	<input type="number" id="pumpoffduration" placeholder="Duration in minutes" min="0" /> Duration<br/>
+	<input type="submit" id="RemovePump" value="Submit" />
+	  </form>
+	  <div id="submission_removepump"></div>
     <br/>
 	  
 	  <div id="errors"></div>
