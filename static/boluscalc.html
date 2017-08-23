@@ -97,12 +97,10 @@
 		var UTCMonth = today.getUTCMonth();
 		UTCMonth += 1;
 		if(UTCMonth<10){ UTCMonth = "0"+UTCMonth; }
-		/*UTCtimeStr = today.getUTCFullYear()+"-"+UTCMonth+"-"+today.getUTCDate()+"T"+today.getUTCHours()+":"+today.getUTCMinutes()+":"+today.getUTCSeconds()+".000Z";
-		console.log(UTCtimeStr);*/
 		UTCtimeStr = today.toJSON();
-		console.log(UTCtimeStr);
+		//console.log(UTCtimeStr);
 		UTCdateStr = Date.UTC(today.getUTCFullYear(), UTCMonth, today.getUTCDate());
-		console.log(UTCdateStr);
+		//console.log(UTCdateStr);
 	}
 		
 	function resetVars(){
@@ -470,8 +468,36 @@
 	    document.getElementById("submission_exercise").innerHTML = "Data NOT submitted &#x1F44E";  
 	  });
 	}
+		
+	function extBolusDrip(){
+		//Get time
+		today = new Date(); // for now
+		//Divide time
+		var newTime;
+		var insulinDiv = newBolusExt/12.0;
+		var t;
+		for (t = 1; t < 13; t++){
+			newTime = new Date(today.getTime() + (120/12)*60000*t);
+			//Format new time
+			var UTCMonth = newTime.getUTCMonth();
+			UTCMonth += 1;
+			if(UTCMonth<10){ UTCMonth = "0"+UTCMonth; }
+			UTCtimeStr = newTime.toJSON();
+			UTCdateStr = Date.UTC(newTime.getUTCFullYear(), UTCMonth, newTime.getUTCDate());
+			//Send fractional insulin amounts to NS
+			var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":insulinDiv,"date":UTCdateStr,"dateString":UTCtimeStr,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+			  posting.done(function( data ) {
+			    console.log(UTCtimeStr+": "+insulinDiv);
+			  }); 
+			  posting.fail(function( data) {
+			    console.log("Didn't add extended bolus drip");  
+			  });
+		}
+	}
 	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ RUN FUNCTIONS ON PAGE LOAD ~~~~~~~~~~~~~~~~~~~~~~~~~
+		
+	getDate();
 		
 	getCustomJSON(profileURL,"profile",function(returndata){
         /*document.getElementById("basal").value = currBasal;
@@ -510,6 +536,7 @@
 	  var $form = $( this ),
 	    prebolus = $form.find( "select[id='prebolus']" ).val();
 	  var finalCarbs = (carbs-(fiber/2));
+	  if(newBolusExt > 0){ extBolusDrip(); }
           var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":finalCarbs,"insulin":newBolus,"eventType":eventType,"preBolus":prebolus,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
           posting.done(function( data ) {
             document.getElementById("submission_meal").innerHTML = "Data submitted &#x1F44D";
