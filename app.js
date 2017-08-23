@@ -84,17 +84,17 @@ function create(env, ctx) {
     //app.get('/package.json', software);
 
     // Allow static resources to be cached for week
-    var maxAge = 7*24*60*60*1000;
-    
+    var maxAge = 7 * 24 * 60 * 60 * 1000;
+
     if (process.env.NODE_ENV === 'development') {
-    	maxAge = 10;
-	    console.log('Development environment detected, setting static file cache age to 10 seconds');
-	    
-	    app.get('/nightscout.appcache', function(req, res){
-		  res.sendStatus(404);
-		});
-	}
-    
+        maxAge = 10;
+        console.log('Development environment detected, setting static file cache age to 10 seconds');
+
+        app.get('/nightscout.appcache', function(req, res) {
+            res.sendStatus(404);
+        });
+    }
+
     //TODO: JC - changed cache to 1 hour from 30d ays to bypass cache hell until we have a real solution
     var staticFiles = express.static(env.static_files, {
         maxAge: maxAge
@@ -110,63 +110,51 @@ function create(env, ctx) {
     // serve the static content
     app.use(tmpFiles);
 
+    if (process.env.NODE_ENV !== 'development') {
 
-    /*
-      var bundle = require('./bundle')(env);
-      app.use(bundle);
-    */
+        console.log('Production environment detected, enabling Minify');
 
-if (process.env.NODE_ENV !== 'development') {
+        var minify = require('express-minify');
+        var myUglifyJS = require('uglify-js');
+        var myCssmin = require('cssmin');
 
-console.log('Production environment detected, enabling Minify');
+        app.use(minify({
+            js_match: /\.js/,
+            css_match: /\.css/,
+            sass_match: /scss/,
+            less_match: /less/,
+            stylus_match: /stylus/,
+            coffee_match: /coffeescript/,
+            json_match: /json/,
+            uglifyJS: myUglifyJS,
+            cssmin: myCssmin,
+            cache: __dirname + '/cache',
+            onerror: undefined,
+        }));
 
-var minify = require('express-minify');
+    }
 
-//app.use(minify());
+    // if this is dev environment, package scripts on the fly
+    // if production, rely on postinstall script to run packaging for us
 
-var myUglifyJS = require('uglify-js');
-var myCssmin = require('cssmin');
+    if (process.env.NODE_ENV === 'development') {
 
-app.use(minify({
-  js_match: /\.js/,
-  css_match: /\.css/,
-  sass_match: /scss/,
-  less_match: /less/,
-  stylus_match: /stylus/,
-  coffee_match: /coffeescript/,
-  json_match: /json/,
-  uglifyJS: myUglifyJS,
-  cssmin: myCssmin,
-  cache: __dirname + '/cache',
-  onerror: undefined,
-}));
+        var webpack = require("webpack");
+        var webpack_conf = require('./webpack.config');
 
-}
+        webpack(webpack_conf, function(err, stats) {
 
-// if this is dev environment, package scripts on the fly
-// if production, rely on postinstall script to run packaging for us
+            var json = stats.toJson() // => webpack --json
 
-if (process.env.NODE_ENV === 'development') {
-   
-    var webpack = require("webpack");
-    var webpack_conf = require('./webpack.config');
+            var options = {
+                noColor: true
+            };
 
-    webpack(webpack_conf, function(err, stats) {
+            console.log(prettyjson.render(json.errors, options));
+            console.log(prettyjson.render(json.assets, options));
 
-        var json = stats.toJson() // => webpack --json
-
-        var options = {
-            noColor: true
-        };
-
-        console.log(prettyjson.render(json.errors, options));
-        console.log(prettyjson.render(json.assets, options));
-
-        //    console.log(err); // => fatal compiler error (rar)
-        //     console.log(json.errors); // => array of errors
-        //    console.log(json.warnings); // => array of warnings
-    });
-}
+        });
+    }
 
     // Handle errors with express's errorhandler, to display more readable error messages.
     var errorhandler = require('errorhandler');
