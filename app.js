@@ -89,6 +89,10 @@ function create(env, ctx) {
     if (process.env.NODE_ENV === 'development') {
     	maxAge = 10;
 	    console.log('Development environment detected, setting static file cache age to 10 seconds');
+	    
+	    app.get('/nightscout.appcache', function(req, res){
+		  res.sendStatus(404);
+		});
 	}
     
     //TODO: JC - changed cache to 1 hour from 30d ays to bypass cache hell until we have a real solution
