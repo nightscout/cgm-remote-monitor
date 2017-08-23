@@ -444,6 +444,18 @@
         bolusCalcWFood();
       }
 
+	function sendExercise(event,type){
+		eventType = "Exercise"; 
+	      event.preventDefault();
+	  var exercisetime = document.getElementById("exerciseduration").value;
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":type,"eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+          posting.done(function( data ) {
+            document.getElementById("submission_exercise").innerHTML = "Data submitted &#x1F44D";
+          }); 
+	  posting.fail(function( data) {
+	    document.getElementById("submission_exercise").innerHTML = "Data NOT submitted &#x1F44E";  
+	  });
+	}
 	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ RUN FUNCTIONS ON PAGE LOAD ~~~~~~~~~~~~~~~~~~~~~~~~~
 		
@@ -473,8 +485,7 @@
       $("#Dance").click(function(event) { 
 	      eventType = "Exercise"; 
 	      event.preventDefault();
-	  var $form = $( this ),
-	    exercisetime = $form.find( "input[id='exerciseduration']" ).val();
+	  var exercisetime = document.getElementById("exerciseduration").value;
           var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":"Dance","eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
           posting.done(function( data ) {
             document.getElementById("submission_exercise").innerHTML = "Data submitted &#x1F44D";
@@ -484,25 +495,13 @@
 	  });
       });
       $("#Yoga").click(function(event) { 
-	      eventType = "Exercise"; 
-	      event.preventDefault();
-	  var $form = $( this ),
-	    exercisetime = $form.find( "input[id='exerciseduration']" ).val();
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":"Yoga","eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
-          posting.done(function( data ) {
-            document.getElementById("submission_exercise").innerHTML = "Data submitted &#x1F44D";
-          }); 
-	  posting.fail(function( data) {
-	    document.getElementById("submission_exercise").innerHTML = "Data NOT submitted &#x1F44E";  
-	  });
+	     sendExercise(event,"Yoga"); 
       });
       $("#Other").click(function(event) { 
 	      eventType = "Exercise"; 
 	      event.preventDefault();
-	  var $form = $( this ),
-	    exercisetime = $form.find( "input[id='exerciseduration']" ).val();
-	  var mytime = document.getElementById("exerciseduration").value;
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":mytime,"notes":"Other","eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
+	  var exercisetime = document.getElementById("exerciseduration").value;
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":"Other","eventType":eventType,"secret":"c96c4972f2f35a0b74e91b75dccf0d3807a16ad1" } );
           posting.done(function( data ) {
             document.getElementById("submission_exercise").innerHTML = "Data submitted &#x1F44D";
           }); 
