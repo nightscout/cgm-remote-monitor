@@ -25,7 +25,6 @@
     
     <script type="text/javascript">
       $(document).ready(function(){
-	(function() { // Begin scoping function
       
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ INSTANTIATE VARIABLES ~~~~~~~~~~~~~~~~~~~~~~~~~
       
@@ -515,7 +514,7 @@
       $("#mealform").submit(function( event ) {
           event.preventDefault();
 	  var $form = $( this ),
-	    prebolus = $form.find( "select[id='prebolus']" ).val();
+	  prebolus = $form.find( "select[id='prebolus']" ).val();
 	  var finalCarbs = (carbs-(fiber/2));
 	  if(newBolusExt > 0){ 
 		  //Get time
@@ -593,6 +592,7 @@
 	    document.getElementById("submission_carbsonly").innerHTML = "Data NOT submitted &#x1F44E";  
 	  });
         });
+	      
 	$("#tempbasalform").submit(function( event ) {
           event.preventDefault();
 	  var $form = $( this ),
@@ -607,6 +607,7 @@
 	    document.getElementById("submission_tempbasal").innerHTML = "Data NOT submitted &#x1F44E";  
 	  });
         });
+	      
 	$("#removepumpform").submit(function( event ) {
           event.preventDefault();
 	  var $form = $( this ),
@@ -627,8 +628,6 @@
 	    document.getElementById("submission_removepump").innerHTML += " Temp basal NOT set.";  
 	  });
         });
-      
-      })();         // End scoping function
       
       });
       
