@@ -94,10 +94,10 @@
 	      minutes = today.getMinutes(); 
 	      if (minutes < 10) { minutes = "0"+minutes; }
 	      timeStr = hours+":"+minutes;
-		/*var UTCMonth = today.getUTCMonth();
+		var UTCMonth = today.getUTCMonth();
 		UTCMonth += 1;
 		if(UTCMonth<10){ UTCMonth = "0"+UTCMonth; }
-		UTCtimeStr = today.getUTCFullYear()+"-"+UTCMonth+"-"+today.getUTCDate()+"T"+today.getUTCHours()+":"+today.getUTCMinutes()+":"+today.getUTCSeconds()+".000Z";
+		/*UTCtimeStr = today.getUTCFullYear()+"-"+UTCMonth+"-"+today.getUTCDate()+"T"+today.getUTCHours()+":"+today.getUTCMinutes()+":"+today.getUTCSeconds()+".000Z";
 		console.log(UTCtimeStr);*/
 		UTCtimeStr = today.toJSON();
 		console.log(UTCtimeStr);
