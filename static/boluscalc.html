@@ -219,43 +219,43 @@
         
       function getMealData(mealName){
         getMFPData(function(returnData){
-      	var breakfastStart = mfpCode.indexOf('<tr class="meal_header">');
-        var lunchStart = mfpCode.indexOf('<tr class="meal_header">',breakfastStart+24); 
-        var dinnerStart = mfpCode.indexOf('<tr class="meal_header">',lunchStart+24); 
-        var aftSnackStart = mfpCode.indexOf('<tr class="meal_header">',dinnerStart+24); 
-        var mornSnackStart = mfpCode.indexOf('<tr class="meal_header">',aftSnackStart+24); 
-        var eveSnackStart = mfpCode.indexOf('<tr class="meal_header">',mornSnackStart+24); 
-        var end = mfpCode.indexOf('<tr class="spacer">',eveSnackStart+24);
-        if(mealName == "Breakfast"){ mealCode = mfpCode.substring(breakfastStart,lunchStart); }
-        else if(mealName == "Lunch"){ mealCode = mfpCode.substring(lunchStart,dinnerStart); }
-        else if(mealName == "Dinner"){ mealCode = mfpCode.substring(dinnerStart,aftSnackStart); }
-        else if(mealName == "Afternoon Snack"){ mealCode = mfpCode.substring(aftSnackStart,mornSnackStart); }
-        else if(mealName == "Morning Snack"){ mealCode = mfpCode.substring(mornSnackStart,eveSnackStart); }
-        else if(mealName == "Evening Snack"){ mealCode = mfpCode.substring(eveSnackStart,end); }
-        var totalsRef = mealCode.indexOf('class="quick_add_meals_list hidden">');
-        // Carbs
-        var carbsStart = mealCode.indexOf('<span class="macro-value">',totalsRef)+26;
-        //console.log("Carbs starting index: "+carbsStart);
-        var carbsEnd = mealCode.indexOf('</span>',carbsStart);
-        //console.log("Carbs ending index: "+carbsEnd);
-        carbs = parseFloat(mealCode.substring(carbsStart,carbsEnd));
-        document.getElementById("carbs").value = carbs; 
-        // Fat
-        var fatStart = mealCode.indexOf('<span class="macro-value">',carbsEnd)+26;
-        var fatEnd = mealCode.indexOf('</span>',fatStart);
-        fat = parseFloat(mealCode.substring(fatStart,fatEnd));
-        document.getElementById("fat").value = fat;  
-        // Protein
-        var proteinStart = mealCode.indexOf('<span class="macro-value">',fatEnd)+26;
-        var proteinEnd = mealCode.indexOf('</span>',proteinStart);
-        protein = parseFloat(mealCode.substring(proteinStart,proteinEnd));
-        document.getElementById("protein").value = protein;  
-        // Fiber
-        var fiberStart = mealCode.indexOf('<td>',proteinEnd)+4;
-        var fiberEnd = mealCode.indexOf('</td>',fiberStart);
-        fiber = parseFloat(mealCode.substring(fiberStart,fiberEnd));
-        document.getElementById("fiber").value = fiber; 
-        bolusCalcWFood(mealName);
+		var breakfastStart = mfpCode.indexOf('<tr class="meal_header">');
+		var lunchStart = mfpCode.indexOf('<tr class="meal_header">',breakfastStart+24); 
+		var dinnerStart = mfpCode.indexOf('<tr class="meal_header">',lunchStart+24); 
+		var aftSnackStart = mfpCode.indexOf('<tr class="meal_header">',dinnerStart+24); 
+		var mornSnackStart = mfpCode.indexOf('<tr class="meal_header">',aftSnackStart+24); 
+		var eveSnackStart = mfpCode.indexOf('<tr class="meal_header">',mornSnackStart+24); 
+		var end = mfpCode.indexOf('<tr class="spacer">',eveSnackStart+24);
+		if(mealName == "Breakfast"){ mealCode = mfpCode.substring(breakfastStart,lunchStart); }
+		else if(mealName == "Lunch"){ mealCode = mfpCode.substring(lunchStart,dinnerStart); }
+		else if(mealName == "Dinner"){ mealCode = mfpCode.substring(dinnerStart,aftSnackStart); }
+		else if(mealName == "Afternoon Snack"){ mealCode = mfpCode.substring(aftSnackStart,mornSnackStart); }
+		else if(mealName == "Morning Snack"){ mealCode = mfpCode.substring(mornSnackStart,eveSnackStart); }
+		else if(mealName == "Evening Snack"){ mealCode = mfpCode.substring(eveSnackStart,end); }
+		var totalsRef = mealCode.indexOf('class="quick_add_meals_list hidden">');
+		// Carbs
+		var carbsStart = mealCode.indexOf('<span class="macro-value">',totalsRef)+26;
+		//console.log("Carbs starting index: "+carbsStart);
+		var carbsEnd = mealCode.indexOf('</span>',carbsStart);
+		//console.log("Carbs ending index: "+carbsEnd);
+		carbs = parseFloat(mealCode.substring(carbsStart,carbsEnd));
+		document.getElementById("carbs").value = carbs; 
+		// Fat
+		var fatStart = mealCode.indexOf('<span class="macro-value">',carbsEnd)+26;
+		var fatEnd = mealCode.indexOf('</span>',fatStart);
+		fat = parseFloat(mealCode.substring(fatStart,fatEnd));
+		document.getElementById("fat").value = fat;  
+		// Protein
+		var proteinStart = mealCode.indexOf('<span class="macro-value">',fatEnd)+26;
+		var proteinEnd = mealCode.indexOf('</span>',proteinStart);
+		protein = parseFloat(mealCode.substring(proteinStart,proteinEnd));
+		document.getElementById("protein").value = protein;  
+		// Fiber
+		var fiberStart = mealCode.indexOf('<td>',proteinEnd)+4;
+		var fiberEnd = mealCode.indexOf('</td>',fiberStart);
+		fiber = parseFloat(mealCode.substring(fiberStart,fiberEnd));
+		document.getElementById("fiber").value = fiber; 
+		bolusCalcWFood(mealName);
         }); 
       }	
 		
@@ -578,7 +578,8 @@
 		    document.getElementById("submission_correction").innerHTML += " WITHOUT super bolus temp basal.";  
 		  });
 	  }
-        });	
+        });
+	      
 	$("#carbsonlyform").submit(function( event ) {
           event.preventDefault();
 	  var $form = $( this ),
@@ -608,7 +609,7 @@
 	  });
         });
 	      
-	/*$("#removepumpform").submit(function( event ) {
+	$("#removepumpform").submit(function( event ) {
           event.preventDefault();
 	  var $form = $( this ),
 	    pumpoffduration = $form.find( "input[id='pumpoffduration']" ).val();
@@ -627,7 +628,7 @@
 	  posting2.fail(function( data) {
 	    document.getElementById("submission_removepump").innerHTML += " Temp basal NOT set.";  
 	  });
-        });*/
+        });
       
       });
       
