@@ -444,17 +444,17 @@
       }
 		
 	function runTest(){
-      	carbs = randomIntFromInterval(0,100);
-        fat = randomIntFromInterval(0,40);
-        protein = randomIntFromInterval(0,60);
-        fiber = randomIntFromInterval(0,30);
-        currBG = randomIntFromInterval(40,300);
-        document.getElementById("carbs").value = carbs; 
-        document.getElementById("fat").value = fat; 
-        document.getElementById("protein").value = protein; 
-        document.getElementById("fiber").value = fiber; 
-        document.getElementById("BG").value = currBG; 
-        bolusCalcWFood();
+		carbs = randomIntFromInterval(0,100);
+		fat = randomIntFromInterval(0,40);
+		protein = randomIntFromInterval(0,60);
+		fiber = randomIntFromInterval(0,30);
+		currBG = randomIntFromInterval(40,300);
+		document.getElementById("carbs").value = carbs; 
+		document.getElementById("fat").value = fat; 
+		document.getElementById("protein").value = protein; 
+		document.getElementById("fiber").value = fiber; 
+		document.getElementById("BG").value = currBG; 
+		bolusCalcWFood();
       }
 
 	function sendExercise(event,type){
@@ -476,12 +476,12 @@
 
 			var posting = $.post( treatmentsURL, input );
 			  posting.done(function( data ) {
-			    console.log("Within posting - "+UTCtimeStr);
-			    callback("Success");
+			    //console.log("Within posting - "+UTCtimeStr);
+			    callback(data);
 			  }); 
 			  posting.fail(function( data) {
-			    console.log("Didn't add extended bolus drip");  
-			    callback("Failure");
+			    //console.log("Didn't add extended bolus drip");  
+			    callback(data);
 			  });
 	}
 	
@@ -534,8 +534,8 @@
 		var insulinDiv = newBolusExt/12.0;
 		var t;
 		var UTCMonth;
-		for (t = 0; t < 12; t++){
-			newDate.setTime(newDate.getTime() + 10*60*1000);
+		//for (t = 0; t < 12; t++){
+			newDate.setTime(newDate.getTime() + 30*60*1000);
 			//Format new time
 			UTCMonth = newDate.getUTCMonth()+1;
 			if(UTCMonth<10){ UTCMonth = "0"+UTCMonth; }
@@ -543,10 +543,9 @@
 			UTCdateStr = Date.UTC(newDate.getUTCFullYear(), UTCMonth, newDate.getUTCDate());
 			console.log(UTCtimeStr+": "+insulinDiv);
 			//Send fractional insulin amounts to NS
-			postData({ "enteredBy":"BolusCalc","insulin":insulinDiv,"date":UTCdateStr,"dateString":UTCtimeStr,"secret":secret },function(data){	
-			});
-			
-		}
+			postData({ "enteredBy":"BolusCalc","insulin":insulinDiv,"date":UTCdateStr,"dateString":UTCtimeStr,"secret":secret },function(data){
+			});	
+		//}
 			     
 	}
           var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":finalCarbs,"insulin":newBolus,"eventType":eventType,"preBolus":prebolus,"secret":secret } );
