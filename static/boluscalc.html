@@ -401,11 +401,11 @@
         if(BGtrend == "DoubleDown") { currBG -= 50; trendChar='&#x23EC';}
         if(BGtrend == "Flat") {trendChar='&#x27A1';}
 	var trendWarn = '';
-	if((delta60mins >= 30) || (delta60mins <= -30)){ trendWarn = " &#x2757";
+	if((delta60mins >= 30) || (delta60mins <= -30)){ trendWarn = " &#x2757"; }
         trendText = "BG: "+origBG+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+"<br/>60 min delta: "+delta60mins+trendWarn;
         document.getElementById("resultsBG").innerHTML = trendText;
       }
-	/*	
+		
 	function setTemp(type){
 		if(type == "Engine Braking"){
 			document.getElementById("basalduration").value = 30; 
@@ -434,7 +434,7 @@
 		document.getElementById("protein").value = protein; 
 		document.getElementById("fiber").value = fiber; 
 		document.getElementById("BG").value = currBG; 
-		bolusCalcWFood();
+		bolusCalcWFood("Test");
       }
 
 	function sendExercise(event,type){
@@ -480,7 +480,7 @@
         /*document.getElementById("basal").value = currBasal;
         document.getElementById("sensitivity").value = currSens;
         document.getElementById("carbRatio").value = currCarbRatio; */
-      /*});
+      });
         
       getCustomJSON(entriesURL+"?count=12","BG",function(returndata){      
         //document.getElementById("BG").value = currBG; 
@@ -628,7 +628,7 @@
 	  posting2.fail(function( data) {
 	    document.getElementById("submission_removepump").innerHTML += " Temp basal NOT set.";  
 	  });
-        });*/
+        });
       
       });
       
