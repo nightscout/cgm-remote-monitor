@@ -1,8 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html manifest="nightscout.appcache">
     <head>
       <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
       <meta name="apple-mobile-web-app-capable" content="yes">
+	<link rel="apple-touch-startup-image" href="/images/launch.png">
+	<meta name="apple-mobile-web-app-title" content="Nightscout">
+
       <title>Nightscout</title>
 
       <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
@@ -24,7 +27,7 @@
       <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
-	  <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.10.0-dev-20170818" />
+	  <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.10.0-dev-20170821" />
       <link rel="stylesheet" type="text/css" href="/css/ui-darkness/jquery-ui.min.css">
 
     </head>
@@ -586,8 +589,8 @@
             <audio src="/audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
         </div>
 
-        <script src="/js/bundle.js?v=0.10.0-dev-20170818"></script>
-        <script src="/socket.io/socket.io.js"></script>
-        <script src="/js/client.js"></script>
+        <script src="/js/bundle.js?v=0.10.0-dev-20170821"></script>
+        <script src="/socket.io/socket.io.js?v=0.10.0-dev-20170821"></script>
+        <script src="/js/client.js?v=0.10.0-dev-20170821"></script>
     </body>
 </html>
