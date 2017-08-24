@@ -267,7 +267,8 @@
 		document.getElementById("carbs").value = '';
 		document.getElementById("fat").value = '';  
 		document.getElementById("protein").value = '';  
-		document.getElementById("fiber").value = ''; 
+		document.getElementById("fiber").value = '';
+		document.getElementById("prebolus").value = 0;
 	}
       
       function bolusCalcWFood(mealName){
@@ -283,13 +284,13 @@
         totalBolus = 0;
         percentNow = 0;
         percentExt = 0;
-	prebolus = 0;
+	
         if(mealName == "Breakfast"){ fiber = fiber / 2; }
         if(currBG>160){
           newBolusCorr = (currBG-BGgoal)/currSens; //Correction
           newBolusSuper = currBasal; //Super bolus
           newBolusCarbs = ((carbs-fiber)/currCarbRatio); //Carbs
-	  prebolus = 15;
+	  //prebolus = 15;
           additionalMessage = "Super bolus, wait till bend.";
           if((carbs<=20) && (protein>20)){ 
             newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
@@ -301,11 +302,11 @@
           newBolusCarbs = ((carbs-fiber)/currCarbRatio); //Carbs
           if((carbs>30) || (fat<20)){
           	newBolusSuper = currBasal; //Super bolus
-		  prebolus = 15;
+		  //prebolus = 15;
             additionalMessage = "Super bolus, wait till bend if possible.";
           }
           else{
-          newBolusSuper = currBasal; //Super bolus
+		  if(prebolus <= 5){ newBolusSuper = currBasal; //Super bolus }
           additionalMessage = "Super bolus if eating immediately.";
           }
           if((carbs<=20) && (protein>20)){ 
@@ -316,7 +317,7 @@
           newBolusCorr = (currBG-BGgoal)/currSens; //Correction
           newBolusCarbs = ((carbs-fiber)/currCarbRatio); //Carbs
           if(carbs>30){
-          	newBolusSuper = currBasal; //Super bolus
+          	if(prebolus <= 5){ newBolusSuper = currBasal; //Super bolus }
             additionalMessage = "Super bolus if eating immediately.";
           }
           if((carbs<=20) && (protein>20)){ 
@@ -351,7 +352,7 @@
           else{
           	document.getElementById("results_meal").innerHTML = "Recommended bolus: "+ totalBolus.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 2 hours. "+ additionalMessage +"<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
           }
-	  document.getElementById("prebolus").value = prebolus;
+	  //document.getElementById("prebolus").value = prebolus;
         }
       }
       
@@ -459,8 +460,7 @@
 	    document.getElementById("submission_exercise").innerHTML = "Data NOT submitted &#x1F44E "+exerciseSuggestion;  
 	  });
 	}
-		
-		
+			
 		
 	function postData(input, callback){
 			var posting = $.post( treatmentsURL, input );
@@ -471,6 +471,13 @@
 			    callback(data);
 			  });
 	}
+	      
+	function calcFoodBolus(mealOrSnack, name){
+	      resetVars(); 
+	      eventType = mealOrSnack; 
+	      prebolus = document.getElementById("prebolus").value;
+	      getMealData(name);
+      }
 	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ RUN FUNCTIONS ON PAGE LOAD ~~~~~~~~~~~~~~~~~~~~~~~~~
 		
@@ -486,7 +493,7 @@
         //document.getElementById("BG").value = currBG; 
         BGtrends();
       });
-		
+	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ SET BUTTON ACTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~	
 		
       $("#BreakfastButton").click(function() { resetVars(); eventType = "Meal Bolus"; getMealData("Breakfast"); });
@@ -559,7 +566,7 @@
 	  var $form = $( this ),
 	    corrdose = $form.find( "input[id='corrdose']" ).val();
           // Send the data using post 
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":corrdose,"eventType":eventType,"secret":secret } );
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":corrdose,"eventType":"Correction Bolus","secret":secret } );
           // Put the results in a div
           posting.done(function( data ) {
             document.getElementById("submission_correction").innerHTML = "Data submitted &#x1F44D";
@@ -644,12 +651,7 @@
       Load meal:<br/>
       <input id="BreakfastButton" type="button" value="Breakfast" /><input id="LunchButton" type="button" value="Lunch" /><br/>
       <input id="DinnerButton" type="button" value="Dinner" /><input id="MornSnackButton" type="button" value="Morning Snack" /><br/>
-      <input id="AftSnackButton" type="button" value="Afternoon Snack" /><input id="EveSnackButton" type="button" value="Evening Snack" /><br/>
-      Results:<br/>
-      <input type="number" step="0.1" id="carbs" placeholder="Carbs in grams" min="0" /> Carbs<br/>
-      <input type="number" step="0.1" id="fat" placeholder="Fat in grams" min="0" /> Fat<br/>
-      <input type="number" step="0.1" id="protein" placeholder="Protein in grams" min="0" /> Protein<br/>
-      <input type="number" step="0.1" id="fiber" placeholder="Fiber in grams" min="0" /> Fiber<br/>
+      <input id="AftSnackButton" type="button" value="Afternoon Snack" /><input id="EveSnackButton" type="button" value="Evening Snack" /><br/><br/>
 	<select id="prebolus">
 	  <option value="0" selected="selected">0</option>
 	  <option value="5">5</option>
@@ -659,7 +661,13 @@
 		<option value="25">25</option>
 		<option value="30">30</option>
 	</select> Carb time   
-	    <br/>
+	    <br/><br/>	    
+      Results:<br/>
+      <input type="number" step="0.1" id="carbs" placeholder="Carbs in grams" min="0" /> Carbs<br/>
+      <input type="number" step="0.1" id="fat" placeholder="Fat in grams" min="0" /> Fat<br/>
+      <input type="number" step="0.1" id="protein" placeholder="Protein in grams" min="0" /> Protein<br/>
+      <input type="number" step="0.1" id="fiber" placeholder="Fiber in grams" min="0" /> Fiber<br/>
+	
       <!--<input type="button" id="TestButton" value="Process Test Data" /><br/><br/>-->
       <input type="submit" id="submit_meal" value="Submit meal/snack" /><br/>
     </form>
