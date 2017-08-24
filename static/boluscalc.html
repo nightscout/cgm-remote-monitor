@@ -474,7 +474,7 @@
 	      
 	function calcFoodBolus(mealOrSnack, name){
 	      resetVars(); 
-	      eventType = mealOrSnack; 
+	      eventType = mealOrSnack+" Bolus"; 
 	      prebolus = document.getElementById("prebolus").value;
 	      getMealData(name);
       }
@@ -496,12 +496,12 @@
 	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ SET BUTTON ACTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~	
 		
-      $("#BreakfastButton").click(function() { resetVars(); eventType = "Meal Bolus"; getMealData("Breakfast"); });
-      $("#LunchButton").click(function() { resetVars(); eventType = "Meal Bolus"; getMealData("Lunch");  });
-      $("#DinnerButton").click(function() { resetVars(); eventType = "Meal Bolus"; getMealData("Dinner");  });
-      $("#MornSnackButton").click(function() { resetVars(); eventType = "Snack Bolus"; getMealData("Morning Snack"); });
-      $("#AftSnackButton").click(function() { resetVars(); eventType = "Snack Bolus"; getMealData("Afternoon Snack"); });
-      $("#EveSnackButton").click(function() { resetVars(); eventType = "Snack Bolus"; getMealData("Evening Snack"); });
+      $("#BreakfastButton").click(function() { calcFoodBolus("Meal", "Breakfast"); });
+      $("#LunchButton").click(function() { calcFoodBolus("Meal", "Lunch");  });
+      $("#DinnerButton").click(function() { calcFoodBolus("Meal", "Dinner");  });
+      $("#MornSnackButton").click(function() { calcFoodBolus("Snack", "Morning Snack"); });
+      $("#AftSnackButton").click(function() { calcFoodBolus("Snack", "Afternoon Snack"); });
+      $("#EveSnackButton").click(function() { calcFoodBolus("Snack", "Evening Snack"); });
       $("#CorrOnly").click(function() { resetVars(); eventType = "Correction Bolus"; bolusCalc(); });
       $("#EngineBraking").click(function() { resetVars(); eventType = "Temp Basal"; setTemp("Engine Braking"); });
       $("#SuperBolus").click(function() { resetVars(); eventType = "Temp Basal"; setTemp("Super Bolus"); });
