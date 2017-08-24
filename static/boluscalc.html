@@ -306,7 +306,7 @@
             additionalMessage = "Super bolus, wait till bend if possible.";
           }
           else{
-		  if(prebolus <= 5){ newBolusSuper = currBasal; //Super bolus }
+		  if(prebolus <= 5){ newBolusSuper = currBasal; } //Super bolus 
           additionalMessage = "Super bolus if eating immediately.";
           }
           if((carbs<=20) && (protein>20)){ 
@@ -317,7 +317,7 @@
           newBolusCorr = (currBG-BGgoal)/currSens; //Correction
           newBolusCarbs = ((carbs-fiber)/currCarbRatio); //Carbs
           if(carbs>30){
-          	if(prebolus <= 5){ newBolusSuper = currBasal; //Super bolus }
+          	if(prebolus <= 5){ newBolusSuper = currBasal; } //Super bolus 
             additionalMessage = "Super bolus if eating immediately.";
           }
           if((carbs<=20) && (protein>20)){ 
