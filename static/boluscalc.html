@@ -18,8 +18,8 @@
 	    select { width: 30%; }
       div.alt1{background-color: #d7f1f4; margin-bottom: 5px; padding: 8px;}
       div.alt2{background-color: #c0e9ed; margin-bottom: 5px; padding: 8px;}
-	    .leftbutton {margin-right: 1%;}
-	    .rightbutton {margin-left: 1%;}
+	    .leftcolumn { float: left; width: 50%; padding-left: 1%; padding-right: 1%; }
+	    .rightcolumn { float: left; width: 50%; padding-left: 1%; padding-right: 1%; }
     </style>
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
@@ -657,9 +657,17 @@
     <b>Meal or Snack</b><br/>
     <form id="mealform">	    
       Load meal:<br/>
-      <input id="BreakfastButton" type="button" value="Breakfast" class="leftbutton" /><input id="LunchButton" type="button" value="Lunch" class="rightbutton" /><br/>
-      <input id="DinnerButton" type="button" value="Dinner" class="leftbutton" /><input id="MornSnackButton" type="button" value="Morning Snack" class="rightbutton" /><br/>
-      <input id="AftSnackButton" type="button" value="Afternoon Snack" class="leftbutton" /><input id="EveSnackButton" type="button" value="Evening Snack" class="rightbutton" /><br/><br/>
+	    <div class="leftcolumn">
+		    <input id="BreakfastButton" type="button" value="Breakfast" /><br/>
+		    <input id="LunchButton" type="button" value="Lunch" /><br/>
+		    <input id="DinnerButton" type="button" value="Dinner" />
+	    </div>
+	    <div class="rightcolumn">
+		   <input id="MornSnackButton" type="button" value="Morning Snack" /><br/>
+		    <input id="AftSnackButton" type="button" value="Afternoon Snack" /><br/>
+		    <input id="EveSnackButton" type="button" value="Evening Snack" />
+	    </div>
+      
 	<select id="prebolus">
 	  <option value="0" selected="selected">0</option>
 	  <option value="5">5</option>
@@ -677,8 +685,8 @@
       <input type="number" step="0.1" id="fiber" placeholder="Grams" min="0" value="0" /> Fiber<br/><br/>
 	
       <!--<input type="button" id="TestButton" value="Process Test Data" /><br/><br/>-->
-	<input type="submit" id="suggest_meal" value="Manual entry" class="leftbutton" /><br/>
-      <input type="submit" id="submit_meal" value="Submit meal/snack" class="leftbutton" /><br/>
+	<input type="submit" id="suggest_meal" value="Manual entry" /><br/>
+      <input type="submit" id="submit_meal" value="Submit meal/snack" /><br/>
     </form>
     <div id="submission_meal"></div>
     <div id="results_meal"></div>
@@ -688,8 +696,8 @@
     <b>Correction Only</b><br/>	  
     <form id="correctionform">
 	    <input type="number" id="corrdose" step="0.01" min="0" /> Units<br/>
-	    <input type="button" id="CorrOnly" value="Suggest correction" class="leftbutton" />
-	    <input type="submit" id="submit_correction" value="Submit correction" class="leftbutton" />
+	    <input type="button" id="CorrOnly" value="Suggest correction" /><br/>
+	    <input type="submit" id="submit_correction" value="Submit correction" />
 	  </form>
 	  <div id="submission_correction"></div>
     <div id="results_correction"></div>
@@ -699,7 +707,7 @@
 <b>Carbs Only</b><br/>	
 	<form id="carbsonlyform">
 	<input type="number" step="0.1" id="corrCarbs" placeholder="Carbs in grams" min="0" value="8"/> Carbs<br/>
-	<input type="submit" id="submit_carbs" value="Submit carbs" class="leftbutton" /><br/>
+	<input type="submit" id="submit_carbs" value="Submit carbs" /><br/>
 	  </form>
 	  <div id="submission_carbsonly"></div>
 	  </div>
@@ -709,8 +717,14 @@
 	<form id="tempbasalform">
 	<input type="number" id="basalduration" placeholder="Minutes" min="0" /> Duration<br/>
       	<input type="number" id="basalpercent" placeholder="Basal change in %" min="-100" /> % Change<br/>
-	<input type="button" id="EngineBraking" value="Engine braking" class="leftbutton" /><input type="button" id="SuperBolus" value="Super bolus" class="rightbutton" /><br/>	
-	<input type="submit" id="submit_tempbasal" value="Submit" class="leftbutton" /><br/>
+	<div class="leftcolumn">
+	<input type="button" id="EngineBraking" value="Engine braking" /><br/>
+	<input type="submit" id="submit_tempbasal" value="Submit" />
+		</div>
+		<div class="rightcolumn">
+	<input type="button" id="SuperBolus" value="Super bolus" />
+		</div>
+	
 	  </form>
 	  <div id="submission_tempbasal"></div>
 	  </div>
@@ -719,8 +733,14 @@
 	  <b>Exercise</b><br/>	
 	<form id="exerciseform">
 	<input type="number" id="exerciseduration" placeholder="Minutes" min="0" /> Duration<br/>
-	<input type="button" id="Dance" value="Dance" class="leftbutton" /><input type="button" id="Yoga" value="Yoga" class="rightbutton" /><br/>
-	<input type="button" id="Other" value="Other" class="leftbutton" />
+		<div class="leftcolumn">
+	<input type="button" id="Dance" value="Dance" /><br/>
+	<input type="button" id="Other" value="Other" />
+		</div>
+		<div class="rightcolumn">
+			<input type="button" id="Yoga" value="Yoga" />
+		</div>
+	
 	  </form>
 	  <div id="submission_exercise"></div>
 	  </div>
@@ -729,7 +749,7 @@
 	   <b>Remove Pump</b><br/>	
 	<form id="removepumpform">
 	<input type="number" id="pumpoffduration" placeholder="Duration in minutes" min="0" /> Duration<br/>
-	<input type="submit" id="RemovePump" value="Submit" class="leftbutton" />
+	<input type="submit" id="RemovePump" value="Submit" />
 	  </form>
 	  <div id="submission_removepump"></div>
 	  </div>
