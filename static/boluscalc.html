@@ -15,13 +15,13 @@
       input[type=number] {width: 49%; margin-top: 5px; }
       div {width:100%; max-width: 350px;}
       form {width:100%; max-width: 350px;}
-	    select { width: 30%; }
+	    select { width: 30%; margin-top: 5px; }
       div.alt1{background-color: #d7f1f4; margin-bottom: 5px; padding: 8px;}
       div.alt2{background-color: #c0e9ed; margin-bottom: 5px; padding: 8px;}
-	    .leftcolumn { float: left; width: 50%; padding-right: 1%; }
+	    .leftcolumn { float: left; width: 50%; padding-right: 1%; height: 100%; }
 	    .leftcolumn input[type=button] {width: 100%; }
 	    .leftcolumn input[type=submit] {width: 100%; }
-	    .rightcolumn { float: left; width: 50%; padding-left: 1%; }
+	    .rightcolumn { float: left; width: 50%; padding-left: 1%; height: 100%; }
 	    .rightcolumn input[type=button] {width: 100%; }
 	    .rightcolumn input[type=submit] {width: 100%; }
     </style>
@@ -661,6 +661,7 @@
     <b>Meal or Snack</b><br/>
     <form id="mealform">	    
       Load meal:<br/>
+	    <div>
 	    <div class="leftcolumn">
 		    <input id="BreakfastButton" type="button" value="Breakfast" /><br/>
 		    <input id="LunchButton" type="button" value="Lunch" /><br/>
@@ -671,7 +672,8 @@
 		    <input id="AftSnackButton" type="button" value="Afternoon Snack" /><br/>
 		    <input id="EveSnackButton" type="button" value="Evening Snack" />
 	    </div>
-	    <br/>
+	    </div>
+	    <br/><br/>
 	<select id="prebolus">
 	  <option value="0" selected="selected">0</option>
 	  <option value="5">5</option>
@@ -718,11 +720,10 @@
 	  
 	  <div id="tempbasaldiv" class="alt1">
 	  <b>Temp Basal</b><br/>
-		  <div>
 	<form id="tempbasalform">
 	<input type="number" id="basalduration" placeholder="Minutes" min="0" /> Duration<br/>
       	<input type="number" id="basalpercent" placeholder="Basal change in %" min="-100" /> % Change<br/>
-		
+		<div>
 		<div class="leftcolumn">
 		<input type="button" id="EngineBraking" value="Engine braking" /><br/>
 		<input type="submit" id="submit_tempbasal" value="Submit" />
@@ -730,17 +731,16 @@
 		<div class="rightcolumn">
 		<input type="button" id="SuperBolus" value="Super bolus" />
 		</div>
-		
-	  </form></div>
+		</div>
+	  </form>
 	  <div id="submission_tempbasal"></div>
 	  </div>
 	  
 	  <div id="exercisediv" class="alt2">
 	  <b>Exercise</b><br/>	
-		  <div>
 	<form id="exerciseform">
 	<input type="number" id="exerciseduration" placeholder="Minutes" min="0" /> Duration<br/>
-		
+		<div>
 		<div class="leftcolumn">
 		<input type="button" id="Dance" value="Dance" /><br/>
 		<input type="button" id="Other" value="Other" />
@@ -748,9 +748,9 @@
 		<div class="rightcolumn">
 			<input type="button" id="Yoga" value="Yoga" />
 		</div>
-		
+		</div>
 	
-	  </form></div>
+	  </form>
 	  <div id="submission_exercise"></div>
 	  </div>
 	  
