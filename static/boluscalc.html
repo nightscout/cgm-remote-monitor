@@ -335,9 +335,16 @@
           newBolusCorr = (currBG-BGgoal)/currSens; //Correction
           newBolusCarbs = ((carbs-fiber)/currCarbRatio); //Carbs
           if((carbs>30) || (fat<20)){
-          	newBolusSuper = currBasal; //Super bolus
-		  //prebolus = 15;
-            additionalMessage = "Super bolus, wait till bend if possible.";
+		if((prebolus <= 10) && (fat<20)){ 
+			newBolusSuper = currBasal; 
+			additionalMessage = "Super bolus, wait till bend if possible.";		       
+		} //Super bolus 
+		else{
+			additionalMessage = "Wait till bend if possible.";
+		}
+          	if(prebolus>10){
+			additionalMessage = "Wait till bend if possible.";
+		}
           }
           else{
 		  if(prebolus <= 5){ newBolusSuper = currBasal; } //Super bolus 
