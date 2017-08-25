@@ -596,8 +596,12 @@
 	  finalcarbdose = $form.find( "input[id='carbdose_meal']" ).val(),
 	      finalextdose = $form.find( "input[id='extdose_meal']" ).val(),
 	      finalcorrdose = $form.find( "input[id='corrdose_meal']" ).val(),
-	      finalsuperdose = $form.find( "input[id='super_meal']" ).val();  
+	      finalsuperdose = $form.find( "input[id='super_meal']" ).val(); 
+	  console.log("Carb dose: "+finalcarbdose);
+	  console.log("Super dose: "+finalsuperdose);    
 	  var finalNonCorrNonExtDose = finalcarbdose+finalsuperdose;
+	  console.log("Sum: "+finalNonCorrNonExtDose);     
+	  console.log("Data type: "+typeOf finalNonCorrNonExtDose);   
 	  if(finalextdose > 0){ 
 		  //Get time
 		today = new Date(); // for now
@@ -625,7 +629,7 @@
 	  });
 	  var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":finalcorrdose,"eventType":"Correction Bolus","secret":secret } );
           posting2.done(function( data ) {
-            document.getElementById("submission_meal").innerHTML += " plus correction bolus";
+            //document.getElementById("submission_meal").innerHTML += " plus correction bolus";
           }); 
 	  posting2.fail(function( data) {
 	    document.getElementById("submission_meal").innerHTML += " WITHOUT correction bolus";  
@@ -634,10 +638,10 @@
 		  var posting3 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":"Temp Basal","notes":"Super bolus","secret":secret } );
 		  // Put the results in a div
 		  posting3.done(function( data ) {
-		    document.getElementById("submission_meal").innerHTML += " plus super bolus temp basal.";
+		    //document.getElementById("submission_meal").innerHTML += " plus super bolus temp basal.";
 		  }); 
 		  posting3.fail(function( data) {
-		    document.getElementById("submission_meal").innerHTML += " WITHOUT super bolus temp basal.";  
+		    document.getElementById("submission_meal").innerHTML += ", WITHOUT super bolus temp basal.";  
 		  });
 	  }
 	  var newTotal = 0;
