@@ -592,10 +592,10 @@
 	  cleardivs("Meal");
 	  var $form = $( this ),
 	  prebolus = $form.find( "select[id='prebolus']" ).val(),
-	  finalcarbdose = $form.find( "select[id='carbdose_meal']" ).val(),
-	      finalextdose = $form.find( "select[id='extdose_meal']" ).val(),
-	      finalcorrdose = $form.find( "select[id='corrdose_meal']" ).val(),
-	      finalsuperdose = $form.find( "select[id='super_meal']" ).val();
+	  finalcarbdose = $form.find( "input[id='carbdose_meal']" ).val(),
+	      finalextdose = $form.find( "input[id='extdose_meal']" ).val(),
+	      finalcorrdose = $form.find( "input[id='corrdose_meal']" ).val(),
+	      finalsuperdose = $form.find( "input[id='super_meal']" ).val();
 	  var finalCarbs = carbs-fiber;   
 	  if(finalextdose > 0){ 
 		  //Get time
@@ -784,7 +784,7 @@
 	<input type="button" id="suggest_meal" value="Manual entry" /><br/>
 	    <div id="results_meal"></div>
 	    <div id="results_mealdose">
-		<br/><br/><input type="number" step="0.01" id="carbdose_meal" min="0" value="0"/> Carbs
+		<input type="number" step="0.01" id="carbdose_meal" min="0" value="0"/> Carbs
 		<br/><input type="number" step="0.01" id="extdose_meal" min="0" value="0"/> Extended
 		<br/><input type="number" step="0.01" id="corrdose_meal" min="0" value="0"/> Correction
 		<br/><input type="number" step="0.01" id="super_meal" min="0" value="0"/> Super 
