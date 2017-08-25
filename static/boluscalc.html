@@ -630,19 +630,25 @@
 	  var $form = $( this ),
 	    pumpoffduration = $form.find( "input[id='pumpoffduration']" ).val();
 	  var insulinreco = (pumpoffduration/60)*currBasal;
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":insulinreco,"notes":"Shower","secret":secret } );
-          posting.done(function( data ) {
-            document.getElementById("submission_removepump").innerHTML = "Data submitted &#x1F44D Bolus "+insulinreco+" units before removing.";
-          }); 
-	  posting.fail(function( data) {
-	    document.getElementById("submission_removepump").innerHTML = "Data NOT submitted &#x1F44E Bolus "+insulinreco+" units before removing.";  
-	  });
+	  var addToReco = '';
+	  if(currBG >= BGgoal){
+		  var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":insulinreco,"notes":"Shower","secret":secret } );
+		  posting.done(function( data ) {
+		    document.getElementById("submission_removepump").innerHTML = "Data submitted &#x1F44D Bolus "+insulinreco+" units before removing. ";
+		  }); 
+		  posting.fail(function( data) {
+		    document.getElementById("submission_removepump").innerHTML = "Data NOT submitted &#x1F44E Bolus "+insulinreco+" units before removing. ";  
+		  });
+	  }
+	  else{
+		  addToReco = " No bolus required.";
+	  }
 	  var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","eventType":"Temp Basal","duration":pumpoffduration,"notes":"Shower","secret":secret } );
           posting2.done(function( data ) {
-            document.getElementById("submission_removepump").innerHTML += " Temp basal set.";
+            document.getElementById("submission_removepump").innerHTML += "Temp basal set."+addToReco;
           }); 
 	  posting2.fail(function( data) {
-	    document.getElementById("submission_removepump").innerHTML += " Temp basal NOT set.";  
+	    document.getElementById("submission_removepump").innerHTML += "Temp basal NOT set."+addToReco;  
 	  });
         });
       
@@ -757,7 +763,7 @@
 	  <div id="removepumpdiv" class="alt1">
 	   <b>Remove Pump</b><br/>	
 	<form id="removepumpform">
-	<input type="number" id="pumpoffduration" placeholder="Duration in minutes" min="0" /> Duration<br/>
+	<input type="number" id="pumpoffduration" placeholder="Minutes" min="0" /> Duration<br/>
 	<input type="submit" id="RemovePump" value="Submit" />
 	  </form>
 	  <div id="submission_removepump"></div>
