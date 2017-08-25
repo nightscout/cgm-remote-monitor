@@ -543,6 +543,13 @@
       $("#MornSnackButton").click(function() { calcFoodBolus("Snack", "Morning Snack"); });
       $("#AftSnackButton").click(function() { calcFoodBolus("Snack", "Afternoon Snack"); });
       $("#EveSnackButton").click(function() { calcFoodBolus("Snack", "Evening Snack"); });
+      $("#suggest_meal").click(function() { 
+		carbs = document.getElementById("carbs").value;
+		fat = document.getElementById("fat").value;  
+		protein = document.getElementById("protein").value;  
+		fiber = document.getElementById("fiber").value;
+	      	bolusCalcWFood("N/A");
+      });      
       $("#CorrOnly").click(function() { resetVars(); eventType = "Correction Bolus"; bolusCalc(); });
       $("#CarbsOnly").click(function() { resetVars(); eventType = "Carb Correction"; bolusCalc(); });
       $("#EngineBraking").click(function() { resetVars(); eventType = "Temp Basal"; setTemp("Engine Braking"); });
@@ -735,7 +742,7 @@
 		    <input id="EveSnackButton" type="button" value="Evening Snack" />
 	    </div>
 	    </div>
-	    <br/><br/>	    
+	    <br/>    
       Results:<br/>
       <input type="number" step="0.1" id="carbs" placeholder="Grams" min="0" value="0" /> Carbs<br/>
       <input type="number" step="0.1" id="fat" placeholder="Grams" min="0" value="0" /> Fat<br/>
@@ -743,11 +750,12 @@
       <input type="number" step="0.1" id="fiber" placeholder="Grams" min="0" value="0" /> Fiber<br/><br/>
 	
       <!--<input type="button" id="TestButton" value="Process Test Data" /><br/><br/>-->
-	<input type="submit" id="suggest_meal" value="Manual entry" /><br/>
+	<input type="button" id="suggest_meal" value="Manual entry" /><br/>
+	    <div id="results_meal"></div>
       <input type="submit" id="submit_meal" value="Submit meal/snack" /><br/>
     </form>
     <div id="submission_meal"></div>
-    <div id="results_meal"></div>
+    
 	  </div>
 
     <div id="correctiondiv" class="alt1">	  
