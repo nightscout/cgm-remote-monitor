@@ -138,22 +138,22 @@
 		document.getElementById("results_meal").innerHTML = "";
 		document.getElementById("submission_correction").innerHTML = "";
 		document.getElementById("results_correction").innerHTML = "";
-		document.getElementById("results_carbs").innerHTML = "";
 		document.getElementById("submission_carbsonly").innerHTML = "";
+		document.getElementById("results_carbs").innerHTML = "";
 		document.getElementById("submission_tempbasal").innerHTML = "";
 		document.getElementById("submission_exercise").innerHTML = "";
 		document.getElementById("submission_removepump").innerHTML = "";
 		
 	}    
 	      
-      function cleardivs(){
+      function cleardivs(exception){
 
 		document.getElementById("submission_meal").innerHTML = "";
-		document.getElementById("results_meal").innerHTML = "";
+	        if(exception != "Meal") { document.getElementById("results_meal").innerHTML = ""; }
 		document.getElementById("submission_correction").innerHTML = "";
-		document.getElementById("results_correction").innerHTML = "";
-	        document.getElementById("results_carbs").innerHTML = "";
+		if(exception != "Correction") { document.getElementById("results_correction").innerHTML = ""; }
 		document.getElementById("submission_carbsonly").innerHTML = "";
+	        if(exception != "Carbs") { document.getElementById("results_carbs").innerHTML = ""; }
 		document.getElementById("submission_tempbasal").innerHTML = "";
 		document.getElementById("submission_exercise").innerHTML = "";
 		document.getElementById("submission_removepump").innerHTML = "";
@@ -569,7 +569,7 @@
       });	
       $("#mealform").submit(function( event ) {
           event.preventDefault();
-	  cleardivs();
+	  cleardivs("Meal");
 	  var $form = $( this ),
 	  prebolus = $form.find( "select[id='prebolus']" ).val();
 	  var finalCarbs = (carbs-(fiber/2));
@@ -619,7 +619,7 @@
 	$("#correctionform").submit(function( event ) {
           // Stop form from submitting normally
           event.preventDefault();
-	  cleardivs();
+	  cleardivs("Correction");
           // Get some values from elements on the page
 	  var $form = $( this ),
 	    corrdose = $form.find( "input[id='corrdose']" ).val();
@@ -648,7 +648,7 @@
 	      
 	$("#carbsonlyform").submit(function( event ) {
           event.preventDefault();
-	  cleardivs();
+	  cleardivs("Carbs");
 	  var $form = $( this ),
 	    corrCarbs = $form.find( "input[id='corrCarbs']" ).val();
 	  eventType = "Carb Correction";
@@ -663,7 +663,7 @@
 	      
 	$("#tempbasalform").submit(function( event ) {
           event.preventDefault();
-	  cleardivs();
+	  cleardivs("N/A");
 	  var $form = $( this ),
 	    basald = $form.find( "input[id='basalduration']" ).val(),
 	    basalp = $form.find( "input[id='basalpercent']" ).val();
@@ -679,7 +679,7 @@
 	      
 	$("#removepumpform").submit(function( event ) {
           event.preventDefault();
-	  cleardivs();
+	  cleardivs("N/A");
 	  var $form = $( this ),
 	    pumpoffduration = $form.find( "input[id='pumpoffduration']" ).val();
 	  var insulinreco = (pumpoffduration/60)*currBasal;
