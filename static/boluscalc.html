@@ -10,8 +10,8 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous"> 
     <style>
       body {padding: 30px 30px 30px 30px;}
-      input[type=submit] {width: 50%; margin-top: 5px; }
-      input[type=button] {width: 50%; margin-top: 5px; }
+      input[type=submit] {width: 48%; margin-top: 5px; }
+      input[type=button] {width: 48%; margin-top: 5px; }
       input[type=number] {width: 50%; margin-top: 5px; }
       div {max-width: 300px;}
       form {max-width: 300px;}
@@ -671,10 +671,10 @@
 	</select> Carb time   
 	    <br/><br/>	    
       Results:<br/>
-      <input type="number" step="0.1" id="carbs" placeholder="Carbs in grams" min="0" /> Carbs<br/>
-      <input type="number" step="0.1" id="fat" placeholder="Fat in grams" min="0" /> Fat<br/>
-      <input type="number" step="0.1" id="protein" placeholder="Protein in grams" min="0" /> Protein<br/>
-      <input type="number" step="0.1" id="fiber" placeholder="Fiber in grams" min="0" /> Fiber<br/><br/>
+      <input type="number" step="0.1" id="carbs" placeholder="Grams" min="0" value="0" /> Carbs<br/>
+      <input type="number" step="0.1" id="fat" placeholder="Grams" min="0" value="0" /> Fat<br/>
+      <input type="number" step="0.1" id="protein" placeholder="Grams" min="0" value="0" /> Protein<br/>
+      <input type="number" step="0.1" id="fiber" placeholder="Grams" min="0" value="0" /> Fiber<br/><br/>
 	
       <!--<input type="button" id="TestButton" value="Process Test Data" /><br/><br/>-->
 	<input type="submit" id="suggest_meal" value="Manual entry" class="leftbutton" /><br/>
@@ -707,7 +707,7 @@
 	  <div id="tempbasaldiv" class="alt1">
 	  <b>Temp Basal</b><br/>	
 	<form id="tempbasalform">
-	<input type="number" id="basalduration" placeholder="Duration in minutes" min="0" /> Duration<br/>
+	<input type="number" id="basalduration" placeholder="Minutes" min="0" /> Duration<br/>
       	<input type="number" id="basalpercent" placeholder="Basal change in %" min="-100" /> % Change<br/>
 	<input type="button" id="EngineBraking" value="Engine braking" class="leftbutton" /><input type="button" id="SuperBolus" value="Super bolus" class="rightbutton" /><br/>	
 	<input type="submit" id="submit_tempbasal" value="Submit" class="leftbutton" /><br/>
@@ -718,7 +718,7 @@
 	  <div id="exercisediv" class="alt2">
 	  <b>Exercise</b><br/>	
 	<form id="exerciseform">
-	<input type="number" id="exerciseduration" placeholder="Duration in minutes" min="0" /> Duration<br/>
+	<input type="number" id="exerciseduration" placeholder="Minutes" min="0" /> Duration<br/>
 	<input type="button" id="Dance" value="Dance" class="leftbutton" /><input type="button" id="Yoga" value="Yoga" class="rightbutton" /><br/>
 	<input type="button" id="Other" value="Other" class="leftbutton" />
 	  </form>
