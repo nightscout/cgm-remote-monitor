@@ -190,8 +190,7 @@ describe('reports', function ( ) {
     , serverSettings: serverSettings
     , mockSimpleAjax: someData
     , benvRequires: [
-        __dirname + '/../bundle/bundle.source.js'
-      , __dirname + '/../static/report/js/report.js'
+       __dirname + '/../static/report/js/report.js'
       ]
     };
     headless.setup(opts, done);
@@ -228,8 +227,13 @@ describe('reports', function ( ) {
     client.init(function afterInit ( ) {
       client.dataUpdate(nowData);
 
+		console.log('Sending profile to client');
+
       // Load profile, we need to operate in UTC
       client.sbx.data.profile.loadData(exampleProfile);
+
+		console.log('Profile', client.sbx.data.profile);
+
 
       $('#treatments').addClass('selected');
       $('a.presetdates :first').click();
