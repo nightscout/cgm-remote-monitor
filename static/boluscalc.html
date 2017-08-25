@@ -71,6 +71,7 @@
       var fiber = 0;
       var eventType = '';
 	var basalnotes = '';
+	var netCarbs = 0;
 		
 	var newBolus = 0;
       var newBolusExt = 0;
@@ -301,6 +302,7 @@
 		fat = 0;
 		protein = 0;
 		fiber = 0;
+		netCarbs = 0;
 		document.getElementById("carbs").value = 0;
 		document.getElementById("fat").value = 0;  
 		document.getElementById("protein").value = 0;  
@@ -321,23 +323,27 @@
         totalBolus = 0;
         percentNow = 0;
         percentExt = 0;
+	netCarbs = 0;
 	
-        if(mealName == "Breakfast"){ fiber = fiber / 2; }
-        if(currBG>160){
-          newBolusCorr = (currBG-BGgoal)/currSens; //Correction
+        if(mealName == "Breakfast"){ 
+		netCarbs = carbs - (fiber / 2); 
+	}
+	else{
+		netCarbs = carbs-fiber;
+	}
+	newBolusCorr = (currBG-BGgoal)/currSens; //Correction
+	newBolusCarbs = netCarbs/currCarbRatio; //Carbs
+	      
+        if(currBG>160){  
           newBolusSuper = currBasal; //Super bolus
-          newBolusCarbs = ((carbs-fiber)/currCarbRatio); //Carbs
-	  //prebolus = 15;
           additionalMessage = "Super bolus, wait till bend.";
-          if((carbs<=20) && (protein>20)){ 
+          if((netCarbs<=20) && (protein>20)){ 
             newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
             additionalMessage = "Super bolus, wait till bend if possible.";
           }
         }
         else if(currBG>110){
-          newBolusCorr = (currBG-BGgoal)/currSens; //Correction
-          newBolusCarbs = ((carbs-fiber)/currCarbRatio); //Carbs
-          if((carbs>30) || (fat<20)){
+          if((netCarbs>30) || (fat<20)){
 		if((prebolus <= 10) && (fat<20)){ 
 			newBolusSuper = currBasal; 
 			additionalMessage = "Super bolus, wait till bend if possible.";		       
@@ -351,27 +357,23 @@
           }
           else{
 		  if(prebolus <= 5){ newBolusSuper = currBasal; } //Super bolus 
-          additionalMessage = "Super bolus if eating immediately.";
+          	additionalMessage = "Super bolus if eating immediately.";
           }
-          if((carbs<=20) && (protein>20)){ 
+          if((netCarbs<=20) && (protein>20)){ 
             newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
           }
         }
         else if(currBG>70){
-          newBolusCorr = (currBG-BGgoal)/currSens; //Correction
-          newBolusCarbs = ((carbs-fiber)/currCarbRatio); //Carbs
-          if(carbs>30){
+          if(netCarbs>30){
           	if(prebolus <= 5){ newBolusSuper = currBasal; } //Super bolus 
-            additionalMessage = "Super bolus if eating immediately.";
+            	additionalMessage = "Super bolus if eating immediately.";
           }
-          if((carbs<=20) && (protein>20)){ 
+          if((netCarbs<=20) && (protein>20)){ 
             newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
           }
         }
         else{
-          newBolusCorr = (currBG-BGgoal)/currSens; //Correction UP
-          newBolusCarbs = ((carbs-fiber)/currCarbRatio); //Carbs
-          if((carbs<=20) && (protein>20)){ 
+          if((netCarbs<=20) && (protein>20)){ 
             newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
           }
         }
@@ -387,7 +389,7 @@
         percentExt = (newBolusExt/totalBolus)*100;
         if(newBolus<0){
         	addCarbs = (BGgoal-currBG)/(currSens/currCarbRatio);
-          document.getElementById("results_meal").innerHTML = "<br/>Need more carbs! Eat "+addCarbs.toFixed(0)+"g. &#x1F36C";
+          	document.getElementById("results_meal").innerHTML = "<br/>Need more carbs! Eat "+addCarbs.toFixed(0)+"g. &#x1F36C";
         }
         else{
 	  var extBolusText = '';
@@ -404,7 +406,6 @@
 		document.getElementById("corrdose_meal").value = newBolusCorr.toFixed(2);
 		document.getElementById("super_meal").value = newBolusSuper.toFixed(2);
 			
-	  //document.getElementById("prebolus").value = prebolus;
         }
       }
       
@@ -595,8 +596,7 @@
 	  finalcarbdose = $form.find( "input[id='carbdose_meal']" ).val(),
 	      finalextdose = $form.find( "input[id='extdose_meal']" ).val(),
 	      finalcorrdose = $form.find( "input[id='corrdose_meal']" ).val(),
-	      finalsuperdose = $form.find( "input[id='super_meal']" ).val();
-	  var finalCarbs = carbs-fiber;  
+	      finalsuperdose = $form.find( "input[id='super_meal']" ).val();  
 	  var finalNonCorrNonExtDose = finalcarbdose+finalsuperdose;
 	  if(finalextdose > 0){ 
 		  //Get time
@@ -616,7 +616,7 @@
 		}
 			     
 	}
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":finalCarbs,"insulin":finalNonCorrNonExtDose,"eventType":eventType,"preBolus":prebolus,"secret":secret } );
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":netCarbs,"insulin":finalNonCorrNonExtDose,"eventType":eventType,"preBolus":prebolus,"secret":secret } );
           posting.done(function( data ) {
             document.getElementById("submission_meal").innerHTML = "Data submitted &#x1F44D";
           }); 
