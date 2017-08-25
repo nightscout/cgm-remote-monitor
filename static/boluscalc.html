@@ -387,12 +387,19 @@
           document.getElementById("results_meal").innerHTML = "<br/>Need more carbs! Eat "+addCarbs.toFixed(0)+"g. &#x1F36C";
         }
         else{
-        	if(newBolusExt == 0){
-          	document.getElementById("results_meal").innerHTML = "<br/>Recommended bolus: "+ totalBolus.toFixed(2)+". "+ additionalMessage +"<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
-          }
-          else{
-          	document.getElementById("results_meal").innerHTML = "<br/>Recommended bolus: "+ totalBolus.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 2 hours. "+ additionalMessage +"<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
-          }
+	  var extBolusText = '';
+	  if(newBolusExt > 0){
+		  extBolusText = " ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 2 hours. ";
+	  }
+	  else{ extBolusText = ". "; }	
+
+          	document.getElementById("results_meal").innerHTML = "<br/>Recommended bolus: "
+			+ totalBolus.toFixed(2)+ extBolusText + additionalMessage 
+			+'<br/><br/><input type="number" step="0.01" id="carbdose_meal" min="0" value="'+newBolusCarbs.toFixed(2)+'"/> Carbs'
+		  	+'<br/><input type="number" step="0.01" id="extdose_meal" min="0" value="'+newBolusExt.toFixed(2)+'"/> Extended'
+		  	+'<br/><input type="number" step="0.01" id="corrdose_meal" min="0" value="'+newBolusCorr.toFixed(2)+'"/> Correction'
+		  	+'<br/><input type="number" step="0.01" id="super_meal" min="0" value="'+newBolusSuper.toFixed(2)+'"/> Super'; 
+
 	  //document.getElementById("prebolus").value = prebolus;
         }
       }
@@ -556,6 +563,7 @@
 		fat = document.getElementById("fat").value;  
 		protein = document.getElementById("protein").value;  
 		fiber = document.getElementById("fiber").value;
+	        eventType = "Meal Bolus";
 	      	bolusCalcWFood("N/A");
       });      
       $("#CorrOnly").click(function() { resetVars(); eventType = "Correction Bolus"; bolusCalc(); });
@@ -579,14 +587,18 @@
           event.preventDefault();
 	  cleardivs("Meal");
 	  var $form = $( this ),
-	  prebolus = $form.find( "select[id='prebolus']" ).val();
-	  var finalCarbs = (carbs-(fiber/2));
-	  if(newBolusExt > 0){ 
+	  prebolus = $form.find( "select[id='prebolus']" ).val(),
+	  finalcarbdose = $form.find( "select[id='carbdose_meal']" ).val(),
+	      finalextdose = $form.find( "select[id='extdose_meal']" ).val(),
+	      finalcorrdose = $form.find( "select[id='corrdose_meal']" ).val(),
+	      finalsuperdose = $form.find( "select[id='super_meal']" ).val();
+	  var finalCarbs = carbs-fiber;   
+	  if(finalextdose > 0){ 
 		  //Get time
 		today = new Date(); // for now
 		//Divide time
 		var newDate = new Date(today);
-		var insulinDiv = newBolusExt/12.0;
+		var insulinDiv = finalextdose/12.0;
 		var t;
 		var UTCMonth;
 		for (t = 0; t < 12; t++){
@@ -599,21 +611,21 @@
 		}
 			     
 	}
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":finalCarbs,"insulin":(newBolus-newBolusCorr),"eventType":eventType,"preBolus":prebolus,"secret":secret } );
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":finalCarbs,"insulin":(finalcarbdose+finalextdose+finalsuperdose),"eventType":eventType,"preBolus":prebolus,"secret":secret } );
           posting.done(function( data ) {
             document.getElementById("submission_meal").innerHTML = "Data submitted &#x1F44D";
           }); 
 	  posting.fail(function( data) {
 	    document.getElementById("submission_meal").innerHTML = "Data NOT submitted &#x1F44E";  
 	  });
-	  var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":newBolusCorr,"eventType":"Correction Bolus","secret":secret } );
+	  var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":finalcorrdose,"eventType":"Correction Bolus","secret":secret } );
           posting2.done(function( data ) {
             document.getElementById("submission_meal").innerHTML += " plus correction bolus";
           }); 
 	  posting2.fail(function( data) {
 	    document.getElementById("submission_meal").innerHTML += " WITHOUT correction bolus";  
 	  });
-	      if(newBolusSuper>0){
+	      if(finalsuperdose>0){
 		  var posting3 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":"Temp Basal","notes":"Super bolus","secret":secret } );
 		  // Put the results in a div
 		  posting3.done(function( data ) {
@@ -623,6 +635,13 @@
 		    document.getElementById("submission_meal").innerHTML += " WITHOUT super bolus temp basal.";  
 		  });
 	  }
+	  var newTotal = 0;
+	  if((finalcarbdose != newBolusCarbs) || (finalextdose != newBolusExt) || (finalcorrdose != newBolusCorr) || (finalsuperdose != newBolusSuper)){
+		  newTotal = finalcarbdose+finalextdose+finalcorrdose+finalsuperdose;
+		  percentNow = ((finalcarbdose+finalcorrdose+finalsuperdose)/newTotal)*100;
+		  percentExt = (finalextdose/newTotal)*100;
+		  document.getElementById("submission_meal").innerHTML += "<br/><br/>New total: "+newTotal.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+(finalcarbdose+finalcorrdose+finalsuperdose).toFixed(2)+" + "+finalextdose.toFixed(2)+" extended over 2 hours. "
+	  } 
         });
 	$("#correctionform").submit(function( event ) {
           // Stop form from submitting normally
