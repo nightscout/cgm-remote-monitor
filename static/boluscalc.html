@@ -596,7 +596,8 @@
 	      finalextdose = $form.find( "input[id='extdose_meal']" ).val(),
 	      finalcorrdose = $form.find( "input[id='corrdose_meal']" ).val(),
 	      finalsuperdose = $form.find( "input[id='super_meal']" ).val();
-	  var finalCarbs = carbs-fiber;   
+	  var finalCarbs = carbs-fiber;  
+	  var finalNonCorrNonExtDose = finalcarbdose+finalsuperdose;
 	  if(finalextdose > 0){ 
 		  //Get time
 		today = new Date(); // for now
@@ -615,7 +616,7 @@
 		}
 			     
 	}
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":finalCarbs,"insulin":(finalcarbdose+finalextdose+finalsuperdose),"eventType":eventType,"preBolus":prebolus,"secret":secret } );
+          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":finalCarbs,"insulin":finalNonCorrNonExtDose,"eventType":eventType,"preBolus":prebolus,"secret":secret } );
           posting.done(function( data ) {
             document.getElementById("submission_meal").innerHTML = "Data submitted &#x1F44D";
           }); 
