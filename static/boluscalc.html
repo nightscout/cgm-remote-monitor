@@ -24,6 +24,7 @@
 	    .rightcolumn { float: left; width: 50%; padding-left: 1%; height: 100%; }
 	    .rightcolumn input[type=button] {width: 100%; }
 	    .rightcolumn input[type=submit] {width: 100%; }
+	    .columnwrap { float: left; width: 100%; }
     </style>
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
@@ -661,7 +662,7 @@
     <b>Meal or Snack</b><br/>
     <form id="mealform">	    
       Load meal:<br/>
-	    <div>
+	    <div class="columnwrap">
 	    <div class="leftcolumn">
 		    <input id="BreakfastButton" type="button" value="Breakfast" /><br/>
 		    <input id="LunchButton" type="button" value="Lunch" /><br/>
@@ -723,7 +724,7 @@
 	<form id="tempbasalform">
 	<input type="number" id="basalduration" placeholder="Minutes" min="0" /> Duration<br/>
       	<input type="number" id="basalpercent" placeholder="Basal change in %" min="-100" /> % Change<br/>
-		<div>
+		<div class="columnwrap">
 		<div class="leftcolumn">
 		<input type="button" id="EngineBraking" value="Engine braking" /><br/>
 		<input type="submit" id="submit_tempbasal" value="Submit" />
@@ -740,7 +741,7 @@
 	  <b>Exercise</b><br/>	
 	<form id="exerciseform">
 	<input type="number" id="exerciseduration" placeholder="Minutes" min="0" /> Duration<br/>
-		<div>
+		<div class="columnwrap">
 		<div class="leftcolumn">
 		<input type="button" id="Dance" value="Dance" /><br/>
 		<input type="button" id="Other" value="Other" />
