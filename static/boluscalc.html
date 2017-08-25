@@ -593,15 +593,11 @@
 	  cleardivs("Meal");
 	  var $form = $( this ),
 	  prebolus = $form.find( "select[id='prebolus']" ).val(),
-	  finalcarbdose = $form.find( "input[id='carbdose_meal']" ).val(),
-	      finalextdose = $form.find( "input[id='extdose_meal']" ).val(),
-	      finalcorrdose = $form.find( "input[id='corrdose_meal']" ).val(),
-	      finalsuperdose = $form.find( "input[id='super_meal']" ).val(); 
-	  console.log("Carb dose: "+finalcarbdose);
-	  console.log("Super dose: "+finalsuperdose);    
-	  var finalNonCorrNonExtDose = finalcarbdose+finalsuperdose;
-	  console.log("Sum: "+finalNonCorrNonExtDose);     
-	  console.log("Data type: "+typeOf(finalNonCorrNonExtDose));   
+	  finalcarbdose = parseFloat($form.find( "input[id='carbdose_meal']" ).val()),
+	      finalextdose = parseFloat($form.find( "input[id='extdose_meal']" ).val()),
+	      finalcorrdose = parseFloat($form.find( "input[id='corrdose_meal']" ).val()),
+	      finalsuperdose = parseFloat($form.find( "input[id='super_meal']" ).val());  
+	  var finalNonCorrNonExtDose = finalcarbdose+finalsuperdose;   
 	  if(finalextdose > 0){ 
 		  //Get time
 		today = new Date(); // for now
@@ -750,7 +746,8 @@
 
     <div id="statusdiv" class="alt1">  
     <b>Current Stats</b><br/>	  
-    <div id="resultsBG"></div>
+    <div id="resultsBG">BG: --<br/>BG Trend: --<br/>30 min delta: --<br/>60 min delta: --
+	    </div>
 	  </div>
 	  
     <div id="mealdiv" class="alt2">
