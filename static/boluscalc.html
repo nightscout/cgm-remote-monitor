@@ -10,14 +10,16 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous"> 
     <style>
       body {padding: 30px 30px 30px 30px;}
-      input[type=submit] {width: 50%; margin-top: 5px; margin-bottom: 5px;}
-      input[type=button] {width: 50%; margin-top: 5px; margin-bottom: 5px;}
-      input[type=number] {width: 50%;}
-      input[type=text] {width: 100%;}
+      input[type=submit] {width: 50%; margin-top: 5px; }
+      input[type=button] {width: 50%; margin-top: 5px; }
+      input[type=number] {width: 50%; margin-top: 5px; }
       div {max-width: 300px;}
       form {max-width: 300px;}
-      div.alt1{background-color: #d7f1f4; margin-bottom: 5px; padding: 5px;}
-      div.alt2{background-color: #c0e9ed; margin-bottom: 5px; padding: 5px;}
+	    select { width: 30%; }
+      div.alt1{background-color: #d7f1f4; margin-bottom: 5px; padding: 8px;}
+      div.alt2{background-color: #c0e9ed; margin-bottom: 5px; padding: 8px;}
+	    .leftbutton {margin-right: 2px;}
+	    .rightbutton {margin-left: 2px;}
     </style>
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
@@ -345,14 +347,14 @@
         percentExt = (newBolusExt/totalBolus)*100;
         if(newBolus<0){
         	addCarbs = (BGgoal-currBG)/(currSens/currCarbRatio);
-          document.getElementById("results_meal").innerHTML = "Need more carbs! Eat "+addCarbs+"g. &#x1F36C";
+          document.getElementById("results_meal").innerHTML = "<br/>Need more carbs! Eat "+addCarbs+"g. &#x1F36C";
         }
         else{
         	if(newBolusExt == 0){
-          	document.getElementById("results_meal").innerHTML = "Recommended bolus: "+ totalBolus.toFixed(2)+". "+ additionalMessage +"<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
+          	document.getElementById("results_meal").innerHTML = "<br/>Recommended bolus: "+ totalBolus.toFixed(2)+". "+ additionalMessage +"<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
           }
           else{
-          	document.getElementById("results_meal").innerHTML = "Recommended bolus: "+ totalBolus.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 2 hours. "+ additionalMessage +"<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
+          	document.getElementById("results_meal").innerHTML = "<br/>Recommended bolus: "+ totalBolus.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 2 hours. "+ additionalMessage +"<br/><br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+"<br/>Carbs: "+newBolusCarbs.toFixed(2)+"<br/>Protein: "+newBolusProtein.toFixed(2); 
           }
 	  //document.getElementById("prebolus").value = prebolus;
         }
@@ -381,13 +383,13 @@
         newBolus = newBolusCorr + newBolusSuper;
         if(newBolus<0){
         	addCarbs = (BGgoal-currBG)/(currSens/currCarbRatio);
-          document.getElementById("results_correction").innerHTML = "Need more carbs! Eat "+addCarbs+"g. &#x1F36C";
+          document.getElementById("results_correction").innerHTML = "<br/>Need more carbs! Eat "+addCarbs+"g. &#x1F36C";
         }
         else if (newBolus==0){
-          document.getElementById("results_correction").innerHTML = "All good! &#x1F600";
+          document.getElementById("results_correction").innerHTML = "<br/>All good! &#x1F600";
         }
         else{ 
-          document.getElementById("results_correction").innerHTML = "Recommended bolus: "+newBolus.toFixed(2)+". "+ additionalMessage +"<br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2);
+          document.getElementById("results_correction").innerHTML = "<br/>Recommended bolus: "+newBolus.toFixed(2)+". "+ additionalMessage +"<br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2);
 	  document.getElementById("corrdose").value = newBolus;
         }
       }
@@ -655,9 +657,9 @@
     <b>Meal or Snack</b><br/>
     <form id="mealform">	    
       Load meal:<br/>
-      <input id="BreakfastButton" type="button" value="Breakfast" /><input id="LunchButton" type="button" value="Lunch" /><br/>
-      <input id="DinnerButton" type="button" value="Dinner" /><input id="MornSnackButton" type="button" value="Morning Snack" /><br/>
-      <input id="AftSnackButton" type="button" value="Afternoon Snack" /><input id="EveSnackButton" type="button" value="Evening Snack" /><br/><br/>
+      <input id="BreakfastButton" type="button" value="Breakfast" class="leftbutton" /><input id="LunchButton" type="button" value="Lunch" class="rightbutton" /><br/>
+      <input id="DinnerButton" type="button" value="Dinner" class="leftbutton" /><input id="MornSnackButton" type="button" value="Morning Snack" class="rightbutton" /><br/>
+      <input id="AftSnackButton" type="button" value="Afternoon Snack" class="leftbutton" /><input id="EveSnackButton" type="button" value="Evening Snack" class="rightbutton" /><br/><br/>
 	<select id="prebolus">
 	  <option value="0" selected="selected">0</option>
 	  <option value="5">5</option>
@@ -675,11 +677,10 @@
       <input type="number" step="0.1" id="fiber" placeholder="Fiber in grams" min="0" /> Fiber<br/><br/>
 	
       <!--<input type="button" id="TestButton" value="Process Test Data" /><br/><br/>-->
-	<input type="submit" id="suggest_meal" value="Manual entry" /><br/>
-      <input type="submit" id="submit_meal" value="Submit meal/snack" /><br/>
+	<input type="submit" id="suggest_meal" value="Manual entry" class="leftbutton" /><br/>
+      <input type="submit" id="submit_meal" value="Submit meal/snack" class="leftbutton" /><br/>
     </form>
     <div id="submission_meal"></div>
-    <br/>
     <div id="results_meal"></div>
 	  </div>
 
@@ -687,11 +688,10 @@
     <b>Correction Only</b><br/>	  
     <form id="correctionform">
 	    <input type="number" id="corrdose" step="0.01" min="0" /> Units<br/>
-	    <input type="button" id="CorrOnly" value="Suggest correction" />
-	    <input type="submit" id="submit_correction" value="Submit correction" />
+	    <input type="button" id="CorrOnly" value="Suggest correction" class="leftbutton" />
+	    <input type="submit" id="submit_correction" value="Submit correction" class="leftbutton" />
 	  </form>
 	  <div id="submission_correction"></div>
-	  <br/>
     <div id="results_correction"></div>
 	  </div>
 	  
@@ -699,7 +699,7 @@
 <b>Carbs Only</b><br/>	
 	<form id="carbsonlyform">
 	<input type="number" step="0.1" id="corrCarbs" placeholder="Carbs in grams" min="0" value="8"/> Carbs<br/>
-	<input type="submit" id="submit_carbs" value="Submit carbs" /><br/>
+	<input type="submit" id="submit_carbs" value="Submit carbs" class="leftbutton" /><br/>
 	  </form>
 	  <div id="submission_carbsonly"></div>
 	  </div>
@@ -709,8 +709,8 @@
 	<form id="tempbasalform">
 	<input type="number" id="basalduration" placeholder="Duration in minutes" min="0" /> Duration<br/>
       	<input type="number" id="basalpercent" placeholder="Basal change in %" min="-100" /> % Change<br/>
-	<input type="button" id="EngineBraking" value="Engine braking" /><input type="button" id="SuperBolus" value="Super bolus" /><br/>	
-	<input type="submit" id="submit_tempbasal" value="Submit" /><br/>
+	<input type="button" id="EngineBraking" value="Engine braking" class="leftbutton" /><input type="button" id="SuperBolus" value="Super bolus" class="rightbutton" /><br/>	
+	<input type="submit" id="submit_tempbasal" value="Submit" class="leftbutton" /><br/>
 	  </form>
 	  <div id="submission_tempbasal"></div>
 	  </div>
@@ -719,8 +719,8 @@
 	  <b>Exercise</b><br/>	
 	<form id="exerciseform">
 	<input type="number" id="exerciseduration" placeholder="Duration in minutes" min="0" /> Duration<br/>
-	<input type="button" id="Dance" value="Dance" /><input type="button" id="Yoga" value="Yoga" /><br/>
-	<input type="button" id="Other" value="Other" />
+	<input type="button" id="Dance" value="Dance" class="leftbutton" /><input type="button" id="Yoga" value="Yoga" class="rightbutton" /><br/>
+	<input type="button" id="Other" value="Other" class="leftbutton" />
 	  </form>
 	  <div id="submission_exercise"></div>
 	  </div>
@@ -729,7 +729,7 @@
 	   <b>Remove Pump</b><br/>	
 	<form id="removepumpform">
 	<input type="number" id="pumpoffduration" placeholder="Duration in minutes" min="0" /> Duration<br/>
-	<input type="submit" id="RemovePump" value="Submit" />
+	<input type="submit" id="RemovePump" value="Submit" class="leftbutton" />
 	  </form>
 	  <div id="submission_removepump"></div>
 	  </div>
