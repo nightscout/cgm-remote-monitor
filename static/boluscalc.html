@@ -661,7 +661,6 @@
     <b>Meal or Snack</b><br/>
     <form id="mealform">	    
       Load meal:<br/>
-	    <div>
 	    <div class="leftcolumn">
 		    <input id="BreakfastButton" type="button" value="Breakfast" /><br/>
 		    <input id="LunchButton" type="button" value="Lunch" /><br/>
@@ -672,7 +671,7 @@
 		    <input id="AftSnackButton" type="button" value="Afternoon Snack" /><br/>
 		    <input id="EveSnackButton" type="button" value="Evening Snack" />
 	    </div>
-	    </div>
+	    <br/>
 	<select id="prebolus">
 	  <option value="0" selected="selected">0</option>
 	  <option value="5">5</option>
@@ -718,11 +717,12 @@
 	  </div>
 	  
 	  <div id="tempbasaldiv" class="alt1">
-	  <b>Temp Basal</b><br/>	
+	  <b>Temp Basal</b><br/>
+		  <div>
 	<form id="tempbasalform">
 	<input type="number" id="basalduration" placeholder="Minutes" min="0" /> Duration<br/>
       	<input type="number" id="basalpercent" placeholder="Basal change in %" min="-100" /> % Change<br/>
-		<div>
+		
 		<div class="leftcolumn">
 		<input type="button" id="EngineBraking" value="Engine braking" /><br/>
 		<input type="submit" id="submit_tempbasal" value="Submit" />
@@ -730,16 +730,17 @@
 		<div class="rightcolumn">
 		<input type="button" id="SuperBolus" value="Super bolus" />
 		</div>
-		</div>
-	  </form>
+		
+	  </form></div>
 	  <div id="submission_tempbasal"></div>
 	  </div>
 	  
 	  <div id="exercisediv" class="alt2">
 	  <b>Exercise</b><br/>	
+		  <div>
 	<form id="exerciseform">
 	<input type="number" id="exerciseduration" placeholder="Minutes" min="0" /> Duration<br/>
-		<div>
+		
 		<div class="leftcolumn">
 		<input type="button" id="Dance" value="Dance" /><br/>
 		<input type="button" id="Other" value="Other" />
@@ -747,9 +748,9 @@
 		<div class="rightcolumn">
 			<input type="button" id="Yoga" value="Yoga" />
 		</div>
-		</div>
+		
 	
-	  </form>
+	  </form></div>
 	  <div id="submission_exercise"></div>
 	  </div>
 	  
