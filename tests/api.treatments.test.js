@@ -90,7 +90,7 @@ describe('Treatment API', function ( ) {
   it('post a treatment array and dedupe', function (done) {
     // test if deduping works. Starting with 0.9.0 Nightscout always stores created_at in UTC format, so even if a timezone is supplied it should dedupe records that have same time, but UTC or TimeZone notation
     self.ctx.treatments().remove({ }, function ( ) {
-      var now_utc= (new Date()).toISOString();
+      var now_utc= (new Date().setMilliseconds(0)).toISOString(); // current time, with 0 milliseconds, because the moment library seems to reset milliseconds with some timezone conversions
       // try different timezones as input                                      UTC offset UTC DST offset
       var now_amsterdam = moment(now_utc).tz("Europe/Amsterdam").format() ; // +01:00      +02:00
       var now_stjohns = moment(now_utc).tz("America/St_Johns").format() ;   // -03:30      -02:30
@@ -104,16 +104,16 @@ describe('Treatment API', function ( ) {
         .set('api-secret', self.env.api_secret || '')
         .send([
           {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now_utc}
-          , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now_utc} // duplicate records must be deduped
+          , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now_utc} // duplicate records must be deduped based on their created_at timestamp
           , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now_amsterdam} // even if they are another timezone format
           , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now_stjohns}
           , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now_kabul}
           , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now_apia}
           , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now_gmt12}
           , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now_honolulu}
-          , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now_amsterdam}
-          , {eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'} // NS uses now if no created_at is sent. QUESTION: what to do if BG Check and Meal Bolus have different glucose value?
           , {eventType: 'BG Check', glucose: 80, units: 'mg/dl', created_at: yesterday_amsterdam} // out of order should be sorted
+          , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now_amsterdam}
+          , {eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucose: 101, glucoseType: 'Finger', units: 'mg/dl'} // NS uses current time if no created_at is sent
         ])
         .expect(200)
         .end(function (err) {
@@ -121,13 +121,22 @@ describe('Treatment API', function ( ) {
             done(err);
           } else {
             self.ctx.treatments.list({}, function (err, list) {
-               // the treatment list should be always sorted
-              if (list.length !== 3) {
+               // the treatment list should be always sorted (most recent created_at first)
+              console.info('debug treatments:', list);
+              if (list.length !== 4) {
                 console.info('unexpected result length, treatments:', list);
               }
               list.length.should.equal(4);
-              list[0].glucose.should.equal(80);
-              list[1].glucose.should.equal(100);
+              list[0].eventType.should.equal("Meal Bolus"); 
+              list[0].carbs.should.equal(30); // there should be a 'Meals Bolus' records with only the carbs 15 minutes before
+              list[1].eventType.should.equal("Meal Bolus"); // 
+              list[1].glucose.should.equal(101);
+              list[1].preBolus.should.equal(15);
+              list[1].insulin.should.equal(2);
+              list[2].eventType.should.equal("BG Check"); // only one BG Check record on current time is returned
+              list[2].glucose.should.equal(100);
+              list[3].eventType.should.equal("BG Check"); // yesterday_amsterdam record
+              list[3].glucose.should.equal(80);
               done();
             });
           }

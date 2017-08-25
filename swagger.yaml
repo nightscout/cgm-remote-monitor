@@ -330,7 +330,7 @@ paths:
   /treatments:
     get:
       summary: Treatments
-      description: The Treatments endpoint returns information about the Nightscout treatments. 
+      description: The Treatments endpoint returns information about the Nightscout treatments.
       tags:
         - Treatments
       parameters:
