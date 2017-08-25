@@ -25,6 +25,7 @@
 	    .rightcolumn input[type=button] {width: 100%; }
 	    .rightcolumn input[type=submit] {width: 100%; }
 	    .columnwrap { width: 100%; display: table; }
+	    #results_mealdose { display: none; }    
     </style>
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
@@ -136,6 +137,7 @@
 
 		document.getElementById("submission_meal").innerHTML = "";
 		document.getElementById("results_meal").innerHTML = "";
+		$("#results_mealdose").hide();
 		document.getElementById("submission_correction").innerHTML = "";
 		document.getElementById("results_correction").innerHTML = "";
 		document.getElementById("submission_carbsonly").innerHTML = "";
@@ -149,7 +151,8 @@
       function cleardivs(exception){
 
 		document.getElementById("submission_meal").innerHTML = "";
-	        if(exception != "Meal") { document.getElementById("results_meal").innerHTML = ""; }
+	        if(exception != "Meal") { document.getElementById("results_meal").innerHTML = ""; 
+					$("#results_mealdose").hide();}
 		document.getElementById("submission_correction").innerHTML = "";
 		if(exception != "Correction") { document.getElementById("results_correction").innerHTML = ""; }
 		document.getElementById("submission_carbsonly").innerHTML = "";
@@ -302,7 +305,7 @@
 		document.getElementById("fat").value = 0;  
 		document.getElementById("protein").value = 0;  
 		document.getElementById("fiber").value = 0;
-		document.getElementById("prebolus").value = 0;
+		//document.getElementById("prebolus").value = 0;
 	}
       
       function bolusCalcWFood(mealName){
@@ -394,12 +397,13 @@
 	  else{ extBolusText = ". "; }	
 
           	document.getElementById("results_meal").innerHTML = "<br/>Recommended bolus: "
-			+ totalBolus.toFixed(2)+ extBolusText + additionalMessage 
-			+'<br/><br/><input type="number" step="0.01" id="carbdose_meal" min="0" value="'+newBolusCarbs.toFixed(2)+'"/> Carbs'
-		  	+'<br/><input type="number" step="0.01" id="extdose_meal" min="0" value="'+newBolusExt.toFixed(2)+'"/> Extended'
-		  	+'<br/><input type="number" step="0.01" id="corrdose_meal" min="0" value="'+newBolusCorr.toFixed(2)+'"/> Correction'
-		  	+'<br/><input type="number" step="0.01" id="super_meal" min="0" value="'+newBolusSuper.toFixed(2)+'"/> Super'; 
-
+			+ totalBolus.toFixed(2)+ extBolusText + additionalMessage;
+		$("#results_mealdose").show();
+		document.getElementById("carbdose_meal").value = newBolusCarbs.toFixed(2);
+		document.getElementById("extdose_meal").value = newBolusExt.toFixed(2);
+		document.getElementById("corrdose_meal").value = newBolusCorr.toFixed(2);
+		document.getElementById("super_meal").value = newBolusSuper.toFixed(2);
+			
 	  //document.getElementById("prebolus").value = prebolus;
         }
       }
@@ -779,6 +783,12 @@
       <!--<input type="button" id="TestButton" value="Process Test Data" /><br/><br/>-->
 	<input type="button" id="suggest_meal" value="Manual entry" /><br/>
 	    <div id="results_meal"></div>
+	    <div id="results_mealdose">
+		<br/><br/><input type="number" step="0.01" id="carbdose_meal" min="0" value="0"/> Carbs
+		<br/><input type="number" step="0.01" id="extdose_meal" min="0" value="0"/> Extended
+		<br/><input type="number" step="0.01" id="corrdose_meal" min="0" value="0"/> Correction
+		<br/><input type="number" step="0.01" id="super_meal" min="0" value="0"/> Super 
+	    </div>
       <input type="submit" id="submit_meal" value="Submit meal/snack" /><br/>
     </form>
     <div id="submission_meal"></div>
