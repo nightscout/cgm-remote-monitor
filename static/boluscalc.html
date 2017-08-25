@@ -10,14 +10,14 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous"> 
     <style>
       body {padding: 30px 30px 30px 30px;}
-      input[type=submit] {width: 50%; padding-top: 5px; padding-bottom: 5px;}
-      input[type=button] {width: 50%; padding-top: 5px; padding-bottom: 5px;}
+      input[type=submit] {width: 50%; margin-top: 5px; margin-bottom: 5px;}
+      input[type=button] {width: 50%; margin-top: 5px; margin-bottom: 5px;}
       input[type=number] {width: 50%;}
       input[type=text] {width: 100%;}
       div {max-width: 300px;}
       form {max-width: 300px;}
-      div.alt1{background-color: #ace2e7;}
-      div.alt2{background-color: #d7f1f4;}
+      div.alt1{background-color: #d7f1f4; margin-bottom: 5px; padding: 5px;}
+      div.alt2{background-color: #c0e9ed; margin-bottom: 5px; padding: 5px;}
     </style>
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
@@ -646,7 +646,10 @@
   </head>
   <body>
 
-    <div id="resultsBG" class="alt1"></div>
+    <div id="statusdiv" class="alt1">  
+    <b>Current Stats</b><br/>	  
+    <div id="resultsBG"></div>
+	  </div>
 	  
     <div id="mealdiv" class="alt2">
     <b>Meal or Snack</b><br/>
