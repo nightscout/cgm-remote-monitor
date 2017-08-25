@@ -130,11 +130,15 @@
 		percentNow = 0;
 		percentExt = 0;
 		prebolus = 0;
+		
+		document.getElementById("basalduration").value = "";
+		document.getElementById("basalpercent").value = "";
 
 		document.getElementById("submission_meal").innerHTML = "";
 		document.getElementById("results_meal").innerHTML = "";
 		document.getElementById("submission_correction").innerHTML = "";
 		document.getElementById("results_correction").innerHTML = "";
+		document.getElementById("results_carbs").innerHTML = "";
 		document.getElementById("submission_carbsonly").innerHTML = "";
 		document.getElementById("submission_tempbasal").innerHTML = "";
 		document.getElementById("submission_exercise").innerHTML = "";
@@ -148,6 +152,7 @@
 		document.getElementById("results_meal").innerHTML = "";
 		document.getElementById("submission_correction").innerHTML = "";
 		document.getElementById("results_correction").innerHTML = "";
+	        document.getElementById("results_carbs").innerHTML = "";
 		document.getElementById("submission_carbsonly").innerHTML = "";
 		document.getElementById("submission_tempbasal").innerHTML = "";
 		document.getElementById("submission_exercise").innerHTML = "";
@@ -406,16 +411,23 @@
           newBolusCorr = (currBG-BGgoal)/currSens; //Correction UP
         }
         newBolus = newBolusCorr + newBolusSuper;
+	var divToWriteTo = '';
+	if(eventType == "Carb Correction") { divToWriteTo = 'results_carbs'; }
+	if(eventType == "Correction Bolus") { divToWriteTo = 'results_correction'; }      
         if(newBolus<0){
         	addCarbs = (BGgoal-currBG)/(currSens/currCarbRatio);
-          document.getElementById("results_correction").innerHTML = "<br/>Need more carbs! Eat "+addCarbs.toFixed(0)+"g. &#x1F36C";
+		document.getElementById(divToWriteTo).innerHTML = "<br/>Need more carbs! Eat "+addCarbs.toFixed(0)+"g. &#x1F36C";
+		
         }
         else if (newBolus==0){
-          document.getElementById("results_correction").innerHTML = "<br/>All good! &#x1F600";
+          document.getElementById(divToWriteTo).innerHTML = "<br/>No carbs needed!";
         }
         else{ 
-          document.getElementById("results_correction").innerHTML = "<br/>Recommended bolus: "+newBolus.toFixed(2)+". "+ additionalMessage +"<br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2);
-	  document.getElementById("corrdose").value = newBolus;
+	  if(eventType == "Carb Correction") { document.getElementById(divToWriteTo).innerHTML = "<br/>No carbs needed!"; }
+	  if(eventType == "Correction Bolus") { 
+		document.getElementById(divToWriteTo).innerHTML = "<br/>Recommended bolus: "+newBolus.toFixed(2)+". "+ additionalMessage +"<br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2);
+	  	document.getElementById("corrdose").value = newBolus; 
+	  }   	 
         }
       }
       
@@ -532,6 +544,7 @@
       $("#AftSnackButton").click(function() { calcFoodBolus("Snack", "Afternoon Snack"); });
       $("#EveSnackButton").click(function() { calcFoodBolus("Snack", "Evening Snack"); });
       $("#CorrOnly").click(function() { resetVars(); eventType = "Correction Bolus"; bolusCalc(); });
+      $("#CarbsOnly").click(function() { resetVars(); eventType = "Carb Correction"; bolusCalc(); });
       $("#EngineBraking").click(function() { resetVars(); eventType = "Temp Basal"; setTemp("Engine Braking"); });
       $("#SuperBolus").click(function() { resetVars(); eventType = "Temp Basal"; setTemp("Super Bolus"); });
       //$("#TestButton").click(function() { eventType = "Meal Bolus"; runTest(); });
@@ -751,6 +764,7 @@
 <b>Carbs Only</b><br/>	
 	<form id="carbsonlyform">
 	<input type="number" step="0.1" id="corrCarbs" placeholder="Carbs in grams" min="0" value="8"/> Carbs<br/>
+	<input type="button" id="CarbsOnly" value="Suggest carbs" /><br/>
 	<input type="submit" id="submit_carbs" value="Submit carbs" /><br/>
 	  </form>
 	  <div id="submission_carbsonly"></div>
