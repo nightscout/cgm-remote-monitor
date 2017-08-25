@@ -544,6 +544,7 @@
       $("#AftSnackButton").click(function() { calcFoodBolus("Snack", "Afternoon Snack"); });
       $("#EveSnackButton").click(function() { calcFoodBolus("Snack", "Evening Snack"); });
       $("#suggest_meal").click(function() { 
+	        prebolus = document.getElementById("prebolus").value;
 		carbs = document.getElementById("carbs").value;
 		fat = document.getElementById("fat").value;  
 		protein = document.getElementById("protein").value;  
