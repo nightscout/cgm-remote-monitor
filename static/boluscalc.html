@@ -367,8 +367,8 @@
         }
 	if(fat>20){
             //newBolusFat = (((fat-20)/2)/currCarbRatio); //Fat
-	      newBolusFat = newBolusCarbs*.1;
-	      newBolusCarbs = newBolusCarbs*.9;
+	      newBolusFat = newBolusCarbs*.2;
+	      newBolusCarbs = newBolusCarbs*.8;
           }
         newBolus = newBolusCorr+newBolusSuper+newBolusCarbs;
 	newBolusExt = newBolusFat + newBolusProtein;
@@ -417,7 +417,7 @@
         if(newBolus<0){
         	addCarbs = (BGgoal-currBG)/(currSens/currCarbRatio);
 		document.getElementById(divToWriteTo).innerHTML = "<br/>Need more carbs! Eat "+addCarbs.toFixed(0)+"g. &#x1F36C";
-		
+		document.getElementById("corrCarbs").value = addCarbs.toFixed(0); 	
         }
         else if (newBolus==0){
           document.getElementById(divToWriteTo).innerHTML = "<br/>No carbs needed!";
@@ -714,6 +714,15 @@
     <b>Meal or Snack</b><br/>
     <form id="mealform">	    
       Load meal:<br/>
+	    <select id="prebolus">
+	  <option value="0" selected="selected">0</option>
+	  <option value="5">5</option>
+		<option value="10">10</option>
+		<option value="15">15</option>
+		<option value="20">20</option>
+		<option value="25">25</option>
+		<option value="30">30</option>
+	</select> Carb time<br/>
 	    <div class="columnwrap">
 	    <div class="leftcolumn">
 		    <input id="BreakfastButton" type="button" value="Breakfast" /><br/>
@@ -726,15 +735,6 @@
 		    <input id="EveSnackButton" type="button" value="Evening Snack" />
 	    </div>
 	    </div>
-	<select id="prebolus">
-	  <option value="0" selected="selected">0</option>
-	  <option value="5">5</option>
-		<option value="10">10</option>
-		<option value="15">15</option>
-		<option value="20">20</option>
-		<option value="25">25</option>
-		<option value="30">30</option>
-	</select> Carb time   
 	    <br/><br/>	    
       Results:<br/>
       <input type="number" step="0.1" id="carbs" placeholder="Grams" min="0" value="0" /> Carbs<br/>
