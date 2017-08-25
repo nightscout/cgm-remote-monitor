@@ -90,7 +90,9 @@ describe('Treatment API', function ( ) {
   it('post a treatment array and dedupe', function (done) {
     // test if deduping works. Starting with 0.9.0 Nightscout always stores created_at in UTC format, so even if a timezone is supplied it should dedupe records that have same time, but UTC or TimeZone notation
     self.ctx.treatments().remove({ }, function ( ) {
-      var now_utc= (new Date().setMilliseconds(0)).toISOString(); // current time, with 0 milliseconds, because the moment library seems to reset milliseconds with some timezone conversions
+      var now_utc= new Date() ; // current date and time 
+      now.utc.setMilliseconds(0) ; // reset milliseconds, because the moment library seems to reset milliseconds with some timezone conversions
+      now_utc=now_utc.toISOString(); // convert to UTC ISO string
       // try different timezones as input                                      UTC offset UTC DST offset
       var now_amsterdam = moment(now_utc).tz("Europe/Amsterdam").format() ; // +01:00      +02:00
       var now_stjohns = moment(now_utc).tz("America/St_Johns").format() ;   // -03:30      -02:30
