@@ -594,8 +594,8 @@ $(document).ready(function(){
 	  var newNow = 0;
 	  if((finalcarbdose != parseFloat(newBolusCarbs.toFixed(2))) || (finalextdose != parseFloat(newBolusExt.toFixed(2))) || (finalcorrdose != parseFloat(newBolusCorr.toFixed(2))) || (finalsuperdose != parseFloat(newBolusSuper.toFixed(2))) || (finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
 		  if((finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
-			finalcarbdose = finalcarbdose*(finalbolusnowpercent/100);
 			finalextdose = finalextdose+(finalcarbdose*(finalbolusextpercent/100));  
+			finalcarbdose = finalcarbdose*(finalbolusnowpercent/100);
 			newTotal = finalcarbdose+finalextdose+finalcorrdose+finalsuperdose;
 			newNow = finalcarbdose+finalsuperdose+finalcorrdose;
 			percentNow = (newNow/newTotal)*100;
