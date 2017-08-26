@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -15,17 +15,17 @@
       input[type=number] {width: 49%; margin-top: 5px; }
       div {width:100%; max-width: 350px;}
       form {width:100%; max-width: 350px;}
-	    select { width: 30%; margin-top: 5px; }
+	  select { width: 30%; margin-top: 5px; }
       div.alt1{background-color: #d7f1f4; margin-bottom: 5px; padding: 8px;}
       div.alt2{background-color: #c0e9ed; margin-bottom: 5px; padding: 8px;}
-	    .leftcolumn { width: 50%; padding-right: 1%; display: table-cell; }
-	    .leftcolumn input[type=button] {width: 100%; }
-	    .leftcolumn input[type=submit] {width: 100%; }
-	    .rightcolumn { width: 50%; padding-left: 1%; display: table-cell; }
-	    .rightcolumn input[type=button] {width: 100%; }
-	    .rightcolumn input[type=submit] {width: 100%; }
-	    .columnwrap { width: 100%; display: table; }
-	    #results_mealdose { display: none; }    
+	  .leftcolumn { width: 50%; padding-right: 1%; display: table-cell; }
+	  .leftcolumn input[type=button] {width: 100%; }
+	  .leftcolumn input[type=submit] {width: 100%; }
+	  .rightcolumn { width: 50%; padding-left: 1%; display: table-cell; }
+	  .rightcolumn input[type=button] {width: 100%; }
+	  .rightcolumn input[type=submit] {width: 100%; }
+	  .columnwrap { width: 100%; display: table; }
+	  #results_mealdose { display: none; }    
     </style>
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
@@ -48,77 +48,88 @@
 	var secret = "c96c4972f2f35a0b74e91b75dccf0d3807a16ad1";
 		
 	//Dynamic
+	//Time
 	var today;
-        var hours = 0;
-        var minutes = 0;
-        var timeStr = '';
+    var hours = 0;
+    var minutes = 0;
+    var timeStr = '';
 	var UTCtimeStr = '';
-		
-      var currBG = 0;
-      var delta30mins = 0;
-      var delta60mins = 0;
-      var BGtrend = "";
-      var currProfile = "";
-      var currBasal = 0.0;
-      var currSens = 0.0;
-      var currCarbRatio = 0.0;	
-		
-      var mfpCode = '';
-      var mealCode = '';  
-      var carbs = 0;
-      var fat = 0;
-      var protein = 0;
-      var fiber = 0;
-      var eventType = '';
-	var basalnotes = '';
-	var netCarbs = 0;
-		
+	//Stats	
+    var currBG = 0;
+    var delta30mins = 0;
+    var delta60mins = 0;
+    var BGtrend = "";
+    var currProfile = "";
+    var currBasal = 0.0;
+    var currSens = 0.0;
+    var currCarbRatio = 0.0;	
+	//Food	
+    var mfpCode = '';
+    var mealCode = '';  
+    var carbs = 0;
+    var fat = 0;
+    var protein = 0;
+    var fiber = 0;
+    var netCarbs = 0;
+	//Dosing
+	var eventType = '';
 	var newBolus = 0;
-      var newBolusExt = 0;
-      var newBolusCorr = 0;
-      var newBolusSuper = 0;
-      var newBolusCarbs = 0;
-      var newBolusProtein = 0;
+    var newBolusExt = 0;
+    var newBolusCorr = 0;
+    var newBolusSuper = 0;
+    var newBolusCarbs = 0;
+    var newBolusProtein = 0;
 	var newBolusFat = 0;
-      var additionalMessage = '';
-      var addCarbs = 0;
-      var trendChar = '';
-      var trendText = '';
-      var totalBolus = 0;
-      var percentNow = 0;
-      var percentExt = 0;
-      var prebolus = 0;
-		
+    var additionalMessage = '';
+    var addCarbs = 0;
+    var trendChar = '';
+    var trendText = '';
+    var totalBolus = 0;
+    var percentNow = 0;
+    var percentExt = 0;
+    var prebolus = 0;
+	var basalnotes = '';	
 	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ DEFINE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
 	function getDate(){
 		today = new Date(); // for now
-	      hours = today.getHours(); 
-	      if (hours < 10) { hours = "0"+hours; }
-	      minutes = today.getMinutes(); 
-	      if (minutes < 10) { minutes = "0"+minutes; }
-	      timeStr = hours+":"+minutes;
+	    hours = today.getHours(); 
+	    if (hours < 10) { hours = "0"+hours; }
+	    minutes = today.getMinutes(); 
+	    if (minutes < 10) { minutes = "0"+minutes; }
+	    timeStr = hours+":"+minutes;
 		UTCtimeStr = today.toJSON();
-
 	}
-		
+	//Clear divs without resetting all variables      
+    function cleardivs(exception){
+		document.getElementById("submission_meal").innerHTML = "";
+	    if(exception != "Meal") { 
+			document.getElementById("results_meal").innerHTML = ""; 
+			$("#results_mealdose").hide();
+		}
+		document.getElementById("submission_correction").innerHTML = "";
+		if(exception != "Correction") { document.getElementById("results_correction").innerHTML = ""; }
+		document.getElementById("submission_carbsonly").innerHTML = "";
+	    if(exception != "Carbs") { document.getElementById("results_carbs").innerHTML = ""; }
+		document.getElementById("submission_tempbasal").innerHTML = "";
+		document.getElementById("submission_exercise").innerHTML = "";
+		document.getElementById("submission_removepump").innerHTML = "";	
+	}
+	//Refresh/reset all data and fields	  
 	function resetVars(){
-		getDate();
-
-		getCustomJSON(profileURL,"profile",function(returndata){
-	      });
-
-	      getCustomJSON(entriesURL+"?count=12","BG",function(returndata){      
-		BGtrends();
-	      });
-
+		// Time
+		getDate(); 
+		//Stats
+		getCustomJSON(profileURL,"profile",function(returndata){ });
+		getCustomJSON(entriesURL+"?count=12","BG",function(returndata){      
+			BGtrends();
+	    });
+		//Food
 		mfpCode = '';
-	      mealCode = '';  
-	      resetMealData();
-
-	      eventType = '';
-		basalnotes = '';
-
+	    mealCode = '';  
+	    resetMealData();
+		//Dosing
+	    eventType = '';
 		newBolus = 0;
 		newBolusExt = 0;
 		newBolusCorr = 0;
@@ -132,39 +143,15 @@
 		percentNow = 0;
 		percentExt = 0;
 		prebolus = 0;
-		
+		basalnotes = '';
+		//Clear basal values if needed
 		document.getElementById("basalduration").value = "";
 		document.getElementById("basalpercent").value = "";
-
-		document.getElementById("submission_meal").innerHTML = "";
-		document.getElementById("results_meal").innerHTML = "";
-		$("#results_mealdose").hide();
-		document.getElementById("submission_correction").innerHTML = "";
-		document.getElementById("results_correction").innerHTML = "";
-		document.getElementById("submission_carbsonly").innerHTML = "";
-		document.getElementById("results_carbs").innerHTML = "";
-		document.getElementById("submission_tempbasal").innerHTML = "";
-		document.getElementById("submission_exercise").innerHTML = "";
-		document.getElementById("submission_removepump").innerHTML = "";
-		
-	}    
-	      
-      function cleardivs(exception){
-
-		document.getElementById("submission_meal").innerHTML = "";
-	        if(exception != "Meal") { document.getElementById("results_meal").innerHTML = ""; 
-					$("#results_mealdose").hide();}
-		document.getElementById("submission_correction").innerHTML = "";
-		if(exception != "Correction") { document.getElementById("results_correction").innerHTML = ""; }
-		document.getElementById("submission_carbsonly").innerHTML = "";
-	        if(exception != "Carbs") { document.getElementById("results_carbs").innerHTML = ""; }
-		document.getElementById("submission_tempbasal").innerHTML = "";
-		document.getElementById("submission_exercise").innerHTML = "";
-		document.getElementById("submission_removepump").innerHTML = "";
-		
-	}
-      
-      function getCustomJSON(URL, type, callback){
+		//Clear all submission/result divs
+		cleardivs("N/A");
+	}    	
+    //Used to fetch info from site via API  
+    function getCustomJSON(URL, type, callback){
         $.ajax({
             url: URL,
             method: 'GET',
@@ -172,9 +159,8 @@
             //crossOrigin: true,
             success: function(inputData){
               var data = inputData; //jQuery.parseJSON(inputData);
-            	if(type == "profile") {
-                 currProfile = data[0].defaultProfile;
-
+              if(type == "profile") {
+              currProfile = data[0].defaultProfile;
                  // Define current basal 
                  var basalProfile = data[0].store[currProfile].basal;  
                  if(timeStr > basalProfile[Object.keys(basalProfile).length-1].time){
