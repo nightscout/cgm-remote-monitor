@@ -58,7 +58,8 @@ $(document).ready(function(){
 	var currProfile = "";
 	var currBasal = 0.0;
 	var currSens = 0.0;
-	var currCarbRatio = 0.0;	
+	var currCarbRatio = 0.0;
+	var timestamp = '';
 	//Food	
 	var mfpCode = '';
 	var mealCode = '';  
@@ -203,6 +204,7 @@ $(document).ready(function(){
 					 delta30mins = parseInt(data[0].sgv)-parseInt(data[5].sgv);
 					 delta60mins = parseInt(data[0].sgv)-parseInt(data[11].sgv);
 					 BGtrend = data[0].direction;
+					 timestamp = data[0].dateString;
 					 callback(currBG,delta30mins,delta60mins,BGtrend);
 			       }
             		},
@@ -432,6 +434,12 @@ $(document).ready(function(){
       function BGtrends(){
       	trendChar = '';
         trendText = '';
+	var staleWarning = '';      
+	// Get current date, compare to BG date
+	var JStimestamp = new Date(timestamp);
+	var diff = Math.abs(today-JStimestamp);
+	var minutes = Math.floor((diff/1000)/60);    
+	if(minutes >= 10) { staleWarning=" &#x2757 Data is "+minutes+" minutes old." }      
 	var origBG = currBG;
       	if(BGtrend == "FortyFiveUp") { currBG += 15; trendChar='&#x2197';}
         if(BGtrend == "SingleUp") { currBG += 30; trendChar='&#x2B06';}
@@ -440,9 +448,11 @@ $(document).ready(function(){
         if(BGtrend == "SingleDown") { currBG -= 30; trendChar='&#x2B07';}
         if(BGtrend == "DoubleDown") { currBG -= 50; trendChar='&#x23EC';}
         if(BGtrend == "Flat") {trendChar='&#x27A1';}
-	var trendWarn = '';
-	if((delta60mins >= 30) || (delta60mins <= -30)){ trendWarn = " &#x2757"; }
-        trendText = "BG: "+origBG+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+"<br/>60 min delta: "+delta60mins+trendWarn;
+	var trendWarn30 = '';      
+	var trendWarn60 = '';
+	if((delta30mins >= 30) || (delta30mins <= -30)){ trendWarn30 = " &#x2757&#x2757"; }      
+	if((delta60mins >= 30) || (delta60mins <= -30)){ trendWarn60 = " &#x2757"; }
+        trendText = "BG: "+origBG+staleWarning+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+trendWarn30+"<br/>60 min delta: "+delta60mins+trendWarn60;
         document.getElementById("resultsBG").innerHTML = trendText;
       }
 		
