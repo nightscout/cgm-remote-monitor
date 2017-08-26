@@ -595,7 +595,7 @@ $(document).ready(function(){
 	  if((finalcarbdose != parseFloat(newBolusCarbs.toFixed(2))) || (finalextdose != parseFloat(newBolusExt.toFixed(2))) || (finalcorrdose != parseFloat(newBolusCorr.toFixed(2))) || (finalsuperdose != parseFloat(newBolusSuper.toFixed(2))) || (finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
 		  if((finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
 			finalcarbdose = finalcarbdose*(finalbolusnowpercent/100);
-			finalextdose = finalextdose+(finalcarbdose*finalbolusextpercent);  
+			finalextdose = finalextdose+(finalcarbdose*(finalbolusextpercent/100));  
 			newTotal = finalcarbdose+finalextdose+finalcorrdose+finalsuperdose;
 			newNow = finalcarbdose+finalsuperdose+finalcorrdose;
 			percentNow = (newNow/newTotal)*100;
@@ -607,10 +607,10 @@ $(document).ready(function(){
 		  	percentExt = (finalextdose/newTotal)*100;    
 		  }
 		  if(finalextdose == 0){
-			document.getElementById("submission_meal").innerHTML += "<br/><br/>New total: "+newTotal.toFixed(2);
+			document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2);
 		}
 		else{
-			  document.getElementById("submission_meal").innerHTML += "<br/><br/>New total: "+newTotal.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+(finalcarbdose+finalcorrdose+finalsuperdose).toFixed(2)+" + "+finalextdose.toFixed(2)+" extended over 2 hours. ";
+			  document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+(finalcarbdose+finalcorrdose+finalsuperdose).toFixed(2)+" + "+finalextdose.toFixed(2)+" extended over 2 hours. ";
 		}
 	  } 
 	      
@@ -806,7 +806,7 @@ $(document).ready(function(){
 		<br/><input type="number" step="0.01" id="extdose_meal" min="0" value="0"/> Extended
 		<br/><input type="number" step="0.01" id="corrdose_meal" value="0"/> Correction
 		<br/><input type="number" step="0.01" id="super_meal" min="0" value="0"/> Super 
-		<br/><input type="number" step="1" id="bolusnow_meal" min="0" value="100" style="width: 22%;" />%/<input type="number" step="1" id="bolusext_meal" min="0" value="0" style="width: 22%;" />% Combo split   
+		<br/><input type="number" step="1" id="bolusnow_meal" min="0" value="100" style="width: 22%;" />%<input type="number" step="1" id="bolusext_meal" min="0" value="0" style="width: 22%;" />% Combo split   
 	    </div>
       <input type="submit" id="submit_meal" value="Submit meal/snack" /><br/>
     </form>
