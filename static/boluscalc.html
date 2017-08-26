@@ -1,43 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Bolus Calc Advanced</title>
-    <link rel="shortcut icon" href="https://beetusbot.herokuapp.com/images/favicon.ico">
-    <!-- Bootstrap -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous"> 
-    <style>
-      body {padding: 30px 30px 30px 30px;}
-      input[type=submit] {width: 49%; margin-top: 5px; }
-      input[type=button] {width: 49%; margin-top: 5px; }
-      input[type=number] {width: 49%; margin-top: 5px; }
-      div {width:100%; max-width: 350px;}
-      form {width:100%; max-width: 350px;}
-	  select { width: 30%; margin-top: 5px; }
-      div.alt1{background-color: #d7f1f4; margin-bottom: 5px; padding: 8px;}
-      div.alt2{background-color: #c0e9ed; margin-bottom: 5px; padding: 8px;}
-	  .leftcolumn { width: 50%; padding-right: 1%; display: table-cell; }
-	  .leftcolumn input[type=button] {width: 100%; }
-	  .leftcolumn input[type=submit] {width: 100%; }
-	  .rightcolumn { width: 50%; padding-left: 1%; display: table-cell; }
-	  .rightcolumn input[type=button] {width: 100%; }
-	  .rightcolumn input[type=submit] {width: 100%; }
-	  .columnwrap { width: 100%; display: table; }
-	  #results_mealdose { display: none; }    
-    </style>
-    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-    <!-- Include all compiled plugins (below), or include individual files as needed -->
-    <!--<script src="https://beetusbot.herokuapp.com/js/bootstrap.min.js"></script>-->
-    <script type="text/javascript" src="https://beetusbot.herokuapp.com/js/jquery.ajax-cross-origin.min.js"></script>
-    
-    <script type="text/javascript">
-      $(document).ready(function(){
-      
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bolus Calc Advanced</title>
+<link rel="shortcut icon" href="https://beetusbot.herokuapp.com/images/favicon.ico">
+<!-- Bootstrap -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous"> 
+<style>
+	body {padding: 30px 30px 30px 30px;}
+	input[type=submit] {width: 49%; margin-top: 5px; }
+	input[type=button] {width: 49%; margin-top: 5px; }
+	input[type=number] {width: 49%; margin-top: 5px; }
+	div {width:100%; max-width: 350px;}
+	form {width:100%; max-width: 350px;}
+	select { width: 30%; margin-top: 5px; }
+	div.alt1{background-color: #d7f1f4; margin-bottom: 5px; padding: 8px;}
+	div.alt2{background-color: #c0e9ed; margin-bottom: 5px; padding: 8px;}
+	.columnwrap { width: 100%; display: table; }
+	.leftcolumn { width: 50%; padding-right: 1%; display: table-cell; }
+	.leftcolumn input[type=button] {width: 100%; }
+	.leftcolumn input[type=submit] {width: 100%; }
+	.rightcolumn { width: 50%; padding-left: 1%; display: table-cell; }
+	.rightcolumn input[type=button] {width: 100%; }
+	.rightcolumn input[type=submit] {width: 100%; }
+	#results_mealdose { display: none; }    
+</style>
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<!--<script src="https://beetusbot.herokuapp.com/js/bootstrap.min.js"></script>-->
+<script type="text/javascript" src="https://beetusbot.herokuapp.com/js/jquery.ajax-cross-origin.min.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ INSTANTIATE VARIABLES ~~~~~~~~~~~~~~~~~~~~~~~~~
-      
 	//Static
 	var BGgoal = 90;
 	var hostname = location.protocol + '//' + location.host;
@@ -45,77 +42,76 @@
 	var profileURL = hostname+"/api/v1/profile.json";
 	var entriesURL = hostname+"/api/v1/entries.json";
 	var treatmentsURL = hostname+"/api/v1/treatments.json";
-	var secret = "c96c4972f2f35a0b74e91b75dccf0d3807a16ad1";
-		
+	var secret = "c96c4972f2f35a0b74e91b75dccf0d3807a16ad1";	
 	//Dynamic
 	//Time
 	var today;
-    var hours = 0;
-    var minutes = 0;
-    var timeStr = '';
+	var hours = 0;
+	var minutes = 0;
+	var timeStr = '';
 	var UTCtimeStr = '';
 	//Stats	
-    var currBG = 0;
-    var delta30mins = 0;
-    var delta60mins = 0;
-    var BGtrend = "";
-    var currProfile = "";
-    var currBasal = 0.0;
-    var currSens = 0.0;
-    var currCarbRatio = 0.0;	
+	var currBG = 0;
+	var delta30mins = 0;
+	var delta60mins = 0;
+	var BGtrend = "";
+	var currProfile = "";
+	var currBasal = 0.0;
+	var currSens = 0.0;
+	var currCarbRatio = 0.0;	
 	//Food	
-    var mfpCode = '';
-    var mealCode = '';  
-    var carbs = 0;
-    var fat = 0;
-    var protein = 0;
-    var fiber = 0;
-    var netCarbs = 0;
+	var mfpCode = '';
+	var mealCode = '';  
+	var carbs = 0;
+	var fat = 0;
+	var protein = 0;
+	var fiber = 0;
+	var netCarbs = 0;
 	//Dosing
 	var eventType = '';
 	var newBolus = 0;
-    var newBolusExt = 0;
-    var newBolusCorr = 0;
-    var newBolusSuper = 0;
-    var newBolusCarbs = 0;
-    var newBolusProtein = 0;
+	var newBolusExt = 0;
+	var newBolusCorr = 0;
+	var newBolusSuper = 0;
+	var newBolusCarbs = 0;
+	var newBolusProtein = 0;
 	var newBolusFat = 0;
-    var additionalMessage = '';
-    var addCarbs = 0;
-    var trendChar = '';
-    var trendText = '';
-    var totalBolus = 0;
-    var percentNow = 0;
-    var percentExt = 0;
-    var prebolus = 0;
+	var additionalMessage = '';
+	var addCarbs = 0;
+	var trendChar = '';
+	var trendText = '';
+	var totalBolus = 0;
+	var percentNow = 0;
+	var percentExt = 0;
+	var prebolus = 0;
 	var basalnotes = '';	
-	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ DEFINE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
+	// Set date/time
 	function getDate(){
 		today = new Date(); // for now
-	    hours = today.getHours(); 
-	    if (hours < 10) { hours = "0"+hours; }
-	    minutes = today.getMinutes(); 
-	    if (minutes < 10) { minutes = "0"+minutes; }
-	    timeStr = hours+":"+minutes;
+	    	hours = today.getHours(); 
+	    	if (hours < 10) { hours = "0"+hours; }
+	    	minutes = today.getMinutes(); 
+	    	if (minutes < 10) { minutes = "0"+minutes; }
+	    	timeStr = hours+":"+minutes;
 		UTCtimeStr = today.toJSON();
-	}
-	//Clear divs without resetting all variables      
-    function cleardivs(exception){
+	} // end getDate
+	// Clear divs without resetting all variables      
+    	function cleardivs(exception){
 		document.getElementById("submission_meal").innerHTML = "";
-	    if(exception != "Meal") { 
+	    	if(exception != "Meal") { 
 			document.getElementById("results_meal").innerHTML = ""; 
 			$("#results_mealdose").hide();
 		}
 		document.getElementById("submission_correction").innerHTML = "";
 		if(exception != "Correction") { document.getElementById("results_correction").innerHTML = ""; }
 		document.getElementById("submission_carbsonly").innerHTML = "";
-	    if(exception != "Carbs") { document.getElementById("results_carbs").innerHTML = ""; }
+	    	if(exception != "Carbs") { document.getElementById("results_carbs").innerHTML = ""; }
 		document.getElementById("submission_tempbasal").innerHTML = "";
 		document.getElementById("submission_exercise").innerHTML = "";
 		document.getElementById("submission_removepump").innerHTML = "";	
-	}
-	//Refresh/reset all data and fields	  
+	} // end cleardivs
+	// Refresh/reset all data and fields	  
 	function resetVars(){
 		// Time
 		getDate(); 
@@ -123,13 +119,13 @@
 		getCustomJSON(profileURL,"profile",function(returndata){ });
 		getCustomJSON(entriesURL+"?count=12","BG",function(returndata){      
 			BGtrends();
-	    });
+	    	});
 		//Food
 		mfpCode = '';
-	    mealCode = '';  
-	    resetMealData();
+	    	mealCode = '';  
+	    	resetMealData();
 		//Dosing
-	    eventType = '';
+	    	eventType = '';
 		newBolus = 0;
 		newBolusExt = 0;
 		newBolusCorr = 0;
@@ -149,140 +145,135 @@
 		document.getElementById("basalpercent").value = "";
 		//Clear all submission/result divs
 		cleardivs("N/A");
-	}    	
-    //Used to fetch info from site via API  
-    function getCustomJSON(URL, type, callback){
-        $.ajax({
-            url: URL,
-            method: 'GET',
-            dataType: 'json',
-            //crossOrigin: true,
-            success: function(inputData){
-              var data = inputData; //jQuery.parseJSON(inputData);
-              if(type == "profile") {
-              currProfile = data[0].defaultProfile;
-                 // Define current basal 
-                 var basalProfile = data[0].store[currProfile].basal;  
-                 if(timeStr > basalProfile[Object.keys(basalProfile).length-1].time){
-                     currBasal = parseFloat(basalProfile[Object.keys(basalProfile).length-1].value);
-                   }
-                 else{
-                   for (i = 1; i < Object.keys(basalProfile).length; i++){
-                     //console.log("Basal profile time/value "+i+ ": "+basalProfile[i].time+ " / "+basalProfile[i].value);
-                     if (timeStr < basalProfile[i].time) {
-                       currBasal = parseFloat(basalProfile[i-1].value);
-                       break; 
-                     }
-                   }
-                 }
-                 // Define current sensitivity
-                 var sensProfile = data[0].store[currProfile].sens;  
-                 if(timeStr > sensProfile[Object.keys(sensProfile).length-1].time){
-                     currSens = parseFloat(sensProfile[Object.keys(sensProfile).length-1].value);
-                   }
-                 else{
-                   for (i = 1; i < Object.keys(sensProfile).length; i++){
-                     if (timeStr < sensProfile[i].time) {
-                       currSens = parseFloat(sensProfile[i-1].value);
-                       break; 
-                     }
-                   }
-                 }
-                 // Define current carb ratio
-                 var ratioProfile = data[0].store[currProfile].carbratio;  
-                 if(timeStr > ratioProfile[Object.keys(ratioProfile).length-1].time){
-                     currCarbRatio = parseFloat(ratioProfile[Object.keys(ratioProfile).length-1].value);
-                   }
-                 else{
-                   for (i = 1; i < Object.keys(ratioProfile).length; i++){
-                     if (timeStr < ratioProfile[i].time) {
-                       currCarbRatio = parseFloat(ratioProfile[i-1].value);
-                       break; 
-                     }
-                   }
-                 }
-                 // Return values
-                 callback(currProfile,currBasal,currSens,currCarbRatio);
-               }
-               if(type == "BG") {
-                 // Define current BG
-                 currBG = parseInt(data[0].sgv);
-                 delta30mins = parseInt(data[0].sgv)-parseInt(data[5].sgv);
-                 delta60mins = parseInt(data[0].sgv)-parseInt(data[11].sgv);
-                 BGtrend = data[0].direction;
-                 callback(currBG,delta30mins,delta60mins,BGtrend);
-               }
-               
-            },
-            error: function(data){
-            	document.getElementById("errors").innerHTML = "Derp derp derp.";
-            }
-            });    
-      }
-      
+	} // end resetVars   	
+    	// Fetch info from site via API  
+    	function getCustomJSON(URL, type, callback){
+        	$.ajax({
+            		url: URL,
+            		method: 'GET',
+            		dataType: 'json',
+            		success: function(data){
+				if(type == "profile") {
+					currProfile = data[0].defaultProfile;
+					// Define current basal 
+					var basalProfile = data[0].store[currProfile].basal;  
+					if(timeStr > basalProfile[Object.keys(basalProfile).length-1].time){
+						currBasal = parseFloat(basalProfile[Object.keys(basalProfile).length-1].value);
+					}
+					 else{
+						for (i = 1; i < Object.keys(basalProfile).length; i++){
+							if (timeStr < basalProfile[i].time) {
+								currBasal = parseFloat(basalProfile[i-1].value);
+								break; 
+							}
+						}
+					}
+					// Define current sensitivity
+					var sensProfile = data[0].store[currProfile].sens;  
+					if(timeStr > sensProfile[Object.keys(sensProfile).length-1].time){
+						currSens = parseFloat(sensProfile[Object.keys(sensProfile).length-1].value);
+					}
+					else{
+						for (i = 1; i < Object.keys(sensProfile).length; i++){
+							if (timeStr < sensProfile[i].time) {
+								currSens = parseFloat(sensProfile[i-1].value);
+								break; 
+							}
+						}
+					}
+					// Define current carb ratio
+					var ratioProfile = data[0].store[currProfile].carbratio;  
+					if(timeStr > ratioProfile[Object.keys(ratioProfile).length-1].time){
+						currCarbRatio = parseFloat(ratioProfile[Object.keys(ratioProfile).length-1].value);
+					}
+					else{
+						for (i = 1; i < Object.keys(ratioProfile).length; i++){
+							if (timeStr < ratioProfile[i].time) {
+								currCarbRatio = parseFloat(ratioProfile[i-1].value);
+								break; 
+							}
+						}
+					}
+					// Return values
+					callback(currProfile,currBasal,currSens,currCarbRatio);
+				}
+               			if(type == "BG") {
+					 // Define current BG
+					 currBG = parseInt(data[0].sgv);
+					 delta30mins = parseInt(data[0].sgv)-parseInt(data[5].sgv);
+					 delta60mins = parseInt(data[0].sgv)-parseInt(data[11].sgv);
+					 BGtrend = data[0].direction;
+					 callback(currBG,delta30mins,delta60mins,BGtrend);
+			       }
+            		},
+            		error: function(data){
+            			document.getElementById("errors").innerHTML = "Derp derp derp.";
+            		}
+            	});    
+      } // end getCustomJSON
+      // Fetch nutrition info from MyFitnessPal page  
       function getMFPData(callback){
-      	$.ajax({
-            url: MFPurl,
-            method: 'GET',
-            dataType: 'html',
-            crossOrigin: true,
-            success: function(data){
-               mfpCode = data;
-               callback(mfpCode);
-            },
-            error: function(data){
-               document.getElementById("errors").innerHTML += "MyFitnessPal data could not be pulled";
-            }
-         }); 
-      }
-        
+	      $.ajax({
+		      url: MFPurl,
+		      method: 'GET',
+            	      dataType: 'html',
+            	      crossOrigin: true,
+		      success: function(data){
+			      mfpCode = data;
+			      callback(mfpCode);
+            	      },
+            	      error: function(data){
+			      document.getElementById("errors").innerHTML += "MyFitnessPal data could not be pulled";
+            	      }
+         	}); 
+      } // end getMFPData
+      // Crawl MyFitnessPal page data for meal nutritional info  
       function getMealData(mealName){
-        getMFPData(function(returnData){
-		var breakfastStart = mfpCode.indexOf('<tr class="meal_header">');
-		var lunchStart = mfpCode.indexOf('<tr class="meal_header">',breakfastStart+24); 
-		var dinnerStart = mfpCode.indexOf('<tr class="meal_header">',lunchStart+24); 
-		var aftSnackStart = mfpCode.indexOf('<tr class="meal_header">',dinnerStart+24); 
-		var mornSnackStart = mfpCode.indexOf('<tr class="meal_header">',aftSnackStart+24); 
-		var eveSnackStart = mfpCode.indexOf('<tr class="meal_header">',mornSnackStart+24); 
-		var end = mfpCode.indexOf('<tr class="spacer">',eveSnackStart+24);
-		if(mealName == "Breakfast"){ mealCode = mfpCode.substring(breakfastStart,lunchStart); }
-		else if(mealName == "Lunch"){ mealCode = mfpCode.substring(lunchStart,dinnerStart); }
-		else if(mealName == "Dinner"){ mealCode = mfpCode.substring(dinnerStart,aftSnackStart); }
-		else if(mealName == "Afternoon Snack"){ mealCode = mfpCode.substring(aftSnackStart,mornSnackStart); }
-		else if(mealName == "Morning Snack"){ mealCode = mfpCode.substring(mornSnackStart,eveSnackStart); }
-		else if(mealName == "Evening Snack"){ mealCode = mfpCode.substring(eveSnackStart,end); }
-		var totalsRef = mealCode.indexOf('class="quick_add_meals_list hidden">');
-		// Carbs
-		var carbsStart = mealCode.indexOf('<span class="macro-value">',totalsRef)+26;
-		//console.log("Carbs starting index: "+carbsStart);
-		var carbsEnd = mealCode.indexOf('</span>',carbsStart);
-		//console.log("Carbs ending index: "+carbsEnd);
-		carbs = parseFloat(mealCode.substring(carbsStart,carbsEnd));
-		// Fat
-		var fatStart = mealCode.indexOf('<span class="macro-value">',carbsEnd)+26;
-		var fatEnd = mealCode.indexOf('</span>',fatStart);
-		fat = parseFloat(mealCode.substring(fatStart,fatEnd)); 
-		// Protein
-		var proteinStart = mealCode.indexOf('<span class="macro-value">',fatEnd)+26;
-		var proteinEnd = mealCode.indexOf('</span>',proteinStart);
-		protein = parseFloat(mealCode.substring(proteinStart,proteinEnd));
-		// Fiber
-		var fiberStart = mealCode.indexOf('<td>',proteinEnd)+4;
-		var fiberEnd = mealCode.indexOf('</td>',fiberStart);
-		fiber = parseFloat(mealCode.substring(fiberStart,fiberEnd));
-		if(isNaN(carbs) || isNaN(carbs) || isNaN(carbs) || isNaN(carbs)){
-			document.getElementById("results_meal").innerHTML = "<br/>No meal data available."; 
-		}
-		else{
-			document.getElementById("carbs").value = carbs; 
-			document.getElementById("fat").value = fat; 
-			document.getElementById("protein").value = protein;  
-			document.getElementById("fiber").value = fiber; 
-			bolusCalcWFood(mealName);
-		}	
-        }); 
-      }	
-		
+	      getMFPData(function(returnData){
+		      var breakfastStart = mfpCode.indexOf('<tr class="meal_header">');
+		      var lunchStart = mfpCode.indexOf('<tr class="meal_header">',breakfastStart+24); 
+		      var dinnerStart = mfpCode.indexOf('<tr class="meal_header">',lunchStart+24); 
+		      var aftSnackStart = mfpCode.indexOf('<tr class="meal_header">',dinnerStart+24); 
+		      var mornSnackStart = mfpCode.indexOf('<tr class="meal_header">',aftSnackStart+24); 
+		      var eveSnackStart = mfpCode.indexOf('<tr class="meal_header">',mornSnackStart+24); 
+		      var end = mfpCode.indexOf('<tr class="spacer">',eveSnackStart+24);
+		      if(mealName == "Breakfast"){ mealCode = mfpCode.substring(breakfastStart,lunchStart); }
+		      else if(mealName == "Lunch"){ mealCode = mfpCode.substring(lunchStart,dinnerStart); }
+		      else if(mealName == "Dinner"){ mealCode = mfpCode.substring(dinnerStart,aftSnackStart); }
+		      else if(mealName == "Afternoon Snack"){ mealCode = mfpCode.substring(aftSnackStart,mornSnackStart); }
+		      else if(mealName == "Morning Snack"){ mealCode = mfpCode.substring(mornSnackStart,eveSnackStart); }
+		      else if(mealName == "Evening Snack"){ mealCode = mfpCode.substring(eveSnackStart,end); }
+		      var totalsRef = mealCode.indexOf('class="quick_add_meals_list hidden">');
+		      // Carbs
+		      var carbsStart = mealCode.indexOf('<span class="macro-value">',totalsRef)+26;
+		      var carbsEnd = mealCode.indexOf('</span>',carbsStart);
+		      carbs = parseFloat(mealCode.substring(carbsStart,carbsEnd));
+		      // Fat
+		      var fatStart = mealCode.indexOf('<span class="macro-value">',carbsEnd)+26;
+		      var fatEnd = mealCode.indexOf('</span>',fatStart);
+		      fat = parseFloat(mealCode.substring(fatStart,fatEnd)); 
+		      // Protein
+		      var proteinStart = mealCode.indexOf('<span class="macro-value">',fatEnd)+26;
+		      var proteinEnd = mealCode.indexOf('</span>',proteinStart);
+		      protein = parseFloat(mealCode.substring(proteinStart,proteinEnd));
+		      // Fiber
+		      var fiberStart = mealCode.indexOf('<td>',proteinEnd)+4;
+		      var fiberEnd = mealCode.indexOf('</td>',fiberStart);
+		      fiber = parseFloat(mealCode.substring(fiberStart,fiberEnd));
+		      // Check if meal data exists
+		      if(isNaN(carbs) || isNaN(carbs) || isNaN(carbs) || isNaN(carbs)){
+			      document.getElementById("results_meal").innerHTML = "<br/>No meal data available."; 
+		      }
+		      else{
+			      document.getElementById("carbs").value = carbs; 
+			      document.getElementById("fat").value = fat; 
+			      document.getElementById("protein").value = protein;  
+			      document.getElementById("fiber").value = fiber; 
+			      bolusCalcWFood(mealName);
+		      }	
+              }); 
+	} // end getMealData	
+	// Clear meal data values	
 	function resetMealData(){
 		carbs = 0;
 		fat = 0;
@@ -294,71 +285,73 @@
 		document.getElementById("protein").value = 0;  
 		document.getElementById("fiber").value = 0;
 		//document.getElementById("prebolus").value = 0;
-	}
+	} // end resetMealData
       
-      function bolusCalcWFood(mealName){
-      	newBolus = 0;
-      	newBolusExt = 0;
-      	newBolusCorr = 0;
-      	newBolusSuper = 0;
-      	newBolusCarbs = 0;
-      	newBolusProtein = 0;
-	newBolusFat = 0;
-      	additionalMessage = '';
-        addCarbs = 0;
-        totalBolus = 0;
-        percentNow = 0;
-        percentExt = 0;
-	netCarbs = 0;
-	
-        if(mealName == "Breakfast"){ 
-		netCarbs = carbs - (fiber / 2); 
-	}
-	else{
-		netCarbs = carbs-fiber;
-	}
-	newBolusCorr = (currBG-BGgoal)/currSens; //Correction
-	newBolusCarbs = netCarbs/currCarbRatio; //Carbs
-	      
-        if(currBG>160){  
-          newBolusSuper = currBasal; //Super bolus
-          additionalMessage = "Super bolus, wait till bend.";
-          if((netCarbs<=20) && (protein>20)){ 
-            newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
-            additionalMessage = "Super bolus, wait till bend if possible.";
-          }
-        }
-        else if(currBG>110){
-          if((netCarbs>30) || (fat<20)){
-		if((prebolus <= 10) && (fat<20)){ 
-			newBolusSuper = currBasal; 
-			additionalMessage = "Super bolus, wait till bend if possible.";		       
-		} //Super bolus 
+	function bolusCalcWFood(mealName){
+		// Clear old data 
+		newBolus = 0;
+		newBolusExt = 0;
+		newBolusCorr = 0;
+		newBolusSuper = 0;
+		newBolusCarbs = 0;
+		newBolusProtein = 0;
+		newBolusFat = 0;
+		additionalMessage = '';
+		addCarbs = 0;
+		totalBolus = 0;
+		percentNow = 0;
+		percentExt = 0;
+		netCarbs = 0;
+		// Calculate net carbs
+		if(mealName == "Breakfast"){ 
+			netCarbs = carbs - (fiber / 2); 
+		}
 		else{
-			additionalMessage = "Wait till bend if possible.";
+			netCarbs = carbs-fiber;
 		}
-          	if(prebolus>10){
-			additionalMessage = "Wait till bend if possible.";
-		}
-          }
-          else{
-		  if(prebolus <= 5){ newBolusSuper = currBasal; } //Super bolus 
-          	additionalMessage = "Super bolus if eating immediately.";
-          }
-          if((netCarbs<=20) && (protein>20)){ 
-            newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
-          }
-        }
-        else if(currBG>70){
-          if(netCarbs>30){
-          	if(prebolus <= 5){ newBolusSuper = currBasal; } //Super bolus 
-            	additionalMessage = "Super bolus if eating immediately.";
-          }
-          if((netCarbs<=20) && (protein>20)){ 
-            newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
-          }
-        }
-        else{
+		// Calculate carb and correction base doses
+		newBolusCorr = (currBG-BGgoal)/currSens; //Correction
+		newBolusCarbs = netCarbs/currCarbRatio; //Carbs
+	      
+        	if(currBG>160){  
+          		newBolusSuper = currBasal; //Super bolus
+          		additionalMessage = "Super bolus, wait till bend.";
+          		if((netCarbs<=20) && (protein>20)){ 
+            			newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
+            			additionalMessage = "Super bolus, wait till bend if possible.";
+          		}
+        	}
+        	else if(currBG>110){
+          		if((netCarbs>30) || (fat<20)){
+				if((prebolus <= 10) && (fat<20)){ //Super bolus 
+					newBolusSuper = currBasal; 
+					additionalMessage = "Super bolus, wait till bend if possible.";		       
+				} 
+				else{
+					additionalMessage = "Wait till bend if possible.";
+				}
+				if(prebolus>10){
+					additionalMessage = "Wait till bend if possible.";
+				}
+          		}
+          		else{
+		  		if(prebolus <= 5){ newBolusSuper = currBasal; } //Super bolus 
+          			additionalMessage = "Super bolus if eating immediately.";
+          		}
+          		if((netCarbs<=20) && (protein>20)){ 
+            			newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
+          		}
+        	}
+        	else if(currBG>70){
+          		if(netCarbs>30){
+          			if(prebolus <= 5){ newBolusSuper = currBasal; } //Super bolus 
+            			additionalMessage = "Super bolus if eating immediately.";
+          		}
+          		if((netCarbs<=20) && (protein>20)){ 
+            			newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
+          		}
+        	}
+        	else{
           if((netCarbs<=20) && (protein>20)){ 
             newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
           }
