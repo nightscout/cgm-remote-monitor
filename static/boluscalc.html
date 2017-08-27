@@ -422,7 +422,8 @@ $(document).ready(function(){
 		document.getElementById("corrCarbs").value = addCarbs.toFixed(0); 	
         }
         else if (newBolus==0){
-          document.getElementById(divToWriteTo).innerHTML = "<br/>No carbs needed!";
+	  if(eventType == "Carb Correction") { document.getElementById(divToWriteTo).innerHTML = "<br/>No carbs needed!"; }	
+          if(eventType == "Correction Bolus") { document.getElementById(divToWriteTo).innerHTML = "<br/>No insulin needed!"; }
         }
         else{ 
 	  if(eventType == "Carb Correction") { document.getElementById(divToWriteTo).innerHTML = "<br/>No carbs needed!"; }
