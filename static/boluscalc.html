@@ -87,6 +87,8 @@ $(document).ready(function(){
 	var percentExt = 0;
 	var prebolus = 0;
 	var basalnotes = '';	
+	var exerciseSuggestion = '';
+	var exerciseType = '';
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ DEFINE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
 	// Set date/time
 	function getDate(){
@@ -142,6 +144,8 @@ $(document).ready(function(){
 		percentExt = 0;
 		prebolus = 0;
 		basalnotes = '';
+		exerciseSuggestion = '';
+		exerciseType = '';
 		//Clear basal values if needed
 		document.getElementById("basalduration").value = "";
 		document.getElementById("basalpercent").value = "";
@@ -434,7 +438,7 @@ $(document).ready(function(){
 	  if(eventType == "Carb Correction") { document.getElementById(divToWriteTo).innerHTML = "<br/>No carbs needed!"; }
 	  if(eventType == "Correction Bolus") { 
 		document.getElementById(divToWriteTo).innerHTML = "<br/>Recommended bolus: "+newBolus.toFixed(2)+". "+ additionalMessage +"<br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2);
-	  	document.getElementById("corrdose").value = newBolus; 
+	  	document.getElementById("corrdose").value = newBolus.toFixed(2); 
 	  }   	 
         }
       }
@@ -495,27 +499,19 @@ $(document).ready(function(){
 		bolusCalcWFood("Test");
       }
 
-	function sendExercise(event,type){
+	function suggestExercise(){
 	  eventType = "Exercise"; 
-	  event.preventDefault();
 	  var exercisetime = document.getElementById("exerciseduration").value;
-	  var exerciseSuggestion = '';
-	  if(type == "Dance"){
+	  if(exerciseType == "Dance"){
 		 exerciseSuggestion = "Expect a BG drop of "+ exercisetime + " to be adjusted by " + (exercisetime/currSens).toFixed(2) + " less insulin or " + (exercisetime/(currSens/currCarbRatio)).toFixed(0) + " carbs. Set a 12 hour post-exercise temp basal of -20%."
 	  }
-	  if(type == "Yoga"){
+	  if(exerciseType == "Yoga"){
 		 exerciseSuggestion = "30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high. Set a 12 hour post-exercise temp basal of -10%."
 	  }
-	  if(type == "Other"){
+	  if(exerciseType == "Other"){
 		  exerciseSuggestion = "If aerobic, expect a BG drop of "+ exercisetime + " to be adjusted by " + (exercisetime/currSens).toFixed(2) + " less insulin or " + (exercisetime/(currSens/currCarbRatio)).toFixed(0) + " carbs. Set a 12 hour post-exercise temp basal of -20%.<br/><br/>If anaerobic, 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high. Set a 12 hour post-exercise temp basal of -10%."
 	  }
-          var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":type,"eventType":eventType,"secret":secret } );
-          posting.done(function( data ) {
-            document.getElementById("submission_exercise").innerHTML = "Data submitted &#x1F44D "+exerciseSuggestion;
-          }); 
-	  posting.fail(function( data) {
-	    document.getElementById("submission_exercise").innerHTML = "Data NOT submitted &#x1F44E "+exerciseSuggestion;  
-	  });
+          document.getElementById("submission_exercise").innerHTML = exerciseSuggestion; 
 	}
 			
 		
@@ -579,15 +575,18 @@ $(document).ready(function(){
       //$("#TestButton").click(function() { eventType = "Meal Bolus"; runTest(); });
       $("#Dance").click(function(event) { 
 	      resetVars();
-	      sendExercise(event,"Dance");
+	      exerciseType = "Dance";
+	      suggestExercise();
       });
       $("#Yoga").click(function(event) { 
 	      resetVars();
-	     sendExercise(event,"Yoga"); 
+	      exerciseType = "Yoga";
+	     suggestExercise();
       });
       $("#Other").click(function(event) { 
 	      resetVars();
-	      sendExercise(event,"Other");
+	      exerciseType = "Other";
+	      suggestExercise();
       });	
       $("#mealform").submit(function( event ) {
           event.preventDefault();
@@ -734,7 +733,19 @@ $(document).ready(function(){
 	    document.getElementById("submission_tempbasal").innerHTML = "Data NOT submitted &#x1F44E";  
 	  });
         });
-	      
+	$("#exerciseform").submit(function( event ) {
+          event.preventDefault();
+	  cleardivs("N/A");
+	  var $form = $( this ),
+	    exercisetime = $form.find( "input[id='exerciseduration']" ).val();
+	  var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":exerciseType,"eventType":eventType,"secret":secret } );
+          posting.done(function( data ) {
+            document.getElementById("submission_exercise").innerHTML += "Data submitted &#x1F44D ";
+          }); 
+	  posting.fail(function( data) {
+	    document.getElementById("submission_exercise").innerHTML += "Data NOT submitted &#x1F44E ";  
+	  });
+        });   
 	$("#removepumpform").submit(function( event ) {
           event.preventDefault();
 	  cleardivs("N/A");
@@ -871,10 +882,11 @@ $(document).ready(function(){
 		<div class="columnwrap">
 		<div class="leftcolumn">
 		<input type="button" id="Dance" value="Dance" /><br/>
-		<input type="button" id="Other" value="Other" />
+		<input type="submit" id="ExerciseSubmit" value="Submit" />
 		</div>
 		<div class="rightcolumn">
-			<input type="button" id="Yoga" value="Yoga" />
+			<input type="button" id="Yoga" value="Yoga" /><br/>
+			<input type="button" id="Other" value="Other" />
 		</div>
 		</div>
 	
