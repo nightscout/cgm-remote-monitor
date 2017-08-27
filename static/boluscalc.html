@@ -564,10 +564,10 @@ $(document).ready(function(){
 	        eventType = "Meal Bolus";
 	      	bolusCalcWFood("N/A");
       });  
-      $("#carbdose_clear").click(function() { document.getElementById("carbdose_meal").value = 0; });
-	$("#extdose_clear").click(function() { document.getElementById("extdose_meal").value = 0; });
-	$("#corrdose_clear").click(function() { document.getElementById("corrdose_meal").value = 0; });
-	$("#superdose_clear").click(function() { document.getElementById("super_meal").value = 0; });
+      $("#carbdose_clear").click(function() { document.getElementById("carbdose_meal").value = 0.00; });
+	$("#extdose_clear").click(function() { document.getElementById("extdose_meal").value = 0.00; });
+	$("#corrdose_clear").click(function() { document.getElementById("corrdose_meal").value = 0.00; });
+	$("#superdose_clear").click(function() { document.getElementById("super_meal").value = 0.00; });
       $("#CorrOnly").click(function() { resetVars(); eventType = "Correction Bolus"; bolusCalc(); });
       $("#CarbsOnly").click(function() { resetVars(); eventType = "Carb Correction"; bolusCalc(); });
       $("#EngineBraking").click(function() { resetVars(); eventType = "Temp Basal"; setTemp("Engine Braking"); });
