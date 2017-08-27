@@ -112,7 +112,7 @@ $(document).ready(function(){
 		document.getElementById("submission_carbsonly").innerHTML = "";
 	    	if(exception != "Carbs") { document.getElementById("results_carbs").innerHTML = ""; }
 		document.getElementById("submission_tempbasal").innerHTML = "";
-		document.getElementById("submission_exercise").innerHTML = "";
+		if(exception != "Exercise") { document.getElementById("submission_exercise").innerHTML = ""; }
 		document.getElementById("submission_removepump").innerHTML = "";	
 	} // end cleardivs
 	// Refresh/reset all data and fields	  
@@ -735,7 +735,7 @@ $(document).ready(function(){
         });
 	$("#exerciseform").submit(function( event ) {
           event.preventDefault();
-	  cleardivs("N/A");
+	  cleardivs("Exercise");
 	  var $form = $( this ),
 	    exercisetime = $form.find( "input[id='exerciseduration']" ).val();
 	  var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":exerciseType,"eventType":eventType,"secret":secret } );
