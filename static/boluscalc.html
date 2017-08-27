@@ -325,7 +325,7 @@ $(document).ready(function(){
         	}
         	else if(currBG>110){
           		if((netCarbs>30) || (fat<20)){
-				if((prebolus <= 10) && (fat<20)){ //Super bolus 
+				if((prebolus < 10) && (fat<20)){ //Super bolus 
 					newBolusSuper = currBasal; 
 					additionalMessage = "Super bolus, wait till bend if possible.";		       
 				} 
@@ -337,8 +337,10 @@ $(document).ready(function(){
 				}
           		}
           		else{
-		  		if(prebolus <= 5){ newBolusSuper = currBasal; } //Super bolus 
-          			additionalMessage = "Super bolus if eating immediately.";
+		  		if(prebolus < 10){  
+					newBolusSuper = currBasal;	
+					additionalMessage = "Super bolus if eating immediately.";
+				} //Super bolus 
           		}
           		if((netCarbs<=20) && (protein>20)){ 
             			newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
@@ -346,8 +348,10 @@ $(document).ready(function(){
         	}
         	else if(currBG>70){
           		if(netCarbs>30){
-          			if(prebolus <= 5){ newBolusSuper = currBasal; } //Super bolus 
-            			additionalMessage = "Super bolus if eating immediately.";
+          			if(prebolus < 10){  
+					newBolusSuper = currBasal;	
+					additionalMessage = "Super bolus if eating immediately.";
+				} //Super bolus 	
           		}
           		if((netCarbs<=20) && (protein>20)){ 
             			newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
