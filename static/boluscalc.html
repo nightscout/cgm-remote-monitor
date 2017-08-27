@@ -616,10 +616,10 @@ $(document).ready(function(){
 		  	percentExt = (finalextdose/newTotal)*100;    
 		  }
 		  if(finalextdose == 0){
-			document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2);
+			document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2)+"<br/>";
 		}
 		else{
-			  document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+(finalcarbdose+finalcorrdose+finalsuperdose).toFixed(2)+" + "+finalextdose.toFixed(2)+" extended over 2 hours. ";
+			  document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+(finalcarbdose+finalcorrdose+finalsuperdose).toFixed(2)+" + "+finalextdose.toFixed(2)+" extended over 2 hours.<br/>";
 		}
 	  } 
 	      
