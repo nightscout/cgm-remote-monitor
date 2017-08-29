@@ -97,6 +97,9 @@ describe('hashauth', function ( ) {
   });
 
   it ('should store hash and the remove authentication', function () {
+
+    this.timeout(50000);
+
     var client = require('../lib/client');
     var hashauth = require('../lib/hashauth');
     var localStorage = require('./fixtures/localstorage');   
