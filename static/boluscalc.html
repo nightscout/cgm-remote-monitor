@@ -416,7 +416,7 @@ $(document).ready(function(){
           newBolusCorr = (currBG-BGgoal)/currSens; //Correction
         }
         else if(currBG>70){
-          newBolusCorr = 0;
+          newBolusCorr = (currBG-BGgoal)/currSens; //Correction, maybe UP
         }
         else{
           newBolusCorr = (currBG-BGgoal)/currSens; //Correction UP
@@ -601,7 +601,19 @@ $(document).ready(function(){
 	      finalbolusextpercent = parseInt($form.find( "input[id='bolusext_meal']" ).val());       
 	  var newTotal = 0;
 	  var newNow = 0;
-	  if((finalcarbdose != parseFloat(newBolusCarbs.toFixed(2))) || (finalextdose != parseFloat(newBolusExt.toFixed(2))) || (finalcorrdose != parseFloat(newBolusCorr.toFixed(2))) || (finalsuperdose != parseFloat(newBolusSuper.toFixed(2))) || (finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
+	  console.log("finalcarbdose: "+finalcarbdose);
+	  console.log("newBolusCarbs: "+parseFloat(newBolusCarbs.toFixed(2)));
+	  console.log("finalextdose: "+finalextdose);
+	  console.log("newBolusExt: "+parseFloat(newBolusExt.toFixed(2)));
+	  console.log("finalcorrdose: "+finalcorrdose);
+	  console.log("newBolusCorr: "+parseFloat(newBolusCorr.toFixed(2)));
+	  console.log("finalsuperdose: "+finalsuperdose);	      
+	  console.log("newBolusSuper: "+parseFloat(newBolusSuper.toFixed(2)));
+	  console.log("finalbolusnowpercent: "+finalbolusnowpercent);
+	  console.log("percentNow: "+percentNow);
+	  console.log("finalbolusextpercent: "+finalbolusextpercent);	      
+	  console.log("percentExt: "+percentExt);
+	  /*if((finalcarbdose != parseFloat(newBolusCarbs.toFixed(2))) || (finalextdose != parseFloat(newBolusExt.toFixed(2))) || (finalcorrdose != parseFloat(newBolusCorr.toFixed(2))) || (finalsuperdose != parseFloat(newBolusSuper.toFixed(2))) || (finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
 		  if((finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
 			finalextdose = finalextdose+(finalcarbdose*(finalbolusextpercent/100));  
 			finalcarbdose = finalcarbdose*(finalbolusnowpercent/100);
@@ -621,9 +633,9 @@ $(document).ready(function(){
 		else{
 			  document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+(finalcarbdose+finalcorrdose+finalsuperdose).toFixed(2)+" + "+finalextdose.toFixed(2)+" extended over 2 hours.<br/>";
 		}
-	  } 
+	  } */
 	      
-	  var finalNonCorrNonExtDose = finalcarbdose+finalsuperdose;   
+	  var finalNonCorrNonExtDose = finalcarbdose+finalsuperdose+finalcorrdose;   
 	  if(finalextdose > 0){ 
 		  //Get time
 		today = new Date(); // for now
@@ -637,12 +649,12 @@ $(document).ready(function(){
 			//Format new time
 			UTCtimeStr = newDate.toJSON();
 			//Send fractional insulin amounts to NS
-			postData({ "enteredBy":"BolusCalc","insulin":insulinDiv,"created_at":UTCtimeStr,"secret":secret },function(data){
-			});	
+			//postData({ "enteredBy":"BolusCalc","insulin":insulinDiv,"created_at":UTCtimeStr,"secret":secret },function(data){
+			//});	
 		}
 			     
 	}
-	if((finalNonCorrNonExtDose>0) || (netCarbs>0)){
+	/*if((finalNonCorrNonExtDose>0) || (netCarbs>0)){
           var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":netCarbs,"insulin":finalNonCorrNonExtDose,"eventType":eventType,"preBolus":prebolus,"secret":secret } );
           posting.done(function( data ) {
             document.getElementById("submission_meal").innerHTML += "Data submitted &#x1F44D";
@@ -671,7 +683,7 @@ $(document).ready(function(){
 		  posting3.fail(function( data) {
 		    document.getElementById("submission_meal").innerHTML += ", WITHOUT super bolus temp basal.";  
 		  });
-	  }  
+	  } */ 
         });
 	$("#correctionform").submit(function( event ) {
           // Stop form from submitting normally
