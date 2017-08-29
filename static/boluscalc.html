@@ -462,8 +462,10 @@ $(document).ready(function(){
         if(BGtrend == "Flat") {trendChar='&#x27A1';}
 	var trendWarn30 = '';      
 	var trendWarn60 = '';
-	if((delta30mins >= 30) || (delta30mins <= -30)){ trendWarn30 = " &#x2757&#x2757"; }      
-	if((delta60mins >= 30) || (delta60mins <= -30)){ trendWarn60 = " &#x2757"; }
+	if((origBG+delta30mins) < BGgoal) || (origBG+delta30mins) > 160)){ trendWarn30 = " &#x2757&#x2757"; }  
+	//if((delta30mins >= 30) || (delta30mins <= -30)){ trendWarn30 = " &#x2757&#x2757"; }  
+	if((origBG+delta60mins) < BGgoal) || (origBG+delta60mins) > 160)){ trendWarn60 = " &#x2757"; }      
+	//if((delta60mins >= 30) || (delta60mins <= -30)){ trendWarn60 = " &#x2757"; }
         trendText = "BG: "+origBG+staleWarning+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+trendWarn30+"<br/>60 min delta: "+delta60mins+trendWarn60;
         document.getElementById("resultsBG").innerHTML = trendText;
       }
@@ -625,8 +627,8 @@ $(document).ready(function(){
 		}
 		else{
 			  document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+(finalcarbdose+finalcorrdose+finalsuperdose).toFixed(2)+" + "+finalextdose.toFixed(2)+" extended over 2 hours.<br/>";
-		}
-	  } */
+		}*/
+	  } 
 	      
 	  var finalNonCorrNonExtDose = finalcarbdose+finalsuperdose+finalcorrdose;   
 	  if(finalextdose > 0){ 
