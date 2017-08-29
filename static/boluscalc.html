@@ -204,7 +204,6 @@ $(document).ready(function(){
 					}
 					// Define current low and high values 
 					var lowProfile = data[0].store[currProfile].target_low;
-					console.log(lowProfile);
 					if(timeStr > lowProfile[Object.keys(lowProfile).length-1].time){
 						lowerBGgoal = parseInt(lowProfile[Object.keys(lowProfile).length-1].value);
 					}
@@ -216,9 +215,7 @@ $(document).ready(function(){
 							}
 						}
 					}
-					console.log(lowerBGgoal);
 					var highProfile = data[0].store[currProfile].target_high;
-					console.log(highProfile);
 					if(timeStr > highProfile[Object.keys(highProfile).length-1].time){
 						upperBGgoal = parseInt(highProfile[Object.keys(highProfile).length-1].value);
 					}
@@ -230,7 +227,6 @@ $(document).ready(function(){
 							}
 						}
 					} 
-					console.log(upperBGgoal);
 					
 					// Return values
 					callback(currProfile,currBasal,currSens,currCarbRatio,lowerBGgoal,upperBGgoal);
@@ -580,6 +576,8 @@ $(document).ready(function(){
         /*document.getElementById("basal").value = currBasal;
         document.getElementById("sensitivity").value = currSens;
         document.getElementById("carbRatio").value = currCarbRatio; */
+		console.log("Lower BG goal inside return: "+lowerBGgoal);
+	console.log("Upper BG goal inside return: "+upperBGgoal);
       });
         
       getCustomJSON(entriesURL+"?count=12","BG",function(returndata){      
@@ -589,6 +587,7 @@ $(document).ready(function(){
 	
 	console.log("Lower BG goal: "+lowerBGgoal);
 	console.log("Upper BG goal: "+upperBGgoal);
+	console.log("Current profile: "+currProfile);
 	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ SET BUTTON ACTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~	
 		
