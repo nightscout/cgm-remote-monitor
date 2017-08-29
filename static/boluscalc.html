@@ -203,8 +203,30 @@ $(document).ready(function(){
 						}
 					}
 					// Define current low and high values 
-					lowerBGgoal = parseInt(data[0].store[currProfile].target_low[0].value);  
-					upperBGgoal = parseInt(data[0].store[currProfile].target_high[0].value);  
+					var lowProfile = data[0].store[currProfile].target_low;
+					if(timeStr > lowProfile[Object.keys(lowProfile).length-1].time){
+						lowerBGgoal = parseInt(lowProfile[Object.keys(lowProfile).length-1].value);
+					}
+					else{
+						for (i = 1; i < Object.keys(lowProfile).length; i++){
+							if (timeStr < lowProfile[i].time) {
+								lowerBGgoal = parseFloat(lowProfile[i-1].value);
+								break; 
+							}
+						}
+					}
+					var highProfile = data[0].store[currProfile].target_high;
+					if(timeStr > highProfile[Object.keys(highProfile).length-1].time){
+						upperBGgoal = parseInt(highProfile[Object.keys(highProfile).length-1].value);
+					}
+					else{
+						for (i = 1; i < Object.keys(highProfile).length; i++){
+							if (timeStr < highProfile[i].time) {
+								upperBGgoal = parseFloat(highProfile[i-1].value);
+								break; 
+							}
+						}
+					} 
 					
 					// Return values
 					callback(currProfile,currBasal,currSens,currCarbRatio,lowerBGgoal,upperBGgoal);
