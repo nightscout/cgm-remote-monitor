@@ -30,7 +30,7 @@ all: test
 
 coverage:
 	NODE_ENV=test ${MONGO_SETTINGS} \
-	${ISTANBUL} cover ${MOCHA} --timeout 30000 -- -R tap ${TESTS}
+	${ISTANBUL} cover ${MOCHA} -- --timeout 30000 -R tap ${TESTS}
 
 report:
 	test -f ${ANALYZED} && \
