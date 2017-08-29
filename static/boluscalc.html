@@ -582,10 +582,10 @@ $(document).ready(function(){
 		document.getElementById("bolusnow_meal").value = 100; 
 		document.getElementById("bolusext_meal").value = 0; 				
 	});
-	$("#bolusnow_meal").addEventListener("input", function(e){
+	(document.getElementById("bolusnow_meal")).addEventListener("input", function(e){
 		document.getElementById("bolusext_meal").value = 100-document.getElementById("bolusnow_meal").value;
 	});
-	$("#bolusext_meal").addEventListener("input", function(e){
+	(document.getElementById("bolusext_meal")).addEventListener("input", function(e){
 		document.getElementById("bolusnow_meal").value = 100-document.getElementById("bolusext_meal").value;
 	});
       $("#CorrOnly").click(function() { resetVars(); eventType = "Correction Bolus"; bolusCalc(); });
