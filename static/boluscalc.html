@@ -375,8 +375,8 @@ $(document).ready(function(){
         newBolus = newBolusCorr+newBolusSuper+newBolusCarbs;
 	newBolusExt = newBolusFat + newBolusProtein;
         totalBolus = newBolus + newBolusExt;
-        percentNow = (newBolus/totalBolus)*100;
-        percentExt = (newBolusExt/totalBolus)*100;
+        percentNow = ((newBolus/totalBolus)*100).toFixed(0);
+        percentExt = ((newBolusExt/totalBolus)*100).toFixed(0);
         if(newBolus<0){
         	addCarbs = (BGgoal-currBG)/(currSens/currCarbRatio);
           	document.getElementById("results_meal").innerHTML = "<br/>Need more carbs! Eat "+addCarbs.toFixed(0)+"g. &#x1F36C";
