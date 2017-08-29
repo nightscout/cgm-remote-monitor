@@ -462,9 +462,9 @@ $(document).ready(function(){
         if(BGtrend == "Flat") {trendChar='&#x27A1';}
 	var trendWarn30 = '';      
 	var trendWarn60 = '';
-	if((origBG+delta30mins) < BGgoal) || (origBG+delta30mins) > 160)){ trendWarn30 = " &#x2757&#x2757"; }  
+	if(((origBG+delta30mins) < BGgoal) || ((origBG+delta30mins) > 160)){ trendWarn30 = " &#x2757&#x2757"; }  
 	//if((delta30mins >= 30) || (delta30mins <= -30)){ trendWarn30 = " &#x2757&#x2757"; }  
-	if((origBG+delta60mins) < BGgoal) || (origBG+delta60mins) > 160)){ trendWarn60 = " &#x2757"; }      
+	if(((origBG+delta60mins) < BGgoal) || ((origBG+delta60mins) > 160)){ trendWarn60 = " &#x2757"; }      
 	//if((delta60mins >= 30) || (delta60mins <= -30)){ trendWarn60 = " &#x2757"; }
         trendText = "BG: "+origBG+staleWarning+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+trendWarn30+"<br/>60 min delta: "+delta60mins+trendWarn60;
         document.getElementById("resultsBG").innerHTML = trendText;
