@@ -579,7 +579,7 @@ $(document).ready(function(){
 	$("#corrdose_clear").click(function() { document.getElementById("corrdose_meal").value = 0.00; });
 	$("#superdose_clear").click(function() { document.getElementById("super_meal").value = 0.00; });
 	$("#combosplit_clear").click(function() { 
-		document.getElementById("bolusnow_meal").value = 0; 
+		document.getElementById("bolusnow_meal").value = 100; 
 		document.getElementById("bolusext_meal").value = 0; 				
 	});
       $("#CorrOnly").click(function() { resetVars(); eventType = "Correction Bolus"; bolusCalc(); });
