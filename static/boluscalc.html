@@ -63,6 +63,8 @@ $(document).ready(function(){
 	var timestamp = '';
 	var upperBGgoal = 0;
 	var lowerBGgoal = 0;
+	var treatmentsArray;
+	var activeInsulinHours = 0;
 	//Food	
 	var mfpCode = '';
 	var mealCode = '';  
@@ -228,8 +230,10 @@ $(document).ready(function(){
 						}
 					} 
 					
+					activeInsulinHours = parseFloat(data[0].store[currProfile].dia);
+					
 					// Return values
-					callback(currProfile,currBasal,currSens,currCarbRatio,lowerBGgoal,upperBGgoal);
+					callback(currProfile,currBasal,currSens,currCarbRatio,lowerBGgoal,upperBGgoal,activeInsulinHours);
 				}
                			if(type == "BG") {
 					 // Define current BG
@@ -503,7 +507,7 @@ $(document).ready(function(){
 	//if((delta30mins >= 30) || (delta30mins <= -30)){ trendWarn30 = " &#x2757&#x2757"; }  
 	if(((origBG+delta60mins) < lowerBGgoal) || ((origBG+delta60mins) > upperBGgoal)){ trendWarn60 = " &#x2757"; }      
 	//if((delta60mins >= 30) || (delta60mins <= -30)){ trendWarn60 = " &#x2757"; }
-        trendText = "BG: "+origBG+staleWarning+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+trendWarn30+"<br/>60 min delta: "+delta60mins+trendWarn60+"<br/>Time since last meal/snack: --";
+        trendText = "BG: "+origBG+staleWarning+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+trendWarn30+"<br/>60 min delta: "+delta60mins+trendWarn60+"<br/>Time since last meal/snack: --<br/>IOB (beta): --";
         document.getElementById("resultsBG").innerHTML = trendText;
       }
 		
@@ -575,31 +579,46 @@ $(document).ready(function(){
 		var eventsToSearchFor = [];
 		var timeSinceWarning = ''; 
 		var timeSince = '';
-		if(treatmentToProcess=="Last meal/snack"){
-			eventsToSearchFor = ["Meal Bolus","Snack Bolus"];
-		}
 		var diff = 0;
 		var thelength = Object.keys(data).length;
-			dataLoop: for(i = 0; i < thelength; i++){
-				searchLoop: for (j = 0; j < eventsToSearchFor.length; j++){
-					//console.log(typeof(data[i].eventType) + " / "+ typeof(eventsToSearchFor[j]));
-					if (data[i].eventType == eventsToSearchFor[j]){
-						var JStimestamp = new Date(data[i].created_at);
-						diff = Math.abs(today-JStimestamp);
-						break dataLoop;
+		if(treatmentToProcess=="Last meal/snack"){
+			eventsToSearchFor = ["Meal Bolus","Snack Bolus"];
+				dataLoop: for(i = 0; i < thelength; i++){
+					searchLoop: for (j = 0; j < eventsToSearchFor.length; j++){
+						//console.log(typeof(data[i].eventType) + " / "+ typeof(eventsToSearchFor[j]));
+						if (data[i].eventType == eventsToSearchFor[j]){
+							var JStimestamp = new Date(data[i].created_at);
+							diff = Math.abs(today-JStimestamp);
+							break dataLoop;
+						}
 					}
 				}
+			var minutes = Math.round(Math.floor((diff/1000)/60));  
+			if((minutes>120) && (currBG>upperBGgoal)){
+				timeSinceWarning = "<br/>&#x2757 post prandial BG above limit";
 			}
-		var minutes = Math.round(Math.floor((diff/1000)/60));  
-		if(minutes<60){
-			timeSince = minutes+" minutes";
+			if(minutes<60){
+				timeSince = minutes+" minutes";
+			}
+			else{
+				timeSince = Math.floor(minutes/60)+ " hours, "+(minutes%60)+" minutes";
+			}
+			var prevString = document.getElementById("resultsBG").innerHTML;
+			document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-21) + timeSince+timeSinceWarning;
 		}
-		else{
-			timeSince = Math.floor(minutes/60)+ " hours, "+(minutes%60)+" minutes";
-		}
-		var prevString = document.getElementById("resultsBG").innerHTML;
-		//if(minutes >= 10) { staleWarning=" &#x2757 Data is "+minutes+" minutes old." } 
-		document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-2) + timeSince;
+		if(treatmentToProcess=="IOB"){
+			var IOB = 0;
+				dataLoop: for(i = 0; i < thelength; i++){
+					var JStimestamp = new Date(data[i].created_at);
+					diff = Math.abs(today-JStimestamp);
+					if ((data[i].insulin > 0) && (diff<(activeInsulinHours*60))){
+						IOB += parseFloat(data[i].insulin);	
+					}
+					if (diff>(activeInsulinHours*60)){ break dataLoop; }
+				}
+			var prevString = document.getElementById("resultsBG").innerHTML;
+			document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-2) + IOB;
+		}	
 	}
 	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ RUN FUNCTIONS ON PAGE LOAD ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -613,6 +632,7 @@ $(document).ready(function(){
 	currCarbRatio = currCarbRatio;
 	lowerBGgoal = lowerBGgoal;
 	upperBGgoal = upperBGgoal;
+	activeInsulinHours = activeInsulinHours;
       });
         
       getCustomJSON(entriesURL+"?count=12","BG",function(returndata){      
@@ -623,8 +643,10 @@ $(document).ready(function(){
         BGtrends();
       });
 	
-	getCustomJSON(treatmentsURL,"Treatments",function(returndata){      
-            processTreatments(returndata,"Last meal/snack");
+	getCustomJSON(treatmentsURL,"Treatments",function(returndata){ 
+	    treatmentsArray = returndata;
+            processTreatments(treatmentsArray,"Last meal/snack");
+	    processTreatments(treatmentsArray,"IOB");
       });
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ SET BUTTON ACTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~	
@@ -885,7 +907,7 @@ $(document).ready(function(){
 
     <div id="statusdiv" class="alt1">  
     <b>Current Stats</b><br/>	  
-    <div id="resultsBG">BG: --<br/>BG Trend: --<br/>30 min delta: --<br/>60 min delta: --<br/>Time since last meal/snack: --
+    <div id="resultsBG">BG: --<br/>BG Trend: --<br/>30 min delta: --<br/>60 min delta: --<br/>Time since last meal/snack: --<br/>IOB (beta): --
 	    </div>
 	  </div>
 	  
