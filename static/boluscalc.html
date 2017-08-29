@@ -12,7 +12,7 @@
 	body {padding: 30px 30px 30px 30px;}
 	input[type=submit] {width: 49%; margin-top: 5px; }
 	input[type=button] {width: 49%; margin-top: 5px; }
-	.clear {max-width: 20%; display:inline-block; float:right; }
+	.clear {max-width: 15%; display:inline-block; float:right; }
 	input[type=number] {width: 49%; margin-top: 5px; }
 	div {width:100%; max-width: 350px;}
 	form {width:100%; max-width: 350px;}
@@ -568,6 +568,10 @@ $(document).ready(function(){
 	$("#extdose_clear").click(function() { document.getElementById("extdose_meal").value = 0.00; });
 	$("#corrdose_clear").click(function() { document.getElementById("corrdose_meal").value = 0.00; });
 	$("#superdose_clear").click(function() { document.getElementById("super_meal").value = 0.00; });
+	$("#combosplit_clear").click(function() { 
+		document.getElementById("bolusnow_meal").value = 0; 
+		document.getElementById("bolusext_meal").value = 0; 				
+	});
       $("#CorrOnly").click(function() { resetVars(); eventType = "Correction Bolus"; bolusCalc(); });
       $("#CarbsOnly").click(function() { resetVars(); eventType = "Carb Correction"; bolusCalc(); });
       $("#EngineBraking").click(function() { resetVars(); eventType = "Temp Basal"; setTemp("Engine Braking"); });
@@ -601,20 +605,9 @@ $(document).ready(function(){
 	      finalbolusextpercent = parseInt($form.find( "input[id='bolusext_meal']" ).val());       
 	  var newTotal = 0;
 	  var newNow = 0;
-	  console.log("finalcarbdose: "+finalcarbdose);
-	  console.log("newBolusCarbs: "+parseFloat(newBolusCarbs.toFixed(2)));
-	  console.log("finalextdose: "+finalextdose);
-	  console.log("newBolusExt: "+parseFloat(newBolusExt.toFixed(2)));
-	  console.log("finalcorrdose: "+finalcorrdose);
-	  console.log("newBolusCorr: "+parseFloat(newBolusCorr.toFixed(2)));
-	  console.log("finalsuperdose: "+finalsuperdose);	      
-	  console.log("newBolusSuper: "+parseFloat(newBolusSuper.toFixed(2)));
-	  console.log("finalbolusnowpercent: "+finalbolusnowpercent);
-	  console.log("percentNow: "+percentNow);
-	  console.log("finalbolusextpercent: "+finalbolusextpercent);	      
-	  console.log("percentExt: "+percentExt);
-	  /*if((finalcarbdose != parseFloat(newBolusCarbs.toFixed(2))) || (finalextdose != parseFloat(newBolusExt.toFixed(2))) || (finalcorrdose != parseFloat(newBolusCorr.toFixed(2))) || (finalsuperdose != parseFloat(newBolusSuper.toFixed(2))) || (finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
-		  if((finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
+	  if((finalcarbdose != parseFloat(newBolusCarbs.toFixed(2))) || (finalextdose != parseFloat(newBolusExt.toFixed(2))) || (finalcorrdose != parseFloat(newBolusCorr.toFixed(2))) || (finalsuperdose != parseFloat(newBolusSuper.toFixed(2))) || (finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
+		  console.log("SOMETHING ISN'T EQUAL JESUS CHRIST NOOOOOOOO");
+		  /*if((finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
 			finalextdose = finalextdose+(finalcarbdose*(finalbolusextpercent/100));  
 			finalcarbdose = finalcarbdose*(finalbolusnowpercent/100);
 			newTotal = finalcarbdose+finalextdose+finalcorrdose+finalsuperdose;
@@ -839,7 +832,7 @@ $(document).ready(function(){
 		<br/><input type="number" step="0.01" id="extdose_meal" min="0" value="0"/> Extended <input type="button" id="extdose_clear" value="Clear" class="clear" />
 		<br/><input type="number" step="0.01" id="corrdose_meal" value="0"/> Correction <input type="button" id="corrdose_clear" value="Clear" class="clear" />
 		<br/><input type="number" step="0.01" id="super_meal" min="0" value="0"/> Super <input type="button" id="superdose_clear" value="Clear" class="clear" />
-		<br/><input type="number" step="1" id="bolusnow_meal" min="0" value="100" style="width: 22%;" />%<input type="number" step="1" id="bolusext_meal" min="0" value="0" style="width: 22%;" />% Combo split   
+		<br/><input type="number" step="1" id="bolusnow_meal" min="0" value="100" style="width: 22%;" />%<input type="number" step="1" id="bolusext_meal" min="0" value="0" style="width: 22%;" />% Combo split <input type="button" id="combosplit_clear" value="Clear" class="clear" />  
 	    </div>
       <input type="submit" id="submit_meal" value="Submit meal/snack" /><br/>
     </form>
