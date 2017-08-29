@@ -41,11 +41,11 @@ report:
 	YOURPACKAGE_COVERAGE=1 ./node_modules/codacy-coverage/bin/codacy-coverage.js) || echo "NO COVERAGE"
 
 test:
-	${MONGO_SETTINGS} ${MOCHA} -R tap ${TESTS}
+	${MONGO_SETTINGS} ${MOCHA} -t 30000 -R tap ${TESTS}
 
 travis:
 	NODE_ENV=test ${MONGO_SETTINGS} \
-	${ISTANBUL} cover ${MOCHA} --report lcovonly -- -R tap ${TESTS}
+	${ISTANBUL} cover ${MOCHA} -t 30000 --report lcovonly -- -R tap ${TESTS}
 
 docker_release:
 	# Get the version from the package.json file
