@@ -174,7 +174,8 @@ exampleProfile[0].startDate.setMilliseconds(0);
 describe('reports', function ( ) {
   var self = this;
   var headless = require('./fixtures/headless')(benv, this);
-  this.timeout(40000);
+  this.timeout(80000);
+  
   before(function (done) {
     done( );
   });
