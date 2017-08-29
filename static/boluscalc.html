@@ -618,7 +618,8 @@ $(document).ready(function(){
 	      finalcorrdose = parseFloat($form.find( "input[id='corrdose_meal']" ).val()),
 	      finalsuperdose = parseFloat($form.find( "input[id='super_meal']" ).val()),
 	      finalbolusnowpercent = parseInt($form.find( "input[id='bolusnow_meal']" ).val()),
-	      finalbolusextpercent = parseInt($form.find( "input[id='bolusext_meal']" ).val());       
+	      finalbolusextpercent = parseInt($form.find( "input[id='bolusext_meal']" ).val()),
+	      finalextbolustime = parseInt($form.find( "select[id='extBolusTime']" ).val()) ;       
 	  var newTotal = 0;
 	  var newNow = 0;
 	  var prevTotal = finalcarbdose+finalextdose;
@@ -652,10 +653,12 @@ $(document).ready(function(){
 		today = new Date(); // for now
 		//Divide time
 		var newDate = new Date(today);
-		var insulinDiv = finalextdose/12.0;
+		var extTimeIntervals = finalextbolustime/10.0;  
+		  //finalextbolustime
+		var insulinDiv = finalextdose/extTimeIntervals;
 		var t;
 		var UTCMonth;
-		for (t = 0; t < 12; t++){
+		for (t = 0; t < parseInt(extTimeIntervals); t++){
 			newDate.setTime(newDate.getTime() + 10*60*1000);
 			//Format new time
 			UTCtimeStr = newDate.toJSON();
@@ -856,6 +859,14 @@ $(document).ready(function(){
 		<br/><input type="number" step="0.01" id="corrdose_meal" value="0"/> Correction <input type="button" id="corrdose_clear" value="Clear" class="clear" />
 		<br/><input type="number" step="0.01" id="super_meal" min="0" value="0"/> Super <input type="button" id="superdose_clear" value="Clear" class="clear" />
 		<br/><input type="number" step="1" id="bolusnow_meal" min="0" value="100" style="width: 22%;" />%<input type="number" step="1" id="bolusext_meal" min="0" value="0" style="width: 22%;" />% Combo split <input type="button" id="combosplit_clear" value="Clear" class="clear" />  
+		<br/><select id="extBolusTime">
+	  	<option value="30">30 mins</option>
+	  	<option value="60">1 hr</option>
+		<option value="90">1.5 hrs</option>
+		<option value="120" selected="selected">2 hrs</option>
+		<option value="150">2.5 hrs</option>
+		<option value="180">3 hrs</option>
+	</select> Ext bolus time<br/>    
 	    </div>
       <input type="submit" id="submit_meal" value="Submit meal/snack" /><br/>
     </form>
