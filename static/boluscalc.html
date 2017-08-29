@@ -38,8 +38,6 @@ $(document).ready(function(){
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ INSTANTIATE VARIABLES ~~~~~~~~~~~~~~~~~~~~~~~~~
 	//Static
 	var BGgoal = 90;
-	var upperBGgoal = 160;
-	var lowerBGgoal = 70;
 	var hostname = location.protocol + '//' + location.host;
 	var MFPurl = "http://www.myfitnesspal.com/food/diary/oboe_girl4";
 	var profileURL = hostname+"/api/v1/profile.json";
@@ -63,6 +61,8 @@ $(document).ready(function(){
 	var currSens = 0.0;
 	var currCarbRatio = 0.0;
 	var timestamp = '';
+	var upperBGgoal = 0;
+	var lowerBGgoal = 0;
 	//Food	
 	var mfpCode = '';
 	var mealCode = '';  
@@ -202,8 +202,12 @@ $(document).ready(function(){
 							}
 						}
 					}
+					// Define current low and high values 
+					lowerBGgoal = parseInt(data[0].store[currProfile].target_low[0].value);  
+					upperBGgoal = parseInt(data[0].store[currProfile].target_high[0].value);  
+					
 					// Return values
-					callback(currProfile,currBasal,currSens,currCarbRatio);
+					callback(currProfile,currBasal,currSens,currCarbRatio,lowerBGgoal,upperBGgoal);
 				}
                			if(type == "BG") {
 					 // Define current BG
@@ -556,6 +560,9 @@ $(document).ready(function(){
         //document.getElementById("BG").value = currBG; 
         BGtrends();
       });
+	
+	console.log("Lower BG goal: "+lowerBGgoal);
+	console.log("Upper BG goal: "+upperBGgoal);
 	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ SET BUTTON ACTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~	
 		
