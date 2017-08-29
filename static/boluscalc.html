@@ -496,6 +496,8 @@ $(document).ready(function(){
         if(BGtrend == "Flat") {trendChar='&#x27A1';}
 	var trendWarn30 = '';      
 	var trendWarn60 = '';
+	console.log("Lower BG goal: "+lowerBGgoal);
+	console.log("Upper BG goal: "+upperBGgoal);
 	if(((origBG+delta30mins) < lowerBGgoal) || ((origBG+delta30mins) > upperBGgoal)){ trendWarn30 = " &#x2757&#x2757"; }  
 	//if((delta30mins >= 30) || (delta30mins <= -30)){ trendWarn30 = " &#x2757&#x2757"; }  
 	if(((origBG+delta60mins) < lowerBGgoal) || ((origBG+delta60mins) > upperBGgoal)){ trendWarn60 = " &#x2757"; }      
@@ -576,8 +578,6 @@ $(document).ready(function(){
         /*document.getElementById("basal").value = currBasal;
         document.getElementById("sensitivity").value = currSens;
         document.getElementById("carbRatio").value = currCarbRatio; */
-		console.log("Lower BG goal inside return: "+lowerBGgoal);
-	console.log("Upper BG goal inside return: "+upperBGgoal);
       });
         
       getCustomJSON(entriesURL+"?count=12","BG",function(returndata){      
@@ -585,9 +585,8 @@ $(document).ready(function(){
         BGtrends();
       });
 	
-	console.log("Lower BG goal: "+lowerBGgoal);
-	console.log("Upper BG goal: "+upperBGgoal);
-	console.log("Current profile: "+currProfile);
+	
+
 	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ SET BUTTON ACTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~	
 		
