@@ -583,8 +583,8 @@ $(document).ready(function(){
 		var found = 0;
 		while(found == 0){
 			for(i = 0; i < thelength; i++){
-				console.log(data[i].eventType);
 				for (j = 0; j < eventsToSearchFor.length; j++){
+					console.log(data[i].eventType + " / "+ eventsToSearchFor[j]);
 					if (data[i].eventType == eventsToSearchFor[j]){
 						var JStimestamp = new Date(data[i].created_at);
 						diff = Math.abs(today-JStimestamp);
