@@ -210,7 +210,7 @@ $(document).ready(function(){
 					else{
 						for (i = 1; i < Object.keys(lowProfile).length; i++){
 							if (timeStr < lowProfile[i].time) {
-								lowerBGgoal = parseFloat(lowProfile[i-1].value);
+								lowerBGgoal = parseInt(lowProfile[i-1].value);
 								break; 
 							}
 						}
@@ -222,7 +222,7 @@ $(document).ready(function(){
 					else{
 						for (i = 1; i < Object.keys(highProfile).length; i++){
 							if (timeStr < highProfile[i].time) {
-								upperBGgoal = parseFloat(highProfile[i-1].value);
+								upperBGgoal = parseInt(highProfile[i-1].value);
 								break; 
 							}
 						}
@@ -575,13 +575,19 @@ $(document).ready(function(){
 	getDate();
 		
 	getCustomJSON(profileURL,"profile",function(returndata){
-        /*document.getElementById("basal").value = currBasal;
-        document.getElementById("sensitivity").value = currSens;
-        document.getElementById("carbRatio").value = currCarbRatio; */
+        currProfile = currProfile;
+	currBasal = currBasal;
+	currSens = currSens;
+	currCarbRatio = currCarbRatio;
+	lowerBGgoal = lowerBGgoal;
+	upperBGgoal = upperBGgoal;
       });
         
       getCustomJSON(entriesURL+"?count=12","BG",function(returndata){      
-        //document.getElementById("BG").value = currBG; 
+        currBG = currBG;
+	delta30mins = delta30mins;
+	delta60mins = delta60mins;
+	BGtrend = BGtrend;
         BGtrends();
       });
 	
