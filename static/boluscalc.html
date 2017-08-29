@@ -240,6 +240,10 @@ $(document).ready(function(){
 					 timestamp = data[0].dateString;
 					 callback(currBG,delta30mins,delta60mins,BGtrend);
 			       }
+				if(type == "Treatments") {
+					console.log(typeOf(data));
+					callback(data);
+			       }
             		},
             		error: function(data){
             			document.getElementById("errors").innerHTML = "Derp derp derp.";
@@ -496,8 +500,6 @@ $(document).ready(function(){
         if(BGtrend == "Flat") {trendChar='&#x27A1';}
 	var trendWarn30 = '';      
 	var trendWarn60 = '';
-	console.log("Lower BG goal: "+lowerBGgoal);
-	console.log("Upper BG goal: "+upperBGgoal);
 	if(((origBG+delta30mins) < lowerBGgoal) || ((origBG+delta30mins) > upperBGgoal)){ trendWarn30 = " &#x2757&#x2757"; }  
 	//if((delta30mins >= 30) || (delta30mins <= -30)){ trendWarn30 = " &#x2757&#x2757"; }  
 	if(((origBG+delta60mins) < lowerBGgoal) || ((origBG+delta60mins) > upperBGgoal)){ trendWarn60 = " &#x2757"; }      
@@ -570,6 +572,36 @@ $(document).ready(function(){
 	      getMealData(name);
       }
 	
+	function processTreatments(data, treatmentToProcess){
+		var eventsToSearchFor = [];
+		var timeSinceWarning = ''; 
+		var timeSince = '';
+		if(treatmentToProcess=="Last meal/snack"){
+			eventsToSearchFor = ["Meal Bolus","Snack Bolus"];
+		}
+		var diff = 0;
+		var thelength = Object.keys(data).length;
+		for(i = 0; i < thelength; i++){
+			for (j = 0; j < eventsToSearchFor.length; j++){
+				if (data[i].eventType == eventsToSearchFor[j]){
+					var JStimestamp = new Date(data[i].created_at);
+					diff = Math.abs(today-JStimestamp);
+					break;
+				}
+			}
+		}
+		var minutes = Math.floor((diff/1000)/60);  
+		if(minutes<60){
+			timeSince = minutes+" minutes";
+		}
+		else{
+			timeSince = (minutes/60)+ " hours";
+		}
+		var prevString = document.getElementById("resultsBG").innerHTML;
+		//if(minutes >= 10) { staleWarning=" &#x2757 Data is "+minutes+" minutes old." } 
+		document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-2) + timeSince;
+	}
+	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ RUN FUNCTIONS ON PAGE LOAD ~~~~~~~~~~~~~~~~~~~~~~~~~
 		
 	getDate();
@@ -591,9 +623,10 @@ $(document).ready(function(){
         BGtrends();
       });
 	
-	
+	getCustomJSON(treatmentsURL,"Treatments",function(returndata){      
+            processTreatments(returndata,"Last meal/snack");
+      });
 
-	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ SET BUTTON ACTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~	
 		
       $("#BreakfastButton").click(function() { calcFoodBolus("Meal", "Breakfast"); });
@@ -852,7 +885,7 @@ $(document).ready(function(){
 
     <div id="statusdiv" class="alt1">  
     <b>Current Stats</b><br/>	  
-    <div id="resultsBG">BG: --<br/>BG Trend: --<br/>30 min delta: --<br/>60 min delta: --
+    <div id="resultsBG">BG: --<br/>BG Trend: --<br/>30 min delta: --<br/>60 min delta: --<br/>Time since last meal/snack: --
 	    </div>
 	  </div>
 	  
