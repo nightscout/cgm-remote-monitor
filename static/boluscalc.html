@@ -38,6 +38,8 @@ $(document).ready(function(){
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ INSTANTIATE VARIABLES ~~~~~~~~~~~~~~~~~~~~~~~~~
 	//Static
 	var BGgoal = 90;
+	var upperBGgoal = 160;
+	var lowerBGgoal = 70;
 	var hostname = location.protocol + '//' + location.host;
 	var MFPurl = "http://www.myfitnesspal.com/food/diary/oboe_girl4";
 	var profileURL = hostname+"/api/v1/profile.json";
@@ -372,8 +374,14 @@ $(document).ready(function(){
 	      newBolusFat = newBolusCarbs*.2;
 	      newBolusCarbs = newBolusCarbs*.8;
           }
-        newBolus = newBolusCorr+newBolusSuper+newBolusCarbs;
-	newBolusExt = newBolusFat + newBolusProtein;
+	if(mealName == "Breakfast"){
+		newBolus = newBolusCorr+newBolusSuper+newBolusCarbs+newBolusProtein;
+		newBolusExt = newBolusFat;
+	}
+	else{	
+        	newBolus = newBolusCorr+newBolusSuper+newBolusCarbs;
+		newBolusExt = newBolusFat+newBolusProtein;
+	}
         totalBolus = newBolus + newBolusExt;
         percentNow = Math.round((newBolus/totalBolus)*100);
         percentExt = 100-percentNow; ((newBolusExt/totalBolus)*100);
@@ -462,9 +470,9 @@ $(document).ready(function(){
         if(BGtrend == "Flat") {trendChar='&#x27A1';}
 	var trendWarn30 = '';      
 	var trendWarn60 = '';
-	if(((origBG+delta30mins) < BGgoal) || ((origBG+delta30mins) > 160)){ trendWarn30 = " &#x2757&#x2757"; }  
+	if(((origBG+delta30mins) < lowerBGgoal) || ((origBG+delta30mins) > upperBGgoal)){ trendWarn30 = " &#x2757&#x2757"; }  
 	//if((delta30mins >= 30) || (delta30mins <= -30)){ trendWarn30 = " &#x2757&#x2757"; }  
-	if(((origBG+delta60mins) < BGgoal) || ((origBG+delta60mins) > 160)){ trendWarn60 = " &#x2757"; }      
+	if(((origBG+delta60mins) < lowerBGgoal) || ((origBG+delta60mins) > upperBGgoal)){ trendWarn60 = " &#x2757"; }      
 	//if((delta60mins >= 30) || (delta60mins <= -30)){ trendWarn60 = " &#x2757"; }
         trendText = "BG: "+origBG+staleWarning+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+trendWarn30+"<br/>60 min delta: "+delta60mins+trendWarn60;
         document.getElementById("resultsBG").innerHTML = trendText;
@@ -608,26 +616,25 @@ $(document).ready(function(){
 	  var newTotal = 0;
 	  var newNow = 0;
 	  if((finalcarbdose != parseFloat(newBolusCarbs.toFixed(2))) || (finalextdose != parseFloat(newBolusExt.toFixed(2))) || (finalcorrdose != parseFloat(newBolusCorr.toFixed(2))) || (finalsuperdose != parseFloat(newBolusSuper.toFixed(2))) || (finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
-		  console.log("SOMETHING ISN'T EQUAL JESUS CHRIST NOOOOOOOO");
-		  /*if((finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
+		  if((finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
 			finalextdose = finalextdose+(finalcarbdose*(finalbolusextpercent/100));  
 			finalcarbdose = finalcarbdose*(finalbolusnowpercent/100);
 			newTotal = finalcarbdose+finalextdose+finalcorrdose+finalsuperdose;
 			newNow = finalcarbdose+finalsuperdose+finalcorrdose;
-			percentNow = (newNow/newTotal)*100;
-			percentExt = (finalextdose/newTotal)*100;   
+			percentNow = Math.round((newNow/newTotal)*100);
+			percentExt = 100-percentNow; //(finalextdose/newTotal)*100;   
 		  }
 		  else{
 		  	newTotal = finalcarbdose+finalextdose+finalcorrdose+finalsuperdose;
-		  	percentNow = ((finalcarbdose+finalcorrdose+finalsuperdose)/newTotal)*100;
-		  	percentExt = (finalextdose/newTotal)*100;    
+		  	percentNow = Math.round(((finalcarbdose+finalcorrdose+finalsuperdose)/newTotal)*100);
+		  	percentExt = 100-percentNow; //(finalextdose/newTotal)*100;    
 		  }
 		  if(finalextdose == 0){
 			document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2)+"<br/>";
 		}
 		else{
 			  document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+(finalcarbdose+finalcorrdose+finalsuperdose).toFixed(2)+" + "+finalextdose.toFixed(2)+" extended over 2 hours.<br/>";
-		}*/
+		}
 	  } 
 	      
 	  var finalNonCorrNonExtDose = finalcarbdose+finalsuperdose+finalcorrdose;   
@@ -644,13 +651,18 @@ $(document).ready(function(){
 			//Format new time
 			UTCtimeStr = newDate.toJSON();
 			//Send fractional insulin amounts to NS
-			//postData({ "enteredBy":"BolusCalc","insulin":insulinDiv,"created_at":UTCtimeStr,"secret":secret },function(data){
-			//});	
+			postData({ "enteredBy":"BolusCalc","insulin":insulinDiv,"created_at":UTCtimeStr,"secret":secret },function(data){
+			});	
 		}
 			     
 	}
-	/*if((finalNonCorrNonExtDose>0) || (netCarbs>0)){
+	if((finalNonCorrNonExtDose>0) || (netCarbs>0)){
+	  if(finalNonCorrNonExtDose<0) { 
+	  var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":netCarbs,"insulin":0,"eventType":eventType,"preBolus":prebolus,"secret":secret } );
+	  }
+	  else{	
           var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":netCarbs,"insulin":finalNonCorrNonExtDose,"eventType":eventType,"preBolus":prebolus,"secret":secret } );
+	  }
           posting.done(function( data ) {
             document.getElementById("submission_meal").innerHTML += "Data submitted &#x1F44D";
           }); 
@@ -678,7 +690,7 @@ $(document).ready(function(){
 		  posting3.fail(function( data) {
 		    document.getElementById("submission_meal").innerHTML += ", WITHOUT super bolus temp basal.";  
 		  });
-	  } */ 
+	  }  
         });
 	$("#correctionform").submit(function( event ) {
           // Stop form from submitting normally
