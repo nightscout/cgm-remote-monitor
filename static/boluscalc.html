@@ -580,14 +580,13 @@ $(document).ready(function(){
 		}
 		var diff = 0;
 		var thelength = Object.keys(data).length;
-			for(i = 0; i < thelength; i++){
-				for (j = 0; j < eventsToSearchFor.length; j++){
+			dataLoop: for(i = 0; i < thelength; i++){
+				searchLoop: for (j = 0; j < eventsToSearchFor.length; j++){
 					//console.log(typeof(data[i].eventType) + " / "+ typeof(eventsToSearchFor[j]));
 					if (data[i].eventType == eventsToSearchFor[j]){
-						console.log("Equals!");
 						var JStimestamp = new Date(data[i].created_at);
 						diff = Math.abs(today-JStimestamp);
-						break;
+						break dataLoop;
 					}
 				}
 			}
