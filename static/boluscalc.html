@@ -627,7 +627,7 @@ $(document).ready(function(){
 					diffFood = Math.abs(today-JStimestamp);
 					mealFound = 1;
 				}
-				if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && (data[i].eventType == eventsToSearchFor[j])){
+				if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && ( (data[i].eventType == eventsToSearchFor[j]) || (data[i].eventType == "") )){ // "" is combo bolus extended entered by BolusCalc
 					if(minAgo < peak){
 						x1 = (minAgo/5) + 1;
 						IOBfood += parseFloat(data[i].insulin)*(1 - 0.001852 * x1 * x1 + 0.001852 * x1);	
