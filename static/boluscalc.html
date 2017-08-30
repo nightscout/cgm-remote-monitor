@@ -608,7 +608,7 @@ $(document).ready(function(){
 					mealFound = 1;
 				}
 				console.log(minutes + " / "+ data[i].eventType + " / "+ data[i].insulin + " event type: "+ typeof(data[i].eventType));
-				if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && ( (data[i].eventType == eventsToSearchFor[j]) || (data[i].eventType == "") )){ // "" is combo bolus extended entered by BolusCalc
+				if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && ( (data[i].eventType == eventsToSearchFor[j]) || (data[i].eventType === undefined) )){ // undefined for combo bolus extended entered by BolusCalc
 					console.log(minutes + " / "+ data[i].eventType + " / "+ data[i].insulin);
 					if(minAgo < peak){
 						x1 = (minAgo/5) + 1;
