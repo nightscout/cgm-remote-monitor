@@ -75,6 +75,7 @@
 					activeInsulinHours = parseFloat(data[0].store[currProfile].dia);
 					
 					// Return values
+					console.log("Other file ran. "+currProfile);
 					callback(currProfile,currBasal,currSens,currCarbRatio,lowerBGgoal,upperBGgoal,activeInsulinHours);
 				}
                			if(type == "BG") {
