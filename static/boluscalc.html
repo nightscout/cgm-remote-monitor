@@ -124,10 +124,29 @@ $(document).ready(function(){
 		// Time
 		getDate(); 
 		//Stats
-		getCustomJSON(profileURL,"profile",function(returndata){ });
-		getCustomJSON(entriesURL+"?count=12","BG",function(returndata){      
+		getCustomJSON(profileURL,"profile",function(returndata){
+			currProfile = currProfile;
+			currBasal = currBasal;
+			currSens = currSens;
+			currCarbRatio = currCarbRatio;
+			lowerBGgoal = lowerBGgoal;
+			upperBGgoal = upperBGgoal;
+			activeInsulinHours = activeInsulinHours;
+	      	});
+
+	      	getCustomJSON(entriesURL+"?count=12","BG",function(returndata){      
+			currBG = currBG;
+			delta30mins = delta30mins;
+			delta60mins = delta60mins;
+			BGtrend = BGtrend;
 			BGtrends();
-	    	});
+	      	});
+
+		getCustomJSON(treatmentsURL,"Treatments",function(returndata){ 
+			treatmentsArray = returndata;
+			processTreatments(treatmentsArray,"Last meal/snack");
+			processTreatments(treatmentsArray,"IOB");
+	      	});
 		//Food
 		mfpCode = '';
 	    	mealCode = '';  
@@ -623,7 +642,7 @@ $(document).ready(function(){
 					if (minutes>(activeInsulinHours*60)){ break dataLoop2; }
 				}
 			prevString = document.getElementById("resultsBG").innerHTML;
-			document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-2) + IOB;
+			document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-2) + IOB.toFixed(2);
 		}	
 	}
 	
