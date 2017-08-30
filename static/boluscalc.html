@@ -144,8 +144,7 @@ $(document).ready(function(){
 
 		getCustomJSON(treatmentsURL,"Treatments",function(returndata){ 
 			treatmentsArray = returndata;
-			processTreatments(treatmentsArray,"Last meal/snack");
-			processTreatments(treatmentsArray,"IOB");
+			processTreatments(treatmentsArray);
 	      	});
 		//Food
 		mfpCode = '';
@@ -594,7 +593,7 @@ $(document).ready(function(){
 	      getMealData(name);
       }
 	
-	function processTreatments(data, treatmentToProcess){
+	function processTreatments(data){
 		var eventsToSearchFor = [];
 		var timeSinceWarning = ''; 
 		var timeSince = '';
@@ -695,8 +694,7 @@ $(document).ready(function(){
 	
 	getCustomJSON(treatmentsURL,"Treatments",function(returndata){ 
 	    treatmentsArray = returndata;
-            processTreatments(treatmentsArray,"Last meal/snack");
-	    processTreatments(treatmentsArray,"IOB");
+            processTreatments(treatmentsArray);
       });
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ SET BUTTON ACTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~	
