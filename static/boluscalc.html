@@ -630,14 +630,27 @@ $(document).ready(function(){
 		}
 		if(treatmentToProcess=="IOB"){
 			var IOB = 0;
+			var peak = 75;
+			var scaleFactor = 3.0/activeInsulinHours;
+			var minAgo = 0;
+			
 				dataLoop2: for(i = 0; i < thelength; i++){
 					JStimestamp = new Date(data[i].created_at);
 					diff = Math.abs(today-JStimestamp);
 					minutes = Math.round(Math.floor((diff/1000)/60)); 
-					console.log("Diff in minutes: "+minutes+"/Insulin: "+parseFloat(data[i].insulin));
+					minAgo = scaleFactor*minutes;
+					//console.log("Diff in minutes: "+minutes+"/Insulin: "+parseFloat(data[i].insulin));
 					if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60))){
-						IOB += parseFloat(data[i].insulin);	
-						console.log("Adding IOB");
+						if(minAgo < peak){
+							var x1 = (minAgo/5) + 1;
+							IOB += parseFloat(data[i].insulin)*(1 - 0.001852 * x1 * x1 + 0.001852 * x1);	
+							console.log("Adding IOB less than peak");
+						}
+						else if (minAgo < 180){
+							var x2 = (minAgo - peak) / 5;
+							IOB += parseFloat(data[i].insulin)*(0.001323 * x2 * x2 - 0.054233 * x2 + 0.55556);	
+							console.log("Adding IOB greater than peak");
+						}	
 					}
 					if (minutes>(activeInsulinHours*60)){ break dataLoop2; }
 				}
