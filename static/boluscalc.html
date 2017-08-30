@@ -506,7 +506,7 @@ $(document).ready(function(){
 	//if((delta30mins >= 30) || (delta30mins <= -30)){ trendWarn30 = " &#x2757&#x2757"; }  
 	if(((origBG+delta60mins) < lowerBGgoal) || ((origBG+delta60mins) > upperBGgoal)){ trendWarn60 = " &#x2757"; }      
 	//if((delta60mins >= 30) || (delta60mins <= -30)){ trendWarn60 = " &#x2757"; }
-        trendText = "BG: "+origBG+staleWarning+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+trendWarn30+"<br/>60 min delta: "+delta60mins+trendWarn60+"<br/>Time since last meal/snack: --<br/>IOB (beta): --";
+        trendText = "BG: "+origBG+staleWarning+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+trendWarn30+"<br/>60 min delta: "+delta60mins+trendWarn60+"<br/>Time since last meal/snack: --<br/>IOB (food): --";
         document.getElementById("resultsBG").innerHTML = trendText;
       }
 		
@@ -603,12 +603,12 @@ $(document).ready(function(){
 				minAgo = scaleFactor*minutes;
 				//console.log(typeof(data[i].eventType) + " / "+ typeof(eventsToSearchFor[j]));
 				if ((data[i].eventType == eventsToSearchFor[j]) && (mealFound == 0)){
-					console.log("Found the meal!");
 					JStimestamp = new Date(data[i].created_at);
 					diffFood = Math.abs(today-JStimestamp);
 					mealFound = 1;
 				}
 				if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && ( (data[i].eventType == eventsToSearchFor[j]) || (data[i].eventType == "") )){ // "" is combo bolus extended entered by BolusCalc
+					console.log(minutes + " / "+ data[i].eventType + " / "+ data[i].insulin);
 					if(minAgo < peak){
 						x1 = (minAgo/5) + 1;
 						IOBfood += parseFloat(data[i].insulin)*(1 - 0.001852 * x1 * x1 + 0.001852 * x1);	
