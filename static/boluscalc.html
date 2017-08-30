@@ -488,7 +488,7 @@ $(document).ready(function(){
         }
       }
       
-      function BGtrends(){
+      /*function BGtrends(){
       	trendChar = '';
         trendText = '';
 	var staleWarning = '';      
@@ -513,7 +513,7 @@ $(document).ready(function(){
 	//if((delta60mins >= 30) || (delta60mins <= -30)){ trendWarn60 = " &#x2757"; }
         trendText = "BG: "+origBG+staleWarning+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+trendWarn30+"<br/>60 min delta: "+delta60mins+trendWarn60+"<br/>Time since last meal/snack: --<br/>IOB (food): --";
         document.getElementById("resultsBG").innerHTML = trendText;
-      }
+      }*/
 		
 	function setTemp(type){
 		if(type == "Engine Braking"){
@@ -683,14 +683,14 @@ $(document).ready(function(){
         currBG = currBG;
 	delta30mins = delta30mins;
 	delta60mins = delta60mins;
-	BGtrend = BGtrend;
-        BGtrends();
+	BGtrend = BGtrend; 
       });
+	BGtrends();
 	
 	getCustomJSON(treatmentsURL,"Treatments",function(returndata){ 
-	    treatmentsArray = returndata;
-            processTreatments(treatmentsArray);
+	    treatmentsArray = returndata;     
       });
+	processTreatments(treatmentsArray);
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ SET BUTTON ACTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~	
 		
