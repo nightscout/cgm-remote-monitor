@@ -655,13 +655,13 @@ $(document).ready(function(){
 				timeSince = Math.floor(minutes/60)+ " hours, "+(minutes%60)+" minutes";
 			}
 			if(IOBfood > 0){
-				IOBstring += "<br/>IOB (food): "+IOBfood.toFixed(2)+"&nbsp;&nbsp;&nbsp;";
+				IOBstring += "IOB (food): "+IOBfood.toFixed(2)+"&nbsp;&nbsp;&nbsp;";
 			}
 			if(IOBcorr > 0){
 				IOBstring += "IOB (correction): " + IOBcorr.toFixed(2);
 			}
 		prevString = document.getElementById("resultsBG").innerHTML;
-		document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-20) + timeSince+timeSinceWarning+IOBstring;
+		document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-20) + timeSince+timeSinceWarning+"<br/>"+IOBstring;
 	}
 	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ RUN FUNCTIONS ON PAGE LOAD ~~~~~~~~~~~~~~~~~~~~~~~~~
