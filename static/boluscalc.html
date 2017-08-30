@@ -603,8 +603,8 @@ $(document).ready(function(){
 		var JStimestamp;
 		var prevString = '';
 		var minutes;
+		eventsToSearchFor = ["Meal Bolus","Snack Bolus","Combo Bolus"];
 		if(treatmentToProcess=="Last meal/snack"){
-			eventsToSearchFor = ["Meal Bolus","Snack Bolus"];
 				dataLoop: for(i = 0; i < thelength; i++){
 					searchLoop: for (j = 0; j < eventsToSearchFor.length; j++){
 						//console.log(typeof(data[i].eventType) + " / "+ typeof(eventsToSearchFor[j]));
@@ -629,7 +629,8 @@ $(document).ready(function(){
 			document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-20) + timeSince+timeSinceWarning+"<br/>IOB (beta): --";
 		}
 		if(treatmentToProcess=="IOB"){
-			var IOB = 0;
+			var IOBfood = 0;
+			var IOBcorr = 0;
 			var peak = 75;
 			var scaleFactor = 3.0/activeInsulinHours;
 			var minAgo = 0;
@@ -640,22 +641,35 @@ $(document).ready(function(){
 					minutes = Math.round(Math.floor((diff/1000)/60)); 
 					minAgo = scaleFactor*minutes;
 					//console.log("Diff in minutes: "+minutes+"/Insulin: "+parseFloat(data[i].insulin));
-					if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60))){
-						if(minAgo < peak){
-							var x1 = (minAgo/5) + 1;
-							IOB += parseFloat(data[i].insulin)*(1 - 0.001852 * x1 * x1 + 0.001852 * x1);	
-							console.log("Adding IOB less than peak");
+					searchLoop2: for (j = 0; j < eventsToSearchFor.length; j++){
+						if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && (data[i].eventType == eventsToSearchFor[j])){
+							if(minAgo < peak){
+								var x1 = (minAgo/5) + 1;
+								IOBfood += parseFloat(data[i].insulin)*(1 - 0.001852 * x1 * x1 + 0.001852 * x1);	
+							}
+							else if (minAgo < 180){
+								var x2 = (minAgo - peak) / 5;
+								IOBfood += parseFloat(data[i].insulin)*(0.001323 * x2 * x2 - 0.054233 * x2 + 0.55556);	
+							}	
 						}
-						else if (minAgo < 180){
-							var x2 = (minAgo - peak) / 5;
-							IOB += parseFloat(data[i].insulin)*(0.001323 * x2 * x2 - 0.054233 * x2 + 0.55556);	
-							console.log("Adding IOB greater than peak");
-						}	
+						if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && (data[i].eventType == "Correction Bolus")){
+							if(minAgo < peak){
+								var x1 = (minAgo/5) + 1;
+								IOBcorr += parseFloat(data[i].insulin)*(1 - 0.001852 * x1 * x1 + 0.001852 * x1);	
+							}
+							else if (minAgo < 180){
+								var x2 = (minAgo - peak) / 5;
+								IOBcorr += parseFloat(data[i].insulin)*(0.001323 * x2 * x2 - 0.054233 * x2 + 0.55556);	
+							}	
+						}
 					}
 					if (minutes>(activeInsulinHours*60)){ break dataLoop2; }
 				}
 			prevString = document.getElementById("resultsBG").innerHTML;
-			document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-2) + IOB.toFixed(2);
+			document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-2) + IOBfood.toFixed(2);
+			if(IOBcorr > 0){
+				document.getElementById("resultsBG").innerHTML += "   IOB (correction)" + IOBcorr.toFixed(2);
+			}
 		}	
 	}
 	
@@ -945,7 +959,7 @@ $(document).ready(function(){
 
     <div id="statusdiv" class="alt1">  
     <b>Current Stats</b><br/>	  
-    <div id="resultsBG">BG: --<br/>BG Trend: --<br/>30 min delta: --<br/>60 min delta: --<br/>Time since last meal/snack: --<br/>IOB (beta): --
+    <div id="resultsBG">BG: --<br/>BG Trend: --<br/>30 min delta: --<br/>60 min delta: --<br/>Time since last meal/snack: --<br/>IOB (food): --
 	    </div>
 	  </div>
 	  
