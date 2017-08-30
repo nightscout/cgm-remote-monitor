@@ -14,6 +14,7 @@
 <!-- Include all compiled plugins (below), or include individual files as needed -->
 <!--<script src="https://beetusbot.herokuapp.com/js/bootstrap.min.js"></script>-->
 <script type="text/javascript" src="https://beetusbot.herokuapp.com/js/jquery.ajax-cross-origin.min.js"></script>
+<script type="text/javascript" src="https://beetusbot.herokuapp.com/js/processdata.js"></script>
 <script type="text/javascript">
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ INSTANTIATE VARIABLES ~~~~~~~~~~~~~~~~~~~~~~~~~
 	//Static
@@ -158,7 +159,7 @@ $(document).ready(function(){
 		cleardivs("N/A");
 	} // end resetVars   	
     	// Fetch info from site via API  
-    	function getCustomJSON(URL, type, callback){
+    	/*function getCustomJSON(URL, type, callback){
         	$.ajax({
             		url: URL,
             		method: 'GET',
@@ -270,7 +271,7 @@ $(document).ready(function(){
             	      }
          	}); 
       } // end getMFPData
-      
+      */
       // Crawl MyFitnessPal page data for meal nutritional info  
       function getMealData(mealName){
 	      getMFPData(function(returnData){
