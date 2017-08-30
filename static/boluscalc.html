@@ -15,7 +15,6 @@
 <!--<script src="https://beetusbot.herokuapp.com/js/bootstrap.min.js"></script>-->
 <script type="text/javascript" src="https://beetusbot.herokuapp.com/js/jquery.ajax-cross-origin.min.js"></script>
 <script type="text/javascript">
-$(document).ready(function(){
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ INSTANTIATE VARIABLES ~~~~~~~~~~~~~~~~~~~~~~~~~
 	//Static
 	var BGgoal = 90;
@@ -74,6 +73,9 @@ $(document).ready(function(){
 	var basalnotes = '';	
 	var exerciseSuggestion = '';
 	var exerciseType = '';
+	
+$(document).ready(function(){
+	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ DEFINE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
 	// Set date/time
 	function getDate(){
@@ -268,6 +270,7 @@ $(document).ready(function(){
             	      }
          	}); 
       } // end getMFPData
+      
       // Crawl MyFitnessPal page data for meal nutritional info  
       function getMealData(mealName){
 	      getMFPData(function(returnData){
@@ -601,15 +604,13 @@ $(document).ready(function(){
 				diff = Math.abs(today-JStimestamp);
 				minutes = Math.round(Math.floor((diff/1000)/60)); 
 				minAgo = scaleFactor*minutes;
-				//console.log(typeof(data[i].eventType) + " / "+ typeof(eventsToSearchFor[j]));
 				if ((data[i].eventType == eventsToSearchFor[j]) && (mealFound == 0)){
 					JStimestamp = new Date(data[i].created_at);
 					diffFood = Math.abs(today-JStimestamp);
 					mealFound = 1;
 				}
-				console.log(minutes + " / "+ data[i].eventType + " / "+ data[i].insulin + " event type: "+ typeof(data[i].eventType));
+				//console.log(minutes + " / "+ data[i].eventType + " / "+ data[i].insulin + " event type: "+ typeof(data[i].eventType));
 				if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && (data[i].eventType == eventsToSearchFor[j])){
-					console.log(minutes + " / "+ data[i].eventType + " / "+ data[i].insulin);
 					if(minAgo < peak){
 						x1 = (minAgo/5) + 1;
 						IOBfood += parseFloat(data[i].insulin)*(1 - 0.001852 * x1 * x1 + 0.001852 * x1);	
@@ -621,7 +622,6 @@ $(document).ready(function(){
 				}	
 			}
 			if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && (data[i].eventType === undefined)){ // undefined for combo bolus extended entered by BolusCalc
-					console.log(minutes + " / "+ data[i].eventType + " / "+ data[i].insulin);
 					if(minAgo < peak){
 						x1 = (minAgo/5) + 1;
 						IOBfood += parseFloat(data[i].insulin)*(1 - 0.001852 * x1 * x1 + 0.001852 * x1);	
