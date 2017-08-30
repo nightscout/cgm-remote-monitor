@@ -271,7 +271,7 @@ $(document).ready(function(){
             	      }
          	}); 
       } // end getMFPData
-      */
+      
       // Crawl MyFitnessPal page data for meal nutritional info  
       function getMealData(mealName){
 	      getMFPData(function(returnData){
@@ -318,6 +318,7 @@ $(document).ready(function(){
 		      }	
               }); 
 	} // end getMealData	
+	*/
 	// Clear meal data values	
 	function resetMealData(){
 		carbs = 0;
@@ -487,7 +488,7 @@ $(document).ready(function(){
         }
       }
       
-      function BGtrends(){
+      /*function BGtrends(){
       	trendChar = '';
         trendText = '';
 	var staleWarning = '';      
@@ -512,7 +513,7 @@ $(document).ready(function(){
 	//if((delta60mins >= 30) || (delta60mins <= -30)){ trendWarn60 = " &#x2757"; }
         trendText = "BG: "+origBG+staleWarning+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+trendWarn30+"<br/>60 min delta: "+delta60mins+trendWarn60+"<br/>Time since last meal/snack: --<br/>IOB (food): --";
         document.getElementById("resultsBG").innerHTML = trendText;
-      }
+      }*/
 		
 	function setTemp(type){
 		if(type == "Engine Braking"){
