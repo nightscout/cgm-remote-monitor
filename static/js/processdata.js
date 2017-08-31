@@ -196,8 +196,8 @@ function processTreatments(data){
 	var prevString = '';
 	var minutes;
 	eventsToSearchFor = ["Meal Bolus","Snack Bolus","Combo Bolus"];
-	var IOBfood = 0;
-	var IOBcorr = 0;
+	IOBfood = 0;
+	IOBcorr = 0;
 	var peak = 75;
 	var scaleFactor = 3.0/activeInsulinHours;
 	var minAgo = 0;
