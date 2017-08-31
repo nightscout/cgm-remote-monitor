@@ -520,20 +520,20 @@ $(document).ready(function(){
 	getDate();
 		
 	getCustomJSON(profileURL,"profile",function(returndata){
-        currProfile = currProfile;
+        /*currProfile = currProfile;
 	currBasal = currBasal;
 	currSens = currSens;
 	currCarbRatio = currCarbRatio;
 	lowerBGgoal = lowerBGgoal;
 	upperBGgoal = upperBGgoal;
-	activeInsulinHours = activeInsulinHours;
+	activeInsulinHours = activeInsulinHours;*/
       });
         
       getCustomJSON(entriesURL+"?count=12","BG",function(returndata){      
-        currBG = currBG;
+        /*currBG = currBG;
 	delta30mins = delta30mins;
 	delta60mins = delta60mins;
-	BGtrend = BGtrend;   
+	BGtrend = BGtrend;   */
 	trendText = BGtrends();
 	document.getElementById("resultsBG").innerHTML = trendText;      
       });
