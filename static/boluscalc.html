@@ -598,6 +598,7 @@ $(document).ready(function(){
 	      prebolus = document.getElementById("prebolus").value;
 	      var mealResults = getMealData(name);
 	      if (mealResults != "<br/>No meal data available."){
+		      console.log("Array outside function: "+mealResults);
 		      carbs = mealResults[0];
 		      fat = mealResults[1]; 
 		      protein = mealResults[2]; 
