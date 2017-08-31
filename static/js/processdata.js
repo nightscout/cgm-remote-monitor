@@ -91,7 +91,7 @@
 			       }
             		},
             		error: function(data){
-            			document.getElementById("errors").innerHTML = "Derp derp derp.";
+				callback("Error pulling stats");
             		}
             	});    
       } // end getCustomJSON
@@ -145,15 +145,17 @@
 		      var fiberEnd = mealCode.indexOf('</td>',fiberStart);
 		      fiber = parseFloat(mealCode.substring(fiberStart,fiberEnd));
 		      // Check if meal data exists
-		      if(isNaN(carbs) || isNaN(carbs) || isNaN(carbs) || isNaN(carbs)){
-			      document.getElementById("results_meal").innerHTML = "<br/>No meal data available."; 
+		      if(isNaN(carbs) || isNaN(fat) || isNaN(protein) || isNaN(fiber)){
+			      return "<br/>No meal data available.";
+			      //document.getElementById("results_meal").innerHTML = "<br/>No meal data available."; 
 		      }
 		      else{
-			      document.getElementById("carbs").value = carbs; 
+			      return [carbs, fat, protein, fiber];
+			      /*document.getElementById("carbs").value = carbs; 
 			      document.getElementById("fat").value = fat; 
 			      document.getElementById("protein").value = protein;  
 			      document.getElementById("fiber").value = fiber; 
-			      bolusCalcWFood(mealName);
+			      bolusCalcWFood(mealName);*/
 		      }	
               }); 
 	} // end getMealData
