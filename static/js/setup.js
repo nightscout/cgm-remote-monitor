@@ -36,6 +36,8 @@ var middleBGgoal = 0;
 var lowerBGgoal = 0;
 var treatmentsArray;
 var activeInsulinHours = 0;
+var IOBfood = 0;
+var IOBcorr = 0;
 
 //Food	
 var mfpCode = '';
