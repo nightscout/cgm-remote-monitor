@@ -32,6 +32,7 @@ var currSens = 0.0;
 var currCarbRatio = 0.0;
 var timestamp = '';
 var upperBGgoal = 0;
+var middleBGgoal = 0;
 var lowerBGgoal = 0;
 var treatmentsArray;
 var activeInsulinHours = 0;
