@@ -111,26 +111,13 @@ $(document).ready(function(){
 		getDate(); 
 		//Stats
 		getCustomJSON(profileURL,"profile",function(returndata){
-			if(returndata != "Error pulling stats"){
-				currProfile = currProfile;
-				currBasal = currBasal;
-				currSens = currSens;
-				currCarbRatio = currCarbRatio;
-				lowerBGgoal = lowerBGgoal;
-				upperBGgoal = upperBGgoal;
-				activeInsulinHours = activeInsulinHours;
-			}
-			else{
-				document.getElementById("errors").innerHTML = returndata + " - Profile";	
+			if(returndata == "Error pulling stats"){
+				document.getElementById("errors").innerHTML = returndata + " - Profile";
 			}
 	      	});
 
 	      	getCustomJSON(entriesURL+"?count=12","BG",function(returndata){ 
 			if(returndata != "Error pulling stats"){
-				currBG = currBG;
-				delta30mins = delta30mins;
-				delta60mins = delta60mins;
-				BGtrend = BGtrend;
 				trendText = BGtrends();
 				document.getElementById("resultsBG").innerHTML = trendText;
 			}
@@ -520,28 +507,30 @@ $(document).ready(function(){
 	getDate();
 		
 	getCustomJSON(profileURL,"profile",function(returndata){
-        /*currProfile = currProfile;
-	currBasal = currBasal;
-	currSens = currSens;
-	currCarbRatio = currCarbRatio;
-	lowerBGgoal = lowerBGgoal;
-	upperBGgoal = upperBGgoal;
-	activeInsulinHours = activeInsulinHours;*/
-      });
-        
-      getCustomJSON(entriesURL+"?count=12","BG",function(returndata){      
-        /*currBG = currBG;
-	delta30mins = delta30mins;
-	delta60mins = delta60mins;
-	BGtrend = BGtrend;   */
-	trendText = BGtrends();
-	document.getElementById("resultsBG").innerHTML = trendText;      
-      });
-	
-	getCustomJSON(treatmentsURL,"Treatments",function(returndata){ 
-	    treatmentsArray = returndata; 
-	    processTreatments(treatmentsArray);	
-      });
+			if(returndata == "Error pulling stats"){
+				document.getElementById("errors").innerHTML = returndata + " - Profile";
+			}
+	      	});
+
+	      	getCustomJSON(entriesURL+"?count=12","BG",function(returndata){ 
+			if(returndata != "Error pulling stats"){
+				trendText = BGtrends();
+				document.getElementById("resultsBG").innerHTML = trendText;
+			}
+			else{
+				document.getElementById("errors").innerHTML = returndata + " - Entries";	
+			}
+	      	});
+
+		getCustomJSON(treatmentsURL,"Treatments",function(returndata){ 
+			if(returndata != "Error pulling stats"){
+				treatmentsArray = returndata;
+				processTreatments(treatmentsArray);
+			}
+			else{
+				document.getElementById("errors").innerHTML = returndata + " - Treatments";	
+			}
+	      	});
 	
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ SET BUTTON ACTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~	
