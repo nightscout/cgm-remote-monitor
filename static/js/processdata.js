@@ -267,6 +267,7 @@ function processTreatments(data){
 	if(IOBcorr > 0){
 		IOBstring += "IOB (correction): " + IOBcorr.toFixed(2);
 	}
-	prevString = document.getElementById("resultsBG").innerHTML;
-	document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-20) + timeSince+timeSinceWarning+"<br/>"+IOBstring;
+	return (timeSince+timeSinceWarning+"<br/>"+IOBstring);
+	/*prevString = document.getElementById("resultsBG").innerHTML;
+	document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-20) + timeSince+timeSinceWarning+"<br/>"+IOBstring;*/
 }
