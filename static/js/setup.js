@@ -1,181 +1,170 @@
 // ~~~~~~~~~~~~~~~~~~~~~~~~~ INSTANTIATE VARIABLES ~~~~~~~~~~~~~~~~~~~~~~~~~
-	//Static
-	var BGgoal = 90;
-	var hostname = location.protocol + '//' + location.host;
-	var MFPurl = "http://www.myfitnesspal.com/food/diary/oboe_girl4";
-	var profileURL = hostname+"/api/v1/profile.json";
-	var entriesURL = hostname+"/api/v1/entries.json";
-	var treatmentsURL = hostname+"/api/v1/treatments.json";
-	var secret = "c96c4972f2f35a0b74e91b75dccf0d3807a16ad1";	
-	//Dynamic
-	//Time
-	var today;
-	var hours = 0;
-	var minutes = 0;
-	var timeStr = '';
-	var UTCtimeStr = '';
-	//Stats	
-	var currBG = 0;
-	var delta30mins = 0;
-	var delta60mins = 0;
-	var BGtrend = "";
-	var currProfile = "";
-	var currBasal = 0.0;
-	var currSens = 0.0;
-	var currCarbRatio = 0.0;
-	var timestamp = '';
-	var upperBGgoal = 0;
-	var lowerBGgoal = 0;
-	var treatmentsArray;
-	var activeInsulinHours = 0;
-	//Food	
-	var mfpCode = '';
-	var mealCode = '';  
-	var carbs = 0;
-	var fat = 0;
-	var protein = 0;
-	var fiber = 0;
-	var netCarbs = 0;
-	//Dosing
-	var eventType = '';
-	var newBolus = 0;
-	var newBolusExt = 0;
-	var newBolusCorr = 0;
-	var newBolusSuper = 0;
-	var newBolusCarbs = 0;
-	var newBolusProtein = 0;
-	var newBolusFat = 0;
-	var additionalMessage = '';
-	var addCarbs = 0;
-	var trendChar = '';
-	var trendText = '';
-	var totalBolus = 0;
-	var percentNow = 0;
-	var percentExt = 0;
-	var prebolus = 0;
-	var basalnotes = '';	
-	var exerciseSuggestion = '';
-	var exerciseType = '';
-	var extBolusTime = 120;
-  
-  var updateArray = new Array();
+
+//Static
+var BGgoal = 90;
+var hostname = location.protocol + '//' + location.host;
+var MFPurl = "http://www.myfitnesspal.com/food/diary/oboe_girl4";
+var profileURL = hostname+"/api/v1/profile.json";
+var entriesURL = hostname+"/api/v1/entries.json";
+var treatmentsURL = hostname+"/api/v1/treatments.json";
+var secret = "c96c4972f2f35a0b74e91b75dccf0d3807a16ad1";	
+
+//Dynamic
+
+//Time
+var today;
+var hours = 0;
+var minutes = 0;
+var timeStr = '';
+var UTCtimeStr = '';
+
+//Stats	
+var currBG = 0;
+var delta30mins = 0;
+var delta60mins = 0;
+var BGtrend = "";
+var currProfile = "";
+var currBasal = 0.0;
+var currSens = 0.0;
+var currCarbRatio = 0.0;
+var timestamp = '';
+var upperBGgoal = 0;
+var lowerBGgoal = 0;
+var treatmentsArray;
+var activeInsulinHours = 0;
+
+//Food	
+var mfpCode = '';
+var mealCode = '';  
+var carbs = 0;
+var fat = 0;
+var protein = 0;
+var fiber = 0;
+var netCarbs = 0;
+
+//Dosing
+var eventType = '';
+var newBolus = 0;
+var newBolusExt = 0;
+var newBolusCorr = 0;
+var newBolusSuper = 0;
+var newBolusCarbs = 0;
+var newBolusProtein = 0;
+var newBolusFat = 0;
+var additionalMessage = '';
+var addCarbs = 0;
+var trendChar = '';
+var trendText = '';
+var totalBolus = 0;
+var percentNow = 0;
+var percentExt = 0;
+var prebolus = 0;
+var basalnotes = '';	
+var exerciseSuggestion = '';
+var exerciseType = '';
+var extBolusTime = 120;
 	
-	// ~~~~~~~~~~~~~~~~~~~~~~~~~ DEFINE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
-	// Set date/time
-	function getDate(){
-		today = new Date(); // for now
-	    	hours = today.getHours(); 
-	    	if (hours < 10) { hours = "0"+hours; }
-	    	minutes = today.getMinutes(); 
-	    	if (minutes < 10) { minutes = "0"+minutes; }
-	    	timeStr = hours+":"+minutes;
-		UTCtimeStr = today.toJSON();
-	} // end getDate
-  
-  function setTheThings(inputArray){
-      $(document).ready(function(){
-        var i;
-        for(i=0; i<inputArray.length; i++){
-          id = inputArray[i][0];
-          type = inputArray[i][1];
-          thingToUpdate = inputArray[i][2];
-          if(type == "innerHTML"){
-	          document.getElementById(id).innerHTML = thingToUpdate; 
-            }
-            if(type == "value"){
-            document.getElementById(id).value = thingToUpdate; 
-            }
-          }
-      });
-  }
-  
-	// Clear divs without resetting all variables      
-    	function cleardivs(exception){
-		document.getElementById("submission_meal").innerHTML = "";
-	    	if(exception != "Meal") { 
-			document.getElementById("results_meal").innerHTML = ""; 
-			$("#results_mealdose").hide();
+// ~~~~~~~~~~~~~~~~~~~~~~~~~ DEFINE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
+// Set date/time
+function getDate(){
+	today = new Date(); // for now
+	hours = today.getHours(); 
+	if (hours < 10) { hours = "0"+hours; }
+	minutes = today.getMinutes(); 
+	if (minutes < 10) { minutes = "0"+minutes; }
+	timeStr = hours+":"+minutes;
+	UTCtimeStr = today.toJSON();
+} // end getDate
+
+// Clear divs without resetting all variables      
+function cleardivs(exception){
+	document.getElementById("submission_meal").innerHTML = "";
+	if(exception != "Meal") { 
+		document.getElementById("results_meal").innerHTML = ""; 
+		$("#results_mealdose").hide();
+	}
+	document.getElementById("submission_correction").innerHTML = "";
+	if(exception != "Correction") { document.getElementById("results_correction").innerHTML = ""; }
+	document.getElementById("submission_carbsonly").innerHTML = "";
+	if(exception != "Carbs") { document.getElementById("results_carbs").innerHTML = ""; }
+	document.getElementById("submission_tempbasal").innerHTML = "";
+	if(exception != "Exercise") { document.getElementById("submission_exercise").innerHTML = ""; }
+	document.getElementById("submission_removepump").innerHTML = "";
+	document.getElementById("errors").innerHTML = "";
+} // end cleardivs
+
+// Refresh/reset all data and fields	  
+function resetVars(){
+	// Time
+	getDate(); 
+	//Stats
+	getCustomJSON(profileURL,"profile",function(returndata){
+		if(returndata == "Error pulling stats"){
+			document.getElementById("errors").innerHTML = returndata + " - Profile";
 		}
-		document.getElementById("submission_correction").innerHTML = "";
-		if(exception != "Correction") { document.getElementById("results_correction").innerHTML = ""; }
-		document.getElementById("submission_carbsonly").innerHTML = "";
-	    	if(exception != "Carbs") { document.getElementById("results_carbs").innerHTML = ""; }
-		document.getElementById("submission_tempbasal").innerHTML = "";
-		if(exception != "Exercise") { document.getElementById("submission_exercise").innerHTML = ""; }
-		document.getElementById("submission_removepump").innerHTML = "";
-		document.getElementById("errors").innerHTML = "";
-	} // end cleardivs
-	// Refresh/reset all data and fields	  
-	function resetVars(){
-		// Time
-		getDate(); 
-		//Stats
-		getCustomJSON(profileURL,"profile",function(returndata){
-			if(returndata == "Error pulling stats"){
-				document.getElementById("errors").innerHTML = returndata + " - Profile";
-			}
-	      	});
+	 });
 
-	      	getCustomJSON(entriesURL+"?count=12","BG",function(returndata){ 
-			if(returndata != "Error pulling stats"){
-				trendText = BGtrends();
-				document.getElementById("resultsBG").innerHTML = trendText;
-			}
-			else{
-				document.getElementById("errors").innerHTML = returndata + " - Entries";	
-			}
-	      	});
+	 getCustomJSON(entriesURL+"?count=12","BG",function(returndata){ 
+		if(returndata != "Error pulling stats"){
+			trendText = BGtrends();
+			document.getElementById("resultsBG").innerHTML = trendText;
+		}
+		else{
+			document.getElementById("errors").innerHTML = returndata + " - Entries";	
+		}
+	 });
 
-		getCustomJSON(treatmentsURL,"Treatments",function(returndata){ 
-			if(returndata != "Error pulling stats"){
-				treatmentsArray = returndata;
-				var treatmentString = processTreatments(treatmentsArray);
-				prevString = document.getElementById("resultsBG").innerHTML;
-				document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-20) + treatmentString;
-			}
-			else{
-				document.getElementById("errors").innerHTML = returndata + " - Treatments";	
-			}
-	      	});
-		//Food
-		mfpCode = '';
-	    	mealCode = '';  
-	    	resetMealData();
-		//Dosing
-	    	eventType = '';
-		newBolus = 0;
-		newBolusExt = 0;
-		newBolusCorr = 0;
-		newBolusSuper = 0;
-		newBolusCarbs = 0;
-		newBolusProtein = 0;
-		newBolusFat = 0;
-		additionalMessage = '';
-		addCarbs = 0;
-		totalBolus = 0;
-		percentNow = 0;
-		percentExt = 0;
-		prebolus = 0;
-		basalnotes = '';
-		exerciseSuggestion = '';
-		exerciseType = '';
-		//Clear basal values if needed
-		document.getElementById("basalduration").value = "";
-		document.getElementById("basalpercent").value = "";
-		//Clear all submission/result divs
-		cleardivs("N/A");
-	} // end resetVars   	
+	 getCustomJSON(treatmentsURL,"Treatments",function(returndata){ 
+		if(returndata != "Error pulling stats"){
+			treatmentsArray = returndata;
+			var treatmentString = processTreatments(treatmentsArray);
+			prevString = document.getElementById("resultsBG").innerHTML;
+			document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-20) + treatmentString;
+		}
+		else{
+			document.getElementById("errors").innerHTML = returndata + " - Treatments";	
+		}
+	 });
+	
+	//Food
+	mfpCode = '';
+	mealCode = '';  
+	resetMealData();
+		
+	//Dosing
+	eventType = '';
+	newBolus = 0;
+	newBolusExt = 0;
+	newBolusCorr = 0;
+	newBolusSuper = 0;
+	newBolusCarbs = 0;
+	newBolusProtein = 0;
+	newBolusFat = 0;
+	additionalMessage = '';
+	addCarbs = 0;
+	totalBolus = 0;
+	percentNow = 0;
+	percentExt = 0;
+	prebolus = 0;
+	basalnotes = '';
+	exerciseSuggestion = '';
+	exerciseType = '';
+	//Clear basal values if needed
+	document.getElementById("basalduration").value = "";
+	document.getElementById("basalpercent").value = "";
+	//Clear all submission/result divs
+	cleardivs("N/A");
+} // end resetVars   	
     	
-	// Clear meal data values	
-	function resetMealData(){
-		carbs = 0;
-		fat = 0;
-		protein = 0;
-		fiber = 0;
-		netCarbs = 0;
-		document.getElementById("carbs").value = 0;
-		document.getElementById("fat").value = 0;  
-		document.getElementById("protein").value = 0;  
-		document.getElementById("fiber").value = 0;
-		//document.getElementById("prebolus").value = 0;
-	} // end resetMealData
+// Clear meal data values	
+function resetMealData(){
+	carbs = 0;
+	fat = 0;
+	protein = 0;
+	fiber = 0;
+	netCarbs = 0;
+	document.getElementById("carbs").value = 0;
+	document.getElementById("fat").value = 0;  
+	document.getElementById("protein").value = 0;  
+	document.getElementById("fiber").value = 0;
+} // end resetMealData
