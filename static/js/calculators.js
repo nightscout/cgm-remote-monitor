@@ -26,7 +26,7 @@ function bolusCalcWFood(mealName){
 	newBolusCorr = (currBG-BGgoal)/currSens; //Correction
 	newBolusCarbs = netCarbs/currCarbRatio; //Carbs
 	      
-        if(currBG>160){  
+        if(currBG>upperBGgoal){  
           	newBolusSuper = currBasal; //Super bolus
           	additionalMessage = "Super bolus, wait till bend.";
           	if((netCarbs<=20) && (protein>20)){ 
@@ -34,7 +34,7 @@ function bolusCalcWFood(mealName){
             		additionalMessage = "Super bolus, wait till bend if possible.";
           	}
         }
-        else if(currBG>110){
+        else if(currBG>middleBGgoal){
           	if((netCarbs>30) || (fat<20)){
 			if((prebolus < 10) && (fat<20)){ //Super bolus 
 				newBolusSuper = currBasal; 
@@ -57,7 +57,7 @@ function bolusCalcWFood(mealName){
             		newBolusProtein = ((protein-20)/2)/currCarbRatio; //Protein
           	}
         }
-        else if(currBG>70){
+        else if(currBG>lowerBGgoal){
           	if(netCarbs>30){
           		if(prebolus < 10){  
 				newBolusSuper = currBasal;	
@@ -121,15 +121,15 @@ function bolusCalc(){
       	newBolusSuper = 0;
       	additionalMessage = '';
         addCarbs = 0;
-        if(currBG>160){
+        if(currBG>upperBGgoal){
           	newBolusCorr = (currBG-BGgoal)/currSens;
           	newBolusSuper = currBasal; //Correction + Super bolus
           	additionalMessage = "Add super bolus."
         }
-        else if(currBG>110){
+        else if(currBG>middleBGgoal){
           	newBolusCorr = (currBG-BGgoal)/currSens; //Correction
         }
-        else if(currBG>70){
+        else if(currBG>lowerBGgoal){
           	newBolusCorr = (currBG-BGgoal)/currSens; //Correction, maybe UP
         }
         else{
