@@ -596,13 +596,13 @@ $(document).ready(function(){
 	      resetVars(); 
 	      eventType = mealOrSnack+" Bolus"; 
 	      prebolus = document.getElementById("prebolus").value;
-	      var mealResults = getMealData(name);
-	      if (mealResults != "<br/>No meal data available."){
-		      console.log("Array outside function: "+mealResults);
-		      carbs = mealResults[0];
-		      fat = mealResults[1]; 
-		      protein = mealResults[2]; 
-		      fiber = mealResults[3]; 
+	      getMealData(name, function(data){
+		   if (data != "<br/>No meal data available."){
+		      console.log("Array outside function: "+data);
+		      carbs = carbs;
+		      fat = fat; 
+		      protein = protein; 
+		      fiber = fiber; 
 		      document.getElementById("carbs").value = carbs; 
 		      document.getElementById("fat").value = fat; 
 		      document.getElementById("protein").value = protein;  
@@ -611,7 +611,9 @@ $(document).ready(function(){
 	      }
 	      else{
 		    console.log("Couldn't get meal results");  
-	      }
+	      }   
+	      });
+	      
       }
 	
 	function processTreatments(data){
