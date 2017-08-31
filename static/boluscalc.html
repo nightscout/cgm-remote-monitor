@@ -290,7 +290,7 @@ $(document).ready(function(){
       } // end getMFPData
       */
       // Crawl MyFitnessPal page data for meal nutritional info  
-      function getMealData(mealName){
+      /*function getMealData(mealName){
 	      getMFPData(function(returnData){
 		      var breakfastStart = mfpCode.indexOf('<tr class="meal_header">');
 		      var lunchStart = mfpCode.indexOf('<tr class="meal_header">',breakfastStart+24); 
@@ -323,7 +323,7 @@ $(document).ready(function(){
 		      var fiberEnd = mealCode.indexOf('</td>',fiberStart);
 		      fiber = parseFloat(mealCode.substring(fiberStart,fiberEnd));
 		      // Check if meal data exists
-		      if(isNaN(carbs) || isNaN(carbs) || isNaN(carbs) || isNaN(carbs)){
+		      if(isNaN(carbs) || isNaN(fat) || isNaN(protein) || isNaN(fiber)){
 			      document.getElementById("results_meal").innerHTML = "<br/>No meal data available."; 
 		      }
 		      else{
@@ -335,7 +335,7 @@ $(document).ready(function(){
 		      }	
               }); 
 	} // end getMealData	
-	
+	*/
 	// Clear meal data values	
 	function resetMealData(){
 		carbs = 0;
@@ -596,7 +596,16 @@ $(document).ready(function(){
 	      resetVars(); 
 	      eventType = mealOrSnack+" Bolus"; 
 	      prebolus = document.getElementById("prebolus").value;
-	      getMealData(name);
+	      var mealResults = getMealData(name);
+	      carbs = mealResults[0];
+	      fat = mealResults[1]; 
+	      protein = mealResults[2]; 
+	      fiber = mealResults[3]; 
+	      document.getElementById("carbs").value = carbs; 
+	      document.getElementById("fat").value = fat; 
+	      document.getElementById("protein").value = protein;  
+	      document.getElementById("fiber").value = fiber; 
+	      bolusCalcWFood(name);
       }
 	
 	function processTreatments(data){
