@@ -7,7 +7,10 @@ var MFPurl = "http://www.myfitnesspal.com/food/diary/oboe_girl4";
 var profileURL = hostname+"/api/v1/profile.json";
 var entriesURL = hostname+"/api/v1/entries.json";
 var treatmentsURL = hostname+"/api/v1/treatments.json";
-var secret = "c96c4972f2f35a0b74e91b75dccf0d3807a16ad1";	
+var secret = "c96c4972f2f35a0b74e91b75dccf0d3807a16ad1";
+var delta45 = 15;
+var deltasingle = 30;
+var deltadouble = 50;
 
 //Dynamic
 
@@ -119,7 +122,7 @@ function resetVars(){
 			treatmentsArray = returndata;
 			var treatmentString = processTreatments(treatmentsArray);
 			prevString = document.getElementById("resultsBG").innerHTML;
-			document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-20) + treatmentString;
+			document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-13) + treatmentString;
 		}
 		else{
 			document.getElementById("errors").innerHTML = returndata + " - Treatments";	
@@ -149,6 +152,7 @@ function resetVars(){
 	basalnotes = '';
 	exerciseSuggestion = '';
 	exerciseType = '';
+	extBolusTime = 120;
 	//Clear basal values if needed
 	document.getElementById("basalduration").value = "";
 	document.getElementById("basalpercent").value = "";
