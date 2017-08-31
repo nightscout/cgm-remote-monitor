@@ -271,3 +271,6 @@ function processTreatments(data){
 	/*prevString = document.getElementById("resultsBG").innerHTML;
 	document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-20) + timeSince+timeSinceWarning+"<br/>"+IOBstring;*/
 }
+$(document).ready(function(){
+	document.getElementById("errors").innerHTML = "Testing 2 ready functions"; 
+});
