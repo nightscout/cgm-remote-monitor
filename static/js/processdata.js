@@ -112,7 +112,7 @@
          	}); 
       } // end getMFPData
 // Crawl MyFitnessPal page data for meal nutritional info  
-      function getMealData(mealName){
+      function getMealData(mealName, callback){
 	      getMFPData(function(returnData){
 		      var breakfastStart = mfpCode.indexOf('<tr class="meal_header">');
 		      var lunchStart = mfpCode.indexOf('<tr class="meal_header">',breakfastStart+24); 
@@ -146,14 +146,15 @@
 		      fiber = parseFloat(mealCode.substring(fiberStart,fiberEnd));
 		      // Check if meal data exists
 		      if(isNaN(carbs) || isNaN(fat) || isNaN(protein) || isNaN(fiber)){
-			      return "<br/>No meal data available.";
+			      callback("<br/>No meal data available.");
 			      //document.getElementById("results_meal").innerHTML = "<br/>No meal data available."; 
 		      }
 		      else{
-			      var returnedArray = [carbs, fat, protein, fiber];
+			      callback(carbs, fat, protein, fiber);
+			      /*var returnedArray = [carbs, fat, protein, fiber];
 			      console.log("Array inside function: "+returnedArray);
 			      return returnedArray;
-			      /*document.getElementById("carbs").value = carbs; 
+			      document.getElementById("carbs").value = carbs; 
 			      document.getElementById("fat").value = fat; 
 			      document.getElementById("protein").value = protein;  
 			      document.getElementById("fiber").value = fiber; 
