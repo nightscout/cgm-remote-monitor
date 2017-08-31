@@ -71,11 +71,13 @@ function getCustomJSON(URL, type, callback){
 						}
 					}
 				} 
+				
+				middleBGgoal = lowerBGgoal+(upperBGgoal-lowerBGgoal)/2;
 					
 				activeInsulinHours = parseFloat(data[0].store[currProfile].dia);
 					
 				// Return values
-				callback(currProfile,currBasal,currSens,currCarbRatio,lowerBGgoal,upperBGgoal,activeInsulinHours);
+				callback(currProfile,currBasal,currSens,currCarbRatio,lowerBGgoal,middleBGgoal,upperBGgoal,activeInsulinHours);
 			}
                		if(type == "BG") {
 				// Define current BG
