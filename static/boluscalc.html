@@ -348,33 +348,6 @@ $(document).ready(function(){
 	  }   	 
         }
       }
-      
-      /*function BGtrends(){
-      	trendChar = '';
-        trendText = '';
-	var staleWarning = '';      
-	// Get current date, compare to BG date
-	var JStimestamp = new Date(timestamp);
-	var diff = Math.abs(today-JStimestamp);
-	var minutes = Math.floor((diff/1000)/60);    
-	if(minutes >= 10) { staleWarning=" &#x2757 Data is "+minutes+" minutes old." }      
-	var origBG = currBG;
-      	if(BGtrend == "FortyFiveUp") { currBG += 15; trendChar='&#x2197';}
-        if(BGtrend == "SingleUp") { currBG += 30; trendChar='&#x2B06';}
-        if(BGtrend == "DoubleUp") { currBG += 50; trendChar='&#x23EB';}
-        if(BGtrend == "FortyFiveDown") { currBG -= 15; trendChar='&#x2198';}
-        if(BGtrend == "SingleDown") { currBG -= 30; trendChar='&#x2B07';}
-        if(BGtrend == "DoubleDown") { currBG -= 50; trendChar='&#x23EC';}
-        if(BGtrend == "Flat") {trendChar='&#x27A1';}
-	var trendWarn30 = '';      
-	var trendWarn60 = '';
-	if(((origBG+delta30mins) < lowerBGgoal) || ((origBG+delta30mins) > upperBGgoal)){ trendWarn30 = " &#x2757&#x2757"; }  
-	//if((delta30mins >= 30) || (delta30mins <= -30)){ trendWarn30 = " &#x2757&#x2757"; }  
-	if(((origBG+delta60mins) < lowerBGgoal) || ((origBG+delta60mins) > upperBGgoal)){ trendWarn60 = " &#x2757"; }      
-	//if((delta60mins >= 30) || (delta60mins <= -30)){ trendWarn60 = " &#x2757"; }
-        trendText = "BG: "+origBG+staleWarning+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+trendWarn30+"<br/>60 min delta: "+delta60mins+trendWarn60+"<br/>Time since last meal/snack: --<br/>IOB (food): --";
-        document.getElementById("resultsBG").innerHTML = trendText;
-      }*/
 		
 	function setTemp(type){
 		if(type == "Engine Braking"){
@@ -439,11 +412,10 @@ $(document).ready(function(){
 	      prebolus = document.getElementById("prebolus").value;
 	      getMealData(name, function(data){
 		   if (data != "<br/>No meal data available."){
-		      console.log("Array outside function: "+data);
-		      carbs = carbs;
+		      /*carbs = carbs;
 		      fat = fat; 
 		      protein = protein; 
-		      fiber = fiber; 
+		      fiber = fiber; */
 		      document.getElementById("carbs").value = carbs; 
 		      document.getElementById("fat").value = fat; 
 		      document.getElementById("protein").value = protein;  
@@ -451,7 +423,7 @@ $(document).ready(function(){
 		      bolusCalcWFood(name);
 	      }
 	      else{
-		    console.log("Couldn't get meal results");  
+		    document.getElementById("errors").innerHTML = "Couldn't get meal results";  
 	      }   
 	      });
 	      
