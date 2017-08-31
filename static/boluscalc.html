@@ -47,7 +47,7 @@ $(document).ready(function(){
 				treatmentsArray = returndata;
 				var treatmentString = processTreatments(treatmentsArray);
 				prevString = document.getElementById("resultsBG").innerHTML;
-				document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-20) + treatmentString;
+				document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-13) + treatmentString;
 			}
 			else{
 				document.getElementById("errors").innerHTML = returndata + " - Treatments";	
@@ -65,7 +65,7 @@ $(document).ready(function(){
 
     <div id="statusdiv" class="alt1">  
     <b>Current Stats</b><br/>	  
-    <div id="resultsBG">BG: --<br/>BG Trend: --<br/>30 min delta: --<br/>60 min delta: --<br/>Time since last meal/snack: --<br/>IOB (food): --
+    <div id="resultsBG">BG: --<br/>BG Trend: --<br/>30 min delta: --<br/>60 min delta: --<br/>Time since last meal/snack: --<br/>IOB: --
 	    </div>
 	  </div>
 	  
