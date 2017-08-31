@@ -597,15 +597,20 @@ $(document).ready(function(){
 	      eventType = mealOrSnack+" Bolus"; 
 	      prebolus = document.getElementById("prebolus").value;
 	      var mealResults = getMealData(name);
-	      carbs = mealResults[0];
-	      fat = mealResults[1]; 
-	      protein = mealResults[2]; 
-	      fiber = mealResults[3]; 
-	      document.getElementById("carbs").value = carbs; 
-	      document.getElementById("fat").value = fat; 
-	      document.getElementById("protein").value = protein;  
-	      document.getElementById("fiber").value = fiber; 
-	      bolusCalcWFood(name);
+	      if (mealResults != "<br/>No meal data available."){
+		      carbs = mealResults[0];
+		      fat = mealResults[1]; 
+		      protein = mealResults[2]; 
+		      fiber = mealResults[3]; 
+		      document.getElementById("carbs").value = carbs; 
+		      document.getElementById("fat").value = fat; 
+		      document.getElementById("protein").value = protein;  
+		      document.getElementById("fiber").value = fiber; 
+		      bolusCalcWFood(name);
+	      }
+	      else{
+		    console.log("Couldn't get meal results");  
+	      }
       }
 	
 	function processTreatments(data){
