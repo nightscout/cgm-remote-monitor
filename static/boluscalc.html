@@ -14,11 +14,12 @@
 <!-- Include all compiled plugins (below), or include individual files as needed -->
 <!--<script src="https://beetusbot.herokuapp.com/js/bootstrap.min.js"></script>-->
 <script type="text/javascript" src="https://beetusbot.herokuapp.com/js/jquery.ajax-cross-origin.min.js"></script>
+<script type="text/javascript" src="https://beetusbot.herokuapp.com/js/setup.js"></script>	
 <script type="text/javascript" src="https://beetusbot.herokuapp.com/js/processdata.js"></script>
 <script type="text/javascript">
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ INSTANTIATE VARIABLES ~~~~~~~~~~~~~~~~~~~~~~~~~
 	//Static
-	var BGgoal = 90;
+	/*var BGgoal = 90;
 	var hostname = location.protocol + '//' + location.host;
 	var MFPurl = "http://www.myfitnesspal.com/food/diary/oboe_girl4";
 	var profileURL = hostname+"/api/v1/profile.json";
@@ -74,13 +75,13 @@
 	var basalnotes = '';	
 	var exerciseSuggestion = '';
 	var exerciseType = '';
-	var extBolusTime = 120;
+	var extBolusTime = 120;*/
 	
 $(document).ready(function(){
 	
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ DEFINE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
 	// Set date/time
-	function getDate(){
+	/*function getDate(){
 		today = new Date(); // for now
 	    	hours = today.getHours(); 
 	    	if (hours < 10) { hours = "0"+hours; }
@@ -179,7 +180,7 @@ $(document).ready(function(){
 		document.getElementById("fiber").value = 0;
 		//document.getElementById("prebolus").value = 0;
 	} // end resetMealData
-      
+      */
 	function bolusCalcWFood(mealName){
 		// Clear old data 
 		newBolus = 0;
