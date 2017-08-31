@@ -166,18 +166,18 @@ function BGtrends(){
 	var minutes = Math.floor((diff/1000)/60);    
 	if(minutes >= 10) { staleWarning=" &#x2757 Data is "+minutes+" minutes old." }      
 	var origBG = currBG;
-      	if(BGtrend == "FortyFiveUp") { currBG += 15; trendChar='&#x2197';}
-        if(BGtrend == "SingleUp") { currBG += 30; trendChar='&#x2B06';}
-        if(BGtrend == "DoubleUp") { currBG += 50; trendChar='&#x23EB';}
-        if(BGtrend == "FortyFiveDown") { currBG -= 15; trendChar='&#x2198';}
-        if(BGtrend == "SingleDown") { currBG -= 30; trendChar='&#x2B07';}
-        if(BGtrend == "DoubleDown") { currBG -= 50; trendChar='&#x23EC';}
+      	if(BGtrend == "FortyFiveUp") { currBG += delta45; trendChar='&#x2197';}
+        if(BGtrend == "SingleUp") { currBG += deltasingle; trendChar='&#x2B06';}
+        if(BGtrend == "DoubleUp") { currBG += deltadouble; trendChar='&#x23EB';}
+        if(BGtrend == "FortyFiveDown") { currBG -= delta45; trendChar='&#x2198';}
+        if(BGtrend == "SingleDown") { currBG -= deltasingle; trendChar='&#x2B07';}
+        if(BGtrend == "DoubleDown") { currBG -= deltadouble; trendChar='&#x23EC';}
         if(BGtrend == "Flat") {trendChar='&#x27A1';}
 	var trendWarn30 = '';      
 	var trendWarn60 = '';
-	if(((origBG+delta30mins) < lowerBGgoal) || ((origBG+delta30mins) > upperBGgoal)){ trendWarn30 = " &#x2757&#x2757"; }  
+	if((((origBG+delta30mins) < lowerBGgoal) && (delta30mins <= 0)) || (((origBG+delta30mins) > upperBGgoal) && (delta30mins >= 0))){ trendWarn30 = " &#x2757&#x2757"; }  
 	//if((delta30mins >= 30) || (delta30mins <= -30)){ trendWarn30 = " &#x2757&#x2757"; }  
-	if(((origBG+delta60mins) < lowerBGgoal) || ((origBG+delta60mins) > upperBGgoal)){ trendWarn60 = " &#x2757"; }      
+	if((((origBG+delta60mins) < lowerBGgoal) && (delta60mins <= 0)) || (((origBG+delta60mins) > upperBGgoal) && (delta60mins >= 0))){ trendWarn60 = " &#x2757"; }      
 	//if((delta60mins >= 30) || (delta60mins <= -30)){ trendWarn60 = " &#x2757"; }
         trendText = "BG: "+origBG+staleWarning+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+trendWarn30+"<br/>60 min delta: "+delta60mins+trendWarn60+"<br/>Time since last meal/snack: --<br/>IOB: --";
         return trendText;
