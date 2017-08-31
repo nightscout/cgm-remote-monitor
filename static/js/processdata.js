@@ -260,6 +260,9 @@ function processTreatments(data){
 	if((minutes>120) && (currBG>upperBGgoal)){
 		timeSinceWarning = "<br/>&#x2757 post prandial BG above limit";
 	}
+	if((minutes>120) && (currBG>middleBGgoal)){
+		timeSinceWarning = "<br/>&#x2757 post prandial BG elevated";
+	}
 	if(minutes<60){
 		timeSince = minutes+" minutes";
 	}
@@ -273,7 +276,7 @@ function processTreatments(data){
 		IOBstring += "IOB (correction): " + IOBcorr.toFixed(2);
 	}
 	newBolusCorr = (currBG-BGgoal)/currSens;
-	if((newBolusCorr < IOBcorr) && (minutes>120)){
+	if((newBolusCorr > IOBcorr) && (minutes>120)){
 		timeSinceWarning += "<br/>Add "+(newBolusCorr-IOBcorr)+" additional correction insulin";
 	}
 	return (timeSince+timeSinceWarning+"<br/>"+IOBstring);
