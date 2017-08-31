@@ -129,7 +129,9 @@ $(document).ready(function(){
 		getCustomJSON(treatmentsURL,"Treatments",function(returndata){ 
 			if(returndata != "Error pulling stats"){
 				treatmentsArray = returndata;
-				processTreatments(treatmentsArray);
+				var treatmentString = processTreatments(treatmentsArray);
+				prevString = document.getElementById("resultsBG").innerHTML;
+				document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-20) + treatmentString;
 			}
 			else{
 				document.getElementById("errors").innerHTML = returndata + " - Treatments";	
@@ -525,7 +527,9 @@ $(document).ready(function(){
 		getCustomJSON(treatmentsURL,"Treatments",function(returndata){ 
 			if(returndata != "Error pulling stats"){
 				treatmentsArray = returndata;
-				processTreatments(treatmentsArray);
+				var treatmentString = processTreatments(treatmentsArray);
+				prevString = document.getElementById("resultsBG").innerHTML;
+				document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-20) + treatmentString;
 			}
 			else{
 				document.getElementById("errors").innerHTML = returndata + " - Treatments";	
