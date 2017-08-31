@@ -37,7 +37,7 @@ function setTemp(type){
 	}
   
   // ~~~~~~~~~~~~~~~~~~~~~~~~~ SET BUTTON ACTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~	
-		
+function setButtonActions(){		
       $("#BreakfastButton").click(function() { calcFoodBolus("Meal", "Breakfast"); });
       $("#LunchButton").click(function() { calcFoodBolus("Meal", "Lunch");  });
       $("#DinnerButton").click(function() { calcFoodBolus("Meal", "Dinner");  });
@@ -284,3 +284,4 @@ function setTemp(type){
 	    document.getElementById("submission_removepump").innerHTML += "Temp basal NOT set."+addToReco;  
 	  });
         });
+}
