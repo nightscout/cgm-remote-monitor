@@ -74,6 +74,7 @@
 	var basalnotes = '';	
 	var exerciseSuggestion = '';
 	var exerciseType = '';
+	var extBolusTime = 120;
 	
 $(document).ready(function(){
 	
@@ -348,6 +349,7 @@ $(document).ready(function(){
 		percentNow = 0;
 		percentExt = 0;
 		netCarbs = 0;
+		extBolusTime = 120;
 		// Calculate net carbs
 		if(mealName == "Breakfast"){ 
 			netCarbs = carbs - (fiber / 2); 
@@ -412,7 +414,8 @@ $(document).ready(function(){
 	      newBolusCarbs = newBolusCarbs*.8;
           }
 	if(mealName == "Breakfast"){
-		newBolus = newBolusCorr+newBolusSuper+newBolusCarbs+newBolusProtein;
+		newBolusCarbs = newBolusCarbs+newBolusProtein;
+		newBolus = newBolusCorr+newBolusSuper+newBolusCarbs;
 		newBolusExt = newBolusFat;
 	}
 	else{	
@@ -431,7 +434,7 @@ $(document).ready(function(){
 	  if(newBolusExt > 0){
 		  extBolusText = " ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 2 hours. ";
 	  }
-	  else{ extBolusText = ". "; document.getElementById("extBolusTime").value = "N/A"; }	
+	  else{ extBolusText = ". "; extBolusTime = "N/A"; }	
 
           	document.getElementById("results_meal").innerHTML = "<br/>Recommended bolus: "
 			+ totalBolus.toFixed(2)+ extBolusText + additionalMessage;
@@ -444,6 +447,7 @@ $(document).ready(function(){
 		document.getElementById("bolusext_meal").value = percentExt.toFixed(0);
 			
         }
+	document.getElementById("extBolusTime").value = extBolusTime;
       }
       
       function bolusCalc(){
@@ -759,7 +763,7 @@ $(document).ready(function(){
 	  var newTotal = 0;
 	  var newNow = 0;
 	  var prevTotal = finalcarbdose+finalextdose;
-	  if((finalcarbdose != parseFloat(newBolusCarbs.toFixed(2))) || (finalextdose != parseFloat(newBolusExt.toFixed(2))) || (finalcorrdose != parseFloat(newBolusCorr.toFixed(2))) || (finalsuperdose != parseFloat(newBolusSuper.toFixed(2))) || (finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt) || (finalextbolustime != 120)){
+	  if((finalcarbdose != parseFloat(newBolusCarbs.toFixed(2))) || (finalextdose != parseFloat(newBolusExt.toFixed(2))) || (finalcorrdose != parseFloat(newBolusCorr.toFixed(2))) || (finalsuperdose != parseFloat(newBolusSuper.toFixed(2))) || (finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt) || (finalextbolustime != extBolusTime)){
 		  if((finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
 			finalextdose = prevTotal * (finalbolusextpercent/100);
 			finalcarbdose = prevTotal * (finalbolusnowpercent/100);
