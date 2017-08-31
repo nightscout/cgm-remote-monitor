@@ -102,7 +102,8 @@ $(document).ready(function(){
 	    	if(exception != "Carbs") { document.getElementById("results_carbs").innerHTML = ""; }
 		document.getElementById("submission_tempbasal").innerHTML = "";
 		if(exception != "Exercise") { document.getElementById("submission_exercise").innerHTML = ""; }
-		document.getElementById("submission_removepump").innerHTML = "";	
+		document.getElementById("submission_removepump").innerHTML = "";
+		document.getElementById("errors").innerHTML = "";
 	} // end cleardivs
 	// Refresh/reset all data and fields	  
 	function resetVars(){
@@ -110,26 +111,41 @@ $(document).ready(function(){
 		getDate(); 
 		//Stats
 		getCustomJSON(profileURL,"profile",function(returndata){
-			currProfile = currProfile;
-			currBasal = currBasal;
-			currSens = currSens;
-			currCarbRatio = currCarbRatio;
-			lowerBGgoal = lowerBGgoal;
-			upperBGgoal = upperBGgoal;
-			activeInsulinHours = activeInsulinHours;
+			if(returndata != "Error pulling stats"){
+				currProfile = currProfile;
+				currBasal = currBasal;
+				currSens = currSens;
+				currCarbRatio = currCarbRatio;
+				lowerBGgoal = lowerBGgoal;
+				upperBGgoal = upperBGgoal;
+				activeInsulinHours = activeInsulinHours;
+			}
+			else{
+				document.getElementById("errors").innerHTML = returndata + " - Profile";	
+			}
 	      	});
 
-	      	getCustomJSON(entriesURL+"?count=12","BG",function(returndata){      
-			currBG = currBG;
-			delta30mins = delta30mins;
-			delta60mins = delta60mins;
-			BGtrend = BGtrend;
-			BGtrends();
+	      	getCustomJSON(entriesURL+"?count=12","BG",function(returndata){ 
+			if(returndata != "Error pulling stats"){
+				currBG = currBG;
+				delta30mins = delta30mins;
+				delta60mins = delta60mins;
+				BGtrend = BGtrend;
+				BGtrends();
+			}
+			else{
+				document.getElementById("errors").innerHTML = returndata + " - Entries";	
+			}
 	      	});
 
 		getCustomJSON(treatmentsURL,"Treatments",function(returndata){ 
-			treatmentsArray = returndata;
-			processTreatments(treatmentsArray);
+			if(returndata != "Error pulling stats"){
+				treatmentsArray = returndata;
+				processTreatments(treatmentsArray);
+			}
+			else{
+				document.getElementById("errors").innerHTML = returndata + " - Treatments";	
+			}
 	      	});
 		//Food
 		mfpCode = '';
