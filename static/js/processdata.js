@@ -151,6 +151,7 @@
 		      }
 		      else{
 			      var returnedArray = [carbs, fat, protein, fiber];
+			      console.log("Array inside function: "+returnedArray);
 			      return returnedArray;
 			      /*document.getElementById("carbs").value = carbs; 
 			      document.getElementById("fat").value = fat; 
