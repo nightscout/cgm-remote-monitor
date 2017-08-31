@@ -150,7 +150,8 @@
 			      //document.getElementById("results_meal").innerHTML = "<br/>No meal data available."; 
 		      }
 		      else{
-			      return [carbs, fat, protein, fiber];
+			      var returnedArray = [carbs, fat, protein, fiber];
+			      return returnedArray;
 			      /*document.getElementById("carbs").value = carbs; 
 			      document.getElementById("fat").value = fat; 
 			      document.getElementById("protein").value = protein;  
