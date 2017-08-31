@@ -215,8 +215,8 @@ function processTreatments(data){
 				diffFood = Math.abs(today-JStimestamp);
 				mealFound = 1;
 			}
-			//console.log(minutes + " / "+ data[i].eventType + " / "+ data[i].insulin + " event type: "+ typeof(data[i].eventType));
 			if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && (data[i].eventType == eventsToSearchFor[j])){
+				console.log(minutes + " / "+ data[i].eventType + " / "+ data[i].insulin);
 				if(minAgo < peak){
 					x1 = (minAgo/5) + 1;
 					IOBfood += parseFloat(data[i].insulin)*(1 - 0.001852 * x1 * x1 + 0.001852 * x1);	
@@ -229,6 +229,7 @@ function processTreatments(data){
 		}
 		// Things not having to do with matching meals or snacks
 		if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && (data[i].eventType === undefined)){ // undefined for combo bolus extended entered by BolusCalc
+			console.log(minutes + " / "+ data[i].eventType + " / "+ data[i].insulin);
 			if(minAgo < peak){
 				x1 = (minAgo/5) + 1;
 				IOBfood += parseFloat(data[i].insulin)*(1 - 0.001852 * x1 * x1 + 0.001852 * x1);	
