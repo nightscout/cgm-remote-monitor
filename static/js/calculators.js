@@ -156,7 +156,8 @@ function bolusCalc(){
 	if(eventType == "Correction Bolus") { divToWriteTo = 'results_correction'; }      
         if(newBolus<0){
         	addCarbs = (BGgoal-currBG)/(currSens/currCarbRatio);
-		document.getElementById(divToWriteTo).innerHTML = "<br/>Need more carbs! Eat "+addCarbs.toFixed(0)+"g. &#x1F36C";
+		if(addCarbs < 0.5) { document.getElementById(divToWriteTo).innerHTML = "<br/>No carbs needed!"; }
+		else { document.getElementById(divToWriteTo).innerHTML = "<br/>Need more carbs! Eat "+addCarbs.toFixed(0)+"g. &#x1F36C"; }
 		document.getElementById("corrCarbs").value = addCarbs.toFixed(0); 	
         }
         else if (newBolus==0){
