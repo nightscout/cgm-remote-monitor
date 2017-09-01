@@ -23,7 +23,21 @@ function bolusCalcWFood(mealName){
 		netCarbs = carbs-fiber;
 	}
 	// Calculate carb and correction base doses
-	newBolusCorr = (currBG-BGgoal)/currSens-IOBcorr; //Correction
+	// Adjust correction sensitivity at various high BG thresholds
+	var adjSens = 0;
+	if(currBG>250){ 
+		adjSens = currSens*.75;
+	}
+	else if(currBG>200){ 
+		adjSens = currSens*.833;
+	}
+	else if(currBG>upperBGgoal){ 
+		adjSens = currSens*.917;
+	}
+	else{
+		adjSens = currSens;
+	}
+	newBolusCorr = ((currBG-BGgoal)/currSens)-IOBcorr; //Correction
 	newBolusCarbs = netCarbs/currCarbRatio; //Carbs
 	      
         if(currBG>upperBGgoal){  
