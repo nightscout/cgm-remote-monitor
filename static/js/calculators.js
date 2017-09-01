@@ -37,7 +37,7 @@ function bolusCalcWFood(mealName){
 	else{
 		adjSens = currSens;
 	}
-	newBolusCorr = ((currBG-BGgoal)/currSens)-IOBcorr; //Correction
+	newBolusCorr = ((currBG-BGgoal)/adjSens)-IOBcorr; //Correction
 	newBolusCarbs = netCarbs/currCarbRatio; //Carbs
 	      
         if(currBG>upperBGgoal){  
