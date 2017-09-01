@@ -108,29 +108,29 @@ function resetVars(){
 		if(returndata == "Error pulling stats"){
 			document.getElementById("errors").innerHTML = returndata + " - Profile";
 		}
-	 });
-
-	 getCustomJSON(entriesURL+"?count=12","BG",function(returndata){ 
-		if(returndata != "Error pulling stats"){
-			trendText = BGtrends();
-			document.getElementById("resultsBG").innerHTML = trendText;
-		}
 		else{
-			document.getElementById("errors").innerHTML = returndata + " - Entries";	
+			getCustomJSON(entriesURL+"?count=12","BG",function(returndata){ 
+				if(returndata != "Error pulling stats"){
+					trendText = BGtrends();
+					document.getElementById("resultsBG").innerHTML = trendText;
+					getCustomJSON(treatmentsURL,"Treatments",function(returndata){ 
+						if(returndata != "Error pulling stats"){
+							treatmentsArray = returndata;
+							var treatmentString = processTreatments(treatmentsArray);
+							prevString = document.getElementById("resultsBG").innerHTML;
+							document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-13) + treatmentString;
+						}
+						else{
+							document.getElementById("errors").innerHTML = returndata + " - Treatments";	
+						}
+					});
+				}
+				else{
+					document.getElementById("errors").innerHTML = returndata + " - Entries";	
+				}
+			});	
 		}
-	 });
-
-	 getCustomJSON(treatmentsURL,"Treatments",function(returndata){ 
-		if(returndata != "Error pulling stats"){
-			treatmentsArray = returndata;
-			var treatmentString = processTreatments(treatmentsArray);
-			prevString = document.getElementById("resultsBG").innerHTML;
-			document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-13) + treatmentString;
-		}
-		else{
-			document.getElementById("errors").innerHTML = returndata + " - Treatments";	
-		}
-	 });
+	});
 	
 	//Food
 	mfpCode = '';
