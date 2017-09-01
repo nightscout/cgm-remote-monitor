@@ -75,7 +75,7 @@ function bolusCalcWFood(mealName){
         }
 	if(fat>20){
         	//newBolusFat = (((fat-20)/2)/currCarbRatio); //Fat
-	      	newBolusFat = newBolusCarbs*.2;
+	      	newBolusFat = (newBolusCarbs*.2)+(fat*0.01);
 	      	newBolusCarbs = newBolusCarbs*.8;
         }
 	if(mealName == "Breakfast"){
