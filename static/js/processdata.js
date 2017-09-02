@@ -207,7 +207,6 @@ function processTreatments(data){
 	var x1 = 0;
 	var x2 = 0;
 	var IOBstring = '';
-	console.log("CurrProfile: "+currProfile);
 		
 	dataLoop: for(i = 0; i < thelength; i++){
 		JStimestamp = new Date(data[i].created_at);
@@ -234,24 +233,14 @@ function processTreatments(data){
 				}	
 			}
 			// Things not having to do with matching exact meals or snacks
-			console.log("Event Type/Profile: "+data[i].eventType+" / "+data[i].profile);
-			if(data[i].eventType == "Profile Switch"){
-				console.log("Event type found");
-				if (data[i].profile != currProfile){
-					console.log("Profile not equal");
-					if (profileFound == 0){
-						console.log("All good");
+			if((data[i].eventType == "Profile Switch") && (data[i].profile != currProfile) && (profileFound == 0)){
 				currProfile = data[i].profile;
-				console.log("New current profile: "+currProfile);
 				getCustomJSON(profileURL,"profileRedefine",function(returndata){
 					if(returndata == "Error pulling stats"){
 						document.getElementById("errors").innerHTML = returndata + " - Profile";
 					}
 				});
-				console.log("Profile redefined");
 				profileFound = 1;
-					}
-				}
 			}
 			if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && (data[i].eventType === undefined)){ // undefined for combo bolus extended entered by BolusCalc
 				//console.log(data[i].created_at + " / "+ data[i].eventType + " / "+ data[i].insulin);
@@ -277,8 +266,6 @@ function processTreatments(data){
 			if ((minutes>(activeInsulinHours*60)) && (mealFound == 1) && (profileFound == 1) ){ break dataLoop; }
 		}
 	} // end treatment loop
-	
-	console.log("ProfileFound: "+profileFound);
 	
 	minutes = Math.round(Math.floor((diffFood/1000)/60));  
 	if((minutes>120) && (currBG>upperBGgoal)){
