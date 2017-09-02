@@ -268,10 +268,10 @@ function processTreatments(data){
 	} // end treatment loop
 	
 	minutes = Math.round(Math.floor((diffFood/1000)/60));  
-	if((minutes>120) && (currBG>upperBGgoal)){
+	if((minutes>60) && (currBG>upperBGgoal)){
 		timeSinceWarning = "<br/>&#x2757 post prandial BG above limit";
 	}
-	if((minutes>120) && (currBG>middleBGgoal)){
+	if((minutes>60) && (currBG>middleBGgoal)){
 		timeSinceWarning = "<br/>&#x2757 post prandial BG elevated";
 	}
 	if(minutes<60){
