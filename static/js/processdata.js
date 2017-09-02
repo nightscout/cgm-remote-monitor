@@ -207,6 +207,7 @@ function processTreatments(data){
 	var x1 = 0;
 	var x2 = 0;
 	var IOBstring = '';
+	console.log("CurrProfile: "+currProfile);
 		
 	dataLoop: for(i = 0; i < thelength; i++){
 		JStimestamp = new Date(data[i].created_at);
@@ -235,6 +236,7 @@ function processTreatments(data){
 			// Things not having to do with matching exact meals or snacks
 			if((data[i].eventType == "Profile Switch") && (data[i].profile != currProfile) && (profileFound == 0)){
 				currProfile = data[i].profile;
+				console.log("New current profile: "+currProfile);
 				getCustomJSON(profileURL,"profileRedefine",function(returndata){
 					if(returndata == "Error pulling stats"){
 						document.getElementById("errors").innerHTML = returndata + " - Profile";
@@ -267,6 +269,8 @@ function processTreatments(data){
 			if ((minutes>(activeInsulinHours*60)) && (mealFound == 1)){ break dataLoop; }
 		}
 	} // end treatment loop
+	
+	console.log("ProfileFound: "+profileFound);
 	
 	minutes = Math.round(Math.floor((diffFood/1000)/60));  
 	if((minutes>120) && (currBG>upperBGgoal)){
