@@ -274,7 +274,7 @@ function processTreatments(data){
 					IOBcorr += parseFloat(data[i].insulin)*(0.001323 * x2 * x2 - 0.054233 * x2 + 0.55556);	
 				}	
 			}
-			if ((minutes>(activeInsulinHours*60)) && (mealFound == 1)){ break dataLoop; }
+			if ((minutes>(activeInsulinHours*60)) && (mealFound == 1) && (profileFound == 1) ){ break dataLoop; }
 		}
 	} // end treatment loop
 	
