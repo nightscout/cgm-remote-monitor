@@ -234,7 +234,13 @@ function processTreatments(data){
 				}	
 			}
 			// Things not having to do with matching exact meals or snacks
-			if((data[i].eventType == "Profile Switch") && (data[i].profile != currProfile) && (profileFound == 0)){
+			console.log("Event Type/Profile: "+data[i].eventType+" / "+data[i].profile);
+			if(data[i].eventType == "Profile Switch"){
+				console.log("Event type found");
+				if (data[i].profile != currProfile){
+					console.log("Profile not equal");
+					if (profileFound == 0){
+						console.log("All good");
 				currProfile = data[i].profile;
 				console.log("New current profile: "+currProfile);
 				getCustomJSON(profileURL,"profileRedefine",function(returndata){
@@ -244,6 +250,8 @@ function processTreatments(data){
 				});
 				console.log("Profile redefined");
 				profileFound = 1;
+					}
+				}
 			}
 			if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && (data[i].eventType === undefined)){ // undefined for combo bolus extended entered by BolusCalc
 				//console.log(data[i].created_at + " / "+ data[i].eventType + " / "+ data[i].insulin);
