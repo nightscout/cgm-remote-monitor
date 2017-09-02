@@ -5,8 +5,8 @@ function getCustomJSON(URL, type, callback){
             	method: 'GET',
             	dataType: 'json',
             	success: function(data){
-			if(type == "profile") {
-				currProfile = data[0].defaultProfile;
+			if((type == "profile") || (type == "profileRedefine")) { // Profile may be redefined after searching treatment events for profile changes
+				if(type == "profile") { currProfile = data[0].defaultProfile; }
 				// Define current basal 
 				var basalProfile = data[0].store[currProfile].basal;  
 				if(timeStr > basalProfile[Object.keys(basalProfile).length-1].time){
@@ -191,6 +191,7 @@ function processTreatments(data){
 	var timeSince = '';
 	var diff = 0;
 	var diffFood = 0;
+	var diffProfile = 0;
 	var thelength = Object.keys(data).length;
 	var JStimestamp;
 	var prevString = '';
@@ -202,6 +203,7 @@ function processTreatments(data){
 	var scaleFactor = 3.0/activeInsulinHours;
 	var minAgo = 0;
 	var mealFound = 0;
+	var profileFound = 0;
 	var x1 = 0;
 	var x2 = 0;
 	var IOBstring = '';
@@ -231,6 +233,16 @@ function processTreatments(data){
 				}	
 			}
 			// Things not having to do with matching exact meals or snacks
+			if((data[i].eventType == "Profile Switch") && (data[i].profile != currProfile) && (profileFound == 0)){
+				currProfile = data[i].profile;
+				getCustomJSON(profileURL,"profileRedefine",function(returndata){
+					if(returndata == "Error pulling stats"){
+						document.getElementById("errors").innerHTML = returndata + " - Profile";
+					}
+				});
+				console.log("Profile redefined");
+				profileFound = 1;
+			}
 			if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && (data[i].eventType === undefined)){ // undefined for combo bolus extended entered by BolusCalc
 				//console.log(data[i].created_at + " / "+ data[i].eventType + " / "+ data[i].insulin);
 				if(minAgo < peak){
