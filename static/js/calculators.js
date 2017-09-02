@@ -24,25 +24,22 @@ function bolusCalcWFood(mealName){
 	}
 	// Calculate carb and correction base doses
 	// Adjust correction sensitivity at various high BG thresholds
-	var adjSens = 0;
+
 	var nullDataWarn = '';
 	if(currBG === undefined){
 		currBG = 90;
 		nullDataWarn = "<br/>&#x2757 Current BG is undefined.";
 	}
 	if(currBG>250){ 
-		adjSens = currSens*.75;
+		currSens = currSens*.75;
 	}
 	else if(currBG>200){ 
-		adjSens = currSens*.833;
+		currSens = currSens*.833;
 	}
 	else if(currBG>upperBGgoal){ 
-		adjSens = currSens*.917;
+		currSens = currSens*.917;
 	}
-	else{
-		adjSens = currSens;
-	}
-	newBolusCorr = ((currBG-BGgoal)/adjSens)-IOBcorr; //Correction
+	newBolusCorr = ((currBG-BGgoal)/currSens)-IOBcorr; //Correction
 	newBolusCarbs = netCarbs/currCarbRatio; //Carbs
 	      
         if(currBG>upperBGgoal){  
@@ -144,6 +141,15 @@ function bolusCalc(){
 	if(currBG === undefined){
 		currBG = 90;
 		nullDataWarn = "<br/>&#x2757 Current BG is undefined.";
+	}
+	if(currBG>250){ 
+		currSens = currSens*.75;
+	}
+	else if(currBG>200){ 
+		currSens = currSens*.833;
+	}
+	else if(currBG>upperBGgoal){ 
+		currSens = currSens*.917;
 	}
         if(currBG>upperBGgoal){
           	newBolusCorr = (currBG-BGgoal)/currSens;
