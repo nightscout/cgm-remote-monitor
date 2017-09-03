@@ -274,16 +274,16 @@ function setButtonActions(){
 	  	if(currBG >= BGgoal){
 		  	var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":insulinreco,"notes":"Shower","secret":secret } );
 		  	posting.done(function( data ) {
-		    		document.getElementById("submission_removepump").innerHTML = "Data submitted &#x1F44D Bolus "+insulinreco+" units before removing. ";
+		    		document.getElementById("submission_removepump").innerHTML = "Data submitted &#x1F44D Bolus "+insulinreco.toFixed(2)+" units before removing. ";
 		  	}); 
 		  	posting.fail(function( data) {
-		    		document.getElementById("submission_removepump").innerHTML = "Data NOT submitted &#x1F44E Bolus "+insulinreco+" units before removing. ";  
+		    		document.getElementById("submission_removepump").innerHTML = "Data NOT submitted &#x1F44E Bolus "+insulinreco.toFixed(2)+" units before removing. ";  
 		  	});
 	  	}
 	  	else{
 		  	addToReco = " No bolus required.";
 	  	}
-	  	var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","eventType":"Temp Basal","duration":pumpoffduration,"notes":"Shower","secret":secret } );
+	  	var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","eventType":"Temp Basal","duration":pumpoffduration,"percent":-100,"notes":"Shower","secret":secret } );
           	posting2.done(function( data ) {
             		document.getElementById("submission_removepump").innerHTML += "Temp basal set."+addToReco;
           	}); 
