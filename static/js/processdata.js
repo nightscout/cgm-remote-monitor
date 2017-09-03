@@ -248,7 +248,7 @@ function processTreatments(data){
 				console.log("Should be adding carbs");
 				JStimestamp = new Date(data[i].created_at);
 				diffCarbs = Math.abs(today-JStimestamp);
-				COB += (parseInt(data[i].carbs) - (carbAbsorbRate/60.0)*diffCarbs);
+				COB += (parseInt(data[i].carbs) - (carbAbsorbRate/60.0)*Math.round(Math.floor((diffCarbs/1000)/60)));
 				console.log("COB: "+COB);
 			}
 			if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && (data[i].eventType === undefined)){ // undefined for combo bolus extended entered by BolusCalc
