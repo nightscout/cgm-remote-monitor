@@ -120,7 +120,7 @@ function resetVars(){
 							treatmentsArray = returndata;
 							var treatmentString = processTreatments(treatmentsArray);
 							prevString = document.getElementById("resultsBG").innerHTML;
-							document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-13) + treatmentString;
+							document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-2) + treatmentString;
 						}
 						else{
 							document.getElementById("errors").innerHTML = returndata + " - Treatments";	
