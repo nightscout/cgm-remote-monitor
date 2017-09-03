@@ -134,7 +134,6 @@ $(document).ready(function(){
     <b>Correction Only</b><br/>	  
     <form id="correctionform">
 	    <input type="number" id="corrdose" step="0.01" min="0" /> Units<br/>
-	    <input type="button" id="CorrOnly" value="Suggest correction" /><br/>
 	    <input type="submit" id="submit_correction" value="Submit correction" />
 	  </form>
 	  <div id="submission_correction"></div>
@@ -144,8 +143,7 @@ $(document).ready(function(){
 	  <div id="carbsdiv" class="alt2">
 <b>Carbs Only</b><br/>	
 	<form id="carbsonlyform">
-	<input type="number" step="0.1" id="corrCarbs" placeholder="Carbs in grams" min="0" value="8"/> Carbs<br/>
-	<input type="button" id="CarbsOnly" value="Suggest carbs" /><br/>
+	<input type="number" step="0.1" id="corrCarbs" placeholder="Carbs in grams" min="0"/> Carbs<br/>
 	<input type="submit" id="submit_carbs" value="Submit carbs" /><br/>
 	  </form>
 	  <div id="submission_carbsonly"></div>
