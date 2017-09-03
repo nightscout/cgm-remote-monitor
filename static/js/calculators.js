@@ -164,14 +164,16 @@ function bolusCalc(){
         	addCarbs = (BGgoal-currBG)/(currSens/currCarbRatio);
 		if(addCarbs < 0.5) { document.getElementById(divToWriteTo).innerHTML = "<br/>No carbs needed!"; }
 		else { document.getElementById(divToWriteTo).innerHTML = "<br/>Need more carbs! Eat "+addCarbs.toFixed(0)+"g. &#x1F36C"+nullDataWarn; }
-		document.getElementById("corrCarbs").value = addCarbs.toFixed(0); 	
+		document.getElementById("corrCarbs").value = addCarbs.toFixed(0); 
+		document.getElementById(divToWriteTo).innerHTML = "<br/>No insulin needed!"+nullDataWarn; 
+		document.getElementById("corrdose").value = 0;
         }
         else if (newBolus==0){
-	  	if(eventType == "Carb Correction") { document.getElementById(divToWriteTo).innerHTML = "<br/>No carbs needed!"+nullDataWarn; }	
-          	if(eventType == "Correction Bolus") { document.getElementById(divToWriteTo).innerHTML = "<br/>No insulin needed!"+nullDataWarn; }
+	  	if(eventType == "Carb Correction") { document.getElementById(divToWriteTo).innerHTML = "<br/>No carbs needed!"+nullDataWarn; document.getElementById("corrCarbs").value = 0; }	
+          	if(eventType == "Correction Bolus") { document.getElementById(divToWriteTo).innerHTML = "<br/>No insulin needed!"+nullDataWarn; document.getElementById("corrdose").value = 0; }
         }
         else{ 
-	  	if(eventType == "Carb Correction") { document.getElementById(divToWriteTo).innerHTML = "<br/>No carbs needed!"+nullDataWarn; }
+	  	if(eventType == "Carb Correction") { document.getElementById(divToWriteTo).innerHTML = "<br/>No carbs needed!"+nullDataWarn; document.getElementById("corrCarbs").value = 0; }
 	  	if(eventType == "Correction Bolus") { 
 			document.getElementById(divToWriteTo).innerHTML = "<br/>Recommended bolus: "+newBolus.toFixed(2)+". "+ additionalMessage +"<br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+nullDataWarn;
 	  		document.getElementById("corrdose").value = newBolus.toFixed(2); 
