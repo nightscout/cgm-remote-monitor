@@ -215,6 +215,16 @@ function processTreatments(data){
 		if(diff >= 0){
 			minutes = Math.round(Math.floor((diff/1000)/60)); 
 			minAgo = scaleFactor*minutes;
+			// Things not having to do with matching exact meals or snacks
+			if((data[i].eventType == "Profile Switch") && (data[i].profile != currProfile) && (profileFound == 0)){
+				currProfile = data[i].profile;
+				getCustomJSON(profileURL,"profileRedefine",function(returndata){
+					if(returndata == "Error pulling stats"){
+						document.getElementById("errors").innerHTML = returndata + " - Profile";
+					}
+				});
+				profileFound = 1;
+			}
 			searchLoop: for (j = 0; j < eventsToSearchFor.length; j++){
 				if ((data[i].eventType == eventsToSearchFor[j]) && (mealFound == 0)){
 					JStimestamp = new Date(data[i].created_at);
@@ -234,20 +244,11 @@ function processTreatments(data){
 				}	
 			}
 			// Things not having to do with matching exact meals or snacks
-			if((data[i].eventType == "Profile Switch") && (data[i].profile != currProfile) && (profileFound == 0)){
-				currProfile = data[i].profile;
-				getCustomJSON(profileURL,"profileRedefine",function(returndata){
-					if(returndata == "Error pulling stats"){
-						document.getElementById("errors").innerHTML = returndata + " - Profile";
-					}
-				});
-				profileFound = 1;
-			}
 			//console.log(data[i].carbs);
 			if(parseInt(data[i].carbs) > 0){
 				JStimestamp = new Date(data[i].created_at);
 				diffCarbs = Math.abs(today-JStimestamp);
-				console.log("Minutes: "+Math.round(Math.floor((diffCarbs/1000)/60)));
+				//console.log("Minutes: "+Math.round(Math.floor((diffCarbs/1000)/60)));
 				var carbsToAdd = (parseInt(data[i].carbs) - (carbAbsorbRate/60.0)*Math.round(Math.floor((diffCarbs/1000)/60)));
 				if(carbsToAdd > 0){
 					COB += carbsToAdd;
@@ -278,7 +279,7 @@ function processTreatments(data){
 			//if ((minutes>(activeInsulinHours*60)) && (mealFound == 1) && (profileFound == 1) ){ break dataLoop; }
 		}
 	} // end treatment loop
-	console.log("COB final: "+COB);
+	//console.log("COB final: "+COB);
 	minutes = Math.round(Math.floor((diffFood/1000)/60));  
 	if((minutes>60) && (currBG>upperBGgoal)){
 		timeSinceWarning = "<br/>&#x2757 post prandial BG above limit";
