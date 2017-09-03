@@ -151,21 +151,11 @@ function bolusCalc(){
 	else if(currBG>upperBGgoal){ 
 		currSens = currSens*.917;
 	}
+	newBolusCorr = ((currBG-BGgoal)/currSens)-IOBcorr; //Correction
         if(currBG>upperBGgoal){
-          	newBolusCorr = (currBG-BGgoal)/currSens;
           	newBolusSuper = currBasal; //Correction + Super bolus
           	additionalMessage = "Add super bolus."
         }
-        else if(currBG>middleBGgoal){
-          	newBolusCorr = (currBG-BGgoal)/currSens; //Correction
-        }
-        else if(currBG>lowerBGgoal){
-          	newBolusCorr = (currBG-BGgoal)/currSens; //Correction, maybe UP
-        }
-        else{
-          	newBolusCorr = (currBG-BGgoal)/currSens; //Correction UP
-        }
-	newBolusCorr -= IOBcorr;
         newBolus = newBolusCorr + newBolusSuper;
 	var divToWriteTo = '';
 	if(eventType == "Carb Correction") { divToWriteTo = 'results_carbs'; }
