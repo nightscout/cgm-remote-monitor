@@ -208,7 +208,6 @@ function processTreatments(data){
 	var x1 = 0;
 	var x2 = 0;
 	var IOBstring = '';
-	console.log("Carb Absorb Rate per minute: "+(carbAbsorbRate/60.0));
 		
 	dataLoop: for(i = 0; i < thelength; i++){
 		JStimestamp = new Date(data[i].created_at);
@@ -248,9 +247,11 @@ function processTreatments(data){
 			if(parseInt(data[i].carbs) > 0){
 				JStimestamp = new Date(data[i].created_at);
 				diffCarbs = Math.abs(today-JStimestamp);
-				console.log("DiffCarbs: "+diffCarbs);
 				console.log("Minutes: "+Math.round(Math.floor((diffCarbs/1000)/60)));
-				COB += (parseInt(data[i].carbs) - (carbAbsorbRate/60.0)*Math.round(Math.floor((diffCarbs/1000)/60)));
+				var carbsToAdd = (parseInt(data[i].carbs) - (carbAbsorbRate/60.0)*Math.round(Math.floor((diffCarbs/1000)/60)));
+				if(carbsToAdd > 0){
+					COB += carbsToAdd;
+				}
 				console.log("COB: "+COB);
 			}
 			if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && (data[i].eventType === undefined)){ // undefined for combo bolus extended entered by BolusCalc
