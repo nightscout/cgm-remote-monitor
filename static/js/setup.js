@@ -38,6 +38,8 @@ var treatmentsArray;
 var activeInsulinHours = 0;
 var IOBfood = 0;
 var IOBcorr = 0;
+var carbAbsorbRate = 0;
+var COB = 0;
 
 //Food	
 var mfpCode = '';
