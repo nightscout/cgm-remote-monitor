@@ -5,8 +5,7 @@ $(document).on('online', function() {
 	window.location.reload();
 });
 
-//$(document).ready(function() {
-//	console.log('Application got ready event');
-//	window.Nightscout.client.init();
-//});
-window.Nightscout.client.init();
+$(document).ready(function() {
+	console.log('Application got ready event');
+	window.Nightscout.client.init();
+});
