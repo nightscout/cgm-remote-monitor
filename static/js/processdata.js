@@ -75,7 +75,7 @@ function getCustomJSON(URL, type, callback){
 				middleBGgoal = lowerBGgoal+(upperBGgoal-lowerBGgoal)/2;
 					
 				activeInsulinHours = parseFloat(data[0].store[currProfile].dia);
-				carbAbsorbRate = = parseInt(data[0].store[currProfile].carbs_hr);
+				carbAbsorbRate = parseInt(data[0].store[currProfile].carbs_hr);
 					
 				// Return values
 				callback(currProfile,currBasal,currSens,currCarbRatio,lowerBGgoal,middleBGgoal,upperBGgoal,activeInsulinHours,carbAbsorbRate);
