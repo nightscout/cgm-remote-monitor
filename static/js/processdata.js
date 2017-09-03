@@ -243,10 +243,13 @@ function processTreatments(data){
 				});
 				profileFound = 1;
 			}
+			console.log(data[i].carbs);
 			if(parseInt(data[i].carbs) > 0){
+				console.log("Should be adding carbs");
 				JStimestamp = new Date(data[i].created_at);
 				diffCarbs = Math.abs(today-JStimestamp);
 				COB += (parseInt(data[i].carbs) - (carbAbsorbRate/60.0)*diffCarbs);
+				console.log("COB: "+COB);
 			}
 			if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && (data[i].eventType === undefined)){ // undefined for combo bolus extended entered by BolusCalc
 				//console.log(data[i].created_at + " / "+ data[i].eventType + " / "+ data[i].insulin);
@@ -272,7 +275,7 @@ function processTreatments(data){
 			//if ((minutes>(activeInsulinHours*60)) && (mealFound == 1) && (profileFound == 1) ){ break dataLoop; }
 		}
 	} // end treatment loop
-	
+	console.log("COB final: "+COB);
 	minutes = Math.round(Math.floor((diffFood/1000)/60));  
 	if((minutes>60) && (currBG>upperBGgoal)){
 		timeSinceWarning = "<br/>&#x2757 post prandial BG above limit";
