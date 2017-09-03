@@ -243,7 +243,7 @@ function processTreatments(data){
 				});
 				profileFound = 1;
 			}
-			console.log(data[i].carbs);
+			//console.log(data[i].carbs);
 			if(parseInt(data[i].carbs) > 0){
 				JStimestamp = new Date(data[i].created_at);
 				diffCarbs = Math.abs(today-JStimestamp);
@@ -252,7 +252,7 @@ function processTreatments(data){
 				if(carbsToAdd > 0){
 					COB += carbsToAdd;
 				}
-				console.log("COB: "+COB);
+				//console.log("COB: "+COB);
 			}
 			if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && (data[i].eventType === undefined)){ // undefined for combo bolus extended entered by BolusCalc
 				//console.log(data[i].created_at + " / "+ data[i].eventType + " / "+ data[i].insulin);
@@ -298,9 +298,9 @@ function processTreatments(data){
 	if(IOBcorr > 0){
 		IOBstring += "IOB (correction): " + IOBcorr.toFixed(2);
 	}
-	if(COB > 0){
+	/*if(COB > 0){
 		IOBstring += "<br/>COB: " + COB.toFixed(0);
-	}
+	}*/
 	newBolusCorr = (currBG-BGgoal)/currSens;
 	if((newBolusCorr > IOBcorr) && (minutes>120)){
 		timeSinceWarning += "<br/>Add "+(newBolusCorr-IOBcorr).toFixed(2)+" additional correction insulin";
