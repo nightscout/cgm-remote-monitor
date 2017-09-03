@@ -182,7 +182,7 @@ function BGtrends(){
 	//if((delta30mins >= 30) || (delta30mins <= -30)){ trendWarn30 = " &#x2757&#x2757"; }  
 	if((((origBG+delta60mins) < lowerBGgoal) && (delta60mins <= 0)) || (((origBG+delta60mins) > upperBGgoal) && (delta60mins >= 0))){ trendWarn60 = " &#x2757"; }      
 	//if((delta60mins >= 30) || (delta60mins <= -30)){ trendWarn60 = " &#x2757"; }
-        trendText = "BG: "+origBG+staleWarning+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+trendWarn30+"<br/>60 min delta: "+delta60mins+trendWarn60+"<br/>Time since last meal/snack: --<br/>IOB: --";
+        trendText = "BG: "+origBG+staleWarning+"<br/>BG Trend: "+trendChar+"<br/>30 min delta: "+delta30mins+trendWarn30+"<br/>60 min delta: "+delta60mins+trendWarn60+"<br/>Time since last meal/snack: --";
         return trendText;
 }
 
@@ -208,6 +208,7 @@ function processTreatments(data){
 	var x1 = 0;
 	var x2 = 0;
 	var IOBstring = '';
+	console.log("Carb Absorb Rate per minute: "+(carbAbsorbRate/60.0));
 		
 	dataLoop: for(i = 0; i < thelength; i++){
 		JStimestamp = new Date(data[i].created_at);
@@ -245,9 +246,10 @@ function processTreatments(data){
 			}
 			console.log(data[i].carbs);
 			if(parseInt(data[i].carbs) > 0){
-				console.log("Should be adding carbs");
 				JStimestamp = new Date(data[i].created_at);
 				diffCarbs = Math.abs(today-JStimestamp);
+				console.log("DiffCarbs: "+diffCarbs);
+				console.log("Minutes: "+Math.round(Math.floor((diffCarbs/1000)/60)));
 				COB += (parseInt(data[i].carbs) - (carbAbsorbRate/60.0)*Math.round(Math.floor((diffCarbs/1000)/60)));
 				console.log("COB: "+COB);
 			}
