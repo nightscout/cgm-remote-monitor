@@ -75,9 +75,10 @@ function getCustomJSON(URL, type, callback){
 				middleBGgoal = lowerBGgoal+(upperBGgoal-lowerBGgoal)/2;
 					
 				activeInsulinHours = parseFloat(data[0].store[currProfile].dia);
+				carbAbsorbRate = = parseInt(data[0].store[currProfile].carbs_hr);
 					
 				// Return values
-				callback(currProfile,currBasal,currSens,currCarbRatio,lowerBGgoal,middleBGgoal,upperBGgoal,activeInsulinHours);
+				callback(currProfile,currBasal,currSens,currCarbRatio,lowerBGgoal,middleBGgoal,upperBGgoal,activeInsulinHours,carbAbsorbRate);
 			}
                		if(type == "BG") {
 				// Define current BG
@@ -191,7 +192,7 @@ function processTreatments(data){
 	var timeSince = '';
 	var diff = 0;
 	var diffFood = 0;
-	var diffProfile = 0;
+	var diffCarbs = 0;
 	var thelength = Object.keys(data).length;
 	var JStimestamp;
 	var prevString = '';
@@ -242,6 +243,11 @@ function processTreatments(data){
 				});
 				profileFound = 1;
 			}
+			if(parseInt(data[i].carbs) > 0){
+				JStimestamp = new Date(data[i].created_at);
+				diffCarbs = Math.abs(today-JStimestamp);
+				COB += (parseInt(data[i].carbs) - (carbAbsorbRate/60.0)*diffCarbs);
+			}
 			if ((parseFloat(data[i].insulin) > 0) && (minutes<(activeInsulinHours*60)) && (data[i].eventType === undefined)){ // undefined for combo bolus extended entered by BolusCalc
 				//console.log(data[i].created_at + " / "+ data[i].eventType + " / "+ data[i].insulin);
 				if(minAgo < peak){
@@ -263,7 +269,7 @@ function processTreatments(data){
 					IOBcorr += parseFloat(data[i].insulin)*(0.001323 * x2 * x2 - 0.054233 * x2 + 0.55556);	
 				}	
 			}
-			if ((minutes>(activeInsulinHours*60)) && (mealFound == 1) && (profileFound == 1) ){ break dataLoop; }
+			//if ((minutes>(activeInsulinHours*60)) && (mealFound == 1) && (profileFound == 1) ){ break dataLoop; }
 		}
 	} // end treatment loop
 	
@@ -285,6 +291,9 @@ function processTreatments(data){
 	}
 	if(IOBcorr > 0){
 		IOBstring += "IOB (correction): " + IOBcorr.toFixed(2);
+	}
+	if(COB > 0){
+		IOBstring += "<br/>COB: " + COB.toFixed(0);
 	}
 	newBolusCorr = (currBG-BGgoal)/currSens;
 	if((newBolusCorr > IOBcorr) && (minutes>120)){
