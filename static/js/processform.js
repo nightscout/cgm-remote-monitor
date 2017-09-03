@@ -17,13 +17,13 @@ function suggestExercise(){
 	eventType = "Exercise"; 
 	var exercisetime = document.getElementById("exerciseduration").value;
 	if(exerciseType == "Dance"){
-		exerciseSuggestion = "Expect a BG drop of "+ exercisetime + " to be adjusted by " + (exercisetime/currSens).toFixed(2) + " less insulin or " + (exercisetime/(currSens/currCarbRatio)).toFixed(0) + " carbs. Set a 12 hour post-exercise temp basal of -20%."
+		exerciseSuggestion = "Expect a BG drop of "+ exercisetime + " to be adjusted by " + (exercisetime/currSens).toFixed(2) + " less insulin or " + (exercisetime/(currSens/currCarbRatio)).toFixed(0) + " carbs. Temp basal during exercise of 0%. Set a 12 hour post-exercise temp basal of -20%."
 	}
 	if(exerciseType == "Yoga"){
-		exerciseSuggestion = "30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high. Set a 12 hour post-exercise temp basal of -10%."
+		exerciseSuggestion = "Expect a BG drop of "+ exercisetime + " to be adjusted by " + (exercisetime/currSens).toFixed(2) + " less insulin or " + (exercisetime/(currSens/currCarbRatio)).toFixed(0) + " carbs. Temp basal during exercise of 0%. Set a 12 hour post-exercise temp basal of +20%. 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high."
 	}
 	if(exerciseType == "Other"){
-		 exerciseSuggestion = "If aerobic, expect a BG drop of "+ exercisetime + " to be adjusted by " + (exercisetime/currSens).toFixed(2) + " less insulin or " + (exercisetime/(currSens/currCarbRatio)).toFixed(0) + " carbs. Set a 12 hour post-exercise temp basal of -20%.<br/><br/>If anaerobic, 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high. Set a 12 hour post-exercise temp basal of -10%."
+		 exerciseSuggestion = "If aerobic, expect a BG drop of "+ exercisetime + " to be adjusted by " + (exercisetime/currSens).toFixed(2) + " less insulin or " + (exercisetime/(currSens/currCarbRatio)).toFixed(0) + " carbs. Set a 12 hour post-exercise temp basal of -20%.<br/><br/>If anaerobic, 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high. Set a 12 hour post-exercise temp basal of +20%."
 	}
         document.getElementById("submission_exercise").innerHTML = exerciseSuggestion; 
 } //end suggestExercise
@@ -156,10 +156,10 @@ function setButtonActions(){
 		// Post meal/snack dose if it exists, or just carbs
 		if((finalNonCorrNonExtDose>0) || (netCarbs>0)){
 	  		if(finalNonCorrNonExtDose<0) { 
-				var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":netCarbs,"insulin":0,"eventType":eventType,"preBolus":prebolus,"secret":secret } );
+				var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":netCarbs,"insulin":0,"eventType":eventType,"preBolus":prebolus,"notes":"Protein: "+protein+"g Fat: "+fat+"g","secret":secret } );
 			}
 			else{	
-				var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":netCarbs,"insulin":finalNonCorrNonExtDose,"eventType":eventType,"preBolus":prebolus,"secret":secret } );
+				var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":netCarbs,"insulin":finalNonCorrNonExtDose,"eventType":eventType,"preBolus":prebolus,"notes":"Protein: "+protein+"g Fat: "+fat+"g","secret":secret } );
 			}
 			// Put the results in a div
 			posting.done(function( data ) {
