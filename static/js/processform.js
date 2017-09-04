@@ -70,8 +70,8 @@ function setButtonActions(){
 	(document.getElementById("bolusext_meal")).addEventListener("input", function(e){
 		document.getElementById("bolusnow_meal").value = 100-document.getElementById("bolusext_meal").value;
 	});
-        $("#CorrOnly").click(function() { resetVars(); eventType = "Correction Bolus"; bolusCalc(); });
-        $("#CarbsOnly").click(function() { resetVars(); eventType = "Carb Correction"; bolusCalc(); });
+        /*$("#CorrOnly").click(function() { resetVars(); eventType = "Correction Bolus"; bolusCalc(); });
+        $("#CarbsOnly").click(function() { resetVars(); eventType = "Carb Correction"; bolusCalc(); });*/
         $("#EngineBraking").click(function() { resetVars(); eventType = "Temp Basal"; setTemp("Engine Braking"); });
         $("#SuperBolus").click(function() { resetVars(); eventType = "Temp Basal"; setTemp("Super Bolus"); });
         $("#Dance").click(function(event) { 
@@ -198,28 +198,40 @@ function setButtonActions(){
         	event.preventDefault();
 		cleardivs("Correction");
 		var $form = $( this ),
-			corrdose = $form.find( "input[id='corrdose']" ).val();
-        	var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":corrdose,"eventType":"Correction Bolus","secret":secret } );
-          	posting.done(function( data ) {
-            		document.getElementById("submission_correction").innerHTML = "Data submitted &#x1F44D";
-          	}); 
-	  	posting.fail(function( data) {
-	    		document.getElementById("submission_correction").innerHTML = "Data NOT submitted &#x1F44E";  
-	  	});
+			corrdose = $form.find( "input[id='corrdose']" ).val(),
+		        corrCarbs = $form.find( "input[id='corrCarbs']" ).val();
+		if(corrdose > 0){
+			var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":corrdose,"eventType":"Correction Bolus","secret":secret } );
+			posting.done(function( data ) {
+				document.getElementById("submission_correction").innerHTML = "Data submitted &#x1F44D";
+			}); 
+			posting.fail(function( data) {
+				document.getElementById("submission_correction").innerHTML = "Data NOT submitted &#x1F44E";  
+			});
+		}
+		if(corrCarbs > 0){
+			var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":corrCarbs,"eventType":"Carb Correction","secret":secret } );
+			posting2.done(function( data ) {
+				document.getElementById("submission_correction").innerHTML = "Data submitted &#x1F44D";
+			}); 
+			posting2.fail(function( data) {
+				document.getElementById("submission_correction").innerHTML = "Data NOT submitted &#x1F44E";  
+			});
+		}
 	  	if(corrdose == newBolusCorr){     
 		  	if(newBolusSuper>0){
-			  	var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":"Temp Basal","notes":basalnotes,"secret":secret } );
-			  	posting2.done(function( data ) {
+			  	var posting3 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":"Temp Basal","notes":basalnotes,"secret":secret } );
+			  	posting3.done(function( data ) {
 			    		document.getElementById("submission_correction").innerHTML += " plus super bolus temp basal.";
 			  	}); 
-			  	posting2.fail(function( data) {
+			  	posting3.fail(function( data) {
 			    		document.getElementById("submission_correction").innerHTML += " WITHOUT super bolus temp basal.";  
 			  	});
 		  	}
 	  	}
         });
 	// Carbs only submit      
-	$("#carbsonlyform").submit(function( event ) {
+	/*$("#carbsonlyform").submit(function( event ) {
           	event.preventDefault();
 	  	cleardivs("Carbs");
 	  	var $form = $( this ),
@@ -232,7 +244,7 @@ function setButtonActions(){
 	  	posting.fail(function( data) {
 	    		document.getElementById("submission_carbsonly").innerHTML = "Data NOT submitted &#x1F44E";  
 	  	});
-        });
+        });*/
 	// Temp basal submit      
 	$("#tempbasalform").submit(function( event ) {
           	event.preventDefault();
