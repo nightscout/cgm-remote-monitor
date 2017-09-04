@@ -41,9 +41,6 @@ $(document).ready(function(){
 							var treatmentString = processTreatments(treatmentsArray);
 							prevString = document.getElementById("resultsBG").innerHTML;
 							document.getElementById("resultsBG").innerHTML = prevString.substring(0, prevString.length-2) + treatmentString;
-							eventType = "Carb Correction";
-							bolusCalc();
-							eventType = "Correction Bolus";
 							bolusCalc();
 						}
 						else{
@@ -133,6 +130,7 @@ $(document).ready(function(){
     <div id="correctiondiv" class="alt1">	  
     <b>Correction Only</b><br/>	  
     <form id="correctionform">
+	    <input type="number" step="0.1" id="corrCarbs" placeholder="Carbs in grams" min="0"/> Carbs<br/>
 	    <input type="number" id="corrdose" step="0.01" min="0" /> Units<br/>
 	    <input type="submit" id="submit_correction" value="Submit correction" />
 	  </form>
@@ -140,17 +138,7 @@ $(document).ready(function(){
     <div id="results_correction"></div>
 	  </div>
 	  
-	  <div id="carbsdiv" class="alt2">
-<b>Carbs Only</b><br/>	
-	<form id="carbsonlyform">
-	<input type="number" step="0.1" id="corrCarbs" placeholder="Carbs in grams" min="0"/> Carbs<br/>
-	<input type="submit" id="submit_carbs" value="Submit carbs" /><br/>
-	  </form>
-	  <div id="submission_carbsonly"></div>
-	  <div id="results_carbs"></div>
-	  </div>
-	  
-	  <div id="tempbasaldiv" class="alt1">
+	  <div id="tempbasaldiv" class="alt2">
 	  <b>Temp Basal</b><br/>
 	<form id="tempbasalform">
 	<input type="number" id="basalduration" placeholder="Minutes" min="0" /> Duration<br/>
@@ -168,7 +156,7 @@ $(document).ready(function(){
 	  <div id="submission_tempbasal"></div>
 	  </div>
 	  
-	  <div id="exercisediv" class="alt2">
+	  <div id="exercisediv" class="alt1">
 	  <b>Exercise</b><br/>	
 	<form id="exerciseform">
 	<input type="number" id="exerciseduration" placeholder="Minutes" min="0" /> Duration<br/>
@@ -187,7 +175,7 @@ $(document).ready(function(){
 	  <div id="submission_exercise"></div>
 	  </div>
 	  
-	  <div id="removepumpdiv" class="alt1">
+	  <div id="removepumpdiv" class="alt2">
 	   <b>Remove Pump</b><br/>	
 	<form id="removepumpform">
 	<input type="number" id="pumpoffduration" placeholder="Minutes" min="0" /> Duration<br/>
