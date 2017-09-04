@@ -13,7 +13,6 @@ describe('env', function ( ) {
     showPlugins.should.containEql('delta');
     showPlugins.should.containEql('direction');
     showPlugins.should.containEql('upbat');
-    showPlugins.should.containEql('cob');
 
     delete process.env.SHOW_PLUGINS;
     delete process.env.ENABLE;
