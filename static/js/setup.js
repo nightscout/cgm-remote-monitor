@@ -93,8 +93,6 @@ function cleardivs(exception){
 	}
 	document.getElementById("submission_correction").innerHTML = "";
 	if(exception != "Correction") { document.getElementById("results_correction").innerHTML = ""; }
-	document.getElementById("submission_carbsonly").innerHTML = "";
-	if(exception != "Carbs") { document.getElementById("results_carbs").innerHTML = ""; }
 	document.getElementById("submission_tempbasal").innerHTML = "";
 	if(exception != "Exercise") { document.getElementById("submission_exercise").innerHTML = ""; }
 	document.getElementById("submission_removepump").innerHTML = "";
@@ -157,10 +155,12 @@ function resetVars(){
 	basalnotes = '';
 	exerciseSuggestion = '';
 	exerciseType = '';
-	extBolusTime = 120;
-	//Clear basal values if needed
+	extBolusTime = 90;
+	//Clear form values if needed
 	document.getElementById("basalduration").value = "";
 	document.getElementById("basalpercent").value = "";
+	document.getElementById("corrCarbs").value = "";
+	document.getElementById("corrdose").value = "";
 	//Clear all submission/result divs
 	cleardivs("N/A");
 } // end resetVars   	
