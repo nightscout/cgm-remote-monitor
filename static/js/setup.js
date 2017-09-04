@@ -70,7 +70,7 @@ var prebolus = 0;
 var basalnotes = '';	
 var exerciseSuggestion = '';
 var exerciseType = '';
-var extBolusTime = 120;
+var extBolusTime = 90;
 	
 // ~~~~~~~~~~~~~~~~~~~~~~~~~ DEFINE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
 // Set date/time
@@ -92,7 +92,7 @@ function cleardivs(exception){
 		$("#results_mealdose").hide();
 	}
 	document.getElementById("submission_correction").innerHTML = "";
-	if(exception != "Correction") { document.getElementById("results_correction").innerHTML = ""; }
+	//if(exception != "Correction") { document.getElementById("results_correction").innerHTML = ""; }
 	document.getElementById("submission_tempbasal").innerHTML = "";
 	if(exception != "Exercise") { document.getElementById("submission_exercise").innerHTML = ""; }
 	document.getElementById("submission_removepump").innerHTML = "";
@@ -159,10 +159,11 @@ function resetVars(){
 	//Clear form values if needed
 	document.getElementById("basalduration").value = "";
 	document.getElementById("basalpercent").value = "";
-	document.getElementById("corrCarbs").value = "";
-	document.getElementById("corrdose").value = "";
+	//document.getElementById("corrCarbs").value = "";
+	//document.getElementById("corrdose").value = "";
 	//Clear all submission/result divs
 	cleardivs("N/A");
+	bolusCalc();
 } // end resetVars   	
     	
 // Clear meal data values	
