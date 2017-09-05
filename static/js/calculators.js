@@ -14,7 +14,7 @@ function bolusCalcWFood(mealName){
 	percentNow = 0;
 	percentExt = 0;
 	netCarbs = 0;
-	extBolusTime = 120;
+	extBolusTime = 90;
 	// Calculate net carbs
 	if(mealName == "Breakfast"){ 
 		netCarbs = carbs - (fiber / 2); 
