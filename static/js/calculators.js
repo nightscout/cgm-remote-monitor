@@ -14,7 +14,7 @@ function bolusCalcWFood(mealName){
 	percentNow = 0;
 	percentExt = 0;
 	netCarbs = 0;
-	extBolusTime = 90;
+	
 	// Calculate net carbs
 	if(mealName == "Breakfast"){ 
 		netCarbs = carbs - (fiber / 2); 
@@ -91,8 +91,16 @@ function bolusCalcWFood(mealName){
         }
 	if(fat>20){
         	//newBolusFat = (((fat-20)/2)/currCarbRatio); //Fat
-	      	newBolusFat = (newBolusCarbs*.2)+(fat*0.01);
-	      	newBolusCarbs = newBolusCarbs*.8;
+		if(carbs < 30){
+			newBolusFat = (newBolusCarbs*.2)+(fat*0.01);
+			newBolusCarbs = newBolusCarbs*.8;
+			extBolusTime = 90;
+		}
+		else{
+			newBolusFat = (newBolusCarbs*.1)+(fat*0.01);
+			newBolusCarbs = newBolusCarbs*.9;
+			extBolusTime = 60;
+		}
         }
 	if(mealName == "Breakfast"){
 		newBolusCarbs = newBolusCarbs+newBolusProtein;
@@ -112,8 +120,9 @@ function bolusCalcWFood(mealName){
         }
         else{	
 	  	var extBolusText = '';
+		var extBolusTimeText = (extBolusTime/60.0).toFixed(1);
 	  	if(newBolusExt > 0){
-		  	extBolusText = " ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over 1.5 hours. ";
+		  	extBolusText = " ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over "+extBolusTimeText+" hour(s). ";
 	  	}
 	  	else{ extBolusText = ". "; extBolusTime = "N/A"; }	
 
