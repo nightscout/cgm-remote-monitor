@@ -67,7 +67,7 @@ describe('basalprofile', function ( ) {
       , language: require('../lib/language')()
     };
 
-    var time = new Date('2015-06-21T00:00:00').getTime();
+    var time = new Date('2015-06-21T00:00:00+00:00').getTime();
 
 
     var sbx = sandbox.clientInit(ctx, time, data);
@@ -86,7 +86,7 @@ describe('basalprofile', function ( ) {
       , language: require('../lib/language')()
     };
 
-    var time = new Date('2015-06-21T00:00:00').getTime();
+    var time = new Date('2015-06-21T00:00:00+00:00').getTime();
 
 
     var sbx = sandbox.clientInit(ctx, time, data);

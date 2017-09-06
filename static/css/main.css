@@ -171,7 +171,7 @@ a, a:visited, a:link {
 }
 
 .pill em, .pill label {
-  padding: 2px;
+  padding: 2px 3px;
   white-space: nowrap;
 }
 
@@ -615,7 +615,7 @@ a, a:visited, a:link {
 }
 
 @media (max-height: 480px) {
-  #toolbar {
+  #container #toolbar {
     float: right;
     height: auto;
   }
