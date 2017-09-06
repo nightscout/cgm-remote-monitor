@@ -40,10 +40,6 @@
     "mongoConnection": {
       "type": "string"
     },
-    "mongoCollection": {
-      "type": "string",
-      "defaultValue": "entries"
-    }, 
     "displayUnits": {
       "type": "string",
       "allowedValues": [
@@ -173,7 +169,7 @@
     },
     "enable": {
       "type": "string",
-      "defaultValue": "basal bwp cage careportal iob cob rawbg sage iage treatmentnotify boluscalc profile food",
+      "defaultValue": "basal bwp cage careportal cob rawbg sage iage treatmentnotify boluscalc profile",
     },
     "night_mode": {
       "type": "string",
@@ -211,10 +207,6 @@
         "off"
       ],
       "defaultValue": "off",
-    },
-    "auth_default_roles": {
-      "type": "string",
-      "defaultValue": "readable devicestatus-upload",
     }
   },
   "resources": [{
@@ -244,11 +236,7 @@
         "appSettings": [{
             "name": "MONGO_CONNECTION",
             "value": "[parameters('mongoConnection')]"
-          }, 
-            {
-            "name": "MONGO_COLLECTION",
-            "value": "[parameters('mongoCollection')]"         
-          }, {            
+          }, {
             "name": "DISPLAY_UNITS",
             "value": "[parameters('displayUnits')]"
           }, {
@@ -308,9 +296,6 @@
           }, {
             "name": "PROFILE_MULTIPLE",
             "value": "[parameters('profile_multiple')]"
-          }, {
-            "name": "AUTH_DEFAULT_ROLES",
-            "value": "[parameters('auth_default_roles')]"
           }
         ]
       }

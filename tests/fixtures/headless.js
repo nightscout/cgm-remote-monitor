@@ -14,15 +14,8 @@ function headless (benv, binding) {
     var serverSettings = opts.serverSettings || require('./default-server-settings');
     var someData = opts.mockAjax || { };
     benv.setup(function() {
-    
-      benv.require(__dirname + '/../../tmp/js/bundle.js');
-          
-      self.$ = $;
-      
-      self.localCookieStorage = self.localStorage = self.$.localStorage = require('./localstorage');
-
-      //self.$ = require('jquery');
-      //self.$.localStorage = require(localStorage);
+      self.$ = require('jquery');
+      self.$.localStorage = require(localStorage);
 
       self.$.fn.tipsy = function mockTipsy ( ) { };
 
@@ -130,9 +123,6 @@ function headless (benv, binding) {
         , jQuery: self.$
         , d3: d3
         , serverSettings: serverSettings
-        , localCookieStorage: self.localStorage
-        , cookieStorageType: self.localStorage
-		, localStorage: self.localStorage
         , io: {
           connect: function mockConnect ( ) {
             return {

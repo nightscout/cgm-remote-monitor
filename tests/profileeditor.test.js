@@ -71,7 +71,7 @@ var someData = {
 
 
 describe('Profile editor', function ( ) {
-  this.timeout(10000);
+  var self = this;
   var headless = require('./fixtures/headless')(benv, this);
 
   before(function (done) {
@@ -88,7 +88,8 @@ describe('Profile editor', function ( ) {
     , mockProfileEditor: true
     , mockAjax: someData
     , benvRequires: [
-        __dirname + '/../static/profile/js/profileeditor.js'
+        __dirname + '/../bundle/bundle.source.js'
+      , __dirname + '/../static/profile/js/profileeditor.js'
       ]
     };
     headless.setup(opts, done);
