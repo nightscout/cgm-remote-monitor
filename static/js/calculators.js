@@ -42,6 +42,7 @@ function bolusCalcWFood(mealName){
 	newBolusCorr = ((currBG-BGgoal)/currSens)-IOBcorr; //Correction
 	newBolusCarbs = netCarbs/currCarbRatio; //Carbs
 	newBolusProtein = ((protein-20)/2)/10.0; //Protein
+	if(newBolusProtein<0) { newBolusProtein = 0; }
 	      
         if(currBG>upperBGgoal){  
           	newBolusSuper = currBasal; //Super bolus
