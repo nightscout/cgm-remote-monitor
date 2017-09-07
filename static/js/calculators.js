@@ -91,6 +91,7 @@ function bolusCalcWFood(mealName){
 			extBolusTime = 90;
 		}
         }
+	console.log("Protein grams/dose: "+protein+" / "+newBolusProtein);
 	if(mealName == "Breakfast"){
 		newBolusCarbs = newBolusCarbs+newBolusProtein;
 		newBolus = newBolusCorr+newBolusSuper+newBolusCarbs;
