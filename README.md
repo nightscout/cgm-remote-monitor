@@ -375,6 +375,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Generic Pump Monitoring for OpenAPS, MiniMed Connect, RileyLink, t:slim, with more on the way
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set
   * `PUMP_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications for Pump battery and reservoir.
+  * `PUMP_WARNONSUSPEND` (`false`) - Set to `true` to get an alarm when the pump is suspended.
   * `PUMP_FIELDS` (`reservoir battery`) - The fields to display by default.  Any of the following fields: `reservoir`, `battery`, `clock`, `status`, and `device`
   * `PUMP_RETRO_FIELDS` (`reservoir battery clock`) - The fields to display in retro mode. Any of the above fields.
   * `PUMP_WARN_CLOCK` (`30`) - The number of minutes ago that needs to be exceed before an alert is triggered.
@@ -493,7 +494,7 @@ Easy to emulate on the commandline:
 
 From now on you can run using
 ```bash
-    $ env $(cat my.env) PORT=1337 node server.js
+    $ (eval $(cat my.env | sed 's/^/export /') && PORT=1337 node server.js)
 ```
 
 Your hosting provider probably has a way to set these through their GUI.
