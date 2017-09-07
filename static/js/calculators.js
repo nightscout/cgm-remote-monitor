@@ -41,7 +41,12 @@ function bolusCalcWFood(mealName){
 	}
 	newBolusCorr = ((currBG-BGgoal)/currSens)-IOBcorr; //Correction
 	newBolusCarbs = netCarbs/currCarbRatio; //Carbs
-	newBolusProtein = (protein/2)/10.0; //((protein-20)/2)/10.0; //Protein
+	if((netCarbs > 30) && (mealName != "Breakfast")){
+		newBolusProtein = (protein/2)/10.0; //Protein
+	}
+	else{
+		newBolusProtein = ((protein-20)/2)/10.0; //Protein
+	}
 	if(newBolusProtein<0) { newBolusProtein = 0; }
 	      
         if(currBG>upperBGgoal){  
