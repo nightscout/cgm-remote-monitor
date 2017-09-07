@@ -70,7 +70,7 @@ var prebolus = 0;
 var basalnotes = '';	
 var exerciseSuggestion = '';
 var exerciseType = '';
-var extBolusTime = 90;
+var extBolusTime = 120;
 	
 // ~~~~~~~~~~~~~~~~~~~~~~~~~ DEFINE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
 // Set date/time
@@ -155,7 +155,7 @@ function resetVars(){
 	basalnotes = '';
 	exerciseSuggestion = '';
 	exerciseType = '';
-	extBolusTime = 90;
+	extBolusTime = 120;
 	//Clear form values if needed
 	document.getElementById("basalduration").value = "";
 	document.getElementById("basalpercent").value = "";
