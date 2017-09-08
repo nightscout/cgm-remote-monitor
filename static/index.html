@@ -1,8 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html manifest="nightscout.appcache">
     <head>
       <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
       <meta name="apple-mobile-web-app-capable" content="yes">
+	<link rel="apple-touch-startup-image" href="/images/launch.png">
+	<meta name="apple-mobile-web-app-title" content="Nightscout">
+
       <title>Nightscout</title>
 
       <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
@@ -24,13 +27,9 @@
       <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
+	  <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.10.0-dev-20170821" />
+      <link rel="stylesheet" type="text/css" href="/css/ui-darkness/jquery-ui.min.css">
 
-      <link rel="stylesheet" type="text/css" href="/css/drawer.css?v=0.10.0-dev-20170423" />
-      <link rel="stylesheet" type="text/css" href="/css/main.css?v=0.10.0-dev-20170423" />
-      <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-      <link rel="stylesheet" type="text/css" href="/css/sgv.css?v=0.10.0-dev-20170423" />
-      <link rel="stylesheet" type="text/css" href="/bower_components/tipsy-jmalonzo/src/stylesheets/tipsy.css" />
-      <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">
     </head>
     <body>
         <div class="container loading" id="container">
@@ -590,11 +589,8 @@
             <audio src="/audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
         </div>
 
-        <script src="/public/js/bundle.js?v=0.10.0-dev-20170423"></script>
-        <script src="/socket.io/socket.io.js"></script>
-        <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
-        <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
-        <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
-        <script src="/js/client.js"></script>
+        <script src="/js/bundle.js?v=0.10.0-dev-20170821"></script>
+        <script src="/socket.io/socket.io.js?v=0.10.0-dev-20170821"></script>
+        <script src="/js/client.js?v=0.10.0-dev-20170821"></script>
     </body>
 </html>
