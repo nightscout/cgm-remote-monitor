@@ -96,6 +96,7 @@
     "sugar": "^1.5.0",
     "sync-exec": "^0.6.2",
     "traverse": "^0.6.6",
+	"uuid": "^3.1.0",
     "uglify-js": "^3.0.27",
     "webpack": "^3.5.4"
   },
