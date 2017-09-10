@@ -156,9 +156,9 @@ function headless (benv, binding) {
       var extraRequires = opts.benvRequires || [ ];
       extraRequires.forEach(function (req) {
         benv.require(req);
-      });
+      }).timeout(30000);
       callback( );
-    });
+    }).timeout(30000);
     
   }
 
