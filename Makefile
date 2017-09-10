@@ -44,7 +44,8 @@ test:
 	${MONGO_SETTINGS} ${MOCHA} --timeout 30000 -R tap ${TESTS}
 
 travis:
-	NODE_ENV=test ${MONGO_SETTINGS} \
+    echo -n "Create bundle" && time npm run-script bundle && echo "done" && \
+	time NODE_ENV=test ${MONGO_SETTINGS} \
 	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 30000 -R tap ${TESTS}
 
 docker_release:
