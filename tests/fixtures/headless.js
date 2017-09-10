@@ -14,7 +14,7 @@ function headless (benv, binding) {
     var serverSettings = opts.serverSettings || require('./default-server-settings');
     var someData = opts.mockAjax || { };
     benv.setup(function() {
-    
+
       benv.require(__dirname + '/../../tmp/js/bundle.js');
           
       self.$ = $;
@@ -156,9 +156,9 @@ function headless (benv, binding) {
       var extraRequires = opts.benvRequires || [ ];
       extraRequires.forEach(function (req) {
         benv.require(req);
-      }).timeout(30000);
+      })
       callback( );
-    }).timeout(30000);
+    })
     
   }
 

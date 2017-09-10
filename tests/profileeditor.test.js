@@ -100,6 +100,7 @@ describe('Profile editor', function ( ) {
   });
 
   it ('should produce some html', function (done) {
+    setTimeout(done, 30000);
     var client = require('../lib/client');
 
     var hashauth = require('../lib/hashauth');
