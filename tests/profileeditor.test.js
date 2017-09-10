@@ -71,7 +71,7 @@ var someData = {
 
 
 describe('Profile editor', function ( ) {
-  this.timeout(10000);
+  this.timeout(30000);
   var headless = require('./fixtures/headless')(benv, this);
 
   before(function (done) {
@@ -100,7 +100,6 @@ describe('Profile editor', function ( ) {
   });
 
   it ('should produce some html', function (done) {
-    setTimeout(done, 30000);
     var client = require('../lib/client');
 
     var hashauth = require('../lib/hashauth');
