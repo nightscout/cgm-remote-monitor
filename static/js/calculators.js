@@ -41,12 +41,12 @@ function bolusCalcWFood(mealName){
 	}
 	newBolusCorr = ((currBG-BGgoal)/currSens)-IOBcorr; //Correction
 	newBolusCarbs = netCarbs/currCarbRatio; //Carbs
-	if((netCarbs > 30) && (mealName != "Breakfast")){
+	/*if((netCarbs > 30) && (mealName != "Breakfast")){
 		newBolusProtein = (protein/2)/10.0; //Protein
 	}
-	else{
+	else{*/
 		newBolusProtein = ((protein-20)/2)/10.0; //Protein
-	}
+	//}
 	if(newBolusProtein<0) { newBolusProtein = 0; }
 	      
         if(currBG>upperBGgoal){  
@@ -76,26 +76,26 @@ function bolusCalcWFood(mealName){
 			} //Super bolus 
           	}
         }
-        else if(currBG>lowerBGgoal){
+        /*else if(currBG>lowerBGgoal){
           	if(netCarbs>30){
           		if(prebolus < 10){  
 				newBolusSuper = currBasal;	
 				additionalMessage = "Super bolus if eating immediately.";
 			} //Super bolus 	
           	}
-        }
+        }*/
 	if((fat>20) || (fiber>10)){
         	//newBolusFat = (((fat-20)/2)/currCarbRatio); //Fat
-		if(netCarbs < 30){
+		//if(netCarbs < 30){
 			newBolusFat = (newBolusCarbs*.2)+(fat*0.01);
 			newBolusCarbs = newBolusCarbs*.8;
 			extBolusTime = 120;
-		}
+		/*}
 		else{
 			newBolusFat = (newBolusCarbs*.1)+(fat*0.01);
 			newBolusCarbs = newBolusCarbs*.9;
 			extBolusTime = 90;
-		}
+		}*/
         }
 	console.log("Meal: "+mealName);
 	console.log("Carbs grams/dose: "+netCarbs+" / "+newBolusCarbs);
