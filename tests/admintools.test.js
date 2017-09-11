@@ -57,7 +57,7 @@ var someData = {
 
 describe('admintools', function ( ) {
   var self = this;
-  this.timeout(50000);
+  this.timeout(30000);
   before(function (done) {
     benv.setup(function() {
 

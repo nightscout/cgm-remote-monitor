@@ -172,4 +172,3 @@ function headless (benv, binding) {
 }
 
 module.exports = headless;
-
