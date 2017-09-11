@@ -84,7 +84,7 @@ describe('Profile editor', function ( ) {
 
   beforeEach(function (done) {
     var opts = {
-      htmlFile: __dirname + '/../static/profile/index.html'
+      htmlFile: __dirname + '/../views/profileindex.html'
     , mockProfileEditor: true
     , mockAjax: someData
     , benvRequires: [

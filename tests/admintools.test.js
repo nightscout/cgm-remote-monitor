@@ -83,7 +83,7 @@ describe('admintools', function ( ) {
         });
       };
 
-      var indexHtml = read(__dirname + '/../static/admin/index.html', 'utf8');
+      var indexHtml = read(__dirname + '/../views/adminindex.html', 'utf8');
       self.$('body').html(indexHtml);
 
       //var filesys = require('fs');
