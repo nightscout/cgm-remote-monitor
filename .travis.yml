@@ -3,7 +3,6 @@ sudo: required
 env:
   - MONGO_CONNECTION="mongodb://localhost/test_db" storageURI="mongodb://localhost/test_db"
 node_js:
-  - "8.1.4"
   - "8.4.0"
 matrix:
   fast_finish: true
