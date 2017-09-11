@@ -302,18 +302,15 @@ function processTreatments(data){
 	/*if(COB > 0){
 		IOBstring += "<br/>COB: " + COB.toFixed(0);
 	}*/
-	if(currBG>250){ 
-		currSens = currSens*.75;
-	}
-	else if(currBG>200){ 
+	/*if(currBG>250){ 
 		currSens = currSens*.833;
 	}
-	else if(currBG>upperBGgoal){ 
+	else if(currBG>200){ 
 		currSens = currSens*.917;
 	}
 	newBolusCorr = ((currBG-BGgoal)/currSens)-IOBcorr; //Correction
 	if((newBolusCorr > IOBcorr) && (minutes>120) && (newBolusCorr > 0.1)){
 		timeSinceWarning += "<br/>Add "+newBolusCorr.toFixed(2)+" additional correction insulin";
-	}
+	}*/
 	return (timeSince+timeSinceWarning+"<br/>"+IOBstring);
 }
