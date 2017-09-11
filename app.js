@@ -14,14 +14,14 @@ function create(env, ctx) {
     var appInfo = env.name + ' ' + env.version;
     app.set('title', appInfo);
     app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
-    
-	app.set('view engine', 'ejs');
-	// this allows you to render .html files as templates in addition to .ejs
-	app.engine('html', require('ejs').renderFile);
-	app.engine('appcache', require('ejs').renderFile);
-	app.set("views", path.join(__dirname, "views/"));
 
-	app.locals.cachebuster = fs.readFileSync(process.cwd() + '/tmp/cacheBusterToken').toString().trim();
+    app.set('view engine', 'ejs');
+    // this allows you to render .html files as templates in addition to .ejs
+    app.engine('html', require('ejs').renderFile);
+    app.engine('appcache', require('ejs').renderFile);
+    app.set("views", path.join(__dirname, "views/"));
+
+    app.locals.cachebuster = fs.readFileSync(process.cwd() + '/tmp/cacheBusterToken').toString().trim();
 
     if (ctx.bootErrors && ctx.bootErrors.length > 0) {
         app.get('*', require('./lib/booterror')(ctx));
@@ -58,20 +58,38 @@ function create(env, ctx) {
             return compression.filter(req, res);
         }
     }));
-    // app.use(bodyParser({limit: 1048576 * 50, extended: true }));
-
 
     app.get("/", (req, res) => {
-    	res.render("index.html", {locals: app.locals});
+        res.render("index.html", {
+            locals: app.locals
+        });
+    });
+
+    var appPages = {
+        "/clock-color.html":"clock-color.html",
+        "/admin":"adminindex.html",
+        "/profile":"profileindex.html",
+        "/food":"foodindex.html",
+        "/bgclock.html":"bgclock.html",
+        "/report":"reportindex.html",
+        "/translations":"translationsindex.html",
+        "/clock.html":"clock.html"
+    };
+
+	Object.keys(appPages).forEach(function(page) {
+	        app.get(page, (req, res) => {
+            res.render(appPages[page], {
+                locals: app.locals
+            });
+        });
 	});
 
     app.get("/nightscout.appcache", (req, res) => {
-    	res.render("nightscout.appcache", {locals: app.locals});
-	});
+        res.render("nightscout.appcache", {
+            locals: app.locals
+        });
+    });
 
-    //if (env.api_secret) {
-    //    console.log("API_SECRET", env.api_secret);
-    //}
     app.use('/api/v1', bodyParser({
         limit: 1048576 * 50
     }), api);
