@@ -47,6 +47,7 @@ function bolusCalcWFood(mealName){
 	else{*/
 		newBolusProtein = ((protein-20)/2.0)/currCarbRatio; //Protein
 	//}
+	if(newBolusCarbs<0) { newBolusCarbs = 0; }
 	if(newBolusProtein<0) { newBolusProtein = 0; }
 	      
         if(currBG>upperBGgoal){  
@@ -87,12 +88,12 @@ function bolusCalcWFood(mealName){
 	if((fat>20) || (fiber>10)){
         	//newBolusFat = (((fat-20)/2)/currCarbRatio); //Fat
 		if(currBG < middleBGgoal){
-			newBolusFat = (newBolusCarbs*.25)+(fat*0.01);
+			newBolusFat = (newBolusCarbs*.25);//+(fat*0.01);
 			newBolusCarbs = newBolusCarbs*.75;
 			extBolusTime = 120;
 		}
 		else{
-			newBolusFat = (newBolusCarbs*.1)+(fat*0.01);
+			newBolusFat = (newBolusCarbs*.1);//+(fat*0.01);
 			newBolusCarbs = newBolusCarbs*.9;
 			extBolusTime = 90;
 		}
@@ -100,6 +101,7 @@ function bolusCalcWFood(mealName){
 	console.log("Meal: "+mealName);
 	console.log("Carbs grams/dose: "+netCarbs+" / "+newBolusCarbs);
 	console.log("Protein grams/dose: "+protein+" / "+newBolusProtein);
+	console.log("Fat grams/dose: "+fat+" / "+newBolusFat);
 	if(mealName == "Breakfast"){
 		newBolusCarbs = newBolusCarbs+newBolusProtein;
 		newBolus = newBolusCorr+newBolusSuper+newBolusCarbs;
@@ -110,30 +112,31 @@ function bolusCalcWFood(mealName){
 		newBolusExt = newBolusFat+newBolusProtein;
 	}
         totalBolus = newBolus + newBolusExt;
-        percentNow = Math.round((newBolus/totalBolus)*100);
-        percentExt = 100-percentNow; ((newBolusExt/totalBolus)*100);
-        if(newBolus<0){
-        	addCarbs = (BGgoal-currBG)/(currSens/currCarbRatio);
-          	document.getElementById("results_meal").innerHTML = "<br/>Need more carbs! Eat "+addCarbs.toFixed(0)+"g. &#x1F36C"+nullDataWarn;
-        }
-        else{	
-	  	var extBolusText = '';
-		var extBolusTimeText = (extBolusTime/60.0).toFixed(1);
-	  	if(newBolusExt > 0){
-		  	extBolusText = " ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over "+extBolusTimeText+" hour(s). ";
-	  	}
-	  	else{ extBolusText = ". "; extBolusTime = "N/A"; }	
+	if(newBolus < 0) { newBolus = 0; }
+	if(newBolusExt < 0) { newBolusExt = 0; extBolusTime = 0;}
+	if(totalBolus < 0) { totalBolus = 0; }
+        percentExt = Math.round((newBolusExt/totalBolus)*100);
+        percentNow = 100-percentExt; //((newBolusExt/totalBolus)*100);
+	addCarbs = (BGgoal-currBG)/(currSens/currCarbRatio)-carbs;
+	if(addCarbs >= 0.5){
+        	document.getElementById("results_meal").innerHTML = "<br/>Need more carbs! Eat "+addCarbs.toFixed(0)+"g more. &#x1F36C"+nullDataWarn;
+	}	
+	var extBolusText = '';
+	var extBolusTimeText = (extBolusTime/60.0).toFixed(1);
+	if(newBolusExt > 0){
+		extBolusText = " ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newBolus.toFixed(2)+" + "+newBolusExt.toFixed(2)+" extended over "+extBolusTimeText+" hour(s). ";
+	}
+	else{ extBolusText = ". "; extBolusTime = "N/A"; }	
 
-          	document.getElementById("results_meal").innerHTML = "<br/>Recommended bolus: "
-			+ totalBolus.toFixed(2)+ extBolusText + additionalMessage + nullDataWarn;
-		$("#results_mealdose").show();
-		document.getElementById("carbdose_meal").value = newBolusCarbs.toFixed(2);
-		document.getElementById("extdose_meal").value = newBolusExt.toFixed(2);
-		document.getElementById("corrdose_meal").value = newBolusCorr.toFixed(2);
-		document.getElementById("super_meal").value = newBolusSuper.toFixed(2);
-		document.getElementById("bolusnow_meal").value = percentNow.toFixed(0);
-		document.getElementById("bolusext_meal").value = percentExt.toFixed(0);	
-        }
+        document.getElementById("results_meal").innerHTML += "<br/>Recommended bolus: "
+		+ totalBolus.toFixed(2)+ extBolusText + additionalMessage + nullDataWarn;
+	$("#results_mealdose").show();
+	document.getElementById("carbdose_meal").value = newBolusCarbs.toFixed(2);
+	document.getElementById("extdose_meal").value = newBolusExt.toFixed(2);
+	document.getElementById("corrdose_meal").value = newBolusCorr.toFixed(2);
+	document.getElementById("super_meal").value = newBolusSuper.toFixed(2);
+	document.getElementById("bolusnow_meal").value = percentNow.toFixed(0);
+	document.getElementById("bolusext_meal").value = percentExt.toFixed(0);	
 	document.getElementById("extBolusTime").value = extBolusTime;
 } // end bolusCalcWFood
    
