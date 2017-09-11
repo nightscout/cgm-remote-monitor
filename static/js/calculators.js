@@ -172,7 +172,7 @@ function bolusCalc(){
 		document.getElementById("corrCarbs").value = addCarbs.toFixed(0); 
 		document.getElementById("corrdose").value = 0;
         }
-        else if (newBolus==0){
+        else if (newBolus<0.1){
 	  	document.getElementById(divToWriteTo).innerHTML = "<br/>No treatment needed!"+nullDataWarn; 
 		document.getElementById("corrCarbs").value = 0; 	
           	document.getElementById("corrdose").value = 0;
