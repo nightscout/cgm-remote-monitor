@@ -1,6 +1,6 @@
 {
   "name": "Nightscout",
-  "version": "0.10.0-dev-20170823",
+  "version": "0.11.0-dev-20170911",
   "description": "Nightscout acts as a web-based CGM (Continuous Glucose Montinor) to allow multiple caregivers to remotely view a patients glucose data in realtime.",
   "license": "AGPL-3.0",
   "author": "Nightscout Team",
@@ -27,9 +27,10 @@
     "start": "node server.js",
     "test": "make test",
     "env": "env",
-    "postinstall": "webpack --config webpack.config.js",
+    "postinstall": "webpack --config webpack.config.js && npm run-script update-buster",
     "bundle": "webpack --config webpack.config.js",
-    "bower": "node node_modules/bower/bin/bower --allow-root install && "
+    "bower": "node node_modules/bower/bin/bower --allow-root install && ",
+    "update-buster": "node scripts/generateCacheBuster.js >tmp/cacheBusterToken"
   },
   "config": {
     "blanket": {
@@ -57,6 +58,7 @@
     "css-loader": "^0.28.7",
     "cssmin": "^0.4.3",
     "d3": "^3.5.17",
+    "ejs": "^2.5.7",
     "errorhandler": "^1.5.0",
     "event-stream": "^3.3.4",
     "expand-braces": "^0.1.2",
@@ -85,8 +87,10 @@
     "mqtt": "^0.3.13",
     "node-cache": "^4.1.1",
     "parse-duration": "^0.1.1",
+    "path": "^0.12.7",
     "prettyjson": "^1.2.1",
     "pushover-notifications": "^0.2.4",
+    "random-token": "0.0.8",
     "request": "^2.81.0",
     "sgvdata": "git://github.com/ktind/sgvdata.git#wip/protobuf",
     "share2nightscout-bridge": "git://github.com/bewest/share2nightscout-bridge.git#wip/generalize",
@@ -103,6 +107,7 @@
   },
   "devDependencies": {
     "benv": "3.3.0",
+    "clear-require": "^2.0.0",
     "istanbul": "~0.4.5",
     "mocha": "~3.1.2",
     "should": "~11.1.1",

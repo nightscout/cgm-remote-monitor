@@ -23,7 +23,7 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="stylesheet" type="text/css" href="/css/report.css?v=0.10.0-dev-20170821" />
+      <link rel="stylesheet" type="text/css" href="/css/report.css?v=<%= locals.cachebuster %>" />
       <link rel="stylesheet" type="text/css" href="/css/ui-lightness/jquery-ui.min.css">
 
     </head>
@@ -117,9 +117,9 @@
     <hr>
     <b><span class="translate">Authentication status</span>: </b><span id="authentication_placeholder"></span>
 
-    <script src="/js/bundle.js?v=0.10.0-dev-20170821"></script>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/report/js/report.js?v=0.10.0-dev-20170821"></script>
-   <script src="/report/js/flotcandle.js?v=0.10.0-dev-20170821"></script>
+    <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/report/js/report.js?v=<%= locals.cachebuster %>"></script>
+   <script src="/report/js/flotcandle.js?v=<%= locals.cachebuster %>"></script>
     </body>
 </html>
