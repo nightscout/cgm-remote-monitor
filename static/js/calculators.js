@@ -31,12 +31,9 @@ function bolusCalcWFood(mealName){
 		nullDataWarn = "<br/>&#x2757 Current BG is undefined.";
 	}
 	if(currBG>250){ 
-		currSens = currSens*.75;
-	}
-	else if(currBG>200){ 
 		currSens = currSens*.833;
 	}
-	else if(currBG>upperBGgoal){ 
+	else if(currBG>200){ 
 		currSens = currSens*.917;
 	}
 	newBolusCorr = ((currBG-BGgoal)/currSens)-IOBcorr; //Correction
@@ -153,12 +150,9 @@ function bolusCalc(){
 		nullDataWarn = "<br/>&#x2757 Current BG is undefined.";
 	}
 	if(currBG>250){ 
-		currSens = currSens*.75;
-	}
-	else if(currBG>200){ 
 		currSens = currSens*.833;
 	}
-	else if(currBG>upperBGgoal){ 
+	else if(currBG>200){ 
 		currSens = currSens*.917;
 	}
 	newBolusCorr = ((currBG-BGgoal)/currSens)-IOBcorr; //Correction
