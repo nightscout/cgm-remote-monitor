@@ -45,7 +45,7 @@ function bolusCalcWFood(mealName){
 		newBolusProtein = (protein/2)/10.0; //Protein
 	}
 	else{*/
-		newBolusProtein = ((protein-20)/2)/10.0; //Protein
+		newBolusProtein = ((protein-20)/2.0)/currCarbRatio; //Protein
 	//}
 	if(newBolusProtein<0) { newBolusProtein = 0; }
 	      
@@ -86,16 +86,16 @@ function bolusCalcWFood(mealName){
         }*/
 	if((fat>20) || (fiber>10)){
         	//newBolusFat = (((fat-20)/2)/currCarbRatio); //Fat
-		//if(netCarbs < 30){
-			newBolusFat = (newBolusCarbs*.2)+(fat*0.01);
-			newBolusCarbs = newBolusCarbs*.8;
+		if(currBG < middleBGgoal){
+			newBolusFat = (newBolusCarbs*.25)+(fat*0.01);
+			newBolusCarbs = newBolusCarbs*.75;
 			extBolusTime = 120;
-		/*}
+		}
 		else{
 			newBolusFat = (newBolusCarbs*.1)+(fat*0.01);
 			newBolusCarbs = newBolusCarbs*.9;
 			extBolusTime = 90;
-		}*/
+		}
         }
 	console.log("Meal: "+mealName);
 	console.log("Carbs grams/dose: "+netCarbs+" / "+newBolusCarbs);
