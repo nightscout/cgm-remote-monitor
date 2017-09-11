@@ -1,7 +1,5 @@
 language: node_js
 sudo: required
-env:
-  - MONGO_CONNECTION="mongodb://localhost/test_db" storageURI="mongodb://localhost/test_db"
 node_js:
   - "8.4.0"
 matrix:
