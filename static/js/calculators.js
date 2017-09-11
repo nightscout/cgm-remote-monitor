@@ -114,7 +114,7 @@ function bolusCalcWFood(mealName){
 	if(totalBolus < 0) { totalBolus = 0; }
         percentExt = Math.round((newBolusExt/totalBolus)*100);
         percentNow = 100-percentExt; //((newBolusExt/totalBolus)*100);
-	addCarbs = (BGgoal-currBG)/(currSens/currCarbRatio)-carbs;
+	addCarbs = (75-currBG)/(currSens/currCarbRatio)-carbs;
 	if(addCarbs >= 0.5){
         	document.getElementById("results_meal").innerHTML = "<br/>Need more carbs! Eat "+addCarbs.toFixed(0)+"g more. &#x1F36C"+nullDataWarn;
 	}	
@@ -163,7 +163,7 @@ function bolusCalc(){
         newBolus = newBolusCorr + newBolusSuper;
 	var divToWriteTo = 'results_correction';  
         if(newBolus<0){
-        	addCarbs = (BGgoal-currBG)/(currSens/currCarbRatio);
+        	addCarbs = (75-currBG)/(currSens/currCarbRatio);
 		if(addCarbs < 0){ addCarbs = 0; }
 		if(addCarbs < 0.5) { document.getElementById(divToWriteTo).innerHTML = "<br/>No correction needed!"+nullDataWarn; }
 		else { document.getElementById(divToWriteTo).innerHTML = "<br/>Need more carbs! Eat "+addCarbs.toFixed(0)+"g. &#x1F36C"+nullDataWarn; }
