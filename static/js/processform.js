@@ -218,9 +218,9 @@ function setButtonActions(){
 				document.getElementById("submission_correction").innerHTML = "Data NOT submitted &#x1F44E";  
 			});
 		}
-	  	if(corrdose == newBolusCorr){     
+	  	if(corrdose == newBolusCorr.toFixed(2)){     
 		  	if(newBolusSuper>0){
-			  	var posting3 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":"Temp Basal","notes":basalnotes,"secret":secret } );
+			  	var posting3 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":"Temp Basal","notes":"Super bolus","secret":secret } );
 			  	posting3.done(function( data ) {
 			    		document.getElementById("submission_correction").innerHTML += " plus super bolus temp basal.";
 			  	}); 
@@ -229,6 +229,9 @@ function setButtonActions(){
 			  	});
 		  	}
 	  	}
+		else{
+			console.log("Detected change in correction dose. Did not submit super bolus temp basal.");
+		}
         });
 	// Carbs only submit      
 	/*$("#carbsonlyform").submit(function( event ) {
