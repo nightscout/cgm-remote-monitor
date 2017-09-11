@@ -312,7 +312,7 @@ function processTreatments(data){
 		currSens = currSens*.917;
 	}
 	newBolusCorr = ((currBG-BGgoal)/currSens)-IOBcorr; //Correction
-	if((newBolusCorr > IOBcorr) && (minutes>120)){
+	if((newBolusCorr > IOBcorr) && (minutes>120) && (newBolusCorr > 0.1)){
 		timeSinceWarning += "<br/>Add "+newBolusCorr.toFixed(2)+" additional correction insulin";
 	}
 	return (timeSince+timeSinceWarning+"<br/>"+IOBstring);
