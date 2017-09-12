@@ -42,7 +42,7 @@ function bolusCalcWFood(mealName){
 		newBolusProtein = (protein/2)/10.0; //Protein
 	}
 	else{*/
-		newBolusProtein = ((protein-20)/2.0)/currCarbRatio; //Protein
+		newBolusProtein = ((protein-15)/2.0)/currCarbRatio; //Protein
 	//}
 	if(newBolusCarbs<0) { newBolusCarbs = 0; }
 	if(newBolusProtein<0) { newBolusProtein = 0; }
