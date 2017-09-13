@@ -126,7 +126,7 @@ function setButtonActions(){
 	  	} 
 	      
 		// Send the data using post
-	  	var finalNonCorrNonExtDose = finalcarbdose+finalsuperdose+finalcorrdose;   
+	  	var finalNonCorrNonExtDose = newTotal-finalextdose;   
 		// Post extended dose if it exists
 	  	if(finalextdose > 0){ 
 			//Get time
