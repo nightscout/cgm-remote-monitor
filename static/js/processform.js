@@ -106,28 +106,21 @@ function setButtonActions(){
 	    		finalbolusextpercent = parseInt($form.find( "input[id='bolusext_meal']" ).val()),
 	    		finalextbolustime = parseInt($form.find( "select[id='extBolusTime']" ).val()) ;       
 		// Check if form values changed from original recommendation
-		var newTotal = 0;
+		var newTotal = finalcarbdose+finalextdose+finalcorrdose+finalsuperdose;
 		var newNow = 0;
-		var prevTotal = finalcarbdose+finalextdose;
+		//var prevTotal = finalcarbdose+finalextdose+finalcorrdose+finalsuperdose;
 		if((finalcarbdose != parseFloat(newBolusCarbs.toFixed(2))) || (finalextdose != parseFloat(newBolusExt.toFixed(2))) || (finalcorrdose != parseFloat(newBolusCorr.toFixed(2))) || (finalsuperdose != parseFloat(newBolusSuper.toFixed(2))) || (finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt) || (finalextbolustime != extBolusTime)){
 			if((finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
-				finalextdose = prevTotal * (finalbolusextpercent/100);
-				finalcarbdose = prevTotal * (finalbolusnowpercent/100);
-				newTotal = finalcarbdose+finalextdose+finalcorrdose+finalsuperdose;
-				newNow = finalcarbdose+finalsuperdose+finalcorrdose;
-				percentNow = Math.round((newNow/newTotal)*100);
-				percentExt = 100-percentNow;  
+				finalextdose = newTotal * (finalbolusextpercent/100);
+				newNow = newTotal * (finalbolusnowpercent/100);
+				percentExt = finalbolusextpercent;
+				percentNow = finalbolusnowpercent;
 		  	}
-			else{
-				newTotal = finalcarbdose+finalextdose+finalcorrdose+finalsuperdose;
-				percentNow = Math.round(((finalcarbdose+finalcorrdose+finalsuperdose)/newTotal)*100);
-				percentExt = 100-percentNow;    
-			}
 			if(finalextdose == 0){
 				document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2)+"<br/>";
 			}
 			else{
-				var minutesToHours = finalextbolustime/60;
+				var minutesToHours = (finalextbolustime/60.0).toFixed(1);
 			  	document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+(finalcarbdose+finalcorrdose+finalsuperdose).toFixed(2)+" + "+finalextdose.toFixed(2)+" extended over "+minutesToHours+" hours.<br/>";
 			}
 	  	} 
