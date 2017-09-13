@@ -113,6 +113,7 @@ function bolusCalcWFood(mealName){
 	// ~~~ END OLD ALGORITHM ~~~
 	
 	// ~~~~~~~~~~~~~~~~~~~ NEW ALGORITHM ~~~~~~~~~~~~~~~~~~~
+	var reduceBolusNowBy = 0.2; // used only for complex meals?
 	console.log("Meal: "+mealName);
 	var CU = (netCarbs/10.0);
         console.log("CU: "+ CU);
@@ -126,12 +127,12 @@ function bolusCalcWFood(mealName){
         console.log("CU_perc: "+ CU_perc);
         console.log("Correction: "+ newBolusCorr);
         if (CU_perc < 0.2) { newBolusCarbs = 0; }
-        else if (CU_perc >= 0.2 && CU_perc <= 0.8) { newBolusCarbs = CU * IRFactor; }
+        else if (CU_perc >= 0.2 && CU_perc <= 0.8) { newBolusCarbs = CU * IRFactor * (1 - reduceBolusNowBy); }
         else { newBolusCarbs = CU * IRFactor; }
         console.log("Bolus now: "+ newBolusCarbs);
         if ((FPU < 1.0) || ((FPU >= 1.0) && (CU_perc > 0.8))) { newBolusExt = 0; }
         else if ((FPU >= 1.0) && (CU_perc < 0.2)) { newBolusExt = FPU * IRFactor; }
-        else if ((FPU >= 1.0) && (CU_perc >= 0.2) && (CU_perc <= 0.8) ) { newBolusExt = FPU * IRFactor; }
+        else if ((FPU >= 1.0) && (CU_perc >= 0.2) && (CU_perc <= 0.8) ) { newBolusExt = FPU * IRFactor * (1 + reduceBolusNowBy); }
         console.log("Extended bolus: "+ newBolusExt);
         if ((FPU < 1.0) || (CU_perc > 0.8)) { extBolusTime = 0; }
         else if ((FPU >= 1.0) && (FPU < 2.0)) { extBolusTime = 180; }
@@ -139,7 +140,7 @@ function bolusCalcWFood(mealName){
         else if ((FPU >= 3.0) && (FPU < 4.0)) { extBolusTime = 300; }
         else { extBolusTime = 480; }
 	console.log("Extended bolus time: "+ (extBolusTime/60.0).toFixed(1) +" hours");
-	// ***Refactor percentages for meals with certain content, esp breakfast
+	// ***Refactor percentages for breakfast
 	if(mealName == "Breakfast"){
 		newBolusCarbs = newBolusCarbs + newBolusExt*0.8;
 		newBolusExt = newBolusExt*0.2;
