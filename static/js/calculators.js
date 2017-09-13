@@ -16,12 +16,12 @@ function bolusCalcWFood(mealName){
 	netCarbs = 0;
 	
 	// Calculate net carbs
-	if(mealName == "Breakfast"){ 
+	/*if(mealName == "Breakfast"){ 
 		netCarbs = carbs - (fiber / 2); 
 	}
-	else{
+	else{*/
 		netCarbs = carbs-fiber;
-	}
+	//}
 	
 	// Adjust correction sensitivity at various high BG thresholds
 
@@ -117,7 +117,7 @@ function bolusCalcWFood(mealName){
         console.log("CU: "+ CU);
         var FPU = (protein*4.0+fat*9.0)/100.0;
         console.log("FPU: "+ FPU);
-        var IRFactor = (10.0/carbRatio);
+        var IRFactor = (10.0/currCarbRatio);
         console.log("IRFactor: "+ IRFactor);
         var CDI = (CU + FPU) * IRFactor;
         console.log("CDI: "+ CDI);
