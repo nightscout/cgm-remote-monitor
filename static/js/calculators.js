@@ -126,12 +126,12 @@ function bolusCalcWFood(mealName){
         console.log("CU_perc: "+ CU_perc);
         console.log("Correction: "+ newBolusCorr);
         if (CU_perc < 0.2) { newBolusCarbs = 0; }
-        else if (CU_perc >= 0.2 && CU_perc <= 0.8) { newBolusCarbs = CU * IRFactor * (1 - newBolusCorr); }
+        else if (CU_perc >= 0.2 && CU_perc <= 0.8) { newBolusCarbs = CU * IRFactor; }
         else { newBolusCarbs = CU * IRFactor; }
         console.log("Bolus now: "+ newBolusCarbs);
         if ((FPU < 1.0) || ((FPU >= 1.0) && (CU_perc > 0.8))) { newBolusExt = 0; }
         else if ((FPU >= 1.0) && (CU_perc < 0.2)) { newBolusExt = FPU * IRFactor; }
-        else if ((FPU >= 1.0) && (CU_perc >= 0.2) && (CU_perc <= 0.8) ) { newBolusExt = FPU * IRFactor * (1 - newBolusCorr); }
+        else if ((FPU >= 1.0) && (CU_perc >= 0.2) && (CU_perc <= 0.8) ) { newBolusExt = FPU * IRFactor; }
         console.log("Extended bolus: "+ newBolusExt);
         if ((FPU < 1.0) || (CU_perc > 0.8)) { extBolusTime = 0; }
         else if ((FPU >= 1.0) && (FPU < 2.0)) { extBolusTime = 180; }
