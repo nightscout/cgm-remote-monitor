@@ -22,7 +22,7 @@ function bolusCalcWFood(mealName){
 	else{
 		netCarbs = carbs-fiber;
 	}
-	// Calculate carb and correction base doses
+	
 	// Adjust correction sensitivity at various high BG thresholds
 
 	var nullDataWarn = '';
@@ -35,19 +35,8 @@ function bolusCalcWFood(mealName){
 	}
 	else if(currBG>200){ 
 		currSens = currSens*.917;
-	}
-	newBolusCorr = ((currBG-BGgoal)/currSens)-IOBcorr; //Correction
-	newBolusCarbs = netCarbs/currCarbRatio; //Carbs
-	/*if((netCarbs > 30) && (mealName != "Breakfast")){
-		newBolusProtein = (protein/2)/10.0; //Protein
-	}
-	else{*/
-		newBolusProtein = ((protein-15)/2.0)/currCarbRatio; //Protein
-	//}
-	if(newBolusCarbs<0) { newBolusCarbs = 0; }
-	if(newBolusProtein<0) { newBolusProtein = 0; }
-	      
-        if(currBG>upperBGgoal){  
+	}      
+        else if(currBG>upperBGgoal){  
           	newBolusSuper = currBasal; //Super bolus
           	additionalMessage = "Super bolus, wait till bend.";
           	if(protein>20){ 
@@ -82,7 +71,20 @@ function bolusCalcWFood(mealName){
 			} //Super bolus 	
           	}
         }*/
-	if((fat>20) || (fiber>10)){
+	// Calculate carb and correction base doses
+	newBolusCorr = ((currBG-BGgoal)/currSens)-IOBcorr; //Correction
+
+	// ~~~ OLD ALGORITHM ~~~
+	//newBolusCarbs = netCarbs/currCarbRatio; //Carbs
+	/*if((netCarbs > 30) && (mealName != "Breakfast")){
+		newBolusProtein = (protein/2)/10.0; //Protein
+	}
+	else{*/
+		/*newBolusProtein = ((protein-15)/2.0)/currCarbRatio; //Protein
+	//}
+	if(newBolusCarbs<0) { newBolusCarbs = 0; }
+	if(newBolusProtein<0) { newBolusProtein = 0; }*/
+	/*if((fat>20) || (fiber>10)){
         	//newBolusFat = (((fat-20)/2)/currCarbRatio); //Fat
 		if(currBG < middleBGgoal){
 			newBolusFat = (newBolusCarbs*.25);//+(fat*0.01);
@@ -107,10 +109,48 @@ function bolusCalcWFood(mealName){
 	else{	
         	newBolus = newBolusCorr+newBolusSuper+newBolusCarbs;
 		newBolusExt = newBolusFat+newBolusProtein;
+	}*/
+	// ~~~ END OLD ALGORITHM ~~~
+	
+	// ~~~~~~~~~~~~~~~~~~~ NEW ALGORITHM ~~~~~~~~~~~~~~~~~~~
+	var CU = (carbs/10.0);
+        console.log("CU: "+ CU);
+        var FPU = (protein*4.0+fat*9.0)/100.0;
+        console.log("FPU: "+ FPU);
+        var IRFactor = (10.0/carbRatio);
+        console.log("IRFactor: "+ IRFactor);
+        var CDI = (CU + FPU) * IRFactor;
+        console.log("CDI: "+ CDI);
+        var CU_perc = CU / (CU + FPU);
+        console.log("CU_perc: "+ CU_perc);
+        console.log("Correction: "+ newBolusCorr);
+        if (CU_perc < 0.2) { newBolus = 0; }
+        else if (CU_perc >= 0.2 && CU_perc <= 0.8) { newBolus = CU * IRFactor * (1 - newBolusCorr); }
+        else { newBolus = CU * IRFactor; }
+        console.log("Bolus now: "+ newBolus);
+        if ((FPU < 1.0) || ((FPU >= 1.0) && (CU_perc > 0.8))) { newBolusExt = 0; }
+        else if ((FPU >= 1.0) && (CU_perc < 0.2)) { newBolusExt = FPU * IRFactor; }
+        else if ((FPU >= 1.0) && (CU_perc >= 0.2) && (CU_perc <= 0.8) ) { newBolusExt = FPU * IRFactor * (1 - newBolusCorr); }
+        console.log("Extended bolus: "+ newBolusExt);
+        if ((FPU < 1.0) || (CU_perc > 0.8)) { extBolusTime = 0; }
+        else if ((FPU >= 1.0) && (FPU < 2.0)) { extBolusTime = 180; }
+        else if ((FPU >= 2.0) && (FPU < 3.0)) { extBolusTime = 240; }
+        else if ((FPU >= 3.0) && (FPU < 4.0)) { extBolusTime = 300; }
+        else { extBolusTime = 480; }
+	console.log("Extended bolus time: "+ (extBolusTime/60.0).toFixed(1) +" hours");
+	// ***Refactor percentages for meals with certain content, esp breakfast
+	if(mealName == "Breakfast"){
+		newBolus = newBolus + newBolusCorr + newBolusSuper + newBolusExt;
+		newBolusExt = 0;
 	}
-        totalBolus = newBolus + newBolusExt;
+	else{
+		newBolus = newBolus + newBolusCorr + newBolusSuper;
+	}
+	// ~~~~~~~~~~~~~~~~~~~ END NEW ALGORITHM ~~~~~~~~~~~~~~~~~~~
+	
 	if(newBolus < 0) { newBolus = 0; }
 	if(newBolusExt < 0) { newBolusExt = 0; extBolusTime = 0;}
+	totalBolus = newBolus + newBolusExt;
 	if(totalBolus < 0) { totalBolus = 0; }
         percentExt = Math.round((newBolusExt/totalBolus)*100);
         percentNow = 100-percentExt; //((newBolusExt/totalBolus)*100);
