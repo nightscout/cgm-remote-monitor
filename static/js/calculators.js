@@ -113,7 +113,8 @@ function bolusCalcWFood(mealName){
 	// ~~~ END OLD ALGORITHM ~~~
 	
 	// ~~~~~~~~~~~~~~~~~~~ NEW ALGORITHM ~~~~~~~~~~~~~~~~~~~
-	var CU = (carbs/10.0);
+	console.log("Meal: "+mealName);
+	var CU = (netCarbs/10.0);
         console.log("CU: "+ CU);
         var FPU = (protein*4.0+fat*9.0)/100.0;
         console.log("FPU: "+ FPU);
@@ -140,8 +141,8 @@ function bolusCalcWFood(mealName){
 	console.log("Extended bolus time: "+ (extBolusTime/60.0).toFixed(1) +" hours");
 	// ***Refactor percentages for meals with certain content, esp breakfast
 	if(mealName == "Breakfast"){
-		newBolus = newBolus + newBolusCorr + newBolusSuper + newBolusExt;
-		newBolusExt = 0;
+		newBolus = newBolus + newBolusCorr + newBolusSuper + newBolusExt*0.7;
+		newBolusExt = newBolusExt*0.3;
 	}
 	else{
 		newBolus = newBolus + newBolusCorr + newBolusSuper;
@@ -168,7 +169,7 @@ function bolusCalcWFood(mealName){
         document.getElementById("results_meal").innerHTML += "<br/>Recommended bolus: "
 		+ totalBolus.toFixed(2)+ extBolusText + additionalMessage + nullDataWarn;
 	$("#results_mealdose").show();
-	document.getElementById("carbdose_meal").value = newBolusCarbs.toFixed(2);
+	document.getElementById("carbdose_meal").value = newBolus.toFixed(2);
 	document.getElementById("extdose_meal").value = newBolusExt.toFixed(2);
 	document.getElementById("corrdose_meal").value = newBolusCorr.toFixed(2);
 	document.getElementById("super_meal").value = newBolusSuper.toFixed(2);
