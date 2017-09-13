@@ -141,14 +141,11 @@ function bolusCalcWFood(mealName){
 	console.log("Extended bolus time: "+ (extBolusTime/60.0).toFixed(1) +" hours");
 	// ***Refactor percentages for meals with certain content, esp breakfast
 	if(mealName == "Breakfast"){
-		newBolus = newBolusCarbs + newBolusSuper + newBolusCorr + newBolusExt*0.7;
-		newBolusExt = newBolusExt*0.3;
-	}
-	else{
-		newBolus = newBolusCarbs + newBolusSuper + newBolusCorr;
+		newBolusCarbs = newBolusCarbs + newBolusExt*0.8;
+		newBolusExt = newBolusExt*0.2;
 	}
 	// ~~~~~~~~~~~~~~~~~~~ END NEW ALGORITHM ~~~~~~~~~~~~~~~~~~~
-	
+	newBolus = newBolusCarbs + newBolusSuper + newBolusCorr;
 	if(newBolus < 0) { newBolus = 0; }
 	if(newBolusExt < 0) { newBolusExt = 0; extBolusTime = 0;}
 	totalBolus = newBolus + newBolusExt;
