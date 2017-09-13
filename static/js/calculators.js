@@ -125,10 +125,10 @@ function bolusCalcWFood(mealName){
         var CU_perc = CU / (CU + FPU);
         console.log("CU_perc: "+ CU_perc);
         console.log("Correction: "+ newBolusCorr);
-        if (CU_perc < 0.2) { newBolus = 0; }
-        else if (CU_perc >= 0.2 && CU_perc <= 0.8) { newBolus = CU * IRFactor * (1 - newBolusCorr); }
-        else { newBolus = CU * IRFactor; }
-        console.log("Bolus now: "+ newBolus);
+        if (CU_perc < 0.2) { newBolusCarbs = 0; }
+        else if (CU_perc >= 0.2 && CU_perc <= 0.8) { newBolusCarbs = CU * IRFactor * (1 - newBolusCorr); }
+        else { newBolusCarbs = CU * IRFactor; }
+        console.log("Bolus now: "+ newBolusCarbs);
         if ((FPU < 1.0) || ((FPU >= 1.0) && (CU_perc > 0.8))) { newBolusExt = 0; }
         else if ((FPU >= 1.0) && (CU_perc < 0.2)) { newBolusExt = FPU * IRFactor; }
         else if ((FPU >= 1.0) && (CU_perc >= 0.2) && (CU_perc <= 0.8) ) { newBolusExt = FPU * IRFactor * (1 - newBolusCorr); }
@@ -141,11 +141,11 @@ function bolusCalcWFood(mealName){
 	console.log("Extended bolus time: "+ (extBolusTime/60.0).toFixed(1) +" hours");
 	// ***Refactor percentages for meals with certain content, esp breakfast
 	if(mealName == "Breakfast"){
-		newBolus = newBolus + newBolusCorr + newBolusSuper + newBolusExt*0.7;
+		newBolus = newBolusCarbs + newBolusSuper + newBolusCorr + newBolusExt*0.7;
 		newBolusExt = newBolusExt*0.3;
 	}
 	else{
-		newBolus = newBolus + newBolusCorr + newBolusSuper;
+		newBolus = newBolusCarbs + newBolusSuper + newBolusCorr;
 	}
 	// ~~~~~~~~~~~~~~~~~~~ END NEW ALGORITHM ~~~~~~~~~~~~~~~~~~~
 	
@@ -169,7 +169,7 @@ function bolusCalcWFood(mealName){
         document.getElementById("results_meal").innerHTML += "<br/>Recommended bolus: "
 		+ totalBolus.toFixed(2)+ extBolusText + additionalMessage + nullDataWarn;
 	$("#results_mealdose").show();
-	document.getElementById("carbdose_meal").value = newBolus.toFixed(2);
+	document.getElementById("carbdose_meal").value = newBolusCarbs.toFixed(2);
 	document.getElementById("extdose_meal").value = newBolusExt.toFixed(2);
 	document.getElementById("corrdose_meal").value = newBolusCorr.toFixed(2);
 	document.getElementById("super_meal").value = newBolusSuper.toFixed(2);
