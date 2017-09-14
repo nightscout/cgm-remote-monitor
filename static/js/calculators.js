@@ -113,7 +113,7 @@ function bolusCalcWFood(mealName){
 	// ~~~ END OLD ALGORITHM ~~~
 	
 	// ~~~~~~~~~~~~~~~~~~~ NEW ALGORITHM ~~~~~~~~~~~~~~~~~~~
-	var reduceBolusNowBy = 0.2; // used only for complex meals?
+	var reduceBolusNowBy = 0;//0.2; // used only for complex meals?
 	console.log("Meal: "+mealName);
 	var CU = (netCarbs/10.0);
         console.log("CU: "+ CU);
@@ -138,7 +138,7 @@ function bolusCalcWFood(mealName){
         else if ((FPU >= 1.0) && (FPU < 2.0)) { extBolusTime = 180; }
         else if ((FPU >= 2.0) && (FPU < 3.0)) { extBolusTime = 240; }
         else if ((FPU >= 3.0) && (FPU < 4.0)) { extBolusTime = 300; }
-        else { extBolusTime = 480; }
+        else { extBolusTime = 300; } // modified from recommended 480 minutes
 	console.log("Extended bolus time: "+ (extBolusTime/60.0).toFixed(1) +" hours");
 	// ***Refactor percentages for breakfast
 	if(mealName == "Breakfast"){
