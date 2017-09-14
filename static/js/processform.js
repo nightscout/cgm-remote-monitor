@@ -120,7 +120,7 @@ function setButtonActions(){
 				document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2)+"<br/>";
 			}
 			else{
-				percentExt = (finalextdose/newTotal).toFixed(0);
+				percentExt = finalextdose/newTotal;
 				percentNow = 100-percentExt;
 				var minutesToHours = (finalextbolustime/60.0).toFixed(1);
 			  	document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+(finalcarbdose+finalcorrdose+finalsuperdose).toFixed(2)+" + "+finalextdose.toFixed(2)+" extended over "+minutesToHours+" hours.<br/>";
