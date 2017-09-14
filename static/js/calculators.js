@@ -114,7 +114,7 @@ function bolusCalcWFood(mealName){
 	
 	// ~~~~~~~~~~~~~~~~~~~ NEW ALGORITHM ~~~~~~~~~~~~~~~~~~~
 	var reduceBolusNowBy = 0; // used only for complex meals?
-	if((fat>20) || (fiber>10)){
+	if(fiber>10){
 		if(currBG < middleBGgoal){
 			reduceBolusNowBy = 0.2;
 		}
