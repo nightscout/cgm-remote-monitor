@@ -71,7 +71,7 @@ var someData = {
 
 
 describe('Profile editor', function ( ) {
-  this.timeout(20000); //TODO: see why this test takes longer on Travis to complete
+  this.timeout(25000); //TODO: see why this test takes longer on Travis to complete
   var headless = require('./fixtures/headless')(benv, this);
 
   before(function (done) {
