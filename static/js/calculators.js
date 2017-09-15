@@ -122,7 +122,17 @@ function bolusCalcWFood(mealName){
 	console.log("Meal: "+mealName);
 	var CU = (netCarbs/10.0);
         console.log("CU: "+ CU);
-        var FPU = (protein*4.0+fat*9.0)/100.0;
+	var newProtein = (protein-20);
+	if(newProtein < 0){ newProtein = 0; }
+	var newFat = (fat-20);
+	if(newFat < 0){ newFat = 0; }
+	var FPU;
+	if(mealName == "Breakfast"){
+		FPU = (protein*4.0+fat*9.0)/100.0;
+	}
+	else{
+		FPU = (newProtein*4.0+newFat*9.0)/100.0;
+	}
         console.log("FPU: "+ FPU);
         var IRFactor = (10.0/currCarbRatio);
         console.log("IRFactor: "+ IRFactor);
