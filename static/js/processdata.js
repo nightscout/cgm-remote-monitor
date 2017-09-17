@@ -284,8 +284,11 @@ function processTreatments(data){
 				timeTillNextExercise = Math.round(Math.floor((diff/1000)/60)); 
 				if(timeTillNextExercise < 120){ 
 					exercisingSoon = 1; 
-					exerciseDuration = parseInt(data[i].duration);       
-					console.log("Exercising in next "+timeTillNextExercise+ " minutes, for "+exerciseDuration+" minutes.");
+					exerciseDuration = parseInt(data[i].duration); 
+					futureExerciseType = data[i].notes;
+					if((futureExerciseType == "Dance") || (futureExerciseType == "Other")) { predictedBGdrop = exerciseDuration*2; }
+					if(futureExerciseType == "Yoga") { predictedBGdrop = exerciseDuration; }
+					console.log("Exercising in next "+timeTillNextExercise+ " minutes, for "+exerciseDuration+" minutes, with a BG drop of "+predictedBGdrop);
 				}
 			}
 		}
