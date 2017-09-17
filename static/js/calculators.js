@@ -136,11 +136,11 @@ function bolusCalcWFood(mealName){
 	//}
         console.log("FPU: "+ FPU);
         var IRFactor = (10.0/currCarbRatio);
-        console.log("IRFactor: "+ IRFactor);
+        //console.log("IRFactor: "+ IRFactor);
         var CDI = (CU + FPU) * IRFactor;
-        console.log("CDI: "+ CDI);
+        //console.log("CDI: "+ CDI);
         var CU_perc = CU / (CU + FPU);
-        console.log("CU_perc: "+ CU_perc);
+        //console.log("CU_perc: "+ CU_perc);
         console.log("Correction: "+ newBolusCorr);
         if (CU_perc < 0.2) { newBolusCarbs = 0; }
         else if (CU_perc >= 0.2 && CU_perc <= 0.8) { newBolusCarbs = CU * IRFactor * (1 - reduceBolusNowBy); }
@@ -163,7 +163,7 @@ function bolusCalcWFood(mealName){
 	}
 	// ~~~~~~~~~~~~~~~~~~~ END NEW ALGORITHM ~~~~~~~~~~~~~~~~~~~
 	var newBolusExtAdj = newBolusExt;
-	if((newBolusCarbs + newBolusSuper) > newBolusCorr){
+	if((newBolusCarbs + newBolusSuper + newBolusCorr) > 0){
 		newBolus = newBolusCarbs + newBolusSuper + newBolusCorr;
 	}
 	else{
@@ -172,7 +172,7 @@ function bolusCalcWFood(mealName){
 	}
 	if(newBolus < 0) { newBolus = 0; }
 	if(newBolusExtAdj < 0) { newBolusExt = 0; newBolusExtAdj = 0; extBolusTime = 0;}
-	totalBolus = newBolus + newBolusExt;
+	totalBolus = newBolus + newBolusExtAdj;
 	if(totalBolus < 0) { totalBolus = 0; }
         percentExt = Math.round((newBolusExtAdj/totalBolus)*100);
         percentNow = 100-percentExt; //((newBolusExt/totalBolus)*100);
