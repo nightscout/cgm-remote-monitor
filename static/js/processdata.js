@@ -278,6 +278,15 @@ function processTreatments(data){
 			}
 			//if ((minutes>(activeInsulinHours*60)) && (mealFound == 1) && (profileFound == 1) ){ break dataLoop; }
 		}
+		else{ // for future events
+			diff = diff*-1;
+			if(data[i].eventType == "Exercise"){
+				timeTillNextExercise = Math.round(Math.floor((diff/1000)/60)); 
+				if(timeTillNextExercise < 120){ exercisingSoon = 1; 
+							      console.log("Exercising in next "+timeTillNextExercise+ " minutes.");
+							      }
+			}
+		}
 	} // end treatment loop
 	//console.log("COB final: "+COB);
 	minutes = Math.round(Math.floor((diffFood/1000)/60));  
