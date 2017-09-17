@@ -282,9 +282,11 @@ function processTreatments(data){
 			diff = diff*-1;
 			if(data[i].eventType == "Exercise"){
 				timeTillNextExercise = Math.round(Math.floor((diff/1000)/60)); 
-				if(timeTillNextExercise < 120){ exercisingSoon = 1; 
-							      console.log("Exercising in next "+timeTillNextExercise+ " minutes.");
-							      }
+				if(timeTillNextExercise < 120){ 
+					exercisingSoon = 1; 
+					exerciseDuration = parseInt(data[i].duration);       
+					console.log("Exercising in next "+timeTillNextExercise+ " minutes, for "+exerciseDuration+" minutes.");
+				}
 			}
 		}
 	} // end treatment loop
