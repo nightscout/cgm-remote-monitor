@@ -107,7 +107,7 @@ function setButtonActions(){
 	    		finalextbolustime = parseInt($form.find( "select[id='extBolusTime']" ).val()) ;       
 		// Check if form values changed from original recommendation
 		var newTotal = finalcarbdose+finalextdose+finalcorrdose+finalsuperdose;
-		var newNow = 0;
+		var newNow = finalcarbdose+finalcorrdose+finalsuperdose;
 		//var prevTotal = finalcarbdose+finalextdose+finalcorrdose+finalsuperdose;
 		if((finalcarbdose != parseFloat(newBolusCarbs.toFixed(2))) || (finalextdose != parseFloat(newBolusExt.toFixed(2))) || (finalcorrdose != parseFloat(newBolusCorr.toFixed(2))) || (finalsuperdose != parseFloat(newBolusSuper.toFixed(2))) || (finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt) || (finalextbolustime != extBolusTime)){
 			if((finalbolusnowpercent != percentNow) || (finalbolusextpercent != percentExt)){
@@ -116,19 +116,23 @@ function setButtonActions(){
 				percentExt = finalbolusextpercent;
 				percentNow = finalbolusnowpercent;
 		  	}
-			if(finalextdose == 0){
+			if(newNow < 0){
+				finalextdose = finalextdose + finalcorrdose;
+			}
+			if(finalextdose <= 0){
+				finalextdose = 0;
 				document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2)+"<br/>";
 			}
 			else{
 				percentExt = (finalextdose/newTotal)*100;
 				percentNow = 100-percentExt;
 				var minutesToHours = (finalextbolustime/60.0).toFixed(1);
-			  	document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+(finalcarbdose+finalcorrdose+finalsuperdose).toFixed(2)+" + "+finalextdose.toFixed(2)+" extended over "+minutesToHours+" hours.<br/>";
+			  	document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newNow.toFixed(2)+" + "+finalextdose.toFixed(2)+" extended over "+minutesToHours+" hours.<br/>";
 			}
 	  	} 
 	      
 		// Send the data using post
-	  	var finalNonCorrNonExtDose = newTotal-finalextdose;   
+	  	//var finalNonCorrNonExtDose = newTotal-finalextdose;   
 		// Post extended dose if it exists
 	  	if(finalextdose > 0){ 
 			//Get time
@@ -149,12 +153,12 @@ function setButtonActions(){
 			}	     
 		}
 		// Post meal/snack dose if it exists, or just carbs
-		if((finalNonCorrNonExtDose>0) || (netCarbs>0)){
-	  		if(finalNonCorrNonExtDose<0) { 
+		if((newNow>0) || (netCarbs>0)){
+	  		if(newNow<0) { 
 				var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":netCarbs,"insulin":0,"eventType":eventType,"preBolus":prebolus,"notes":"Protein: "+protein+"g Fat: "+fat+"g","secret":secret } );
 			}
 			else{	
-				var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":netCarbs,"insulin":finalNonCorrNonExtDose,"eventType":eventType,"preBolus":prebolus,"notes":"Protein: "+protein+"g Fat: "+fat+"g","secret":secret } );
+				var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":netCarbs,"insulin":newNow,"eventType":eventType,"preBolus":prebolus,"notes":"Protein: "+protein+"g Fat: "+fat+"g","secret":secret } );
 			}
 			// Put the results in a div
 			posting.done(function( data ) {
@@ -168,7 +172,7 @@ function setButtonActions(){
 		if(finalcorrdose>0){
 	  		var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":finalcorrdose,"eventType":"Correction Bolus","secret":secret } );
           		posting2.done(function( data ) {
-	    			if((finalNonCorrNonExtDose==0) && (netCarbs==0)){ document.getElementById("submission_meal").innerHTML += "Data submitted &#x1F44D"; }
+	    			if((newNow==0) && (netCarbs==0)){ document.getElementById("submission_meal").innerHTML += "Data submitted &#x1F44D"; }
             			//document.getElementById("submission_meal").innerHTML += " plus correction bolus";
           		}); 
 	  		posting2.fail(function( data) {
@@ -180,7 +184,7 @@ function setButtonActions(){
 			var posting3 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":"Temp Basal","notes":"Super bolus","secret":secret } );
 			// Put the results in a div
 			posting3.done(function( data ) {
-				if((finalNonCorrNonExtDose==0) && (netCarbs==0) && (finalcorrdose==0)){ document.getElementById("submission_meal").innerHTML += "Data submitted &#x1F44D"; }
+				if((newNow==0) && (netCarbs==0) && (finalcorrdose==0)){ document.getElementById("submission_meal").innerHTML += "Data submitted &#x1F44D"; }
 			    	//document.getElementById("submission_meal").innerHTML += " plus super bolus temp basal.";
 			}); 
 			posting3.fail(function( data) {
