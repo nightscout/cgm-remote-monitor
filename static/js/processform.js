@@ -16,14 +16,15 @@ function setTemp(type){
 function suggestExercise(){
 	eventType = "Exercise"; 
 	var exercisetime = document.getElementById("exerciseduration").value;
+	var predictedBGdrop = exercisetime*2;
 	if(exerciseType == "Dance"){
-		exerciseSuggestion = "Expect a BG drop of "+ exercisetime + " to be adjusted by " + (exercisetime/currSens).toFixed(2) + " less insulin or " + (exercisetime/(currSens/currCarbRatio)).toFixed(0) + " carbs. Temp basal during exercise of 0%. Set a 12 hour post-exercise temp basal of -20%."
+		exerciseSuggestion = "Expect a BG drop of "+ predictedBGdrop + " to be adjusted by " + (predictedBGdrop/currSens).toFixed(2) + " less insulin or " + (predictedBGdrop/(currSens/currCarbRatio)).toFixed(0) + " carbs. Temp basal during exercise of 20%. Set a 12 hour post-exercise temp basal of -20%."
 	}
 	if(exerciseType == "Yoga"){
-		exerciseSuggestion = "Expect a BG drop of "+ exercisetime + " to be adjusted by " + (exercisetime/currSens).toFixed(2) + " less insulin or " + (exercisetime/(currSens/currCarbRatio)).toFixed(0) + " carbs. Temp basal during exercise of 0%. Set a 12 hour post-exercise temp basal of +20%. 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high."
+		exerciseSuggestion = "Expect a BG drop of "+ exercisetime + " to be adjusted by " + (exercisetime/currSens).toFixed(2) + " less insulin or " + (exercisetime/(currSens/currCarbRatio)).toFixed(0) + " carbs. Temp basal during exercise of 20%. Set a 12 hour post-exercise temp basal of +20%. 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high."
 	}
 	if(exerciseType == "Other"){
-		 exerciseSuggestion = "If aerobic, expect a BG drop of "+ exercisetime + " to be adjusted by " + (exercisetime/currSens).toFixed(2) + " less insulin or " + (exercisetime/(currSens/currCarbRatio)).toFixed(0) + " carbs. Set a 12 hour post-exercise temp basal of -20%.<br/><br/>If anaerobic, 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high. Set a 12 hour post-exercise temp basal of +20%."
+		 exerciseSuggestion = "If aerobic, expect a BG drop of "+ predictedBGdrop + " to be adjusted by " + (predictedBGdrop/currSens).toFixed(2) + " less insulin or " + (predictedBGdrop/(currSens/currCarbRatio)).toFixed(0) + " carbs. Set a 12 hour post-exercise temp basal of -20%.<br/><br/>If anaerobic, 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high. Set a 12 hour post-exercise temp basal of +20%."
 	}
         document.getElementById("submission_exercise").innerHTML = exerciseSuggestion; 
 } //end suggestExercise
