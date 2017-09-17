@@ -1,33 +1,33 @@
 // Sets form temp basal values
 function setTemp(type){
 	if(type == "Engine Braking"){
-		document.getElementById("basalduration").value = 30; 
-		document.getElementById("basalpercent").value = -100; 	
+		document.getElementById("basalduration").value = 30;
+		document.getElementById("basalpercent").value = -100;
 		basalnotes = "Engine Braking";
 	}
 	if(type == "Super Bolus"){
-		document.getElementById("basalduration").value = 60; 
-		document.getElementById("basalpercent").value = -100; 
+		document.getElementById("basalduration").value = 60;
+		document.getElementById("basalpercent").value = -100;
 		basalnotes = "Super Bolus";
 	}
 } // end setTemp
 
 // Suggests adjustments for different forms of exercise
 function suggestExercise(){
-	eventType = "Exercise"; 
+	eventType = "Exercise";
 	var exercisetime = document.getElementById("exerciseduration").value;
 	if(exerciseType == "Dance"){
 		predictedBGdrop = exercisetime*2;
-		exerciseSuggestion = "Expect a BG drop of "+ predictedBGdrop + " to be adjusted by " + (predictedBGdrop/currSens).toFixed(2) + " less insulin or " + (predictedBGdrop/(currSens/currCarbRatio)).toFixed(0) + " carbs. Temp basal during exercise of 20%. Set a 12 hour post-exercise temp basal of -20%."
+		exerciseSuggestion = "Expect a BG drop of "+ predictedBGdrop + " to be adjusted by " + (predictedBGdrop/currSens).toFixed(2) + " less insulin or " + (predictedBGdrop/(currSens/currCarbRatio)).toFixed(0) + " carbs. Temp basal during exercise of 20%. Set a 12 hour post-exercise temp basal of -20%.";
 	}
 	if(exerciseType == "Yoga"){
 		predictedBGdrop = exercisetime;
-		exerciseSuggestion = "Expect a BG drop of "+ predictedBGdrop + " to be adjusted by " + (predictedBGdrop/currSens).toFixed(2) + " less insulin or " + (predictedBGdrop/(currSens/currCarbRatio)).toFixed(0) + " carbs. Temp basal during exercise of 20%. Set a 12 hour post-exercise temp basal of +20%. 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high."
+		exerciseSuggestion = "Expect a BG drop of "+ predictedBGdrop + " to be adjusted by " + (predictedBGdrop/currSens).toFixed(2) + " less insulin or " + (predictedBGdrop/(currSens/currCarbRatio)).toFixed(0) + " carbs. Temp basal during exercise of 20%. Set a 12 hour post-exercise temp basal of +20%. 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high.";
 	}
 	if(exerciseType == "Other"){
-		 exerciseSuggestion = "If aerobic, expect a BG drop of "+ predictedBGdrop + " to be adjusted by " + (predictedBGdrop/currSens).toFixed(2) + " less insulin or " + (predictedBGdrop/(currSens/currCarbRatio)).toFixed(0) + " carbs. Set a 12 hour post-exercise temp basal of -20%.<br/><br/>If anaerobic, 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high. Set a 12 hour post-exercise temp basal of +20%."
+		 exerciseSuggestion = "If aerobic, expect a BG drop of "+ predictedBGdrop + " to be adjusted by " + (predictedBGdrop/currSens).toFixed(2) + " less insulin or " + (predictedBGdrop/(currSens/currCarbRatio)).toFixed(0) + " carbs. Set a 12 hour post-exercise temp basal of -20%.<br/><br/>If anaerobic, 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high. Set a 12 hour post-exercise temp basal of +20%.";
 	}
-        document.getElementById("submission_exercise").innerHTML = exerciseSuggestion; 
+        document.getElementById("submission_exercise").innerHTML = exerciseSuggestion;
 } //end suggestExercise
 
 // Generic treatment posting
@@ -35,36 +35,36 @@ function postData(input, callback){
 	var posting = $.post( treatmentsURL, input );
 	posting.done(function( data ) {
 		callback(data);
-	}); 
+	});
 	posting.fail(function( data) {
 		callback(data);
 	});
 } // end postData
-  
-  // ~~~~~~~~~~~~~~~~~~~~~~~~~ SET BUTTON ACTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~	
-function setButtonActions(){		
+
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~ SET BUTTON ACTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
+function setButtonActions(){
 	$("#BreakfastButton").click(function() { calcFoodBolus("Meal", "Breakfast"); });
         $("#LunchButton").click(function() { calcFoodBolus("Meal", "Lunch");  });
         $("#DinnerButton").click(function() { calcFoodBolus("Meal", "Dinner");  });
         $("#MornSnackButton").click(function() { calcFoodBolus("Snack", "Morning Snack"); });
         $("#AftSnackButton").click(function() { calcFoodBolus("Snack", "Afternoon Snack"); });
         $("#EveSnackButton").click(function() { calcFoodBolus("Snack", "Evening Snack"); });
-        $("#suggest_meal").click(function() { 
+        $("#suggest_meal").click(function() {
 	        prebolus = document.getElementById("prebolus").value;
 		carbs = document.getElementById("carbs").value;
-		fat = document.getElementById("fat").value;  
-		protein = document.getElementById("protein").value;  
+		fat = document.getElementById("fat").value;
+		protein = document.getElementById("protein").value;
 		fiber = document.getElementById("fiber").value;
 	        eventType = "Meal Bolus";
 	      	bolusCalcWFood("N/A");
-        });  
+        });
         $("#carbdose_clear").click(function() { document.getElementById("carbdose_meal").value = 0.00; });
 	$("#extdose_clear").click(function() { document.getElementById("extdose_meal").value = 0.00; });
 	$("#corrdose_clear").click(function() { document.getElementById("corrdose_meal").value = 0.00; });
 	$("#superdose_clear").click(function() { document.getElementById("super_meal").value = 0.00; });
-	$("#combosplit_clear").click(function() { 
-		document.getElementById("bolusnow_meal").value = 100; 
-		document.getElementById("bolusext_meal").value = 0; 				
+	$("#combosplit_clear").click(function() {
+		document.getElementById("bolusnow_meal").value = 100;
+		document.getElementById("bolusext_meal").value = 0;
 	});
 	(document.getElementById("bolusnow_meal")).addEventListener("input", function(e){
 		document.getElementById("bolusext_meal").value = 100-document.getElementById("bolusnow_meal").value;
@@ -76,21 +76,21 @@ function setButtonActions(){
         $("#CarbsOnly").click(function() { resetVars(); eventType = "Carb Correction"; bolusCalc(); });*/
         $("#EngineBraking").click(function() { resetVars(); eventType = "Temp Basal"; setTemp("Engine Braking"); });
         $("#SuperBolus").click(function() { resetVars(); eventType = "Temp Basal"; setTemp("Super Bolus"); });
-        $("#Dance").click(function(event) { 
+        $("#Dance").click(function(event) {
 	        resetVars();
 	        exerciseType = "Dance";
 	        suggestExercise();
         });
-        $("#Yoga").click(function(event) { 
+        $("#Yoga").click(function(event) {
 	        resetVars();
 	        exerciseType = "Yoga";
 	        suggestExercise();
         });
-        $("#Other").click(function(event) { 
+        $("#Other").click(function(event) {
 	        resetVars();
 	        exerciseType = "Other";
 	        suggestExercise();
-        });	
+        });
 	// ~~~~~~~~~~~~~~~~~SUBMITS~~~~~~~~~~~~~~~~~
 	// Meal submit
         $("#mealform").submit(function( event ) {
@@ -106,7 +106,7 @@ function setButtonActions(){
 	    		finalsuperdose = parseFloat($form.find( "input[id='super_meal']" ).val()),
 	    		finalbolusnowpercent = parseInt($form.find( "input[id='bolusnow_meal']" ).val()),
 	    		finalbolusextpercent = parseInt($form.find( "input[id='bolusext_meal']" ).val()),
-	    		finalextbolustime = parseInt($form.find( "select[id='extBolusTime']" ).val()) ;       
+	    		finalextbolustime = parseInt($form.find( "select[id='extBolusTime']" ).val()) ;
 		// Check if form values changed from original recommendation
 		var newTotal = finalcarbdose+finalextdose+finalcorrdose+finalsuperdose;
 		var newNow = finalcarbdose+finalcorrdose+finalsuperdose;
@@ -131,17 +131,17 @@ function setButtonActions(){
 				var minutesToHours = (finalextbolustime/60.0).toFixed(1);
 			  	document.getElementById("submission_meal").innerHTML += "New total: "+newTotal.toFixed(2)+" ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newNow.toFixed(2)+" + "+finalextdose.toFixed(2)+" extended over "+minutesToHours+" hours.<br/>";
 			}
-	  	} 
-	      
+	  	}
+
 		// Send the data using post
-	  	//var finalNonCorrNonExtDose = newTotal-finalextdose;   
+	  	//var finalNonCorrNonExtDose = newTotal-finalextdose;
 		// Post extended dose if it exists
-	  	if(finalextdose > 0){ 
+	  	if(finalextdose > 0){
 			//Get time
 			today = new Date(); // for now
 			//Divide time
 			var newDate = new Date(today);
-			var extTimeIntervals = finalextbolustime/10.0;  
+			var extTimeIntervals = finalextbolustime/10.0;
 			var insulinDiv = finalextdose/extTimeIntervals;
 			var t;
 			var UTCMonth;
@@ -151,23 +151,23 @@ function setButtonActions(){
 				UTCtimeStr = newDate.toJSON();
 				//Send fractional insulin amounts to NS
 				postData({ "enteredBy":"BolusCalc","insulin":insulinDiv,"created_at":UTCtimeStr,"secret":secret },function(data){
-				});	
-			}	     
+				});
+			}
 		}
 		// Post meal/snack dose if it exists, or just carbs
 		if((newNow>0) || (netCarbs>0)){
-	  		if(newNow<0) { 
+	  		if(newNow<0) {
 				var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":netCarbs,"insulin":0,"eventType":eventType,"preBolus":prebolus,"notes":"Protein: "+protein+"g Fat: "+fat+"g","secret":secret } );
 			}
-			else{	
+			else{
 				var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":netCarbs,"insulin":newNow,"eventType":eventType,"preBolus":prebolus,"notes":"Protein: "+protein+"g Fat: "+fat+"g","secret":secret } );
 			}
 			// Put the results in a div
 			posting.done(function( data ) {
 				document.getElementById("submission_meal").innerHTML += "Data submitted &#x1F44D";
-			}); 
+			});
 			posting.fail(function( data) {
-				document.getElementById("submission_meal").innerHTML += "Data NOT submitted &#x1F44E";  
+				document.getElementById("submission_meal").innerHTML += "Data NOT submitted &#x1F44E";
 			});
 		}
 		// Post correction dose if it exists
@@ -176,9 +176,9 @@ function setButtonActions(){
           		posting2.done(function( data ) {
 	    			if((newNow==0) && (netCarbs==0)){ document.getElementById("submission_meal").innerHTML += "Data submitted &#x1F44D"; }
             			//document.getElementById("submission_meal").innerHTML += " plus correction bolus";
-          		}); 
+          		});
 	  		posting2.fail(function( data) {
-	    			document.getElementById("submission_meal").innerHTML += " WITHOUT correction bolus";  
+	    			document.getElementById("submission_meal").innerHTML += " WITHOUT correction bolus";
 	  		});
 		}
 		// Post super temp basal if super dose exists
@@ -188,11 +188,11 @@ function setButtonActions(){
 			posting3.done(function( data ) {
 				if((newNow==0) && (netCarbs==0) && (finalcorrdose==0)){ document.getElementById("submission_meal").innerHTML += "Data submitted &#x1F44D"; }
 			    	//document.getElementById("submission_meal").innerHTML += " plus super bolus temp basal.";
-			}); 
-			posting3.fail(function( data) {
-				document.getElementById("submission_meal").innerHTML += ", WITHOUT super bolus temp basal.";  
 			});
-	  	}  
+			posting3.fail(function( data) {
+				document.getElementById("submission_meal").innerHTML += ", WITHOUT super bolus temp basal.";
+			});
+	  	}
         });
 	// Correction submit
 	$("#correctionform").submit(function( event ) {
@@ -205,28 +205,28 @@ function setButtonActions(){
 			var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":corrdose,"eventType":"Correction Bolus","secret":secret } );
 			posting.done(function( data ) {
 				document.getElementById("submission_correction").innerHTML = "Data submitted &#x1F44D";
-			}); 
+			});
 			posting.fail(function( data) {
-				document.getElementById("submission_correction").innerHTML = "Data NOT submitted &#x1F44E";  
+				document.getElementById("submission_correction").innerHTML = "Data NOT submitted &#x1F44E";
 			});
 		}
 		if(corrCarbs > 0){
 			var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":corrCarbs,"eventType":"Carb Correction","secret":secret } );
 			posting2.done(function( data ) {
 				document.getElementById("submission_correction").innerHTML = "Data submitted &#x1F44D";
-			}); 
+			});
 			posting2.fail(function( data) {
-				document.getElementById("submission_correction").innerHTML = "Data NOT submitted &#x1F44E";  
+				document.getElementById("submission_correction").innerHTML = "Data NOT submitted &#x1F44E";
 			});
 		}
-	  	if(corrdose == newBolus.toFixed(2)){     
+	  	if(corrdose == newBolus.toFixed(2)){
 		  	if(newBolusSuper>0){
 			  	var posting3 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":60,"percent":-100,"eventType":"Temp Basal","notes":"Super bolus","secret":secret } );
 			  	posting3.done(function( data ) {
 			    		document.getElementById("submission_correction").innerHTML += " plus super bolus temp basal.";
-			  	}); 
+			  	});
 			  	posting3.fail(function( data) {
-			    		document.getElementById("submission_correction").innerHTML += " WITHOUT super bolus temp basal.";  
+			    		document.getElementById("submission_correction").innerHTML += " WITHOUT super bolus temp basal.";
 			  	});
 		  	}
 	  	}
@@ -234,7 +234,7 @@ function setButtonActions(){
 			console.log("Detected change in correction dose. Did not submit super bolus temp basal.");
 		}
         });
-	// Carbs only submit      
+	// Carbs only submit
 	/*$("#carbsonlyform").submit(function( event ) {
           	event.preventDefault();
 	  	cleardivs("Carbs");
@@ -244,12 +244,12 @@ function setButtonActions(){
           	var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":corrCarbs,"eventType":eventType,"notes":"Low","secret":secret } );
           	posting.done(function( data ) {
             		document.getElementById("submission_carbsonly").innerHTML = "Data submitted &#x1F44D";
-          	}); 
+          	});
 	  	posting.fail(function( data) {
-	    		document.getElementById("submission_carbsonly").innerHTML = "Data NOT submitted &#x1F44E";  
+	    		document.getElementById("submission_carbsonly").innerHTML = "Data NOT submitted &#x1F44E";
 	  	});
         });*/
-	// Temp basal submit      
+	// Temp basal submit
 	$("#tempbasalform").submit(function( event ) {
           	event.preventDefault();
 	  	cleardivs("N/A");
@@ -260,9 +260,9 @@ function setButtonActions(){
           	var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":basald,"percent":basalp,"eventType":eventType,"notes":basalnotes,"secret":secret } );
           	posting.done(function( data ) {
             		document.getElementById("submission_tempbasal").innerHTML = "Data submitted &#x1F44D";
-          	}); 
+          	});
 	  	posting.fail(function( data) {
-	    		document.getElementById("submission_tempbasal").innerHTML = "Data NOT submitted &#x1F44E";  
+	    		document.getElementById("submission_tempbasal").innerHTML = "Data NOT submitted &#x1F44E";
 	  	});
         });
 	// Exercise submit
@@ -274,20 +274,20 @@ function setButtonActions(){
 		var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"notes":exerciseType,"eventType":eventType,"secret":secret } );
 		posting.done(function( data ) {
 		    	document.getElementById("submission_exercise").innerHTML += "Data submitted &#x1F44D ";
-		}); 
+		});
 		posting.fail(function( data) {
-		    	document.getElementById("submission_exercise").innerHTML += "Data NOT submitted &#x1F44E ";  
+		    	document.getElementById("submission_exercise").innerHTML += "Data NOT submitted &#x1F44E ";
 		});
 		var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"percent":-80,"eventType":"Temp Basal","notes":"Exercise","secret":secret } );
 			// Put the results in a div
 			posting2.done(function( data ) {
-				document.getElementById("submission_exercise").innerHTML += " plus temp basal of 20%"; 
+				document.getElementById("submission_exercise").innerHTML += " plus temp basal of 20%";
 			    	//document.getElementById("submission_meal").innerHTML += " plus super bolus temp basal.";
-			}); 
-			posting2.fail(function( data) {
-				document.getElementById("submission_exercise").innerHTML += " WITHOUT temp basal";  
 			});
-        });   
+			posting2.fail(function( data) {
+				document.getElementById("submission_exercise").innerHTML += " WITHOUT temp basal";
+			});
+        });
 	// Remove pump submit
 	$("#removepumpform").submit(function( event ) {
           	event.preventDefault();
@@ -300,9 +300,9 @@ function setButtonActions(){
 		  	var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","insulin":insulinreco,"notes":"Shower","secret":secret } );
 		  	posting.done(function( data ) {
 		    		document.getElementById("submission_removepump").innerHTML = "Data submitted &#x1F44D Bolus "+insulinreco.toFixed(2)+" units before removing. ";
-		  	}); 
+		  	});
 		  	posting.fail(function( data) {
-		    		document.getElementById("submission_removepump").innerHTML = "Data NOT submitted &#x1F44E Bolus "+insulinreco.toFixed(2)+" units before removing. ";  
+		    		document.getElementById("submission_removepump").innerHTML = "Data NOT submitted &#x1F44E Bolus "+insulinreco.toFixed(2)+" units before removing. ";
 		  	});
 	  	}
 	  	else{
@@ -311,9 +311,9 @@ function setButtonActions(){
 	  	var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","eventType":"Temp Basal","duration":pumpoffduration,"percent":-100,"notes":"Shower","secret":secret } );
           	posting2.done(function( data ) {
             		document.getElementById("submission_removepump").innerHTML += "Temp basal set."+addToReco;
-          	}); 
+          	});
 	  	posting2.fail(function( data) {
-	    		document.getElementById("submission_removepump").innerHTML += "Temp basal NOT set."+addToReco;  
+	    		document.getElementById("submission_removepump").innerHTML += "Temp basal NOT set."+addToReco;
 	  	});
         });
 }

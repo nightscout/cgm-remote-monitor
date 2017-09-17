@@ -1,6 +1,6 @@
 // Calculate boluses involving food data
 function bolusCalcWFood(mealName){
-	// Clear old data 
+	// Clear old data
 	newBolus = 0;
 	newBolusExt = 0;
 	newBolusCorr = 0;
@@ -14,15 +14,15 @@ function bolusCalcWFood(mealName){
 	percentNow = 0;
 	percentExt = 0;
 	netCarbs = 0;
-	
+
 	// Calculate net carbs
-	/*if(mealName == "Breakfast"){ 
-		netCarbs = carbs - (fiber / 2); 
+	/*if(mealName == "Breakfast"){
+		netCarbs = carbs - (fiber / 2);
 	}
 	else{*/
 		netCarbs = carbs-fiber;
 	//}
-	
+
 	// Adjust correction sensitivity at various high BG thresholds
 
 	var nullDataWarn = '';
@@ -30,25 +30,25 @@ function bolusCalcWFood(mealName){
 		currBG = 90;
 		nullDataWarn = "<br/>&#x2757 Current BG is undefined.";
 	}
-	if(currBG>250){ 
+	if(currBG>250){
 		currSens = currSens*.833;
 	}
-	else if(currBG>200){ 
+	else if(currBG>200){
 		currSens = currSens*.917;
-	}      
-        else if(currBG>upperBGgoal){  
+	}
+        else if(currBG>upperBGgoal){
           	newBolusSuper = currBasal; //Super bolus
           	additionalMessage = "Super bolus, wait till bend.";
-          	if(protein>20){ 
+          	if(protein>20){
             		additionalMessage = "Super bolus, wait till bend if possible.";
           	}
         }
         else if(currBG>middleBGgoal){
           	if((netCarbs>30) || (fat<20)){
-			if((prebolus < 10) && (fat<20)){ //Super bolus 
-				newBolusSuper = currBasal; 
-				additionalMessage = "Super bolus, wait till bend if possible.";		       
-			} 
+			if((prebolus < 10) && (fat<20)){ //Super bolus
+				newBolusSuper = currBasal;
+				additionalMessage = "Super bolus, wait till bend if possible.";
+			}
 			else{
 				additionalMessage = "Wait till bend if possible.";
 			}
@@ -57,22 +57,25 @@ function bolusCalcWFood(mealName){
 			}
           	}
           	else{
-		  	if(prebolus < 10){  
-				newBolusSuper = currBasal;	
+		  	if(prebolus < 10){
+				newBolusSuper = currBasal;
 				additionalMessage = "Super bolus if eating immediately.";
-			} //Super bolus 
+			} //Super bolus
           	}
         }
         /*else if(currBG>lowerBGgoal){
           	if(netCarbs>30){
-          		if(prebolus < 10){  
-				newBolusSuper = currBasal;	
+          		if(prebolus < 10){
+				newBolusSuper = currBasal;
 				additionalMessage = "Super bolus if eating immediately.";
-			} //Super bolus 	
+			} //Super bolus
           	}
         }*/
 	// Calculate carb and correction base doses
 	newBolusCorr = ((currBG-BGgoal)/currSens)-IOBcorr; //Correction
+	if((newBolusCorr > 0) && (predictedBGdrop > 0){
+			newBolusCorr = newBolusCorr * .7;
+	}
 	if((newBolusCorr < 0) && (currBG > 75)) { newBolusCorr = 0; }
 
 	// ~~~ OLD ALGORITHM ~~~
@@ -107,12 +110,12 @@ function bolusCalcWFood(mealName){
 		newBolus = newBolusCorr+newBolusSuper+newBolusCarbs;
 		newBolusExt = newBolusFat;
 	}
-	else{	
+	else{
         	newBolus = newBolusCorr+newBolusSuper+newBolusCarbs;
 		newBolusExt = newBolusFat+newBolusProtein;
 	}*/
 	// ~~~ END OLD ALGORITHM ~~~
-	
+
 	// ~~~~~~~~~~~~~~~~~~~ NEW ALGORITHM ~~~~~~~~~~~~~~~~~~~
 	var reduceBolusNowBy = 0; // used only for complex meals?
 	if(fiber>10){
@@ -127,48 +130,56 @@ function bolusCalcWFood(mealName){
 	if(newProtein < 0){ newProtein = 0; }
 	var newFat = (fat-20);
 	if(newFat < 0){ newFat = 0; }
-	var FPU;
-	/*if(mealName == "Breakfast"){
-		FPU = (protein*4.0+fat*9.0)/100.0;
-	}
-	else{*/
-		FPU = (newProtein*4.0+newFat*9.0)/100.0;
-	//}
-        console.log("FPU: "+ FPU);
+	var origFPU = (protein*4.0+fat*9.0)/100.0;
+	var FPU = ((newProtein*4.0+newFat*9.0)/100.0)*.8;
+				console.log("Original FPU: "+ origFPU);
+				console.log("Modified FPU: "+ FPU);
         var IRFactor = (10.0/currCarbRatio);
         //console.log("IRFactor: "+ IRFactor);
-        var CDI = (CU + FPU) * IRFactor;
+        var CDI = (CU + origFPU) * IRFactor;
         //console.log("CDI: "+ CDI);
-        var CU_perc = CU / (CU + FPU);
+        var CU_perc = CU / (CU + origFPU);
         //console.log("CU_perc: "+ CU_perc);
         console.log("Correction: "+ newBolusCorr);
         if (CU_perc < 0.2) { newBolusCarbs = 0; }
         else if (CU_perc >= 0.2 && CU_perc <= 0.8) { newBolusCarbs = CU * IRFactor * (1 - reduceBolusNowBy); }
         else { newBolusCarbs = CU * IRFactor; }
         console.log("Bolus now: "+ newBolusCarbs);
-        if ((FPU < 1.0) || ((FPU >= 1.0) && (CU_perc > 0.8))) { newBolusExt = 0; }
-        else if ((FPU >= 1.0) && (CU_perc < 0.2)) { newBolusExt = FPU * IRFactor; }
-        else if ((FPU >= 1.0) && (CU_perc >= 0.2) && (CU_perc <= 0.8) ) { newBolusExt = FPU * IRFactor * (1 + reduceBolusNowBy); }
+        if ((origFPU < 1.0) || ((origFPU >= 1.0) && (CU_perc > 0.8))) { newBolusExt = 0; }
+        else if ((origFPU >= 1.0) && (CU_perc < 0.2)) { newBolusExt = FPU * IRFactor; }
+        else if ((origFPU >= 1.0) && (CU_perc >= 0.2) && (CU_perc <= 0.8) ) { newBolusExt = FPU * IRFactor * (1 + reduceBolusNowBy); }
         console.log("Extended bolus: "+ newBolusExt);
-        if ((FPU < 1.0) || (CU_perc > 0.8)) { extBolusTime = 0; }
-        else if ((FPU >= 1.0) && (FPU < 2.0)) { extBolusTime = 120; } // modified from recommended 180 minutes
-        else if ((FPU >= 2.0) && (FPU < 3.0)) { extBolusTime = 180; } // modified from recommended 240 minutes
-        else if ((FPU >= 3.0) && (FPU < 4.0)) { extBolusTime = 240; } // modified from recommended 300 minutes
-        else { extBolusTime = 240; } // modified from recommended 480 minutes
+        if ((origFPU < 1.0) || (CU_perc > 0.8)) { extBolusTime = 0; }
+        else if ((origFPU >= 1.0) && (origFPU < 2.0)) { extBolusTime = 120; } // modified from recommended 180 minutes
+        else if ((origFPU >= 2.0) && (origFPU < 3.0)) { extBolusTime = 180; } // modified from recommended 240 minutes
+        else if ((origFPU >= 3.0) && (origFPU < 4.0)) { extBolusTime = 240; } // modified from recommended 300 minutes
+        else { extBolusTime = 300; } // modified from recommended 480 minutes
 	console.log("Extended bolus time: "+ (extBolusTime/60.0).toFixed(1) +" hours");
 	// ***Refactor percentages for complex meals
 	if((newFat == 0) && (newProtein > 0) && (netCarbs < 10)){
 		newBolusCarbs = newBolusCarbs + newBolusExt;
 		newBolusExt = 0;
 	}
+	else if((newFat > 0) && (newProtein > 0) && (netCarbs < 10)){
+		newBolusCarbs = newBolusCarbs + newBolusExt*.2;
+		newBolusExt = newBolusExt*.8;
+	}
+
 	// ~~~~~~~~~~~~~~~~~~~ END NEW ALGORITHM ~~~~~~~~~~~~~~~~~~~
 	var newBolusExtAdj = newBolusExt;
-	if((newBolusCarbs + newBolusSuper + newBolusCorr) > 0){
-		newBolus = newBolusCarbs + newBolusSuper + newBolusCorr;
+	newBolus = newBolusCarbs+newBolusSuper+newBolusCorr;
+	if(predictedBGdrop > 0){
+		 newBolusExtAdj -= .7*(predictedBGdrop/currSens);
+		 newBolus -= .3*(predictedBGdrop/currSens);
+		 if(newBolusExtAdj < 0){
+				newBolus += newBolusExtAdj;
+		 }
 	}
 	else{
-		newBolus = newBolusCarbs + newBolusSuper;
-		newBolusExtAdj = newBolusExtAdj + newBolusCorr;
+		if(newBolus < 0){ // correction is greater than bolus now
+			newBolus = newBolusCarbs + newBolusSuper;
+			newBolusExtAdj = newBolusExtAdj + newBolusCorr;
+		}
 	}
 	if(newBolus < 0) { newBolus = 0; }
 	if(newBolusExtAdj < 0) { newBolusExt = 0; newBolusExtAdj = 0; extBolusTime = 0;}
@@ -176,16 +187,21 @@ function bolusCalcWFood(mealName){
 	if(totalBolus < 0) { totalBolus = 0; }
         percentExt = Math.round((newBolusExtAdj/totalBolus)*100);
         percentNow = 100-percentExt; //((newBolusExt/totalBolus)*100);
+	// Accomodate upcoming exercise
 	addCarbs = (75-currBG)/(currSens/currCarbRatio)-carbs;
+	if(predictedBGdrop > 0){
+		addCarbs += predictedBGdrop/(currSens/currCarbRatio);
+	}
+  console.log("Add carbs: "+addCarbs);
 	if(addCarbs >= 0.5){
         	document.getElementById("results_meal").innerHTML = "<br/>Need more carbs! Eat "+addCarbs.toFixed(0)+"g more. &#x1F36C"+nullDataWarn;
-	}	
+	}
 	var extBolusText = '';
 	var extBolusTimeText = (extBolusTime/60.0).toFixed(1);
 	if(newBolusExtAdj > 0){
 		extBolusText = " ("+percentNow.toFixed(0)+"% / "+percentExt.toFixed(0)+"%)<br/>"+newBolus.toFixed(2)+" + "+newBolusExtAdj.toFixed(2)+" extended over "+extBolusTimeText+" hour(s). ";
 	}
-	else{ extBolusText = ". "; extBolusTime = "N/A"; }	
+	else{ extBolusText = ". "; extBolusTime = "N/A"; }
 
         document.getElementById("results_meal").innerHTML += "<br/>Recommended bolus: "
 		+ totalBolus.toFixed(2)+ extBolusText + additionalMessage + nullDataWarn;
@@ -195,10 +211,10 @@ function bolusCalcWFood(mealName){
 	document.getElementById("corrdose_meal").value = newBolusCorr.toFixed(2);
 	document.getElementById("super_meal").value = newBolusSuper.toFixed(2);
 	document.getElementById("bolusnow_meal").value = percentNow.toFixed(0);
-	document.getElementById("bolusext_meal").value = percentExt.toFixed(0);	
+	document.getElementById("bolusext_meal").value = percentExt.toFixed(0);
 	document.getElementById("extBolusTime").value = extBolusTime;
 } // end bolusCalcWFood
-   
+
 // Calculate boluses for corrections only
 function bolusCalc(){
       	newBolus = 0;
@@ -211,10 +227,10 @@ function bolusCalc(){
 		currBG = 90;
 		nullDataWarn = "<br/>&#x2757 Current BG is undefined.";
 	}
-	if(currBG>250){ 
+	if(currBG>250){
 		currSens = currSens*.833;
 	}
-	else if(currBG>200){ 
+	else if(currBG>200){
 		currSens = currSens*.917;
 	}
 	newBolusCorr = ((currBG-BGgoal)/currSens)-IOBcorr; //Correction
@@ -224,42 +240,45 @@ function bolusCalc(){
           	additionalMessage = "Add super bolus."
         }
         newBolus = newBolusCorr + newBolusSuper;
-	var divToWriteTo = 'results_correction';  
+	var divToWriteTo = 'results_correction';
         if(newBolus<0){
         	addCarbs = (75-currBG)/(currSens/currCarbRatio);
+					if(predictedBGdrop > 0){
+						addCarbs += predictedBGdrop/(currSens/currCarbRatio);
+					}
 		if(addCarbs < 0){ addCarbs = 0; }
 		if(addCarbs < 0.5) { document.getElementById(divToWriteTo).innerHTML = "<br/>No correction needed!"+nullDataWarn; }
 		else { document.getElementById(divToWriteTo).innerHTML = "<br/>Need more carbs! Eat "+addCarbs.toFixed(0)+"g. &#x1F36C"+nullDataWarn; }
-		document.getElementById("corrCarbs").value = addCarbs.toFixed(0); 
+		document.getElementById("corrCarbs").value = addCarbs.toFixed(0);
 		document.getElementById("corrdose").value = 0;
         }
         else if (newBolus<0.1){
-	  	document.getElementById(divToWriteTo).innerHTML = "<br/>No correction needed!"+nullDataWarn; 
-		document.getElementById("corrCarbs").value = 0; 	
+	  	document.getElementById(divToWriteTo).innerHTML = "<br/>No correction needed!"+nullDataWarn;
+		document.getElementById("corrCarbs").value = 0;
           	document.getElementById("corrdose").value = 0;
         }
-        else{ 
+        else{
 	  	document.getElementById("corrCarbs").value = 0;
 		document.getElementById(divToWriteTo).innerHTML = "<br/>Recommended bolus: "+newBolus.toFixed(2)+". "+ additionalMessage +"<br/>Correction: "+newBolusCorr.toFixed(2)+"<br/>Super: "+newBolusSuper.toFixed(2)+nullDataWarn;
-	  	document.getElementById("corrdose").value = newBolus.toFixed(2); 	 
+	  	document.getElementById("corrdose").value = newBolus.toFixed(2);
         }
 } // bolusCalc
-    
+
 // Bolus calc handler
 function calcFoodBolus(mealOrSnack, name){
-	resetVars(); 
-	eventType = mealOrSnack+" Bolus"; 
+	resetVars();
+	eventType = mealOrSnack+" Bolus";
 	prebolus = document.getElementById("prebolus").value;
 	getMealData(name, function(data){
 		if (data != "<br/>No meal data available."){
-		      	document.getElementById("carbs").value = carbs; 
-		      	document.getElementById("fat").value = fat; 
-		      	document.getElementById("protein").value = protein;  
-		      	document.getElementById("fiber").value = fiber; 
+		      	document.getElementById("carbs").value = carbs;
+		      	document.getElementById("fat").value = fat;
+		      	document.getElementById("protein").value = protein;
+		      	document.getElementById("fiber").value = fiber;
 		      	bolusCalcWFood(name);
 	      	}
 	      	else{
-		    	document.getElementById("errors").innerHTML = "Couldn't get meal results";  
-	      	}   
-	});      
+		    	document.getElementById("errors").innerHTML = "Couldn't get meal results";
+	      	}
+	});
 } // end calcFoodBolus
