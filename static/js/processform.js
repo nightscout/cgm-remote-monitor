@@ -277,6 +277,15 @@ function setButtonActions(){
 		posting.fail(function( data) {
 		    	document.getElementById("submission_exercise").innerHTML += "Data NOT submitted &#x1F44E ";  
 		});
+		var posting2 = $.post( treatmentsURL, { "enteredBy":"BolusCalc","duration":exercisetime,"percent":-80,"eventType":"Temp Basal","notes":"Exercise","secret":secret } );
+			// Put the results in a div
+			posting2.done(function( data ) {
+				document.getElementById("submission_exercise").innerHTML += " plus temp basal of 20%"; 
+			    	//document.getElementById("submission_meal").innerHTML += " plus super bolus temp basal.";
+			}); 
+			posting2.fail(function( data) {
+				document.getElementById("submission_exercise").innerHTML += " WITHOUT temp basal";  
+			});
         });   
 	// Remove pump submit
 	$("#removepumpform").submit(function( event ) {
