@@ -71,6 +71,7 @@ var basalnotes = '';
 var exerciseSuggestion = '';
 var exerciseType = '';
 var exercisingSoon = 0;
+var exerciseDuration = 0;
 var timeTillNextExercise = 0;
 var extBolusTime = 120;
 	
@@ -109,6 +110,7 @@ function resetVars(){
 	
 	exercisingSoon = 0;
 	timeTillNextExercise = 0;
+	exerciseDuration = 0;
 	
 	getCustomJSON(profileURL,"profile",function(returndata){
 		if(returndata == "Error pulling stats"){
