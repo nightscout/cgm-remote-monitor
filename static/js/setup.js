@@ -70,6 +70,8 @@ var prebolus = 0;
 var basalnotes = '';	
 var exerciseSuggestion = '';
 var exerciseType = '';
+var exercisingSoon = 0;
+var timeTillNextExercise = 0;
 var extBolusTime = 120;
 	
 // ~~~~~~~~~~~~~~~~~~~~~~~~~ DEFINE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -104,6 +106,10 @@ function resetVars(){
 	// Time
 	getDate(); 
 	//Stats
+	
+	exercisingSoon = 0;
+	timeTillNextExercise = 0;
+	
 	getCustomJSON(profileURL,"profile",function(returndata){
 		if(returndata == "Error pulling stats"){
 			document.getElementById("errors").innerHTML = returndata + " - Profile";
