@@ -73,6 +73,8 @@ var exerciseType = '';
 var exercisingSoon = 0;
 var exerciseDuration = 0;
 var timeTillNextExercise = 0;
+var predictedBGdrop = 0;
+var futureExerciseType = '';
 var extBolusTime = 120;
 	
 // ~~~~~~~~~~~~~~~~~~~~~~~~~ DEFINE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -111,6 +113,8 @@ function resetVars(){
 	exercisingSoon = 0;
 	timeTillNextExercise = 0;
 	exerciseDuration = 0;
+	predictedBGdrop = 0;
+	futureExerciseType = '';
 	
 	getCustomJSON(profileURL,"profile",function(returndata){
 		if(returndata == "Error pulling stats"){
