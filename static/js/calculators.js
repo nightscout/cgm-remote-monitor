@@ -73,7 +73,7 @@ function bolusCalcWFood(mealName){
         }*/
 	// Calculate carb and correction base doses
 	newBolusCorr = ((currBG-BGgoal)/currSens)-IOBcorr; //Correction
-	if((newBolusCorr > 0) && (predictedBGdrop > 0){
+	if((newBolusCorr > 0) && (predictedBGdrop > 0)){
 			newBolusCorr = newBolusCorr * .7;
 	}
 	if((newBolusCorr < 0) && (currBG > 75)) { newBolusCorr = 0; }
