@@ -25,17 +25,8 @@ function suggestExercise(){
 		exerciseSuggestion = "Expect a BG drop of "+ predictedBGdrop + " to be adjusted by " + (predictedBGdrop/currSens).toFixed(2) + " less insulin or " + (predictedBGdrop/(currSens/currCarbRatio)).toFixed(0) + " carbs. Temp basal during exercise of 20%. Set a 12 hour post-exercise temp basal of +20%. 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high.";
 	}
 	if(exerciseType == "Other"){
-<<<<<<< HEAD
 		predictedBGdrop = exercisetime*2;
 		exerciseSuggestion = "If aerobic, expect a BG drop of "+ predictedBGdrop + " to be adjusted by " + (predictedBGdrop/currSens).toFixed(2) + " less insulin or " + (predictedBGdrop/(currSens/currCarbRatio)).toFixed(0) + " carbs. Set a 12 hour post-exercise temp basal of -20%.<br/><br/>If anaerobic, 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high. Set a 12 hour post-exercise temp basal of +20%.";
-=======
-<<<<<<< HEAD
-		 exerciseSuggestion = "If aerobic, expect a BG drop of "+ predictedBGdrop + " to be adjusted by " + (predictedBGdrop/currSens).toFixed(2) + " less insulin or " + (predictedBGdrop/(currSens/currCarbRatio)).toFixed(0) + " carbs. Set a 12 hour post-exercise temp basal of -20%.<br/><br/>If anaerobic, 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high. Set a 12 hour post-exercise temp basal of +20%.";
-=======
-		predictedBGdrop = exercisetime*2;
-		exerciseSuggestion = "If aerobic, expect a BG drop of "+ predictedBGdrop + " to be adjusted by " + (predictedBGdrop/currSens).toFixed(2) + " less insulin or " + (predictedBGdrop/(currSens/currCarbRatio)).toFixed(0) + " carbs. Set a 12 hour post-exercise temp basal of -20%.<br/><br/>If anaerobic, 30 mins prior to end of session, if BGs have not been dropping, do 2 units to cover post exercise high. Set a 12 hour post-exercise temp basal of +20%."
->>>>>>> cb81ca462ba620a68fd65c2b5003a44e701f376a
->>>>>>> 4b094213cb4e3c0a156938505b33ad36f840ea0f
 	}
         document.getElementById("submission_exercise").innerHTML = exerciseSuggestion;
 } //end suggestExercise
