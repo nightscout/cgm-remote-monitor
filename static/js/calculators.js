@@ -125,14 +125,15 @@ function bolusCalcWFood(mealName) {
     if (newProtein < 0) { newProtein = 0; }
     var newFat = (fat - 20);
     if (newFat < 0) { newFat = 0; }
-    //var origFPU = (protein * 4.0 + fat * 9.0) / 100.0;
+    var origFPU = (protein * 4.0 + fat * 9.0) / 100.0;
     var FPU;
     if ((newProtein > 0) && (netCarbs < 10)) {
-        FPU = ((protein - 10) * 4.0 + (fat - 10) * 9.0) / 100.0;
+        FPU = origFPU * .8;
+        console.log("FPU for high protein low carb");
     } else {
         FPU = (newProtein * 4.0 + newFat * 9.0) / 100.0;
     }
-    //console.log("Original FPU: " + origFPU);
+    console.log("Original FPU: " + origFPU);
     console.log("Modified FPU: " + FPU);
     var IRFactor = (10.0 / currCarbRatio);
     console.log("IRFactor: " + IRFactor);
