@@ -121,7 +121,12 @@ function bolusCalcWFood(mealName) {
     console.log("Meal: " + mealName);
     var CU = (netCarbs / 10.0);
     console.log("CU: " + CU);
-    var newProtein = (protein - 20);
+    var newProtein;
+    if (netCarbs < 15) {
+        newProtein = protein;
+    } else {
+        newProtein = protein - 20;
+    }
     if (newProtein < 0) { newProtein = 0; }
     var newFat = (fat - 20);
     if (newFat < 0) { newFat = 0; }
@@ -133,6 +138,7 @@ function bolusCalcWFood(mealName) {
     } else {
         extReductionFactor = .8;
     }
+    console.log("Reduction factor: " + extReductionFactor);
     console.log("Original FPU: " + origFPU);
     console.log("Modified FPU: " + FPU);
     var IRFactor = (10.0 / currCarbRatio);
