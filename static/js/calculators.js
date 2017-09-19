@@ -126,13 +126,11 @@ function bolusCalcWFood(mealName) {
     var newFat = (fat - 20);
     if (newFat < 0) { newFat = 0; }
     var origFPU = (protein * 4.0 + fat * 9.0) / 100.0;
-    var FPU;
+    var FPU = (newProtein * 4.0 + newFat * 9.0) / 100.0;
     var extReductionFactor;
-    if ((newProtein > 0) && (netCarbs < 10)) {
-        FPU = origFPU * .8;
+    if ((newProtein > 0) && (netCarbs < 15)) {
         extReductionFactor = 1;
     } else {
-        FPU = (newProtein * 4.0 + newFat * 9.0) / 100.0;
         extReductionFactor = .8;
     }
     console.log("Original FPU: " + origFPU);
@@ -155,11 +153,11 @@ function bolusCalcWFood(mealName) {
     else { extBolusTime = 240; } // modified from recommended 480 minutes
     console.log("Extended bolus time: " + (extBolusTime / 60.0).toFixed(1) + " hours");
     // ***Refactor percentages for complex meals
-    if ((newFat == 0) && (newProtein > 0) && (netCarbs < 10)) {
+    if ((newFat == 0) && (newProtein > 0) && (netCarbs < 15)) {
         newBolusCarbs = newBolusCarbs + newBolusExt;
         newBolusExt = 0;
         console.log("Refactored: High protein, low fat, low carb");
-    } else if ((newFat > 0) && (newProtein > 0) && (netCarbs < 10)) {
+    } else if ((newFat > 0) && (newProtein > 0) && (netCarbs < 15)) {
         newBolusCarbs = newBolusCarbs + newBolusExt * .2;
         newBolusExt = newBolusExt * .8;
         console.log("Refactored: High protein, high fat, low carb");
