@@ -125,9 +125,14 @@ function bolusCalcWFood(mealName) {
     if (newProtein < 0) { newProtein = 0; }
     var newFat = (fat - 20);
     if (newFat < 0) { newFat = 0; }
-    var origFPU = (protein * 4.0 + fat * 9.0) / 100.0;
-    var FPU = (newProtein * 4.0 + newFat * 9.0) / 100.0;
-    console.log("Original FPU: " + origFPU);
+    //var origFPU = (protein * 4.0 + fat * 9.0) / 100.0;
+    var FPU;
+    if ((newProtein > 0) && (netCarbs < 10)) {
+        FPU = ((protein - 10) * 4.0 + (fat - 10) * 9.0) / 100.0;
+    } else {
+        FPU = (newProtein * 4.0 + newFat * 9.0) / 100.0;
+    }
+    //console.log("Original FPU: " + origFPU);
     console.log("Modified FPU: " + FPU);
     var IRFactor = (10.0 / currCarbRatio);
     console.log("IRFactor: " + IRFactor);
@@ -138,11 +143,11 @@ function bolusCalcWFood(mealName) {
     console.log("Correction: " + newBolusCorr);
     if (CU_perc < 0.2) { newBolusCarbs = 0; } else if (CU_perc >= 0.2 && CU_perc <= 0.8) { newBolusCarbs = CU * IRFactor * (1 - reduceBolusNowBy); } else { newBolusCarbs = CU * IRFactor; }
     console.log("Bolus now: " + newBolusCarbs);
-    if ((origFPU < 1.0) || ((origFPU >= 1.0) && (CU_perc > 0.8))) { newBolusExt = 0; } else if ((origFPU >= 1.0) && (CU_perc < 0.2)) { newBolusExt = (FPU * IRFactor) * .8; } else if ((origFPU >= 1.0) && (CU_perc >= 0.2) && (CU_perc <= 0.8)) { newBolusExt = (FPU * IRFactor * (1 + reduceBolusNowBy)) * .8; }
+    if ((FPU < 1.0) || ((FPU >= 1.0) && (CU_perc > 0.8))) { newBolusExt = 0; } else if ((FPU >= 1.0) && (CU_perc < 0.2)) { newBolusExt = (FPU * IRFactor) * .8; } else if ((origFPU >= 1.0) && (CU_perc >= 0.2) && (CU_perc <= 0.8)) { newBolusExt = (FPU * IRFactor * (1 + reduceBolusNowBy)) * .8; }
     console.log("Extended bolus: " + newBolusExt);
-    if ((origFPU < 1.0) || (CU_perc > 0.8)) { extBolusTime = 0; } else if ((origFPU >= 1.0) && (origFPU < 2.0)) { extBolusTime = 90; } // modified from recommended 180 minutes
-    else if ((origFPU >= 2.0) && (origFPU < 3.0)) { extBolusTime = 120; } // modified from recommended 240 minutes
-    else if ((origFPU >= 3.0) && (origFPU < 4.0)) { extBolusTime = 150; } // modified from recommended 300 minutes
+    if ((FPU < 1.0) || (CU_perc > 0.8)) { extBolusTime = 0; } else if ((FPU >= 1.0) && (FPU < 2.0)) { extBolusTime = 90; } // modified from recommended 180 minutes
+    else if ((FPU >= 2.0) && (FPU < 3.0)) { extBolusTime = 120; } // modified from recommended 240 minutes
+    else if ((FPU >= 3.0) && (FPU < 4.0)) { extBolusTime = 150; } // modified from recommended 300 minutes
     else { extBolusTime = 240; } // modified from recommended 480 minutes
     console.log("Extended bolus time: " + (extBolusTime / 60.0).toFixed(1) + " hours");
     // ***Refactor percentages for complex meals
