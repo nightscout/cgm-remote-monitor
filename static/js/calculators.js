@@ -159,8 +159,9 @@ function bolusCalcWFood(mealName) {
     else if ((origFPU >= 2.0) && (origFPU < 3.0)) { extBolusTime = 240 * timeReductionFactor; } // modified from recommended 240 minutes
     else if ((origFPU >= 3.0) && (origFPU < 4.0)) { extBolusTime = 300 * timeReductionFactor; } // modified from recommended 300 minutes
     else { extBolusTime = 480 * timeReductionFactor; } // modified from recommended 480 minutes
+    extBolusTime = Math.round(extBolusTime);
     console.log("Original extended bolus time: " + extBolusTime + " minutes");
-    extBolusTime = Math.round(extBolusTime * 30) / 30; // rounding up to halves
+    if (extBolusTime % 30 < 15) { extBolusTime = Math.floor(extBolusTime / 30); } else { extBolusTime = Math.floor(extBolusTime / 30) + 30; } // rounding up to half hours
     console.log("Calculated extended bolus time: " + (extBolusTime / 60.0).toFixed(1) + " hours");
     // ***Refactor percentages for complex meals
     if (origFPU < 1.0) {
