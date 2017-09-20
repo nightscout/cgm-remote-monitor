@@ -45,7 +45,7 @@ test:
 
 travis:
 	NODE_ENV=test ${MONGO_SETTINGS} \
-	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 30000 -R tap ${TESTS}
+	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 50000 -R tap ${TESTS}
 
 docker_release:
 	# Get the version from the package.json file
