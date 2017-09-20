@@ -154,12 +154,20 @@ function bolusCalcWFood(mealName) {
     newBolusExt = FPU * IRFactor * (1 + reduceBolusNowBy);
     //} else { newBolusExt = FPU * IRFactor; }
     console.log("Extended bolus: " + newBolusExt);
-    if (origFPU < 1.0) { extBolusTime = 60; } else if ((origFPU >= 1.0) && (origFPU < 2.0)) { extBolusTime = 90; } // modified from recommended 180 minutes
-    else if ((origFPU >= 2.0) && (origFPU < 3.0)) { extBolusTime = 120; } // modified from recommended 240 minutes
-    else if ((origFPU >= 3.0) && (origFPU < 4.0)) { extBolusTime = 150; } // modified from recommended 300 minutes
-    else { extBolusTime = 240; } // modified from recommended 480 minutes
-    console.log("Extended bolus time: " + (extBolusTime / 60.0).toFixed(1) + " hours");
+    var timeReductionFactor = FPU / origFPU;
+    if (origFPU < 1.0) { extBolusTime = 0; } else if ((origFPU >= 1.0) && (origFPU < 2.0)) { extBolusTime = 180 * timeReductionFactor; } // modified from recommended 180 minutes
+    else if ((origFPU >= 2.0) && (origFPU < 3.0)) { extBolusTime = 240 * timeReductionFactor; } // modified from recommended 240 minutes
+    else if ((origFPU >= 3.0) && (origFPU < 4.0)) { extBolusTime = 300 * timeReductionFactor; } // modified from recommended 300 minutes
+    else { extBolusTime = 480 * timeReductionFactor; } // modified from recommended 480 minutes
+    console.log("Original extended bolus time: " + extBolusTime + " minutes");
+    extBolusTime = Math.round(extBolusTime * 2) / 2.0; // rounding up to halves
+    console.log("Calculated extended bolus time: " + (extBolusTime / 60.0).toFixed(1) + " hours");
     // ***Refactor percentages for complex meals
+    if (origFPU < 1.0) {
+        newBolusCarbs = newBolusCarbs + newBolusExt;
+        newBolusExt = 0;
+        onsole.log("Refactored: Low protein, low fat");
+    }
     if ((newFat == 0) && (newProtein > 0) && (netCarbs < 20)) {
         newBolusCarbs = newBolusCarbs + newBolusExt;
         newBolusExt = 0;
