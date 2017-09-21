@@ -265,7 +265,7 @@ function setButtonActions() {
 
         var tempDate = new Date(today);
         console.log("exerciseStartTime: " + exerciseStartTime);
-        var newDate = new Date(tempDate.getFullYear(), tempDate.getMonth(), tempDate.getDate(), parseInt(exerciseStartTime.substring(0, 1)), parseInt(exerciseStartTime.substring(3, 4)), 0, 0);
+        var newDate = new Date(tempDate.getFullYear(), tempDate.getMonth(), tempDate.getDate(), parseInt(exerciseStartTime.substring(0, 2)), parseInt(exerciseStartTime.substring(3, 5)), 0, 0);
         //Format new time
         console.log("newDate: " + newDate);
         UTCtimeStr = newDate.toJSON();
@@ -277,7 +277,7 @@ function setButtonActions() {
         posting.fail(function(data) {
             document.getElementById("submission_exercise").innerHTML += "Data NOT submitted &#x1F44E ";
         });
-        var posting2 = $.post(treatmentsURL, { "enteredBy": "BolusCalc", "duration": exercisetime, "percent": -80, "eventType": "Temp Basal", "notes": "Exercise", "secret": secret });
+        var posting2 = $.post(treatmentsURL, { "enteredBy": "BolusCalc", "duration": exercisetime, "percent": -80, "eventType": "Temp Basal", "notes": "Exercise", "created_at": UTCtimeStr, "secret": secret });
         // Put the results in a div
         posting2.done(function(data) {
             document.getElementById("submission_exercise").innerHTML += " plus temp basal of 20%";
