@@ -13,7 +13,7 @@ Nightscout/Alexa
 ##Setup
 
 ### 1) Make sure to add `alexa` to the list of plugins in your `ENABLE` setting (note: environment variables are set in the configuration section for your monitor typically Azure, Heroku, etc.)
-### 2) Sign in to https://developer.amazon.com/ and navigate to the "Alexa" tab. Select "Getting started" in "Alexa Skills Kit"
+### 2) Sign in to https://developer.amazon.com/ and navigate to the "Alexa" tab. Select "Getting started" in "Alexa Skills Kit" NOTE: You must sign in to the developer account using the same Amazon account as you use to manage your Echo device.
     * Click on "Add a new skill". Fill in "Nightscout" as the name and "nightscout" as the invocation name (feel free to use other names as you see fit).
     * This skill will not use the "Audio Player".
     * Click Next
