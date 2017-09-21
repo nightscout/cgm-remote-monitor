@@ -6,8 +6,10 @@ function getCustomJSON(URL, type, callback) {
         dataType: 'json',
         success: function(data) {
             if ((type == "profile") || (type == "profileRedefine")) { // Profile may be redefined after searching treatment events for profile changes
-                if (type == "profile") { currProfile = data[0].defaultProfile;
-                    console.log("Original profile: " + currProfile); }
+                if (type == "profile") {
+                    currProfile = data[0].defaultProfile;
+                    console.log("Original profile: " + currProfile);
+                }
                 // Define current basal
                 var basalProfile = data[0].store[currProfile].basal;
                 if (timeStr > basalProfile[Object.keys(basalProfile).length - 1].time) {
@@ -159,18 +161,30 @@ function BGtrends() {
     var minutes = Math.floor((diff / 1000) / 60);
     if (minutes >= 10) { staleWarning = " &#x2757 Data is " + minutes + " minutes old." }
     var origBG = currBG;
-    if (BGtrend == "FortyFiveUp") { currBG += delta45;
-        trendChar = '&#x2197'; }
-    if (BGtrend == "SingleUp") { currBG += deltasingle;
-        trendChar = '&#x2B06'; }
-    if (BGtrend == "DoubleUp") { currBG += deltadouble;
-        trendChar = '&#x23EB'; }
-    if (BGtrend == "FortyFiveDown") { currBG -= delta45;
-        trendChar = '&#x2198'; }
-    if (BGtrend == "SingleDown") { currBG -= deltasingle;
-        trendChar = '&#x2B07'; }
-    if (BGtrend == "DoubleDown") { currBG -= deltadouble;
-        trendChar = '&#x23EC'; }
+    if (BGtrend == "FortyFiveUp") {
+        currBG += delta45;
+        trendChar = '&#x2197';
+    }
+    if (BGtrend == "SingleUp") {
+        currBG += deltasingle;
+        trendChar = '&#x2B06';
+    }
+    if (BGtrend == "DoubleUp") {
+        currBG += deltadouble;
+        trendChar = '&#x23EB';
+    }
+    if (BGtrend == "FortyFiveDown") {
+        currBG -= delta45;
+        trendChar = '&#x2198';
+    }
+    if (BGtrend == "SingleDown") {
+        currBG -= deltasingle;
+        trendChar = '&#x2B07';
+    }
+    if (BGtrend == "DoubleDown") {
+        currBG -= deltadouble;
+        trendChar = '&#x23EC';
+    }
     if (BGtrend == "Flat") { trendChar = '&#x27A1'; }
     var trendWarn30 = '';
     var trendWarn60 = '';
@@ -212,7 +226,7 @@ function processTreatments(data) {
                 minutes = Math.round(Math.floor((diff / 1000) / 60));
                 minAgo = scaleFactor * minutes;
                 // Things not having to do with matching exact meals or snacks
-                if ((data[i].eventType == "Profile Switch") && (data[i].profile != currProfile) && (profileFound == 0)) {
+                if ((data[i].eventType == "Profile Switch") && (profileFound == 0)) {
                     currProfile = data[i].profile;
                     console.log("Changing profile to: " + currProfile);
                     getCustomJSON(profileURL, "profileRedefine", function(returndata) {
