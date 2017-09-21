@@ -81,7 +81,7 @@ function bolusCalcWFood(mealName) {
     var newFat = (fat - 20);
     if (newFat < 0) { newFat = 0; }
     var origFPU = (protein * 4.0 + fat * 9.0) / 100.0;
-    var FPU = (newProtein * 4.0 + newFat) / 100.0;
+    var FPU = (newProtein * 4.0 + newFat * 2) / 100.0;
 
     console.log("Original FPU: " + origFPU);
     console.log("Modified FPU: " + FPU);
