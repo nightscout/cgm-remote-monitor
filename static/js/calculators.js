@@ -83,7 +83,6 @@ function bolusCalcWFood(mealName) {
     var origFPU = (protein * 4.0 + fat * 9.0) / 100.0;
     var FPU = (newProtein * 4.0 + newFat) / 100.0;
 
-    //console.log("Reduction factor: " + extReductionFactor);
     console.log("Original FPU: " + origFPU);
     console.log("Modified FPU: " + FPU);
     var IRFactor = (10.0 / currCarbRatio);

@@ -239,21 +239,6 @@ function setButtonActions() {
             console.log("Detected change in correction dose. Did not submit super bolus temp basal.");
         }
     });
-    // Carbs only submit
-    /*$("#carbsonlyform").submit(function( event ) {
-          	event.preventDefault();
-	  	cleardivs("Carbs");
-	  	var $form = $( this ),
-	    		corrCarbs = $form.find( "input[id='corrCarbs']" ).val();
-	  	eventType = "Carb Correction";
-          	var posting = $.post( treatmentsURL, { "enteredBy":"BolusCalc","carbs":corrCarbs,"eventType":eventType,"notes":"Low","secret":secret } );
-          	posting.done(function( data ) {
-            		document.getElementById("submission_carbsonly").innerHTML = "Data submitted &#x1F44D";
-          	});
-	  	posting.fail(function( data) {
-	    		document.getElementById("submission_carbsonly").innerHTML = "Data NOT submitted &#x1F44E";
-	  	});
-        });*/
     // Temp basal submit
     $("#tempbasalform").submit(function(event) {
         event.preventDefault();
@@ -275,8 +260,17 @@ function setButtonActions() {
         event.preventDefault();
         cleardivs("Exercise");
         var $form = $(this),
-            exercisetime = $form.find("input[id='exerciseduration']").val();
-        var posting = $.post(treatmentsURL, { "enteredBy": "BolusCalc", "duration": exercisetime, "notes": exerciseType, "eventType": eventType, "secret": secret });
+            exercisetime = $form.find("input[id='exerciseduration']").val(),
+            exerciseStartTime = $form.find("input[id='exercisestarttime']").val();
+
+        //var tempDate = new Date();
+        console.log("exerciseStartTime: " + exerciseStartTime);
+        var newDate = new Date(exerciseStartTime); //new Date(tempDate.getFullYear(),tempDate.getMonth(),tempDate.getDate(),parseInt(exerciseStartTime.subs;
+        //Format new time
+        console.log("newDate: " + newDate);
+        UTCtimeStr = newDate.toJSON();
+        //postData({ "enteredBy": "BolusCalc", "insulin": insulinDiv, "created_at": UTCtimeStr, "secret": secret }, function(data) {});
+        var posting = $.post(treatmentsURL, { "enteredBy": "BolusCalc", "duration": exercisetime, "notes": exerciseType, "eventType": eventType, "created_at": UTCtimeStr, "secret": secret });
         posting.done(function(data) {
             document.getElementById("submission_exercise").innerHTML += "Data submitted &#x1F44D ";
         });
