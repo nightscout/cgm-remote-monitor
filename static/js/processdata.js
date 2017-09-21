@@ -229,7 +229,7 @@ function processTreatments(data) {
                 if ((data[i].eventType == "Profile Switch") && (profileFound == 0)) {
                     if (data[i].profile != currProfile) {
                         currProfile = data[i].profile;
-                        console.log("Changing profile to: " + currProfile);
+                        //console.log("Changing profile to: " + currProfile);
                         getCustomJSON(profileURL, "profileRedefine", function(returndata) {
                             if (returndata == "Error pulling stats") {
                                 document.getElementById("errors").innerHTML = returndata + " - Profile";

@@ -218,7 +218,12 @@ function bolusCalc() {
         document.getElementById("corrdose").value = 0;
     } else {
         document.getElementById("corrCarbs").value = 0;
-        document.getElementById(divToWriteTo).innerHTML = "<br/>Recommended bolus: " + newBolus.toFixed(2) + ". " + additionalMessage + "<br/>Correction: " + newBolusCorr.toFixed(2) + "<br/>Super: " + newBolusSuper.toFixed(2) + nullDataWarn;
+        if (newBolusSuper == 0) {
+            document.getElementById(divToWriteTo).innerHTML = "<br/>Recommended bolus: " + newBolus.toFixed(2) + ". " + additionalMessage + nullDataWarn;
+        } else {
+            document.getElementById(divToWriteTo).innerHTML = "<br/>Recommended bolus: " + newBolus.toFixed(2) + ". " + additionalMessage + "<br/>Correction: " + newBolusCorr.toFixed(2) + "<br/>Super: " + newBolusSuper.toFixed(2) + nullDataWarn;
+        }
+
         document.getElementById("corrdose").value = newBolus.toFixed(2);
     }
 } // bolusCalc

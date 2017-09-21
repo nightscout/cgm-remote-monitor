@@ -86,6 +86,7 @@ function getDate() {
     minutes = today.getMinutes();
     if (minutes < 10) { minutes = "0" + minutes; }
     timeStr = hours + ":" + minutes;
+    document.getElementById("exercisestarttime").value = timeStr;
     UTCtimeStr = today.toJSON();
 } // end getDate
 
