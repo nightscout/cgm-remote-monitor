@@ -137,6 +137,7 @@ function bolusCalcWFood(mealName) {
     console.log("Original FPU: " + origFPU);
     console.log("Modified FPU: " + FPU);
     var IRFactor = (10.0 / currCarbRatio);
+    console.log("Current profile: " + currProfile);
     console.log("Carb ratio: " + currCarbRatio);
     console.log("IRFactor: " + IRFactor);
     //var CDI = (CU + FPU) * IRFactor;
