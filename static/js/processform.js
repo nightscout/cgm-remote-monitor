@@ -263,9 +263,9 @@ function setButtonActions() {
             exercisetime = $form.find("input[id='exerciseduration']").val(),
             exerciseStartTime = $form.find("input[id='exercisestarttime']").val();
 
-        //var tempDate = new Date();
+        var tempDate = new Date(today);
         console.log("exerciseStartTime: " + exerciseStartTime);
-        var newDate = new Date(exerciseStartTime); //new Date(tempDate.getFullYear(),tempDate.getMonth(),tempDate.getDate(),parseInt(exerciseStartTime.subs;
+        var newDate = new Date(tempDate.getFullYear() - 2000, tempDate.getMonth() + 1, tempDate.getDate(), parseInt(exerciseStartTime.substring(0, 1)), parseInt(exerciseStartTime.substring(3, 4)), 0, 0);
         //Format new time
         console.log("newDate: " + newDate);
         UTCtimeStr = newDate.toJSON();
