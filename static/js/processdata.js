@@ -227,13 +227,15 @@ function processTreatments(data) {
                 minAgo = scaleFactor * minutes;
                 // Things not having to do with matching exact meals or snacks
                 if ((data[i].eventType == "Profile Switch") && (profileFound == 0)) {
-                    currProfile = data[i].profile;
-                    console.log("Changing profile to: " + currProfile);
-                    getCustomJSON(profileURL, "profileRedefine", function(returndata) {
-                        if (returndata == "Error pulling stats") {
-                            document.getElementById("errors").innerHTML = returndata + " - Profile";
-                        }
-                    });
+                    if (data[i].profile != currProfile) {
+                        currProfile = data[i].profile;
+                        console.log("Changing profile to: " + currProfile);
+                        getCustomJSON(profileURL, "profileRedefine", function(returndata) {
+                            if (returndata == "Error pulling stats") {
+                                document.getElementById("errors").innerHTML = returndata + " - Profile";
+                            }
+                        });
+                    }
                     profileFound = 1;
                 }
                 searchLoop: for (j = 0; j < eventsToSearchFor.length; j++) {
