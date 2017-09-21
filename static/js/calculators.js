@@ -66,6 +66,7 @@ function bolusCalcWFood(mealName) {
     if (fiber > 10) {
         if (currBG < middleBGgoal) {
             reduceBolusNowBy = 0.2;
+            console.log("Refactored: High fiber, low BG");
         }
     }
     console.log("Meal: " + mealName);
@@ -80,6 +81,12 @@ function bolusCalcWFood(mealName) {
     if (newProtein < 0) { newProtein = 0; }
     var newFat = (fat - 20);
     if (newFat < 0) { newFat = 0; }
+    if ((newFat > 0) && (newProtein > 0)) {
+        if (currBG < middleBGgoal) {
+            reduceBolusNowBy = 0.2;
+            console.log("Refactored: High protein, high fat, low BG");
+        }
+    }
     var origFPU = (protein * 4.0 + fat * 9.0) / 100.0;
     var FPU = (newProtein * 4.0 + newFat * 2) / 100.0;
 
@@ -107,7 +114,7 @@ function bolusCalcWFood(mealName) {
     if (origFPU < 1.0) {
         newBolusCarbs = newBolusCarbs + newBolusExt;
         newBolusExt = 0;
-        onsole.log("Refactored: Low protein, low fat");
+        console.log("Refactored: Low protein, low fat");
     }
     if ((newFat == 0) && (newProtein > 0) && (netCarbs < 20)) {
         newBolusCarbs = newBolusCarbs + newBolusExt;
