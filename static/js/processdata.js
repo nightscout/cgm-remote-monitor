@@ -8,7 +8,7 @@ function getCustomJSON(URL, type, callback) {
             if ((type == "profile") || (type == "profileRedefine")) { // Profile may be redefined after searching treatment events for profile changes
                 if (type == "profile") {
                     currProfile = data[0].defaultProfile;
-                    console.log("Original profile: " + currProfile);
+                    //console.log("Original profile: " + currProfile);
                 }
                 // Define current basal
                 var basalProfile = data[0].store[currProfile].basal;

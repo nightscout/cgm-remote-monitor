@@ -102,7 +102,7 @@ function bolusCalcWFood(mealName) {
     console.log("Original extended bolus time: " + extBolusTime + " minutes");
     if (extBolusTime % 30 < 15) { extBolusTime -= extBolusTime % 30; } else { extBolusTime = extBolusTime - extBolusTime % 30 + 30; } // rounding up to half hours
     //console.log("Calculated extended bolus time: " + (extBolusTime / 60.0).toFixed(1) + " hours");
-    // ***Refactor percentages for complex meals
+    // Refactor percentages for complex meals
     if (origFPU < 1.0) {
         newBolusCarbs = newBolusCarbs + newBolusExt;
         newBolusExt = 0;
@@ -162,7 +162,7 @@ function bolusCalcWFood(mealName) {
         extBolusTime = "N/A";
     }
     if (predictedBGdrop > 0) {
-        additionalMessage += "Adjusted by " + (predictedBGdrop / currSens).toFixed(2) + " units for upcoming exercise.";
+        additionalMessage += " Adjusted by " + (predictedBGdrop / currSens).toFixed(2) + " units for upcoming exercise.";
     }
 
     document.getElementById("results_meal").innerHTML += "<br/>Recommended bolus: " +
