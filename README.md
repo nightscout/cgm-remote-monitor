@@ -113,7 +113,7 @@ Clone this repo then install dependencies into the root of the project:
 $ npm install
 ```
 
-If deploying the software to Microsoft Azure, you must set *WEBSITE_NODE_DEFAULT_VERSION* in the app settings to *8.4.0* or the site deployment will fail. Other hosting environments do not require this setting.
+If deploying the software to Microsoft Azure, you must set *WEBSITE_NODE_DEFAULT_VERSION* in the app settings to *8.5.0* or the site deployment will fail. Other hosting environments do not require this setting.
 
 # Usage
 
