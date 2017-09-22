@@ -317,7 +317,7 @@
             "value": "[parameters('auth_default_roles')]"
           }, {
             "name": "WEBSITE_NODE_DEFAULT_VERSION",
-            "value": "8.1.4"
+            "value": "8.5.0"
           }
         ]
       }
