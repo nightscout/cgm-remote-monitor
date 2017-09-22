@@ -315,6 +315,9 @@
           }, {
             "name": "AUTH_DEFAULT_ROLES",
             "value": "[parameters('auth_default_roles')]"
+          }, {
+            "name": "WEBSITE_NODE_DEFAULT_VERSION",
+            "value": "8.5.0"
           }
         ]
       }
