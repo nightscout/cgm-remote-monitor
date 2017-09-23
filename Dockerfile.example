@@ -1,4 +1,4 @@
-FROM node:6.10.0
+FROM node:8.5.0
 
 MAINTAINER Nightscout Contributors
 
