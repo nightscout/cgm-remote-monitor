@@ -174,6 +174,9 @@ function bolusCalcWFood(mealName) {
     if (predictedBGdrop > 0) {
         additionalMessage += " Adjusted by " + (predictedBGdrop / currSens).toFixed(2) + " units for upcoming exercise.";
     }
+    if (exercisedRecently == 1) {
+        additionalMessage += " Adjusted down for recent exercise.";
+    }
 
     document.getElementById("results_meal").innerHTML += "<br/>Recommended bolus: " +
         totalBolus.toFixed(2) + extBolusText + additionalMessage + nullDataWarn;
