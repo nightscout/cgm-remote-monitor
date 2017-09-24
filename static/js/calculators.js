@@ -15,6 +15,8 @@ function bolusCalcWFood(mealName) {
     percentExt = 0;
     netCarbs = 0;
 
+    currBG = 70; // ****** REMOVE THIS FOR PROD - testing only
+
     // Calculate net carbs
     netCarbs = carbs - fiber;
 
@@ -59,7 +61,7 @@ function bolusCalcWFood(mealName) {
     if ((newBolusCorr > 0) && (predictedBGdrop > 0)) {
         newBolusCorr = newBolusCorr * .7;
     }
-    if ((newBolusCorr < 0) && (currBG > 75)) { newBolusCorr = 0; }
+    if ((newBolusCorr < 0) && (currBG > 75) && (currBG < BGgoal)) { newBolusCorr = 0; }
 
     // ~~~~~~~~~~~~~~~~~~~ NEW ALGORITHM ~~~~~~~~~~~~~~~~~~~
     var reduceBolusNowBy = 0; // used only for complex meals?
@@ -83,12 +85,12 @@ function bolusCalcWFood(mealName) {
     if (newFat < 0) { newFat = 0; }
     if ((newFat > 0) && (newProtein > 0)) {
         if (currBG < middleBGgoal) {
-            reduceBolusNowBy = 0.2;
+            reduceBolusNowBy = 0.1;
             console.log("Refactored: High protein, high fat, low BG");
         }
     }
     var origFPU = (protein * 4.0 + fat * 9.0) / 100.0;
-    var FPU = (newProtein * 4.0 + newFat * 2) / 100.0;
+    var FPU = (newProtein * 4.0 + newFat * 2.0) / 100.0;
 
     console.log("Original FPU: " + origFPU);
     console.log("Modified FPU: " + FPU);
@@ -108,7 +110,7 @@ function bolusCalcWFood(mealName) {
     extBolusTime = Math.round(extBolusTime);
     console.log("Original extended bolus time: " + extBolusTime + " minutes");
     //if (extBolusTime % 30 < 15) { extBolusTime -= extBolusTime % 30; } else { 
-    extBolusTime = extBolusTime - extBolusTime % 30 + 30; //} // rounding up to half hours
+    extBolusTime = extBolusTime - extBolusTime % 30; //+ 30; //} // rounding up to half hours
     //console.log("Calculated extended bolus time: " + (extBolusTime / 60.0).toFixed(1) + " hours");
     // Refactor percentages for complex meals
     if (origFPU < 1.0) {

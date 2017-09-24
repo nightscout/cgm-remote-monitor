@@ -70,9 +70,13 @@ var prebolus = 0;
 var basalnotes = '';
 var exerciseSuggestion = '';
 var exerciseType = '';
+var priorExerciseType = '';
 var exercisingSoon = 0;
+var exercisedRecently = 0;
 var exerciseDuration = 0;
+var priorExerciseDuration = 0;
 var timeTillNextExercise = 0;
+var timeSinceLastExercise = 0;
 var predictedBGdrop = 0;
 var futureExerciseType = '';
 var extBolusTime = 120;
@@ -112,10 +116,14 @@ function resetVars() {
     //Stats
 
     exercisingSoon = 0;
+    exercisedRecently = 0;
     timeTillNextExercise = 0;
+    timeSinceLastExercise = 0;
     exerciseDuration = 0;
+    priorExerciseDuration = 0;
     predictedBGdrop = 0;
     futureExerciseType = '';
+    priorExerciseType = '';
 
     getCustomJSON(profileURL, "profile", function(returndata) {
         if (returndata == "Error pulling stats") {

@@ -225,7 +225,7 @@ function processTreatments(data) {
             if (diff >= 0) {
                 minutes = Math.round(Math.floor((diff / 1000) / 60));
                 minAgo = scaleFactor * minutes;
-                // Things not having to do with matching exact meals or snacks
+                // Check for profile switch
                 if ((data[i].eventType == "Profile Switch") && (profileFound == 0)) {
                     if (data[i].profile != currProfile) {
                         currProfile = data[i].profile;
@@ -238,6 +238,7 @@ function processTreatments(data) {
                     }
                     profileFound = 1;
                 }
+                // Search for food IOB
                 searchLoop: for (j = 0; j < eventsToSearchFor.length; j++) {
                         if ((data[i].eventType == eventsToSearchFor[j]) && (mealFound == 0)) {
                             JStimestamp = new Date(data[i].created_at);
@@ -257,6 +258,7 @@ function processTreatments(data) {
                     }
                     // Things not having to do with matching exact meals or snacks
                     //console.log(data[i].carbs);
+                    // START OF COB CALC - WRONG FORMULA
                 if (parseInt(data[i].carbs) > 0) {
                     JStimestamp = new Date(data[i].created_at);
                     diffCarbs = Math.abs(today - JStimestamp);
@@ -267,7 +269,8 @@ function processTreatments(data) {
                     }
                     //console.log("COB: "+COB);
                 }
-                if ((parseFloat(data[i].insulin) > 0) && (minutes < (activeInsulinHours * 60)) && (data[i].eventType === undefined)) { // undefined for combo bolus extended entered by BolusCalc
+                // undefined for combo bolus extended entered by BolusCalc
+                if ((parseFloat(data[i].insulin) > 0) && (minutes < (activeInsulinHours * 60)) && (data[i].eventType === undefined)) {
                     //console.log(data[i].created_at + " / "+ data[i].eventType + " / "+ data[i].insulin);
                     if (minAgo < peak) {
                         x1 = (minAgo / 5) + 1;
@@ -277,6 +280,7 @@ function processTreatments(data) {
                         IOBfood += parseFloat(data[i].insulin) * (0.001323 * x2 * x2 - 0.054233 * x2 + 0.55556);
                     }
                 }
+                // Calculate correction IOB
                 if ((parseFloat(data[i].insulin) > 0) && (minutes < (activeInsulinHours * 60)) && (data[i].eventType == "Correction Bolus")) {
                     if (minAgo < peak) {
                         x1 = (minAgo / 5) + 1;
@@ -284,6 +288,21 @@ function processTreatments(data) {
                     } else if (minAgo < 180) {
                         x2 = (minAgo - peak) / 5;
                         IOBcorr += parseFloat(data[i].insulin) * (0.001323 * x2 * x2 - 0.054233 * x2 + 0.55556);
+                    }
+                }
+                // Detect vigorous exercise in last 18 hours. If so, raise carb ratio
+                if (data[i].eventType == "Exercise") {
+                    timeSinceLastExercise = Math.round(Math.floor((diff / 1000) / 60));
+                    if (timeSinceLastExercise < 60 * 18) {
+                        exercisedRecently = 1;
+                        priorExerciseDuration = parseInt(data[i].duration);
+                        priorExerciseType = data[i].notes;
+                        var priorCarbRatio = currCarbRatio;
+                        if ((priorExerciseType == "Dance") || (priorExerciseType == "Other")) {
+                            currCarbRatio += currCarbRatio * 0.2;
+                            currCarbRatio = Math.round(currCarbRatio * 10) / 10;
+                            console.log(priorExerciseType + " " + (timeSinceLastExercise / 60.0).toFixed(1) + " hours ago, for " + priorExerciseDuration + " minutes, raising carb ratio from " + priorCarbRatio + " to " + currCarbRatio);
+                        }
                     }
                 }
                 //if ((minutes>(activeInsulinHours*60)) && (mealFound == 1) && (profileFound == 1) ){ break dataLoop; }
