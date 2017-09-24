@@ -15,7 +15,7 @@ function bolusCalcWFood(mealName) {
     percentExt = 0;
     netCarbs = 0;
 
-    currBG = 70; // ****** REMOVE THIS FOR PROD - testing only
+    //currBG = 70; // ****** REMOVE THIS FOR PROD - testing only
 
     // Calculate net carbs
     netCarbs = carbs - fiber;
