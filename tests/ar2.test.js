@@ -147,9 +147,6 @@ describe('ar2', function ( ) {
   });
 
   it('should handle alexa requests', function (done) {
-     var now = Date.now();
-     var before = now - FIVE_MINS;
-
     ctx.ddata.sgvs = [{mgdl: 100, mills: before}, {mgdl: 105, mills: now}];
     var sbx = prepareSandbox();
 
