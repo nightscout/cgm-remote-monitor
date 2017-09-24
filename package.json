@@ -47,7 +47,7 @@
     }
   },
   "engines": {
-    "node": "8.5.0"
+    "node": "6.11.1"
   },
   "dependencies": {
     "ajv": "^5.2.2",
