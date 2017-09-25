@@ -157,8 +157,10 @@ function bolusCalcWFood(mealName) {
         extBolusTime = "N/A";
     }
     totalBolus = newBolus + newBolusExtAdj;
+    console.log("Adjusted bolus now: " + newBolus.toFixed(2));
+    console.log("Adjusted bolus ext: " + newBolusExtAdj.toFixed(2));
     if (totalBolus < 0) { totalBolus = 0; }
-    percentExt = Math.round((newBolusExtAdj / totalBolus) * 100);
+    if (newBolusExtAdj == 0) { percentExt = 0; } else { percentExt = Math.round((newBolusExtAdj / totalBolus) * 100); }
     percentNow = 100 - percentExt; //((newBolusExt/totalBolus)*100);
     // Accomodate upcoming exercise
     addCarbs = (75 - currBG) / (currSens / currCarbRatio) - carbs;
