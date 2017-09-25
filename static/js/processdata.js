@@ -314,7 +314,13 @@ function processTreatments(data) {
                         exercisingSoon = 1;
                         exerciseDuration = parseInt(data[i].duration);
                         futureExerciseType = data[i].notes;
-                        if ((futureExerciseType == "Dance") || (futureExerciseType == "Other")) { predictedBGdrop = exerciseDuration * 2; }
+                        if ((futureExerciseType == "Dance") || (futureExerciseType == "Other")) {
+                            if (exerciseDuration < 60) {
+                                predictedBGdrop = exerciseDuration * 3;
+                            } else {
+                                predictedBGdrop = 60 * 3 + (exerciseDuration - 60) * 1.5;
+                            }
+                        }
                         if (futureExerciseType == "Yoga") { predictedBGdrop = exerciseDuration; }
                         console.log("Exercising in next " + timeTillNextExercise + " minutes, for " + exerciseDuration + " minutes, with a BG drop of " + predictedBGdrop);
                     }
