@@ -290,16 +290,16 @@ function processTreatments(data) {
                         IOBcorr += parseFloat(data[i].insulin) * (0.001323 * x2 * x2 - 0.054233 * x2 + 0.55556);
                     }
                 }
-                // Detect vigorous exercise in last 18 hours. If so, raise carb ratio
+                // Detect vigorous exercise in last 16 hours. If so, raise carb ratio
                 if (data[i].eventType == "Exercise") {
                     timeSinceLastExercise = Math.round(Math.floor((diff / 1000) / 60));
-                    if (timeSinceLastExercise < 60 * 18) {
+                    if (timeSinceLastExercise < 60 * 16) {
                         exercisedRecently = 1;
                         priorExerciseDuration = parseInt(data[i].duration);
                         priorExerciseType = data[i].notes;
                         var priorCarbRatio = currCarbRatio;
                         if ((priorExerciseType == "Dance") || (priorExerciseType == "Other")) {
-                            currCarbRatio += currCarbRatio * 0.2;
+                            currCarbRatio += currCarbRatio * 0.1;
                             currCarbRatio = Math.round(currCarbRatio * 10) / 10;
                             console.log(priorExerciseType + " " + (timeSinceLastExercise / 60.0).toFixed(1) + " hours ago, for " + priorExerciseDuration + " minutes, raising carb ratio from " + priorCarbRatio + " to " + currCarbRatio);
                         }

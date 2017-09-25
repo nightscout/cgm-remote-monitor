@@ -139,10 +139,10 @@ function bolusCalcWFood(mealName) {
     if (predictedBGdrop > 0) {
         newBolusExtAdj -= .7 * (predictedBGdrop / currSens);
         newBolusCarbs -= .3 * (predictedBGdrop / currSens);
-        newBolus = newBolusCarbs + newBolusSuper + newBolusCorr;
         if (newBolusExtAdj < 0) {
             newBolusCarbs += newBolusExtAdj;
         }
+        newBolus = newBolusCarbs + newBolusSuper + newBolusCorr;
     } else {
         newBolus = newBolusCarbs + newBolusSuper + newBolusCorr;
         if (newBolus < 0) { // correction is greater than bolus now
@@ -175,7 +175,6 @@ function bolusCalcWFood(mealName) {
         extBolusText = " (" + percentNow.toFixed(0) + "% / " + percentExt.toFixed(0) + "%)<br/>" + newBolus.toFixed(2) + " + " + newBolusExtAdj.toFixed(2) + " extended over " + extBolusTimeText + " hour(s). ";
     } else {
         extBolusText = ". ";
-        extBolusTime = "N/A";
     }
     if (predictedBGdrop > 0) {
         additionalMessage += " Adjusted by " + (predictedBGdrop / currSens).toFixed(2) + " units for upcoming exercise.";
