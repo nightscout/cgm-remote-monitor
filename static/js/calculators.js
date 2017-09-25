@@ -154,7 +154,7 @@ function bolusCalcWFood(mealName) {
     if (newBolusExtAdj < 0) {
         newBolusExt = 0;
         newBolusExtAdj = 0;
-        extBolusTime = 0;
+        extBolusTime = "N/A";
     }
     totalBolus = newBolus + newBolusExtAdj;
     if (totalBolus < 0) { totalBolus = 0; }
