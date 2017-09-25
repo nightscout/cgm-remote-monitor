@@ -34,18 +34,15 @@ function bolusCalcWFood(mealName) {
     } else if (currBG > upperBGgoal) {
         newBolusSuper = currBasal; //Super bolus
         additionalMessage = "Super bolus, wait till bend.";
-        if (protein > 20) {
+        if (prebolus >= 10) {
             additionalMessage = "Super bolus, wait till bend if possible.";
         }
     } else if (currBG > middleBGgoal) {
-        if ((netCarbs > 30) || (fat < 20)) {
-            if ((prebolus < 10) && (fat < 20)) { //Super bolus
+        if (netCarbs > 30) {
+            if (prebolus < 10) { //Super bolus
                 newBolusSuper = currBasal;
                 additionalMessage = "Super bolus, wait till bend if possible.";
             } else {
-                additionalMessage = "Wait till bend if possible.";
-            }
-            if (prebolus > 10) {
                 additionalMessage = "Wait till bend if possible.";
             }
         } else {
@@ -53,6 +50,15 @@ function bolusCalcWFood(mealName) {
                 newBolusSuper = currBasal;
                 additionalMessage = "Super bolus if eating immediately.";
             } //Super bolus
+        }
+    } else if (currBG > BGgoal) {
+        if (netCarbs > 30) {
+            if (prebolus < 10) { //Super bolus
+                newBolusSuper = currBasal;
+                additionalMessage = "Super bolus, wait till bend if possible.";
+            } else {
+                additionalMessage = "Wait till bend if possible.";
+            }
         }
     }
 
