@@ -166,7 +166,7 @@ function setButtonActions() {
             if (newNow < 0) {
                 var posting = $.post(treatmentsURL, { "enteredBy": "BolusCalc", "carbs": netCarbs, "insulin": 0, "eventType": eventType, "preBolus": prebolus, "notes": "Protein: " + protein + "g Fat: " + fat + "g", "secret": secret });
             } else {
-                var posting = $.post(treatmentsURL, { "enteredBy": "BolusCalc", "carbs": netCarbs, "insulin": newNow, "eventType": eventType, "preBolus": prebolus, "notes": "Protein: " + protein + "g Fat: " + fat + "g", "secret": secret });
+                var posting = $.post(treatmentsURL, { "enteredBy": "BolusCalc", "carbs": netCarbs, "insulin": (newNow - finalcorrdose), "eventType": eventType, "preBolus": prebolus, "notes": "Protein: " + protein + "g Fat: " + fat + "g", "secret": secret });
             }
             // Put the results in a div
             posting.done(function(data) {
