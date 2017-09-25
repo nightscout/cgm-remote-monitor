@@ -94,17 +94,17 @@ function setButtonActions() {
         setTemp("Super Bolus");
     });
     $("#Dance").click(function(event) {
-        resetVars();
+        resetVars("Exercise");
         exerciseType = "Dance";
         suggestExercise();
     });
     $("#Yoga").click(function(event) {
-        resetVars();
+        resetVars("Exercise");
         exerciseType = "Yoga";
         suggestExercise();
     });
     $("#Other").click(function(event) {
-        resetVars();
+        resetVars("Exercise");
         exerciseType = "Other";
         suggestExercise();
     });
@@ -285,7 +285,7 @@ function setButtonActions() {
         posting.fail(function(data) {
             document.getElementById("submission_exercise").innerHTML += "Data NOT submitted &#x1F44E ";
         });
-        var posting2 = $.post(treatmentsURL, { "enteredBy": "BolusCalc", "duration": exercisetime, "percent": -80, "eventType": "Temp Basal", "notes": "Exercise", "created_at": UTCtimeStr, "secret": secret });
+        /*var posting2 = $.post(treatmentsURL, { "enteredBy": "BolusCalc", "duration": exercisetime, "percent": -80, "eventType": "Temp Basal", "notes": "Exercise", "created_at": UTCtimeStr, "secret": secret });
         // Put the results in a div
         posting2.done(function(data) {
             document.getElementById("submission_exercise").innerHTML += " plus temp basal of 20%";
@@ -293,7 +293,7 @@ function setButtonActions() {
         });
         posting2.fail(function(data) {
             document.getElementById("submission_exercise").innerHTML += " WITHOUT temp basal";
-        });
+        });*/
     });
     // Remove pump submit
     $("#removepumpform").submit(function(event) {

@@ -83,14 +83,15 @@ var extBolusTime = 120;
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~ DEFINE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~
 // Set date/time
-function getDate() {
+function getDate(exception) {
+    exception = exception || "";
     today = new Date(); // for now
     hours = today.getHours();
     if (hours < 10) { hours = "0" + hours; }
     minutes = today.getMinutes();
     if (minutes < 10) { minutes = "0" + minutes; }
     timeStr = hours + ":" + minutes;
-    document.getElementById("exercisestarttime").value = timeStr;
+    if (exception != "Exercise") { document.getElementById("exercisestarttime").value = timeStr; }
     UTCtimeStr = today.toJSON();
 } // end getDate
 
@@ -110,9 +111,11 @@ function cleardivs(exception) {
 } // end cleardivs
 
 // Refresh/reset all data and fields	  
-function resetVars() {
+function resetVars(exception) {
+
+    exception = exception || "";
     // Time
-    getDate();
+    getDate(exception);
     //Stats
 
     exercisingSoon = 0;
