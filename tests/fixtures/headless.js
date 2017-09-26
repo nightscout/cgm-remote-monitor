@@ -10,7 +10,7 @@ function headless (benv, binding) {
 
   function init (opts, callback) {
     var localStorage = opts.localStorage || './localstorage';
-    var htmlFile = opts.htmlFile || __dirname + '/../../static/index.html';
+    var htmlFile = opts.htmlFile || __dirname + '/../../views/index.html';
     var serverSettings = opts.serverSettings || require('./default-server-settings');
     var someData = opts.mockAjax || { };
     benv.setup(function() {
@@ -172,4 +172,3 @@ function headless (benv, binding) {
 }
 
 module.exports = headless;
-
