@@ -75,6 +75,14 @@ function setButtonActions() {
         document.getElementById("bolusnow_meal").value = 100;
         document.getElementById("bolusext_meal").value = 0;
     });
+    $("#subtract_25").click(function() {
+        document.getElementById("carbdose_meal").value = document.getElementById("carbdose_meal").value * .75;
+        document.getElementById("extdose_meal").value = document.getElementById("extdose_meal").value * .75;
+        if (document.getElementById("corrdose_meal").value > 0) {
+            document.getElementById("corrdose_meal").value = document.getElementById("corrdose_meal").value * .75;
+        }
+        document.getElementById("super_meal").value = 0.00;
+    });
     (document.getElementById("bolusnow_meal")).addEventListener("input", function(e) {
         document.getElementById("bolusext_meal").value = 100 - document.getElementById("bolusnow_meal").value;
     });
