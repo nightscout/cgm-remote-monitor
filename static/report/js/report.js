@@ -223,6 +223,7 @@
     options.notes = $('#rp_optionsnotes').is(':checked');
     options.food = $('#rp_optionsfood').is(':checked');
     options.insulin = $('#rp_optionsinsulin').is(':checked');
+    options.insulindistribution = $('#rp_optionsdistribution').is(':checked');
     options.carbs = $('#rp_optionscarbs').is(':checked');
     options.scale = ( $('#rp_linear').is(':checked') ? report_plugins.consts.SCALE_LINEAR : report_plugins.consts.SCALE_LOG );
     options.order = ( $('#rp_oldestontop').is(':checked') ? report_plugins.consts.ORDER_OLDESTONTOP : report_plugins.consts.ORDER_NEWESTONTOP );
@@ -445,10 +446,14 @@
         if (options.order === report_plugins.consts.ORDER_NEWESTONTOP) {
           sorteddaystoshow.reverse();
         }
-        loadProfileSwitch(from, function loadProfileSwitchCallback() {
-          $('#info > b').html('<b>'+translate('Rendering')+' ...</b>');
-          window.setTimeout(function () {showreports(options); }, 0);
+        loadProfileSwitch(function loadProfileSwitchCallback() {
+          loadProfiles(function loadProfilesCallback() {
+            $('#info > b').html('<b>' + translate('Rendering') + ' ...</b>');
+            window.setTimeout(function () {
+              showreports(options);
+            }, 0);
           });
+        });
       }
     }
     
@@ -484,6 +489,7 @@
       datastorage.tempbasalTreatments = datastorage.tempbasalTreatments.concat(datastorage[day].tempbasalTreatments);
     });
     datastorage.tempbasalTreatments = Nightscout.client.ddata.processDurations(datastorage.tempbasalTreatments);
+    datastorage.treatments.sort(function sort(a, b) {return a.mills - b.mills; });
     
      for (var d in daystoshow) {
         if (daystoshow.hasOwnProperty(d)) {
@@ -539,7 +545,7 @@
   
   function loadData(day, options, callback) {
     // check for loaded data
-    if (options.openAps && datastorage[day] && !datastorage[day].devicestatus) {
+    if ((options.openAps || options.iob || options.cob) && datastorage[day] && !datastorage[day].devicestatus.length) {
       // OpenAPS requested but data not loaded. Load anyway ...
     } else if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
       callback(day);
@@ -596,7 +602,7 @@
                 });
               } else if (element.type === 'cal') {
                 calData.push({
-                  mills: element.date
+                  mills: element.date + 1
                   , d: element.dateString
                   , scale: element.scale
                   , intercept: element.intercept
@@ -676,7 +682,7 @@
     });
   }
 
-  function loadProfileSwitch(from, callback) {
+  function loadProfileSwitch(callback) {
     $('#info > b').html('<b>'+translate('Loading profile switch data') + ' ...</b>');
     var tquery = '?find[eventType]=Profile Switch';
     $.ajax('/api/v1/treatments.json'+tquery, {
@@ -694,7 +700,21 @@
       callback();
     });
   }
-  
+
+  function loadProfiles(callback) {
+    $('#info > b').html('<b>'+translate('Loading profiles') + ' ...</b>');
+    $.ajax('/api/v1/profile.json', {
+      headers: client.headers()
+      , success: function (records) {
+        datastorage.profiles = records;
+      }
+      , error: function () {
+       datastorage.profiles = [];
+      }
+    }).done(callback);
+  }
+
+
   function processData(data, day, options, callback) {
     if (daystoshow[day].treatmentsonly) {
       datastorage[day] = data;
