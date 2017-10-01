@@ -78,7 +78,7 @@ selectNodeVersion () {
       exitWithMessageOnError "getting node version failed"
     fi
     
-    if [[ -e "$DEPLOYMENT_TEMP/.tmp" ]]; then
+    if [[ -e "$DEPLOYMENT_TEMP/__npmVersion.tmp" ]]; then
       NPM_JS_PATH=`cat "$DEPLOYMENT_TEMP/__npmVersion.tmp"`
       exitWithMessageOnError "getting npm version failed"
     fi
@@ -113,7 +113,7 @@ selectNodeVersion
 # 3. Install npm packages
 if [ -e "$DEPLOYMENT_TARGET/package.json" ]; then
   cd "$DEPLOYMENT_TARGET"
-  eval $NPM_CMD install --production
+  eval $NPM_CMD install --scripts-prepend-node-path --production
   exitWithMessageOnError "npm failed"
   cd - > /dev/null
 fi
