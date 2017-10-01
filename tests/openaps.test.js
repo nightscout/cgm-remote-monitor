@@ -124,6 +124,121 @@ var statuses = [{
       tick: '+1'
     }
   }
+}
+,{
+    "_id": {
+        "$oid": "59aef8cb444d1500109fc8fd"
+    },
+    "device": "openaps://edi1",
+    "openaps": {
+        "iob": {
+            "iob": 1.016,
+            "activity": 0.0143,
+            "bolussnooze": 0,
+            "basaliob": 0.893,
+            "netbasalinsulin": 0.7,
+            "hightempinsulin": 2.5,
+            "microBolusInsulin": 1.7,
+            "microBolusIOB": 0.933,
+            "lastBolusTime": 1504638182000,
+            "timestamp": "2017-09-05T19:18:31.000Z"
+        },
+        "suggested": {
+            "insulinReq": -0.06,
+            "bg": 117,
+            "reservoir": "104.5",
+            "temp": "absolute",
+            "snoozeBG": 80,
+            "rate": 0.75,
+            "minPredBG": 78,
+            "IOB": 1.016,
+            "reason": "COB: 0, Dev: -6, BGI: -2.22, ISF: 31, Target: 80, minPredBG 78, IOBpredBG 78; Eventual BG 80 >= 80,  insulinReq -0.06. temp 0.2<0.75U/hr. ",
+            "COB": 0,
+            "eventualBG": 80,
+            "duration": 30,
+            "tick": -3,
+            "deliverAt": "2017-09-05T19:18:43.563Z",
+            "timestamp": "2017-09-05T19:18:43.000Z"
+        },
+        "enacted": {
+            "insulinReq": -0.06,
+            "received": true,
+            "bg": 117,
+            "reservoir": "104.5",
+            "temp": "absolute",
+            "snoozeBG": 80,
+            "timestamp": "2017-09-05T19:18:49.000Z",
+            "predBGs": {
+                "IOB": [
+                    117,
+                    114,
+                    111,
+                    108,
+                    106,
+                    104,
+                    102,
+                    100,
+                    98,
+                    97,
+                    96,
+                    95,
+                    94,
+                    93,
+                    92,
+                    91,
+                    90,
+                    89,
+                    88,
+                    87,
+                    86,
+                    86,
+                    85,
+                    84,
+                    83,
+                    83,
+                    82,
+                    81,
+                    81,
+                    81,
+                    80,
+                    80,
+                    79,
+                    79,
+                    79,
+                    79,
+                    78
+                ]
+            },
+            "minPredBG": 78,
+            "deliverAt": "2017-09-05T19:18:43.563Z",
+            "duration": 30,
+            "rate": 0.75,
+            "COB": 0,
+            "eventualBG": 80,
+            "reason": "COB: 0, Dev: -6, BGI: -2.22, ISF: 31, Target: 80, minPredBG 78, IOBpredBG 78; Eventual BG 80 >= 80,  insulinReq -0.06. temp 0.2<0.75U/hr. ",
+            "tick": -3,
+            "IOB": 1.016
+        }
+    },
+    "pump": {
+        "clock": "2017-09-05T21:18:31+02:00",
+        "battery": {
+            "status": "normal",
+            "voltage": 1.55
+        },
+        "reservoir": 104.5,
+        "status": {
+            "status": "normal",
+            "bolusing": false,
+            "suspended": false,
+            "timestamp": "2017-09-05T19:18:29.000Z"
+        }
+    },
+    "uploader": {
+        "batteryVoltage": 4131,
+        "battery": 95
+    },
+    "created_at": "2017-09-05T19:19:39.899Z"
 }];
 
 var now = moment(statuses[0].created_at);
