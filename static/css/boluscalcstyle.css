@@ -1,0 +1,92 @@
+body {
+    padding: 30px 30px 30px 30px;
+}
+
+input[type=submit] {
+    width: 49%;
+    margin-top: 5px;
+}
+
+input[type=button] {
+    width: 49%;
+    margin-top: 5px;
+}
+
+.clear {
+    max-width: 15%;
+    float: right;
+}
+
+input[type=number] {
+    width: 49%;
+    margin-top: 5px;
+}
+
+input[type=time] {
+    width: 49%;
+    margin-top: 5px;
+}
+
+div {
+    width: 100%;
+    max-width: 350px;
+}
+
+form {
+    width: 100%;
+    max-width: 350px;
+}
+
+select {
+    width: 30%;
+    margin-top: 5px;
+}
+
+div.alt1 {
+    background-color: #d7f1f4;
+    margin-bottom: 5px;
+    padding: 8px;
+}
+
+div.alt2 {
+    background-color: #c0e9ed;
+    margin-bottom: 5px;
+    padding: 8px;
+}
+
+.columnwrap {
+    width: 100%;
+    display: table;
+}
+
+.leftcolumn {
+    width: 50%;
+    padding-right: 1%;
+    display: table-cell;
+}
+
+.leftcolumn input[type=button] {
+    width: 100%;
+}
+
+.leftcolumn input[type=submit] {
+    width: 100%;
+}
+
+.rightcolumn {
+    width: 50%;
+    padding-left: 1%;
+    display: table-cell;
+}
+
+.rightcolumn input[type=button] {
+    width: 100%;
+}
+
+.rightcolumn input[type=submit] {
+    width: 100%;
+}
+
+#results_mealdose {
+    display: none;
+}
