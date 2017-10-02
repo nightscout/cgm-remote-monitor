@@ -63,6 +63,7 @@ describe('hashauth', function ( ) {
   */
 
   it ('should make module unauthorized', function () {
+     this.timeout(50000);
     var client = require('../lib/client');
     var hashauth = require('../lib/hashauth');
     
@@ -74,13 +75,14 @@ describe('hashauth', function ( ) {
 
     client.init();
 
-    hashauth.inlineCode().indexOf('Not authorized').should.be.greaterThan(0);
+    hashauth.inlineCode().indexOf('Unauthorized').should.be.greaterThan(0);
     hashauth.isAuthenticated().should.equal(false);
     var testnull = (hashauth.hash()===null);
     testnull.should.equal(true);
   });
 
   it ('should make module authorized', function () {
+    this.timeout(50000);
     var client = require('../lib/client');
     var hashauth = require('../lib/hashauth');
     
@@ -97,6 +99,9 @@ describe('hashauth', function ( ) {
   });
 
   it ('should store hash and the remove authentication', function () {
+
+    this.timeout(50000);
+
     var client = require('../lib/client');
     var hashauth = require('../lib/hashauth');
     var localStorage = require('./fixtures/localstorage');   
