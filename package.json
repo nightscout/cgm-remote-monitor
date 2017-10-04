@@ -1,6 +1,6 @@
 {
   "name": "Nightscout",
-  "version": "0.11.0-dev-20170911",
+  "version": "0.10.1-dev-20170923",
   "description": "Nightscout acts as a web-based CGM (Continuous Glucose Montinor) to allow multiple caregivers to remotely view a patients glucose data in realtime.",
   "license": "AGPL-3.0",
   "author": "Nightscout Team",
@@ -47,7 +47,7 @@
     }
   },
   "engines": {
-    "node": "8.4.0"
+    "node": "8.5.0"
   },
   "dependencies": {
     "ajv": "^5.2.2",
@@ -70,7 +70,6 @@
     "flot": "^0.8.0-alpha",
     "forever": "^0.15.3",
     "git-rev": "git://github.com/bewest/git-rev.git",
-    "heapdump": "^0.3.9",
     "jquery": "^2.2.4",
     "jquery-ui-bundle": "^1.12.1",
     "jquery.tipsy": "^1.0.3",
