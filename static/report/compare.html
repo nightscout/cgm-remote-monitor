@@ -23,10 +23,10 @@
       <meta name="theme-color" content="#333333">
 
       <link rel="stylesheet" href="http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
-      <link rel="stylesheet" type="text/css" href="/colorbrewer/colorbrewer.css">
+      <link rel="stylesheet" type="text/css" href="/bower_components/colorbrewer/colorbrewer.css">
       <link rel="stylesheet" type="text/css" href="/css/report.css" />
       <link rel="stylesheet" type="text/css" href="css/compare.css" />
-      <link rel="stylesheet" type="text/css" href="/css/ui-lightness/jquery-ui.min.css">    
+      <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-lightness/jquery-ui.min.css">    
     </head>
     <body>
       <h1><img src="/images/logo1.png"><span class="translate">Nightscout performance comparison</span></h1>
@@ -112,10 +112,8 @@
       <b><span class="translate">Authentication status</span>: </b><span id="authentication_placeholder"></span>
 
       <script src="/api/v1/status.js"></script>
-      <script src="/js/bundle.js"></script>
+      <script src="/public/js/bundle.js"></script>
       <script src="/socket.io/socket.io.js"></script>
-      <script src="/colorbrewer/colorbrewer.js"></script>
-<!--
       <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
       <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
       <script src="/bower_components/jquery-flot/jquery.flot.js"></script>
@@ -124,7 +122,7 @@
       <script src="/bower_components/jquery-flot/jquery.flot.fillbetween.js"></script>
       <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
       <script src="/bower_components/colorbrewer/colorbrewer.js"></script>
--->
+
       <script src="/report/js/flotcandle.js"></script>
       <script src="js/report.js"></script>
       <script src="js/compare.js"></script>
