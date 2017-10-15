@@ -28,9 +28,9 @@
     "test": "make test",
     "env": "env",
     "postinstall": "webpack --config webpack.config.js && npm run-script update-buster",
-    "bundle": "webpack --config webpack.config.js",
+    "bundle": "webpack --config webpack.config.js && npm run-script update-buster",
     "bower": "node node_modules/bower/bin/bower --allow-root install && ",
-    "update-buster": "node scripts/generateCacheBuster.js >tmp/cacheBusterToken"
+    "update-buster": "node bin/generateCacheBuster.js >tmp/cacheBusterToken"
   },
   "config": {
     "blanket": {
