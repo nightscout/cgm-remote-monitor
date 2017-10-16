@@ -20,6 +20,10 @@ static/bower_components/
 coverage/
 
 npm-debug.log
-*.heapsnapshot
 
+Backup*
+*.bak
+*.~*
+_*\*
 /tmp
+
