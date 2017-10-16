@@ -404,8 +404,8 @@ function pager (opts) {
 
 function time_in_range (data, opts) {
   var range = {
-    high: 150
-  , low: 60
+    high: 180
+  , low: 80
   };
 
   function sgv (d) { return d.sgv; }
