@@ -121,8 +121,8 @@ The data being uploaded from the server to the client is from a
 MongoDB server such as [mongolab][mongodb].
 
 [mongodb]: https://mongolab.com
-[autoconfigure]: http://nightscout.github.io/pages/configure/
-[mongostring]: http://nightscout.github.io/pages/mongostring/
+[autoconfigure]: https://nightscout.github.io/pages/configure/
+[mongostring]: https://nightscout.github.io/pages/mongostring/
 [update-fork]: http://nightscout.github.io/pages/update-fork/
 
 ## Updating my version?
