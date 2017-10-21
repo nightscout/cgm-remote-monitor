@@ -2,10 +2,11 @@
 
 var request = require('supertest');
 var should = require('should');
+var language = require('../lib/language')();
 
 //Mocked ctx
 var ctx = {};
-var env = {};
+// var env = {}; Unused variable
 var now = Date.now();
 
 function updateMills (entries) {
@@ -17,8 +18,8 @@ function updateMills (entries) {
   return entries;
 }
 
-ctx.data = require('../lib/data')(env, ctx);
-ctx.data.sgvs = updateMills([
+ctx.ddata = require('../lib/data/ddata')();
+ctx.ddata.sgvs = updateMills([
   { device: 'dexcom',
     mgdl: 91,
     direction: 'Flat',
@@ -66,7 +67,7 @@ ctx.data.sgvs = updateMills([
   }
 ]);
 
-ctx.data.cals = updateMills([
+ctx.ddata.cals = updateMills([
   { device: 'dexcom',
     slope: 895.8571693029189,
     intercept: 34281.06876195567,
@@ -75,22 +76,28 @@ ctx.data.cals = updateMills([
   }
 ]);
 
-ctx.data.profiles = [{dia: 4 }];
+ctx.ddata.profiles = [{dia: 4, sens: 70, carbratio: 15, carbs_hr: 30}];
 
-ctx.data.treatments = updateMills([
+ctx.ddata.treatments = updateMills([
   { eventType: 'Snack Bolus', insulin: '1.50', carbs: '22' }
 ]);
 
-ctx.data.devicestatus.uploaderBattery = 100;
+ctx.ddata.devicestatus = [{uploader: {battery: 100}}];
 
+var bootevent = require('../lib/bootevent');
 describe('Pebble Endpoint', function ( ) {
   var pebble = require('../lib/pebble');
   before(function (done) {
     var env = require('../env')( );
+    env.settings.authDefaultRoles = 'readable';
     this.app = require('express')( );
     this.app.enable('api');
-    this.app.use('/pebble', pebble(env, ctx));
-    done();
+    var self = this;
+    bootevent(env, language).boot(function booted (context) {
+      context.ddata = ctx.ddata.clone( );
+      self.app.use('/pebble', pebble(env, context));
+      done();
+    });
   });
 
   it('/pebble default(1) count', function (done) {
@@ -111,6 +118,7 @@ describe('Pebble Endpoint', function ( ) {
         should.not.exist(bg.noise);
         should.not.exist(bg.rssi);
         should.not.exist(bg.iob);
+        should.not.exist(bg.cob);
         bg.battery.should.equal('100');
 
         res.body.cals.length.should.equal(0);
@@ -167,7 +175,7 @@ describe('Pebble Endpoint', function ( ) {
   });
 
   it('/pebble without battery', function (done) {
-    delete ctx.data.devicestatus.uploaderBattery;
+    ctx.ddata.devicestatus = [];
     request(this.app)
       .get('/pebble')
       .expect(200)
@@ -182,7 +190,7 @@ describe('Pebble Endpoint', function ( ) {
   });
 
   it('/pebble with a negative battery', function (done) {
-    ctx.data.devicestatus.uploaderBattery = -1;
+    ctx.ddata.devicestatus = [{uploader: {battery: -1}}];
     request(this.app)
       .get('/pebble')
       .expect(200)
@@ -197,7 +205,7 @@ describe('Pebble Endpoint', function ( ) {
   });
 
   it('/pebble with a false battery', function (done) {
-    ctx.data.devicestatus.uploaderBattery = false;
+    ctx.ddata.devicestatus = [{uploader: {battery: false}}];
     request(this.app)
       .get('/pebble')
       .expect(200)
@@ -212,19 +220,24 @@ describe('Pebble Endpoint', function ( ) {
   });
 });
 
-describe('Pebble Endpoint with Raw and IOB', function ( ) {
+describe('Pebble Endpoint with Raw and IOB and COB', function ( ) {
   var pebbleRaw = require('../lib/pebble');
   before(function (done) {
-    ctx.data.devicestatus.uploaderBattery = 100;
-    var envRaw = require('../env')( );
-    envRaw.settings.enable = ['rawbg', 'iob'];
+    var env = require('../env')( );
+    env.settings.enable = ['rawbg', 'iob', 'cob'];
+    env.settings.authDefaultRoles = 'readable';
     this.appRaw = require('express')( );
     this.appRaw.enable('api');
-    this.appRaw.use('/pebble', pebbleRaw(envRaw, ctx));
-    done();
+    var self = this;
+    bootevent(env, language).boot(function booted (context) {
+      context.ddata = ctx.ddata.clone( );
+      self.appRaw.use('/pebble', pebbleRaw(env, context));
+      done();
+    });
   });
 
   it('/pebble', function (done) {
+    ctx.ddata.devicestatus = [{uploader: {battery: 100}}];
     request(this.appRaw)
       .get('/pebble?count=2')
       .expect(200)
@@ -241,6 +254,8 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
         bg.unfiltered.should.equal(111920);
         bg.noise.should.equal(1);
         bg.battery.should.equal('100');
+        bg.iob.should.equal('1.50');
+        bg.cob.should.equal(22);
 
         res.body.cals.length.should.equal(1);
         var cal = res.body.cals[0];
@@ -248,6 +263,37 @@ describe('Pebble Endpoint with Raw and IOB', function ( ) {
         cal.intercept.toFixed(3).should.equal('34281.069');
         cal.scale.should.equal(1);
         done( );
+      });
+  });
+
+  it('/pebble with no treatments', function (done) {
+    ctx.ddata.treatments = [];
+    request(this.appRaw)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        var bgs = res.body.bgs;
+        bgs.length.should.equal(1);
+        var bg = bgs[0];
+        bg.iob.should.equal(0);
+        bg.cob.should.equal(0);
+        done();
+      });
+  });
+
+  it('/pebble with IOB from devicestatus', function (done) {
+    ctx.ddata.treatments = [];
+    ctx.ddata.devicestatus = updateMills([{pump: {iob: {bolusiob: 2.3}}}]);
+    request(this.appRaw)
+      .get('/pebble')
+      .expect(200)
+      .end(function (err, res)  {
+        var bgs = res.body.bgs;
+        bgs.length.should.equal(1);
+        var bg = bgs[0];
+        bg.iob.should.equal('2.30');
+        bg.cob.should.equal(0);
+        done();
       });
   });
 
