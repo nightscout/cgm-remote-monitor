@@ -337,10 +337,11 @@ paths:
         - name: find
           in: query
           description:
-            The query used to find entries, supports nested query syntax.  Examples
+            The query used to find entries, supports nested query syntax. Examples
             `find[insulin][$gte]=3`
             `find[carb][$gte]=100`
             `find[eventType]=Correction+Bolus`
+            `find[created_at][$gte]=2017-08-25T09:57:06.850Z
             All find parameters are interpreted as strings.
           required: false
           type: string
@@ -351,7 +352,7 @@ paths:
           type: number
       responses:
         "200":
-          description: An array of treatments
+          description: An array of treatments, sorted on the created_at timestamp
           schema:
             $ref: '#/definitions/Treatments'
         default:
@@ -466,7 +467,7 @@ definitions:
         description: The type of treatment event.
       created_at:
         type: string
-        description: The date of the event, might be set retroactively .
+        description: The date of the event, might be set retroactively. Will always be stored in UTC format.
       glucose:
         type: string
         description: Current glucose.
