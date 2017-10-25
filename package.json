@@ -47,10 +47,10 @@
     }
   },
   "engines": {
-    "node": "8.7.0"
+    "node": "8.8.0"
   },
   "dependencies": {
-    "ajv": "^5.2.3",
+    "ajv": "^5.3.0",
     "async": "^0.9.2",
     "body-parser": "^1.18.2",
     "bootevent": "0.0.1",
@@ -100,7 +100,7 @@
     "sugar": "^1.5.0",
     "sync-exec": "^0.6.2",
     "traverse": "^0.6.6",
-    "uglify-js": "^3.1.4",
+    "uglify-js": "^3.1.5",
     "uuid": "^3.1.0",
     "webpack": "^3.8.1"
   },
