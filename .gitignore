@@ -5,6 +5,7 @@ package-lock.json
 
 bundle/bundle.out.js
 
+.vscode/
 .idea/
 *.iml
 my.env
