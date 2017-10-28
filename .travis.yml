@@ -1,8 +1,14 @@
 language: node_js
-sudo: false
+sudo: required
 node_js:
-  - "0.10"
-  - "0.12"
-services: mongodb
+  - "8.5.0"
+matrix:
+  fast_finish: true
+services:
+  - mongodb
+  - docker
 script: make travis
+after_success:
+  - nvm version
+  - if [[ ! -z "$DOCKER_USER" ]]; then docker login -u ${DOCKER_USER} -p ${DOCKER_PASS} && git checkout -- . && git clean -fd . && make docker_release; fi
 after_script: make report
