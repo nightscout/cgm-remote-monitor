@@ -24,11 +24,11 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="stylesheet" type="text/css" href="/css/main.css" />
+      <link rel="stylesheet" type="text/css" href="/css/main.css?v=<%= locals.cachebuster %>" />
       <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
       <link rel="stylesheet" type="text/css" href="/css/drawer.css" />
       <link rel="stylesheet" type="text/css" href="/css/food.css" />
-      <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-darkness/jquery-ui.min.css">
+      <link rel="stylesheet" type="text/css" href="/css/ui-darkness/jquery-ui.min.css">
     </head>
     <body>
       <div id="toolbar">
@@ -110,11 +110,8 @@
       <span id="authentication_placeholder"></span>
     </div>
     
-    <script src="/public/js/bundle.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
-    <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
-    <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
-    <script src="/food/js/food.js"></script>
+    <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/food/js/food.js?v=<%= locals.cachebuster %>"></script>
   </body>
 </html>
