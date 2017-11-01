@@ -19,7 +19,7 @@ describe('renderer', () => {
         let mockClient = {
           utils: true
           , chart: { prevChartWidth: prev.width }
-          , foucusRangeMS: true
+          , focusRangeMS: true
         };
         it('scales correctly', () => {
           renderer(mockClient, {}).bubbleScale().should.be.approximately(prev.expectedScale, MAX_DELTA);
