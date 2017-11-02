@@ -30,7 +30,7 @@ all: test
 
 coverage:
 	NODE_ENV=test ${MONGO_SETTINGS} \
-	${ISTANBUL} cover ${MOCHA} -- -R tap ${TESTS}
+	${ISTANBUL} cover ${MOCHA} -- --timeout 15000 -R tap ${TESTS}
 
 report:
 	test -f ${ANALYZED} && \
@@ -41,11 +41,11 @@ report:
 	YOURPACKAGE_COVERAGE=1 ./node_modules/codacy-coverage/bin/codacy-coverage.js) || echo "NO COVERAGE"
 
 test:
-	${MONGO_SETTINGS} ${MOCHA} -R tap ${TESTS}
+	${MONGO_SETTINGS} ${MOCHA} --timeout 30000 -R tap ${TESTS}
 
 travis:
 	NODE_ENV=test ${MONGO_SETTINGS} \
-	${ISTANBUL} cover ${MOCHA} --report lcovonly -- -R tap ${TESTS}
+	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 5000 -R tap ${TESTS}
 
 docker_release:
 	# Get the version from the package.json file
