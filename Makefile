@@ -30,7 +30,7 @@ all: test
 
 coverage:
 	NODE_ENV=test ${MONGO_SETTINGS} \
-	${ISTANBUL} cover ${MOCHA} -- -R tap ${TESTS}
+	${ISTANBUL} cover ${MOCHA} -- --timeout 15000 -R tap ${TESTS}
 
 report:
 	test -f ${ANALYZED} && \
@@ -41,19 +41,23 @@ report:
 	YOURPACKAGE_COVERAGE=1 ./node_modules/codacy-coverage/bin/codacy-coverage.js) || echo "NO COVERAGE"
 
 test:
-	${MONGO_SETTINGS} ${MOCHA} -R tap ${TESTS}
+	${MONGO_SETTINGS} ${MOCHA} --timeout 30000 -R tap ${TESTS}
 
 travis:
 	NODE_ENV=test ${MONGO_SETTINGS} \
-	${ISTANBUL} cover ${MOCHA} --report lcovonly -- -R tap ${TESTS}
+	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 5000 -R tap ${TESTS}
 
 docker_release:
 	# Get the version from the package.json file
 	$(eval DOCKER_TAG=$(shell cat package.json | jq '.version' | tr -d '"'))
+	$(eval NODE_VERSION=$(shell cat .nvmrc))
+	#
+	# Create a Dockerfile that contains the correct NodeJS version
+	cat Dockerfile.example | sed -e "s/^FROM node:.*/FROM node:${NODE_VERSION}/" > Dockerfile
 	#
 	# Rebuild the image. We do this with no-cache so that we have all security upgrades,
 	# since that's more important than fewer layers in the Docker image.
-	docker build --no-cache=true -f Dockerfile.example -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
+	docker build --no-cache=true -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
 	# Push an image to Docker Hub with the version from package.json:
 	docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
 	#
@@ -68,5 +72,6 @@ docker_release:
 		docker tag $(DOCKER_IMAGE):$(DOCKER_TAG) $(DOCKER_IMAGE):latest_dev && \
 		docker push $(DOCKER_IMAGE):latest_dev; \
 	fi
+	rm -f Dockerfile
 
 .PHONY: all coverage docker_release report test travis
