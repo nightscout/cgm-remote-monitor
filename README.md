@@ -105,7 +105,7 @@ Community maintained fork of the
 
 Requirements:
 
-- [Node.js](http://nodejs.org/) 8.8.1  (use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or `setup.sh`)
+- [Node.js](http://nodejs.org/) 8.9.0 LTS (use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or `setup.sh`)
 
 Clone this repo then install dependencies into the root of the project:
 
@@ -113,7 +113,7 @@ Clone this repo then install dependencies into the root of the project:
 $ npm install
 ```
 
-If deploying the software to Microsoft Azure, you must set *WEBSITE_NODE_DEFAULT_VERSION* in the app settings to *8.8.1* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting.
+If deploying the software to Microsoft Azure, you must set *WEBSITE_NODE_DEFAULT_VERSION* in the app settings to *8.9.0* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting.
 
 # Usage
 
