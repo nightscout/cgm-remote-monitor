@@ -1,11 +1,42 @@
 'use strict';
 
-require('should');
 var _ = require('lodash');
+var should = require('should');
 
 describe('IOB', function() {
+  var ctx = {};
+  ctx.language = require('../lib/language')();
+  ctx.language.set('en');
 
-  var iob = require('../lib/plugins/iob')();
+  var iob = require('../lib/plugins/iob')(ctx);
+
+  it('should handle alexa requests', function (done) {
+
+    var sbx = {
+      properties: {
+        iob: {
+          iob: 1.5
+        }
+      }
+    };
+
+    iob.alexa.intentHandlers.length.should.equal(1);
+    iob.alexa.rollupHandlers.length.should.equal(1);
+
+    iob.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+      title.should.equal('Current IOB');
+      response.should.equal('You have 1.50 units of insulin on board');
+
+      iob.alexa.rollupHandlers[0].rollupHandler([], sbx, function callback (err, response) {
+        should.not.exist(err);
+        response.results.should.equal('and you have 1.50 units of insulin on board.');
+        response.priority.should.equal(2);
+        done();
+      });
+
+    }, [], sbx);
+
+  });
 
   describe('from treatments', function ( ) {
 
@@ -143,7 +174,7 @@ describe('IOB', function() {
     });
 
     it('should fall back to treatments if openaps devicestatus is present but too stale', function() {
-      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - iob.RECENCY_THRESHOLD - 1 })];
+      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - iob.RECENCY_THRESHOLD - 1, openaps: {iob: {timestamp: time - iob.RECENCY_THRESHOLD - 1} } })];
       iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
         source: 'Care Portal',
         iob: treatmentIOB
@@ -151,7 +182,7 @@ describe('IOB', function() {
     });
 
     it('should return IOB data from openaps', function () {
-      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - 1 })];
+      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - 1, openaps: {iob: {timestamp: time - 1} } })];
       iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
         iob: 0.047,
         basaliob: -0.298,
@@ -161,26 +192,54 @@ describe('IOB', function() {
       });
     });
 
+    it('should not blow up with null IOB data from openaps', function () {
+      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - 1, openaps: {iob: null } })];
+      iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
+        source: 'Care Portal',
+        display: '3.00'
+      });
+    });
+
     it('should return IOB data from openaps post AMA (an array)', function () {
-      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - 1, iob: [{
+      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - 1, openaps: {iob: [{
         iob: 0.047,
         basaliob: -0.298,
-        activity: 0.0147
-      }]})];
+        activity: 0.0147,
+        time: time - 1
+      }]}})];
       iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
         iob: 0.047,
         basaliob: -0.298,
         activity: 0.0147,
         source: 'OpenAPS',
         device: 'openaps://pi1'
+      });
+    });
+
+    it('should return IOB data from Loop', function () {
+
+      var LOOP_DEVICESTATUS = {
+        device: 'loop://iPhone',
+        loop: {
+          iob: {
+            iob: 0.75
+          }
+        }
+      };
+
+      var devicestatus = [_.merge(LOOP_DEVICESTATUS, { mills: time - 1, loop: {iob: {timestamp: time - 1} } })];
+      iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
+        iob: 0.75,
+        source: 'Loop',
+        device: 'loop://iPhone'
       });
     });
 
     it('should return IOB data from openaps from multiple devices', function () {
       var devicestatus = [
-        _.merge(OPENAPS_DEVICESTATUS, { mills: time - 1000, iob: 10 })
-        , _.merge(OPENAPS_DEVICESTATUS, { mills: time - 1 })
-        , _.merge(OPENAPS_DEVICESTATUS, { mills: time - 20000, iob: 2 })
+        _.merge(OPENAPS_DEVICESTATUS, { mills: time - 1000, openaps: {iob: {timestamp: time - 1000} } })
+        , _.merge(OPENAPS_DEVICESTATUS, { mills: time - 1, openaps: {iob: {timestamp: time - 1} } })
+        , _.merge(OPENAPS_DEVICESTATUS, { mills: time - 20000, openaps: {iob: {timestamp: time - 20000} } })
       ];
       iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
         iob: 0.047,
