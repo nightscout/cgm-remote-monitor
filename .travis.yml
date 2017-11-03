@@ -3,7 +3,6 @@ sudo: required
 dist: trusty
 node_js:
   - "8.9.0"
-  - "9.0.0"
 matrix:
   fast_finish: true
 services:
