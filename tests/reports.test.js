@@ -186,7 +186,7 @@ describe('reports', function ( ) {
 
   beforeEach(function (done) {
     var opts = {
-      htmlFile: __dirname + '/../static/report/index.html'
+      htmlFile: __dirname + '/../views/reportindex.html'
     , mockProfileEditor: true
     , serverSettings: serverSettings
     , mockSimpleAjax: someData

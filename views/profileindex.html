@@ -25,7 +25,7 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="stylesheet" type="text/css" href="/css/main.css" />
+      <link rel="stylesheet" type="text/css" href="/css/main.css?v=<%= locals.cachebuster %>" />
       <link rel="stylesheet" type="text/css" href="/css/drawer.css" />
       <link rel="stylesheet" type="text/css" href="/css/profile.css" />
       <link rel="stylesheet" type="text/css" href="/css/ui-darkness/jquery-ui.min.css">
@@ -150,6 +150,7 @@
           <fieldset class="browserSettings">
             <legend class="translate">Basal rates [unit/hour]</legend>
             <div id="pe_basal_placeholder"></div>
+            <div><span class="translate">Total per day</span>: <span id="pe_basalTotal_placeholder"></span></div>
           </fieldset>
 
           <fieldset class="browserSettings">
@@ -173,8 +174,8 @@
     </form>
 
     <script src="/api/v1/status.js"></script>
-    <script src="/js/bundle.js?v=0.10.0-dev-20170821"></script>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/profile/js/profileeditor.js?v=0.10.0-dev-20170821"></script>
+    <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/profile/js/profileeditor.js?v=<%= locals.cachebuster %>"></script>
   </body>
 </html>

@@ -57,7 +57,7 @@ var someData = {
 
 describe('admintools', function ( ) {
   var self = this;
-  this.timeout(10000);
+  this.timeout(30000); // TODO: see why this test takes longer on Travis to complete
   before(function (done) {
     benv.setup(function() {
 
@@ -83,7 +83,7 @@ describe('admintools', function ( ) {
         });
       };
 
-      var indexHtml = read(__dirname + '/../static/admin/index.html', 'utf8');
+      var indexHtml = read(__dirname + '/../views/adminindex.html', 'utf8');
       self.$('body').html(indexHtml);
 
       //var filesys = require('fs');
