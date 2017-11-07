@@ -84,6 +84,26 @@ describe('Uploader Battery', function ( ) {
     upbat.updateVisualisation(sbx);
   });
 
+  it('should handle alexa requests', function (done) {
 
+    var ctx = {
+      settings: {}
+    };
+
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    var upbat = require('../lib/plugins/upbat')();
+    upbat.setProperties(sbx);
+
+    upbat.alexa.intentHandlers.length.should.equal(1);
+
+    upbat.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+      title.should.equal('Uploader battery');
+      response.should.equal('Your uploader battery is at 20%');
+
+      done();
+    }, [], sbx);
+
+  });
 
 });
