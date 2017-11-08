@@ -21,3 +21,5 @@ coverage/
 
 npm-debug.log
 *.heapsnapshot
+
+/tmp
