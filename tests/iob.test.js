@@ -6,6 +6,7 @@ var should = require('should');
 describe('IOB', function() {
   var ctx = {};
   ctx.language = require('../lib/language')();
+  ctx.language.set('en');
 
   var iob = require('../lib/plugins/iob')(ctx);
 
@@ -188,6 +189,14 @@ describe('IOB', function() {
         activity: 0.0147,
         source: 'OpenAPS',
         device: 'openaps://pi1'
+      });
+    });
+
+    it('should not blow up with null IOB data from openaps', function () {
+      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - 1, openaps: {iob: null } })];
+      iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
+        source: 'Care Portal',
+        display: '3.00'
       });
     });
 
