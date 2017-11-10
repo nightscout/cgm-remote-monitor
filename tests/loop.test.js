@@ -124,7 +124,7 @@ describe('loop', function ( ) {
           first.value.should.equal('<b>Temp Basal Started</b> 0.88U/hour for 30m, IOB: 0.17U, Predicted Eventual BG: 147');
         }
         , addForecastPoints: function mockAddForecastPoints (points) {
-          points.length.should.equal(6);
+          points.length.should.equal(5);
           done();
         }
       }
