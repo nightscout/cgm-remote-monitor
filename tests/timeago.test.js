@@ -3,14 +3,14 @@ var levels = require('../lib/levels');
 var times = require('../lib/times');
 
 describe('timeago', function ( ) {
+
+  var timeago = require('../lib/plugins/timeago')();
+
+  var env = require('../env')();
+
   var ctx = {};
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
-  ctx.language = require('../lib/language')();
-
-  var timeago = require('../lib/plugins/timeago')(ctx);
-
-  var env = require('../env')();
 
   function freshSBX() {
     //set extendedSettings right before calling withExtendedSettings, there's some strange test interference here

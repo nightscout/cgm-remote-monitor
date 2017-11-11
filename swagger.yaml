@@ -11,6 +11,12 @@ produces:
   - application/json
 security:
   - api_secret: []
+securityDefinitions:
+  api_secret:
+    type: apiKey
+    name: api_secret
+    in: header
+    description: The hash of the API_SECRET env var
 
 paths:
 
@@ -304,6 +310,8 @@ paths:
       responses:
         "405":
           description: Invalid input
+        "401":
+          description: Unauthorized 
         "200":
           description: Rejected list of entries.  Empty list is success.
     delete:
@@ -413,12 +421,6 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-securityDefinitions:
-  api_secret:
-    type: apiKey
-    name: api_secret
-    in: header
-    description: The hash of the API_SECRET env var
 
 definitions:
   Entry:
