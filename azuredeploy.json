@@ -40,10 +40,6 @@
     "mongoConnection": {
       "type": "string"
     },
-    "mongoCollection": {
-      "type": "string",
-      "defaultValue": "entries"
-    }, 
     "displayUnits": {
       "type": "string",
       "allowedValues": [
@@ -64,7 +60,7 @@
         "colors",
         "colorblindfriendly"
       ],
-      "defaultValue": "colors"
+      "defaultValue": "colors",
     },
     "time_format": {
       "type": "string",
@@ -72,7 +68,7 @@
         "12",
         "24"
       ],
-      "defaultValue": "24"
+      "defaultValue": "24",
     },
     "language": {
       "type": "string",
@@ -81,7 +77,6 @@
         "cs",
         "dk",
         "de",
-        "el",
         "en",
         "es",
         "fr",
@@ -99,11 +94,11 @@
         "fi",
         "ko"
       ],
-      "defaultValue": "en"
+      "defaultValue": "en",
     },
     "custom_title": {
       "type": "string",
-      "defaultValue": "Nightscout"
+      "defaultValue": "Nightscout",
     },
     "alarm_high": {
       "type": "string",
@@ -111,7 +106,7 @@
         "on",
         "off"
       ],
-      "defaultValue": "off"
+      "defaultValue": "off",
     },
     "alarm_low": {
       "type": "string",
@@ -119,7 +114,7 @@
         "on",
         "off"
       ],
-      "defaultValue": "off"
+      "defaultValue": "off",
     },
     "alarm_timeago_urgent": {
       "type": "string",
@@ -127,7 +122,7 @@
         "on",
         "off"
       ],
-      "defaultValue": "off"
+      "defaultValue": "off",
     },
     "alarm_timeago_warn": {
       "type": "string",
@@ -135,7 +130,7 @@
         "on",
         "off"
       ],
-      "defaultValue": "off"
+      "defaultValue": "off",
     },
     "alarm_urgent_high": {
       "type": "string",
@@ -143,7 +138,7 @@
         "on",
         "off"
       ],
-      "defaultValue": "off"
+      "defaultValue": "off",
     },
     "alarm_urgent_low": {
       "type": "string",
@@ -151,7 +146,7 @@
         "on",
         "off"
       ],
-      "defaultValue": "off"
+      "defaultValue": "off",
     },
     "basal_render": {
       "type": "string",
@@ -160,7 +155,7 @@
         "default",
         "icicle"
       ],
-      "defaultValue": "none"
+      "defaultValue": "none",
     },
     "scale_y": {
       "type": "string",
@@ -169,11 +164,11 @@
         "linear",
         "log-dynamic"
       ],
-      "defaultValue": "log"
+      "defaultValue": "log",
     },
     "enable": {
       "type": "string",
-      "defaultValue": "basal bwp cage careportal iob cob rawbg sage iage treatmentnotify boluscalc profile food"
+      "defaultValue": "basal bwp cage careportal cob rawbg sage iage treatmentnotify boluscalc profile",
     },
     "night_mode": {
       "type": "string",
@@ -181,11 +176,11 @@
         "on",
         "off"
       ],
-      "defaultValue": "off"
+      "defaultValue": "off",
     },
     "show_plugins": {
       "type": "string",
-      "defaultValue": "careportal"
+      "defaultValue": "careportal",
     },
     "show_rawbg": {
       "type": "string",
@@ -194,7 +189,7 @@
         "never",
         "noise"
       ],
-      "defaultValue": "never"
+      "defaultValue": "never",
     },
     "devicestatus_advanced": {
       "type": "string",
@@ -202,7 +197,7 @@
         "true",
         "false"
       ],
-      "defaultValue": "false"
+      "defaultValue": "false",
     },
     "profile_multiple": {
       "type": "string",
@@ -210,15 +205,7 @@
         "on",
         "off"
       ],
-      "defaultValue": "off"
-    },
-    "auth_default_roles": {
-      "type": "string",
-      "defaultValue": "readable devicestatus-upload"
-    },
-    "WEBSITE_NODE_DEFAULT_VERSION": {
-        "type": "string",
-        "defaultValue": "8.5.0"
+      "defaultValue": "off",
     }
   },
   "resources": [{
@@ -248,11 +235,7 @@
         "appSettings": [{
             "name": "MONGO_CONNECTION",
             "value": "[parameters('mongoConnection')]"
-          }, 
-            {
-            "name": "MONGO_COLLECTION",
-            "value": "[parameters('mongoCollection')]"         
-          }, {            
+          }, {
             "name": "DISPLAY_UNITS",
             "value": "[parameters('displayUnits')]"
           }, {
@@ -312,12 +295,6 @@
           }, {
             "name": "PROFILE_MULTIPLE",
             "value": "[parameters('profile_multiple')]"
-          }, {
-            "name": "AUTH_DEFAULT_ROLES",
-            "value": "[parameters('auth_default_roles')]"
-          }, {
-            "name": "WEBSITE_NODE_DEFAULT_VERSION",
-            "value": "8.5.0"
           }
         ]
       }
