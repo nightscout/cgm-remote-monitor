@@ -11,7 +11,7 @@ describe('settings', function ( ) {
     settings.timeFormat.should.equal(12);
     settings.nightMode.should.equal(false);
     settings.showRawbg.should.equal('never');
-    settings.customTitle.should.equal('Eukene');
+    settings.customTitle.should.equal('Nightscout');
     settings.theme.should.equal('default');
     settings.alarmUrgentHigh.should.equal(true);
     settings.alarmUrgentHighMins.should.eql([30, 60, 90, 120]);
