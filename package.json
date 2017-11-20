@@ -73,7 +73,7 @@
     "jquery": "^2.2.4",
     "jquery-ui-bundle": "^1.12.1",
     "jquery.tipsy": "^1.0.3",
-    "js-storage": "^1.0.1",
+    "js-storage": "1.0.1",
     "jsonwebtoken": "^7.4.3",
     "lodash": "^4.17.4",
     "long": "^3.2.0",
