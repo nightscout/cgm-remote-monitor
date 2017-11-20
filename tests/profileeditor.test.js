@@ -88,7 +88,8 @@ describe('Profile editor', function ( ) {
     , mockProfileEditor: true
     , mockAjax: someData
     , benvRequires: [
-        __dirname + '/../static/profile/js/profileeditor.js'
+        __dirname + '/../bundle/bundle.source.js'
+      , __dirname + '/../static/profile/js/profileeditor.js'
       ]
     };
     headless.setup(opts, done);
