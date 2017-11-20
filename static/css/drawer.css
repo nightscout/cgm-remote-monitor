@@ -102,6 +102,9 @@ input[type=number]:invalid {
   width: 25px;
 }
 
+.focus-range-hours {
+  width: 25px;
+}
 #eventTime {
   padding-bottom: 15px;
 }
