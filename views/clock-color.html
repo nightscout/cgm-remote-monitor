@@ -54,8 +54,10 @@
 			display: flex;
 			-ms-flex-align: center;
 			-webkit-align-items: center;
+			-webkit-transform: translateX(1%);
 			align-items: center;
 			justify-content: center;
+			-webkit-flex-direction: column;
 			flex-direction: column;
 		}
 		#arrowDiv {
@@ -85,9 +87,8 @@
 		</div>
 	</main>
   
-	<script src="/bower_components/jquery/dist/jquery.min.js"></script>
 	<script src="/api/v1/status.js"></script>
-	<script src="/public/js/bundle.js"></script>
+	<script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
   
 	<script type="text/javascript">
 	
