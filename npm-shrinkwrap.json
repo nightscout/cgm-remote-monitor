@@ -173,15 +173,6 @@
       "resolved": "https://registry.npmjs.org/arrify/-/arrify-1.0.1.tgz",
       "integrity": "sha1-iYUI2iIm84DfkEcoRWhJwVAaSw0="
     },
-    "ascli": {
-      "version": "1.0.1",
-      "resolved": "https://registry.npmjs.org/ascli/-/ascli-1.0.1.tgz",
-      "integrity": "sha1-vPpZdKYvGOgcq660lzKrSoj5Brw=",
-      "requires": {
-        "colour": "0.7.1",
-        "optjs": "3.2.2"
-      }
-    },
     "asn1": {
       "version": "0.1.11",
       "resolved": "https://registry.npmjs.org/asn1/-/asn1-0.1.11.tgz",
@@ -5632,7 +5623,19 @@
       "resolved": "https://registry.npmjs.org/protobufjs/-/protobufjs-3.2.4.tgz",
       "integrity": "sha1-k/kbBym7yHTtywAr3xrY+OxXAdo=",
       "requires": {
+        "ascli": "1.0.1",
         "bytebuffer": "3.1.1"
+      },
+      "dependencies": {
+        "ascli": {
+          "version": "1.0.1",
+          "resolved": "https://registry.npmjs.org/ascli/-/ascli-1.0.1.tgz",
+          "integrity": "sha1-vPpZdKYvGOgcq660lzKrSoj5Brw=",
+          "requires": {
+            "colour": "0.7.1",
+            "optjs": "3.2.2"
+          }
+        }
       }
     },
     "proxy-addr": {
