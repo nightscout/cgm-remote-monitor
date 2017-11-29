@@ -6,43 +6,46 @@
   <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
   <link rel='stylesheet' type='text/css' href='/css/main.css' />
   <style type="text/css">
+  	@import url("//fonts.googleapis.com/css?family=Open+Sans:700");
+    body {
+		text-align: center;
+		margin: 0 0;
+		padding: 0;
+		overflow: hidden;
+		font-family: 'Open Sans';
+	}
+	main {
+		display: -webkit-box;
+		display: -ms-flexbox;
+		display: -webkit-flex;
+		display: flex;
+		-webkit-box-align: center;
+		-ms-flex-align: center;
+		-webkit-align-items: center;
+		align-items: center;
+		height: 100vh;
+	}
     .center {
-      text-align: center;
-      padding: 0;
-      margin: 0;
+		width: 100%;
+		-webkit-transform: translateY(-3%);
     }
     h1 {
-      padding: 0;
-      margin: 0;
-      font-size: 1500%;
+		font-weight: 700;
+		font-size: 50vmin;
     }
-    html, body {
-      padding: 0;
-      margin: 0;
-      height: 100%;
-    }
-    html {
-    }
-    body {
-      font-size: 100%;
-      min-height: 100%;
-
-    }
-
     .stale {
       text-decoration: line-through;
-
     }
   </style>
 </head>
 <body>
-  <div class="center">
-    <h1 class="bgnow"></h1>
-    <h1 class="clock"></h1>
-  </div>
-  <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+	<main>
+		<div class="center">
+			<h1 class="bgnow"></h1>
+		</div>
+	</main>
   <script src="/api/v1/status.js"></script>
-  <script src="/public/js/bundle.js"></script>
+  <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
   <script type="text/javascript">
     function query ( ) {
       console.log('query');
@@ -60,12 +63,6 @@
       $('.bgnow').text(rec.sgv);
       var threshold = 1000 * 60 * 13;
       $('.bgnow').toggleClass('stale', (now - last > threshold));
-
-      var today = new Date(),
-            h = today.getHours() % 12 || 12,
-            m = today.getMinutes();
-      if (m < 10) m = "0" + m;
-      $('.clock').text(h + ":" + m);
     }
 
     function init ( ) {
