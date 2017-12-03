@@ -166,7 +166,7 @@ function create(env, ctx) {
             json_match: /json/,
             uglifyJS: myUglifyJS,
             cssmin: myCssmin,
-            cache: __dirname + '/cache',
+            cache: __dirname + '/tmp',
             onerror: undefined,
         }));
 
