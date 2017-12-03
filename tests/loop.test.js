@@ -121,10 +121,10 @@ describe('loop', function ( ) {
           options.value.should.equal('1m ago');
           var first = _.first(options.info);
           first.label.should.equal('1m ago');
-          first.value.should.equal('<b>Temp Basal Started</b> 0.88U/hour for 30m, IOB: 0.17U, Predicted Eventual BG: 147');
+          first.value.should.equal('<b>Temp Basal Started</b> 0.88U/hour for 30m, IOB: 0.17U, Predicted Min-Max BG: 147-149, Eventual BG: 147');
         }
         , addForecastPoints: function mockAddForecastPoints (points) {
-          points.length.should.equal(5);
+          points.length.should.equal(6);
           done();
         }
       }
@@ -257,7 +257,7 @@ describe('loop', function ( ) {
 
     loop.alexa.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Loop Forecast');
-      response.should.equal('According to the loop forecast you are expected to be between 147 and 149 over the next in 20 minutes');
+      response.should.equal('According to the loop forecast you are expected to be between 147 and 149 over the next in 25 minutes');
 
       loop.alexa.intentHandlers[1].intentHandler(function next(title, response) {
         title.should.equal('Last loop');
