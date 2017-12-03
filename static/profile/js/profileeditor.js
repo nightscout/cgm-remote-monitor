@@ -88,7 +88,7 @@
         records.push(defaultprofile);
       }
       client.profilefunctions.loadData(records); // do a conversion if needed
-      mongorecords = client.profilefunctions.data;
+      mongorecords = _.cloneDeep(client.profilefunctions.data);
       // create new profile to be edited from last record
       if (mongorecords.length) {
         _.each(mongorecords, function eachMongoProfile (mongoprofile) {
