@@ -1,6 +1,6 @@
 {
   "name": "Nightscout",
-  "version": "0.10.2-release-20171201",
+  "version": "0.10.3-dev-20171205",
   "lockfileVersion": 1,
   "requires": true,
   "dependencies": {
