@@ -105,7 +105,7 @@ Community maintained fork of the
 
 Requirements:
 
-- [Node.js](http://nodejs.org/)
+- [Node.js](http://nodejs.org/) 8.9.0 LTS (use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or `setup.sh`)
 
 Clone this repo then install dependencies into the root of the project:
 
@@ -113,7 +113,7 @@ Clone this repo then install dependencies into the root of the project:
 $ npm install
 ```
 
-If deploying the software to Microsoft Azure, you must set *WEBSITE_NODE_DEFAULT_VERSION* in the app settings to *8.5.0* or the site deployment will fail. Other hosting environments do not require this setting.
+If deploying the software to Microsoft Azure, you must set *WEBSITE_NODE_DEFAULT_VERSION* in the app settings to *8.9.0* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting.
 
 # Usage
 
@@ -121,8 +121,8 @@ The data being uploaded from the server to the client is from a
 MongoDB server such as [mongolab][mongodb].
 
 [mongodb]: https://mongolab.com
-[autoconfigure]: http://nightscout.github.io/pages/configure/
-[mongostring]: http://nightscout.github.io/pages/mongostring/
+[autoconfigure]: https://nightscout.github.io/pages/configure/
+[mongostring]: https://nightscout.github.io/pages/mongostring/
 [update-fork]: http://nightscout.github.io/pages/update-fork/
 
 ## Updating my version?
