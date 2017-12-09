@@ -1,0 +1,56 @@
+#food-editor h1 {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 50px;
+  margin-top: 0;
+  margin-right: auto;
+  margin-left: auto;
+  text-align: center;
+}
+
+#fe_form {
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+.width50px {
+  display: inline-block;
+  width: 50px;
+}
+
+.width100px {
+  display: inline-block;
+  width: 100px;
+}
+
+.width150px {
+  display: inline-block;
+  width: 150px;
+}
+
+.width200px {
+  display: inline-block;
+  width: 200px;
+}
+
+.sortablequickpick {
+  cursor: move;
+  background-color: #383838;
+  border-radius: 8px;
+}
+
+.fe_qpeditimg, .fe_qpremoveimg, .fe_editimg, .fe_removeimg, .fe_qpupimg, .fe_qpfoodremoveimg {
+  cursor: pointer;
+}
+
+.draggablefood {
+  background-color: gray;
+  cursor: move;
+  border: 2px solid #000;
+}
+
+.fe_foodinsideqp {
+  background-color:gray;
+  border: 2px solid;
+}
