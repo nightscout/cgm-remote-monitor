@@ -70,6 +70,7 @@
     "file-loader": "^1.1.11",
     "flot": "^0.8.0-alpha",
     "forever": "^0.15.3",
+    "graceful-fs": "4.1.11",
     "jquery": "^3.3.1",
     "jquery-ui-bundle": "^1.12.1-migrate",
     "jquery.tooltips": "^1.0.0",
