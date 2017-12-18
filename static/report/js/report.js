@@ -220,6 +220,7 @@
     options.cob = $('#rp_optionscob').is(':checked');
     options.openAps = $('#rp_optionsopenaps').is(':checked');
     options.predicted = $('#rp_optionspredicted').is(':checked');
+    options.predictedTruncate = $('#rp_optionsPredictedTruncate').is(':checked');
     options.basal = $('#rp_optionsbasal').is(':checked');
     options.notes = $('#rp_optionsnotes').is(':checked');
     options.food = $('#rp_optionsfood').is(':checked');
