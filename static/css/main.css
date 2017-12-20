@@ -1,5 +1,5 @@
 
-@import url("//fonts.googleapis.com/css?family=Ubuntu:400,600");
+@import url("//fonts.googleapis.com/css?family=Encode+Sans+Condensed");
 
 @font-face {
   font-family: 'nsicons';
@@ -71,7 +71,7 @@ html, body {
 }
 
 body {
-  font-family: 'Ubuntu', Verdana, Helvetica, Arial, sans-serif;
+  font-family: 'Encode Sans Condensed', 'Ubuntu', Verdana, Helvetica, Arial, sans-serif;
   background: #000;
   color: #bdbdbd;
 }
@@ -104,7 +104,7 @@ a, a:visited, a:link {
 }
 
 .primary {
-  font-family: 'Ubuntu', Verdana, Helvetica, Arial, sans-serif;
+  font-family: 'Encode Sans Condensed', 'Ubuntu', Verdana, Helvetica, Arial, sans-serif;
   vertical-align: middle;
   clear: both;
 }
