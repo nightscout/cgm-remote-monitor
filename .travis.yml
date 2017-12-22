@@ -2,8 +2,8 @@ language: node_js
 sudo: required
 dist: trusty
 node_js:
-  - "8.9.x"
-before_install: if [[ `npm -v` != 5.6.* ]]; then npm i -g npm@5.6.x; fi
+  - "8.9.3"
+before_install: if [[ `npm -v` != 5.6.* ]]; then npm i -g npm@5.6; fi
 matrix:
   fast_finish: true
 services:
