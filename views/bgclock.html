@@ -61,9 +61,11 @@
       $('#arrow').attr('src', 'images/'+rec.direction+'.svg');
       var threshold = 1000 * 60 * 13;
       $('.bgnow').toggleClass('stale', (now - last > threshold));
-
+      
+      var timeDivisor = (window.serverSettings.settings.timeFormat) ? window.serverSettings.settings.timeFormat : 12;
+      
       var today = new Date(),
-            h = today.getHours() % 12 || 12,
+            h = today.getHours() % timeDivisor || timeDivisor,
             m = today.getMinutes();
       if (m < 10) m = "0" + m;
       $('.clock').text(h + ":" + m);

@@ -105,7 +105,7 @@ Community maintained fork of the
 
 Requirements:
 
-- [Node.js](http://nodejs.org/) 8.9.1 LTS (use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or `setup.sh`)
+- [Node.js](http://nodejs.org/) 8.9.0 LTS (use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or `setup.sh`)
 
 Clone this repo then install dependencies into the root of the project:
 
@@ -228,7 +228,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `NIGHT_MODE` (`off`) - possible values `on` or `off`
   * `SHOW_RAWBG` (`never`) - possible values `always`, `never` or `noise`
   * `CUSTOM_TITLE` (`Nightscout`) - Usually name of T1
-  * `THEME` (`default`) - possible values `default` or `colors`
+  * `THEME` (`default`) - possible values `default`, `colors`, or `colorblindfriendly`
   * `ALARM_TIMEAGO_WARN` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
