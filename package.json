@@ -44,7 +44,7 @@
     }
   },
   "engines": {
-    "node": "8.9.x"
+    "node": "8.9.x",
   },
   "dependencies": {
     "async": "^0.9.0",
