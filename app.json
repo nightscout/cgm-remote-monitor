@@ -73,7 +73,7 @@
       "required": false
     },
     "THEME": {
-      "description": "Possible values default, colors or colorblindfriendly",
+      "description": "Possible values default or colors",
       "value": "",
       "required": false
     },
