@@ -13,8 +13,6 @@
 		padding: 0;
 		overflow: hidden;
 		font-family: 'Open Sans';
-	    -webkit-text-stroke-width: 2px;
-	    -webkit-text-stroke-color: white;
 	    
 	}
 	main {
@@ -61,7 +59,7 @@
       var rec = xhr[0];
       var last = new Date(rec.date);
       var now = new Date( );
-      if (window.serverSettings.settings.units == 'mmol') {
+       (window.serverSettings.settings.units == 'mmol') {
         rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
         
       }
