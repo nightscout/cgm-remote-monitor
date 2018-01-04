@@ -29,7 +29,7 @@
       font-size: 100%;
       min-height: 100%;
       background-color: #6441A4;
-      font-family: open sans;
+      font-family: quicksand;
         font-weight: light 300;
       -webkit-text-stroke-width: 1px;
    -webkit-text-stroke-color: White;
@@ -63,9 +63,11 @@
       if (window.serverSettings.settings.units == 'mgdl') {
         rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
       }
+      
       $('.bgnow').text(rec.sgv);
       var threshold = 1000 * 60 * 13;
       $('.bgnow').toggleClass('stale', (now - last > threshold));
+      var '.bgnow' /18
       
   var timeDivisor = (window.serverSettings.settings.timeFormat) ? window.serverSettings.settings.timeFormat : 12;
       
@@ -73,7 +75,7 @@
             h = today.getHours() % timeDivisor || timeDivisor,
             m = today.getMinutes();
       if (m < 10) m = "0" + m;
-      $('.clock').text(h + ":" + m);
+      $('.clock').text(h + 12 ":" + m);
     }
 
     function init ( ) {
