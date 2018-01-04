@@ -29,7 +29,6 @@
     "env": "env",
     "postinstall": "webpack --config webpack.config.js && npm run-script update-buster",
     "bundle": "webpack --config webpack.config.js && npm run-script update-buster",
-    "bower": "node node_modules/bower/bin/bower --allow-root install && ",
     "update-buster": "node bin/generateCacheBuster.js >tmp/cacheBusterToken"
   },
   "config": {
@@ -83,7 +82,7 @@
     "minimed-connect-to-nightscout": "git://github.com/mddub/minimed-connect-to-nightscout.git#v1.1.0",
     "moment": "^2.19.1",
     "moment-timezone": "^0.5.14",
-    "mongodb": "^2.2.33",
+    "mongodb": "^3.0.0",
     "mongomock": "^0.1.2",
     "node-trello": "^1.1.2",
     "mqtt": "^0.3.13",
