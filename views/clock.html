@@ -60,7 +60,7 @@
       var last = new Date(rec.date);
       var now = new Date( );
        if (window.serverSettings.settings.units == 'mgdl') {
-        rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
+        rec.sgv = Nightscout.units.mmoltomgdl(rec.sgv);
         
       }
       $('.bgnow').text(rec.sgv);
