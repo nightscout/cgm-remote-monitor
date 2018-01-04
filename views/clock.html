@@ -59,11 +59,18 @@
       var rec = xhr[0];
       var last = new Date(rec.date);
       var now = new Date( );
-       if (window.serverSettings.settings.units == 'mgdl') {
-        rec.sgv = Nightscout.units.mmoltomgdl(rec.sgv);
-	       rec.sgv = rec.sgv/18;
-	    
+	
+      console.log("=== DATA BEFORE CONVERSION ===");
+      console.log(JSON.stringify(rec));
+	      
+      if (window.serverSettings.settings.units == 'mgdl') {
+      	rec.sgv = Nightscout.units.mmoltomgdl(rec.sgv);
+	rec.sgv = rec.sgv/18;
       }
+	      
+      console.log("=== DATA AFTER CONVERSION ===");
+      console.log(JSON.stringify(rec));
+	      
       $('.bgnow').text(rec.sgv);
       var threshold = 1000 * 60 * 13 / 18;
       $('.bgnow').toggleClass('stale', (now - last > threshold));
