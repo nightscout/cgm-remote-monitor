@@ -10,12 +10,12 @@
 }
   
 @font-face {
-    font-family: "Harabara Bold";
-  src: url("css/fonts/Harabara.eot");
+    font-family: "uni_sans_thin-webfont";
+  src: url("css/fonts/Uni_Sans_Thin.eot");
   src: 
-      url("css/fonts/Harabara.woff") format("woff"),
-      url("css/fonts/Harabara.otf") format("opentype"),
-      url("css/fonts/Harabara.svg#filename") format("svg");
+      url("css/fonts/uni_sans_thin-webfont.woff") format("woff"),
+      url("css/fonts/Uni Sans Thin.otf") format("opentype"),
+      url("css/fonts/Uni_Sans_Thin.svg#filename") format("svg");
 }
 
  [class^="icon-"]:before, [class*=" icon-"]:before {
