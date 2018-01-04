@@ -56,12 +56,13 @@
       $.ajax('/api/v1/entries/current.json', { success: render });
     }
 
-    function render (xhr) {
+      function render (xhr) {
       console.log('xhr', xhr);
       var rec = xhr[0];
       var last = new Date(rec.date);
       var now = new Date( );
-      window.serverSettings.units == 'mmol'
+      if (window.serverSettings.settings.units == 'mmol') {
+        rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
         
       }
       $('.bgnow').text(rec.sgv);
