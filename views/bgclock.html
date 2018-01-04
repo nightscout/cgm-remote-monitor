@@ -60,14 +60,14 @@
       var rec = xhr[0];
       var last = new Date(rec.date);
       var now = new Date( );
-      if (window.serverSettings.settings.units == 'mmol') {
+      if (window.serverSettings.settings.units == 'mgdl') {
         rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
       }
       $('.bgnow').text(rec.sgv);
       var threshold = 1000 * 60 * 13;
       $('.bgnow').toggleClass('stale', (now - last > threshold));
       
-  var timeDivisor = (window.serverSettings.settings.timeFormat) ? window.serverSettings.settings.timeFormat : 24;
+  var timeDivisor = (window.serverSettings.settings.timeFormat) ? window.serverSettings.settings.timeFormat : 12;
       
        var today = new Date(),
             h = today.getHours() % timeDivisor || timeDivisor,
