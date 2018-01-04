@@ -22,8 +22,8 @@ describe('sage', function ( ) {
 
     var data = {
       sensorTreatments: [
-        {eventType: 'Sensor Change', notes: 'Foo', mills: Date.now() - times.days(15).msecs}
-        , {eventType: 'Sensor Start', notes: 'Bar', mills: Date.now() - times.days(3).msecs}
+        {eventType: 'Sensor Change', notes: 'Foo', mills: Date.now() - times.days(2).msecs}
+        , {eventType: 'Sensor Start', notes: 'Bar', mills: Date.now() - times.days(1).msecs}
         ]
     };
 
@@ -31,12 +31,14 @@ describe('sage', function ( ) {
       settings: {}
       , pluginBase: {
         updatePillText: function mockedUpdatePillText(plugin, options) {
-          options.value.should.equal('3d0h');
+        
+          console.log(JSON.stringify(options));
+          options.value.should.equal('1d0h');
           options.info[0].label.should.equal('Sensor Insert');
-          options.info[1].should.match({ label: 'Duration', value: '15 days 0 hours' });
+          options.info[1].should.match({ label: 'Duration', value: '2 days 0 hours' });
           options.info[2].should.match({ label: 'Notes', value: 'Foo' });
           options.info[3].label.should.equal('Sensor Start');
-          options.info[4].should.match({ label: 'Duration', value: '3 days 0 hours' });
+          options.info[4].should.match({ label: 'Duration', value: '1 days 0 hours' });
           options.info[5].should.match({ label: 'Notes', value: 'Bar' });
           done();
         }
