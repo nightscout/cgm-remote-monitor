@@ -59,14 +59,14 @@
       var rec = xhr[0];
       var last = new Date(rec.date);
       var now = new Date( );
-      if (window.serverSettings.settings.units == 'mgdl') {
+      if (window.serverSettings.settings.units == 'mmol') {
         rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
       }
       
       $('.bgnow').text(rec.sgv);
       var threshold = 1000 * 60 * 13;
       $('.bgnow').toggleClass('stale', (now - last > threshold));
-      var '.bgnow' /18
+      
       
    var timeDivisor = (window.serverSettings.settings.timeFormat) ? window.serverSettings.settings.timeFormat : 12;
       
