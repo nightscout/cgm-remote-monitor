@@ -66,7 +66,9 @@
       $('.bgnow').text(rec.sgv);
       var threshold = 1000 * 60 * 13;
       $('.bgnow').toggleClass('stale', (now - last > threshold));
-
+      
+  var timeDivisor = (window.serverSettings.settings.timeFormat) ? window.serverSettings.settings.timeFormat : 24;
+      
        var today = new Date(),
             h = today.getHours() % timeDivisor || timeDivisor,
             m = today.getMinutes();
