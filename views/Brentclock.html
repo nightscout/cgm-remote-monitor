@@ -71,6 +71,7 @@
       var now = new Date( );
       if (window.serverSettings.settings.units == 'mmol') {
         rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
+        var now = xhr / 18
       }
       
       $('.bgnow').text(rec.sgv);
