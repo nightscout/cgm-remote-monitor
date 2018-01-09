@@ -121,7 +121,7 @@ describe('loop', function ( ) {
           options.value.should.equal('1m ago');
           var first = _.first(options.info);
           first.label.should.equal('1m ago');
-          first.value.should.equal('<b>Temp Basal Started</b> 0.88U/hour for 30m, IOB: 0.17U');
+          first.value.should.equal('<b>Temp Basal Started</b> 0.88U/hour for 30m, IOB: 0.17U, Predicted Min-Max BG: 147-149, Eventual BG: 147');
         }
         , addForecastPoints: function mockAddForecastPoints (points) {
           points.length.should.equal(6);
