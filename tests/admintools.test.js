@@ -57,7 +57,7 @@ var someData = {
 
 describe('admintools', function ( ) {
   var self = this;
-  this.timeout(30000); // TODO: see why this test takes longer on Travis to complete
+  this.timeout(30000);
   before(function (done) {
     benv.setup(function() {
 
