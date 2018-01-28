@@ -3,6 +3,8 @@ const webpack = require('webpack');
 
 var pluginArray = [];
 
+var sourceMapType = 'source-map';
+
 if (process.env.NODE_ENV !== 'development') {
 
     console.log('Production environment detected, enabling UglifyJsPlugin');
@@ -14,17 +16,14 @@ if (process.env.NODE_ENV !== 'development') {
         output: {
             comments: false
         }
+        , sourceMap: true
     });
 
     pluginArray.push(uglify);
 
-}
-
-if (process.env.NODE_ENV === 'development') {
-
-
+/*
     console.log('Development environment detected, enabling Bundle Analyzer');
-
+    
     var BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
     pluginArray.push(new BundleAnalyzerPlugin({
@@ -58,6 +57,7 @@ if (process.env.NODE_ENV === 'development') {
         // Log level. Can be 'info', 'warn', 'error' or 'silent'. 
         logLevel: 'info'
     }));
+*/
 
 }
 
@@ -78,9 +78,10 @@ module.exports = {
     output: {
         path: path.resolve(__dirname, './tmp'),
         publicPath: '/',
-        filename: 'js/bundle.js'
+        filename: 'js/bundle.js',
+        sourceMapFilename: "js/bundle.js.map",
     },
-    devtool: "#inline-source-map",
+    devtool: sourceMapType,
     plugins: pluginArray,
     module: {
         rules: [{
