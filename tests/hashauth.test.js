@@ -6,6 +6,8 @@ var read = require('fs').readFileSync;
 var serverSettings = require('./fixtures/default-server-settings');
 
 describe('hashauth', function ( ) {
+  this.timeout(40000); // TODO: see why this test takes longer on Travis to complete
+
   var self = this;
   var headless = require('./fixtures/headless')(benv, this);
 
@@ -63,7 +65,6 @@ describe('hashauth', function ( ) {
   */
 
   it ('should make module unauthorized', function () {
-     this.timeout(50000);
     var client = require('../lib/client');
     var hashauth = require('../lib/hashauth');
     
@@ -82,7 +83,6 @@ describe('hashauth', function ( ) {
   });
 
   it ('should make module authorized', function () {
-    this.timeout(50000);
     var client = require('../lib/client');
     var hashauth = require('../lib/hashauth');
     
@@ -99,9 +99,6 @@ describe('hashauth', function ( ) {
   });
 
   it ('should store hash and the remove authentication', function () {
-
-    this.timeout(50000);
-
     var client = require('../lib/client');
     var hashauth = require('../lib/hashauth');
     var localStorage = require('./fixtures/localstorage');   
