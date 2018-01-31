@@ -21,11 +21,7 @@ if (process.env.NODE_ENV !== 'development') {
 
     pluginArray.push(uglify);
 
-}
-
-if (process.env.NODE_ENV === 'development') {
-
-
+/*
     console.log('Development environment detected, enabling Bundle Analyzer');
     
     var BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
@@ -61,6 +57,7 @@ if (process.env.NODE_ENV === 'development') {
         // Log level. Can be 'info', 'warn', 'error' or 'silent'. 
         logLevel: 'info'
     }));
+*/
 
 }
 
