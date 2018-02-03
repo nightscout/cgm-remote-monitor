@@ -105,7 +105,7 @@ Community maintained fork of the
 
 Requirements:
 
-- [Node.js](http://nodejs.org/)
+- [Node.js](http://nodejs.org/) 8.9.0 LTS (use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or `setup.sh`)
 
 Clone this repo then install dependencies into the root of the project:
 
@@ -113,7 +113,7 @@ Clone this repo then install dependencies into the root of the project:
 $ npm install
 ```
 
-If deploying the software to Microsoft Azure, you must set *WEBSITE_NODE_DEFAULT_VERSION* in the app settings to *8.5.0* or the site deployment will fail. Other hosting environments do not require this setting.
+If deploying the software to Microsoft Azure, you must set *WEBSITE_NODE_DEFAULT_VERSION* in the app settings to *8.9.0* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting.
 
 # Usage
 
@@ -121,8 +121,8 @@ The data being uploaded from the server to the client is from a
 MongoDB server such as [mongolab][mongodb].
 
 [mongodb]: https://mongolab.com
-[autoconfigure]: http://nightscout.github.io/pages/configure/
-[mongostring]: http://nightscout.github.io/pages/mongostring/
+[autoconfigure]: https://nightscout.github.io/pages/configure/
+[mongostring]: https://nightscout.github.io/pages/mongostring/
 [update-fork]: http://nightscout.github.io/pages/update-fork/
 
 ## Updating my version?
@@ -228,7 +228,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `NIGHT_MODE` (`off`) - possible values `on` or `off`
   * `SHOW_RAWBG` (`never`) - possible values `always`, `never` or `noise`
   * `CUSTOM_TITLE` (`Nightscout`) - Usually name of T1
-  * `THEME` (`default`) - possible values `default` or `colors`
+  * `THEME` (`default`) - possible values `default`, `colors`, or `colorblindfriendly`
   * `ALARM_TIMEAGO_WARN` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
@@ -377,7 +377,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Generic Pump Monitoring for OpenAPS, MiniMed Connect, RileyLink, t:slim, with more on the way
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set
   * `PUMP_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications for Pump battery and reservoir.
-  * `PUMP_WARNONSUSPEND` (`false`) - Set to `true` to get an alarm when the pump is suspended.
+  * `PUMP_WARN_ON_SUSPEND` (`false`) - Set to `true` to get an alarm when the pump is suspended.
   * `PUMP_FIELDS` (`reservoir battery`) - The fields to display by default.  Any of the following fields: `reservoir`, `battery`, `clock`, `status`, and `device`
   * `PUMP_RETRO_FIELDS` (`reservoir battery clock`) - The fields to display in retro mode. Any of the above fields.
   * `PUMP_WARN_CLOCK` (`30`) - The number of minutes ago that needs to be exceed before an alert is triggered.

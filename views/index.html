@@ -148,6 +148,7 @@
                     </div>
                 </div>
                 <ul class="focus-range">
+                    <li data-hours="2" class="translate">2HR</li>
                     <li data-hours="3" class="translate">3HR</li>
                     <li data-hours="6" class="translate">6HR</li>
                     <li data-hours="12" class="translate">12HR</li>
@@ -168,6 +169,7 @@
                   <li class="profilecontrol"><a id="editprofilelink" href="profile" target="profileeditor" class="translate">Profile Editor</a></li>
                   <li class="foodcontrol"><a id="editfoodlink" href="food" target="foodeditor" class="translate">Food Editor</a></li>
                   <li><a id="admintoolslink" href="admin" target="admintools" class="translate">Admin Tools</a></li>
+                  <li><a id="clocklink" href="bgclock.html" target="admintools" class="translate">Clock View</a></li>
                 </ul>
                 <fieldset class="browserSettings">
                     <legend class="translate icon-cog">Settings</legend>
@@ -273,6 +275,7 @@
                     </p>
                     <div class="links">
                         <a href="https://github.com/nightscout/cgm-remote-monitor/releases" target="_blank">Release Notes</a><br />
+                        <a href="http://nightscout.github.io/pages/update-fork/">Check for Updates</a><br />
                         <a href="http://github.com/nightscout/cgm-remote-monitor" target="_blank">Open Source</a><br />
                         <a href="http://www.nightscout.info" target="_blank">Nightscout Info</a><br />
                         <a href="https://www.facebook.com/groups/cgminthecloud/" target="_blank">CGM in the Cloud</a><br />
@@ -339,7 +342,7 @@
                     </label>
                     <label id="percentLabel" for="percent" class="left-column short-label">
                         <span class="translate">Percent</span>
-                        <input type="number" step="10" id="percent" placeholder="Basal change in %" class="titletranslate" pattern="\d*" />
+                        <input type="number" step="10" id="percent" placeholder="Basal change in %" class="titletranslate" />
                     </label>
                     <label id="profileLabel" for="profile" class="left-column short-label">
                         <span class="translate">Profile</span>
