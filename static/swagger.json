@@ -16,7 +16,9 @@
   },
   "security": [
     {
-      "api_secret": []
+      "api_secret": [],
+      "token_in_url": [],
+      "jwtoken": []
     }
   ],
   "paths": {

@@ -10,6 +10,8 @@ info:
     url: 'https://www.gnu.org/licenses/agpl.txt'
 security:
   - api_secret: []
+    token_in_url: []
+    jwtoken: []
 paths:
   '/entries/{spec}':
     get:
