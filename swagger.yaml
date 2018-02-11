@@ -490,7 +490,7 @@ components:
       in: header
       description: The hash of the API_SECRET env var
     token_in_url:
-      type: http
+      type: apiKey
       name: token
       in: query
       description: Add token as query item in the URL. You can manage access Token in `/admin`. This uses json webtokens.
