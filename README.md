@@ -58,6 +58,7 @@ Community maintained fork of the
     - [Alarms](#alarms)
     - [Core](#core)
     - [Predefined values for your browser settings (optional)](#predefined-values-for-your-browser-settings-optional)
+    - [Views](#views)
     - [Plugins](#plugins)
       - [Default Plugins](#default-plugins)
         - [`delta` (BG Delta)](#delta-bg-delta)
@@ -242,6 +243,13 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * The `linear` option has equidistant tick marks, the range used is dynamic so that space at the top of chart isn't wasted.
     * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale.
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enable or disable icon allowing enter treatments edit mode
+
+### Views
+
+  There are a few alternate web views available that display a simplified BG stream. Append any of these to your Nightscout URL:
+  * `/clock.html` - Shows current BG. Grey text on a black background.
+  * `/bgclock.html` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
+  * `/clock-color.html` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
 
 ### Plugins
 
