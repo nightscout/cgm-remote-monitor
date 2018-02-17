@@ -67,6 +67,7 @@
     "express-minify": "^0.2.0",
     "file-loader": "^1.1.6",
     "flot": "^0.8.0-alpha",
+    "forever": "^0.15.3",
     "jquery": "^2.2.4",
     "jquery-ui-bundle": "^1.12.1",
     "jquery.tipsy": "^1.0.3",
