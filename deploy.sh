@@ -99,7 +99,6 @@ selectNodeVersion () {
 # ----------
 
 echo Handling node.js deployment.
-echo "\"$SCM_COMMIT_ID\"" > $DEPLOYMENT_SOURCE/scm-commit-id.json
 
 # 1. KuduSync
 if [[ "$IN_PLACE_DEPLOYMENT" -ne "1" ]]; then
