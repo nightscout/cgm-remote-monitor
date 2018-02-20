@@ -446,7 +446,7 @@
         if (options.order === report_plugins.consts.ORDER_NEWESTONTOP) {
           sorteddaystoshow.reverse();
         }
-        loadProfileSwitch(from, function loadProfileSwitchCallback() {
+        loadProfileSwitch(function loadProfileSwitchCallback() {
           loadProfiles(function loadProfilesCallback() {
             $('#info > b').html('<b>' + translate('Rendering') + ' ...</b>');
             window.setTimeout(function () {
@@ -629,8 +629,6 @@
     }
 
     function loadTreatmentData() {
-      if (!datastorage.profileSwitchTreatments)
-        datastorage.profileSwitchTreatments = [];
       $('#info-' + day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
       var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
       return $.ajax('/api/v1/treatments.json'+tquery, {
@@ -651,11 +649,6 @@
           data.tempbasalTreatments = data.treatments.filter(function filterTempBasals(t) {
             return t.eventType === 'Temp Basal';
           });
-          // filter profile switch treatments
-          var profileSwitch = data.treatments.filter(function filterProfileSwitch(t) {
-            return t.eventType === 'Profile Switch';
-          });
-          datastorage.profileSwitchTreatments = datastorage.profileSwitchTreatments.concat(profileSwitch);
         }
       });
     }
@@ -689,9 +682,9 @@
     });
   }
 
-  function loadProfileSwitch(from, callback) {
+  function loadProfileSwitch(callback) {
     $('#info > b').html('<b>'+translate('Loading profile switch data') + ' ...</b>');
-    var tquery = '?find[eventType]=Profile Switch' + '&find[created_at][$lte]=' + new Date(from).toISOString() + '&count=1';
+    var tquery = '?find[eventType]=Profile Switch';
     $.ajax('/api/v1/treatments.json'+tquery, {
       headers: client.headers()
       , success: function (xhr) {
@@ -700,9 +693,7 @@
           treatment.mills = timestamp.getTime();
           return treatment;
         });
-        if (!datastorage.profileSwitchTreatments)
-          datastorage.profileSwitchTreatments = [];
-        datastorage.profileSwitchTreatments = datastorage.profileSwitchTreatments.concat(treatmentData);
+        datastorage.profileSwitchTreatments = treatmentData.slice();
         datastorage.profileSwitchTreatments.sort(function(a, b) { return a.mills - b.mills; });
       }
     }).done(function () {
