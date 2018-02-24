@@ -79,17 +79,6 @@ function setAPISecret() {
 
 function setVersion() {
   var software = require('./package.json');
-  var git = require('git-rev');
-
-  if (readENV('APPSETTING_ScmType') === readENV('ScmType') && readENV('ScmType') === 'GitHub') {
-    env.head = require('./scm-commit-id.json');
-    console.log('SCM COMMIT ID', env.head);
-  } else {
-    git.short(function record_git_head(head) {
-      console.log('GIT HEAD', head);
-      env.head = head || readENV('SCM_COMMIT_ID') || readENV('COMMIT_HASH', '');
-    });
-  }
   env.version = software.version;
   env.name = software.name;
 }

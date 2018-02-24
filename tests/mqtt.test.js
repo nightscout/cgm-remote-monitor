@@ -25,7 +25,7 @@ describe('mqtt', function ( ) {
       self.results.write(data);
       setTimeout(fn, 5);
     }
-    self.mqtt = require('../lib/mqtt')(self.env, {entries: { persist: outputs, create: written }, devicestatus: { create: written } });
+    self.mqtt = require('../lib/server/mqtt')(self.env, {entries: { persist: outputs, create: written }, devicestatus: { create: written } });
   });
 
   after(function () {
