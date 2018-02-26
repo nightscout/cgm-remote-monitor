@@ -1,7 +1,7 @@
 import '../static/css/drawer.css';
 import '../static/css/dropdown.css';
 import '../static/css/sgv.css';
-import '../node_modules/jquery.tooltips/jquery.tooltips.css';
+import '../node_modules/jquery.tooltips/css/jquery.tooltips.css';
 
 
 $ = require("jquery");
