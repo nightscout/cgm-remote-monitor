@@ -4,6 +4,9 @@ sudo rm -rf /usr/local/lib/node*
 sudo rm -rf /usr/local/include/node*
 sudo rm -rf /usr/local/bin/node*
 sudo apt-get autoremove
+apt-get install -y nodejs
+npm install
+apt-get autoremove
 
 
 curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -
