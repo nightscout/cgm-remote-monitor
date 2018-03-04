@@ -68,8 +68,8 @@
     "file-loader": "^1.1.11",
     "flot": "^0.8.0-alpha",
     "forever": "^0.15.3",
-    "jquery": "^2.2.4",
-    "jquery-ui-bundle": "^1.12.1",
+    "jquery": "^3.3.1",
+    "jquery-ui-bundle": "^1.12.1-migrate",
     "jquery.tipsy": "^1.0.3",
     "js-storage": "^1.0.4",
     "jsonwebtoken": "^8.2.0",
@@ -90,12 +90,12 @@
     "sgvdata": "git://github.com/ktind/sgvdata.git#wip/protobuf",
     "share2nightscout-bridge": "git://github.com/bewest/share2nightscout-bridge.git#wip/generalize",
     "shiro-trie": "^0.3.13",
-    "simple-statistics": "^0.7.0",
+    "simple-statistics": "^5.2.1",
     "socket.io": "^2.0.4",
     "style-loader": "^0.20.2",
     "traverse": "^0.6.6",
-    "uglify-js": "^3.3.12",
-    "webpack": "^4.0.1"
+    "uglify-js": "^3.3.13",
+    "webpack": "^4.1.0"
   },
   "devDependencies": {
     "benv": "3.3.0",
