@@ -286,9 +286,9 @@
       "dev": true
     },
     "async": {
-      "version": "1.5.2",
-      "resolved": "https://registry.npmjs.org/async/-/async-1.5.2.tgz",
-      "integrity": "sha1-7GphrlZIDAw8skHJVhjiCJL5Zyo="
+      "version": "0.9.2",
+      "resolved": "https://registry.npmjs.org/async/-/async-0.9.2.tgz",
+      "integrity": "sha1-rqdNXmHB+JlhO/ZL2mbUx48v0X0="
     },
     "async-each": {
       "version": "1.0.1",
@@ -8636,11 +8636,6 @@
         "request": "2.53.0"
       },
       "dependencies": {
-        "async": {
-          "version": "0.9.2",
-          "resolved": "https://registry.npmjs.org/async/-/async-0.9.2.tgz",
-          "integrity": "sha1-rqdNXmHB+JlhO/ZL2mbUx48v0X0="
-        },
         "bl": {
           "version": "0.9.5",
           "resolved": "https://registry.npmjs.org/bl/-/bl-0.9.5.tgz",
