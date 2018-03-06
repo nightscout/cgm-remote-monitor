@@ -58,6 +58,7 @@ Community maintained fork of the
     - [Alarms](#alarms)
     - [Core](#core)
     - [Predefined values for your browser settings (optional)](#predefined-values-for-your-browser-settings-optional)
+    - [Views](#views)
     - [Plugins](#plugins)
       - [Default Plugins](#default-plugins)
         - [`delta` (BG Delta)](#delta-bg-delta)
@@ -105,7 +106,7 @@ Community maintained fork of the
 
 Requirements:
 
-- [Node.js](http://nodejs.org/)
+- [Node.js](http://nodejs.org/) 8.9.0 LTS (use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or `setup.sh`)
 
 Clone this repo then install dependencies into the root of the project:
 
@@ -113,14 +114,16 @@ Clone this repo then install dependencies into the root of the project:
 $ npm install
 ```
 
-#Usage
+If deploying the software to Microsoft Azure, you must set *WEBSITE_NODE_DEFAULT_VERSION* in the app settings to *8.9.0* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting.
+
+# Usage
 
 The data being uploaded from the server to the client is from a
 MongoDB server such as [mongolab][mongodb].
 
 [mongodb]: https://mongolab.com
-[autoconfigure]: http://nightscout.github.io/pages/configure/
-[mongostring]: http://nightscout.github.io/pages/mongostring/
+[autoconfigure]: https://nightscout.github.io/pages/configure/
+[mongostring]: https://nightscout.github.io/pages/mongostring/
 [update-fork]: http://nightscout.github.io/pages/update-fork/
 
 ## Updating my version?
@@ -218,6 +221,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js
   * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
+  * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
 
 
 ### Predefined values for your browser settings (optional)
@@ -225,7 +229,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `NIGHT_MODE` (`off`) - possible values `on` or `off`
   * `SHOW_RAWBG` (`never`) - possible values `always`, `never` or `noise`
   * `CUSTOM_TITLE` (`Nightscout`) - Usually name of T1
-  * `THEME` (`default`) - possible values `default` or `colors`
+  * `THEME` (`default`) - possible values `default`, `colors`, or `colorblindfriendly`
   * `ALARM_TIMEAGO_WARN` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
@@ -238,6 +242,13 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * The `linear` option has equidistant tick marks, the range used is dynamic so that space at the top of chart isn't wasted.
     * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale.
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enable or disable icon allowing enter treatments edit mode
+
+### Views
+
+  There are a few alternate web views available that display a simplified BG stream. Append any of these to your Nightscout URL:
+  * `/clock.html` - Shows current BG. Grey text on a black background.
+  * `/bgclock.html` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
+  * `/clock-color.html` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
 
 ### Plugins
 
@@ -374,6 +385,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Generic Pump Monitoring for OpenAPS, MiniMed Connect, RileyLink, t:slim, with more on the way
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set
   * `PUMP_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications for Pump battery and reservoir.
+  * `PUMP_WARN_ON_SUSPEND` (`false`) - Set to `true` to get an alarm when the pump is suspended.
   * `PUMP_FIELDS` (`reservoir battery`) - The fields to display by default.  Any of the following fields: `reservoir`, `battery`, `clock`, `status`, and `device`
   * `PUMP_RETRO_FIELDS` (`reservoir battery clock`) - The fields to display in retro mode. Any of the above fields.
   * `PUMP_WARN_CLOCK` (`30`) - The number of minutes ago that needs to be exceed before an alert is triggered.
@@ -492,7 +504,7 @@ Easy to emulate on the commandline:
 
 From now on you can run using
 ```bash
-    $ env $(cat my.env) PORT=1337 node server.js
+    $ (eval $(cat my.env | sed 's/^/export /') && PORT=1337 node server.js)
 ```
 
 Your hosting provider probably has a way to set these through their GUI.
@@ -532,7 +544,9 @@ License
 [agpl-3]: http://www.gnu.org/licenses/agpl-3.0.txt
 
     cgm-remote-monitor - web app to broadcast cgm readings
-    Copyright (C) 2015 The Nightscout Foundation, http://www.nightscoutfoundation.org.
+    Copyright (C) 2017 Nightscout contributors.  See the COPYRIGHT file
+    at the root directory of this distribution and at
+    https://github.com/nightscout/cgm-remote-monitor/blob/master/COPYRIGHT
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published

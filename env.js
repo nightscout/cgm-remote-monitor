@@ -20,6 +20,9 @@ function config ( ) {
   env.HOSTNAME = readENV('HOSTNAME', null);
   env.IMPORT_CONFIG = readENV('IMPORT_CONFIG', null);
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
+  env.debug = {
+    minify: readENVTruthy('DEBUG_MINIFY', true)
+  };
 
   if (env.err) {
     delete env.err;
@@ -76,17 +79,6 @@ function setAPISecret() {
 
 function setVersion() {
   var software = require('./package.json');
-  var git = require('git-rev');
-
-  if (readENV('APPSETTING_ScmType') === readENV('ScmType') && readENV('ScmType') === 'GitHub') {
-    env.head = require('./scm-commit-id.json');
-    console.log('SCM COMMIT ID', env.head);
-  } else {
-    git.short(function record_git_head(head) {
-      console.log('GIT HEAD', head);
-      env.head = head || readENV('SCM_COMMIT_ID') || readENV('COMMIT_HASH', '');
-    });
-  }
   env.version = software.version;
   env.name = software.name;
 }
