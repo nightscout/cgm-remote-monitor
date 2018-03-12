@@ -18,11 +18,7 @@ function config ( ) {
   env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
   env.PORT = readENV('PORT', 1337);
   env.HOSTNAME = readENV('HOSTNAME', null);
-  env.IMPORT_CONFIG = readENV('IMPORT_CONFIG', null);
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
-  env.debug = {
-    minify: readENVTruthy('DEBUG_MINIFY', true)
-  };
 
   if (env.err) {
     delete env.err;
@@ -31,7 +27,7 @@ function config ( ) {
   setSSL();
   setAPISecret();
   setVersion();
-  setStorage();
+  setMongo();
   updateSettings();
 
   return env;
@@ -94,12 +90,12 @@ function setVersion() {
   env.name = software.name;
 }
 
-function setStorage() {
-  env.storageURI = readENV('STORAGE_URI') || readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI') || readENV('MONGODB_URI');
-  env.entries_collection = readENV('ENTRIES_COLLECTION') || readENV('MONGO_COLLECTION', 'entries');
+function setMongo() {
+  env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI') || readENV('MONGODB_URI');
+  env.mongo_collection = readENV('MONGO_COLLECTION', 'entries');
   env.MQTT_MONITOR = readENV('MQTT_MONITOR', null);
   if (env.MQTT_MONITOR) {
-    var hostDbCollection = [env.storageURI.split('mongodb://').pop().split('@').pop(), env.entries_collection].join('/');
+    var hostDbCollection = [env.mongo.split('mongodb://').pop().split('@').pop(), env.mongo_collection].join('/');
     var mongoHash = crypto.createHash('sha1');
     mongoHash.update(hostDbCollection);
     //some MQTT servers only allow the client id to be 23 chars
@@ -121,10 +117,10 @@ function setStorage() {
   // Some people prefer to use a json configuration file instead.
   // This allows a provided json config to override environment variables
   var DB = require('./database_configuration.json'),
-    DB_URL = DB.url ? DB.url : env.storageURI,
-    DB_COLLECTION = DB.collection ? DB.collection : env.entries_collection;
-  env.storageURI = DB_URL;
-  env.entries_collection = DB_COLLECTION;
+    DB_URL = DB.url ? DB.url : env.mongo,
+    DB_COLLECTION = DB.collection ? DB.collection : env.mongo_collection;
+  env.mongo = DB_URL;
+  env.mongo_collection = DB_COLLECTION;
 }
 
 function updateSettings() {

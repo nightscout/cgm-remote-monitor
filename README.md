@@ -87,8 +87,6 @@ Community maintained fork of the
         - [`pump` (Pump Monitoring)](#pump-pump-monitoring)
         - [`openaps` (OpenAPS)](#openaps-openaps)
         - [`loop` (Loop)](#loop-loop)
-        - [`alexa` (Amazon Alexa)](#alexa-amazon-alexa)
-        - [`cors` (CORS)](#cors-cors)
       - [Extended Settings](#extended-settings)
       - [Pushover](#pushover)
       - [IFTTT Maker](#ifttt-maker)
@@ -105,7 +103,7 @@ Community maintained fork of the
 
 Requirements:
 
-- [Node.js](http://nodejs.org/) 8.9.0 LTS (use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or `setup.sh`)
+- [Node.js](http://nodejs.org/)
 
 Clone this repo then install dependencies into the root of the project:
 
@@ -113,16 +111,14 @@ Clone this repo then install dependencies into the root of the project:
 $ npm install
 ```
 
-If deploying the software to Microsoft Azure, you must set *WEBSITE_NODE_DEFAULT_VERSION* in the app settings to *8.9.0* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting.
-
-# Usage
+#Usage
 
 The data being uploaded from the server to the client is from a
 MongoDB server such as [mongolab][mongodb].
 
 [mongodb]: https://mongolab.com
-[autoconfigure]: https://nightscout.github.io/pages/configure/
-[mongostring]: https://nightscout.github.io/pages/mongostring/
+[autoconfigure]: http://nightscout.github.io/pages/configure/
+[mongostring]: http://nightscout.github.io/pages/mongostring/
 [update-fork]: http://nightscout.github.io/pages/update-fork/
 
 ## Updating my version?
@@ -155,7 +151,6 @@ You can get many more results, by using the `count`, `date`, `dateString`, and `
 (replace `http://localhost:1337` with your base url, YOUR-SITE)
 
   * 100's: `http://localhost:1337/api/v1/entries.json?find[sgv]=100`
-  * Count of 100's in a month: `http://localhost:1337/api/v1/count/entries/where?find[dateString][$gte]=2016-09&find[dateString][$lte]=2016-10&find[sgv]=100`
   * BGs between 2 days: `http://localhost:1337/api/v1/entries/sgv.json?find[dateString][$gte]=2015-08-28&find[dateString][$lte]=2015-08-30`
   * Juice Box corrections in a year: `http://localhost:1337/api/v1/treatments.json?count=1000&find[carbs]=15&find[eventType]=Carb+Correction&find[created_at][$gte]=2015`
   * Boluses over 2U: `http://localhost:1337/api/v1/treatments.json?find[insulin][$gte]=2`
@@ -182,7 +177,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `AUTH_DEFAULT_ROLES` (`readable`) - possible values `readable`, `denied`, or any valid role
     name.  When `readable`, anyone can view Nightscout without a token.
     Setting it to `denied` will require a token from every visit, using `status-only` will enable api-secret based login.
-  * `IMPORT_CONFIG` - Used to import settings and extended settings from a url such as a gist.  Structure of file should be something like: `{"settings": {"theme": "colors"}, "extendedSettings": {"upbat": {"enableAlerts": true}}}`
   * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. Deprecated, if set to `off` the `careportal` role will be added to `AUTH_DEFAULT_ROLES`
 
 
@@ -220,7 +214,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js
   * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
-  * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
 
 
 ### Predefined values for your browser settings (optional)
@@ -377,7 +370,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Generic Pump Monitoring for OpenAPS, MiniMed Connect, RileyLink, t:slim, with more on the way
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set
   * `PUMP_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications for Pump battery and reservoir.
-  * `PUMP_WARNONSUSPEND` (`false`) - Set to `true` to get an alarm when the pump is suspended.
   * `PUMP_FIELDS` (`reservoir battery`) - The fields to display by default.  Any of the following fields: `reservoir`, `battery`, `clock`, `status`, and `device`
   * `PUMP_RETRO_FIELDS` (`reservoir battery clock`) - The fields to display in retro mode. Any of the above fields.
   * `PUMP_WARN_CLOCK` (`30`) - The number of minutes ago that needs to be exceed before an alert is triggered.
@@ -408,12 +400,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `LOOP_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceeded before an urgent alarm is triggered
   * Add `loop` to `SHOW_FORECAST` to show forecasted BG.
 
-##### `alexa` (Amazon Alexa)
-  Integration with Amazon Alexa, [detailed setup instructions](lib/plugins/alexa-plugin.md)
-
-##### `cors` (CORS)
-  Enabled [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) so other websites can make request to your Nightscout site, uses these extended settings:
-  * `CORS_ALLOW_ORIGIN` (`*`) - The list of sites that are allow to make requests
 
 #### Extended Settings
   Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
@@ -496,7 +482,7 @@ Easy to emulate on the commandline:
 
 From now on you can run using
 ```bash
-    $ (eval $(cat my.env | sed 's/^/export /') && PORT=1337 node server.js)
+    $ env $(cat my.env) PORT=1337 node server.js
 ```
 
 Your hosting provider probably has a way to set these through their GUI.
@@ -536,9 +522,7 @@ License
 [agpl-3]: http://www.gnu.org/licenses/agpl-3.0.txt
 
     cgm-remote-monitor - web app to broadcast cgm readings
-    Copyright (C) 2017 Nightscout contributors.  See the COPYRIGHT file
-    at the root directory of this distribution and at
-    https://github.com/nightscout/cgm-remote-monitor/blob/master/COPYRIGHT
+    Copyright (C) 2015 The Nightscout Foundation, http://www.nightscoutfoundation.org.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published

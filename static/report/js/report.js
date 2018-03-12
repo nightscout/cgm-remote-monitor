@@ -12,7 +12,7 @@
   var client = Nightscout.client;
   var report_plugins = Nightscout.report_plugins;
 
-  client.init(function loaded () {
+  client.init(Nightscout.plugins, function loaded () {
 
   // init HTML code
   report_plugins.addHtmlFromPlugins( client );
@@ -223,7 +223,6 @@
     options.notes = $('#rp_optionsnotes').is(':checked');
     options.food = $('#rp_optionsfood').is(':checked');
     options.insulin = $('#rp_optionsinsulin').is(':checked');
-    options.insulindistribution = $('#rp_optionsdistribution').is(':checked');
     options.carbs = $('#rp_optionscarbs').is(':checked');
     options.scale = ( $('#rp_linear').is(':checked') ? report_plugins.consts.SCALE_LINEAR : report_plugins.consts.SCALE_LOG );
     options.order = ( $('#rp_oldestontop').is(':checked') ? report_plugins.consts.ORDER_OLDESTONTOP : report_plugins.consts.ORDER_NEWESTONTOP );
@@ -447,13 +446,9 @@
           sorteddaystoshow.reverse();
         }
         loadProfileSwitch(from, function loadProfileSwitchCallback() {
-          loadProfiles(function loadProfilesCallback() {
-            $('#info > b').html('<b>' + translate('Rendering') + ' ...</b>');
-            window.setTimeout(function () {
-              showreports(options);
-            }, 0);
+          $('#info > b').html('<b>'+translate('Rendering')+' ...</b>');
+          window.setTimeout(function () {showreports(options); }, 0);
           });
-        });
       }
     }
     
@@ -488,8 +483,6 @@
       datastorage.combobolusTreatments = datastorage.combobolusTreatments.concat(datastorage[day].combobolusTreatments);
       datastorage.tempbasalTreatments = datastorage.tempbasalTreatments.concat(datastorage[day].tempbasalTreatments);
     });
-    datastorage.tempbasalTreatments = Nightscout.client.ddata.processDurations(datastorage.tempbasalTreatments);
-    datastorage.treatments.sort(function sort(a, b) {return a.mills - b.mills; });
     
      for (var d in daystoshow) {
         if (daystoshow.hasOwnProperty(d)) {
@@ -545,7 +538,7 @@
   
   function loadData(day, options, callback) {
     // check for loaded data
-    if ((options.openAps || options.iob || options.cob) && datastorage[day] && !datastorage[day].devicestatus.length) {
+    if (options.openAps && datastorage[day] && !datastorage[day].devicestatus) {
       // OpenAPS requested but data not loaded. Load anyway ...
     } else if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
       callback(day);
@@ -602,7 +595,7 @@
                 });
               } else if (element.type === 'cal') {
                 calData.push({
-                  mills: element.date + 1
+                  mills: element.date
                   , d: element.dateString
                   , scale: element.scale
                   , intercept: element.intercept
@@ -629,8 +622,6 @@
     }
 
     function loadTreatmentData() {
-      if (!datastorage.profileSwitchTreatments)
-        datastorage.profileSwitchTreatments = [];
       $('#info-' + day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
       var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
       return $.ajax('/api/v1/treatments.json'+tquery, {
@@ -651,11 +642,6 @@
           data.tempbasalTreatments = data.treatments.filter(function filterTempBasals(t) {
             return t.eventType === 'Temp Basal';
           });
-          // filter profile switch treatments
-          var profileSwitch = data.treatments.filter(function filterProfileSwitch(t) {
-            return t.eventType === 'Profile Switch';
-          });
-          datastorage.profileSwitchTreatments = datastorage.profileSwitchTreatments.concat(profileSwitch);
         }
       });
     }
@@ -691,7 +677,7 @@
 
   function loadProfileSwitch(from, callback) {
     $('#info > b').html('<b>'+translate('Loading profile switch data') + ' ...</b>');
-    var tquery = '?find[eventType]=Profile Switch' + '&find[created_at][$lte]=' + new Date(from).toISOString() + '&count=1';
+    var tquery = '?find[eventType]=Profile Switch';
     $.ajax('/api/v1/treatments.json'+tquery, {
       headers: client.headers()
       , success: function (xhr) {
@@ -700,30 +686,14 @@
           treatment.mills = timestamp.getTime();
           return treatment;
         });
-        if (!datastorage.profileSwitchTreatments)
-          datastorage.profileSwitchTreatments = [];
-        datastorage.profileSwitchTreatments = datastorage.profileSwitchTreatments.concat(treatmentData);
+        datastorage.profileSwitchTreatments = treatmentData.slice();
         datastorage.profileSwitchTreatments.sort(function(a, b) { return a.mills - b.mills; });
       }
     }).done(function () {
       callback();
     });
   }
-
-  function loadProfiles(callback) {
-    $('#info > b').html('<b>'+translate('Loading profiles') + ' ...</b>');
-    $.ajax('/api/v1/profile.json', {
-      headers: client.headers()
-      , success: function (records) {
-        datastorage.profiles = records;
-      }
-      , error: function () {
-       datastorage.profiles = [];
-      }
-    }).done(callback);
-  }
-
-
+  
   function processData(data, day, options, callback) {
     if (daystoshow[day].treatmentsonly) {
       datastorage[day] = data;
@@ -750,7 +720,7 @@
 
     var cal = data.cal[data.cal.length-1];
     var temp1 = [ ];
-    var rawbg = client.rawbg;
+    var rawbg = Nightscout.plugins('rawbg');
     if (cal) {
       temp1 = data.sgv.map(function (entry) {
         entry.mgdl = entry.y; // value names changed from enchilada
