@@ -18,7 +18,11 @@ function config ( ) {
   env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
   env.PORT = readENV('PORT', 1337);
   env.HOSTNAME = readENV('HOSTNAME', null);
+  env.IMPORT_CONFIG = readENV('IMPORT_CONFIG', null);
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
+  env.debug = {
+    minify: readENVTruthy('DEBUG_MINIFY', true)
+  };
 
   if (env.err) {
     delete env.err;

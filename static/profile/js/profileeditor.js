@@ -88,7 +88,7 @@
         records.push(defaultprofile);
       }
       client.profilefunctions.loadData(records); // do a conversion if needed
-      mongorecords = client.profilefunctions.data;
+      mongorecords = _.cloneDeep(client.profilefunctions.data);
       // create new profile to be edited from last record
       if (mongorecords.length) {
         _.each(mongorecords, function eachMongoProfile (mongoprofile) {
@@ -199,6 +199,28 @@
     initProfile();
   }
 
+  function timeDiffMinutes(time1, time2)
+  {
+    var minutes1 = toMinutesFromMidnight(time1);
+    var minutes2 = toMinutesFromMidnight(time2);
+    if (minutes2 <= minutes1) {
+      minutes2 += 24*60;
+    }
+    return minutes2-minutes1;
+  }
+  function refreshTotalBasal()
+  {
+    GUIToObject();
+    var total = 0;
+    for (var i=0, len=c_profile['basal'].length; i<len; i++) {
+      var time1 = c_profile['basal'][i].time;
+      var time2 = c_profile['basal'][(i+1)%len].time;
+      var value = c_profile['basal'][i].value;
+      total += timeDiffMinutes(time1,time2) * value / 60
+    }
+    $('#pe_basalTotal_placeholder').html(Math.round(total*1000)/1000);
+  }
+
   function initProfile() {
     var record = mongorecords[currentrecord];
     // fill profilenames
@@ -217,6 +239,7 @@
     mongorecords[currentrecord].defaultProfile = currentprofile;
     // Set values from profile to html
     fillTimeRanges();
+    refreshTotalBasal();
   }
 
   // Handling of record list box change
@@ -410,7 +433,7 @@
       select.val(selectedValue);
 
       tr.append($('<td>').append(translate('From') + ': ').append(select));
-      tr.append($('<td>').append(e.label).append($('<input type="text">').attr('id',e.prefix+'_val_'+i).attr('value',c_profile[e.array][i].value)));
+      tr.append($('<td>').append(e.label).append($('<input type="text">').attr('id',e.prefix+'_val_'+i).attr('value',c_profile[e.array][i].value).attr('class', e.prefix + '_value')));
       var icons_td = $('<td>').append($('<img>').attr('class','addsingle').attr('style','cursor:pointer').attr('title',translate('Add new interval before')).attr('src',icon_add).attr('array',e.array).attr('pos',i));
       if (c_profile[e.array].length>1) {
         icons_td.append($('<img>').attr('class','delsingle').attr('style','cursor:pointer').attr('title',translate('Delete interval')).attr('src',icon_remove).attr('array',e.array).attr('pos',i));
@@ -436,13 +459,15 @@
       html += '</table>';
       $('#'+e.prefix+'_placeholder').html(html);
     });
-
+    $('.pe_basal_value').on('change keyup paste', refreshTotalBasal);
     $('.addsingle').click(function addsingle_click() {
       var array = $(this).attr('array');
       var pos = $(this).attr('pos');
       GUIToObject();
       c_profile[array].splice(pos,0,{time:'00:00',value:0});
-      return fillTimeRanges();
+      var retVal = fillTimeRanges();
+      refreshTotalBasal();
+      return retVal;
     });
 
     $('.delsingle').click(function delsingle_click() {
@@ -451,7 +476,9 @@
       GUIToObject();
       c_profile[array].splice(pos,1);
       c_profile[array][0].time = '00:00';
-      return fillTimeRanges();
+      var retVal = fillTimeRanges();
+      refreshTotalBasal();
+      return retVal;
     });
 
     function addBGLine(i) {
@@ -512,7 +539,7 @@
       return fillTimeRanges();
     });
 
-    $('.pe_selectabletime').unbind().on('change', fillTimeRanges);
+    $('.pe_selectabletime').unbind().on('change', fillTimeRanges).on('change', refreshTotalBasal);
 
     objectToGUI();
     maybePreventDefault(event);
@@ -639,7 +666,7 @@
     adjustedRecord.units = client.settings.units;
 
     if (record.convertedOnTheFly) {
-      var result = window.confirm(translate('Profile is going to be saved in newer format used in Nightscout 0.9.1-dev-20161023 and above and will not be usable in older versions anymore.\nAre you sure?'));
+      var result = window.confirm(translate('Profile is going to be saved in newer format used in Nightscout 0.9.0 and above and will not be usable in older versions anymore.\nAre you sure?'));
       if (!result) {
         return;
       }

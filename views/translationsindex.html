@@ -24,7 +24,7 @@
       <meta name="theme-color" content="#333333">
 
       <link rel="stylesheet" type="text/css" href="/css/translations.css" />
-      <link rel="stylesheet" type="text/css" href="/bower_components/jquery-ui/themes/ui-lightness/jquery-ui.min.css">    
+      <link rel="stylesheet" type="text/css" href="/css/ui-lightness/jquery-ui.min.css">    
     </head>
     <body>
       <h1><img src="/images/logo1.png"><span class="translate">Nightscout translations</span></h1>
@@ -33,12 +33,10 @@
       <hr>
       <b><span class="translate">Authentication status</span>: </b><span id="authentication_placeholder"></span>
 
+      <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
+
       <script src="/api/v1/status.js"></script>
-      <script src="/public/js/bundle.js"></script>
-      <script src="/socket.io/socket.io.js"></script>
-      <script src="/bower_components/jQuery-Storage-API/jquery.storageapi.min.js"></script>
-      <script src="/bower_components/tipsy-jmalonzo/src/javascripts/jquery.tipsy.js"></script>
-      <script src="/bower_components/jquery-ui/jquery-ui.min.js"></script>
-      <script src="/translations/js/translations.js"></script>
+      <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
+      <script src="/translations/js/translations.js?v=<%= locals.cachebuster %>"></script>
     </body>
 </html>

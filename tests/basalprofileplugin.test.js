@@ -1,4 +1,4 @@
-require('should');
+var should = require('should');
 
 describe('basalprofile', function ( ) {
 
@@ -8,6 +8,7 @@ describe('basalprofile', function ( ) {
     settings: {}
     , language: require('../lib/language')()
   };
+  ctx.language.set('en');
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
 
@@ -66,7 +67,7 @@ describe('basalprofile', function ( ) {
       , language: require('../lib/language')()
     };
 
-    var time = new Date('2015-06-21T00:00:00').getTime();
+    var time = new Date('2015-06-21T00:00:00+00:00').getTime();
 
 
     var sbx = sandbox.clientInit(ctx, time, data);
@@ -76,5 +77,36 @@ describe('basalprofile', function ( ) {
 
   });
 
-  
+  it('should handle alexa requests', function (done) {
+    var data = {};
+
+    var ctx = {
+      settings: {}
+      , pluginBase: { }
+      , language: require('../lib/language')()
+    };
+
+    var time = new Date('2015-06-21T00:00:00+00:00').getTime();
+
+
+    var sbx = sandbox.clientInit(ctx, time, data);
+    sbx.data.profile = profile;
+
+    basal.alexa.intentHandlers.length.should.equal(1);
+    basal.alexa.rollupHandlers.length.should.equal(1);
+
+    basal.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+      title.should.equal('Current Basal');
+      response.should.equal('Your current basal is 0.175 units per hour');
+
+      basal.alexa.rollupHandlers[0].rollupHandler([], sbx, function callback (err, response) {
+        should.not.exist(err);
+        response.results.should.equal('Your current basal is 0.175 units per hour');
+        response.priority.should.equal(1);
+        done();
+      });
+
+    }, [], sbx);
+  });
+
 });
