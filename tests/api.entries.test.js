@@ -3,7 +3,6 @@
 var request = require('supertest');
 var load = require('./fixtures/load');
 var bootevent = require('../lib/bootevent');
-var language = require('../lib/language')();
 require('should');
 
 describe('Entries REST api', function ( ) {
@@ -18,7 +17,7 @@ describe('Entries REST api', function ( ) {
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    bootevent(env, language).boot(function booted (ctx) {
+    bootevent(env).boot(function booted (ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx));
       self.archive = require('../lib/entries')(env, ctx);
 
