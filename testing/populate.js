@@ -9,7 +9,7 @@ main();
 
 function main() {
   var MongoClient = mongodb.MongoClient;
-  MongoClient.connect(env.storageURI, function connected(err, db) {
+  MongoClient.connect(env.mongo, function connected(err, db) {
 
     console.log('Connecting to mongo...');
     if (err) {
@@ -21,7 +21,7 @@ function main() {
 }
 
 function populate_collection(db) {
-  var cgm_collection = db.collection(env.entries_collection);
+  var cgm_collection = db.collection(env.mongo_collection);
   var new_cgm_record = util.get_cgm_record();
 
   cgm_collection.insert(new_cgm_record, function (err) {
