@@ -9470,9 +9470,9 @@
       "dev": true
     },
     "simple-statistics": {
-      "version": "5.3.1",
-      "resolved": "https://registry.npmjs.org/simple-statistics/-/simple-statistics-5.3.1.tgz",
-      "integrity": "sha512-i1f8W6C9hQDfSASgnGL0DEpxioocTe70l/TZCnwAGhWgrcTMn15SkyFcNLtG12QmKvdaVO1iQqV6zo69VTYXtQ=="
+      "version": "0.7.0",
+      "resolved": "https://registry.npmjs.org/simple-statistics/-/simple-statistics-0.7.0.tgz",
+      "integrity": "sha1-xQ8Tu9yX6aT9ICVjgtoX5o7asco="
     },
     "slash": {
       "version": "1.0.0",
