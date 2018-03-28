@@ -50,7 +50,7 @@
     "npm": "5.7.x || 5.6.x || 5.2.0 || 5.3.0 || 5.0.3"
   },
   "dependencies": {
-    "ajv": "^6.3.0",
+    "ajv": "^6.4.0",
     "async": "^0.9.2",
     "body-parser": "^1.18.2",
     "bootevent": "0.0.1",
@@ -58,7 +58,7 @@
     "css-loader": "^0.28.10",
     "cssmin": "^0.4.3",
     "d3": "^3.5.17",
-    "ejs": "^2.5.7",
+    "ejs": "^2.5.8",
     "errorhandler": "^1.5.0",
     "event-stream": "^3.3.4",
     "expand-braces": "^0.1.2",
@@ -79,7 +79,7 @@
     "minimed-connect-to-nightscout": "git://github.com/mddub/minimed-connect-to-nightscout.git#v1.1.0",
     "moment": "^2.21.0",
     "moment-timezone": "^0.5.14",
-    "mongodb": "^3.0.3",
+    "mongodb": "^3.0.5",
     "mongomock": "^0.1.2",
     "mqtt": "^0.3.13",
     "node-cache": "^4.1.1",
@@ -91,13 +91,13 @@
     "sgvdata": "git://github.com/ktind/sgvdata.git#wip/protobuf",
     "share2nightscout-bridge": "git://github.com/bewest/share2nightscout-bridge.git#wip/generalize",
     "shiro-trie": "^0.3.13",
-    "simple-statistics": "^5.2.1",
+    "simple-statistics": "^5.3.1",
     "socket.io": "^2.0.4",
     "style-loader": "^0.20.2",
     "traverse": "^0.6.6",
     "uglify-js": "^3.3.13",
     "uuid": "^3.2.1",
-    "webpack": "^4.1.0"
+    "webpack": "^4.3.0"
   },
   "devDependencies": {
     "benv": "3.3.0",
