@@ -1,10 +1,6 @@
 bower_components/
 node_modules/
 
-
-bundle/bundle.out.js
-
-.vscode/
 .idea/
 *.iml
 my.env
@@ -19,8 +15,3 @@ static/bower_components/
 
 # istanbul output
 coverage/
-
-npm-debug.log
-*.heapsnapshot
-
-/tmp
