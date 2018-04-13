@@ -1,0 +1,96 @@
+{
+  "userSays": [
+    {
+      "id": "11a4c02f-309d-41d4-87fa-8a2b9b690044",
+      "data": [
+        {
+          "text": "thank you"
+        }
+      ],
+      "isTemplate": false,
+      "count": 1
+    },
+    {
+      "id": "5b1233c5-eb59-4e34-b42a-48da8dc8eda1",
+      "data": [
+        {
+          "text": "okay thank you"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "ce32d5f1-5160-461b-989b-c130eac63952",
+      "data": [
+        {
+          "text": "Quit"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "2833f8ef-c21d-473c-8d60-73e7ea7953c4",
+      "data": [
+        {
+          "text": "Exit"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "232d40da-7021-4c5a-8cb4-d4f0d04ad095",
+      "data": [
+        {
+          "text": "Alright, thank you"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "893ffa46-d58b-44f6-8040-7d61364b840a",
+      "data": [
+        {
+          "text": "Thank you"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "fe9e5909-e1ae-455d-bfae-1a2f38bebcde",
+      "data": [
+        {
+          "text": "Ok, thank you"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    }
+  ],
+  "id": "3beef546-720f-4ef0-9ce3-c4e963cf71be",
+  "name": "Finish",
+  "auto": true,
+  "contexts": [],
+  "responses": [
+    {
+      "resetContexts": false,
+      "affectedContexts": [],
+      "parameters": [],
+      "messages": [
+        {
+          "type": 0,
+          "speech": "You\u0027re welcome"
+        }
+      ]
+    }
+  ],
+  "priority": 500000,
+  "webhookUsed": false,
+  "webhookForSlotFilling": false,
+  "fallbackIntent": false,
+  "events": []
+}

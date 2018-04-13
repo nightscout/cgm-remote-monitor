@@ -1,0 +1,120 @@
+{
+  "userSays": [
+    {
+      "id": "aca19757-afd1-44c1-9710-3fd229f3a1d0",
+      "data": [
+        {
+          "text": "How is "
+        },
+        {
+          "text": "John",
+          "alias": "givenName",
+          "meta": "@sys.given-name",
+          "userDefined": false
+        },
+        {
+          "text": "\u0027s\u0027s pump battery?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "bd451f91-8deb-4d06-a39c-359998342c57",
+      "data": [
+        {
+          "text": "What is "
+        },
+        {
+          "text": "John",
+          "alias": "givenName",
+          "meta": "@sys.given-name",
+          "userDefined": false
+        },
+        {
+          "text": "\u0027s\u0027s current pump battery?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "cbef7518-07b6-4ab8-a990-3ca26a0e237d",
+      "data": [
+        {
+          "text": "What is "
+        },
+        {
+          "text": "John",
+          "alias": "givenName",
+          "meta": "@sys.given-name",
+          "userDefined": false
+        },
+        {
+          "text": "\u0027s\u0027s pump battery?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "bbecde5a-59ab-4427-b96d-fe4184b4497f",
+      "data": [
+        {
+          "text": "How is my pump battery?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "44f8cc38-f753-4952-b10f-54abfcbceb0e",
+      "data": [
+        {
+          "text": "What is my current pump battery?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "ca632dce-4194-4c4a-8876-57a0f7179df3",
+      "data": [
+        {
+          "text": "What is my pump battery?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    }
+  ],
+  "id": "ee1b39f4-e921-4375-af3d-d8cb7c5dbaf3",
+  "name": "PumpBattery",
+  "auto": true,
+  "contexts": [],
+  "responses": [
+    {
+      "resetContexts": false,
+      "affectedContexts": [],
+      "parameters": [
+        {
+          "dataType": "@sys.given-name",
+          "name": "givenName",
+          "value": "$givenName",
+          "isList": false
+        }
+      ],
+      "messages": [
+        {
+          "type": 0,
+          "speech": []
+        }
+      ]
+    }
+  ],
+  "priority": 500000,
+  "webhookUsed": true,
+  "webhookForSlotFilling": false,
+  "fallbackIntent": false,
+  "events": []
+}

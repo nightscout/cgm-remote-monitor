@@ -1,0 +1,36 @@
+{
+  "userSays": [
+    {
+      "id": "fa75c7b2-9b49-41f2-9276-bab03622992f",
+      "data": [
+        {
+          "text": "When was my last loop?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    }
+  ],
+  "id": "261f3966-75e4-4fff-9840-07f8ce44ce22",
+  "name": "LastLoop",
+  "auto": true,
+  "contexts": [],
+  "responses": [
+    {
+      "resetContexts": false,
+      "affectedContexts": [],
+      "parameters": [],
+      "messages": [
+        {
+          "type": 0,
+          "speech": []
+        }
+      ]
+    }
+  ],
+  "priority": 500000,
+  "webhookUsed": true,
+  "webhookForSlotFilling": false,
+  "fallbackIntent": false,
+  "events": []
+}

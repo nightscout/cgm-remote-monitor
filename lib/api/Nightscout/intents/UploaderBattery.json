@@ -1,0 +1,91 @@
+{
+  "userSays": [
+    {
+      "id": "da992837-ab53-47b2-8372-648c9e7698d6",
+      "data": [
+        {
+          "text": "What is "
+        },
+        {
+          "text": "John",
+          "alias": "givenName",
+          "meta": "@sys.given-name",
+          "userDefined": false
+        },
+        {
+          "text": "\u0027s\u0027s uploader battery?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "38ade32b-85dd-4d1d-b52a-b36dff5138c7",
+      "data": [
+        {
+          "text": "How is "
+        },
+        {
+          "text": "John",
+          "alias": "givenName",
+          "meta": "@sys.given-name",
+          "userDefined": false
+        },
+        {
+          "text": "\u0027s\u0027s uploader battery?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "97c7162b-f2a8-4744-920c-36260ad6f8df",
+      "data": [
+        {
+          "text": "What is my uploader battery?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "08a3f5ad-cb5c-413b-9616-15fe0964df76",
+      "data": [
+        {
+          "text": "How is my uploader battery?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    }
+  ],
+  "id": "85f4f3e0-1153-41c8-a3e8-74f3783c163c",
+  "name": "UploaderBattery",
+  "auto": true,
+  "contexts": [],
+  "responses": [
+    {
+      "resetContexts": false,
+      "affectedContexts": [],
+      "parameters": [
+        {
+          "dataType": "@sys.given-name",
+          "name": "givenName",
+          "value": "$givenName",
+          "isList": false
+        }
+      ],
+      "messages": [
+        {
+          "type": 0,
+          "speech": []
+        }
+      ]
+    }
+  ],
+  "priority": 500000,
+  "webhookUsed": true,
+  "webhookForSlotFilling": false,
+  "fallbackIntent": false,
+  "events": []
+}

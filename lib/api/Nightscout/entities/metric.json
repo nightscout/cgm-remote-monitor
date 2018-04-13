@@ -1,0 +1,77 @@
+{
+  "id": "c3f2e6c2-a73f-4b0d-930d-143ef0d92dac",
+  "name": "metric",
+  "isOverridable": true,
+  "entries": [
+    {
+      "value": "blood glucose",
+      "synonyms": [
+        "blood glucose",
+        "bg",
+        "number",
+        "blood sugar"
+      ]
+    },
+    {
+      "value": "insulin on board",
+      "synonyms": [
+        "insulin on board",
+        "iob",
+        "insulin"
+      ]
+    },
+    {
+      "value": "basal",
+      "synonyms": [
+        "basal",
+        "current basal"
+      ]
+    },
+    {
+      "value": "carbohydrates on board",
+      "synonyms": [
+        "carbohydrates on board",
+        "carbs on board",
+        "cob",
+        "carbohydrates"
+      ]
+    },
+    {
+      "value": "raw blood glucose",
+      "synonyms": [
+        "raw blood glucose",
+        "raw glucose",
+        "raw bg",
+        "raw blood sugar"
+      ]
+    },
+    {
+      "value": "ar2",
+      "synonyms": [
+        "ar2",
+        "ar2 forecast",
+        "forecast"
+      ]
+    },
+    {
+      "value": "loop",
+      "synonyms": [
+        "loop",
+        "loop forecast",
+        "forecast"
+      ]
+    },
+    {
+      "value": "openaps",
+      "synonyms": [
+        "openaps",
+        "openaps forecast",
+        "forecast",
+        "open aps",
+        "open aps forecast"
+      ]
+    }
+  ],
+  "isEnum": false,
+  "automatedExpansion": false
+}
