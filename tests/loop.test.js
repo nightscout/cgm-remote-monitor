@@ -4,8 +4,11 @@ var _ = require('lodash');
 var should = require('should');
 var moment = require('moment');
 
+var ctx = {
+  language: require('../lib/language')()
+};
 var env = require('../env')();
-var loop = require('../lib/plugins/loop')();
+var loop = require('../lib/plugins/loop')(ctx);
 var sandbox = require('../lib/sandbox')();
 var levels = require('../lib/levels');
 
@@ -118,14 +121,15 @@ describe('loop', function ( ) {
           options.value.should.equal('1m ago');
           var first = _.first(options.info);
           first.label.should.equal('1m ago');
-          first.value.should.equal('<b>Temp Basal Started</b> 0.88U/hour for 30m, IOB: 0.17U');
+          first.value.should.equal('<b>Temp Basal Started</b> 0.88U/hour for 30m, IOB: 0.17U, Predicted Eventual BG: 147');
         }
         , addForecastPoints: function mockAddForecastPoints (points) {
-          points.length.should.equal(6);
+          points.length.should.equal(5);
           done();
         }
       }
-    };
+      , language: require('../lib/language')()
+   };
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
 
@@ -160,6 +164,7 @@ describe('loop', function ( ) {
           first.value.should.equal('Error: SomeError');
           done();
         }
+      , language: require('../lib/language')()
       }
     };
 
@@ -193,6 +198,7 @@ describe('loop', function ( ) {
         units: 'mg/dl'
       }
       , notifications: require('../lib/notifications')(env, ctx)
+      , language: require('../lib/language')()
     };
 
     ctx.notifications.initRequests();
@@ -219,11 +225,12 @@ describe('loop', function ( ) {
         units: 'mg/dl'
       }
       , notifications: require('../lib/notifications')(env, ctx)
+      , language: require('../lib/language')()
     };
 
     ctx.notifications.initRequests();
 
-    var sbx = sandbox.clientInit(ctx, now.add(2, 'hours').valueOf(), {devicestatus: statuses});
+    var sbx = sandbox.clientInit(ctx, now.clone().add(2, 'hours').valueOf(), {devicestatus: statuses});
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
     loop.setProperties(sbx);
     loop.checkNotifications(sbx);
@@ -232,6 +239,34 @@ describe('loop', function ( ) {
     highest.level.should.equal(levels.URGENT);
     highest.title.should.equal('Loop isn\'t looping');
     done();
+  });
+
+  it('should handle alexa requests', function (done) {
+    var ctx = {
+      settings: {
+        units: 'mg/dl'
+      }
+      , notifications: require('../lib/notifications')(env, ctx)
+      , language: require('../lib/language')()
+    };
+
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
+    loop.setProperties(sbx);
+
+    loop.alexa.intentHandlers.length.should.equal(2);
+
+    loop.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+      title.should.equal('Loop Forecast');
+      response.should.equal('According to the loop forecast you are expected to be between 147 and 149 over the next in 20 minutes');
+
+      loop.alexa.intentHandlers[1].intentHandler(function next(title, response) {
+        title.should.equal('Last loop');
+        response.should.equal('The last successful loop was a few seconds ago');
+        done();
+      }, [], sbx);
+
+    }, [], sbx);
+
   });
 
 });
