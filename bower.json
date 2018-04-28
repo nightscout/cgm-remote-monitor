@@ -1,6 +1,6 @@
 {
   "name": "nightscout",
-  "version": "0.9.0",
+  "version": "0.10.2-release-20171201",
   "dependencies": {
     "colorbrewer": "~1.0.0",
     "jQuery-Storage-API": "~1.7.2",
@@ -8,7 +8,8 @@
     "jquery-flot": "0.8.3",
     "jquery-ui": "~1.11.3",
     "swagger-ui": "~2.1.2",
-    "tipsy-jmalonzo": "~1.0.1"
+    "tipsy-jmalonzo": "~1.0.1",
+    "tone": "*"
   },
   "resolutions": {
     "jquery": "2.1.0"
