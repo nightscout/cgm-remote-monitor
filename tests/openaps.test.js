@@ -7,6 +7,7 @@ var moment = require('moment');
 var ctx = {
   language: require('../lib/language')()
 };
+ctx.language.set('en');
 var env = require('../env')();
 var openaps = require('../lib/plugins/openaps')(ctx);
 var sandbox = require('../lib/sandbox')();
