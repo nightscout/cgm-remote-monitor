@@ -1,15 +1,23 @@
 language: node_js
-sudo: required
-dist: trusty
+sudo: false
 node_js:
-  - "8.9.1"
+  - 0.10
+  - 0.12
+  - 4
+  - 5
 matrix:
   fast_finish: true
-services:
-  - mongodb
-  - docker
+  allow_failures:
+    - node_js: 4
+    - node_js: 5
+services: mongodb
 script: make travis
-after_success:
-  - nvm version
-  - if [[ ! -z "$DOCKER_USER" ]]; then docker login -u ${DOCKER_USER} -p ${DOCKER_PASS} && git checkout -- . && git clean -fd . && make docker_release; fi
 after_script: make report
+env:
+  - CXX=g++-4.8
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - g++-4.8
