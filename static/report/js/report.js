@@ -232,11 +232,11 @@
     options.width = parseInt($('#rp_size :selected').attr('x'));
     options.height = parseInt($('#rp_size :selected').attr('y'));
     options.loopalyzer = true;
-    if (options.loopalyzer) {
+/*    if (options.loopalyzer) {
       options.height = 600;
       options.width = 1550;
     }
-    
+  */  
     var matchesneeded = 0;
 
     // date range
