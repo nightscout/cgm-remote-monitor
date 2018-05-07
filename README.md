@@ -106,7 +106,8 @@ Community maintained fork of the
 
 Requirements:
 
-- [Node.js](http://nodejs.org/) 8.9.0 LTS (use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or `setup.sh`)
+- [Node.js](http://nodejs.org/) 8.11.0 LTS or later or [Node.js](http://nodejs.org/) 9.10.0 or later. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or `setup.sh`)
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x. MongoDB 2.4 is only supported for Raspberry Pi.
 
 Clone this repo then install dependencies into the root of the project:
 
