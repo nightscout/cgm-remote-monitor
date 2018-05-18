@@ -89,7 +89,9 @@ LastLoop When was my last loop
   * Click "Next"
   * Enable the skill if it isn't already.
 
-### 7) You should now be able to interact with Nightscout via Alexa.
+### 7 ) Click next.  For Certificate for DEFAULT Endpoint: Select the middle choice "My development endpoint is a sub-domain of a domain that has a wildcard certificate from a certificate authority" since your end point is similar to something.herokapp.com
+
+### 8) You should now be able to interact with Nightscout via Alexa.
 
 
 ##Adding alexa support to a plugin
