@@ -15,7 +15,7 @@ describe('Verifyauth REST api', function ( ) {
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')( );
     self.app.enable('api');
-    require('../lib/bootevent')(self.env, language).boot(function booted (ctx) {
+    require('../lib/server/bootevent')(self.env, language).boot(function booted (ctx) {
       self.app.use('/api', api(self.env, ctx));
       done();
     });
