@@ -101,9 +101,9 @@ function create(env, ctx) {
     // pebble data
     app.get('/pebble', ctx.pebble);
 
-    // expose swagger.yaml
-    app.get('/swagger.yaml', function(req, res) {
-        res.sendFile(__dirname + '/swagger.yaml');
+    // expose swagger.json
+    app.get('/swagger.json', function(req, res) {
+        res.sendFile(__dirname + '/swagger.json');
     });
 
 /*
@@ -140,6 +140,13 @@ function create(env, ctx) {
 
     // serve the static content
     app.use(staticFiles);
+
+    var swaggerFiles = express.static(env.swagger_files, {
+        maxAge: maxAge
+    });
+
+    // serve the static content
+    app.use('/swagger-ui-dist', swaggerFiles);
 
     var tmpFiles = express.static('tmp', {
         maxAge: maxAge
