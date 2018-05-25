@@ -57,7 +57,7 @@ var someData = {
 
 describe('admintools', function ( ) {
   var self = this;
-  this.timeout(30000);
+  this.timeout(30000); // TODO: see why this test takes longer on Travis to complete
   before(function (done) {
     benv.setup(function() {
 
@@ -67,7 +67,7 @@ describe('admintools', function ( ) {
       
       self.localCookieStorage = self.localStorage = self.$.localStorage = require('./fixtures/localstorage');
 
-      self.$.fn.tipsy = function mockTipsy ( ) { };
+      self.$.fn.tooltip = function mockTooltip ( ) { };
 
       self.$.fn.dialog = function mockDialog (opts) {
         function maybeCall (name, obj) {
