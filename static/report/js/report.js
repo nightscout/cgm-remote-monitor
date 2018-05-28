@@ -219,6 +219,8 @@
     options.iob = $('#rp_optionsiob').is(':checked');
     options.cob = $('#rp_optionscob').is(':checked');
     options.openAps = $('#rp_optionsopenaps').is(':checked');
+    options.predicted = $('#rp_optionspredicted').is(':checked');
+    options.predictedTruncate = $('#rp_optionsPredictedTruncate').is(':checked');
     options.basal = $('#rp_optionsbasal').is(':checked');
     options.notes = $('#rp_optionsnotes').is(':checked');
     options.food = $('#rp_optionsfood').is(':checked');
@@ -229,7 +231,12 @@
     options.order = ( $('#rp_oldestontop').is(':checked') ? report_plugins.consts.ORDER_OLDESTONTOP : report_plugins.consts.ORDER_NEWESTONTOP );
     options.width = parseInt($('#rp_size :selected').attr('x'));
     options.height = parseInt($('#rp_size :selected').attr('y'));
-    
+    options.loopalyzer = true;
+/*    if (options.loopalyzer) {
+      options.height = 600;
+      options.width = 1550;
+    }
+  */  
     var matchesneeded = 0;
 
     // date range
@@ -545,7 +552,7 @@
   
   function loadData(day, options, callback) {
     // check for loaded data
-    if ((options.openAps || options.iob || options.cob) && datastorage[day] && !datastorage[day].devicestatus.length) {
+    if ((options.openAps || options.predicted || options.loopalyzer || options.iob || options.cob) && datastorage[day] && !datastorage[day].devicestatus.length) {
       // OpenAPS requested but data not loaded. Load anyway ...
     } else if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
       callback(day);
@@ -665,7 +672,7 @@
         data.devicestatus = [];
         return $.Deferred().resolve();
       }
-      if(options.iob || options.cob || options.openAps) {
+      if (options.iob || options.cob || options.openAps || options.predicted || options.loopalyzer) {
         $('#info-' + day).html('<b>'+translate('Loading device status data of')+' '+day+' ...</b>');
         var tquery = '?find[created_at][$gte]=' + new Date(from).toISOString() + '&find[created_at][$lt]=' + new Date(to).toISOString() + '&count=10000';
         return $.ajax('/api/v1/devicestatus.json'+tquery, {
