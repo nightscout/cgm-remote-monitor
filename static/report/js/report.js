@@ -229,7 +229,12 @@
     options.order = ( $('#rp_oldestontop').is(':checked') ? report_plugins.consts.ORDER_OLDESTONTOP : report_plugins.consts.ORDER_NEWESTONTOP );
     options.width = parseInt($('#rp_size :selected').attr('x'));
     options.height = parseInt($('#rp_size :selected').attr('y'));
-    options.loopalyzer = true;
+    options.loopalyzer = $("#loopalyzer").hasClass( "selected" ); // We only want to run through Loopalyzer if that tab is selected
+    if (options.loopalyzer) {
+      options.iob = true;
+      options.cob = true;
+      options.openAps = true;
+    }
     
     var matchesneeded = 0;
 
@@ -511,6 +516,7 @@
 
       if (plugin.name == 'daytoday' && ! $('#daytoday').hasClass('selected')) skipRender = true;
       if (plugin.name == 'treatments' && ! $('#treatments').hasClass('selected')) skipRender = true;
+      if (plugin.name == 'loopalyzer' && ! $('#loopalyzer').hasClass('selected')) skipRender = true;
 
       if (skipRender) {
         console.log('Skipping ',plugin.name);
@@ -546,7 +552,7 @@
   
   function loadData(day, options, callback) {
     // check for loaded data
-    if ((options.openAps || options.loopalyzer || options.iob || options.cob) && datastorage[day] && !datastorage[day].devicestatus.length) {
+    if ((options.openAps || options.iob || options.cob) && datastorage[day] && !datastorage[day].devicestatus.length) {
       // OpenAPS requested but data not loaded. Load anyway ...
     } else if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
       callback(day);
@@ -666,7 +672,7 @@
         data.devicestatus = [];
         return $.Deferred().resolve();
       }
-      if(options.iob || options.cob || options.openAps || options.loopalyzer) {
+      if(options.iob || options.cob || options.openAps) {
         $('#info-' + day).html('<b>'+translate('Loading device status data of')+' '+day+' ...</b>');
         var tquery = '?find[created_at][$gte]=' + new Date(from).toISOString() + '&find[created_at][$lt]=' + new Date(to).toISOString() + '&count=10000';
         return $.ajax('/api/v1/devicestatus.json'+tquery, {
