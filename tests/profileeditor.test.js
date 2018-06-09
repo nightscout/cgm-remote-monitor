@@ -71,7 +71,7 @@ var someData = {
 
 
 describe('Profile editor', function ( ) {
-  this.timeout(40000); //TODO: see why this test takes longer on Travis to complete
+  var self = this;
   var headless = require('./fixtures/headless')(benv, this);
 
   before(function (done) {
@@ -84,11 +84,12 @@ describe('Profile editor', function ( ) {
 
   beforeEach(function (done) {
     var opts = {
-      htmlFile: __dirname + '/../views/profileindex.html'
+      htmlFile: __dirname + '/../static/profile/index.html'
     , mockProfileEditor: true
     , mockAjax: someData
     , benvRequires: [
-        __dirname + '/../static/profile/js/profileeditor.js'
+        __dirname + '/../bundle/bundle.source.js'
+      , __dirname + '/../static/profile/js/profileeditor.js'
       ]
     };
     headless.setup(opts, done);

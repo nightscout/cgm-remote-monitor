@@ -6,7 +6,6 @@
   <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
   <link rel='stylesheet' type='text/css' href='/css/main.css' />
   <style type="text/css">
-    img#arrow { height: 15vmin; }
     .center {
       text-align: center;
       padding: 0;
@@ -15,7 +14,7 @@
     h1 {
       padding: 0;
       margin: 0;
-      font-size: 1500%;
+      font-size: 3500%;
     }
     html, body {
       padding: 0;
@@ -39,10 +38,10 @@
 <body>
   <div class="center">
     <h1 class="bgnow"></h1>
-    <h1 class="clock"></h1>
   </div>
+  <script src="/bower_components/jquery/dist/jquery.min.js"></script>
   <script src="/api/v1/status.js"></script>
-  <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
+  <script src="/public/js/bundle.js"></script>
   <script type="text/javascript">
     function query ( ) {
       console.log('query');
@@ -57,18 +56,9 @@
       if (window.serverSettings.settings.units == 'mmol') {
         rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
       }
-      $('.bgnow').html(rec.sgv + '<img id="arrow" src="">');
-      $('#arrow').attr('src', 'images/'+rec.direction+'.svg');
+      $('.bgnow').text(rec.sgv);
       var threshold = 1000 * 60 * 13;
       $('.bgnow').toggleClass('stale', (now - last > threshold));
-      
-      var timeDivisor = (window.serverSettings.settings.timeFormat) ? window.serverSettings.settings.timeFormat : 12;
-      
-      var today = new Date(),
-            h = today.getHours() % timeDivisor || timeDivisor,
-            m = today.getMinutes();
-      if (m < 10) m = "0" + m;
-      $('.clock').text(h + ":" + m);
     }
 
     function init ( ) {
@@ -81,3 +71,4 @@
   </script>
 </body>
 </html>
+
