@@ -99,7 +99,7 @@ describe('Uploader Battery', function ( ) {
 
     upbat.alexa.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Uploader battery');
-      response.should.equal('Your uploader battery is at 25 percent');
+      response.should.equal('Your uploader battery is at 20%');
 
       done();
     }, [], sbx);
