@@ -82,7 +82,7 @@
     "moment-timezone": "^0.5.21",
     "mongodb": "^3.0.10",
     "mongomock": "^0.1.2",
-    "mqtt": "^0.3.13",
+    "mqtt": "^2.18.1",
     "node-cache": "^4.2.0",
     "parse-duration": "^0.1.1",
     "prettyjson": "^1.2.1",
@@ -104,10 +104,10 @@
     "benv": "3.3.0",
     "clear-require": "^2.0.0",
     "istanbul": "~0.4.5",
-    "mocha": "~3.1.2",
+    "mocha": "^5.2.0",
     "should": "~11.1.1",
-    "supertest": "~2.0.0",
+    "supertest": "^3.1.0",
     "webpack-bundle-analyzer": "^2.13.1",
-    "webpack-cli": "^2.1.5"
+    "webpack-cli": "^3.0.8"
   }
 }
