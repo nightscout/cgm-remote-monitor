@@ -24,12 +24,13 @@
     "url": "https://github.com/nightscout/cgm-remote-monitor/issues"
   },
   "scripts": {
-    "start": "node server.js",
-    "test": "make test",
     "env": "env",
-    "postinstall": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
     "bundle": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
     "bundle-dev": "webpack --mode development --config webpack.config.js && npm run-script update-buster",
+    "postinstall": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
+    "start": "node server.js",
+    "scripts.start": "node server.js",
+    "test": "make test",
     "update-buster": "node bin/generateCacheBuster.js >tmp/cacheBusterToken"
   },
   "config": {
@@ -97,7 +98,7 @@
     "traverse": "^0.6.6",
     "uglify-js": "^3.4.1",
     "uuid": "^3.2.1",
-    "webpack": "^4.12.0"
+    "webpack": "^4.12.1"
   },
   "devDependencies": {
     "benv": "3.3.0",
