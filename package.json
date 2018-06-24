@@ -28,8 +28,8 @@
     "bundle": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
     "bundle-dev": "webpack --mode development --config webpack.config.js && npm run-script update-buster",
     "postinstall": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
-    "start": "node server.js",
     "scripts.start": "node server.js",
+    "start": "node server.js",
     "test": "make test",
     "update-buster": "node bin/generateCacheBuster.js >tmp/cacheBusterToken"
   },
