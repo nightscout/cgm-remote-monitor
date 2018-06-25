@@ -96,7 +96,7 @@
     "socket.io": "^2.1.1",
     "style-loader": "^0.20.2",
     "traverse": "^0.6.6",
-    "uglify-js": "^3.4.1",
+    "uglify-js": "^3.4.2",
     "uuid": "^3.2.1",
     "webpack": "^4.12.0"
   },
