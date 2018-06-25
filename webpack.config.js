@@ -25,7 +25,6 @@ if (process.env.NODE_ENV !== 'development') {
 
 if (process.env.NODE_ENV === 'development') {
 
-
     console.log('Development environment detected, enabling Bundle Analyzer');
     
     var BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
