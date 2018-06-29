@@ -9,9 +9,7 @@ describe('Uploader Battery', function ( ) {
     var sandbox = require('../lib/sandbox')();
     var ctx = {
       settings: {}
-      , language: require('../lib/language')()
     };
-    ctx.language.set('en');
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
 
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
@@ -24,7 +22,7 @@ describe('Uploader Battery', function ( ) {
       done();
     };
 
-    var upbat = require('../lib/plugins/upbat')(ctx);
+    var upbat = require('../lib/plugins/upbat')();
     upbat.setProperties(sbx);
 
   });
@@ -40,13 +38,11 @@ describe('Uploader Battery', function ( ) {
           done();
         }
       }
-      , language: require('../lib/language')()
     };
-    ctx.language.set('en');
 
     var sandbox = require('../lib/sandbox')();
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
-    var upbat = require('../lib/plugins/upbat')(ctx);
+    var upbat = require('../lib/plugins/upbat')();
     upbat.setProperties(sbx);
     upbat.updateVisualisation(sbx);
 
@@ -61,13 +57,11 @@ describe('Uploader Battery', function ( ) {
           done();
         }
       }
-      , language: require('../lib/language')()
     };
-    ctx.language.set('en');
 
     var sandbox = require('../lib/sandbox')();
     var sbx = sandbox.clientInit(ctx, Date.now(), {});
-    var upbat = require('../lib/plugins/upbat')(ctx);
+    var upbat = require('../lib/plugins/upbat')();
     upbat.setProperties(sbx);
     upbat.updateVisualisation(sbx);
   });
@@ -80,13 +74,12 @@ describe('Uploader Battery', function ( ) {
           options.hide.should.equal(true);
           done();
         }
-      }, language: require('../lib/language')()
+      }
     };
-    ctx.language.set('en');
 
     var sandbox = require('../lib/sandbox')();
     var sbx = sandbox.clientInit(ctx, Date.now(), {devicestatus: [{uploader: {battery: -1}}]});
-    var upbat = require('../lib/plugins/upbat')(ctx);
+    var upbat = require('../lib/plugins/upbat')();
     upbat.setProperties(sbx);
     upbat.updateVisualisation(sbx);
   });
@@ -95,13 +88,11 @@ describe('Uploader Battery', function ( ) {
 
     var ctx = {
       settings: {}
-      , language: require('../lib/language')()
     };
-    ctx.language.set('en');
 
     var sandbox = require('../lib/sandbox')();
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
-    var upbat = require('../lib/plugins/upbat')(ctx);
+    var upbat = require('../lib/plugins/upbat')();
     upbat.setProperties(sbx);
 
     upbat.alexa.intentHandlers.length.should.equal(1);

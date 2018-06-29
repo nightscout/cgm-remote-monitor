@@ -7,9 +7,25 @@ var sourceMapType = 'source-map';
 
 if (process.env.NODE_ENV !== 'development') {
 
-    console.log('Production environment detected. Enabling --optimize-minimize');
+    console.log('Production environment detected, enabling UglifyJsPlugin');
 
-/*
+    var uglify = new webpack.optimize.UglifyJsPlugin({
+        compress: {
+            warnings: false
+        },
+        output: {
+            comments: false
+        }
+        , sourceMap: true
+    });
+
+    pluginArray.push(uglify);
+
+}
+
+if (process.env.NODE_ENV === 'development') {
+
+
     console.log('Development environment detected, enabling Bundle Analyzer');
     
     var BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
@@ -45,7 +61,6 @@ if (process.env.NODE_ENV !== 'development') {
         // Log level. Can be 'info', 'warn', 'error' or 'silent'. 
         logLevel: 'info'
     }));
-*/
 
 }
 
