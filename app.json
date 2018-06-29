@@ -8,7 +8,7 @@
       "required": true
     },
     "API_SECRET": {
-      "description": "REQUIRED: A secret passphrase that must be at least 12 characters long, required to enable POST and PUT; also required for the Care Portal",
+      "description": "REQUIRED: A secret passphrase that must be at least 12 characters long, required to enable POST and PUT; also required for the Care Portal.",
       "value": "",
       "required": true
     },
@@ -18,12 +18,12 @@
       "required": false
     },
     "ENABLE": {
-      "description": "Used to enable optional features, expects a space delimited list, such as: careportal rawbg iob, see https://github.com/nightscout/cgm-remote-monitor/blob/master/README.md for more info",
+      "description": "Used to enable optional features, expects a space delimited list, such as: careportal rawbg iob, see https://github.com/nightscout/cgm-remote-monitor/blob/master/README.md for more info.",
       "value": "",
       "required": false
     },
     "DISABLE": {
-      "description": "Used to disable default features, expects a space delimited list, such as: direction upbat, see https://github.com/nightscout/cgm-remote-monitor/blob/master/README.md for more info",
+      "description": "Used to disable default features, expects a space delimited list, such as: direction upbat, see https://github.com/nightscout/cgm-remote-monitor/blob/master/README.md for more info.",
       "value": "",
       "required": false
     },
@@ -33,22 +33,22 @@
       "required": false
     },
     "BG_HIGH": {
-      "description": "Urgent high BG alarm. Default null value implies 260. Must be set in mg/dL. Only used with simple alarms.",
+      "description": "Urgent high BG alarm. Default null value implies 260. Must be set in mg/dL (multiply with 18 if you have a value in mmol/L). Only used with simple alarms.",
       "value": "",
       "required": false
     },
     "BG_TARGET_TOP": {
-      "description": "Non-urgent high BG alarm, the top of your target range. Default null value implies 180. Must be set in mg/dL. Only used with simple alarms.",
+      "description": "Non-urgent high BG alarm, the top of your target range. Default null value implies 180. Must be set in mg/dL (multiply with 18 if you have a value in mmol/L). Only used with simple alarms.",
       "value": "",
       "required": false
     },
     "BG_TARGET_BOTTOM": {
-      "description": "Non urgent low BG alarm, the bottom of your target range. Default null value implies 80. Must be set in mg/dL. Only used with simple alarms.",
+      "description": "Non urgent low BG alarm, the bottom of your target range. Default null value implies 80. Must be set in mg/dL (multiply with 18 if you have a value in mmol/L). Only used with simple alarms.",
       "value": "",
       "required": false
     },
     "BG_LOW": {
-      "description": "Urgent Low BG alarm. Default null value implies 55. Must be set in mg/dL. Only used with simple alarms.",
+      "description": "Urgent Low BG alarm. Default null value implies 55. Must be set in mg/dL (multiply with 18 if you have a value in mmol/L). Only used with simple alarms.",
       "value": "",
       "required": false
     },
@@ -72,83 +72,73 @@
       "value": "",
       "required": false
     },
-    "THEME": {
-      "description": "Possible values default or colors",
-      "value": "",
-      "required": false
-    },
-    "SHOW_RAWBG": {
-      "description": "Possible values always, never or noise",
-      "value": "",
-      "required": false
-    },
     "BRIDGE_USER_NAME": {
-      "description": "Share bridge - Your user name for the Share service. ENSURE bridge is in ENABLE if you want to use the share bridge",
+      "description": "Share bridge - Your user name for the Share service. ENSURE bridge is in ENABLE if you want to use the share bridge.",
       "value": "",
       "required": false
     },
     "BRIDGE_PASSWORD": {
-      "description": "Share bridge - Your password for the Share service. ENSURE bridge is in ENABLE if you want to use the share bridge",
+      "description": "Share bridge - Your password for the Share service. ENSURE bridge is in ENABLE if you want to use the share bridge.",
       "value": "",
       "required": false
     },
     "TIME_FORMAT": {
-      "description": "Browser default time mode valid settings are 12 or 24",
+      "description": "Browser default time mode. Valid settings are 12 or 24",
       "value": "12",
       "required": false 
     },
     "NIGHT_MODE": {
-      "description": "Browser defaults to night mode valid settings are on or off",
+      "description": "Browser defaults to night mode. Valid settings are on or off",
       "value": "off",
       "required": false 
     },
     "SHOW_RAWBG": {
-      "description": "Browser default raw display mode vaild settings are always never or noise",
+      "description": "Browser default raw display mode. Valid settings are always, never, or noise",
       "value": "never",
       "required": false 
     },
     "THEME": {
-      "description": "Browser default theme setting vaild settings are default or colors",
+      "description": "Browser default theme setting. Valid settings are default, colors, or colorblindfriendly",
       "value": "default",
       "required": false 
     },
     "ALARM_URGENT_HIGH": {
-      "description": "Browser default urgent high alarm enabled vaild settings are on or off",
+      "description": "Browser default urgent high alarm enabled. Valid settings are on or off",
       "value": "on",
       "required": false 
     },
     "ALARM_HIGH": {
-      "description": "Browser default high alarm enabled vaild settings are on or off",
+      "description": "Browser default high alarm enabled. Valid settings are on or off",
       "value": "on",
       "required": false
     },
     "ALARM_LOW": {
-      "description": "Browser default low alarm enabled vaild settings are on or off",
+      "description": "Browser default low alarm enabled. Valid settings are on or off",
       "value": "on",
       "required": false
     },
     "ALARM_URGENT_LOW": {
-      "description": "Browser default urgent low alarm enabled vaild settings are on or off",
+      "description": "Browser default urgent low alarm enabled. Valid settings are on or off",
       "value": "on",
       "required": false
     },
     "ALARM_TIMEAGO_WARN": {
-      "description": "Browser default warn after time of last data exceeds ALARM_TIMEAGO_WARN_MINS alarm enabled vaild settings are on or off",
+      "description": "Browser default warn after time of last data exceeds ALARM_TIMEAGO_WARN_MINS alarm enabled. Valid settings are on or off",
       "value": "on",
       "required": false
     },
     "ALARM_TIMEAGO_WARN_MINS": {
-      "description": "Browser default minutes since the last reading to trigger a warning",
+      "description": "Browser default minutes since the last reading to trigger a warning.",
       "value": "15",
       "required": false
     },
     "ALARM_TIMEAGO_URGENT": {
-      "description": "Browser default urgent warning after time of last data exceeds ALARM_TIMEAGO_URGENT_MINS alarm enabled vaild settings are on or off",
+      "description": "Browser default urgent warning after time of last data exceeds ALARM_TIMEAGO_URGENT_MINS alarm enabled. Valid settings are on or off",
       "value": "on",
       "required": false
     },
     "ALARM_TIMEAGO_URGENT_MINS": {
-      "description": "Browser default minutes since last reading to trigger an urgent alarm",
+      "description": "Browser default minutes since last reading to trigger an urgent alarm.",
       "value": "30",
       "required": false
     },

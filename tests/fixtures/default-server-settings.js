@@ -8,7 +8,7 @@ module.exports = {
   , head: 'ae71dca'
   , settings: {
     units: 'mg/dl'
-    , timeFormat: '12'
+    , timeFormat: 12
     , nightMode: false
     , showRawbg: 'noise'
     , customTitle: 'Test Title'

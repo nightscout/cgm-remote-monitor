@@ -10,8 +10,8 @@ describe('mqtt', function ( ) {
 
   before(function () {
     process.env.MQTT_MONITOR = 'mqtt://user:password@localhost:12345';
-    process.env.MONGO='mongodb://localhost/test_db';
-    process.env.MONGO_COLLECTION='test_sgvs';
+    process.env.STORAGE_URI='mongodb://localhost/test_db';
+    process.env.ENTRIES_COLLECTION='test_sgvs';
     self.env = require('../env')();
     self.es = require('event-stream');
     self.results = self.es.through(function (ch) { this.push(ch); });
@@ -25,7 +25,7 @@ describe('mqtt', function ( ) {
       self.results.write(data);
       setTimeout(fn, 5);
     }
-    self.mqtt = require('../lib/mqtt')(self.env, {entries: { persist: outputs, create: written }, devicestatus: { create: written } });
+    self.mqtt = require('../lib/server/mqtt')(self.env, {entries: { persist: outputs, create: written }, devicestatus: { create: written } });
   });
 
   after(function () {
