@@ -33,7 +33,7 @@ describe('hashauth', function ( ) {
       self.$ = require('jquery');
       self.$.localStorage = require('./fixtures/localstorage');
 
-      self.$.fn.tooltip = function mockTooltip ( ) { };
+      self.$.fn.tipsy = function mockTipsy ( ) { };
 
       var indexHtml = read(__dirname + '/../static/index.html', 'utf8');
       self.$('body').html(indexHtml);
