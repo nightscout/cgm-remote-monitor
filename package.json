@@ -106,7 +106,7 @@
     "istanbul": "~0.4.5",
     "mocha": "~3.1.2",
     "should": "~11.1.1",
-    "supertest": "~2.0.0",
+    "supertest": "^3.1.0",
     "webpack-bundle-analyzer": "^2.13.1",
     "webpack-cli": "^2.1.5"
   }
