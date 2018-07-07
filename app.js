@@ -24,7 +24,7 @@ function create(env, ctx) {
     app.locals.cachebuster = fs.readFileSync(process.cwd() + '/tmp/cacheBusterToken').toString().trim();
 
     if (ctx.bootErrors && ctx.bootErrors.length > 0) {
-        app.get('*', require('./lib/booterror')(ctx));
+        app.get('*', require('./lib/server/booterror')(ctx));
         return app;
     }
 
