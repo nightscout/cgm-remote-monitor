@@ -38,7 +38,7 @@ describe('mqtt', function ( ) {
     ;
 
   it('setup env correctly', function (done) {
-    self.env.mqtt_client_id.should.equal('fSjoHx8buyCtAc474tg8Dt3');
+    self.env.mqtt_client_id.should.equal('nGVkio2g7p9+WOoiHB9YgmM');
     done();
   });
 
