@@ -47,7 +47,7 @@
     }
   },
   "engines": {
-    "node": "8.9.x",
+    "node": "8.x",
     "npm": "6.1.x || 5.8.x || 5.7.x || 5.6.x"
   },
   "dependencies": {
