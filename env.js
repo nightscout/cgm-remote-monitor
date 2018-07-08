@@ -20,6 +20,7 @@ function config ( ) {
   env.HOSTNAME = readENV('HOSTNAME', null);
   env.IMPORT_CONFIG = readENV('IMPORT_CONFIG', null);
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
+  env.swagger_files = readENV('NIGHTSCOUT_SWAGGER_FILES',  __dirname + '/node_modules/swagger-ui-dist/');
   env.debug = {
     minify: readENVTruthy('DEBUG_MINIFY', true)
   };
@@ -105,6 +106,7 @@ function setStorage() {
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
   env.food_collection = readENV('MONGO_FOOD_COLLECTION', 'food');
+  env.activity_collection = readENV('MONGO_ACTIVITY_COLLECTION', 'activity');
 
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.

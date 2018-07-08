@@ -106,7 +106,7 @@ Community maintained fork of the
 
 Requirements:
 
-- [Node.js](http://nodejs.org/) 8.11.0 LTS or later or [Node.js](http://nodejs.org/) 9.10.0 or later. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or `setup.sh`)
+- [Node.js](http://nodejs.org/) 8.11.3 LTS or later or [Node.js](http://nodejs.org/) 10.5.0 or later. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or `setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x. MongoDB 2.4 is only supported for Raspberry Pi.
 
 Clone this repo then install dependencies into the root of the project:
@@ -216,6 +216,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `MONGO_DEVICESTATUS_COLLECTION`(`devicestatus`) - The collection used to store device status information such as uploader battery
   * `MONGO_PROFILE_COLLECTION`(`profile`) - The collection used to store your profiles
   * `MONGO_FOOD_COLLECTION`(`food`) - The collection used to store your food database
+  * `MONGO_ACTIVITY_COLLECTION`(`activity`) - The collection used to store activity data
   * `PORT` (`1337`) - The port that the node.js application will listen on.
   * `HOSTNAME` - The hostname that the node.js application will listen on, null by default for any hostname for IPv6 you may need to use `::`.
   * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js
