@@ -10,7 +10,7 @@ describe('mqtt', function ( ) {
 
   before(function () {
     process.env.MQTT_MONITOR = 'mqtt://user:password@localhost:12345';
-    process.env.STORAGE_URI='mongodb://localhost/test_db';
+    process.env.STORAGE_URI='mongodb://localhost:27017/test_db';
     process.env.ENTRIES_COLLECTION='test_sgvs';
     self.env = require('../env')();
     self.es = require('event-stream');
