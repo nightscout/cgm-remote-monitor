@@ -432,6 +432,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
 
   Plugins only have access to their own extended settings, all the extended settings of client plugins will be sent to the browser.
+  
+  * `DEVICESTATUS_ADVANCED` (`true`) - Defaults to true. Users who only have a single device uploading data to Nightscout can set this to false to reduce the data use of the site.
 
 #### Pushover
   In addition to the normal web based alarms, there is also support for [Pushover](https://pushover.net/) based alarms and notifications.
