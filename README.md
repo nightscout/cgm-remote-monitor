@@ -104,18 +104,29 @@ Community maintained fork of the
 
 # Install
 
-Requirements:
+Supported configurations:
 
-- [Node.js](http://nodejs.org/) 8.11.3 LTS or later or [Node.js](http://nodejs.org/) 10.5.0 or later. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or `setup.sh`)
-- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x. MongoDB 2.4 is only supported for Raspberry Pi.
+- [Nightscout Setup with Heroku] (http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#nightscout-setup-with-heroku) (recommended)
+- [Nightscout Setup with Microsoft Azure] (http://www.nightscout.info/wiki/faqs-2/azure-2) (not recommended, please 
+[switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku) )
+- Linux based install (Debian, Ubuntu, Raspbian) install with own Node.JS and MongoDB install (see software requirements below)
+- Windows based install (Debian, Ubuntu, Raspbian) install with own Node.JS and MongoDB install (see software requirements below)
 
-Clone this repo then install dependencies into the root of the project:
+Software requirements:
+
+- [Node.js](http://nodejs.org/) 8.11.3 LTS or later or [Node.js](http://nodejs.org/) 10.5.0 or later. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
+
+As a non-root user clone this repo then install dependencies into the root of the project:
 
 ```bash
 $ npm install
 ```
 
-If deploying the software to Microsoft Azure, you must set *WEBSITE_NODE_DEFAULT_VERSION* in the app settings to *8.9.0* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting.
+Installation notes for Microsoft Azure and Windows: 
+
+- If deploying the software to Microsoft Azure, you must set *WEBSITE_NODE_DEFAULT_VERSION* in the app settings to *8.9.0* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting.
+- If deploying with Windows, you need to install [Cygwin] (https://www.cygwin.com/) (use [setup-x86_64.exe] (https://www.cygwin.com/setup-x86_64.exe). Test your configuration by executing `make` and check if all test are ok. Start with `MONGO_CONNECTION="..." npm start`
 
 # Usage
 

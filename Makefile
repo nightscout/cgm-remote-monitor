@@ -1,7 +1,7 @@
 
 # Nightscout tests/builds/analysis
 TESTS=tests/*.js
-MONGO_CONNECTION?=mongodb://localhost/test_db
+MONGO_CONNECTION?=mongodb://localhost:27017/test_db
 CUSTOMCONNSTR_mongo_settings_collection?=test_settings
 CUSTOMCONNSTR_mongo_collection?=test_sgvs
 MONGO_SETTINGS=MONGO_CONNECTION=${MONGO_CONNECTION} \
