@@ -104,7 +104,7 @@
     "benv": "^3.3.0",
     "clear-require": "^2.0.0",
     "istanbul": "^0.4.5",
-    "mocha": "^5.2.0",
+    "mocha": "~3.5.3",
     "should": "^13.2.1",
     "supertest": "^3.1.0",
     "webpack-bundle-analyzer": "^2.13.1",
