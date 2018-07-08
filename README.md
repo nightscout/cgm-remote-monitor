@@ -114,7 +114,7 @@ Supported configurations:
 
 Software requirements:
 
-- [Node.js](http://nodejs.org/) 8.11.3 LTS or later or [Node.js](http://nodejs.org/) 10.5.0 or later. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
+- [Node.js](http://nodejs.org/) Node 8 LTS (Node 8.11.3 or later). Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
@@ -123,10 +123,11 @@ As a non-root user clone this repo then install dependencies into the root of th
 $ npm install
 ```
 
-Installation notes for Microsoft Azure and Windows: 
+Installation notes for Microsoft Azure, Windows and Node 10: 
 
 - If deploying the software to Microsoft Azure, you must set *WEBSITE_NODE_DEFAULT_VERSION* in the app settings to *8.9.0* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting.
 - If deploying with Windows, you need to install [Cygwin] (https://www.cygwin.com/) (use [setup-x86_64.exe] (https://www.cygwin.com/setup-x86_64.exe). Test your configuration by executing `make` and check if all test are ok. Start with `MONGO_CONNECTION="..." npm start`
+- There may be some issues with Node 10.6.0 or later with Nightscout. Node 10 support will be in the 0.11 release. Please don't use Nightscout with (Node 9 or) Node 10 at this moment.
 
 # Usage
 
