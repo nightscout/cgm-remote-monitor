@@ -6,24 +6,22 @@ describe('sandbox', function ( ) {
   var now = Date.now();
 
   it('init on client', function (done) {
-    var ctx = {
-      settings: {
-        units: 'mg/dl'
-        , thresholds:{
-          bgHigh: 260
-          , bgTargetTop: 180
-          , bgTargetBottom: 80
-          , bgLow: 55
-        }
+    var clientSettings = {
+      units: 'mg/dl'
+      , thresholds:{
+        bgHigh: 260
+        , bgTargetTop: 180
+        , bgTargetBottom: 80
+        , bgLow: 55
       }
-      , pluginBase: {}
     };
 
+    var pluginBase = {};
     var data = {sgvs: [{mgdl: 100, mills: now}]};
 
-    var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    var sbx = sandbox.clientInit(clientSettings, Date.now(), pluginBase, data);
 
-    sbx.pluginBase.should.equal(ctx.pluginBase);
+    sbx.pluginBase.should.equal(pluginBase);
     sbx.data.should.equal(data);
     sbx.lastSGVMgdl().should.equal(100);
 
@@ -33,7 +31,7 @@ describe('sandbox', function ( ) {
   function createServerSandbox() {
     var env = require('../env')();
     var ctx = {};
-    ctx.ddata = require('../lib/data/ddata')();
+    ctx.data = require('../lib/data')(env, ctx);
     ctx.notifications = require('../lib/notifications')(env, ctx);
 
     return sandbox.serverInit(env, ctx);
