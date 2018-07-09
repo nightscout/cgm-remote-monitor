@@ -96,7 +96,6 @@ Community maintained fork of the
     - [Treatment Profile](#treatment-profile)
   - [Setting environment variables](#setting-environment-variables)
     - [Vagrant install](#vagrant-install)
-  - [Installation on Windows](#installation-on-windows)
   - [More questions?](#more-questions)
   - [License](#license)
 
@@ -110,11 +109,11 @@ Supported configurations:
 - [Nightscout Setup with Microsoft Azure] (http://www.nightscout.info/wiki/faqs-2/azure-2) (not recommended, please 
 [switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku) )
 - Linux based install (Debian, Ubuntu, Raspbian) install with own Node.JS and MongoDB install (see software requirements below)
-- Windows based install (Debian, Ubuntu, Raspbian) install with own Node.JS and MongoDB install (see software requirements below)
+- Windows based install with own Node.JS and MongoDB install (see software requirements below)
 
 Software requirements:
 
-- [Node.js](http://nodejs.org/) Node 8 LTS (Node 8.11.3 or later). Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
+- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.11.3 or later). Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
@@ -126,7 +125,8 @@ $ npm install
 Installation notes for Microsoft Azure, Windows and Node 10: 
 
 - If deploying the software to Microsoft Azure, you must set *WEBSITE_NODE_DEFAULT_VERSION* in the app settings to *8.9.0* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting.
-- If deploying with Windows, you need to install [Cygwin] (https://www.cygwin.com/) (use [setup-x86_64.exe] (https://www.cygwin.com/setup-x86_64.exe). Test your configuration by executing `make` and check if all test are ok. Start with `MONGO_CONNECTION="..." npm start`
+- See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
+- If you deploy to Windows and want to develop or test you need to install [Cygwin] (https://www.cygwin.com/) (use [setup-x86_64.exe] (https://www.cygwin.com/setup-x86_64.exe) and make sure to install `build-essential` package. Test your configuration by executing `make` and check if all tests are ok. 
 - There may be some issues with Node 10.6.0 or later with Nightscout. Node 10 support will be in the 0.11 release. Please don't use Nightscout with (Node 9 or) Node 10 at this moment.
 
 # Usage
@@ -544,10 +544,6 @@ The setup script will install OS packages then run `npm install`.
 
 The Vagrant VM serves to your host machine only on 192.168.33.10, you can access
 the web interface on [http://192.168.33.10:1337](http://192.168.33.10:1337)
-
-## Installation on Windows
-
-If you have access to local computing resources and want to maintain more control over your data, you can host Nightscout and its database outside of the cloud. Windows Server supports MongoDB, Node.js, and Nightscout [installed on a single system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
 
 More questions?
 ---------------
