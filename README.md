@@ -58,6 +58,7 @@ Community maintained fork of the
     - [Alarms](#alarms)
     - [Core](#core)
     - [Predefined values for your browser settings (optional)](#predefined-values-for-your-browser-settings-optional)
+    - [Views](#views)
     - [Plugins](#plugins)
       - [Default Plugins](#default-plugins)
         - [`delta` (BG Delta)](#delta-bg-delta)
@@ -105,7 +106,8 @@ Community maintained fork of the
 
 Requirements:
 
-- [Node.js](http://nodejs.org/) 8.9.0 LTS (use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or `setup.sh`)
+- [Node.js](http://nodejs.org/) 8.11.3 LTS or later or [Node.js](http://nodejs.org/) 10.5.0 or later. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or `setup.sh`)
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x. MongoDB 2.4 is only supported for Raspberry Pi.
 
 Clone this repo then install dependencies into the root of the project:
 
@@ -214,6 +216,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `MONGO_DEVICESTATUS_COLLECTION`(`devicestatus`) - The collection used to store device status information such as uploader battery
   * `MONGO_PROFILE_COLLECTION`(`profile`) - The collection used to store your profiles
   * `MONGO_FOOD_COLLECTION`(`food`) - The collection used to store your food database
+  * `MONGO_ACTIVITY_COLLECTION`(`activity`) - The collection used to store activity data
   * `PORT` (`1337`) - The port that the node.js application will listen on.
   * `HOSTNAME` - The hostname that the node.js application will listen on, null by default for any hostname for IPv6 you may need to use `::`.
   * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js
@@ -241,6 +244,13 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * The `linear` option has equidistant tick marks, the range used is dynamic so that space at the top of chart isn't wasted.
     * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale.
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enable or disable icon allowing enter treatments edit mode
+
+### Views
+
+  There are a few alternate web views available that display a simplified BG stream. Append any of these to your Nightscout URL:
+  * `/clock.html` - Shows current BG. Grey text on a black background.
+  * `/bgclock.html` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
+  * `/clock-color.html` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
 
 ### Plugins
 
@@ -411,6 +421,9 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
 ##### `alexa` (Amazon Alexa)
   Integration with Amazon Alexa, [detailed setup instructions](lib/plugins/alexa-plugin.md)
 
+##### `speech` (Speech)
+  Speech synthesis plugin. When enabled, speaks out the blood glucose values, IOB and alarms.
+
 ##### `cors` (CORS)
   Enabled [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) so other websites can make request to your Nightscout site, uses these extended settings:
   * `CORS_ALLOW_ORIGIN` (`*`) - The list of sites that are allow to make requests
@@ -419,6 +432,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
 
   Plugins only have access to their own extended settings, all the extended settings of client plugins will be sent to the browser.
+  
+  * `DEVICESTATUS_ADVANCED` (`true`) - Defaults to true. Users who only have a single device uploading data to Nightscout can set this to false to reduce the data use of the site.
 
 #### Pushover
   In addition to the normal web based alarms, there is also support for [Pushover](https://pushover.net/) based alarms and notifications.
