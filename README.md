@@ -88,7 +88,7 @@ Community maintained fork of the
         - [`pump` (Pump Monitoring)](#pump-pump-monitoring)
         - [`openaps` (OpenAPS)](#openaps-openaps)
         - [`loop` (Loop)](#loop-loop)
-        - [`xdrip-js` (xDrip-js)](#xdrip-js)
+        - [`xdrip-js` (xDrip-js)](#xdrip-js-xdrip-js)
         - [`alexa` (Amazon Alexa)](#alexa-amazon-alexa)
         - [`cors` (CORS)](#cors-cors)
       - [Extended Settings](#extended-settings)
