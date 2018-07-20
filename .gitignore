@@ -24,3 +24,4 @@ npm-debug.log
 *.heapsnapshot
 
 /tmp
+/.vs
