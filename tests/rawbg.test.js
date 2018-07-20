@@ -3,10 +3,13 @@
 require('should');
 
 describe('Raw BG', function ( ) {
-  var rawbg = require('../lib/plugins/rawbg')({
-    settings: {}
-    , language: require('../lib/language')()
-  });
+  var ctx =  {
+      settings: {}
+      , language: require('../lib/language')()
+  };
+  ctx.language.set('en');
+
+  var rawbg = require('../lib/plugins/rawbg')(ctx);
 
   var now = Date.now();
   var data = {
