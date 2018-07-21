@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html manifest="nightscout.appcache">
+    <head>
+      <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
+      <meta name="apple-mobile-web-app-capable" content="yes">
+	<link rel="apple-touch-startup-image" href="images/launch.png">
+	<meta name="apple-mobile-web-app-title" content="Nightscout">
+
+      <title>Nightscout</title>
+
+      <link rel="apple-touch-icon" sizes="57x57" href="images/apple-touch-icon-57x57.png">
+      <link rel="apple-touch-icon" sizes="60x60" href="images/apple-touch-icon-60x60.png">
+      <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+      <link rel="apple-touch-icon" sizes="76x76" href="images/apple-touch-icon-76x76.png">
+      <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+      <link rel="apple-touch-icon" sizes="120x120" href="images/apple-touch-icon-120x120.png">
+      <link rel="apple-touch-icon" sizes="144x144" href="images/apple-touch-icon-144x144.png">
+      <link rel="apple-touch-icon" sizes="152x152" href="images/apple-touch-icon-152x152.png">
+      <link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon-180x180.png">
+      <link rel="icon" type="image/png" href="images/favicon-32x32.png" sizes="32x32">
+      <link rel="icon" type="image/png" href="images/android-chrome-192x192.png" sizes="192x192">
+      <link rel="icon" type="image/png" href="images/favicon-96x96.png" sizes="96x96">
+      <link rel="icon" type="image/png" href="images/favicon-16x16.png" sizes="16x16">
+      <link rel="manifest" href="manifest.json">
+      <link rel="shortcut icon" href="images/favicon.ico">
+      <meta name="msapplication-TileColor" content="#00a300">
+      <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
+      <meta name="msapplication-config" content="/browserconfig.xml">
+      <meta name="theme-color" content="#333333">
+	  <link rel="stylesheet" type="text/css" href="css/main.css?v=<%= locals.cachebuster %>" media="none" onload="if(media!='all')media='all'" />
+      <link rel="stylesheet" type="text/css" href="css/ui-darkness/jquery-ui.min.css" media="none" onload="if(media!='all')media='all'">
+
+<style media="screen" type="text/css">
+
+#centerMessagePanel
+{
+  position:fixed;
+  top:0;
+  left:0;
+  bottom:0;
+  right:0;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: #000000;
+   z-index: 1000;
+}
+
+#loadingMessage {
+    text-align: center;
+    position: absolute;
+    width: 100%;
+    height: 90%;
+    top: 30%;
+    left: 0%;
+    font-size: 16px;
+}​
+
+.spinner {
+  margin: 100px auto 0;
+  width: 70px;
+  text-align: center;
+}
+
+.spinner > div {
+  width: 18px;
+  height: 18px;
+  background-color: #333;
+
+  border-radius: 100%;
+  display: inline-block;
+  -webkit-animation: sk-bouncedelay 1.4s infinite ease-in-out both;
+  animation: sk-bouncedelay 1.4s infinite ease-in-out both;
+}
+
+.spinner .bounce1 {
+  -webkit-animation-delay: -0.32s;
+  animation-delay: -0.32s;
+}
+
+.spinner .bounce2 {
+  -webkit-animation-delay: -0.16s;
+  animation-delay: -0.16s;
+}
+
+@-webkit-keyframes sk-bouncedelay {
+  0%, 80%, 100% { -webkit-transform: scale(0) }
+  40% { -webkit-transform: scale(1.0) }
+}
+
+@keyframes sk-bouncedelay {
+  0%, 80%, 100% { 
+    -webkit-transform: scale(0);
+    transform: scale(0);
+  } 40% { 
+    -webkit-transform: scale(1.0);
+    transform: scale(1.0);
+  }
+}
+</style>
+
+    </head>
+    <body>
+    	<div id="centerMessagePanel">
+    		<div id="loadingMessage">
+    			<p><img src="images/launch.png"></p>
+    			<p id="loadingMessageText">Loading the client</p>
+<div class="spinner">
+  <div class="bounce1"></div>
+  <div class="bounce2"></div>
+  <div class="bounce3"></div>
+</div>
+    		</div>
+    	</div>
+        <div class="container loading" id="container">
+            <div id="toolbar">
+                <div id="buttonbar" role="navigation" aria-label="Menu" >
+                    <a id="editbutton" class="tip" original-title="Edit Mode" aria-label="Edit Mode" href="#" style="display:none;"><i class="icon-edit"></i></a>
+                    <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" aria-label="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
+                    <a id="drawerToggle" class="tip" original-title="Settings" aria-label="Settings" href="#"><i class="icon-menu"></i></a>
+                    <a id="lockedToggle" class="tip" original-title="Token needed for Care Portal" aria-label="Token needed for Care Portal" href="#" style="display:none;"><i class="icon-lock"></i></a>
+                    <a id="treatmentDrawerToggle" class="tip" original-title="Care Portal" aria-label="Care Portal" href="#" style="display:none;"><i class="icon-plus"></i></a>
+                    <a id="boluscalcDrawerToggle" class="tip" original-title="Bolus Wizard" aria-label="Bolus Wizard" href="#" style="display:none;"><i class="icon-calc"></i></a>
+                </div>
+                <div class="customTitle">Nightscout</div>
+            </div>
+            <div id="notification" role="region" aria-label="Notification">
+                <a href="#"  aria-label="cancel" ><span></span><i class="icon-cancel-circled"></i></a>
+            </div>
+            <div class="primary" >
+                <div class="bgStatus current">
+                    <div class="bgButton" aria-live="assertive" role="contentinfo" aria-label="Blood Sugar">  
+                        <span class="pill rawbg hidden"><em></em><label></label></span>
+                        <span class="currentBG">---</span>
+                        <span class="pill direction"></span>
+                    </div>
+                    <ul class="dropdown-menu" id="silenceBtn"></ul>
+                    <div class="majorPills"></div>
+                    <div class="minorPills"></div>
+                </div>
+
+                <div class="status">
+                    <div class="statusBox">
+                        <div id="currentTime">---</div>
+                        <div class="statusPills">
+                        </div>
+                    </div>
+                </div>
+                <ul class="focus-range">
+                    <li data-hours="2" class="translate">2HR</li>
+                    <li data-hours="3" class="translate">3HR</li>
+                    <li data-hours="6" class="translate">6HR</li>
+                    <li data-hours="12" class="translate">12HR</li>
+                    <li data-hours="24" class="translate">24HR</li>
+                    <li>...</li>
+                </ul>
+                <ul class="dropdown-menu" id="viewMenu"></ul>
+            </div>
+            <div class="row-fluid section1">
+                <div id="chartContainer" role="region" aria-label="Chart"></div>
+            </div>
+        </div>
+
+        <div id="drawer">
+            <form id="settings-form" role="form" >
+                <ul class="navigation" role="navigation" aria-label="Settings">
+                  <li><a href="report" target="reports" class="translate">Reports</a></li>
+                  <li class="profilecontrol"><a id="editprofilelink" href="profile" target="profileeditor" class="translate">Profile Editor</a></li>
+                  <li class="foodcontrol"><a id="editfoodlink" href="food" target="foodeditor" class="translate">Food Editor</a></li>
+                  <li><a id="admintoolslink" href="admin" target="admintools" class="translate">Admin Tools</a></li>
+                  <li><a id="clocklink" href="bgclock.html" target="admintools" class="translate">Clock View</a></li>
+                </ul>
+                <fieldset class="browserSettings">
+                    <legend class="translate icon-cog">Settings</legend>
+                    <dl class="radio">
+                        <dt class="translate">Units</dt>
+                        <dd><input type="radio" name="units-browser" id="mgdl-browser" value="mg/dl" checked /><label for="mgdl-browser">mg/dL</label></dd>
+                        <dd><input type="radio" name="units-browser" id="mmol-browser" value="mmol" /><label for="mmol-browser">mmol/L</label></dd>
+                    </dl>
+                    <dl class="radio">
+                        <dt class="translate">Date format</dt>
+                        <dd><input type="radio" name="timeformat-browser" id="12-browser" value="12" checked /><label for="12-browser" class="translate">12 hours</label></dd>
+                        <dd><input type="radio" name="timeformat-browser" id="24-browser" value="24" /><label for="24-browser" class="translate">24 hours</label></dd>
+                    </dl>
+                    <dl>
+                      <dt class="translate">Language</dt>
+                      <dd>
+                        <select id="language">
+                        </select>
+                      </dd>
+                    </dl>
+                    <dl>
+                      <dt class="translate">Scale</dt>
+                      <dd>
+                        <select id="scaleY">
+                          <option class="translate" value="log">Logarithmic</option>
+                          <option class="translate" value="linear">Linear</option>
+                          <option class="translate" value="log-dynamic">Logarithmic (Dynamic)</option>
+                        </select>
+                      </dd>
+                    </dl>
+                    <dl>
+                      <dt class="translate">Render Basal</dt>
+                      <dd>
+                        <select id="basalrender">
+                          <option class="translate" value="none">None</option>
+                          <option class="translate" value="default">Default</option>
+                          <option class="translate" value="icicle">Icicle</option>
+                        </select>
+                      </dd>
+                    </dl>
+                    <dl class="toggle">
+                        <dt><span class="translate">Enable Alarms</span> <a class="tip" original-title="When enabled an alarm may sound."><i class="icon-help-circled"></i></a></dt>
+                        <dd><input type="checkbox" id="alarm-urgenthigh-browser" /><label for="alarm-urgenthigh-browser" class="translate">Urgent High Alarm</label></dd>
+                        <dd><input type="checkbox" id="alarm-high-browser" /><label for="alarm-high-browser" class="translate">High Alarm</label></dd>
+                        <dd><input type="checkbox" id="alarm-low-browser" /><label for="alarm-low-browser" class="translate">Low Alarm</label></dd>
+                        <dd><input type="checkbox" id="alarm-urgentlow-browser" /><label for="alarm-urgentlow-browser" class="translate">Urgent Low Alarm</label></dd>
+                        <dd>
+                          <input type="checkbox" id="alarm-timeagowarn-browser"/><label for="alarm-timeagowarn-browser" class="translate">Stale Data: Warn</label>
+                          <input type="text" id="alarm-timeagowarnmins-browser" class="timeago-mins" value="15"/>
+                          <span class="translate">mins</span>
+                        </dd>
+                        <dd>
+                          <input type="checkbox" id="alarm-timeagourgent-browser"/><label for="alarm-timeagourgent-browser" class="translate">Stale Data: Urgent</label>
+                          <input type="text" id="alarm-timeagourgentmins-browser" class="timeago-mins" value="30"/>
+                          <span class="translate">mins</span>
+                        </dd>
+                    </dl>
+                    <dl class="toggle">
+                        <dt><span class="translate">Night Mode</span> <a class="tip" original-title="When enabled the page will be dimmed from 10pm - 6am."><i class="icon-help-circled"></i></a></dt>
+                        <dd><input type="checkbox" name="nightmode-browser" id="nightmode-browser" /><label for="nightmode-browser" class="translate">Enable</label></dd>
+                    </dl>
+                    <dl class="toggle">
+                        <dt><span class="translate">Edit Mode</span> <a class="tip" original-title="When enabled icon to start edit mode is visible"><i class="icon-help-circled"></i></a></dt>
+                        <dd><input type="checkbox" name="editmode-browser" id="editmode-browser" /><label for="editmode-browser" class="translate">Enable</label></dd>
+                    </dl>
+                    <dl id="show-rawbg-option" class="toggle">
+                      <dt><span class="translate">Show Raw BG Data</span> <a class="tip" original-title="When enabled small white dots will be disaplyed for raw BG data"><i class="icon-help-circled"></i></a></dt>
+                      <dd><input type="radio" name="show-rawbg" id="show-rawbg-never" value="never"/><label for="show-rawbg-never" class="translate">Never</label></dd>
+                      <dd><input type="radio" name="show-rawbg" id="show-rawbg-always" value="always"/><label for="show-rawbg-always" class="translate">Always</label></dd>
+                      <dd><input type="radio" name="show-rawbg" id="show-rawbg-noise" value="noise"/><label for="show-rawbg-noise" class="translate">When there is noise</label></dd>
+                    </dl>
+                    <dl>
+                        <dt class="translate">Custom Title</dt>
+                        <dd><input type="text" id="customTitle" value="Nightscout" /></dd>
+                    </dl>
+                    <dl class="radio">
+                        <dt class="translate">Theme</dt>
+                        <dd><input type="radio" name="theme-browser" id="theme-default-browser" value="default" checked /><label for="theme-default-browser" class="translate">Default</label></dd>
+                        <dd><input type="radio" name="theme-browser" id="theme-colors-browser" value="colors" /><label for="theme-colors-browser" class="translate">Colors</label></dd>
+                        <dd><input type="radio" name="theme-browser" id="theme-colorblindfriendly-browser" value="colorblindfriendly" /><label for="theme-colorblindfriendly-browser" class="translate">Colorblind-friendly colors</label></dd>
+                    </dl>
+                    <dl id="show-plugins" class="toggle">
+                        <dt class="translate">Show Plugins</dt>
+                    </dl>
+                </fieldset>
+
+                <div class="actions">
+                  <button type="button" id="save" class="translate">Save</button>
+                  <a id="useDefaults" class="pull-right translate" href="">Reset, and use defaults</a>
+                </div>
+
+                <hr>
+                <span id="authentication_placeholder"></span>
+
+                <fieldset id="about">
+                    <legend class="translate">About</legend>
+                    <div class="appName"></div>
+                    <div>version <span class="version"></span></div>
+                    <div>head <span class="head"></span></div>
+                    <p>
+                      <div>License: <a href="http://www.gnu.org/licenses/agpl.html" target="_blank">AGPL</a></div>
+                      <div>Copyright © 2017 <a href="https://github.com/nightscout/cgm-remote-monitor/graphs/contributors" target="_blank">Nightscout contributors</a></div>
+                    </p>
+                    <div class="links">
+                        <a href="https://github.com/nightscout/cgm-remote-monitor/releases" target="_blank">Release Notes</a><br />
+                        <a href="http://github.com/nightscout/cgm-remote-monitor" target="_blank">Open Source</a><br />
+                        <a href="http://www.nightscout.info" target="_blank">Nightscout Info</a><br />
+                        <a href="https://www.facebook.com/groups/cgminthecloud/" target="_blank">CGM in the Cloud</a><br />
+                    </div>
+                </fieldset>
+            </form>
+        </div>
+
+        <div id="treatmentDrawer">
+            <form id="treatment-form">
+                <fieldset class="treatmentData">
+                    <legend class="translate">Log a Treatment</legend>
+                    <label for="eventType" class="left-column">
+                        <span class="translate">Event Type</span>
+                        <select id="eventType"></select>
+                    </label>
+                    <label id="reasonLabel" for="reason" class="left-column">
+                        <span class="translate">Reason</span>
+                        <select id="reason"></select>
+                    </label>
+
+                    <fieldset id="targets">
+                      <legend class="translate">Targets</legend>
+                      <label for="targetTop" class="left-column">
+                        <span class="translate">Top</span>
+                        <input type="number" step="any" id="targetTop" />
+                      </label>
+                      <label for="targetBottom" class="left-column">
+                        <span class="translate">Bottom</span>
+                        <input type="number" step="any" id="targetBottom" />
+                      </label>
+                    </fieldset>
+
+                    <fieldset id="bg">
+                        <legend class="translate">Glucose Reading</legend>
+                        <input type="number" step="any" id="glucoseValue" pattern="[0-9.,]*" />
+                        <label><br><span class="translate">Measurement Method</span><br></label>
+                        <label for="meter">
+                            <input type="radio" name="glucoseType" id="meter" value="Finger"/>
+                            <span class="translate">Meter</span>
+                        </label>
+                        <label for="sensor">
+                            <input type="radio" name="glucoseType" id="sensor" value="Sensor"/>
+                            <span class="translate">Sensor<br></span>
+                        </label>
+                    </fieldset>
+                    <label id="carbsGivenLabel" for="carbsGiven" class="left-column short-label">
+                        <span class="translate">Carbs Given</span>
+                        <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" class="titletranslate" pattern="\d*" />
+                    </label>
+                    <label id="insulinGivenLabel" for="insulinGiven" class="left-column short-label">
+                        <span class="translate">Insulin Given</span>
+                        <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate" pattern="[0-9.,]*" />
+                    </label>
+                    <label id="insulinSplitLabel" for="insulinSplit" class="left-column short-label">
+                        <span class="translate">Split</span>
+                        <input type="number" step="5" min="0" max="100" style="width:50px" id="insulinSplitNow" placeholder="% now" class="titletranslate" pattern="\d*" />%
+                        :
+                        <input type="number" step="5" min="0" max="100" style="width:50px" id="insulinSplitExt" placeholder="% extended" class="titletranslate" pattern="\d*" />%
+                    </label>
+                    <label id="durationLabel" for="duration" class="left-column short-label">
+                        <span class="translate">Duration</span>
+                        <input id="duration" placeholder="Duration in minutes" class="titletranslate"/>
+                    </label>
+                    <label id="percentLabel" for="percent" class="left-column short-label">
+                        <span class="translate">Percent</span>
+                        <input type="number" step="10" id="percent" placeholder="Basal change in %" class="titletranslate" />
+                    </label>
+                    <label id="profileLabel" for="profile" class="left-column short-label">
+                        <span class="translate">Profile</span>
+                        <select id="profile"></select>
+                    </label>
+                    <label id="absoluteLabel" for="absolute" class="left-column short-label">
+                        <span class="translate">Basal value</span>
+                        <input type="number" step="0.025" id="absolute" placeholder="Absolute basal value" class="titletranslate"/>
+                    </label>
+                    <label id="preBolusLabel" for="preBolus" class="left-column short-label extra-space">
+                        <span class="translate">Carb Time</span>
+                        <select id="preBolus">
+                            <option class="translate" value="-60">60 minutes earlier</option>
+                            <option class="translate" value="-45">45 minutes earlier</option>
+                            <option class="translate" value="-30">30 minutes earlier</option>
+                            <option class="translate" value="-20">20 minutes earlier</option>
+                            <option class="translate" value="-15">15 minutes earlier</option>
+                            <option class="translate" value="0">Time in minutes</option>
+                            <option class="translate" value="15">15 minutes later</option>
+                            <option class="translate" value="20">20 minutes later</option>
+                            <option class="translate" value="30">30 minutes later</option>
+                            <option class="translate" value="45">45 minutes later</option>
+                            <option class="translate" value="60">60 minutes later</option>
+                        </select>
+                    </label>
+
+                    <!-- Label and textarea -->
+                    <label for="notes" class="extra-space translate">Additional Notes, Comments</label>
+                    <textarea id="notes"></textarea><br>
+
+                    <label for="enteredBy" class="left-column extra-space">
+                      <span class="translate">Entered By</span>
+                      <input type="text" id="enteredBy" value="" />
+                    </label>
+
+                    <div id="eventTime">
+                      <span class="translate">Event Time</span>
+                      <label for="nowtime">
+                        <input type="radio" name="nowOrOther" id="nowtime" value="now" checked="checked"/>
+                        <span class="translate">Now</span>
+                      </label>
+                      <label for="othertime">
+                        <input type="radio" name="nowOrOther" id="othertime" value="other"/>
+                        <span class="translate">Other</span>
+                      </label>
+                      <input type="date" id="eventDateValue" name="eventDateValue" value="" class="eventinput eventdate"/>
+                      <input type="time" id="eventTimeValue" name="eventTimeValue" value="" class="eventinput eventtime"/>
+                   </div>
+
+                  <button type="button" class="translate">Submit Form</button>
+                </fieldset>
+            </form>
+        </div>
+
+        <div id="boluscalcDrawer">
+          <form id="boluscalc-form">
+            <fieldset class="boluscalcData">
+              <legend>
+                <span class="translate">Bolus Wizard</span>
+              </legend>
+              <table>
+                <tr>
+                  <td>
+                  </td>
+                  <td>
+                    <span class="translate">BG</span>:
+                    <span style="float:right;">
+                      <input type="number" size="3" id="bc_bg" class="insulincalculationpart" pattern="[0-9.]*" >
+                    </span>
+                  </td>
+                  <td>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <input title="Use BG correction in calculation" type="checkbox" id="bc_usebg" class="insulincalculationpart titletranslate" checked>
+                  </td>
+                  <td style="width:170px">
+                    <input type="radio" name="bc_bginput" id="bc_bgfromsensor" value="Sensor" checked>
+                    <i title="BG from CGM (autoupdated)" class="icon-chart-line titletranslate" style="margin-right:0;margin-left:-0.6em;color:lightgreen"></i>
+                    <input type="radio" name="bc_bginput" id="bc_bgfrommeter" value="Finger">
+                    <i title="BG from meter" class="icon-tint titletranslate" style="margin-right:0;margin-left:-0.6em;color:red"></i>
+                    <input type="radio" name="bc_bginput" id="bc_bgmanual" value="Manual">
+                    <i title="Manual BG" class="icon-sort-numeric titletranslate" style="margin-right:0;margin-left:-0.6em;color:blue"></i>
+                  </td>
+                  <td id="bc_inzulinbgtd" class="insulincalculation">
+                    <span style="float:right" id="bc_inzulinbg">0.00</span>
+                  </td>
+                </tr>
+                <tr class="foodinput" style="display:none">
+                  <td colspan="3" id="bc_gitd">
+                    <span class="translate">GI</span>:
+                    <select style="float:right;" id="bc_gi">
+                      <option class="translate" value="1">Low</option>
+                      <option class="translate" value="2" selected>Medium/Unknown</option>
+                      <option class="translate" value="3">High</option>
+                    </select>
+                    <span style="float:right;" id="bc_gicalculated" style="display:none"></span>
+                  </td>
+                </tr>
+                <tr class="foodinput foodcontrol">
+                  <td colspan="3">
+                    <span class="translate">Quickpick</span>:
+                    <br>
+                    <select style="float:right;" id="bc_quickpick"></select>
+                    <br>
+                    <span id="bc_addfoodarea">
+                      <span class="translate">or</span>
+                      <a href="#" style="float:right;" id="bc_addfromdatabase">
+                        <span class="translate">Add from database</span>
+                      </a>
+                    </span>
+                    <div id="bc_food">
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <input title="Use carbs correction in calculation" type="checkbox" id="bc_usecarbs" class="insulincalculationpart titletranslate" checked>
+                  </td>
+                  <td>
+                    <span class="translate">Carbs</span>:
+                    <span style="float:right;">
+                      <input type="number" size="3" id="bc_carbs" value="0" class="insulincalculationpart" pattern="\d*" > g
+                    </span>
+                  </td>
+                  <td id="bc_inzulincarbstd" class="insulincalculation">
+                    <span style="float:right" id="bc_inzulincarbs"></span>
+                  </td>
+                </tr>
+                <tr class="cobcontrol">
+                  <td>
+                    <input title="Use COB correction in calculation" type="checkbox" id="bc_usecob" class="insulincalculationpart titletranslate">
+                  </td>
+                  <td>
+                    <span class="translate">COB</span>:
+                    <span style="float:right">
+                      <span id="bc_cob"></span> g
+                    </span>
+                  </td>
+                  <td class="insulincalculation">
+                      <span style="float:right" id="bc_cobu"></span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <input title="Use IOB in calculation" type="checkbox" id="bc_useiob" class="insulincalculationpart" checked>
+                  </td>
+                  <td>
+                    <span class="translate">IOB</span>:
+                  </td>
+                  <td class="insulincalculation">
+                    <span style="float:right" id="bc_iob">0.00</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                  </td>
+                  <td>
+                    <span class="translate">Other correction</span>:
+                  </td>
+                  <td class="insulincalculation">
+                    <select style="float:right" id="bc_othercorrection" class="insulincalculationpart">
+                      <option value="-1">-1.00</option>
+                      <option value="-0.95">-0.95</option>
+                      <option value="-0.90">-0.90</option>
+                      <option value="-0.85">-0.85</option>
+                      <option value="-0.80">-0.80</option>
+                      <option value="-0.75">-0.75</option>
+                      <option value="-0.70">-0.70</option>
+                      <option value="-0.65">-0.65</option>
+                      <option value="-0.60">-0.60</option>
+                      <option value="-0.55">-0.55</option>
+                      <option value="-0.50">-0.50</option>
+                      <option value="-0.45">-0.45</option>
+                      <option value="-0.40">-0.40</option>
+                      <option value="-0.35">-0.35</option>
+                      <option value="-0.30">-0.30</option>
+                      <option value="-0.25">-0.25</option>
+                      <option value="-0.20">-0.20</option>
+                      <option value="-0.15">-0.15</option>
+                      <option value="-0.10">-0.10</option>
+                      <option value="-0.05">-0.05</option>
+                      <option value="0" selected>0.00</option>
+                      <option value="0.05">0.05</option>
+                      <option value="0.10">0.10</option>
+                      <option value="0.15">0.15</option>
+                      <option value="0.20">0.20</option>
+                      <option value="0.25">0.25</option>
+                      <option value="0.30">0.30</option>
+                      <option value="0.35">0.35</option>
+                      <option value="0.40">0.40</option>
+                      <option value="0.45">0.45</option>
+                      <option value="0.50">0.50</option>
+                      <option value="0.55">0.55</option>
+                      <option value="0.60">0.60</option>
+                      <option value="0.65">0.65</option>
+                      <option value="0.70">0.70</option>
+                      <option value="0.75">0.75</option>
+                      <option value="0.80">0.80</option>
+                      <option value="0.85">0.85</option>
+                      <option value="0.90">0.90</option>
+                      <option value="0.95">0.95</option>
+                      <option value="1">1.00</option>
+                    </select>
+                  </td>
+                </tr>
+                <tr class="border_bottom">
+                  <td>
+                  </td>
+                  <td>
+                    <span class="translate">Rounding</span>:
+                  </td>
+                  <td class="insulincalculation">
+                    <span style="float:right" id="bc_rouding">0.00</span>
+                  </td>
+                </tr>
+                <tr id="bc_calculationintarget" class="insulintotalcalculation border_bottom">
+                  <td>
+                  </td>
+                  <td colspan="2">
+                    <span class="translate" style="font-size:1em">Calculation is in target range.</span>
+                  </td>
+                </tr>
+                <tr  id="bc_insulinneededtr" class="insulintotalcalculation border_bottom">
+                  <td>
+                    <input title="Enter insulin correction in treatment" type="checkbox" id="bc_useinsulin" class="insulincalculationpart titletranslate" checked>
+                  </td>
+                  <td>
+                    <span class="translate">Insulin needed</span>:
+                  </td>
+                  <td>
+                    <span style="float:right" id="bc_insulintotal">0.00</span>
+                  </td>
+                </tr>
+                <tr  id="bc_carbsneededtr" class="insulintotalcalculation border_bottom titletranslate" title="Carbs needed if Insulin total is negative value">
+                  <td>
+                  </td>
+                  <td>
+                    <span class="translate">Carbs needed</span>:
+                    <span style="float:right" id="bc_carbsneeded"></span>
+                  </td>
+                  <td>
+                    <span  style="float:right"id="bc_insulinover"></span>
+                  </td>
+                </tr>
+                <tr class="border_bottom">
+                  <td>
+                  </td>
+                  <td>
+                    <span class="translate">Basal rate</span>:
+                  </td>
+                  <td>
+                    <span id="bc_basal" style="float:right"></span>
+                  </td>
+                </tr>
+              </table>
+              <hr>
+              <label for="bc_preBolus" class="left-column short-label extra-space">
+                <span class="translate">Carb Time</span>:
+                <select id="bc_preBolus">
+                  <option class="translate" value="-60">60 minutes earlier</option>
+                  <option class="translate" value="-45">45 minutes earlier</option>
+                  <option class="translate" value="-30">30 minutes earlier</option>
+                  <option class="translate" value="-20">20 minutes earlier</option>
+                  <option class="translate" value="-15">15 minutes earlier</option>
+                  <option class="translate" value="0" selected>Time in minutes</option>
+                  <option class="translate" value="15">15 minutes later</option>
+                  <option class="translate" value="20">20 minutes later</option>
+                  <option class="translate" value="30">30 minutes later</option>
+                  <option class="translate" value="45">45 minutes later</option>
+                  <option class="translate" value="60">60 minutes later</option>
+                </select>
+              </label>
+              <br>
+              <label id="bc_profileLabel" for="preBolus" class="left-column short-label extra-space">
+                <span class="translate">Profile</span>:
+                <select id="bc_profile" class="insulincalculationpart"></select>
+              </label>
+              <br>
+
+              <!-- Label and textarea -->
+              <label for="bc_notes" class="extra-space translate">Additional Notes, Comments</label>
+              <textarea id="bc_notes" style="width:250px"></textarea>
+              <br>
+
+              <label for="bc_enteredBy" class="left-column extra-space">
+                <span class="translate">Entered By</span>:
+              </label>
+              <input type="text" id="bc_enteredBy" value="" />
+
+              <div id="bc_eventTime">
+                <span class="translate">Event Time</span>:
+                <input type="radio" name="bc_nowOrOther" id="bc_nowtime" value="now" checked="checked"/>
+                <label for="bc_nowtime">
+                  <span class="translate">Now</span>
+                </label>
+                <input type="radio" name="bc_nowOrOther" id="bc_othertime" value="other"/>
+                <label for="bc_othertime">
+                  <span class="translate">Other</span>
+                </label>
+                <input type="date" id="bc_eventDateValue" name="bc_eventTimeValue" value="" class="bc_eventtimeinput"/>
+                <input type="time" id="bc_eventTimeValue" name="bc_eventTimeValue" value="" class="bc_eventtimeinput"/>
+              </div>
+              <div id="bc_retro" class="translate" style="display:none;width:100%;background-color:red;text-align: center;border: 2px solid black;border-radius: 10px;margin-top:10px;">RETRO MODE</div>
+            </fieldset>
+            <button type="button" class="translate">Submit Form</button>
+          </form>
+
+          <div id="bc_addfooddialog" style="display:none" title="Add food from your database" class="titletranslate">
+            <fieldset class="browserSettings">
+              <legend class="translate">Filter</legend>
+              <span class="translate">Category</span>: <select id="bc_filter_category"></select>
+              <span class="translate">Subcategory</span>: <select id="bc_filter_subcategory"></select>
+              <br>
+              <span class="translate">Name</span>: <input type="text" id="bc_filter_name"></select>
+            </fieldset>
+            <select id="bc_data" style="width:100%;"></select>
+            <br>
+            <br>
+            <span class="translate">Portions</span>: <input type="number" step="0.1" min="0" value="1" size="3" id="bc_addportions">
+          </div>
+        </div>
+
+
+        <div class="audio alarms">
+            <audio src="audio/alarm.mp3" preload="auto" loop="true" class="alarm mp3" type="audio/mp3"></audio>
+            <audio src="audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
+        </div>
+
+        <script src="js/bundle.js?v=<%= locals.cachebuster %>"></script>
+        <script src="socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
+        <script src="js/client.js?v=<%= locals.cachebuster %>"></script>
+    </body>
+</html>
