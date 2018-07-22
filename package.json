@@ -83,7 +83,7 @@
     "moment-timezone": "^0.5.21",
     "mongodb": "~3.0.11",
     "mongomock": "^0.1.2",
-    "mqtt": "^0.3.13",
+    "mqtt": "^2.18.3",
     "node-cache": "^4.2.0",
     "parse-duration": "^0.1.1",
     "prettyjson": "^1.2.1",
