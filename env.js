@@ -161,6 +161,9 @@ function readENVTruthy(varName, defaultValue) {
 function findExtendedSettings (envs) {
   var extended = {};
 
+  extended.devicestatus = {};
+  extended.devicestatus.advanced = true;
+
   function normalizeEnv (key) {
     return key.toUpperCase().replace('CUSTOMCONNSTR_', '');
   }
