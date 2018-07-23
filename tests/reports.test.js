@@ -237,8 +237,8 @@ describe('reports', function ( ) {
       $('a.presetdates :first').click();
       $('#rp_notes').val('something');
       $('#rp_eventtype').val('BG Check');
-      $('#rp_from').val('2015/08/08');
-      $('#rp_to').val('2015/09/07');
+      $('#rp_from').val('2015-08-08');
+      $('#rp_to').val('2015-09-07');
       $('#rp_optionsraw').prop('checked', true);
       $('#rp_optionsiob').prop('checked', true);
       $('#rp_optionscob').prop('checked', true);
