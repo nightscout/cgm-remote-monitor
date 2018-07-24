@@ -166,7 +166,8 @@ describe('loop', function ( ) {
           done();
         }
       , language: require('../lib/language')()
-      }
+      },
+      language: require('../lib/language')()
     };
 
     var errorTime = moment(statuses[1].created_at);
