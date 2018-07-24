@@ -1,6 +1,11 @@
 'use strict';
 
-var _ = require('lodash');
+var _each = require('lodash/each');
+var _trim = require('lodash/trim');
+var _forIn = require('lodash/forIn');
+var _startsWith = require('lodash/startsWith');
+var _camelCase = require('lodash/camelCase');
+
 var fs = require('fs');
 var crypto = require('crypto');
 var consts = require('./lib/constants');
@@ -161,20 +166,23 @@ function readENVTruthy(varName, defaultValue) {
 function findExtendedSettings (envs) {
   var extended = {};
 
+  extended.devicestatus = {};
+  extended.devicestatus.advanced = true;
+
   function normalizeEnv (key) {
     return key.toUpperCase().replace('CUSTOMCONNSTR_', '');
   }
 
-  _.each(env.settings.enable, function eachEnable(enable) {
-    if (_.trim(enable)) {
-      _.forIn(envs, function eachEnvPair (value, key) {
+  _each(env.settings.enable, function eachEnable(enable) {
+    if (_trim(enable)) {
+      _forIn(envs, function eachEnvPair (value, key) {
         var env = normalizeEnv(key);
-        if (_.startsWith(env, enable.toUpperCase() + '_')) {
+        if (_startsWith(env, enable.toUpperCase() + '_')) {
           var split = env.indexOf('_');
           if (split > -1 && split <= env.length) {
             var exts = extended[enable] || {};
             extended[enable] = exts;
-            var ext = _.camelCase(env.substring(split + 1).toLowerCase());
+            var ext = _camelCase(env.substring(split + 1).toLowerCase());
             if (!isNaN(value)) { value = Number(value); }
             if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
             if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }

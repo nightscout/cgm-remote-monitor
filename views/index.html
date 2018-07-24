@@ -27,9 +27,10 @@
       <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
-	  <link rel="stylesheet" type="text/css" href="css/main.css?v=<%= locals.cachebuster %>" media="none" onload="if(media!='all')media='all'" />
       <link rel="stylesheet" type="text/css" href="css/ui-darkness/jquery-ui.min.css" media="none" onload="if(media!='all')media='all'">
-
+      <link rel="stylesheet" type="text/css" href="css/jquery.tooltips.css" media="none" onload="if(media!='all')media='all'">
+	  <link rel="stylesheet" type="text/css" href="css/main.css?v=<%= locals.cachebuster %>" media="none" onload="if(media!='all')media='all'" />
+	  
 <style media="screen" type="text/css">
 
 #centerMessagePanel
@@ -169,7 +170,12 @@
                   <li class="profilecontrol"><a id="editprofilelink" href="profile" target="profileeditor" class="translate">Profile Editor</a></li>
                   <li class="foodcontrol"><a id="editfoodlink" href="food" target="foodeditor" class="translate">Food Editor</a></li>
                   <li><a id="admintoolslink" href="admin" target="admintools" class="translate">Admin Tools</a></li>
-                  <li><a id="clocklink" href="bgclock.html" target="admintools" class="translate">Clock View</a></li>
+                  <li class="multilink">
+                  	<a class="translate">Clock Views:</a>
+                  	<a id="bgclocklink" href="bgclock.html" class="translate multilink">Clock</a>
+                  	<a id="clockcolorlink" href="clock-color.html" class="translate multilink">Color</a>
+                  	<a id="clocklink" href="clock.html" class="translate multilink">Simple</a>
+                  </li>
                 </ul>
                 <fieldset class="browserSettings">
                     <legend class="translate icon-cog">Settings</legend>
