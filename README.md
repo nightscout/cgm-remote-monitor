@@ -442,7 +442,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Integration with Amazon Alexa, [detailed setup instructions](lib/plugins/alexa-plugin.md)
 
 ##### `speech` (Speech)
-  Speech synthesis plugin. When enabled, speaks out the blood glucose values, IOB and alarms.
+  Speech synthesis plugin. When enabled, speaks out the blood glucose values, IOB and alarms. Note you have to set the LANGUAGE setting on the server to get all translated alarms.
 
 ##### `cors` (CORS)
   Enabled [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) so other websites can make request to your Nightscout site, uses these extended settings:
