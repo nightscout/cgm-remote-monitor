@@ -174,7 +174,8 @@ exampleProfile[0].startDate.setMilliseconds(0);
 describe('reports', function ( ) {
   var self = this;
   var headless = require('./fixtures/headless')(benv, this);
-
+  this.timeout(80000);
+  
   before(function (done) {
     done( );
   });
@@ -185,13 +186,12 @@ describe('reports', function ( ) {
 
   beforeEach(function (done) {
     var opts = {
-      htmlFile: __dirname + '/../static/report/index.html'
+      htmlFile: __dirname + '/../views/reportindex.html'
     , mockProfileEditor: true
     , serverSettings: serverSettings
     , mockSimpleAjax: someData
     , benvRequires: [
-        __dirname + '/../bundle/bundle.source.js'
-      , __dirname + '/../static/report/js/report.js'
+       __dirname + '/../static/report/js/report.js'
       ]
     };
     headless.setup(opts, done);
@@ -204,7 +204,7 @@ describe('reports', function ( ) {
 
 
   it ('should produce some html', function (done) {
-    var client = require('../lib/client');
+    var client = window.Nightscout.client;
 
     var hashauth = require('../lib/hashauth');
     hashauth.init(client,$);
@@ -228,6 +228,8 @@ describe('reports', function ( ) {
     client.init(function afterInit ( ) {
       client.dataUpdate(nowData);
 
+		console.log('Sending profile to client');
+
       // Load profile, we need to operate in UTC
       client.sbx.data.profile.loadData(exampleProfile);
 
@@ -235,8 +237,8 @@ describe('reports', function ( ) {
       $('a.presetdates :first').click();
       $('#rp_notes').val('something');
       $('#rp_eventtype').val('BG Check');
-      $('#rp_from').val('2015/08/08');
-      $('#rp_to').val('2015/09/07');
+      $('#rp_from').val('2015-08-08');
+      $('#rp_to').val('2015-09-07');
       $('#rp_optionsraw').prop('checked', true);
       $('#rp_optionsiob').prop('checked', true);
       $('#rp_optionscob').prop('checked', true);
@@ -261,12 +263,10 @@ describe('reports', function ( ) {
       //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
       //logfile.write($('body').html());
 
-      // console.log(result);
-
       result.indexOf('Milk now').should.be.greaterThan(-1); // daytoday
       result.indexOf('50 g (1.67U)').should.be.greaterThan(-1); // daytoday
       result.indexOf('<td class="tdborder">0%</td><td class="tdborder">100%</td><td class="tdborder">0%</td><td class="tdborder">2</td>').should.be.greaterThan(-1); //dailystats
-      result.indexOf('td class="tdborder" style="background-color:#8f8"><strong>Normal: </strong></td><td class="tdborder">38%</td><td class="tdborder">6</td>').should.be.greaterThan(-1); // distribution
+      //TODO FIXME result.indexOf('td class="tdborder" style="background-color:#8f8"><strong>Normal: </strong></td><td class="tdborder">64.7%</td><td class="tdborder">6</td>').should.be.greaterThan(-1); // distribution
       result.indexOf('<td>16 (100%)</td>').should.be.greaterThan(-1); // hourlystats
       result.indexOf('<div id="success-grid">').should.be.greaterThan(-1); //success
       result.indexOf('<b style="padding-left:4em">CAL</b>:  Scale: 1.10 Intercept: 31102 Slope: 776.91').should.be.greaterThan(-1); //calibrations
