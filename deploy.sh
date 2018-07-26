@@ -114,7 +114,8 @@ selectNodeVersion
 if [ -e "$DEPLOYMENT_TARGET/package.json" ]; then
   cd "$DEPLOYMENT_TARGET"
   echo Installing webpack and webpack-command and yargs
-  eval $NPM_CMD install -g webpack webpack-command yargs
+  eval $NPM_CMD install -g webpack webpack-command 
+  eval $NPM_CMD install yargs
   eval $NPM_CMD install --production --scripts-prepend-node-path
   exitWithMessageOnError "npm failed"
   cd - > /dev/null
