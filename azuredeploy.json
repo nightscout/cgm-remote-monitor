@@ -318,7 +318,11 @@
           }, {
             "name": "WEBSITE_NODE_DEFAULT_VERSION",
             "value": "8.11.1"
+          }, {
+            "name": "SCM_COMMAND_IDLE_TIMEOUT",
+            "value": "300"
           }
+
         ]
       }
     },
