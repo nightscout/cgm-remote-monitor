@@ -7,6 +7,7 @@ var moment = require('moment');
 var ctx = {
   language: require('../lib/language')()
 };
+ctx.language.set('en');
 var env = require('../env')();
 var pump = require('../lib/plugins/pump')(ctx);
 var sandbox = require('../lib/sandbox')();
@@ -253,7 +254,7 @@ describe('pump', function ( ) {
       , notifications: require('../lib/notifications')(env, ctx)
       , language: require('../lib/language')()
     };
-
+    ctx.language.set('en');
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
     pump.setProperties(sbx);
 
@@ -265,7 +266,7 @@ describe('pump', function ( ) {
 
       pump.alexa.intentHandlers[1].intentHandler(function next(title, response) {
         title.should.equal('Pump battery');
-        response.should.equal('Your battery is at 1.52 volts');
+        response.should.equal('Your pump battery is at 1.52 volts');
         done();
       }, [], sbx);
 
