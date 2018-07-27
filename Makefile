@@ -41,6 +41,9 @@ report:
 	YOURPACKAGE_COVERAGE=1 ./node_modules/codacy-coverage/bin/codacy-coverage.js) || echo "NO COVERAGE"
 
 test:
+	$(foreach var,$(wildcard tests/*.js),${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap $(var);)
+
+test_all:
 	${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap ${TESTS}
 
 travis:
