@@ -41,7 +41,7 @@ report:
 	YOURPACKAGE_COVERAGE=1 ./node_modules/codacy-coverage/bin/codacy-coverage.js) || echo "NO COVERAGE"
 
 test:
-	${MONGO_SETTINGS} ${MOCHA} --timeout 30000 -R tap ${TESTS}
+	${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap ${TESTS}
 
 travis:
 	NODE_ENV=test ${MONGO_SETTINGS} \
