@@ -41,9 +41,14 @@ report:
 	YOURPACKAGE_COVERAGE=1 ./node_modules/codacy-coverage/bin/codacy-coverage.js) || echo "NO COVERAGE"
 
 test:
-	${MONGO_SETTINGS} ${MOCHA} --timeout 30000 -R tap ${TESTS}
+	python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'
+	$(foreach var,$(wildcard tests/*.js),${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap $(var);)
+
+test_all:
+	${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap ${TESTS}
 
 travis:
+	python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'
 	NODE_ENV=test ${MONGO_SETTINGS} \
 	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 5000 -R tap ${TESTS}
 

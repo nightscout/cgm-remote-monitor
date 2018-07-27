@@ -12,6 +12,8 @@ describe('Uploader Battery', function ( ) {
       , language: require('../lib/language')()
     };
     ctx.language.set('en');
+    ctx.levels = require('../lib/levels');
+    
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
 
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
