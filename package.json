@@ -48,7 +48,7 @@
     }
   },
   "engines": {
-    "node": "8.x",
+    "node": "8.11.x",
     "npm": "6.x || 5.8.x || 5.7.x || 5.6.x"
   },
   "dependencies": {
@@ -96,7 +96,7 @@
     "socket.io": "^2.1.1",
     "style-loader": "^0.20.2",
     "traverse": "^0.6.6",
-    "uglify-js": "^3.4.5",
+    "uglify-js": "^3.4.6",
     "uuid": "^3.2.1"
   },
   "devDependencies": {
@@ -105,9 +105,9 @@
     "istanbul": "^0.4.5",
     "mocha": "^5.2.0",
     "moment-locales-webpack-plugin": "^1.0.7",
-    "should": "^13.2.1",
+    "should": "^13.2.2",
     "supertest": "^3.1.0",
-    "webpack": "^4.16.2",
+    "webpack": "^4.16.3",
     "webpack-bundle-analyzer": "^2.13.1",
     "webpack-command": "^0.4.1"
   }
