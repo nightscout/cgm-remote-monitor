@@ -3,7 +3,7 @@ sudo: required
 dist: trusty
 node_js:
   - "8"
-  - "9"
+  - "10"
 before_install: if [[ `npm --version` != "5.8.0" ]]; then npm install -g npm@latest; npm --version; fi
 matrix:
   fast_finish: true

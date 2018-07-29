@@ -1,13 +1,13 @@
 const path = require('path');
 const webpack = require('webpack');
+const MomentLocalesPlugin = require('moment-locales-webpack-plugin');
+
 
 var pluginArray = [];
 
 var sourceMapType = 'source-map';
 
 if (process.env.NODE_ENV !== 'development') {
-
-    console.log('Production environment detected. Enabling --optimize-minimize');
 
 /*
     console.log('Development environment detected, enabling Bundle Analyzer');
@@ -57,6 +57,14 @@ var jq = new webpack.ProvidePlugin({
 });
 
 pluginArray.push(jq);
+
+// Strip all locales except the ones defined in lib/language.js
+// (“en” is built into Moment and can’t be removed, 'dk' is not defined in moment)
+ var momentLocales = new MomentLocalesPlugin({
+            localesToKeep: ['bg', 'cs', 'de', 'el', 'es', 'fi', 'fr', 'he', 'hr', 'it', 'ko', 'nb', 'nl', 'pl', 'pt', 'ro', 'ru', 'sk', 'sv', 'zh_cn', 'zh_tw'],
+        }) ;
+pluginArray.push(momentLocales);
+
 
 module.exports = {
     context: path.resolve(__dirname, '.'),

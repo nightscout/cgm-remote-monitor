@@ -68,6 +68,25 @@ describe('Entries REST api', function ( ) {
       });
   });
 
+  it('gets entries in right order', function (done) {
+    var defaultCount = 10;
+    request(this.app)
+      .get('/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
+        
+        var array = res.body;
+        var firstEntry = array[0];
+        var secondEntry = array[1];
+        
+        firstEntry.date.should.be.above(secondEntry.date);
+        
+        done( );
+      });
+  });
+
+
   it('/echo/ api shows query', function (done) {
     request(this.app)
       .get('/echo/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
