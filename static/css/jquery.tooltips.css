@@ -1,3 +1,7 @@
+.tooltip strong, .tooltip b {
+    font-weight: 700
+}
+
 .tooltip {
   position: absolute;
   font-size: 10px;
