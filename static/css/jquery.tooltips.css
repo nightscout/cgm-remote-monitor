@@ -1,5 +1,5 @@
-.tooltip strong, b {
-    font-weight: 900
+.tooltip strong, .tooltip b {
+    font-weight: 700
 }
 .tooltip {
   position: absolute;
