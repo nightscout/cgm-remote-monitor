@@ -95,7 +95,24 @@ var someData = {
       {'created_at':'2015-09-05T00:00:00.000Z'},
       {'created_at':'2015-09-06T00:00:00.000Z'},
       {'created_at':'2015-09-07T00:00:00.000Z'}
+    ],
+    '/api/v1/devicestatus.json&find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-09-07T23:59:59.000Z?find[openaps][$exists]=true&count=1000': [
+      {
+        'openaps': {
+            'suggested': {
+                'temp': 'absolute',
+                'bg': 67,
+                'tick': '+6',
+                'eventualBG': 145,
+                'snoozeBG': 145,
+                'reason': 'BG 67<74.5, delta 6>0; no high-temp to cancel',
+                'timestamp': '2015-08-31T00:00:00.000Z'
+            }
+        },
+        'created_at': '2015-08-31T00:00:00.000Z'
+      }
     ]
+
   };
 
 var exampleProfile = [
@@ -156,93 +173,38 @@ exampleProfile[0].startDate.setMilliseconds(0);
 
 describe('reports', function ( ) {
   var self = this;
-
+  var headless = require('./fixtures/headless')(benv, this);
+  this.timeout(80000);
+  
   before(function (done) {
-    benv.setup(function() {
-      self.$ = require('jquery');
-      self.$.localStorage = require('./fixtures/localstorage');
-
-      self.$.fn.tipsy = function mockTipsy ( ) { };
-
-      self.$.fn.dialog = function mockDialog (opts) {
-        function maybeCall (name, obj) {
-          if (obj[name] && obj[name].call) {
-            obj[name]();
-          }
-
-        }
-        maybeCall('open', opts);
-
-        _.forEach(opts.buttons, function (button) {
-          maybeCall('click', button);
-        });
-      };
-
-      var indexHtml = read(__dirname + '/../static/report/index.html', 'utf8');
-      self.$('body').html(indexHtml);
-
-      //var filesys = require('fs');
-      //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
-      
-      self.$.ajax = function mockAjax (url, opts) {
-        //logfile.write(url+'\n');
-        return {
-          done: function mockDone (fn) {
-            if (opts && opts.success && opts.success.call) {
-              if (someData[url]) {
-                //console.log('+++++Data for ' + url + ' sent');
-                opts.success(someData[url]);
-              } else {
-                //console.log('-----Data for ' + url + ' missing');
-                opts.success([]);
-              }
-            }
-            fn();
-            return self.$.ajax();
-          },
-          fail: function mockFail (fn) {
-            fn({status: 400});
-            return self.$.ajax();
-          }
-        };
-      };
-
-      self.$.plot = function mockPlot () {
-      };
-
-      var d3 = require('d3');
-      //disable all d3 transitions so most of the other code can run with jsdom
-      d3.timer = function mockTimer() { };
-
-      benv.expose({
-        $: self.$
-        , jQuery: self.$
-        , d3: d3
-        , serverSettings: serverSettings
-        , io: {
-          connect: function mockConnect ( ) {
-            return {
-              on: function mockOn ( ) { }
-            };
-          }
-        }
-      });
-
-      benv.require(__dirname + '/../bundle/bundle.source.js');
-      benv.require(__dirname + '/../static/report/js/report.js');
-
-      done();
-    });
+    done( );
   });
 
   after(function (done) {
-    benv.teardown(true);
-    done();
+    done( );
   });
 
+  beforeEach(function (done) {
+    var opts = {
+      htmlFile: __dirname + '/../views/reportindex.html'
+    , mockProfileEditor: true
+    , serverSettings: serverSettings
+    , mockSimpleAjax: someData
+    , benvRequires: [
+       __dirname + '/../static/report/js/report.js'
+      ]
+    };
+    headless.setup(opts, done);
+  });
+
+  afterEach(function (done) {
+    headless.teardown( );
+    done( );
+  });
+
+
   it ('should produce some html', function (done) {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
-    var client = require('../lib/client');
+    var client = window.Nightscout.client;
 
     var hashauth = require('../lib/hashauth');
     hashauth.init(client,$);
@@ -259,52 +221,59 @@ describe('reports', function ( ) {
        return true;
      };
 
-    client.init(serverSettings, plugins);
-    client.dataUpdate(nowData);
-    
-    // Load profile, we need to operate in UTC
-    client.sbx.data.profile.loadData(exampleProfile);
-    
-    $('a.presetdates :first').click();
-    $('#rp_notes').val('something');
-    $('#rp_eventtype').val('BG Check');
-    $('#rp_from').val('2015/08/08');
-    $('#rp_to').val('2015/09/07');
-    $('#rp_optionsraw').prop('checked',true);
-    $('#rp_optionsiob').prop('checked',true);
-    $('#rp_optionscob').prop('checked',true);
-    $('#rp_enableeventtype').click();
-    $('#rp_enablenotes').click();
-    $('#rp_enablefood').click();
-    $('#rp_enablefood').click();
-    $('#rp_log').prop('checked',true);
-    $('#rp_show').click();
+     window.setTimeout = function mockSetTimeout (call) {
+       call();
+     };
 
-    $('#rp_linear').prop('checked',true);
-    $('#rp_show').click();
-    $('#dailystats').click();
-    
-    $('img.deleteTreatment:first').click();
-    $('img.editTreatment:first').click();
-    $('.ui-button:contains("Save")').click();
+    client.init(function afterInit ( ) {
+      client.dataUpdate(nowData);
 
-    var result = $('body').html();
-    //var filesys = require('fs');
-    //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
-    //logfile.write($('body').html());
-    
-    //console.log(result);
+		console.log('Sending profile to client');
 
-    result.indexOf('Milk now').should.be.greaterThan(-1); // daytoday
-    result.indexOf('50 g (1.67U)').should.be.greaterThan(-1); // daytoday
-    result.indexOf('<td class="tdborder">0%</td><td class="tdborder">100%</td><td class="tdborder">0%</td><td class="tdborder">2</td>').should.be.greaterThan(-1); //dailystats
-    result.indexOf('td class="tdborder" style="background-color:#8f8"><strong>Normal: </strong></td><td class="tdborder">38%</td><td class="tdborder">6</td>').should.be.greaterThan(-1); // distribution
-    result.indexOf('<td>16 (100%)</td>').should.be.greaterThan(-1); // hourlystats
-    result.indexOf('<div id="success-grid">').should.be.greaterThan(-1); //success 
-    result.indexOf('<b style="padding-left:4em">CAL</b>:  Scale: 1.10 Intercept: 31102 Slope: 776.91').should.be.greaterThan(-1); //calibrations
-    result.indexOf('<td>Correction Bolus</td><td align="center">250 (Sensor)</td><td align="center">0.75</td>').should.be.greaterThan(-1); //treatments
-    
-    done();
+      // Load profile, we need to operate in UTC
+      client.sbx.data.profile.loadData(exampleProfile);
+
+      $('#treatments').addClass('selected');
+      $('a.presetdates :first').click();
+      $('#rp_notes').val('something');
+      $('#rp_eventtype').val('BG Check');
+      $('#rp_from').val('2015/08/08');
+      $('#rp_to').val('2015/09/07');
+      $('#rp_optionsraw').prop('checked', true);
+      $('#rp_optionsiob').prop('checked', true);
+      $('#rp_optionscob').prop('checked', true);
+      $('#rp_enableeventtype').click();
+      $('#rp_enablenotes').click();
+      $('#rp_enablefood').click();
+      $('#rp_enablefood').click();
+      $('#rp_log').prop('checked', true);
+      $('#rp_optionsopenaps').prop('checked', true);
+      $('#rp_show').click();
+
+      $('#rp_linear').prop('checked', true);
+      $('#rp_show').click();
+      $('#dailystats').click();
+
+      $('img.deleteTreatment:first').click();
+      $('img.editTreatment:first').click();
+      $('.ui-button:contains("Save")').click();
+
+      var result = $('body').html();
+      //var filesys = require('fs');
+      //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
+      //logfile.write($('body').html());
+
+      result.indexOf('Milk now').should.be.greaterThan(-1); // daytoday
+      result.indexOf('50 g (1.67U)').should.be.greaterThan(-1); // daytoday
+      result.indexOf('<td class="tdborder">0%</td><td class="tdborder">100%</td><td class="tdborder">0%</td><td class="tdborder">2</td>').should.be.greaterThan(-1); //dailystats
+      result.indexOf('td class="tdborder" style="background-color:#8f8"><strong>Normal: </strong></td><td class="tdborder">64.7%</td><td class="tdborder">6</td>').should.be.greaterThan(-1); // distribution
+      result.indexOf('<td>16 (100%)</td>').should.be.greaterThan(-1); // hourlystats
+      result.indexOf('<div id="success-grid">').should.be.greaterThan(-1); //success
+      result.indexOf('<b style="padding-left:4em">CAL</b>:  Scale: 1.10 Intercept: 31102 Slope: 776.91').should.be.greaterThan(-1); //calibrations
+      result.indexOf('<td>Correction Bolus</td><td align="center">250 (Sensor)</td><td align="center">0.75</td>').should.be.greaterThan(-1); //treatments
+
+      done();
+    });
   });
 
 });
