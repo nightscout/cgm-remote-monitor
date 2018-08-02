@@ -1,9 +1,13 @@
+.tooltip strong, .tooltip b {
+    font-weight: 700
+}
 .tooltip {
   position: absolute;
   font-size: 10px;
-  padding: 3px 8px;
+  padding: 3px 5px;
   opacity: 0.9;
   z-index: 9999;
+  word-wrap: break-word;
 }
 .tooltip .tooltip-inner {
   background-color: #000;
@@ -12,6 +16,9 @@
   padding: 3px 8px;
   text-align: center;
   box-shadow: 0 0 5px 0 black;
+  border-radius: 3px;
+  -moz-border-radius: 3px;
+  -webkit-border-radius: 3px;
 }
 .tooltip .tooltip-arrow {
   position: absolute;

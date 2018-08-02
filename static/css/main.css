@@ -1,5 +1,5 @@
 
-@import url("//fonts.googleapis.com/css?family=Ubuntu:400,600");
+@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');
 
 @font-face {
   font-family: 'nsicons';
@@ -71,7 +71,7 @@ html, body {
 }
 
 body {
-  font-family: 'Ubuntu', Verdana, Helvetica, Arial, sans-serif;
+  font-family: 'Ubuntu', sans-serif;
   background: #000;
   color: #bdbdbd;
 }
