@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+  
+	<title>Nightscout</title>
+  
+	<link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
+	<link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
+	<link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
+	<link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png">
+	<link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png">
+	<link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png">
+	<link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
+	<link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
+	<link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
+	<link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
+  
+	<style type="text/css">
+		@import url("//fonts.googleapis.com/css?family=Open+Sans:700");
+  
+		body {
+			text-align: center;
+			margin: 0 0;
+			padding: 0;
+			overflow: hidden;
+			font-family: 'Open Sans';
+			color: grey;
+			background-color: black;
+		}
+		main {
+			display: -webkit-box;
+			display: -ms-flexbox;
+			display: -webkit-flex;
+			display: flex;
+			-webkit-box-align: center;
+			-ms-flex-align: center;
+			-webkit-align-items: center;
+			align-items: center;
+			height: 100vh;
+		}
+		.inner {
+			width: 100%;
+			-webkit-transform: translateY(-5%);
+		}
+		#bgnow {
+			font-weight: 700;
+			font-size: 40vmin;
+		}
+		#trend {
+			display: -ms-flexbox;
+			display: -webkit-flex;
+			display: flex;
+			-ms-flex-align: center;
+			-webkit-align-items: center;
+			-webkit-transform: translateX(1%);
+			align-items: center;
+			justify-content: center;
+			-webkit-flex-direction: column;
+			flex-direction: column;
+		}
+		#staleTime {
+			flex-grow: 1;
+			font-size: 6vmin;
+			display: none;
+		}
+	</style>
+</head>
+
+<body>
+
+	<main>
+		<div class="inner">
+			<div id="bgnow"></div>
+			<div id="trend">
+				<div id="staleTime"></div>
+			</div>
+		</div>
+	</main>
+	
+  <script src="/api/v1/status.js"></script>
+  <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
+  
+	<script type="text/javascript">
+		function query ( ) {
+			console.log('query');
+			$.ajax('/api/v1/entries/current.json', { success: render });
+		}
+
+		function render (xhr) {
+			console.log('xhr', xhr);
+
+			var rec = xhr[0];
+			var last = new Date(rec.date);
+			var now = new Date( );
+			var elapsedMins = Math.round(((now - last) / 1000) / 60);
+
+			// Convert BG to mmol/L if necessary.
+			if (window.serverSettings.settings.units == 'mmol') {
+				rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
+			}
+
+			// Insert the BG value text.
+			$('#bgnow').text(rec.sgv);
+		
+			// Insert the BG stale time text.
+			$('#staleTime').text(elapsedMins+' minutes ago');
+		
+			// Time before data considered stale.
+			var staleMinutes = 13;
+			var threshold = 1000 * 60 * staleMinutes;
+		
+			// Make the "x minutes ago" visible.
+			if (now - last > threshold) {
+				$('#staleTime').css('display', 'block');
+			} else {
+				$('#staleTime').css('display', 'none');
+			}
+		}
+
+		function init ( ) {
+			console.log('init');
+			query( );
+			setInterval(query, 1 * 60 * 1000);
+		}
+
+		init( );
+	</script>
+</body>
+</html>
+
