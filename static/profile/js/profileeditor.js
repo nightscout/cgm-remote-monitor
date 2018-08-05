@@ -327,6 +327,8 @@
     GUIToObject();
 
     var newname = $('#pe_profile_name').val();
+    if (!isNaN(newname)) newname = 'Profile' + newname;
+    
     if (currentprofile !== newname) {
       // rename if already exists
       while (record.store[newname]) {
