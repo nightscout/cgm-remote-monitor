@@ -100,11 +100,12 @@
       <tr>
         <td colspan="2">
           <span class="translate">Order</span>:
-          <input type="radio" name="rp_sorting" id="rp_oldestontop" checked>
+          <!-- many email GUIs place newest on top, less scrolling, adjusting my nightscout to do that too! -dboland -->
+          <input type="radio" name="rp_sorting" id="rp_oldestontop">
           <label for="rp_oldestontop" class="translate">oldest on top</label>
           &nbsp;
-          <input type="radio" name="rp_sorting" id="rp_newestontop">
-          <label for="rp_oldestontop" class="translate">newest on top</label>
+          <input type="radio" name="rp_sorting" id="rp_newestontop" checked>
+          <label for="rp_newestontop" class="translate">newest on top</label>
         </td>
         <td></td>
       </tr>
