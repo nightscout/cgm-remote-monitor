@@ -44,6 +44,7 @@ describe('sage', function ( ) {
         }
       }
     };
+    ctx.language = require('../lib/language')();
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
     sage.setProperties(sbx);
@@ -71,6 +72,7 @@ describe('sage', function ( ) {
         }
       }
     };
+    ctx.language = require('../lib/language')();
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
     sage.setProperties(sbx);
@@ -98,6 +100,7 @@ describe('sage', function ( ) {
         }
       }
     };
+    ctx.language = require('../lib/language')();
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
     sage.setProperties(sbx);
@@ -127,6 +130,7 @@ describe('sage', function ( ) {
         }
       }
     };
+    ctx.language = require('../lib/language')();
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
     sage.setProperties(sbx);
