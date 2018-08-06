@@ -3,6 +3,7 @@
 var request = require('supertest');
 var load = require('./fixtures/load');
 var should = require('should');
+var language = require('../lib/language')();
 
 describe('authed REST api', function ( ) {
   var entries = require('../lib/api/entries/');
@@ -12,15 +13,16 @@ describe('authed REST api', function ( ) {
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'this is my long pass phrase';
     var env = require('../env')( );
+    env.settings.authDefaultRoles = 'readable';
     this.wares = require('../lib/middleware/')(env);
     this.archive = null;
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
     self.known_key = known;
-    require('../lib/bootevent')(env).boot(function booted (ctx) {
+    require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx));
-      self.archive = require('../lib/entries')(env, ctx);
+      self.archive = require('../lib/server/entries')(env, ctx);
 
       var creating = load('json');
       // creating.push({type: 'sgv', sgv: 100, date: Date.now()});
@@ -56,6 +58,19 @@ describe('authed REST api', function ( ) {
         res.body.message.should.equal('Unauthorized');
         should.exist(res.body.description);
         done(err);
+      });
+  });
+
+  it('/entries/preview', function (done) {
+    var known_key = this.known_key;
+    request(this.app)
+      .post('/entries/preview.json')
+      .set('api-secret', known_key)
+      .send(load('json'))
+      .expect(201)
+      .end(function (err, res) {
+        res.body.should.be.instanceof(Array).and.have.lengthOf(30);
+        done();
       });
   });
 
