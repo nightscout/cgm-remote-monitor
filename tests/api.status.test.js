@@ -16,7 +16,7 @@ describe('Status REST api', function ( ) {
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    require('../lib/bootevent')(env, language).boot(function booted (ctx) {
+    require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
       self.app.use('/api', api(env, ctx));
       done();
     });
