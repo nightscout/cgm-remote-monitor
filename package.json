@@ -27,10 +27,10 @@
     "start": "node server.js",
     "test": "make test",
     "env": "env",
-    "postinstall": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
-    "bundle": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
-    "bundle-dev": "webpack --mode development --config webpack.config.js && npm run-script update-buster",
-    "bundle-analyzer": "webpack --mode development --config webpack.config.js --profile --json > stats.json && webpack-bundle-analyzer stats.json",
+    "postinstall": "webpack --config webpack.config.js && npm run-script update-buster",
+    "bundle": "webpack --config webpack.config.js && npm run-script update-buster",
+    "bundle-dev": "webpack --config webpack.config.js && npm run-script update-buster",
+    "bundle-analyzer": "webpack --config webpack.config.js --profile --json > stats.json && webpack-bundle-analyzer stats.json",
     "update-buster": "node bin/generateCacheBuster.js >tmp/cacheBusterToken"
   },
   "config": {
