@@ -1,15 +1,31 @@
 const path = require('path');
 const webpack = require('webpack');
-const MomentLocalesPlugin = require('moment-locales-webpack-plugin');
 
 var pluginArray = [];
+
 var sourceMapType = 'source-map';
 
 if (process.env.NODE_ENV !== 'development') {
 
+    console.log('Production environment detected, enabling UglifyJsPlugin');
+
+    var uglify = new webpack.optimize.UglifyJsPlugin({
+        compress: {
+            warnings: false
+        },
+        output: {
+            comments: false
+        }
+        , sourceMap: true
+    });
+
+    pluginArray.push(uglify);
+
 /*
     console.log('Development environment detected, enabling Bundle Analyzer');
+    
     var BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
+
     pluginArray.push(new BundleAnalyzerPlugin({
         // Can be `server`, `static` or `disabled`. 
         // In `server` mode analyzer will start HTTP server to show bundle report. 
@@ -42,6 +58,7 @@ if (process.env.NODE_ENV !== 'development') {
         logLevel: 'info'
     }));
 */
+
 }
 
 var jq = new webpack.ProvidePlugin({
@@ -52,13 +69,6 @@ var jq = new webpack.ProvidePlugin({
 });
 
 pluginArray.push(jq);
-
-// Strip all locales except the ones defined in lib/language.js
-// (“en” is built into Moment and can’t be removed, 'dk' is not defined in moment)
- var momentLocales = new MomentLocalesPlugin({
-            localesToKeep: ['bg', 'cs', 'de', 'el', 'es', 'fi', 'fr', 'he', 'hr', 'it', 'ko', 'nb', 'nl', 'pl', 'pt', 'ro', 'ru', 'sk', 'sv', 'zh_cn', 'zh_tw'],
-        }) ;
-pluginArray.push(momentLocales);
 
 module.exports = {
     context: path.resolve(__dirname, '.'),
@@ -80,7 +90,7 @@ module.exports = {
                 query: {
                     name: '[name].[ext]',
                     outputPath: 'images/'
-                        //the images will be emitted to public/assets/images/ folder 
+                        //the images will be emmited to public/assets/images/ folder 
                         //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png); 
                 }
             },
