@@ -4,7 +4,6 @@ import '../static/css/sgv.css';
 
 
 $ = require("jquery");
-
 require('jquery-ui-bundle');
 
 window._ = require('lodash');
@@ -18,6 +17,11 @@ require('flot');
 require('../node_modules/flot/jquery.flot.time');
 require('../node_modules/flot/jquery.flot.pie');
 require('../node_modules/flot/jquery.flot.fillbetween');
+
+// Many internet users are still using very old, out-dated browsers – most of them for no actual reason. 
+// We want to remind these unobtrusively to update their browser.
+var browserUpdate = require('browser-update');
+browserUpdate({ required: {e:-4,f:-3,o:-3,s:-1,c:-3}, insecure:true, unsupported:true, api:2018.08 });
 
 window.moment = require('moment-timezone');
 
