@@ -1008,6 +1008,11 @@
       "integrity": "sha512-qhAVI1+Av2X7qelOfAIYwXONood6XlZE/fXaBSmW/T5SzLAmCgzi+eiWE7fUvbHaeNBQH13UftjpXxsfLkMpgw==",
       "dev": true
     },
+    "browser-update": {
+      "version": "3.1.13",
+      "resolved": "https://registry.npmjs.org/browser-update/-/browser-update-3.1.13.tgz",
+      "integrity": "sha1-kmT5iJFW4vu939T9l15p0Dg2nG0="
+    },
     "browserify-aes": {
       "version": "1.2.0",
       "resolved": "https://registry.npmjs.org/browserify-aes/-/browserify-aes-1.2.0.tgz",
@@ -9933,9 +9938,9 @@
       }
     },
     "webpack": {
-      "version": "4.16.4",
-      "resolved": "https://registry.npmjs.org/webpack/-/webpack-4.16.4.tgz",
-      "integrity": "sha512-RqUfwp4qMqv3oFwBQQOoK69C2tdu2FHJEqPABPqgjGDvOIOLqkTOhmmdJjpiRabzNAAH1ahmkA3z4xowlHN+VA==",
+      "version": "4.16.5",
+      "resolved": "https://registry.npmjs.org/webpack/-/webpack-4.16.5.tgz",
+      "integrity": "sha512-i5cHYHonzSc1zBuwB5MSzW4v9cScZFbprkHK8ZgzPDCRkQXGGpYzPmJhbus5bOrZ0tXTcQp+xyImRSvKb0b+Kw==",
       "dev": true,
       "requires": {
         "@webassemblyjs/ast": "1.5.13",

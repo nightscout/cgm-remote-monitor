@@ -2,18 +2,14 @@ const path = require('path');
 const webpack = require('webpack');
 const MomentLocalesPlugin = require('moment-locales-webpack-plugin');
 
-
 var pluginArray = [];
-
 var sourceMapType = 'source-map';
 
 if (process.env.NODE_ENV !== 'development') {
 
 /*
     console.log('Development environment detected, enabling Bundle Analyzer');
-    
     var BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
-
     pluginArray.push(new BundleAnalyzerPlugin({
         // Can be `server`, `static` or `disabled`. 
         // In `server` mode analyzer will start HTTP server to show bundle report. 
@@ -46,7 +42,6 @@ if (process.env.NODE_ENV !== 'development') {
         logLevel: 'info'
     }));
 */
-
 }
 
 var jq = new webpack.ProvidePlugin({
@@ -65,6 +60,10 @@ pluginArray.push(jq);
         }) ;
 pluginArray.push(momentLocales);
 
+// Many internet users are still using very old, out-dated browsers – most of them for no actual reason. 
+// We want to remind these unobtrusively to update their browser.
+var browserUpdate = require('browser-update');
+browserUpdate({ [required:{e:-4,f:-3,o:-3,s:-1,c:-3}, insecure:true, unsupported:true, api:2018.08 ] })
 
 module.exports = {
     context: path.resolve(__dirname, '.'),
@@ -86,7 +85,7 @@ module.exports = {
                 query: {
                     name: '[name].[ext]',
                     outputPath: 'images/'
-                        //the images will be emmited to public/assets/images/ folder 
+                        //the images will be emitted to public/assets/images/ folder 
                         //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png); 
                 }
             },
