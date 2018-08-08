@@ -40,6 +40,7 @@ describe('cage', function ( ) {
       }
     };
 
+    ctx.language = require('../lib/language')();
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
     cage.setProperties(sbx);
     cage.updateVisualisation(sbx);
@@ -65,7 +66,7 @@ describe('cage', function ( ) {
         }
       }
     };
-
+    ctx.language = require('../lib/language')();
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
     cage.setProperties(sbx);
     cage.updateVisualisation(sbx);
