@@ -36,7 +36,7 @@ describe('mongo storage', function () {
 
     (function () {
       return require('../lib/storage/mongo-storage')(env, false, true);
-    }).should.throw('MongoDB connection string is missing');
+    }).should.throw('MongoDB connection string is missing. Please set MONGO_CONNECTION environment variable');
 
     done();
   });
