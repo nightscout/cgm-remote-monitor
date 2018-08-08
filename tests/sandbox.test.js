@@ -18,8 +18,6 @@ describe('sandbox', function ( ) {
       }
       , pluginBase: {}
     };
-    
-    ctx.language = require('../lib/language')();
 
     var data = {sgvs: [{mgdl: 100, mills: now}]};
 
@@ -37,7 +35,6 @@ describe('sandbox', function ( ) {
     var ctx = {};
     ctx.ddata = require('../lib/data/ddata')();
     ctx.notifications = require('../lib/notifications')(env, ctx);
-    ctx.language = require('../lib/language')();
 
     return sandbox.serverInit(env, ctx);
   }

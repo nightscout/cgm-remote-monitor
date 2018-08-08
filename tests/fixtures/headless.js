@@ -24,7 +24,7 @@ function headless (benv, binding) {
       //self.$ = require('jquery');
       //self.$.localStorage = require(localStorage);
 
-      self.$.fn.tooltip = function mockTooltip ( ) { };
+      self.$.fn.tipsy = function mockTipsy ( ) { };
 
       var indexHtml = read(htmlFile, 'utf8');
       self.$('body').html(indexHtml);
@@ -37,7 +37,7 @@ function headless (benv, binding) {
         self.$.plot = function mockPlot () {
         };
 
-        self.$.fn.tooltip = function mockTooltip ( ) { };
+        self.$.fn.tipsy = function mockTipsy ( ) { };
 
         self.$.fn.dialog = function mockDialog (opts) {
           function maybeCall (name, obj) {
