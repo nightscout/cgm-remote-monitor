@@ -3,21 +3,22 @@
 require('should');
 
 describe('Raw BG', function ( ) {
-  var ctx =  {
-      settings: { units: 'mg/dl'}
-      , language: require('../lib/language')()
-      , pluginBase: {}
-  };
-  ctx.language.set('en');
-
-  var rawbg = require('../lib/plugins/rawbg')(ctx);
+  var rawbg = require('../lib/plugins/rawbg')({
+    settings: {}
+    , language: require('../lib/language')()
+  });
 
   var now = Date.now();
   var data = {
     sgvs: [{unfiltered: 113680, filtered: 111232, mgdl: 110, noise: 1, mills: now}]
     , cals: [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, mills: now}]
   };
-
+  var ctx = {
+    settings: {
+      units: 'mg/dl'
+    }
+    , pluginBase: {}
+  };
 
   it('should calculate Raw BG', function (done) {
     var sandbox = require('../lib/sandbox')();
