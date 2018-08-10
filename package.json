@@ -95,6 +95,7 @@
     "simple-statistics": "^0.7.0",
     "socket.io": "^2.1.1",
     "style-loader": "^0.20.2",
+    "swagger-ui-dist": "^3.18.0",
     "traverse": "^0.6.6",
     "uglify-js": "^3.4.6",
     "uuid": "^3.2.1"
