@@ -674,16 +674,62 @@ components:
           description: 'dateString, prefer ISO `8601`'
         openaps:
           type: string
-          description: 'OpenAPS devicestatus record - TODO: Fill In Details'
+          description: 'OpenAPS devicestatus record - TODO: Fill Out Details'
         loop:
           type: string
-          description: 'Loop devicestatus record - TODO: Fill In Details'
+          description: 'Loop devicestatus record - TODO: Fill Out Details'
+        pump:
+          $ref: '#/components/schemas/pump'
+        uploader:
+          $ref: '#/components/schemas/uploader'
         xdripjs:
           $ref: '#/components/schemas/xdripjs'
     Devicestatuses:
       type: array
       items:
         $ref: '#/components/schemas/Devicestatus'
+    pump:
+      properties:
+        clock:
+          type: string
+          description: 'dateString, prefer ISO `8601`'
+        battery:
+          $ref: '#/components/schemas/pumpbattery'
+        reservoir:
+          type: number
+          description: 'Amount of insulin remaining in pump reservoir'
+        status:
+          $ref: '#/components/schemas/pumpstatus'
+    pumpbattery:
+      properties:
+        status:
+          type: string
+          description: 'Pump Battery Status String'
+        voltage:
+          type: number
+          description: 'Pump Battery Voltage Level'
+    pumpstatus:
+      properties:
+        status:
+          type: string
+          description: 'Pump Status String'
+        bolusing:
+          type: boolean
+          description: 'Is Pump Bolusing'
+        suspended:
+          type: boolean
+          description: 'Is Pump Suspended'
+        timestamp:
+          type: string
+          description: 'dateString, prefer ISO `8601`'
+    uploader:
+      properties:
+        batteryVoltage:
+          type: number
+          description: 'Uploader Device Battery Voltage'
+        battery:
+          type: number
+          description: 'Uploader Device Battery Percentage Charge Remaining'
     xdripjs:
       properties:
         state:
