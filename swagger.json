@@ -895,11 +895,11 @@
           },
           "openaps": {
             "type": "string",
-            "description": "OpenAPS devicestatus record"
+            "description": "OpenAPS devicestatus record - TODO: Fill In Details"
           },
           "loop": {
             "type": "string",
-            "description": "Loop devicestatus record"
+            "description": "Loop devicestatus record - TODO: Fill In Details"
           },
           "xdripjs": {
             "$ref": "#/components/schemas/xdripjs"
