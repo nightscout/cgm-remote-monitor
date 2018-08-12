@@ -10,9 +10,6 @@ describe('BG Now', function ( ) {
   var ctx = {
     language: require('../lib/language')()
   };
- 
-  ctx.levels = require('../lib/levels');
-
   var bgnow = require('../lib/plugins/bgnow')(ctx);
   var sandbox = require('../lib/sandbox')();
 
@@ -32,10 +29,6 @@ describe('BG Now', function ( ) {
       , language: { translate: function(text) { return text; } }
       }
     };
-    
-    ctx.language = ctx.pluginBase.language;
-    ctx.levels = require('../lib/levels');
-   
     var data = {sgvs: [{mills: before, mgdl: 100}, {mills: now, mgdl: 105}]};
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
