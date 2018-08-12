@@ -744,13 +744,13 @@
         maxCarbsValue = parseFloat(d.carbs);
       }
       if (d.carbs) {
-        data.dailyCarbs += d.carbs;
+        data.dailyCarbs += Number(d.carbs);
       }
       if (d.protein) {
-        data.dailyOProtein += d.protein;
+        data.dailyProtein += Number(d.protein);
       }
       if (d.fat) {
-        data.dailyFat += d.fat;
+        data.dailyFat += Number(d.fat);
       }
     });
     if (data.dailyCarbs > maxDailyCarbsValue) {
