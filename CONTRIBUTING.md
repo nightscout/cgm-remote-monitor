@@ -96,10 +96,8 @@ appropriate.
 
 ## Co-ordination
 
-There is a google groups nightscout-core developers list where lots of
-people discuss Nightscout.  Most cgm-remote-monitor hackers use
-github's ticketing system, along with Facebook cgm-in-the-cloud, and
-gitter system.
+Most cgm-remote-monitor hackers use github's ticketing system, along with Facebook cgm-in-the-cloud, and
+gitter.
 
 We use git-flow, with `master` as our production, stable branch, and
 `dev` is used to queue up for upcoming releases.  Everything else is
