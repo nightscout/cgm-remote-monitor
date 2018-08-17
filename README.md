@@ -318,7 +318,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   An option plugin to enable adding foods from database in Bolus Wizard and enable .
 
 ##### `rawbg` (Raw BG)
-  Calculates BG using sensor and calibration records from and displays an alternate BG values and noise levels.
+  Calculates BG using sensor and calibration records from and displays an alternate BG values and noise levels. Defaults that can be adjusted with [extended setting](#extended-settings)
+  * `SMOOTH` (`false`) - If `SMOOTH` is false, rawbg will be calculated such that it exagerates direction changes to provide early visible indication of glucose trend changes.
 
 ##### `iob` (Insulin-on-Board)
   Adds the IOB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with insulin doses and the `dia` and `sens` fields from the [treatment profile](#treatment-profile).
