@@ -1,0 +1,27 @@
+#admin-tools h1 {
+  text-align: left;
+  margin: 10px;
+}
+
+#admin_placeholder {
+  margin-left: 20px;
+  margin-right: 20px;
+}
+
+#admin_placeholder fieldset {
+  background-color: #383838;
+  border-radius: 8px;
+}
+
+#admin_placeholder button{
+  font-size: 18px;
+  font-weight: bolder;
+  background-color: #ccc;
+  padding: 5px 10px;
+  border-radius: 5px;
+  border: 2px solid #aaa;
+  box-shadow: 2px 2px 0 #eee;
+  margin-top: 20px;
+  margin-bottom: 10px;
+  margin-right: 20px;
+}
