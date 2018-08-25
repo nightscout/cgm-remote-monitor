@@ -737,21 +737,21 @@
         ],
         "responses": {
           "200": {
-            "description": "An array of devicestatus records",
+            "description": "A status record of the delete.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Devicestatuses"
+                  "$ref": "#/components/schemas/DeleteStatus"
                 }
               }
             }
           },
           "default": {
-            "description": "Devicestatuses",
+            "description": "Unexpected error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Entries"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -779,21 +779,21 @@
         ],
         "responses": {
           "200": {
-            "description": "An array of devicestatus records",
+            "description": "A status record of the delete.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Devicestatuses"
+                  "$ref": "#/components/schemas/DeleteStatus"
                 }
               }
             }
           },
           "default": {
-            "description": "Devicestatuses",
+            "description": "Unexpected error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Devicestatuses"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -1309,6 +1309,48 @@
           },
           "fields": {
             "type": "object"
+          }
+        }
+      },
+      "DeleteStatus": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of records deleted"
+          },
+          "optime": {
+            "$ref": "#/components/schemas/optime"
+          },
+          "electionId": {
+            "type": "string",
+            "description": "Election id of operation"
+          },
+          "ok": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Status of whether delete was successful"
+          },
+          "operationTime": {
+            "type": "string",
+            "description": "Time delete operation was executed"
+          },
+          "$clusterTime": {
+            "type": "string",
+            "description": "Information about execution time in cluster environment"
+          }
+        }
+      },
+      "optime": {
+        "properties": {
+          "ts": {
+            "type": "string",
+            "description": "Time the operation started"
+          },
+          "t": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Time the operation took to complete"
           }
         }
       }
