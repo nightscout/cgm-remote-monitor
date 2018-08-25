@@ -1,5 +1,6 @@
 const path = require('path');
 const webpack = require('webpack');
+const StatsWriterPlugin = require("webpack-stats-plugin").StatsWriterPlugin;
 
 var pluginArray = [];
 
@@ -7,7 +8,7 @@ var sourceMapType = 'source-map';
 
 if (process.env.NODE_ENV !== 'development') {
 
-    console.log('Production environment detected, enabling UglifyJsPlugin');
+    //console.log('Production environment detected, enabling UglifyJsPlugin');
 
     var uglify = new webpack.optimize.UglifyJsPlugin({
         compress: {
@@ -69,6 +70,20 @@ var jq = new webpack.ProvidePlugin({
 });
 
 pluginArray.push(jq);
+
+// to be able to use https://chrisbateman.github.io/webpack-visualizer/
+// to use the  webpack-stats-plugin, be sure to set chunkModules to true
+// TODO: only for debug
+var swp = new StatsWriterPlugin({
+  transform: function(data, opts) {
+    let stats = opts.compiler.getStats().toJson({chunkModules: true});
+    return JSON.stringify(stats, null, 2); 
+  }
+});
+
+pluginArray.push(swp);
+
+
 
 module.exports = {
     context: path.resolve(__dirname, '.'),

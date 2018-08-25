@@ -495,7 +495,9 @@ components:
       type: apiKey
       name: token
       in: query
-      description: Add token as query item in the URL. You can manage access Token in `/admin`. This uses json webtokens.
+      description: >-
+        Add token as query item in the URL. You can manage access Token in
+        `/admin`. This uses json webtokens.
     jwtoken:
       type: http
       scheme: bearer
