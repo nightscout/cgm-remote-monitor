@@ -65,11 +65,6 @@ pluginArray.push(jq);
         }) ;
 pluginArray.push(momentLocales);
 
-// Many internet users are still using very old, out-dated browsers – most of them for no actual reason. 
-// We want to remind these unobtrusively to update their browser.
-var browserUpdate = require('browser-update');
-browserUpdate({ [required:{e:-4,f:-3,o:-3,s:-1,c:-3}, insecure:true, unsupported:true, api:2018.08 ] })
-
 module.exports = {
     context: path.resolve(__dirname, '.'),
     entry: {
