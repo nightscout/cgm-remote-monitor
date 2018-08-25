@@ -730,15 +730,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "count",
-            "in": "query",
-            "description": "Number of records to return.",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
           }
         ],
         "tags": [
