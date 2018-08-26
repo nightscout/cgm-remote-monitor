@@ -81,6 +81,7 @@ Community maintained fork of the
         - [`cage` (Cannula Age)](#cage-cannula-age)
         - [`sage` (Sensor Age)](#sage-sensor-age)
         - [`iage` (Insulin Age)](#iage-insulin-age)
+        - [`bage` (Battery Age)](#bage-battery-age)
         - [`treatmentnotify` (Treatment Notifications)](#treatmentnotify-treatment-notifications)
         - [`basal` (Basal Profile)](#basal-basal-profile)
         - [`bridge` (Share2Nightscout bridge)](#bridge-share2nightscout-bridge)
@@ -90,6 +91,7 @@ Community maintained fork of the
         - [`loop` (Loop)](#loop-loop)
         - [`xdrip-js` (xDrip-js)](#xdrip-js-xdrip-js)
         - [`alexa` (Amazon Alexa)](#alexa-amazon-alexa)
+        - [`speech` (Speech)](#speech-speech)
         - [`cors` (CORS)](#cors-cors)
       - [Extended Settings](#extended-settings)
       - [Pushover](#pushover)
@@ -375,6 +377,14 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `IAGE_INFO` (`44`) - If time since last `Insulin Change` matches `IAGE_INFO`, user will be warned of upcoming insulin reservoir change
   * `IAGE_WARN` (`48`) - If time since last `Insulin Change` matches `IAGE_WARN`, user will be alarmed to to change the insulin reservoir
   * `IAGE_URGENT` (`72`) - If time since last `Insulin Change` matches `IAGE_URGENT`, user will be issued a persistent warning of overdue change.
+
+##### `bage` (Battery Age)
+  Calculates the number of days and hours since the last `Pump Battery Change` treatment that was recorded.
+  * `BAGE_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications to remind you of upcoming pump battery change.
+  * `BAGE_DISPLAY` (`days`) - Set to `hours` to display time since last `Pump Battery Change` in hours only.
+  * `BAGE_INFO` (`312`) - If time since last `Pump Battery Change` matches `BAGE_INFO` hours, user will be warned of upcoming pump battery change (default of 312 hours is 13 days).
+  * `BAGE_WARN` (`336`) - If time since last `Pump Battery Change` matches `BAGE_WARN` hours, user will be alarmed to to change the pump battery (default of 336 hours is 14 days).
+  * `BAGE_URGENT` (`360`) - If time since last `Pump Battery Change` matches `BAGE_URGENT` hours, user will be issued a persistent warning of overdue change (default of 360 hours is 15 days).
 
 ##### `treatmentnotify` (Treatment Notifications)
   Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.  Default snooze is 10 minutes, and can be set using the `TREATMENTNOTIFY_SNOOZE_MINS` [extended setting](#extended-settings).
