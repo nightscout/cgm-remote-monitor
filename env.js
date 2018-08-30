@@ -9,6 +9,7 @@ var _camelCase = require('lodash/camelCase');
 var fs = require('fs');
 var crypto = require('crypto');
 var consts = require('./lib/constants');
+var cfenv = require("cfenv");
 
 var env = {
   settings: require('./lib/settings')()
@@ -90,7 +91,13 @@ function setVersion() {
 }
 
 function setStorage() {
-  env.storageURI = readENV('STORAGE_URI') || readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI') || readENV('MONGODB_URI');
+  var appEnv = cfenv.getAppEnv({vcap: {services: {'mlab': [{name: 'thad-mlab', credentials: {uri: 'mongodb://CloudFoundry_lqdvkfrq_lsi1kb2n_3b3qo8fq:bDiPYaa3ObIjI7ymkF5h1kExt9Ca3fN2@ds137102.mlab.com:37102/CloudFoundry_lqdvkfrq_lsi1kb2n'}}]}}});
+  var svcs = appEnv.services;
+  var uri = null;
+  if (svcs.hasOwnProperty('mlab')) {
+    uri = svcs.mlab[0].credentials.uri;
+  }
+  env.storageURI = readENV('STORAGE_URI') || readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI') || readENV('MONGODB_URI') || uri;
   env.entries_collection = readENV('ENTRIES_COLLECTION') || readENV('MONGO_COLLECTION', 'entries');
   env.MQTT_MONITOR = readENV('MQTT_MONITOR', null);
   if (env.MQTT_MONITOR) {

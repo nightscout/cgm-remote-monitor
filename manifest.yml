@@ -1,0 +1,17 @@
+---
+applications:
+- name: thad-pws-nightscout
+  memory: 256M
+  disk_quota: 512M
+  instances: 1
+  env:
+    DISPLAY_UNITS: mg/dl
+    API_SECRET: supersecret1
+    ENABLE: bridge pushover cage rawbg careportal
+    BRIDGE_USER_NAME: dexcom-share-username
+    BRIDGE_PASSWORD: dexcom-share-password
+    BRIDGE_INTERVAL: 150000
+    BG_HIGH: 180
+    BG_LOW: 80
+  services:
+    - thad-mlab
