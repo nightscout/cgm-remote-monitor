@@ -30,6 +30,8 @@ You can confirm the results by going to the Space you selected on the left side,
 
 ![Space Services](./nc-space-dev-service-mlab.png)
 
+(((Instructions for how to do it via the CLI?)))
+
 ## Changing Nightscout Settings
 
 In PWS, you can view the settings for your app by selecting the app in the Space the app resides in, clicking the app name and then choosing Settings. You will see User Provided Environment Variables about half way down the page. The settings for nightscout are here in Name / Value pairs.
@@ -49,6 +51,10 @@ In PWS, you can view the settings for your app by selecting the app in the Space
 ```
 $ cf push -f {path to manifest.yml}
 ```
+## Using nightscout on PWS
+
+Once your app is running and connected to the database, you can browse to the web view by following the Routes attached to the app. By default there will be one, the same as what you named the app. The easist way to find this is to log in to PWS, click on the Space the app is in and click on the route highlighted next to it. This will open a new window with nightscout in setup mode.
+
 ## Interesting PWS Features To Check out
 In Setting for the app, you can change the app name. You can also delete the app in Settings.
 
