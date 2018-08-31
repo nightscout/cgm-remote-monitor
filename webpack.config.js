@@ -1,30 +1,17 @@
 const path = require('path');
 const webpack = require('webpack');
+const MomentLocalesPlugin = require('moment-locales-webpack-plugin');
+
 
 var pluginArray = [];
 
+var sourceMapType = 'source-map';
+
 if (process.env.NODE_ENV !== 'development') {
 
-    console.log('Production environment detected, enabling UglifyJsPlugin');
-
-    var uglify = new webpack.optimize.UglifyJsPlugin({
-        compress: {
-            warnings: false
-        },
-        output: {
-            comments: false
-        }
-    });
-
-    pluginArray.push(uglify);
-
-}
-
-if (process.env.NODE_ENV === 'development') {
-
-
+/*
     console.log('Development environment detected, enabling Bundle Analyzer');
-
+    
     var BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
     pluginArray.push(new BundleAnalyzerPlugin({
@@ -58,6 +45,7 @@ if (process.env.NODE_ENV === 'development') {
         // Log level. Can be 'info', 'warn', 'error' or 'silent'. 
         logLevel: 'info'
     }));
+*/
 
 }
 
@@ -70,6 +58,14 @@ var jq = new webpack.ProvidePlugin({
 
 pluginArray.push(jq);
 
+// Strip all locales except the ones defined in lib/language.js
+// (“en” is built into Moment and can’t be removed, 'dk' is not defined in moment)
+ var momentLocales = new MomentLocalesPlugin({
+            localesToKeep: ['bg', 'cs', 'de', 'el', 'es', 'fi', 'fr', 'he', 'hr', 'it', 'ko', 'nb', 'nl', 'pl', 'pt', 'ro', 'ru', 'sk', 'sv', 'zh_cn', 'zh_tw'],
+        }) ;
+pluginArray.push(momentLocales);
+
+
 module.exports = {
     context: path.resolve(__dirname, '.'),
     entry: {
@@ -78,9 +74,10 @@ module.exports = {
     output: {
         path: path.resolve(__dirname, './tmp'),
         publicPath: '/',
-        filename: 'js/bundle.js'
+        filename: 'js/bundle.js',
+        sourceMapFilename: "js/bundle.js.map",
     },
-    devtool: "#inline-source-map",
+    devtool: sourceMapType,
     plugins: pluginArray,
     module: {
         rules: [{
