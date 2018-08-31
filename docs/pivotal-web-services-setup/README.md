@@ -28,7 +28,7 @@ In the PWS UI
 
 You can confirm the results by going to the Space you selected on the left side, choosing Service with should have a (1) next to it and see an mLab Service in there with the name you used and Plan "free".
 
-[!image[Space Services][./nc-space-dev-service-mlab.png]][]
+![Space Services](./nc-space-dev-service-mlab.png)
 
 ## Changing Nightscout Settings
 
