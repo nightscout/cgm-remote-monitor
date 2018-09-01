@@ -13,31 +13,37 @@ To publish a nightscout site on PWS, you will follow the procedure here, in this
 7. Deploy the nightscout app to PWS from the command line
 8. Adjust any settings in nightscout needed prior to running it
 9. Run the app and connect for the first time
+
 ## Forking The Repo
 Fork it
 ## Creating An Account in PWS
-Get it
+To use PWS you must first create an account. You will receive a 2GB Org and a Trial Credit of $87. This should be enough to run nightscout for the entire year at no cost.
+
+Follow [these instructions](https://docs.run.pivotal.io/starting/index.html) to create your account and then return here.
+
+Signups happen here: https://run.pivotal.io/
 ## Create mLab MongoDB Service
 
 PWS makes it really easy to get partner services for use with your apps. For nightscout, the app requires a database, which we get from MongoDB, who happens to be a member of the PWS Marketplace, among many others.
 
-To get a free database instance for your app, follow this directions:
+To get a free database instance for your app, follow these directions:
 
-In the PWS UI
+In Apps Manager (the PWS UI):
 1. Log-in to your account and choose Marketplace from the left-hand column.
-2. In the list of Services, scroll to mLab, Fully managed MongoDB-as-a-Service and click on it.
+2. In the list of Services, scroll to "mLab, Fully managed MongoDB-as-a-Service" and click on it.
 3. You should see one Service Tier: Sandbox free. Click the Select This Plan button.
 4. Fill in the form that pops up:
 
-`Instance Name` = a name for this database. It can be anything, like "my-nightscout-db"
-
+`Instance Name` = a name for this database. It can be anything, like "my-nightscout-db".
+<br>
 `Add To Space` =  The name of the Space that your nightscout app resides in. This is probably Development, the default Space PWS gives you, unless you made a new Space for the app.
+<br>
+`Bind To App (Optional)` = The name you used for nightscout if you uploaded it already. If you haven't yet, that's OK, we will do that in the `manifest.yml` step or it can be bound later. This is a shortcut to putting useful info like the database URI into a variable the app can use.
 
-`Bind To App (Optional)` = The name you used for nightscout when you uploaded it. If you haven't yet, that's OK, it can be bound later. This is a shortcut to putting useful info like the database URI into a variable the app can use.
+5. Click on Create and it'll generate a database instance for you on Mongo's system and attach it to the Space you selected.
+6. Make a note of the `Instance Name` you used as it'll be important in the next step. You're done!
 
-5. Click on Create and it'll generate a database instance for you on Mongo's system and attach it to the Space you selected. You're done!
-
-You can confirm the results by going to the Space you selected on the left side, choosing Service with should have a (1) next to it and see an mLab Service in there with the name you used and Plan "free".
+You can confirm the results by going to the Space you selected on the left side, choosing Service which should have a (1) next to it and see an mLab Service in there with the name you used and Plan "free".
 
 ![Space Services](./nc-space-dev-service-mlab.png)
 ## Deploying the Nightscout Application
@@ -53,23 +59,70 @@ Login Example: `cf login -a https://api.run.pivotal.io -u username@mail.com -p p
 
 Quick test: type `cf help -a` for a list of commands.
 
-### Preparing Your nightscout for PWS
+### Preparing Your nightscout For PWS
 Now we are ready to put a copy of nightscout in the cloud for your use. You will use a command line window to run a few simple commands to get this done. Most of the things nightscout needs are already in a text file you will include with the app when you send it to PWS. This text file is called `manifest.yml` and is a collection of named variables and values nightscout needs as well as a few things PWS can use to properly run the app. The `manifest.yml` file is mostly complete and only needs a little attention from you to get ready.
 
 Want more reading? Here's a [PWS Sample App](https://docs.run.pivotal.io/buildpacks/ruby/sample-ror.html) example.
 
 #### Preparing The Manifest
 
-In your clone of the nighscout site, you will find a `manifest.yml` file. It's a text file with a certain formatting applied. At the very least, you need to supply two things:
+In your clone of the nighscout app, you will find a `manifest.yml` file. It's a text file with a certain formatting applied. At the very least, you need to supply two things:
 
 `API_SECRET`: a secret password you will keep to administrate nightscout with
 <br>
 `ENABLE`: a space-separated list of features (plugins) you want nightscout to run. A few common ones are already included. [Look here](https://github.com/nightscout/cgm-remote-monitor#plugins) for a much more complete list.
 
+Open the `manifest.tml` file in a quality text editor such as Atom (Mac) or notepad++ (Windows). Keeping the formatting of the file is important.
+
+The first section looks like this:
+```
+## PWS information section
+applications:
+- name: my-pws-nightscout           ## <- REPLACE with a name for the app in PWS
+  memory: 256M
+  disk_quota: 512M
+  instances: 1
+```
+Give your app a name unique to you, an important step because that name will also be the route to the app. In PWS every route must be unique. Anything will do, be creative. A great way to do this is insert a word and a number you choose, for example:
+```
+- name: doghouse-739-nightscout
+```
+The second section looks like this:
+```
+env:
+  DISPLAY_UNITS: mg/dl
+  API_SECRET: supersecret1        ## <- REPLACE with a secret only you know!
+  ENABLE: bridge pushover cage rawbg careportal
+####  Dexcom Bridge settings. Uncomment these (delete ##) if you are using the BRIDGE function of nightscout
+##    BRIDGE_USER_NAME: dexcom-share-username
+##    BRIDGE_PASSWORD: dexcom-share-password
+##    BRIDGE_INTERVAL: 150000
+```
+Replace the password in the `API_SECRET` line with one of yours. Note it for later. Uncomment (delete the ##) `BRIDGE` lines if you are using the Dexcom Share bridge function and enter the appropriate Dexcom Share credentials (or leave them blank to be filled in later). Here's a (fake) example:
+```
+env:
+  DISPLAY_UNITS: mg/dl
+  API_SECRET: wewillwewillrockyou
+  ENABLE: bridge pushover cage rawbg careportal
+####  Dexcom Bridge settings. Uncomment these (delete ##) if you are using the BRIDGE function of nightscout
+    BRIDGE_USER_NAME: freddie739
+    BRIDGE_PASSWORD: mercuryFromQueen!
+    BRIDGE_INTERVAL: 150000
+```
+The next section are clues for PWS about how to run your app.
+```
+services:
+  - my-nightscout-db              ## <- REPLACE with the name you used when you create the mLab instance in the Marketplace. MUST match!
+```
+Here you should enter the `Instance_Name` you used for mLab in the step above. This binds the database to the app in the Space.
+
+OK, that's it! Save your `manifest.yml` file to disk as `text` and don't change the suffix `.yml`. This work will save you time in the next step and a lot later should you need to deploy nightscout again.
+### Pushing The App To PWS
+
+
 ```
 $ cf push -f {path to manifest.yml} --no-start
 ```
-
 ## Changing Nightscout Settings
 
 In PWS, you can view the settings for your app by selecting the app in the Space the app resides in, clicking the app name and then choosing Settings. You will see User Provided Environment Variables about half way down the page. The settings for nightscout are here in Name / Value pairs.
