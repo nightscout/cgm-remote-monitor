@@ -91,22 +91,22 @@ The second section looks like this:
 ```
 env:
   DISPLAY_UNITS: mg/dl
-  API_SECRET: supersecret1        ## <- REPLACE with a secret only you know!
+  API_SECRET:         ## <- REPLACE with a secret only you know!
   ENABLE: bridge pushover cage rawbg careportal
 ####  Dexcom Bridge settings. Uncomment these (delete ##) if you are using the BRIDGE function of nightscout
 ##    BRIDGE_USER_NAME: dexcom-share-username
 ##    BRIDGE_PASSWORD: dexcom-share-password
 ##    BRIDGE_INTERVAL: 150000
 ```
-Replace the password in the `API_SECRET` line with one of yours. Note it for later. Uncomment (delete the ##) `BRIDGE` lines if you are using the Dexcom Share bridge function and enter the appropriate Dexcom Share credentials (or leave them blank to be filled in later). Here's a (fake) example:
+Don't put a secret in the `API_SECRET` line just yet, we'll do that in the next step. This just creates the variable in PWS. Uncomment (delete the ##) `BRIDGE` lines if you are using the Dexcom Share bridge function and enter the appropriate Dexcom Share credentials (or leave them blank to be filled in later). Here's a (fake) example:
 ```
 env:
   DISPLAY_UNITS: mg/dl
-  API_SECRET: wewillwewillrockyou
+  API_SECRET:
   ENABLE: bridge pushover cage rawbg careportal
 ####  Dexcom Bridge settings. Uncomment these (delete ##) if you are using the BRIDGE function of nightscout
-    BRIDGE_USER_NAME: freddie739
-    BRIDGE_PASSWORD: mercuryFromQueen!
+    BRIDGE_USER_NAME:
+    BRIDGE_PASSWORD:
     BRIDGE_INTERVAL: 150000
 ```
 The next section are clues for PWS about how to run your app.
@@ -114,7 +114,7 @@ The next section are clues for PWS about how to run your app.
 services:
   - my-nightscout-db              ## <- REPLACE with the name you used when you create the mLab instance in the Marketplace. MUST match!
 ```
-Here you should enter the `Instance_Name` you used for mLab in the step above. This binds the database to the app in the Space.
+Here you should enter the `Instance_Name` you used for mLab in the step above. This binds the database to the app in the Space. Unlike the app name, it doesn't have to be super-unique, just a match for the name you used in mLab.
 
 OK, that's it! Save your `manifest.yml` file to disk as `text` and don't change the suffix `.yml`. This work will save you time in the next step and a lot later should you need to deploy nightscout again.
 ### Pushing The App To PWS

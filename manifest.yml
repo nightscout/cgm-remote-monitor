@@ -7,7 +7,7 @@ applications:
   instances: 1
   env:
     DISPLAY_UNITS: mg/dl
-    API_SECRET: supersecret1        ## <- REPLACE with a secret only you know!
+    API_SECRET:                     ## <- REPLACE with a secret only you know!
     ENABLE: bridge pushover cage rawbg careportal
 ####  Dexcom Bridge settings. Uncomment these (delete ##) if you are using the BRIDGE function of nightscout
 ##    BRIDGE_USER_NAME: dexcom-share-username
