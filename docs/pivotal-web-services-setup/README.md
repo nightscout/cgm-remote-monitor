@@ -15,7 +15,7 @@ To publish a nightscout site on PWS, you will follow the procedure here, in this
 9. Run the app and connect for the first time
 
 ## Forking The Repo
-Fork it
+[Fork it](https://help.github.com/articles/fork-a-repo/)
 ## Creating An Account in PWS
 To use PWS you must first create an account. You will receive a 2GB Org and a Trial Credit of $87. This should be enough to run nightscout for the entire year at no cost.
 
@@ -123,22 +123,24 @@ OK, that's it! Save your `manifest.yml` file to disk as `text` and don't change 
 ```
 $ cf push -f {path to manifest.yml} --no-start
 ```
-## Changing Nightscout Settings
+### Changing Nightscout Settings
 
 In PWS, you can view the settings for your app by selecting the app in the Space the app resides in, clicking the app name and then choosing Settings. You will see User Provided Environment Variables about half way down the page. The settings for nightscout are here in Name / Value pairs.
 
- Here you will find the `ENABLE` variable, which turn on and off many features of the app. These features are well documented in other places, but in short, you'll want at least these:
+ Here you will find the `ENABLE` variable, which turn on and off many features of the app. These features are well documented in [other places](https://github.com/nightscout/cgm-remote-monitor#plugins), but in short, you'll want at least these:
 
- `API_SECRET` to set the admin secret for your site.
-<br>
- `MONGO_CONNECTION` holds the URI (or path) to the Mongo database.
+ `API_SECRET` to set the admin secret for your site. Type in a secret now (it was blank in the manifest).
 
  If you are using the `BRIDGE` feature, you'll also have:
 
- `BRIDGE_USER_NAME` is the username in Dexcom Share site.
+ `BRIDGE_USER_NAME` is the username in Dexcom Share site. Type in your username now.
  <br>
- `BRIDGE_PASSWORD` is the password for the above user name.
+ `BRIDGE_PASSWORD` is the password for the above user name. Type in your username now.
 
+## Run The App!
+You are all prepared to run this app now. You may have noticed the `--no-start` flag on the `cf push` command, that means place the app but don't start it, because we needed to complete the api_secret/username/password step first. If the app is already running, you may want to restart it (use the circle arrow button) now.
+
+In Apps Manager, open the app in the Space and click the play button (right carat) next to the app name. The Events column will have activity and you'll see a green dot next to Running when all is well. Shouldn't take but a minute or so.
 ## Using nightscout on PWS
 
 Once your app is running and connected to the database, you can browse to the web view by following the Routes attached to the app. By default there will be one, the same as what you named the app. The easist way to find this is to log in to PWS, click on the Space the app is in and click on the route highlighted next to it. This will open a new window with nightscout in setup mode.
