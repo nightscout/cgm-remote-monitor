@@ -51,13 +51,11 @@ You can confirm the results by going to the Space you selected on the left side,
 
 It's very helpful to have the CLI tools for PWS installed even if you don't use them much. This tool is required during installation and can be useful later.
 
-Here are instructions for [installing the CF CLI](https://docs.run.pivotal.io/cf-cli/install-go-cli.html) tool for Mac, Windows and Linux. Please install it and return here.
-
-You will want to read the first part of the [Getting Started](https://docs.run.pivotal.io/cf-cli/getting-started.html) page as well, on how to `log in` and `cf push` with the CF CLI
+Here are instructions for [installing the CF CLI](https://docs.run.pivotal.io/cf-cli/install-go-cli.html) tool for Mac, Windows and Linux. Please install it and return here. You will want to read the first part of the [Getting Started](https://docs.run.pivotal.io/cf-cli/getting-started.html) page as well, on how to `log in` and `cf push` with the CF CLI
 
 Login Example: `cf login -a https://api.run.pivotal.io -u username@mail.com -p password -o Org-Name-You-Used -s development`
 
-Quick test: type `cf help -a` for a list of commands.
+Quick test: type `cf help -a` for a list of commands. Type `cf target` to see what you are connected to.
 
 ### Preparing Your nightscout For PWS
 Now we are ready to put a copy of nightscout in the cloud for your use. You will use a command line window to run a few simple commands to get this done. Most of the things nightscout needs are already in a text file you will include with the app when you send it to PWS. This text file is called `manifest.yml` and is a collection of named variables and values nightscout needs as well as a few things PWS can use to properly run the app. The `manifest.yml` file is mostly complete and only needs a little attention from you to get ready.
@@ -66,13 +64,7 @@ Want more reading? Here's a [PWS Sample App](https://docs.run.pivotal.io/buildpa
 
 #### Preparing The Manifest
 
-In your clone of the nighscout app, you will find a `manifest.yml` file. It's a text file with a certain formatting applied. At the very least, you need to supply two things:
-
-`API_SECRET`: a secret password you will keep to administrate nightscout with
-<br>
-`ENABLE`: a space-separated list of features (plugins) you want nightscout to run. A few common ones are already included. [Look here](https://github.com/nightscout/cgm-remote-monitor#plugins) for a much more complete list.
-
-Open the `manifest.tml` file in a quality text editor such as Atom (Mac) or notepad++ (Windows). Keeping the formatting of the file is important.
+In your clone of the nighscout app, you will find a `manifest.yml` file. It's a text file with a certain formatting applied.
 
 The first section looks like this:
 ```
@@ -98,7 +90,15 @@ env:
 ##    BRIDGE_PASSWORD: dexcom-share-password
 ##    BRIDGE_INTERVAL: 150000
 ```
-Don't put a secret in the `API_SECRET` line just yet, we'll do that in the next step. This just creates the variable in PWS. Uncomment (delete the ##) `BRIDGE` lines if you are using the Dexcom Share bridge function and enter the appropriate Dexcom Share credentials (or leave them blank to be filled in later). Here's a (fake) example:
+At the very least, you need to consider two things:
+
+`API_SECRET`: a secret password you will keep to administrate nightscout with
+<br>
+`ENABLE`: a space-separated list of features (plugins) you want nightscout to run. A few common ones are already included. [Look here](https://github.com/nightscout/cgm-remote-monitor#plugins) for a much more complete list. Add more plugins now if you wish.
+
+Open the `manifest.yml` file in a quality text editor such as Atom (Mac) or notepad++ (Windows). Keeping the formatting of the file is important.
+
+Don't put a secret in the `API_SECRET` line just yet, we'll do that in the next step. This just creates the variable in PWS. Uncomment (delete the ##) `BRIDGE` lines if you are using the Dexcom Share bridge function and enter the appropriate Dexcom Share credentials (or leave them blank to be filled in later). Here's an example:
 ```
 env:
   DISPLAY_UNITS: mg/dl
@@ -114,36 +114,59 @@ The next section are clues for PWS about how to run your app.
 services:
   - my-nightscout-db              ## <- REPLACE with the name you used when you create the mLab instance in the Marketplace. MUST match!
 ```
-Here you should enter the `Instance_Name` you used for mLab in the step above. This binds the database to the app in the Space. Unlike the app name, it doesn't have to be super-unique, just a match for the name you used in mLab.
+Enter the `Instance_Name` you used for mLab in the step above. This binds the database to the app in the Space.
 
 OK, that's it! Save your `manifest.yml` file to disk as `text` and don't change the suffix `.yml`. This work will save you time in the next step and a lot later should you need to deploy nightscout again.
-### Pushing The App To PWS
-
+## Push The App!
+Now it's time to put the app in the cloud. Navigate to the root of the app's files in your command line window. Looks something like this:
 
 ```
-$ cf push -f {path to manifest.yml} --no-start
+$ cd /Users/myUser/Documents/cgm-remote-monitor/
+$ ls -l
+total 1464
+-rwx------  1 myUser  staff    5094 Aug 31 14:54 CONTRIBUTING.md
+-rwx------  1 myUser  staff     157 Aug 31 14:54 COPYRIGHT
+-rwx------  1 myUser  staff     261 Aug 31 14:54 Dockerfile.example
+-rwx------  1 myUser  staff   34521 Aug 31 14:54 LICENSE
+-rwx------  1 myUser  staff    3639 Aug 31 14:54 Makefile
+...
 ```
+You want yourself just inside the directory where you cloned `cgm-remote-monitor`. If you aren't there, you'll get an error from `cf` saying it can't find an app to push. Then, just do this:
+```
+$ cf push -f manifest.yml --no-start
+```
+...and a lot of magic happens. When it's done, you'll see this:
+
+![Staged App](nc-space-dev-staged-app.png)
 ### Changing Nightscout Settings
 
-In PWS, you can view the settings for your app by selecting the app in the Space the app resides in, clicking the app name and then choosing Settings. You will see User Provided Environment Variables about half way down the page. The settings for nightscout are here in Name / Value pairs.
+In PWS, you can view the settings for your app by selecting the app in the Space the app resides in, clicking the app name and then choosing Settings. You will see User Provided Environment Variables about half way down the page. The settings for nightscout are here in Name / Value pairs. You need to set a few values first.
 
- Here you will find the `ENABLE` variable, which turn on and off many features of the app. These features are well documented in [other places](https://github.com/nightscout/cgm-remote-monitor#plugins), but in short, you'll want at least these:
+![User and Environment Variables](nc-space-dev-settings-default.png)
 
- `API_SECRET` to set the admin secret for your site. Type in a secret now (it was blank in the manifest).
+Here you will find the `ENABLE` variable, which turn on and off many features of the app. These features are well documented in [other places](https://github.com/nightscout/cgm-remote-monitor#plugins).
 
- If you are using the `BRIDGE` feature, you'll also have:
+`API_SECRET` to set the admin secret for your site. Type in a secret now (it was blank in the manifest).
 
- `BRIDGE_USER_NAME` is the username in Dexcom Share site. Type in your username now.
- <br>
- `BRIDGE_PASSWORD` is the password for the above user name. Type in your username now.
+![User Variables](nc-space-dev-user-defined-vars1.png)
+
+If you are using the `BRIDGE` feature, you'll also have:
+
+`BRIDGE_USER_NAME` is the username in Dexcom Share site. Type in your username now.
+<br>
+`BRIDGE_PASSWORD` is the password for the above user name. Type in your username now.
+
+![User Variables](nc-space-dev-user-defined-vars2.png)
 
 ## Run The App!
 You are all prepared to run this app now. You may have noticed the `--no-start` flag on the `cf push` command, that means place the app but don't start it, because we needed to complete the api_secret/username/password step first. If the app is already running, you may want to restart it (use the circle arrow button) now.
 
 In Apps Manager, open the app in the Space and click the play button (right carat) next to the app name. The Events column will have activity and you'll see a green dot next to Running when all is well. Shouldn't take but a minute or so.
+
+![App Running](nc-space-app-running.png)
 ## Using nightscout on PWS
 
-Once your app is running and connected to the database, you can browse to the web view by following the Routes attached to the app. By default there will be one, the same as what you named the app. The easist way to find this is to log in to PWS, click on the Space the app is in and click on the route highlighted next to it. This will open a new window with nightscout in setup mode.
+Once your app is running and connected to the database, you can browse to the web view by following the Routes attached to the app. By default there will be one, the same as what you named the app. The easiest way to find this is to log in to PWS, click on the Space the app is in and click on the route highlighted next to it. This will open a new window with nightscout in setup mode.
 
 Note that there is *No Reason* to run a keep-alive app the pings nightscout to keep it going. That's a shortcoming of other cloud environments such as Heroku. PWS runs apps 24x7 without interruption or quotas.
 
