@@ -9,7 +9,7 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 [![Codacy Badge][codacy-img]][codacy-url]
 [![Gitter chat][gitter-img]][gitter-url]
 
-[![Deploy to Azure](http://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/) [![Deploy to Heroku][heroku-img]][heroku-url]
+[![Deploy to Azure](http://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/) [![Deploy to Heroku][heroku-img]][heroku-url][![Update your site][update-img]][update-fork]
 
 This acts as a web-based CGM (Continuous Glucose Monitor) to allow
 multiple caregivers to remotely view a patient's glucose data in
@@ -39,6 +39,8 @@ Community maintained fork of the
 [gitter-url]: https://gitter.im/nightscout/public
 [heroku-img]: https://www.herokucdn.com/deploy/button.png
 [heroku-url]: https://heroku.com/deploy
+[update-img]: update.png
+[update-fork]: http://nightscout.github.io/pages/update-fork/
 [original]: https://github.com/rnpenguin/cgm-remote-monitor
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
@@ -146,7 +148,6 @@ MongoDB server such as [mongolab][mongodb].
 [mongodb]: https://mongolab.com
 [autoconfigure]: https://nightscout.github.io/pages/configure/
 [mongostring]: https://nightscout.github.io/pages/mongostring/
-[update-fork]: http://nightscout.github.io/pages/update-fork/
 
 ## Updating my version?
 The easiest way to update your version of cgm-remote-monitor to our latest
