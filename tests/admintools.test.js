@@ -67,7 +67,7 @@ describe('admintools', function ( ) {
       
       self.localCookieStorage = self.localStorage = self.$.localStorage = require('./fixtures/localstorage');
 
-      self.$.fn.tipsy = function mockTipsy ( ) { };
+      self.$.fn.tooltip = function mockTooltip ( ) { };
 
       self.$.fn.dialog = function mockDialog (opts) {
         function maybeCall (name, obj) {
