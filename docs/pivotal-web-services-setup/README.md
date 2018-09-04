@@ -83,7 +83,7 @@ The second section looks like this:
 ```
 env:
   DISPLAY_UNITS: mg/dl
-  API_SECRET:         ## <- REPLACE with a secret only you know!
+  API_SECRET:         ## <- REPLACE with a secret only you know! (Must be at least 12 characters long)
   ENABLE: bridge pushover cage rawbg careportal
 ####  Dexcom Bridge settings. Uncomment these (delete ##) if you are using the BRIDGE function of nightscout
 ##    BRIDGE_USER_NAME: dexcom-share-username
@@ -92,7 +92,7 @@ env:
 ```
 At the very least, you need to consider two things:
 
-`API_SECRET`: a secret password you will keep to administrate nightscout with
+`API_SECRET`: a secret password you will keep to administrate nightscout with (Must be at least 12 characters long)
 <br>
 `ENABLE`: a space-separated list of features (plugins) you want nightscout to run. A few common ones are already included. [Look here](https://github.com/nightscout/cgm-remote-monitor#plugins) for a much more complete list. Add more plugins now if you wish.
 
