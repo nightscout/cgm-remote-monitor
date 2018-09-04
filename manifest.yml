@@ -5,6 +5,8 @@ applications:
   memory: 256M
   disk_quota: 512M
   instances: 1
+  health-check-type: http
+  timeout: 180
   env:
     DISPLAY_UNITS: mg/dl
     API_SECRET:                     ## <- REPLACE with a secret only you know!
