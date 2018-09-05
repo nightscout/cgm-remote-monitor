@@ -110,7 +110,5 @@
     "webpack-bundle-analyzer": "^2.13.1",
     "webpack-command": "^0.4.1"
   },
-  "devDependencies": {
-
-  }
+  "devDependencies": {}
 }
