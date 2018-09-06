@@ -8,7 +8,6 @@ describe('COB', function ( ) {
   var ctx = {};
   ctx.settings = {};
   ctx.language = require('../lib/language')();
-  ctx.language.set('en');
 
   var cob = require('../lib/plugins/cob')(ctx);
   
