@@ -17,7 +17,17 @@ Follow [these instructions](https://docs.run.pivotal.io/starting/index.html) to 
 Signups happen here: https://run.pivotal.io/
 
 ### Add A Space Developer To Your Org
+In order to use the `nightscout-factory` you will need to give it `Space Developer` access to your space in PWS.
+
+Log into your PWS account, click on your space name on the left side of the screen and go to the `Members` page.
+
+![Add Space Developer](add-space-developer.png)
+
 ### Request An App via `nightscout-factory`
+Once you have sent the invite for the `nightscout-factory` user to join your space, go to https://nightscout-factory.cfapps.io and enter your PWS email, PWS password, and the organization and space that you just invited the user to. Click `Deploy Nightscout!` and wait.  The whole process may take around 3 minutes.  Once finished, it will show you the URL of your newly deployed `nightscout` instance.
+
+![Deploy Nightscout](deploy-nightscout.png)
+
 ### Changing Nightscout Settings
 
 In PWS, you can view the settings for your app by selecting the app in the Space the app resides in, clicking the app name and then choosing Settings. You will see User Provided Environment Variables about half way down the page. The settings for nightscout are here in Name / Value pairs. You need to set a few values first.
