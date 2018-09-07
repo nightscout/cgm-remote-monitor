@@ -2,7 +2,45 @@
 
 Pivotal Web Services (PWS) is a public cloud platform offered by [Pivotal Software, Inc](http://pivotal.io).
 
-To publish a nightscout site on PWS, you will follow the procedure here, in this order:
+## Deploying nightscout automatically with `nightscout-factory`
+The preferred method to get a nightscout on PWS is automatically via an app called `nightscout-factory`. The steps are simple:
+1. Create an account in PWS to host your app
+2. Add the `nightscout-factory` user to your Space for automation work
+3. Fill in the few details needed at the `nightscout-factory` app
+4. Review the settings for nightscout in PWS for your particular needs
+
+### Creating An Account in PWS
+To use PWS you must first create an account. You will receive a 2GB Org and a Trial Credit of $87. This should be enough to run nightscout for the entire year at no cost.
+
+Follow [these instructions](https://docs.run.pivotal.io/starting/index.html) to create your account and then return here.
+
+Signups happen here: https://run.pivotal.io/
+
+### Add A Space Developer To Your Org
+### Request An App via `nightscout-factory`
+### Changing Nightscout Settings
+
+In PWS, you can view the settings for your app by selecting the app in the Space the app resides in, clicking the app name and then choosing Settings. You will see User Provided Environment Variables about half way down the page. The settings for nightscout are here in Name / Value pairs. You need to set a few values first.
+
+![User and Environment Variables](nc-space-dev-settings-default.png)
+
+Here you will find the `ENABLE` variable, which turn on and off many features of the app. These features are well documented in [other places](https://github.com/nightscout/cgm-remote-monitor#plugins).
+
+`API_SECRET` to set the admin secret for your site. Type in a secret now (it was blank in the manifest).
+
+![User Variables](nc-space-dev-user-defined-vars1.png)
+
+If you are using the `BRIDGE` feature, you'll also have:
+
+`BRIDGE_USER_NAME` is the username in Dexcom Share site. Type in your username now.
+<br>
+`BRIDGE_PASSWORD` is the password for the above user name. Type in your username now.
+
+![User Variables](nc-space-dev-user-defined-vars2.png)
+
+
+## Deploying nightscout manually
+To publish a nightscout site on PWS manually, you will follow the procedure here, in this order:
 
 1. Fork the repo to get a copy of the app
 2. Create an account in PWS to host your app
