@@ -48,6 +48,8 @@ If you are using the `BRIDGE` feature, you'll also have:
 
 ![User Variables](nc-space-dev-user-defined-vars2.png)
 
+Once these steps are complete, you are ready to run (or restart if running) your app and the follow the link to it for use. 
+### Process Complete!
 
 ## Deploying nightscout manually
 To publish a nightscout site on PWS manually, you will follow the procedure here, in this order:
