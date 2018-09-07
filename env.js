@@ -91,7 +91,7 @@ function setVersion() {
 }
 
 function setStorage() {
-  var appEnv = cfenv.getAppEnv({vcap: {services: {'mlab': [{name: 'thad-mlab', credentials: {uri: 'mongodb://CloudFoundry_lqdvkfrq_lsi1kb2n_3b3qo8fq:bDiPYaa3ObIjI7ymkF5h1kExt9Ca3fN2@ds137102.mlab.com:37102/CloudFoundry_lqdvkfrq_lsi1kb2n'}}]}}});
+  var appEnv = cfenv.getAppEnv();
   var svcs = appEnv.services;
   var uri = null;
   if (svcs.hasOwnProperty('mlab')) {
