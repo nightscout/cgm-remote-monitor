@@ -3,7 +3,7 @@
 require('should');
 var levels = require('../lib/levels');
 
-describe('insulinage', function ( ) {
+describe('cage', function ( ) {
     var env = require('../env')();
     var ctx = {};
     ctx.ddata = require('../lib/data/ddata')();
@@ -39,7 +39,6 @@ describe('insulinage', function ( ) {
                 }
             }
         };
-       ctx.language = require('../lib/language')();
 
         var sbx = sandbox.clientInit(ctx, Date.now(), data);
         iage.setProperties(sbx);
@@ -66,7 +65,6 @@ describe('insulinage', function ( ) {
                 }
             }
         };
-       ctx.language = require('../lib/language')();
 
         var sbx = sandbox.clientInit(ctx, Date.now(), data);
         iage.setProperties(sbx);
