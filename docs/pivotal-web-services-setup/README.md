@@ -10,21 +10,20 @@ The preferred method to get a nightscout on PWS is automatically via an app call
 4. Review the settings for nightscout in PWS for your particular needs
 
 ### Creating An Account in PWS
-To use PWS you must first create an account. You will receive a 2GB Org and a Trial Credit of $87. This should be enough to run nightscout for the entire year at no cost.
-
-Follow [these instructions](https://docs.run.pivotal.io/starting/index.html) to create your account and then return here.
+To use PWS you must first create an account. You will receive a 2GB Org and a Trial Credit of $87, enough to run nightscout for the entire year at no cost.
 
 Signups happen here: https://run.pivotal.io/
+[Instructions](https://docs.run.pivotal.io/starting/index.html).
 
 ### Add A Space Developer To Your Org
-In order to use the `nightscout-factory` you will need to give it `Space Developer` access to your space in PWS.
+In order to use the `nightscout-factory` automation you will need to grant the robot `Space Developer` access to your space in PWS.
 
 Log into your PWS account, click on your space name on the left side of the screen and go to the `Members` page.
 
 ![Add Space Developer](add-space-developer.png)
 
 ### Request An App via `nightscout-factory`
-Once you have sent the invite for the `nightscout-factory` user to join your space, go to https://nightscout-factory.cfapps.io and enter your PWS email, PWS password, and the organization and space that you just invited the user to. Click `Deploy Nightscout!` and wait.  The whole process may take around 3 minutes.  Once finished, it will show you the URL of your newly deployed `nightscout` instance.
+Once you have sent the invite for the `nightscout@pivotal.io` user to join your space, go to https://nightscout-factory.cfapps.io and enter your PWS email, PWS password, and the organization and space that you just invited the user to. Click `Deploy Nightscout!` and wait.  The whole process may take around 3 minutes.  Once finished, it will show you the URL of your newly deployed `nightscout` instance.
 
 ![Deploy Nightscout](deploy-nightscout.png)
 
@@ -48,7 +47,7 @@ If you are using the `BRIDGE` feature, you'll also have:
 
 ![User Variables](nc-space-dev-user-defined-vars2.png)
 
-Once these steps are complete, you are ready to run (or restart if running) your app and the follow the link to it for use. 
+Once these steps are complete, you are ready to run (or restart if running) your app and the follow the link to it for use.
 ### Process Complete!
 
 ## Deploying nightscout manually
