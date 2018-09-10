@@ -13,21 +13,23 @@ The preferred method to get a nightscout on PWS is automatically via an app call
 To use PWS you must first create an account. You will receive a 2GB Org and a Trial Credit of $87, enough to run nightscout for the entire year at no cost.
 
 Signups happen here: https://run.pivotal.io/
-[Instructions](https://docs.run.pivotal.io/starting/index.html).
+<br>
+[Instructions](https://docs.run.pivotal.io/starting/index.html)
 
 ### Add A Space Developer To Your Org
-In order to use the `nightscout-factory` automation you will need to grant the robot `Space Developer` access to your space in PWS.
+In order to use the `nightscout-factory` automation you will need to grant the robot user access to your space in PWS in the role `Space Developer`.
 
 Log into your PWS account, click on your space name on the left side of the screen and go to the `Members` page.
 
 ![Add Space Developer](add-space-developer.png)
 
 ### Request An App via `nightscout-factory`
-Once you have sent the invite for the `nightscout@pivotal.io` user to join your space, go to https://nightscout-factory.cfapps.io and enter your PWS email, PWS password, and the organization and space that you just invited the user to. Click `Deploy Nightscout!` and wait.  The whole process may take around 3 minutes.  Once finished, it will show you the URL of your newly deployed `nightscout` instance.
+Once you have sent the invite for the `nightscout` user to join your space, go to https://nightscout-factory.cfapps.io and enter your PWS email, PWS password, and the organization and space that you just invited the user to. Click `Deploy Nightscout!` and wait.  The whole process may take around 3 minutes.  Once finished, it will show you the URL of your newly deployed `nightscout` instance.
 
+The Factory: https://nightscout-factory.cfapps.io
 ![Deploy Nightscout](deploy-nightscout.png)
 
-### Changing Nightscout Settings
+### Personalizing Nightscout Settings
 
 In PWS, you can view the settings for your app by selecting the app in the Space the app resides in, clicking the app name and then choosing Settings. You will see User Provided Environment Variables about half way down the page. The settings for nightscout are here in Name / Value pairs. You need to set a few values first.
 
@@ -35,22 +37,19 @@ In PWS, you can view the settings for your app by selecting the app in the Space
 
 Here you will find the `ENABLE` variable, which turn on and off many features of the app. These features are well documented in [other places](https://github.com/nightscout/cgm-remote-monitor#plugins).
 
-`API_SECRET` to set the admin secret for your site. Type in a secret now (it was blank in the manifest).
-
+`API_SECRET` to set the admin secret for your site. **Type in a secret now**.
 ![User Variables](nc-space-dev-user-defined-vars1.png)
 
 If you are using the `BRIDGE` feature, you'll also have:
-
-`BRIDGE_USER_NAME` is the username in Dexcom Share site. Type in your username now.
-<br>
-`BRIDGE_PASSWORD` is the password for the above user name. Type in your username now.
-
 ![User Variables](nc-space-dev-user-defined-vars2.png)
+`BRIDGE_USER_NAME` is the username in Dexcom Share site. **Type in your username now**.
+<br>
+`BRIDGE_PASSWORD` is the password for the above user name. **Type in your password now**.
 
 Once these steps are complete, you are ready to run (or restart if running) your app and the follow the link to it for use.
-### Process Complete!
-
-## Deploying nightscout manually
+# Automated Process Complete! You Are Done!
+---
+# Deploying nightscout Manually
 To publish a nightscout site on PWS manually, you will follow the procedure here, in this order:
 
 1. Fork the repo to get a copy of the app
@@ -203,7 +202,7 @@ If you are using the `BRIDGE` feature, you'll also have:
 
 `BRIDGE_USER_NAME` is the username in Dexcom Share site. Type in your username now.
 <br>
-`BRIDGE_PASSWORD` is the password for the above user name. Type in your username now.
+`BRIDGE_PASSWORD` is the password for the above user name. Type in your password now.
 
 ![User Variables](nc-space-dev-user-defined-vars2.png)
 
