@@ -2,6 +2,8 @@
 
 Pivotal Web Services (PWS) is a public cloud platform offered by [Pivotal Software, Inc](http://pivotal.io).
 
+![App Running](Deploy-to-PWS.png)
+
 ## Deploying nightscout automatically with `nightscout-factory`
 The preferred method to get a nightscout on PWS is automatically via an app called `nightscout-factory`. The steps are simple:
 1. Create an account in PWS to host your app
