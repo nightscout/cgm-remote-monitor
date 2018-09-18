@@ -98,7 +98,9 @@
     "style-loader": "^0.20.2",
     "traverse": "^0.6.6",
     "uglify-js": "^3.4.6",
-    "uuid": "^3.2.1",
+    "uuid": "^3.2.1"
+  },
+  "devDependencies": {
     "benv": "^3.3.0",
     "clear-require": "^2.0.0",
     "istanbul": "^0.4.5",
@@ -106,9 +108,8 @@
     "moment-locales-webpack-plugin": "^1.0.7",
     "should": "^13.2.2",
     "supertest": "^3.1.0",
-    "webpack": "^4.17.2",
+    "webpack": "^4.16.3",
     "webpack-bundle-analyzer": "^2.13.1",
     "webpack-command": "^0.4.1"
-  },
-  "devDependencies": {}
+  }
 }
