@@ -2,8 +2,6 @@
 
 Pivotal Web Services (PWS) is a public cloud platform offered by [Pivotal Software, Inc](http://pivotal.io).
 
-![App Running](Deploy-to-PWS.png)
-
 ## Deploying nightscout automatically with `nightscout-factory`
 The preferred method to get a nightscout on PWS is automatically via an app called `nightscout-factory`. The steps are simple:
 1. Create an account in PWS to host your app
@@ -57,12 +55,13 @@ To publish a nightscout site on PWS manually, you will follow the procedure here
 1. Fork the repo to get a copy of the app
 2. Create an account in PWS to host your app
 3. Create an instance of a database for the app to use
-4. Install the `CF CLI` tool to talk to PWS
-5. Login to PWS from the command line and point at where you want to place your app
-6. Prepare your copy of nightscout to run in PWS
-7. Deploy the nightscout app to PWS from the command line
-8. Adjust any settings in nightscout needed prior to running it
-9. Run the app and connect for the first time
+4. Install `npm`
+5. Install the `CF CLI` tool to talk to PWS
+6. Login to PWS from the command line and point at where you want to place your app
+7. Prepare your copy of nightscout to run in PWS
+8. Deploy the nightscout app to PWS from the command line
+9. Adjust any settings in nightscout needed prior to running it
+10. Run the app and connect for the first time
 
 ## Forking The Repo
 [Fork it](https://help.github.com/articles/fork-a-repo/)
@@ -96,8 +95,13 @@ In Apps Manager (the PWS UI):
 You can confirm the results by going to the Space you selected on the left side, choosing Service which should have a (1) next to it and see an mLab Service in there with the name you used and Plan "free".
 
 ![Space Services](./nc-space-dev-service-mlab.png)
-## Deploying the Nightscout Application
-### Installing CF CLI
+
+## Installing npm
+`npm` is a command line tool for working with NodeJS. [Installing npm](https://www.npmjs.com/get-npm) will allow you to build Nightscout before you deploy it to PWS.
+
+Quick test: type `npm -v` to see the version of npm.
+
+## Installing CF CLI
 
 It's very helpful to have the CLI tools for PWS installed even if you don't use them much. This tool is required during installation and can be useful later.
 
@@ -183,6 +187,7 @@ total 1464
 ```
 You want yourself just inside the directory where you cloned `cgm-remote-monitor`. If you aren't there, you'll get an error from `cf` saying it can't find an app to push. Then, just do this:
 ```
+$ npm install
 $ cf push -f manifest.yml --no-start
 ```
 ...and a lot of magic happens. When it's done, you'll see this:
