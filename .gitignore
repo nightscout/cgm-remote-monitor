@@ -20,10 +20,3 @@ static/bower_components/
 coverage/
 
 npm-debug.log
-
-Backup*
-*.bak
-*.~*
-_*\*
-/tmp
-
