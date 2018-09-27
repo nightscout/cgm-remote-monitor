@@ -1,82 +1,137 @@
-#drawer {
-    background-color: #666;
-    border-left: 1px solid #999;
-    box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
-    color: #eee;
-    display: none;
-    font-size: 16px;
-    height: 100%;
-    overflow-y: auto;
-    position: absolute;
-    margin-top: 45px;
-    right: -200px;
-    width: 300px;
-    top: 0;
-    z-index: 1;
+#drawer button, #treatmentDrawer button, #boluscalcDrawer button{
+  font-size: 18px;
+  font-weight: bolder;
+  background-color: #ccc;
+  padding: 5px 10px;
+  border-radius: 5px;
+  border: 2px solid #aaa;
+  box-shadow: 2px 2px 0 #eee;
+  width: 100%;
 }
-#drawer i {
-    opacity: 0.6;
+
+#drawer {
+  background-color: #666;
+  border-left: 1px solid #999;
+  box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
+  color: #eee;
+  display: none;
+  font-size: 16px;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  position: absolute;
+  margin-top: 45px;
+  right: -200px;
+  top: 0;
+  z-index: 1;
+}
+
+#drawer i, #treatmentDrawer i {
+  opacity: 0.6;
+}
+
+#drawer a, #treatmentDrawer a {
+  color: white;
+}
+
+input[type=number]:invalid {
+  background-color: #FFCCCC;
+}
+
+#drawer .actions {
+  margin: 10px 2px;
+}
+
+#drawer .actions a {
+  display: block;
+  text-align: right;
+  padding: 10px 0;
+  text-decoration: underline;
 }
 
 #treatmentDrawer {
-    background-color: #666;
-    border-left: 1px solid #999;
-    box-shadow: inset 4px 4px 5px 0px rgba(50, 50, 50, 0.75);
-    color: #eee;
-    display: none;
-    font-size: 16px;
-    height: 100%;
-    overflow-y: auto;
-    position: absolute;
-    margin-top: 45px;
-    right: -200px;
-    width: 300px;
-    top: 0;
-    z-index: 1;
-}
-#treatmentDrawer i {
-    opacity: 0.6;
-}
-
-#treatmentDrawer a {
-  color: white;
+  background-color: #666;
+  border-left: 1px solid #999;
+  box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
+  color: #eee;
+  display: none;
+  font-size: 16px;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  position: absolute;
+  margin-top: 45px;
+  right: -200px;
+  top: 0;
+  z-index: 1;
 }
 
 #treatmentDrawer input {
   box-sizing: border-box;
 }
 
-#treatmentDrawer label.left-column {
+#treatmentDrawer .left-column {
   display: block;
   width: 100%;
 }
 
-#treatmentDrawer label.left-column span {
+#treatmentDrawer .left-column span {
   width: 110px;
   display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 22px;
+  vertical-align: middle;
 }
 
-#treatmentDrawer label.left-column input, #treatmentDrawer label.left-column select {
+#treatmentDrawer fieldset fieldset .left-column span {
+  width: 96px;
+}
+
+#treatmentDrawer .left-column input, #treatmentDrawer .left-column select {
   width: 140px;
 }
 
-#treatmentDrawer label.extra-space {
+#treatmentDrawer .extra-space {
   padding-top: 10px;
   display: block;
 }
 
-#eventTime {
+.timeago-mins {
+  width: 25px;
+}
 
+#eventTime {
+  padding-bottom: 15px;
 }
 
 #eventTime > span {
   width: 105px;
   display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 22px;
+  vertical-align: middle;
 }
 
-#eventTime > input {
-  margin-left: 114px;
-  width: 140px;
+#treatmentDrawer .eventdate {
+  width: 130px;
+}
+
+#treatmentDrawer .eventtime {
+  width: 110px;
+}
+
+#eventTime label span {
+  width: 45px;
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 22px;
+  vertical-align: middle;
 }
 
 #treatmentDrawer #glucoseValue {
@@ -88,171 +143,240 @@
 }
 
 #about {
-    margin-top: 1em;
+  margin-bottom: 55px;
 }
 #about div {
-    font-size: 0.75em;
+  font-size: 12px;
 }
 #about .links {
-    margin-top: 1em;
-    margin-bottom: 1em;
+  margin: 10px;
 }
 #about a {
-    color: #fff;
+  color: #fff;
+  text-decoration: underline;
 }
 
 form {
-    margin: 0;
-    padding: 0 10px;
+  margin: 0;
+  padding: 0 10px;
 }
 
 .serverSettings {
-    display: none;
+  display: none;
 }
 
 fieldset {
-    margin: 0.5em 0 1em 0;
+  margin: 0.5em 0 1em 0;
 }
 legend {
-    font-size: 1.1em;
+  font-size: 1.1em;
 }
 dl {
-    margin: 0 0 1em 0;
+  margin: 0 0 1em 0;
 }
 dl:last-child {
-    margin-bottom: 0;
+  margin-bottom: 0;
 }
 dd {
-    margin-left: 0;
+  margin-left: 0;
 }
 
 dd.numbers input {
-    text-align: right;
-    width: 50px;
+  text-align: right;
+  width: 50px;
 }
 dd.numbers label {
-    display: block;
-    float: left;
-    width: 50px;
+  display: block;
+  float: left;
+  width: 50px;
 }
 
 h1, legend,
+#toolbar .customTitle,
 #about .appName,
 #about .version {
-    font-weight: bold;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
 #about .appName {
-    font-size: 1em;
+  font-size: 1em;
 }
 #about .version {
-    font-size: 1.25em;
-    margin-left: 0.25em;
+  font-size: 1.25em;
+  margin-left: 0.25em;
 }
 
 #toolbar {
-    background: url(/images/logo2.png) no-repeat 3px 3px #333;
-    border-bottom: 1px solid #999;
-    top: 0;
-    margin: 0;
-    height: 44px;
+  background: url(/images/logo2.png) no-repeat 3px 3px #333;
+  border-bottom: 1px solid #999;
+  top: 0;
+  margin: 0;
+  height: 44px;
+  text-shadow: 0 0 5px black;
 }
 
-#toolbar h1 {
-    color: #ccc;
-    font-size: 16px;
-    margin-top: 0;
-    margin-left: 42px;
-    padding-top: 10px;
-    padding-right: 150px;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    overflow: hidden;
+#toolbar .customTitle {
+  color: #ccc;
+  font-size: 16px;
+  margin-top: 0;
+  margin-left: 42px;
+  padding-top: 10px;
+  padding-right: 150px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
 #buttonbar {
-    padding-right: 10px;
-    height: 44px;
-    opacity: 0.75;
-    vertical-align: middle;
-    position: absolute;
-    right: 0;
+  padding-right: 15px;
+  height: 44px;
+  opacity: 0.75;
+  vertical-align: middle;
+  position: absolute;
+  right: 0;
+  z-index: 500;
 }
 
 #buttonbar a,
 #buttonbar i {
-    color: #ccc;
-    font-size: 16px;
-    height: 44px;
-    line-height: 44px;
+  color: #ccc;
+  font-size: 16px;
+  height: 44px;
+  line-height: 44px;
+}
+#buttonbar .selected {
+  color: red;
 }
 #buttonbar a {
-    float: left;
-    text-decoration: none;
-    width: 34px;
+  float: left;
+  text-decoration: none;
+  width: 34px;
 }
 #buttonbar i {
-    padding-left: 12px;
-}
-
-.icon-battery-25,
-.icon-battery-50,
-.icon-battery-75,
-.icon-battery-100,
-.icon-angle-double-up {
-    font-size: 21px !important;
-    padding-left: 9px !important;
+  padding-left: 12px;
 }
 
 #notification {
-    display: none;
-    font-size: 14px;
-    position: absolute;
+  display: none;
+  font-size: 14px;
+  position: absolute;
 }
 
 #notification,
 #notification a {
-    overflow: hidden;
+  overflow: hidden;
 }
 #notification {
-    opacity: 0.75;
-    top: 4px;
-    z-index: 99;
+  opacity: 0.75;
+  top: 4px;
+  z-index: 99;
 }
 #notification.info a {
-    background: #00f;
-    color: #fff;
+  background: #00f;
+  color: #fff;
 }
 #notification.warn a {
-    background: #cc0;
-    color: #000;
+  background: #cc0;
+  color: #000;
 }
 #notification.success a {
-    background: #090;
-    color: #fff;
+  background: #090;
+  color: #fff;
 }
 #notification.urgent a {
-    background: #c00;
-    color: #fff;
+  background: #c00;
+  color: #fff;
 }
 #notification a {
-    background: #c00;
-    border-radius: 5px;
-    color: #fff;
-    display: block;
-    height: 20px;
-    padding: 0.5em;
-    text-decoration: none;
+  background: #c00;
+  border-radius: 5px;
+  color: #fff;
+  display: block;
+  height: 20px;
+  padding: 0.5em;
+  text-decoration: none;
 }
 #notification span {
-    margin-right: 0.25em;
+  margin-right: 0.25em;
 }
 #notification i {
-    float: right;
-    opacity: 0.5;
-    vertical-align: top;
+  float: right;
+  opacity: 0.5;
+  vertical-align: top;
 }
 
 .experiments a {
-    color: #fff;
-    font-size: 1.5em;
+  color: #fff;
+  font-size: 1.5em;
+}
+
+ul.navigation {
+  padding: 0;
+  margin: 0;
+}
+
+.navigation li {
+  list-style: none;
+  display: block;
+}
+
+.navigation li.multilink {
+  display: flex;
+}
+
+.navigation a {
+  text-decoration: none;
+  background-color: #808080;
+  display: block;
+  padding: 5px;
+  margin: 10px 0;
+}
+
+.navigation a.multilink {
+  display: flex;
+  flex-grow: 1;
+  justify-content: center;
+}
+
+.navigation a:hover {
+  background-color: #989898;
+}
+
+#boluscalcDrawer {
+    background-color: #666;
+    border-left: 1px solid #999;
+    box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
+    color: #eee;
+    display: none;
+    font-size: 16px;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    position: absolute;
+    margin-top: 45px;
+    right: -200px;
+    width: 320px;
+    top: 0;
+    z-index: 1;
+}
+
+#boluscalcDrawer a {
+  color: white;
+  font-size: 12px;
+}
+
+#boluscalcDrawer .insulincalculation {
+    background: gray;
+}
+
+#boluscalcDrawer .insulintotalcalculation {
+    background: Sienna;
+}
+
+#boluscalcDrawer .border_bottom td {
+  border-bottom:1pt solid #eee;
+}
+
+#boluscalcDrawer .foodinput {
+   background: #505050;
+   margin: 10px;
 }
