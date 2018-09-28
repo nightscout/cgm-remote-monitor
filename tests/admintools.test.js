@@ -57,13 +57,17 @@ var someData = {
 
 describe('admintools', function ( ) {
   var self = this;
-
+  this.timeout(30000); // TODO: see why this test takes longer on Travis to complete
   before(function (done) {
     benv.setup(function() {
-      self.$ = require('jquery');
-      self.$.localStorage = require('./fixtures/localstorage');
 
-      self.$.fn.tipsy = function mockTipsy ( ) { };
+	  benv.require(__dirname + '/../tmp/js/bundle.js');
+          
+      self.$ = $;
+      
+      self.localCookieStorage = self.localStorage = self.$.localStorage = require('./fixtures/localstorage');
+
+      self.$.fn.tooltip = function mockTooltip ( ) { };
 
       self.$.fn.dialog = function mockDialog (opts) {
         function maybeCall (name, obj) {
@@ -79,15 +83,18 @@ describe('admintools', function ( ) {
         });
       };
 
-      var indexHtml = read(__dirname + '/../static/admin/index.html', 'utf8');
+      var indexHtml = read(__dirname + '/../views/adminindex.html', 'utf8');
       self.$('body').html(indexHtml);
 
       //var filesys = require('fs');
       //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
       
       self.$.ajax = function mockAjax (url, opts) {
+        if (url && url.url) {
+          url = url.url;
+        }
         //logfile.write(url+'\n');
-        //console.log(url,opts);
+        //console.log('Mock ajax:',url,opts);
         if (opts && opts.success && opts.success.call) {
           if (url.indexOf('/api/v1/treatments.json?&find[created_at][$gte]=')===0) {
             url = '/api/v1/treatments.json?&find[created_at][$gte]=';
@@ -114,7 +121,11 @@ describe('admintools', function ( ) {
         }
         return {
           done: function mockDone (fn) {
-            fn({message: 'OK'});
+            if (url.indexOf('status.json') > -1) {
+              fn(serverSettings);
+            } else {
+              fn({message: 'OK'});
+            }
             return self.$.ajax();
             },
           fail: function mockFail () {
@@ -129,22 +140,38 @@ describe('admintools', function ( ) {
       var d3 = require('d3');
       //disable all d3 transitions so most of the other code can run with jsdom
       d3.timer = function mockTimer() { };
+      
+      var cookieStorageType = self.localStorage._type
 
       benv.expose({
         $: self.$
         , jQuery: self.$
         , d3: d3
         , serverSettings: serverSettings
+        , localCookieStorage: self.localStorage
+        , cookieStorageType: self.localStorage
+		, localStorage: self.localStorage
         , io: {
           connect: function mockConnect ( ) {
             return {
-              on: function mockOn ( ) { }
+              on: function mockOn (event, callback) {
+                if ('connect' === event && callback) {
+                  callback();
+                }
+              }
+              , emit: function mockEmit (event, data, callback) {
+                if ('authorize' === event && callback) {
+                  callback({
+                    read: true
+                  });
+                }
+              }
             };
           }
         }
       });
 
-      benv.require(__dirname + '/../bundle/bundle.source.js');
+      //benv.require(__dirname + '/../bundle/bundle.source.js');
       benv.require(__dirname + '/../static/admin/js/admin.js');
 
       done();
@@ -157,7 +184,6 @@ describe('admintools', function ( ) {
   });
 
   it ('should produce some html', function (done) {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
 
     var hashauth = require('../lib/hashauth');
@@ -176,7 +202,8 @@ describe('admintools', function ( ) {
        return true;
      };
 
-    client.init(serverSettings, plugins);
+    client.init();
+    
     client.dataUpdate(nowData);
     
     //var result = $('body').html();
