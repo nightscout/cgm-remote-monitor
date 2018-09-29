@@ -48,7 +48,7 @@
     }
   },
   "engines": {
-    "node": "8.11.x",
+    "node": "8.12.x",
     "npm": "6.x || 5.8.x || 5.7.x || 5.6.x"
   },
   "dependencies": {
@@ -107,8 +107,8 @@
     "mocha": "^5.2.0",
     "moment-locales-webpack-plugin": "^1.0.7",
     "should": "^13.2.3",
-    "supertest": "^3.1.0",
-    "webpack": "^4.16.4",
+    "supertest": "^3.3.0",
+    "webpack": "^4.20.2",
     "webpack-bundle-analyzer": "^2.13.1",
     "webpack-command": "^0.4.1"
   }

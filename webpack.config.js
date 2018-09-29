@@ -87,12 +87,14 @@ module.exports = {
                     name: '[name].[ext]',
                     outputPath: 'images/'
                         //the images will be emmited to public/assets/images/ folder 
-                        //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png); 
-                }
-            },
+                        //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png);
+                },
+                exclude: /node_modules/
+        },
             {
                 test: /\.css$/,
-                loaders: ["style-loader", "css-loader"]
+                loaders: ["style-loader", "css-loader"],
+                exclude: /node_modules/
             }, {
                 test: require.resolve('jquery'),
                 use: [{
