@@ -151,6 +151,26 @@
       "description": "Maker Announcement Key - Set this to your secret key for announcements Note for additional info see https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md#ifttt-maker , maker should be added to enable if you want to use maker Leave blank if not using maker",
       "value": "",
       "required": false
+    },
+    "MMCONNECT_USER_NAME": {
+      "description": "Your username for CareLink",
+      "value": "",
+      "required": false
+    },
+    "MMCONNECT_PASWSWORD": {
+      "description": "Your password for CareLink",
+      "value": "",
+      "required": false
+    },
+    "MMCONNECT_SERVER": {
+      "description": "EU if Europe",
+      "value": "",
+      "required": false
+    },
+    "MMCONNECT_VERBOSE": {
+      "description": "Verbose",
+      "value": "",
+      "required": false
     }
   },
   "addons": [
