@@ -115,6 +115,7 @@ If you plan to use Nightscout, we recommend using [Heroku](http://openaps.readth
 - [Nightscout Setup with Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#nightscout-setup-with-heroku) (recommended)
 - [Nightscout Setup with Microsoft Azure](http://www.nightscout.info/wiki/faqs-2/azure-2) (not recommended, please
 [switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku) )
+- [Nightscout Setup with Pivotal Web Services](docs/pivotal-web-services-setup/README.md)
 - Linux based install (Debian, Ubuntu, Raspbian) install with own Node.JS and MongoDB install (see software requirements below)
 - Windows based install with own Node.JS and MongoDB install (see software requirements below)
 
