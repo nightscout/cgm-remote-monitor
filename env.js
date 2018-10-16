@@ -1,6 +1,11 @@
 'use strict';
 
-var _ = require('lodash');
+var _each = require('lodash/each');
+var _trim = require('lodash/trim');
+var _forIn = require('lodash/forIn');
+var _startsWith = require('lodash/startsWith');
+var _camelCase = require('lodash/camelCase');
+
 var fs = require('fs');
 var crypto = require('crypto');
 var consts = require('./lib/constants');
@@ -20,6 +25,10 @@ function config ( ) {
   env.HOSTNAME = readENV('HOSTNAME', null);
   env.IMPORT_CONFIG = readENV('IMPORT_CONFIG', null);
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
+  env.swagger_files = readENV('NIGHTSCOUT_SWAGGER_FILES',  __dirname + '/node_modules/swagger-ui-dist/');
+  env.debug = {
+    minify: readENVTruthy('DEBUG_MINIFY', true)
+  };
 
   if (env.err) {
     delete env.err;
@@ -76,17 +85,6 @@ function setAPISecret() {
 
 function setVersion() {
   var software = require('./package.json');
-  var git = require('git-rev');
-
-  if (readENV('APPSETTING_ScmType') === readENV('ScmType') && readENV('ScmType') === 'GitHub') {
-    env.head = require('./scm-commit-id.json');
-    console.log('SCM COMMIT ID', env.head);
-  } else {
-    git.short(function record_git_head(head) {
-      console.log('GIT HEAD', head);
-      env.head = head || readENV('SCM_COMMIT_ID') || readENV('COMMIT_HASH', '');
-    });
-  }
   env.version = software.version;
   env.name = software.name;
 }
@@ -113,6 +111,7 @@ function setStorage() {
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
   env.food_collection = readENV('MONGO_FOOD_COLLECTION', 'food');
+  env.activity_collection = readENV('MONGO_ACTIVITY_COLLECTION', 'activity');
 
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.
@@ -167,20 +166,23 @@ function readENVTruthy(varName, defaultValue) {
 function findExtendedSettings (envs) {
   var extended = {};
 
+  extended.devicestatus = {};
+  extended.devicestatus.advanced = true;
+
   function normalizeEnv (key) {
     return key.toUpperCase().replace('CUSTOMCONNSTR_', '');
   }
 
-  _.each(env.settings.enable, function eachEnable(enable) {
-    if (_.trim(enable)) {
-      _.forIn(envs, function eachEnvPair (value, key) {
+  _each(env.settings.enable, function eachEnable(enable) {
+    if (_trim(enable)) {
+      _forIn(envs, function eachEnvPair (value, key) {
         var env = normalizeEnv(key);
-        if (_.startsWith(env, enable.toUpperCase() + '_')) {
+        if (_startsWith(env, enable.toUpperCase() + '_')) {
           var split = env.indexOf('_');
           if (split > -1 && split <= env.length) {
             var exts = extended[enable] || {};
             extended[enable] = exts;
-            var ext = _.camelCase(env.substring(split + 1).toLowerCase());
+            var ext = _camelCase(env.substring(split + 1).toLowerCase());
             if (!isNaN(value)) { value = Number(value); }
             if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
             if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
