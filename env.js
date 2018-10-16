@@ -91,11 +91,14 @@ function setVersion() {
 }
 
 function setStorage() {
-  var appEnv = cfenv.getAppEnv();
-  var svcs = appEnv.services;
+  var onCF = readENV('VCAP_APPLICATION');
   var uri = null;
-  if (svcs.hasOwnProperty('mlab')) {
-    uri = svcs.mlab[0].credentials.uri;
+  if (onCF) {
+    var appEnv = cfenv.getAppEnv();
+    var svcs = appEnv.services;
+    if (svcs.hasOwnProperty('mlab')) {
+      uri = svcs.mlab[0].credentials.uri;
+    }
   }
   env.storageURI = readENV('STORAGE_URI') || readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI') || readENV('MONGODB_URI') || uri;
   env.entries_collection = readENV('ENTRIES_COLLECTION') || readENV('MONGO_COLLECTION', 'entries');
