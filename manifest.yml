@@ -1,7 +1,7 @@
 ---
 ## PWS information section
 applications:
-- name: my-pws-nightscout           ## <- REPLACE with a name for the app in PWS
+- name: my-pws-nightscout   ## <- REPLACE with a name for the app in PWS
   memory: 256M
   disk_quota: 512M
   instances: 1
@@ -10,15 +10,10 @@ applications:
   buildpack: nodejs_buildpack
   env:
     DISPLAY_UNITS: mg/dl
-    API_SECRET:                     ## <- REPLACE with a secret only you know!
     ENABLE: bridge pushover cage rawbg careportal
-####  Dexcom Bridge settings. Uncomment these (delete ##) if you are using the BRIDGE function of nightscout
-    BRIDGE_USER_NAME: dexcom-share-username
-    BRIDGE_PASSWORD: dexcom-share-password
-    BRIDGE_MAX_COUNT: 7
-##    BRIDGE_INTERVAL: 150000
 
+## Examples of how to add more env variables
 ##    BG_HIGH: 180
 ##    BG_LOW: 80
   services:
-    - my-nightscout-db              ## <- REPLACE with the name you used when you create the mLab instance in the Marketplace. MUST match!
+    - my-nightscout-db  ## <- REPLACE with the name you used when you create the mLab instance in the Marketplace. MUST match!
