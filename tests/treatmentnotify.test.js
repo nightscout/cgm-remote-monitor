@@ -10,6 +10,8 @@ describe('treatmentnotify', function ( ) {
   var ctx = {};
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
+  ctx.levels = levels;
+  ctx.language = require('../lib/language')().set('en');
 
   var now = Date.now();
 
@@ -96,7 +98,7 @@ describe('treatmentnotify', function ( ) {
     announcement.title.should.equal('Urgent Announcement');
     announcement.level.should.equal(levels.URGENT);
     announcement.pushoverSound.should.equal('persistent');
-    should.deepEqual(ctx.notifications.findHighestAlarm(), announcement);
+    should.deepEqual(ctx.notifications.findHighestAlarm('Announcement'), announcement);
     ctx.notifications.snoozedBy(announcement).should.equal(false);
 
 

@@ -12,12 +12,8 @@
   var client = Nightscout.client;
   var report_plugins = Nightscout.report_plugins;
 
-  if (serverSettings === undefined) {
-    console.error('server settings were not loaded, will not call init');
-  } else {
-    client.init(serverSettings, Nightscout.plugins);
-  }
- 
+  client.init(function loaded () {
+
   // init HTML code
   report_plugins.addHtmlFromPlugins( client );
   // make show() accessible outside for treatments.js
@@ -26,8 +22,9 @@
   var translate = client.translate;
   
   var maxInsulinValue = 0
-      ,maxCarbsValue = 0;
-  var maxdays = 3 * 31;
+      ,maxCarbsValue = 0
+      ,maxDailyCarbsValue = 0;
+  var maxdays = 6 * 31;
   var datastorage = {};
   var daystoshow = {};
   var sorteddaystoshow = [];
@@ -77,7 +74,7 @@
     filter.subcategory = '';
     $('#rp_subcategory').empty().append('<option value="">' + translate('(none)') + '</option>');
     if (filter.category !== '') {
-      Object.keys(food_categories[filter.category]).forEach(function eachSubCategory(s) {
+      Object.keys(food_categories[filter.category] || {}).forEach(function eachSubCategory(s) {
         $('#rp_subcategory').append('<option value="' + s + '">' + s + '</option>');
       });
     }
@@ -109,7 +106,8 @@
 
   $('#info').html('<b>'+translate('Loading food database')+' ...</b>');
   $.ajax('/api/v1/food/regular.json', {
-    success: function foodLoadSuccess(records) {
+    headers: client.headers()
+    , success: function foodLoadSuccess(records) {
       records.forEach(function (r) {
         food_list.push(r);
         if (r.category && !food_categories[r.category]) { food_categories[r.category] = {}; }
@@ -225,6 +223,7 @@
     options.notes = $('#rp_optionsnotes').is(':checked');
     options.food = $('#rp_optionsfood').is(':checked');
     options.insulin = $('#rp_optionsinsulin').is(':checked');
+    options.insulindistribution = $('#rp_optionsdistribution').is(':checked');
     options.carbs = $('#rp_optionscarbs').is(':checked');
     options.scale = ( $('#rp_linear').is(':checked') ? report_plugins.consts.SCALE_LINEAR : report_plugins.consts.SCALE_LOG );
     options.order = ( $('#rp_oldestontop').is(':checked') ? report_plugins.consts.ORDER_OLDESTONTOP : report_plugins.consts.ORDER_NEWESTONTOP );
@@ -263,7 +262,8 @@
           var treatmentData;
           var tquery = '?find[boluscalc.foods._id]=' + _id + timerange;
           $.ajax('/api/v1/treatments.json'+tquery, {
-            success: function (xhr) {
+            headers: client.headers()
+            , success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
                 return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
@@ -299,7 +299,8 @@
           var treatmentData;
           var tquery = '?find[notes]=/' + notes + '/i';
           $.ajax('/api/v1/treatments.json' + tquery + timerange, {
-            success: function (xhr) {
+            headers: client.headers()
+            , success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
                 return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
@@ -335,7 +336,8 @@
           var treatmentData;
           var tquery = '?find[eventType]=/' + eventtype + '/i';
           $.ajax('/api/v1/treatments.json' + tquery + timerange, {
-            success: function (xhr) {
+            headers: client.headers()
+            , success: function (xhr) {
               treatmentData = xhr.map(function (treatment) {
                 return moment.tz(treatment.created_at,zone).format('YYYY-MM-DD');
               });
@@ -445,9 +447,13 @@
           sorteddaystoshow.reverse();
         }
         loadProfileSwitch(from, function loadProfileSwitchCallback() {
-          $('#info > b').html('<b>'+translate('Rendering')+' ...</b>');
-          window.setTimeout(function () {showreports(options); }, 0);
+          loadProfiles(function loadProfilesCallback() {
+            $('#info > b').html('<b>' + translate('Rendering') + ' ...</b>');
+            window.setTimeout(function () {
+              showreports(options);
+            }, 0);
           });
+        });
       }
     }
     
@@ -470,6 +476,7 @@
     });
     options.maxInsulinValue = maxInsulinValue;
     options.maxCarbsValue = maxCarbsValue;
+    options.maxDailyCarbsValue = maxDailyCarbsValue;
 
     datastorage.treatments = [];
     datastorage.devicestatus = [];
@@ -481,6 +488,8 @@
       datastorage.combobolusTreatments = datastorage.combobolusTreatments.concat(datastorage[day].combobolusTreatments);
       datastorage.tempbasalTreatments = datastorage.tempbasalTreatments.concat(datastorage[day].tempbasalTreatments);
     });
+    datastorage.tempbasalTreatments = Nightscout.client.ddata.processDurations(datastorage.tempbasalTreatments);
+    datastorage.treatments.sort(function sort(a, b) {return a.mills - b.mills; });
     
      for (var d in daystoshow) {
         if (daystoshow.hasOwnProperty(d)) {
@@ -494,8 +503,20 @@
     report_plugins.eachPlugin(function (plugin) {
       // jquery plot doesn't draw to hidden div
       $('#'+plugin.name+'-placeholder').css('display','');
-      //console.log('Drawing ',plugin.name);
-      plugin.report(datastorage,sorteddaystoshow,options);
+
+      console.log('Drawing ',plugin.name);
+
+      var skipRender = false;
+
+      if (plugin.name == 'daytoday' && ! $('#daytoday').hasClass('selected')) skipRender = true;
+      if (plugin.name == 'treatments' && ! $('#treatments').hasClass('selected')) skipRender = true;
+
+      if (skipRender) {
+        console.log('Skipping ',plugin.name);
+      } else {
+      	plugin.report(datastorage,sorteddaystoshow,options);  
+      }
+
       if (!$('#'+plugin.name).hasClass('selected')) {
         $('#'+plugin.name+'-placeholder').css('display','none');
       }
@@ -524,7 +545,7 @@
   
   function loadData(day, options, callback) {
     // check for loaded data
-    if (options.openAps && datastorage[day] && !datastorage[day].devicestatus) {
+    if ((options.openAps || options.iob || options.cob) && datastorage[day] && !datastorage[day].devicestatus.length) {
       // OpenAPS requested but data not loaded. Load anyway ...
     } else if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
       callback(day);
@@ -556,7 +577,8 @@
       $('#info-' + day).html('<b>'+translate('Loading CGM data of')+' '+day+' ...</b>');
       var query = '?find[date][$gte]='+from+'&find[date][$lt]='+to+'&count=10000';
       return $.ajax('/api/v1/entries.json'+query, {
-        success: function (xhr) {
+        headers: client.headers()
+        , success: function (xhr) {
           xhr.forEach(function (element) {
             if (element) {
               if (element.mbg) {
@@ -580,7 +602,7 @@
                 });
               } else if (element.type === 'cal') {
                 calData.push({
-                  mills: element.date
+                  mills: element.date + 1
                   , d: element.dateString
                   , scale: element.scale
                   , intercept: element.intercept
@@ -607,10 +629,14 @@
     }
 
     function loadTreatmentData() {
+      if (!datastorage.profileSwitchTreatments)
+        datastorage.profileSwitchTreatments = [];
       $('#info-' + day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
       var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
       return $.ajax('/api/v1/treatments.json'+tquery, {
-        success: function (xhr) {
+        headers: client.headers()
+        , cache: false
+        , success: function (xhr) {
           treatmentData = xhr.map(function (treatment) {
             var timestamp = new Date(treatment.timestamp || treatment.created_at);
             treatment.mills = timestamp.getTime();
@@ -626,6 +652,11 @@
           data.tempbasalTreatments = data.treatments.filter(function filterTempBasals(t) {
             return t.eventType === 'Temp Basal';
           });
+          // filter profile switch treatments
+          var profileSwitch = data.treatments.filter(function filterProfileSwitch(t) {
+            return t.eventType === 'Profile Switch';
+          });
+          datastorage.profileSwitchTreatments = datastorage.profileSwitchTreatments.concat(profileSwitch);
         }
       });
     }
@@ -639,7 +670,8 @@
         $('#info-' + day).html('<b>'+translate('Loading device status data of')+' '+day+' ...</b>');
         var tquery = '?find[created_at][$gte]=' + new Date(from).toISOString() + '&find[created_at][$lt]=' + new Date(to).toISOString() + '&count=10000';
         return $.ajax('/api/v1/devicestatus.json'+tquery, {
-          success: function (xhr) {
+          headers: client.headers()
+          , success: function (xhr) {
             data.devicestatus = xhr.map(function (devicestatus) {
               devicestatus.mills = new Date(devicestatus.timestamp || devicestatus.created_at).getTime();
               return devicestatus;
@@ -660,22 +692,39 @@
 
   function loadProfileSwitch(from, callback) {
     $('#info > b').html('<b>'+translate('Loading profile switch data') + ' ...</b>');
-    var tquery = '?find[eventType][$eq]=Profile Switch';
+    var tquery = '?find[eventType]=Profile Switch' + '&find[created_at][$lte]=' + new Date(from).toISOString() + '&count=1';
     $.ajax('/api/v1/treatments.json'+tquery, {
-      success: function (xhr) {
+      headers: client.headers()
+      , success: function (xhr) {
         var treatmentData = xhr.map(function (treatment) {
           var timestamp = new Date(treatment.timestamp || treatment.created_at);
           treatment.mills = timestamp.getTime();
           return treatment;
         });
-        datastorage.profileSwitchTreatments = treatmentData.slice();
+        if (!datastorage.profileSwitchTreatments)
+          datastorage.profileSwitchTreatments = [];
+        datastorage.profileSwitchTreatments = datastorage.profileSwitchTreatments.concat(treatmentData);
         datastorage.profileSwitchTreatments.sort(function(a, b) { return a.mills - b.mills; });
       }
     }).done(function () {
       callback();
     });
   }
-  
+
+  function loadProfiles(callback) {
+    $('#info > b').html('<b>'+translate('Loading profiles') + ' ...</b>');
+    $.ajax('/api/v1/profile.json', {
+      headers: client.headers()
+      , success: function (records) {
+        datastorage.profiles = records;
+      }
+      , error: function () {
+       datastorage.profiles = [];
+      }
+    }).done(callback);
+  }
+
+
   function processData(data, day, options, callback) {
     if (daystoshow[day].treatmentsonly) {
       datastorage[day] = data;
@@ -684,6 +733,7 @@
       return;
     }
     // treatments
+    data.dailyCarbs = 0;
     data.treatments.forEach(function (d) {
       if (parseFloat(d.insulin) > maxInsulinValue) {
         maxInsulinValue = parseFloat(d.insulin);
@@ -691,11 +741,17 @@
       if (parseFloat(d.carbs) > maxCarbsValue) {
         maxCarbsValue = parseFloat(d.carbs);
       }
+      if (d.carbs) {
+        data.dailyCarbs += d.carbs;
+      }
     });
+    if (data.dailyCarbs > maxDailyCarbsValue) {
+      maxDailyCarbsValue = data.dailyCarbs;
+    }
 
     var cal = data.cal[data.cal.length-1];
     var temp1 = [ ];
-    var rawbg = Nightscout.plugins('rawbg');
+    var rawbg = client.rawbg;
     if (cal) {
       temp1 = data.sgv.map(function (entry) {
         entry.mgdl = entry.y; // value names changed from enchilada
@@ -768,4 +824,5 @@
     }
     return false;
   }
+  });
 })();

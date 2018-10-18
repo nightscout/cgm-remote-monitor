@@ -7,36 +7,27 @@ var FIVE_MINS = 300000;
 var SIX_MINS = 360000;
 
 describe('ar2', function ( ) {
-
-  var ar2 = require('../lib/plugins/ar2')();
-  var delta = require('../lib/plugins/delta')();
-
-  var env = require('../env')();
-  var ctx = {};
+  var ctx = {
+    settings: {}
+    , language: require('../lib/language')()
+  };
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
+  ctx.levels = levels;
+
+  var ar2 = require('../lib/plugins/ar2')(ctx);
+  var bgnow = require('../lib/plugins/bgnow')(ctx);
+
+  var env = require('../env')();
 
   var now = Date.now();
   var before = now - FIVE_MINS;
 
   function prepareSandbox(base) {
     var sbx = base || require('../lib/sandbox')().serverInit(env, ctx);
+    bgnow.setProperties(sbx);
     ar2.setProperties(sbx);
-    delta.setProperties(sbx);
     return sbx;
-  }
-
-  function rawSandbox() {
-    var envRaw = require('../env')();
-    envRaw.extendedSettings = {'ar2': {useRaw: true}};
-
-    var sbx = require('../lib/sandbox')().serverInit(envRaw, ctx).withExtendedSettings(ar2);
-
-    sbx.offerProperty('rawbg', function setFakeRawBG() {
-      return {};
-    });
-
-    return prepareSandbox(sbx);
   }
 
   it('should plot a cone', function () {
@@ -52,7 +43,7 @@ describe('ar2', function ( ) {
     var env0 = require('../env')();
     env0.extendedSettings = { ar2: { coneFactor: 0 } };
     var sbx = require('../lib/sandbox')().serverInit(env0, ctx).withExtendedSettings(ar2);
-
+    bgnow.setProperties(sbx);
     var cone = ar2.forecastCone(sbx);
     cone.length.should.equal(13);
   });
@@ -156,85 +147,20 @@ describe('ar2', function ( ) {
     done();
   });
 
-  it('should include current raw bg and raw bg forecast when predicting w/raw', function (done) {
-    ctx.notifications.initRequests();
-    ctx.ddata.sgvs = [{unfiltered: 113680, filtered: 111232, mgdl: 100, mills: before, noise: 1}, {unfiltered: 183680, filtered: 111232, mgdl: 100, mills: now, noise: 1}];
-    ctx.ddata.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, mills: now}];
+  it('should handle alexa requests', function (done) {
+     var now = Date.now();
+     var before = now - FIVE_MINS;
 
-    var envRaw = require('../env')();
-    envRaw.extendedSettings = {'ar2': {useRaw: true}};
+    ctx.ddata.sgvs = [{mgdl: 100, mills: before}, {mgdl: 105, mills: now}];
+    var sbx = prepareSandbox();
 
-    var sbx = require('../lib/sandbox')().serverInit(envRaw, ctx).withExtendedSettings(ar2);
+    ar2.alexa.intentHandlers.length.should.equal(1);
 
-    sbx.offerProperty('rawbg', function setFakeIOB() {
-      return {displayLine: 'Raw BG: 200 mg/dl Clean'};
-    });
-    sbx.offerProperty('iob', function setFakeIOB() {
-      return {displayLine: 'IOB: 1.25U'};
-    });
-    sbx.offerProperty('direction', function setFakeDirection() {
-      return {value: 'FortyFiveUp', label: '↗', entity: '&#8599;'};
-    });
-
-    sbx = prepareSandbox(sbx);
-
-    ar2.checkNotifications(sbx.withExtendedSettings(ar2));
-
-    var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(levels.WARN);
-    highest.title.should.equal('Warning, HIGH predicted w/raw');
-    highest.message.should.equal('BG Now: 100 +0 ↗ mg/dl\nRaw BG: 200 mg/dl Clean\nRaw BG 15m: 400 mg/dl\nIOB: 1.25U');
-
-    done();
-  });
-
-  it('should not trigger an alarm when raw is missing or 0', function (done) {
-    ctx.notifications.initRequests();
-    ctx.ddata.sgvs = [{unfiltered: 0, filtered: 0, mgdl: 100, mills: before, noise: 1}, {unfiltered: 0, filtered: 0, mgdl: 100, mills: now, noise: 1}];
-    ctx.ddata.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, mills: now}];
-
-    var sbx = rawSandbox();
-    ar2.checkNotifications(sbx.withExtendedSettings(ar2));
-    should.not.exist(ctx.notifications.findHighestAlarm());
-
-    done();
-  });
-
-
-  it('should trigger a warning (no urgent for raw) when raw is falling really fast, but sgv is steady', function (done) {
-    ctx.notifications.initRequests();
-    ctx.ddata.sgvs = [{unfiltered: 113680, filtered: 111232, mgdl: 100, mills: before, noise: 1}, {unfiltered: 43680, filtered: 111232, mgdl: 100, mills: now, noise: 1}];
-    ctx.ddata.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, mills: now}];
-
-    var sbx = rawSandbox();
-    sbx.offerProperty('rawbg', function setFakeIOB() {
-      return {};
-    });
-
-    ar2.checkNotifications(sbx.withExtendedSettings(ar2));
-    var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(levels.WARN);
-    highest.title.should.equal('Warning, LOW predicted w/raw');
-
-    done();
-  });
-
-  it('should trigger a warning (no urgent for raw) when raw is rising really fast, but sgv is steady', function (done) {
-    ctx.notifications.initRequests();
-    ctx.ddata.sgvs = [{unfiltered: 113680, filtered: 111232, mgdl: 100, mills: before, noise: 1}, {unfiltered: 183680, filtered: 111232, mgdl: 100, mills: now, noise: 1}];
-    ctx.ddata.cals = [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, mills: now}];
-
-    var sbx = rawSandbox();
-    sbx.offerProperty('rawbg', function setFakeIOB() {
-      return {};
-    });
-
-    ar2.checkNotifications(sbx.withExtendedSettings(ar2));
-    var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(levels.WARN);
-    highest.title.should.equal('Warning, HIGH predicted w/raw');
-
-    done();
+    ar2.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+      title.should.equal('AR2 Forecast');
+      response.should.equal('You are expected to be between 109 and 120 over the in 30 minutes');
+      done();
+    }, [], sbx);
   });
 
 });
