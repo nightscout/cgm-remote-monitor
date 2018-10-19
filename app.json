@@ -157,7 +157,7 @@
       "value": "",
       "required": false
     },
-    "MMCONNECT_PASWSWORD": {
+    "MMCONNECT_PASSWORD": {
       "description": "Your password for CareLink",
       "value": "",
       "required": false
