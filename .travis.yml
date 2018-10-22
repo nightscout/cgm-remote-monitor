@@ -1,8 +1,8 @@
 language: node_js
 os: osx
 node_js:
-  - "8.12.x"
-  - "10.x"
+  - "lts/*"
+  - "node"
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
   # https://github.com/Homebrew/homebrew-core/issues/26358
