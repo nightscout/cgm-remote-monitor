@@ -21,7 +21,7 @@ require('../node_modules/flot/jquery.flot.fillbetween');
 // Many internet users are still using very old, out-dated browsers – most of them for no actual reason. 
 // We want to remind these unobtrusively to update their browser.
 var browserUpdate = require('browser-update');
-browserUpdate({ required: {e:-4,f:-3,o:-3,s:-1,c:-3}, insecure:true, unsupported:true, no_permanent_hide:true, api:2018.08 });
+browserUpdate({ required: {e:-4,f:-3,o:-3,s:-1,c:-3,ios:10}, insecure:true, unsupported:true, no_permanent_hide:true, api:2018.10 });
 
 window.moment = require('moment-timezone');
 
