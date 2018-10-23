@@ -120,18 +120,19 @@ If you plan to use Nightscout, we recommend using [Heroku](http://openaps.readth
 
 Minimum browser requirements for viewing the site:
 
-- iOS 9
-- Android 4
-- Chrome 42
-- Safari 9 (El Capitan)
-- Firefox 34
-- Edge 15
+- Chrome 67
+- Safari 11 (El Capitan)
+- Firefox 60
+- Edge 13
+- iOS 10, iOS 11
 - Internet Explorer: not supported
 - Opera: not supported
+- Older browsers like iOS 9 and Android 4 seem to work but are not advised. These browsers are vulnerable and therefore personal data can be can not be protected. Please use Nightscout with supported hardware and use a supported browser. If a non supported browsers is used a weekly reminder will be shown.
+
 
 Windows installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.12.0 or later). Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
+- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.12.0 or later; Node 10 not recommended). Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
