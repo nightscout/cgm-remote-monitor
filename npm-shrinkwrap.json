@@ -757,9 +757,9 @@
       "dev": true
     },
     "browser-update": {
-      "version": "3.2.2",
-      "resolved": "https://registry.npmjs.org/browser-update/-/browser-update-3.2.2.tgz",
-      "integrity": "sha512-Jc5zvg78KdouX1PmI++9Ja6bcfbKtxUznaQeqniZFU8uqeCHRmkCwimaD5M1B0YMpJeviFPoiE3pUZxeTFJwCw=="
+      "version": "3.1.13",
+      "resolved": "https://registry.npmjs.org/browser-update/-/browser-update-3.1.13.tgz",
+      "integrity": "sha1-kmT5iJFW4vu939T9l15p0Dg2nG0="
     },
     "browserify-aes": {
       "version": "1.2.0",
