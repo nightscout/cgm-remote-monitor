@@ -120,7 +120,7 @@ If you plan to use Nightscout, we recommend using [Heroku](http://openaps.readth
 
 Minimum browser requirements for viewing the site:
 
-- iOS 9
+- iOS 10
 - Android 4
 - Chrome 42
 - Safari 9 (El Capitan)
