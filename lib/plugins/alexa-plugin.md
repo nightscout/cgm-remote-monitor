@@ -14,6 +14,7 @@ To add Alexa support for a plugin, [check this out](#adding-alexa-support-to-a-p
 
 1. Your Nightscout site needs to be new enough that it supports the `alexa` plugin. It needs to be [version 0.9.1 (Grilled Cheese)](https://github.com/nightscout/cgm-remote-monitor/releases/tag/0.9.1) or later. See [updating my version](https://github.com/nightscout/cgm-remote-monitor#updating-my-version) if you need a newer version.
 1. Add `alexa` to the list of plugins in your `ENABLE` setting. ([Environment variables](https://github.com/nightscout/cgm-remote-monitor#environment) are set in the configuration section for your monitor. Typically Azure, Heroku, etc.)
+1. The Alexa plugin pulls its units preferences from your site's defaults. If you don't have a `DISPLAY_UNITS` entry, it will default to `mg/dl`. If you want it to use mmol/L, make sure you have a `DISPLAY_UNITS` line, and set it to `mmol` (*not* `mmol/l`).
 
 ## Create Your Alexa Skill
 
