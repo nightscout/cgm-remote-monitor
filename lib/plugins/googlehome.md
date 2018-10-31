@@ -21,13 +21,14 @@ To add GoogleHome support for your Nightscout site, here's what you need to do:
 
 - Sign in to DialogFlow with your Google account (https://console.dialogflow.com/api-client/#/login). If you don't already have one, signup with Google.
 
-### Create a new custom DialoFlow agent
+### Create a new custom DialogFlow agent
 
 1. Select "Create new agent" in the main menu bar.
 2. Input a custom name for your agent and click "CREATE".
 3. Download the simple agent template : ( https://drive.google.com/drive/folders/18z2kQSEInvH4O_jfjB4Qh8z9508P9Oao?usp=sharing )
 4. Select IMPORT FROM ZIP , in order to import the template. 
-5. Go to "Fullfillment" menu and enter details about your webhook.
-6. SAVE
-7. Go to "Integration" menu and select your desired integration.
-8. Follow instructions for each integration. 
+5. SAVE
+6. Go to "Fullfillment" menu and enter details about your webhook. 
+7. SAVE
+8. Go to "Integration" menu and select your desired integration.
+9. Follow instructions for each desired integration. 
