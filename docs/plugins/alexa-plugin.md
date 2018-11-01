@@ -134,12 +134,19 @@ To get up and running with a basic interaction model, which will allow you to as
                     "values": [
                         {
                             "name": {
-                                "value": "bg"
+                                "value": "bg",
+                                 "synonyms": [
+                                    "BZ",
+                                    "Blutzucker" //these could be some synonyms to the above value in YOUR language!
+                                ]
                             }
                         },
                         {
                             "name": {
-                                "value": "blood glucose"
+                                "value": "blood glucose",
+                                "synonyms": [
+                                    //here could be some synonyms to the above value in YOUR language!
+                                ]
                             }
                         },
                         {
@@ -149,7 +156,14 @@ To get up and running with a basic interaction model, which will allow you to as
                         },
                         {
                             "name": {
-                                "value": "iob"
+                                "value": "iob",
+                                "synonyms": [
+                                  "Insulin an Board",
+                                  "Restwirkung",
+                                  "Wirkinsulin"
+                                    //here could be some synonyms to the above value in YOUR language!
+                                ]
+
                             }
                         },
                         {
@@ -164,12 +178,19 @@ To get up and running with a basic interaction model, which will allow you to as
                         },
                         {
                             "name": {
-                                "value": "basal"
+                                "value": "basal",
+                                "synonyms": [
+                                  "Basalrate" //synonyms in your language
+                                ]
                             }
                         },
                         {
                             "name": {
-                                "value": "cob"
+                                "value": "cob",
+                                "synonyms": [
+                                    "Kohlenhydraten",
+                                    "Kohlenhydrate" //synonyms in your language
+                                ]
                             }
                         },
                         {
@@ -256,6 +277,12 @@ After you enable testing, you can also use the Alexa Simulator in the left colum
 - "Alexa, ask Nightscout how is my pump battery"
 
 *Metrics:*
+
+Note: You can add synonyms to the available metric terms:
+
+- Go to Slot Types -> LIST_OF_METRICS and add your terms in the "synonyms" column.
+
+Examples:
 
 - "Alexa, ask Nightscout what my bg is"
 - "Alexa, ask Nightscout what my blood glucose is"
