@@ -21,6 +21,16 @@ function create(env, ctx) {
         else
             next()
         })
+        if (process.env.SECURE_HTTP_HEADERS == 'true') {
+            const helmet = require('helmet')
+            app.use(helmet({
+                hsts: {
+                    maxAge: 31536000,
+                    includeSubDomains: true,
+                    preload: true
+                }
+            }))
+        }
      }
 
     app.set('view engine', 'ejs');
