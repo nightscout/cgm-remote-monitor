@@ -69,7 +69,7 @@
     },
     "CUSTOM_TITLE": {
       "description": "Customize the name of the website, usually the name of T1.",
-      "value": "Sam's BG",
+      "value": "",
       "required": false
     },
     "BRIDGE_USER_NAME": {
