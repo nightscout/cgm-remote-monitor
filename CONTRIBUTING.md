@@ -48,11 +48,11 @@ You can get the dev branch checked out using `git checkout dev`.
 
 ## Style Guide
 
-Some simple rules, that will make it easier to maintain our codebase:
+Some simple rules that will make it easier to maintain our codebase:
 
-* All indenting should use 2 space where possible (js, css, html, etc)
-* A space before function parameters, such as: `function boom (name, callback) { }`, this makes searching for calls easier
-* Name your callback functions, such as `boom('the name', function afterBoom ( result ) { }`
+* All indenting should use 2 space where possible (js, css, html, etc).
+* Include a space before function parameters, such as: `function boom (name, callback) { }`, this makes searching for function calls easier.
+* Name your callback functions, such as `boom('the name', function afterBoom ( result ) { }`.
 * Don't include author names in the header of your files, if you need to give credit to someone else do it in the commit comment.
 * Use single quotes.
 * Use the comma first style, for example:
@@ -70,7 +70,7 @@ Some simple rules, that will make it easier to maintain our codebase:
 Fork cgm-remote-monitor and create a branch.
 You can create a branch using `git checkout -b wip/add-my-widget`.
 This creates a new branch called `wip/add-my-widget`.  The `wip`
-stands for work in progress and is a common prefix so that when know
+stands for work in progress and is a common prefix so that we know
 what to expect when reviewing many branches.
 
 ## Submit a pull request
@@ -80,8 +80,8 @@ post on popular channels such as Facebook.  We encourage contributors
 to submit their code for review, debate, and release before announcing
 features on social media.
 
-This can be done by checking your code `git commit -avm 'my
-improvements are here'`, the branch you created back to your own
+This can be done by committing your code `git commit -avm 'my
+improvements are here'`, and pushing it to the branch you created on your own
 fork. This will probably look something like
 `git push -u origin wip/add-my-widget`.
 
@@ -99,24 +99,24 @@ appropriate.
 Most cgm-remote-monitor hackers use github's ticketing system, along with Facebook cgm-in-the-cloud, and
 gitter.
 
-We use git-flow, with `master` as our production, stable branch, and
-`dev` is used to queue up for upcoming releases.  Everything else is
+We use [git-flow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow), with `master` as our production, stable branch, and
+`dev` is used to queue changes for upcoming releases.  Everything else is
 done on branches, hopefully with names that indicate what to expect.
 
 Once `dev` has been reviewed and people feel it's time to release, we
 follow the git-flow release process, which creates a new tag and bumps
-the version correctly.  See sem-ver for versioning strategy.
+the version correctly.  See [sem-ver](https://semver.org/) for versioning strategy.
 
-Every commit is tested by travis.  We encourage adding tests to
+Every commit is tested by Travis CI.  We encourage adding tests to
 validate your design.  We encourage discussing your use cases to help
 everyone get a better understanding of your design.
 
 ## Other Dev Tips
 
 * Join the [Gitter chat][gitter-url]
-* Get a local dev environment setup if you haven't already
-* Try breaking up big features/improvements into small parts.  It's much easier to accept small PR's
-* Create tests for your new code, and for the old code too.  We are aiming for a full test coverage.
-* If your going to be working in old code that needs lots of reformatting consider doing the clean as a separate PR.
-* If you can find others to help test your PR is will help get them merged in sooner.
+* Get a local dev environment setup if you haven't already.
+* Try breaking up big features/improvements into small parts.  It's much easier to accept small PR's.
+* Create tests for your new code as well as the old code.  We are aiming for a full test coverage.
+* If you're going to be working in old code that needs lots of reformatting, consider doing it as a separate PR.
+* If you can find others to help test your PR, it will help get them merged in sooner.
  
