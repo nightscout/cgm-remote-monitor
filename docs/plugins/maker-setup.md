@@ -7,7 +7,7 @@
   - [Events](#events)
   - [Configuration](#configuration)
   - [Create a recipe](#create-a-recipe)
-    - [Start [creating a recipe](https://ifttt.com/myrecipes/personal/new)](#start-creating-a-recipehttpsiftttcommyrecipespersonalnew)
+    - [Start creating a recipe](#start-creating-a-recipe)
     - [1. Choose a Trigger Channel](#1-choose-a-trigger-channel)
     - [2. Choose a Trigger](#2-choose-a-trigger)
     - [3. Complete Trigger Fields](#3-complete-trigger-fields)
@@ -55,7 +55,10 @@ Nightscout/IFTTT Maker
   
 ## Create a recipe
 
-### Start [creating a recipe](https://ifttt.com/myrecipes/personal/new)
+### Start creating a recipe
+
+Use [https://ifttt.com/myrecipes/personal/new)] to create a new recipe
+
 ![screen shot 2015-06-29 at 10 58 48 pm](https://cloud.githubusercontent.com/assets/751143/8425240/bab51986-1eb8-11e5-88fb-5aed311896be.png)
 
 ### 1. Choose a Trigger Channel
