@@ -138,7 +138,6 @@ Also if you can't code, it's possible to contribute by improving the documentati
 [@jamieowendexcom ]: https://github.com/jamieowendexcom 
 [@jasoncalabrese]: https://github.com/jasoncalabrese 
 [@jizhongwen]: https://github.com/jizhongwen
-[@jizhongwen]: https://github.com/jizhongwen
 [@jpcunningh]: https://github.com/jpcunningh
 [@jweismann]: https://github.com/jweismann
 [@komarserjio]: https://github.com/komarserjio
@@ -196,7 +195,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | [`rawbg` (Raw BG)](README.md#rawbg-raw-bg)| Please volunteer | Please volunteer |
 | [`sage` (Sensor Age)](README.md#sage-sensor-age)| Please volunteer | Please volunteer |
 | [`simplealarms` (Simple BG Alarms)](README.md#simplealarms-simple-bg-alarms)| Please volunteer | Please volunteer |
-| [`speech` (Speech)](README.md#speech-speech) | [@sulkaharo] | | Please volunteer |
+| [`speech` (Speech)](README.md#speech-speech) | [@sulkaharo] | Please volunteer |
 | [`timeago` (Time Ago)](README.md#timeago-time-ago)| Please volunteer | Please volunteer |
 | [`treatmentnotify` (Treatment Notifications)](README.md#treatmentnotify-treatment-notifications)| Please volunteer | Please volunteer |
 | [`upbat` (Uploader Battery)](README.md#upbat-uploader-battery)| Please volunteer | Please volunteer |
@@ -227,17 +226,17 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | Polski (`pl`)|Please volunteer|OK|
 | Português (Brasil) (`pt`)|Please volunteer|OK|
 | Română (`ro`)|Please volunteer|OK|
-| Русский (`ru`)|@apanasef|OK|
+| Русский (`ru`)|[@apanasef]|OK|
 | Slovenčina (`sk`)|Please volunteer|OK|
 | Svenska (`sv`)|Please volunteer|OK|
-| 中文（简体） (`zh_cn`) | @jizhongwen|OK|
-| 中文（繁體） (`zh_tw`) | @jizhongwen|Needs attention: 25.0%]
+| 中文（简体） (`zh_cn`) | [@jizhongwen]|OK|
+| 中文（繁體） (`zh_tw`) | [@jizhongwen]|Needs attention: 25.0%]
 
 
 ### List of all contributors
 | Contribution area                     | List of contributors |
 | ------------------------------------- | -------------------- |
-| All active developers: | [@jasoncalabrese] [@mdomox] [@MilosKozak] [@PieterGit] [@rickfriele] [@sulkaharo]
-| All active testers/documentors: | [@mcdafydd] [@oteroos] [@jamieowendexcom] [@tynbendad]
+| All active developers: | [@jasoncalabrese] [@jpcunningh] [@jweismann] [@komarserjio] [@mdomox] [@MilosKozak] [@PieterGit] [@rickfriele] [@sulkaharo]
+| All active testers/documentors: | [@danamlewis] [@jamieowendexcom] [@mcdafydd] [@oteroos] [@rarneson] [@tynbendad] [@unsoluble]
 | All active translators: | [@apanasef] [@jizhongwen] [@viderehh]
 
