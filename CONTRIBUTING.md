@@ -11,6 +11,11 @@
   - [Comments and issues](#comments-and-issues)
   - [Co-ordination](#co-ordination)
   - [Other Dev Tips](#other-dev-tips)
+  - [List of Contributors](#list-of-contributors)
+    - [Core developers, contributing developers, coordinators and documentation writers](#core-developers-contributing-developers-coordinators-and-documentation-writers)
+    - [Plugin contributors](#plugin-contributors)
+    - [Translators](#translators)
+    - [List of all contributors](#list-of-all-contributors)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -120,3 +125,118 @@ everyone get a better understanding of your design.
 * If you're going to be working in old code that needs lots of reformatting, consider doing it as a separate PR.
 * If you can find others to help test your PR, it will help get them merged in sooner.
  
+## List of Contributors  
+
+We welcome new contributors. We do not only need core contributors. Regular or one time contributors are welcomed as well.
+Also if you can't code, it's possible to contribute by improving the documentation or by translating Nightscout in your own language
+
+### Core developers, contributing developers, coordinators and documentation writers
+
+[@apanasef]: https://github.com/apanasef
+[@bewest]: https://github.com/bewest
+[@danamlewis]: https://github.com/danamlewis
+[@jamieowendexcom ]: https://github.com/jamieowendexcom 
+[@jasoncalabrese]: https://github.com/jasoncalabrese 
+[@jizhongwen]: https://github.com/jizhongwen
+[@jpcunningh]: https://github.com/jpcunningh
+[@jweismann]: https://github.com/jweismann
+[@komarserjio]: https://github.com/komarserjio
+[@mcdafydd]: https://github.com/mcdafydd
+[@mdomox]: https://github.com/mdomox
+[@MilosKozak]: https://github.com/MilosKozak
+[@oteroos]: https://github.com/oteroos
+[@PieterGit]: https://github.com/PieterGit
+[@rarneson]: https://github.com/rarneson
+[@rickfriele]: https://github.com/rickfriele
+[@scottleibrand]: https://github.com/scottleibrand
+[@sulkaharo]: https://github.com/sulkaharo
+[@tynbendad]: https://github.com/tynbendad
+[@unsoluble]: https://github.com/unsoluble
+[@viderehh]: https://github.com/viderehh
+
+| Contribution area                     | List of contributors |
+| ------------------------------------- | ---------------------------------- |
+| Core developers:                      | [@jasoncalabrese] [@MilosKozak] [@PieterGit] [@sulkaharo] | 
+| Former Core developers: (not active): | [@bewest] |
+| Contributing developers:              | [@jpcunningh] [@scottleibrand] [@komarserjio] [@jweismann] |
+| Release coordination 0.10.x:          | [@PieterGit] [@sulkaharo] |
+| Release coordination 0.11.x:          | [@PieterGit] |
+| Issue/Pull request coordination:      | Please volunteer |
+| Cleaning up git fork spam:            | Please volunteer |
+| Documentation writers:                | [@unsoluble] [@tynbendad] [@danamlewis] [@rarneson] |
+
+### Plugin contributors
+
+| Contribution area                     | List of developers   | List of testers
+| ------------------------------------- | -------------------- | -------------------- |
+| [`alexa` (Amazon Alexa)](README.md#alexa-amazon-alexa)| Please volunteer | Please volunteer |
+| [`ar2` (AR2 Forecasting)](README.md#ar2-ar2-forecasting)| Please volunteer | Please volunteer |
+| [`basal` (Basal Profile)](README.md#basal-basal-profile)| Please volunteer | Please volunteer |
+| [`boluscalc` (Bolus Wizard)](README.md#boluscalc-bolus-wizard)| Please volunteer | Please volunteer |
+| [`bridge` (Share2Nightscout bridge)](README.md#bridge-share2nightscout-bridge)| Please volunteer | Please volunteer |
+| [`bwp` (Bolus Wizard Preview)](README.md#bwp-bolus-wizard-preview)| Please volunteer | Please volunteer |
+| [`cage` (Cannula Age)](README.md#cage-cannula-age)| Please volunteer | Please volunteer |
+| [`careportal` (Careportal)](README.md#careportal-careportal)| Please volunteer | Please volunteer |
+| [`cob` (Carbs-on-Board)](README.md#cob-carbs-on-board)| Please volunteer | Please volunteer |
+| [`cors` (CORS)](README.md#cors-cors)| Please volunteer | Please volunteer |
+| [`delta` (BG Delta)](README.md#delta-bg-delta)| Please volunteer | Please volunteer |
+| [`devicestatus` (Device Status)](README.md#devicestatus-device-status)| Please volunteer | Please volunteer |
+| [`direction` (BG Direction)](README.md#direction-bg-direction)| Please volunteer | Please volunteer |
+| [`errorcodes` (CGM Error Codes)](README.md#errorcodes-cgm-error-codes)| Please volunteer | Please volunteer |
+| [`food` (Custom Foods)](README.md#food-custom-foods)| Please volunteer | Please volunteer |
+| [`googlehome` (Google Home)](README.md#google-home) |[@mdomox] [@rickfriele] | [@mcdafydd] [@oteroos] [@jamieowendexcom] | 
+| [`iage` (Insulin Age)](README.md#iage-insulin-age)| Please volunteer | Please volunteer |
+| [`iob` (Insulin-on-Board)](README.md#iob-insulin-on-board)| Please volunteer | Please volunteer |
+| [`loop` (Loop)](README.md#loop-loop)| Please volunteer | Please volunteer |
+| [`mmconnect` (MiniMed Connect bridge)](README.md#mmconnect-minimed-connect-bridge)| Please volunteer | Please volunteer |
+| [`openaps` (OpenAPS)](README.md#openaps-openaps)| Please volunteer | Please volunteer |
+| [`profile` (Treatment Profile)](README.md#profile-treatment-profile)| Please volunteer | Please volunteer |
+| [`pump` (Pump Monitoring)](README.md#pump-pump-monitoring)| Please volunteer | Please volunteer |
+| [`rawbg` (Raw BG)](README.md#rawbg-raw-bg)| Please volunteer | Please volunteer |
+| [`sage` (Sensor Age)](README.md#sage-sensor-age)| Please volunteer | Please volunteer |
+| [`simplealarms` (Simple BG Alarms)](README.md#simplealarms-simple-bg-alarms)| Please volunteer | Please volunteer |
+| [`speech` (Speech)](README.md#speech-speech) | [@sulkaharo] | Please volunteer |
+| [`timeago` (Time Ago)](README.md#timeago-time-ago)| Please volunteer | Please volunteer |
+| [`treatmentnotify` (Treatment Notifications)](README.md#treatmentnotify-treatment-notifications)| Please volunteer | Please volunteer |
+| [`upbat` (Uploader Battery)](README.md#upbat-uploader-battery)| Please volunteer | Please volunteer |
+| [`xdrip-js` (xDrip-js)](README.md#xdrip-js-xdrip-js)| Please volunteer | Please volunteer |
+
+### Translators
+
+See `/translations` of your Nightscout, to view the current translation coverage and the missing items.
+Languages with less than 90% coverage will be removed in a future Nightscout versions.
+
+| Language      | List of translators | Status
+| ------------- | -------------------- |-------------------- |
+| Български (`bg`) |Please volunteer| OK |
+| Čeština (`cs`) |Please volunteer|OK |
+| Deutsch (`de`) |[@viderehh]|OK |
+| Dansk (`dk`) |Please volunteer|OK |
+| Ελληνικά `(el`)|Please volunteer|Needs attention: 68.5%|
+| English (`en`)|Please volunteer|OK|
+| Español (`es`) |Please volunteer|OK|
+| Suomi (`fi`)|[@sulkaharo] |OK|
+| Français (`fr`)|Please volunteer|OK|
+| עברית (`he`)|Please volunteer|OK|
+| Hrvatski (`hr`)|Please volunteer|Needs attention: 47.8%|
+| Italiano (`it`)|Please volunteer|OK|
+| 한국어 (`ko`)|Please volunteer|Needs attention: 80.6%|
+| Norsk (Bokmål) (`nb`)|Please volunteer|OK|
+| Nederlands (`nl`)|[@PieterGit]|OK|
+| Polski (`pl`)|Please volunteer|OK|
+| Português (Brasil) (`pt`)|Please volunteer|OK|
+| Română (`ro`)|Please volunteer|OK|
+| Русский (`ru`)|[@apanasef]|OK|
+| Slovenčina (`sk`)|Please volunteer|OK|
+| Svenska (`sv`)|Please volunteer|OK|
+| 中文（简体） (`zh_cn`) | [@jizhongwen]|OK|
+| 中文（繁體） (`zh_tw`) | [@jizhongwen]|Needs attention: 25.0%]
+
+
+### List of all contributors
+| Contribution area                     | List of contributors |
+| ------------------------------------- | -------------------- |
+| All active developers: | [@jasoncalabrese] [@jpcunningh] [@jweismann] [@komarserjio] [@mdomox] [@MilosKozak] [@PieterGit] [@rickfriele] [@sulkaharo]
+| All active testers/documentors: | [@danamlewis] [@jamieowendexcom] [@mcdafydd] [@oteroos] [@rarneson] [@tynbendad] [@unsoluble]
+| All active translators: | [@apanasef] [@jizhongwen] [@viderehh]
+

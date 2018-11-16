@@ -72,7 +72,7 @@ Community maintained fork of the
         - [`ar2` (AR2 Forecasting)](#ar2-ar2-forecasting)
         - [`simplealarms` (Simple BG Alarms)](#simplealarms-simple-bg-alarms)
         - [`profile` (Treatment Profile)](#profile-treatment-profile)
-      - [Advanced Plugins](#advanced-plugins)
+      - [Advanced Plugins:](#advanced-plugins)
         - [`careportal` (Careportal)](#careportal-careportal)
         - [`boluscalc` (Bolus Wizard)](#boluscalc-bolus-wizard)
         - [`food` (Custom Foods)](#food-custom-foods)
