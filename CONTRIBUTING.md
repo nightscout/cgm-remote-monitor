@@ -12,7 +12,7 @@
   - [Co-ordination](#co-ordination)
   - [Other Dev Tips](#other-dev-tips)
   - [List of Contributors](#list-of-contributors)
-    - [Core and regular contributors](#core-and-regular-contributors)
+    - [Core developers, contributing developers, coordinators and documentation writers](#core-developers-contributing-developers-coordinators-and-documentation-writers)
     - [Plugin contributors](#plugin-contributors)
     - [Translators](#translators)
     - [List of all contributors](#list-of-all-contributors)
