@@ -1,3 +1,24 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [Nightscout Alexa Plugin](#nightscout-alexa-plugin)
+  - [Overview](#overview)
+  - [Activate the Nightscout Alexa Plugin](#activate-the-nightscout-alexa-plugin)
+  - [Create Your Alexa Skill](#create-your-alexa-skill)
+    - [Get an Amazon Developer account](#get-an-amazon-developer-account)
+    - [Create a new Alexa skill](#create-a-new-alexa-skill)
+    - [Define the interaction model](#define-the-interaction-model)
+    - [Point your skill at your site](#point-your-skill-at-your-site)
+    - [Test your skill out with the test tool](#test-your-skill-out-with-the-test-tool)
+        - [What questions can you ask it?](#what-questions-can-you-ask-it)
+    - [Activate the skill on your Echo or other device](#activate-the-skill-on-your-echo-or-other-device)
+  - [Adding Alexa support to a plugin](#adding-alexa-support-to-a-plugin)
+    - [Intent Handlers](#intent-handlers)
+    - [Rollup handlers](#rollup-handlers)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 Nightscout Alexa Plugin
 ======================================
 
