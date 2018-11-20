@@ -86,7 +86,6 @@
     "pushover-notifications": "^1.2.0",
     "random-token": "0.0.8",
     "request": "^2.88.0",
-    "sgvdata": "git://github.com/ktind/sgvdata.git#wip/protobuf",
     "share2nightscout-bridge": "git://github.com/nightscout/share2nightscout-bridge.git#wip/generalize",
     "shiro-trie": "^0.4.8",
     "simple-statistics": "^0.7.0",
