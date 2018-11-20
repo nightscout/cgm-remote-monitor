@@ -80,7 +80,6 @@
     "moment-timezone": "^0.5.23",
     "mongodb": "^3.1.10",
     "mongomock": "^0.1.2",
-    "mqtt": "^2.18.8",
     "node-cache": "^4.2.0",
     "parse-duration": "^0.1.1",
     "prettyjson": "^1.2.1",
@@ -92,7 +91,7 @@
     "shiro-trie": "^0.4.8",
     "simple-statistics": "^0.7.0",
     "socket.io": "^2.1.1",
-    "swagger-ui-dist": "^3.19.5",
+    "swagger-ui-dist": "^3.20.0",
     "traverse": "^0.6.6",
     "uglify-js": "^3.4.9",
     "uuid": "^3.2.1"
@@ -108,7 +107,7 @@
     "should": "^13.2.3",
     "style-loader": "^0.23.1",
     "supertest": "^3.3.0",
-    "webpack": "^4.25.1",
+    "webpack": "^4.26.0",
     "webpack-bundle-analyzer": "^3.0.3",
     "webpack-cli": "^3.1.2"
   }
