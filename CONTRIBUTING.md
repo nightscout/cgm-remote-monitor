@@ -175,7 +175,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | [`boluscalc` (Bolus Wizard)](README.md#boluscalc-bolus-wizard)| Please volunteer | Please volunteer |
 | [`bridge` (Share2Nightscout bridge)](README.md#bridge-share2nightscout-bridge)| Please volunteer | Please volunteer |
 | [`bwp` (Bolus Wizard Preview)](README.md#bwp-bolus-wizard-preview)| Please volunteer | Please volunteer |
-| [`cage` (Cannula Age)](README.md#cage-cannula-age)| Please volunteer | Please volunteer |
+| [`cage` (Cannula Age)](README.md#cage-cannula-age)| @jpcunningh | Please volunteer |
 | [`careportal` (Careportal)](README.md#careportal-careportal)| Please volunteer | Please volunteer |
 | [`cob` (Carbs-on-Board)](README.md#cob-carbs-on-board)| Please volunteer | Please volunteer |
 | [`cors` (CORS)](README.md#cors-cors)| Please volunteer | Please volunteer |
@@ -192,14 +192,14 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | [`openaps` (OpenAPS)](README.md#openaps-openaps)| Please volunteer | Please volunteer |
 | [`profile` (Treatment Profile)](README.md#profile-treatment-profile)| Please volunteer | Please volunteer |
 | [`pump` (Pump Monitoring)](README.md#pump-pump-monitoring)| Please volunteer | Please volunteer |
-| [`rawbg` (Raw BG)](README.md#rawbg-raw-bg)| Please volunteer | Please volunteer |
-| [`sage` (Sensor Age)](README.md#sage-sensor-age)| Please volunteer | Please volunteer |
+| [`rawbg` (Raw BG)](README.md#rawbg-raw-bg)| @jpcunningh | Please volunteer |
+| [`sage` (Sensor Age)](README.md#sage-sensor-age)| @jpcunningh | Please volunteer |
 | [`simplealarms` (Simple BG Alarms)](README.md#simplealarms-simple-bg-alarms)| Please volunteer | Please volunteer |
 | [`speech` (Speech)](README.md#speech-speech) | [@sulkaharo] | Please volunteer |
 | [`timeago` (Time Ago)](README.md#timeago-time-ago)| Please volunteer | Please volunteer |
 | [`treatmentnotify` (Treatment Notifications)](README.md#treatmentnotify-treatment-notifications)| Please volunteer | Please volunteer |
-| [`upbat` (Uploader Battery)](README.md#upbat-uploader-battery)| Please volunteer | Please volunteer |
-| [`xdrip-js` (xDrip-js)](README.md#xdrip-js-xdrip-js)| Please volunteer | Please volunteer |
+| [`upbat` (Uploader Battery)](README.md#upbat-uploader-battery)| @jpcunningh | Please volunteer |
+| [`xdrip-js` (xDrip-js)](README.md#xdrip-js-xdrip-js)| @jpcunningh | Please volunteer |
 
 ### Translators
 
