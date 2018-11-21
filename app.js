@@ -35,7 +35,8 @@ function create(env, ctx) {
                     preload: preloadValue
                 }
             }))
-            if (env.settings.isEnabled('secureCsp')) { // Add Content-Security-Policy directive by default
+            //if (env.settings.isEnabled('secureCsp')) { // Add Content-Security-Policy directive by default
+            if (process.env.SECURE_CSP == 'true') {
               app.use(helmet.contentSecurityPolicy({
                 directives: {
                   defaultSrc: ["'self'"],
