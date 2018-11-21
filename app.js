@@ -14,6 +14,24 @@ function create(env, ctx) {
     var appInfo = env.name + ' ' + env.version;
     app.set('title', appInfo);
     app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
+    if (process.env.INSECURE_USE_HTTP !== 'true') {
+        app.use((req, res, next) => {
+        if (req.header('x-forwarded-proto') !== 'https')
+            res.redirect(`https://${req.header('host')}${req.url}`)
+        else
+            next()
+        })
+        if (process.env.SECURE_HTTP_HEADERS == 'true') {
+            const helmet = require('helmet')
+            app.use(helmet({
+                hsts: {
+                    maxAge: 31536000,
+                    includeSubDomains: true,
+                    preload: true
+                }
+            }))
+        }
+     }
 
     app.set('view engine', 'ejs');
     // this allows you to render .html files as templates in addition to .ejs
