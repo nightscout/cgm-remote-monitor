@@ -37,10 +37,11 @@ function create(env, ctx) {
             }))
             //if (env.settings.isEnabled('secureCsp')) { // Add Content-Security-Policy directive by default
             if (process.env.SECURE_CSP == 'true') {
-              app.use(helmet.contentSecurityPolicy({
+              app.use(helmet.contentSecurityPolicy({ // TODO make NS work without 'unsafe-inline'
                 directives: {
                   defaultSrc: ["'self'"],
-                  styleSrc: ["'self'", 'https://fonts.googleapis.com/'],
+                  styleSrc: ["'self'", 'https://fonts.googleapis.com/',"'unsafe-inline'"],
+                  scriptSrc: ["'self'", "'unsafe-inline'"],
                   fontSrc: [ "'self'", 'https://fonts.gstatic.com/']
                 }
               }));
