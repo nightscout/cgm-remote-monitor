@@ -5,6 +5,7 @@ var express = require('express');
 var compression = require('compression');
 var bodyParser = require('body-parser');
 var prettyjson = require('prettyjson');
+const helmet = require('helmet');
 
 var path = require('path');
 var fs = require('fs');
@@ -22,9 +23,8 @@ function create(env, ctx) {
             next()
         })
         if (env.settings.isEnabled('secureHstsHeader')) { // Add HSTS (HTTP Strict Transport Security) header by default
-            const helmet = require('helmet');
-            var includeSubDomainsValue = _get(env, 'extendedSettings.secureHstsHeader.includesubdomains') ; // default false; 
-            var preloadValue = _get(env, 'extendedSettings.secureHstsHeader.preload') ; // default false; 
+            var includeSubDomainsValue = _get(env, 'extendedSettings.secureHstsHeader.includesubdomains') || false  ; // default false;
+            var preloadValue = _get(env, 'extendedSettings.secureHstsHeader.preload') || false ; // default false;
             app.use(helmet({
                 hsts: {
                     maxAge: 31536000,
