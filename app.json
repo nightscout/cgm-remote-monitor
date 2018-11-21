@@ -177,7 +177,7 @@
       "value": "true",
       "required": false
     }
-  }
+  },
   "addons": [
     "mongolab:sandbox",
     "papertrail"
