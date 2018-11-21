@@ -14,22 +14,33 @@ function create(env, ctx) {
     var appInfo = env.name + ' ' + env.version;
     app.set('title', appInfo);
     app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
-    if (process.env.INSECURE_USE_HTTP !== 'true') {
+    if (env.settings.isEnabled('insecureUseHttp')) {
         app.use((req, res, next) => {
         if (req.header('x-forwarded-proto') !== 'https')
-            res.redirect(`https://${req.header('host')}${req.url}`)
+            res.redirect(`https://${req.header('host')}${req.url}`);
         else
             next()
         })
-        if (process.env.SECURE_HTTP_HEADERS == 'true') {
-            const helmet = require('helmet')
+        if (env.settings.isEnabled('secureHstsHeader')) { // Add HSTS (HTTP Strict Transport Security) header by default
+            const helmet = require('helmet');
+            var includeSubDomainsValue = _get(env, 'extendedSettings.secureHstsHeader.includesubdomains') ; // default false; 
+            var preloadValue = _get(env, 'extendedSettings.secureHstsHeader.preload') ; // default false; 
             app.use(helmet({
                 hsts: {
                     maxAge: 31536000,
-                    includeSubDomains: true,
-                    preload: true
+                    includeSubDomains: includeSubDomainsValue,
+                    preload: preloadValue
                 }
             }))
+            if (env.settings.isEnabled('secureCsp')) { // Add Content-Security-Policy directive by default
+              app.use(helmet.contentSecurityPolicy({
+                directives: {
+                  defaultSrc: ["'self'"],
+                  styleSrc: ["'self'", 'https://fonts.googleapis.com/'],
+                  fontSrc: [ "'self'", 'https://fonts.gstatic.com/']
+                }
+              }));
+            }
         }
      }
 
