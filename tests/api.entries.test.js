@@ -2,8 +2,7 @@
 
 var request = require('supertest');
 var load = require('./fixtures/load');
-var bootevent = require('../lib/server/bootevent');
-var language = require('../lib/language')();
+var bootevent = require('../lib/bootevent');
 require('should');
 
 describe('Entries REST api', function ( ) {
@@ -12,15 +11,14 @@ describe('Entries REST api', function ( ) {
   this.timeout(10000);
   before(function (done) {
     var env = require('../env')( );
-    env.settings.authDefaultRoles = 'readable';
     this.wares = require('../lib/middleware/')(env);
     this.archive = null;
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    bootevent(env, language).boot(function booted (ctx) {
+    bootevent(env).boot(function booted (ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx));
-      self.archive = require('../lib/server/entries')(env, ctx);
+      self.archive = require('../lib/entries')(env, ctx);
 
       var creating = load('json');
       creating.push({type: 'sgv', sgv: 100, date: Date.now()});
@@ -67,25 +65,6 @@ describe('Entries REST api', function ( ) {
         done( );
       });
   });
-
-  it('gets entries in right order', function (done) {
-    var defaultCount = 10;
-    request(this.app)
-      .get('/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
-      .expect(200)
-      .end(function (err, res) {
-        res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
-        
-        var array = res.body;
-        var firstEntry = array[0];
-        var secondEntry = array[1];
-        
-        firstEntry.date.should.be.above(secondEntry.date);
-        
-        done( );
-      });
-  });
-
 
   it('/echo/ api shows query', function (done) {
     request(this.app)
@@ -217,13 +196,13 @@ describe('Entries REST api', function ( ) {
       });
   });
 
-  it('disallow POST by readable /entries/preview', function (done) {
+  it('/entries/preview', function (done) {
     request(this.app)
       .post('/entries/preview.json')
       .send(load('json'))
-      .expect(401)
+      .expect(201)
       .end(function (err, res) {
-        // res.body.should.be.instanceof(Array).and.have.lengthOf(30);
+        res.body.should.be.instanceof(Array).and.have.lengthOf(30);
         done();
       });
   });

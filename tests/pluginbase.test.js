@@ -4,27 +4,21 @@ require('should');
 var benv = require('benv');
 
 describe('pluginbase', function ( ) {
-  this.timeout(40000); // TODO: see why this test takes longer on Travis to complete
-
-  var headless = require('./fixtures/headless')(benv, this);
 
   before(function (done) {
-    done( );
+    benv.setup(function() {
+      benv.expose({
+        $: require('jquery')
+        , jQuery: require('jquery')
+      });
+      done();
+    });
   });
 
   after(function (done) {
-    done( );
+    benv.teardown();
+    done();
   });
-
-  beforeEach(function (done) {
-    headless.setup({ }, done);
-  });
-
-  afterEach(function (done) {
-    headless.teardown( );
-    done( );
-  });
-
 
   it('does stuff', function() {
 

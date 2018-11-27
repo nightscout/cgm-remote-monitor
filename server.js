@@ -34,7 +34,6 @@ var translate = language.set(env.settings.language).translate;
 // setup http server
 ///////////////////////////////////////////////////
 var PORT = env.PORT;
-var HOSTNAME = env.HOSTNAME;
 
 function create (app) {
   var transport = (env.ssl
@@ -45,17 +44,13 @@ function create (app) {
   return transport.createServer(app);
 }
 
-require('./lib/server/bootevent')(env, language).boot(function booted (ctx) {
+require('./lib/bootevent')(env).boot(function booted (ctx) {
     var app = require('./app')(env, ctx);
-    var server = create(app).listen(PORT, HOSTNAME);
-    console.log(translate('Listening on port'), PORT, HOSTNAME);
-
-    if (ctx.bootErrors && ctx.bootErrors.length > 0) {
-      return;
-    }
+    var server = create(app).listen(PORT);
+    console.log(translate('Listening on port'), PORT);
 
     if (env.MQTT_MONITOR) {
-      ctx.mqtt = require('./lib/server/mqtt')(env, ctx);
+      ctx.mqtt = require('./lib/mqtt')(env, ctx);
       var es = require('event-stream');
       es.pipeline(ctx.mqtt.entries, ctx.entries.map( ), ctx.mqtt.every(ctx.entries));
     }
@@ -63,7 +58,7 @@ require('./lib/server/bootevent')(env, language).boot(function booted (ctx) {
     ///////////////////////////////////////////////////
     // setup socket io for data and message transmission
     ///////////////////////////////////////////////////
-    var websocket = require('./lib/server/websocket')(env, ctx, server);
+    var websocket = require('./lib/websocket')(env, ctx, server);
 
     ctx.bus.on('data-processed', function() {
       websocket.update();
