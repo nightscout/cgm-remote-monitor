@@ -280,11 +280,11 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enable or disable icon allowing enter treatments edit mode
 
 ### Predefined values for your server settings (optional)
-  * `INSECURE_USE_HTTP` (`false`) - possible values `false`, or `true`.
-  * `SECURE_HSTS_HEADER` (`true`) - possible values `false`, or `true`.
-  * `SECURE_HSTS_HEADER_INCLUDESUBDOMAINS` (`false`) - possible values `false`, or `true`.
-  * `SECURE_HSTS_HEADER_PRELOAD` (`false`) - possible values `false`, or `true`.
-  * `SECURE_CSP` (`true`) - possible values `false`, or `true`.
+  * `INSECURE_USE_HTTP` (`false`) - Redirect http url's to https. Possible values `false`, or `true`.
+  * `SECURE_HSTS_HEADER` (`true`) - Add HTTP Strict Transport Security (HSTS) header. Possible values `false`, or `true`.
+  * `SECURE_HSTS_HEADER_INCLUDESUBDOMAINS` (`false`) - includeSubdomains options for HSTS. Possible values `false`, or `true`.
+  * `SECURE_HSTS_HEADER_PRELOAD` (`false`) - ask for preload in browsers for HSTS. Possible values `false`, or `true`.
+  * `SECURE_CSP` (`false`) - Add Content Security Policy headers. Possible values `false`, or `true`.  Currently Nightscout is not yet compatible with CSP.
   
  ### Views
 

@@ -21,13 +21,11 @@ function create(env, ctx) {
         else
             next()
         })
-        //if (env.settings.isEnabled('secureHstsHeader')) { // Add HSTS (HTTP Strict Transport Security) header by
-        if (process.env.SECURE_HSTS_HEADER == 'true') {
+        //if (env.settings.isEnabled('secureHstsHeader')) { // by TODO: find out why env.settings.isEnabled doest not work
+        if (process.env.SECURE_HSTS_HEADER == 'true') { // Add HSTS (HTTP Strict Transport Security) header
           const helmet = require('helmet');
-          var includeSubDomainsValue = false; // _get(env, 'extendedSettings.secureHstsHeader.includesubdomains')
-          // || false  ; // default false;
-            var preloadValue = false; // _get(env, 'extendedSettings.secureHstsHeader.preload') || false ; // default
-          // false;
+          var includeSubDomainsValue = process.env.SECURE_HSTS_HEADER_INCLUDESUBDOMAINS || false ; // _get(env, 'extendedSettings.secureHstsHeader.includesubdomains')
+            var preloadValue = process.env.SECURE_HSTS_HEADER_PRELOAD || false; // _get(env, 'extendedSettings.secureHstsHeader.preload') || false ; // default
             app.use(helmet({
                 hsts: {
                     maxAge: 31536000,
