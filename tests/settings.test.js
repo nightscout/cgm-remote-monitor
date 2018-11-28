@@ -31,7 +31,7 @@ describe('settings', function ( ) {
     settings.showPlugins.should.equal('');
     settings.insecureUseHttp.should.equal(false);
     settings.secureHstsHeader.should.equal(true);
-    settings.secureCsp.should.equal(true);
+    settings.secureCsp.should.equal(false);
   });
 
   it('support setting from env vars', function () {
