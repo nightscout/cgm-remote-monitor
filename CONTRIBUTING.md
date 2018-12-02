@@ -89,6 +89,8 @@ Please include instructions how to test the changes.
 
 If you've fixed a but, please consider adding a unit test to the `/tests` folder that reproduces the original bug without the change.
 
+When adding new features that add confugration options, please ensure the `README` document is amended with information on the new configuration.
+
 ## Comments and issues
 
 We encourage liberal use of the comments, including images where appropriate.
