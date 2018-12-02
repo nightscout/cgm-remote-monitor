@@ -40,6 +40,8 @@
 
 If you intend to add a new feature, please allow the community to participate in the design process by creating an issue to discuss your design. For new features, the issue should describe what use cases the new feature intends to solve, or which existing use cases are being improved.
 
+Note Nighscout has a plugin architecture for adding new features. We expect most code for new features live inside a Plugin, so the code retains a clear separation of concerns. If the Plugin API doesn't implement all features you need to implement your feature, please discuss with us on adding those features to the API. Note new features should under almost no circumstances require changes to the existing plugins.
+
 ## Develop on `dev`
 
 We develop on the `dev` branch. All new pull requests should be targeted to `dev`. The `master` branch is only used for distributing the latest version of the tested sources.
@@ -85,11 +87,15 @@ Please include a description of what the features do and rationalize why the cha
 
 If you add any new NPM module dependencies, you have to rationalize why there are needed - we prefer pull requests that reduce dependencies, not add them.
 
-Please include instructions how to test the changes.
-
-If you've fixed a but, please consider adding a unit test to the `/tests` folder that reproduces the original bug without the change.
-
 When adding new features that add confugration options, please ensure the `README` document is amended with information on the new configuration.
+
+## Bug fixing
+
+If you've fixed a bug, please consider adding a unit test to the `/tests` folder that reproduces the original bug without the change.
+
+Try to identify the root cause of the issue and fix the issue. Pull requests that simply add null checks to hide issues are unlikely to be accepted.
+
+Please include instructions how to test the changes.
 
 ## Comments and issues
 
