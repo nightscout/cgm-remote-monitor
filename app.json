@@ -151,7 +151,7 @@
       "description": "Enables a Content Security Policy header.",
       "value": "true",
       "required": false
-    }
+    },
     "SECURE_HSTS_HEADER": {
       "description": "Enables an HSTS (HTTP Strict Transport Security) header.",
       "value": "true",
