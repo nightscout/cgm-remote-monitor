@@ -173,6 +173,12 @@
     } else {
       $('#rp_log').prop('checked', true);
     }
+
+    if (client.settings.weekScaleY === 'linear') {
+      $('#wrp_linear').prop('checked', true);
+    } else {
+      $('#wrp_log').prop('checked', true);
+    }
     
     $('.menutab').click(switchreport_handler);
 
@@ -195,6 +201,8 @@
     var options = {
       width: 1000
       , height: 300
+      , weekwidth: 1000
+      , weekheight: 300
       , targetLow: 3.5
       , targetHigh: 10
       , raw: true
@@ -206,6 +214,7 @@
       , cob : true
       , basal : true
       , scale: report_plugins.consts.scaleYFromSettings(client)
+      , weekscale: report_plugins.consts.scaleWeekYFromSettings(client)
       , units: client.settings.units
     };
 
@@ -226,9 +235,12 @@
     options.insulindistribution = $('#rp_optionsdistribution').is(':checked');
     options.carbs = $('#rp_optionscarbs').is(':checked');
     options.scale = ( $('#rp_linear').is(':checked') ? report_plugins.consts.SCALE_LINEAR : report_plugins.consts.SCALE_LOG );
+    options.weekscale = ( $('#wrp_linear').is(':checked') ? report_plugins.consts.SCALE_LINEAR : report_plugins.consts.SCALE_LOG );
     options.order = ( $('#rp_oldestontop').is(':checked') ? report_plugins.consts.ORDER_OLDESTONTOP : report_plugins.consts.ORDER_NEWESTONTOP );
     options.width = parseInt($('#rp_size :selected').attr('x'));
+    options.weekwidth = parseInt($('#wrp_size :selected').attr('x'));
     options.height = parseInt($('#rp_size :selected').attr('y'));
+    options.weekheight = parseInt($('#wrp_size :selected').attr('y'));
     
     var matchesneeded = 0;
 
