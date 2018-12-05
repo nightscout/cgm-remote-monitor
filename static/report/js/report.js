@@ -522,6 +522,7 @@
 
       if (plugin.name == 'daytoday' && ! $('#daytoday').hasClass('selected')) skipRender = true;
       if (plugin.name == 'treatments' && ! $('#treatments').hasClass('selected')) skipRender = true;
+      if (plugin.name == 'weektoweek' && ! $('#weektoweek').hasClass('selected')) skipRender = true;
 
       if (skipRender) {
         console.log('Skipping ',plugin.name);
