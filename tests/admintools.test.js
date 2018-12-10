@@ -29,6 +29,9 @@ var someData = {
     'created_at': '2025-09-28T16:41:07.144Z'
     }
   ],
+  '/api/v1/devicestatus/?find[created_at][$lte]=': {
+    n: 1
+  },
   '/api/v1/treatments.json?&find[created_at][$gte]=': [
       {
         '_id':  '5609a9203c8104a8195b1c1e',
@@ -101,6 +104,9 @@ describe('admintools', function ( ) {
           }
           if (url.indexOf('/api/v1/entries.json?&find[date][$gte]=')===0) {
             url = '/api/v1/entries.json?&find[date][$gte]=';
+          }
+          if (url.indexOf('/api/v1/devicestatus/?find[created_at][$lte]=')===0) {
+            url = '/api/v1/devicestatus/?find[created_at][$lte]=';
           }
           return {
             done: function mockDone (fn) {
@@ -218,6 +224,12 @@ describe('admintools', function ( ) {
     
     $('#admin_cleanstatusdb_0_html + button').click();
     $('#admin_cleanstatusdb_0_status').text().should.equal('All records removed ...'); // devicestatus code result
+
+    $('#admin_cleanstatusdb_1_html + button').text().should.equal('Delete old documents'); // devicestatus button
+    $('#admin_cleanstatusdb_1_status').text().should.equal(''); // devicestatus init result
+
+    $('#admin_cleanstatusdb_1_html + button').click();
+    $('#admin_cleanstatusdb_1_status').text().should.equal('1 records deleted'); // devicestatus code result
 
     $('#admin_futureitems_0_html + button').text().should.equal('Remove treatments in the future'); // futureitems button 0
     $('#admin_futureitems_0_status').text().should.equal('Database contains 1 future records'); // futureitems init result 0
