@@ -57,8 +57,11 @@ var someData = {
         'rssi': 178,
         'noise': 1
       }
-    ]
-  };
+    ],
+  '/api/v1/entries/?find[date][$lte]=': {
+    n: 1
+  },
+};
 
 
 describe('admintools', function ( ) {
@@ -104,15 +107,14 @@ describe('admintools', function ( ) {
         if (opts && opts.success && opts.success.call) {
           if (url.indexOf('/api/v1/treatments.json?&find[created_at][$gte]=')===0) {
             url = '/api/v1/treatments.json?&find[created_at][$gte]=';
-          }
-          if (url.indexOf('/api/v1/entries.json?&find[date][$gte]=')===0) {
+          } else if (url.indexOf('/api/v1/entries.json?&find[date][$gte]=')===0) {
             url = '/api/v1/entries.json?&find[date][$gte]=';
-          }
-          if (url.indexOf('/api/v1/devicestatus/?find[created_at][$lte]=')===0) {
+          } else if (url.indexOf('/api/v1/devicestatus/?find[created_at][$lte]=')===0) {
             url = '/api/v1/devicestatus/?find[created_at][$lte]=';
-          }
-          if (url.indexOf('/api/v1/treatments/?find[created_at][$lte]=')===0) {
+          } else if (url.indexOf('/api/v1/treatments/?find[created_at][$lte]=')===0) {
             url = '/api/v1/treatments/?find[created_at][$lte]=';
+          } else if (url.indexOf('/api/v1/entries/?find[date][$lte]=')===0) {
+            url = '/api/v1/entries/?find[date][$lte]=';
           }
           return {
             done: function mockDone (fn) {
@@ -254,6 +256,12 @@ describe('admintools', function ( ) {
 
     $('#admin_cleantreatmentsdb_0_html + button').click();
     $('#admin_cleantreatmentsdb_0_status').text().should.equal('1 records deleted'); // treatments code result
+
+    $('#admin_cleanentriesdb_0_html + button').text().should.equal('Delete old documents'); // entries button
+    $('#admin_cleanentriesdb_0_status').text().should.equal(''); // entries init result
+
+    $('#admin_cleanentriesdb_0_html + button').click();
+    $('#admin_cleanentriesdb_0_status').text().should.equal('1 records deleted'); // entries code result
 
     done();
   });
