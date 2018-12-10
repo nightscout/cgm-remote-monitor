@@ -41,6 +41,9 @@ var someData = {
         'created_at': '2025-09-28T20:54:00.000Z'
       }
     ],
+  '/api/v1/treatments/?find[created_at][$lte]=': {
+    n: 1
+  },
   '/api/v1/entries.json?&find[date][$gte]=': [
       {
         '_id': '560983f326c5a592d9b9ae0c',
@@ -107,6 +110,9 @@ describe('admintools', function ( ) {
           }
           if (url.indexOf('/api/v1/devicestatus/?find[created_at][$lte]=')===0) {
             url = '/api/v1/devicestatus/?find[created_at][$lte]=';
+          }
+          if (url.indexOf('/api/v1/treatments/?find[created_at][$lte]=')===0) {
+            url = '/api/v1/treatments/?find[created_at][$lte]=';
           }
           return {
             done: function mockDone (fn) {
@@ -242,6 +248,12 @@ describe('admintools', function ( ) {
     
     $('#admin_futureitems_1_html + button').click();
     $('#admin_futureitems_1_status').text().should.equal('Record 560983f326c5a592d9b9ae0c removed ...'); // futureitems code result 1
+
+    $('#admin_cleantreatmentsdb_0_html + button').text().should.equal('Delete old documents'); // treatments button
+    $('#admin_cleantreatmentsdb_0_status').text().should.equal(''); // treatments init result
+
+    $('#admin_cleantreatmentsdb_0_html + button').click();
+    $('#admin_cleantreatmentsdb_0_status').text().should.equal('1 records deleted'); // treatments code result
 
     done();
   });
