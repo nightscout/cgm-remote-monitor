@@ -30,31 +30,33 @@ var language = require('./lib/language')();
 var translate = language.set(env.settings.language).translate;
 
 ///////////////////////////////////////////////////
-// Check node version
+// Check Node version. We only allow secure LTS versions of Node
 // < 8        does not work, not supported
 // >= 8.14.0  works, supported and recommended
-// == 8.11.1  works, not fully supported (latest Azure node)
+// == 8.11.1  works, not fully supported (latest Azure node; INSECURE)
 // == 9.x     does not work, not supported
-// >= 10.14.0 works, not recommended yet
-// >= 11.x    works, not recommended yet
+// >= 10.14.2 works, not recommended yet, will be supported with Nightscout >= 0.12
+// >= 11.4.0  works, not recommended yet
 ///////////////////////////////////////////////////
 const semver = require('semver')
 var nodeVersion = process.version;
-var major = semver.major(nodeVersion);
-var dontStart = major<8 || (major === 8 && (!semver.eq(nodeVersion, '8.11.1')) && (!semver.satisfies(nodeVersion, '^8.14.0')))
-     || major === 9 || (major === 10 && semver.lt(nodeVersion, '10.14.2'));
-if (dontStart) {
-  console.error('Node version '+ nodeVersion +' is not supported. cgm-remote-monitor requires Node 8.14.x');
-  process.exit(1)
-}
-if (semver.eq(nodeVersion, '8.11.1')) {
-  console.warn('Node 8.11.1 and Microsoft Azure is not recommended. Please migrate to another hosting provider.');
-  console.warn('"Your node version is considered insecure and has several vulnerabilities. Use at your own risk.');
-}
-if (semver.satisfies(nodeVersion, '^8.14.0')) {
-  console.info('Node ' + nodeVersion + ' is recommended and supported by the Nightscout community') ;
-} else if (semver.satisfies(nodeVersion, '>=10')) {
-  console.warn('Node ' + nodeVersion + ' is NOT recommended and may cause problems. Please use Node 8 LTS') ;
+if (semver.satisfies(nodeVersion, '^8.14.0')) { // Lates Node 8 LTS is supported and recommended for Nightscout
+  console.info('Your Node version ' + nodeVersion + ' is supported and recommended for Nightscout') ;
+} else {
+  var major = semver.major(nodeVersion); // major part of the Node version number
+  var dontStart = (major === 8 && (!semver.satisfies(nodeVersion, '^8.14.0')) && (!semver.eq(nodeVersion, '8.11.1')))
+    || major<8 || major === 9 || (major === 10 && semver.lt(nodeVersion, '10.14.2'))
+    || (major === 11 && semver.lt(nodeVersion, '11.4.0'));
+  if (dontStart) { // only start on secure versions (and allow Azure version)
+    console.error('Node version '+ nodeVersion +' is not supported. cgm-remote-monitor requires Node 8 LTS (>= 8.14.0)');
+    process.exit(1)
+  }
+  if (semver.eq(nodeVersion, '8.11.1')) {
+    console.warn('Node version v8.11.1 and Microsoft Azure are not recommended. Please migrate to another hosting provider.');
+    console.warn('Your Node version is considered insecure and has several vulnerabilities. Use at your own risk.');
+  } else if (semver.satisfies(nodeVersion, '>=10')) {
+    console.warn('Node ' + nodeVersion + ' is NOT recommended and may cause problems. Please use Node 8 LTS') ;
+  }
 }
 
 ///////////////////////////////////////////////////
