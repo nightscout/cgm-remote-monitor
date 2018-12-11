@@ -30,32 +30,32 @@ var language = require('./lib/language')();
 var translate = language.set(env.settings.language).translate;
 
 ///////////////////////////////////////////////////
-// Check Node version. We only allow secure LTS versions of Node
+// Check Node version. Latest Node 8 LTS is recommended and supported. 
 // < 8        does not work, not supported
 // >= 8.14.0  works, supported and recommended
-// == 8.11.1  works, not fully supported (latest Azure node; INSECURE)
+// == 8.11.1  works, not fully supported (this is the latests Node version on Azure; INSECURE)
 // == 9.x     does not work, not supported
 // >= 10.14.2 works, not recommended yet, will be supported with Nightscout >= 0.12
-// >= 11.4.0  works, not recommended yet
+// >= 11.4.0  works, not recommended, will not be supported. We only support Node LTS releases
 ///////////////////////////////////////////////////
 const semver = require('semver')
 var nodeVersion = process.version;
-if (semver.satisfies(nodeVersion, '^8.14.0')) { // Lates Node 8 LTS is supported and recommended for Nightscout
+if (semver.satisfies(nodeVersion, '^8.14.0')) { // Latest Node 8 LTS is supported and recommended for Nightscout
   console.info('Your Node version ' + nodeVersion + ' is supported and recommended for Nightscout') ;
-} else {
+} else { // Not recommended Node versions. Don't start insecure versions (except 8.11.1 on Azure); Warn user of possible consequences
   var major = semver.major(nodeVersion); // major part of the Node version number
   var dontStart = (major === 8 && (!semver.satisfies(nodeVersion, '^8.14.0')) && (!semver.eq(nodeVersion, '8.11.1')))
     || major<8 || major === 9 || (major === 10 && semver.lt(nodeVersion, '10.14.2'))
     || (major === 11 && semver.lt(nodeVersion, '11.4.0'));
   if (dontStart) { // only start on secure versions (and allow Azure version)
-    console.error('Node version '+ nodeVersion +' is not supported. cgm-remote-monitor requires Node 8 LTS (>= 8.14.0)');
+    console.error('Node version '+ nodeVersion +' is not supported. Nightscout requires Node 8 LTS (>= 8.14.0)');
     process.exit(1)
   }
   if (semver.eq(nodeVersion, '8.11.1')) {
     console.warn('Node version v8.11.1 and Microsoft Azure are not recommended. Please migrate to another hosting provider.');
-    console.warn('Your Node version is considered insecure and has several vulnerabilities. Use at your own risk.');
+    console.warn('Your Node version is considered insecure and has several security vulnerabilities. Use at your own risk.');
   } else if (semver.satisfies(nodeVersion, '>=10')) {
-    console.warn('Node ' + nodeVersion + ' is NOT recommended and may cause problems. Please use Node 8 LTS') ;
+    console.warn('Node version ' + nodeVersion + ' is NOT recommended and may cause problems. Please use Node 8 LTS') ;
   }
 }
 
