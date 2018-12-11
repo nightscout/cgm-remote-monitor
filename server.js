@@ -41,8 +41,8 @@ var translate = language.set(env.settings.language).translate;
 const semver = require('semver')
 var nodeVersion = process.version;
 var major = semver.major(nodeVersion);
-var minor = semver.major(nodeVersion);
-var dontStart = major<8 || (major === 8 && minor < 11) || major === 9 || (major === 10 && semver.lt(nodeVersion, '10.14.0'));
+var dontStart = major<8 || (major === 8 && (!semver.eq(nodeVersion, '8.11.1')) && (!semver.satisfies(nodeVersion, '^8.14.0')))
+     || major === 9 || (major === 10 && semver.lt(nodeVersion, '10.14.2'));
 if (dontStart) {
   console.error('Node version '+ nodeVersion +' is not supported. cgm-remote-monitor requires Node 8.14.x');
   process.exit(1)
