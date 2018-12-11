@@ -54,7 +54,7 @@ if (semver.eq(nodeVersion, '8.11.1')) {
 }
 if (semver.satisfies(nodeVersion, '^8.14.0')) {
   console.info('Node ' + nodeVersion + ' is recommended and supported by the Nightscout community') ;
-} else if (semver.satisfies(nodeVersion, '>10')) {
+} else if (semver.satisfies(nodeVersion, '>=10')) {
   console.warn('Node ' + nodeVersion + ' is NOT recommended and may cause problems. Please use Node 8 LTS') ;
 }
 
