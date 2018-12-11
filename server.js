@@ -25,10 +25,38 @@
 ///////////////////////////////////////////////////
 // DB Connection setup and utils
 ///////////////////////////////////////////////////
-
 var env = require('./env')( );
 var language = require('./lib/language')();
 var translate = language.set(env.settings.language).translate;
+
+///////////////////////////////////////////////////
+// Check node version
+// < 8        does not work, not supported
+// >= 8.14.0  works, supported and recommended
+// == 8.11.1  works, not fully supported (latest Azure node)
+// == 9.x     does not work, not supported
+// >= 10.14.0 works, not recommended yet
+// >= 11.x    works, not recommended yet
+///////////////////////////////////////////////////
+const semver = require('semver')
+var nodeVersion = process.version;
+var major = semver.major(nodeVersion);
+var minor = semver.major(nodeVersion);
+var dontStart = major<8 || major === 9 || (major === 8 && !(minor > 13 || minor === 11))
+                || (major === 10 && semver.lt(nodeVersion, '10.13.0'));
+if (dontStart) {
+  console.error('Node version '+ nodeVersion +' is not supported. cgm-remote-monitor requires Node 8.14.x');
+  process.exit(1)
+}
+if (semver.eq(nodeVersion, '8.11.1')) {
+  console.warn('Node 8.11.1 and Microsoft Azure is not recommended. Please migrate to another hosting provider.');
+  console.warn('"Your node version is considered insecure and has several vulnerabilities. Use at your own risk.');
+}
+if (semver.satisfies(nodeVersion, '^8.14.0')) {
+  console.info('Node ' + nodeVersion + ' is recommended and supported by the Nightscout community') ;
+} else if (semver.satisfies(nodeVersion, '>10')) {
+  console.warn('Node ' + nodeVersion + ' is NOT recommended and may cause problems. Please use Node 8 LTS') ;
+}
 
 ///////////////////////////////////////////////////
 // setup http server
