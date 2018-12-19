@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  
+  <title>Nightscout</title>
+  
+  <link href="/images/logo2.png" rel="icon" id="favicon" type="image/png" />
+  <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
+  <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
+  <link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png">
+  <link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
+  
+  <style type="text/css">
+  @import url("//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800");
+  
+  body {
+  margin: 0 0;
+  padding: 0;
+  overflow: hidden;
+  text-align: center;
+  color: white;
+  }
+  .wrapper {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: -webkit-flex;
+  display: inline-flex;
+  -webkit-flex-flow: row wrap;
+  flex-flow: row wrap;
+  }
+  .wrapper > * {
+  padding: 10px;
+  flex: 1 auto;
+  }
+  .bgnow {
+  font-family: 'Open Sans';
+  font-weight: 700;
+  font-size: 58vmin;
+  line-height: 45vh;
+  }
+  
+  .bgdelta {
+  font-family: 'Open Sans';
+  font-weight: 700;
+  font-size: 20vmin;
+  }
+  .arrow {
+  text-align: right;
+  }
+  
+  img#arrow {
+  width: 40vmin;
+  }
+  
+  .stale {
+  color: black;
+  background-color: grey;
+  }
+  @media all and (orientation: landscape) {
+  main {
+  display: flex;
+  height: 90vh;
+  align-items: center;
+  }
+  .bgnow {
+  flex-flow: row wrap;
+  flex: 1 1 auto;
+  }
+  .wrapper {
+  flex-flow: column nowrap;
+  justify-content: stretch;
+  align-items: stretch;
+  flex: 1 1 auto;
+  }
+  .arrow { text-align: center; }
+  .bgdelta { text-align: center; }
+  }
+  @media all and (orientation: portrait) {
+  }
+  #staleTime {
+  flex-flow: row wrap;
+  flex: 1 1 auto;
+  font-size: 14vmin;
+  font-weight: 700;
+  font-family: 'Helvetica';
+  display: none;
+  }
+</style>
+</head>
+
+<body>
+
+  <main>
+      <div class="wrapper">
+  <div class="bgnow"></div>
+  <div id="staleTime"></div>
+  </div>
+  <div class="wrapper">
+        
+    <div class="arrow"><img id="arrow" src=""/></div>
+    <div class="bgdelta"></div>
+  </div>
+  
+  </main>
+  
+  <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+  <script src="/api/v1/status.js"></script>
+  <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
+  
+  <script type="text/javascript">
+    
+    function query ( ) {
+      console.log('query');
+      // $.ajax('/api/v1/entries/current.json', { success: render });
+      //
+      // Entries API doesn't have bgdelta, trying pebble instead.
+      //
+      $.ajax('/pebble', { success: render });
+    }
+    function render (xhr) {
+    console.log('xhr', xhr);
+    // var rec = xhr[0];
+    //
+    // After switching to pebble interface, need to reference the bgs array
+    //
+    var rec = xhr.bgs[0];
+    var last = new Date(rec.datetime);
+    var now = new Date( );
+    var elapsedMins = Math.round(((now - last) / 1000) / 60);
+    var LowThresh = parseFloat("80"); // Set low/med/high thresholds here.
+    var MedThresh = parseFloat("180");  // Below Low will be red; between Low & Med
+    var HighThresh = parseFloat("250"); // is green; between Med & High is yellow;
+                      // above High is red. Use mg/dl numbers if
+                      // that's your site setting.
+    var bgDeltaMarked = '';                      
+    if (window.serverSettings.settings.units == 'mmol') {
+      rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
+    }
+    var bgNum = parseFloat(rec.sgv);
+    var bgDelta = parseFloat(rec.bgdelta);
+    var red = 'rgba(213,9,21,1)';         // These are the particular shades of 
+    var yellow = 'rgba(233,205,53,1)';        // red, yellow, and green.
+    var green = 'rgba(134,207,70,1)';
+    var direction = rec.direction;
+    $('#arrow').attr('src', 'images/'+direction+'.svg');  // Insert the trend arrow.
+    $('.bgnow').text(rec.sgv);            // Insert the BG value text.
+    // Insert the BG Delta number, add a "+" if it is positive
+    if (bgDelta > 0) {
+      $('.bgdelta').text('+'+rec.bgdelta);
+      bgDeltaMarked = '+'+rec.bgdelta;
+    } else {
+      $('.bgdelta').text(rec.bgdelta);
+      bgDeltaMarked = rec.bgdelta;
+    }
+    $('#staleTime').text(elapsedMins+' minutes ago');
+    if (bgNum < LowThresh) {
+      $('body').css('background-color', red);   // Threshold background coloring.
+    }
+    if ((LowThresh <= bgNum) && (bgNum < MedThresh)) {
+      $('body').css('background-color', green);
+    }
+    if ((MedThresh <= bgNum) && (bgNum < HighThresh)) {
+      $('body').css('background-color', yellow);
+    }
+    if (bgNum >= HighThresh) {
+      $('body').css('background-color', red);
+    }
+    var dir2Char = {
+    NONE: '⇼'
+    , DoubleUp: '⇈'
+    , SingleUp: '↑'
+    , FortyFiveUp: '↗'
+    , Flat: '→'
+    , FortyFiveDown: '↘'
+    , SingleDown: '↓'
+    , DoubleDown: '⇊'
+    , 'NOT COMPUTABLE': '-'
+    , 'RATE OUT OF RANGE': '⇕'
+  };
+    var threshold = 1000 * 60 * 13;         // Time before data considered stale.
+    //$('body').toggleClass('stale', (now - last > threshold));   // Restyle if stale.
+    //$('body').css({'background-color': 'gray'}, (now - last > threshold));
+    			// Restyle body bg, and make the "x minutes ago" visible too.
+    if (now - last > threshold) {
+      $('body').css('background-color', 'grey');
+      $('body').css('color', 'black');
+      $('#staleTime').css('display', 'block');
+      $('.bgnow').css('text-decoration', 'line-through');
+      document.title = '!!! '+elapsedMins+' min ago';
+    } else {
+      $('#staleTime').css('display', 'block');
+      $('body').css('color', 'white');
+      document.title = bgNum+' '+bgDeltaMarked+' '+dir2Char[direction];
+      $('.bgnow').css('text-decoration', '');
+    }
+
+  }
+    function init ( ) {
+      console.log('init');
+      query( );
+      setInterval(query, 1 * 60 * 1000);
+    }
+    init( );
+  </script>
+</body>
+</html>
