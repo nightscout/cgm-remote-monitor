@@ -72,7 +72,7 @@ Community maintained fork of the
         - [`ar2` (AR2 Forecasting)](#ar2-ar2-forecasting)
         - [`simplealarms` (Simple BG Alarms)](#simplealarms-simple-bg-alarms)
         - [`profile` (Treatment Profile)](#profile-treatment-profile)
-      - [Advanced Plugins](#advanced-plugins)
+      - [Advanced Plugins:](#advanced-plugins)
         - [`careportal` (Careportal)](#careportal-careportal)
         - [`boluscalc` (Bolus Wizard)](#boluscalc-bolus-wizard)
         - [`food` (Custom Foods)](#food-custom-foods)
@@ -131,7 +131,7 @@ Minimum browser requirements for viewing the site:
 
 Windows installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.11.3 or later). Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
+- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.12.0 or later). Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
@@ -279,7 +279,14 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale.
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enable or disable icon allowing enter treatments edit mode
 
-### Views
+### Predefined values for your server settings (optional)
+  * `INSECURE_USE_HTTP` (`false`) - Redirect http url's to https. Possible values `false`, or `true`.
+  * `SECURE_HSTS_HEADER` (`true`) - Add HTTP Strict Transport Security (HSTS) header. Possible values `false`, or `true`.
+  * `SECURE_HSTS_HEADER_INCLUDESUBDOMAINS` (`false`) - includeSubdomains options for HSTS. Possible values `false`, or `true`.
+  * `SECURE_HSTS_HEADER_PRELOAD` (`false`) - ask for preload in browsers for HSTS. Possible values `false`, or `true`.
+  * `SECURE_CSP` (`false`) - Add Content Security Policy headers. Possible values `false`, or `true`.  Currently Nightscout is not yet compatible with CSP.
+  
+ ### Views
 
   There are a few alternate web views available that display a simplified BG stream. Append any of these to your Nightscout URL:
   * `/clock.html` - Shows current BG. Grey text on a black background.
