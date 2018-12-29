@@ -95,7 +95,6 @@
 			console.log('query');
 			$.ajax('/api/v1/entries/current.json', { success: render });
 		}
-
 		function render (xhr) {
 			console.log('xhr', xhr);
 			
@@ -120,7 +119,6 @@
 			
 			// Toggle stale if necessary.
 			$('#bgnow').toggleClass('stale', (now - last > threshold));
-
 			// Generate and insert the clock.
 			var timeDivisor = (window.serverSettings.settings.timeFormat) ? window.serverSettings.settings.timeFormat : 12;
 			var today = new Date(),
@@ -129,13 +127,11 @@
 			if (m < 10) m = "0" + m;
 			$('#clock').text(h + ":" + m);
 		}
-
 		function init ( ) {
 			console.log('init');
 			query( );
 			setInterval(query, 1 * 60 * 1000);
 		}
-
 		init( );
 	</script>
 </body>
