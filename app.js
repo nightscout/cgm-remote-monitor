@@ -6,6 +6,9 @@ var compression = require('compression');
 var bodyParser = require('body-parser');
 var prettyjson = require('prettyjson');
 
+var multer  = require('multer')
+var upload = multer({ dest: 'uploads/' })
+
 var path = require('path');
 var fs = require('fs');
 
@@ -82,6 +85,7 @@ function create(env, ctx) {
     ///////////////////////////////////////////////////
     var api = require('./lib/api/')(env, ctx);
     var ddata = require('./lib/data/endpoints')(env, ctx);
+    var omnipodupload = require('./lib/upload/omnipod')(env, ctx);
 
     app.use(compression({
         filter: function shouldCompress(req, res) {
@@ -129,6 +133,14 @@ function create(env, ctx) {
     app.use('/api/v2/properties', ctx.properties);
     app.use('/api/v2/authorization', ctx.authorization.endpoints);
     app.use('/api/v2/ddata', ddata);
+
+    // uploads
+    let sendJSONStatus = require('./lib/middleware/send-json-status');
+    app.use('/upload/omnipod',
+        sendJSONStatus(),
+        ctx.authorization.isPermitted('api:treatments:create'),
+        upload.single('ibf'),
+        omnipodupload.handleUpload);
 
     // pebble data
     app.get('/pebble', ctx.pebble);
