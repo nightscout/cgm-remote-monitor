@@ -210,7 +210,7 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | ------------- | -------------------- |-------------------- |
 | Български (`bg`) |Please volunteer| OK |
 | Čeština (`cs`) |Please volunteer|OK |
-| Deutsch (`de`) |[@viderehh]|OK |
+| Deutsch (`de`) |[@viderehh] @herzogmedia |OK |
 | Dansk (`dk`) |Please volunteer|OK |
 | Ελληνικά `(el`)|Please volunteer|Needs attention: 68.5%|
 | English (`en`)|Please volunteer|OK|
@@ -238,5 +238,5 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | ------------------------------------- | -------------------- |
 | All active developers: | [@jasoncalabrese] [@jpcunningh] [@jweismann] [@komarserjio] [@mdomox] [@MilosKozak] [@PieterGit] [@rickfriele] [@sulkaharo]
 | All active testers/documentors: | [@danamlewis] [@jamieowendexcom] [@mcdafydd] [@oteroos] [@rarneson] [@tynbendad] [@unsoluble]
-| All active translators: | [@apanasef] [@jizhongwen] [@viderehh]
+| All active translators: | [@apanasef] [@jizhongwen] [@viderehh] @herzogmedia
 
