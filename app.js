@@ -136,11 +136,14 @@ function create(env, ctx) {
 
     // uploads
     let sendJSONStatus = require('./lib/middleware/send-json-status');
-    app.use('/upload/omnipod',
-        sendJSONStatus(),
-        ctx.authorization.isPermitted('api:treatments:create'),
-        upload.single('ibf'),
-        omnipodupload.handleUpload);
+    app.use('/upload/omnipod'
+      , sendJSONStatus()
+      , ctx.authorization.isPermitted('api:treatments:create')
+      , upload.fields([
+        { name: 'idf' }
+        , { name: 'tzOffset' }
+      ])
+      , omnipodupload.handleUpload);
 
     // pebble data
     app.get('/pebble', ctx.pebble);
