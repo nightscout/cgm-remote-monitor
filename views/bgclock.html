@@ -124,11 +124,11 @@
 			var today = new Date(),
 			h = today.getHours() % timeDivisor;
 			if (timeDivisor == 12) {
-				h = ( h == 00 ) ? 12 : h; // In the case of 00:xx, change to 12:xx for 12-hour time
+				h = ( h == 0 ) ? 12 : h; // In the case of 00:xx, change to 12:xx for 12-hour time
 			}
 			m = today.getMinutes();
 			if (m < 10) m = "0" + m;
-			$('#clock').text(h + ":" + m);
+			$('#clock').text(hh + ":" + m); // test double hour
 		}
 		function init ( ) {
 			console.log('init');
