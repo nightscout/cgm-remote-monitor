@@ -131,7 +131,7 @@ Minimum browser requirements for viewing the site:
 
 Windows installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.14.0 or later) or Node 10 LTS (Node 10.14.2 or later). Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
+- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.15.0 or later) or Node 10 LTS (Node 10.14.1 or later). Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
@@ -144,7 +144,7 @@ Installation notes for Microsoft Azure, Windows:
 
 - If deploying the software to Microsoft Azure, you must set ** in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Please use:
 ```
-WEBSITE_NODE_DEFAULT_VERSION=8.11.1
+WEBSITE_NODE_DEFAULT_VERSION=10.14.1
 SCM_COMMAND_IDLE_TIMEOUT=300
 ```
 - See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
