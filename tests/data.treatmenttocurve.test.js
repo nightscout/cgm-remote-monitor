@@ -20,7 +20,13 @@ describe('Data', function ( ) {
       , {_id: 'someid_4', mills: now + 60000, insulin: '1.00'} //without glucose, after sgvs
       , {_id: 'someid_5', mills: before - 120000, insulin: '1.00'} //without glucose, before sgvs
     ];
-    fitTreatmentsToBGCurve(ddata, settings);
+    fitTreatmentsToBGCurve(ddata, {
+        settings: settings
+      }
+      , {
+        language: require('../lib/language')()
+      }
+    );
     ddata.treatments[0].mgdl.should.equal(100);
     ddata.treatments[1].mmol.should.equal(5.5);
     ddata.treatments[2].mgdl.should.equal(95);
