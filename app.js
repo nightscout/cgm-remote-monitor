@@ -72,7 +72,6 @@ function create(env, ctx) {
         "/food":"foodindex.html",
         "/bgclock.html":"bgclock.html",
         "/hud.html":"hud.html",
-        "/kindle.html":"kindle.html",
         "/report":"reportindex.html",
         "/translations":"translationsindex.html",
         "/clock.html":"clock.html"
