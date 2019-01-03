@@ -25,7 +25,7 @@
 			padding: 0;
 			overflow: hidden;
 			font-family: 'Open Sans';
-			color: #ffffff;
+			color: white;
 			background-color: black;
 			-moz-transform: scale(1, -1);
 			-webkit-transform: scale(1, -1);
@@ -88,7 +88,6 @@
 				<div id="bgnow"></div>
 				<div id="arrowDiv"><img id="arrow" src=""/></div>
 			</div>
-			<div id="clock"></div>
 		</div>
 	</main>
 	
@@ -100,6 +99,7 @@
 			console.log('query');
 			$.ajax('/api/v1/entries/current.json', { success: render });
 		}
+
 		function render (xhr) {
 			console.log('xhr', xhr);
 			
@@ -124,6 +124,7 @@
 			
 			// Toggle stale if necessary.
 			$('#bgnow').toggleClass('stale', (now - last > threshold));
+
 			// Generate and insert the clock.
 			var timeDivisor = (window.serverSettings.settings.timeFormat) ? window.serverSettings.settings.timeFormat : 12;
 			var today = new Date(),
@@ -132,11 +133,13 @@
 			if (m < 10) m = "0" + m;
 			$('#clock').text(h + ":" + m);
 		}
+
 		function init ( ) {
 			console.log('init');
 			query( );
 			setInterval(query, 1 * 60 * 1000);
 		}
+
 		init( );
 	</script>
 </body>
