@@ -1,6 +1,11 @@
 'use strict';
 
-var _ = require('lodash');
+var _each = require('lodash/each');
+var _trim = require('lodash/trim');
+var _forIn = require('lodash/forIn');
+var _startsWith = require('lodash/startsWith');
+var _camelCase = require('lodash/camelCase');
+
 var fs = require('fs');
 var crypto = require('crypto');
 var consts = require('./lib/constants');
@@ -20,6 +25,7 @@ function config ( ) {
   env.HOSTNAME = readENV('HOSTNAME', null);
   env.IMPORT_CONFIG = readENV('IMPORT_CONFIG', null);
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
+  env.swagger_files = readENV('NIGHTSCOUT_SWAGGER_FILES',  __dirname + '/node_modules/swagger-ui-dist/');
   env.debug = {
     minify: readENVTruthy('DEBUG_MINIFY', true)
   };
@@ -79,17 +85,6 @@ function setAPISecret() {
 
 function setVersion() {
   var software = require('./package.json');
-  var git = require('git-rev');
-
-  if (readENV('APPSETTING_ScmType') === readENV('ScmType') && readENV('ScmType') === 'GitHub') {
-    env.head = require('./scm-commit-id.json');
-    console.log('SCM COMMIT ID', env.head);
-  } else {
-    git.short(function record_git_head(head) {
-      console.log('GIT HEAD', head);
-      env.head = head || readENV('SCM_COMMIT_ID') || readENV('COMMIT_HASH', '');
-    });
-  }
   env.version = software.version;
   env.name = software.name;
 }
@@ -97,25 +92,12 @@ function setVersion() {
 function setStorage() {
   env.storageURI = readENV('STORAGE_URI') || readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI') || readENV('MONGODB_URI');
   env.entries_collection = readENV('ENTRIES_COLLECTION') || readENV('MONGO_COLLECTION', 'entries');
-  env.MQTT_MONITOR = readENV('MQTT_MONITOR', null);
-  if (env.MQTT_MONITOR) {
-    var hostDbCollection = [env.storageURI.split('mongodb://').pop().split('@').pop(), env.entries_collection].join('/');
-    var mongoHash = crypto.createHash('sha1');
-    mongoHash.update(hostDbCollection);
-    //some MQTT servers only allow the client id to be 23 chars
-    env.mqtt_client_id = mongoHash.digest('base64').substring(0, 23);
-    console.info('Using Mongo host/db/collection to create the default MQTT client_id', hostDbCollection);
-    if (env.MQTT_MONITOR.indexOf('?clientId=') === -1) {
-      console.info('Set MQTT client_id to: ', env.mqtt_client_id);
-    } else {
-      console.info('MQTT configured to use a custom client id, it will override the default: ', env.mqtt_client_id);
-    }
-  }
   env.authentication_collections_prefix = readENV('MONGO_AUTHENTICATION_COLLECTIONS_PREFIX', 'auth_');
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
   env.food_collection = readENV('MONGO_FOOD_COLLECTION', 'food');
+  env.activity_collection = readENV('MONGO_ACTIVITY_COLLECTION', 'activity');
 
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.
@@ -170,20 +152,23 @@ function readENVTruthy(varName, defaultValue) {
 function findExtendedSettings (envs) {
   var extended = {};
 
+  extended.devicestatus = {};
+  extended.devicestatus.advanced = true;
+
   function normalizeEnv (key) {
     return key.toUpperCase().replace('CUSTOMCONNSTR_', '');
   }
 
-  _.each(env.settings.enable, function eachEnable(enable) {
-    if (_.trim(enable)) {
-      _.forIn(envs, function eachEnvPair (value, key) {
+  _each(env.settings.enable, function eachEnable(enable) {
+    if (_trim(enable)) {
+      _forIn(envs, function eachEnvPair (value, key) {
         var env = normalizeEnv(key);
-        if (_.startsWith(env, enable.toUpperCase() + '_')) {
+        if (_startsWith(env, enable.toUpperCase() + '_')) {
           var split = env.indexOf('_');
           if (split > -1 && split <= env.length) {
             var exts = extended[enable] || {};
             extended[enable] = exts;
-            var ext = _.camelCase(env.substring(split + 1).toLowerCase());
+            var ext = _camelCase(env.substring(split + 1).toLowerCase());
             if (!isNaN(value)) { value = Number(value); }
             if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
             if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
