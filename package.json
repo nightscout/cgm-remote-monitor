@@ -86,7 +86,7 @@
     "random-token": "0.0.8",
     "request": "^2.88.0",
     "semver": "^5.6.0",
-    "share2nightscout-bridge": "~0.2.0-dev-20190102",
+    "share2nightscout-bridge": "^0.2.0",
     "shiro-trie": "^0.4.8",
     "simple-statistics": "^0.7.0",
     "socket.io": "~2.1.1",
@@ -106,6 +106,6 @@
     "supertest": "^3.3.0",
     "webpack": "^4.28.3",
     "webpack-bundle-analyzer": "^3.0.3",
-    "webpack-cli": "^3.1.2"
+    "webpack-cli": "^3.2.0"
   }
 }
