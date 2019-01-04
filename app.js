@@ -103,6 +103,7 @@ function create(env, ctx) {
         "/profile":"profileindex.html",
         "/food":"foodindex.html",
         "/bgclock.html":"bgclock.html",
+        "/hud.html":"hud.html",
         "/report":"reportindex.html",
         "/translations":"translationsindex.html",
         "/clock.html":"clock.html"
