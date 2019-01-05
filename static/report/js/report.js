@@ -170,13 +170,9 @@
 
     if (client.settings.scaleY === 'linear') {
       $('#rp_linear').prop('checked', true);
-    } else {
-      $('#rp_log').prop('checked', true);
-    }
-
-    if (client.settings.scaleY === 'linear') {
       $('#wrp_linear').prop('checked', true);
     } else {
+      $('#rp_log').prop('checked', true);
       $('#wrp_log').prop('checked', true);
     }
     
