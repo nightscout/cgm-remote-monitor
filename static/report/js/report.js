@@ -214,7 +214,7 @@
       , cob : true
       , basal : true
       , scale: report_plugins.consts.scaleYFromSettings(client)
-      , weekscale: report_plugins.consts.scaleWeekYFromSettings(client)
+      , weekscale: report_plugins.consts.scaleYFromSettings(client)
       , units: client.settings.units
     };
 
