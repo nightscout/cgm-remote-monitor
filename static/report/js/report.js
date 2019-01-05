@@ -174,7 +174,7 @@
       $('#rp_log').prop('checked', true);
     }
 
-    if (client.settings.weekScaleY === 'linear') {
+    if (client.settings.scaleY === 'linear') {
       $('#wrp_linear').prop('checked', true);
     } else {
       $('#wrp_log').prop('checked', true);
