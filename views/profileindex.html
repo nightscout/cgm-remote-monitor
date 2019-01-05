@@ -1,47 +1,43 @@
 <!DOCTYPE html>
 <html>
-    <head>
-      <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
-      <meta name="apple-mobile-web-app-capable" content="yes">
-      <title>Profile Editor: Nightscout</title>
-
-      <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
-      <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
-      <link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png">
-      <link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png">
-      <link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png">
-      <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
-      <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
-      <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
-      <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
-      <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
-      <link rel="icon" type="image/png" href="/images/android-chrome-192x192.png" sizes="192x192">
-      <link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96">
-      <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
-      <link rel="manifest" href="/manifest.json">
-      <link rel="shortcut icon" href="/images/favicon.ico">
-      <meta name="msapplication-TileColor" content="#00a300">
-      <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
-      <meta name="msapplication-config" content="/browserconfig.xml">
-      <meta name="theme-color" content="#333333">
-
-      <link rel="stylesheet" type="text/css" href="/css/main.css?v=<%= locals.cachebuster %>" />
-      <link rel="stylesheet" type="text/css" href="/css/drawer.css" />
-      <link rel="stylesheet" type="text/css" href="/css/profile.css" />
-      <link rel="stylesheet" type="text/css" href="/css/ui-darkness/jquery-ui.min.css">
-    </head>
-    <body>
+  <head>
+    <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Profile Editor: Nightscout</title>
+    <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
+    <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
+    <link rel="icon" type="image/png" href="/images/android-chrome-192x192.png" sizes="192x192">
+    <link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96">
+    <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="shortcut icon" href="/images/favicon.ico">
+    <meta name="msapplication-TileColor" content="#00a300">
+    <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
+    <meta name="msapplication-config" content="/browserconfig.xml">
+    <meta name="theme-color" content="#333333">
+    <link rel="stylesheet" type="text/css" href="/css/main.css?v=<%= locals.cachebuster %>" />
+    <link rel="stylesheet" type="text/css" href="/css/drawer.css" />
+    <link rel="stylesheet" type="text/css" href="/css/profile.css" />
+    <link rel="stylesheet" type="text/css" href="/css/ui-darkness/jquery-ui.min.css">
+  </head>
+  <body>
     <div id="toolbar">
       <div id="buttonbar">
         <b> <span class="translate">Status</span>:</b> <span class="pe_status translate">Not loaded</span>
       </div>
       <h1 class="customTitle translate">Nightscout</h1>
     </div>
-
     <div id="profile-editor">
       <h1 class="translate">Profile Editor</h1>
     </div>
-
     <form id="pe_form">
       <fieldset class="browserSettings">
         <legend class="translate">General profile settings</legend>
@@ -58,7 +54,6 @@
           <span id="pe_timeformat"></span>
         </dl>
       </fieldset>
-
       <fieldset class="browserSettings">
         <legend id="pe_history" style="display:none">
           <span class="translate">Database records</span>:
@@ -77,7 +72,6 @@
           <input type="date" id="pe_date" />
           <input type="time" id="pe_time" />
         </dl>
-
         <fieldset class="browserSettings pe_stored_profile">
           <legend id="pe_multiple" style="display:none">
             <b><span class="translate">Stored profiles</span>: </b>
@@ -103,27 +97,24 @@
             <b title="Represents the typical duration over which insulin takes effect.  Varies per patient and per insulin type. Typically 3-4 hours for most pumped insulin and most patients. Sometimes also called insulin lifetime." class="titletranslate"><span class="translate">Duration of Insulin Activity (DIA)</span> [<span class="translate">hours</span>]: </b>
             <input type="text" id="pe_dia" />
           </dl>
-
           <fieldset>
-              <legend title="g carbs per U insulin. The ratio of how many grams of carbohydrates are offset by each U of insulin." class="titletranslate"><span class="translate">Insulin to carb ratio (I:C)</span> [<span class="trasnlate">g</span>]:</legend>
-              <div id="pe_ic_placeholder"></div>
+            <legend title="g carbs per U insulin. The ratio of how many grams of carbohydrates are offset by each U of insulin." class="titletranslate"><span class="translate">Insulin to carb ratio (I:C)</span> [<span class="trasnlate">g</span>]:</legend>
+            <div id="pe_ic_placeholder"></div>
           </fieldset>
-          
           <fieldset>
-              <legend title="mg/dL or mmol/L per U insulin. The ratio of how much BG changes with each U of corrective insulin." class="titletranslate"><span class="translate">Insulin Sensitivity Factor (ISF)</span> [mg/dL/U,mmol/L/U]: </legend>
-              <div id="pe_isf_placeholder"></div>
+            <legend title="mg/dL or mmol/L per U insulin. The ratio of how much BG changes with each U of corrective insulin." class="titletranslate"><span class="translate">Insulin Sensitivity Factor (ISF)</span> [mg/dL/U,mmol/L/U]: </legend>
+            <div id="pe_isf_placeholder"></div>
           </fieldset>
-
           <fieldset>
             <legend class="translate">Carbs</legend>
             <!--Re-Enable after integrated into profilefunctions.js-->
             <!--<legend>Carbs-->
-              <!--(-->
-              <!--<i>-->
-                <!--<input type="checkbox" id="pe_perGIvalues" checked />-->
-                <!--use GI specific values-->
-              <!--</i>-->
-              <!--)-->
+            <!--(-->
+            <!--<i>-->
+            <!--<input type="checkbox" id="pe_perGIvalues" checked />-->
+            <!--use GI specific values-->
+            <!--</i>-->
+            <!--)-->
             <!--</legend>-->
             <div id="pe_simple">
               <dl>
@@ -146,33 +137,24 @@
               </dl>
             </div>
           </fieldset>
-          
           <fieldset class="browserSettings">
             <legend class="translate">Basal rates [unit/hour]</legend>
             <div id="pe_basal_placeholder"></div>
             <div><span class="translate">Total per day</span>: <span id="pe_basalTotal_placeholder"></span></div>
           </fieldset>
-
           <fieldset class="browserSettings">
             <legend class="translate">Target BG range [mg/dL,mmol/L]</legend>
             <div id="pe_targetbg_placeholder"></div>
           </fieldset>
-
         </fieldset>
-
         <button type="submit" id="pe_submit" class="translate">Save</button>
-        
       </fieldset>
-
       <b><span class="translate">Authentication status</span>: </b>
       <span id="authentication_placeholder"></span>
-
       <p>
         <b> <span class="translate">Status</span>:</b> <span class="pe_status" class="translate">Not loaded</span>
       </p>
-
     </form>
-
     <script src="/api/v1/status.js"></script>
     <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
     <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
