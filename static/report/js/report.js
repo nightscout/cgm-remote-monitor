@@ -170,13 +170,9 @@
 
     if (client.settings.scaleY === 'linear') {
       $('#rp_linear').prop('checked', true);
-    } else {
-      $('#rp_log').prop('checked', true);
-    }
-
-    if (client.settings.weekScaleY === 'linear') {
       $('#wrp_linear').prop('checked', true);
     } else {
+      $('#rp_log').prop('checked', true);
       $('#wrp_log').prop('checked', true);
     }
     
@@ -214,7 +210,7 @@
       , cob : true
       , basal : true
       , scale: report_plugins.consts.scaleYFromSettings(client)
-      , weekscale: report_plugins.consts.scaleWeekYFromSettings(client)
+      , weekscale: report_plugins.consts.scaleYFromSettings(client)
       , units: client.settings.units
     };
 
