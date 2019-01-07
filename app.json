@@ -176,7 +176,27 @@
       "description": "If set to true a Content Security Policy header will be added. Default: true",
       "value": "true",
       "required": false
-    }
+    },
+    "MMCONNECT_USER_NAME": {
+      "description": "Your username for CareLink",
+      "value": "",
+      "required": false
+    },
+    "MMCONNECT_PASSWORD": {
+      "description": "Your password for CareLink",
+      "value": "",
+      "required": false
+    },
+    "MMCONNECT_SERVER": {
+      "description": "EU if Europe",
+      "value": "",
+      "required": false
+    },
+    "MMCONNECT_VERBOSE": {
+      "description": "Verbose",
+      "value": "",
+      "required": false
+}
   },
   "addons": [
     "mongolab:sandbox",
