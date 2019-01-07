@@ -151,6 +151,31 @@
       "description": "Maker Announcement Key - Set this to your secret key for announcements Note for additional info see https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md#ifttt-maker , maker should be added to enable if you want to use maker Leave blank if not using maker",
       "value": "",
       "required": false
+    },
+    "INSECURE_USE_HTTP": {
+      "description": "If set to true or unspecified the site will redirect requests over http to https. If set to false requests over http will not be redirected and served insecurely. Default: false",
+      "value": "false",
+      "required": false
+    },
+    "SECURE_HSTS_HEADER": {
+      "description": "If set to true or unspecified HSTS (HTTP Strict Transport Security) header will be added. Default: true",
+      "value": "true",
+      "required": false
+    }, 
+    "SECURE_HSTS_HEADER_INCLUDESUBDOMAINS": {
+      "description": "If set to true `includeSubDomains` will be added to the HSTS (HTTP Strict Transport Security) header. This header is required for `preload` Default: false",
+      "value": "false",
+      "required": false
+    },
+    "SECURE_HSTS_HEADER_PRELOAD": {
+      "description": "If set to true `preload` will be added to the HSTS (HTTP Strict Transport Security) header. This will add your site to the HSTS preloaded list. This features requires SECURE_HSTS_HEADER_INCLUDESUBDOMAINS to be true. Default: false",
+      "value": "false",
+      "required": false
+    },
+    "SECURE_CSP": {
+      "description": "If set to true a Content Security Policy header will be added. Default: true",
+      "value": "true",
+      "required": false
     }
   },
   "addons": [
