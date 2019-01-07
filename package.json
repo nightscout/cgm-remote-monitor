@@ -76,7 +76,7 @@
     "lodash": "^4.17.11",
     "long": "^4.0.0",
     "mime": "^2.4.0",
-    "minimed-connect-to-nightscout": "^1.1.1",
+    "minimed-connect-to-nightscout": "https://github.com/szymjaw/minimed-connect-to-nightscout.git#dev-servers",
     "moment": "^2.22.2",
     "moment-timezone": "^0.5.23",
     "mongodb": "^3.1.10",
