@@ -122,6 +122,26 @@
       "value": "",
       "required": false
     },
+    "MMCONNECT_USER_NAME": {
+      "description": "Your CareLink account username, to receive CGM data from the CareLink service. Also make sure to include 'mmconnect' in your ENABLE line.",
+      "value": "",
+      "required": false
+    },
+    "MMCONNECT_PASSWORD": {
+      "description": "Your CareLink account password, to receive CGM data from the CareLink service. Also make sure to include 'mmconnect' in your ENABLE line.",
+      "value": "",
+      "required": false
+    },
+    "MMCONNECT_SERVER": {
+      "description": "If you are bridging from the CareLink service, and are anywhere *outside* the US, change this to EU. ('US' or 'EU')",
+      "value": "US",
+      "required": false
+    },
+    "MMCONNECT_VERBOSE": {
+      "description": "Verbose",
+      "value": "",
+      "required": false
+    },
     "MONGO_COLLECTION": {
       "description": "The mLab collection where CGM data is stored.",
       "value": "entries",
