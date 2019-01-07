@@ -103,7 +103,7 @@
       "required": false
     },
     "ENABLE": {
-      "description": "Plugins to enable for your site. Must be a space-delimited list. Include the word 'bridge' here if you are receiving data from the Dexcom Share service.",
+      "description": "Plugins to enable for your site. Must be a space-delimited list. Include the word 'bridge' here if you are receiving data from the Dexcom Share service. Include 'mmconnect' if you are bridging from the MiniMed CareLink service.",
       "value": "careportal basal",
       "required": false
     },
