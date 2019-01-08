@@ -48,7 +48,7 @@
       "required": false
     },
     "API_SECRET": {
-      "description": "A passphrase that must be at least 12 characters long.",
+      "description": "A passphrase that must be at least 12 characters long. Avoid 'special' characters, which can cause problems in some cases.",
       "value": "",
       "required": true
     },
@@ -92,34 +92,14 @@
       "value": "",
       "required": false
     },
-    "DISABLE": {
-      "description": "Used to disable default features. Must be a space-delimited list.",
-      "value": "",
-      "required": false
-    },
     "DISPLAY_UNITS": {
       "description": "Preferred BG units for the site:'mg/dl' or 'mmol'. (Note that it is *not* 'mmol/L')",
       "value": "mg/dl",
       "required": false
     },
     "ENABLE": {
-      "description": "Plugins to enable for your site. Must be a space-delimited list. Include the word 'bridge' here if you are receiving data from the Dexcom Share service. Include 'mmconnect' if you are bridging from the MiniMed CareLink service.",
+      "description": "Plugins to enable for your site. Must be a space-delimited, lower-case list. Include the word 'bridge' here if you are receiving data from the Dexcom Share service. Include 'mmconnect' if you are bridging from the MiniMed CareLink service.",
       "value": "careportal basal",
-      "required": false
-    },
-    "INSECURE_USE_HTTP": {
-      "description": "If set to true, the site will redirect requests over http to https. If set to false requests over http will not be redirected and will be served insecurely.",
-      "value": "false",
-      "required": false
-    },
-    "MAKER_ANNOUNCEMENT_KEY": {
-      "description": "If using the Maker plugin, this is your optional Announcement Key. Also make sure to include the word 'maker' in your ENABLE string.",
-      "value": "",
-      "required": false
-    },
-    "MAKER_KEY": {
-      "description": "If using the Maker plugin, this is your Secret Key. Also make sure to include the word 'maker' in your ENABLE string.",
-      "value": "",
       "required": false
     },
     "MMCONNECT_USER_NAME": {
@@ -137,11 +117,6 @@
       "value": "US",
       "required": false
     },
-    "MMCONNECT_VERBOSE": {
-      "description": "Verbose",
-      "value": "",
-      "required": false
-    },
     "MONGO_COLLECTION": {
       "description": "The mLab collection where CGM data is stored.",
       "value": "entries",
@@ -152,39 +127,9 @@
       "value": "off",
       "required": false 
     },
-    "PUSHOVER_ANNOUNCEMENT_KEY": {
-      "description": "If using the Pushover service, this is your optional Announcement Key.",
+    "SHOW_PLUGINS": {
+      "description": "Default setting for whether or not these plugins are checked (active) by default, not merely enabled. Include plugins here as in the ENABLE line; space-separated and lower-case.",
       "value": "",
-      "required": false
-    },
-    "PUSHOVER_API_TOKEN": {
-      "description": "If using the Pushover service, this is your API Token.",
-      "value": "",
-      "required": false
-    },
-    "PUSHOVER_USER_KEY": {
-      "description": "If using the Pushover service, this is your optional Pushover User Key.",
-      "value": "",
-      "required": false
-    },
-    "SECURE_CSP": {
-      "description": "Enables a Content Security Policy header.",
-      "value": "true",
-      "required": false
-    },
-    "SECURE_HSTS_HEADER": {
-      "description": "Enables an HSTS (HTTP Strict Transport Security) header.",
-      "value": "true",
-      "required": false
-    }, 
-    "SECURE_HSTS_HEADER_INCLUDESUBDOMAINS": {
-      "description": "Adds `includeSubDomains` to the HSTS header. This header is required for `preload`.",
-      "value": "false",
-      "required": false
-    },
-    "SECURE_HSTS_HEADER_PRELOAD": {
-      "description": "Adds `preload` to the HSTS header, adding your site to the HSTS preloaded list. Requires SECURE_HSTS_HEADER_INCLUDESUBDOMAINS to be true.",
-      "value": "false",
       "required": false
     },
     "SHOW_RAWBG": {
