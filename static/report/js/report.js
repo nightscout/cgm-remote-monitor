@@ -170,8 +170,10 @@
 
     if (client.settings.scaleY === 'linear') {
       $('#rp_linear').prop('checked', true);
+      $('#wrp_linear').prop('checked', true);
     } else {
       $('#rp_log').prop('checked', true);
+      $('#wrp_log').prop('checked', true);
     }
     
     $('.menutab').click(switchreport_handler);
@@ -195,6 +197,8 @@
     var options = {
       width: 1000
       , height: 300
+      , weekwidth: 1000
+      , weekheight: 300
       , targetLow: 3.5
       , targetHigh: 10
       , raw: true
@@ -206,6 +210,7 @@
       , cob : true
       , basal : true
       , scale: report_plugins.consts.scaleYFromSettings(client)
+      , weekscale: report_plugins.consts.scaleYFromSettings(client)
       , units: client.settings.units
     };
 
@@ -226,9 +231,18 @@
     options.insulindistribution = $('#rp_optionsdistribution').is(':checked');
     options.carbs = $('#rp_optionscarbs').is(':checked');
     options.scale = ( $('#rp_linear').is(':checked') ? report_plugins.consts.SCALE_LINEAR : report_plugins.consts.SCALE_LOG );
+    options.weekscale = ( $('#wrp_linear').is(':checked') ? report_plugins.consts.SCALE_LINEAR : report_plugins.consts.SCALE_LOG );
     options.order = ( $('#rp_oldestontop').is(':checked') ? report_plugins.consts.ORDER_OLDESTONTOP : report_plugins.consts.ORDER_NEWESTONTOP );
     options.width = parseInt($('#rp_size :selected').attr('x'));
+    options.weekwidth = parseInt($('#wrp_size :selected').attr('x'));
     options.height = parseInt($('#rp_size :selected').attr('y'));
+    options.weekheight = parseInt($('#wrp_size :selected').attr('y'));
+    options.loopalyzer = $("#loopalyzer").hasClass( "selected" ); // We only want to run through Loopalyzer if that tab is selected
+    if (options.loopalyzer) {
+      options.iob = true;
+      options.cob = true;
+      options.openAps = true;
+    }
     
     var matchesneeded = 0;
 
@@ -510,6 +524,8 @@
 
       if (plugin.name == 'daytoday' && ! $('#daytoday').hasClass('selected')) skipRender = true;
       if (plugin.name == 'treatments' && ! $('#treatments').hasClass('selected')) skipRender = true;
+      if (plugin.name == 'weektoweek' && ! $('#weektoweek').hasClass('selected')) skipRender = true;
+      if (plugin.name == 'loopalyzer' && ! $('#loopalyzer').hasClass('selected')) skipRender = true;
 
       if (skipRender) {
         console.log('Skipping ',plugin.name);
