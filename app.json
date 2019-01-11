@@ -118,7 +118,7 @@
       "required": false
     },
     "MONGO_COLLECTION": {
-      "description": "The mLab collection where CGM data is stored.",
+      "description": "The Mongo collection where CGM data is stored.",
       "value": "entries",
       "required": true
     },
