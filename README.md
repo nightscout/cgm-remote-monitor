@@ -120,18 +120,18 @@ If you plan to use Nightscout, we recommend using [Heroku](http://openaps.readth
 
 Minimum browser requirements for viewing the site:
 
-- iOS 9
 - Android 4
-- Chrome 42
-- Safari 9 (El Capitan)
-- Firefox 34
+- Chrome 68
 - Edge 15
+- Firefox 61
 - Internet Explorer: not supported
-- Opera: not supported
+- iOS 9 
+- Safari 11
+- Opera: 54
 
 Windows installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.12.0 or later). Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
+- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.15.0 or later) or Node 10 LTS (Node 10.15.0 or later; Node 10.14.1 works for Azure). Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
@@ -140,16 +140,15 @@ As a non-root user clone this repo then install dependencies into the root of th
 $ npm install
 ```
 
-Installation notes for Microsoft Azure, Windows and Node 10: 
+Installation notes for Microsoft Azure, Windows: 
 
 - If deploying the software to Microsoft Azure, you must set ** in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Please use:
 ```
-WEBSITE_NODE_DEFAULT_VERSION=8.11.1
+WEBSITE_NODE_DEFAULT_VERSION=10.14.1
 SCM_COMMAND_IDLE_TIMEOUT=300
 ```
 - See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
 - If you deploy to Windows and want to develop or test you need to install [Cygwin](https://www.cygwin.com/) (use [setup-x86_64.exe](https://www.cygwin.com/setup-x86_64.exe) and make sure to install `build-essential` package. Test your configuration by executing `make` and check if all tests are ok. 
-- There may be some issues with Node 10.6.0 or later with Nightscout. Node 10 support will be in the 0.11 release. Please don't use Nightscout with (Node 9 or) Node 10 at this moment.
 
 # Usage
 
@@ -360,7 +359,11 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   An option plugin to enable adding foods from database in Bolus Wizard and enable .
 
 ##### `rawbg` (Raw BG)
-  Calculates BG using sensor and calibration records from and displays an alternate BG values and noise levels.
+  Calculates BG using sensor and calibration records from and displays an alternate BG values and noise levels. Defaults that can be adjusted with [extended setting](#extended-settings)
+  * `DISPLAY` (`unsmoothed`) - Allows the user to control which algorithm is used to calculate the displayed raw BG values using the most recent calibration record.
+    * `unfiltered` - Raw BG is calculated by applying the calibration to the glucose record's unfiltered value.
+    * `filtered` - Raw BG is calculated by applying the calibration to the glucose record's filtered value. The glucose record's filtered values are generally produced by the CGM by a running average of the unfiltered values to produce a smoothed value when the sensor noise is high.
+    * `unsmoothed` - Raw BG is calculated by first finding the ratio of the calculated filtered value (the same value calculated by the `filtered` setting) to the reported glucose value. The displayed raw BG value is calculated by dividing the calculated unfiltered value (the same value calculated by the `unfiltered` setting) by the ratio.  The effect is to exagerate changes in trend direction so the trend changes are more noticeable to the user. This is the legacy raw BG calculation algorithm.
 
 ##### `iob` (Insulin-on-Board)
   Adds the IOB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with insulin doses and the `dia` and `sens` fields from the [treatment profile](#treatment-profile).
