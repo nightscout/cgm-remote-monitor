@@ -1,5 +1,5 @@
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+
 **Table of Contents**
 
 - [Nightscout/IFTTT Maker](#nightscoutifttt-maker)
@@ -7,19 +7,23 @@
   - [Events](#events)
   - [Configuration](#configuration)
   - [Create a recipe](#create-a-recipe)
-    - [Start [creating a recipe](https://ifttt.com/myrecipes/personal/new)](#start-creating-a-recipehttpsiftttcommyrecipespersonalnew)
-    - [1. Choose a Trigger Channel](#1-choose-a-trigger-channel)
-    - [2. Choose a Trigger](#2-choose-a-trigger)
-    - [3. Complete Trigger Fields](#3-complete-trigger-fields)
-    - [4. That](#4-that)
-    - [5. Choose an Action](#5-choose-an-action)
-    - [6. Complete Action Fields](#6-complete-action-fields)
-    - [7. Create and Connect](#7-create-and-connect)
-    - [Result](#result)
+    - [1. Choose a Service](#1.-Choose-a-Service)
+    - [2. Choose a Trigger](#2.-Choose-a-Trigger)
+    - [3. Complete the Trigger Field](#3.-Complete-the-Trigger-Field)
+    - [4. Selecting That](#4.-That)
+    - [5. Choose an Action](#5.-Choose-an-Action)
+    - [6. Connect Notifications](#6.-Connect-Notifications)
+    - [7. Choose Notification Action Type](#7.-Choose-Notification-Action-Type)
+    - [8. Edit the Message](#8.-Edit-the-Message)
+    - [9. App Complete](#9.-App-Complete)
+    - [10. Obtaining Maker Key](#10.-Obtaining-Maker-Key)
+    -  [11. Adding Maker_Key](#11.-Adding-Maker_Key-to-Website)
+    -  [12. Install Android IFTTT App](#12.-Install-Android-IFTTT-App)
 
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 
+Nightscout/IFTTT Maker
+======================================
 
 ## Overview
 
@@ -74,7 +78,7 @@
 
 
 
-### 3. Complete the trigger field
+### 3. Complete the Trigger Field
 
 ### Enter one of the above listed events like "ns-urgent" (without the quotes)
 
@@ -146,7 +150,7 @@
 
   
 
-### 12. Adding Maker_Key to Website
+### 11. Adding Maker_Key to Website
 
 ### In a Heroku.com website deployment, the Website, vars look like this:    
 
@@ -154,11 +158,10 @@
 
 
 
-### 13. Install Android IFTTT App
+### 12. Install Android IFTTT App
 
 ### Next, you need to install the Android IFTTT app from the Play Store and log into it with you IFTTT password and ID.   Now, whenever an ns-urgent event occurs, Nightscout will send an event to IFTTT, then IFTTT will send a notification to your Android phone showing a ns-urgent notification and whatever text you configured in the message.  On my Android phone, my phone beeps and the message is displayed on the lock screen.  
 
 
 
-### 
   
