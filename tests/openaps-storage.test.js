@@ -65,8 +65,6 @@ describe('openaps storage', function () {
         should.not.exist(err);
         should.exist(results);
 
-        console.info('>>>devicestatus results', results);
-
         results.length.should.equal(1);
         results[0].openaps.enacted.eventualBG.should.equal(82);
 
