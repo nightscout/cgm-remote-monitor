@@ -153,7 +153,7 @@ Nightscout/IFTTT Maker
 ### 11. Adding Maker_Key to Website
 
 ### In a Heroku.com website deployment, the Website, vars look like this:
-### Make sure you have Enabled "Maker" in the Enable line as well.    
+### Make sure you have added "maker" to the Enable line as well.    
 
 ![maker_key_entry](./maker-setup-images/maker_key_entry.jpg)
 
