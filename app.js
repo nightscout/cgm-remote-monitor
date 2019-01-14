@@ -66,6 +66,7 @@ function create(env, ctx) {
     });
 
     var appPages = {
+	"/hud.html":"hud.html",
         "/clock-color.html":"clock-color.html",
         "/admin":"adminindex.html",
         "/profile":"profileindex.html",
@@ -73,7 +74,7 @@ function create(env, ctx) {
         "/bgclock.html":"bgclock.html",
         "/report":"reportindex.html",
         "/translations":"translationsindex.html",
-        "/clock.html":"clock.html"
+        "/clock.html":"clock.html",
     };
 
 	Object.keys(appPages).forEach(function(page) {
