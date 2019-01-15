@@ -173,7 +173,8 @@ function create(env, ctx) {
     // serve the static content
     app.use(staticFiles);
 
-    var swaggerFiles = express.static(env.swagger_files, {
+    const swaggerUiAssetPath = require("swagger-ui-dist").getAbsoluteFSPath();
+    var swaggerFiles = express.static(swaggerUiAssetPath, {
         maxAge: maxAge
     });
 
