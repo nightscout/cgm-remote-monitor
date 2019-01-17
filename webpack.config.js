@@ -4,7 +4,7 @@ const MomentLocalesPlugin = require('moment-locales-webpack-plugin');
 const pluginArray = [];
 const sourceMapType = 'source-map';
 
-/*if (process.env.NODE_ENV !== 'development') {
+if (process.env.NODE_ENV == 'development') {
  console.log('Development environment detected, enabling Bundle Analyzer');
  const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
@@ -40,7 +40,7 @@ const sourceMapType = 'source-map';
  // Log level. Can be 'info', 'warn', 'error' or 'silent'.
  logLevel: 'info'
  }));
- }*/
+ }
 
 pluginArray.push(new webpack.ProvidePlugin({
   $: 'jquery',
@@ -55,6 +55,18 @@ pluginArray.push(new MomentLocalesPlugin({
   localesToKeep: ['bg', 'cs', 'de', 'el', 'es', 'fi', 'fr', 'he', 'hr', 'it', 'ko', 'nb', 'nl', 'pl', 'pt', 'ro', 'ru',
     'sk', 'sv', 'zh_cn', 'zh_tw'],
 }));
+
+
+pluginArray.push(new webpack.NormalModuleReplacementPlugin(
+  /moment-timezone\.js/,
+  'builds/moment-timezone-with-data-2012-2022.js'
+));
+
+pluginArray.push(new webpack.NormalModuleReplacementPlugin(
+  /data\/packed\/latest\.json/,
+  '../../bundle/minimoment.json'
+));
+
 
 module.exports = {
   context: path.resolve(__dirname, '.'),
