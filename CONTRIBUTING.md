@@ -232,6 +232,7 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | Svenska (`sv`)|Please volunteer|OK|
 | 中文（简体） (`zh_cn`) | [@jizhongwen]|OK|
 | 中文（繁體） (`zh_tw`) | [@jizhongwen]|Needs attention: 25.0%]
+| 日本語 (`ja_jp`) | [@LuminaryXion]|]
 
 
 ### List of all contributors
@@ -239,5 +240,5 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | ------------------------------------- | -------------------- |
 | All active developers: | [@jasoncalabrese] [@jpcunningh] [@jweismann] [@komarserjio] [@mdomox] [@MilosKozak] [@PieterGit] [@rickfriele] [@sulkaharo]
 | All active testers/documentors: | [@danamlewis] [@jamieowendexcom] [@mcdafydd] [@oteroos] [@rarneson] [@tynbendad] [@unsoluble]
-| All active translators: | [@apanasef] [@jizhongwen] [@viderehh] @herzogmedia
+| All active translators: | [@apanasef] [@jizhongwen] [@viderehh] @herzogmedia [@LuminaryXion]
 
