@@ -17,3 +17,6 @@
 .icon-chart-line:before { content: '\e80f'; } /* '' */
 .icon-sort-numeric:before { content: '\e810'; } /* '' */
 .icon-edit:before { content: '\e811'; } /* '' */
+.icon-lock:before { content: '\e812'; } /* '' */
+.icon-lock-open:before { content: '\e813'; } /* '' */
+.icon-trash-empty:before { content: '\e814'; } /* '' */
