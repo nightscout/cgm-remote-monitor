@@ -54,12 +54,6 @@ require('./lib/server/bootevent')(env, language).boot(function booted (ctx) {
       return;
     }
 
-    if (env.MQTT_MONITOR) {
-      ctx.mqtt = require('./lib/server/mqtt')(env, ctx);
-      var es = require('event-stream');
-      es.pipeline(ctx.mqtt.entries, ctx.entries.map( ), ctx.mqtt.every(ctx.entries));
-    }
-
     ///////////////////////////////////////////////////
     // setup socket io for data and message transmission
     ///////////////////////////////////////////////////
