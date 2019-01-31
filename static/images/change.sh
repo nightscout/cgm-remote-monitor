@@ -1,0 +1,31 @@
+#!/bin/bash
+
+convert Mann.jpg -resize x144 android-chrome-144x144.png
+convert Mann.jpg -resize x192 android-chrome-192x192.png
+convert Mann.jpg -resize x36 android-chrome-36x36.png
+convert Mann.jpg -resize x48 android-chrome-48x48.png
+convert Mann.jpg -resize x72 android-chrome-72x72.png
+convert Mann.jpg -resize x96 android-chrome-96x96.png
+convert Mann.jpg -resize x114 apple-touch-icon-114x114.png
+convert Mann.jpg -resize x120 apple-touch-icon-120x120.png
+convert Mann.jpg -resize x144 apple-touch-icon-144x144.png
+convert Mann.jpg -resize x152 apple-touch-icon-152x152.png
+convert Mann.jpg -resize x180 apple-touch-icon-180x180.png
+convert Mann.jpg -resize x57 apple-touch-icon-57x57.png
+convert Mann.jpg -resize x60 apple-touch-icon-60x60.png
+convert Mann.jpg -resize x72 apple-touch-icon-72x72.png
+convert Mann.jpg -resize x76 apple-touch-icon-76x76.png
+convert Mann.jpg -resize x180 apple-touch-icon.png
+convert Mann.jpg -resize x180 apple-touch-icon-precomposed.png
+convert Mann.jpg -resize x16 favicon-16x16.png
+convert Mann.jpg -resize x32 favicon-32x32.png
+convert Mann.jpg -resize x96 favicon-96x96.png 
+convert Mann.jpg -resize x48 favicon.ico
+convert Mann.jpg -resize x150 launch.png
+convert Mann.jpg -resize x36 logo1.png
+convert Mann.jpg -resize x36 logo2.png
+convert Mann.jpg -resize x70 mstile-70x70.png
+convert Mann.jpg -resize x144 mstile-144x144.png
+convert Mann.jpg -resize x150 mstile-150x150.png
+convert Mann.jpg -resize 310x150 mstile-310x150.png
+convert Mann.jpg -resize x310 mstile-310x310.png
