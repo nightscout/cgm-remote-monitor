@@ -251,9 +251,9 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `MONGO_ACTIVITY_COLLECTION`(`activity`) - The collection used to store activity data
   * `PORT` (`1337`) - The port that the node.js application will listen on.
   * `HOSTNAME` - The hostname that the node.js application will listen on, null by default for any hostname for IPv6 you may need to use `::`.
-  * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js
-  * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js
-  * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js
+  * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to your privkey.pem file (private key).
+  * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to fullchain.pem file (cert + ca).
+  * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to chain.pem file (chain).
   * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
   * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
 
