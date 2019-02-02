@@ -3,7 +3,7 @@ servers:
   - url: 'https://localhost:1337/api/v3'
     description: Development instance running on your local machine
 info:
-  version: '3.0.1'
+  version: '3.0.0'
   title: Nightscout API
   contact:
     name: NS development discussion channel
