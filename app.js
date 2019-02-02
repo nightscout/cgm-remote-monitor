@@ -21,7 +21,7 @@ function create(env, ctx) {
         else
             next()
         })
-        if (process.secureHstsHeader) { // Add HSTS (HTTP Strict Transport Security) header
+        if (process.env.secureHstsHeader) { // Add HSTS (HTTP Strict Transport Security) header
           const helmet = require('helmet');
           var includeSubDomainsValue = process.env.secureHstsHeaderIncludeSubdomains;
             var preloadValue = process.env.secureHstsHeaderPreload;
