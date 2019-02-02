@@ -124,7 +124,7 @@ Minimum browser requirements for viewing the site:
 - Chrome 68
 - Edge 15
 - Firefox 61
-- Internet Explorer: not supported
+- Internet Explorer: not supported, ie8 is known not to work
 - iOS 9 
 - Safari 11
 - Opera: 54
