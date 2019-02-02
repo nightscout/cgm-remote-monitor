@@ -7122,9 +7122,9 @@
       "integrity": "sha1-U10EXOa2Nj+kARcIRimZXp3zJMc="
     },
     "swagger-ui-dist": {
-      "version": "3.20.4",
-      "resolved": "https://registry.npmjs.org/swagger-ui-dist/-/swagger-ui-dist-3.20.4.tgz",
-      "integrity": "sha512-SR/N+N7EIncEhyA4UGiMQ12vJBSv5OKO4S1g7E7etO+9ZUV6SZ7SqKVC8RDDyMOJzdXgMXV7aGIBIiMSCbEMJw=="
+      "version": "3.20.6",
+      "resolved": "https://registry.npmjs.org/swagger-ui-dist/-/swagger-ui-dist-3.20.6.tgz",
+      "integrity": "sha512-CN+2z6AP0/KR6Z7wPtBA9ZWr9z28dzA5R88VturLmDSVtYIAB3D6aTt1bCj39sUtLsVwxFVrBDbNtdXcZCvFHQ=="
     },
     "symbol-tree": {
       "version": "3.2.2",
