@@ -65,9 +65,6 @@ require('./lib/server/bootevent')(env, language).boot(function booted (ctx) {
 
     ctx.bus.on('notification', function(notify) {
       websocket.emitNotification(notify);
-      if (ctx.mqtt) {
-        ctx.mqtt.emitNotification(notify);
-      }
     });
 
     //after startup if there are no alarms send all clear
