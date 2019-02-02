@@ -52,4 +52,19 @@ describe('env', function ( ) {
     delete process.env.PUSHOVER_API_TOKEN;
   });
 
+  it('readENVTruthy ', function () {
+    process.env.INSECURE_USE_HTTP = 'true';
+    var env = require('../env')();
+    env.insecureUseHttp.should.be.true();
+    process.env.INSECURE_USE_HTTP = 'false';
+    env = require('../env')();
+    env.insecureUseHttp.should.be.false();
+    process.env.INSECURE_USE_HTTP = 'not set ok, so use default value false';
+    env = require('../env')();
+    env.insecureUseHttp.should.be.false();
+    delete process.env.INSECURE_USE_HTTP; // unset INSECURE_USE_HTTP
+    env = require('../env')();
+    env.insecureUseHttp.should.be.false(); // not defined should be false
+  });
+
 });
