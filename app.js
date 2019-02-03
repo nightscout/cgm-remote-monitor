@@ -14,9 +14,9 @@ function create(env, ctx) {
     var appInfo = env.name + ' ' + env.version;
     app.set('title', appInfo);
     app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
-    var insecureUseHttp = process.env.insecureUseHttp;
-    var secureHstsHeader = process.env.secureHstsHeader;
-    console.info('Security settings: INSECURE_USE_HTTP=', insecureUseHttp, ', SECURE_HSTS_HEADER=', secureHstsHeader);
+    var insecureUseHttp = env.insecureUseHttp;
+    var secureHstsHeader = env.secureHstsHeader;
+    console.info('Security settings: INSECURE_USE_HTTP=',insecureUseHttp,', SECURE_HSTS_HEADER=',secureHstsHeader);
     if (!insecureUseHttp) {
         app.use((req, res, next) => {
         if (req.header('x-forwarded-proto') !== 'https')
@@ -26,8 +26,8 @@ function create(env, ctx) {
         })
         if (secureHstsHeader) { // Add HSTS (HTTP Strict Transport Security) header
           const helmet = require('helmet');
-          var includeSubDomainsValue = process.env.secureHstsHeaderIncludeSubdomains;
-          var preloadValue = process.env.secureHstsHeaderPreload;
+          var includeSubDomainsValue = env.secureHstsHeaderIncludeSubdomains;
+          var preloadValue = env.secureHstsHeaderPreload;
           app.use(helmet({
             hsts: {
               maxAge: 31536000,
@@ -35,8 +35,7 @@ function create(env, ctx) {
               preload: preloadValue
             }
           }))
-          //if (env.settings.isEnabled('secureCsp')) { // Add Content-Security-Policy directive by default
-          if (process.env.secureCsp) {
+          if (env.secureCsp) {
             app.use(helmet.contentSecurityPolicy({ //TODO make NS work without 'unsafe-inline'
               directives: {
                 defaultSrc: ["'self'"],
