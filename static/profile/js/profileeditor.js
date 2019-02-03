@@ -682,7 +682,7 @@
     delete adjustedRecord.convertedOnTheFly;
 
     console.info('saving profile');
-    peStatus.hide().text('saving profile').fadeIn('slow');
+    peStatus.hide().text(translate('Saving profile')).fadeIn('slow');
 
     // Hide the form until the ajax PUT is done.
     // This is a crude way of preventing the user from changing the inputs whilst waiting.

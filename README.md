@@ -124,14 +124,14 @@ Minimum browser requirements for viewing the site:
 - Chrome 68
 - Edge 15
 - Firefox 61
-- Internet Explorer: not supported
+- Internet Explorer: not supported, ie8 is known not to work
 - iOS 9 
 - Safari 11
 - Opera: 54
 
 Windows installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.15.0 or later) or Node 10 LTS (Node 10.15.0 or later; Node 10.14.1 works for Azure). Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
+- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.15.0 or later) or Node 10 LTS (Node 10.15.1 or later; Node 10.14.1 works for Azure). Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
