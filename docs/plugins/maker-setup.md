@@ -1,5 +1,3 @@
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**
 
 - [Nightscout/IFTTT Maker](#nightscoutifttt-maker)
@@ -7,17 +5,20 @@
   - [Events](#events)
   - [Configuration](#configuration)
   - [Create a recipe](#create-a-recipe)
-    - [Start creating a recipe](#start-creating-a-recipe)
-    - [1. Choose a Trigger Channel](#1-choose-a-trigger-channel)
-    - [2. Choose a Trigger](#2-choose-a-trigger)
-    - [3. Complete Trigger Fields](#3-complete-trigger-fields)
-    - [4. That](#4-that)
-    - [5. Choose an Action](#5-choose-an-action)
-    - [6. Complete Action Fields](#6-complete-action-fields)
-    - [7. Create and Connect](#7-create-and-connect)
-    - [Result](#result)
+    - [1. Choose a Service](#1.-Choose-a-Service)
+    - [2. Choose a Trigger](#2.-Choose-a-Trigger)
+    - [3. Complete the Trigger Field](#3.-Complete-the-Trigger-Field)
+    - [4. Selecting That](#4.-That)
+    - [5. Choose an Action](#5.-Choose-an-Action)
+    - [6. Connect Notifications](#6.-Connect-Notifications)
+    - [7. Choose Notification Action Type](#7.-Choose-Notification-Action-Type)
+    - [8. Edit the Message](#8.-Edit-the-Message)
+    - [9. App Complete](#9.-App-Complete)
+    - [10. Obtaining Maker Key](#10.-Obtaining-Maker-Key)
+    -  [11. Adding Maker_Key](#11.-Adding-Maker_Key-to-Website)
+    -  [12. Install Android IFTTT App](#12.-Install-Android-IFTTT-App)
 
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 
 Nightscout/IFTTT Maker
 ======================================
@@ -25,9 +26,11 @@ Nightscout/IFTTT Maker
 ## Overview
 
  In addition to the normal web based alarms, and pushover, there is also integration for [IFTTT Maker](https://ifttt.com/maker).
-  
- With Maker you are able to integrate with all the other [IFTTT Channels](https://ifttt.com/channels).  For example you can send a tweet when there is an alarm, change the color of hue light, send an email, send and sms, and so much more.
- 
+
+ With Maker you are able to integrate with all the other [IFTTT Services](https://ifttt.com/channels).  For example you can send a tweet when there is an alarm, change the color of hue light, send an email, send and sms, and so much more.
+
+#### Warning!!   A recent implemention (1/13/19) of IFTTT with Nightscout resulted in delayed actions when utilizing webhooks with urgent Nightscout alarms.    For unknown reasons, the actions were delayed and queued until one time each hour by IFTTT.    Consider using Pushover if you experience the same issues.  See the docs regarding Pushover.
+
 ## Events
 
  Plugins can create custom events, but all events sent to maker will be prefixed with `ns-`.  The core events are:
@@ -47,45 +50,116 @@ Nightscout/IFTTT Maker
 
 ## Configuration
 
- 1. Setup IFTTT account: [login](https://ifttt.com/login) or [create an account](https://ifttt.com/join)
- 2. Find your secret key on the [maker page](https://ifttt.com/maker)
- 3. Configure Nightscout by setting these environment variables:
+  1. Setup IFTTT account at IFTTT.com: [login](https://ifttt.com/login) or [create an account](https://ifttt.com/join)  (use all lower case characters for email and password, it seems to work best)
+  2. Follow the Creating an Applet instructions below.
+  3. Configure Nightscout by setting these environment variables:
   * `ENABLE` - `maker` should be added to the list of plugin, for example: `ENABLE="maker"`.
-  * `MAKER_KEY` - Set this to your secret key that you located in step 2, for example: `MAKER_KEY="abcMyExampleabc123defjt1DeNSiftttmak-XQb69p"`
-  
-## Create a recipe
+  * `MAKER_KEY` - Set this to your secret key that you located in step 11 when you created the Applet, for example: `MAKER_KEY="abcMyExampleabc123defjt1DeNSiftttmak-XQb69p"`
 
-### Start creating a recipe
 
-Use [https://ifttt.com/myrecipes/personal/new)] to create a new recipe
 
-![screen shot 2015-06-29 at 10 58 48 pm](https://cloud.githubusercontent.com/assets/751143/8425240/bab51986-1eb8-11e5-88fb-5aed311896be.png)
+## Create a Notification Applet at IFTTT.com for your Cell Phone
 
-### 1. Choose a Trigger Channel
-  ![screen shot 2015-06-29 at 10 59 01 pm](https://cloud.githubusercontent.com/assets/751143/8425243/c007ace6-1eb8-11e5-96d1-b13f9c3d071f.png)
+### Start Creating an Applet
+
+### 1. Choose a Service
+
+
+
+![Webhooks_select](./maker-setup-images/Webhooks_select.jpg)
+
+
 
 ### 2. Choose a Trigger
-  ![screen shot 2015-06-29 at 10 59 18 pm](https://cloud.githubusercontent.com/assets/751143/8425246/c77c5a4e-1eb8-11e5-9084-32ae40518ee0.png)
 
-### 3. Complete Trigger Fields
-  ![screen shot 2015-06-29 at 10 59 33 pm](https://cloud.githubusercontent.com/assets/751143/8425249/ced7b450-1eb8-11e5-95a3-730f6b9b2925.png)
+### By clicking on the big blue box.   You want IFTTT to do something when it receives an event from Nightscout.
+
+![choose_trigger](./maker-setup-images/choose_trigger.jpg)
+
+
+
+### 3. Complete the Trigger Field
+
+### Enter one of the above listed events like "ns-urgent" (without the quotes)
+
+  ![choose_trigger1](./maker-setup-images/choose_trigger1.jpg)
+
+  
 
 ### 4. That
-  ![screen shot 2015-06-29 at 10 59 46 pm](https://cloud.githubusercontent.com/assets/751143/8425251/d46e1dc8-1eb8-11e5-91be-8dc731e308b2.png)
-  
+
+### Click on the blue "that" to choose what you want to have happen when the even occurs.
+
+  ![that_screen](./maker-setup-images/that_screen.jpg)
+
 ### 5. Choose an Action
-  ![screen shot 2015-06-29 at 11 00 12 pm](https://cloud.githubusercontent.com/assets/751143/8425254/de634844-1eb8-11e5-8f09-cd43c41ccf3f.png)
-  
-### 6. Complete Action Fields
-  **Example:** `Nightscout: {{Value1}} {{Value2}} {{Value3}}`
-  
-  ![screen shot 2015-06-29 at 11 02 14 pm](https://cloud.githubusercontent.com/assets/751143/8425267/f2da6dd4-1eb8-11e5-8e4d-cad2590d111f.png)
-  ![screen shot 2015-06-29 at 11 02 21 pm](https://cloud.githubusercontent.com/assets/751143/8425272/f83ceb62-1eb8-11e5-8ea2-afd4dcbd391f.png)
-  
-### 7. Create and Connect
-  ![screen shot 2015-06-29 at 11 02 43 pm](https://cloud.githubusercontent.com/assets/751143/8425277/fe52f618-1eb8-11e5-8d7f-e0b34eebe29a.png)
 
-### Result
-  ![cinpiqkumaa33u7](https://cloud.githubusercontent.com/assets/751143/8425925/e7d08d2c-1ebf-11e5-853c-cdc5381c4186.png)
+###### In this example we will send a notification to an Android phone
 
- 
+  ![choose_action_service](./maker-setup-images/choose_action_service.jpg)
+
+
+
+
+
+###### Search for Notifications and then click on the Bell Icon
+
+![notifications_action](./maker-setup-images/notifications_action.jpg)
+
+
+
+### 6. Connect Notifications
+
+​    ![connecting_notifications](./maker-setup-images/connecting_notifications.jpg)
+
+
+
+
+
+### 7. Choose Notification Action Type
+
+###### For now, choose the basic notification type via the left blue block.
+
+![choose_notification_type](./maker-setup-images/choose_notification_type.jpg)
+
+### 8. Edit the Message
+
+### You can edit the message sent as a notification here, but you need to leave the EventName field in place.  Then Create the action.
+
+![complete_action_field](./maker-setup-images/complete_action_field.jpg)
+
+
+
+### 9. App Complete
+
+### If you see this you have completed your first applet and it is enabled! 
+
+![completed_applet](./maker-setup-images/completed_applet.jpg)
+
+
+
+### 10. Obtaining Maker Key
+
+### Next, click on My Applets on the top bar, then click on Services, and then click on the Webhooks icon.  
+
+### Click on Settings in the top right corner and you will see something similar to this (not exactly the same).   
+
+### Copy the text in the URL after "/use/"" and paste it someplace so you can access it later.  This is the "Maker_Key"   This text needs to go into Nightscout's Website, Settings, variables, Maker_Key.
+
+![webhooksettings](./maker-setup-images/webhooksettings.jpg)
+
+  
+
+### 11. Adding Maker_Key to Website
+
+### In a Heroku.com website deployment, the Website, vars look like this:
+### Make sure you have added "maker" to the Enable line as well.    
+
+![maker_key_entry](./maker-setup-images/maker_key_entry.jpg)
+
+
+
+### 12. Install Android IFTTT App
+
+### Next, you need to install the Android IFTTT app from the Play Store and log into it with you IFTTT password and ID.   Now, whenever an ns-urgent event occurs, Nightscout will send an event to IFTTT, then IFTTT will send a notification to your Android phone showing a ns-urgent notification and whatever text you configured in the message.  On my Android phone, my phone beeps and the message is displayed on the lock screen.  
+
