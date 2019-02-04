@@ -7,7 +7,7 @@ require('should');
 
 describe('Basic REST API3', function ( ) {
   var api = require('../lib/api3/')
-    , testConst = require('./fixtures/api3const.json')
+    , testConst = require('./fixtures/api3/const.json')
 
   this.timeout(15000);
 
@@ -44,11 +44,11 @@ describe('Basic REST API3', function ( ) {
           , software = require('../package.json');
         res.body.version.should.equal(software.version);
         res.body.apiVersion.should.equal(apiConst.API3_VERSION);
-        res.body.srvDate.should.be.within(testConst.year2019, testConst.year2050);
+        res.body.srvDate.should.be.within(testConst.YEAR_2019, testConst.YEAR_2050);
 
         res.body.srvDateString.length.should.be.above(23);
         var srvDate = new Date(res.body.srvDateString);
-        srvDate.getTime().should.be.within(testConst.year2019, testConst.year2050);
+        srvDate.getTime().should.be.within(testConst.YEAR_2019, testConst.YEAR_2050);
         srvDate.getTime().should.equal(res.body.srvDate);
 
         done();
