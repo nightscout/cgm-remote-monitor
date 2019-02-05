@@ -146,7 +146,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 
 ### Core developers, contributing developers, coordinators and documentation writers
 
-[@andrew-warrington] https://github.com/andrew-warrington
+[@andrew-warrington]: https://github.com/andrew-warrington
 [@apanasef]: https://github.com/apanasef
 [@bewest]: https://github.com/bewest
 [@danamlewis]: https://github.com/danamlewis
