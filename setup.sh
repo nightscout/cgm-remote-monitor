@@ -1,9 +1,7 @@
 #!/bin/sh
 
+curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -
 sudo apt-get update
-sudo apt-get install -y python-software-properties python g++ make git
-sudo add-apt-repository ppa:chris-lea/node.js
-sudo apt-get update
-sudo apt-get install nodejs
+sudo apt-get install -y nodejs build-essential git
 
 npm install
