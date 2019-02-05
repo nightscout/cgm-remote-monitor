@@ -248,8 +248,8 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | Slovenčina (`sk`)|Please volunteer|OK|
 | Svenska (`sv`)|Please volunteer|OK|
 | 中文（简体） (`zh_cn`) | [@jizhongwen]|OK|
-| 中文（繁體） (`zh_tw`) | [@jizhongwen]|Needs attention: 25.0%]
-| 日本語 (`ja_jp`) | [@LuminaryXion]|]
+| 中文（繁體） (`zh_tw`) | [@jizhongwen]|Needs attention: 25.0%
+| 日本語 (`ja_jp`) | [@LuminaryXion]|
 
 
 ### List of all contributors
