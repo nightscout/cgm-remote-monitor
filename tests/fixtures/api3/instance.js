@@ -13,7 +13,7 @@ function configure () {
     process.env.API_SECRET = 'this is my long pass phrase';
     instance.env = require('../../../env')();
     instance.env.HOSTNAME = 'localhost';
-    instance.env.settings.authDefaultRoles = 'readable';
+    instance.env.settings.authDefaultRoles = '';
     instance.env.settings.enable = ['careportal', 'api'];
 
     this.wares = require('../../../lib/middleware/')(instance.env);
@@ -49,7 +49,7 @@ function configure () {
       cert: fs.readFileSync(__dirname + '/localhost.crt')
     };
     instance.env.HOSTNAME = 'localhost';
-    instance.env.settings.authDefaultRoles = 'readable';
+    instance.env.settings.authDefaultRoles = '';
     instance.env.settings.enable = ['careportal', 'api'];
 
     this.wares = require('../../../lib/middleware/')(instance.env);
