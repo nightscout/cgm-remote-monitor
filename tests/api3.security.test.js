@@ -125,6 +125,17 @@ describe('Security of REST API3', function ( ) {
       });
   });
 
+  it('should allow subject readable', function (done) {
+    request(self.https.baseUrl)
+      .get('/api/v3/test?token=' + self.subjects.readable.accessToken)
+      .set('Date', new Date().toUTCString())
+      .expect(200)
+      .end(function (err, res) {
+
+        done();
+      });
+  });
+
   after(function after () {
     self.http.server.close();
     self.https.server.close();
