@@ -25,7 +25,6 @@ function config ( ) {
   env.HOSTNAME = readENV('HOSTNAME', null);
   env.IMPORT_CONFIG = readENV('IMPORT_CONFIG', null);
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
-  env.swagger_files = readENV('NIGHTSCOUT_SWAGGER_FILES',  __dirname + '/node_modules/swagger-ui-dist/');
   env.debug = {
     minify: readENVTruthy('DEBUG_MINIFY', true)
   };
@@ -56,6 +55,13 @@ function setSSL() {
       env.ca = fs.readFileSync(env.SSL_CA);
     }
   }
+
+  env.insecureUseHttp = readENVTruthy("INSECURE_USE_HTTP", false);
+  env.secureHstsHeader = readENVTruthy("SECURE_HSTS_HEADER", true);
+  env.secureHstsHeaderIncludeSubdomains = readENVTruthy("SECURE_HSTS_HEADER_INCLUDESUBDOMAINS", false);
+  env.secureHstsHeaderPreload= readENVTruthy("SECURE_HSTS_HEADER_PRELOAD", false);
+  env.secureCsp = readENVTruthy("SECURE_CSP", false);
+
 }
 
 // A little ugly, but we don't want to read the secret into a var
@@ -92,20 +98,6 @@ function setVersion() {
 function setStorage() {
   env.storageURI = readENV('STORAGE_URI') || readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI') || readENV('MONGODB_URI');
   env.entries_collection = readENV('ENTRIES_COLLECTION') || readENV('MONGO_COLLECTION', 'entries');
-  env.MQTT_MONITOR = readENV('MQTT_MONITOR', null);
-  if (env.MQTT_MONITOR) {
-    var hostDbCollection = [env.storageURI.split('mongodb://').pop().split('@').pop(), env.entries_collection].join('/');
-    var mongoHash = crypto.createHash('sha1');
-    mongoHash.update(hostDbCollection);
-    //some MQTT servers only allow the client id to be 23 chars
-    env.mqtt_client_id = mongoHash.digest('base64').substring(0, 23);
-    console.info('Using Mongo host/db/collection to create the default MQTT client_id', hostDbCollection);
-    if (env.MQTT_MONITOR.indexOf('?clientId=') === -1) {
-      console.info('Set MQTT client_id to: ', env.mqtt_client_id);
-    } else {
-      console.info('MQTT configured to use a custom client id, it will override the default: ', env.mqtt_client_id);
-    }
-  }
   env.authentication_collections_prefix = readENV('MONGO_AUTHENTICATION_COLLECTIONS_PREFIX', 'auth_');
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
@@ -159,7 +151,8 @@ function readENV(varName, defaultValue) {
 function readENVTruthy(varName, defaultValue) {
   var value = readENV(varName, defaultValue);
   if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
-  if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
+  else if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
+  else { value=defaultValue }
   return value;
 }
 
@@ -193,6 +186,6 @@ function findExtendedSettings (envs) {
     }
   });
   return extended;
-}
+  }
 
 module.exports = config;
