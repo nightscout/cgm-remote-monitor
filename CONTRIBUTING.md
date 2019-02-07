@@ -76,11 +76,15 @@ If in doubt, format your code with `js-beautify --indent-size 2 --comma-first  -
 
 ## Create a prototype
 
+<<<<<<< HEAD
 Fork cgm-remote-monitor and create a branch.
 You can create a branch using `git checkout -b wip/add-my-widget`.
 This creates a new branch called `wip/add-my-widget`.  The `wip`
 stands for work in progress and is a common prefix so that we know
 what to expect when reviewing many branches.
+=======
+Fork cgm-remote-monitor and create a branch. You can create a branch using `git checkout -b wip/add-my-widget`. This creates a new branch called `wip/add-my-widget`.  The `wip` stands for work in progress and is a common prefix so that when know what to expect when reviewing many branches.
+>>>>>>> master
 
 ## Submit a pull request
 
@@ -91,6 +95,7 @@ This can be done by checking your code `git commit -avm 'my improvements are her
 Now that the commits are available on github, you can click on the compare buttons on your fork to create a pull request.  Make sure to select [Nightscout's `dev` branch](https://github.com/nightscout/cgm-remote-monitor/tree/dev).
 
 We assume all new Pull Requests are at least smoke tested by the author and all code in the PR actually works.
+<<<<<<< HEAD
 
 Please include a description of what the features do and rationalize why the changes are needed.
 
@@ -107,6 +112,20 @@ This can be done by committing your code `git commit -avm 'my
 improvements are here'`, and pushing it to the branch you created on your own
 fork. This will probably look something like
 `git push -u origin wip/add-my-widget`.
+=======
+
+Please include a description of what the features do and rationalize why the changes are needed.
+
+If you add any new NPM module dependencies, you have to rationalize why there are needed - we prefer pull requests that reduce dependencies, not add them.
+
+When adding new features that add confugration options, please ensure the `README` document is amended with information on the new configuration.
+
+## Bug fixing
+
+If you've fixed a bug, please consider adding a unit test to the `/tests` folder that reproduces the original bug without the change.
+
+Try to identify the root cause of the issue and fix the issue. Pull requests that simply add null checks to hide issues are unlikely to be accepted.
+>>>>>>> master
 
 Please include instructions how to test the changes.
 
@@ -118,6 +137,7 @@ We encourage liberal use of the comments, including images where appropriate.
 
 Most cgm-remote-monitor hackers use github's ticketing system, along with Facebook cgm-in-the-cloud, and gitter.
 
+<<<<<<< HEAD
 We use [git-flow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow), with `master` as our production, stable branch, and
 `dev` is used to queue changes for upcoming releases.  Everything else is
 done on branches, hopefully with names that indicate what to expect.
@@ -129,6 +149,13 @@ the version correctly.  See [sem-ver](https://semver.org/) for versioning strate
 Every commit is tested by Travis CI.  We encourage adding tests to
 validate your design.  We encourage discussing your use cases to help
 everyone get a better understanding of your design.
+=======
+We use git-flow, with `master` as our production, stable branch, and `dev` is used to queue up for upcoming releases.  Everything else is done on branches, hopefully with names that indicate what to expect.
+
+Once `dev` has been reviewed and people feel it's time to release, we follow the git-flow release process, which creates a new tag and bumps the version correctly.  See sem-ver for versioning strategy.
+
+Every commit is tested by travis.  We encourage adding tests to validate your design.  We encourage discussing your use cases to help everyone get a better understanding of your design.
+>>>>>>> master
 
 ## Other Dev Tips
 
