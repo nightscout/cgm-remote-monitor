@@ -117,7 +117,7 @@ function create(env, ctx) {
         });
 	});
 
-    app.get("/nightscout.appcache", (req, res) => {
+    app.get("/appcache/*", (req, res) => {
         res.render("nightscout.appcache", {
             locals: app.locals
         });
