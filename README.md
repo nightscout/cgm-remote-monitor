@@ -72,7 +72,7 @@ Community maintained fork of the
         - [`ar2` (AR2 Forecasting)](#ar2-ar2-forecasting)
         - [`simplealarms` (Simple BG Alarms)](#simplealarms-simple-bg-alarms)
         - [`profile` (Treatment Profile)](#profile-treatment-profile)
-      - [Advanced Plugins](#advanced-plugins)
+      - [Advanced Plugins:](#advanced-plugins)
         - [`careportal` (Careportal)](#careportal-careportal)
         - [`boluscalc` (Bolus Wizard)](#boluscalc-bolus-wizard)
         - [`food` (Custom Foods)](#food-custom-foods)
@@ -111,9 +111,9 @@ Community maintained fork of the
 
 Supported configurations:
 
-If you plan to use Nightscout, we recommend using [Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#nightscout-setup-with-heroku), as Nightscout can reach the usage limits of the free Azure plan and cause it to shut down for hours or days. If you end up needing a paid tier, the $7/mo Heroku plan is also much cheaper than the first paid tier of Azure. Currently, the only added benefit to choosing the $7/mo Heroku plan vs the free Heroku plan is a section showing site use metrics for performance (such as response time). This has limited benefit to the average Nightscout user. In short, Heroku is the free and best option for Nightscout hosting.
+If you plan to use Nightscout, we recommend using [Heroku](http://www.nightscout.info/wiki/welcome/set-up-nightscout-using-heroku), as Nightscout can reach the usage limits of the free Azure plan and cause it to shut down for hours or days. If you end up needing a paid tier, the $7/mo Heroku plan is also much cheaper than the first paid tier of Azure. Currently, the only added benefit to choosing the $7/mo Heroku plan vs the free Heroku plan is a section showing site use metrics for performance (such as response time). This has limited benefit to the average Nightscout user. In short, Heroku is the free and best option for Nightscout hosting.
 
-- [Nightscout Setup with Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#nightscout-setup-with-heroku) (recommended)
+- [Nightscout Setup with Heroku](http://www.nightscout.info/wiki/welcome/set-up-nightscout-using-heroku) (recommended)
 - [Nightscout Setup with Microsoft Azure](http://www.nightscout.info/wiki/faqs-2/azure-2) (not recommended, please 
 [switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku) )
 - Linux based install (Debian, Ubuntu, Raspbian) install with own Node.JS and MongoDB install (see software requirements below)
@@ -121,18 +121,18 @@ If you plan to use Nightscout, we recommend using [Heroku](http://openaps.readth
 
 Minimum browser requirements for viewing the site:
 
-- iOS 9
 - Android 4
-- Chrome 42
-- Safari 9 (El Capitan)
-- Firefox 34
+- Chrome 68
 - Edge 15
-- Internet Explorer: not supported
-- Opera: not supported
+- Firefox 61
+- Internet Explorer: not supported, ie8 is known not to work
+- iOS 9 
+- Safari 11
+- Opera: 54
 
 Windows installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.12.0 or later). Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
+- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.15.0 or later) or Node 10 LTS (Node 10.15.1 or later; Node 10.14.1 works for Azure). Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
@@ -141,16 +141,15 @@ As a non-root user clone this repo then install dependencies into the root of th
 $ npm install
 ```
 
-Installation notes for Microsoft Azure, Windows and Node 10: 
+Installation notes for Microsoft Azure, Windows: 
 
 - If deploying the software to Microsoft Azure, you must set ** in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Please use:
 ```
-WEBSITE_NODE_DEFAULT_VERSION=8.11.1
+WEBSITE_NODE_DEFAULT_VERSION=10.14.1
 SCM_COMMAND_IDLE_TIMEOUT=300
 ```
 - See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
 - If you deploy to Windows and want to develop or test you need to install [Cygwin](https://www.cygwin.com/) (use [setup-x86_64.exe](https://www.cygwin.com/setup-x86_64.exe) and make sure to install `build-essential` package. Test your configuration by executing `make` and check if all tests are ok. 
-- There may be some issues with Node 10.6.0 or later with Nightscout. Node 10 support will be in the 0.11 release. Please don't use Nightscout with (Node 9 or) Node 10 at this moment.
 
 # Usage
 
@@ -253,9 +252,9 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `MONGO_ACTIVITY_COLLECTION`(`activity`) - The collection used to store activity data
   * `PORT` (`1337`) - The port that the node.js application will listen on.
   * `HOSTNAME` - The hostname that the node.js application will listen on, null by default for any hostname for IPv6 you may need to use `::`.
-  * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js
-  * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js
-  * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js
+  * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to your privkey.pem file (private key).
+  * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to fullchain.pem file (cert + ca).
+  * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to chain.pem file (chain).
   * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
   * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
 
@@ -280,7 +279,14 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale.
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enable or disable icon allowing enter treatments edit mode
 
-### Views
+### Predefined values for your server settings (optional)
+  * `INSECURE_USE_HTTP` (`false`) - Redirect http url's to https. Possible values `false`, or `true`.
+  * `SECURE_HSTS_HEADER` (`true`) - Add HTTP Strict Transport Security (HSTS) header. Possible values `false`, or `true`.
+  * `SECURE_HSTS_HEADER_INCLUDESUBDOMAINS` (`false`) - includeSubdomains options for HSTS. Possible values `false`, or `true`.
+  * `SECURE_HSTS_HEADER_PRELOAD` (`false`) - ask for preload in browsers for HSTS. Possible values `false`, or `true`.
+  * `SECURE_CSP` (`false`) - Add Content Security Policy headers. Possible values `false`, or `true`.  Currently Nightscout is not yet compatible with CSP.
+
+ ### Views
 
   There are a few alternate web views available that display a simplified BG stream. Append any of these to your Nightscout URL:
   * `/clock.html` - Shows current BG. Grey text on a black background.
@@ -354,7 +360,11 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   An option plugin to enable adding foods from database in Bolus Wizard and enable .
 
 ##### `rawbg` (Raw BG)
-  Calculates BG using sensor and calibration records from and displays an alternate BG values and noise levels.
+  Calculates BG using sensor and calibration records from and displays an alternate BG values and noise levels. Defaults that can be adjusted with [extended setting](#extended-settings)
+  * `DISPLAY` (`unsmoothed`) - Allows the user to control which algorithm is used to calculate the displayed raw BG values using the most recent calibration record.
+    * `unfiltered` - Raw BG is calculated by applying the calibration to the glucose record's unfiltered value.
+    * `filtered` - Raw BG is calculated by applying the calibration to the glucose record's filtered value. The glucose record's filtered values are generally produced by the CGM by a running average of the unfiltered values to produce a smoothed value when the sensor noise is high.
+    * `unsmoothed` - Raw BG is calculated by first finding the ratio of the calculated filtered value (the same value calculated by the `filtered` setting) to the reported glucose value. The displayed raw BG value is calculated by dividing the calculated unfiltered value (the same value calculated by the `unfiltered` setting) by the ratio.  The effect is to exagerate changes in trend direction so the trend changes are more noticeable to the user. This is the legacy raw BG calculation algorithm.
 
 ##### `iob` (Insulin-on-Board)
   Adds the IOB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with insulin doses and the `dia` and `sens` fields from the [treatment profile](#treatment-profile).
@@ -485,7 +495,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
 
   Plugins only have access to their own extended settings, all the extended settings of client plugins will be sent to the browser.
-  
+
   * `DEVICESTATUS_ADVANCED` (`true`) - Defaults to true. Users who only have a single device uploading data to Nightscout can set this to false to reduce the data use of the site.
 
 #### Pushover
@@ -506,29 +516,28 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     * `PUSHOVER_ANNOUNCEMENT_KEY` - An optional Pushover user/group key, will be used for system wide user generated announcements.  If not defined this will fallback to `PUSHOVER_USER_KEY` or `PUSHOVER_ALARM_KEY`.  This also support a space delimited list of keys. To disable Announcement pushes set this to `off`.
     * `BASE_URL` - Used for pushover callbacks, usually the URL of your Nightscout site, use https when possible.
     * `API_SECRET` - Used for signing the pushover callback request for acknowledgments.
-
+    
     If you never want to get info level notifications (treatments) use `PUSHOVER_USER_KEY="off"`
     If you never want to get an alarm via pushover use `PUSHOVER_ALARM_KEY="off"`
     If you never want to get an announcement via pushover use `PUSHOVER_ANNOUNCEMENT_KEY="off"`
-
+    
     If only `PUSHOVER_USER_KEY` is set it will be used for all info notifications, alarms, and announcements
-
+    
     For testing/development try [localtunnel](http://localtunnel.me/).
 
 #### IFTTT Maker
- In addition to the normal web based alarms, and pushover, there is also integration for [IFTTT Maker](https://ifttt.com/maker).
+ In addition to the normal web based alarms, and pushover, there is also integration for [IFTTT Webhooks](https://ifttt.com/maker_webhooks).
 
- With Maker you are able to integrate with all the other [IFTTT Channels](https://ifttt.com/channels).  For example you can send a tweet when there is an alarm, change the color of hue light, send an email, send and sms, and so much more.
+ With Maker you are able to integrate with all the other [IFTTT Services](https://ifttt.com/services).  For example you can send a tweet when there is an alarm, change the color of hue light, send an email, send and sms, and so much more.
 
  1. Setup IFTTT account: [login](https://ifttt.com/login) or [create an account](https://ifttt.com/join)
- 2. Find your secret key on the [maker page](https://ifttt.com/maker)
- 3. Configure Nightscout by setting these environment variables:
-  * `ENABLE` - `maker` should be added to the list of plugin, for example: `ENABLE="maker"`.
-  * `MAKER_KEY` - Set this to your secret key that you located in step 2, for example: `MAKER_KEY="abcMyExampleabc123defjt1DeNSiftttmak-XQb69p"` This also support a space delimited list of keys.
-  * `MAKER_ANNOUNCEMENT_KEY` - An optional Maker key, will be used for system wide user generated announcements.  If not defined this will fallback to `MAKER_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also support a space delimited list of keys.
- 4. [Create a recipe](https://ifttt.com/myrecipes/personal/new) or see [more detailed instructions](lib/plugins/maker-setup.md#create-a-recipe)
+ 2. Follow the  [Detailed IFTTT setup Instructions](docs/plugins/maker-setup.md)
+ 3. Configure Nightscout by setting these webpage environment variables:
+  * `ENABLE` - `maker` should be added to the list of plugins, for example: `ENABLE="maker"`.
+  * `MAKER_KEY` - Set this to your secret key (see  [[Detailed Instructions](docs/plugins/maker-setup.md) ) `MAKER_KEY="abcMyExampleabc123defjt1DeNSiftttmak-XQb69p"` This also supports a space delimited list of keys.
+  * `MAKER_ANNOUNCEMENT_KEY` - An optional Maker key, will be used for system wide user generated announcements.  If not defined this will fallback to `MAKER_KEY`.  A possible use for this is sending important messages and alarms to another device that you don't want to send all notification too.  This also support a space delimited list of keys.
 
- Plugins can create custom events, but all events sent to maker will be prefixed with `ns-`.  The core events are:
+ Plugins can create custom events, but all events sent to IFTTT webhooks will be prefixed with `ns-`.  The core events are:
   * `ns-event` - This event is sent to the maker service for all alarms and notifications.  This is good catch all event for general logging.
   * `ns-allclear` - This event is sent to the maker service when an alarm has been ack'd or when the server starts up without triggering any alarms.  For example, you could use this event to turn a light to green.
   * `ns-info` - Plugins that generate notifications at the info level will cause this event to also be triggered.  It will be sent in addition to `ns-event`.
@@ -603,16 +612,16 @@ License
     Copyright (C) 2017 Nightscout contributors.  See the COPYRIGHT file
     at the root directory of this distribution and at
     https://github.com/nightscout/cgm-remote-monitor/blob/master/COPYRIGHT
-
+    
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published
     by the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
-
+    
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU Affero General Public License for more details.
-
+    
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
