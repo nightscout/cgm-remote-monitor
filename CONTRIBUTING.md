@@ -229,6 +229,7 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | Русский (`ru`)|[@apanasef]|OK|
 | Slovenčina (`sk`)|Please volunteer|OK|
 | Svenska (`sv`)|Please volunteer|OK|
+| Türkçe (`tr`)|[@diabetlum]|OK|
 | 中文（简体） (`zh_cn`) | [@jizhongwen]|OK|
 | 中文（繁體） (`zh_tw`) | [@jizhongwen]|Needs attention: 25.0%]
 
