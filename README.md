@@ -197,7 +197,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
 
 ### Features/Labs
 
-  * `ENABLE` - Used to enable optional features, expects a space delimited list, such as: `careportal rawbg iob`, see [plugins](#plugins) below
+  * `ENABLE` - Used to enable optional features, expects a space delimited list, such as: `careportal rawbg iob cors`, see [plugins](#plugins) below
   * `DISABLE` - Used to disable default features, expects a space delimited list, such as: `direction upbat`, see [plugins](#plugins) below
   * `API_SECRET` - A secret passphrase that must be at least 12 characters long, required to enable `POST` and `PUT`; also required for the Care Portal
   * `AUTH_DEFAULT_ROLES` (`readable`) - possible values `readable`, `denied`, or any valid role
