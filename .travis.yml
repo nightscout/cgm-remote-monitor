@@ -1,8 +1,17 @@
 language: node_js
-sudo: required
-dist: trusty
 node_js:
-  - "8.9.1"
+  - "10"
+  - "8"
+os: 
+  - osx
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
+  # https://github.com/Homebrew/homebrew-core/issues/26358
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew unlink python; fi
+  # "brew install" can succeed but return 1 if it has "caveats".
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install mongodb || true; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew services start mongodb; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install docker || true; fi
 matrix:
   fast_finish: true
 services:
