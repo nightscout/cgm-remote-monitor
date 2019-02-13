@@ -130,7 +130,7 @@ describe('Security of REST API3', function ( ) {
       .get('/api/v3/test?token=' + self.subjects.readable.accessToken)
       .set('Date', new Date().toUTCString())
       .expect(200)
-      .end(function (err, res) {
+      .end(function () {
 
         done();
       });

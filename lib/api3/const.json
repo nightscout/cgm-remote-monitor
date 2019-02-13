@@ -3,6 +3,12 @@
   "API3_SECURITY_ENABLE": true,
   "API3_TIME_SKEW_TOLERANCE": 5,
 
+  "HTTP": {
+    "UNAUTHORIZED": 401,
+    "FORBIDDEN": 403,
+    "INTERNAL_ERROR": 500
+  },
+
   "MSG": {
     "HTTP_401_BAD_DATE": "Bad Date header",
     "HTTP_401_BAD_TOKEN": "Bad access token or JWT",
@@ -10,6 +16,7 @@
     "HTTP_401_MISSING_DATE": "Missing Date header",
     "HTTP_401_MISSING_OR_BAD_TOKEN": "Missing or bad access token or JWT",
     "HTTP_403_MISSING_PERMISSION": "Missing permission {0}",
-    "HTTP_403_NOT_USING_HTTPS": "Not using SSL/TLS"
+    "HTTP_403_NOT_USING_HTTPS": "Not using SSL/TLS",
+    "STORAGE_ERROR": "Database error"
   }
 }
