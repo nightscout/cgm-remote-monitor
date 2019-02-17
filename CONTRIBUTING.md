@@ -41,14 +41,16 @@
 [waffle]: https://waffle.io/nightscout/cgm-remote-monitor
 [progress-img]: https://badge.waffle.io/nightscout/cgm-remote-monitor.svg?label=in+progress&title=In+Progress
 
-## Design
+## Design & new features
 
-Participate in the design process by creating an issue to discuss your
-design.
+If you intend to add a new feature, please allow the community to participate in the design process by creating an issue to discuss your design. For new features, the issue should describe what use cases the new feature intends to solve, or which existing use cases are being improved.
+
+Note Nighscout has a plugin architecture for adding new features. We expect most code for new features live inside a Plugin, so the code retains a clear separation of concerns. If the Plugin API doesn't implement all features you need to implement your feature, please discuss with us on adding those features to the API. Note new features should under almost no circumstances require changes to the existing plugins.
 
 ## Develop on `dev`
 
-We develop on the `dev` branch.
+We develop on the `dev` branch. All new pull requests should be targeted to `dev`. The `master` branch is only used for distributing the latest version of the tested sources.
+
 You can get the dev branch checked out using `git checkout dev`.
 
 ## Style Guide
@@ -70,40 +72,72 @@ Some simple rules that will make it easier to maintain our codebase:
   };
   ```
 
+If in doubt, format your code with `js-beautify --indent-size 2 --comma-first  --keep-array-indentation`
+
 ## Create a prototype
 
+<<<<<<< HEAD
 Fork cgm-remote-monitor and create a branch.
 You can create a branch using `git checkout -b wip/add-my-widget`.
 This creates a new branch called `wip/add-my-widget`.  The `wip`
 stands for work in progress and is a common prefix so that we know
 what to expect when reviewing many branches.
+=======
+Fork cgm-remote-monitor and create a branch. You can create a branch using `git checkout -b wip/add-my-widget`. This creates a new branch called `wip/add-my-widget`.  The `wip` stands for work in progress and is a common prefix so that when know what to expect when reviewing many branches.
+>>>>>>> master
 
 ## Submit a pull request
 
-When you are done working with your prototype, it can be tempting to
-post on popular channels such as Facebook.  We encourage contributors
-to submit their code for review, debate, and release before announcing
-features on social media.
+When you are done working with your prototype, it can be tempting to post on popular channels such as Facebook.  We encourage contributors to submit their code for review, debate, and release before announcing features on social media.
+
+This can be done by checking your code `git commit -avm 'my improvements are here'`, the branch you created back to your own fork. This will probably look something like `git push -u origin wip/add-my-widget`.
+
+Now that the commits are available on github, you can click on the compare buttons on your fork to create a pull request.  Make sure to select [Nightscout's `dev` branch](https://github.com/nightscout/cgm-remote-monitor/tree/dev).
+
+We assume all new Pull Requests are at least smoke tested by the author and all code in the PR actually works.
+<<<<<<< HEAD
+
+Please include a description of what the features do and rationalize why the changes are needed.
+
+If you add any new NPM module dependencies, you have to rationalize why there are needed - we prefer pull requests that reduce dependencies, not add them.
+
+When adding new features that add confugration options, please ensure the `README` document is amended with information on the new configuration.
+
+## Bug fixing
+
+If you've fixed a bug, please consider adding a unit test to the `/tests` folder that reproduces the original bug without the change.
+Try to identify the root cause of the issue and fix the issue. Pull requests that simply add null checks to hide issues are unlikely to be accepted.
 
 This can be done by committing your code `git commit -avm 'my
 improvements are here'`, and pushing it to the branch you created on your own
 fork. This will probably look something like
 `git push -u origin wip/add-my-widget`.
+=======
 
-Now that the commits are available on github, you can click on the
-compare buttons on your fork to create a pull request.  Make sure to
-select [Nightscout's `dev` branch](https://github.com/nightscout/cgm-remote-monitor/tree/dev).
+Please include a description of what the features do and rationalize why the changes are needed.
+
+If you add any new NPM module dependencies, you have to rationalize why there are needed - we prefer pull requests that reduce dependencies, not add them.
+
+When adding new features that add confugration options, please ensure the `README` document is amended with information on the new configuration.
+
+## Bug fixing
+
+If you've fixed a bug, please consider adding a unit test to the `/tests` folder that reproduces the original bug without the change.
+
+Try to identify the root cause of the issue and fix the issue. Pull requests that simply add null checks to hide issues are unlikely to be accepted.
+>>>>>>> master
+
+Please include instructions how to test the changes.
 
 ## Comments and issues
 
-We encourage liberal use of the comments, including images where
-appropriate.
+We encourage liberal use of the comments, including images where appropriate.
 
 ## Co-ordination
 
-Most cgm-remote-monitor hackers use github's ticketing system, along with Facebook cgm-in-the-cloud, and
-gitter.
+Most cgm-remote-monitor hackers use github's ticketing system, along with Facebook cgm-in-the-cloud, and gitter.
 
+<<<<<<< HEAD
 We use [git-flow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow), with `master` as our production, stable branch, and
 `dev` is used to queue changes for upcoming releases.  Everything else is
 done on branches, hopefully with names that indicate what to expect.
@@ -115,6 +149,13 @@ the version correctly.  See [sem-ver](https://semver.org/) for versioning strate
 Every commit is tested by Travis CI.  We encourage adding tests to
 validate your design.  We encourage discussing your use cases to help
 everyone get a better understanding of your design.
+=======
+We use git-flow, with `master` as our production, stable branch, and `dev` is used to queue up for upcoming releases.  Everything else is done on branches, hopefully with names that indicate what to expect.
+
+Once `dev` has been reviewed and people feel it's time to release, we follow the git-flow release process, which creates a new tag and bumps the version correctly.  See sem-ver for versioning strategy.
+
+Every commit is tested by travis.  We encourage adding tests to validate your design.  We encourage discussing your use cases to help everyone get a better understanding of your design.
+>>>>>>> master
 
 ## Other Dev Tips
 
@@ -132,15 +173,18 @@ Also if you can't code, it's possible to contribute by improving the documentati
 
 ### Core developers, contributing developers, coordinators and documentation writers
 
+[@andrew-warrington]: https://github.com/andrew-warrington
 [@apanasef]: https://github.com/apanasef
 [@bewest]: https://github.com/bewest
 [@danamlewis]: https://github.com/danamlewis
+[@herzogmedia]: https://github.com/herzogmedia
 [@jamieowendexcom ]: https://github.com/jamieowendexcom 
 [@jasoncalabrese]: https://github.com/jasoncalabrese 
 [@jizhongwen]: https://github.com/jizhongwen
 [@jpcunningh]: https://github.com/jpcunningh
 [@jweismann]: https://github.com/jweismann
 [@komarserjio]: https://github.com/komarserjio
+[@LuminaryXion]: https://github.com/LuminaryXion
 [@mcdafydd]: https://github.com/mcdafydd
 [@mdomox]: https://github.com/mdomox
 [@MilosKozak]: https://github.com/MilosKozak
@@ -163,7 +207,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | Release coordination 0.11.x:          | [@PieterGit] |
 | Issue/Pull request coordination:      | Please volunteer |
 | Cleaning up git fork spam:            | Please volunteer |
-| Documentation writers:                | [@unsoluble] [@tynbendad] [@danamlewis] [@rarneson] |
+| Documentation writers:                | [@andrew-warrington][@unsoluble] [@tynbendad] [@danamlewis] [@rarneson] |
 
 ### Plugin contributors
 
@@ -175,7 +219,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | [`boluscalc` (Bolus Wizard)](README.md#boluscalc-bolus-wizard)| Please volunteer | Please volunteer |
 | [`bridge` (Share2Nightscout bridge)](README.md#bridge-share2nightscout-bridge)| Please volunteer | Please volunteer |
 | [`bwp` (Bolus Wizard Preview)](README.md#bwp-bolus-wizard-preview)| Please volunteer | Please volunteer |
-| [`cage` (Cannula Age)](README.md#cage-cannula-age)| @jpcunningh | Please volunteer |
+| [`cage` (Cannula Age)](README.md#cage-cannula-age)| [@jpcunningh] | Please volunteer |
 | [`careportal` (Careportal)](README.md#careportal-careportal)| Please volunteer | Please volunteer |
 | [`cob` (Carbs-on-Board)](README.md#cob-carbs-on-board)| Please volunteer | Please volunteer |
 | [`cors` (CORS)](README.md#cors-cors)| Please volunteer | Please volunteer |
@@ -192,14 +236,14 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | [`openaps` (OpenAPS)](README.md#openaps-openaps)| Please volunteer | Please volunteer |
 | [`profile` (Treatment Profile)](README.md#profile-treatment-profile)| Please volunteer | Please volunteer |
 | [`pump` (Pump Monitoring)](README.md#pump-pump-monitoring)| Please volunteer | Please volunteer |
-| [`rawbg` (Raw BG)](README.md#rawbg-raw-bg)| @jpcunningh | Please volunteer |
+| [`rawbg` (Raw BG)](README.md#rawbg-raw-bg)| [@jpcunningh] | Please volunteer |
 | [`sage` (Sensor Age)](README.md#sage-sensor-age)| @jpcunningh | Please volunteer |
 | [`simplealarms` (Simple BG Alarms)](README.md#simplealarms-simple-bg-alarms)| Please volunteer | Please volunteer |
 | [`speech` (Speech)](README.md#speech-speech) | [@sulkaharo] | Please volunteer |
 | [`timeago` (Time Ago)](README.md#timeago-time-ago)| Please volunteer | Please volunteer |
 | [`treatmentnotify` (Treatment Notifications)](README.md#treatmentnotify-treatment-notifications)| Please volunteer | Please volunteer |
-| [`upbat` (Uploader Battery)](README.md#upbat-uploader-battery)| @jpcunningh | Please volunteer |
-| [`xdrip-js` (xDrip-js)](README.md#xdrip-js-xdrip-js)| @jpcunningh | Please volunteer |
+| [`upbat` (Uploader Battery)](README.md#upbat-uploader-battery)| [@jpcunningh] | Please volunteer |
+| [`xdrip-js` (xDrip-js)](README.md#xdrip-js-xdrip-js)| [@jpcunningh] | Please volunteer |
 
 ### Translators
 
@@ -210,7 +254,7 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | ------------- | -------------------- |-------------------- |
 | Български (`bg`) |Please volunteer| OK |
 | Čeština (`cs`) |Please volunteer|OK |
-| Deutsch (`de`) |[@viderehh] @herzogmedia |OK |
+| Deutsch (`de`) |[@viderehh] [@herzogmedia] |OK |
 | Dansk (`dk`) |Please volunteer|OK |
 | Ελληνικά `(el`)|Please volunteer|Needs attention: 68.5%|
 | English (`en`)|Please volunteer|OK|
@@ -231,8 +275,8 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | Slovenčina (`sk`)|Please volunteer|OK|
 | Svenska (`sv`)|Please volunteer|OK|
 | 中文（简体） (`zh_cn`) | [@jizhongwen]|OK|
-| 中文（繁體） (`zh_tw`) | [@jizhongwen]|Needs attention: 25.0%]
-| 日本語 (`ja_jp`) | [@LuminaryXion]|]
+| 中文（繁體） (`zh_tw`) | [@jizhongwen]|Needs attention: 25.0%
+| 日本語 (`ja_jp`) | [@LuminaryXion]|
 
 
 ### List of all contributors
@@ -240,5 +284,5 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | ------------------------------------- | -------------------- |
 | All active developers: | [@jasoncalabrese] [@jpcunningh] [@jweismann] [@komarserjio] [@mdomox] [@MilosKozak] [@PieterGit] [@rickfriele] [@sulkaharo]
 | All active testers/documentors: | [@danamlewis] [@jamieowendexcom] [@mcdafydd] [@oteroos] [@rarneson] [@tynbendad] [@unsoluble]
-| All active translators: | [@apanasef] [@jizhongwen] [@viderehh] @herzogmedia [@LuminaryXion]
+| All active translators: | [@apanasef] [@jizhongwen] [@viderehh] [@herzogmedia] [@LuminaryXion]
 
