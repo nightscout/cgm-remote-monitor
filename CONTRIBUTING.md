@@ -197,6 +197,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 [@tynbendad]: https://github.com/tynbendad
 [@unsoluble]: https://github.com/unsoluble
 [@viderehh]: https://github.com/viderehh
+[@janrpn]: https://github.com/janrpn
 
 | Contribution area                     | List of contributors |
 | ------------------------------------- | ---------------------------------- |
@@ -255,7 +256,7 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | Български (`bg`) |Please volunteer| OK |
 | Čeština (`cs`) |Please volunteer|OK |
 | Deutsch (`de`) |[@viderehh] [@herzogmedia] |OK |
-| Dansk (`dk`) |Please volunteer|OK |
+| Dansk (`dk`)  | [@janrpn] |OK |
 | Ελληνικά `(el`)|Please volunteer|Needs attention: 68.5%|
 | English (`en`)|Please volunteer|OK|
 | Español (`es`) |Please volunteer|OK|
