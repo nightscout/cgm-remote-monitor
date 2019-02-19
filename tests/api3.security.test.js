@@ -62,12 +62,12 @@ describe('Security of REST API3', function ( ) {
   });
 
   it('should reject Date header out of tolerance', function (done) {
-    var oldDate =  new Date((new Date() * 1) - 2 * 3600 * 1000);
-    var futureDate =  new Date((new Date() * 1) + 2 * 3600 * 1000);
+    var oldDate = new Date((new Date() * 1) - 2 * 3600 * 1000);
+    var futureDate = new Date((new Date() * 1) + 2 * 3600 * 1000);
 
     request(self.https.baseUrl)
       .get('/api/v3/test')
-      .set('Date',oldDate.toUTCString())
+      .set('Date', oldDate.toUTCString())
       .expect(401)
       .end(function (err, res) {
         res.body.status.should.equal(401);
