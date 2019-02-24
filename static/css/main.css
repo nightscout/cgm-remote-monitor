@@ -1,5 +1,5 @@
 
-@import url("//fonts.googleapis.com/css?family=Ubuntu:400,600");
+@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');
 
 @font-face {
   font-family: 'nsicons';
@@ -71,7 +71,7 @@ html, body {
 }
 
 body {
-  font-family: 'Ubuntu', Verdana, Helvetica, Arial, sans-serif;
+  font-family: 'Ubuntu', sans-serif;
   background: #000;
   color: #bdbdbd;
 }
@@ -84,6 +84,18 @@ body {
   padding: 0;
   top: 45px;
   z-index: 2;
+}
+
+button {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.ui-button {
+  background-color: grey;
+  border: 1px solid white;
+  padding: 2px;
 }
 
 a, a:visited, a:link {
