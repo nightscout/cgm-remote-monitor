@@ -271,6 +271,7 @@ describe('openaps', function ( ) {
           done();
         }
       }
+      , language: require('../lib/language')()
     };
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
@@ -301,6 +302,7 @@ describe('openaps', function ( ) {
         units: 'mg/dl'
       }
       , notifications: require('../lib/notifications')(env, ctx)
+      , language: require('../lib/language')()
     };
 
     ctx.notifications.initRequests();
@@ -328,6 +330,7 @@ describe('openaps', function ( ) {
         units: 'mg/dl'
       }
       , notifications: require('../lib/notifications')(env, ctx)
+      , language: require('../lib/language')()
     };
 
     ctx.notifications.initRequests();
@@ -349,7 +352,8 @@ describe('openaps', function ( ) {
         units: 'mg/dl'
       }
       , notifications: require('../lib/notifications')(env, ctx)
-    };
+      , language: require('../lib/language')()
+   };
 
     ctx.notifications.initRequests();
 
