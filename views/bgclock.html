@@ -124,7 +124,13 @@
 			// Generate and insert the clock.
 			var timeDivisor = (window.serverSettings.settings.timeFormat) ? window.serverSettings.settings.timeFormat : 12;
 			var today = new Date(),
-			h = today.getHours() % timeDivisor || timeDivisor,
+			h = today.getHours() % timeDivisor;
+			if (timeDivisor == 12) {
+				h = (h == 0) ? 12 : h; // In the case of 00:xx, change to 12:xx for 12h time
+			}
+			if (timeDivisor == 24) {
+				h = (h < 10) ? ("0" + h) : h; // Pad the hours with a 0 in 24h time
+			}
 			m = today.getMinutes();
 			if (m < 10) m = "0" + m;
 			$('#clock').text(h + ":" + m);
