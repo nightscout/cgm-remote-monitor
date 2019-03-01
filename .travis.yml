@@ -1,7 +1,4 @@
 language: node_js
-node_js:
-  - "10"
-  - "8"
 os: 
   - osx
 before_install:
@@ -13,6 +10,12 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew services start mongodb; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install docker || true; fi
 matrix:
+  allow-failures:
+    node_js: "node"
+  include:
+    - node_js: "8"
+    - node_js: "10"
+    - node_js: "node" # Latest Node is not supported, and recommend, but we'll test it to know incompatibility issues
   fast_finish: true
 services:
   - mongodb
