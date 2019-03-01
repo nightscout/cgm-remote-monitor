@@ -2,155 +2,150 @@
   "name": "CGM Remote Monitor",
   "repository": "https://github.com/nightscout/cgm-remote-monitor",
   "env": {
-    "MONGO_COLLECTION": {
-      "description": "REQUIRED: The mongo collection used for CGM data. Default value is 'entries'. Most users should use the default.",
-      "value": "entries",
-      "required": true
-    },
-    "API_SECRET": {
-      "description": "REQUIRED: A secret passphrase that must be at least 12 characters long, required to enable POST and PUT; also required for the Care Portal.",
-      "value": "",
-      "required": true
-    },
-    "DISPLAY_UNITS": {
-      "description": "Choices: mg/dl and mmol. Setting to mmol puts the entire server into mmol mode by default, no further settings needed.",
-      "value": "",
-      "required": false
-    },
-    "ENABLE": {
-      "description": "Used to enable optional features, expects a space delimited list, such as: careportal rawbg iob, see https://github.com/nightscout/cgm-remote-monitor/blob/master/README.md for more info.",
-      "value": "",
-      "required": false
-    },
-    "DISABLE": {
-      "description": "Used to disable default features, expects a space delimited list, such as: direction upbat, see https://github.com/nightscout/cgm-remote-monitor/blob/master/README.md for more info.",
-      "value": "",
-      "required": false
-    },
-    "ALARM_TYPES": {
-      "description": "Alarm behavior currently 2 alarm types are supported simple and predict, and can be used independently or combined. The simple alarm type only compares the current BG to BG_ thresholds above, the predict alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend. predict DOES NOT currently use any of the BG_* ENV's",
-      "value": "",
-      "required": false
-    },
-    "BG_HIGH": {
-      "description": "Urgent high BG alarm. Default null value implies 260. Must be set in mg/dL (multiply with 18 if you have a value in mmol/L). Only used with simple alarms.",
-      "value": "",
-      "required": false
-    },
-    "BG_TARGET_TOP": {
-      "description": "Non-urgent high BG alarm, the top of your target range. Default null value implies 180. Must be set in mg/dL (multiply with 18 if you have a value in mmol/L). Only used with simple alarms.",
-      "value": "",
-      "required": false
-    },
-    "BG_TARGET_BOTTOM": {
-      "description": "Non urgent low BG alarm, the bottom of your target range. Default null value implies 80. Must be set in mg/dL (multiply with 18 if you have a value in mmol/L). Only used with simple alarms.",
-      "value": "",
-      "required": false
-    },
-    "BG_LOW": {
-      "description": "Urgent Low BG alarm. Default null value implies 55. Must be set in mg/dL (multiply with 18 if you have a value in mmol/L). Only used with simple alarms.",
-      "value": "",
-      "required": false
-    },
-    "PUSHOVER_API_TOKEN": {
-      "description": "Pushover API token, required for Pushover notifications. Leave blank if not using Pushover.",
-      "value": "",
-      "required": false
-    },
-    "PUSHOVER_USER_KEY": {
-      "description": "Pushover user key, required for Pushover notifications. Leave blank if not using Pushover.",
-      "value": "",
-      "required": false
-    },
-    "PUSHOVER_ANNOUNCEMENT_KEY": {
-      "description": "An optional Pushover user/group key, will be used for system wide user generated announcements.  If not defined this will fallback to `PUSHOVER_USER_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also support a space delimited list of keys. Leave blank if not using Pushover",
-      "value": "",
-      "required": false
-    },
-    "CUSTOM_TITLE": {
-      "description": "Customize the name of the website, usually the name of T1.",
-      "value": "",
-      "required": false
-    },
-    "BRIDGE_USER_NAME": {
-      "description": "Share bridge - Your user name for the Share service. ENSURE bridge is in ENABLE if you want to use the share bridge.",
-      "value": "",
-      "required": false
-    },
-    "BRIDGE_PASSWORD": {
-      "description": "Share bridge - Your password for the Share service. ENSURE bridge is in ENABLE if you want to use the share bridge.",
-      "value": "",
-      "required": false
-    },
-    "TIME_FORMAT": {
-      "description": "Browser default time mode. Valid settings are 12 or 24",
-      "value": "12",
-      "required": false 
-    },
-    "NIGHT_MODE": {
-      "description": "Browser defaults to night mode. Valid settings are on or off",
-      "value": "off",
-      "required": false 
-    },
-    "SHOW_RAWBG": {
-      "description": "Browser default raw display mode. Valid settings are always, never, or noise",
-      "value": "never",
-      "required": false 
-    },
-    "THEME": {
-      "description": "Browser default theme setting. Valid settings are default, colors, or colorblindfriendly",
-      "value": "default",
-      "required": false 
-    },
-    "ALARM_URGENT_HIGH": {
-      "description": "Browser default urgent high alarm enabled. Valid settings are on or off",
-      "value": "on",
-      "required": false 
-    },
     "ALARM_HIGH": {
-      "description": "Browser default high alarm enabled. Valid settings are on or off",
+      "description": "Default setting for new browser views, for the High alarm (triggered when BG crosses BG_TARGET_TOP). ('on' or 'off')",
       "value": "on",
       "required": false
     },
     "ALARM_LOW": {
-      "description": "Browser default low alarm enabled. Valid settings are on or off",
+      "description": "Default setting for new browser views, for the Low alarm (triggered when BG crosses BG_TARGET_BOTTOM). ('on' or 'off')",
       "value": "on",
-      "required": false
-    },
-    "ALARM_URGENT_LOW": {
-      "description": "Browser default urgent low alarm enabled. Valid settings are on or off",
-      "value": "on",
-      "required": false
-    },
-    "ALARM_TIMEAGO_WARN": {
-      "description": "Browser default warn after time of last data exceeds ALARM_TIMEAGO_WARN_MINS alarm enabled. Valid settings are on or off",
-      "value": "on",
-      "required": false
-    },
-    "ALARM_TIMEAGO_WARN_MINS": {
-      "description": "Browser default minutes since the last reading to trigger a warning.",
-      "value": "15",
       "required": false
     },
     "ALARM_TIMEAGO_URGENT": {
-      "description": "Browser default urgent warning after time of last data exceeds ALARM_TIMEAGO_URGENT_MINS alarm enabled. Valid settings are on or off",
+      "description": "Default setting for new browser views, for an urgent alarm when CGM data hasn't been received in the number of minutes set in ALARM_TIMEAGO_URGENT_MINS. ('on' or 'off')",
       "value": "on",
       "required": false
     },
     "ALARM_TIMEAGO_URGENT_MINS": {
-      "description": "Browser default minutes since last reading to trigger an urgent alarm.",
+      "description": "Default setting for new browser views, for the number of minutes since the last CGM reading to trigger an ALARM_TIMEAGO_URGENT alarm.",
       "value": "30",
       "required": false
     },
-    "MAKER_KEY": {
-      "description": "Maker Key - Set this to your secret key Note for additional info see https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md#ifttt-maker , maker should be added to enable if you want to use maker, Leave blank if not using maker",
+    "ALARM_TIMEAGO_WARN": {
+      "description": "Default setting for new browser views, for a warning alarm when CGM data hasn't been received in the number of minutes set in ALARM_TIMEAGO_WARN_MINS. ('on' or 'off')",
+      "value": "on",
+      "required": false
+    },
+    "ALARM_TIMEAGO_WARN_MINS": {
+      "description": "Default setting for new browser views, for the number of minutes since the last CGM reading to trigger an ALARM_TIMEAGO_WARN alarm.",
+      "value": "15",
+      "required": false
+    },
+    "ALARM_TYPES": {
+      "description": "'simple' and/or 'predict'. Simple alarms trigger when BG crosses the various thresholds set below. Predict alarms use a formula that forecasts where the BG is going based on its trend. You will *not* get warnings when crossing the BG thresholds set below when using the predict type.",
+      "value": "simple",
+      "required": false
+    },
+    "ALARM_URGENT_HIGH": {
+      "description": "Default setting for new browser views, for the Urgent High alarm (triggered when BG crosses BG_HIGH). ('on' or 'off')",
+      "value": "on",
+      "required": false 
+    },
+    "ALARM_URGENT_LOW": {
+      "description": "Default setting for new browser views, for the Urgent Low alarm (triggered when BG crosses BG_LOW). ('on' or 'off')",
+      "value": "on",
+      "required": false
+    },
+    "API_SECRET": {
+      "description": "A passphrase that must be at least 12 characters long. Avoid 'special' characters, which can cause problems in some cases.",
+      "value": "",
+      "required": true
+    },
+    "BG_HIGH": {
+      "description": "Urgent High BG threshold, triggers the ALARM_URGENT_HIGH alarm. Must be set in mg/dL, even if you use mmol/L (multiply a mmol/L value by 18 to change it to mg/dl).",
+      "value": "260",
+      "required": false
+    },
+    "BG_LOW": {
+      "description": "Urgent Low BG threshold, triggers the ALARM_URGENT_LOW alarm. Must be set in mg/dL, even if you use mmol/L (multiply a mmol/L value by 18 to change it to mg/dl).",
+      "value": "55",
+      "required": false
+    },
+    "BG_TARGET_BOTTOM": {
+      "description": "Low BG threshold, triggers the ALARM_LOW alarm. Must be set in mg/dL, even if you use mmol/L (multiply a mmol/L value by 18 to change it to mg/dl).",
+      "value": "80",
+      "required": false
+    },
+    "BG_TARGET_TOP": {
+      "description": "High BG threshold, triggers the ALARM_HIGH alarm. Must be set in mg/dL, even if you use mmol/L (multiply a mmol/L value by 18 to change it to mg/dl).",
+      "value": "180",
+      "required": false
+    },
+    "BRIDGE_PASSWORD": {
+      "description": "Your Dexcom account password, to receive CGM data from the Dexcom Share service. Also make sure to include 'bridge' in your ENABLE line.",
       "value": "",
       "required": false
     },
-    "MAKER_ANNOUNCEMENT_KEY": {
-      "description": "Maker Announcement Key - Set this to your secret key for announcements Note for additional info see https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md#ifttt-maker , maker should be added to enable if you want to use maker Leave blank if not using maker",
+    "BRIDGE_SERVER": {
+      "description": "If you are bridging from the Dexcom Share service, and are anywhere *outside* the US, change this to EU. ('US' or 'EU')",
+      "value": "US",
+      "required": false
+    },
+    "BRIDGE_USER_NAME": {
+      "description": "Your Dexcom account username, to receive CGM data from the Dexcom Share service. Also make sure to include 'bridge' in your ENABLE line.",
       "value": "",
       "required": false
+    },
+    "CUSTOM_TITLE": {
+      "description": "The display name for the Nightscout site. Appears in the upper left of the main view. Often set to the name of the CGM wearer.",
+      "value": "",
+      "required": false
+    },
+    "DISPLAY_UNITS": {
+      "description": "Preferred BG units for the site:'mg/dl' or 'mmol'. (Note that it is *not* 'mmol/L')",
+      "value": "mg/dl",
+      "required": false
+    },
+    "ENABLE": {
+      "description": "Plugins to enable for your site. Must be a space-delimited, lower-case list. Include the word 'bridge' here if you are receiving data from the Dexcom Share service. Include 'mmconnect' if you are bridging from the MiniMed CareLink service.",
+      "value": "careportal basal",
+      "required": false
+    },
+    "MMCONNECT_USER_NAME": {
+      "description": "Your CareLink account username, to receive CGM data from the CareLink service. Also make sure to include 'mmconnect' in your ENABLE line.",
+      "value": "",
+      "required": false
+    },
+    "MMCONNECT_PASSWORD": {
+      "description": "Your CareLink account password, to receive CGM data from the CareLink service. Also make sure to include 'mmconnect' in your ENABLE line.",
+      "value": "",
+      "required": false
+    },
+    "MMCONNECT_SERVER": {
+      "description": "If you are bridging from the CareLink service, and are anywhere *outside* the US, change this to EU. ('US' or 'EU')",
+      "value": "US",
+      "required": false
+    },
+    "MONGO_COLLECTION": {
+      "description": "The Mongo collection where CGM data is stored.",
+      "value": "entries",
+      "required": true
+    },
+    "NIGHT_MODE": {
+      "description": "Default setting for new browser views, for whether Night Mode should be enabled. ('on' or 'off')",
+      "value": "off",
+      "required": false 
+    },
+    "SHOW_PLUGINS": {
+      "description": "Default setting for whether or not these plugins are checked (active) by default, not merely enabled. Include plugins here as in the ENABLE line; space-separated and lower-case.",
+      "value": "careportal",
+      "required": false
+    },
+    "SHOW_RAWBG": {
+      "description": "Default setting for new browser views, for the display of raw CGM data (if available). ('always', 'never', or 'noise')",
+      "value": "never",
+      "required": false 
+    },
+    "THEME": {
+      "description": "Default setting for new browser views, for the color theme of the CGM graph. ('default', 'colors', or 'colorblindfriendly')",
+      "value": "colors",
+      "required": false 
+    },
+    "TIME_FORMAT": {
+      "description": "Default setting for new browser views, for the time mode. ('12' or '24')",
+      "value": "12",
+      "required": false 
     }
   },
   "addons": [
