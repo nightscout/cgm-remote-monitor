@@ -1,10 +1,13 @@
 language: node_js
+sudo: required
+dist: xenial
 node_js:
   - "10"
   - "8"
-os: 
-  - osx
+#os: 
+#  - osx
 before_install:
+  - if [[ `npm --version` != "6.4.1" ]]; then npm install -g npm@latest; npm --version; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
   # https://github.com/Homebrew/homebrew-core/issues/26358
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew unlink python; fi
