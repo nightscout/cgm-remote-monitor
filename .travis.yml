@@ -1,9 +1,11 @@
 language: node_js
+sudo: required
+dist: xenial
 node_js:
   - "10"
   - "8"
-os: 
-  - osx
+#os: 
+#  - osx
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
   # https://github.com/Homebrew/homebrew-core/issues/26358
