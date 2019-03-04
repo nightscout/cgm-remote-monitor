@@ -28,6 +28,10 @@ info:
       This security parameter is used for preventing anti-replay attacks, specifically when checking the time from `Date` header.
       
 
+    - Maximum limit count of documents retrieved from single query
+      <pre>API3_MAX_LIMIT=1000</pre>
+    
+    
     - Autopruning of obsolete documents (optional, default is only `DEVICESTATUS`=60) 
       <pre>API3_AUTOPRUNE_DEVICESTATUS=60
       
