@@ -66,6 +66,7 @@ function create(env, ctx) {
     });
 
     var appPages = {
+	    "/hud.html":"hud.html",
         "/clock-color.html":"clock-color.html",
         "/admin":"adminindex.html",
         "/profile":"profileindex.html",
