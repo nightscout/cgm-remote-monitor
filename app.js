@@ -44,11 +44,11 @@ function create(env, ctx) {
                 fontSrc: [ "'self'", 'https://fonts.gstatic.com/', 'data:'],
                 imgSrc: [ "'self'", 'data:'],
                 reportUri: '/report-violation',
-                reportOnly: true,
                 frameAncestors: ["'none'"], // Clickjacking protection, using frame-ancestors
                 baseUri: ["'none'"], // Restricts use of the <base> tag
                 formAction: ["'self'"], // Restricts where <form> contents may be submitted
-              }
+              },
+              reportOnly: true
             }));
             app.use(bodyParser.json({type: ['json', 'application/csp-report'] }))
               app.post('/report-violation', (req, res) => {
