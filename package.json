@@ -1,6 +1,6 @@
 {
   "name": "nightscout",
-  "version": "0.11.1",
+  "version": "0.11.2-dev-20190301",
   "description": "Nightscout acts as a web-based CGM (Continuous Glucose Montinor) to allow multiple caregivers to remotely view a patients glucose data in realtime.",
   "license": "AGPL-3.0",
   "author": "Nightscout Team",
@@ -65,14 +65,14 @@
     "expand-braces": "^0.1.2",
     "express": "^4.16.4",
     "express-minify": "^1.0.0",
-    "flot": "^0.8.0-alpha",
-    "helmet": "^3.15.0",
+    "flot": "^0.8.3",
+    "helmet": "^3.15.1",
     "jquery": "^3.3.1",
     "jquery-ui-bundle": "^1.12.1-migrate",
     "jquery.tooltips": "^1.0.0",
     "js-storage": "^1.0.4",
     "jsdom": "~11.11.0",
-    "jsonwebtoken": "^8.4.0",
+    "jsonwebtoken": "^8.5.0",
     "lodash": "^4.17.11",
     "mime": "^2.4.0",
     "minimed-connect-to-nightscout": "^1.1.1",
@@ -91,7 +91,7 @@
     "shiro-trie": "^0.4.8",
     "simple-statistics": "^0.7.0",
     "socket.io": "~2.1.1",
-    "swagger-ui-dist": "^3.20.6",
+    "swagger-ui-dist": "^3.21.0",
     "terser": "^3.16.1",
     "traverse": "^0.6.6"
   },
@@ -105,9 +105,9 @@
     "should": "^13.2.3",
     "style-loader": "^0.23.1",
     "supertest": "^3.4.2",
-    "terser-webpack-plugin": "^1.2.2",
-    "webpack": "^4.29.3",
-    "webpack-bundle-analyzer": "^3.0.3",
+    "terser-webpack-plugin": "^1.2.3",
+    "webpack": "^4.29.6",
+    "webpack-bundle-analyzer": "^3.1.0",
     "webpack-cli": "^3.2.3"
   }
 }
