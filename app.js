@@ -34,7 +34,7 @@ function create(env, ctx) {
               includeSubDomains: includeSubDomainsValue,
               preload: preloadValue
             }
-          }))
+          }));
           if (env.secureCsp) {
             app.use(helmet.contentSecurityPolicy({ //TODO make NS work without 'unsafe-inline'
               directives: {
@@ -42,9 +42,24 @@ function create(env, ctx) {
                 styleSrc: ["'self'", 'https://fonts.googleapis.com/',"'unsafe-inline'"],
                 scriptSrc: ["'self'", "'unsafe-inline'"],
                 fontSrc: [ "'self'", 'https://fonts.gstatic.com/', 'data:'],
-                connectSrc: [ "'self'" ]
+                imgSrc: [ "'self'", 'data:'],
+                reportUri: '/report-violation',
+                reportOnly: true,
+                frameAncestors: ["'none'"], // Clickjacking protection, using frame-ancestors
+                baseUri: ["'none'"], // Restricts use of the <base> tag
+                formAction: ["'self'"], // Restricts where <form> contents may be submitted
               }
             }));
+            app.use(bodyParser.json({type: ['json', 'application/csp-report'] }))
+              app.post('/report-violation', (req, res) => {
+                if (req.body) {
+                  console.log('CSP Violation: ', req.body) }
+                else {
+                  console.log('CSP Violation: No data received!')
+                }
+                res.status(204).end()
+              })
+
           }
         }
      }
