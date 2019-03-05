@@ -42,7 +42,7 @@ function create(env, ctx) {
                 styleSrc: ["'self'", 'https://fonts.googleapis.com/',"'unsafe-inline'"],
                 scriptSrc: ["'self'", "'unsafe-inline'"],
                 fontSrc: [ "'self'", 'https://fonts.gstatic.com/', 'data:'],
-                connectSrc: [ "'self'", "ws://" + env.HOSTNAME ]
+                connectSrc: [ "'self'" ]
               }
             }));
           }
