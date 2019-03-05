@@ -752,6 +752,9 @@
     }
     // treatments
     data.dailyCarbs = 0;
+    data.dailyProtein = 0;
+    data.dailyFat = 0;
+    
     data.treatments.forEach(function (d) {
       if (parseFloat(d.insulin) > maxInsulinValue) {
         maxInsulinValue = parseFloat(d.insulin);
@@ -760,7 +763,13 @@
         maxCarbsValue = parseFloat(d.carbs);
       }
       if (d.carbs) {
-        data.dailyCarbs += d.carbs;
+        data.dailyCarbs += Number(d.carbs);
+      }
+      if (d.protein) {
+        data.dailyProtein += Number(d.protein);
+      }
+      if (d.fat) {
+        data.dailyFat += Number(d.fat);
       }
     });
     if (data.dailyCarbs > maxDailyCarbsValue) {
