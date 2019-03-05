@@ -162,6 +162,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 [@tynbendad]: https://github.com/tynbendad
 [@unsoluble]: https://github.com/unsoluble
 [@viderehh]: https://github.com/viderehh
+[@OpossumGit]: https://github.com/OpossumGit
 
 | Contribution area                     | List of contributors |
 | ------------------------------------- | ---------------------------------- |
@@ -227,7 +228,7 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | Suomi (`fi`)|[@sulkaharo] |OK|
 | Français (`fr`)|Please volunteer|OK|
 | עברית (`he`)|Please volunteer|OK|
-| Hrvatski (`hr`)|Please volunteer|Needs attention: 47.8%|
+| Hrvatski (`hr`)|[@OpossumGit]|Needs attention: 47.8% - committed 100% to dev|
 | Italiano (`it`)|Please volunteer|OK|
 | 日本語 (`ja`)|[@LuminaryXion]|Working on this|
 | 한국어 (`ko`)|Please volunteer|Needs attention: 80.6%|
@@ -250,5 +251,5 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | ------------------------------------- | -------------------- |
 | All active developers: | [@jasoncalabrese] [@jpcunningh] [@jweismann] [@komarserjio] [@mdomox] [@MilosKozak] [@PieterGit] [@rickfriele] [@sulkaharo]
 | All active testers/documentors: | [@danamlewis] [@jamieowendexcom] [@mcdafydd] [@oteroos] [@rarneson] [@tynbendad] [@unsoluble]
-| All active translators: | [@apanasef] [@jizhongwen] [@viderehh] [@herzogmedia] [@LuminaryXion]
+| All active translators: | [@apanasef] [@jizhongwen] [@viderehh] [@herzogmedia] [@LuminaryXion] [@OpossumGit]
 
