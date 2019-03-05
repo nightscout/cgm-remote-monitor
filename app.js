@@ -41,7 +41,9 @@ function create(env, ctx) {
                 defaultSrc: ["'self'"],
                 styleSrc: ["'self'", 'https://fonts.googleapis.com/',"'unsafe-inline'"],
                 scriptSrc: ["'self'", "'unsafe-inline'"],
-                fontSrc: [ "'self'", 'https://fonts.gstatic.com/']
+                fontSrc: [ "'self'", 'https://fonts.gstatic.com/', 'data:'],
+                connectSrc: [ "'self'", "ws://" + request.headers.host
+                ]
               }
             }));
           }
