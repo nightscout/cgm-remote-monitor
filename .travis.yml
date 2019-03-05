@@ -1,8 +1,10 @@
-os: 
-  - osx
+sudo: required
+dist: xenial
+
 node_js-steps: &node_js-steps
   language: node_js
   before_install:
+    - if [[ `npm --version` != "6.4.1" ]]; then npm install -g npm@latest; npm --version; fi
     - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
     # https://github.com/Homebrew/homebrew-core/issues/26358
     - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew unlink python; fi
@@ -18,9 +20,8 @@ node_js-steps: &node_js-steps
   services:
     - mongodb
     - docker
-
 matrix:
-  allow-failures:
+  allow_failures:
     node_js: "node"
   include:
     - node_js: "8"
