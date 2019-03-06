@@ -23,8 +23,9 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="stylesheet" type="text/css" href="/css/report.css?v=<%= locals.cachebuster %>" />
-      <link rel="stylesheet" type="text/css" href="/css/ui-lightness/jquery-ui.min.css">
+      <link rel="preload" href="/css/report.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="/css/ui-lightness/jquery-ui.min.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <% include preloadCSS %>
 
     </head>
     <body>
