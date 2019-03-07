@@ -1,3 +1,24 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [Nightscout Alexa Plugin](#nightscout-alexa-plugin)
+  - [Overview](#overview)
+  - [Activate the Nightscout Alexa Plugin](#activate-the-nightscout-alexa-plugin)
+  - [Create Your Alexa Skill](#create-your-alexa-skill)
+    - [Get an Amazon Developer account](#get-an-amazon-developer-account)
+    - [Create a new Alexa skill](#create-a-new-alexa-skill)
+    - [Define the interaction model](#define-the-interaction-model)
+    - [Point your skill at your site](#point-your-skill-at-your-site)
+    - [Test your skill out with the test tool](#test-your-skill-out-with-the-test-tool)
+        - [What questions can you ask it?](#what-questions-can-you-ask-it)
+    - [Activate the skill on your Echo or other device](#activate-the-skill-on-your-echo-or-other-device)
+  - [Adding Alexa support to a plugin](#adding-alexa-support-to-a-plugin)
+    - [Intent Handlers](#intent-handlers)
+    - [Rollup handlers](#rollup-handlers)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 Nightscout Alexa Plugin
 ======================================
 
@@ -14,6 +35,7 @@ To add Alexa support for a plugin, [check this out](#adding-alexa-support-to-a-p
 
 1. Your Nightscout site needs to be new enough that it supports the `alexa` plugin. It needs to be [version 0.9.1 (Grilled Cheese)](https://github.com/nightscout/cgm-remote-monitor/releases/tag/0.9.1) or later. See [updating my version](https://github.com/nightscout/cgm-remote-monitor#updating-my-version) if you need a newer version.
 1. Add `alexa` to the list of plugins in your `ENABLE` setting. ([Environment variables](https://github.com/nightscout/cgm-remote-monitor#environment) are set in the configuration section for your monitor. Typically Azure, Heroku, etc.)
+1. The Alexa plugin pulls its units preferences from your site's defaults. If you don't have a `DISPLAY_UNITS` entry, it will default to `mg/dl`. If you want it to use mmol/L, make sure you have a `DISPLAY_UNITS` line, and set it to `mmol` (*not* `mmol/l`).
 
 ## Create Your Alexa Skill
 
