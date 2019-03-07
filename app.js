@@ -1,6 +1,6 @@
 'use strict';
 
-var _ = require('lodash');
+var _get = require('lodash/get');
 var express = require('express');
 var compression = require('compression');
 var bodyParser = require('body-parser');
@@ -14,6 +14,39 @@ function create(env, ctx) {
     var appInfo = env.name + ' ' + env.version;
     app.set('title', appInfo);
     app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
+    var insecureUseHttp = env.insecureUseHttp;
+    var secureHstsHeader = env.secureHstsHeader;
+    console.info('Security settings: INSECURE_USE_HTTP=',insecureUseHttp,', SECURE_HSTS_HEADER=',secureHstsHeader);
+    if (!insecureUseHttp) {
+        app.use((req, res, next) => {
+        if (req.header('x-forwarded-proto') !== 'https')
+            res.redirect(`https://${req.header('host')}${req.url}`);
+        else
+            next()
+        })
+        if (secureHstsHeader) { // Add HSTS (HTTP Strict Transport Security) header
+          const helmet = require('helmet');
+          var includeSubDomainsValue = env.secureHstsHeaderIncludeSubdomains;
+          var preloadValue = env.secureHstsHeaderPreload;
+          app.use(helmet({
+            hsts: {
+              maxAge: 31536000,
+              includeSubDomains: includeSubDomainsValue,
+              preload: preloadValue
+            }
+          }))
+          if (env.secureCsp) {
+            app.use(helmet.contentSecurityPolicy({ //TODO make NS work without 'unsafe-inline'
+              directives: {
+                defaultSrc: ["'self'"],
+                styleSrc: ["'self'", 'https://fonts.googleapis.com/',"'unsafe-inline'"],
+                scriptSrc: ["'self'", "'unsafe-inline'"],
+                fontSrc: [ "'self'", 'https://fonts.gstatic.com/']
+              }
+            }));
+          }
+        }
+     }
 
     app.set('view engine', 'ejs');
     // this allows you to render .html files as templates in addition to .ejs
@@ -24,12 +57,12 @@ function create(env, ctx) {
     app.locals.cachebuster = fs.readFileSync(process.cwd() + '/tmp/cacheBusterToken').toString().trim();
 
     if (ctx.bootErrors && ctx.bootErrors.length > 0) {
-        app.get('*', require('./lib/booterror')(ctx));
+        app.get('*', require('./lib/server/booterror')(ctx));
         return app;
     }
 
     if (env.settings.isEnabled('cors')) {
-        var allowOrigin = _.get(env, 'extendedSettings.cors.allowOrigin') || '*';
+        var allowOrigin = _get(env, 'extendedSettings.cors.allowOrigin') || '*';
         console.info('Enabled CORS, allow-origin:', allowOrigin);
         app.use(function allowCrossDomain(req, res, next) {
             res.header('Access-Control-Allow-Origin', allowOrigin);
@@ -84,7 +117,7 @@ function create(env, ctx) {
         });
 	});
 
-    app.get("/nightscout.appcache", (req, res) => {
+    app.get("/appcache/*", (req, res) => {
         res.render("nightscout.appcache", {
             locals: app.locals
         });
@@ -101,9 +134,9 @@ function create(env, ctx) {
     // pebble data
     app.get('/pebble', ctx.pebble);
 
-    // expose swagger.yaml
-    app.get('/swagger.yaml', function(req, res) {
-        res.sendFile(__dirname + '/swagger.yaml');
+    // expose swagger.json
+    app.get('/swagger.json', function(req, res) {
+        res.sendFile(__dirname + '/swagger.json');
     });
 
 /*
@@ -141,6 +174,14 @@ function create(env, ctx) {
     // serve the static content
     app.use(staticFiles);
 
+    const swaggerUiAssetPath = require("swagger-ui-dist").getAbsoluteFSPath();
+    var swaggerFiles = express.static(swaggerUiAssetPath, {
+        maxAge: maxAge
+    });
+
+    // serve the static content
+    app.use('/swagger-ui-dist', swaggerFiles);
+
     var tmpFiles = express.static('tmp', {
         maxAge: maxAge
     });
@@ -153,7 +194,6 @@ function create(env, ctx) {
         console.log('Production environment detected, enabling Minify');
 
         var minify = require('express-minify');
-        var myUglifyJS = require('uglify-js');
         var myCssmin = require('cssmin');
 
         app.use(minify({
@@ -164,9 +204,8 @@ function create(env, ctx) {
             stylus_match: /stylus/,
             coffee_match: /coffeescript/,
             json_match: /json/,
-            uglifyJS: myUglifyJS,
             cssmin: myCssmin,
-            cache: __dirname + '/cache',
+            cache: __dirname + '/tmp',
             onerror: undefined,
         }));
 
