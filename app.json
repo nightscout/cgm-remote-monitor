@@ -40,7 +40,7 @@
     "ALARM_URGENT_HIGH": {
       "description": "Default setting for new browser views, for the Urgent High alarm (triggered when BG crosses BG_HIGH). ('on' or 'off')",
       "value": "on",
-      "required": false
+      "required": false 
     },
     "ALARM_URGENT_LOW": {
       "description": "Default setting for new browser views, for the Urgent Low alarm (triggered when BG crosses BG_LOW). ('on' or 'off')",
@@ -125,7 +125,7 @@
     "NIGHT_MODE": {
       "description": "Default setting for new browser views, for whether Night Mode should be enabled. ('on' or 'off')",
       "value": "off",
-      "required": false
+      "required": false 
     },
     "SHOW_PLUGINS": {
       "description": "Default setting for whether or not these plugins are checked (active) by default, not merely enabled. Include plugins here as in the ENABLE line; space-separated and lower-case.",
@@ -135,37 +135,17 @@
     "SHOW_RAWBG": {
       "description": "Default setting for new browser views, for the display of raw CGM data (if available). ('always', 'never', or 'noise')",
       "value": "never",
-      "required": false
+      "required": false 
     },
     "THEME": {
       "description": "Default setting for new browser views, for the color theme of the CGM graph. ('default', 'colors', or 'colorblindfriendly')",
       "value": "colors",
-      "required": false
+      "required": false 
     },
-    "SECURE_CSP": {
-      "description": "If set to true a Content Security Policy header will be added. Default: true",
-      "value": "true",
-      "required": false
-    },
-    "MMCONNECT_USER_NAME": {
-      "description": "Your username for CareLink",
-      "value": "",
-      "required": false
-    },
-    "MMCONNECT_PASSWORD": {
-      "description": "Your password for CareLink",
-      "value": "",
-      "required": false
-    },
-    "MMCONNECT_SERVER": {
-      "description": "EU if Europe",
-      "value": "",
-      "required": false
-    },
-    "MMCONNECT_VERBOSE": {
-      "description": "Verbose",
-      "value": "",
-      "required": false
+    "TIME_FORMAT": {
+      "description": "Default setting for new browser views, for the time mode. ('12' or '24')",
+      "value": "12",
+      "required": false 
     }
   },
   "addons": [
