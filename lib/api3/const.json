@@ -2,6 +2,7 @@
   "API3_VERSION": "3.0.0-alpha",
   "API3_SECURITY_ENABLE": true,
   "API3_TIME_SKEW_TOLERANCE": 5,
+  "API3_DEDUP_FALLBACK_ENABLED": true,
   "API3_MAX_LIMIT": 1000,
 
   "HTTP": {
@@ -19,6 +20,7 @@
 
   "MSG": {
     "HTTP_400_BAD_LIMIT": "Parameter limit out of tolerance",
+    "HTTP_400_BAD_REQUEST_BODY": "Bad or missing request body",
     "HTTP_400_BAD_SKIP": "Parameter skip out of tolerance",
     "HTTP_400_SORT_SORT_DESC": "Parameters sort and sort_desc cannot be combined",
     "HTTP_400_UNSUPPORTED_FILTER_OPERATOR": "Unsupported filter operator {0}",
