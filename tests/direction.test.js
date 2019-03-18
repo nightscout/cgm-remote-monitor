@@ -12,7 +12,6 @@ describe('BG direction', function ( ) {
       , pluginBase: pluginBase || {}
     };
 
-    ctx.language = require('../lib/language')();
 
     var sandbox = require('../lib/sandbox')();
     return sandbox.clientInit(ctx, Date.now(), data);
