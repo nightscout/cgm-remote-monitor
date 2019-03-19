@@ -749,7 +749,7 @@ components:
         Location of document - the relative part of URL. This can be used to parse the identifier 
         of just created document.
 
-        Example=/treatment/53409478-105f-11e9-ab14-d663bd873d93
+        Example=/treatments/53409478-105f-11e9-ab14-d663bd873d93
 
     headerLastModified:
       type: string
