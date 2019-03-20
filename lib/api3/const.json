@@ -15,6 +15,7 @@
     "FORBIDDEN": 403,
     "NOT_FOUND": 404,
     "GONE": 410,
+    "PRECONDITION_FAILED": 412,
     "INTERNAL_ERROR": 500
   },
 
