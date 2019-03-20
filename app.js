@@ -64,9 +64,9 @@ function create(env, ctx) {
                 }
                 res.status(204).end()
               })
-
           }
         }
+     }
      else { 
        console.info('Security settings: INSECURE_USE_HTTP=',insecureUseHttp,', SECURE_HSTS_HEADER=',secureHstsHeader);
      }
