@@ -16,8 +16,8 @@ function create(env, ctx) {
     app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
     var insecureUseHttp = env.insecureUseHttp;
     var secureHstsHeader = env.secureHstsHeader;
-    console.info('Security settings: INSECURE_USE_HTTP=',insecureUseHttp,', SECURE_HSTS_HEADER=',secureHstsHeader);
     if (!insecureUseHttp) {
+        console.info('Redirecting http traffic to https because INSECURE_USE_HTTP=', insecureUseHttp);
         app.use((req, res, next) => {
         if (req.header('x-forwarded-proto') !== 'https')
             res.redirect(`https://${req.header('host')}${req.url}`);
@@ -25,6 +25,7 @@ function create(env, ctx) {
             next()
         })
         if (secureHstsHeader) { // Add HSTS (HTTP Strict Transport Security) header
+          console.info('Enabled SECURE_HSTS_HEADER (HTTP Strict Transport Security)');
           const helmet = require('helmet');
           var includeSubDomainsValue = env.secureHstsHeaderIncludeSubdomains;
           var preloadValue = env.secureHstsHeaderPreload;
@@ -36,6 +37,7 @@ function create(env, ctx) {
             }
           }))
           if (env.secureCsp) {
+            console.info('Enabled SECURE_CSP (Content Security Policy)');
             app.use(helmet.contentSecurityPolicy({ //TODO make NS work without 'unsafe-inline'
               directives: {
                 defaultSrc: ["'self'"],
@@ -46,6 +48,8 @@ function create(env, ctx) {
             }));
           }
         }
+     else { 
+       console.info('Security settings: INSECURE_USE_HTTP=',insecureUseHttp,', SECURE_HSTS_HEADER=',secureHstsHeader);
      }
 
     app.set('view engine', 'ejs');
@@ -138,6 +142,12 @@ function create(env, ctx) {
     app.get('/swagger.json', function(req, res) {
         res.sendFile(__dirname + '/swagger.json');
     });
+
+    // expose swagger.yaml
+    app.get('/swagger.yaml', function(req, res) {
+        res.sendFile(__dirname + '/swagger.yaml');
+    });
+
 
 /*
     if (env.settings.isEnabled('dumps')) {
