@@ -369,6 +369,7 @@ paths:
           $ref: '#/components/responses/404NotFound'
 
 
+######################################################################################  
   /{collection}/history:
     parameters:
       - in: path
@@ -380,7 +381,6 @@ paths:
 
       - $ref: '#/components/parameters/dateHeader'
 
-######################################################################################  
     get:
       tags:
         - generic
@@ -388,9 +388,8 @@ paths:
       operationId: HISTORY
       description: 
         HISTORY operation is intended for continuous data synchronization with other systems.
-        
-        
-        Every insertion, update and deletion will be included in the resulting JSON array of documents (since timestamp in `Last-Modified` request header value). All changes are listed chronologically in response with 200 HTTP status code. The maximum listed `srvModified` timestamp is also stored in `Last-Modified` response header that you can use for future, directly following synchronization. You can also limit the array's length using `limit` parameter.
+
+        Every insertion, update and deletion will be included in the resulting JSON array of documents (since timestamp in `Last-Modified` request header value). All changes are listed chronologically in response with 200 HTTP status code. The maximum listed `srvModified` timestamp is also stored in `Last-Modified` and `ETag` response headers that you can use for future, directly following synchronization. You can also limit the array's length using `limit` parameter.
         
         
         Deleted documents will appear blankened, i.e. only with `identifier`, `srvModified` and `isValid` (= `false`) fields. 
@@ -406,6 +405,62 @@ paths:
 
       parameters:
       - $ref: '#/components/parameters/lastModifiedRequiredHeader'
+      - $ref: '#/components/parameters/limitParam'
+      - $ref: '#/components/parameters/fieldsParam'
+
+      security:
+        - apiKeyAuth: []
+
+      responses:
+        200:
+          $ref: '#/components/responses/history200'
+        204:
+          $ref: '#/components/responses/history204'
+        400:
+          $ref: '#/components/responses/400BadRequest'
+        401:
+          $ref: '#/components/responses/401Unauthorized'
+        403:
+          $ref: '#/components/responses/403Forbidden'
+        404:
+          $ref: '#/components/responses/404NotFound'
+
+          
+######################################################################################  
+  /{collection}/history/{lastModified}:
+    parameters:
+      - in: path
+        name: collection
+        description: Collection to which the operation is targeted
+        required: true
+        schema:
+          $ref: '#/components/schemas/paramCollection'
+
+      - in: path
+        name: lastModified
+        description: Starting timestamp (in UNIX epoch format, defined with respect to server's clock) since which the changes in documents are to be listed. Query for modified documents is made using "greater than" operator (not including equal timestamps).
+        required: true
+        schema:
+          type: integer
+
+      - $ref: '#/components/parameters/dateHeader'
+
+    get:
+      tags:
+        - generic
+      summary: 'HISTORY: Retrieves incremental changes since timestamp'
+      operationId: HISTORY2
+      description: 
+        This HISTORY operation variant is more precise than the previous one with `Last-Modified` request HTTP header), because it does not loose milliseconds precision. 
+        
+        
+        Since this variant queries for changed documents by timestamp precisely and exclusively, the last modified document does not repeat itself in following calls. That is the reason why is this variant more suitable for continuous synchronization with other systems.
+        
+        
+        This variant behaves quite the same as the previous one in all other aspects.
+        
+        
+      parameters:
       - $ref: '#/components/parameters/limitParam'
       - $ref: '#/components/parameters/fieldsParam'
 
@@ -472,7 +527,7 @@ components:
       schema:
         type: integer
         minimum: 1
-        default: 1000
+        default: stored in API3_MAX_LIMIT environment variable (usually 1000)
         example: 100
       description: Maximum number of documents to get in result array
   
@@ -735,6 +790,8 @@ components:
       headers:
         'Last-Modified': 
           $ref: '#/components/schemas/headerLastModifiedMaximum'
+        'ETag': 
+          $ref: '#/components/schemas/headerEtagLastModifiedMaximum'
 
     history204:
       description: No changes detected
@@ -772,6 +829,14 @@ components:
 
         Example='Wed, 17 Oct 2018 05:13:00 GMT'
 
+    headerEtagLastModifiedMaximum:
+      type: string
+      description: 
+        The latest (maximum) `srvModified` field of all returning documents. 
+        This header does not loose milliseconds from the date (unlike the `Last-Modified` header).
+
+        Example='W/"1525383610088"'
+        
     paramCollection:        
       type: string
       enum:

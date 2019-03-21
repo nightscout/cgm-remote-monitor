@@ -20,7 +20,7 @@
   },
 
   "MSG": {
-    "HTTP_400_BAD_LAST_MODIFIED": "Bad or missing Last-Modified header",
+    "HTTP_400_BAD_LAST_MODIFIED": "Bad or missing Last-Modified header/parameter",
     "HTTP_400_BAD_LIMIT": "Parameter limit out of tolerance",
     "HTTP_400_BAD_REQUEST_BODY": "Bad or missing request body",
     "HTTP_400_BAD_SKIP": "Parameter skip out of tolerance",
