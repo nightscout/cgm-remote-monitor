@@ -37,7 +37,12 @@ function create(env, ctx) {
             }
           }));
           if (env.secureCsp) {
-            console.info('Enabled SECURE_CSP (Content Security Policy)');
+            var secureCspReportOnly= env.secureCspReportOnly;
+            if (secureCspReportOnly) {
+              console.info( 'Enabled SECURE_CSP (Content Security Policy header). Not enforcing. Report only.' );
+            } else {
+              console.info( 'Enabled SECURE_CSP (Content Security Policy header). Enforcing.' );
+            }
             app.use(helmet.contentSecurityPolicy({ //TODO make NS work without 'unsafe-inline'
               directives: {
                 defaultSrc: ["'self'"],
@@ -51,7 +56,7 @@ function create(env, ctx) {
                 baseUri: ["'none'"], // Restricts use of the <base> tag
                 formAction: ["'self'"], // Restricts where <form> contents may be submitted
               },
-              reportOnly: true
+              reportOnly: secureCspReportOnly
             }));
             app.use(helmet.referrerPolicy({ policy: 'no-referrer' }));
             app.use(helmet.featurePolicy({ features: { payment: ["'none'"], } }));

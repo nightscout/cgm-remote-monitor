@@ -147,9 +147,9 @@ $ npm install
 
 ## Installation notes for users with nginx or Apache reverse proxy for SSL/TLS offloading:
 
-- Set `INSECURE_USE_HTTP` to `false`, to be able to use non secure connections from the webserver to Nightscout server
-- Your site redirects to `https` by default. If you don't want that and use a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. This will allow (unsafe) http traffic.
-- Do not use an external interface for hosting Nightscout. Make sure the unsecure port is not available from a remote network connection
+- Set `INSECURE_USE_HTTP` to `false`, to be able to use non secure HTTP connections to Nightscout server
+- Your site redirects insecure connections to `https` by default. If you don't want that and use a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. This will allow (unsafe) http traffic.
+- In case you use a proxy. Do not use an external network interfaces for hosting Nightscout. Make sure the unsecure port is not available from a remote network connection
 - HTTP Strict Transport Security (HSTS) headers are enabled by default, use settings `SECURE_HSTS_HEADER` and `SECURE_HSTS_HEADER_*`
 - See [Predefined values for your server settings](#predefined-values-for-your-server-settings-optional) for more details
 
@@ -292,11 +292,12 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enable or disable icon allowing enter treatments edit mode
 
 ### Predefined values for your server settings (optional)
-  * `INSECURE_USE_HTTP` (`false`) - Redirect http url's to https. Possible values `false`, or `true`. Your site redirects to `https` by default. If you don't want that and use a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. This will allow (unsafe) http traffic.
+  * `INSECURE_USE_HTTP` (`false`) - Redirect unsafe http traffic to https. Possible values `false`, or `true`. Your site redirects to `https` by default. If you don't want that from Nightscout, but want to implement that with a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. Note: This will allow (unsafe) http traffic to your Nightscout instance and is not recommended.
   * `SECURE_HSTS_HEADER` (`true`) - Add HTTP Strict Transport Security (HSTS) header. Possible values `false`, or `true`.
   * `SECURE_HSTS_HEADER_INCLUDESUBDOMAINS` (`false`) - includeSubdomains options for HSTS. Possible values `false`, or `true`.
   * `SECURE_HSTS_HEADER_PRELOAD` (`false`) - ask for preload in browsers for HSTS. Possible values `false`, or `true`.
   * `SECURE_CSP` (`false`) - Add Content Security Policy headers. Possible values `false`, or `true`.
+  * `SECURE_CSP_REPORT_ONLY` (`false`) - If set to `true` allows to experiment with policies by monitoring (but not enforcing) their effects. Possible values `false`, or `true`.
   
   ### Views
 
