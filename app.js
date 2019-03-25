@@ -19,10 +19,11 @@ function create(env, ctx) {
     console.info('Security settings: INSECURE_USE_HTTP=',insecureUseHttp,', SECURE_HSTS_HEADER=',secureHstsHeader);
     if (!insecureUseHttp) {
         app.use((req, res, next) => {
-        if (req.header('x-forwarded-proto') !== 'https')
+        if (req.header('x-forwarded-proto') == 'https' || req.secure) {
+            next();
+        } else {
             res.redirect(`https://${req.header('host')}${req.url}`);
-        else
-            next()
+        }
         })
         if (secureHstsHeader) { // Add HSTS (HTTP Strict Transport Security) header
           const helmet = require('helmet');
