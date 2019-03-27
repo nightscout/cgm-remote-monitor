@@ -442,6 +442,7 @@ paths:
         required: true
         schema:
           type: integer
+          format: int64
 
       - $ref: '#/components/parameters/dateHeader'
 
@@ -874,6 +875,7 @@ components:
           
         date:
           type: integer
+          format: int64
           description: 
             Required timestamp when the record or event occured (Unix epoch in ms).  
           example: 1525383610088
@@ -909,6 +911,7 @@ components:
           
         srvCreated:
           type: integer
+          format: int64
           description: 
             The server's timestamp of document insertion into the database (Unix epoch in ms). This field appears only for documents which were inserted by API v3.
           example: 1525383610088
@@ -921,6 +924,7 @@ components:
           
         srvModified: 
           type: integer
+          format: int64
           description: 
             The server's timestamp of the last document modification in the database (Unix epoch in ms). This field appears  only for documents which were somehow modified by API v3 (inserted, updated or deleted).
           example: 1525383610088
