@@ -34,8 +34,9 @@ function create(env, ctx) {
               maxAge: 31536000,
               includeSubDomains: includeSubDomainsValue,
               preload: preloadValue
-            }
-          }))
+            },
+            frameguard: false
+          }));
           if (env.secureCsp) {
             app.use(helmet.contentSecurityPolicy({ //TODO make NS work without 'unsafe-inline'
               directives: {
