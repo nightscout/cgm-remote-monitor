@@ -19,10 +19,11 @@ function create(env, ctx) {
     if (!insecureUseHttp) {
         console.info('Redirecting http traffic to https because INSECURE_USE_HTTP=', insecureUseHttp);
         app.use((req, res, next) => {
-        if (req.header('x-forwarded-proto') !== 'https')
+        if (req.header('x-forwarded-proto') == 'https' || req.secure) {
+            next();
+        } else {
             res.redirect(`https://${req.header('host')}${req.url}`);
-        else
-            next()
+        }
         })
         if (secureHstsHeader) { // Add HSTS (HTTP Strict Transport Security) header
           console.info('Enabled SECURE_HSTS_HEADER (HTTP Strict Transport Security)');
