@@ -13,6 +13,7 @@ describe('ar2', function ( ) {
   };
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
+  ctx.levels = levels;
 
   var ar2 = require('../lib/plugins/ar2')(ctx);
   var bgnow = require('../lib/plugins/bgnow')(ctx);
