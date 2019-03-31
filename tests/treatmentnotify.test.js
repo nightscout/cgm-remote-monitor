@@ -10,6 +10,8 @@ describe('treatmentnotify', function ( ) {
   var ctx = {};
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
+  ctx.levels = levels;
+  ctx.language = require('../lib/language')().set('en');
 
   var now = Date.now();
 
