@@ -22,8 +22,7 @@ MOCHA=./node_modules/mocha/bin/_mocha
 # Pinned from dependency list.
 ISTANBUL=./node_modules/.bin/istanbul
 ANALYZED=./coverage/lcov.info
-# Following token deprecated
-# export CODACY_REPO_TOKEN=e29ae5cf671f4f918912d9864316207c
+export CODACY_REPO_TOKEN=e29ae5cf671f4f918912d9864316207c
 
 DOCKER_IMAGE=nightscout/cgm-remote-monitor-travis
 
