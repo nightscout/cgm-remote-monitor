@@ -7,7 +7,6 @@ var moment = require('moment');
 var ctx = {
   language: require('../lib/language')()
 };
-ctx.language.set('en');
 var env = require('../env')();
 var openaps = require('../lib/plugins/openaps')(ctx);
 var sandbox = require('../lib/sandbox')();
@@ -271,7 +270,6 @@ describe('openaps', function ( ) {
           done();
         }
       }
-      , language: require('../lib/language')()
     };
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
@@ -302,7 +300,6 @@ describe('openaps', function ( ) {
         units: 'mg/dl'
       }
       , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
     };
 
     ctx.notifications.initRequests();
@@ -330,7 +327,6 @@ describe('openaps', function ( ) {
         units: 'mg/dl'
       }
       , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
     };
 
     ctx.notifications.initRequests();
@@ -352,8 +348,7 @@ describe('openaps', function ( ) {
         units: 'mg/dl'
       }
       , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
-   };
+    };
 
     ctx.notifications.initRequests();
 
