@@ -18,10 +18,6 @@
 
   client.init(function loaded () {
 
-  if (c_profile !== null) {
-      return; // already loaded so don't load again
-  }
-  
   var translate = client.translate;
 
   var defaultprofile = {
@@ -92,7 +88,7 @@
         records.push(defaultprofile);
       }
       client.profilefunctions.loadData(records); // do a conversion if needed
-      mongorecords = _.cloneDeep(client.profilefunctions.data);
+      mongorecords = client.profilefunctions.data;
       // create new profile to be edited from last record
       if (mongorecords.length) {
         _.each(mongorecords, function eachMongoProfile (mongoprofile) {
@@ -203,28 +199,6 @@
     initProfile();
   }
 
-  function timeDiffMinutes(time1, time2)
-  {
-    var minutes1 = toMinutesFromMidnight(time1);
-    var minutes2 = toMinutesFromMidnight(time2);
-    if (minutes2 <= minutes1) {
-      minutes2 += 24*60;
-    }
-    return minutes2-minutes1;
-  }
-  function refreshTotalBasal()
-  {
-    GUIToObject();
-    var total = 0;
-    for (var i=0, len=c_profile['basal'].length; i<len; i++) {
-      var time1 = c_profile['basal'][i].time;
-      var time2 = c_profile['basal'][(i+1)%len].time;
-      var value = c_profile['basal'][i].value;
-      total += timeDiffMinutes(time1,time2) * value / 60
-    }
-    $('#pe_basalTotal_placeholder').html(Math.round(total*1000)/1000);
-  }
-
   function initProfile() {
     var record = mongorecords[currentrecord];
     // fill profilenames
@@ -243,7 +217,6 @@
     mongorecords[currentrecord].defaultProfile = currentprofile;
     // Set values from profile to html
     fillTimeRanges();
-    refreshTotalBasal();
   }
 
   // Handling of record list box change
@@ -331,8 +304,6 @@
     GUIToObject();
 
     var newname = $('#pe_profile_name').val();
-    if (!isNaN(newname)) newname = 'Profile' + newname;
-    
     if (currentprofile !== newname) {
       // rename if already exists
       while (record.store[newname]) {
@@ -439,7 +410,7 @@
       select.val(selectedValue);
 
       tr.append($('<td>').append(translate('From') + ': ').append(select));
-      tr.append($('<td>').append(e.label).append($('<input type="text">').attr('id',e.prefix+'_val_'+i).attr('value',c_profile[e.array][i].value).attr('class', e.prefix + '_value')));
+      tr.append($('<td>').append(e.label).append($('<input type="text">').attr('id',e.prefix+'_val_'+i).attr('value',c_profile[e.array][i].value)));
       var icons_td = $('<td>').append($('<img>').attr('class','addsingle').attr('style','cursor:pointer').attr('title',translate('Add new interval before')).attr('src',icon_add).attr('array',e.array).attr('pos',i));
       if (c_profile[e.array].length>1) {
         icons_td.append($('<img>').attr('class','delsingle').attr('style','cursor:pointer').attr('title',translate('Delete interval')).attr('src',icon_remove).attr('array',e.array).attr('pos',i));
@@ -465,15 +436,13 @@
       html += '</table>';
       $('#'+e.prefix+'_placeholder').html(html);
     });
-    $('.pe_basal_value').on('change keyup paste', refreshTotalBasal);
+
     $('.addsingle').click(function addsingle_click() {
       var array = $(this).attr('array');
       var pos = $(this).attr('pos');
       GUIToObject();
       c_profile[array].splice(pos,0,{time:'00:00',value:0});
-      var retVal = fillTimeRanges();
-      refreshTotalBasal();
-      return retVal;
+      return fillTimeRanges();
     });
 
     $('.delsingle').click(function delsingle_click() {
@@ -482,9 +451,7 @@
       GUIToObject();
       c_profile[array].splice(pos,1);
       c_profile[array][0].time = '00:00';
-      var retVal = fillTimeRanges();
-      refreshTotalBasal();
-      return retVal;
+      return fillTimeRanges();
     });
 
     function addBGLine(i) {
@@ -545,7 +512,7 @@
       return fillTimeRanges();
     });
 
-    $('.pe_selectabletime').unbind().on('change', fillTimeRanges).on('change', refreshTotalBasal);
+    $('.pe_selectabletime').unbind().on('change', fillTimeRanges);
 
     objectToGUI();
     maybePreventDefault(event);
@@ -634,11 +601,11 @@
   }
 
   function toTimeString(minfrommidnight) {
-    return moment.utc().startOf('day').add(minfrommidnight,'minutes').format('HH:mm'); // using utc to avoid daylight saving offset
+    return moment().startOf('day').add(minfrommidnight,'minutes').format('HH:mm');
   }
 
   function toDisplayTime (minfrommidnight) {
-    var time = moment.utc().startOf('day').add(minfrommidnight,'minutes'); // using utc to avoid daylight saving offset
+    var time = moment().startOf('day').add(minfrommidnight,'minutes');
     return client.settings.timeFormat === 24 ? time.format('HH:mm') : time.format('h:mm A');
   }
 
@@ -682,13 +649,7 @@
     delete adjustedRecord.convertedOnTheFly;
 
     console.info('saving profile');
-    peStatus.hide().text(translate('Saving profile')).fadeIn('slow');
 
-    // Hide the form until the ajax PUT is done.
-    // This is a crude way of preventing the user from changing the inputs whilst waiting.
-    // If the user was able to make changes, they'd be lost when the done callback redraws anyway.
-    $('#pe_form').hide();
-    
     $.ajax({
       method: 'PUT'
       , url: '/api/v1/profile/'
@@ -696,14 +657,12 @@
       , headers: client.headers()
     }).done(function postSuccess (data, status) {
       console.info('profile saved', data);
-      $('#pe_form').show(); // allow edits again
       peStatus.hide().text(status).fadeIn('slow');
       record._id = data._id;
       initRecord();
       dirty = false;
     }).fail(function(xhr, status, errorThrown)  {
       console.error('Profile not saved', status, errorThrown);
-      $('#pe_form').show(); // allow edits again
       peStatus.hide().text(status).fadeIn('slow');
     });
     return false;
