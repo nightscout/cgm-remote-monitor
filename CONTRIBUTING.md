@@ -3,11 +3,12 @@
 **Table of Contents**
 
 - [Contributing to cgm-remote-monitor](#contributing-to-cgm-remote-monitor)
-  - [Design](#design)
+  - [Design & new features](#design--new-features)
   - [Develop on `dev`](#develop-on-dev)
   - [Style Guide](#style-guide)
   - [Create a prototype](#create-a-prototype)
   - [Submit a pull request](#submit-a-pull-request)
+  - [Bug fixing](#bug-fixing)
   - [Comments and issues](#comments-and-issues)
   - [Co-ordination](#co-ordination)
   - [Other Dev Tips](#other-dev-tips)
