@@ -11,6 +11,7 @@ describe('Generic REST API3', function ( ) {
     , api = require('../lib/api3/')
     , testConst = require('./fixtures/api3/const.json')
     , utils = require('./fixtures/api3/utils')
+    , _ = require('lodash')
 
   this.timeout(30000);
 
@@ -23,9 +24,14 @@ describe('Generic REST API3', function ( ) {
     self.app = require('express')( );
     self.app.enable('api');
 
-    self.identifier = utils.randomString("32", 'aA#');
+    self.identifier = utils.randomString("32", 'aA#'); // let's have a brand new identifier for your testing document
+
     self.urlCol = '/api/v3/' + env.treatments_collection;
     self.urlResource = self.urlCol + '/' + self.identifier;
+    self.urlHistory = self.urlCol + '/history';
+
+    self.historyTimestamp = 0;
+
     self.docOriginal = {
       identifier: self.identifier,
       eventType: 'Correction Bolus',
@@ -52,6 +58,17 @@ describe('Generic REST API3', function ( ) {
       .end(done);
   });
 
+  it('SEARCH of not existing document (not found)', function (done) {
+    request(self.app)
+      .get(self.urlCol)
+      .query({ 'identifier_eq': self.identifier })
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.have.length(0);
+        done();
+      });
+  });
+
   it('DELETE of not existing document is not found', function (done) {
     request(self.app)
       .delete(self.urlResource)
@@ -68,83 +85,40 @@ describe('Generic REST API3', function ( ) {
   });
 
   it('READ existing document', function (done) {
-    done();
-  });
-
-  it('READ existing document (If-Modified-Since after)', function (done) {
-    done();
-  });
-
-  it('READ existing document (If-Modified-Since before)', function (done) {
-    done();
+    request(self.app)
+      .get(self.urlResource)
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.containEql(self.docOriginal);
+        self.docActual = res.body;
+        done();
+      });
   });
 
   it('SEARCH existing document (found)', function (done) {
-    done();
-  });
-
-  it('SEARCH existing document (filtered out)', function (done) {
-    done();
+    request(self.app)
+      .get(self.urlCol)
+      .query({ 'identifier_eq': self.identifier })
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.have.length(1);
+        res.body.should.matchAny(function(value) { 
+          value.identifier.should.be.eql(self.identifier)});
+        done();
+      });
   });
 
   it('new document in HISTORY', function (done) {
-    done();
-  });
-
-
-  it('UPDATE document (If-Unmodified-Since conflict)', function (done) {
-    done();
-  });
-
-  it('no changes in HISTORY', function (done) {
-    done();
-  }); 
-  
-  it('no changes in READ', function (done) {
-    done();
-  });
-
-
-  it('UPDATE document (If-Unmodified-Since ok)', function (done) {
-    done();
-  });
-
-  it('document changed in HISTORY', function (done) {
-    done();
-  }); 
-  
-  it('document changed in READ', function (done) {
-    done();
+    request(self.app)
+      .get(self.urlHistory + '/' + self.historyTimestamp)
+      .expect(200)
+      .end(function (err, res) {
+        done();
+      });
   });
 
 
   it('UPDATE document', function (done) {
-    done();
-  });
-
-  it('document changed in HISTORY', function (done) {
-    done();
-  }); 
-  
-  it('document changed in READ', function (done) {
-    done();
-  });
-
-
-  it('PATCH document (If-Unmodified-Since conflict)', function (done) {
-    done();
-  });
-
-  it('no changes in HISTORY', function (done) {
-    done();
-  }); 
-  
-  it('no changes in READ', function (done) {
-    done();
-  });
-
-
-  it('PATCH document (If-Unmodified-Since ok)', function (done) {
     done();
   });
 
@@ -178,6 +152,14 @@ describe('Generic REST API3', function ( ) {
     done();
   });
 
+  it('SEARCH of deleted document missing it', function (done) {
+    done();
+  }); 
+  
+  it('document deleted in HISTORY', function (done) {
+    done();
+  }); 
+  
   it('permanent DELETE', function (done) {
     done();
   });
