@@ -14,36 +14,37 @@ function create(env, ctx) {
     var appInfo = env.name + ' ' + env.version;
     app.set('title', appInfo);
     app.enable('trust proxy'); // Allows req.secure test on heroku https connections.
-    if (!process.env.INSECURE_USE_HTTP=='true') {
+    var insecureUseHttp = env.insecureUseHttp;
+    var secureHstsHeader = env.secureHstsHeader;
+    console.info('Security settings: INSECURE_USE_HTTP=',insecureUseHttp,', SECURE_HSTS_HEADER=',secureHstsHeader);
+    if (!insecureUseHttp) {
         app.use((req, res, next) => {
         if (req.header('x-forwarded-proto') !== 'https')
             res.redirect(`https://${req.header('host')}${req.url}`);
         else
             next()
         })
-        //if (env.settings.isEnabled('secureHstsHeader')) { // by TODO: find out why env.settings.isEnabled doest not work
-        if (process.env.SECURE_HSTS_HEADER == 'true') { // Add HSTS (HTTP Strict Transport Security) header
+        if (secureHstsHeader) { // Add HSTS (HTTP Strict Transport Security) header
           const helmet = require('helmet');
-          var includeSubDomainsValue = process.env.SECURE_HSTS_HEADER_INCLUDESUBDOMAINS || false ; // _get(env, 'extendedSettings.secureHstsHeader.includesubdomains')
-            var preloadValue = process.env.SECURE_HSTS_HEADER_PRELOAD || false; // _get(env, 'extendedSettings.secureHstsHeader.preload') || false ; // default
-            app.use(helmet({
-                hsts: {
-                    maxAge: 31536000,
-                    includeSubDomains: includeSubDomainsValue,
-                    preload: preloadValue
-                }
-            }))
-            //if (env.settings.isEnabled('secureCsp')) { // Add Content-Security-Policy directive by default
-            if (process.env.SECURE_CSP == 'true') {
-              app.use(helmet.contentSecurityPolicy({ // TODO make NS work without 'unsafe-inline'
-                directives: {
-                  defaultSrc: ["'self'"],
-                  styleSrc: ["'self'", 'https://fonts.googleapis.com/',"'unsafe-inline'"],
-                  scriptSrc: ["'self'", "'unsafe-inline'"],
-                  fontSrc: [ "'self'", 'https://fonts.gstatic.com/']
-                }
-              }));
+          var includeSubDomainsValue = env.secureHstsHeaderIncludeSubdomains;
+          var preloadValue = env.secureHstsHeaderPreload;
+          app.use(helmet({
+            hsts: {
+              maxAge: 31536000,
+              includeSubDomains: includeSubDomainsValue,
+              preload: preloadValue
             }
+          }))
+          if (env.secureCsp) {
+            app.use(helmet.contentSecurityPolicy({ //TODO make NS work without 'unsafe-inline'
+              directives: {
+                defaultSrc: ["'self'"],
+                styleSrc: ["'self'", 'https://fonts.googleapis.com/',"'unsafe-inline'"],
+                scriptSrc: ["'self'", "'unsafe-inline'"],
+                fontSrc: [ "'self'", 'https://fonts.gstatic.com/']
+              }
+            }));
+          }
         }
      }
 
@@ -116,7 +117,7 @@ function create(env, ctx) {
         });
 	});
 
-    app.get("/nightscout.appcache", (req, res) => {
+    app.get("/appcache/*", (req, res) => {
         res.render("nightscout.appcache", {
             locals: app.locals
         });
@@ -173,7 +174,8 @@ function create(env, ctx) {
     // serve the static content
     app.use(staticFiles);
 
-    var swaggerFiles = express.static(env.swagger_files, {
+    const swaggerUiAssetPath = require("swagger-ui-dist").getAbsoluteFSPath();
+    var swaggerFiles = express.static(swaggerUiAssetPath, {
         maxAge: maxAge
     });
 
@@ -192,7 +194,6 @@ function create(env, ctx) {
         console.log('Production environment detected, enabling Minify');
 
         var minify = require('express-minify');
-        var myUglifyJS = require('uglify-js');
         var myCssmin = require('cssmin');
 
         app.use(minify({
@@ -203,7 +204,6 @@ function create(env, ctx) {
             stylus_match: /stylus/,
             coffee_match: /coffeescript/,
             json_match: /json/,
-            uglifyJS: myUglifyJS,
             cssmin: myCssmin,
             cache: __dirname + '/tmp',
             onerror: undefined,
