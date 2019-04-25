@@ -1,9 +1,10 @@
 language: node_js
-os: osx
 node_js:
+  - "10"
   - "8"
+os: 
+  - osx
 before_install:
-  - if [[ `npm --version` != "5.8.0" ]]; then npm install -g npm@latest; npm --version; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
   # https://github.com/Homebrew/homebrew-core/issues/26358
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew unlink python; fi
