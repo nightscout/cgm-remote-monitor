@@ -149,7 +149,6 @@
     }
   },
   "addons": [
-    "mongolab:sandbox",
-    "papertrail"
+    "mongolab:sandbox"
   ]
 }
