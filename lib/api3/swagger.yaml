@@ -500,9 +500,38 @@ paths:
                 $ref: '#/components/schemas/Version'
 
           
-components:
+######################################################################################  
+  /lastModified:
+    parameters:
+      - $ref: '#/components/parameters/dateHeader'
+
+    get:
+      tags:
+        - other
+      summary: 'LAST MODIFIED: Retrieves timestamp of the last modification of every collection'
+      operationId: LAST-MODIFIED
+      description: 
+        LAST MODIFIED operation inspects collections separately (in parallel) and for each of them it finds the date of any last modification (insertion, update, deletion).
+
+        Not only `srvModified`, but also `date` and `created_at` fields are inspected (as a fallback to previous API).
+        
+        
+        This operation requires `read` permission for the API and the collections (e.g. `api:treatments:read`). For each collection the permission is checked separately, you will get timestamps only for those collections that you have access to.
+
+      security:
+        - apiKeyAuth: []
+
+      responses:
+        200:
+          $ref: '#/components/responses/lastModified200'
+        401:
+          $ref: '#/components/responses/401Unauthorized'
+        403:
+          $ref: '#/components/responses/403Forbidden'
 
 ######################################################################################  
+components:
+
   parameters:
   
     dateHeader:
@@ -797,7 +826,13 @@ components:
     history204:
       description: No changes detected
 
-      
+    lastModified200:
+      description: Successful operation returning the timestamps
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LastModifiedResult'
+
 ######################################################################################  
   schemas:
 
@@ -1266,6 +1301,52 @@ components:
           type: string
           example: '2018-07-30T09:35:18.000Z'
 
+
+    LastModifiedResult:
+      description: Result of LAST MODIFIED operation
+      properties:
+        srvDate:
+          description: 
+            Actual server date (Unix epoch in ms).
+          type: integer
+          format: int64
+          example: 1556260878776
+          
+        srvDateString:
+          type: string
+          description:
+            Human readable form of actual server date. 
+          example: '2019-04-26T06:41:18.776Z'
+          
+        collections:
+          type: object
+          description: 
+            Collections which the user have read access to.
+          properties:
+            devicestatus:
+              description: 
+                Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.
+              type: integer
+              format: int64
+              example: 1556260760974
+            treatments:
+              description: 
+                Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.
+              type: integer
+              format: int64
+              example: 1553374184169
+            entries:
+              description: 
+                Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.
+              type: integer
+              format: int64
+              example: 1556260758768
+            profile:
+              description: 
+                Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.
+              type: integer
+              format: int64
+              example: 1548524042744
 
 ######################################################################################  
   securitySchemes:
