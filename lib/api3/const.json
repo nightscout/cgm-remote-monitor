@@ -23,6 +23,9 @@
     "HTTP_400_BAD_LAST_MODIFIED": "Bad or missing Last-Modified header/parameter",
     "HTTP_400_BAD_LIMIT": "Parameter limit out of tolerance",
     "HTTP_400_BAD_REQUEST_BODY": "Bad or missing request body",
+    "HTTP_400_BAD_FIELD_IDENTIFIER": "Bad or missing identifier field",
+    "HTTP_400_BAD_FIELD_DATE": "Bad or missing date field",
+    "HTTP_400_BAD_FIELD_APP": "Bad or missing app field",
     "HTTP_400_BAD_SKIP": "Parameter skip out of tolerance",
     "HTTP_400_SORT_SORT_DESC": "Parameters sort and sort_desc cannot be combined",
     "HTTP_400_UNSUPPORTED_FILTER_OPERATOR": "Unsupported filter operator {0}",
@@ -34,5 +37,7 @@
     "HTTP_403_MISSING_PERMISSION": "Missing permission {0}",
     "HTTP_403_NOT_USING_HTTPS": "Not using SSL/TLS",
     "STORAGE_ERROR": "Database error"
-  }
+  },
+
+  "MIN_TIMESTAMP": 946684800000
 }
