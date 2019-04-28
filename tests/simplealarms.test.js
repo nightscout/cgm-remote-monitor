@@ -8,7 +8,7 @@ describe('simplealarms', function ( ) {
 
   var env = require('../env')();
   var ctx = {};
-  ctx.data = require('../lib/data')(env, ctx);
+  ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
 
   var now = Date.now();
@@ -17,7 +17,7 @@ describe('simplealarms', function ( ) {
 
   it('Not trigger an alarm when in range', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: now, mgdl: 100}];
+    ctx.ddata.sgvs = [{mills: now, mgdl: 100}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     simplealarms.checkNotifications(sbx);
@@ -28,7 +28,7 @@ describe('simplealarms', function ( ) {
 
   it('should trigger a warning when above target', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: before, mgdl: 171}, {mills: now, mgdl: 181}];
+    ctx.ddata.sgvs = [{mills: before, mgdl: 171}, {mills: now, mgdl: 181}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     delta.setProperties(sbx);
@@ -41,7 +41,7 @@ describe('simplealarms', function ( ) {
 
   it('should trigger a urgent alarm when really high', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: now, mgdl: 400}];
+    ctx.ddata.sgvs = [{mills: now, mgdl: 400}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     simplealarms.checkNotifications(sbx);
@@ -52,7 +52,7 @@ describe('simplealarms', function ( ) {
 
   it('should trigger a warning when below target', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: now, mgdl: 70}];
+    ctx.ddata.sgvs = [{mills: now, mgdl: 70}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     simplealarms.checkNotifications(sbx);
@@ -63,7 +63,7 @@ describe('simplealarms', function ( ) {
 
   it('should trigger a urgent alarm when really low', function (done) {
     ctx.notifications.initRequests();
-    ctx.data.sgvs = [{mills: now, mgdl: 40}];
+    ctx.ddata.sgvs = [{mills: now, mgdl: 40}];
 
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     simplealarms.checkNotifications(sbx);

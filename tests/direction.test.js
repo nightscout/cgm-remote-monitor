@@ -3,15 +3,22 @@
 require('should');
 
 describe('BG direction', function ( ) {
+
+  var now = Date.now();
+
   function setupSandbox(data, pluginBase) {
-    var clientSettings = {};
+    var ctx = {
+      settings: {}
+      , pluginBase: pluginBase || {}
+    };
+
 
     var sandbox = require('../lib/sandbox')();
-    return sandbox.clientInit(clientSettings, Date.now(), pluginBase || {}, data);
+    return sandbox.clientInit(ctx, Date.now(), data);
   }
 
   it('set the direction property - Flat', function (done) {
-    var sbx = setupSandbox({sgvs: [{direction: 'Flat'}]});
+    var sbx = setupSandbox({sgvs: [{mills: now, direction: 'Flat'}]});
 
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
       name.should.equal('direction');
@@ -28,7 +35,7 @@ describe('BG direction', function ( ) {
   });
 
   it('set the direction property Double Up', function (done) {
-    var sbx = setupSandbox({sgvs: [{direction: 'DoubleUp'}]});
+    var sbx = setupSandbox({sgvs: [{mills: now, direction: 'DoubleUp'}]});
 
     sbx.offerProperty = function mockedOfferProperty (name, setter) {
       name.should.equal('direction');
@@ -52,7 +59,7 @@ describe('BG direction', function ( ) {
       }
     };
 
-    var sbx = setupSandbox({sgvs: [{direction: 'Flat'}]}, pluginBase);
+    var sbx = setupSandbox({sgvs: [{mills: now, direction: 'Flat'}]}, pluginBase);
     var direction = require('../lib/plugins/direction')();
     direction.setProperties(sbx);
     direction.updateVisualisation(sbx);
@@ -61,35 +68,35 @@ describe('BG direction', function ( ) {
   it('get the info for a direction', function () {
     var direction = require('../lib/plugins/direction')();
 
-    direction.info({direction: 'NONE'}).label.should.equal('⇼');
-    direction.info({direction: 'NONE'}).entity.should.equal('&#8700;');
+    direction.info({mills: now, direction: 'NONE'}).label.should.equal('⇼');
+    direction.info({mills: now, direction: 'NONE'}).entity.should.equal('&#8700;');
 
-    direction.info({direction: 'DoubleUp'}).label.should.equal('⇈');
-    direction.info({direction: 'DoubleUp'}).entity.should.equal('&#8648;');
+    direction.info({mills: now, direction: 'DoubleUp'}).label.should.equal('⇈');
+    direction.info({mills: now, direction: 'DoubleUp'}).entity.should.equal('&#8648;');
 
-    direction.info({direction: 'SingleUp'}).label.should.equal('↑');
-    direction.info({direction: 'SingleUp'}).entity.should.equal('&#8593;');
+    direction.info({mills: now, direction: 'SingleUp'}).label.should.equal('↑');
+    direction.info({mills: now, direction: 'SingleUp'}).entity.should.equal('&#8593;');
 
-    direction.info({direction: 'FortyFiveUp'}).label.should.equal('↗');
-    direction.info({direction: 'FortyFiveUp'}).entity.should.equal('&#8599;');
+    direction.info({mills: now, direction: 'FortyFiveUp'}).label.should.equal('↗');
+    direction.info({mills: now, direction: 'FortyFiveUp'}).entity.should.equal('&#8599;');
 
-    direction.info({direction: 'Flat'}).label.should.equal('→');
-    direction.info({direction: 'Flat'}).entity.should.equal('&#8594;');
+    direction.info({mills: now, direction: 'Flat'}).label.should.equal('→');
+    direction.info({mills: now, direction: 'Flat'}).entity.should.equal('&#8594;');
 
-    direction.info({direction: 'FortyFiveDown'}).label.should.equal('↘');
-    direction.info({direction: 'FortyFiveDown'}).entity.should.equal('&#8600;');
+    direction.info({mills: now, direction: 'FortyFiveDown'}).label.should.equal('↘');
+    direction.info({mills: now, direction: 'FortyFiveDown'}).entity.should.equal('&#8600;');
 
-    direction.info({direction: 'SingleDown'}).label.should.equal('↓');
-    direction.info({direction: 'SingleDown'}).entity.should.equal('&#8595;');
+    direction.info({mills: now, direction: 'SingleDown'}).label.should.equal('↓');
+    direction.info({mills: now, direction: 'SingleDown'}).entity.should.equal('&#8595;');
 
-    direction.info({direction: 'DoubleDown'}).label.should.equal('⇊');
-    direction.info({direction: 'DoubleDown'}).entity.should.equal('&#8650;');
+    direction.info({mills: now, direction: 'DoubleDown'}).label.should.equal('⇊');
+    direction.info({mills: now, direction: 'DoubleDown'}).entity.should.equal('&#8650;');
 
-    direction.info({direction: 'NOT COMPUTABLE'}).label.should.equal('-');
-    direction.info({direction: 'NOT COMPUTABLE'}).entity.should.equal('&#45;');
+    direction.info({mills: now, direction: 'NOT COMPUTABLE'}).label.should.equal('-');
+    direction.info({mills: now, direction: 'NOT COMPUTABLE'}).entity.should.equal('&#45;');
 
-    direction.info({direction: 'RATE OUT OF RANGE'}).label.should.equal('⇕');
-    direction.info({direction: 'RATE OUT OF RANGE'}).entity.should.equal('&#8661;');
+    direction.info({mills: now, direction: 'RATE OUT OF RANGE'}).label.should.equal('⇕');
+    direction.info({mills: now, direction: 'RATE OUT OF RANGE'}).entity.should.equal('&#8661;');
   });
 
 

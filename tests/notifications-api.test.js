@@ -22,7 +22,7 @@ describe('Notifications API', function ( ) {
 
     var ctx = {
       bus: new Stream
-      , data: {
+      , ddata: {
         lastUpdated: Date.now()
       }
     };
