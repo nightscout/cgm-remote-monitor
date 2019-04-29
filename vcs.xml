@@ -10,6 +10,10 @@
           <option name="url" value="https://github.com/CarolWheeler/cgm-remote-monitor.git" />
           <option name="userName" value="" />
         </UrlAndUserName>
+        <UrlAndUserName>
+          <option name="url" value="https://www.github.com/miloskozak/AndroidAPS" />
+          <option name="userName" value="" />
+        </UrlAndUserName>
       </list>
     </option>
     <option name="cloneParentDir" value="$USER_HOME$/StudioProjects" />
