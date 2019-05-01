@@ -93,6 +93,7 @@ Community maintained fork of the
         - [`loop` (Loop)](#loop-loop)
         - [`xdrip-js` (xDrip-js)](#xdrip-js-xdrip-js)
         - [`alexa` (Amazon Alexa)](#alexa-amazon-alexa)
+        - [`googlehome` (DialogFlow)](#googlehome-dialogflow)
         - [`speech` (Speech)](#speech-speech)
         - [`cors` (CORS)](#cors-cors)
       - [Extended Settings](#extended-settings)
@@ -479,7 +480,10 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
 
 ##### `alexa` (Amazon Alexa)
   Integration with Amazon Alexa, [detailed setup instructions](lib/plugins/alexa-plugin.md)
-
+  
+##### `googlehome` (DialogFlow)
+  Integration with Google's GoogleHome-DialogFlow, [detailed setup instructions](/docs/googlehome-plugin.md)
+  
 ##### `speech` (Speech)
   Speech synthesis plugin. When enabled, speaks out the blood glucose values, IOB and alarms. Note you have to set the LANGUAGE setting on the server to get all translated alarms.
 
