@@ -57,6 +57,7 @@
     "body-parser": "^1.18.3",
     "bootevent": "0.0.1",
     "braces": "^3.0.2",
+    "cfenv": "^1.1.0",
     "compression": "^1.7.4",
     "css-loader": "^1.0.1",
     "cssmin": "^0.4.3",
