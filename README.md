@@ -493,7 +493,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `XDRIP-JS_WARN_BAT_V` (`300`) - The voltage of either transmitter battery, a warning will be triggered when dropping below this threshold.
 
 ##### `alexa` (Amazon Alexa)
-  Integration with Amazon Alexa, [detailed setup instructions](lib/plugins/alexa-plugin.md)
+  Integration with Amazon Alexa, [detailed setup instructions](docs/plugins/alexa-plugin.md)
 
 ##### `speech` (Speech)
   Speech synthesis plugin. When enabled, speaks out the blood glucose values, IOB and alarms. Note you have to set the LANGUAGE setting on the server to get all translated alarms.
