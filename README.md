@@ -7,6 +7,7 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 [![Dependency Status][dependency-img]][dependency-url]
 [![Coverage Status][coverage-img]][coverage-url]
 [![Codacy Badge][codacy-img]][codacy-url]
+[![Conventional Commits][conventional-img]][conventional-url]
 [![Gitter chat][gitter-img]][gitter-url]
 
 [![Deploy to Azure](http://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/) [![Deploy to Heroku][heroku-img]][heroku-url] [![Update your site][update-img]][update-fork]
@@ -33,8 +34,10 @@ Community maintained fork of the
 [dependency-url]: https://david-dm.org/nightscout/cgm-remote-monitor
 [coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/dev.svg
 [coverage-url]: https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=master
-[codacy-img]: https://www.codacy.com/project/badge/f79327216860472dad9afda07de39d3b
-[codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
+[codacy-img]: https://api.codacy.com/project/badge/Grade/f79327216860472dad9afda07de39d3b?branch=dev
+[codacy-url]: https://www.codacy.com/app/nightscout/cgm-remote-monitor
+[conventional-img]: https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg
+[conventional-url]: https://conventionalcommits.org
 [gitter-img]: https://img.shields.io/badge/Gitter-Join%20Chat%20%E2%86%92-1dce73.svg
 [gitter-url]: https://gitter.im/nightscout/public
 [heroku-img]: https://www.herokucdn.com/deploy/button.png

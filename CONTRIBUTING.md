@@ -125,7 +125,8 @@ Every commit is tested by travis.  We encourage adding tests to validate your de
 
 * Join the [Gitter chat][gitter-url]
 * Get a local dev environment setup if you haven't already.
-* Try breaking up big features/improvements into small parts.  It's much easier to accept small PR's.
+* Break up big features/improvements into small parts. It's much easier to accept small PR's. 
+* Starting with Nightscout 0.12 we will use conventionalcommits.org and [squash commits][https://github.com/conventional-changelog/standard-version#should-i-always-squash-commits-when-merging-prs], thus use *one PR equals, at most, one feature or fix*.  
 * Create tests for your new code as well as the old code.  We are aiming for a full test coverage.
 * If you're going to be working in old code that needs lots of reformatting, consider doing it as a separate PR.
 * If you can find others to help test your PR, it will help get them merged in sooner.
