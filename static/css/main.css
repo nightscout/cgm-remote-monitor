@@ -243,11 +243,12 @@ a, a:visited, a:link {
 }
 .statusBox {
   text-align: center;
-  width: 250px;
+  width: 40%;
 }
 .statusPills {
   font-size: 20px;
   line-height: 23px;
+  margin-left: 5px;
 }
 
 .loading .statusPills {
@@ -397,7 +398,7 @@ a, a:visited, a:link {
   margin: 4px;
   padding: 0;
   color: #808080;
-  width: 250px;
+  width: 40%;
   text-align: center;
 }
 
@@ -474,6 +475,7 @@ a, a:visited, a:link {
 
   .focus-range {
     margin: 0;
+    width: 50%;
   }
 
   .focus-range li {
@@ -491,7 +493,7 @@ a, a:visited, a:link {
 
 @media (max-width: 750px) {
   .bgStatus {
-    width: 240px;
+    width: auto;
     padding: 0 0 20px 0;
   }
 
@@ -501,6 +503,10 @@ a, a:visited, a:link {
 
   .pill.rawbg label {
     font-size: 12px;
+  }
+
+  .statusBox {
+    width: auto;
   }
 
   .bgStatus .currentBG {
@@ -739,10 +745,6 @@ a, a:visited, a:link {
 
   .focus-range li {
     display: block;
-  }
-
-  .statusBox {
-    width: 220px;
   }
 
   .statusPills {
