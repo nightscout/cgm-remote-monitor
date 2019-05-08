@@ -26,6 +26,7 @@ describe('Generic REST API3', function ( ) {
 
     self.identifier = utils.randomString("32", 'aA#'); // let's have a brand new identifier for your testing document
 
+    self.urlLastModified = '/api/v3/lastModified';
     self.urlCol = '/api/v3/' + env.treatments_collection;
     self.urlResource = self.urlCol + '/' + self.identifier;
     self.urlHistory = self.urlCol + '/history';
@@ -35,7 +36,9 @@ describe('Generic REST API3', function ( ) {
     self.docOriginal = {
       identifier: self.identifier,
       eventType: 'Correction Bolus',
-      insulin: 1
+      insulin: 1,
+      date: (new Date()).getTime(),
+      app: 'cgm-remote-monitor.test'
     };
 
     require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
@@ -50,6 +53,41 @@ describe('Generic REST API3', function ( ) {
     });
   });
 
+
+  self.checkHistoryExistence = function checkHistoryExistence (done, assertions) {
+    request(self.app)
+      .get(self.urlHistory + '/' + self.historyTimestamp)
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.have.length(1);
+        res.body.should.matchAny(function(value) { 
+          value.identifier.should.be.eql(self.identifier);
+          value.srvModified.should.be.above(self.historyTimestamp);
+
+          if (typeof(assertions) === 'function') {
+            assertions(value);
+          }
+
+          self.historyTimestamp = value.srvModified;
+        });
+        done();
+      });
+  }
+
+
+  it('LAST MODIFIED to get actual server timestamp', function (done) {
+    request(self.app)
+      .get(self.urlLastModified)
+      .expect(200)
+      .end(function (err, res) {
+        self.historyTimestamp = res.body.collections.treatments;
+        if (!self.historyTimestamp) {
+          self.historyTimestamp = res.body.srvDate;
+        }
+        self.historyTimestamp.should.be.above(testConst.YEAR_2019);
+        done();
+      });;
+  });
 
   it('READ of not existing document is not found', function (done) {
     request(self.app)
@@ -103,70 +141,123 @@ describe('Generic REST API3', function ( ) {
       .end(function (err, res) {
         res.body.should.have.length(1);
         res.body.should.matchAny(function(value) { 
-          value.identifier.should.be.eql(self.identifier)});
+          value.identifier.should.be.eql(self.identifier);
+        });
         done();
       });
   });
 
   it('new document in HISTORY', function (done) {
+    self.checkHistoryExistence(done);
+  });
+
+
+  it('UPDATE document', function (done) {
+    self.docActual.insulin = 0.5;
+
     request(self.app)
-      .get(self.urlHistory + '/' + self.historyTimestamp)
+      .put(self.urlResource)
+      .send(self.docActual)
+      .expect(204)
+      .end(done);
+  });
+
+  it('document changed in HISTORY', function (done) {
+    self.checkHistoryExistence(done);
+  }); 
+  
+  it('document changed in READ', function (done) {
+    request(self.app)
+      .get(self.urlResource)
       .expect(200)
       .end(function (err, res) {
+        delete self.docActual.srvModified;
+        res.body.should.containEql(self.docActual);
+        self.docActual = res.body;
         done();
       });
   });
 
 
-  it('UPDATE document', function (done) {
-    done();
-  });
-
-  it('document changed in HISTORY', function (done) {
-    done();
-  }); 
-  
-  it('document changed in READ', function (done) {
-    done();
-  });
-
-
   it('PATCH document', function (done) {
-    done();
+    self.docActual.carbs = 5;
+    self.docActual.insulin = 0.4;
+
+    request(self.app)
+      .patch(self.urlResource)
+      .send({ 'carbs': self.docActual.carbs, 'insulin': self.docActual.insulin })
+      .expect(204)
+      .end(done);
   });
 
   it('document changed in HISTORY', function (done) {
-    done();
+    self.checkHistoryExistence(done);
   }); 
   
   it('document changed in READ', function (done) {
-    done();
+    request(self.app)
+      .get(self.urlResource)
+      .expect(200)
+      .end(function (err, res) {
+        delete self.docActual.srvModified;
+        res.body.should.containEql(self.docActual);
+        self.docActual = res.body;
+        done();
+      });
   });
 
 
   it('soft DELETE', function (done) {
-    done();
+    request(self.app)
+      .delete(self.urlResource)
+      .expect(204)
+      .end(done);
   });
 
   it('READ of deleted is gone', function (done) {
-    done();
+    request(self.app)
+      .get(self.urlResource)
+      .expect(410)
+      .end(done);
   });
 
   it('SEARCH of deleted document missing it', function (done) {
-    done();
+    request(self.app)
+      .get(self.urlCol)
+      .query({ 'identifier_eq': self.identifier })
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.have.length(0);
+        done();
+      });
   }); 
   
   it('document deleted in HISTORY', function (done) {
-    done();
+    self.checkHistoryExistence(done, function assertions (value) {
+      value.isValid.should.be.eql(false);
+    });
   }); 
   
   it('permanent DELETE', function (done) {
-    done();
+    request(self.app)
+      .delete(self.urlResource)
+      .query({ 'permanent': 'true' })
+      .expect(204)
+      .end(done);
   });
 
   it('READ of permanently deleted is not found', function (done) {
-    done();
+    request(self.app)
+      .get(self.urlResource)
+      .expect(404)
+      .end(done);
   });
 
+  it('document permanently deleted not in HISTORY', function (done) {
+    request(self.app)
+      .get(self.urlHistory + '/' + self.historyTimestamp)
+      .expect(204)
+      .end(done);
+  }); 
 });
 
