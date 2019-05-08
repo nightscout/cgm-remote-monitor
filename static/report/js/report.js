@@ -170,10 +170,8 @@
 
     if (client.settings.scaleY === 'linear') {
       $('#rp_linear').prop('checked', true);
-      $('#wrp_linear').prop('checked', true);
     } else {
       $('#rp_log').prop('checked', true);
-      $('#wrp_log').prop('checked', true);
     }
     
     $('.menutab').click(switchreport_handler);
@@ -197,8 +195,6 @@
     var options = {
       width: 1000
       , height: 300
-      , weekwidth: 1000
-      , weekheight: 300
       , targetLow: 3.5
       , targetHigh: 10
       , raw: true
@@ -210,7 +206,6 @@
       , cob : true
       , basal : true
       , scale: report_plugins.consts.scaleYFromSettings(client)
-      , weekscale: report_plugins.consts.scaleYFromSettings(client)
       , units: client.settings.units
     };
 
@@ -224,27 +219,15 @@
     options.iob = $('#rp_optionsiob').is(':checked');
     options.cob = $('#rp_optionscob').is(':checked');
     options.openAps = $('#rp_optionsopenaps').is(':checked');
-    options.predicted = $('#rp_optionspredicted').is(':checked');
-    options.predictedTruncate = $('#rp_optionsPredictedTruncate').is(':checked');
     options.basal = $('#rp_optionsbasal').is(':checked');
     options.notes = $('#rp_optionsnotes').is(':checked');
     options.food = $('#rp_optionsfood').is(':checked');
     options.insulin = $('#rp_optionsinsulin').is(':checked');
-    options.insulindistribution = $('#rp_optionsdistribution').is(':checked');
     options.carbs = $('#rp_optionscarbs').is(':checked');
     options.scale = ( $('#rp_linear').is(':checked') ? report_plugins.consts.SCALE_LINEAR : report_plugins.consts.SCALE_LOG );
-    options.weekscale = ( $('#wrp_linear').is(':checked') ? report_plugins.consts.SCALE_LINEAR : report_plugins.consts.SCALE_LOG );
     options.order = ( $('#rp_oldestontop').is(':checked') ? report_plugins.consts.ORDER_OLDESTONTOP : report_plugins.consts.ORDER_NEWESTONTOP );
     options.width = parseInt($('#rp_size :selected').attr('x'));
-    options.weekwidth = parseInt($('#wrp_size :selected').attr('x'));
     options.height = parseInt($('#rp_size :selected').attr('y'));
-    options.weekheight = parseInt($('#wrp_size :selected').attr('y'));
-    options.loopalyzer = $("#loopalyzer").hasClass( "selected" ); // We only want to run through Loopalyzer if that tab is selected
-    if (options.loopalyzer) {
-      options.iob = true;
-      options.cob = true;
-      options.openAps = true;
-    }
     
     var matchesneeded = 0;
 
@@ -463,13 +446,9 @@
           sorteddaystoshow.reverse();
         }
         loadProfileSwitch(from, function loadProfileSwitchCallback() {
-          loadProfiles(function loadProfilesCallback() {
-            $('#info > b').html('<b>' + translate('Rendering') + ' ...</b>');
-            window.setTimeout(function () {
-              showreports(options);
-            }, 0);
+          $('#info > b').html('<b>'+translate('Rendering')+' ...</b>');
+          window.setTimeout(function () {showreports(options); }, 0);
           });
-        });
       }
     }
     
@@ -505,7 +484,6 @@
       datastorage.tempbasalTreatments = datastorage.tempbasalTreatments.concat(datastorage[day].tempbasalTreatments);
     });
     datastorage.tempbasalTreatments = Nightscout.client.ddata.processDurations(datastorage.tempbasalTreatments);
-    datastorage.treatments.sort(function sort(a, b) {return a.mills - b.mills; });
     
      for (var d in daystoshow) {
         if (daystoshow.hasOwnProperty(d)) {
@@ -526,8 +504,6 @@
 
       if (plugin.name == 'daytoday' && ! $('#daytoday').hasClass('selected')) skipRender = true;
       if (plugin.name == 'treatments' && ! $('#treatments').hasClass('selected')) skipRender = true;
-      if (plugin.name == 'weektoweek' && ! $('#weektoweek').hasClass('selected')) skipRender = true;
-      if (plugin.name == 'loopalyzer' && ! $('#loopalyzer').hasClass('selected')) skipRender = true;
 
       if (skipRender) {
         console.log('Skipping ',plugin.name);
@@ -563,7 +539,7 @@
   
   function loadData(day, options, callback) {
     // check for loaded data
-    if ((options.openAps || options.predicted || options.iob || options.cob) && datastorage[day] && !datastorage[day].devicestatus.length) {
+    if (options.openAps && datastorage[day] && !datastorage[day].devicestatus) {
       // OpenAPS requested but data not loaded. Load anyway ...
     } else if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {
       callback(day);
@@ -620,7 +596,7 @@
                 });
               } else if (element.type === 'cal') {
                 calData.push({
-                  mills: element.date + 1
+                  mills: element.date
                   , d: element.dateString
                   , scale: element.scale
                   , intercept: element.intercept
@@ -647,13 +623,10 @@
     }
 
     function loadTreatmentData() {
-      if (!datastorage.profileSwitchTreatments)
-        datastorage.profileSwitchTreatments = [];
       $('#info-' + day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
       var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
       return $.ajax('/api/v1/treatments.json'+tquery, {
         headers: client.headers()
-        , cache: false
         , success: function (xhr) {
           treatmentData = xhr.map(function (treatment) {
             var timestamp = new Date(treatment.timestamp || treatment.created_at);
@@ -670,11 +643,6 @@
           data.tempbasalTreatments = data.treatments.filter(function filterTempBasals(t) {
             return t.eventType === 'Temp Basal';
           });
-          // filter profile switch treatments
-          var profileSwitch = data.treatments.filter(function filterProfileSwitch(t) {
-            return t.eventType === 'Profile Switch';
-          });
-          datastorage.profileSwitchTreatments = datastorage.profileSwitchTreatments.concat(profileSwitch);
         }
       });
     }
@@ -684,7 +652,7 @@
         data.devicestatus = [];
         return $.Deferred().resolve();
       }
-      if (options.iob || options.cob || options.openAps || options.predicted) {
+      if(options.iob || options.cob || options.openAps) {
         $('#info-' + day).html('<b>'+translate('Loading device status data of')+' '+day+' ...</b>');
         var tquery = '?find[created_at][$gte]=' + new Date(from).toISOString() + '&find[created_at][$lt]=' + new Date(to).toISOString() + '&count=10000';
         return $.ajax('/api/v1/devicestatus.json'+tquery, {
@@ -710,7 +678,7 @@
 
   function loadProfileSwitch(from, callback) {
     $('#info > b').html('<b>'+translate('Loading profile switch data') + ' ...</b>');
-    var tquery = '?find[eventType]=Profile Switch' + '&find[created_at][$lte]=' + new Date(from).toISOString() + '&count=1';
+    var tquery = '?find[eventType]=Profile Switch';
     $.ajax('/api/v1/treatments.json'+tquery, {
       headers: client.headers()
       , success: function (xhr) {
@@ -719,30 +687,14 @@
           treatment.mills = timestamp.getTime();
           return treatment;
         });
-        if (!datastorage.profileSwitchTreatments)
-          datastorage.profileSwitchTreatments = [];
-        datastorage.profileSwitchTreatments = datastorage.profileSwitchTreatments.concat(treatmentData);
+        datastorage.profileSwitchTreatments = treatmentData.slice();
         datastorage.profileSwitchTreatments.sort(function(a, b) { return a.mills - b.mills; });
       }
     }).done(function () {
       callback();
     });
   }
-
-  function loadProfiles(callback) {
-    $('#info > b').html('<b>'+translate('Loading profiles') + ' ...</b>');
-    $.ajax('/api/v1/profile.json', {
-      headers: client.headers()
-      , success: function (records) {
-        datastorage.profiles = records;
-      }
-      , error: function () {
-       datastorage.profiles = [];
-      }
-    }).done(callback);
-  }
-
-
+  
   function processData(data, day, options, callback) {
     if (daystoshow[day].treatmentsonly) {
       datastorage[day] = data;

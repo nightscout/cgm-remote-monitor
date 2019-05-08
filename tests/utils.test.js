@@ -3,13 +3,12 @@
 require('should');
 
 describe('utils', function ( ) {
-  var utils = require('../lib/utils')({
-    language: require('../lib/language')()
-    , settings: {
-      alarmTimeagoUrgentMins: 30
-      , alarmTimeagoWarnMins: 15
-    }
-  });
+  var settings = {
+    alarmTimeagoUrgentMins: 30
+    , alarmTimeagoWarnMins: 15
+  };
+
+  var utils = require('../lib/utils')(settings);
 
   it('format numbers', function () {
     utils.toFixed(5.499999999).should.equal('5.50');
