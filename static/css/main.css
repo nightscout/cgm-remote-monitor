@@ -119,12 +119,13 @@ a, a:visited, a:link {
   font-family: 'Ubuntu', Verdana, Helvetica, Arial, sans-serif;
   vertical-align: middle;
   clear: both;
+  white-space: nowrap;
 }
 
 .bgStatus {
   float: right;
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
   padding-right: 20px;
 }
 
@@ -240,6 +241,7 @@ a, a:visited, a:link {
 .status {
   color: #808080;
   font-size: 100px;
+  white-space: normal;
 }
 .statusBox {
   text-align: center;
@@ -493,7 +495,7 @@ a, a:visited, a:link {
 
 @media (max-width: 750px) {
   .bgStatus {
-    width: auto;
+    width: 50%;
     padding: 0 0 20px 0;
   }
 
