@@ -1,42 +1,38 @@
 'use strict';
 
-function configure (ctx, env, done) {
-  var storage = require('../../../lib/authorization/storage')(ctx, env)
-    , _ = require('lodash')
+function configure (ctx, env, authStorage, done) {
+  var _ = require('lodash')
     , subjects = { }
 
   function createTestSubject (subjectName, roles, next) {
     var subjectDbName = 'test-' + subjectName
-      , subject = _.find(storage.subjects, { name: subjectDbName })
+      , subject = _.find(authStorage.subjects, { name: subjectDbName })
 
     if (subject) {
       subjects[subjectName] = subject;
       next();
     }
     else {
-      storage.createSubject({
+      authStorage.createSubject({
         "name": subjectDbName,
         "roles": roles,
         "notes": ""
       }, function afterCreate (err) {
 
         if (err) throw err;
-        subjects[subjectName] = _.find(storage.subjects, { name: subjectDbName });
+        subjects[subjectName] = _.find(authStorage.subjects, { name: subjectDbName });
         next();
       });
     }
   }
 
-  storage.reload(function reloaded () {
-    
-    createTestSubject('admin', [ 'admin' ], function () {
-      createTestSubject('readable', [ 'readable' ], function () {
-        createTestSubject('denied', [ 'denied' ], function () {
-          done(subjects);
-        })
+  createTestSubject('admin', [ 'admin' ], function () {
+    createTestSubject('readable', [ 'readable' ], function () {
+      createTestSubject('denied', [ 'denied' ], function () {
+        done(subjects);
       })
     })
-  });
+  })
 
   return subjects;
 }

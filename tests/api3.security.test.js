@@ -15,7 +15,8 @@ describe('Security of REST API3', function ( ) {
     self.http = instance.initHttp(function initialized () {
       self.https = instance.initHttps(function initialized () {
 
-        require('./fixtures/api3/authSubject')(self.https.env, self.https.ctx, function subjectsReady (authSubjects) {
+        require('./fixtures/api3/authSubject')(self.https.env, self.https.ctx, self.https.ctx.authorization.storage, 
+          function subjectsReady (authSubjects) {
           self.subjects = authSubjects;
 
           done();
