@@ -7,6 +7,7 @@ var moment = require('moment');
 var ctx = {
   language: require('../lib/language')()
 };
+ctx.language.set('en');
 var env = require('../env')();
 var loop = require('../lib/plugins/loop')(ctx);
 var sandbox = require('../lib/sandbox')();
@@ -165,7 +166,8 @@ describe('loop', function ( ) {
           done();
         }
       , language: require('../lib/language')()
-      }
+      },
+      language: require('../lib/language')()
     };
 
     var errorTime = moment(statuses[1].created_at);
