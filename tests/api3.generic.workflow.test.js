@@ -82,7 +82,7 @@ describe('Generic REST API3', function ( ) {
       .end(function (err, res) {
         self.historyTimestamp = res.body.collections.treatments;
         if (!self.historyTimestamp) {
-          self.historyTimestamp = testConst.YEAR_2019;
+          self.historyTimestamp = res.body.srvDate - (10 * 60 * 1000);
         }
         self.historyTimestamp.should.be.aboveOrEqual(testConst.YEAR_2019);
         done();
