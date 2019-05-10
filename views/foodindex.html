@@ -24,11 +24,13 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="stylesheet" type="text/css" href="/css/main.css?v=<%= locals.cachebuster %>" />
-      <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
-      <link rel="stylesheet" type="text/css" href="/css/drawer.css" />
-      <link rel="stylesheet" type="text/css" href="/css/food.css" />
-      <link rel="stylesheet" type="text/css" href="/css/ui-darkness/jquery-ui.min.css">
+      <link rel="preload" href="/css/main.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="/css/dropdown.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="/css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="/css/food.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="/css/ui-darkness/jquery-ui.min.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <% include preloadCSS %>
+
     </head>
     <body>
       <div id="toolbar">
@@ -87,6 +89,15 @@
               <span class="translate">Subcategory</span>: <select id="fe_subcategory_list"></select>
               <br>
               <input type="text" id="fe_subcategory">
+            </td>
+            <td>
+              <span class="translate">Fat [g]</span>:<br><input type="number" id="fe_fat">
+            </td>
+            <td>
+              <span class="translate">Protein [g]</span>:<br><input type="number" id="fe_protein">
+            </td>
+            <td>
+              <span class="translate">Energy [kJ]</span>:<br><input type="number" id="fe_energy">
             </td>
           </tr>
         </table>
