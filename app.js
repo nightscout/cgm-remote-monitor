@@ -35,7 +35,8 @@ function create(env, ctx) {
               maxAge: 31536000,
               includeSubDomains: includeSubDomainsValue,
               preload: preloadValue
-            }
+            },
+            frameguard: false
           }));
           if (env.secureCsp) {
             var secureCspReportOnly= env.secureCspReportOnly;
