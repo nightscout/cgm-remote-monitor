@@ -1,13 +1,15 @@
 'use strict';
 
 var request = require('supertest');
+var language = require('../lib/language')();
+require('should');
 
 describe('verifyauth', function ( ) {
   var api = require('../lib/api/');
 
   var scope = this;
   function setup_app (env, fn) {
-    require('../lib/bootevent')(env).boot(function booted (ctx) {
+    require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
       ctx.app = api(env, ctx);
       scope.app = ctx.app;
       fn(ctx);
