@@ -268,8 +268,16 @@ describe('Generic REST API3', function ( ) {
   it('document permanently deleted not in HISTORY', function (done) {
     request(self.app)
       .get(self.urlHistory + '/' + self.historyTimestamp)
-      .expect(204)
-      .end(done);
+      .end(function (err, res) {
+        if (res.status == 200) {
+          res.body.should.matchEach(function(value) { 
+            value.identifier.should.not.be.eql(self.identifier);
+          });
+        } else if (res.status != 204) {
+          should.fail();
+        }
+        done();
+      });
   }); 
 });
 
