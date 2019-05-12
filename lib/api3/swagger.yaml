@@ -58,6 +58,11 @@ info:
       
       `treatments` collection&#58;   equal combination of `created_at` and `eventType`
       </pre>
+      
+      
+    - Fallback switch for adding `created_at` field along the `date` field (optional, default = true) 
+      <pre>API3_CREATED_AT_FALLBACK_ENABLED=true</pre>
+      Standard APIv3 document model uses only `date` field for storing a timestamp of the event recorded by the document. But there is a fallback option to fill `created_at` field as well automatically on each insert/update, just to keep all older components working.
 
 tags:
   - name: generic
