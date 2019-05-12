@@ -82,6 +82,8 @@ describe('Generic REST API3', function ( ) {
       .get(self.urlLastModified)
       .expect(200)
       .end(function (err, res) {
+        console.debug('LAST MODIFIED result:', res.body);
+
         self.historyTimestamp = res.body.collections.treatments;
         if (!self.historyTimestamp) {
           self.historyTimestamp = res.body.srvDate - (10 * 60 * 1000);
@@ -129,6 +131,8 @@ describe('Generic REST API3', function ( ) {
       .get(self.urlResource)
       .expect(200)
       .end(function (err, res) {
+        console.debug('READ result:', res.body);
+        
         res.body.should.containEql(self.docOriginal);
         self.docActual = res.body;
         done();
@@ -141,6 +145,8 @@ describe('Generic REST API3', function ( ) {
       .query({ 'identifier_eq': self.identifier })
       .expect(200)
       .end(function (err, res) {
+        console.debug('SEARCH result:', res.body);
+
         res.body.should.have.length(1);
         res.body.should.matchAny(function(value) { 
           value.identifier.should.be.eql(self.identifier);
