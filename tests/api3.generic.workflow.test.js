@@ -55,10 +55,12 @@ describe('Generic REST API3', function ( ) {
 
 
   self.checkHistoryExistence = function checkHistoryExistence (done, assertions) {
+    console.debug('checkHistoryExistence-historyTimestamp:', self.historyTimestamp)
     request(self.app)
       .get(self.urlHistory + '/' + self.historyTimestamp)
       .expect(200)
       .end(function (err, res) {
+        console.debug('checkHistoryExistence-response:', res.body);
         res.body.should.have.length(1);
         res.body.should.matchAny(function(value) { 
           value.identifier.should.be.eql(self.identifier);

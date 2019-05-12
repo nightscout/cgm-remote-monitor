@@ -9,11 +9,15 @@ describe('Security of REST API3', function ( ) {
   var instance = require('./fixtures/api3/instance')
     , self = this;
 
-  this.timeout(30000);
+  this.timeout(60000);
 
   before(function (done) {
+    console.debug('api3.security.test-starting HTTP', (new Date()).toISOString());
     self.http = instance.initHttp(function initialized () {
+      console.debug('api3.security.test-starting HTTPS', (new Date()).toISOString());
       self.https = instance.initHttps(function initialized () {
+        
+        console.debug('api3.security.test-HTTP and HTTPS initialized', (new Date()).toISOString());
 
         require('./fixtures/api3/authSubject')(self.https.env, self.https.ctx, self.https.ctx.authorization.storage, 
           function subjectsReady (authSubjects) {
@@ -30,6 +34,7 @@ describe('Security of REST API3', function ( ) {
       .get('/api/v3/test')
       .expect(403)
       .end(function (err, res) {
+        console.debug('should require HTTPS response:', res.body);
         res.body.status.should.equal(403);
         res.body.message.should.equal(apiConst.MSG.HTTP_403_NOT_USING_HTTPS);
 
