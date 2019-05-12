@@ -9,7 +9,7 @@ describe('Security of REST API3', function ( ) {
   var instance = require('./fixtures/api3/instance')
     , self = this;
 
-  this.timeout(60000);
+  this.timeout(30000);
 
   before(function (done) {
     console.debug('api3.security.test-starting HTTP', (new Date()).toISOString());
@@ -17,7 +17,7 @@ describe('Security of REST API3', function ( ) {
       console.debug('api3.security.test-starting HTTPS', (new Date()).toISOString());
       self.https = instance.initHttps(function initialized () {
         
-        console.debug('api3.security.test-HTTP and HTTPS initialized', (new Date()).toISOString());
+        console.debug('api3.security.test-HTTP and HTTPS initialized', (new Date()).toISOString(), self.http.baseUrl, self.https.baseUrl);
 
         require('./fixtures/api3/authSubject')(self.https.env, self.https.ctx, self.https.ctx.authorization.storage, 
           function subjectsReady (authSubjects) {
