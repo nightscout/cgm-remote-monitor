@@ -1,11 +1,7 @@
 'use strict';
 
-$(document).on('online', function() {
-	console.log('Application got online event, reloading');
-	window.location.reload();
-});
-
-$(document).ready(function() {
-	console.log('Application got ready event');
-	window.Nightscout.client.init();
-});
+if (serverSettings === undefined) {
+  console.error('server settings were not loaded, will not call init');
+} else {
+  window.Nightscout.client.init(serverSettings, Nightscout.plugins);
+}

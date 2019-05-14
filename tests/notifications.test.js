@@ -9,7 +9,7 @@ describe('notifications', function ( ) {
 
   var ctx = {
     bus: new Stream
-    , ddata: {
+    , data: {
       lastUpdated: Date.now()
     }
   };
