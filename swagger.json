@@ -8,7 +8,7 @@
   "info": {
     "title": "Nightscout API",
     "description": "Own your DData with the Nightscout API",
-    "version": "0.11.0-dev-20181022",
+    "version": "0.11.2-rc2-20190323",
     "license": {
       "name": "AGPL 3",
       "url": "https://www.gnu.org/licenses/agpl.txt"
@@ -577,6 +577,81 @@
           "description": "Treatments to be uploaded.",
           "required": true
         }
+      },
+      "delete": {
+        "tags": [
+          "Treatments"
+        ],
+        "summary": "Delete treatments matching query.",
+        "description": "Remove treatments, same search syntax as GET.",
+        "operationId": "remove",
+        "parameters": [
+          {
+            "name": "find",
+            "in": "query",
+            "description": "The query used to find treatments to delete, support nested query syntax, for example `find[insulin][$gte]=3`. All find parameters are interpreted as strings.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "description": "Number of entries to return.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Empty list is success."
+          }
+        }
+      }
+    },
+    "/treatments/{spec}": {
+      "delete": {
+        "summary": "Delete treatments record with id provided in spec",
+        "description": "The Treatments endpoint returns information about the\nNightscout devicestatus records.\n",
+        "parameters": [
+          {
+            "name": "spec",
+            "in": "path",
+            "description": "treatment id, such as `55cf81bc436037528ec75fa5`\n",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "tags": [
+          "Treatments"
+        ],
+        "responses": {
+          "200": {
+            "description": "A status record of the delete.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/profile": {
@@ -1099,7 +1174,15 @@
           },
           "carbs": {
             "type": "number",
-            "description": "Number of carbs."
+            "description": " Amount of carbs consumed in grams."
+          },
+          "protein": {
+            "type": "number",
+            "description": " Amount of protein consumed in grams."
+          },
+          "fat": {
+            "type": "number",
+            "description": " Amount of fat consumed in grams."
           },
           "insulin": {
             "type": "number",
