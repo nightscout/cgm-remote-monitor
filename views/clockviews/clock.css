@@ -48,3 +48,7 @@ main {
 	font-size: 6vmin;
 	display: none;
 }
+
+#clock {
+	display: none;
+}
