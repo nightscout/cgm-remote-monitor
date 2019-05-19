@@ -18,66 +18,29 @@
 	<link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
   
 	<style type="text/css">
-		@import url("//fonts.googleapis.com/css?family=Open+Sans:700");
+		@import url("//fonts.googleapis.com/css?family=Open+Sans:700"); 
+		<%- include(face + '.css', {}); %>
   
-		body {
-			text-align: center;
-			margin: 0 0;
-			padding: 0;
-			overflow: hidden;
-			font-family: 'Open Sans';
-			color: grey;
-			background-color: black;
-		}
-		main {
-			display: -webkit-box;
-			display: -ms-flexbox;
-			display: -webkit-flex;
-			display: flex;
-			-webkit-box-align: center;
-			-ms-flex-align: center;
-			-webkit-align-items: center;
-			align-items: center;
-			height: 100vh;
-		}
-		.inner {
-			width: 100%;
-			-webkit-transform: translateY(-5%);
-		}
-		#bgnow {
-			font-weight: 700;
-			font-size: 40vmin;
-		}
-		#trend {
-			display: -ms-flexbox;
-			display: -webkit-flex;
-			display: flex;
-			-ms-flex-align: center;
-			-webkit-align-items: center;
-			-webkit-transform: translateX(1%);
-			align-items: center;
-			justify-content: center;
-			-webkit-flex-direction: column;
-			flex-direction: column;
-		}
-		#staleTime {
-			flex-grow: 1;
-			font-size: 6vmin;
-			display: none;
-		}
 	</style>
 </head>
 
 <body>
-
 	<main>
 		<div class="inner">
-			<div id="bgnow"></div>
 			<div id="trend">
-				<div id="staleTime"></div>
+				<div id="bgnow"></div>
+				<div id="arrowDiv"><img id="arrow" src=""/></div>
 			</div>
+			<div id="clock"></div>
 		</div>
 	</main>
 	
   <script src="/api/v1/status.js"></script>
-  <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
+  <script src="/js/bundle.clock.js?v=<%= locals.cachebuster %>"></script>
+  
+	<script type="text/javascript">
+		let clockFace = "<%= face  %>"; // can now be used in scripts
+		window.Nightscout.client.init( );
+	</script>
+</body>
+</html>
