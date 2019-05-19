@@ -96,6 +96,7 @@ Community maintained fork of the
         - [`pump` (Pump Monitoring)](#pump-pump-monitoring)
         - [`openaps` (OpenAPS)](#openaps-openaps)
         - [`loop` (Loop)](#loop-loop)
+        - [`override` (Override Mode)](#override-override-mode)
         - [`xdrip-js` (xDrip-js)](#xdrip-js-xdrip-js)
         - [`alexa` (Amazon Alexa)](#alexa-amazon-alexa)
         - [`speech` (Speech)](#speech-speech)
@@ -484,6 +485,10 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `LOOP_WARN` (`30`) - The number of minutes since the last loop that needs to be exceeded before an alert is triggered
   * `LOOP_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceeded before an urgent alarm is triggered
   * Add `loop` to `SHOW_FORECAST` to show forecasted BG.
+
+##### `override` (Override Mode)
+  Additional monitoring for DIY automated insulin delivery systems to display real-time overrides such as Eating Soon or Exercise Mode:
+  * Requires `DEVICESTATUS_ADVANCED="true"` to be set
 
 ##### `xdrip-js` (xDrip-js)
   Integrated xDrip-js monitoring, uses these extended settings:
