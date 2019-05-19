@@ -1,0 +1,51 @@
+
+<%- include('shared.html', {}); %>
+  
+	<script type="text/javascript">
+		function query ( ) {
+			console.log('query');
+			$.ajax('/api/v1/entries/current.json', { success: render });
+		}
+
+		function render (xhr) {
+			console.log('xhr', xhr);
+
+			var rec = xhr[0];
+			var last = new Date(rec.date);
+			var now = new Date( );
+			var elapsedMins = Math.round(((now - last) / 1000) / 60);
+
+			// Convert BG to mmol/L if necessary.
+			if (window.serverSettings.settings.units == 'mmol') {
+				rec.sgv = Nightscout.units.mgdlToMMOL(rec.sgv);
+			}
+
+			// Insert the BG value text.
+			$('#bgnow').text(rec.sgv);
+		
+			// Insert the BG stale time text.
+			$('#staleTime').text(elapsedMins+' minutes ago');
+		
+			// Time before data considered stale.
+			var staleMinutes = 13;
+			var threshold = 1000 * 60 * staleMinutes;
+		
+			// Make the "x minutes ago" visible.
+			if (now - last > threshold) {
+				$('#staleTime').css('display', 'block');
+			} else {
+				$('#staleTime').css('display', 'none');
+			}
+		}
+
+		function init ( ) {
+			console.log('init');
+			query( );
+			setInterval(query, 1 * 60 * 1000);
+		}
+
+		init( );
+	</script>
+</body>
+</html>
+
