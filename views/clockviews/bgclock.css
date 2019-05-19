@@ -51,3 +51,6 @@ img#arrow {
 .stale {
 	text-decoration: line-through;
 }
+.arrowPath {
+	fill: grey;
+}
