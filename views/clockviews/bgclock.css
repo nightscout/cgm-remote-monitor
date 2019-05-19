@@ -43,6 +43,7 @@ main {
 }
 img#arrow {
 	height: 15vmin;
+	filter: brightness(50%);
 }
 #clock {
 	font-weight: 700;
@@ -50,7 +51,4 @@ img#arrow {
 }
 .stale {
 	text-decoration: line-through;
-}
-.st0 {
-	filter: brightness(50%);
 }
