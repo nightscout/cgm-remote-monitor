@@ -52,5 +52,5 @@ img#arrow {
 	text-decoration: line-through;
 }
 .st0 {
-	fill: grey;
+	filter: brightness(50%);
 }
