@@ -44,6 +44,7 @@ main {
 img#arrow {
 	height: 18vmin;
 	filter: brightness(50%);
+	-webkit-transform: translateY(5%);
 }
 #clock {
 	font-weight: 700;
