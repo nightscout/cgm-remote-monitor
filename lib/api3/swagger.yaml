@@ -1321,15 +1321,29 @@ components:
           type: string
           example: '3.0.0'
           
-        srvDate:
-          description: Actual server date and time in UNIX epoch format
-          type: number
-          example: 1532936118000
+        storage:
+          type: object
+          properties:
           
-        srvDateString:
-          description: Actual server date and time formatted with respect to the `ISO 8601` standard in 'E8601DZw.d' variant (datetime with time zone).
-          type: string
-          example: '2018-07-30T09:35:18.000Z'
+            type:
+              description: Type of storage engine used
+              type: string
+              example: 'mongodb'
+              
+            version:
+              description: Version of the storage engine
+              type: string
+              example: '4.0.6'
+          
+            srvDate:
+              description: Actual server date and time in UNIX epoch format
+              type: number
+              example: 1532936118000
+              
+            srvDateString:
+              description: Actual server date and time formatted with respect to the `ISO 8601` standard in 'E8601DZw.d' variant (datetime with time zone).
+              type: string
+              example: '2018-07-30T09:35:18.000Z'
 
 
     Status:
@@ -1364,7 +1378,7 @@ components:
       properties:
         srvDate:
           description: 
-            Actual server date (Unix epoch in ms).
+            Actual storage server date (Unix epoch in ms).
           type: integer
           format: int64
           example: 1556260878776
@@ -1372,7 +1386,7 @@ components:
         srvDateString:
           type: string
           description:
-            Human readable form of actual server date. 
+            Human readable form of actual storage server date. 
           example: '2019-04-26T06:41:18.776Z'
           
         collections:
