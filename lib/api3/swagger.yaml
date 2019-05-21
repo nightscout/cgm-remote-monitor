@@ -494,7 +494,7 @@ paths:
     get:
       tags:
         - other
-      summary: Returns actual version information
+      summary: 'VERSION: Returns actual version information'
       description: No authentication is needed for this commnad (it is public)
       responses:
         200:
@@ -505,6 +505,31 @@ paths:
                 $ref: '#/components/schemas/Version'
 
           
+######################################################################################  
+  /status:
+
+    get:
+      tags:
+        - other
+      summary: 'STATUS: Returns actual version information and all permissions granted for API'
+      description:
+        This operation requires authorization in contrast with VERSION operation.
+        
+      security:
+        - apiKeyAuth: []
+
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        401:
+          $ref: '#/components/responses/401Unauthorized'
+        403:
+          $ref: '#/components/responses/403Forbidden'
+
 ######################################################################################  
   /lastModified:
     parameters:
@@ -1307,6 +1332,33 @@ components:
           example: '2018-07-30T09:35:18.000Z'
 
 
+    Status:
+      description: Information about versions and API permissions
+      allOf:
+        - $ref: '#/components/schemas/Version'
+        - type: object
+          properties:
+
+            apiPermissions:
+              type: object
+              properties:
+                devicestatus:
+                  type: string
+                  example: 'crud'
+                entries:
+                  type: string
+                  example: 'r'
+                food:
+                  type: string
+                  example: 'crud'
+                profile:
+                  type: string
+                  example: 'r'
+                treatments:
+                  type: string
+                  example: 'crud'
+              
+              
     LastModifiedResult:
       description: Result of LAST MODIFIED operation
       properties:
