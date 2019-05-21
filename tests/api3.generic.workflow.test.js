@@ -93,6 +93,18 @@ describe('Generic REST API3', function ( ) {
       });;
   });
 
+  it('STATUS to get actual server timestamp', function (done) {
+    request(self.app)
+      .get('/api/v3/status')
+      .expect(200)
+      .end(function (err, res) {
+
+        self.historyTimestamp = res.body.storage.srvDate;
+        self.historyTimestamp.should.be.aboveOrEqual(testConst.YEAR_2019);
+        done();
+      });;
+  });
+
   it('READ of not existing document is not found', function (done) {
     request(self.app)
       .get(self.urlResource)
