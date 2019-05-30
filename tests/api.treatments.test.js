@@ -66,7 +66,7 @@ describe('Treatment API', function ( ) {
    
     var current_time = Date.now();
     console.log('Testing date with local format: ', _moment(current_time).format("YYYY-MM-DDTHH:mm:ss.SSSZZ"));
-
+      
     self.ctx.treatments().remove({ }, function ( ) {
       request(self.app)
         .post('/api/treatments/')
@@ -89,6 +89,7 @@ describe('Treatment API', function ( ) {
               sorted[0].carbs.should.equal(30);
               var zonedTime = _moment(current_time).utc().format("YYYY-MM-DDTHH:mm:ss.SSS") + "Z";
               sorted[0].created_at.should.equal(zonedTime);
+              sorted[0].utcOffset.should.equal(-1* new Date().getTimezoneOffset());
               done();
             });
           }
