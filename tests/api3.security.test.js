@@ -9,7 +9,7 @@ describe('Security of REST API3', function ( ) {
   var instance = require('./fixtures/api3/instance')
     , self = this;
 
-  this.timeout(30000);
+  this.timeout(60000);
 
   before(function (done) {
     console.debug('api3.security.test-starting HTTP', (new Date()).toISOString());
@@ -30,16 +30,30 @@ describe('Security of REST API3', function ( ) {
   });
   
   it('should require HTTPS', function (done) {
-    request(self.http.baseUrl)
-      .get('/api/v3/test')
-      .expect(403)
-      .end(function (err, res) {
-        console.debug('should require HTTPS response:', res.body);
-        res.body.status.should.equal(403);
-        res.body.message.should.equal(apiConst.MSG.HTTP_403_NOT_USING_HTTPS);
+    try
+    {
+      request(self.http.baseUrl)
+        .get('/api/v3/test')
+        .expect(403)
+        .end(function (err, res) {
+          try
+          {
+            console.debug('should require HTTPS response:', res.body);
+            res.body.status.should.equal(403);
+            res.body.message.should.equal(apiConst.MSG.HTTP_403_NOT_USING_HTTPS);
 
-        done();
-      });
+            done();
+          } catch (err) {
+            console.error(err);
+            done();
+            throw err;
+          }
+        });
+    } catch (err) {
+      console.error(err);
+      done();
+      throw err;
+    }
   });
 
   it('should require Date header', function (done) {
