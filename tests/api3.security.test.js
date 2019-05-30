@@ -9,7 +9,7 @@ describe('Security of REST API3', function ( ) {
   var instance = require('./fixtures/api3/instance')
     , self = this;
 
-  this.timeout(60000);
+  this.timeout(30000);
 
   before(function (done) {
     console.debug('api3.security.test-starting HTTP', (new Date()).toISOString());
