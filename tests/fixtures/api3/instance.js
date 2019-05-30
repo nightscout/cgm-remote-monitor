@@ -13,7 +13,7 @@ function configure () {
     process.env.API_SECRET = 'this is my long pass phrase';
     instance.env = require('../../../env')();
     instance.env.HOSTNAME = 'localhost';
-    //instance.env.INSECURE_USE_HTTP = true;
+    instance.env.INSECURE_USE_HTTP = true;
     instance.env.settings.authDefaultRoles = '';
     instance.env.settings.enable = ['careportal', 'api'];
 
