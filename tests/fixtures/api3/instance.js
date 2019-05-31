@@ -11,9 +11,9 @@ function configure () {
     var instance = { }
 
     process.env.API_SECRET = 'this is my long pass phrase';
+    process.env.INSECURE_USE_HTTP = true;
+    process.env.HOSTNAME = 'localhost';
     instance.env = require('../../../env')();
-    instance.env.HOSTNAME = 'localhost';
-    instance.env.INSECURE_USE_HTTP = true;
     instance.env.settings.authDefaultRoles = '';
     instance.env.settings.enable = ['careportal', 'api'];
 
@@ -44,12 +44,12 @@ function configure () {
 
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
     process.env.API_SECRET = 'this is my long pass phrase';
+    process.env.HOSTNAME = 'localhost';
     instance.env = require('../../../env')();
     instance.env.ssl = {
       key: fs.readFileSync(__dirname + '/localhost.key'),
       cert: fs.readFileSync(__dirname + '/localhost.crt')
     };
-    instance.env.HOSTNAME = 'localhost';
     instance.env.settings.authDefaultRoles = '';
     instance.env.settings.enable = ['careportal', 'api'];
 

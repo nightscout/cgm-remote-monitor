@@ -2,6 +2,7 @@
 
 var request = require('supertest')
   , apiConst = require('../lib/api3/const.json')
+  , semver = require('semver')
 
 require('should');
 
@@ -30,29 +31,18 @@ describe('Security of REST API3', function ( ) {
   });
   
   it('should require HTTPS', function (done) {
-    try
-    {
-      request(self.http.baseUrl)
-        .get('/api/v3/test')
-        .expect(403)
-        .end(function (err, res) {
-          try
-          {
-            console.debug('should require HTTPS response:', res.body);
-            res.body.status.should.equal(403);
-            res.body.message.should.equal(apiConst.MSG.HTTP_403_NOT_USING_HTTPS);
-
-            done();
-          } catch (err) {
-            console.error(err);
-            done();
-            throw err;
-          }
-        });
-    } catch (err) {
-      console.error(err);
+    if (semver.gte(process.version, '10.0.0')) {
+    request(self.http.baseUrl)
+      .get('/api/v3/test')
+      .expect(403)
+      .end(function (err, res) {
+        res.body.status.should.equal(403);
+        res.body.message.should.equal(apiConst.MSG.HTTP_403_NOT_USING_HTTPS);
+        done();
+      }); 
+    }
+    else {
       done();
-      throw err;
     }
   });
 
