@@ -1181,9 +1181,9 @@ components:
           properties:
             eventType:
               type: string
-              example: '"BG Check", "Meal Bolus", "Snack Bolus", "Correction Bolus", "Combo Bolus", "Carb Correction", "Bolus Wizard", "Sensor Start", "Sensor Change", "Insulin Change", "Site Change", "Temporary Target", "Pump Battery Change", "Temp Basal", "Exercise", "Note", "OpenAPS Offline", "Profile Switch", "Announcement", etc'
+              example: '"BG Check", "Snack Bolus", "Meal Bolus", "Correction Bolus", "Carb Correction", "Combo Bolus", "Announcement", "Note", "Question", "Exercise", "Site Change", "Sensor Start", "Sensor Change", "Pump Battery Change", "Insulin Change", "Temp Basal", "Profile Switch", "D.A.D. Alert", "Temporary Target", "OpenAPS Offline", "Bolus Wizard"'
               description: The type of treatment event.
-#            created_at:
+#           created_at:
 #              type: string
 #              description: The date of the event, might be set retroactively.
             glucose:
@@ -1191,7 +1191,7 @@ components:
               description: Current glucose.
             glucoseType:
               type: string
-              example: '"Sensor", "Finger"'
+              example: '"Sensor", "Finger", "Manual"'
               description: Method used to obtain glucose, Finger or Sensor.
             units:
               type: string
@@ -1199,10 +1199,46 @@ components:
               description: The units for the glucose value, mg/dl or mmol/l. It is strongly recommended to fill in this field when `glucose` is entered.
             carbs:
               type: number
-              description: Number of carbs.
+              description: Amount of carbs given.
+            protein:
+              type: number
+              description: Amount of protein given.
+            fat:
+              type: number
+              description: Amount of fat given.
             insulin:
               type: number
               description: Amount of insulin, if any.
+            duration:
+              type: number
+              description: Duration in minutes.
+            preBolus: 
+              type: number
+              description: How many minutes the bolus was given before the meal started.
+            splitNow:
+              type: number
+              description: Immediate part of combo bolus (in percent).
+            splitExt:
+              type: number
+              description: Extended part of combo bolus (in percent).
+            percent:
+              type: number
+              description: Eventual basal change in percent.
+            absolute:
+              type: number
+              description: Eventual basal change in absolute value (insulin units per hour).
+            targetTop:
+              type: number
+              description: Top limit of temporary target.
+            targetBottom:
+              type: number
+              description: Bottom limit of temporary target.
+            profile:
+              type: string
+              description: Name of the profile to which the pump has been switched.
+            reason:
+              type: string
+              description: For example the reason why the profile has been switched or why the temporary target has been set.
             notes:
               type: string
               description: Description/notes of treatment.
