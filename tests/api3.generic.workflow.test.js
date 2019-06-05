@@ -1,66 +1,61 @@
 'use strict';
 
-var request = require('supertest');
-var language = require('../lib/language')();
-
+const request = require('supertest');
 require('should');
 
 describe('Generic REST API3', function ( ) {
-  var self = this
-    , bodyParser = require('body-parser')
-    , api = require('../lib/api3/')
+  const self = this
     , testConst = require('./fixtures/api3/const.json')
+    , instance = require('./fixtures/api3/instance')
     , utils = require('./fixtures/api3/utils')
-    , _ = require('lodash')
 
   this.timeout(30000);
 
   before(function (done) {
-    var env = require('../env')( );
-    env.settings.enable = ['careportal', 'rawbg'];
-    env.settings.authDefaultRoles = 'readable';
-    env.api_secret = 'this is my long pass phrase';
-    self.wares = require('../lib/middleware/')(env);
-    self.app = require('express')( );
-    self.app.enable('api');
+    instance.create({ disableSecurity: true })
 
-    self.identifier = utils.randomString("32", 'aA#'); // let's have a brand new identifier for your testing document
+      .then(https => {
+        self.instance = https;
+        self.app = https.app;
+        self.env = https.env;
 
-    self.urlLastModified = '/api/v3/lastModified';
-    self.urlCol = '/api/v3/' + env.treatments_collection;
-    self.urlResource = self.urlCol + '/' + self.identifier;
-    self.urlHistory = self.urlCol + '/history';
+        self.identifier = utils.randomString("32", 'aA#'); // let's have a brand new identifier for your testing document
 
-    self.historyTimestamp = 0;
+        self.urlLastModified = '/api/v3/lastModified';
+        self.urlCol = '/api/v3/' + self.env.treatments_collection;
+        self.urlResource = self.urlCol + '/' + self.identifier;
+        self.urlHistory = self.urlCol + '/history';
 
-    self.docOriginal = {
-      identifier: self.identifier,
-      eventType: 'Correction Bolus',
-      insulin: 1,
-      date: (new Date()).getTime(),
-      app: 'cgm-remote-monitor.test'
-    };
+        self.historyTimestamp = 0;
 
-    require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
-      self.apiApp = api(env, ctx);
-      self.apiApp.set('API3_SECURITY_ENABLE', false); // we don't want security in this test
+        self.docOriginal = {
+          identifier: self.identifier,
+          eventType: 'Correction Bolus',
+          insulin: 1,
+          date: (new Date()).getTime(),
+          app: 'cgm-remote-monitor.test'
+        };
+        
+        done();
+      })
+      .catch(err => {
+        done(err);
+      })
+  });
 
-      self.app.use('/api/v3', bodyParser({
-        limit: 1048576 * 50
-      }), self.apiApp);
 
-      done();
-    });
+  after(function after () {
+    self.instance.server.close();
   });
 
 
   self.checkHistoryExistence = function checkHistoryExistence (done, assertions) {
-    console.debug('checkHistoryExistence-historyTimestamp:', self.historyTimestamp)
+
     request(self.app)
       .get(self.urlHistory + '/' + self.historyTimestamp)
       .expect(200)
       .end(function (err, res) {
-        console.debug('checkHistoryExistence-response:', res.body);
+
         res.body.length.should.be.above(0);
         res.body.should.matchAny(function(value) { 
           value.identifier.should.be.eql(self.identifier);
@@ -82,7 +77,6 @@ describe('Generic REST API3', function ( ) {
       .get(self.urlLastModified)
       .expect(200)
       .end(function (err, res) {
-        console.debug('LAST MODIFIED result:', res.body);
 
         self.historyTimestamp = res.body.collections.treatments;
         if (!self.historyTimestamp) {
@@ -143,7 +137,6 @@ describe('Generic REST API3', function ( ) {
       .get(self.urlResource)
       .expect(200)
       .end(function (err, res) {
-        console.debug('READ result:', res.body);
         
         res.body.should.containEql(self.docOriginal);
         self.docActual = res.body;
@@ -161,7 +154,6 @@ describe('Generic REST API3', function ( ) {
       .query({ 'identifier_eq': self.identifier })
       .expect(200)
       .end(function (err, res) {
-        console.debug('SEARCH result:', res.body);
 
         res.body.length.should.be.above(0);
         res.body.should.matchAny(function(value) { 
@@ -186,9 +178,11 @@ describe('Generic REST API3', function ( ) {
       .end(done);
   });
 
+
   it('document changed in HISTORY', function (done) {
     self.checkHistoryExistence(done);
   }); 
+
   
   it('document changed in READ', function (done) {
     request(self.app)
@@ -214,9 +208,11 @@ describe('Generic REST API3', function ( ) {
       .end(done);
   });
 
+
   it('document changed in HISTORY', function (done) {
     self.checkHistoryExistence(done);
   }); 
+
   
   it('document changed in READ', function (done) {
     request(self.app)
@@ -238,12 +234,15 @@ describe('Generic REST API3', function ( ) {
       .end(done);
   });
 
+
   it('READ of deleted is gone', function (done) {
     request(self.app)
       .get(self.urlResource)
       .expect(410)
       .end(done);
   });
+
+
 
   it('SEARCH of deleted document missing it', function (done) {
     request(self.app)
@@ -256,12 +255,14 @@ describe('Generic REST API3', function ( ) {
       });
   }); 
   
+
   it('document deleted in HISTORY', function (done) {
     self.checkHistoryExistence(done, function assertions (value) {
       value.isValid.should.be.eql(false);
     });
   }); 
   
+
   it('permanent DELETE', function (done) {
     request(self.app)
       .delete(self.urlResource)
@@ -270,12 +271,14 @@ describe('Generic REST API3', function ( ) {
       .end(done);
   });
 
+
   it('READ of permanently deleted is not found', function (done) {
     request(self.app)
       .get(self.urlResource)
       .expect(404)
       .end(done);
   });
+
 
   it('document permanently deleted not in HISTORY', function (done) {
     request(self.app)
@@ -291,5 +294,6 @@ describe('Generic REST API3', function ( ) {
         done();
       });
   }); 
+
 });
 

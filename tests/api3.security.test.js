@@ -1,39 +1,52 @@
 'use strict';
 
-var request = require('supertest')
+const request = require('supertest')
   , apiConst = require('../lib/api3/const.json')
   , semver = require('semver')
-
+  ;
 require('should');
-
+  
 describe('Security of REST API3', function ( ) {
-  var instance = require('./fixtures/api3/instance')
-    , self = this;
+  const self = this
+    , instance = require('./fixtures/api3/instance')
+    ;
 
   this.timeout(30000);
 
   before(function (done) {
-    console.debug('api3.security.test-starting HTTP', (new Date()).toISOString());
-    self.http = instance.initHttp(function initialized () {
-      console.debug('api3.security.test-starting HTTPS', (new Date()).toISOString());
-      self.https = instance.initHttps(function initialized () {
-        
-        console.debug('api3.security.test-HTTP and HTTPS initialized', (new Date()).toISOString(), self.http.baseUrl, self.https.baseUrl);
+    instance.create({ useHttps: false })
 
-        require('./fixtures/api3/authSubject')(self.https.env, self.https.ctx, self.https.ctx.authorization.storage, 
-          function subjectsReady (authSubjects) {
-          self.subjects = authSubjects;
+    .then(http => {
+      self.http = http;
+      return instance.create({ });
+    })
+    .then(https => {
+      self.https = https;
 
-          done();
-        });
+      require('./fixtures/api3/authSubject')(https.env, https.ctx, https.ctx.authorization.storage, 
+        function subjectsReady (authSubjects) {
+        self.subjects = authSubjects;
+
+        done();
       });
-    });
+    })
+    .catch(err => {
+      done(err);
+    })
+
   });
+
   
+  after(function after () {
+    self.http.server.close();
+    self.https.server.close();
+  });
+
+
   it('should require HTTPS', function (done) {
-    if (semver.gte(process.version, '10.0.0')) {
-    request(self.http.baseUrl)
-      .get('/api/v3/test')
+    if (semver.gte(process.version, '10.0.0')) { 
+    request(self.http.baseUrl)  // hangs on 8.x.x (no reason why)
+      .get('/api/v3/test') 
       .expect(403)
       .end(function (err, res) {
         res.body.status.should.equal(403);
@@ -46,6 +59,7 @@ describe('Security of REST API3', function ( ) {
     }
   });
 
+
   it('should require Date header', function (done) {
     request(self.https.baseUrl)
       .get('/api/v3/test')
@@ -57,6 +71,7 @@ describe('Security of REST API3', function ( ) {
         done();
       });
   });
+
 
   it('should validate Date header syntax', function (done) {
     request(self.https.baseUrl)
@@ -71,9 +86,10 @@ describe('Security of REST API3', function ( ) {
       });
   });
 
+
   it('should reject Date header out of tolerance', function (done) {
-    var oldDate = new Date((new Date() * 1) - 2 * 3600 * 1000);
-    var futureDate = new Date((new Date() * 1) + 2 * 3600 * 1000);
+    const oldDate = new Date((new Date() * 1) - 2 * 3600 * 1000)
+      , futureDate = new Date((new Date() * 1) + 2 * 3600 * 1000);
 
     request(self.https.baseUrl)
       .get('/api/v3/test')
@@ -96,6 +112,7 @@ describe('Security of REST API3', function ( ) {
       });
   });
 
+
   it('should require token', function (done) {
     request(self.https.baseUrl)
       .get('/api/v3/test')
@@ -108,6 +125,7 @@ describe('Security of REST API3', function ( ) {
         done();
       });
   });
+
 
   it('should require valid token', function (done) {
     request(self.https.baseUrl)
@@ -122,6 +140,7 @@ describe('Security of REST API3', function ( ) {
       });
   });
 
+
   it('should deny subject denied', function (done) {
     request(self.https.baseUrl)
       .get('/api/v3/test?token=' + self.subjects.denied.accessToken)
@@ -135,6 +154,7 @@ describe('Security of REST API3', function ( ) {
       });
   });
 
+
   it('should allow subject readable', function (done) {
     request(self.https.baseUrl)
       .get('/api/v3/test?token=' + self.subjects.readable.accessToken)
@@ -146,8 +166,4 @@ describe('Security of REST API3', function ( ) {
       });
   });
 
-  after(function after () {
-    self.http.server.close();
-    self.https.server.close();
-  });
 });

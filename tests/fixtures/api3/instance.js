@@ -1,80 +1,102 @@
 'use strict';
 
 var fs = require('fs')
+  , bodyParser = require('body-parser')
   , language = require('../../../lib/language')()
   , api = require('../../../lib/api3/')
+  , http = require('http')
+  , https = require('https')
 
 function configure () {
-  var tools = { };
+  var self = { };
 
-  tools.initHttp = function initHttpServer (done) {
-    var instance = { }
+  self.prepareEnv = function prepareEnv({ apiSecret, useHttps, authDefaultRoles, enable }) {
 
-    process.env.API_SECRET = 'this is my long pass phrase';
-    process.env.INSECURE_USE_HTTP = true;
+    if (useHttps) {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    }
+    else {
+      process.env.INSECURE_USE_HTTP = true;
+    }
+    process.env.API_SECRET = apiSecret;
+
     process.env.HOSTNAME = 'localhost';
-    instance.env = require('../../../env')();
-    instance.env.settings.authDefaultRoles = '';
-    instance.env.settings.enable = ['careportal', 'api'];
+    const env = require('../../../env')();
 
-    this.wares = require('../../../lib/middleware/')(instance.env);
-    instance.app = require('express')();
-    instance.app.enable('api');
+    if (useHttps) {
+      env.ssl = {
+        key: fs.readFileSync(__dirname + '/localhost.key'),
+        cert: fs.readFileSync(__dirname + '/localhost.crt')
+      };
+    }
 
-    require('../../../lib/server/bootevent')(instance.env, language).boot(function booted (ctx) {
-      instance.ctx = ctx;
-      instance.ctx.ddata = require('../../../lib/data/ddata')();
-      instance.app.use('/api/v3', api(instance.env, ctx));
+    env.settings.authDefaultRoles = authDefaultRoles;
+    env.settings.enable = enable;
 
-      var transport = require('http');
-      instance.server = transport.createServer(instance.env.ssl, instance.app).listen(0);
-      instance.env.PORT = instance.server.address().port;
-      instance.baseUrl = 'http://' + instance.env.HOSTNAME + ':' + instance.env.PORT;
-
-      console.log('Started HTTP instance on ' + instance.baseUrl);
-      done();
-    });
-
-    return instance;
+    return env;
   }
 
 
-  tools.initHttps = function initHttpsServer (done) {
-    var instance = { }
+  /*
+   * Create new web server instance for testing purposes
+   */
+  self.create = function createHttpServer ({ 
+    apiSecret = 'this is my long pass phrase', 
+    disableSecurity = false, 
+    useHttps = true,
+    authDefaultRoles = '',
+    enable = ['careportal', 'api']
+    }) {
 
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-    process.env.API_SECRET = 'this is my long pass phrase';
-    process.env.HOSTNAME = 'localhost';
-    instance.env = require('../../../env')();
-    instance.env.ssl = {
-      key: fs.readFileSync(__dirname + '/localhost.key'),
-      cert: fs.readFileSync(__dirname + '/localhost.crt')
-    };
-    instance.env.settings.authDefaultRoles = '';
-    instance.env.settings.enable = ['careportal', 'api'];
+    return new Promise(function (resolve, reject) {
 
-    this.wares = require('../../../lib/middleware/')(instance.env);
-    instance.app = require('express')();
-    instance.app.enable('api');
+      try {
+        let instance = { },
+          hasBooted = false
 
-    require('../../../lib/server/bootevent')(instance.env, language).boot(function booted (ctx) {
-      instance.ctx = ctx;
-      instance.ctx.ddata = require('../../../lib/data/ddata')();
-      instance.app.use('/api/v3', api(instance.env, ctx));
+        instance.env = self.prepareEnv({ apiSecret, useHttps, authDefaultRoles, enable });
 
-      var transport = require('https');
-      instance.server = transport.createServer(instance.env.ssl, instance.app).listen(0);
-      instance.env.PORT = instance.server.address().port;
-      instance.baseUrl = 'https://' + instance.env.HOSTNAME + ':' + instance.env.PORT;
+        self.wares = require('../../../lib/middleware/')(instance.env);
+        instance.app = require('express')();
+        instance.app.enable('api');
 
-      console.log('Started SSL instance on ' + instance.baseUrl);
-      done();
+        require('../../../lib/server/bootevent')(instance.env, language).boot(function booted (ctx) {
+          instance.ctx = ctx;
+          instance.ctx.ddata = require('../../../lib/data/ddata')();
+          instance.ctx.apiApp = api(instance.env, ctx);
+
+          if (disableSecurity) {
+            instance.ctx.apiApp.set('API3_SECURITY_ENABLE', false);
+          }
+
+          instance.app.use('/api/v3', bodyParser({
+            limit: 1048576 * 50
+          }), instance.ctx.apiApp);
+
+          const transport = useHttps ? https : http;
+
+          instance.server = transport.createServer(instance.env.ssl, instance.app).listen(0);
+          instance.env.PORT = instance.server.address().port;
+
+          instance.baseUrl = `${useHttps ? 'https' : 'http'}://${instance.env.HOSTNAME}:${instance.env.PORT}`;
+
+          console.log(`Started ${useHttps ? 'SSL' : 'HTTP'} instance on ${instance.baseUrl}`);
+          hasBooted = true;
+          resolve(instance);
+        });
+
+        setTimeout(function watchDog() {
+          if (!hasBooted)
+            reject('timeout');
+        }, 30000);
+
+      } catch (err) {
+        reject(err);
+      }
     });
-
-    return instance;
   }
 
-  return tools;
+  return self;
 }
 
 module.exports = configure();
