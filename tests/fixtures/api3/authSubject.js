@@ -1,40 +1,44 @@
 'use strict';
 
-function configure (ctx, env, authStorage, done) {
-  var _ = require('lodash')
-    , subjects = { }
+const _ = require('lodash');
+  
+function configure (authStorage) {
+  
+  function createTestSubject (subjectName, roles) {
+    
+    return new Promise((resolve, reject) => {
 
-  function createTestSubject (subjectName, roles, next) {
-    var subjectDbName = 'test-' + subjectName
-      , subject = _.find(authStorage.subjects, { name: subjectDbName })
+      const subjectDbName = 'test-' + subjectName;
+      let subject = _.find(authStorage.subjects, { name: subjectDbName })
 
-    if (subject) {
-      subjects[subjectName] = subject;
-      next();
-    }
-    else {
-      authStorage.createSubject({
-        "name": subjectDbName,
-        "roles": roles,
-        "notes": ""
-      }, function afterCreate (err) {
+      if (subject) {
+        resolve(subject);
+      }
+      else {
+        authStorage.createSubject({
+          "name": subjectDbName,
+          "roles": roles,
+          "notes": ""
+        }, function afterCreate (err) {
 
-        if (err) throw err;
-        subjects[subjectName] = _.find(authStorage.subjects, { name: subjectDbName });
-        next();
-      });
-    }
+          if (err) 
+            reject(err);
+        
+          subject = _.find(authStorage.subjects, { name: subjectDbName });
+          resolve(subject);
+        });
+      }
+    });
   }
 
-  createTestSubject('admin', [ 'admin' ], function () {
-    createTestSubject('readable', [ 'readable' ], function () {
-      createTestSubject('denied', [ 'denied' ], function () {
-        done(subjects);
-      })
-    })
-  })
 
-  return subjects;
+  return new Promise(async function (resolve, reject) {
+    const subjects = { };
+    subjects.admin = await createTestSubject('admin', [ 'admin' ]);
+    subjects.readable = await createTestSubject('readable', [ 'readable' ]);
+    subjects.denied = await createTestSubject('denied', [ 'denied' ]);
+    resolve(subjects);
+  });
 }
 
 module.exports = configure;

@@ -9,6 +9,7 @@ require('should');
 describe('Security of REST API3', function ( ) {
   const self = this
     , instance = require('./fixtures/api3/instance')
+    , authSubject = require('./fixtures/api3/authSubject')
     ;
 
   this.timeout(30000);
@@ -22,13 +23,11 @@ describe('Security of REST API3', function ( ) {
     })
     .then(https => {
       self.https = https;
-
-      require('./fixtures/api3/authSubject')(https.env, https.ctx, https.ctx.authorization.storage, 
-        function subjectsReady (authSubjects) {
-        self.subjects = authSubjects;
-
-        done();
-      });
+      return authSubject(https.ctx.authorization.storage);
+    })
+    .then(authSubjects => {
+      self.subjects = authSubjects;
+      done();
     })
     .catch(err => {
       done(err);

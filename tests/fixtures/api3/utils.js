@@ -1,9 +1,9 @@
 'use strict';
 
 function configure() {
-  var tools = {};
+  var self = {};
 
-  tools.randomString = function randomString (length, chars) {
+  self.randomString = function randomString (length, chars) {
     var mask = '';
     if (chars.indexOf('a') > -1) mask += 'abcdefghijklmnopqrstuvwxyz';
     if (chars.indexOf('A') > -1) mask += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -14,7 +14,7 @@ function configure() {
     return result;
   }
 
-  return tools;
+  return self;
 }
 
 module.exports = configure();
