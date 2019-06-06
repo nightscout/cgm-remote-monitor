@@ -52,12 +52,7 @@ describe('Basic REST API3', function ( ) {
 
         res.body.version.should.equal(software.version);
         res.body.apiVersion.should.equal(apiConst.API3_VERSION);
-        res.body.storage.srvDate.should.be.within(testConst.YEAR_2019, testConst.YEAR_2050);
-
-        res.body.storage.srvDateString.length.should.be.above(23);
-        var srvDate = new Date(res.body.storage.srvDateString);
-        srvDate.getTime().should.be.within(testConst.YEAR_2019, testConst.YEAR_2050);
-        srvDate.getTime().should.equal(res.body.storage.srvDate);
+        res.body.srvDate.should.be.within(testConst.YEAR_2019, testConst.YEAR_2050);
 
         done();
       });
