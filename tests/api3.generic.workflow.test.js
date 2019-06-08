@@ -7,35 +7,40 @@ describe('Generic REST API3', function ( ) {
   const self = this
     , testConst = require('./fixtures/api3/const.json')
     , instance = require('./fixtures/api3/instance')
+    , authSubject = require('./fixtures/api3/authSubject')
     , utils = require('./fixtures/api3/utils')
+    ;
+
+  self.identifier = utils.randomString("32", 'aA#'); // let's have a brand new identifier for your testing document
+  self.urlLastModified = '/api/v3/lastModified';
+  self.historyTimestamp = 0;
+
+  self.docOriginal = {
+    identifier: self.identifier,
+    eventType: 'Correction Bolus',
+    insulin: 1,
+    date: (new Date()).getTime(),
+    app: testConst.TEST_APP
+  };
 
   this.timeout(30000);
 
   before(function (done) {
-    instance.create({ disableSecurity: true })
+    instance.create({ })
 
-      .then(https => {
-        self.instance = https;
-        self.app = https.app;
-        self.env = https.env;
+      .then(instance => {
+        self.instance = instance;
+        self.app = instance.app;
+        self.env = instance.env;
 
-        self.identifier = utils.randomString("32", 'aA#'); // let's have a brand new identifier for your testing document
-
-        self.urlLastModified = '/api/v3/lastModified';
         self.urlCol = '/api/v3/' + self.env.treatments_collection;
         self.urlResource = self.urlCol + '/' + self.identifier;
         self.urlHistory = self.urlCol + '/history';
 
-        self.historyTimestamp = 0;
-
-        self.docOriginal = {
-          identifier: self.identifier,
-          eventType: 'Correction Bolus',
-          insulin: 1,
-          date: (new Date()).getTime(),
-          app: 'cgm-remote-monitor.test'
-        };
-        
+        return authSubject(instance.ctx.authorization.storage);
+      })
+      .then(result => {
+        self.token = result.token;
         done();
       })
       .catch(err => {
@@ -51,8 +56,7 @@ describe('Generic REST API3', function ( ) {
 
   self.checkHistoryExistence = function checkHistoryExistence (done, assertions) {
 
-    request(self.app)
-      .get(self.urlHistory + '/' + self.historyTimestamp)
+    self.instance.get(`${self.urlHistory}/${self.historyTimestamp}?token=${self.token.read}`)
       .expect(200)
       .end(function (err, res) {
 
@@ -73,8 +77,7 @@ describe('Generic REST API3', function ( ) {
 
 
   it('LAST MODIFIED to get actual server timestamp', function (done) {
-    request(self.app)
-      .get(self.urlLastModified)
+    self.instance.get(`${self.urlLastModified}?token=${self.token.read}`)
       .expect(200)
       .end(function (err, res) {
 
@@ -87,9 +90,9 @@ describe('Generic REST API3', function ( ) {
       });;
   });
 
+
   it('STATUS to get actual server timestamp', function (done) {
-    request(self.app)
-      .get('/api/v3/status')
+    self.instance.get(`/api/v3/status?token=${self.token.read}`)
       .expect(200)
       .end(function (err, res) {
 
@@ -99,16 +102,16 @@ describe('Generic REST API3', function ( ) {
       });;
   });
 
+
   it('READ of not existing document is not found', function (done) {
-    request(self.app)
-      .get(self.urlResource)
+    self.instance.get(`${self.urlResource}?token=${self.token.read}`)
       .expect(404)
       .end(done);
   });
 
+
   it('SEARCH of not existing document (not found)', function (done) {
-    request(self.app)
-      .get(self.urlCol)
+    self.instance.get(`${self.urlCol}?token=${self.token.read}`)
       .query({ 'identifier_eq': self.identifier })
       .expect(200)
       .end(function (err, res) {
@@ -117,24 +120,24 @@ describe('Generic REST API3', function ( ) {
       });
   });
 
+
   it('DELETE of not existing document is not found', function (done) {
-    request(self.app)
-      .delete(self.urlResource)
+    self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
       .expect(404)
       .end(done);
   });
 
+
   it('CREATE new document', function (done) {
-    request(self.app)
-      .post(self.urlCol)
+    self.instance.post(`${self.urlCol}?token=${self.token.create}`)
       .send(self.docOriginal)
       .expect(201)
       .end(done);
   });
 
+
   it('READ existing document', function (done) {
-    request(self.app)
-      .get(self.urlResource)
+    self.instance.get(`${self.urlResource}?token=${self.token.read}`)
       .expect(200)
       .end(function (err, res) {
         
@@ -148,9 +151,9 @@ describe('Generic REST API3', function ( ) {
       });
   });
 
+
   it('SEARCH existing document (found)', function (done) {
-    request(self.app)
-      .get(self.urlCol)
+    self.instance.get(`${self.urlCol}?token=${self.token.read}`)
       .query({ 'identifier_eq': self.identifier })
       .expect(200)
       .end(function (err, res) {
@@ -163,6 +166,7 @@ describe('Generic REST API3', function ( ) {
       });
   });
 
+
   it('new document in HISTORY', function (done) {
     self.checkHistoryExistence(done);
   });
@@ -171,8 +175,7 @@ describe('Generic REST API3', function ( ) {
   it('UPDATE document', function (done) {
     self.docActual.insulin = 0.5;
 
-    request(self.app)
-      .put(self.urlResource)
+    self.instance.put(`${self.urlResource}?token=${self.token.update}`)
       .send(self.docActual)
       .expect(204)
       .end(done);
@@ -185,8 +188,7 @@ describe('Generic REST API3', function ( ) {
 
   
   it('document changed in READ', function (done) {
-    request(self.app)
-      .get(self.urlResource)
+    self.instance.get(`${self.urlResource}?token=${self.token.read}`)
       .expect(200)
       .end(function (err, res) {
         delete self.docActual.srvModified;
@@ -201,8 +203,7 @@ describe('Generic REST API3', function ( ) {
     self.docActual.carbs = 5;
     self.docActual.insulin = 0.4;
 
-    request(self.app)
-      .patch(self.urlResource)
+    self.instance.patch(`${self.urlResource}?token=${self.token.update}`)
       .send({ 'carbs': self.docActual.carbs, 'insulin': self.docActual.insulin })
       .expect(204)
       .end(done);
@@ -215,8 +216,7 @@ describe('Generic REST API3', function ( ) {
 
   
   it('document changed in READ', function (done) {
-    request(self.app)
-      .get(self.urlResource)
+    self.instance.get(`${self.urlResource}?token=${self.token.read}`)
       .expect(200)
       .end(function (err, res) {
         delete self.docActual.srvModified;
@@ -228,16 +228,14 @@ describe('Generic REST API3', function ( ) {
 
 
   it('soft DELETE', function (done) {
-    request(self.app)
-      .delete(self.urlResource)
+    self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
       .expect(204)
       .end(done);
   });
 
 
   it('READ of deleted is gone', function (done) {
-    request(self.app)
-      .get(self.urlResource)
+    self.instance.get(`${self.urlResource}?token=${self.token.read}`)
       .expect(410)
       .end(done);
   });
@@ -245,8 +243,7 @@ describe('Generic REST API3', function ( ) {
 
 
   it('SEARCH of deleted document missing it', function (done) {
-    request(self.app)
-      .get(self.urlCol)
+    self.instance.get(`${self.urlCol}?token=${self.token.read}`)
       .query({ 'identifier_eq': self.identifier })
       .expect(200)
       .end(function (err, res) {
@@ -264,8 +261,7 @@ describe('Generic REST API3', function ( ) {
   
 
   it('permanent DELETE', function (done) {
-    request(self.app)
-      .delete(self.urlResource)
+    self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
       .query({ 'permanent': 'true' })
       .expect(204)
       .end(done);
@@ -273,16 +269,14 @@ describe('Generic REST API3', function ( ) {
 
 
   it('READ of permanently deleted is not found', function (done) {
-    request(self.app)
-      .get(self.urlResource)
+    self.instance.get(`${self.urlResource}?token=${self.token.read}`)
       .expect(404)
       .end(done);
   });
 
 
   it('document permanently deleted not in HISTORY', function (done) {
-    request(self.app)
-      .get(self.urlHistory + '/' + self.historyTimestamp)
+    self.instance.get(`${self.urlHistory}/${self.historyTimestamp}?token=${self.token.read}`)
       .end(function (err, res) {
         if (res.status == 200) {
           res.body.should.matchEach(function(value) { 

@@ -6,6 +6,8 @@ var fs = require('fs')
   , api = require('../../../lib/api3/')
   , http = require('http')
   , https = require('https')
+  , request = require('supertest')
+  ;
 
 function configure () {
   var self = { };
@@ -34,6 +36,20 @@ function configure () {
     env.settings.enable = enable;
 
     return env;
+  }
+
+
+  self.addSecuredOperations = function addSecuredOperations (instance) {
+
+    instance.get = (url) => request(instance.baseUrl).get(url).set('Date', new Date().toUTCString());
+
+    instance.post = (url) => request(instance.baseUrl).post(url).set('Date', new Date().toUTCString());
+
+    instance.put = (url) => request(instance.baseUrl).put(url).set('Date', new Date().toUTCString());
+
+    instance.patch = (url) => request(instance.baseUrl).patch(url).set('Date', new Date().toUTCString());
+
+    instance.delete = (url) => request(instance.baseUrl).delete(url).set('Date', new Date().toUTCString());
   }
 
 
@@ -79,6 +95,8 @@ function configure () {
           instance.env.PORT = instance.server.address().port;
 
           instance.baseUrl = `${useHttps ? 'https' : 'http'}://${instance.env.HOSTNAME}:${instance.env.PORT}`;
+
+          self.addSecuredOperations(instance);
 
           console.log(`Started ${useHttps ? 'SSL' : 'HTTP'} instance on ${instance.baseUrl}`);
           hasBooted = true;

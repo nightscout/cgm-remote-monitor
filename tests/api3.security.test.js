@@ -25,8 +25,8 @@ describe('Security of REST API3', function ( ) {
       self.https = https;
       return authSubject(https.ctx.authorization.storage);
     })
-    .then(authSubjects => {
-      self.subjects = authSubjects;
+    .then(result => {
+      self.subject = result.subject;
       done();
     })
     .catch(err => {
@@ -142,7 +142,7 @@ describe('Security of REST API3', function ( ) {
 
   it('should deny subject denied', function (done) {
     request(self.https.baseUrl)
-      .get('/api/v3/test?token=' + self.subjects.denied.accessToken)
+      .get('/api/v3/test?token=' + self.subject.denied.accessToken)
       .set('Date', new Date().toUTCString())
       .expect(403)
       .end(function (err, res) {
@@ -156,7 +156,7 @@ describe('Security of REST API3', function ( ) {
 
   it('should allow subject readable', function (done) {
     request(self.https.baseUrl)
-      .get('/api/v3/test?token=' + self.subjects.readable.accessToken)
+      .get('/api/v3/test?token=' + self.subject.readable.accessToken)
       .set('Date', new Date().toUTCString())
       .expect(200)
       .end(function () {

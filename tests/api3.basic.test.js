@@ -14,10 +14,10 @@ describe('Basic REST API3', function ( ) {
   before(function (done) {
     instance.create({})
 
-      .then(https => {
-        self.instance = https;
-        self.app = https.app;
-        self.env = https.env;
+      .then(instance => {
+        self.instance = instance;
+        self.app = instance.app;
+        self.env = instance.env;
         done();
       })
       .catch(err => {
