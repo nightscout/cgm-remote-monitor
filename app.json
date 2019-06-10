@@ -2,12 +2,154 @@
   "name": "CGM Remote Monitor",
   "repository": "https://github.com/nightscout/cgm-remote-monitor",
   "env": {
+    "ALARM_HIGH": {
+      "description": "Default setting for new browser views, for the High alarm (triggered when BG crosses BG_TARGET_TOP). ('on' or 'off')",
+      "value": "on",
+      "required": false
+    },
+    "ALARM_LOW": {
+      "description": "Default setting for new browser views, for the Low alarm (triggered when BG crosses BG_TARGET_BOTTOM). ('on' or 'off')",
+      "value": "on",
+      "required": false
+    },
+    "ALARM_TIMEAGO_URGENT": {
+      "description": "Default setting for new browser views, for an urgent alarm when CGM data hasn't been received in the number of minutes set in ALARM_TIMEAGO_URGENT_MINS. ('on' or 'off')",
+      "value": "on",
+      "required": false
+    },
+    "ALARM_TIMEAGO_URGENT_MINS": {
+      "description": "Default setting for new browser views, for the number of minutes since the last CGM reading to trigger an ALARM_TIMEAGO_URGENT alarm.",
+      "value": "30",
+      "required": false
+    },
+    "ALARM_TIMEAGO_WARN": {
+      "description": "Default setting for new browser views, for a warning alarm when CGM data hasn't been received in the number of minutes set in ALARM_TIMEAGO_WARN_MINS. ('on' or 'off')",
+      "value": "on",
+      "required": false
+    },
+    "ALARM_TIMEAGO_WARN_MINS": {
+      "description": "Default setting for new browser views, for the number of minutes since the last CGM reading to trigger an ALARM_TIMEAGO_WARN alarm.",
+      "value": "15",
+      "required": false
+    },
+    "ALARM_TYPES": {
+      "description": "'simple' and/or 'predict'. Simple alarms trigger when BG crosses the various thresholds set below. Predict alarms use a formula that forecasts where the BG is going based on its trend. You will *not* get warnings when crossing the BG thresholds set below when using the predict type.",
+      "value": "simple",
+      "required": false
+    },
+    "ALARM_URGENT_HIGH": {
+      "description": "Default setting for new browser views, for the Urgent High alarm (triggered when BG crosses BG_HIGH). ('on' or 'off')",
+      "value": "on",
+      "required": false 
+    },
+    "ALARM_URGENT_LOW": {
+      "description": "Default setting for new browser views, for the Urgent Low alarm (triggered when BG crosses BG_LOW). ('on' or 'off')",
+      "value": "on",
+      "required": false
+    },
+    "API_SECRET": {
+      "description": "A passphrase that must be at least 12 characters long. Avoid 'special' characters, which can cause problems in some cases.",
+      "value": "",
+      "required": true
+    },
+    "BG_HIGH": {
+      "description": "Urgent High BG threshold, triggers the ALARM_URGENT_HIGH alarm. Must be set in mg/dL, even if you use mmol/L (multiply a mmol/L value by 18 to change it to mg/dl).",
+      "value": "260",
+      "required": false
+    },
+    "BG_LOW": {
+      "description": "Urgent Low BG threshold, triggers the ALARM_URGENT_LOW alarm. Must be set in mg/dL, even if you use mmol/L (multiply a mmol/L value by 18 to change it to mg/dl).",
+      "value": "55",
+      "required": false
+    },
+    "BG_TARGET_BOTTOM": {
+      "description": "Low BG threshold, triggers the ALARM_LOW alarm. Must be set in mg/dL, even if you use mmol/L (multiply a mmol/L value by 18 to change it to mg/dl).",
+      "value": "80",
+      "required": false
+    },
+    "BG_TARGET_TOP": {
+      "description": "High BG threshold, triggers the ALARM_HIGH alarm. Must be set in mg/dL, even if you use mmol/L (multiply a mmol/L value by 18 to change it to mg/dl).",
+      "value": "180",
+      "required": false
+    },
+    "BRIDGE_PASSWORD": {
+      "description": "Your Dexcom account password, to receive CGM data from the Dexcom Share service. Also make sure to include 'bridge' in your ENABLE line.",
+      "value": "",
+      "required": false
+    },
+    "BRIDGE_SERVER": {
+      "description": "If you are bridging from the Dexcom Share service, and are anywhere *outside* the US, change this to EU. ('US' or 'EU')",
+      "value": "US",
+      "required": false
+    },
+    "BRIDGE_USER_NAME": {
+      "description": "Your Dexcom account username, to receive CGM data from the Dexcom Share service. Also make sure to include 'bridge' in your ENABLE line.",
+      "value": "",
+      "required": false
+    },
+    "CUSTOM_TITLE": {
+      "description": "The display name for the Nightscout site. Appears in the upper left of the main view. Often set to the name of the CGM wearer.",
+      "value": "",
+      "required": false
+    },
+    "DISPLAY_UNITS": {
+      "description": "Preferred BG units for the site:'mg/dl' or 'mmol'. (Note that it is *not* 'mmol/L')",
+      "value": "mg/dl",
+      "required": true
+    },
+    "ENABLE": {
+      "description": "Plugins to enable for your site. Must be a space-delimited, lower-case list. Include the word 'bridge' here if you are receiving data from the Dexcom Share service. Include 'mmconnect' if you are bridging from the MiniMed CareLink service.",
+      "value": "careportal basal",
+      "required": false
+    },
+    "MMCONNECT_USER_NAME": {
+      "description": "Your CareLink account username, to receive CGM data from the CareLink service. Also make sure to include 'mmconnect' in your ENABLE line.",
+      "value": "",
+      "required": false
+    },
+    "MMCONNECT_PASSWORD": {
+      "description": "Your CareLink account password, to receive CGM data from the CareLink service. Also make sure to include 'mmconnect' in your ENABLE line.",
+      "value": "",
+      "required": false
+    },
+    "MMCONNECT_SERVER": {
+      "description": "If you are bridging from the CareLink service, and are anywhere *outside* the US, change this to EU. ('US' or 'EU')",
+      "value": "US",
+      "required": false
+    },
     "MONGO_COLLECTION": {
-      "description": "The mongo collection to connect to.",
-      "value": "nightscout"
+      "description": "The Mongo collection where CGM data is stored.",
+      "value": "entries",
+      "required": true
+    },
+    "NIGHT_MODE": {
+      "description": "Default setting for new browser views, for whether Night Mode should be enabled. ('on' or 'off')",
+      "value": "off",
+      "required": false 
+    },
+    "SHOW_PLUGINS": {
+      "description": "Default setting for whether or not these plugins are checked (active) by default, not merely enabled. Include plugins here as in the ENABLE line; space-separated and lower-case.",
+      "value": "careportal",
+      "required": false
+    },
+    "SHOW_RAWBG": {
+      "description": "Default setting for new browser views, for the display of raw CGM data (if available). ('always', 'never', or 'noise')",
+      "value": "never",
+      "required": false 
+    },
+    "THEME": {
+      "description": "Default setting for new browser views, for the color theme of the CGM graph. ('default', 'colors', or 'colorblindfriendly')",
+      "value": "colors",
+      "required": false 
+    },
+    "TIME_FORMAT": {
+      "description": "Default setting for new browser views, for the time mode. ('12' or '24')",
+      "value": "12",
+      "required": false 
     }
   },
   "addons": [
-    "mongolab"
+    "mongolab:sandbox",
+    "papertrail"
   ]
 }
