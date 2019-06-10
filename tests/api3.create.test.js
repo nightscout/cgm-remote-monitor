@@ -19,7 +19,7 @@ describe('API3 CREATE', function ( ) {
     insulin: 0.3
   };
 
-  self.timeout(150000);
+  self.timeout(15000);
 
 
   /**
@@ -369,6 +369,7 @@ describe('API3 CREATE', function ( ) {
           createdBody.should.containEql(doc);
 
           const doc2 = Object.assign({}, doc, {
+            identifier: utils.randomString("32", 'aA#'),
             insulin: 0.5
           });
 
@@ -378,7 +379,7 @@ describe('API3 CREATE', function ( ) {
             .end((err) => {
               should.not.exist(err);
 
-              self.get(identifier, updatedBody => {
+              self.get(doc2.identifier, updatedBody => {
                 updatedBody.should.containEql(doc2);
 
                 self.delete(identifier, done);
@@ -390,39 +391,33 @@ describe('API3 CREATE', function ( ) {
 
 
   it('should deduplicate document by created at+eventType', function (done) {
-    const identifier = utils.randomString("32", 'aA#')
-      , doc = Object.assign({}, self.validDoc, { 
-        identifier, 
-        created_at: new Date(self.validDoc.date).toISOString() 
+    const doc = Object.assign({}, self.validDoc, { 
+      created_at: new Date(self.validDoc.date).toISOString() 
+    });
+    delete doc.identifier;
+
+    self.instance.ctx.treatments.create([doc], (err, docs) => {  // let's insert the document in APIv1's way
+      should.not.exist(err);
+
+      const doc2 = Object.assign({}, doc, {
+        insulin: 0.4,
+        identifier: utils.randomString("32", 'aA#')
       });
+      delete doc2._id; // APIv1 updates input document, we must get rid of _id for the next round
 
-    self.instance.post(self.urlToken)
-      .send(doc)
-      .expect(201)
-      .end((err) => {
-        should.not.exist(err);
+      self.instance.post(`${self.url}?token=${self.token.all}`)
+        .send(doc2)
+        .expect(204)
+        .end((err) => {
+          should.not.exist(err);
 
-        self.get(identifier, createdBody => {
-          createdBody.should.containEql(doc);
+          self.get(doc2.identifier, updatedBody => {
+            updatedBody.should.containEql(doc2);
 
-          const doc2 = Object.assign({}, doc, {
-            insulin: 0.4
-          });
-
-          self.instance.post(`${self.url}?token=${self.token.all}`)
-            .send(doc2)
-            .expect(204)
-            .end((err) => {
-              should.not.exist(err);
-
-              self.get(identifier, updatedBody => {
-                updatedBody.should.containEql(doc2);
-
-                self.delete(identifier, done);
-              })
-            });
+            self.delete(doc2.identifier, done);
+          })
         });
-      });
+    });
   });
 
 
