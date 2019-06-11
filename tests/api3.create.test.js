@@ -329,15 +329,17 @@ describe('API3 CREATE', function ( ) {
 
 
   it('should require update permission for deduplication', function (done) {
-    const identifier = utils.randomString("32", 'aA#')
-      , doc = Object.assign({}, self.validDoc, { identifier });
+    self.validDoc.date = (new Date()).getTime();
+    self.validDoc.identifier = utils.randomString("32", 'aA#');
+
+    const doc = Object.assign({}, self.validDoc);
 
     self.instance.post(self.urlToken)
       .send(doc)
       .expect(201)
       .end((err) => {
         should.not.exist(err);
-        self.get(identifier, createdBody => {
+        self.get(doc.identifier, createdBody => {
           createdBody.should.containEql(doc);
 
           const doc2 = Object.assign({}, doc);
@@ -348,7 +350,7 @@ describe('API3 CREATE', function ( ) {
               should.not.exist(err);
               res.body.status.should.equal(403);
               res.body.message.should.equal('Missing permission api:treatments:update');
-              self.delete(identifier, done);
+              self.delete(doc.identifier, done);
             });
         });
       });
@@ -356,8 +358,10 @@ describe('API3 CREATE', function ( ) {
 
 
   it('should deduplicate document by identifier', function (done) {
-    const identifier = utils.randomString("32", 'aA#')
-      , doc = Object.assign({}, self.validDoc, { identifier });
+    self.validDoc.date = (new Date()).getTime();
+    self.validDoc.identifier = utils.randomString("32", 'aA#');
+
+    const doc = Object.assign({}, self.validDoc);
 
     self.instance.post(self.urlToken)
       .send(doc)
@@ -365,11 +369,10 @@ describe('API3 CREATE', function ( ) {
       .end((err) => {
         should.not.exist(err);
 
-        self.get(identifier, createdBody => {
+        self.get(doc.identifier, createdBody => {
           createdBody.should.containEql(doc);
 
           const doc2 = Object.assign({}, doc, {
-            identifier: utils.randomString("32", 'aA#'),
             insulin: 0.5
           });
 
@@ -382,7 +385,7 @@ describe('API3 CREATE', function ( ) {
               self.get(doc2.identifier, updatedBody => {
                 updatedBody.should.containEql(doc2);
 
-                self.delete(identifier, done);
+                self.delete(doc2.identifier, done);
               })
             });
         });
@@ -390,7 +393,10 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should deduplicate document by created at+eventType', function (done) {
+  it('should deduplicate document by created_at+eventType', function (done) {
+    self.validDoc.date = (new Date()).getTime();
+    self.validDoc.identifier = utils.randomString("32", 'aA#');
+
     const doc = Object.assign({}, self.validDoc, { 
       created_at: new Date(self.validDoc.date).toISOString() 
     });
@@ -417,6 +423,48 @@ describe('API3 CREATE', function ( ) {
             self.delete(doc2.identifier, done);
           })
         });
+    });
+  });
+
+
+  it('should not deduplicate treatment only by created_at', function (done) {
+    self.validDoc.date = (new Date()).getTime();
+    self.validDoc.identifier = utils.randomString("32", 'aA#');
+
+    const doc = Object.assign({}, self.validDoc, { 
+      created_at: new Date(self.validDoc.date).toISOString() 
+    });
+    delete doc.identifier;
+
+    self.instance.ctx.treatments.create([doc], (err, docs) => {  // let's insert the document in APIv1's way
+      should.not.exist(err);
+
+      self.get(doc._id, oldBody => {
+        delete doc._id; // APIv1 updates input document, we must get rid of _id for the next round
+        oldBody.should.containEql(doc);
+
+        const doc2 = Object.assign({}, doc, {
+          eventType: 'Meal Bolus',
+          insulin: 0.4,
+          identifier: utils.randomString("32", 'aA#')
+        });
+
+        self.instance.post(`${self.url}?token=${self.token.all}`)
+          .send(doc2)
+          .expect(201)
+          .end((err) => {
+            should.not.exist(err);
+
+            self.get(doc2.identifier, updatedBody => {
+              updatedBody.should.containEql(doc2);
+              updatedBody.identifier.should.not.equal(oldBody.identifier);
+
+              self.delete(doc2.identifier, () => {
+                self.delete(oldBody.identifier, done);
+              });
+            })
+          });
+      });
     });
   });
 
