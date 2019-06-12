@@ -59,6 +59,7 @@ describe('Generic REST API3', function ( ) {
     self.instance.get(`${self.urlHistory}/${self.historyTimestamp}?token=${self.token.read}`)
       .expect(200)
       .end(function (err, res) {
+        should.not.exist(err);
 
         res.body.length.should.be.above(0);
         res.body.should.matchAny(function(value) { 
@@ -80,6 +81,7 @@ describe('Generic REST API3', function ( ) {
     self.instance.get(`${self.urlLastModified}?token=${self.token.read}`)
       .expect(200)
       .end(function (err, res) {
+        should.not.exist(err);
 
         self.historyTimestamp = res.body.collections.treatments;
         if (!self.historyTimestamp) {
@@ -95,6 +97,7 @@ describe('Generic REST API3', function ( ) {
     self.instance.get(`/api/v3/status?token=${self.token.read}`)
       .expect(200)
       .end(function (err, res) {
+        should.not.exist(err);
 
         self.historyTimestamp = res.body.srvDate;
         self.historyTimestamp.should.be.aboveOrEqual(testConst.YEAR_2019);
@@ -115,6 +118,7 @@ describe('Generic REST API3', function ( ) {
       .query({ 'identifier_eq': self.identifier })
       .expect(200)
       .end(function (err, res) {
+        should.not.exist(err);
         res.body.should.have.length(0);
         done();
       });
@@ -140,6 +144,7 @@ describe('Generic REST API3', function ( ) {
     self.instance.get(`${self.urlResource}?token=${self.token.read}`)
       .expect(200)
       .end(function (err, res) {
+        should.not.exist(err);
         
         res.body.should.containEql(self.docOriginal);
         self.docActual = res.body;
@@ -154,9 +159,10 @@ describe('Generic REST API3', function ( ) {
 
   it('SEARCH existing document (found)', function (done) {
     self.instance.get(`${self.urlCol}?token=${self.token.read}`)
-      .query({ 'identifier_eq': self.identifier })
+      .query({ 'identifier$eq': self.identifier })
       .expect(200)
       .end(function (err, res) {
+        should.not.exist(err);
 
         res.body.length.should.be.above(0);
         res.body.should.matchAny(function(value) { 
@@ -191,6 +197,8 @@ describe('Generic REST API3', function ( ) {
     self.instance.get(`${self.urlResource}?token=${self.token.read}`)
       .expect(200)
       .end(function (err, res) {
+        should.not.exist(err);
+
         delete self.docActual.srvModified;
         res.body.should.containEql(self.docActual);
         self.docActual = res.body;
@@ -219,6 +227,8 @@ describe('Generic REST API3', function ( ) {
     self.instance.get(`${self.urlResource}?token=${self.token.read}`)
       .expect(200)
       .end(function (err, res) {
+        should.not.exist(err);
+
         delete self.docActual.srvModified;
         res.body.should.containEql(self.docActual);
         self.docActual = res.body;
@@ -247,6 +257,7 @@ describe('Generic REST API3', function ( ) {
       .query({ 'identifier_eq': self.identifier })
       .expect(200)
       .end(function (err, res) {
+        should.not.exist(err);
         res.body.should.have.length(0);
         done();
       });
@@ -278,6 +289,8 @@ describe('Generic REST API3', function ( ) {
   it('document permanently deleted not in HISTORY', function (done) {
     self.instance.get(`${self.urlHistory}/${self.historyTimestamp}?token=${self.token.read}`)
       .end(function (err, res) {
+        should.not.exist(err);
+
         if (res.status == 200) {
           res.body.should.matchEach(function(value) { 
             value.identifier.should.not.be.eql(self.identifier);
