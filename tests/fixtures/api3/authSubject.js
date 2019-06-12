@@ -61,6 +61,7 @@ function configure (authStorage) {
 
   return new Promise(async function (resolve, reject) {
     await createRole('apiAll', 'api:*:*');
+    await createRole('apiAdmin', 'api:*:admin');
     await createRole('apiCreate', 'api:*:create');
     await createRole('apiRead', 'api:*:read');
     await createRole('apiUpdate', 'api:*:update');
@@ -68,6 +69,7 @@ function configure (authStorage) {
 
     const subject = { 
       apiAll: await createTestSubject('apiAll', [ 'apiAll' ]),
+      apiAdmin: await createTestSubject('apiAdmin', [ 'apiAdmin' ]),
       apiCreate: await createTestSubject('apiCreate', [ 'apiCreate' ]),
       apiRead: await createTestSubject('apiRead', [ 'apiRead' ]),
       apiUpdate: await createTestSubject('apiUpdate', [ 'apiUpdate' ]),
@@ -79,6 +81,7 @@ function configure (authStorage) {
 
     const token = {
       all: subject.apiAll.accessToken,
+      admin: subject.apiAdmin.accessToken,
       create: subject.apiCreate.accessToken,
       read: subject.apiRead.accessToken,
       update: subject.apiUpdate.accessToken,
