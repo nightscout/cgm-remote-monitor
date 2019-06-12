@@ -669,37 +669,37 @@ components:
         Any number of filtering operators. 
         
         
-        Each filtering operator has name like `<field-name>_<operator>`, e.g. `carbs_gt=2` which represents filtering rule "The field carbs must be present and greater than 2". 
+        Each filtering operator has name like `<field-name>$<operator>`, e.g. `carbs$gt=2` which represents filtering rule "The field carbs must be present and greater than 2". 
         
         
         You can choose from operators&#58;
         
         
-        `eq`=equals, insulin_eq=1.5
+        `eq`=equals, `insulin$eq=1.5`
         
         
-        `ne`=not equals, insulin_ne=1.5
+        `ne`=not equals, `insulin$ne=1.5`
         
         
-        `gt`=greater than, carbs_gt=30
+        `gt`=greater than, `carbs$gt=30`
         
         
-        `gte`=greater than or equal, carbs_gte=30 
+        `gte`=greater than or equal, `carbs$gte=30`
         
         
-        `lt`=less than, carbs_lt=30 
+        `lt`=less than, `carbs$lt=30` 
         
         
-        `lte`=less than or equal, carbs_lte=30
+        `lte`=less than or equal, `carbs$lte=30`
         
         
-        `in`=in specified set, type_in=sgv|mbg|cal
+        `in`=in specified set, `type$in=sgv|mbg|cal`
         
         
-        `nin`=not in specified set, eventType_nin=Temp%20Basal|Temporary%20Target
+        `nin`=not in specified set, `eventType$nin=Temp%20Basal|Temporary%20Target`
         
         
-        `re`=regex pattern, eventType_re=Temp.%2A
+        `re`=regex pattern, `eventType$re=Temp.%2A`
 
 
     lastModifiedRequiredHeader:
@@ -1357,6 +1357,11 @@ components:
           type: string
           example: '3.0.0'
           
+        srvDate:
+          description: Actual server date and time in UNIX epoch format
+          type: number
+          example: 1532936118000
+              
         storage:
           type: object
           properties:
@@ -1370,16 +1375,6 @@ components:
               description: Version of the storage engine
               type: string
               example: '4.0.6'
-          
-            srvDate:
-              description: Actual server date and time in UNIX epoch format
-              type: number
-              example: 1532936118000
-              
-            srvDateString:
-              description: Actual server date and time formatted with respect to the `ISO 8601` standard in 'E8601DZw.d' variant (datetime with time zone).
-              type: string
-              example: '2018-07-30T09:35:18.000Z'
 
 
     Status:
