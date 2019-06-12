@@ -21,7 +21,7 @@ describe('API3 READ', function ( ) {
         self.app = instance.app;
         self.env = instance.env;
 
-        self.url = '/api/v3/' + self.env.devicestatus_collection;
+        self.url = '/api/v3/' + (self.env.devicestatus_collection || 'devicestatus');
         return authSubject(instance.ctx.authorization.storage);
       })
       .then(result => {

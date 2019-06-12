@@ -23,7 +23,7 @@ describe('API3 SEARCH', function ( ) {
         self.app = instance.app;
         self.env = instance.env;
 
-        self.url = '/api/v3/' + self.env.entries_collection;
+        self.url = '/api/v3/' + (self.env.entries_collection || 'entries');
         return authSubject(instance.ctx.authorization.storage);
       })
       .then(result => {
