@@ -1,6 +1,5 @@
 'use strict';
 
-const request = require('supertest');
 require('should');
 
 describe('API3 CREATE', function ( ) {
