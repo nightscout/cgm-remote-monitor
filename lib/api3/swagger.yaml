@@ -66,7 +66,7 @@ info:
 
 tags:
   - name: generic
-    description: Generic operations with each database collection (entries, profile, treatments, devicestatus, food)
+    description: Generic operations with each database collection (devicestatus, entries, food, profile, settings, treatments)
   - name: other
     description: All other various operations
 
@@ -104,7 +104,11 @@ paths:
         When there is no document matching the filtering criteria, HTTP status 204 is returned with empty response content. Otherwise HTTP 200 code is returned with JSON array of matching documents as a response content.
         
         
-        This operation requires `read` permission for the API and the collection (e.g. `*:*:read`, `api:*:read`, `*:treatments:read`, `api:treatments:read`)
+        This operation requires `read` permission for the API and the collection (e.g. `*:*:read`, `api:*:read`, `*:treatments:read`, `api:treatments:read`).
+        
+        
+        The only exception is the `settings` collection which requires `admin` permission (`api:settings:admin`), because the settings of each application should be isolated and kept secret. You need to know the concrete identifier to access the app's settings.
+      
       
       parameters: 
         - $ref: '#/components/parameters/filterParams'
@@ -408,6 +412,10 @@ paths:
 
         This operation requires `read` permission for the API and the collection (e.g. `api:treatments:read`)
 
+
+        The only exception is the `settings` collection which requires `admin` permission (`api:settings:admin`), because the settings of each application should be isolated and kept secret. You need to know the concrete identifier to access the app's settings.
+        
+        
       parameters:
       - $ref: '#/components/parameters/lastModifiedRequiredHeader'
       - $ref: '#/components/parameters/limitParam'
@@ -1156,7 +1164,7 @@ components:
         `identifier` represents a client application name here, e.g. `xdrip` or `aaps`.
         
         
-        `Settings` collection has a more specific authorization required. For an operation within this collection, you need a specific permission including a document identifier, such as `api:settings:read:openaps`, `api:settings:read:*` or `api:settings:*:*`. The goal is to isolate individual client application settings.
+        `Settings` collection has a more specific authorization required. For the `SEARCH` operation within this collection, you need an `admin` permission, such as `api:settings:admin`. The goal is to isolate individual client application settings.
         
       allOf:
         - $ref: '#/components/schemas/DocumentBase'
