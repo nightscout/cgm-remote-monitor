@@ -11,7 +11,7 @@ describe('Generic REST API3', function ( ) {
     , utils = require('./fixtures/api3/utils')
     ;
 
-  self.identifier = utils.randomString("32", 'aA#'); // let's have a brand new identifier for your testing document
+  self.identifier = utils.randomString('32', 'aA#'); // let's have a brand new identifier for your testing document
   self.urlLastModified = '/api/v3/lastModified';
   self.historyTimestamp = 0;
 

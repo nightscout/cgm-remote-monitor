@@ -642,22 +642,16 @@ components:
         all:
           value: '_all'
           summary: All fields will be returned (default behaviour)
-        client:
-          value: '_client'
-          summary: All server internal fields (not relevant to client) will be hidden, specifically srvModifiedBy, srvCreated, srvCreatedBy, _id.
         customSet:
-          value: 'dateString,insulin'
+          value: 'date,insulin'
           summary: Only fields dateString and insulin will be returned
-      description: A chosen set of fields to return in response. Either you can enumerate specific fields of interest or use one of the predefined sets. Sample parameter values&#58;
+      description: A chosen set of fields to return in response. Either you can enumerate specific fields of interest or use the predefined set. Sample parameter values&#58;
       
         
         _all&#58; All fields will be returned (default value)
 
 
-        _client&#58; All server internal fields (not relevant to client) will be hidden, specifically `srvModifiedBy`, `srvCreated`, `srvCreatedBy`, `_id`. The `srvModified` field will be returned, because it would be need for `Last-Modified`, `If-Modified-Since` or `If-Unmodified-Since` headers.
-        
-        
-        dateString,insulin&#58; Only fields `dateString` and `insulin` will be returned
+        date,insulin&#58; Only fields `date` and `insulin` will be returned
 
     
     filterParams:        
@@ -671,7 +665,7 @@ components:
         
         Each filtering operator has name like `<field-name>$<operator>`, e.g. `carbs$gt=2` which represents filtering rule "The field carbs must be present and greater than 2". 
         
-        
+
         You can choose from operators&#58;
         
         

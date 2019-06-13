@@ -11,7 +11,7 @@ describe('API3 CREATE', function ( ) {
     ;
 
   self.validDoc = {
-    "identifier": utils.randomString("32", 'aA#'),
+    identifier: utils.randomString('32', 'aA#'),
     date: (new Date()).getTime(),
     app: testConst.TEST_APP,
     eventType: 'Correction Bolus',
@@ -329,7 +329,7 @@ describe('API3 CREATE', function ( ) {
 
   it('should require update permission for deduplication', function (done) {
     self.validDoc.date = (new Date()).getTime();
-    self.validDoc.identifier = utils.randomString("32", 'aA#');
+    self.validDoc.identifier = utils.randomString('32', 'aA#');
 
     const doc = Object.assign({}, self.validDoc);
 
@@ -358,7 +358,7 @@ describe('API3 CREATE', function ( ) {
 
   it('should deduplicate document by identifier', function (done) {
     self.validDoc.date = (new Date()).getTime();
-    self.validDoc.identifier = utils.randomString("32", 'aA#');
+    self.validDoc.identifier = utils.randomString('32', 'aA#');
 
     const doc = Object.assign({}, self.validDoc);
 
@@ -394,7 +394,7 @@ describe('API3 CREATE', function ( ) {
 
   it('should deduplicate document by created_at+eventType', function (done) {
     self.validDoc.date = (new Date()).getTime();
-    self.validDoc.identifier = utils.randomString("32", 'aA#');
+    self.validDoc.identifier = utils.randomString('32', 'aA#');
 
     const doc = Object.assign({}, self.validDoc, { 
       created_at: new Date(self.validDoc.date).toISOString() 
@@ -406,7 +406,7 @@ describe('API3 CREATE', function ( ) {
 
       const doc2 = Object.assign({}, doc, {
         insulin: 0.4,
-        identifier: utils.randomString("32", 'aA#')
+        identifier: utils.randomString('32', 'aA#')
       });
       delete doc2._id; // APIv1 updates input document, we must get rid of _id for the next round
 
@@ -428,7 +428,7 @@ describe('API3 CREATE', function ( ) {
 
   it('should not deduplicate treatment only by created_at', function (done) {
     self.validDoc.date = (new Date()).getTime();
-    self.validDoc.identifier = utils.randomString("32", 'aA#');
+    self.validDoc.identifier = utils.randomString('32', 'aA#');
 
     const doc = Object.assign({}, self.validDoc, { 
       created_at: new Date(self.validDoc.date).toISOString() 
@@ -445,7 +445,7 @@ describe('API3 CREATE', function ( ) {
         const doc2 = Object.assign({}, doc, {
           eventType: 'Meal Bolus',
           insulin: 0.4,
-          identifier: utils.randomString("32", 'aA#')
+          identifier: utils.randomString('32', 'aA#')
         });
 
         self.instance.post(`${self.url}?token=${self.token.all}`)
