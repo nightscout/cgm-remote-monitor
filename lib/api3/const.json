@@ -38,6 +38,7 @@
     "HTTP_401_MISSING_OR_BAD_TOKEN": "Missing or bad access token or JWT",
     "HTTP_403_MISSING_PERMISSION": "Missing permission {0}",
     "HTTP_403_NOT_USING_HTTPS": "Not using SSL/TLS",
+    "HTTP_500_INTERNAL_ERROR": "Internal Server Error",
     "STORAGE_ERROR": "Database error"
   },
 

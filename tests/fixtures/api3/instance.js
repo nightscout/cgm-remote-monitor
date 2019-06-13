@@ -1,7 +1,6 @@
 'use strict';
 
 var fs = require('fs')
-  , bodyParser = require('body-parser')
   , language = require('../../../lib/language')()
   , api = require('../../../lib/api3/')
   , http = require('http')
@@ -85,9 +84,7 @@ function configure () {
             instance.ctx.apiApp.set('API3_SECURITY_ENABLE', false);
           }
 
-          instance.app.use('/api/v3', bodyParser({
-            limit: 1048576 * 50
-          }), instance.ctx.apiApp);
+          instance.app.use('/api/v3', instance.ctx.apiApp);
 
           const transport = useHttps ? https : http;
 
