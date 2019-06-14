@@ -169,6 +169,8 @@ paths:
           $ref: '#/components/responses/201CreatedLocation'
         204:
           $ref: '#/components/responses/204NoContentLocation'
+        400:
+          $ref: '#/components/responses/400BadRequest'
         401:
           $ref: '#/components/responses/401Unauthorized'
         403:
@@ -279,6 +281,8 @@ paths:
           $ref: '#/components/responses/201Created'
         204:
           $ref: '#/components/responses/204NoContentLocation'
+        400:
+          $ref: '#/components/responses/400BadRequest'
         401:
           $ref: '#/components/responses/401Unauthorized'
         403:
@@ -334,6 +338,8 @@ paths:
       responses:
         204:
           $ref: '#/components/responses/204NoContentLocation'
+        400:
+          $ref: '#/components/responses/400BadRequest'
         401:
           $ref: '#/components/responses/401Unauthorized'
         403:
@@ -652,7 +658,7 @@ components:
           summary: All fields will be returned (default behaviour)
         customSet:
           value: 'date,insulin'
-          summary: Only fields dateString and insulin will be returned
+          summary: Only fields date and insulin will be returned
       description: A chosen set of fields to return in response. Either you can enumerate specific fields of interest or use the predefined set. Sample parameter values&#58;
       
         
@@ -703,6 +709,17 @@ components:
         
         `re`=regex pattern, `eventType$re=Temp.%2A`
 
+
+        When filtering by field `date`, `created_at`, `srvModified` or `srvCreated`, you can choose from three input formats
+            
+            - Unix epoch in milliseconds (1525383610088)
+            
+            - Unix epoch in seconds (1525383610)
+            
+            - ISO 8601 with optional timezone ('2018-05-03T21:40:10.088Z' or '2018-05-03T23:40:10.088+02:00')
+            
+            
+        The date is always queried in a normalized form - UTC with zero offset and with the correct format (1525383610088 for `date`, '2018-05-03T21:40:10.088Z' for `created_at`).
 
     lastModifiedRequiredHeader:
       in: header
@@ -944,14 +961,25 @@ components:
           type: integer
           format: int64
           description: 
-            Required timestamp when the record or event occured (Unix epoch in ms).  
+            Required timestamp when the record or event occured, you can choose from three input formats
+            
+            - Unix epoch in milliseconds (1525383610088)
+            
+            - Unix epoch in seconds (1525383610)
+            
+            - ISO 8601 with optional timezone ('2018-05-03T21:40:10.088Z' or '2018-05-03T23:40:10.088+02:00')
+            
+            
+            The date is always stored in a normalized form - UTC with zero offset. If UTC offset was present, it is going to be set in the `utcOffset` field.
+            
           example: 1525383610088
           
-        dateString:
-          type: string
-          description:
-            Human readable form of timestamp when the record or event occured. It is strongly recommended to fill this field across all collections, because it includes timezone information and helps people understand and enables data querying. The field should meet the `ISO 8601` standard in 'E8601DZw.d' variant (datetime with time zone).
-          example: '2018-05-03T23:40:10.088+02:00'
+        utcOffset:
+          type: integer
+          description: 
+            Local UTC offset (timezone) of the event in minutes. This field can be set either directly by the client (in the incoming document) or it is automatically parsed from the `date` field.
+            
+          example: 120
           
         app:
           type: string
@@ -1260,12 +1288,14 @@ components:
         - $ref: '#/components/schemas/Settings'
         - $ref: '#/components/schemas/Treatment'
       example:
-        'identifier': 53409478-105f-11e9-ab14-d663bd873d93
+        'identifier': '53409478-105f-11e9-ab14-d663bd873d93'
         'date': 1532936118000
-        'dateString': '2018-07-30T09:35:18.000+02:00'
+        'utcOffset': 120
         'carbs': 10
         'insulin': 1
         'eventType': 'Snack Bolus'
+        'app': 'xdrip'
+        'user': 'Joseph'
 
         
     Document:
@@ -1279,16 +1309,18 @@ components:
         - $ref: '#/components/schemas/Settings'
         - $ref: '#/components/schemas/Treatment'
       example:
-        'identifier': 53409478-105f-11e9-ab14-d663bd873d93
+        'identifier': '53409478-105f-11e9-ab14-d663bd873d93'
         'date': 1532936118000
-        'dateString': '2018-07-30T09:35:18.000+02:00'
+        'utcOffset': 120
         'carbs': 10
         'insulin': 1
         'eventType': 'Snack Bolus'
         'srvCreated': 1532936218000
-        'srvCreatedBy': 'aaps'
         'srvModified': 1532936218000
-        'srvModifiedBy': 'aaps'
+        'app': 'xdrip'
+        'user': 'Joseph'
+        'createdBy': 'uploader'
+        'modifiedBy': 'admin'
 
 
     DeviceStatusArray:
@@ -1415,12 +1447,6 @@ components:
           type: integer
           format: int64
           example: 1556260878776
-          
-        srvDateString:
-          type: string
-          description:
-            Human readable form of actual storage server date. 
-          example: '2019-04-26T06:41:18.776Z'
           
         collections:
           type: object

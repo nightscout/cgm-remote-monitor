@@ -44,7 +44,7 @@ describe('API3 SEARCH', function ( ) {
 
 
   it('should require authentication', function (done) {
-    self.instance.get(`${self.url}`)
+    self.instance.get(self.url)
       .expect(401)
       .end((err, res) => {
         should.not.exist(err);
