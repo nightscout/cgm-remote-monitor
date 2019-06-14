@@ -996,8 +996,8 @@ components:
         user:
           type: string
           description: 
-            Identity of the user which has entered the document. Having this field set is practical eg when more caregivers.
-          example: 'Joseph'
+            Identity of the user which has entered the document. Field value is automatically set to the security subject's name from the passed token or JWT.
+          example: 'uploader'
           
         _id:
           description: Internally assigned database id. This field is for internal server purposes only, clients communicate with API by using identifier field.
@@ -1295,7 +1295,7 @@ components:
         'insulin': 1
         'eventType': 'Snack Bolus'
         'app': 'xdrip'
-        'user': 'Joseph'
+        'user': 'uploader'
 
         
     Document:
@@ -1318,9 +1318,7 @@ components:
         'srvCreated': 1532936218000
         'srvModified': 1532936218000
         'app': 'xdrip'
-        'user': 'Joseph'
-        'createdBy': 'uploader'
-        'modifiedBy': 'admin'
+        'user': 'uploader'
 
 
     DeviceStatusArray:

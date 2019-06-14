@@ -125,5 +125,89 @@ describe('API3 READ', function ( ) {
   });
 
 
+  it('should not send unmodified document since', function (done) {
+    self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
+      .set('If-Modified-Since', new Date(new Date().getTime() + 1000).toUTCString())
+      .expect(304)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.should.be.empty();
+        done();
+      })
+  });
+
+
+  it('should send modified document since', function (done) {
+    self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
+      .set('If-Modified-Since', new Date(new Date(self.validDoc.date).getTime() - 1000).toUTCString())
+      .expect(200)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.should.containEql(self.validDoc);
+        done();
+      })
+  });
+
+
+  it('should recognize softly deleted document', function (done) {
+    self.instance.delete(`${self.url}/${self.validDoc.identifier}?token=${self.token.delete}`)
+      .expect(204)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.should.be.empty();
+
+        self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
+          .expect(410)
+          .end((err, res) => {
+            should.not.exist(err);
+            res.body.status.should.equal(410);
+            done();
+          })
+      })
+  });
+
+
+  it('should not found permanently deleted document', function (done) {
+    self.instance.delete(`${self.url}/${self.validDoc.identifier}?permanent=true&token=${self.token.delete}`)
+      .expect(204)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.should.be.empty();
+
+        self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
+          .expect(404)
+          .end((err, res) => {
+            should.not.exist(err);
+            res.body.status.should.equal(404);
+            done();
+          })
+      })
+  });
+
+
+  it('should found document created by APIv1', function (done) {
+
+    const doc = Object.assign({}, self.validDoc, { 
+      created_at: new Date(self.validDoc.date).toISOString() 
+    });
+    delete doc.identifier;
+
+    self.instance.ctx.devicestatus.create([doc], (err, docs) => {  // let's insert the document in APIv1's way
+      should.not.exist(err);
+      const identifier = doc._id.toString();
+      delete doc._id;
+
+      self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
+          .expect(200)
+          .end((err, res) => {
+            should.not.exist(err);
+
+            res.body.should.containEql(doc);
+            done();
+          })
+    });
+  });
+
+
 });
 
