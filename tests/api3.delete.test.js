@@ -21,7 +21,7 @@ describe('API3 UPDATE', function ( ) {
         self.app = instance.app;
         self.env = instance.env;
 
-        self.url = '/api/v3/' + (self.env.treatments_collection || 'treatments');
+        self.url = '/api/v3/treatments';
         return authSubject(instance.ctx.authorization.storage);
       })
       .then(result => {

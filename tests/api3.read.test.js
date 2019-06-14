@@ -29,7 +29,7 @@ describe('API3 READ', function ( ) {
         self.app = instance.app;
         self.env = instance.env;
 
-        self.url = '/api/v3/' + (self.env.devicestatus_collection || 'devicestatus');
+        self.url = '/api/v3/devicestatus';
         return authSubject(instance.ctx.authorization.storage);
       })
       .then(result => {
@@ -160,7 +160,7 @@ describe('API3 READ', function ( ) {
           .expect(410)
           .end((err, res) => {
             should.not.exist(err);
-            res.body.status.should.equal(410);
+            res.body.should.be.empty();
             done();
           })
       })
@@ -178,7 +178,7 @@ describe('API3 READ', function ( ) {
           .expect(404)
           .end((err, res) => {
             should.not.exist(err);
-            res.body.status.should.equal(404);
+            res.body.should.be.empty();
             done();
           })
       })
@@ -201,10 +201,17 @@ describe('API3 READ', function ( ) {
           .expect(200)
           .end((err, res) => {
             should.not.exist(err);
-
             res.body.should.containEql(doc);
-            done();
-          })
+
+            self.instance.delete(`${self.url}/${identifier}?permanent=true&token=${self.token.delete}`)
+              .expect(204)
+              .end((err, res) => {
+                should.not.exist(err);
+                res.body.should.be.empty();
+
+                done();
+              });
+          });
     });
   });
 

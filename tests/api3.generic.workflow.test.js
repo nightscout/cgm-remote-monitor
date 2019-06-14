@@ -33,7 +33,7 @@ describe('Generic REST API3', function ( ) {
         self.app = instance.app;
         self.env = instance.env;
 
-        self.urlCol = '/api/v3/' + self.env.treatments_collection;
+        self.urlCol = '/api/v3/treatments';
         self.urlResource = self.urlCol + '/' + self.identifier;
         self.urlHistory = self.urlCol + '/history';
 

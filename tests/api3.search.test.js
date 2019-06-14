@@ -23,16 +23,13 @@ describe('API3 SEARCH', function ( ) {
         self.app = instance.app;
         self.env = instance.env;
 
-        self.url = '/api/v3/' + (self.env.entries_collection || 'entries');
-        console.log('self.url', self.url);
+        self.url = '/api/v3/entries';
         return authSubject(instance.ctx.authorization.storage);
       })
       .then(result => {
         self.subject = result.subject;
         self.token = result.token;
-        console.log('self.token', self.token);
         self.urlToken = `${self.url}?token=${self.token.read}`;
-        console.log('self.urlToken', self.urlToken);
         done();
       })
       .catch(err => {
