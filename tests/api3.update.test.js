@@ -13,6 +13,7 @@ describe('API3 UPDATE', function() {
   self.validDoc = {
     identifier: utils.randomString('32', 'aA#'),
     date: (new Date()).getTime(),
+    utcOffset: -180,
     app: testConst.TEST_APP,
     eventType: 'Correction Bolus',
     insulin: 0.3
@@ -96,6 +97,168 @@ describe('API3 UPDATE', function() {
         res.body.message.should.equal('Missing permission api:treatments:create');
         done();
       });
+  });
+
+
+  it('should reject missing date', done => {
+    let doc = Object.assign({}, self.validDoc);
+    delete doc.date;
+
+    self.instance.put(self.urlToken)
+      .send(doc)
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.equal(400);
+        res.body.message.should.equal('Bad or missing date field');
+        done();
+      })
+  });
+
+
+  it('should reject invalid date null', done => {
+    self.instance.put(self.urlToken)
+      .send(Object.assign({}, self.validDoc, { date: null }))
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.equal(400);
+        res.body.message.should.equal('Bad or missing date field');
+        done();
+      })
+  });
+
+
+  it('should reject invalid date ABC', done => {
+    self.instance.put(self.urlToken)
+      .send(Object.assign({}, self.validDoc, { date: 'ABC' }))
+      .expect(400)
+      .end((err, res) => {
+        res.body.status.should.equal(400);
+        res.body.message.should.equal('Bad or missing date field');
+        done();
+      })
+  });
+
+
+  it('should reject invalid date -1', done => {
+    self.instance.put(self.urlToken)
+      .send(Object.assign({}, self.validDoc, { date: -1 }))
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.equal(400);
+        res.body.message.should.equal('Bad or missing date field');
+        done();
+      })
+  });
+
+
+
+  it('should reject invalid date 1 (too old)', done => {
+    self.instance.put(self.urlToken)
+      .send(Object.assign({}, self.validDoc, { date: 1 }))
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.equal(400);
+        res.body.message.should.equal('Bad or missing date field');
+        done();
+      })
+  });
+
+
+  it('should reject invalid date - illegal format', done => {
+    self.instance.put(self.urlToken)
+      .send(Object.assign({}, self.validDoc, { date: '2019-20-60T50:90:90' }))
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.equal(400);
+        res.body.message.should.equal('Bad or missing date field');
+        done();
+      })
+  });
+
+
+  it('should reject invalid utcOffset -5000', done => {
+    self.instance.put(self.urlToken)
+      .send(Object.assign({}, self.validDoc, { utcOffset: -5000 }))
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.equal(400);
+        res.body.message.should.equal('Bad or missing utcOffset field');
+        done();
+      })
+  });
+
+
+  it('should reject invalid utcOffset ABC', done => {
+    self.instance.put(self.urlToken)
+      .send(Object.assign({}, self.validDoc, { utcOffset: 'ABC' }))
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.equal(400);
+        res.body.message.should.equal('Bad or missing utcOffset field');
+        done();
+      })
+  });
+
+
+  it('should reject invalid utcOffset null', done => {
+    self.instance.put(self.urlToken)
+      .send(Object.assign({}, self.validDoc, { utcOffset: null }))
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.equal(400);
+        res.body.message.should.equal('Bad or missing utcOffset field');
+        done();
+      })
+  });
+
+
+  it('should reject missing app', done => {
+    let doc = Object.assign({}, self.validDoc);
+    delete doc.app;
+
+    self.instance.put(self.urlToken)
+      .send(doc)
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.equal(400);
+        res.body.message.should.equal('Bad or missing app field');
+        done();
+      })
+  });
+
+
+  it('should reject invalid app null', done => {
+    self.instance.put(self.urlToken)
+      .send(Object.assign({}, self.validDoc, { app: null }))
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.equal(400);
+        res.body.message.should.equal('Bad or missing app field');
+        done();
+      })
+  });
+
+
+  it('should reject empty app', done => {
+    self.instance.put(self.urlToken)
+      .send(Object.assign({}, self.validDoc, { app: '' }))
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.equal(400);
+        res.body.message.should.equal('Bad or missing app field');
+        done();
+      })
   });
 
 
