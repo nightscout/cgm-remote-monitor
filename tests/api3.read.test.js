@@ -2,7 +2,7 @@
 
 require('should');
 
-describe('API3 READ', function ( ) {
+describe('API3 READ', function() {
   const self = this
     , testConst = require('./fixtures/api3/const.json')
     , instance = require('./fixtures/api3/instance')
@@ -21,7 +21,7 @@ describe('API3 READ', function ( ) {
   self.timeout(15000);
 
 
-  before(function (done) {
+  before(done => {
     instance.create({})
 
       .then(instance => {
@@ -43,12 +43,12 @@ describe('API3 READ', function ( ) {
   });
 
 
-  after(function after () {
+  after(() => {
     self.instance.server.close();
   });
 
 
-  it('should require authentication', function (done) {
+  it('should require authentication', done => {
     self.instance.get(`${self.url}/FAKE_IDENTIFIER`)
       .expect(401)
       .end((err, res) => {
@@ -60,14 +60,26 @@ describe('API3 READ', function ( ) {
   });
 
 
-  it('should not found not existing document', function (done) {
+  it('should not found not existing collection', done => {
+    self.instance.get(`/api/v3/NOT_EXIST/NOT_EXIST?token=${self.url}`)
+      .send(self.validDoc)
+      .expect(404)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.should.be.empty();
+        done();
+      });
+  });
+
+
+  it('should not found not existing document', done => {
     self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
       .expect(404)
       .end(done);
   });
 
 
-  it('should read just created document', function (done) {
+  it('should read just created document', done => {
     self.instance.post(`${self.url}?token=${self.token.create}`)
       .send(self.validDoc)
       .expect(201)
@@ -92,7 +104,7 @@ describe('API3 READ', function ( ) {
   });
 
 
-  it('should contain only selected fields', function (done) {
+  it('should contain only selected fields', done => {
     self.instance.get(`${self.url}/${self.validDoc.identifier}?fields=date,device,user&token=${self.token.read}`)
       .expect(200)
       .end((err, res) => {
@@ -110,7 +122,7 @@ describe('API3 READ', function ( ) {
   });
 
 
-  it('should contain all fields', function (done) {
+  it('should contain all fields', done => {
     self.instance.get(`${self.url}/${self.validDoc.identifier}?fields=_all&token=${self.token.read}`)
       .expect(200)
       .end((err, res) => {
@@ -125,7 +137,7 @@ describe('API3 READ', function ( ) {
   });
 
 
-  it('should not send unmodified document since', function (done) {
+  it('should not send unmodified document since', done => {
     self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
       .set('If-Modified-Since', new Date(new Date().getTime() + 1000).toUTCString())
       .expect(304)
@@ -137,7 +149,7 @@ describe('API3 READ', function ( ) {
   });
 
 
-  it('should send modified document since', function (done) {
+  it('should send modified document since', done => {
     self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
       .set('If-Modified-Since', new Date(new Date(self.validDoc.date).getTime() - 1000).toUTCString())
       .expect(200)
@@ -149,7 +161,7 @@ describe('API3 READ', function ( ) {
   });
 
 
-  it('should recognize softly deleted document', function (done) {
+  it('should recognize softly deleted document', done => {
     self.instance.delete(`${self.url}/${self.validDoc.identifier}?token=${self.token.delete}`)
       .expect(204)
       .end((err, res) => {
@@ -167,7 +179,7 @@ describe('API3 READ', function ( ) {
   });
 
 
-  it('should not found permanently deleted document', function (done) {
+  it('should not found permanently deleted document', done => {
     self.instance.delete(`${self.url}/${self.validDoc.identifier}?permanent=true&token=${self.token.delete}`)
       .expect(204)
       .end((err, res) => {
@@ -185,7 +197,7 @@ describe('API3 READ', function ( ) {
   });
 
 
-  it('should found document created by APIv1', function (done) {
+  it('should found document created by APIv1', done => {
 
     const doc = Object.assign({}, self.validDoc, { 
       created_at: new Date(self.validDoc.date).toISOString() 

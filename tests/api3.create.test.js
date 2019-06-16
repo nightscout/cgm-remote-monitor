@@ -2,7 +2,7 @@
 
 require('should');
 
-describe('API3 CREATE', function ( ) {
+describe('API3 CREATE', function() {
   const self = this
     , testConst = require('./fixtures/api3/const.json')
     , instance = require('./fixtures/api3/instance')
@@ -47,7 +47,7 @@ describe('API3 CREATE', function ( ) {
   }
 
 
-  before(function (done) {
+  before(done => {
     instance.create({})
 
       .then(instance => {
@@ -70,12 +70,12 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  after(function after () {
+  after(() => {
     self.instance.server.close();
   });
 
 
-  it('should require authentication', function (done) {
+  it('should require authentication', done => {
     self.instance.post(`${self.url}`)
       .send(self.validDoc)
       .expect(401)
@@ -88,7 +88,19 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should require create permission', function (done) {
+  it('should not found not existing collection', done => {
+    self.instance.post(`/api/v3/NOT_EXIST?token=${self.url}`)
+      .send(self.validDoc)
+      .expect(404)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.should.be.empty();
+        done();
+      });
+  });
+
+
+  it('should require create permission', done => {
     self.instance.post(`${self.url}?token=${self.token.read}`)
       .send(self.validDoc)
       .expect(403)
@@ -101,7 +113,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should reject empty body', function (done) {
+  it('should reject empty body', done => {
     self.instance.post(self.urlToken)
       .send({ })
       .expect(400)
@@ -112,7 +124,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should accept valid document', function (done) {
+  it('should accept valid document', done => {
     self.instance.post(self.urlToken)
       .send(self.validDoc)
       .expect(201)
@@ -136,7 +148,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should reject missing date', function (done) {
+  it('should reject missing date', done => {
     let doc = Object.assign({}, self.validDoc);
     delete doc.date;
 
@@ -152,7 +164,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should reject invalid date null', function (done) {
+  it('should reject invalid date null', done => {
     self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { date: null }))
       .expect(400)
@@ -165,7 +177,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should reject invalid date ABC', function (done) {
+  it('should reject invalid date ABC', done => {
     self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { date: 'ABC' }))
       .expect(400)
@@ -177,7 +189,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should reject invalid date -1', function (done) {
+  it('should reject invalid date -1', done => {
     self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { date: -1 }))
       .expect(400)
@@ -191,7 +203,7 @@ describe('API3 CREATE', function ( ) {
 
 
 
-  it('should reject invalid date 1 (too old)', function (done) {
+  it('should reject invalid date 1 (too old)', done => {
     self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { date: 1 }))
       .expect(400)
@@ -204,7 +216,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should reject invalid date - illegal format', function (done) {
+  it('should reject invalid date - illegal format', done => {
     self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { date: '2019-20-60T50:90:90' }))
       .expect(400)
@@ -217,7 +229,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should reject invalid utcOffset -5000', function (done) {
+  it('should reject invalid utcOffset -5000', done => {
     self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { utcOffset: -5000 }))
       .expect(400)
@@ -230,7 +242,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should reject invalid utcOffset ABC', function (done) {
+  it('should reject invalid utcOffset ABC', done => {
     self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { utcOffset: 'ABC' }))
       .expect(400)
@@ -243,7 +255,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should accept valid utcOffset', function (done) {
+  it('should accept valid utcOffset', done => {
     self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { utcOffset: 120 }))
       .expect(201)
@@ -257,7 +269,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should reject invalid utcOffset null', function (done) {
+  it('should reject invalid utcOffset null', done => {
     self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { utcOffset: null }))
       .expect(400)
@@ -270,7 +282,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should reject missing app', function (done) {
+  it('should reject missing app', done => {
     let doc = Object.assign({}, self.validDoc);
     delete doc.app;
 
@@ -286,7 +298,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should reject invalid app null', function (done) {
+  it('should reject invalid app null', done => {
     self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { app: null }))
       .expect(400)
@@ -299,7 +311,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should reject empty app', function (done) {
+  it('should reject empty app', done => {
     self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { app: '' }))
       .expect(400)
@@ -312,7 +324,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should normalize date and store utcOffset', function (done) {
+  it('should normalize date and store utcOffset', done => {
     self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { date: '2019-06-10T08:07:08,576+02:00' }))
       .expect(201)
@@ -327,7 +339,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should require update permission for deduplication', function (done) {
+  it('should require update permission for deduplication', done => {
     self.validDoc.date = (new Date()).getTime();
     self.validDoc.identifier = utils.randomString('32', 'aA#');
 
@@ -356,7 +368,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should deduplicate document by identifier', function (done) {
+  it('should deduplicate document by identifier', done => {
     self.validDoc.date = (new Date()).getTime();
     self.validDoc.identifier = utils.randomString('32', 'aA#');
 
@@ -392,7 +404,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should deduplicate document by created_at+eventType', function (done) {
+  it('should deduplicate document by created_at+eventType', done => {
     self.validDoc.date = (new Date()).getTime();
     self.validDoc.identifier = utils.randomString('32', 'aA#');
 
@@ -426,7 +438,7 @@ describe('API3 CREATE', function ( ) {
   });
 
 
-  it('should not deduplicate treatment only by created_at', function (done) {
+  it('should not deduplicate treatment only by created_at', done => {
     self.validDoc.date = (new Date()).getTime();
     self.validDoc.identifier = utils.randomString('32', 'aA#');
 

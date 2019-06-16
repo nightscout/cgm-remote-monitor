@@ -3,7 +3,7 @@
 const request = require('supertest');
 require('should');
 
-describe('Basic REST API3', function ( ) {
+describe('Basic REST API3', function() {
   const self = this
     , testConst = require('./fixtures/api3/const.json')
     , instance = require('./fixtures/api3/instance')
@@ -31,22 +31,22 @@ describe('Basic REST API3', function ( ) {
   });
 
 
-  it('GET /swagger', function (done) {
+  it('GET /swagger', done => {
     request(self.app)
       .get('/api/v3/swagger.yaml')
       .expect(200)
-      .end(function (err, res)  {
+      .end((err, res) =>  {
         res.header['content-length'].should.be.above(0);
         done();
       });
   });
 
 
-  it('GET /version', function (done) {
+  it('GET /version', done => {
     request(self.app)
       .get('/api/v3/version')
       .expect(200)
-      .end(function (err, res) {
+      .end((err, res) => {
         const apiConst = require('../lib/api3/const.json')
           , software = require('../package.json');
 
