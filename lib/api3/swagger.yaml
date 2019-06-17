@@ -95,7 +95,7 @@ paths:
         1) filtering - combining any number of filtering parameters
 
 
-        2) ordering - using `sort` or `sort_desc` parameter
+        2) ordering - using `sort` or `sort$desc` parameter
         
         
         3) paging - using `limit` and `skip` parameters
@@ -624,11 +624,11 @@ components:
         type: string
       required: false
       description: 
-        Field name by which the sorting of documents is performed. This parameter cannot be combined with `sort_desc` parameter.
+        Field name by which the sorting of documents is performed. This parameter cannot be combined with `sort$desc` parameter.
   
     sortDescParam:
       in: query
-      name: sort_desc
+      name: sort$desc
       schema:
         type: string
       required: false

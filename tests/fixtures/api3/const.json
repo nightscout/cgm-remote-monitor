@@ -5,133 +5,133 @@
 
   "SAMPLE_ENTRIES": [
     {
-      "identifier": "58e9e37b6096d830c4588ab2",
+      "date": 1491717830000.0,
       "device": "dexcom",
-      "date": 1491722930000,
-      "sgv": 168,
-      "direction": "Flat",
+      "direction": "FortyFiveUp",
+      "filtered": 167584,
+      "noise": 2,
+      "rssi": 183,
+      "sgv": 149,
       "type": "sgv",
-      "filtered": 190400,
-      "unfiltered": 187168,
-      "rssi": 176,
-      "noise": 1
+      "unfiltered": 171584,
+      "app": "cgm-remote-monitor.test"
     },
 
     {
-      "identifier": "58e9e37b6096d830c4588ab3",
+      "date": 1491718130000.0,
       "device": "dexcom",
-      "date": 1491722630000,
-      "sgv": 168,
-      "direction": "Flat",
+      "direction": "FortyFiveUp",
+      "filtered": 170656,
+      "noise": 2,
+      "rssi": 181,
+      "sgv": 152,
       "type": "sgv",
-      "filtered": 193440,
-      "unfiltered": 187904,
-      "rssi": 167,
-      "noise": 1
+      "unfiltered": 175776,
+      "app": "cgm-remote-monitor.test"
     },
 
     {
-      "identifier": "58e9e37b6096d830c4588ab4",
+      "date": 1491718430000.0,
       "device": "dexcom",
-      "date": 1491722330000,
-      "sgv": 173,
       "direction": "Flat",
+      "filtered": 173536,
+      "noise": 2,
+      "rssi": 185,
+      "sgv": 155,
       "type": "sgv",
-      "filtered": 196672,
-      "unfiltered": 192192,
-      "rssi": 172,
-      "noise": 1
+      "unfiltered": 180864,
+      "app": "cgm-remote-monitor.test"
     },
 
     {
-      "identifier": "58e9e37b6096d830c4588ab5",
+      "date": 1491718730000.0,
       "device": "dexcom",
-      "date": 1491722030000,
-      "sgv": 176,
       "direction": "Flat",
+      "filtered": 177120,
+      "noise": 2,
+      "rssi": 186,
+      "sgv": 159,
       "type": "sgv",
-      "filtered": 199808,
-      "unfiltered": 195264,
-      "rssi": 179,
-      "noise": 1
+      "unfiltered": 182080,
+      "app": "cgm-remote-monitor.test"
     },
 
     {
-      "identifier": "58e9e37c6096d830c4588ab6",
+      "date": 1491719030000.0,
       "device": "dexcom",
-      "date": 1491721730000,
+      "direction": "Flat",
+      "filtered": 181088,
+      "noise": 2,
+      "rssi": 165,
+      "sgv": 163,
+      "type": "sgv",
+      "unfiltered": 186912,
+      "app": "cgm-remote-monitor.test"
+    },
+
+    {
+      "date": 1491719330000.0,
+      "device": "dexcom",
+      "direction": "Flat",
+      "filtered": 184736,
+      "noise": 1,
+      "rssi": 162,
+      "sgv": 170,
+      "type": "sgv",
+      "unfiltered": 188512,
+      "app": "cgm-remote-monitor.test"
+    },
+
+    {
+      "date": 1491719630000.0,
+      "device": "dexcom",
+      "direction": "Flat",
+      "filtered": 187776,
+      "noise": 1,
+      "rssi": 175,
+      "sgv": 175,
+      "type": "sgv",
+      "unfiltered": 192608,
+      "app": "cgm-remote-monitor.test"
+    },
+
+    {
+      "date": 1491719930000.0,
+      "device": "dexcom",
+      "direction": "Flat",
+      "filtered": 190816,
+      "noise": 1,
+      "rssi": 181,
       "sgv": 179,
-      "direction": "Flat",
       "type": "sgv",
-      "filtered": 202560,
-      "unfiltered": 197760,
-      "rssi": 168,
-      "noise": 1
+      "unfiltered": 196640,
+      "app": "cgm-remote-monitor.test"
     },
 
     {
-      "identifier": "58e9e37c6096d830c4588ab7",
+      "date": 1491720230000.0,
       "device": "dexcom",
-      "date": 1491721430000,
-      "sgv": 183,
       "direction": "Flat",
-      "type": "sgv",
-      "filtered": 203968,
-      "unfiltered": 201024,
-      "rssi": 416,
-      "noise": 1
-    },
-
-    {
-      "identifier": "58e9e37c6096d830c4588ab8",
-      "device": "dexcom",
-      "date": 1491721130000,
-      "sgv": 184,
-      "direction": "Flat",
-      "type": "sgv",
-      "filtered": 203328,
-      "unfiltered": 202208,
-      "rssi": 182,
-      "noise": 1
-    },
-
-    {
-      "identifier": "58e9e37c6096d830c4588ab9",
-      "device": "dexcom",
-      "date": 1491720830000,
-      "sgv": 187,
-      "direction": "Flat",
-      "type": "sgv",
-      "filtered": 200960,
-      "unfiltered": 204832,
-      "rssi": 177,
-      "noise": 1
-    },
-
-    {
-      "identifier": "58e9e37c6096d830c4588aba",
-      "device": "dexcom",
-      "date": 1491720530000,
-      "sgv": 186,
-      "direction": "Flat",
-      "type": "sgv",
-      "filtered": 197536,
-      "unfiltered": 203296,
-      "rssi": 184,
-      "noise": 1
-    },
-
-    {
-      "identifier": "58e9e37c6096d830c4588abb",
-      "device": "dexcom",
-      "date": 1491720230000,
-      "sgv": 181,
-      "direction": "Flat",
-      "type": "sgv",
       "filtered": 194016,
-      "unfiltered": 199008,
+      "noise": 1,
       "rssi": 203,
-      "noise": 1
+      "sgv": 181,
+      "type": "sgv",
+      "unfiltered": 199008,
+      "app": "cgm-remote-monitor.test"
+    },
+
+    {
+      "date": 1491720530000.0,
+      "device": "dexcom",
+      "direction": "Flat",
+      "filtered": 197536,
+      "noise": 1,
+      "rssi": 184,
+      "sgv": 186,
+      "type": "sgv",
+      "unfiltered": 203296,
+      "app": "cgm-remote-monitor.test"
     }
   ]
 }

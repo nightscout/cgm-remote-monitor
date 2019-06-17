@@ -15,10 +15,40 @@ describe('API3 SEARCH', function() {
   self.timeout(15000);
 
 
+  /**
+   * Get document detail for futher processing
+   */
+  self.get = function get (identifier, done) {
+    self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
+      .expect(200)
+      .end((err, res) => {
+        should.not.exist(err);
+        done(res.body);
+      });
+  }
+
+
+  /**
+   * Create given document in a promise
+   */
+  self.create = (doc) => new Promise((resolve, reject) => {
+    doc.identifier = utils.randomString('32', 'aA#');
+    self.instance.post(`${self.url}?token=${self.token.create}`)
+      .send(doc)
+      .expect(201)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.should.be.empty();
+        self.get(doc.identifier, resolve);
+      });
+  });
+  
+  
   before(done => {
     instance.create({})
 
       .then(instance => {
+        self.testStarted = new Date();
         self.instance = instance;
         self.app = instance.app;
         self.env = instance.env;
@@ -26,11 +56,19 @@ describe('API3 SEARCH', function() {
         self.url = '/api/v3/entries';
         return authSubject(instance.ctx.authorization.storage);
       })
-      .then(result => {
+      .then(async result => {
         self.subject = result.subject;
         self.token = result.token;
         self.urlToken = `${self.url}?token=${self.token.read}`;
-        done();
+        self.urlTest = `${self.urlToken}&srvCreated$gte=${self.testStarted.getTime()}`;
+
+        const promises = testConst.SAMPLE_ENTRIES.map(doc => self.create(doc));
+        Promise.all(promises)
+          .then(docs => {
+            self.docs = docs;
+            done();
+          })
+          .catch(reason => done(reason));
       })
       .catch(err => {
         done(err);
@@ -63,6 +101,141 @@ describe('API3 SEARCH', function() {
         should.not.exist(err);
         res.body.should.be.empty();
         done();
+      });
+  });
+
+
+  it('should found at least 10 documents', done => {
+    self.instance.get(self.urlToken)
+      .expect(200)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.length.should.be.aboveOrEqual(self.docs.length);
+        done();
+      });
+  });
+
+
+  it('should found at least 10 documents from test start', done => {
+    self.instance.get(self.urlTest)
+      .expect(200)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.length.should.be.aboveOrEqual(self.docs.length);
+        done();
+      });
+  });
+
+
+  it('should reject invalid limit - not a number', done => {
+    self.instance.get(`${self.urlToken}&limit=INVALID`)
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.be.equal(400);
+        res.body.message.should.be.equal('Parameter limit out of tolerance');
+        done();
+      });
+  });
+
+
+  it('should reject invalid limit - negative number', done => {
+    self.instance.get(`${self.urlToken}&limit=-1`)
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.be.equal(400);
+        res.body.message.should.be.equal('Parameter limit out of tolerance');
+        done();
+      });
+  });
+
+
+  it('should reject invalid limit - zero', done => {
+    self.instance.get(`${self.urlToken}&limit=0`)
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.be.equal(400);
+        res.body.message.should.be.equal('Parameter limit out of tolerance');
+        done();
+      });
+  });
+
+
+  it('should accept valid limit', done => {
+    self.instance.get(`${self.urlToken}&limit=3`)
+      .expect(200)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.length.should.be.equal(3);
+        done();
+      });
+  });
+
+
+  it('should reject invalid skip - not a number', done => {
+    self.instance.get(`${self.urlToken}&skip=INVALID`)
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.be.equal(400);
+        res.body.message.should.be.equal('Parameter skip out of tolerance');
+        done();
+      });
+  });
+
+
+  it('should reject invalid skip - negative number', done => {
+    self.instance.get(`${self.urlToken}&skip=-5`)
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.be.equal(400);
+        res.body.message.should.be.equal('Parameter skip out of tolerance');
+        done();
+      });
+  });
+
+
+  it('should reject both sort and sort$desc', done => {
+    self.instance.get(`${self.urlToken}&sort=date&sort$desc=created_at`)
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.be.equal(400);
+        res.body.message.should.be.equal('Parameters sort and sort_desc cannot be combined');
+        done();
+      });
+  });
+
+
+  it('should sort well by date field', done => {
+    self.instance.get(`${self.urlTest}&sort=date`)
+      .expect(200)
+      .end((err, res) => {
+        should.not.exist(err);
+        const ascending = res.body;
+        const length = ascending.length;
+        length.should.be.aboveOrEqual(self.docs.length);
+
+        self.instance.get(`${self.urlTest}&sort$desc=date`)
+          .expect(200)
+          .end((err, res) => {
+            should.not.exist(err);
+            const descending = res.body;
+            descending.length.should.equal(length);
+
+            for (let i in ascending) {
+              ascending[i].should.eql(descending[length - i - 1]);
+
+              if (i > 0) {
+                ascending[i - 1].date <= ascending[i].date;
+              }
+            }
+
+            done();
+          });
       });
   });
 
