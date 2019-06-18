@@ -125,4 +125,59 @@ describe('Treatment API', function ( ) {
         });
     });
   });
+  it('post a treatment, query, delete, verify gone', function (done) {
+    // insert a treatment - needs to be unique from example data
+    console.log('Inserting treatment entry');
+    request(self.app)
+      .post('/api/treatments/')
+      .set('api-secret', self.env.api_secret || '')
+      .send({eventType: 'Meal Bolus', carbs: '99', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'})
+      .expect(200)
+      .end(function (err) {
+        if (err) {
+          done(err);
+        } else {
+          // make sure treatment was inserted successfully
+          console.log('Ensuring treatment entry was inserted successfully');
+          request(self.app)
+            .get('/api/treatments/')
+            .query('find[carbs]=99')
+            .set('api-secret', self.env.api_secret || '')
+            .expect(200)
+            .expect(function (response) {
+              response.body[0].carbs.should.equal(99);
+            })
+            .end(function (err) {
+              if (err) {
+                done(err);
+              } else {
+                // delete the treatment
+                console.log('Deleting test treatment entry');
+                request(self.app)
+                  .delete('/api/treatments/')
+                  .query('find[carbs]=99')
+                  .set('api-secret', self.env.api_secret || '')
+                  .expect(200)
+                  .end(function (err) {
+                    if (err) {
+                      done(err);
+                    } else {
+                      // make sure it was deleted
+                      console.log('Testing if entry was deleted');
+                      request(self.app)
+                        .get('/api/treatments/')
+                        .query('find[carbs]=99')
+                        .set('api-secret', self.env.api_secret || '')
+                        .expect(200)
+                        .expect(function (response) {
+                          response.body.length.should.equal(0);
+                        })
+                        .end(done);
+                    }
+                  });
+              }
+            });
+        }
+      });
+  });
 });
