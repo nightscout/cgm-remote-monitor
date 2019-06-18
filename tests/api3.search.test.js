@@ -240,5 +240,65 @@ describe('API3 SEARCH', function() {
   });
 
 
+  it('should skip documents', done => {
+    self.instance.get(`${self.urlToken}&sort=date&limit=8`)
+      .expect(200)
+      .end((err, res) => {
+        should.not.exist(err);
+        const fullDocs = res.body;
+        fullDocs.length.should.be.equal(8);
+
+        self.instance.get(`${self.urlToken}&sort=date&skip=3&limit=5`)
+          .expect(200)
+          .end((err, res) => {
+            should.not.exist(err);
+            const skipDocs = res.body;
+            skipDocs.length.should.be.equal(5);
+
+            for (let i = 0; i < 3; i++) {
+              skipDocs[i].should.be.eql(fullDocs[i + 3]);
+            }
+
+            done();
+          });
+      });
+  });
+
+
+  it('should project selected fields', done => {
+    self.instance.get(`${self.urlToken}&fields=date,app,user`)
+      .expect(200)
+      .end((err, res) => {
+        should.not.exist(err);
+        
+        res.body.forEach(doc => {
+          const docFields = Object.getOwnPropertyNames(doc);
+          docFields.sort().should.be.eql(['app', 'date', 'user']);
+        });
+
+        done();
+      });
+  });
+
+
+  it('should project all fields', done => {
+    self.instance.get(`${self.urlToken}&fields=_all`)
+      .expect(200)
+      .end((err, res) => {
+        should.not.exist(err);
+        
+        res.body.forEach(doc => {
+          Object.getOwnPropertyNames(doc).length.should.be.aboveOrEqual(10);
+          doc.hasOwnProperty('_id').should.not.be.true();
+          doc.hasOwnProperty('identifier').should.be.true();
+          doc.hasOwnProperty('srvModified').should.be.true();
+          doc.hasOwnProperty('srvCreated').should.be.true();
+        });
+
+        done();
+      });
+  });
+
+
 });
 
