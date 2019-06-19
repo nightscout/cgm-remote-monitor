@@ -3,6 +3,7 @@
 const request = require('supertest')
   , apiConst = require('../lib/api3/const.json')
   , semver = require('semver')
+  , moment = require('moment')
   ;
 require('should');
   
@@ -117,6 +118,45 @@ describe('Security of REST API3', function() {
   });
 
 
+  it('should reject invalid now ABC', done => {
+    request(self.https.baseUrl)
+      .get(`/api/v3/test?now=ABC`)
+      .expect(401)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.equal(401);
+        res.body.message.should.equal('Bad Date header');
+        done();
+      })
+  });
+
+
+  it('should reject invalid now -1', done => {
+    request(self.https.baseUrl)
+      .get(`/api/v3/test?now=-1`)
+      .expect(401)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.equal(401);
+        res.body.message.should.equal('Bad Date header');
+        done();
+      })
+  });
+
+
+  it('should reject invalid now - illegal format', done => {
+    request(self.https.baseUrl)
+      .get(`/api/v3/test?now=2019-20-60T50:90:90`)
+      .expect(401)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.equal(401);
+        res.body.message.should.equal('Bad Date header');
+        done();
+      })
+  });
+
+
   it('should require token', done => {
     request(self.https.baseUrl)
       .get('/api/v3/test')
@@ -174,4 +214,47 @@ describe('Security of REST API3', function() {
       });
   });
 
+
+  it('should accept valid now - epoch in ms', done => {
+    request(self.https.baseUrl)
+      .get(`/api/v3/test?token=${self.token.read}&now=${moment().valueOf()}`)
+      .expect(200)
+      .end((err) => {
+        should.not.exist(err);
+        done();
+      })
+  });
+  
+  
+  it('should accept valid now - epoch in seconds', done => {
+    request(self.https.baseUrl)
+      .get(`/api/v3/test?token=${self.token.read}&now=${moment().unix()}`)
+      .expect(200)
+      .end((err) => {
+        should.not.exist(err);
+        done();
+      })
+  });
+
+
+  it('should accept valid now - ISO 8601', done => {
+    request(self.https.baseUrl)
+      .get(`/api/v3/test?token=${self.token.read}&now=${moment().toISOString()}`)
+      .expect(200)
+      .end((err) => {
+        should.not.exist(err);
+        done();
+      })
+  });
+
+
+  it('should accept valid now - RFC 2822', done => {
+    request(self.https.baseUrl)
+      .get(`/api/v3/test?token=${self.token.read}&now=${moment().utc().format('ddd, DD MMM YYYY HH:mm:ss [GMT]')}`)
+      .expect(200)
+      .end((err) => {
+        should.not.exist(err);
+        done();
+      })
+  });
 });

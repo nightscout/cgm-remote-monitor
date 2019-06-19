@@ -182,6 +182,7 @@ describe('API3 CREATE', function() {
       .send(Object.assign({}, self.validDoc, { date: 'ABC' }))
       .expect(400)
       .end((err, res) => {
+        should.not.exist(err);
         res.body.status.should.equal(400);
         res.body.message.should.equal('Bad or missing date field');
         done();
