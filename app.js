@@ -257,22 +257,8 @@ function create(env, ctx) {
 
         var webpack = require("webpack");
         var webpack_conf = require('./webpack.config');
-        var webpack_conf_clocks = require('./webpack-clock.config');
 
         webpack(webpack_conf, function(err, stats) {
-
-            var json = stats.toJson() // => webpack --json
-
-            var options = {
-                noColor: true
-            };
-
-            console.log(prettyjson.render(json.errors, options));
-            console.log(prettyjson.render(json.assets, options));
-
-        });
-
-        webpack(webpack_conf_clocks, function(err, stats) {
 
             var json = stats.toJson() // => webpack --json
 
