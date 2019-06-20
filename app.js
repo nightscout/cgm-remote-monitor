@@ -1,13 +1,13 @@
 'use strict';
 
-var _get = require('lodash/get');
-var express = require('express');
-var compression = require('compression');
-var bodyParser = require('body-parser');
-var prettyjson = require('prettyjson');
+const _get = require('lodash/get');
+const express = require('express');
+const compression = require('compression');
+const bodyParser = require('body-parser');
+const prettyjson = require('prettyjson');
 
-var path = require('path');
-var fs = require('fs');
+const path = require('path');
+const fs = require('fs');
 
 function create(env, ctx) {
     var app = express();
@@ -121,6 +121,9 @@ function create(env, ctx) {
             return compression.filter(req, res);
         }
     }));
+
+    const clockviews = require('./lib/server/clocks.js')(env, ctx);
+    app.use("/clock", clockviews);
 
     app.get("/", (req, res) => {
         res.render("index.html", {

@@ -60,13 +60,14 @@ pluginArray.push(new MomentLocalesPlugin({
 module.exports = {
   context: path.resolve(__dirname, '.'),
   entry: {
-    app: './bundle/bundle.source.js'
+    app: './bundle/bundle.source.js',
+    clock: './bundle/bundle.clocks.source.js'
   },
   output: {
     path: path.resolve(__dirname, './tmp'),
     publicPath: '/',
-    filename: 'js/bundle.js',
-    sourceMapFilename: 'js/bundle.js.map',
+    filename: 'js/bundle.[name].js',
+    sourceMapFilename: 'js/bundle.[name].js.map',
   },
   devtool: sourceMapType,
   optimization: {
