@@ -3,11 +3,12 @@
 **Table of Contents**
 
 - [Contributing to cgm-remote-monitor](#contributing-to-cgm-remote-monitor)
-  - [Design](#design)
+  - [Design & new features](#design--new-features)
   - [Develop on `dev`](#develop-on-dev)
   - [Style Guide](#style-guide)
   - [Create a prototype](#create-a-prototype)
   - [Submit a pull request](#submit-a-pull-request)
+  - [Bug fixing](#bug-fixing)
   - [Comments and issues](#comments-and-issues)
   - [Co-ordination](#co-ordination)
   - [Other Dev Tips](#other-dev-tips)
@@ -76,11 +77,7 @@ If in doubt, format your code with `js-beautify --indent-size 2 --comma-first  -
 
 ## Create a prototype
 
-Fork cgm-remote-monitor and create a branch.
-You can create a branch using `git checkout -b wip/add-my-widget`.
-This creates a new branch called `wip/add-my-widget`.  The `wip`
-stands for work in progress and is a common prefix so that we know
-what to expect when reviewing many branches.
+Fork cgm-remote-monitor and create a branch. You can create a branch using `git checkout -b wip/add-my-widget`. This creates a new branch called `wip/add-my-widget`.  The `wip` stands for work in progress and is a common prefix so that when know what to expect when reviewing many branches.
 
 ## Submit a pull request
 
@@ -91,7 +88,6 @@ This can be done by checking your code `git commit -avm 'my improvements are her
 Now that the commits are available on github, you can click on the compare buttons on your fork to create a pull request.  Make sure to select [Nightscout's `dev` branch](https://github.com/nightscout/cgm-remote-monitor/tree/dev).
 
 We assume all new Pull Requests are at least smoke tested by the author and all code in the PR actually works.
-
 Please include a description of what the features do and rationalize why the changes are needed.
 
 If you add any new NPM module dependencies, you have to rationalize why there are needed - we prefer pull requests that reduce dependencies, not add them.
@@ -101,6 +97,7 @@ When adding new features that add confugration options, please ensure the `READM
 ## Bug fixing
 
 If you've fixed a bug, please consider adding a unit test to the `/tests` folder that reproduces the original bug without the change.
+
 Try to identify the root cause of the issue and fix the issue. Pull requests that simply add null checks to hide issues are unlikely to be accepted.
 
 This can be done by committing your code `git commit -avm 'my
@@ -118,17 +115,11 @@ We encourage liberal use of the comments, including images where appropriate.
 
 Most cgm-remote-monitor hackers use github's ticketing system, along with Facebook cgm-in-the-cloud, and gitter.
 
-We use [git-flow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow), with `master` as our production, stable branch, and
-`dev` is used to queue changes for upcoming releases.  Everything else is
-done on branches, hopefully with names that indicate what to expect.
+We use git-flow, with `master` as our production, stable branch, and `dev` is used to queue up for upcoming releases.  Everything else is done on branches, hopefully with names that indicate what to expect.
 
-Once `dev` has been reviewed and people feel it's time to release, we
-follow the git-flow release process, which creates a new tag and bumps
-the version correctly.  See [sem-ver](https://semver.org/) for versioning strategy.
+Once `dev` has been reviewed and people feel it's time to release, we follow the git-flow release process, which creates a new tag and bumps the version correctly.  See sem-ver for versioning strategy.
 
-Every commit is tested by Travis CI.  We encourage adding tests to
-validate your design.  We encourage discussing your use cases to help
-everyone get a better understanding of your design.
+Every commit is tested by travis.  We encourage adding tests to validate your design.  We encourage discussing your use cases to help everyone get a better understanding of your design.
 
 ## Other Dev Tips
 
@@ -150,8 +141,10 @@ Also if you can't code, it's possible to contribute by improving the documentati
 [@apanasef]: https://github.com/apanasef
 [@bewest]: https://github.com/bewest
 [@danamlewis]: https://github.com/danamlewis
+[@diabetlum]: https://github.com/diabetlum
 [@herzogmedia]: https://github.com/herzogmedia
 [@jamieowendexcom ]: https://github.com/jamieowendexcom 
+[@janrpn]: https://github.com/janrpn
 [@jasoncalabrese]: https://github.com/jasoncalabrese 
 [@jizhongwen]: https://github.com/jizhongwen
 [@jpcunningh]: https://github.com/jpcunningh
@@ -170,6 +163,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 [@tynbendad]: https://github.com/tynbendad
 [@unsoluble]: https://github.com/unsoluble
 [@viderehh]: https://github.com/viderehh
+[@OpossumGit]: https://github.com/OpossumGit
 
 | Contribution area                     | List of contributors |
 | ------------------------------------- | ---------------------------------- |
@@ -228,14 +222,14 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | Български (`bg`) |Please volunteer| OK |
 | Čeština (`cs`) |Please volunteer|OK |
 | Deutsch (`de`) |[@viderehh] [@herzogmedia] |OK |
-| Dansk (`dk`) |Please volunteer|OK |
+| Dansk (`dk`)  | [@janrpn] |OK |
 | Ελληνικά `(el`)|Please volunteer|Needs attention: 68.5%|
 | English (`en`)|Please volunteer|OK|
 | Español (`es`) |Please volunteer|OK|
 | Suomi (`fi`)|[@sulkaharo] |OK|
 | Français (`fr`)|Please volunteer|OK|
 | עברית (`he`)|Please volunteer|OK|
-| Hrvatski (`hr`)|Please volunteer|Needs attention: 47.8%|
+| Hrvatski (`hr`)|[@OpossumGit]|Needs attention: 47.8% - committed 100% to dev|
 | Italiano (`it`)|Please volunteer|OK|
 | 日本語 (`ja`)|[@LuminaryXion]|Working on this|
 | 한국어 (`ko`)|Please volunteer|Needs attention: 80.6%|
@@ -247,6 +241,7 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | Русский (`ru`)|[@apanasef]|OK|
 | Slovenčina (`sk`)|Please volunteer|OK|
 | Svenska (`sv`)|Please volunteer|OK|
+| Türkçe (`tr`)|[@diabetlum]|OK|
 | 中文（简体） (`zh_cn`) | [@jizhongwen]|OK|
 | 中文（繁體） (`zh_tw`) | [@jizhongwen]|Needs attention: 25.0%
 | 日本語 (`ja_jp`) | [@LuminaryXion]|
@@ -257,5 +252,5 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | ------------------------------------- | -------------------- |
 | All active developers: | [@jasoncalabrese] [@jpcunningh] [@jweismann] [@komarserjio] [@mdomox] [@MilosKozak] [@PieterGit] [@rickfriele] [@sulkaharo]
 | All active testers/documentors: | [@danamlewis] [@jamieowendexcom] [@mcdafydd] [@oteroos] [@rarneson] [@tynbendad] [@unsoluble]
-| All active translators: | [@apanasef] [@jizhongwen] [@viderehh] [@herzogmedia] [@LuminaryXion]
+| All active translators: | [@apanasef] [@jizhongwen] [@viderehh] [@herzogmedia] [@LuminaryXion] [@OpossumGit]
 
