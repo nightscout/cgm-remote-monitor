@@ -23,12 +23,13 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="stylesheet" type="text/css" href="/css/report.css?v=<%= locals.cachebuster %>" />
-      <link rel="stylesheet" type="text/css" href="/css/ui-lightness/jquery-ui.min.css">
+      <link rel="preload" href="/css/report.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="/css/ui-lightness/jquery-ui.min.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <% include preloadCSS %>
 
     </head>
     <body>
-        <h1><img src="/images/logo1.png"><span class="translate">Nightscout reporting</span></h1>
+      <p><img src="/images/logo1.png"><b style="font-size: 14pt;"><span class="translate">Nightscout reporting</span></b> <a style="font-size: 11pt;" href="/">Back main view</a></p>
     <ul id="tabnav">
     </ul>
     <table>
@@ -100,11 +101,12 @@
       <tr>
         <td colspan="2">
           <span class="translate">Order</span>:
-          <input type="radio" name="rp_sorting" id="rp_oldestontop" checked>
+          <!-- many email GUIs place newest on top, less scrolling, adjusting my nightscout to do that too! -dboland -->
+          <input type="radio" name="rp_sorting" id="rp_oldestontop">
           <label for="rp_oldestontop" class="translate">oldest on top</label>
           &nbsp;
-          <input type="radio" name="rp_sorting" id="rp_newestontop">
-          <label for="rp_oldestontop" class="translate">newest on top</label>
+          <input type="radio" name="rp_sorting" id="rp_newestontop" checked>
+          <label for="rp_newestontop" class="translate">newest on top</label>
         </td>
         <td></td>
       </tr>
@@ -117,9 +119,11 @@
     <hr>
     <b><span class="translate">Authentication status</span>: </b><span id="authentication_placeholder"></span>
 
-    <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
     <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
     <script src="/report/js/report.js?v=<%= locals.cachebuster %>"></script>
-   <script src="/report/js/flotcandle.js?v=<%= locals.cachebuster %>"></script>
-    </body>
+    <script src="/report/js/flotcandle.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/report/js/predictions.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/report/js/loopalyzer.js?v=<%= locals.cachebuster %>"></script>
+  </body>
 </html>
