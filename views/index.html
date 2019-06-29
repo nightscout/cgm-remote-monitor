@@ -131,10 +131,12 @@
             </div>
             <div class="primary" >
                 <div class="bgStatus current">
-                    <div class="bgButton" aria-live="assertive" role="contentinfo" aria-label="Blood Sugar">  
-                        <span class="pill rawbg hidden"><em></em><label></label></span>
-                        <span class="currentBG">---</span>
-                        <span class="pill direction"></span>
+                    <div class="bgButton" aria-live="assertive" role="contentinfo" aria-label="Blood Sugar">
+                        <span class="bgSpan">
+                          <span class="pill rawbg hidden"><em></em><label></label></span>
+                          <span class="currentBG">---</span>
+                          <span class="pill direction"></span>
+                        </span>
                     </div>
                     <ul class="dropdown-menu" id="silenceBtn"></ul>
                     <div class="majorPills"></div>
@@ -172,9 +174,9 @@
                   <li><a id="admintoolslink" href="admin" target="admintools" class="translate">Admin Tools</a></li>
                   <li class="multilink">
                   	<a class="translate">Clock Views:</a>
-                  	<a id="bgclocklink" href="bgclock.html" class="translate multilink">Clock</a>
-                  	<a id="clockcolorlink" href="clock-color.html" class="translate multilink">Color</a>
-                  	<a id="clocklink" href="clock.html" class="translate multilink">Simple</a>
+                  	<a id="bgclocklink" href="/clock/bgclock" class="translate multilink">Clock</a>
+                  	<a id="clockcolorlink" href="/clock/clock-color" class="translate multilink">Color</a>
+                  	<a id="clocklink" href="/clock/clock" class="translate multilink">Simple</a>
                   </li>
                 </ul>
                 <fieldset class="browserSettings">
@@ -690,7 +692,7 @@
             <audio src="audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
         </div>
 
-        <script src="js/bundle.js?v=<%= locals.cachebuster %>"></script>
+        <script src="js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
         <script src="socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
         <script src="js/client.js?v=<%= locals.cachebuster %>"></script>
     </body>

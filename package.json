@@ -83,6 +83,7 @@
     "mongodb": "^3.2.2",
     "mongomock": "^0.1.2",
     "node-cache": "^4.2.0",
+    "nodemon": "^1.19.0",
     "parse-duration": "^0.1.1",
     "prettyjson": "^1.2.1",
     "pushover-notifications": "^1.2.0",
