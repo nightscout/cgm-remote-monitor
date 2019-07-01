@@ -17,7 +17,8 @@ CACHE MANIFEST
 /manifest.json
 /images/favicon.ico
 /images/mstile-144x144.png
-/css/ui-darkness/jquery-ui.min.css
+/css/ui-darkness/jquery-ui.min.css?v=<%= locals.cachebuster %>
+/css/jquery.tooltips.css?v=<%= locals.cachebuster %>
 /audio/alarm.mp3
 /audio/alarm2.mp3
 /css/ui-darkness/images/ui-icons_ffffff_256x240.png
@@ -25,7 +26,8 @@ CACHE MANIFEST
 /css/ui-darkness/images/ui-bg_inset-soft_25_000000_1x100.png
 /css/ui-darkness/images/ui-bg_gloss-wave_25_333333_500x100.png
 /css/main.css?v=<%= locals.cachebuster %>
-/js/bundle.js?v=<%= locals.cachebuster %>
+/js/bundle.app.js?v=<%= locals.cachebuster %>
+/js/bundle.clock.js?v=<%= locals.cachebuster %>
 /socket.io/socket.io.js?v=<%= locals.cachebuster %>
 /js/client.js?v=<%= locals.cachebuster %>
 /images/logo2.png

@@ -23,8 +23,10 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="stylesheet" type="text/css" href="/css/translations.css" />
-      <link rel="stylesheet" type="text/css" href="/css/ui-lightness/jquery-ui.min.css">    
+      <link rel="preload" href="/css/translations.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="/css/ui-lightness/jquery-ui.min.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <% include preloadCSS %>
+
     </head>
     <body>
       <h1><img src="/images/logo1.png"><span class="translate">Nightscout translations</span></h1>
@@ -33,7 +35,7 @@
       <hr>
       <b><span class="translate">Authentication status</span>: </b><span id="authentication_placeholder"></span>
 
-      <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
+      <script src="/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
 
       <script src="/api/v1/status.js"></script>
       <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
