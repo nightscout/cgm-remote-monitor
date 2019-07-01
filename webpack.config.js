@@ -68,6 +68,31 @@ pluginArray.push(new MomentLocalesPlugin({
   ],
 }));
 
+const rules = [{
+    test: /\.(jpe?g|png|gif)$/i,
+    loader: 'file-loader',
+    query: {
+      name: '[name].[ext]',
+      outputPath: 'images/'
+      //the images will be emmited to public/assets/images/ folder
+      //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png);
+    },
+    exclude: /node_modules/
+  },
+  {
+    test: /\.css$/,
+    loaders: ['style-loader', 'css-loader'],
+    exclude: /node_modules/
+  },
+  {
+    test: require.resolve('jquery'),
+    use: [{
+      loader: 'expose-loader',
+      options: '$'
+    }]
+  }
+];
+
 const appEntry = ['./bundle/bundle.source.js'];
 const clockEntry = ['./bundle/bundle.clocks.source.js'];
 const reportEntry = ['./bundle/bundle.reports.source.js'];
@@ -86,6 +111,19 @@ if (process.env.NODE_ENV == 'development') {
   appEntry.unshift(hot);
   clockEntry.unshift(hot);
   reportEntry.unshift(hot);
+
+  rules.unshift({
+    enforce: "pre",
+    test: /\.js$/,
+    exclude: /node_modules/,
+    loader: "eslint-loader",
+    options: {
+      emitWarning: true,
+      failOnError: false,
+      failOnWarning: false,
+      formatter: require('eslint/lib/cli-engine/formatters/stylish')
+    }
+  });
 
 }
 
@@ -125,29 +163,6 @@ module.exports = {
   optimization,
   plugins: pluginArray,
   module: {
-    rules: [{
-        test: /\.(jpe?g|png|gif)$/i,
-        loader: 'file-loader',
-        query: {
-          name: '[name].[ext]',
-          outputPath: 'images/'
-          //the images will be emmited to public/assets/images/ folder
-          //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png);
-        },
-        exclude: /node_modules/
-      },
-      {
-        test: /\.css$/,
-        loaders: ['style-loader', 'css-loader'],
-        exclude: /node_modules/
-      },
-      {
-        test: require.resolve('jquery'),
-        use: [{
-          loader: 'expose-loader',
-          options: '$'
-        }]
-      }
-    ]
+    rules
   }
 };
