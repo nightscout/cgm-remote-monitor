@@ -84,4 +84,4 @@
         name: 'candle',
         version: '1.0'
     });
-})($);
+})(jQuery);
