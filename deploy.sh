@@ -78,7 +78,7 @@ selectNodeVersion () {
       exitWithMessageOnError "getting node version failed"
     fi
     
-    if [[ -e "$DEPLOYMENT_TEMP/.tmp" ]]; then
+    if [[ -e "$DEPLOYMENT_TEMP/__npmVersion.tmp" ]]; then
       NPM_JS_PATH=`cat "$DEPLOYMENT_TEMP/__npmVersion.tmp"`
       exitWithMessageOnError "getting npm version failed"
     fi
@@ -99,6 +99,7 @@ selectNodeVersion () {
 # ----------
 
 echo Handling node.js deployment.
+echo "\"$SCM_COMMIT_ID\"" > $DEPLOYMENT_SOURCE/scm-commit-id.json
 
 # 1. KuduSync
 if [[ "$IN_PLACE_DEPLOYMENT" -ne "1" ]]; then
@@ -112,7 +113,10 @@ selectNodeVersion
 # 3. Install npm packages
 if [ -e "$DEPLOYMENT_TARGET/package.json" ]; then
   cd "$DEPLOYMENT_TARGET"
-  eval $NPM_CMD install --production
+  echo Installing webpack and webpack-command and yargs
+  eval $NPM_CMD install -g webpack webpack-command 
+  eval $NPM_CMD install yargs
+  eval $NPM_CMD install --production --scripts-prepend-node-path
   exitWithMessageOnError "npm failed"
   cd - > /dev/null
 fi

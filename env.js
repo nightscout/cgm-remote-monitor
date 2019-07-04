@@ -1,151 +1,191 @@
 'use strict';
 
-var env = { };
+var _each = require('lodash/each');
+var _trim = require('lodash/trim');
+var _forIn = require('lodash/forIn');
+var _startsWith = require('lodash/startsWith');
+var _camelCase = require('lodash/camelCase');
+
+var fs = require('fs');
 var crypto = require('crypto');
 var consts = require('./lib/constants');
-var fs = require('fs');
+
+var env = {
+  settings: require('./lib/settings')()
+};
+
 // Module to constrain all config and environment parsing to one spot.
+// See the
 function config ( ) {
-
   /*
-   * First inspect a bunch of environment variables:
-   *   * PORT - serve http on this port
-   *   * MONGO_CONNECTION, CUSTOMCONNSTR_mongo - mongodb://... uri
-   *   * CUSTOMCONNSTR_mongo_collection - name of mongo collection with "sgv" documents
-   *   * CUSTOMCONNSTR_mongo_settings_collection - name of mongo collection to store configurable settings
-   *   * API_SECRET - if defined, this passphrase is fed to a sha1 hash digest, the hex output is used to create a single-use token for API authorization
-   *   * NIGHTSCOUT_STATIC_FILES - the "base directory" to use for serving
-   *     static files over http.  Default value is the included `static`
-   *     directory.
+   * See README.md for info about all the supported ENV VARs
    */
-  var software = require('./package.json');
-  var git = require('git-rev');
-
-  if (readENV('SCM_GIT_EMAIL') == 'windowsazure' && readENV('ScmType') == 'GitHub') {
-    git.cwd('/home/site/repository');
-  }
-  if (readENV('SCM_COMMIT_ID')) {
-    env.head = readENV('SCM_COMMIT_ID');
-  } else {
-    git.short(function record_git_head (head) {
-      console.log("GIT HEAD", head);
-      env.head = head;
-    });
-  }
-  env.version = software.version;
-  env.name = software.name;
-
   env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
   env.PORT = readENV('PORT', 1337);
-  env.mongo = readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI');
-  env.mongo_collection = readENV('MONGO_COLLECTION', 'entries');
-  env.settings_collection = readENV('MONGO_SETTINGS_COLLECTION', 'settings');
-  env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
-  env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
+  env.HOSTNAME = readENV('HOSTNAME', null);
+  env.IMPORT_CONFIG = readENV('IMPORT_CONFIG', null);
+  env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
+  env.debug = {
+    minify: readENVTruthy('DEBUG_MINIFY', true)
+  };
 
-  env.enable = readENV('ENABLE');
+  if (env.err) {
+    delete env.err;
+  }
+
+  setSSL();
+  setAPISecret();
+  setVersion();
+  setStorage();
+  updateSettings();
+
+  return env;
+}
+
+function setSSL() {
   env.SSL_KEY = readENV('SSL_KEY');
   env.SSL_CERT = readENV('SSL_CERT');
   env.SSL_CA = readENV('SSL_CA');
   env.ssl = false;
   if (env.SSL_KEY && env.SSL_CERT) {
     env.ssl = {
-      key: fs.readFileSync(env.SSL_KEY)
-    , cert: fs.readFileSync(env.SSL_CERT)
+      key: fs.readFileSync(env.SSL_KEY), cert: fs.readFileSync(env.SSL_CERT)
     };
     if (env.SSL_CA) {
       env.ca = fs.readFileSync(env.SSL_CA);
     }
   }
 
-  var shasum = crypto.createHash('sha1');
+  env.insecureUseHttp = readENVTruthy("INSECURE_USE_HTTP", false);
+  env.secureHstsHeader = readENVTruthy("SECURE_HSTS_HEADER", true);
+  env.secureHstsHeaderIncludeSubdomains = readENVTruthy("SECURE_HSTS_HEADER_INCLUDESUBDOMAINS", false);
+  env.secureHstsHeaderPreload= readENVTruthy("SECURE_HSTS_HEADER_PRELOAD", false);
+  env.secureCsp = readENVTruthy("SECURE_CSP", false);
 
-  /////////////////////////////////////////////////////////////////
-  // A little ugly, but we don't want to read the secret into a var
-  /////////////////////////////////////////////////////////////////
+}
+
+// A little ugly, but we don't want to read the secret into a var
+function setAPISecret() {
   var useSecret = (readENV('API_SECRET') && readENV('API_SECRET').length > 0);
+  //TODO: should we clear API_SECRET from process env?
   env.api_secret = null;
   // if a passphrase was provided, get the hex digest to mint a single token
   if (useSecret) {
     if (readENV('API_SECRET').length < consts.MIN_PASSPHRASE_LENGTH) {
-      var msg = ["API_SECRET should be at least", consts.MIN_PASSPHRASE_LENGTH, "characters"];
-      var err = new Error(msg.join(' '));
-      // console.error(err);
-      throw err;
-      process.exit(1);
+      var msg = ['API_SECRET should be at least', consts.MIN_PASSPHRASE_LENGTH, 'characters'].join(' ');
+      console.error(msg);
+      env.err = {desc: msg};
+    } else {
+      var shasum = crypto.createHash('sha1');
+      shasum.update(readENV('API_SECRET'));
+      env.api_secret = shasum.digest('hex');
+
+      if (!readENV('TREATMENTS_AUTH', true)) {
+
+      }
+
+
     }
-    shasum.update(readENV('API_SECRET'));
-    env.api_secret = shasum.digest('hex');
   }
+}
 
-  env.thresholds = {
-    bg_high: readIntENV('BG_HIGH', 260)
-    , bg_target_top: readIntENV('BG_TARGET_TOP', 180)
-    , bg_target_bottom: readIntENV('BG_TARGET_BOTTOM', 80)
-    , bg_low: readIntENV('BG_LOW', 55)
-  };
+function setVersion() {
+  var software = require('./package.json');
+  env.version = software.version;
+  env.name = software.name;
+}
 
-  //NOTE: using +/- 1 here to make the thresholds look visibly wrong in the UI
-  //      if all thresholds were set to the same value you should see 4 lines stacked right on top of each other
-  if (env.thresholds.bg_target_bottom >= env.thresholds.bg_target_top) {
-    console.warn('BG_TARGET_BOTTOM(' + env.thresholds.bg_target_bottom + ') was >= BG_TARGET_TOP(' + env.thresholds.bg_target_top + ')');
-    env.thresholds.bg_target_bottom = env.thresholds.bg_target_top - 1;
-    console.warn('BG_TARGET_BOTTOM is now ' + env.thresholds.bg_target_bottom);
-  }
-
-  if (env.thresholds.bg_target_top <= env.thresholds.bg_target_bottom) {
-    console.warn('BG_TARGET_TOP(' + env.thresholds.bg_target_top + ') was <= BG_TARGET_BOTTOM(' + env.thresholds.bg_target_bottom + ')');
-    env.thresholds.bg_target_top = env.thresholds.bg_target_bottom + 1;
-    console.warn('BG_TARGET_TOP is now ' + env.thresholds.bg_target_top);
-  }
-
-  if (env.thresholds.bg_low >= env.thresholds.bg_target_bottom) {
-    console.warn('BG_LOW(' + env.thresholds.bg_low + ') was >= BG_TARGET_BOTTOM(' + env.thresholds.bg_target_bottom + ')');
-    env.thresholds.bg_low = env.thresholds.bg_target_bottom - 1;
-    console.warn('BG_LOW is now ' + env.thresholds.bg_low);
-  }
-
-  if (env.thresholds.bg_high <= env.thresholds.bg_target_top) {
-    console.warn('BG_HIGH(' + env.thresholds.bg_high + ') was <= BG_TARGET_TOP(' + env.thresholds.bg_target_top + ')');
-    env.thresholds.bg_high = env.thresholds.bg_target_top + 1;
-    console.warn('BG_HIGH is now ' + env.thresholds.bg_high);
-  }
-
-  //if any of the BG_* thresholds are set, default to "simple" otherwise default to "predict" to preserve current behavior
-  var thresholdsSet = readIntENV('BG_HIGH') || readIntENV('BG_TARGET_TOP') || readIntENV('BG_TARGET_BOTTOM') || readIntENV('BG_LOW');
-  env.alarm_types = readENV('ALARM_TYPES') || (thresholdsSet ? "simple" : "predict");
-
-  // For pushing notifications to Pushover.
-  env.pushover_api_token = readENV('PUSHOVER_API_TOKEN');
-  env.pushover_user_key = readENV('PUSHOVER_USER_KEY') || readENV('PUSHOVER_GROUP_KEY');
+function setStorage() {
+  env.storageURI = readENV('STORAGE_URI') || readENV('MONGO_CONNECTION') || readENV('MONGO') || readENV('MONGOLAB_URI') || readENV('MONGODB_URI');
+  env.entries_collection = readENV('ENTRIES_COLLECTION') || readENV('MONGO_COLLECTION', 'entries');
+  env.authentication_collections_prefix = readENV('MONGO_AUTHENTICATION_COLLECTIONS_PREFIX', 'auth_');
+  env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
+  env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
+  env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
+  env.food_collection = readENV('MONGO_FOOD_COLLECTION', 'food');
+  env.activity_collection = readENV('MONGO_ACTIVITY_COLLECTION', 'activity');
 
   // TODO: clean up a bit
   // Some people prefer to use a json configuration file instead.
   // This allows a provided json config to override environment variables
   var DB = require('./database_configuration.json'),
-    DB_URL = DB.url ? DB.url : env.mongo,
-    DB_COLLECTION = DB.collection ? DB.collection : env.mongo_collection,
-    DB_SETTINGS_COLLECTION = DB.settings_collection ? DB.settings_collection : env.settings_collection;
-  env.mongo = DB_URL;
-  env.mongo_collection = DB_COLLECTION;
-  env.settings_collection = DB_SETTINGS_COLLECTION;
-  env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', __dirname + '/static/');
-
-  return env;
+    DB_URL = DB.url ? DB.url : env.storageURI,
+    DB_COLLECTION = DB.collection ? DB.collection : env.entries_collection;
+  env.storageURI = DB_URL;
+  env.entries_collection = DB_COLLECTION;
 }
 
-function readIntENV(varName, defaultValue) {
-    return parseInt(readENV(varName)) || defaultValue;
+function updateSettings() {
+
+  var envNameOverrides = {
+    UNITS: 'DISPLAY_UNITS'
+  };
+
+  env.settings.eachSettingAsEnv(function settingFromEnv (name) {
+    var envName = envNameOverrides[name] || name;
+    return readENV(envName);
+  });
+
+  //should always find extended settings last
+  env.extendedSettings = findExtendedSettings(process.env);
+
+  if (!readENVTruthy('TREATMENTS_AUTH', true)) {
+    env.settings.authDefaultRoles = env.settings.authDefaultRoles || "";
+    env.settings.authDefaultRoles += ' careportal';
+  }
+
+
 }
 
 function readENV(varName, defaultValue) {
-    //for some reason Azure uses this prefix, maybe there is a good reason
-    var value = process.env['CUSTOMCONNSTR_' + varName]
-        || process.env['CUSTOMCONNSTR_' + varName.toLowerCase()]
-        || process.env[varName]
-        || process.env[varName.toLowerCase()];
+  //for some reason Azure uses this prefix, maybe there is a good reason
+  var value = process.env['CUSTOMCONNSTR_' + varName]
+    || process.env['CUSTOMCONNSTR_' + varName.toLowerCase()]
+    || process.env[varName]
+    || process.env[varName.toLowerCase()];
 
-    return value || defaultValue;
+
+  return value != null ? value : defaultValue;
 }
+
+function readENVTruthy(varName, defaultValue) {
+  var value = readENV(varName, defaultValue);
+  if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
+  else if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
+  else { value=defaultValue }
+  return value;
+}
+
+function findExtendedSettings (envs) {
+  var extended = {};
+
+  extended.devicestatus = {};
+  extended.devicestatus.advanced = true;
+
+  function normalizeEnv (key) {
+    return key.toUpperCase().replace('CUSTOMCONNSTR_', '');
+  }
+
+  _each(env.settings.enable, function eachEnable(enable) {
+    if (_trim(enable)) {
+      _forIn(envs, function eachEnvPair (value, key) {
+        var env = normalizeEnv(key);
+        if (_startsWith(env, enable.toUpperCase() + '_')) {
+          var split = env.indexOf('_');
+          if (split > -1 && split <= env.length) {
+            var exts = extended[enable] || {};
+            extended[enable] = exts;
+            var ext = _camelCase(env.substring(split + 1).toLowerCase());
+            if (!isNaN(value)) { value = Number(value); }
+            if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
+            if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
+            exts[ext] = value;
+          }
+        }
+      });
+    }
+  });
+  return extended;
+  }
 
 module.exports = config;
