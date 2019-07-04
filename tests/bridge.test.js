@@ -55,13 +55,26 @@ describe('bridge', function ( ) {
   });
 
   it('set too high bridge interval option from env', function () {
-    var tooLowInterval = {
+    var tooHighInterval = {
       extendedSettings: {
         bridge: { interval: 500000 }
       }
     };
 
-    var opts = bridge.options(tooLowInterval);
+    var opts = bridge.options(tooHighInterval);
+    should.exist(opts);
+
+    opts.interval.should.equal(150000);
+  });
+
+  it('set no bridge interval option from env', function () {
+    var noInterval = {
+      extendedSettings: {
+        bridge: { }
+      }
+    };
+
+    var opts = bridge.options(noInterval);
     should.exist(opts);
 
     opts.interval.should.equal(150000);
