@@ -18,7 +18,7 @@ describe('API3 CREATE', function() {
     insulin: 0.3
   };
 
-  self.timeout(15000);
+  self.timeout(20000);
 
 
   /**
@@ -478,6 +478,49 @@ describe('API3 CREATE', function() {
           });
       });
     });
+  });
+
+
+  it('should overwrite deleted document', done => {
+    const date1 = new Date()
+      , identifier = utils.randomString('32', 'aA#');
+
+    self.instance.post(self.urlToken)
+      .send(Object.assign({}, self.validDoc, { identifier, date: date1.toISOString() }))
+      .expect(201)
+      .end((err) => {
+        should.not.exist(err);
+
+        self.instance.delete(`${self.url}/${identifier}?token=${self.token.delete}`)
+          .expect(204)
+          .end((err) => {
+            should.not.exist(err);
+
+            const date2 = new Date();
+            self.instance.post(self.urlToken)
+              .send(Object.assign({}, self.validDoc, { identifier, date: date2.toISOString() }))
+              .expect(403)
+              .end((err, res) => {
+                should.not.exist(err);
+                res.body.status.should.be.equal(403);
+                res.body.message.should.be.equal('Missing permission api:treatments:update');
+
+                self.instance.post(`${self.url}?token=${self.token.all}`)
+                  .send(Object.assign({}, self.validDoc, { identifier, date: date2.toISOString() }))
+                  .expect(204)
+                  .end((err, res) => {
+                    should.not.exist(err);
+                    res.body.should.be.empty();
+
+                    self.get(identifier, body => {
+                      body.date.should.equal(date2.getTime());
+                      body.identifier.should.equal(identifier);
+                      self.delete(identifier, done);
+                    });
+                  });
+              });
+          });
+      });
   });
 
 

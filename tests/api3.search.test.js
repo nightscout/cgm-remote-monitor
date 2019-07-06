@@ -300,5 +300,39 @@ describe('API3 SEARCH', function() {
   });
 
 
+  it('should not exceed the limit of docs count', done => {
+    const apiApp = self.instance.ctx.apiApp
+      , limitBackup = apiApp.get('API3_MAX_LIMIT');
+    apiApp.set('API3_MAX_LIMIT', 5);
+    self.instance.get(`${self.urlToken}&limit=10`)
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        
+        res.body.status.should.be.equal(400);
+        res.body.message.should.be.equal('Parameter limit out of tolerance');
+        apiApp.set('API3_MAX_LIMIT', limitBackup);
+
+        done();
+      });
+  });
+
+
+  it('should respect the ceiling (hard) limit of docs', done => {
+    const apiApp = self.instance.ctx.apiApp
+      , limitBackup = apiApp.get('API3_MAX_LIMIT');
+    apiApp.set('API3_MAX_LIMIT', 5);
+    self.instance.get(`${self.urlToken}`)
+      .expect(200)
+      .end((err, res) => {
+        should.not.exist(err);
+        
+        res.body.length.should.be.equal(5);
+        apiApp.set('API3_MAX_LIMIT', limitBackup);
+
+        done();
+      });
+  });
+
 });
 
