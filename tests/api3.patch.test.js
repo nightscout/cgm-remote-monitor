@@ -255,8 +255,8 @@ describe('API3 UPDATE', function() {
           body.carbs.should.equal(10);
           body.insulin.should.equal(0.3);
           body.eventType.should.equal('Carb Correction');
-          body.user.should.equal(self.subject.apiCreate.name);
-          body.userModified.should.equal(self.subject.apiUpdate.name);
+          body.subject.should.equal(self.subject.apiCreate.name);
+          body.modifiedBy.should.equal(self.subject.apiUpdate.name);
 
           done();
         });

@@ -140,7 +140,7 @@ describe('API3 CREATE', function() {
           const ms = body.srvModified % 1000;
           (body.srvModified - ms).should.equal(lastModified);
           (body.srvCreated - ms).should.equal(lastModified);
-          body.user.should.equal(self.subject.apiCreate.name);
+          body.subject.should.equal(self.subject.apiCreate.name);
 
           self.delete(self.validDoc.identifier, done);
         });

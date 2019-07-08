@@ -274,12 +274,12 @@ describe('API3 UPDATE', function() {
         
         self.get(self.validDoc.identifier, body => {
           body.should.containEql(self.validDoc);
-          should.not.exist(body.userModified);
+          should.not.exist(body.modifiedBy);
 
           const ms = body.srvModified % 1000;
           (body.srvModified - ms).should.equal(lastModified);
           (body.srvCreated - ms).should.equal(lastModified);
-          body.user.should.equal(self.subject.apiAll.name);
+          body.subject.should.equal(self.subject.apiAll.name);
 
           done();
         });
@@ -304,11 +304,11 @@ describe('API3 UPDATE', function() {
         self.get(self.validDoc.identifier, body => {
           body.should.containEql(self.validDoc);
           should.not.exist(body.insulin);
-          should.not.exist(body.userModified);
+          should.not.exist(body.modifiedBy);
 
           const ms = body.srvModified % 1000;
           (body.srvModified - ms).should.equal(lastModified);
-          body.user.should.equal(self.subject.apiUpdate.name);
+          body.subject.should.equal(self.subject.apiUpdate.name);
 
           done();
         });

@@ -187,7 +187,7 @@ describe('Generic REST API3', function() {
       .expect(204)
       .end((err, res) => {
         should.not.exist(err);
-        self.docActual.user = self.subject.apiUpdate.name;
+        self.docActual.subject = self.subject.apiUpdate.name;
         done();
       });
   });

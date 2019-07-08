@@ -266,14 +266,14 @@ describe('API3 SEARCH', function() {
 
 
   it('should project selected fields', done => {
-    self.instance.get(`${self.urlToken}&fields=date,app,user`)
+    self.instance.get(`${self.urlToken}&fields=date,app,subject`)
       .expect(200)
       .end((err, res) => {
         should.not.exist(err);
         
         res.body.forEach(doc => {
           const docFields = Object.getOwnPropertyNames(doc);
-          docFields.sort().should.be.eql(['app', 'date', 'user']);
+          docFields.sort().should.be.eql(['app', 'date', 'subject']);
         });
 
         done();

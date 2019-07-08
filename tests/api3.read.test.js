@@ -95,8 +95,8 @@ describe('API3 READ', function() {
             res.body.should.containEql(self.validDoc);
             res.body.should.have.property('srvCreated').which.is.a.Number();
             res.body.should.have.property('srvModified').which.is.a.Number();
-            res.body.should.have.property('user');
-            self.validDoc.user = res.body.user; // let's store user for later tests
+            res.body.should.have.property('subject');
+            self.validDoc.subject = res.body.subject; // let's store subject for later tests
 
             done();
           })
@@ -105,7 +105,7 @@ describe('API3 READ', function() {
 
 
   it('should contain only selected fields', done => {
-    self.instance.get(`${self.url}/${self.validDoc.identifier}?fields=date,device,user&token=${self.token.read}`)
+    self.instance.get(`${self.url}/${self.validDoc.identifier}?fields=date,device,subject&token=${self.token.read}`)
       .expect(200)
       .end((err, res) => {
         should.not.exist(err);
@@ -113,7 +113,7 @@ describe('API3 READ', function() {
         const correct = { 
           date: self.validDoc.date, 
           device: self.validDoc.device, 
-          user: self.validDoc.user
+          subject: self.validDoc.subject
         };
         res.body.should.eql(correct);
 
@@ -128,7 +128,7 @@ describe('API3 READ', function() {
       .end((err, res) => {
         should.not.exist(err);
 
-        for (const fieldName of ['app', 'date', 'device', 'identifier', 'srvModified', 'uploaderBattery', 'user']) {
+        for (const fieldName of ['app', 'date', 'device', 'identifier', 'srvModified', 'uploaderBattery', 'subject']) {
           res.body.should.have.property(fieldName);
         }
 
