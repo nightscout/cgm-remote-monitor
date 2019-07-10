@@ -35,10 +35,9 @@ function create(env, ctx) {
               preload: preloadValue
             }
           }))
-		app.use(helmet.frameguard({ //Override for two-up monitor
-action: 'allow-from',
-domain: 'http://monitor.nightscout.info'
-}))
+		
+
+
           if (env.secureCsp) {
             app.use(helmet.contentSecurityPolicy({ //TODO make NS work without 'unsafe-inline'
               directives: {
