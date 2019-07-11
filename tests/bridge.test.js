@@ -44,7 +44,7 @@ describe('bridge', function ( ) {
   it('set too low bridge interval option from env', function () {
     var tooLowInterval = {
       extendedSettings: {
-        bridge: { interval: 10000 }
+        bridge: { interval: 900 }
       }
     };
 
