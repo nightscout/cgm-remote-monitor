@@ -39,7 +39,8 @@
     "HTTP_403_MISSING_PERMISSION": "Missing permission {0}",
     "HTTP_403_NOT_USING_HTTPS": "Not using SSL/TLS",
     "HTTP_500_INTERNAL_ERROR": "Internal Server Error",
-    "STORAGE_ERROR": "Database error"
+    "STORAGE_ERROR": "Database error",
+    "SOCKET_MISSING_OR_BAD_ACCESS_TOKEN": "Missing or bad accessToken"
   },
 
   "MIN_TIMESTAMP": 946684800000,
