@@ -33,7 +33,7 @@
     "bundle-analyzer": "webpack --mode development --config webpack.config.js --profile --json > stats.json && webpack-bundle-analyzer stats.json",
     "update-buster": "node bin/generateCacheBuster.js >tmp/cacheBusterToken",
     "coverage": "env-cmd ./test.env nyc mocha --exit tests/*.test.js",
-    "dev": "env-cmd ./my.env node server.js 0.0.0.0",
+    "dev": "env-cmd ./my.env nodemon server.js 0.0.0.0",
     "prod": "env-cmd ./my.prod.env node server.js 0.0.0.0"
   },
   "config": {
@@ -86,7 +86,6 @@
     "mongodb": "^3.2.2",
     "mongomock": "^0.1.2",
     "node-cache": "^4.2.0",
-    "nodemon": "^1.19.0",
     "parse-duration": "^0.1.1",
     "prettyjson": "^1.2.1",
     "pushover-notifications": "^1.2.0",
@@ -108,6 +107,7 @@
     "style-loader": "^0.23.1"
   },
   "devDependencies": {
+    "nodemon": "^1.19.0",
     "babel-eslint": "^10.0.2",
     "benv": "^3.3.0",
     "chokidar": "^3.0.1",
