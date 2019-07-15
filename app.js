@@ -234,19 +234,6 @@ function create(env, ctx) {
 
         console.log('Development mode');
 
-        const chokidar = require('chokidar');
-
-        const watcher = chokidar.watch('lib/', {
-            ignored: 'lib/client/**/*.js'
-        });
-
-        watcher.on('change', function () {
-            console.log("Clearing /lib/ module cache from server");
-            Object.keys(require.cache).forEach(function (id) {
-                if (/[\/\\]lib[\/\\]/.test(id)) delete require.cache[id];
-            });
-        });
-
         app.locals.bundle = '/devbundle';
 
         const webpack = require('webpack');

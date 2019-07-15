@@ -110,7 +110,6 @@
     "nodemon": "^1.19.0",
     "babel-eslint": "^10.0.2",
     "benv": "^3.3.0",
-    "chokidar": "^3.0.1",
     "env-cmd": "^8.0.2",
     "eslint": "^6.0.1",
     "eslint-loader": "^2.1.2",
