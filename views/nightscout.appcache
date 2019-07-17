@@ -28,6 +28,7 @@ CACHE MANIFEST
 /css/main.css?v=<%= locals.cachebuster %>
 /bundle/js/bundle.app.js?v=<%= locals.cachebuster %>
 /bundle/js/bundle.clock.js?v=<%= locals.cachebuster %>
+/bundle/js/bundle.report.js?v=<%= locals.cachebuster %>
 /socket.io/socket.io.js?v=<%= locals.cachebuster %>
 /js/client.js?v=<%= locals.cachebuster %>
 /images/logo2.png

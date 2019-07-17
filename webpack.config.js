@@ -115,7 +115,7 @@ if (process.env.NODE_ENV == 'development') {
   rules.unshift({
     enforce: "pre",
     test: /\.js$/,
-    exclude: /node_modules/,
+    exclude: [/node_modules/, /bundle/],
     loader: "eslint-loader",
     options: {
       emitWarning: true,
