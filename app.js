@@ -1,13 +1,13 @@
 'use strict';
 
-var _get = require('lodash/get');
-var express = require('express');
-var compression = require('compression');
-var bodyParser = require('body-parser');
-var prettyjson = require('prettyjson');
+const _get = require('lodash/get');
+const express = require('express');
+const compression = require('compression');
+const bodyParser = require('body-parser');
+const prettyjson = require('prettyjson');
 
-var path = require('path');
-var fs = require('fs');
+const path = require('path');
+const fs = require('fs');
 
 function create(env, ctx) {
     var app = express();
@@ -84,7 +84,11 @@ function create(env, ctx) {
     app.engine('appcache', require('ejs').renderFile);
     app.set("views", path.join(__dirname, "views/"));
 
-    app.locals.cachebuster = fs.readFileSync(process.cwd() + '/tmp/cacheBusterToken').toString().trim();
+    let cacheBuster = 'developmentMode';
+    if (process.env.NODE_ENV !== 'development') {
+        cacheBuster = fs.readFileSync(process.cwd() + '/tmp/cacheBusterToken').toString().trim();
+    }
+    app.locals.cachebuster = cacheBuster;
 
     if (ctx.bootErrors && ctx.bootErrors.length > 0) {
         app.get('*', require('./lib/server/booterror')(ctx));
@@ -122,6 +126,9 @@ function create(env, ctx) {
         }
     }));
 
+    const clockviews = require('./lib/server/clocks.js')(env, ctx);
+    app.use("/clock", clockviews);
+
     app.get("/", (req, res) => {
         res.render("index.html", {
             locals: app.locals
@@ -129,23 +136,23 @@ function create(env, ctx) {
     });
 
     var appPages = {
-        "/clock-color.html":"clock-color.html",
-        "/admin":"adminindex.html",
-        "/profile":"profileindex.html",
-        "/food":"foodindex.html",
-        "/bgclock.html":"bgclock.html",
-        "/report":"reportindex.html",
-        "/translations":"translationsindex.html",
-        "/clock.html":"clock.html"
+        "/clock-color.html": "clock-color.html",
+        "/admin": "adminindex.html",
+        "/profile": "profileindex.html",
+        "/food": "foodindex.html",
+        "/bgclock.html": "bgclock.html",
+        "/report": "reportindex.html",
+        "/translations": "translationsindex.html",
+        "/clock.html": "clock.html"
     };
 
-	Object.keys(appPages).forEach(function(page) {
-	        app.get(page, (req, res) => {
+    Object.keys(appPages).forEach(function (page) {
+        app.get(page, (req, res) => {
             res.render(appPages[page], {
                 locals: app.locals
             });
         });
-	});
+    });
 
     app.get("/appcache/*", (req, res) => {
         res.render("nightscout.appcache", {
@@ -165,28 +172,28 @@ function create(env, ctx) {
     app.get('/pebble', ctx.pebble);
 
     // expose swagger.json
-    app.get('/swagger.json', function(req, res) {
+    app.get('/swagger.json', function (req, res) {
         res.sendFile(__dirname + '/swagger.json');
     });
 
     // expose swagger.yaml
-    app.get('/swagger.yaml', function(req, res) {
+    app.get('/swagger.yaml', function (req, res) {
         res.sendFile(__dirname + '/swagger.yaml');
     });
 
 
-/*
-    if (env.settings.isEnabled('dumps')) {
-        var heapdump = require('heapdump');
-        app.get('/api/v2/dumps/start', function(req, res) {
-            var path = new Date().toISOString() + '.heapsnapshot';
-            path = path.replace(/:/g, '-');
-            console.info('writing dump to', path);
-            heapdump.writeSnapshot(path);
-            res.send('wrote dump to ' + path);
-        });
-    }
-*/
+    /*
+        if (env.settings.isEnabled('dumps')) {
+            var heapdump = require('heapdump');
+            app.get('/api/v2/dumps/start', function(req, res) {
+                var path = new Date().toISOString() + '.heapsnapshot';
+                path = path.replace(/:/g, '-');
+                console.info('writing dump to', path);
+                heapdump.writeSnapshot(path);
+                res.send('wrote dump to ' + path);
+            });
+        }
+    */
 
     //app.get('/package.json', software);
 
@@ -197,7 +204,7 @@ function create(env, ctx) {
         maxAge = 10;
         console.log('Development environment detected, setting static file cache age to 10 seconds');
 
-        app.get('/nightscout.appcache', function(req, res) {
+        app.get('/nightscout.appcache', function (req, res) {
             res.sendStatus(404);
         });
     }
@@ -218,12 +225,42 @@ function create(env, ctx) {
     // serve the static content
     app.use('/swagger-ui-dist', swaggerFiles);
 
+    // if this is dev environment, package scripts on the fly
+    // if production, rely on postinstall script to run packaging for us
+
+    app.locals.bundle = '/bundle';
+
+    if (process.env.NODE_ENV === 'development') {
+
+        console.log('Development mode');
+
+        app.locals.bundle = '/devbundle';
+
+        const webpack = require('webpack');
+        var webpack_conf = require('./webpack.config');
+        const middleware = require('webpack-dev-middleware');
+        const compiler = webpack(webpack_conf);
+
+        app.use(
+            middleware(compiler, {
+                // webpack-dev-middleware options
+                publicPath: webpack_conf.output.publicPath,
+                lazy: false
+            })
+        );
+
+        app.use(require("webpack-hot-middleware")(compiler, {
+            heartbeat: 1000
+        }));
+    }
+
+    // Production bundling
     var tmpFiles = express.static('tmp', {
         maxAge: maxAge
     });
 
     // serve the static content
-    app.use(tmpFiles);
+    app.use('/bundle', tmpFiles);
 
     if (process.env.NODE_ENV !== 'development') {
 
@@ -245,28 +282,6 @@ function create(env, ctx) {
             onerror: undefined,
         }));
 
-    }
-
-    // if this is dev environment, package scripts on the fly
-    // if production, rely on postinstall script to run packaging for us
-
-    if (process.env.NODE_ENV === 'development') {
-
-        var webpack = require("webpack");
-        var webpack_conf = require('./webpack.config');
-
-        webpack(webpack_conf, function(err, stats) {
-
-            var json = stats.toJson() // => webpack --json
-
-            var options = {
-                noColor: true
-            };
-
-            console.log(prettyjson.render(json.errors, options));
-            console.log(prettyjson.render(json.assets, options));
-
-        });
     }
 
     // Handle errors with express's errorhandler, to display more readable error messages.

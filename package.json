@@ -1,6 +1,6 @@
 {
   "name": "nightscout",
-  "version": "0.11.2-rc2-20190323",
+  "version": "0.11.2-rc3-20190717",
   "description": "Nightscout acts as a web-based CGM (Continuous Glucose Montinor) to allow multiple caregivers to remotely view a patients glucose data in realtime.",
   "license": "AGPL-3.0",
   "author": "Nightscout Team",
@@ -16,10 +16,12 @@
     "type": "git",
     "url": "https://github.com/nightscout/cgm-remote-monitor.git"
   },
-  "contributors": {
-    "name": "Nightscout Team",
-    "url": "https://github.com/nightscout/cgm-remote-monitor/graphs/contributors"
-  },
+  "contributors": [
+    {
+      "name": "Nightscout Team",
+      "url": "https://github.com/nightscout/cgm-remote-monitor/graphs/contributors"
+    }
+  ],
   "bugs": {
     "url": "https://github.com/nightscout/cgm-remote-monitor/issues"
   },
@@ -32,7 +34,9 @@
     "bundle-dev": "webpack --mode development --config webpack.config.js && npm run-script update-buster",
     "bundle-analyzer": "webpack --mode development --config webpack.config.js --profile --json > stats.json && webpack-bundle-analyzer stats.json",
     "update-buster": "node bin/generateCacheBuster.js >tmp/cacheBusterToken",
-    "coverage": "env-cmd ./test.env nyc mocha --exit tests/*.test.js"
+    "coverage": "env-cmd ./test.env nyc mocha --exit tests/*.test.js",
+    "dev": "env-cmd ./my.env nodemon server.js 0.0.0.0",
+    "prod": "env-cmd ./my.prod.env node server.js 0.0.0.0"
   },
   "config": {
     "blanket": {
@@ -80,6 +84,7 @@
     "minimed-connect-to-nightscout": "^1.2.2",
     "moment": "^2.24.0",
     "moment-timezone": "^0.5.23",
+    "moment-timezone-data-webpack-plugin": "^1.1.0",
     "mongodb": "^3.2.2",
     "mongomock": "^0.1.2",
     "node-cache": "^4.2.0",
@@ -95,23 +100,29 @@
     "socket.io": "~2.1.1",
     "swagger-ui-dist": "^3.22.0",
     "terser": "^3.17.0",
-    "traverse": "^0.6.6"
-  },
-  "devDependencies": {
-    "benv": "^3.3.0",
-    "env-cmd": "^8.0.2",
+    "traverse": "^0.6.6",
+    "webpack": "^4.29.6",
+    "webpack-cli": "^3.3.0",
+    "moment-locales-webpack-plugin": "^1.0.7",
     "expose-loader": "^0.7.5",
     "file-loader": "^3.0.1",
+    "style-loader": "^0.23.1"
+  },
+  "devDependencies": {
+    "nodemon": "^1.19.0",
+    "babel-eslint": "^10.0.2",
+    "benv": "^3.3.0",
+    "env-cmd": "^8.0.2",
+    "eslint": "^6.0.1",
+    "eslint-loader": "^2.1.2",
     "istanbul": "^0.4.5",
     "mocha": "^5.2.0",
-    "moment-locales-webpack-plugin": "^1.0.7",
     "nyc": "^14.0.0",
     "should": "^13.2.3",
-    "style-loader": "^0.23.1",
     "supertest": "^3.4.2",
     "terser-webpack-plugin": "^1.2.3",
-    "webpack": "^4.29.6",
     "webpack-bundle-analyzer": "^3.3.2",
-    "webpack-cli": "^3.3.0"
+    "webpack-dev-middleware": "^3.7.0",
+    "webpack-hot-middleware": "^2.25.0"
   }
 }
