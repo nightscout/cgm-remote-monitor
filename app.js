@@ -4,7 +4,6 @@ const _get = require('lodash/get');
 const express = require('express');
 const compression = require('compression');
 const bodyParser = require('body-parser');
-const prettyjson = require('prettyjson');
 
 const path = require('path');
 const fs = require('fs');
