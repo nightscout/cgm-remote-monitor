@@ -40,7 +40,8 @@
     "HTTP_403_NOT_USING_HTTPS": "Not using SSL/TLS",
     "HTTP_500_INTERNAL_ERROR": "Internal Server Error",
     "STORAGE_ERROR": "Database error",
-    "SOCKET_MISSING_OR_BAD_ACCESS_TOKEN": "Missing or bad accessToken"
+    "SOCKET_MISSING_OR_BAD_ACCESS_TOKEN": "Missing or bad accessToken",
+    "SOCKET_UNAUTHORIZED_TO_ANY": "Unauthorized to receive any collection"
   },
 
   "MIN_TIMESTAMP": 946684800000,
