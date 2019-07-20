@@ -1,5 +1,5 @@
 
-@import url("//fonts.googleapis.com/css?family=Ubuntu:400,600");
+@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');
 
 @font-face {
   font-family: 'nsicons';
@@ -71,7 +71,7 @@ html, body {
 }
 
 body {
-  font-family: 'Ubuntu', Verdana, Helvetica, Arial, sans-serif;
+  font-family: 'Ubuntu', sans-serif;
   background: #000;
   color: #bdbdbd;
 }
@@ -84,6 +84,18 @@ body {
   padding: 0;
   top: 45px;
   z-index: 2;
+}
+
+button {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.ui-button {
+  background-color: grey;
+  border: 1px solid white;
+  padding: 2px;
 }
 
 a, a:visited, a:link {
@@ -107,12 +119,13 @@ a, a:visited, a:link {
   font-family: 'Ubuntu', Verdana, Helvetica, Arial, sans-serif;
   vertical-align: middle;
   clear: both;
+  white-space: nowrap;
 }
 
 .bgStatus {
   float: right;
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
   padding-right: 20px;
 }
 
@@ -126,6 +139,10 @@ a, a:visited, a:link {
 
 .inrange .bgButton {
   color: #4cff00;
+}
+
+.bgStatus .bgSpan {
+  white-space: nowrap;
 }
 
 .bgStatus .currentBG {
@@ -228,14 +245,16 @@ a, a:visited, a:link {
 .status {
   color: #808080;
   font-size: 100px;
+  white-space: normal;
 }
 .statusBox {
   text-align: center;
-  width: 250px;
+  width: 40%;
 }
 .statusPills {
   font-size: 20px;
   line-height: 23px;
+  margin-left: 5px;
 }
 
 .loading .statusPills {
@@ -385,7 +404,7 @@ a, a:visited, a:link {
   margin: 4px;
   padding: 0;
   color: #808080;
-  width: 250px;
+  width: 40%;
   text-align: center;
 }
 
@@ -462,6 +481,7 @@ a, a:visited, a:link {
 
   .focus-range {
     margin: 0;
+    width: 50%;
   }
 
   .focus-range li {
@@ -479,7 +499,7 @@ a, a:visited, a:link {
 
 @media (max-width: 750px) {
   .bgStatus {
-    width: 240px;
+    width: 50%;
     padding: 0 0 20px 0;
   }
 
@@ -489,6 +509,10 @@ a, a:visited, a:link {
 
   .pill.rawbg label {
     font-size: 12px;
+  }
+
+  .statusBox {
+    width: auto;
   }
 
   .bgStatus .currentBG {
@@ -727,10 +751,6 @@ a, a:visited, a:link {
 
   .focus-range li {
     display: block;
-  }
-
-  .statusBox {
-    width: 220px;
   }
 
   .statusPills {
