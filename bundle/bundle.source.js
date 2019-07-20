@@ -1,8 +1,6 @@
 import '../static/css/drawer.css';
 import '../static/css/dropdown.css';
 import '../static/css/sgv.css';
-import '../node_modules/jquery.tooltips/css/jquery.tooltips.css';
-
 
 $ = require("jquery");
 
@@ -27,8 +25,12 @@ window.Nightscout = window.Nightscout || {};
 window.Nightscout = {
     client: require('../lib/client'),
     units: require('../lib/units')(),
-    report_plugins: require('../lib/report_plugins/')(),
     admin_plugins: require('../lib/admin_plugins/')()
 };
 
 console.info('Nightscout bundle ready');
+
+// Needed for Hot Module Replacement
+if(typeof(module.hot) !== 'undefined') {
+    module.hot.accept() // eslint-disable-line no-undef  
+  }
