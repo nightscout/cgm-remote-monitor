@@ -36,7 +36,7 @@
   </main>
   
   <script src="/api/v1/status.js"></script>
-  <script src="/js/bundle.clock.js?v=<%= locals.cachebuster %>"></script>
+  <script src="<%= locals.bundle %>/js/bundle.clock.js?v=<%= locals.cachebuster %>"></script>
   
   <script type="text/javascript">
     let clockFace = "<%= face  %>"; // can now be used in scripts
