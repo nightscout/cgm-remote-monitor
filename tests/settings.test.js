@@ -29,9 +29,6 @@ describe('settings', function ( ) {
     settings.alarmTimeagoUrgentMins.should.equal(30);
     settings.language.should.equal('en');
     settings.showPlugins.should.equal('');
-    settings.insecureUseHttp.should.equal(false);
-    settings.secureHstsHeader.should.equal(true);
-    settings.secureCsp.should.equal(false);
   });
 
   it('support setting from env vars', function () {
