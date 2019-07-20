@@ -4,7 +4,7 @@ servers:
 info:
   title: Nightscout API
   description: Own your DData with the Nightscout API
-  version: 0.11.1
+  version: 0.12.0
   license:
     name: AGPL 3
     url: 'https://www.gnu.org/licenses/agpl.txt'
@@ -878,7 +878,13 @@ components:
           description: 'Method used to obtain glucose, Finger or Sensor.'
         carbs:
           type: number
-          description: Number of carbs.
+          description: Amount of carbs consumed in grams.
+        protein:
+          type: number
+          description: Amount of protein consumed in grams.
+        fat:
+          type: number
+          description: Amount of fat consumed in grams.
         insulin:
           type: number
           description: 'Amount of insulin, if any.'
