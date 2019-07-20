@@ -3,22 +3,16 @@
 require('should');
 
 describe('utils', function ( ) {
-  var settings = {
-    alarmTimeagoUrgentMins: 30
-    , alarmTimeagoWarnMins: 15
-  };
-
-  var utils = require('../lib/utils')(settings);
+  var utils = require('../lib/utils')({
+    language: require('../lib/language')()
+    , settings: {
+      alarmTimeagoUrgentMins: 30
+      , alarmTimeagoWarnMins: 15
+    }
+  });
 
   it('format numbers', function () {
     utils.toFixed(5.499999999).should.equal('5.50');
-  });
-
-  it('show format recent times to 1 minute', function () {
-    var result = utils.timeAgo(Date.now() - 30000);
-    result.value.should.equal(1);
-    result.label.should.equal('min ago');
-    result.status.should.equal('current');
   });
 
   it('merge date and time', function () {
