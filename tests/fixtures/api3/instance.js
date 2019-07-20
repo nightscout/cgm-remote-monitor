@@ -6,6 +6,7 @@ var fs = require('fs')
   , http = require('http')
   , https = require('https')
   , request = require('supertest')
+  , websocket = require('../../../lib/server/websocket')
   ;
 
 function configure () {
@@ -94,6 +95,8 @@ function configure () {
           instance.baseUrl = `${useHttps ? 'https' : 'http'}://${instance.env.HOSTNAME}:${instance.env.PORT}`;
 
           self.addSecuredOperations(instance);
+
+          websocket(instance.env, instance.ctx, instance.server);
 
           console.log(`Started ${useHttps ? 'SSL' : 'HTTP'} instance on ${instance.baseUrl}`);
           hasBooted = true;
