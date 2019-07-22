@@ -54,6 +54,10 @@ We develop on the `dev` branch. All new pull requests should be targeted to `dev
 
 You can get the dev branch checked out using `git checkout dev`.
 
+Once checked out, install the dependencies using `npm install`, then copy the included `my.env.template`file to `my.env` and edit the file to include your settings (like the Mongo URL). Leave the `NODE_ENV=development` line intact. Once set, run the site using `npm run dev`. This will start Nigthscout in the development mode, with different code packaging rules and automatic restarting of the server using nodemon, when you save changed files on disk. The client also hot-reloads new code in, but it's recommended to reload the the website after changes due to the way the plugin sandbox works.
+
+If you want to additionaly test the site in production mode, create a file called `my.prod.env` that's a copy of the dev file but with `NODE_ENV=production` and start the site using `npm run prod`.
+
 ## Style Guide
 
 Some simple rules that will make it easier to maintain our codebase:
