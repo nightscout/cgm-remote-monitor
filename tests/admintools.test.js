@@ -70,7 +70,7 @@ describe('admintools', function ( ) {
   before(function (done) {
     benv.setup(function() {
 
-	  benv.require(__dirname + '/../tmp/js/bundle.js');
+	  benv.require(__dirname + '/../tmp/js/bundle.report.js');
           
       self.$ = $;
       
