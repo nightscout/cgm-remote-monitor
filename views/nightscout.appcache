@@ -26,7 +26,9 @@ CACHE MANIFEST
 /css/ui-darkness/images/ui-bg_inset-soft_25_000000_1x100.png
 /css/ui-darkness/images/ui-bg_gloss-wave_25_333333_500x100.png
 /css/main.css?v=<%= locals.cachebuster %>
-/js/bundle.js?v=<%= locals.cachebuster %>
+/bundle/js/bundle.app.js?v=<%= locals.cachebuster %>
+/bundle/js/bundle.clock.js?v=<%= locals.cachebuster %>
+/bundle/js/bundle.report.js?v=<%= locals.cachebuster %>
 /socket.io/socket.io.js?v=<%= locals.cachebuster %>
 /js/client.js?v=<%= locals.cachebuster %>
 /images/logo2.png
