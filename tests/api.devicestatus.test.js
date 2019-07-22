@@ -60,6 +60,7 @@ describe('Devicestatus API', function ( ) {
             .expect(200)
             .expect(function (response) {
               response.body[0].xdripjs.state.should.equal(6);
+              response.body[0].utcOffset.should.equal(0);
             })
             .end(function (err) {
               if (err) {
