@@ -25,6 +25,7 @@
 </head>
 
 <body>
+    <a href="/"><div style="position: absolute; top: 10px; right: 10px; color: grey; border-radius: 5px; border: 2px solid grey; padding: 5px; width: 20px; height: 20px; ">X</div></a>
   <main>
     <div class="inner">
       <div id="trend">
@@ -36,7 +37,7 @@
   </main>
   
   <script src="/api/v1/status.js"></script>
-  <script src="/js/bundle.clock.js?v=<%= locals.cachebuster %>"></script>
+  <script src="<%= locals.bundle %>/js/bundle.clock.js?v=<%= locals.cachebuster %>"></script>
   
   <script type="text/javascript">
     let clockFace = "<%= face  %>"; // can now be used in scripts
