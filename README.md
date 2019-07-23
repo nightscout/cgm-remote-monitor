@@ -122,12 +122,12 @@ Minimum browser requirements for viewing the site:
 
 - Android 4
 - Chrome 68
-- Edge 15
+- Edge 17
 - Firefox 61
-- Internet Explorer: not supported, ie8 is known not to work
-- iOS 9 
-- Safari 11
-- Opera: 54
+- Internet Explorer: not supported
+- iOS 11
+- Opera 54
+- Safari 10 (macOS 10.12)
 
 Windows installation software requirements:
 
