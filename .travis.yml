@@ -1,14 +1,32 @@
-language: node_js
 sudo: required
-node_js:
-  - "8.5.0"
+dist: xenial
+
+node_js-steps: &node_js-steps
+  language: node_js
+  before_install:
+    - if [[ `npm --version` != "6.4.1" ]]; then npm install -g npm@latest; npm --version; fi
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
+    # https://github.com/Homebrew/homebrew-core/issues/26358
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew unlink python; fi
+    # "brew install" can succeed but return 1 if it has "caveats".
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install mongodb || true; fi
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew services start mongodb; fi
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install docker || true; fi
+  script: make travis
+  after_success:
+    - nvm version
+    - if [[ ! -z "$DOCKER_USER" ]]; then docker login -u ${DOCKER_USER} -p ${DOCKER_PASS} && git checkout -- . && git clean -fd . && make docker_release; fi
+  after_script: make report
+  services:
+    - mongodb
+    - docker
 matrix:
-  fast_finish: true
-services:
-  - mongodb
-  - docker
-script: make travis
-after_success:
-  - nvm version
-  - if [[ ! -z "$DOCKER_USER" ]]; then docker login -u ${DOCKER_USER} -p ${DOCKER_PASS} && git checkout -- . && git clean -fd . && make docker_release; fi
-after_script: make report
+  allow_failures:
+    node_js: "node"
+  include:
+    - node_js: "8"
+      <<: *node_js-steps
+    - node_js: "10"
+      <<: *node_js-steps
+    - node_js: "node" # Latest Node is not supported, and recommend, but we'll test it to know incompatibility issues
+      <<: *node_js-steps
