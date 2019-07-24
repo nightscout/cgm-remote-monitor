@@ -1,0 +1,7 @@
+{
+  "language": "en",
+  "enabledDomainFeatures": [],
+  "defaultTimezone": "US/Pacific",
+  "customClassifierMode": "use.after",
+  "mlMinConfidence": 0.2
+}

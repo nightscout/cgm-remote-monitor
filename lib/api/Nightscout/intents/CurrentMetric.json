@@ -1,0 +1,227 @@
+{
+  "userSays": [
+    {
+      "id": "3c983310-12b6-45cb-9bc0-a3436214537e",
+      "data": [
+        {
+          "text": "How much "
+        },
+        {
+          "text": "insulin",
+          "alias": "metric",
+          "meta": "@metric",
+          "userDefined": false
+        },
+        {
+          "text": " does "
+        },
+        {
+          "text": "John",
+          "alias": "givenName",
+          "meta": "@sys.given-name",
+          "userDefined": false
+        },
+        {
+          "text": " have on board?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "a2aaea1c-b70e-410a-932e-4d268093bc63",
+      "data": [
+        {
+          "text": "How many "
+        },
+        {
+          "text": "carbohydrates",
+          "alias": "metric",
+          "meta": "@metric",
+          "userDefined": false
+        },
+        {
+          "text": " does "
+        },
+        {
+          "text": "John",
+          "alias": "givenName",
+          "meta": "@sys.given-name",
+          "userDefined": false
+        },
+        {
+          "text": " have on board?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "ef232927-2489-4a02-a59d-02a6de33bae2",
+      "data": [
+        {
+          "text": "What is "
+        },
+        {
+          "text": "John",
+          "alias": "givenName",
+          "meta": "@sys.given-name",
+          "userDefined": false
+        },
+        {
+          "text": "\u0027s\u0027s current "
+        },
+        {
+          "text": "blood sugar",
+          "alias": "metric",
+          "meta": "@metric",
+          "userDefined": false
+        },
+        {
+          "text": "?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "a18ac6d9-aca3-4660-91c4-236608ea4a77",
+      "data": [
+        {
+          "text": "What is "
+        },
+        {
+          "text": "John",
+          "alias": "givenName",
+          "meta": "@sys.given-name",
+          "userDefined": false
+        },
+        {
+          "text": "\u0027s "
+        },
+        {
+          "text": "blood sugar",
+          "alias": "metric",
+          "meta": "@metric",
+          "userDefined": false
+        },
+        {
+          "text": "?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "2daed091-a479-441b-bb7a-732d5a56ad55",
+      "data": [
+        {
+          "text": "How much "
+        },
+        {
+          "text": "insulin",
+          "alias": "metric",
+          "meta": "@metric",
+          "userDefined": false
+        },
+        {
+          "text": " do I have on board?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "6086a31d-aaa9-4aef-9828-09e7c5eba7da",
+      "data": [
+        {
+          "text": "How many "
+        },
+        {
+          "text": "carbohydrates",
+          "alias": "metric",
+          "meta": "@metric",
+          "userDefined": true
+        },
+        {
+          "text": " do I have on board?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "df3cf7e1-49b3-46e7-adb9-4dcc1fff8149",
+      "data": [
+        {
+          "text": "What is my current "
+        },
+        {
+          "text": "blood sugar",
+          "alias": "metric",
+          "meta": "@metric",
+          "userDefined": false
+        },
+        {
+          "text": "?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "a0e4ee1f-bb70-4f3a-b5d1-d23cf9adc94c",
+      "data": [
+        {
+          "text": "What is my "
+        },
+        {
+          "text": "blood sugar",
+          "alias": "metric",
+          "meta": "@metric",
+          "userDefined": false
+        },
+        {
+          "text": "?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    }
+  ],
+  "id": "8f5899e0-91f0-47cb-b684-b20f925df4d5",
+  "name": "CurrentMetric",
+  "auto": true,
+  "contexts": [],
+  "responses": [
+    {
+      "resetContexts": false,
+      "affectedContexts": [],
+      "parameters": [
+        {
+          "dataType": "@metric",
+          "name": "metric",
+          "value": "$metric",
+          "isList": false
+        },
+        {
+          "dataType": "@sys.given-name",
+          "name": "givenName",
+          "value": "$givenName",
+          "isList": false
+        }
+      ],
+      "messages": [
+        {
+          "type": 0,
+          "speech": []
+        }
+      ]
+    }
+  ],
+  "priority": 500000,
+  "webhookUsed": true,
+  "webhookForSlotFilling": false,
+  "fallbackIntent": false,
+  "events": []
+}

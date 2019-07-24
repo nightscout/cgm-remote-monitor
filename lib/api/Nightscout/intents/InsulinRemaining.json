@@ -1,0 +1,90 @@
+{
+  "userSays": [
+    {
+      "id": "ec18de47-bf6d-4d92-b254-bac703a343cf",
+      "data": [
+        {
+          "text": "How much insulin does "
+        },
+        {
+          "text": "John",
+          "alias": "givenName",
+          "meta": "@sys.given-name",
+          "userDefined": false
+        },
+        {
+          "text": " have left?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "f46de2dd-c707-478f-ac89-075fdf1d33ba",
+      "data": [
+        {
+          "text": "How much insulin does "
+        },
+        {
+          "text": "John",
+          "alias": "givenName",
+          "meta": "@sys.given-name",
+          "userDefined": false
+        },
+        {
+          "text": " have remaining?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "382dd9c7-3266-4e27-872c-645a71a19e5d",
+      "data": [
+        {
+          "text": "How much insulin do I have left?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "b53e5790-127d-4b2e-9f9a-2a544968d2a1",
+      "data": [
+        {
+          "text": "How much insulin do I have remaining?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    }
+  ],
+  "id": "c224bca3-57c3-4144-bcd6-590e67cc7e1d",
+  "name": "InsulinRemaining",
+  "auto": true,
+  "contexts": [],
+  "responses": [
+    {
+      "resetContexts": false,
+      "affectedContexts": [],
+      "parameters": [
+        {
+          "dataType": "@sys.given-name",
+          "name": "givenName",
+          "value": "$givenName"
+        }
+      ],
+      "messages": [
+        {
+          "type": 0,
+          "speech": []
+        }
+      ]
+    }
+  ],
+  "priority": 500000,
+  "webhookUsed": true,
+  "webhookForSlotFilling": false,
+  "fallbackIntent": false,
+  "events": []
+}

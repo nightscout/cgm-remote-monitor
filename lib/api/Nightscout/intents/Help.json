@@ -1,0 +1,56 @@
+{
+  "userSays": [
+    {
+      "id": "47371ff6-2bef-4ddd-813a-a7124430eda1",
+      "data": [
+        {
+          "text": "What can you answer?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "53e6ef2e-ea61-4ab5-a9c3-304c10a5e413",
+      "data": [
+        {
+          "text": "What can I ask you?"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    },
+    {
+      "id": "ecfb58f1-b977-40cc-9394-69f88109503f",
+      "data": [
+        {
+          "text": "Help"
+        }
+      ],
+      "isTemplate": false,
+      "count": 0
+    }
+  ],
+  "id": "6b455d05-ce68-42b7-9ffb-835e6eaa619d",
+  "name": "Help",
+  "auto": true,
+  "contexts": [],
+  "responses": [
+    {
+      "resetContexts": false,
+      "affectedContexts": [],
+      "parameters": [],
+      "messages": [
+        {
+          "type": 0,
+          "speech": "I can give you information about your Nightscout monitor. Try asking me what your current blood glucose is."
+        }
+      ]
+    }
+  ],
+  "priority": 500000,
+  "webhookUsed": false,
+  "webhookForSlotFilling": false,
+  "fallbackIntent": false,
+  "events": []
+}
