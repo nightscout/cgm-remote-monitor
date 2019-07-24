@@ -478,10 +478,10 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `OPENAPS_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceed before an urgent alarm is triggered
   * `OPENAPS_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display by default.  Any of the following fields: `status-symbol`, `status-label`, `iob`, `meal-assist`, `freq`, and `rssi`
   * `OPENAPS_RETRO_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display in retro mode. Any of the above fields.
-  * `OPENAPS_PREB_IOB` (`#ff00ff`) - The color to use for IOB prediction lines
-  * `OPENAPS_PREB_COB` (`#ff00ff`) - The color to use for COB prediction lines
-  * `OPENAPS_PREB_ZT` (`#ff00ff`) - The color to use for ZT prediction lines
-  * `OPENAPS_PREB_UAM` (`#ff00ff`) - The color to use for UAM prediction lines
+  * `OPENAPS_PRED_IOB_COLOR` (`#ff00ff`) - The color to use for IOB prediction lines
+  * `OPENAPS_PRED_COB_COLOR` (`#ff00ff`) - The color to use for COB prediction lines
+  * `OPENAPS_PRED_ZT_COLOR` (`#ff00ff`) - The color to use for ZT prediction lines
+  * `OPENAPS_PRED_UAM_COLOR` (`#ff00ff`) - The color to use for UAM prediction lines
 
 
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
