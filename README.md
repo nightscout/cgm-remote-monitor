@@ -305,10 +305,10 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   
   ### Views
 
-  There are a few alternate web views available that display a simplified BG stream. Append any of these to your Nightscout URL:
-  * `/clock.html` - Shows current BG. Grey text on a black background.
-  * `/bgclock.html` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
-  * `/clock-color.html` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
+  There are a few alternate web views available from the main menu that display a simplified BG stream. (If you launch one of these in a fullscreen view in iOS, you can use a left-to-right swipe gesture to exit the view.)
+  * `Clock` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
+  * `Color` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
+  * `Simple` - Shows current BG. Grey text on a black background.
 
 ### Plugins
 
