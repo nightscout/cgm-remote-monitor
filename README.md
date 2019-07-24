@@ -305,10 +305,10 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   
 ### Views
 
-  There are a few alternate web views available that display a simplified BG stream. Append any of these to your Nightscout URL:
-  * `/clock/clock` - Shows current BG. Grey text on a black background.
-  * `/clock/bgclock` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
-  * `/clock/clock-color` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
+  There are a few alternate web views available from the main menu that display a simplified BG stream. (If you launch one of these in a fullscreen view in iOS, you can use a left-to-right swipe gesture to exit the view.)
+  * `Clock` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
+  * `Color` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
+  * `Simple` - Shows current BG. Grey text on a black background.
   * Optional configuration: set `SHOW_CLOCK_CLOSEBUTTON` (`true`) to `false` to hide the small X button to close the views
 
 ### Plugins
@@ -479,6 +479,12 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `OPENAPS_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceed before an urgent alarm is triggered
   * `OPENAPS_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display by default.  Any of the following fields: `status-symbol`, `status-label`, `iob`, `meal-assist`, `freq`, and `rssi`
   * `OPENAPS_RETRO_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display in retro mode. Any of the above fields.
+  * `OPENAPS_PRED_IOB_COLOR` (`#1e88e5`) - The color to use for IOB prediction lines. Colors can be in either `#RRGGBB` or `#RRGGBBAA` format.
+  * `OPENAPS_PRED_COB_COLOR` (`#FB8C00FF`) - The color to use for COB prediction lines. Same format as above.
+  * `OPENAPS_PRED_ACOB_COLOR` (`#FB8C0080`) - The color to use for ACOB prediction lines. Same format as above.
+  * `OPENAPS_PRED_ZT_COLOR` (`#00d2d2`) - The color to use for ZT prediction lines. Same format as above.
+  * `OPENAPS_PRED_UAM_COLOR` (`#c9bd60`) - The color to use for UAM prediction lines. Same format as above.
+
 
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
 
