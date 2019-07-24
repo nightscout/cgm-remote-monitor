@@ -271,7 +271,9 @@ describe('Entries REST api', function ( ) {
             .set('api-secret', self.env.api_secret || '')
             .expect(200)
             .expect(function (response) {
-              response.body[0].sgv.should.equal('199');
+              var entry = response.body[0];
+              entry.sgv.should.equal('199');
+              entry.utcOffset.should.equal(-420);
             })
             .end(function (err) {
               if (err) {
