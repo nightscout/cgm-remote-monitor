@@ -94,7 +94,7 @@ function configure () {
     useHttps = true,
     authDefaultRoles = '',
     enable = ['careportal', 'api'],
-    storageSocket = false
+    storageSocket = null
     }) {
 
     return new Promise(function (resolve, reject) {

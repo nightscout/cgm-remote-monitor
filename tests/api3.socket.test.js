@@ -106,6 +106,7 @@ describe('Socket.IO in REST API3', function() {
     self.socket.once('create', (event) => {
       event.colName.should.equal(self.colName);
       event.doc.should.containEql(self.docOriginal);
+      delete event.doc.subject;
       self.docActual = event.doc;
       done();
     });
@@ -127,6 +128,7 @@ describe('Socket.IO in REST API3', function() {
       delete self.docActual.srvModified;
       event.colName.should.equal(self.colName);
       event.doc.should.containEql(self.docActual);
+      delete event.doc.subject;
       self.docActual = event.doc;
       done();
     });
@@ -150,6 +152,7 @@ describe('Socket.IO in REST API3', function() {
       delete self.docActual.srvModified;
       event.colName.should.equal(self.colName);
       event.doc.should.containEql(self.docActual);
+      delete event.doc.subject;
       self.docActual = event.doc;
       done();
     });
