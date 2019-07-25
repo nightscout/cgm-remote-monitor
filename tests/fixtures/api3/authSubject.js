@@ -85,7 +85,8 @@ function configure (authStorage) {
       create: subject.apiCreate.accessToken,
       read: subject.apiRead.accessToken,
       update: subject.apiUpdate.accessToken,
-      delete: subject.apiDelete.accessToken
+      delete: subject.apiDelete.accessToken,
+      denied: subject.denied.accessToken
     }
 
     resolve({ subject, token });

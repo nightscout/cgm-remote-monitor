@@ -7,6 +7,7 @@ var fs = require('fs')
   , https = require('https')
   , request = require('supertest')
   , websocket = require('../../../lib/server/websocket')
+  , io = require('socket.io-client')
   ;
 
 function configure () {
@@ -53,6 +54,37 @@ function configure () {
   }
 
 
+  self.bindSocket = function bindSocket (storageSocket, instance) {
+
+    return new Promise(function (resolve, reject) {
+      if (!storageSocket) {
+        resolve();
+      }
+      else {
+        let socket = io(`${instance.baseUrl}/storage`, {
+          origins:"*",
+          transports: ['websocket', 'flashsocket', 'polling'],
+          rejectUnauthorized: false
+        });
+
+        socket.on('connect', function () {
+          resolve(socket);
+        });
+        socket.on('connect_error', function (error) {
+          console.error(error);
+          reject(error);
+        });
+      }
+    });
+  }
+
+
+  self.unbindSocket = function unbindSocket (instance) {
+    if (instance.clientSocket.connected) {
+      instance.clientSocket.disconnect();
+    }
+  }
+
   /*
    * Create new web server instance for testing purposes
    */
@@ -61,7 +93,8 @@ function configure () {
     disableSecurity = false, 
     useHttps = true,
     authDefaultRoles = '',
-    enable = ['careportal', 'api']
+    enable = ['careportal', 'api'],
+    storageSocket = false
     }) {
 
     return new Promise(function (resolve, reject) {
@@ -98,9 +131,18 @@ function configure () {
 
           websocket(instance.env, instance.ctx, instance.server);
 
-          console.log(`Started ${useHttps ? 'SSL' : 'HTTP'} instance on ${instance.baseUrl}`);
-          hasBooted = true;
-          resolve(instance);
+          self.bindSocket(storageSocket, instance)
+            .then((socket) => {
+              instance.clientSocket = socket;
+
+              console.log(`Started ${useHttps ? 'SSL' : 'HTTP'} instance on ${instance.baseUrl}`);
+              hasBooted = true;
+              resolve(instance);
+            })
+            .catch((reason) => {
+              console.error(reason);
+              reject(reason);
+            });
         });
 
         setTimeout(function watchDog() {
