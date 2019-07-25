@@ -61,7 +61,7 @@ function setSSL() {
   env.secureHstsHeaderIncludeSubdomains = readENVTruthy("SECURE_HSTS_HEADER_INCLUDESUBDOMAINS", false);
   env.secureHstsHeaderPreload= readENVTruthy("SECURE_HSTS_HEADER_PRELOAD", false);
   env.secureCsp = readENVTruthy("SECURE_CSP", false);
-
+  env.secureCspReportOnly = readENVTruthy("SECURE_CSP_REPORT_ONLY", false);
 }
 
 // A little ugly, but we don't want to read the secret into a var
