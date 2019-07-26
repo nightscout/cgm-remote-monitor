@@ -483,6 +483,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `OPENAPS_PRED_ACOB_COLOR` (`#FB8C0080`) - The color to use for ACOB prediction lines. Same format as above.
   * `OPENAPS_PRED_ZT_COLOR` (`#00d2d2`) - The color to use for ZT prediction lines. Same format as above.
   * `OPENAPS_PRED_UAM_COLOR` (`#c9bd60`) - The color to use for UAM prediction lines. Same format as above.
+  * `OPENAPS_COLOR_PREDICTION_LINES` (`true`) - Enables / disables the colored lines vs the classic purple color.
 
 
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
