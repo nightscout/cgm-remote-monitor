@@ -21,7 +21,7 @@ function create(env, ctx) {
         if (req.header('x-forwarded-proto') == 'https' || req.secure) {
             next();
         } else {
-            res.redirect(`https://${req.header('host')}${req.url}`);
+            res.redirect(307, `https://${req.header('host')}${req.url}`);
         }
         })
         if (secureHstsHeader) { // Add HSTS (HTTP Strict Transport Security) header
