@@ -9,7 +9,7 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 [![Codacy Badge][codacy-img]][codacy-url]
 [![Gitter chat][gitter-img]][gitter-url]
 
-[![Deploy to Azure](http://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/) [![Deploy to Heroku][heroku-img]][heroku-url] [![Update your site][update-img]][update-fork]
+[![Deploy to Heroku][heroku-img]][heroku-url] [![Update your site][update-img]][update-fork]
 
 This acts as a web-based CGM (Continuous Glucose Monitor) to allow
 multiple caregivers to remotely view a patient's glucose data in
@@ -41,6 +41,7 @@ Community maintained fork of the
 [heroku-url]: https://heroku.com/deploy
 [update-img]: update.png
 [update-fork]: http://nightscout.github.io/pages/update-fork/
+[update-guide]: http://www.nightscout.info/wiki/welcome/how-to-update-to-latest-cgm-remote-monitor-aka-cookie
 [original]: https://github.com/rnpenguin/cgm-remote-monitor
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
@@ -116,11 +117,10 @@ Community maintained fork of the
 
 ## Supported configurations:
 
-If you plan to use Nightscout, we recommend using [Heroku](http://www.nightscout.info/wiki/welcome/set-up-nightscout-using-heroku), as Nightscout can reach the usage limits of the free Azure plan and cause it to shut down for hours or days. If you end up needing a paid tier, the $7/mo Heroku plan is also much cheaper than the first paid tier of Azure. Currently, the only added benefit to choosing the $7/mo Heroku plan vs the free Heroku plan is a section showing site use metrics for performance (such as response time). This has limited benefit to the average Nightscout user. In short, Heroku is the free and best option for Nightscout hosting.
+[Heroku](http://www.nightscout.info/wiki/welcome/set-up-nightscout-using-heroku) is currently the only supported cloud hosting platform. A free-tier Heroku account (verified with a credit card) will provide enough free dyno hours to run one Nightscout site 24/7. If you deploy more than one app to the account, you'll run out of hours, and one or more of your apps will stop running; if you need to run more than one Nightscout site, either upgrade your Heroku account to the next tier (at around $7/month) or set up a second Heroku account under a different email address.
 
-- [Nightscout Setup with Heroku](http://www.nightscout.info/wiki/welcome/set-up-nightscout-using-heroku) (recommended)
-- [Nightscout Setup with Microsoft Azure](http://www.nightscout.info/wiki/faqs-2/azure-2) (not recommended, please 
-[switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku) )
+Azure is not supported as of Nightscout 0.12, but might be again at some point if we can reliably deploy there.
+
 - Linux based install (Debian, Ubuntu, Raspbian) install with own Node.JS and MongoDB install (see software requirements below)
 - Windows based install with own Node.JS and MongoDB install (see software requirements below)
 
@@ -153,13 +153,8 @@ $ npm install
 - HTTP Strict Transport Security (HSTS) headers are enabled by default, use settings `SECURE_HSTS_HEADER` and `SECURE_HSTS_HEADER_*`
 - See [Predefined values for your server settings](#predefined-values-for-your-server-settings-optional) for more details
 
-## Installation notes for Microsoft Azure, Windows: 
+## Installation notes for Windows: 
 
-- If deploying the software to Microsoft Azure, you must set ** in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Please use:
-```
-WEBSITE_NODE_DEFAULT_VERSION=10.15.2
-SCM_COMMAND_IDLE_TIMEOUT=300
-```
 - See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
 - If you deploy to Windows and want to develop or test you need to install [Cygwin](https://www.cygwin.com/) (use [setup-x86_64.exe](https://www.cygwin.com/setup-x86_64.exe) and make sure to install `build-essential` package. Test your configuration by executing `make` and check if all tests are ok. 
 
@@ -178,8 +173,7 @@ MongoDB server such as [mongolab][mongodb].
 
 ## Updating my version?
 The easiest way to update your version of cgm-remote-monitor to our latest
-recommended version is to use the [update my fork tool][update-fork].  It even
-gives out stars if you are up to date.
+recommended version is to use the [update my fork tool][update-fork]. A more detailed guide for this is available [here][update-guide]
 
 ## What is my mongo string?
 
