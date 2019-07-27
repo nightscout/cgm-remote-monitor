@@ -613,7 +613,7 @@ components:
       schema:
         type: integer
         format: int64
-      required: true
+      required: false
       description:
         Timestamp (defined by client's clock) when the HTTP request was constructed on client.
         This mandatory parameter serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code.
@@ -775,16 +775,16 @@ components:
         type: string
       required: true
       description:
-        Starting timestamp (defined with respect to server's clock) since which the changes in documents are to be listed, formatted as&#58;
+          Starting timestamp (defined with respect to server's clock) since which the changes in documents are to be listed, formatted as&#58;
 
 
         &lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT
 
 
-        Example&#58;
+            Example&#58;
 
 
-        <pre>Last-Modified&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>
+            <pre>Last-Modified&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>
 
 
     ifModifiedSinceHeader:
@@ -794,19 +794,19 @@ components:
         type: string
       required: false
       description:
-        Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;
+          Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;
 
 
         &lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT
 
 
-        If this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.
+            If this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.
 
 
-        Example&#58;
+            Example&#58;
 
 
-        <pre>If-Modified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>
+            <pre>If-Modified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>
 
 
     ifUnmodifiedSinceHeader:
@@ -816,19 +816,19 @@ components:
         type: string
       required: false
       description:
-        Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;
+          Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;
 
 
         &lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT
 
 
-        If this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.
+            If this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.
 
 
-        Example&#58;
+            Example&#58;
 
 
-        <pre>If-Unmodified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>
+            <pre>If-Unmodified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>
 
 
   ######################################################################################

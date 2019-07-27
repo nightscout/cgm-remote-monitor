@@ -22,11 +22,11 @@ This provides a real-time data exchange experience in combination with API REST 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js"></script>
 
 	<script>
-      const socket = io('https://somecgm.herokuapp.com/storage');
+      const socket = io('https://nsapiv3.herokuapp.com/storage');
 
       socket.on('connect', function () {
         socket.emit('subscribe', { 
-          accessToken: 'test-0123456789abcdef',
+          accessToken: 'testadmin-ad3b1f9d7b3f59d5',
           collections: [ 'entries', 'treatments' ]
         }, function (data) {
           if (data.success) {
@@ -59,7 +59,7 @@ This provides a real-time data exchange experience in combination with API REST 
 ### Subscription (authorization)
 The client must first subscribe to the channel that is exposed at `storage` namespace, ie the `/storage` subadress of the base Nightscout's web address (without `/api/v3` subaddress).
 ```javascript
-const socket = io('https://somecgm.herokuapp.com/storage');
+const socket = io('https://nsapiv3.herokuapp.com/storage');
 ```
 
 
@@ -70,7 +70,7 @@ Subscription is requested by emitting `subscribe` event to the server, while inc
 ```javascript
 socket.on('connect', function () {
   socket.emit('subscribe', { 
-    accessToken: 'test-0123456789abcdef',
+    accessToken: 'testadmin-ad3b1f9d7b3f59d5',
     collections: [ 'entries', 'treatments' ]
   },
 ```
