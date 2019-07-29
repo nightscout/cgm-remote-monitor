@@ -1,0 +1,69 @@
+# APIv3: Basics tutorial
+
+Nightscout API v3 is a component of [cgm-remote-monitor](https://github.com/nightscout/cgm-remote-monitor) project. 
+It aims to provide lightweight, secured and HTTP REST compliant interface for your T1D treatment data exchange.
+
+There is a list of REST operations that the API v3 offers (inside `/api/v3` relative URL namespace), we will briefly introduce them in this file.
+
+Each NS instance with API v3 contains self-included OpenAPI specification at [/api/v3/swagger-ui-dist/](https://nsapiv3.herokuapp.com/api/v3/swagger-ui-dist/) relative URL.
+
+
+###  VERSION
+
+[VERSION](https://nsapiv3.herokuapp.com/api/v3/swagger-ui-dist/#/other/get_version) operation gets you basic information about software packages versions.
+It is public (there is no need to add authorization parameters/headers).
+
+Sample GET `/version` client code:
+```javascript
+const request = require('request');
+request('https://nsapiv3.herokuapp.com/api/v3/version',
+  (error, response, body) => console.log(body));
+```
+Sample result:
+```javascript
+{  
+   "version":"0.12.2",
+   "apiVersion":"3.0.0-alpha",
+   "srvDate":1564386001772,
+   "storage":{  
+      "storage":"mongodb",
+      "version":"3.6.12"
+   }
+}
+```
+
+
+###  STATUS
+
+[STATUS](https://nsapiv3.herokuapp.com/api/v3/swagger-ui-dist/#/other/get_status) operation gets you basic information about software packages versions.
+It is public (there is no need to add authorization parameters/headers).
+
+Sample GET `/version` client code:
+```javascript
+const request = require('request');
+const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
+request(`https://nsapiv3.herokuapp.com/api/v3/status?${auth}`,
+  (error, response, body) => console.log(body));
+```
+Sample result:
+```javascript
+{  
+  "version":"0.12.2",
+  "apiVersion":"3.0.0-alpha",
+  "srvDate":1564391740738,
+  "storage":{  
+    "storage":"mongodb",
+    "version":"3.6.12"
+  },
+  "apiPermissions":{  
+    "devicestatus":"crud",
+    "entries":"crud",
+    "food":"crud",
+    "profile":"crud",
+    "settings":"crud",
+    "treatments":"crud"
+  }
+}
+```
+`"crud"` represents create + read + update + delete permissions for the collection.
+
