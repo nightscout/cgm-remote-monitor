@@ -45,16 +45,16 @@ describe('Security of REST API3', function() {
 
 
   it('should require HTTPS', done => {
-    if (semver.gte(process.version, '10.0.0')) { 
-    request(self.http.baseUrl)  // hangs on 8.x.x (no reason why)
-      .get('/api/v3/test') 
-      .expect(403)
-      .end((err, res) => {
-        should.not.exist(err);
-        res.body.status.should.equal(403);
-        res.body.message.should.equal(apiConst.MSG.HTTP_403_NOT_USING_HTTPS);
-        done();
-      }); 
+    if (semver.gte(process.version, '10.0.0') && semver.lt(process.version, '11.0.0')) {
+      request(self.http.baseUrl)  // hangs on 8.x.x (no reason why)
+        .get('/api/v3/test')
+        .expect(403)
+        .end((err, res) => {
+          should.not.exist(err);
+          res.body.status.should.equal(403);
+          res.body.message.should.equal(apiConst.MSG.HTTP_403_NOT_USING_HTTPS);
+          done();
+        });
     }
     else {
       done();
