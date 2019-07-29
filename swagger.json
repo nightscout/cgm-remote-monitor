@@ -907,7 +907,7 @@
           },
           "dateString": {
             "type": "string",
-            "description": "dateString, prefer ISO `8601`"
+            "description": "dateString, MUST be ISO `8601` format date parseable by Javascript Date()"
           },
           "date": {
             "type": "number",
