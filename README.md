@@ -155,7 +155,7 @@ $ npm install
 
 ## Installation notes for Microsoft Azure, Windows: 
 
-- If deploying the software to Microsoft Azure, you must set ** in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Please use:
+- If deploying the software to Microsoft Azure, you must set ** in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Additionally, if using the Azure free hosting tier, the installation might fail due to resource constraints imposed by Azure on the free hosting. Please set the following settings to the environment in Azure:
 ```
 WEBSITE_NODE_DEFAULT_VERSION=10.15.2
 SCM_COMMAND_IDLE_TIMEOUT=300
@@ -191,7 +191,6 @@ mongo string.  You can copy and paste the text in the gray box into your
 
 Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
-
 ## Nightscout API
 
 The Nightscout API enables direct access to your DData without the need for direct Mongo access.
@@ -200,6 +199,8 @@ The server status and settings are available from `/api/v1/status.json`.
 
 By default the `/entries` and `/treatments` APIs limit results to the the most recent 10 values from the last 2 days.
 You can get many more results, by using the `count`, `date`, `dateString`, and `created_at` parameters, depending on the type of data you're looking for.
+
+Once you've installed Nightscout, you can access API documentation by loading `/api-docs` URL in your instance.
 
 #### Example Queries
 
@@ -213,7 +214,6 @@ You can get many more results, by using the `count`, `date`, `dateString`, and `
 
 The API is Swagger enabled, so you can generate client code to make working with the API easy.
 To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.html or review [swagger.yaml](swagger.yaml).
-
 
 ## Environment
 
@@ -235,7 +235,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     Setting it to `denied` will require a token from every visit, using `status-only` will enable api-secret based login.
   * `IMPORT_CONFIG` - Used to import settings and extended settings from a url such as a gist.  Structure of file should be something like: `{"settings": {"theme": "colors"}, "extendedSettings": {"upbat": {"enableAlerts": true}}}`
   * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. Deprecated, if set to `off` the `careportal` role will be added to `AUTH_DEFAULT_ROLES`
-
 
 ### Alarms
 
@@ -273,6 +272,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to chain.pem file (chain).
   * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
   * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
+  * `DE_NORMALIZE_DATES`(`true`) - The Nightscout REST API normalizes all entered dates to UTC zone. Some Nightscout clients have broken date deserialization logic and expect to received back dates in zoned formats. Setting this variable to `true` causes the REST API to serialize dates sent to Nightscout in zoned format back to zoned format when served to clients over REST.
 
 
 ### Predefined values for your browser settings (optional)
@@ -309,7 +309,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `Clock` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
   * `Color` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
   * `Simple` - Shows current BG. Grey text on a black background.
-  * Optional configuration: set `SHOW_CLOCK_CLOSEBUTTON` (`true`) to `false` to hide the small X button to close the views
+  * Optional configuration: set `SHOW_CLOCK_CLOSEBUTTON` to `false` to never show the small X button in clock views. For bookmarking a clock view without the close box but have it appear when navigating to a clock from the Nightscout menu, don't change the settng, but remove the `showClockClosebutton=true` parameter from the clock view URL.
 
 ### Plugins
 
