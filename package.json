@@ -1,6 +1,6 @@
 {
   "name": "nightscout",
-  "version": "0.12.2",
+  "version": "0.12.2-2",
   "description": "Nightscout acts as a web-based CGM (Continuous Glucose Montinor) to allow multiple caregivers to remotely view a patients glucose data in realtime.",
   "license": "AGPL-3.0",
   "author": "Nightscout Team",
@@ -29,7 +29,7 @@
     "start": "node server.js",
     "test": "env-cmd ./test.env mocha --exit tests/*.test.js",
     "env": "env",
-    "postinstall": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
+    "postinstall-disabled": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
     "bundle": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
     "bundle-dev": "webpack --mode development --config webpack.config.js && npm run-script update-buster",
     "bundle-analyzer": "webpack --mode development --config webpack.config.js --profile --json > stats.json && webpack-bundle-analyzer stats.json",
@@ -38,6 +38,7 @@
     "dev": "env-cmd ./my.env nodemon server.js 0.0.0.0",
     "prod": "env-cmd ./my.prod.env node server.js 0.0.0.0"
   },
+  "main": "server.js",
   "config": {
     "blanket": {
       "pattern": [
@@ -103,9 +104,7 @@
     "style-loader": "^0.23.1",
     "swagger-ui-dist": "^3.22.0",
     "terser": "^3.17.0",
-    "traverse": "^0.6.6",
-    "webpack": "^4.29.6",
-    "webpack-cli": "^3.3.0"
+    "traverse": "^0.6.6"
   },
   "devDependencies": {
     "nodemon": "^1.19.0",
@@ -122,6 +121,8 @@
     "terser-webpack-plugin": "^1.2.3",
     "webpack-bundle-analyzer": "^3.3.2",
     "webpack-dev-middleware": "^3.7.0",
-    "webpack-hot-middleware": "^2.25.0"
+    "webpack-hot-middleware": "^2.25.0",
+    "webpack": "^4.29.6",
+    "webpack-cli": "^3.3.0"
   }
 }

@@ -1,6 +1,5 @@
 .github
 bin
-!bin/generateCacheBuster.js
 docs
 node_modules
 testing
@@ -25,4 +24,3 @@ prep_repo_release.sh
 Procfile
 setup.sh
 Vagrantfile
-tmp
