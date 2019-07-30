@@ -122,7 +122,7 @@ function configure () {
 
           const transport = useHttps ? https : http;
 
-          instance.server = transport.createServer(instance.env.ssl, instance.app).listen(0);
+          instance.server = transport.createServer(instance.env.ssl || { }, instance.app).listen(0);
           instance.env.PORT = instance.server.address().port;
 
           instance.baseUrl = `${useHttps ? 'https' : 'http'}://${instance.env.HOSTNAME}:${instance.env.PORT}`;

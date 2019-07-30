@@ -45,7 +45,7 @@ describe('Security of REST API3', function() {
 
 
   it('should require HTTPS', done => {
-    if (semver.gte(process.version, '10.0.0') && semver.lt(process.version, '11.0.0')) {
+    if (semver.gte(process.version, '10.0.0')) {
       request(self.http.baseUrl)  // hangs on 8.x.x (no reason why)
         .get('/api/v3/test')
         .expect(403)
