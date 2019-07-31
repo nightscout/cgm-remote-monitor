@@ -118,17 +118,17 @@ const request = require('request');
 const uuidv5 = require('uuid/v5');
 const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
 const doc = {
-  date: (new Date()).getTime(),
+  date: 1564591511232, // (new Date()).getTime(),
   app: 'AndroidAPS',
   device: 'Samsung XCover 4',
   eventType: 'Correction Bolus',
   insulin: 0.3
 };
 // let's create "deduplication ready" identifier, combining
-// treatment type + originating device + timestamp + type specific measurement value
-// (insulin dose or bg or carbs or a combination thereof)
-const combination = `${doc.device}|${doc.eventType}|${doc.date}|${doc.insulin}`;
-doc.identifier = uuidv5(combination, '00000000-0000-0000-0000-000000000000');
+// treatment type + originating device + timestamp
+const combination = `${doc.device}|${doc.eventType}|${doc.date}`;
+const namespace = Buffer.from("NightscoutRocks!", "ascii"); // official namespace for NS :-)
+doc.identifier = uuidv5(combination, [...namespace]);
 
 request({
     method: 'post',
@@ -140,7 +140,7 @@ request({
 ```
 Sample result:
 ```
-/api/v3/treatments/3e7c3a33-28da-584d-9447-434d1b4488f7
+/api/v3/treatments/e89370d9-6e57-5dcf-9c0c-d0987936e0c2
 ```
 
 
@@ -153,7 +153,7 @@ Sample GET `/treatments/{identifier}` client code:
 ```javascript
 const request = require('request');
 const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
-const identifier = '3e7c3a33-28da-584d-9447-434d1b4488f7';
+const identifier = 'e89370d9-6e57-5dcf-9c0c-d0987936e0c2';
 
 request(`https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}?${auth}`,
   (error, response, body) => console.log(body));
@@ -161,16 +161,16 @@ request(`https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}?${auth}`,
 Sample result:
 ```
 {  
-  "date":1564521267421,
+  "date":1564591511232,
   "app":"AndroidAPS",
   "device":"Samsung XCover 4",
   "eventType":"Correction Bolus",
   "insulin":0.3,
-  "identifier":"3e7c3a33-28da-584d-9447-434d1b4488f7",
+  "identifier":"e89370d9-6e57-5dcf-9c0c-d0987936e0c2",
   "utcOffset":0,
-  "created_at":"2019-07-30T21:14:27.421Z",
-  "srvModified":1564521267847,
-  "srvCreated":1564521267847,
+  "created_at":"2019-07-31T16:45:11.232Z",
+  "srvModified":1564591627732,
+  "srvCreated":1564591511711,
   "subject":"test-admin"
 }
 ```
@@ -191,13 +191,13 @@ request(`https://nsapiv3.herokuapp.com/api/v3/lastModified?${auth}`,
 ```
 Sample result:
 ```javascript
-{
-  "srvDate":1564522409676,
-  "collections":{
-    "devicestatus":1564522191273,
-    "entries":1564522189185,
+{  
+  "srvDate":1564591783202,
+  "collections":{  
+    "devicestatus":1564591490074,
+    "entries":1564591486801,
     "profile":1548524042744,
-    "treatments":1564521267847
+    "treatments":1564591627732
   }
 }
 ```
@@ -206,13 +206,13 @@ Sample result:
 ---
 ###  UPDATE
 
-[UPDATE](https://nsapiv3insecure.herokuapp.com/api/v3/swagger-ui-dist/index.html#/generic/put__collection___identifier_) operation updates an existing document in the collection.
+[UPDATE](https://nsapiv3insecure.herokuapp.com/api/v3/swagger-ui-dist/index.html#/generic/put__collection___identifier_) operation updates existing document in the collection.
 
-Sample PUT `/treatments` client code (to update `insulin` from 0.3 to 0.4):
+Sample PUT `/treatments/{identifier}` client code (to update `insulin` from 0.3 to 0.4):
 ```javascript
 const request = require('request');
 const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
-const identifier = '3e7c3a33-28da-584d-9447-434d1b4488f7';
+const identifier = 'e89370d9-6e57-5dcf-9c0c-d0987936e0c2';
 const doc = {
   date: 1564521267421,
   app: 'AndroidAPS',
@@ -233,3 +233,104 @@ Sample result:
 ```
 204
 ```
+
+
+---
+###  PATCH
+
+[PATCH](https://nsapiv3insecure.herokuapp.com/api/v3/swagger-ui-dist/index.html#/generic/patch__collection___identifier_) operation partially updates existing document in the collection.
+
+Sample PATCH `/treatments/{identifier}` client code (to update `insulin` from 0.4 to 0.5):
+```javascript
+const request = require('request');
+const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
+const identifier = 'e89370d9-6e57-5dcf-9c0c-d0987936e0c2';
+const doc = {
+  insulin: 0.5
+};
+
+request({
+    method: 'patch',
+    body: doc,
+    json: true,
+    url: `https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}?${auth}`
+  },
+  (error, response, body) => console.log(response.statusCode));
+```
+Sample result:
+```
+204
+```
+
+
+---
+###  DELETE
+
+[DELETE](https://nsapiv3insecure.herokuapp.com/api/v3/swagger-ui-dist/index.html#/generic/delete__collection___identifier_) operation deletes existing document from the collection.
+
+Sample DELETE `/treatments/{identifier}` client code (to update `insulin` from 0.4 to 0.5):
+```javascript
+const request = require('request');
+const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
+const identifier = 'e89370d9-6e57-5dcf-9c0c-d0987936e0c2';
+
+request({
+    method: 'delete',
+    url: `https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}?${auth}`
+  },
+  (error, response, body) => console.log(response.statusCode));
+```
+Sample result:
+```
+204
+```
+
+
+---
+###  HISTORY
+
+[HISTORY](https://nsapiv3insecure.herokuapp.com/api/v3/swagger-ui-dist/index.html#/generic/HISTORY2) operation queries all changes since the timestamp.
+
+Sample HISTORY `/treatments/history/{lastModified}` client code:
+```javascript
+const request = require('request');
+const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
+const lastModified = 1564521267421;
+
+request(`https://nsapiv3.herokuapp.com/api/v3/treatments/history/${lastModified}?${auth}`,
+  (error, response, body) => console.log(response.body));
+```
+Sample result:
+```
+[
+  {
+    "date":1564521267421,
+    "app":"AndroidAPS",
+    "device":"Samsung XCover 4",
+    "eventType":"Correction Bolus",
+    "insulin":0.5,
+    "utcOffset":0,
+    "created_at":"2019-07-30T21:14:27.421Z",
+    "identifier":"e89370d9-6e57-5dcf-9c0c-d0987936e0c2",
+    "srvModified":1564592440416,
+    "srvCreated":1564592334853,
+    "subject":"test-admin",
+    "modifiedBy":"test-admin",
+    "isValid":false
+  },
+  {
+    "date":1564592545299,
+    "app":"AndroidAPS",
+    "device":"Samsung XCover 4",
+    "eventType":"Snack Bolus",
+    "carbs":10,
+    "identifier":"f75b6f4e-a6c9-56bd-b07c-e03c2047f0c6",
+    "utcOffset":0,
+    "created_at":"2019-07-31T17:02:25.299Z",
+    "srvModified":1564592545781,
+    "srvCreated":1564592545781,
+    "subject":"test-admin"
+  }
+]
+```
+Notice the `"isValid":false` field marking the deletion of the document.
