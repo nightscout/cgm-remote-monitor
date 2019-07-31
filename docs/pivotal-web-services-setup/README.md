@@ -2,55 +2,8 @@
 
 Pivotal Web Services (PWS) is a public cloud platform offered by [Pivotal Software, Inc](http://pivotal.io).
 
-## Deploying nightscout automatically with `nightscout-factory`
-The preferred method to get a nightscout on PWS is automatically via an app called `nightscout-factory`. The steps are simple:
-1. Create an account in PWS to host your app
-2. Add the `nightscout-factory` user to your Space for automation work
-3. Fill in the few details needed at the `nightscout-factory` app
-4. Review the settings for nightscout in PWS for your particular needs
-
-### Creating An Account in PWS
-To use PWS you must first create an account. You will receive a 2GB Org and a Trial Credit of $87, enough to run nightscout for the entire year at no cost.
-
-Signups happen here: https://run.pivotal.io/
-<br>
-[Instructions](https://docs.run.pivotal.io/starting/index.html)
-
-### Add A Space Developer To Your Org
-In order to use the `nightscout-factory` automation you will need to grant the robot user access to your space in PWS in the role `Space Developer`.
-
-Log into your PWS account, click on your space name on the left side of the screen and go to the `Members` page.
-
-![Add Space Developer](add-space-developer.png)
-
-### Request An App via `nightscout-factory`
-Once you have sent the invite for the `nightscout` user to join your space, go to https://nightscout-factory.cfapps.io and enter your PWS email, PWS password, and the organization and space that you just invited the user to. Click `Deploy Nightscout!` and wait.  The whole process may take around 3 minutes.  Once finished, it will show you the URL of your newly deployed `nightscout` instance.
-
-The Factory: https://nightscout-factory.cfapps.io
-![Deploy Nightscout](deploy-nightscout.png)
-
-### Personalizing Nightscout Settings
-
-In PWS, you can view the settings for your app by selecting the app in the Space the app resides in, clicking the app name and then choosing Settings. You will see User Provided Environment Variables about half way down the page. The settings for nightscout are here in Name / Value pairs. You need to set a few values first.
-
-![User and Environment Variables](nc-space-dev-settings-default.png)
-
-Here you will find the `ENABLE` variable, which turn on and off many features of the app. These features are well documented in [other places](https://github.com/nightscout/cgm-remote-monitor#plugins).
-
-`API_SECRET` to set the admin secret for your site. **Type in a secret now**.
-![User Variables](nc-space-dev-user-defined-vars1.png)
-
-If you are using the `BRIDGE` feature, you'll also have:
-![User Variables](nc-space-dev-user-defined-vars2.png)
-`BRIDGE_USER_NAME` is the username in Dexcom Share site. **Type in your username now**.
-<br>
-`BRIDGE_PASSWORD` is the password for the above user name. **Type in your password now**.
-
-Once these steps are complete, you are ready to run (or restart if running) your app and the follow the link to it for use.
-# Automated Process Complete! You Are Done!
----
-# Deploying nightscout Manually
-To publish a nightscout site on PWS manually, you will follow the procedure here, in this order:
+## Deploying nightscout
+To publish a nightscout site on PWS, you will follow the procedure here, in this order:
 
 1. Fork the repo to get a copy of the app
 2. Create an account in PWS to host your app
@@ -118,7 +71,7 @@ Want more reading? Here's a [PWS Sample App](https://docs.run.pivotal.io/buildpa
 
 #### Preparing The Manifest
 
-In your clone of the nighscout app, you will find a `manifest.yml` file. It's a text file with a certain formatting applied.
+In your clone of the nighscout app, you will find a `manifest-sample.yml` file. It's a text file with a certain formatting applied.
 
 The first section looks like this:
 ```
@@ -139,10 +92,8 @@ env:
   DISPLAY_UNITS: mg/dl
   API_SECRET:         ## <- REPLACE with a secret only you know! (Must be at least 12 characters long)
   ENABLE: bridge pushover cage rawbg careportal
-####  Dexcom Bridge settings. Uncomment these (delete ##) if you are using the BRIDGE function of nightscout
-##    BRIDGE_USER_NAME: dexcom-share-username
-##    BRIDGE_PASSWORD: dexcom-share-password
-##    BRIDGE_INTERVAL: 150000
+# Dexcom Bridge settings. Uncomment these (delete ##) if you are using the BRIDGE function of nightscout
+## BRIDGE_INTERVAL: 150000
 ```
 At the very least, you need to consider two things:
 
@@ -150,7 +101,7 @@ At the very least, you need to consider two things:
 <br>
 `ENABLE`: a space-separated list of features (plugins) you want nightscout to run. A few common ones are already included. [Look here](https://github.com/nightscout/cgm-remote-monitor#plugins) for a much more complete list. Add more plugins now if you wish.
 
-Open the `manifest.yml` file in a quality text editor such as Atom (Mac) or notepad++ (Windows). Keeping the formatting of the file is important.
+Copy the `manifest-sample.yml` file into a new file called `manifest.yml` to make your personal changes. Open `manifest.yml` with a quality text editor such as Atom (Mac) or notepad++ (Windows). Keeping the formatting of the file is important.
 
 Don't put a secret in the `API_SECRET` line just yet, we'll do that in the next step. This just creates the variable in PWS. Uncomment (delete the ##) `BRIDGE` lines if you are using the Dexcom Share bridge function and enter the appropriate Dexcom Share credentials (or leave them blank to be filled in later). Here's an example:
 ```
@@ -158,10 +109,7 @@ env:
   DISPLAY_UNITS: mg/dl
   API_SECRET:
   ENABLE: bridge pushover cage rawbg careportal
-####  Dexcom Bridge settings. Uncomment these (delete ##) if you are using the BRIDGE function of nightscout
-    BRIDGE_USER_NAME:
-    BRIDGE_PASSWORD:
-    BRIDGE_INTERVAL: 150000
+  BRIDGE_INTERVAL: 150000
 ```
 The next section are clues for PWS about how to run your app.
 ```
@@ -205,7 +153,7 @@ Here you will find the `ENABLE` variable, which turn on and off many features of
 
 ![User Variables](nc-space-dev-user-defined-vars1.png)
 
-If you are using the `BRIDGE` feature, you'll also have:
+If you are using the `BRIDGE` feature, you'll also need to add:
 
 `BRIDGE_USER_NAME` is the username in Dexcom Share site. Type in your username now.
 <br>
