@@ -141,6 +141,10 @@ a, a:visited, a:link {
   color: #4cff00;
 }
 
+.bgStatus .bgSpan {
+  white-space: nowrap;
+}
+
 .bgStatus .currentBG {
   font-size: 120px;
   line-height: 100px;
