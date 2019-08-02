@@ -2,7 +2,11 @@ FROM node:10-alpine
 
 MAINTAINER Nightscout Contributors
 
-RUN mkdir -p /opt/app
+RUN mkdir -p /opt/app && \
+    apk add --no-cache --virtual build-dependencies \
+    python \
+    make \
+    g++
 ADD . /opt/app
 WORKDIR /opt/app
 RUN chown -R node:node /opt/app
