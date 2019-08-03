@@ -258,9 +258,16 @@ function create (env, ctx) {
   }
 
   // Production bundling
-  var tmpFiles = express.static(__dirname + '/tmp', {
-    maxAge: maxAge
-  });
+  var tmpFiles;
+  if (fs.existsSync(process.cwd() + '/tmp/cacheBusterToken')) {
+    tmpFiles = express.static('tmp', {
+      maxAge: maxAge
+    }); 
+  } else {
+    tmpFiles = express.static(__dirname + '/tmp', {
+      maxAge: maxAge
+    });
+  }
 
   // serve the static content
   app.use('/bundle', tmpFiles);
