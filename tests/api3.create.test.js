@@ -414,7 +414,7 @@ describe('API3 CREATE', function() {
     });
     delete doc.identifier;
 
-    self.instance.ctx.treatments.create([doc], (err, docs) => {  // let's insert the document in APIv1's way
+    self.instance.ctx.treatments.create([doc], (err) => {  // let's insert the document in APIv1's way
       should.not.exist(err);
 
       const doc2 = Object.assign({}, doc, {
