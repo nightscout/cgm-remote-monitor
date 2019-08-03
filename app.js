@@ -254,7 +254,7 @@ function create (env, ctx) {
   }
 
   // Production bundling
-  var tmpFiles = express.static('tmp', {
+  var tmpFiles = express.static(__dirname + '/tmp', {
     maxAge: maxAge
   });
 
