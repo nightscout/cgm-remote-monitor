@@ -7,6 +7,7 @@ var moment = require('moment');
 var ctx = {
   language: require('../lib/language')()
 };
+ctx.language.set('en');
 var env = require('../env')();
 var loop = require('../lib/plugins/loop')(ctx);
 var sandbox = require('../lib/sandbox')();
@@ -118,10 +119,10 @@ describe('loop', function ( ) {
       , pluginBase: {
         updatePillText: function mockedUpdatePillText (plugin, options) {
           options.label.should.equal('Loop ⌁');
-          options.value.should.equal('1m ago');
+          options.value.should.equal('1m ago ↝ 147');
           var first = _.first(options.info);
           first.label.should.equal('1m ago');
-          first.value.should.equal('<b>Temp Basal Started</b> 0.88U/hour for 30m, IOB: 0.17U');
+          first.value.should.equal('<b>Temp Basal Started</b> 0.88U/hour for 30m, IOB: 0.17U, Predicted Min-Max BG: 147-149, Eventual BG: 147');
         }
         , addForecastPoints: function mockAddForecastPoints (points) {
           points.length.should.equal(6);
@@ -165,7 +166,8 @@ describe('loop', function ( ) {
           done();
         }
       , language: require('../lib/language')()
-      }
+      },
+      language: require('../lib/language')()
     };
 
     var errorTime = moment(statuses[1].created_at);
