@@ -1,7 +1,7 @@
 
 # Nightscout tests/builds/analysis
 TESTS=tests/*.js
-MONGO_CONNECTION?=mongodb://localhost/test_db
+MONGO_CONNECTION?=mongodb://localhost:27017/test_db
 CUSTOMCONNSTR_mongo_settings_collection?=test_settings
 CUSTOMCONNSTR_mongo_collection?=test_sgvs
 MONGO_SETTINGS=MONGO_CONNECTION=${MONGO_CONNECTION} \
@@ -22,30 +22,63 @@ MOCHA=./node_modules/mocha/bin/_mocha
 # Pinned from dependency list.
 ISTANBUL=./node_modules/.bin/istanbul
 ANALYZED=./coverage/lcov.info
-export CODACY_REPO_TOKEN=e29ae5cf671f4f918912d9864316207c
+# Following token deprecated
+# export CODACY_REPO_TOKEN=e29ae5cf671f4f918912d9864316207c
+
+DOCKER_IMAGE=nightscout/cgm-remote-monitor-travis
 
 all: test
 
 coverage:
 	NODE_ENV=test ${MONGO_SETTINGS} \
-	${ISTANBUL} cover ${MOCHA} -- -R tap ${TESTS}
+	${ISTANBUL} cover ${MOCHA} -- --timeout 15000 -R tap ${TESTS}
 
 report:
 	test -f ${ANALYZED} && \
 	(npm install coveralls && cat ${ANALYZED} | \
 	./node_modules/.bin/coveralls) || echo "NO COVERAGE"
 	test -f ${ANALYZED} && \
-	(npm install codecov.io && cat ${ANALYZED} | \
-	./node_modules/codecov.io/bin/codecov.io.js) || echo "NO COVERAGE"
-	test -f ${ANALYZED} && \
 	(npm install codacy-coverage && cat ${ANALYZED} | \
 	YOURPACKAGE_COVERAGE=1 ./node_modules/codacy-coverage/bin/codacy-coverage.js) || echo "NO COVERAGE"
 
+test_onebyone:
+	python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'
+	$(foreach var,$(wildcard tests/*.js),${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap $(var);)
+
 test:
-	${MONGO_SETTINGS} ${MOCHA} -R tap ${TESTS}
+	${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap ${TESTS}
 
 travis:
-	NODE_ENV=test ${MONGO_SETTINGS} \
-	${ISTANBUL} cover ${MOCHA} --report lcovonly -- -R tap ${TESTS}
+	python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'
+#	NODE_ENV=test ${MONGO_SETTINGS} \
+#	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 5000 -R tap ${TESTS}	
+	$(foreach var,$(wildcard tests/*.js),${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap $(var);)
 
-.PHONY: all coverage report test travis
+docker_release:
+	# Get the version from the package.json file
+	$(eval DOCKER_TAG=$(shell cat package.json | jq '.version' | tr -d '"'))
+	$(eval NODE_VERSION=$(shell cat .nvmrc))
+	#
+	# Create a Dockerfile that contains the correct NodeJS version
+	cat Dockerfile.example | sed -e "s/^FROM node:.*/FROM node:${NODE_VERSION}/" > Dockerfile
+	#
+	# Rebuild the image. We do this with no-cache so that we have all security upgrades,
+	# since that's more important than fewer layers in the Docker image.
+	docker build --no-cache=true -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
+	# Push an image to Docker Hub with the version from package.json:
+	docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
+	#
+	# Push the master branch to Docker hub as 'latest'
+	if [ "$(TRAVIS_BRANCH)" = "master" ]; then \
+		docker tag $(DOCKER_IMAGE):$(DOCKER_TAG) $(DOCKER_IMAGE):latest && \
+		docker push $(DOCKER_IMAGE):latest; \
+	fi
+	#
+	# Push the dev branch to Docker Hub as 'latest_dev'
+	if [ "$(TRAVIS_BRANCH)" = "dev" ]; then \
+		docker tag $(DOCKER_IMAGE):$(DOCKER_TAG) $(DOCKER_IMAGE):latest_dev && \
+		docker push $(DOCKER_IMAGE):latest_dev; \
+	fi
+	rm -f Dockerfile
+
+.PHONY: all coverage docker_release report test travis
