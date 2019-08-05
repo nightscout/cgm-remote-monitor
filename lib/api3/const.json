@@ -31,6 +31,7 @@
     "HTTP_400_BAD_SKIP": "Parameter skip out of tolerance",
     "HTTP_400_SORT_SORT_DESC": "Parameters sort and sort_desc cannot be combined",
     "HTTP_400_UNSUPPORTED_FILTER_OPERATOR": "Unsupported filter operator {0}",
+    "HTTP_400_IMMUTABLE_FIELD": "Field {0} cannot be modified by the client",
     "HTTP_401_BAD_DATE": "Bad Date header",
     "HTTP_401_BAD_TOKEN": "Bad access token or JWT",
     "HTTP_401_DATE_OUT_OF_TOLERANCE": "Date header out of tolerance",

@@ -2,7 +2,7 @@
 
 require('should');
 
-describe('API3 UPDATE', function() {
+describe('API3 PATCH', function() {
   const self = this
     , testConst = require('./fixtures/api3/const.json')
     , instance = require('./fixtures/api3/instance')
@@ -110,138 +110,150 @@ describe('API3 UPDATE', function() {
   });
 
 
-  it('should reject invalid date null', done => {
+  it('should reject identifier alteration', done => {
     self.instance.patch(self.urlToken)
-      .send(Object.assign({}, self.validDoc, { date: null }))
+      .send(Object.assign({}, self.validDoc, { identifier: 'MODIFIED'}))
       .expect(400)
       .end((err, res) => {
         should.not.exist(err);
         res.body.status.should.equal(400);
-        res.body.message.should.equal('Bad or missing date field');
+        res.body.message.should.equal('Field identifier cannot be modified by the client');
         done();
       })
   });
 
 
-  it('should reject invalid date ABC', done => {
+  it('should reject date alteration', done => {
     self.instance.patch(self.urlToken)
-      .send(Object.assign({}, self.validDoc, { date: 'ABC' }))
+      .send(Object.assign({}, self.validDoc, { date: self.validDoc.date + 10000 }))
       .expect(400)
       .end((err, res) => {
+        should.not.exist(err);
         res.body.status.should.equal(400);
-        res.body.message.should.equal('Bad or missing date field');
+        res.body.message.should.equal('Field date cannot be modified by the client');
         done();
       })
   });
 
 
-  it('should reject invalid date -1', done => {
+  it('should reject utcOffset alteration', done => {
     self.instance.patch(self.urlToken)
-      .send(Object.assign({}, self.validDoc, { date: -1 }))
+      .send(Object.assign({}, self.validDoc, { utcOffset: self.utcOffset - 120 }))
       .expect(400)
       .end((err, res) => {
         should.not.exist(err);
         res.body.status.should.equal(400);
-        res.body.message.should.equal('Bad or missing date field');
+        res.body.message.should.equal('Field utcOffset cannot be modified by the client');
         done();
       })
   });
 
 
-
-  it('should reject invalid date 1 (too old)', done => {
+  it('should reject eventType alteration', done => {
     self.instance.patch(self.urlToken)
-      .send(Object.assign({}, self.validDoc, { date: 1 }))
+      .send(Object.assign({}, self.validDoc, { eventType: 'MODIFIED' }))
       .expect(400)
       .end((err, res) => {
         should.not.exist(err);
         res.body.status.should.equal(400);
-        res.body.message.should.equal('Bad or missing date field');
+        res.body.message.should.equal('Field eventType cannot be modified by the client');
         done();
       })
   });
 
 
-  it('should reject invalid date - illegal format', done => {
+  it('should reject device alteration', done => {
     self.instance.patch(self.urlToken)
-      .send(Object.assign({}, self.validDoc, { date: '2019-20-60T50:90:90' }))
+      .send(Object.assign({}, self.validDoc, { device: 'MODIFIED' }))
       .expect(400)
       .end((err, res) => {
         should.not.exist(err);
         res.body.status.should.equal(400);
-        res.body.message.should.equal('Bad or missing date field');
+        res.body.message.should.equal('Field device cannot be modified by the client');
         done();
       })
   });
 
 
-  it('should reject invalid utcOffset -5000', done => {
+  it('should reject app alteration', done => {
     self.instance.patch(self.urlToken)
-      .send(Object.assign({}, self.validDoc, { utcOffset: -5000 }))
+      .send(Object.assign({}, self.validDoc, { app: 'MODIFIED' }))
       .expect(400)
       .end((err, res) => {
         should.not.exist(err);
         res.body.status.should.equal(400);
-        res.body.message.should.equal('Bad or missing utcOffset field');
+        res.body.message.should.equal('Field app cannot be modified by the client');
         done();
       })
   });
 
 
-  it('should reject invalid utcOffset ABC', done => {
+  it('should reject srvCreated alteration', done => {
     self.instance.patch(self.urlToken)
-      .send(Object.assign({}, self.validDoc, { utcOffset: 'ABC' }))
+      .send(Object.assign({}, self.validDoc, { srvCreated: self.validDoc.date - 10000 }))
       .expect(400)
       .end((err, res) => {
         should.not.exist(err);
         res.body.status.should.equal(400);
-        res.body.message.should.equal('Bad or missing utcOffset field');
+        res.body.message.should.equal('Field srvCreated cannot be modified by the client');
         done();
       })
   });
 
 
-  it('should reject invalid utcOffset null', done => {
+  it('should reject subject alteration', done => {
     self.instance.patch(self.urlToken)
-      .send(Object.assign({}, self.validDoc, { utcOffset: null }))
+      .send(Object.assign({}, self.validDoc, { subject: 'MODIFIED' }))
       .expect(400)
       .end((err, res) => {
         should.not.exist(err);
         res.body.status.should.equal(400);
-        res.body.message.should.equal('Bad or missing utcOffset field');
+        res.body.message.should.equal('Field subject cannot be modified by the client');
         done();
       })
   });
 
 
-  it('should reject invalid app null', done => {
+  it('should reject srvModified alteration', done => {
     self.instance.patch(self.urlToken)
-      .send(Object.assign({}, self.validDoc, { app: null }))
+      .send(Object.assign({}, self.validDoc, { srvModified: self.validDoc.date - 100000 }))
       .expect(400)
       .end((err, res) => {
         should.not.exist(err);
         res.body.status.should.equal(400);
-        res.body.message.should.equal('Bad or missing app field');
+        res.body.message.should.equal('Field srvModified cannot be modified by the client');
         done();
       })
   });
 
 
-  it('should reject empty app', done => {
+  it('should reject modifiedBy alteration', done => {
     self.instance.patch(self.urlToken)
-      .send(Object.assign({}, self.validDoc, { app: '' }))
+      .send(Object.assign({}, self.validDoc, { modifiedBy: 'MODIFIED' }))
       .expect(400)
       .end((err, res) => {
         should.not.exist(err);
         res.body.status.should.equal(400);
-        res.body.message.should.equal('Bad or missing app field');
+        res.body.message.should.equal('Field modifiedBy cannot be modified by the client');
+        done();
+      })
+  });
+
+
+  it('should reject isValid alteration', done => {
+    self.instance.patch(self.urlToken)
+      .send(Object.assign({}, self.validDoc, { isValid: false }))
+      .expect(400)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.status.should.equal(400);
+        res.body.message.should.equal('Field isValid cannot be modified by the client');
         done();
       })
   });
 
 
   it('should patch document', done => {
-    self.validDoc.eventType = 'Carb Correction';
     self.validDoc.carbs = 10;
 
     self.instance.patch(self.urlToken)
@@ -254,7 +266,6 @@ describe('API3 UPDATE', function() {
         self.get(self.validDoc.identifier, body => {
           body.carbs.should.equal(10);
           body.insulin.should.equal(0.3);
-          body.eventType.should.equal('Carb Correction');
           body.subject.should.equal(self.subject.apiCreate.name);
           body.modifiedBy.should.equal(self.subject.apiUpdate.name);
 

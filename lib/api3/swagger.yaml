@@ -1022,6 +1022,10 @@ components:
 
             API v3 has a fallback mechanism in place, for documents without `identifier` field the `identifier` is set to internal `_id`, when reading or addressing the documents.
 
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
           type: string
           example: '53409478-105f-11e9-ab14-d663bd873d93'
 
@@ -1040,6 +1044,10 @@ components:
 
             The date is always stored in a normalized form - UTC with zero offset. If UTC offset was present, it is going to be set in the `utcOffset` field.
 
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
           example: 1525383610088
 
         utcOffset:
@@ -1047,18 +1055,32 @@ components:
           description:
             Local UTC offset (timezone) of the event in minutes. This field can be set either directly by the client (in the incoming document) or it is automatically parsed from the `date` field.
 
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
           example: 120
 
         app:
           type: string
           description:
             Application or system in which the record was entered by human or device for the first time.
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
           example: xdrip
 
         device:
           type: string
           description:
             The device from which the data originated (including serial number of the device, if it is relevant and safe).
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
           example: 'dexcom G5'
 
         _id:
@@ -1071,12 +1093,22 @@ components:
           format: int64
           description:
             The server's timestamp of document insertion into the database (Unix epoch in ms). This field appears only for documents which were inserted by API v3.
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
           example: 1525383610088
 
         subject:
           type: string
           description:
             Name of the security subject (within Nightscout scope) which has created the document. This field is automatically set by the server from the passed token or JWT.
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
           example: 'uploader'
 
         srvModified:
@@ -1084,12 +1116,22 @@ components:
           format: int64
           description:
             The server's timestamp of the last document modification in the database (Unix epoch in ms). This field appears  only for documents which were somehow modified by API v3 (inserted, updated or deleted).
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
           example: 1525383610088
 
         modifiedBy:
           type: string
           description:
             Name of the security subject (within Nightscout scope) which has patched or deleted the document for the last time. This field is automatically set by the server.
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
           example: admin
 
         isValid:
@@ -1097,6 +1139,11 @@ components:
           description:
             A flag set by the server only for deleted documents. This field appears
             only within history operation and for documents which were deleted by API v3 (and they always have a false value)
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
           example: false
 
 
@@ -1275,6 +1322,11 @@ components:
               type: string
               example: '"BG Check", "Snack Bolus", "Meal Bolus", "Correction Bolus", "Carb Correction", "Combo Bolus", "Announcement", "Note", "Question", "Exercise", "Site Change", "Sensor Start", "Sensor Change", "Pump Battery Change", "Insulin Change", "Temp Basal", "Profile Switch", "D.A.D. Alert", "Temporary Target", "OpenAPS Offline", "Bolus Wizard"'
               description: The type of treatment event.
+
+
+                Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
             #           created_at:
             #              type: string
             #              description: The date of the event, might be set retroactively.
