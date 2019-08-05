@@ -217,7 +217,7 @@ const request = require('request');
 const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
 const identifier = 'f735c0d3-919e-5feb-979e-608bc12334b0';
 const doc = {
-  date: 1564521267421,
+  date: 1564591511232,
   app: 'AndroidAPS',
   device: 'Samsung XCover 4',
   eventType: 'Correction Bolus',
