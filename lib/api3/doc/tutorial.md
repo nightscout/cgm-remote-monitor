@@ -125,10 +125,13 @@ const doc = {
   insulin: 0.3
 };
 // let's create "deduplication ready" identifier, combining
-// treatment type + originating device + timestamp
-const combination = `${doc.device}|${doc.eventType}|${doc.date}`;
-const namespace = Buffer.from("NightscoutRocks!", "ascii"); // official namespace for NS :-)
-doc.identifier = uuidv5(combination, [...namespace]);
+// originating device + timestamp + treatment type
+let key = doc.device + '|' + doc.date;
+if (doc.eventType) {
+  key += '|' + doc.eventType;
+}
+const ns = Buffer.from("NightscoutRocks!", "ascii"); // official namespace for NS :-)
+doc.identifier = uuidv5(key, [...ns]);
 
 request({
     method: 'post',
@@ -140,7 +143,7 @@ request({
 ```
 Sample result:
 ```
-/api/v3/treatments/e89370d9-6e57-5dcf-9c0c-d0987936e0c2
+/api/v3/treatments/f735c0d3-919e-5feb-979e-608bc12334b0
 ```
 
 
@@ -153,7 +156,7 @@ Sample GET `/treatments/{identifier}` client code:
 ```javascript
 const request = require('request');
 const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
-const identifier = 'e89370d9-6e57-5dcf-9c0c-d0987936e0c2';
+const identifier = 'f735c0d3-919e-5feb-979e-608bc12334b0';
 
 request(`https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}?${auth}`,
   (error, response, body) => console.log(body));
@@ -166,7 +169,7 @@ Sample result:
   "device":"Samsung XCover 4",
   "eventType":"Correction Bolus",
   "insulin":0.3,
-  "identifier":"e89370d9-6e57-5dcf-9c0c-d0987936e0c2",
+  "identifier":"f735c0d3-919e-5feb-979e-608bc12334b0",
   "utcOffset":0,
   "created_at":"2019-07-31T16:45:11.232Z",
   "srvModified":1564591627732,
@@ -212,7 +215,7 @@ Sample PUT `/treatments/{identifier}` client code (to update `insulin` from 0.3 
 ```javascript
 const request = require('request');
 const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
-const identifier = 'e89370d9-6e57-5dcf-9c0c-d0987936e0c2';
+const identifier = 'f735c0d3-919e-5feb-979e-608bc12334b0';
 const doc = {
   date: 1564521267421,
   app: 'AndroidAPS',
@@ -244,7 +247,7 @@ Sample PATCH `/treatments/{identifier}` client code (to update `insulin` from 0.
 ```javascript
 const request = require('request');
 const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
-const identifier = 'e89370d9-6e57-5dcf-9c0c-d0987936e0c2';
+const identifier = 'f735c0d3-919e-5feb-979e-608bc12334b0';
 const doc = {
   insulin: 0.5
 };
@@ -272,7 +275,7 @@ Sample DELETE `/treatments/{identifier}` client code (to update `insulin` from 0
 ```javascript
 const request = require('request');
 const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
-const identifier = 'e89370d9-6e57-5dcf-9c0c-d0987936e0c2';
+const identifier = 'f735c0d3-919e-5feb-979e-608bc12334b0';
 
 request({
     method: 'delete',
@@ -311,7 +314,7 @@ Sample result:
     "insulin":0.5,
     "utcOffset":0,
     "created_at":"2019-07-30T21:14:27.421Z",
-    "identifier":"e89370d9-6e57-5dcf-9c0c-d0987936e0c2",
+    "identifier":"f735c0d3-919e-5feb-979e-608bc12334b0",
     "srvModified":1564592440416,
     "srvCreated":1564592334853,
     "subject":"test-admin",
