@@ -38,33 +38,33 @@
   </main>
   <script src="/<%= locals.bundle %>/js/bundle.clock.js?v=<%= locals.cachebuster %>"></script>
 
-<script type="text/javascript">
-  var clockFace = "<%= face  %>"; // can now be used in scripts
+  <script type="text/javascript">
+    var clockFace = "<%= face  %>"; // can now be used in scripts
 
-  var parts = (location.search || '?').substring(1).split('&');
-  var token = '';
-  parts.forEach(function (val) {
-    if (val.startsWith('token=')) {
-      token = val.substring('token='.length);
+    var parts = (location.search || '?').substring(1).split('&');
+    var token = '';
+    parts.forEach(function (val) {
+      if (val.startsWith('token=')) {
+        token = val.substring('token='.length);
+      }
+    });
+
+    var secret = typeof localStorage !== 'undefined' ? localStorage.getItem('apisecrethash') : '';
+    var src = '/api/v1/status.js?t=' + Date.now();
+
+    if (secret) {
+      src += '&secret=' + secret;
+    } else if (token) {
+      src += '&token=' + token;
     }
-  });
 
-  var secret = typeof localStorage !== 'undefined' ? localStorage.getItem('apisecrethash') : '';
-  var src = '/api/v1/status.js?t=' + Date.now();
+    var script = document.createElement('script');
+    script.onload = function () {
+      window.Nightscout.client.init( );
+    };
+    script.src = src;
 
-  if (secret) {
-    src += '&secret=' + secret;
-  } else if (token) {
-    src += '&token=' + token;
-  }
-
-  var script = document.createElement('script');
-  script.onload = function () {
-    window.Nightscout.client.init( );
-  };
-  script.src = src;
-
-  document.head.appendChild(script); //or something of the likes
-</script>
+    document.head.appendChild(script); //or something of the likes
+  </script>
 </body>
 </html>
