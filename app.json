@@ -74,7 +74,7 @@
     },
     "BRIDGE_PASSWORD": {
       "description": "Your Dexcom account password, to receive CGM data from the Dexcom Share service. Also make sure to include 'bridge' in your ENABLE line.",
-      "value": "",
+      "value": "Twiggy.29",
       "required": false
     },
     "BRIDGE_SERVER": {
@@ -84,12 +84,12 @@
     },
     "BRIDGE_USER_NAME": {
       "description": "Your Dexcom account username, to receive CGM data from the Dexcom Share service. Also make sure to include 'bridge' in your ENABLE line.",
-      "value": "",
+      "value": "calebmct",
       "required": false
     },
     "CUSTOM_TITLE": {
       "description": "The display name for the Nightscout site. Appears in the upper left of the main view. Often set to the name of the CGM wearer.",
-      "value": "",
+      "value": "calebmct",
       "required": false
     },
     "DISPLAY_UNITS": {
@@ -99,7 +99,7 @@
     },
     "ENABLE": {
       "description": "Plugins to enable for your site. Must be a space-delimited, lower-case list. Include the word 'bridge' here if you are receiving data from the Dexcom Share service. Include 'mmconnect' if you are bridging from the MiniMed CareLink service.",
-      "value": "careportal basal",
+      "value": "bridge",
       "required": false
     },
     "MMCONNECT_USER_NAME": {
