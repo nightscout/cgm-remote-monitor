@@ -93,7 +93,7 @@
       "required": false
     },
     "DISPLAY_UNITS": {
-      "description": "Preferred BG units for the site:'mg/dl' or 'mmol'. (Note that it is *not* 'mmol/L')",
+      "description": "Preferred BG units for the site: 'mg/dl' or 'mmol/L' (or just 'mmol').",
       "value": "mg/dl",
       "required": true
     },
