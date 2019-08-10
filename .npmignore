@@ -13,6 +13,7 @@ tests
 .nvmrc
 .travis.yml
 .npmignore
+.idea
 azuredeploy.json
 CONTRIBUTING.md
 deploy.sh
