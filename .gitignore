@@ -4,6 +4,7 @@ node_modules/
 
 bundle/bundle.out.js
 
+.vscode/
 .idea/
 *.iml
 my.env
