@@ -119,7 +119,7 @@ describe('loop', function ( ) {
       , pluginBase: {
         updatePillText: function mockedUpdatePillText (plugin, options) {
           options.label.should.equal('Loop ⌁');
-          options.value.should.equal('1m ago');
+          options.value.should.equal('1m ago ↝ 147');
           var first = _.first(options.info);
           first.label.should.equal('1m ago');
           first.value.should.equal('<b>Temp Basal Started</b> 0.88U/hour for 30m, IOB: 0.17U, Predicted Min-Max BG: 147-149, Eventual BG: 147');
