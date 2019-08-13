@@ -1,91 +1,128 @@
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [Nightscout/IFTTT Maker](#nightscoutifttt-maker)
+  - [Overview](#overview)
+      - [Note: There have been some recent reports of the IFTTT service delaying Nightscout alarms. Be sure to test your implementation before relying solely on its alerts. Pushover is an alternate push notification service that might be worth considering as well.](#note-there-have-been-some-recent-reports-of-the-ifttt-service-delaying-nightscout-alarms-be-sure-to-test-your-implementation-before-relying-solely-on-its-alerts-pushover-is-an-alternate-push-notification-service-that-might-be-worth-considering-as-well)
+  - [Events](#events)
+  - [Creating an Applet](#creating-an-applet)
+    - [1. Choose a Service](#1-choose-a-service)
+    - [2. Choose a Trigger](#2-choose-a-trigger)
+    - [3. Complete the Trigger field](#3-complete-the-trigger-field)
+    - [4. Create an Action](#4-create-an-action)
+    - [5. Complete Action Fields](#5-complete-action-fields)
+    - [6. Review and Finish](#6-review-and-finish)
+    - [7. Get your Maker Key](#7-get-your-maker-key)
+    - [8. Configure your Nightscout site](#8-configure-your-nightscout-site)
+    - [9. Configure the IFTTT mobile app](#9-configure-the-ifttt-mobile-app)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 **Table of Contents**
 
 - [Nightscout/IFTTT Maker](#nightscoutifttt-maker)
   - [Overview](#overview)
   - [Events](#events)
-  - [Configuration](#configuration)
-  - [Create a recipe](#create-a-recipe)
-    - [Start creating a recipe](#start-creating-a-recipe)
-    - [1. Choose a Trigger Channel](#1-choose-a-trigger-channel)
-    - [2. Choose a Trigger](#2-choose-a-trigger)
-    - [3. Complete Trigger Fields](#3-complete-trigger-fields)
-    - [4. That](#4-that)
-    - [5. Choose an Action](#5-choose-an-action)
-    - [6. Complete Action Fields](#6-complete-action-fields)
-    - [7. Create and Connect](#7-create-and-connect)
-    - [Result](#result)
-
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+  - [Creating an Applet](#creating-an-applet)
+    - [1. Choose a Service](#1.-Choose-a-Service)
+    - [2. Choose a Trigger](#2.-Choose-a-Trigger)
+    - [3. Complete the Trigger field](#3.-Complete-the-Trigger-field)
+    - [4. Create an Action](#4.-Create-an-Action)
+    - [5. Complete Action Fields](#5.-Complete-Action-Fields)
+    - [6. Review and Finish](#6.-Review-and-Finish)
+    - [7. Get your Maker Key](#7.-Get-your-Maker-Key)
+    - [8. Configure your Nightscout site](#8.-Configure-your-Nightscout-site)
+    - [9. Configure the IFTTT mobile app](#9.-Configure-the-IFTTT-mobile-app)
 
 Nightscout/IFTTT Maker
 ======================================
 
 ## Overview
 
- In addition to the normal web based alarms, and pushover, there is also integration for [IFTTT Maker](https://ifttt.com/maker).
-  
- With Maker you are able to integrate with all the other [IFTTT Channels](https://ifttt.com/channels).  For example you can send a tweet when there is an alarm, change the color of hue light, send an email, send and sms, and so much more.
- 
+In addition to Nightscout's web-based alarms, your site can also trigger push notifications (or other actions) through the [IFTTT Maker](https://ifttt.com/maker) service. With Maker you are able to integrate with all the other [IFTTT Services](https://ifttt.com/channels). For example, you can send a tweet when there is an alarm, change the color of a smart light, send an email, send a text, and much more.
+
+#### Note: There have been some recent reports of the IFTTT service delaying Nightscout alarms. Be sure to test your implementation before relying solely on its alerts. [Pushover](https://github.com/nightscout/cgm-remote-monitor/blob/dev/README.md#pushover) is an alternate push notification service that might be worth considering as well.
+
 ## Events
 
- Plugins can create custom events, but all events sent to maker will be prefixed with `ns-`.  The core events are:
+ Plugins can create custom events, but all events sent to Maker will be prefixed with `ns-`. The core events are:
 
-  * `ns-event` - This event is sent to the maker service for all alarms and notifications.  This is good catch all event for general logging.
-  * `ns-allclear` - This event is sent to the maker service when an alarm has been ack'd or when the server starts up without triggering any alarms.  For example, you could use this event to turn a light to green.
-  * `ns-info` - Plugins that generate notifications at the info level will cause this event to also be triggered.  It will be sent in addition to `ns-event`.
-  * `ns-warning` - Alarms at the warning level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
-  * `ns-urgent` - Alarms at the urgent level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
-  * `ns-warning-high` - Alarms at the warning level with cause this event to also be triggered.  It will be sent in addition to `ns-event` and `ns-warning`.
-  * `ns-urgent-high` - Alarms at the urgent level with cause this event to also be triggered.  It will be sent in addition to `ns-event` and `ns-urgent`.
-  * `ns-warning-low` - Alarms at the warning level with cause this event to also be triggered.  It will be sent in addition to `ns-event` and `ns-warning`.
-  * `ns-urgent-low` - Alarms at the urgent level with cause this event to also be triggered.  It will be sent in addition to `ns-event` and `ns-urgent`.
-  * `ns-info-treatmentnotify` - When a treatment is entered into the care portal this event is triggered.  It will be sent in addition to `ns-event` and `ns-info`.
-  * `ns-warning-bwp` - When the BWP plugin generates a warning alarm.  It will be sent in addition to `ns-event` and `ns-warning`.
-  * `ns-urgent-bwp` - When the BWP plugin generates an urgent alarm.  It will be sent in addition to `ns-event` and `ns-urget`.
+  * `ns-event` - This event is sent on *all* alarms and notifications. This is good catch-all event for general logging.
+  * `ns-allclear` - This event is sent when an alarm has been acknowledged or when the server starts up without triggering any alarms.  (For example, you could use this event to turn a light to green.)
+  * `ns-info` - All notifications at the `info` level will cause this event to be triggered.
+  * `ns-warning` - All notifications at the `warning` level will cause this event to be triggered.
+  * `ns-urgent` - All notifications at the `urgent` level will cause this event to be triggered.
+  * `ns-warning-high` - This event is triggered when crossing the `BG_TARGET_TOP` threshold.
+  * `ns-urgent-high` - This event is triggered when crossing the `BG_HIGH` threshold.
+  * `ns-warning-low` - This event is triggered when crossing the `BG_TARGET_BOTTOM` threshold.
+  * `ns-urgent-low` - This event is triggered when crossing the `BG_LOW` threshold.
+  * `ns-info-treatmentnotify` - This event is triggered when a treatment is entered into the `careportal`.
+  * `ns-warning-bwp` - This event is triggered when the `bwp` plugin generates a warning alarm.
+  * `ns-urgent-bwp` - This event is triggered when the `bwp` plugin generates an urgent alarm.
 
-## Configuration
+## Creating an Applet
+Set up an [IFTTT](https://ifttt.com/) account, and log into it.
 
- 1. Setup IFTTT account: [login](https://ifttt.com/login) or [create an account](https://ifttt.com/join)
- 2. Find your secret key on the [maker page](https://ifttt.com/maker)
- 3. Configure Nightscout by setting these environment variables:
-  * `ENABLE` - `maker` should be added to the list of plugin, for example: `ENABLE="maker"`.
-  * `MAKER_KEY` - Set this to your secret key that you located in step 2, for example: `MAKER_KEY="abcMyExampleabc123defjt1DeNSiftttmak-XQb69p"`
-  
-## Create a recipe
+### 1. Choose a Service
+On the "My Applets" page, click "New Applet", then click the blue `+this`. Search for "webhooks" among the services, and click it.
 
-### Start creating a recipe
-
-Use [https://ifttt.com/myrecipes/personal/new)] to create a new recipe
-
-![screen shot 2015-06-29 at 10 58 48 pm](https://cloud.githubusercontent.com/assets/751143/8425240/bab51986-1eb8-11e5-88fb-5aed311896be.png)
-
-### 1. Choose a Trigger Channel
-  ![screen shot 2015-06-29 at 10 59 01 pm](https://cloud.githubusercontent.com/assets/751143/8425243/c007ace6-1eb8-11e5-96d1-b13f9c3d071f.png)
+![service_search](./maker-setup-images/service_search.jpg)
 
 ### 2. Choose a Trigger
-  ![screen shot 2015-06-29 at 10 59 18 pm](https://cloud.githubusercontent.com/assets/751143/8425246/c77c5a4e-1eb8-11e5-9084-32ae40518ee0.png)
+Click on the "Receive a web request" box.
 
-### 3. Complete Trigger Fields
-  ![screen shot 2015-06-29 at 10 59 33 pm](https://cloud.githubusercontent.com/assets/751143/8425249/ced7b450-1eb8-11e5-95a3-730f6b9b2925.png)
+### 3. Complete the Trigger field
+Enter one of the Nightscout events listed above (like `ns-urgent-low`), and click "Create Trigger".
 
-### 4. That
-  ![screen shot 2015-06-29 at 10 59 46 pm](https://cloud.githubusercontent.com/assets/751143/8425251/d46e1dc8-1eb8-11e5-91be-8dc731e308b2.png)
+![set_trigger](./maker-setup-images/set_trigger.jpg)
   
-### 5. Choose an Action
-  ![screen shot 2015-06-29 at 11 00 12 pm](https://cloud.githubusercontent.com/assets/751143/8425254/de634844-1eb8-11e5-8f09-cd43c41ccf3f.png)
-  
-### 6. Complete Action Fields
-  **Example:** `Nightscout: {{Value1}} {{Value2}} {{Value3}}`
-  
-  ![screen shot 2015-06-29 at 11 02 14 pm](https://cloud.githubusercontent.com/assets/751143/8425267/f2da6dd4-1eb8-11e5-8e4d-cad2590d111f.png)
-  ![screen shot 2015-06-29 at 11 02 21 pm](https://cloud.githubusercontent.com/assets/751143/8425272/f83ceb62-1eb8-11e5-8ea2-afd4dcbd391f.png)
-  
-### 7. Create and Connect
-  ![screen shot 2015-06-29 at 11 02 43 pm](https://cloud.githubusercontent.com/assets/751143/8425277/fe52f618-1eb8-11e5-8d7f-e0b34eebe29a.png)
+### 4. Create an Action
+Click on the blue `+that`.
 
-### Result
-  ![cinpiqkumaa33u7](https://cloud.githubusercontent.com/assets/751143/8425925/e7d08d2c-1ebf-11e5-853c-cdc5381c4186.png)
+![blue_that](./maker-setup-images/blue_that.jpg)
 
- 
+Search for the action you'd like this event to trigger. In this example, we'll choose the `Notifications` action to send a push notification.
+
+![action_search](./maker-setup-images/action_search.jpg)
+
+Choose the "Send a notification from the IFTTT app" action type for a basic push alert. You can experiment with the "rich" notifications later.
+
+### 5. Complete Action Fields
+Enter the message that will display in this push notification. In this example, it was triggered on an `ns-urgent-low`, so we'll write something like "Urgent Low!". We can also display the current BG by including the `Value2` ingredient (via the "Add ingredient" button).
+
+Click the "Create action" button when you're done.
+
+![notification_message](./maker-setup-images/notification_message.jpg)
+
+### 6. Review and Finish
+Click the "Finish" button if your applet looks good.
+
+### 7. Get your Maker Key
+
+Click on "My Applets" in the main menu, then click the "Services" tab, then search for "Webhooks" and select it.
+
+![service_settings_search](./maker-setup-images/service_settings_search.jpg)
+
+Go to the `Settings` for this service, in the upper right.
+
+![webhooks_settings](./maker-setup-images/webhooks_settings.jpg)
+
+The string of characters at the end of the URL here is your `MAKER_KEY`. Copy it from there, so we can paste it into your Config Vars.
+
+![maker_key](./maker-setup-images/maker_key.jpg)
+
+### 8. Configure your Nightscout site
+From your [Heroku dashboard](https://dashboard.heroku.com), go to your app's Settings page, then click the "Reveal Config Vars" button. Find the `MAKER_KEY` entry, and edit its value, pasting in your Maker Key. If you don't already have a `MAKER_KEY` line, add it to the bottom of the list.
+
+![config_vars_maker](./maker-setup-images/config_vars_maker.jpg)
+
+Find your `ENABLE` line, and add `maker` to the list of enabled plugins.
+
+![config_vars_enable](./maker-setup-images/config_vars_enable.jpg)
+
+### 9. Configure the IFTTT mobile app
+That's all of the services complete. In order to receive push notifications on a mobile device, you'll need to have the IFTTT app installed and logged into the same account you set up the actions in.
+
+To add more alerts for different events, just create a new applet for each trigger.
+
