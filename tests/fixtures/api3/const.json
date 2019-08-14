@@ -2,6 +2,7 @@
   "YEAR_2019": 1546304400000,
   "YEAR_2050": 2524611600000,
   "TEST_APP": "cgm-remote-monitor.test",
+  "TEST_DEVICE": "Samsung XCover 4-123456735643809",
 
   "SAMPLE_ENTRIES": [
     {

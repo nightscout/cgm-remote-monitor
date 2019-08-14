@@ -1,3 +1,4 @@
+/* global should */
 'use strict';
 
 require('should');
@@ -7,7 +8,7 @@ describe('API3 SEARCH', function() {
     , testConst = require('./fixtures/api3/const.json')
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
-    , utils = require('./fixtures/api3/utils')
+    , opTools = require('../lib/api3/shared/operationTools')
     ;
 
   self.docs = testConst.SAMPLE_ENTRIES;
@@ -25,14 +26,14 @@ describe('API3 SEARCH', function() {
         should.not.exist(err);
         done(res.body);
       });
-  }
+  };
 
 
   /**
    * Create given document in a promise
    */
-  self.create = (doc) => new Promise((resolve, reject) => {
-    doc.identifier = utils.randomString('32', 'aA#');
+  self.create = (doc) => new Promise((resolve) => {
+    doc.identifier = opTools.calculateIdentifier(doc);
     self.instance.post(`${self.url}?token=${self.token.create}`)
       .send(doc)
       .expect(201)
@@ -230,7 +231,7 @@ describe('API3 SEARCH', function() {
               ascending[i].should.eql(descending[length - i - 1]);
 
               if (i > 0) {
-                ascending[i - 1].date <= ascending[i].date;
+                ascending[i - 1].date.should.be.lessThanOrEqual(ascending[i].date);
               }
             }
 
@@ -289,10 +290,10 @@ describe('API3 SEARCH', function() {
         
         res.body.forEach(doc => {
           Object.getOwnPropertyNames(doc).length.should.be.aboveOrEqual(10);
-          doc.hasOwnProperty('_id').should.not.be.true();
-          doc.hasOwnProperty('identifier').should.be.true();
-          doc.hasOwnProperty('srvModified').should.be.true();
-          doc.hasOwnProperty('srvCreated').should.be.true();
+          Object.prototype.hasOwnProperty.call(doc, '_id').should.not.be.true();
+          Object.prototype.hasOwnProperty.call(doc, 'identifier').should.be.true();
+          Object.prototype.hasOwnProperty.call(doc, 'srvModified').should.be.true();
+          Object.prototype.hasOwnProperty.call(doc, 'srvCreated').should.be.true();
         });
 
         done();

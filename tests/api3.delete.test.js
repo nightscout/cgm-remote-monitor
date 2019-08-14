@@ -1,13 +1,12 @@
+/* global should */
 'use strict';
 
 require('should');
 
 describe('API3 UPDATE', function() {
   const self = this
-    , testConst = require('./fixtures/api3/const.json')
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
-    , utils = require('./fixtures/api3/utils')
     ;
 
   self.timeout(15000);

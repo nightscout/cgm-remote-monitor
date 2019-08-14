@@ -1,3 +1,4 @@
+/* global should */
 'use strict';
 
 require('should');
@@ -7,17 +8,18 @@ describe('API3 PATCH', function() {
     , testConst = require('./fixtures/api3/const.json')
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
-    , utils = require('./fixtures/api3/utils')
+    , opTools = require('../lib/api3/shared/operationTools')
     ;
 
   self.validDoc = {
-    identifier: utils.randomString('32', 'aA#'),
     date: (new Date()).getTime(),
     utcOffset: -180,
     app: testConst.TEST_APP,
+    device: testConst.TEST_DEVICE,
     eventType: 'Correction Bolus',
     insulin: 0.3
   };
+  self.validDoc.identifier = opTools.calculateIdentifier(self.validDoc);
   
   self.timeout(15000);
 
@@ -32,7 +34,7 @@ describe('API3 PATCH', function() {
         should.not.exist(err);
         done(res.body);
       });
-  }
+  };
 
 
   before(done => {

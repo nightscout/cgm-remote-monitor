@@ -1,6 +1,6 @@
+/* global should */
 'use strict';
 
-const request = require('supertest');
 require('should');
 
 describe('Generic REST API3', function() {
@@ -8,22 +8,25 @@ describe('Generic REST API3', function() {
     , testConst = require('./fixtures/api3/const.json')
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
+    , opTools = require('../lib/api3/shared/operationTools')
     , utils = require('./fixtures/api3/utils')
     ;
 
-  self.identifier = utils.randomString('32', 'aA#'); // let's have a brand new identifier for your testing document
+  utils.randomString('32', 'aA#'); // let's have a brand new identifier for your testing document
   self.urlLastModified = '/api/v3/lastModified';
   self.historyTimestamp = 0;
 
   self.docOriginal = {
-    identifier: self.identifier,
     eventType: 'Correction Bolus',
     insulin: 1,
     date: (new Date()).getTime(),
-    app: testConst.TEST_APP
+    app: testConst.TEST_APP,
+    device: testConst.TEST_DEVICE
   };
+  self.identifier = opTools.calculateIdentifier(self.docOriginal);
+  self.docOriginal.identifier = self.identifier;
 
-  this.timeout(30000);
+    this.timeout(30000);
 
   before(done => {
     instance.create({ })
@@ -75,7 +78,7 @@ describe('Generic REST API3', function() {
         });
         done();
       });
-  }
+  };
 
 
   it('LAST MODIFIED to get actual server timestamp', done => {
@@ -90,7 +93,7 @@ describe('Generic REST API3', function() {
         }
         self.historyTimestamp.should.be.aboveOrEqual(testConst.YEAR_2019);
         done();
-      });;
+      });
   });
 
 
@@ -103,7 +106,7 @@ describe('Generic REST API3', function() {
         self.historyTimestamp = res.body.srvDate;
         self.historyTimestamp.should.be.aboveOrEqual(testConst.YEAR_2019);
         done();
-      });;
+      });
   });
 
 
@@ -185,7 +188,7 @@ describe('Generic REST API3', function() {
     self.instance.put(`${self.urlResource}?token=${self.token.update}`)
       .send(self.docActual)
       .expect(204)
-      .end((err, res) => {
+      .end((err) => {
         should.not.exist(err);
         self.docActual.subject = self.subject.apiUpdate.name;
         done();
@@ -296,11 +299,11 @@ describe('Generic REST API3', function() {
       .end((err, res) => {
         should.not.exist(err);
 
-        if (res.status == 200) {
+        if (res.status === 200) {
           res.body.should.matchEach(value => { 
             value.identifier.should.not.be.eql(self.identifier);
           });
-        } else if (res.status != 204) {
+        } else if (res.status !== 204) {
           should.fail();
         }
         done();

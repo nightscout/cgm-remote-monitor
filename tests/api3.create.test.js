@@ -1,3 +1,4 @@
+/* global should */
 'use strict';
 
 require('should');
@@ -7,16 +8,18 @@ describe('API3 CREATE', function() {
     , testConst = require('./fixtures/api3/const.json')
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
+    , opTools = require('../lib/api3/shared/operationTools')
     , utils = require('./fixtures/api3/utils')
     ;
 
   self.validDoc = {
-    identifier: utils.randomString('32', 'aA#'),
     date: (new Date()).getTime(),
     app: testConst.TEST_APP,
+    device: testConst.TEST_DEVICE,
     eventType: 'Correction Bolus',
     insulin: 0.3
   };
+  self.validDoc.identifier = opTools.calculateIdentifier(self.validDoc);
 
   self.timeout(20000);
 
@@ -31,7 +34,7 @@ describe('API3 CREATE', function() {
         should.not.exist(err);
         done(err);
       });
-  }
+  };
 
 
   /**
@@ -44,7 +47,20 @@ describe('API3 CREATE', function() {
         should.not.exist(err);
         done(res.body);
       });
-  }
+  };
+
+
+  /**
+   * Get document detail for futher processing
+   */
+  self.search = function search (date, done) {
+    self.instance.get(`${self.url}?date$eq=${date}&token=${self.token.read}`)
+      .expect(200)
+      .end((err, res) => {
+        should.not.exist(err);
+        done(res.body);
+      });
+  };
 
 
   before(done => {
@@ -448,7 +464,7 @@ describe('API3 CREATE', function() {
     });
     delete doc.identifier;
 
-    self.instance.ctx.treatments.create([doc], (err, docs) => {  // let's insert the document in APIv1's way
+    self.instance.ctx.treatments.create([doc], (err) => {  // let's insert the document in APIv1's way
       should.not.exist(err);
 
       self.get(doc._id, oldBody => {
@@ -524,5 +540,63 @@ describe('API3 CREATE', function() {
   });
 
 
+  it('should calculate the identifier', done => {
+    self.validDoc.date = (new Date()).getTime();
+    delete self.validDoc.identifier;
+    const validIdentifier = opTools.calculateIdentifier(self.validDoc);
+
+    self.instance.post(self.urlToken)
+      .send(self.validDoc)
+      .expect(201)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.should.be.empty();
+        res.headers.location.should.equal(`${self.url}/${validIdentifier}`);
+        self.validDoc.identifier = validIdentifier;
+
+        self.get(validIdentifier, body => {
+          body.should.containEql(self.validDoc);
+          self.delete(validIdentifier, done);
+        });
+    });
+  });
+
+
+  it('should deduplicate by identifier calculation', done => {
+    self.validDoc.date = (new Date()).getTime();
+    delete self.validDoc.identifier;
+    const validIdentifier = opTools.calculateIdentifier(self.validDoc);
+
+    self.instance.post(self.urlToken)
+      .send(self.validDoc)
+      .expect(201)
+      .end((err, res) => {
+        should.not.exist(err);
+        res.body.should.be.empty();
+        res.headers.location.should.equal(`${self.url}/${validIdentifier}`);
+        self.validDoc.identifier = validIdentifier;
+
+        self.get(validIdentifier, body => {
+          body.should.containEql(self.validDoc);
+
+          delete self.validDoc.identifier;
+          self.instance.post(`${self.url}?token=${self.token.update}`)
+            .send(self.validDoc)
+            .expect(204)
+            .end((err, res) => {
+              should.not.exist(err);
+              res.body.should.be.empty();
+              res.headers.location.should.equal(`${self.url}/${validIdentifier}`);
+              self.validDoc.identifier = validIdentifier;
+
+              self.search(self.validDoc.date, body => {
+                body.length.should.equal(1);
+
+                self.delete(validIdentifier, done);
+              });
+            });
+        });
+      });
+  });
 });
 

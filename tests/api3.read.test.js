@@ -1,3 +1,4 @@
+/* global should */
 'use strict';
 
 require('should');
@@ -7,16 +8,16 @@ describe('API3 READ', function() {
     , testConst = require('./fixtures/api3/const.json')
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
-    , utils = require('./fixtures/api3/utils')
+    , opTools = require('../lib/api3/shared/operationTools')
     ;
 
   self.validDoc = {
-    identifier: utils.randomString('32', 'aA#'),
     date: (new Date()).getTime(),
     app: testConst.TEST_APP,
-    device: 'openaps://samsung SM-J320FN',
+    device: testConst.TEST_DEVICE,
     uploaderBattery: 58
   };
+  self.validDoc.identifier = opTools.calculateIdentifier(self.validDoc);
 
   self.timeout(15000);
 
@@ -204,7 +205,7 @@ describe('API3 READ', function() {
     });
     delete doc.identifier;
 
-    self.instance.ctx.devicestatus.create([doc], (err, docs) => {  // let's insert the document in APIv1's way
+    self.instance.ctx.devicestatus.create([doc], (err) => {  // let's insert the document in APIv1's way
       should.not.exist(err);
       const identifier = doc._id.toString();
       delete doc._id;
