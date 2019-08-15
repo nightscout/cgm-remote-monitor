@@ -34,12 +34,10 @@ describe('API3 SEARCH', function() {
    */
   self.create = (doc) => new Promise((resolve) => {
     doc.identifier = opTools.calculateIdentifier(doc);
-    self.instance.post(`${self.url}?token=${self.token.create}`)
+    self.instance.post(`${self.url}?token=${self.token.all}`)
       .send(doc)
-      .expect(201)
-      .end((err, res) => {
+      .end((err) => {
         should.not.exist(err);
-        res.body.should.be.empty();
         self.get(doc.identifier, resolve);
       });
   });
@@ -61,7 +59,7 @@ describe('API3 SEARCH', function() {
         self.subject = result.subject;
         self.token = result.token;
         self.urlToken = `${self.url}?token=${self.token.read}`;
-        self.urlTest = `${self.urlToken}&srvCreated$gte=${self.testStarted.getTime()}`;
+        self.urlTest = `${self.urlToken}&srvModified$gte=${self.testStarted.getTime()}`;
 
         const promises = testConst.SAMPLE_ENTRIES.map(doc => self.create(doc));
         Promise.all(promises)
