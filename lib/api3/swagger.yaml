@@ -415,7 +415,7 @@ paths:
         Every insertion, update and deletion will be included in the resulting JSON array of documents (since timestamp in `Last-Modified` request header value). All changes are listed chronologically in response with 200 HTTP status code. The maximum listed `srvModified` timestamp is also stored in `Last-Modified` and `ETag` response headers that you can use for future, directly following synchronization. You can also limit the array's length using `limit` parameter.
 
 
-        Deleted documents will appear blankened, i.e. only with `identifier`, `srvModified` and `isValid` (= `false`) fields.
+        Deleted documents will appear with `isValid` = `false` field.
 
 
         When there is no change detected since the timestamp the operation ends with 204 HTTP status code and empty response content.
@@ -938,7 +938,7 @@ components:
         Location of document - the relative part of URL. This can be used to parse the identifier
         of just created document.
 
-        Example=/treatments/53409478-105f-11e9-ab14-d663bd873d93
+        Example=/api/v3/treatments/53409478-105f-11e9-ab14-d663bd873d93
 
     headerLastModified:
       type: string
@@ -993,34 +993,16 @@ components:
             Main addressing, required field that identifies document in the collection.
 
 
-            It is imperative that client create a new identificator for each new document before posting to Nightscout or passing to other application. New identificator must be unique within the collection, so for the best practise UUIDv5 should be generated combining device hardware ID and device's timestamp.
+            The client should not create the identifier, the server automatically assigns it when the document is inserted.
 
 
-            `const uuidv5 = require('uuid/v5');`
+            The server calculates the identifier in such a way that duplicate records are automatically merged (deduplicating is made by `date`, `device` and `eventType` fields).
 
 
-            `const ns = '4e696768-7473-636f-7574-526f636b7321'; // official NS namespace`
+            The best practise for all applications is not to loose identifiers from received documents, but save them carefully for other consumer applications/systems.
 
 
-            `let key = doc.device + '|' + doc.date;`
-
-
-            `if (doc.eventType) {`
-
-
-            &nbsp;&nbsp;`key = key + '|' + doc.eventType;`
-
-
-            `}`
-
-
-            `doc.identifier = uuidv5(key, ns);`
-
-
-            Having identifier right from the start is crucial for duplicates preventing. And it is also very important for all applications not to lose identifier from received documents, but save it carefully for other consumer applications/systems.
-
-
-            API v3 has a fallback mechanism in place, for documents without `identifier` field the `identifier` is set to internal `_id`, when reading or addressing the documents.
+            API v3 has a fallback mechanism in place, for documents without `identifier` field the `identifier` is set to internal `_id`, when reading or addressing these documents.
 
 
             Note&#58; this field is immutable by the client (it cannot be updated or patched)
@@ -1148,7 +1130,6 @@ components:
 
 
       required:
-        - identifier
         - date
         - app
 

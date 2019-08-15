@@ -115,24 +115,14 @@ Sample result:
 Sample POST `/treatments` client code:
 ```javascript
 const request = require('request');
-const uuidv5 = require('uuid/v5');
 const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
 const doc = {
   date: 1564591511232, // (new Date()).getTime(),
   app: 'AndroidAPS',
-  device: 'Samsung XCover 4',
+  device: 'Samsung XCover 4-861536030196001',
   eventType: 'Correction Bolus',
   insulin: 0.3
 };
-// let's create "deduplication ready" identifier, combining
-// originating device + timestamp + treatment type
-let key = doc.device + '|' + doc.date;
-if (doc.eventType) {
-  key += '|' + doc.eventType;
-}
-const ns = Buffer.from("NightscoutRocks!", "ascii"); // official namespace for NS :-)
-doc.identifier = uuidv5(key, [...ns]);
-
 request({
     method: 'post',
     body: doc,
@@ -143,7 +133,7 @@ request({
 ```
 Sample result:
 ```
-/api/v3/treatments/f735c0d3-919e-5feb-979e-608bc12334b0
+/api/v3/treatments/95e1a6e3-1146-5d6a-a3f1-41567cae0895
 ```
 
 
@@ -156,7 +146,7 @@ Sample GET `/treatments/{identifier}` client code:
 ```javascript
 const request = require('request');
 const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
-const identifier = 'f735c0d3-919e-5feb-979e-608bc12334b0';
+const identifier = '95e1a6e3-1146-5d6a-a3f1-41567cae0895';
 
 request(`https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}?${auth}`,
   (error, response, body) => console.log(body));
@@ -166,10 +156,10 @@ Sample result:
 {  
   "date":1564591511232,
   "app":"AndroidAPS",
-  "device":"Samsung XCover 4",
+  "device":"Samsung XCover 4-861536030196001",
   "eventType":"Correction Bolus",
   "insulin":0.3,
-  "identifier":"f735c0d3-919e-5feb-979e-608bc12334b0",
+  "identifier":"95e1a6e3-1146-5d6a-a3f1-41567cae0895",
   "utcOffset":0,
   "created_at":"2019-07-31T16:45:11.232Z",
   "srvModified":1564591627732,
@@ -215,11 +205,11 @@ Sample PUT `/treatments/{identifier}` client code (to update `insulin` from 0.3 
 ```javascript
 const request = require('request');
 const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
-const identifier = 'f735c0d3-919e-5feb-979e-608bc12334b0';
+const identifier = '95e1a6e3-1146-5d6a-a3f1-41567cae0895';
 const doc = {
   date: 1564591511232,
   app: 'AndroidAPS',
-  device: 'Samsung XCover 4',
+  device: 'Samsung XCover 4-861536030196001',
   eventType: 'Correction Bolus',
   insulin: 0.4
 };
@@ -247,7 +237,7 @@ Sample PATCH `/treatments/{identifier}` client code (to update `insulin` from 0.
 ```javascript
 const request = require('request');
 const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
-const identifier = 'f735c0d3-919e-5feb-979e-608bc12334b0';
+const identifier = '95e1a6e3-1146-5d6a-a3f1-41567cae0895';
 const doc = {
   insulin: 0.5
 };
@@ -275,7 +265,7 @@ Sample DELETE `/treatments/{identifier}` client code (to update `insulin` from 0
 ```javascript
 const request = require('request');
 const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
-const identifier = 'f735c0d3-919e-5feb-979e-608bc12334b0';
+const identifier = '95e1a6e3-1146-5d6a-a3f1-41567cae0895';
 
 request({
     method: 'delete',
@@ -309,12 +299,12 @@ Sample result:
   {
     "date":1564521267421,
     "app":"AndroidAPS",
-    "device":"Samsung XCover 4",
+    "device":"Samsung XCover 4-861536030196001",
     "eventType":"Correction Bolus",
     "insulin":0.5,
     "utcOffset":0,
     "created_at":"2019-07-30T21:14:27.421Z",
-    "identifier":"f735c0d3-919e-5feb-979e-608bc12334b0",
+    "identifier":"95e1a6e3-1146-5d6a-a3f1-41567cae0895",
     "srvModified":1564592440416,
     "srvCreated":1564592334853,
     "subject":"test-admin",
@@ -324,10 +314,10 @@ Sample result:
   {
     "date":1564592545299,
     "app":"AndroidAPS",
-    "device":"Samsung XCover 4",
+    "device":"Samsung XCover 4-861536030196001",
     "eventType":"Snack Bolus",
     "carbs":10,
-    "identifier":"f75b6f4e-a6c9-56bd-b07c-e03c2047f0c6",
+    "identifier":"267c43c2-f629-5191-a542-4f410c69e486",
     "utcOffset":0,
     "created_at":"2019-07-31T17:02:25.299Z",
     "srvModified":1564592545781,

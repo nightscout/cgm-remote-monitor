@@ -116,7 +116,6 @@
     "env-cmd": "^8.0.2",
     "eslint": "^6.0.1",
     "eslint-loader": "^2.1.2",
-    "eslint-plugin-mocha": "^6.0.0",
     "istanbul": "^0.4.5",
     "mocha": "^5.2.0",
     "nodemon": "^1.19.0",
