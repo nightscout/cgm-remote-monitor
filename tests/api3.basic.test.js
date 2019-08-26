@@ -11,18 +11,10 @@ describe('Basic REST API3', function() {
 
   this.timeout(15000);
 
-  before(function (done) {
-    instance.create({})
-
-      .then(instance => {
-        self.instance = instance;
-        self.app = instance.app;
-        self.env = instance.env;
-        done();
-      })
-      .catch(err => {
-        done(err);
-      })
+  before(async () => {
+    self.instance = await instance.create({});
+    self.app = self.instance.app;
+    self.env = self.instance.env;
   });
 
 
@@ -31,31 +23,26 @@ describe('Basic REST API3', function() {
   });
 
 
-  it('GET /swagger', done => {
-    request(self.app)
+  it('GET /swagger', async () => {
+    let res = await request(self.app)
       .get('/api/v3/swagger.yaml')
-      .expect(200)
-      .end((err, res) =>  {
-        res.header['content-length'].should.be.above(0);
-        done();
-      });
+      .expect(200);
+
+    res.header['content-length'].should.be.above(0);
   });
 
 
-  it('GET /version', done => {
-    request(self.app)
+  it('GET /version', async () => {
+    let res = await request(self.app)
       .get('/api/v3/version')
-      .expect(200)
-      .end((err, res) => {
-        const apiConst = require('../lib/api3/const.json')
-          , software = require('../package.json');
+      .expect(200);
 
-        res.body.version.should.equal(software.version);
-        res.body.apiVersion.should.equal(apiConst.API3_VERSION);
-        res.body.srvDate.should.be.within(testConst.YEAR_2019, testConst.YEAR_2050);
+    const apiConst = require('../lib/api3/const.json')
+      , software = require('../package.json');
 
-        done();
-      });
+    res.body.version.should.equal(software.version);
+    res.body.apiVersion.should.equal(apiConst.API3_VERSION);
+    res.body.srvDate.should.be.within(testConst.YEAR_2019, testConst.YEAR_2050);
   });
 
 });

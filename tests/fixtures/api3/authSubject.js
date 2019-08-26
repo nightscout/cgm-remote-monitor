@@ -8,7 +8,7 @@ function configure (authStorage) {
     
     return new Promise((resolve, reject) => {
 
-      let role = _.find(authStorage.roles, { name })
+      let role = _.find(authStorage.roles, { name });
 
       if (role) {
         resolve(role);
@@ -36,7 +36,7 @@ function configure (authStorage) {
     return new Promise((resolve, reject) => {
 
       const subjectDbName = 'test-' + subjectName;
-      let subject = _.find(authStorage.subjects, { name: subjectDbName })
+      let subject = _.find(authStorage.subjects, { name: subjectDbName });
 
       if (subject) {
         resolve(subject);
@@ -59,37 +59,44 @@ function configure (authStorage) {
   }
 
 
-  return new Promise(async function (resolve, reject) {
-    await createRole('apiAll', 'api:*:*');
-    await createRole('apiAdmin', 'api:*:admin');
-    await createRole('apiCreate', 'api:*:create');
-    await createRole('apiRead', 'api:*:read');
-    await createRole('apiUpdate', 'api:*:update');
-    await createRole('apiDelete', 'api:*:delete');
+  return new Promise(function (resolve, reject) {
+    (async () => {
+      try {
+        await createRole('apiAll', 'api:*:*');
+        await createRole('apiAdmin', 'api:*:admin');
+        await createRole('apiCreate', 'api:*:create');
+        await createRole('apiRead', 'api:*:read');
+        await createRole('apiUpdate', 'api:*:update');
+        await createRole('apiDelete', 'api:*:delete');
 
-    const subject = { 
-      apiAll: await createTestSubject('apiAll', [ 'apiAll' ]),
-      apiAdmin: await createTestSubject('apiAdmin', [ 'apiAdmin' ]),
-      apiCreate: await createTestSubject('apiCreate', [ 'apiCreate' ]),
-      apiRead: await createTestSubject('apiRead', [ 'apiRead' ]),
-      apiUpdate: await createTestSubject('apiUpdate', [ 'apiUpdate' ]),
-      apiDelete: await createTestSubject('apiDelete', [ 'apiDelete' ]),
-      admin: await createTestSubject('admin', [ 'admin' ]),
-      readable: await createTestSubject('readable', [ 'readable' ]),
-      denied: await createTestSubject('denied', [ 'denied' ])
-    };
+        const subject = {
+          apiAll: await createTestSubject('apiAll', [ 'apiAll' ]),
+          apiAdmin: await createTestSubject('apiAdmin', [ 'apiAdmin' ]),
+          apiCreate: await createTestSubject('apiCreate', [ 'apiCreate' ]),
+          apiRead: await createTestSubject('apiRead', [ 'apiRead' ]),
+          apiUpdate: await createTestSubject('apiUpdate', [ 'apiUpdate' ]),
+          apiDelete: await createTestSubject('apiDelete', [ 'apiDelete' ]),
+          admin: await createTestSubject('admin', [ 'admin' ]),
+          readable: await createTestSubject('readable', [ 'readable' ]),
+          denied: await createTestSubject('denied', [ 'denied' ])
+        };
 
-    const token = {
-      all: subject.apiAll.accessToken,
-      admin: subject.apiAdmin.accessToken,
-      create: subject.apiCreate.accessToken,
-      read: subject.apiRead.accessToken,
-      update: subject.apiUpdate.accessToken,
-      delete: subject.apiDelete.accessToken,
-      denied: subject.denied.accessToken
-    }
+        const token = {
+          all: subject.apiAll.accessToken,
+          admin: subject.apiAdmin.accessToken,
+          create: subject.apiCreate.accessToken,
+          read: subject.apiRead.accessToken,
+          update: subject.apiUpdate.accessToken,
+          delete: subject.apiDelete.accessToken,
+          denied: subject.denied.accessToken
+        };
 
-    resolve({ subject, token });
+        resolve({ subject, token });
+      }
+      catch (err) {
+        reject(err);
+      }
+    })();
   });
 }
 
