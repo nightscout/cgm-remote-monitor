@@ -11,7 +11,7 @@ var fs = require('fs')
   ;
 
 function configure () {
-  var self = { };
+  const self = { };
 
   self.prepareEnv = function prepareEnv({ apiSecret, useHttps, authDefaultRoles, enable }) {
 
@@ -37,7 +37,7 @@ function configure () {
     env.settings.enable = enable;
 
     return env;
-  }
+  };
 
 
   self.addSecuredOperations = function addSecuredOperations (instance) {
@@ -51,7 +51,7 @@ function configure () {
     instance.patch = (url) => request(instance.baseUrl).patch(url).set('Date', new Date().toUTCString());
 
     instance.delete = (url) => request(instance.baseUrl).delete(url).set('Date', new Date().toUTCString());
-  }
+  };
 
 
   self.bindSocket = function bindSocket (storageSocket, instance) {
@@ -76,14 +76,14 @@ function configure () {
         });
       }
     });
-  }
+  };
 
 
   self.unbindSocket = function unbindSocket (instance) {
     if (instance.clientSocket.connected) {
       instance.clientSocket.disconnect();
     }
-  }
+  };
 
   /*
    * Create new web server instance for testing purposes
@@ -102,6 +102,7 @@ function configure () {
       try {
         let instance = { },
           hasBooted = false
+          ;
 
         instance.env = self.prepareEnv({ apiSecret, useHttps, authDefaultRoles, enable });
 
@@ -154,7 +155,7 @@ function configure () {
         reject(err);
       }
     });
-  }
+  };
 
   return self;
 }

@@ -1,4 +1,4 @@
-/* global should */
+/* eslint require-atomic-updates: 0 */
 'use strict';
 
 require('should');
@@ -12,26 +12,18 @@ describe('API3 UPDATE', function() {
   self.timeout(15000);
 
 
-  before(done => {
-    instance.create({})
+  before(async () => {
+    self.instance = await instance.create({});
 
-      .then(instance => {
-        self.instance = instance;
-        self.app = instance.app;
-        self.env = instance.env;
+    self.app = self.instance.app;
+    self.env = self.instance.env;
+    self.url = '/api/v3/treatments';
 
-        self.url = '/api/v3/treatments';
-        return authSubject(instance.ctx.authorization.storage);
-      })
-      .then(result => {
-        self.subject = result.subject;
-        self.token = result.token;
-        self.urlToken = `${self.url}?token=${self.token.delete}`;
-        done();
-      })
-      .catch(err => {
-        done(err);
-      })
+    let authResult = await authSubject(self.instance.ctx.authorization.storage);
+
+    self.subject = authResult.subject;
+    self.token = authResult.token;
+    self.urlToken = `${self.url}?token=${self.token.delete}`;
   });
 
 
@@ -40,29 +32,22 @@ describe('API3 UPDATE', function() {
   });
 
 
-  it('should require authentication', done => {
-    self.instance.delete(`${self.url}/FAKE_IDENTIFIER`)
-      .expect(401)
-      .end((err, res) => {
-        should.not.exist(err);
-        res.body.status.should.equal(401);
-        res.body.message.should.equal('Missing or bad access token or JWT');
-        done();
-      });
+  it('should require authentication', async () => {
+    let res = await self.instance.delete(`${self.url}/FAKE_IDENTIFIER`)
+      .expect(401);
+
+    res.body.status.should.equal(401);
+    res.body.message.should.equal('Missing or bad access token or JWT');
   });
 
 
-  it('should not found not existing collection', done => {
-    self.instance.delete(`/api/v3/NOT_EXIST?token=${self.url}`)
+  it('should not found not existing collection', async () => {
+    let res = await self.instance.delete(`/api/v3/NOT_EXIST?token=${self.url}`)
       .send(self.validDoc)
-      .expect(404)
-      .end((err, res) => {
-        should.not.exist(err);
-        res.body.should.be.empty();
-        done();
-      });
-  });
+      .expect(404);
 
+    res.body.should.be.empty();
+  });
 
 });
 

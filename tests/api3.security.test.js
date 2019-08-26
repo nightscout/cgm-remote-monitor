@@ -16,6 +16,7 @@ describe('Security of REST API3', function() {
 
   this.timeout(30000);
 
+
   before(async () => {
     self.http = await instance.create({ useHttps: false });
     self.https = await instance.create({ });

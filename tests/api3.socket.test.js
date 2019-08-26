@@ -1,6 +1,7 @@
+/* eslint require-atomic-updates: 0 */
+/* global should */
 'use strict';
 
-const request = require('supertest');
 require('should');
 
 describe('Socket.IO in REST API3', function() {
@@ -24,31 +25,23 @@ describe('Socket.IO in REST API3', function() {
 
   this.timeout(30000);
 
-  before(done => {
-    instance.create({
+  before(async () => {
+    self.instance = await instance.create({
       storageSocket: true
-    })
-    .then(instance => {
-      self.instance = instance;
-      self.app = instance.app;
-      self.env = instance.env;
+    });
 
-      self.colName = 'treatments';
-      self.urlCol = `/api/v3/${self.colName}`;
-      self.urlResource = self.urlCol + '/' + self.identifier;
-      self.urlHistory = self.urlCol + '/history';
+    self.app = self.instance.app;
+    self.env = self.instance.env;
+    self.colName = 'treatments';
+    self.urlCol = `/api/v3/${self.colName}`;
+    self.urlResource = self.urlCol + '/' + self.identifier;
+    self.urlHistory = self.urlCol + '/history';
 
-      return authSubject(instance.ctx.authorization.storage);
-    })
-    .then(result => {
-      self.subject = result.subject;
-      self.token = result.token;
-      self.socket = self.instance.clientSocket;
-      done();
-    })
-    .catch(err => {
-      done(err);
-    })
+    let authResult = await authSubject(self.instance.ctx.authorization.storage);
+
+    self.subject = authResult.subject;
+    self.token = authResult.token;
+    self.socket = self.instance.clientSocket;
   });
 
 
@@ -95,7 +88,7 @@ describe('Socket.IO in REST API3', function() {
       collections: cols
     }, function (data) {
       data.success.should.equal(true);
-      should(data.collections.sort()).be.eql(cols)
+      should(data.collections.sort()).be.eql(cols);
       done();
     });
   });
@@ -180,7 +173,6 @@ describe('Socket.IO in REST API3', function() {
         should.not.exist(err);
       });
   });
-
 
 });
 
