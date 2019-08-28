@@ -63,7 +63,7 @@ img#arrow {
 
 .close {
   color: white;
-  font: 4em Open Sans;
+  font: 4em 'Open Sans';
   position: absolute;
   right: 20px;
   text-decoration: none;
