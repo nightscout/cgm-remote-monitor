@@ -73,10 +73,6 @@ img#arrow {
   content: '\00D7';
 }
 
-.visible {
-  opacity: 1;
-}
-
 .hidden {
   opacity: 0;
   transition: opacity 0.5s linear;
