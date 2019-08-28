@@ -25,7 +25,7 @@
 </head>
 
 <body>
-  <a href="/"><div id="close">X</div></a>
+  <a href="/" id="closeButton" class="close hidden"></a>
   <main>
     <div class="inner">
       <div id="trend">
@@ -65,6 +65,13 @@
     script.src = src;
 
     document.head.appendChild(script); //or something of the likes
+    
+    window.addEventListener('touchstart', function() {
+      document.getElementById('closeButton').classList.remove('hidden');
+      setTimeout(function(){
+        document.getElementById('closeButton').classList.add('hidden');
+      }, 2000);
+    });
   </script>
 </body>
 </html>
