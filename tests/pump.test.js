@@ -254,7 +254,7 @@ describe('pump', function ( ) {
     done();
   });
 
-  it('should handle alexa requests', function (done) {
+  it('should handle virtAsst requests', function (done) {
     var ctx = {
       settings: {
         units: 'mg/dl'
@@ -266,13 +266,13 @@ describe('pump', function ( ) {
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
     pump.setProperties(sbx);
 
-    pump.alexa.intentHandlers.length.should.equal(2);
+    pump.virtAsst.intentHandlers.length.should.equal(2);
 
-    pump.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+    pump.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Remaining insulin');
       response.should.equal('You have 86.4 units remaining');
 
-      pump.alexa.intentHandlers[1].intentHandler(function next(title, response) {
+      pump.virtAsst.intentHandlers[1].intentHandler(function next(title, response) {
         title.should.equal('Pump battery');
         response.should.equal('Your pump battery is at 1.52 volts');
         done();
