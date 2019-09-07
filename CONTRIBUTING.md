@@ -223,7 +223,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | [`direction` (BG Direction)](README.md#direction-bg-direction)| Please volunteer | Please volunteer |
 | [`errorcodes` (CGM Error Codes)](README.md#errorcodes-cgm-error-codes)| Please volunteer | Please volunteer |
 | [`food` (Custom Foods)](README.md#food-custom-foods)| Please volunteer | Please volunteer |
-| [`googlehome` (Google Home/DialogFLow)](README.md#googlehome-google-homedialogflow)| [@mdomox] [@rickfriele] [@inventor96] | [@mcdafydd] [@oteroos] [@jamieowendexcom] | 
+| [`googlehome` (Google Home/DialogFlow)](README.md#googlehome-google-homedialogflow)| [@mdomox] [@rickfriele] [@inventor96] | [@mcdafydd] [@oteroos] [@jamieowendexcom] | 
 | [`iage` (Insulin Age)](README.md#iage-insulin-age)| Please volunteer | Please volunteer |
 | [`iob` (Insulin-on-Board)](README.md#iob-insulin-on-board)| Please volunteer | Please volunteer |
 | [`loop` (Loop)](README.md#loop-loop)| Please volunteer | Please volunteer |
