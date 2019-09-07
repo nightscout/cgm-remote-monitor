@@ -232,7 +232,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | [`profile` (Treatment Profile)](README.md#profile-treatment-profile)| Please volunteer | Please volunteer |
 | [`pump` (Pump Monitoring)](README.md#pump-pump-monitoring)| Please volunteer | Please volunteer |
 | [`rawbg` (Raw BG)](README.md#rawbg-raw-bg)| [@jpcunningh] | Please volunteer |
-| [`sage` (Sensor Age)](README.md#sage-sensor-age)| @jpcunningh | Please volunteer |
+| [`sage` (Sensor Age)](README.md#sage-sensor-age)| [@jpcunningh] | Please volunteer |
 | [`simplealarms` (Simple BG Alarms)](README.md#simplealarms-simple-bg-alarms)| Please volunteer | Please volunteer |
 | [`speech` (Speech)](README.md#speech-speech)| [@sulkaharo] | Please volunteer |
 | [`timeago` (Time Ago)](README.md#timeago-time-ago)| Please volunteer | Please volunteer |
