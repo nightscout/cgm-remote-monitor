@@ -32,3 +32,7 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 7. SAVE
 8. Go to "Integration" menu and select your desired integration.
 9. Follow instructions for each desired integration.
+
+## Adding Google Home support to a plugin
+
+See [Adding Virtual Assistant Support to a Plugin](add-virtual-assistant-support-to-plugin.md)

@@ -41,9 +41,9 @@ To add Alexa support for a plugin, [check this out](#adding-alexa-support-to-a-p
 
 ### Get an Amazon Developer account
 
-- Sign up for a free [Amazon Developer account](https://developer.amazon.com/) if you don't already have one.
-- [Register](https://developer.amazon.com/docs/devconsole/test-your-skill.html#h2_register) your Alexa-enabled device with your Developer account.
-- Sign in and go to the [Alexa developer portal](https://developer.amazon.com/alexa). 
+1. Sign up for a free [Amazon Developer account](https://developer.amazon.com/) if you don't already have one.
+1. [Register](https://developer.amazon.com/docs/devconsole/test-your-skill.html#h2_register) your Alexa-enabled device with your Developer account.
+1. Sign in and go to the [Alexa developer portal](https://developer.amazon.com/alexa). 
 
 ### Create a new Alexa skill
 
@@ -291,59 +291,4 @@ If your device is [registered](https://developer.amazon.com/docs/devconsole/test
 
 ## Adding Alexa support to a plugin
 
-This document assumes some familiarity with the Alexa interface. You can find more information [here](https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/getting-started-guide).
-
-To add alexa support to a plugin the ``init`` should return an object that contains an "alexa" key. Here is an example:
-
-```javascript
-var iob = {
-    name: 'iob'
-    , label: 'Insulin-on-Board'
-    , pluginType: 'pill-major'
-    , alexa : {
-      rollupHandlers: [{
-        rollupGroup: "Status"
-        , rollupName: "current iob"
-        , rollupHandler: alexaIOBRollupHandler
-      }]
-      , intentHandlers: [{
-        intent: "MetricNow"
-        , routableSlot: "metric"
-        , slots: ["iob", "insulin on board"]
-        , intentHandler: alexaIOBIntentHandler
-      }]
-    }
-};
-```
-
-There are 2 types of handlers that you will need to supply: 
-* Intent handler - enables you to "teach" Alexa how to respond to a user's question. 
-* A rollup handler - enables you to create a command that aggregates information from multiple plugins. This would be akin to the Alexa "flash briefing". An example would be a status report that contains your current bg, iob, and your current basal.
- 
-### Intent Handlers
-
-A plugin can expose multiple intent handlers.
-+ ``intent`` - this is the intent in the "intent schema" above
-+ ``routeableSlot`` - This enables routing by a slot name to the appropriate intent handler for overloaded intents e.g. "What is my <metric>" - iob, bg, cob, etc. This value should match the slot named in the "intent schema"
-+ ``slots`` - These are the values of the slots. Make sure to add these values to the appropriate custom slot
-+ ``intenthandler`` - this is a callback function that receives 3 arguments
-    - ``callback`` Call this at the end of your function. It requires 2 arguments
-        - ``title`` - Title of the handler. This is the value that will be displayed on the Alexa card
-        - ``text`` - This is text that Alexa should speak.
-    - ``slots`` - these are the slots that Alexa detected
-    - ``sandbox`` - This is the nightscout sandbox that allows access to various functions.
-
-### Rollup handlers
-
-A plugin can also expose multiple rollup handlers
-+ ``rollupGroup`` - This is the key that is used to aggregate the responses when the intent is invoked
-+ ``rollupName`` - This is the name of the handler. Primarily used for debugging
-+ ``rollupHandler`` - this is a callback function that receives 3 arguments
-    - ``slots`` - These are the values of the slots. Make sure to add these values to the appropriate custom slot 
-    - ``sandbox`` - This is the nightscout sandbox that allows access to various functions.
-    - ``callback`` -
-        - ``error`` - This would be an error message
-        - ``response`` - A simple object that expects a ``results`` string and a ``priority`` integer. Results should be the text (speech) that is added to the rollup and priority affects where in the rollup the text should be added. The lowest priority is spoken first. An example callback:
-            ```javascript
-            callback(null, {results: "Hello world", priority: 1});
-            ```
+See [Adding Virtual Assistant Support to a Plugin](add-virtual-assistant-support-to-plugin.md)
