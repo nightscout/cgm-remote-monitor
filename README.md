@@ -97,7 +97,7 @@ Community maintained fork of the
         - [`openaps` (OpenAPS)](#openaps-openaps)
         - [`loop` (Loop)](#loop-loop)
         - [`override` (Override Mode)](#override-override-mode)
-        - [`xdrip-js` (xDrip-js)](#xdrip-js-xdrip-js)
+        - [`xdripjs` (xDrip-js)](#xdripjs-xdripjs)
         - [`alexa` (Amazon Alexa)](#alexa-amazon-alexa)
         - [`speech` (Speech)](#speech-speech)
         - [`cors` (CORS)](#cors-cors)
@@ -501,12 +501,12 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   Additional monitoring for DIY automated insulin delivery systems to display real-time overrides such as Eating Soon or Exercise Mode:
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set
 
-##### `xdrip-js` (xDrip-js)
+##### `xdripjs` (xDrip-js)
   Integrated xDrip-js monitoring, uses these extended settings:
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set
-  * `XDRIP-JS_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when CGM state is not OK or battery voltages fall below threshold.
-  * `XDRIP-JS_STATE_NOTIFY_INTRVL` (`0.5`) - Set to number of hours between CGM state notifications
-  * `XDRIP-JS_WARN_BAT_V` (`300`) - The voltage of either transmitter battery, a warning will be triggered when dropping below this threshold.
+  * `XDRIPJS_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when CGM state is not OK or battery voltages fall below threshold.
+  * `XDRIPJS_STATE_NOTIFY_INTRVL` (`0.5`) - Set to number of hours between CGM state notifications
+  * `XDRIPJS_WARN_BAT_V` (`300`) - The voltage of either transmitter battery, a warning will be triggered when dropping below this threshold.
 
 ##### `alexa` (Amazon Alexa)
   Integration with Amazon Alexa, [detailed setup instructions](docs/plugins/alexa-plugin.md)
