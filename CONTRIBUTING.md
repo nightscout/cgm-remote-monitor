@@ -251,7 +251,7 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | Čeština (`cs`) |Please volunteer|OK |
 | Deutsch (`de`) |[@viderehh] [@herzogmedia] |OK |
 | Dansk (`dk`)  | [@janrpn] |OK |
-| Ελληνικά `el`)|Please volunteer|Needs attention: 68.5%|
+| Ελληνικά (`el`)|Please volunteer|Needs attention: 68.5%|
 | English (`en`)|Please volunteer|OK|
 | Español (`es`) |Please volunteer|OK|
 | Suomi (`fi`)|[@sulkaharo] |OK|
