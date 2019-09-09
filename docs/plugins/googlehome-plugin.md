@@ -15,8 +15,9 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 
 ## Create Your DialogFlow Agent
 
-1. Download the [Google Home Nightscout agent template](googlehome-nightscout-template.zip?raw=true).
+1. Download the [Nightscout agent template for Google Home](googlehome-nightscout-template.zip?raw=true).
 1. [Sign in to Google's Action Console](https://console.actions.google.com)
+    - Make sure to use the same account that is connected to your Google Home device, Android smartphone, Android tablet, etc.
 1. Click on the "New Project" button.
 1. If prompted, agree to the Terms of Service.
 1. Give your project a name (e.g. "Nightscout") and then click "Create project".
@@ -40,6 +41,8 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 1. In the navigation pane on the left, click on "Fulfillment".
 1. Enable the toggle for "Webhook" and then fill in the URL field with your Nightscout URL: `https://YOUR-NIGHTSCOUT-SITE/api/v1/googlehome`
 1. Scroll down to the bottom of the page and click the "SAVE" button.
+
+That's it! Now try asking Google "Hey Google, ask Nightscout how am I doing?"
 
 ## Adding Google Home support to a plugin
 
