@@ -8,7 +8,7 @@ Just replace "Alexa, ask Nightscout ..." with "Hey Google, ask *your action's na
 
 # What questions can you ask it?
 
-This list is not meant to be comprehensive, nor does it include every way you can ask the questions. In the respective console for your virtual assistant, check the example phrases for each `intent`, and the values (including synonyms) of the "metric" `slot` (Alexa) or `entity` (Google Home). You can also just experiement with asking different questions to see what works.
+This list is not meant to be comprehensive, nor does it include every way you can ask the questions. To get the full picture, in the respective console for your virtual assistant, check the example phrases for each `intent`, and the values (including synonyms) of the "metric" `slot` (Alexa) or `entity` (Google Home). You can also just experiement with asking different questions to see what works.
 
 *Forecast:*
 
