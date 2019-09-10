@@ -74,20 +74,6 @@ To get up and running with a basic interaction model, which will allow you to as
                     ]
                 },
                 {
-                    "name": "UploaderBattery",
-                    "slots": [],
-                    "samples": [
-                        "How is my uploader battery"
-                    ]
-                },
-                {
-                    "name": "PumpBattery",
-                    "slots": [],
-                    "samples": [
-                        "How is my pump battery"
-                    ]
-                },
-                {
                     "name": "LastLoop",
                     "slots": [],
                     "samples": [
@@ -107,25 +93,22 @@ To get up and running with a basic interaction model, which will allow you to as
                         }
                     ],
                     "samples": [
-                        "What is my {metric}",
-                        "What my {metric} is",
-                        "What is {pwd} {metric}"
+                        "how is {metric}",
+                        "how is my {metric}",
+                        "how is {pwd} {metric}",
+                        "how my {metric} is",
+                        "what is {metric}",
+                        "how much {metric} do I have",
+                        "how much {metric} does {pwd} have",
+                        "how much {metric} I have",
+                        "what is my {metric}",
+                        "what my {metric} is",
+                        "what is {pwd} {metric}"
                     ]
                 },
                 {
-                    "name": "InsulinRemaining",
-                    "slots": [
-                        {
-                            "name": "pwd",
-                            "type": "AMAZON.US_FIRST_NAME"
-                        }
-                    ],
-                    "samples": [
-                        "How much insulin do I have left",
-                        "How much insulin do I have remaining",
-                        "How much insulin does {pwd} have left",
-                        "How much insulin does {pwd} have remaining"
-                    ]
+                    "name": "AMAZON.NavigateHomeIntent",
+                    "samples": []
                 }
             ],
             "types": [
@@ -134,77 +117,91 @@ To get up and running with a basic interaction model, which will allow you to as
                     "values": [
                         {
                             "name": {
-                                "value": "bg"
+                                "value": "uploader battery",
+                                "synonyms": [
+                                    "uploader battery remaining",
+                                    "uploader battery power"
+                                ]
                             }
                         },
                         {
                             "name": {
-                                "value": "blood glucose"
+                                "value": "pump reservoir",
+                                "synonyms": [
+                                    "remaining insulin",
+                                    "insulin remaining",
+                                    "insulin is left",
+                                    "insulin left",
+                                    "insulin in my pump",
+                                    "insulin"
+                                ]
                             }
                         },
                         {
                             "name": {
-                                "value": "number"
+                                "value": "pump battery",
+                                "synonyms": [
+                                    "pump battery remaining",
+                                    "pump battery power"
+                                ]
                             }
                         },
                         {
                             "name": {
-                                "value": "iob"
+                                "value": "bg",
+                                "synonyms": [
+                                    "number",
+                                    "blood sugar",
+                                    "blood glucose"
+                                ]
                             }
                         },
                         {
                             "name": {
-                                "value": "insulin on board"
+                                "value": "iob",
+                                "synonyms": [
+                                    "insulin on board"
+                                ]
                             }
                         },
                         {
                             "name": {
-                                "value": "current basal"
+                                "value": "basal",
+                                "synonyms": [
+                                    "current basil",
+                                    "basil",
+                                    "current basal"
+                                ]
                             }
                         },
                         {
                             "name": {
-                                "value": "basal"
+                                "value": "cob",
+                                "synonyms": [
+                                    "carbs",
+                                    "carbs on board",
+                                    "carboydrates",
+                                    "carbohydrates on board"
+                                ]
                             }
                         },
                         {
                             "name": {
-                                "value": "cob"
+                                "value": "forecast",
+                                "synonyms": [
+                                    "ar2 forecast",
+                                    "loop forecast"
+                                ]
                             }
                         },
                         {
                             "name": {
-                                "value": "carbs on board"
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "carbohydrates on board"
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "loop forecast"
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "ar2 forecast"
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "forecast"
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "raw bg"
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "raw blood glucose"
+                                "value": "raw bg",
+                                "synonyms": [
+                                    "raw number",
+                                    "raw blood sugar",
+                                    "raw blood glucose"
+                                ]
                             }
                         }
                     ]
