@@ -97,7 +97,7 @@ If your device is [registered](https://developer.amazon.com/docs/devconsole/test
 
 ## Adding support for additional languages
 
-If the translations in Nightscout are configured correctly for the desired language code, Nightscout *should* automatically respond in that language after following the steps below
+If the translations in Nightscout are configured correctly for the desired language code, Nightscout *should* automatically respond in that language after following the steps below.
 
 If you add support for another language, please consider [making a pull request](/CONTRIBUTING.md) or [submitting an issue](https://github.com/nightscout/cgm-remote-monitor/issues) with your translated template to share it with others. You can export your translated template by going to the "JSON Editor" in the left navigation pane.
 
@@ -120,17 +120,18 @@ If you add support for another language, please consider [making a pull request]
 1. For each Intent listed in the left navigation pane (e.g. "NSStatus" and "MetricNow"):
     1. Click on the Intent name.
     1. Scroll down to the "Slots" section
-    1. If there's a slot with the name "pwd", change the slot type to the one found above.
+    1. If there's a slot with the name "pwd", change the Slot Type to the one found above.
         - If you didn't find one above, you'll have to see if another language gets close enough for you, or delete the slot.
     1. If there's a slot with the name "metric", click the "Edit Dialog" link on the right. This is where you set Alexa's questions and your answers if you happen to ask a question about metrics but don't include which metric you want to know.
         1. Set the "Alexa speech prompts" in your language, and remove the old ones.
         1. Under "User utterances", set the phrases you would say in response to the questions Alexa would pose from the previous step. MAKE SURE that your example phrases include where you would say the name of the metric. You do this by typing the left brace (`{`) and then selecting `metric` in the popup.
-    1. For each Sample Utterance, add an equivalent phrase in your language. If the phrase you're replacing has a `metric` slot, make sure to include that in your replacement phrase. Same goes for the `pwd` slot, unless you had to delete that slot in the previous step, in which case you need to modify the phrase to not use a first name, or not make a replacement phrase. Delete the phrase you're replacing.
+        1. Click on the Intent name (just to the left of "metric") to return to the previous screen.
+    1. For each Sample Utterance, add an equivalent phrase in your language. If the phrase you're replacing has a `metric` slot, make sure to include that in your replacement phrase. Same goes for the `pwd` slot, unless you had to delete that slot a couple steps ago, in which case you need to modify the phrase to not use a first name, or not make a replacement phrase. After you've entered your replacement phrase, delete the phrase you're replacing.
 1. Navigate to the "LIST_OF_METRICS" under the Slot Types section.
 1. For each metric listed, add synonyms in your language, and delete the old synonyms.
     - What ever you do, **DO NOT** change the text in the "VALUE" column! Only change the synonyms.
 1. Click "Save Model" at the top, and then click on "Build Model".
-1. You should be good to go! Feel free to try it out using the "Test" tab near the top of the window, or start asking your Alexa-enabled device some questions.
+1. You should be good to go! Feel free to try it out using the "Test" tab near the top of the window, or start asking your Alexa-enabled device some questions. See [Interacting with Virtual Assistants](interacting-with-virtual-assistants.md) for details on what you can do with Alexa.
 
 ## Adding Alexa support to a plugin
 
