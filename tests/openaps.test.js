@@ -382,6 +382,8 @@ describe('openaps', function ( ) {
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
     openaps.setProperties(sbx);
 
+    openaps.virtAsst.intentHandlers.length.should.equal(2);
+
     openaps.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Loop Forecast');
       response.should.equal('The OpenAPS Eventual BG is 125');

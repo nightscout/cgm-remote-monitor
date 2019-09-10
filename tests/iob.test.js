@@ -20,6 +20,9 @@ describe('IOB', function() {
       }
     };
 
+    iob.virtAsst.intentHandlers.length.should.equal(1);
+    iob.virtAsst.rollupHandlers.length.should.equal(1);
+
     iob.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Current IOB');
       response.should.equal('You have 1.50 units of insulin on board');

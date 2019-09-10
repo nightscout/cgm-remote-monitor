@@ -154,6 +154,8 @@ describe('ar2', function ( ) {
     ctx.ddata.sgvs = [{mgdl: 100, mills: before}, {mgdl: 105, mills: now}];
     var sbx = prepareSandbox();
 
+    ar2.virtAsst.intentHandlers.length.should.equal(1);
+
     ar2.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('AR2 Forecast');
       response.should.equal('You are expected to be between 109 and 120 over the in 30 minutes');

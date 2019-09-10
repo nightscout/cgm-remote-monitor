@@ -255,6 +255,8 @@ describe('loop', function ( ) {
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
     loop.setProperties(sbx);
 
+    loop.virtAsst.intentHandlers.length.should.equal(2);
+
     loop.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Loop Forecast');
       response.should.equal('According to the loop forecast you are expected to be between 147 and 149 over the next in 25 minutes');

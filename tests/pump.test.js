@@ -266,6 +266,8 @@ describe('pump', function ( ) {
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
     pump.setProperties(sbx);
 
+    pump.virtAsst.intentHandlers.length.should.equal(4);
+
     pump.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Remaining insulin');
       response.should.equal('You have 86.4 units remaining');

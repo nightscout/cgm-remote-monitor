@@ -92,6 +92,9 @@ describe('basalprofile', function ( ) {
     var sbx = sandbox.clientInit(ctx, time, data);
     sbx.data.profile = profile;
 
+    basal.virtAsst.intentHandlers.length.should.equal(1);
+    basal.virtAsst.rollupHandlers.length.should.equal(1);
+
     basal.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Current Basal');
       response.should.equal('Your current basal is 0.175 units per hour');

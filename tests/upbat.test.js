@@ -106,6 +106,8 @@ describe('Uploader Battery', function ( ) {
     var upbat = require('../lib/plugins/upbat')(ctx);
     upbat.setProperties(sbx);
 
+    upbat.virtAsst.intentHandlers.length.should.equal(2);
+
     upbat.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Uploader battery');
       response.should.equal('Your uploader battery is at 20%');

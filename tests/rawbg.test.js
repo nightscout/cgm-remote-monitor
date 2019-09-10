@@ -42,6 +42,8 @@ describe('Raw BG', function ( ) {
 
     rawbg.setProperties(sbx);
 
+    rawbg.virtAsst.intentHandlers.length.should.equal(1);
+
     rawbg.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Current Raw BG');
       response.should.equal('Your raw bg is 113');
