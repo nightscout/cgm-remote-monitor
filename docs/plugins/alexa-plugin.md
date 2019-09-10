@@ -62,7 +62,7 @@ To get up and running with an interaction model, which will allow you to ask Ale
 
 - If you're language doesn't have a template, please consider starting with [the en-us template](alexa-templates/en-us.json), then [modifying it to work with your language](#adding-support-for-additional-languages), and [making a pull request](/CONTRIBUTING.md) or [submitting an issue](https://github.com/nightscout/cgm-remote-monitor/issues) with your translated template to share it with others.
 
-Select "JSON Editor" in the left-hand menu on your skill's edit page (which you should be on if you followed the above instructions). Replace everything in the textbox with the above code. Then click "Save Model" at the top. A success message should appear indicating that the model was saved.
+Select "JSON Editor" in the left-hand menu on your skill's edit page (which you should be on if you followed the above instructions). Replace everything in the textbox with the code from your chosen template. Then click "Save Model" at the top. A success message should appear indicating that the model was saved.
 
 Next you need to build your custom model. Click "Build Model" at the top of the same page. It'll take a minute to build, and then you should see another success message, "Build Successful".
 
