@@ -58,159 +58,9 @@ To add Alexa support for a plugin, [check this out](#adding-alexa-support-to-a-p
 
 Your Alexa skill's "interaction model" defines how your spoken questions get translated into requests to your Nightscout site, and how your Nightscout site's responses get translated into the audio responses that Alexa says back to you.
 
-To get up and running with a basic interaction model, which will allow you to ask Alexa a few basic questions about your Nightscout site, you can copy and paste the configuration code below.
+To get up and running with an interaction model, which will allow you to ask Alexa a few basic questions about your Nightscout site, you can copy and paste the configuration code for your language from [the list of templates](alexa-templates/).
 
-```json
-{
-    "interactionModel": {
-        "languageModel": {
-            "invocationName": "nightscout",
-            "intents": [
-                {
-                    "name": "NSStatus",
-                    "slots": [],
-                    "samples": [
-                        "How am I doing"
-                    ]
-                },
-                {
-                    "name": "LastLoop",
-                    "slots": [],
-                    "samples": [
-                        "When was my last loop"
-                    ]
-                },
-                {
-                    "name": "MetricNow",
-                    "slots": [
-                        {
-                            "name": "metric",
-                            "type": "LIST_OF_METRICS"
-                        },
-                        {
-                            "name": "pwd",
-                            "type": "AMAZON.US_FIRST_NAME"
-                        }
-                    ],
-                    "samples": [
-                        "how is {metric}",
-                        "how is my {metric}",
-                        "how is {pwd} {metric}",
-                        "how my {metric} is",
-                        "what is {metric}",
-                        "how much {metric} do I have",
-                        "how much {metric} does {pwd} have",
-                        "how much {metric} I have",
-                        "what is my {metric}",
-                        "what my {metric} is",
-                        "what is {pwd} {metric}"
-                    ]
-                },
-                {
-                    "name": "AMAZON.NavigateHomeIntent",
-                    "samples": []
-                }
-            ],
-            "types": [
-                {
-                    "name": "LIST_OF_METRICS",
-                    "values": [
-                        {
-                            "name": {
-                                "value": "uploader battery",
-                                "synonyms": [
-                                    "uploader battery remaining",
-                                    "uploader battery power"
-                                ]
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "pump reservoir",
-                                "synonyms": [
-                                    "remaining insulin",
-                                    "insulin remaining",
-                                    "insulin is left",
-                                    "insulin left",
-                                    "insulin in my pump",
-                                    "insulin"
-                                ]
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "pump battery",
-                                "synonyms": [
-                                    "pump battery remaining",
-                                    "pump battery power"
-                                ]
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "bg",
-                                "synonyms": [
-                                    "number",
-                                    "blood sugar",
-                                    "blood glucose"
-                                ]
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "iob",
-                                "synonyms": [
-                                    "insulin on board"
-                                ]
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "basal",
-                                "synonyms": [
-                                    "current basil",
-                                    "basil",
-                                    "current basal"
-                                ]
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "cob",
-                                "synonyms": [
-                                    "carbs",
-                                    "carbs on board",
-                                    "carboydrates",
-                                    "carbohydrates on board"
-                                ]
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "forecast",
-                                "synonyms": [
-                                    "ar2 forecast",
-                                    "loop forecast"
-                                ]
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "raw bg",
-                                "synonyms": [
-                                    "raw number",
-                                    "raw blood sugar",
-                                    "raw blood glucose"
-                                ]
-                            }
-                        }
-                    ]
-                }
-            ]
-        }
-    }
-}
-```
+- If you're language doesn't have a template, please consider starting with [the en-us template](alexa-templates/en-us.json), then [modifying it to work with your language](#adding-support-for-additional-languages), and [making a pull request](/CONTRIBUTING.md) or [submitting an issue](https://github.com/nightscout/cgm-remote-monitor/issues) with your translated template to share it with others.
 
 Select "JSON Editor" in the left-hand menu on your skill's edit page (which you should be on if you followed the above instructions). Replace everything in the textbox with the above code. Then click "Save Model" at the top. A success message should appear indicating that the model was saved.
 
@@ -239,52 +89,48 @@ After you enable testing, you can also use the Alexa Simulator in the left colum
 
 ##### What questions can you ask it?
 
-*Forecast:*
-
-- "Alexa, ask Nightscout how am I doing"
-- "Alexa, ask Nightscout how I'm doing"
-
-*Uploader Battery:*
-
-- "Alexa, ask Nightscout how is my uploader battery"
-
-*Pump Battery:*
-
-- "Alexa, ask Nightscout how is my pump battery"
-
-*Metrics:*
-
-- "Alexa, ask Nightscout what my bg is"
-- "Alexa, ask Nightscout what my blood glucose is"
-- "Alexa, ask Nightscout what my number is"
-- "Alexa, ask Nightscout what is my insulin on board"
-- "Alexa, ask Nightscout what is my basal"
-- "Alexa, ask Nightscout what is my current basal"
-- "Alexa, ask Nightscout what is my cob"
-- "Alexa, ask Nightscout what is Charlie's carbs on board"
-- "Alexa, ask Nightscout what is Sophie's carbohydrates on board"
-- "Alexa, ask Nightscout what is Harper's loop forecast"
-- "Alexa, ask Nightscout what is Alicia's ar2 forecast"
-- "Alexa, ask Nightscout what is Peter's forecast"
-- "Alexa, ask Nightscout what is Arden's raw bg"
-- "Alexa, ask Nightscout what is Dana's raw blood glucose"
-
-*Insulin Remaining:*
-
-- "Alexa, ask Nightscout how much insulin do I have left"
-- "Alexa, ask Nightscout how much insulin do I have remaining"
-- "Alexa, ask Nightscout how much insulin does Dana have left?
-- "Alexa, ask Nightscout how much insulin does Arden have remaining?
-
-*Last Loop:*
-
-- "Alexa, ask Nightscout when was my last loop"
-
-(Note: all the formats with specific names will respond to questions for any first name. You don't need to configure anything with your PWD's name.)
+See [Interacting with Virtual Assistants](interacting-with-virtual-assistants.md) for details on what you can do with Alexa.
 
 ### Activate the skill on your Echo or other device
 
 If your device is [registered](https://developer.amazon.com/docs/devconsole/test-your-skill.html#h2_register) with your developer account, you should be able to use your skill right away. Try it by asking Alexa one of the above questions using your device.
+
+## Adding support for additional languages
+
+If the translations in Nightscout are configured correctly for the desired language code, Nightscout *should* automatically respond in that language after following the steps below
+
+If you add support for another language, please consider [making a pull request](/CONTRIBUTING.md) or [submitting an issue](https://github.com/nightscout/cgm-remote-monitor/issues) with your translated template to share it with others. You can export your translated template by going to the "JSON Editor" in the left navigation pane.
+
+1. Open the Build tab of your Alexa Skill.
+    - Get to your list of Alexa Skills at [https://developer.amazon.com/alexa/console/ask] and click on the name of the skill.
+1. Click on the language drop-down box in the upper right corner of the window.
+1. Click "Language settings".
+1. Add your desired language.
+1. Click the "Save" button.
+1. Navigate to "CUSTOM" in the left navigation pane.
+1. Select your new language in the language drop-down box.
+1. Go to "JSON Editor" (just above "Interfaces" in the left navigation pane).
+1. Remove the existing contents in the text box, and copy and paste the configuration code from a familiar language in [the list of templates](alexa-templates/).
+1. Click "Save Model".
+1. Click the "Add" button next to the "Slot Types" section in the left pane.
+1. Click the radio button for "Use an existing slot type from Alexa's built-in library"
+1. In the search box just below that option, search for "first name"
+1. If your language has an option, click the "Add Slot Type" button for that option.
+    - If your language doesn't have an option, you won't be able to ask Nightscout a question that includes a name.
+1. For each Intent listed in the left navigation pane (e.g. "NSStatus" and "MetricNow"):
+    1. Click on the Intent name.
+    1. Scroll down to the "Slots" section
+    1. If there's a slot with the name "pwd", change the slot type to the one found above.
+        - If you didn't find one above, you'll have to see if another language gets close enough for you, or delete the slot.
+    1. If there's a slot with the name "metric", click the "Edit Dialog" link on the right. This is where you set Alexa's questions and your answers if you happen to ask a question about metrics but don't include which metric you want to know.
+        1. Set the "Alexa speech prompts" in your language, and remove the old ones.
+        1. Under "User utterances", set the phrases you would say in response to the questions Alexa would pose from the previous step. MAKE SURE that your example phrases include where you would say the name of the metric. You do this by typing the left brace (`{`) and then selecting `metric` in the popup.
+    1. For each Sample Utterance, add an equivalent phrase in your language. If the phrase you're replacing has a `metric` slot, make sure to include that in your replacement phrase. Same goes for the `pwd` slot, unless you had to delete that slot in the previous step, in which case you need to modify the phrase to not use a first name, or not make a replacement phrase. Delete the phrase you're replacing.
+1. Navigate to the "LIST_OF_METRICS" under the Slot Types section.
+1. For each metric listed, add synonyms in your language, and delete the old synonyms.
+    - What ever you do, **DO NOT** change the text in the "VALUE" column! Only change the synonyms.
+1. Click "Save Model" at the top, and then click on "Build Model".
+1. You should be good to go! Feel free to try it out using the "Test" tab near the top of the window, or start asking your Alexa-enabled device some questions.
 
 ## Adding Alexa support to a plugin
 
