@@ -97,7 +97,7 @@ If you add support for another language, please consider [making a pull request]
     1. For each item in the list, replace the items on the RIGHT side of the list with equivalent words and phrases in your language.
         - What ever you do, **DO NOT** change the values on the left side of the list. Nightscout will be looking for these exact values. Only change the items on the right side of the list.
     1. Click the "SAVE" button.
-1. You should be good to go! Feel free to try it out using the "Test" tab near the top of the window, or start asking your Alexa-enabled device some questions. See [Interacting with Virtual Assistants](interacting-with-virtual-assistants.md) for details on what you can do with Alexa.
+1. You should be good to go! Feel free to try it out by click the "See how it works in Google Assistant" link in the right navigation pane, or start asking your Google-Home-enabled device some questions. See [Interacting with Virtual Assistants](interacting-with-virtual-assistants.md) for details on what you can do with Google Home.
 
 ## Adding Google Home support to a plugin
 
