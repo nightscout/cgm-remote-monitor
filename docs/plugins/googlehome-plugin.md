@@ -45,6 +45,7 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 1. Click on "Integrations" in the navigation pane.
 1. Click on "INTEGRATION SETTINGS" for "Google Assistant".
 1. Under "Implicit invocation", add every intent listed.
+1. Turn on the toggle for "Auto-preview changes".
 1. Click "CLOSE".
 
 That's it! Now try asking Google "Hey Google, ask *your agent's name* how am I doing?"
