@@ -102,7 +102,7 @@ If the translations in Nightscout are configured correctly for the desired langu
 If you add support for another language, please consider [making a pull request](/CONTRIBUTING.md) or [submitting an issue](https://github.com/nightscout/cgm-remote-monitor/issues) with your translated template to share it with others. You can export your translated template by going to the "JSON Editor" in the left navigation pane.
 
 1. Open the Build tab of your Alexa Skill.
-    - Get to your list of Alexa Skills at [https://developer.amazon.com/alexa/console/ask] and click on the name of the skill.
+    - Get to your list of Alexa Skills at https://developer.amazon.com/alexa/console/ask and click on the name of the skill.
 1. Click on the language drop-down box in the upper right corner of the window.
 1. Click "Language settings".
 1. Add your desired language.
