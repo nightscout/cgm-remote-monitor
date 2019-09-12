@@ -56,7 +56,7 @@ If the translations in Nightscout are configured correctly for the desired langu
 If you add support for another language, please consider [making a pull request](/CONTRIBUTING.md) or [submitting an issue](https://github.com/nightscout/cgm-remote-monitor/issues) with your translated template to share it with others. You can export your translated template by going to the settings of your DialogFlow agent (the gear icon next to the project's name in the left nagivation pane), going to the "Export and Import" tab, and clicking "EXPORT AS ZIP".
 
 1. Open your DialogFlow agent.
-    - Get to your list of agents at [https://console.dialogflow.com/api-client/#/agents] and click on the name of your Nightscout agent.
+    - Get to your list of agents at (https://console.dialogflow.com/api-client/#/agents) and click on the name of your Nightscout agent.
 1. Click on the "Languages" tab.
 1. Click the "Add Additional Language" drop-down box.
 1. Select your desired language.
