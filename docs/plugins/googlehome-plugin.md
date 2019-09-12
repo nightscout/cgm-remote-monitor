@@ -65,13 +65,14 @@ If you add support for another language, please consider [making a pull request]
 1. Click on "Intents" in the left navigation pane.
 1. For each intent in the list (NOT including those that start with "Default" in the name):
     1. Click on the intent name.
-    1. Note the phrases used in the "Training phrases" section, especially colored blocks (e.g. `metric` or `pwd`).
+    1. Note the phrases used in the "Training phrases" section.
+        - If the phrase has a colored block (e.g. `metric` or `pwd`), click the phrase (but NOT the colored block) and note the "PARAMETER NAME" of the item with the same-colored "ENTITY".
     1. Click on the new language code (beneath the agent name near the top of the navigation pane).
     1. Add equivalent or similar training phrases as those you noted a couple steps ago.
         - If the phrase in the orginal language has a colored block with a word in it, that needs to be included. When adding the phrase to the new language, follow these steps to add the colored block:
             1. When typing that part of the training phrase, don't translate the word in the block; just keep it as-is.
             1. After typing the phrase (DON'T push the Enter key yet!) highlight/select the word.
-            1. A box will pop up with a list of parameter types, some of which end with a colon (`:`) and a parameter name. Click the option that has the same parameter name as the word you're working with (e.g. if the word is "metric", you would select the option that ends with ":metric").
+            1. A box will pop up with a list of parameter types, some of which end with a colon (`:`) and a parameter name. Click the option that has the same parameter name as the one you determined just a few steps ago.
             1. Press the Enter key to add the phrase.
     1. Click the "SAVE" button.
     1. Go back and forth between your starting language and your new language, adding equivalent phrase(s) to the new language. Continue once you've added all the equivalent phrases you can think of.
