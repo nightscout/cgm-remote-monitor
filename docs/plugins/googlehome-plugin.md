@@ -63,7 +63,7 @@ If you add support for another language, please consider [making a pull request]
 1. Click the "SAVE" button.
     - Note the new language code below the agent's name. e.g. if you're using the English template and you added Spanish, you would see two buttons: "en" and "es".
 1. Click on "Intents" in the left navigation pane.
-1. For each intent in the list (NOT icluding those that start with "Default" in the name):
+1. For each intent in the list (NOT including those that start with "Default" in the name):
     1. Click on the intent name.
     1. Note the phrases used in the "Training phrases" section, especially colored blocks (e.g. `metric` or `pwd`).
     1. Click on the new language code (beneath the agent name near the top of the navigation pane).
