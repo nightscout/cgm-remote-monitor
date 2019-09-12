@@ -129,7 +129,7 @@ If you add support for another language, please consider [making a pull request]
     1. For each Sample Utterance, add an equivalent phrase in your language. If the phrase you're replacing has a `metric` slot, make sure to include that in your replacement phrase. Same goes for the `pwd` slot, unless you had to delete that slot a couple steps ago, in which case you need to modify the phrase to not use a first name, or not make a replacement phrase. After you've entered your replacement phrase, delete the phrase you're replacing.
 1. Navigate to the "LIST_OF_METRICS" under the Slot Types section.
 1. For each metric listed, add synonyms in your language, and delete the old synonyms.
-    - What ever you do, **DO NOT** change the text in the "VALUE" column! Only change the synonyms.
+    - What ever you do, **DO NOT** change the text in the "VALUE" column! Nightscout will be looking for these exact values. Only change the synonyms.
 1. Click "Save Model" at the top, and then click on "Build Model".
 1. You should be good to go! Feel free to try it out using the "Test" tab near the top of the window, or start asking your Alexa-enabled device some questions. See [Interacting with Virtual Assistants](interacting-with-virtual-assistants.md) for details on what you can do with Alexa.
 

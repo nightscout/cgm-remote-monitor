@@ -15,7 +15,8 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 
 ## Create Your DialogFlow Agent
 
-1. Download the [Nightscout agent template for Google Home](googlehome-nightscout-template.zip?raw=true).
+1. Download the agent template in your language for Google Home [here](google-home-templates/).
+    - If you're language doesn't have a template, please consider starting with [the en-us template](google-home-templates/en-us.zip), then [modifying it to work with your language](#adding-support-for-additional-languages), and [making a pull request](/CONTRIBUTING.md) or [submitting an issue](https://github.com/nightscout/cgm-remote-monitor/issues) with your translated template to share it with others.
 1. [Sign in to Google's Action Console](https://console.actions.google.com)
     - Make sure to use the same account that is connected to your Google Home device, Android smartphone, Android tablet, etc.
 1. Click on the "New Project" button.
@@ -42,7 +43,59 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 1. Enable the toggle for "Webhook" and then fill in the URL field with your Nightscout URL: `https://YOUR-NIGHTSCOUT-SITE/api/v1/googlehome`
 1. Scroll down to the bottom of the page and click the "SAVE" button.
 
-That's it! Now try asking Google "Hey Google, ask Nightscout how am I doing?"
+That's it! Now try asking Google "Hey Google, ask *your agent's name* how am I doing?"
+
+### What questions can you ask it?
+
+See [Interacting with Virtual Assistants](interacting-with-virtual-assistants.md) for details on what you can do with Google Home.
+
+## Adding support for additional languages
+
+If the translations in Nightscout are configured correctly for the desired language code, Nightscout *should* automatically respond in that language after following the steps below.
+
+If you add support for another language, please consider [making a pull request](/CONTRIBUTING.md) or [submitting an issue](https://github.com/nightscout/cgm-remote-monitor/issues) with your translated template to share it with others. You can export your translated template by going to the settings of your DialogFlow agent (the gear icon next to the project's name in the left nagivation pane), going to the "Export and Import" tab, and clicking "EXPORT AS ZIP".
+
+1. Open your DialogFlow agent.
+    - Get to your list of agents at [https://console.dialogflow.com/api-client/#/agents] and click on the name of your Nightscout agent.
+1. Click on the "Languages" tab.
+1. Click the "Add Additional Language" drop-down box.
+1. Select your desired language.
+1. Click the "SAVE" button.
+    - Note the new language code below the agent's name. e.g. if you're using the English template and you added Spanish, you would see two buttons: "en" and "es".
+1. Click on "Intents" in the left navigation pane.
+1. For each intent in the list (excluding those that start with "Default" in the name):
+    1. Click on the intent name.
+    1. Note the phrases used in the "Training phrases" section, especially colored blocks (e.g. `metric` or `pwd`).
+    1. Click on the new language code (beneath the agent name near the top of the navigation pane).
+    1. Add equivalent or similar training phrases as those you noted a couple steps ago.
+        - If the phrase in the orginal language has a colored block with a word in it, that needs to be included. When adding the phrase to the new language, follow these steps to add the colored block:
+            1. When typing that part of the training phrase, don't translate the word in the block; just keep it as-is.
+            1. After typing the phrase (DON'T push the Enter key yet!) highlight/select the word.
+            1. A box will pop up with a list of parameter types, some of which end with a colon (`:`) and a parameter name. Click the option that has the same parameter name as the word you're working with (e.g. if the word is "metric", you would select the option that ends with ":metric").
+            1. Press the Enter key to add the phrase.
+    1. Click the "SAVE" button.
+    1. Go back and forth between your starting language and your new language, adding equivalent phrase(s) to the new language. Continue once you've added all the equivalent phrases you can think of.
+    1. Scroll down to the "Action and parameters" section.
+    1. If any of the items in that list have the "REQUIRED" option checked, click the "Define prompts..." link on the right side of that item.
+    1. Add phrases that Google will ask if you happen to say something similar to a training phrase, but don't include this parameter (e.g. if you ask about a metric but don't say what metric you want to know about).
+    1. Click "CLOSE".
+    1. Scroll down to the "Responses" section.
+    1. Set just one phrase here. This will be what Google says if it has technical difficulties getting a response from your Nightscout website.
+    1. Click the "SAVE" button at the top of the window.
+1. Click on the "Entities" section in the navigation pane.
+1. For each entity listed:
+    1. Click the entity name.
+    1. Switch to the starting language (beneath the agent name near the top of the left navigation pane).
+    1. Click the menu icon to the right of the "SAVE" button and click "Switch to raw mode".
+    1. Select all the text in the text box and copy it.
+    1. Switch back to your new language.
+    1. Click the menu icon to the right of the "SAVE" button and click "Switch to raw mode".
+    1. In the text box, paste the text you just copied.
+    1. Click the menu icon to the right of the "SAVE" button and click "Switch to editor mode".
+    1. For each item in the list, replace the items on the RIGHT side of the list with equivalent words and phrases in your language.
+        - What ever you do, **DO NOT** change the values on the left side of the list. Nightscout will be looking for these exact values. Only change the items on the right side of the list.
+    1. Click the "SAVE" button.
+1. You should be good to go! Feel free to try it out using the "Test" tab near the top of the window, or start asking your Alexa-enabled device some questions. See [Interacting with Virtual Assistants](interacting-with-virtual-assistants.md) for details on what you can do with Alexa.
 
 ## Adding Google Home support to a plugin
 
