@@ -77,9 +77,10 @@ If you add support for another language, please consider [making a pull request]
     1. Click the "SAVE" button.
     1. Go back and forth between your starting language and your new language, adding equivalent phrase(s) to the new language. Continue once you've added all the equivalent phrases you can think of.
     1. Scroll down to the "Action and parameters" section.
-    1. If any of the items in that list have the "REQUIRED" option checked, click the "Define prompts..." link on the right side of that item.
-    1. Add phrases that Google will ask if you happen to say something similar to a training phrase, but don't include this parameter (e.g. if you ask about a metric but don't say what metric you want to know about).
-    1. Click "CLOSE".
+    1. If any of the items in that list have the "REQUIRED" option checked:
+        1. Click the "Define prompts..." link on the right side of that item.
+        1. Add phrases that Google will ask if you happen to say something similar to a training phrase, but don't include this parameter (e.g. if you ask about a metric but don't say what metric you want to know about).
+        1. Click "CLOSE".
     1. Scroll down to the "Responses" section.
     1. Set just one phrase here. This will be what Google says if it has technical difficulties getting a response from your Nightscout website.
     1. Click the "SAVE" button at the top of the window.
