@@ -1,4 +1,5 @@
 .github
+.git
 bin
 docs
 node_modules
