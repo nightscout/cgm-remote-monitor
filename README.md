@@ -170,9 +170,9 @@ Wanna help with development, or just see how Nigthscout works? Great! See [CONTR
 # Usage
 
 The data being uploaded from the server to the client is from a
-MongoDB server such as [mongolab][mongodb].
+MongoDB server such as [mLab][mLab].
 
-[mongodb]: https://mongolab.com
+[mLab]: https://mlab.com/
 [autoconfigure]: https://nightscout.github.io/pages/configure/
 [mongostring]: https://nightscout.github.io/pages/mongostring/
 
