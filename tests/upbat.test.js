@@ -109,11 +109,11 @@ describe('Uploader Battery', function ( ) {
     upbat.virtAsst.intentHandlers.length.should.equal(2);
 
     upbat.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
-      title.should.equal('Uploader battery');
+      title.should.equal('Uploader Battery');
       response.should.equal('Your uploader battery is at 20%');
       
       upbat.virtAsst.intentHandlers[1].intentHandler(function next(title, response) {
-        title.should.equal('Uploader battery');
+        title.should.equal('Uploader Battery');
         response.should.equal('Your uploader battery is at 20%');
 
         done();

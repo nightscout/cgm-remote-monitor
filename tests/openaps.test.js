@@ -389,7 +389,7 @@ describe('openaps', function ( ) {
       response.should.equal('The OpenAPS Eventual BG is 125');
 
       openaps.virtAsst.intentHandlers[1].intentHandler(function next(title, response) {
-        title.should.equal('Last loop');
+        title.should.equal('Last Loop');
         response.should.equal('The last successful loop was 2 minutes ago');
         done();
       }, [], sbx);

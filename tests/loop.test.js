@@ -262,7 +262,7 @@ describe('loop', function ( ) {
       response.should.equal('According to the loop forecast you are expected to be between 147 and 149 over the next in 25 minutes');
 
       loop.virtAsst.intentHandlers[1].intentHandler(function next(title, response) {
-        title.should.equal('Last loop');
+        title.should.equal('Last Loop');
         response.should.equal('The last successful loop was a few seconds ago');
         done();
       }, [], sbx);
