@@ -42,6 +42,12 @@
                         }
                     ],
                     "samples": [
+                        "how much {metric} does {pwd} have left",
+                        "what's {metric}",
+                        "what's my {metric}",
+                        "how much {metric} is left",
+                        "what's {pwd} {metric}",
+                        "how much {metric}",
                         "how is {metric}",
                         "how is my {metric}",
                         "how is {pwd} {metric}",
