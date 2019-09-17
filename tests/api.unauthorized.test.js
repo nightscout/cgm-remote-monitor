@@ -21,7 +21,7 @@ describe('authed REST api', function ( ) {
     var self = this;
     self.known_key = known;
     require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
-      self.app.use('/', entries(self.app, self.wares, ctx));
+      self.app.use('/', entries(self.app, self.wares, ctx, env));
       self.archive = require('../lib/server/entries')(env, ctx);
 
       var creating = load('json');
