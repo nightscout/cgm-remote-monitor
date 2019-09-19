@@ -52,3 +52,20 @@ main {
 #clock {
   display: none;
 }
+
+.close {
+  color: white;
+  font: 4em 'Open Sans';
+  position: absolute;
+  right: 20px;
+  text-decoration: none;
+}
+
+.close:after {
+  content: '\00D7';
+}
+
+.hidden {
+  opacity: 0;
+  transition: opacity 0.5s linear;
+}
