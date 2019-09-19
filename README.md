@@ -632,6 +632,12 @@ Feel free to [post an issue][issues], but read the [wiki][wiki] first.
 [issues]: https://github.com/nightscout/cgm-remote-monitor/issues
 [wiki]: https://github.com/nightscout/cgm-remote-monitor/wiki
 
+### Browser testing suite provided by
+[![BrowserStack][browserstack-img]][browserstack-url]
+
+[browserstack-img]: /static/images/browserstack-logo.png
+[browserstack-url]: https://www.browserstack.com/
+
 License
 ---------------
 
