@@ -127,13 +127,15 @@ If you plan to use Nightscout, we recommend using [Heroku](http://www.nightscout
 ## Minimum browser requirements for viewing the site:
 
 - Android 4
-- Chrome 68
+- iOS 6
+- Chrome 35
 - Edge 17
 - Firefox 61
+- Opera 12.1
+- Safari 6 (macOS 10.7)
 - Internet Explorer: not supported
-- iOS 11
-- Opera 54
-- Safari 10 (macOS 10.12)
+
+Some features may not work with devices/browsers on the older end of these requirements.
 
 ## Windows installation software requirements:
 
