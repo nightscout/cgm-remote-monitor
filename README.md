@@ -124,7 +124,9 @@ If you plan to use Nightscout, we recommend using [Heroku](http://www.nightscout
 - Linux based install (Debian, Ubuntu, Raspbian) install with own Node.JS and MongoDB install (see software requirements below)
 - Windows based install with own Node.JS and MongoDB install (see software requirements below)
 
-## Minimum browser requirements for viewing the site:
+## Recommended minimum browser versions for using Nightscout:
+
+Older versions of the browsers might work, but are untested.
 
 - Android 4
 - Chrome 68
@@ -170,9 +172,9 @@ Wanna help with development, or just see how Nigthscout works? Great! See [CONTR
 # Usage
 
 The data being uploaded from the server to the client is from a
-MongoDB server such as [mongolab][mongodb].
+MongoDB server such as [mLab][mLab].
 
-[mongodb]: https://mongolab.com
+[mLab]: https://mlab.com/
 [autoconfigure]: https://nightscout.github.io/pages/configure/
 [mongostring]: https://nightscout.github.io/pages/mongostring/
 
@@ -200,7 +202,7 @@ The server status and settings are available from `/api/v1/status.json`.
 By default the `/entries` and `/treatments` APIs limit results to the the most recent 10 values from the last 2 days.
 You can get many more results, by using the `count`, `date`, `dateString`, and `created_at` parameters, depending on the type of data you're looking for.
 
-Once you've installed Nightscout, you can access API documentation by loading `/api-docs` URL in your instance.
+Once you've installed Nightscout, you can access API documentation by loading `/api-docs/` URL in your instance.
 
 #### Example Queries
 
@@ -213,7 +215,7 @@ Once you've installed Nightscout, you can access API documentation by loading `/
   * Boluses over 2U: `http://localhost:1337/api/v1/treatments.json?find[insulin][$gte]=2`
 
 The API is Swagger enabled, so you can generate client code to make working with the API easy.
-To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.html or review [swagger.yaml](swagger.yaml).
+To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or review [swagger.yaml](swagger.yaml).
 
 ## Environment
 
