@@ -124,7 +124,9 @@ If you plan to use Nightscout, we recommend using [Heroku](http://www.nightscout
 - Linux based install (Debian, Ubuntu, Raspbian) install with own Node.JS and MongoDB install (see software requirements below)
 - Windows based install with own Node.JS and MongoDB install (see software requirements below)
 
-## Minimum browser requirements for viewing the site:
+## Recommended minimum browser versions for using Nightscout:
+
+Older versions of the browsers might work, but are untested.
 
 - Android 4
 - Chrome 68
