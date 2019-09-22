@@ -1,2 +1,2 @@
-User-agent: Browsershots
-Disallow: 
+User-agent: *
+Disallow: /
