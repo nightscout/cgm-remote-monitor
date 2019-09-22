@@ -21,6 +21,17 @@ function config ( ) {
    * See README.md for info about all the supported ENV VARs
    */
   env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
+
+  // be lenient at accepting the mmol input
+  if (env.DISPLAY_UNITS.toLowerCase().includes('mmol')) {
+    env.DISPLAY_UNITS = 'mmol';
+  } else {
+    // also ensure the mg/dl is set with expected case
+    env.DISPLAY_UNITS = 'mg/dl';
+  }
+
+  console.log('Units set to', env.DISPLAY_UNITS );
+
   env.PORT = readENV('PORT', 1337);
   env.HOSTNAME = readENV('HOSTNAME', null);
   env.IMPORT_CONFIG = readENV('IMPORT_CONFIG', null);
@@ -61,7 +72,7 @@ function setSSL() {
   env.secureHstsHeaderIncludeSubdomains = readENVTruthy("SECURE_HSTS_HEADER_INCLUDESUBDOMAINS", false);
   env.secureHstsHeaderPreload= readENVTruthy("SECURE_HSTS_HEADER_PRELOAD", false);
   env.secureCsp = readENVTruthy("SECURE_CSP", false);
-
+  env.secureCspReportOnly = readENVTruthy("SECURE_CSP_REPORT_ONLY", false);
 }
 
 // A little ugly, but we don't want to read the secret into a var
