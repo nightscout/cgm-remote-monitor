@@ -20,6 +20,7 @@ img#arrow {
 #clock {
   font-weight: 700;
   font-size: 25vmin;
+  display: inline;
 }
 
 .stale {
