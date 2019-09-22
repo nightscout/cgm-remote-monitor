@@ -18,7 +18,6 @@ main {
   -webkit-align-items: center;
   align-items: center;
   height: 100vh;
-  margin-top: 30px;
 }
 
 .inner {
@@ -57,9 +56,10 @@ main {
   color: white;
   font: 4em 'Open Sans';
   position: absolute;
-  top: -10px;
+  top: 0;
   right: 20px;
   text-decoration: none;
+  z-index: 10;
 }
 
 .close:after {
