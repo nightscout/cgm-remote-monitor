@@ -52,11 +52,6 @@ img#arrow {
   -webkit-transform: translateY(5%);
 }
 
-#clock {
-  font-weight: 700;
-  font-size: 25vmin;
-}
-
 .stale {
   text-decoration: line-through;
 }
