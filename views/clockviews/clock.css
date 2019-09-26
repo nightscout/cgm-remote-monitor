@@ -49,10 +49,6 @@ main {
   display: none;
 }
 
-#clock {
-  display: none;
-}
-
 .close {
   color: white;
   font: 4em 'Open Sans';
