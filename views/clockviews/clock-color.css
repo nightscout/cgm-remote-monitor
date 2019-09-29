@@ -58,6 +58,11 @@ img#arrow {
   display: none;
 }
 
+#delta {
+  font-size: 16vmin;
+  display: none;
+}
+
 #clock {
   display: none;
 }
