@@ -28,6 +28,8 @@ main {
 #bgnow {
   font-weight: 700;
   font-size: 40vmin;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 #trend {
@@ -43,13 +45,17 @@ main {
   flex-direction: column;
 }
 
+#innerTrend {
+  word-spacing: 2em;
+}
+
 #arrowDiv {
   flex-grow: 1;
   text-align: center;
 }
 
 img#arrow {
-  height: 30vmin;
+  height: 25vmin;
 }
 
 #staleTime {
@@ -60,6 +66,7 @@ img#arrow {
 
 #delta {
   font-size: 16vmin;
+  vertical-align: middle;
   display: none;
 }
 
