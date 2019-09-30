@@ -169,6 +169,10 @@ function create (env, ctx) {
     limit: 1048576 * 50
   }), api);
 
+  app.use('/api/v2', bodyParser({
+    limit: 1048576 * 50
+  }), api);
+
   app.use('/api/v2/properties', ctx.properties);
   app.use('/api/v2/authorization', ctx.authorization.endpoints);
   app.use('/api/v2/ddata', ddata);
