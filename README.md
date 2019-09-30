@@ -48,6 +48,11 @@ Community maintained fork of the
 **Table of Contents**
 
 - [Install](#install)
+  - [Supported configurations:](#supported-configurations)
+  - [Minimum browser requirements for viewing the site:](#minimum-browser-requirements-for-viewing-the-site)
+  - [Windows installation software requirements:](#windows-installation-software-requirements)
+  - [Installation notes for users with nginx or Apache reverse proxy for SSL/TLS offloading:](#installation-notes-for-users-with-nginx-or-apache-reverse-proxy-for-ssltls-offloading)
+  - [Installation notes for Microsoft Azure, Windows:](#installation-notes-for-microsoft-azure-windows)
 - [Usage](#usage)
   - [Updating my version?](#updating-my-version)
   - [What is my mongo string?](#what-is-my-mongo-string)
@@ -60,7 +65,7 @@ Community maintained fork of the
     - [Alarms](#alarms)
     - [Core](#core)
     - [Predefined values for your browser settings (optional)](#predefined-values-for-your-browser-settings-optional)
-    - [Views](#views)
+    - [Predefined values for your server settings (optional)](#predefined-values-for-your-server-settings-optional)
     - [Plugins](#plugins)
       - [Default Plugins](#default-plugins)
         - [`delta` (BG Delta)](#delta-bg-delta)
@@ -91,6 +96,7 @@ Community maintained fork of the
         - [`pump` (Pump Monitoring)](#pump-pump-monitoring)
         - [`openaps` (OpenAPS)](#openaps-openaps)
         - [`loop` (Loop)](#loop-loop)
+        - [`override` (Override Mode)](#override-override-mode)
         - [`xdrip-js` (xDrip-js)](#xdrip-js-xdrip-js)
         - [`alexa` (Amazon Alexa)](#alexa-amazon-alexa)
         - [`speech` (Speech)](#speech-speech)
@@ -108,7 +114,7 @@ Community maintained fork of the
 
 # Install
 
-Supported configurations:
+## Supported configurations:
 
 If you plan to use Nightscout, we recommend using [Heroku](http://www.nightscout.info/wiki/welcome/set-up-nightscout-using-heroku), as Nightscout can reach the usage limits of the free Azure plan and cause it to shut down for hours or days. If you end up needing a paid tier, the $7/mo Heroku plan is also much cheaper than the first paid tier of Azure. Currently, the only added benefit to choosing the $7/mo Heroku plan vs the free Heroku plan is a section showing site use metrics for performance (such as response time). This has limited benefit to the average Nightscout user. In short, Heroku is the free and best option for Nightscout hosting.
 
@@ -118,20 +124,22 @@ If you plan to use Nightscout, we recommend using [Heroku](http://www.nightscout
 - Linux based install (Debian, Ubuntu, Raspbian) install with own Node.JS and MongoDB install (see software requirements below)
 - Windows based install with own Node.JS and MongoDB install (see software requirements below)
 
-Minimum browser requirements for viewing the site:
+## Recommended minimum browser versions for using Nightscout:
+
+Older versions of the browsers might work, but are untested.
 
 - Android 4
 - Chrome 68
-- Edge 15
+- Edge 17
 - Firefox 61
-- Internet Explorer: not supported, ie8 is known not to work
-- iOS 9 
-- Safari 11
-- Opera: 54
+- Internet Explorer: not supported
+- iOS 11
+- Opera 54
+- Safari 10 (macOS 10.12)
 
-Windows installation software requirements:
+## Windows installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.15.0 or later) or Node 10 LTS (Node 10.15.1 or later; Node 10.14.1 works for Azure). Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
+- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.15.1 or later) or Node 10 LTS (Node 10.16.0 or later; Node 10.15.2 works for Azure). Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
@@ -140,22 +148,33 @@ As a non-root user clone this repo then install dependencies into the root of th
 $ npm install
 ```
 
-Installation notes for Microsoft Azure, Windows: 
+## Installation notes for users with nginx or Apache reverse proxy for SSL/TLS offloading:
 
-- If deploying the software to Microsoft Azure, you must set ** in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Please use:
+- Your site redirects insecure connections to `https` by default. If you use a reverse proxy like nginx or Apache to handle the connection security for you, make sure it sets the `X-Forwarded-Proto` header. Otherwise nightscout will be unable to know if it was called through a secure connection and will try to redirect you to the https version. If you're unable to set this Header, you can change the `INSECURE_USE_HTTP` setting in nightscout to true in order to allow insecure connections without being redirected.
+- In case you use a proxy. Do not use an external network interfaces for hosting Nightscout. Make sure the unsecure port is not available from a remote network connection
+- HTTP Strict Transport Security (HSTS) headers are enabled by default, use settings `SECURE_HSTS_HEADER` and `SECURE_HSTS_HEADER_*`
+- See [Predefined values for your server settings](#predefined-values-for-your-server-settings-optional) for more details
+
+## Installation notes for Microsoft Azure, Windows: 
+
+- If deploying the software to Microsoft Azure, you must set ** in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Additionally, if using the Azure free hosting tier, the installation might fail due to resource constraints imposed by Azure on the free hosting. Please set the following settings to the environment in Azure:
 ```
-WEBSITE_NODE_DEFAULT_VERSION=10.14.1
+WEBSITE_NODE_DEFAULT_VERSION=10.15.2
 SCM_COMMAND_IDLE_TIMEOUT=300
 ```
 - See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
 - If you deploy to Windows and want to develop or test you need to install [Cygwin](https://www.cygwin.com/) (use [setup-x86_64.exe](https://www.cygwin.com/setup-x86_64.exe) and make sure to install `build-essential` package. Test your configuration by executing `make` and check if all tests are ok. 
 
+# Development
+
+Wanna help with development, or just see how Nigthscout works? Great! See [CONTRIBUTING.md](CONTRIBUTING.md) for development related documentation.
+
 # Usage
 
 The data being uploaded from the server to the client is from a
-MongoDB server such as [mongolab][mongodb].
+MongoDB server such as [mLab][mLab].
 
-[mongodb]: https://mongolab.com
+[mLab]: https://mlab.com/
 [autoconfigure]: https://nightscout.github.io/pages/configure/
 [mongostring]: https://nightscout.github.io/pages/mongostring/
 
@@ -174,7 +193,6 @@ mongo string.  You can copy and paste the text in the gray box into your
 
 Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
-
 ## Nightscout API
 
 The Nightscout API enables direct access to your DData without the need for direct Mongo access.
@@ -183,6 +201,8 @@ The server status and settings are available from `/api/v1/status.json`.
 
 By default the `/entries` and `/treatments` APIs limit results to the the most recent 10 values from the last 2 days.
 You can get many more results, by using the `count`, `date`, `dateString`, and `created_at` parameters, depending on the type of data you're looking for.
+
+Once you've installed Nightscout, you can access API documentation by loading `/api-docs/` URL in your instance.
 
 #### Example Queries
 
@@ -195,8 +215,7 @@ You can get many more results, by using the `count`, `date`, `dateString`, and `
   * Boluses over 2U: `http://localhost:1337/api/v1/treatments.json?find[insulin][$gte]=2`
 
 The API is Swagger enabled, so you can generate client code to make working with the API easy.
-To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.html or review [swagger.yaml](swagger.yaml).
-
+To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or review [swagger.yaml](swagger.yaml).
 
 ## Environment
 
@@ -218,7 +237,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
     Setting it to `denied` will require a token from every visit, using `status-only` will enable api-secret based login.
   * `IMPORT_CONFIG` - Used to import settings and extended settings from a url such as a gist.  Structure of file should be something like: `{"settings": {"theme": "colors"}, "extendedSettings": {"upbat": {"enableAlerts": true}}}`
   * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. Deprecated, if set to `off` the `careportal` role will be added to `AUTH_DEFAULT_ROLES`
-
 
 ### Alarms
 
@@ -256,6 +274,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to chain.pem file (chain).
   * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
   * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
+  * `DE_NORMALIZE_DATES`(`true`) - The Nightscout REST API normalizes all entered dates to UTC zone. Some Nightscout clients have broken date deserialization logic and expect to received back dates in zoned formats. Setting this variable to `true` causes the REST API to serialize dates sent to Nightscout in zoned format back to zoned format when served to clients over REST.
 
 
 ### Predefined values for your browser settings (optional)
@@ -279,18 +298,20 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enable or disable icon allowing enter treatments edit mode
 
 ### Predefined values for your server settings (optional)
-  * `INSECURE_USE_HTTP` (`false`) - Redirect http url's to https. Possible values `false`, or `true`.
+  * `INSECURE_USE_HTTP` (`false`) - Redirect unsafe http traffic to https. Possible values `false`, or `true`. Your site redirects to `https` by default. If you don't want that from Nightscout, but want to implement that with a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. Note: This will allow (unsafe) http traffic to your Nightscout instance and is not recommended.
   * `SECURE_HSTS_HEADER` (`true`) - Add HTTP Strict Transport Security (HSTS) header. Possible values `false`, or `true`.
   * `SECURE_HSTS_HEADER_INCLUDESUBDOMAINS` (`false`) - includeSubdomains options for HSTS. Possible values `false`, or `true`.
   * `SECURE_HSTS_HEADER_PRELOAD` (`false`) - ask for preload in browsers for HSTS. Possible values `false`, or `true`.
-  * `SECURE_CSP` (`false`) - Add Content Security Policy headers. Possible values `false`, or `true`.  Currently Nightscout is not yet compatible with CSP.
+  * `SECURE_CSP` (`false`) - Add Content Security Policy headers. Possible values `false`, or `true`.
+  * `SECURE_CSP_REPORT_ONLY` (`false`) - If set to `true` allows to experiment with policies by monitoring (but not enforcing) their effects. Possible values `false`, or `true`.
+  
+### Views
 
- ### Views
-
-  There are a few alternate web views available that display a simplified BG stream. Append any of these to your Nightscout URL:
-  * `/clock.html` - Shows current BG. Grey text on a black background.
-  * `/bgclock.html` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
-  * `/clock-color.html` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
+  There are a few alternate web views available from the main menu that display a simplified BG stream. (If you launch one of these in a fullscreen view in iOS, you can use a left-to-right swipe gesture to exit the view.)
+  * `Clock` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
+  * `Color` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
+  * `Simple` - Shows current BG. Grey text on a black background.
+  * Optional configuration: set `SHOW_CLOCK_CLOSEBUTTON` to `false` to never show the small X button in clock views. For bookmarking a clock view without the close box but have it appear when navigating to a clock from the Nightscout menu, don't change the settng, but remove the `showClockClosebutton=true` parameter from the clock view URL.
 
 ### Plugins
 
@@ -434,6 +455,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `MMCONNECT_SGV_LIMIT` (`24`) - Maximum number of recent sensor glucose values to send to Nightscout on each request.
   * `MMCONNECT_VERBOSE` - Set this to "true" to log CareLink request information to the console.
   * `MMCONNECT_STORE_RAW_DATA` - Set this to "true" to store raw data returned from CareLink as `type: "carelink_raw"` database entries (useful for development).
+  * `MMCONNECT_SERVER` - Set this to `EU` if you're using the European Medtronic services
 
 ##### `pump` (Pump Monitoring)
   Generic Pump Monitoring for OpenAPS, MiniMed Connect, RileyLink, t:slim, with more on the way
@@ -459,6 +481,13 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `OPENAPS_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceed before an urgent alarm is triggered
   * `OPENAPS_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display by default.  Any of the following fields: `status-symbol`, `status-label`, `iob`, `meal-assist`, `freq`, and `rssi`
   * `OPENAPS_RETRO_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display in retro mode. Any of the above fields.
+  * `OPENAPS_PRED_IOB_COLOR` (`#1e88e5`) - The color to use for IOB prediction lines. Colors can be in either `#RRGGBB` or `#RRGGBBAA` format.
+  * `OPENAPS_PRED_COB_COLOR` (`#FB8C00FF`) - The color to use for COB prediction lines. Same format as above.
+  * `OPENAPS_PRED_ACOB_COLOR` (`#FB8C0080`) - The color to use for ACOB prediction lines. Same format as above.
+  * `OPENAPS_PRED_ZT_COLOR` (`#00d2d2`) - The color to use for ZT prediction lines. Same format as above.
+  * `OPENAPS_PRED_UAM_COLOR` (`#c9bd60`) - The color to use for UAM prediction lines. Same format as above.
+  * `OPENAPS_COLOR_PREDICTION_LINES` (`true`) - Enables / disables the colored lines vs the classic purple color.
+
 
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
 
@@ -470,6 +499,10 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `LOOP_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceeded before an urgent alarm is triggered
   * Add `loop` to `SHOW_FORECAST` to show forecasted BG.
 
+##### `override` (Override Mode)
+  Additional monitoring for DIY automated insulin delivery systems to display real-time overrides such as Eating Soon or Exercise Mode:
+  * Requires `DEVICESTATUS_ADVANCED="true"` to be set
+
 ##### `xdrip-js` (xDrip-js)
   Integrated xDrip-js monitoring, uses these extended settings:
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set
@@ -478,7 +511,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `XDRIP-JS_WARN_BAT_V` (`300`) - The voltage of either transmitter battery, a warning will be triggered when dropping below this threshold.
 
 ##### `alexa` (Amazon Alexa)
-  Integration with Amazon Alexa, [detailed setup instructions](lib/plugins/alexa-plugin.md)
+  Integration with Amazon Alexa, [detailed setup instructions](docs/plugins/alexa-plugin.md)
 
 ##### `speech` (Speech)
   Speech synthesis plugin. When enabled, speaks out the blood glucose values, IOB and alarms. Note you have to set the LANGUAGE setting on the server to get all translated alarms.
