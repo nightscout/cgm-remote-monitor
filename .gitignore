@@ -4,6 +4,7 @@ node_modules/
 
 bundle/bundle.out.js
 
+.vscode/
 .idea/
 *.iml
 my.env
@@ -21,3 +22,5 @@ coverage/
 
 npm-debug.log
 *.heapsnapshot
+
+/tmp
