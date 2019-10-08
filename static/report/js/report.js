@@ -33,10 +33,14 @@
     'mg/dl': {
       low: client.settings.thresholds.bgTargetBottom
       , high: client.settings.thresholds.bgTargetTop
+      , superlow: client.settings.thresholds.bgLow
+      , superhigh: client.settings.thresholds.bgHigh
     }
     , 'mmol': {
       low: client.utils.scaleMgdl(client.settings.thresholds.bgTargetBottom)
       , high: client.utils.scaleMgdl(client.settings.thresholds.bgTargetTop)
+      , superlow: client.utils.scaleMgdl(client.settings.thresholds.bgLow)
+      , superhigh: client.utils.scaleMgdl(client.settings.thresholds.bgHigh)
     }
   };
   
@@ -167,6 +171,8 @@
     
     $('#rp_targetlow').val(targetBGdefault[client.settings.units.toLowerCase()].low);
     $('#rp_targethigh').val(targetBGdefault[client.settings.units.toLowerCase()].high);
+    $('#rp_superlow').val(targetBGdefault[client.settings.units.toLowerCase()].superlow);
+    $('#rp_superhigh').val(targetBGdefault[client.settings.units.toLowerCase()].superhigh);
 
     if (client.settings.scaleY === 'linear') {
       $('#rp_linear').prop('checked', true);
@@ -220,6 +226,8 @@
     //console.log(timerange,zone);    
     options.targetLow = parseFloat($('#rp_targetlow').val().replace(',','.'));
     options.targetHigh = parseFloat($('#rp_targethigh').val().replace(',','.'));
+    options.superLow = parseFloat($('#rp_superlow').val().replace(',','.'));
+    options.superHigh = parseFloat($('#rp_superhigh').val().replace(',','.'));
     options.raw = $('#rp_optionsraw').is(':checked');
     options.iob = $('#rp_optionsiob').is(':checked');
     options.cob = $('#rp_optionscob').is(':checked');
