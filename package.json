@@ -109,6 +109,7 @@
     "swagger-ui-express": "^4.1.2",
     "terser": "^3.17.0",
     "traverse": "^0.6.6",
+    "uuid": "^3.3.2",
     "webpack": "^4.39.2",
     "webpack-cli": "^3.3.7"
   },
