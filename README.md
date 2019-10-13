@@ -481,9 +481,9 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `OPENAPS_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceed before an urgent alarm is triggered
   * `OPENAPS_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display by default.  Any of the following fields: `status-symbol`, `status-label`, `iob`, `meal-assist`, `freq`, and `rssi`
   * `OPENAPS_RETRO_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display in retro mode. Any of the above fields.
-  * `OPENAPS_PRED_IOB_COLOR` (`#1e88e5`) - The color to use for IOB prediction lines. Colors can be in either `#RRGGBB` or `#RRGGBBAA` format.
-  * `OPENAPS_PRED_COB_COLOR` (`#FB8C00FF`) - The color to use for COB prediction lines. Same format as above.
-  * `OPENAPS_PRED_ACOB_COLOR` (`#FB8C0080`) - The color to use for ACOB prediction lines. Same format as above.
+  * `OPENAPS_PRED_IOB_COLOR` (`#1e88e5`) - The color to use for IOB prediction lines. Colors can be in `#RRGGBB` format, but [other CSS color units](https://www.w3.org/TR/css-color-3/#colorunits) may be used as well.
+  * `OPENAPS_PRED_COB_COLOR` (`#FB8C00`) - The color to use for COB prediction lines. Same format as above.
+  * `OPENAPS_PRED_ACOB_COLOR` (`#FB8C00`) - The color to use for ACOB prediction lines. Same format as above.
   * `OPENAPS_PRED_ZT_COLOR` (`#00d2d2`) - The color to use for ZT prediction lines. Same format as above.
   * `OPENAPS_PRED_UAM_COLOR` (`#c9bd60`) - The color to use for UAM prediction lines. Same format as above.
   * `OPENAPS_COLOR_PREDICTION_LINES` (`true`) - Enables / disables the colored lines vs the classic purple color.
@@ -631,6 +631,12 @@ Feel free to [post an issue][issues], but read the [wiki][wiki] first.
 
 [issues]: https://github.com/nightscout/cgm-remote-monitor/issues
 [wiki]: https://github.com/nightscout/cgm-remote-monitor/wiki
+
+### Browser testing suite provided by
+[![BrowserStack][browserstack-img]][browserstack-url]
+
+[browserstack-img]: /static/images/browserstack-logo.png
+[browserstack-url]: https://www.browserstack.com/
 
 License
 ---------------
