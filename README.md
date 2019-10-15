@@ -124,7 +124,9 @@ If you plan to use Nightscout, we recommend using [Heroku](http://www.nightscout
 - Linux based install (Debian, Ubuntu, Raspbian) install with own Node.JS and MongoDB install (see software requirements below)
 - Windows based install with own Node.JS and MongoDB install (see software requirements below)
 
-## Minimum browser requirements for viewing the site:
+## Recommended minimum browser versions for using Nightscout:
+
+Older versions of the browsers might work, but are untested.
 
 - Android 4
 - Chrome 68
@@ -170,9 +172,9 @@ Wanna help with development, or just see how Nigthscout works? Great! See [CONTR
 # Usage
 
 The data being uploaded from the server to the client is from a
-MongoDB server such as [mongolab][mongodb].
+MongoDB server such as [mLab][mLab].
 
-[mongodb]: https://mongolab.com
+[mLab]: https://mlab.com/
 [autoconfigure]: https://nightscout.github.io/pages/configure/
 [mongostring]: https://nightscout.github.io/pages/mongostring/
 
@@ -200,7 +202,7 @@ The server status and settings are available from `/api/v1/status.json`.
 By default the `/entries` and `/treatments` APIs limit results to the the most recent 10 values from the last 2 days.
 You can get many more results, by using the `count`, `date`, `dateString`, and `created_at` parameters, depending on the type of data you're looking for.
 
-Once you've installed Nightscout, you can access API documentation by loading `/api-docs` URL in your instance.
+Once you've installed Nightscout, you can access API documentation by loading `/api-docs/` URL in your instance.
 
 #### Example Queries
 
@@ -213,7 +215,7 @@ Once you've installed Nightscout, you can access API documentation by loading `/
   * Boluses over 2U: `http://localhost:1337/api/v1/treatments.json?find[insulin][$gte]=2`
 
 The API is Swagger enabled, so you can generate client code to make working with the API easy.
-To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.html or review [swagger.yaml](swagger.yaml).
+To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or review [swagger.yaml](swagger.yaml).
 
 ## Environment
 
@@ -479,9 +481,9 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs.htm
   * `OPENAPS_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceed before an urgent alarm is triggered
   * `OPENAPS_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display by default.  Any of the following fields: `status-symbol`, `status-label`, `iob`, `meal-assist`, `freq`, and `rssi`
   * `OPENAPS_RETRO_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display in retro mode. Any of the above fields.
-  * `OPENAPS_PRED_IOB_COLOR` (`#1e88e5`) - The color to use for IOB prediction lines. Colors can be in either `#RRGGBB` or `#RRGGBBAA` format.
-  * `OPENAPS_PRED_COB_COLOR` (`#FB8C00FF`) - The color to use for COB prediction lines. Same format as above.
-  * `OPENAPS_PRED_ACOB_COLOR` (`#FB8C0080`) - The color to use for ACOB prediction lines. Same format as above.
+  * `OPENAPS_PRED_IOB_COLOR` (`#1e88e5`) - The color to use for IOB prediction lines. Colors can be in `#RRGGBB` format, but [other CSS color units](https://www.w3.org/TR/css-color-3/#colorunits) may be used as well.
+  * `OPENAPS_PRED_COB_COLOR` (`#FB8C00`) - The color to use for COB prediction lines. Same format as above.
+  * `OPENAPS_PRED_ACOB_COLOR` (`#FB8C00`) - The color to use for ACOB prediction lines. Same format as above.
   * `OPENAPS_PRED_ZT_COLOR` (`#00d2d2`) - The color to use for ZT prediction lines. Same format as above.
   * `OPENAPS_PRED_UAM_COLOR` (`#c9bd60`) - The color to use for UAM prediction lines. Same format as above.
   * `OPENAPS_COLOR_PREDICTION_LINES` (`true`) - Enables / disables the colored lines vs the classic purple color.
@@ -629,6 +631,12 @@ Feel free to [post an issue][issues], but read the [wiki][wiki] first.
 
 [issues]: https://github.com/nightscout/cgm-remote-monitor/issues
 [wiki]: https://github.com/nightscout/cgm-remote-monitor/wiki
+
+### Browser testing suite provided by
+[![BrowserStack][browserstack-img]][browserstack-url]
+
+[browserstack-img]: /static/images/browserstack-logo.png
+[browserstack-url]: https://www.browserstack.com/
 
 License
 ---------------
