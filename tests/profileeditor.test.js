@@ -71,99 +71,35 @@ var someData = {
 
 
 describe('Profile editor', function ( ) {
-  var self = this;
+  this.timeout(40000); //TODO: see why this test takes longer on Travis to complete
+  var headless = require('./fixtures/headless')(benv, this);
 
   before(function (done) {
-    benv.setup(function() {
-      self.$ = require('jquery');
-      self.$.localStorage = require('./fixtures/localstorage');
-
-      self.$.fn.tipsy = function mockTipsy ( ) { };
-
-      self.$.fn.dialog = function mockDialog (opts) {
-        function maybeCall (name, obj) {
-          if (obj[name] && obj[name].call) {
-            obj[name]();
-          }
-
-        }
-        maybeCall('open', opts);
-
-        _.forEach(opts.buttons, function (button) {
-          maybeCall('click', button);
-        });
-      };
-
-      var indexHtml = read(__dirname + '/../static/profile/index.html', 'utf8');
-      self.$('body').html(indexHtml);
-
-      //var filesys = require('fs');
-      //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
-      
-      self.$.ajax = function mockAjax (url, opts) {
-        //logfile.write(url+'\n');
-        //console.log(url,opts);
-        if (opts && opts.success && opts.success.call) {
-          return {
-            done: function mockDone (fn) {
-                if (someData[url]) {
-                  console.log('+++++Data for ' + url + ' sent');
-                  opts.success(someData[url]);
-                } else {
-                  console.log('-----Data for ' + url + ' missing');
-                  opts.success([]);
-                }
-              fn();
-              return self.$.ajax();
-            },
-            fail: function mockFail () {
-              return self.$.ajax();
-            }
-          };
-        }
-        return {
-          done: function mockDone (fn) {
-            fn({message: 'OK'});
-            return self.$.ajax();
-            },
-          fail: function mockFail () {
-            return self.$.ajax();
-            }
-        };
-      };
-
-      var d3 = require('d3');
-      //disable all d3 transitions so most of the other code can run with jsdom
-      d3.timer = function mockTimer() { };
-
-      benv.expose({
-        $: self.$
-        , jQuery: self.$
-        , d3: d3
-        , serverSettings: serverSettings
-        , io: {
-          connect: function mockConnect ( ) {
-            return {
-              on: function mockOn ( ) { }
-            };
-          }
-        }
-      });
-
-      benv.require(__dirname + '/../bundle/bundle.source.js');
-      benv.require(__dirname + '/../static/profile/js/profileeditor.js');
-
-      done();
-    });
+    done( );
   });
 
   after(function (done) {
-    benv.teardown(true);
-    done();
+    done( );
+  });
+
+  beforeEach(function (done) {
+    var opts = {
+      htmlFile: __dirname + '/../views/profileindex.html'
+    , mockProfileEditor: true
+    , mockAjax: someData
+    , benvRequires: [
+        __dirname + '/../static/profile/js/profileeditor.js'
+      ]
+    };
+    headless.setup(opts, done);
+  });
+
+  afterEach(function (done) {
+    headless.teardown( );
+    done( );
   });
 
   it ('should produce some html', function (done) {
-    var plugins = require('../lib/plugins/')().registerClientDefaults();
     var client = require('../lib/client');
 
     var hashauth = require('../lib/hashauth');
@@ -182,7 +118,7 @@ describe('Profile editor', function ( ) {
        return true;
      };
 
-    client.init(serverSettings, plugins);
+    client.init();
     client.dataUpdate(nowData);
     
     //var result = $('body').html();
