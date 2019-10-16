@@ -25,8 +25,8 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 1. Click any of the "development experience" options (it really doesn't matter).
 1. Click on the "Develop" tab at the top of the sreen
 1. Click on "Invocation" in the left navigation pane.
-1. Set the display name (e.g. "Nightscout") and set your Google Assistant voice.
-    - Unfortunately, the name needs to be two words, and has to be unique across all of Google, even though you won't be publishing for everyone on Google to use. So you'll have to be creative in the name since "Night Scout" is already taken.
+1. Set the display name (e.g. "Night Scout") of your Action and set your Google Assistant voice.
+    - Unfortunately, the Action name needs to be two words, and is required to be unique across all of Google, even though you won't be publishing this for everyone on Google to use. So you'll have to be creative with the name since "Night Scout" is already taken.
 1. Click "Save" in the upper right corner.
 1. Navigate to "Actions" in the left nagivation pane, then click on the "Add your first action" button.
 1. Make sure you're on "Cutom intent" and then click "Build" to open DialogFlow in a new tab.
@@ -48,7 +48,7 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 1. Turn on the toggle for "Auto-preview changes".
 1. Click "CLOSE".
 
-That's it! Now try asking Google "Hey Google, ask *your agent's name* how am I doing?"
+That's it! Now try asking Google "Hey Google, ask *your Action's name* how am I doing?"
 
 ### What questions can you ask it?
 
