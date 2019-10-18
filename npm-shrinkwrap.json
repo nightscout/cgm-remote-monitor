@@ -3903,6 +3903,12 @@
       "resolved": "https://registry.npmjs.org/events/-/events-3.0.0.tgz",
       "integrity": "sha512-Dc381HFWJzEOhQ+d8pkNon++bk9h6cdAoAj4iE6Q4y6xgTzySWXlKn05/TVNpjnfRqi/X0EpJEJohPjNI3zpVA=="
     },
+    "events-to-array": {
+      "version": "1.1.2",
+      "resolved": "https://registry.npmjs.org/events-to-array/-/events-to-array-1.1.2.tgz",
+      "integrity": "sha1-LUH1Y+H+QA7Uli/hpNXGp1Od9/Y=",
+      "dev": true
+    },
     "evp_bytestokey": {
       "version": "1.0.3",
       "resolved": "https://registry.npmjs.org/evp_bytestokey/-/evp_bytestokey-1.0.3.tgz",
@@ -10711,6 +10717,27 @@
             "ansi-regex": "^4.1.0"
           }
         }
+      }
+    },
+    "tap-parser": {
+      "version": "1.3.2",
+      "resolved": "https://registry.npmjs.org/tap-parser/-/tap-parser-1.3.2.tgz",
+      "integrity": "sha1-EgxQiciMPIp5PvKIhn3jIeGPjCI=",
+      "dev": true,
+      "requires": {
+        "events-to-array": "^1.0.1",
+        "inherits": "~2.0.1",
+        "js-yaml": "^3.2.7",
+        "readable-stream": "^2"
+      }
+    },
+    "tap-set-exit": {
+      "version": "1.1.1",
+      "resolved": "https://registry.npmjs.org/tap-set-exit/-/tap-set-exit-1.1.1.tgz",
+      "integrity": "sha1-nGejf03FcOSZlCBGT45sGYaLVWE=",
+      "dev": true,
+      "requires": {
+        "tap-parser": "^1.0.4"
       }
     },
     "tapable": {
