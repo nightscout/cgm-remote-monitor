@@ -10,7 +10,7 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 
 ## Activate the Nightscout Google Home Plugin
 
-1. Your Nightscout site needs to be new enough that it supports the `googlehome` plugin. It needs to be [version VERSION_NUMBER (VERSION_NAME)](https://github.com/nightscout/cgm-remote-monitor/releases/tag/VERSION_NUMBER) or later. See [updating my version](https://github.com/nightscout/cgm-remote-monitor#updating-my-version) if you need a newer version.
+1. Your Nightscout site needs to be new enough that it supports the `googlehome` plugin. It needs to be [version 0.13 (VERSION_NAME)](https://github.com/nightscout/cgm-remote-monitor/releases/tag/0.13) or later. See [updating my version](https://github.com/nightscout/cgm-remote-monitor#updating-my-version) if you need a newer version.
 1. Add `googlehome` to the list of plugins in your `ENABLE` setting. ([Environment variables](https://github.com/nightscout/cgm-remote-monitor#environment) are set in the configuration section for your monitor. Typically Azure, Heroku, etc.)
 
 ## Create Your DialogFlow Agent
@@ -22,8 +22,8 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 1. Click on the "New Project" button.
 1. If prompted, agree to the Terms of Service.
 1. Give your project a name (e.g. "Nightscout") and then click "Create project".
-1. Click any of the "development experience" options (it really doesn't matter).
-1. Click on the "Develop" tab at the top of the sreen
+1. For the "development experience", select "Conversational" at the bottom of the list.
+1. Click on the "Develop" tab at the top of the sreen.
 1. Click on "Invocation" in the left navigation pane.
 1. Set the display name (e.g. "Night Scout") of your Action and set your Google Assistant voice.
     - Unfortunately, the Action name needs to be two words, and is required to be unique across all of Google, even though you won't be publishing this for everyone on Google to use. So you'll have to be creative with the name since "Night Scout" is already taken.
