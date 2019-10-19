@@ -1,7 +1,7 @@
 'use strict';
 
-require('should');
-var _ =require('lodash');
+var should = require('should');
+var _ = require('lodash');
 
 var FIVE_MINS = 300000;
 var SIX_MINS = 360000;
@@ -10,6 +10,9 @@ describe('BG Now', function ( ) {
   var ctx = {
     language: require('../lib/language')()
   };
+ 
+  ctx.levels = require('../lib/levels');
+
   var bgnow = require('../lib/plugins/bgnow')(ctx);
   var sandbox = require('../lib/sandbox')();
 
@@ -23,12 +26,16 @@ describe('BG Now', function ( ) {
         updatePillText: function mockedUpdatePillText (plugin, options) {
           options.label.should.equal(ctx.settings.units);
           options.value.should.equal('+5');
-          options.info.length.should.equal(0);
+          should.not.exist(options.info);
           done();
         }
       , language: { translate: function(text) { return text; } }
       }
     };
+    
+    ctx.language = ctx.pluginBase.language;
+    ctx.levels = require('../lib/levels');
+   
     var data = {sgvs: [{mills: before, mgdl: 100}, {mills: now, mgdl: 105}]};
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
