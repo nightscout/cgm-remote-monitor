@@ -36,7 +36,7 @@ Community maintained fork of the
 [codacy-img]: https://www.codacy.com/project/badge/f79327216860472dad9afda07de39d3b
 [codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
 [discord-img]: https://img.shields.io/discord/629952586895851530
-[discord-url]: https://discordapp.com/channels/629952586895851530/629952669967974410
+[discord-url]: https://discordapp.com/channels/629952586895851530/629952669967974410?label=discord%20chat
 [heroku-img]: https://www.herokucdn.com/deploy/button.png
 [heroku-url]: https://heroku.com/deploy
 [update-img]: update.png
