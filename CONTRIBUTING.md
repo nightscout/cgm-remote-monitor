@@ -236,32 +236,32 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 
 | Language      | List of translators | Status
 | ------------- | -------------------- |-------------------- |
-|  (`bg`) |Please volunteer| OK |
-| etina (`cs`) |Please volunteer|OK |
+| Български (`bg`) |Please volunteer| OK |
+| Čeština (`cs`) |Please volunteer|OK |
 | Deutsch (`de`) |[@viderehh] [@herzogmedia] |OK |
 | Dansk (`dk`)  | [@janrpn] |OK |
-|  `(el`)|Please volunteer|Needs attention: 68.5%|
+| Ελληνικά `(el`)|Please volunteer|Needs attention: 68.5%|
 | English (`en`)|Please volunteer|OK|
-| Espaol (`es`) |Please volunteer|OK|
+| Español (`es`) |Please volunteer|OK|
 | Suomi (`fi`)|[@sulkaharo] |OK|
-| Franais (`fr`)|Please volunteer|OK|
-|  (`he`)|Please volunteer|OK|
-| Hrvatski (`hr`)|[@OpossumGit]|OK|
+| Français (`fr`)|Please volunteer|OK|
+| עברית (`he`)|Please volunteer|OK|
+| Hrvatski (`hr`)|[@OpossumGit]|Needs attention: 47.8% - committed 100% to dev|
 | Italiano (`it`)|Please volunteer|OK|
-|  (`ja`)|[@LuminaryXion]|Working on this|
-|  (`ko`)|Please volunteer|Needs attention: 80.6%|
-| Norsk (Bokml) (`nb`)|Please volunteer|OK|
+| 日本語 (`ja`)|[@LuminaryXion]|Working on this|
+| 한국어 (`ko`)|Please volunteer|Needs attention: 80.6%|
+| Norsk (Bokmål) (`nb`)|Please volunteer|OK|
 | Nederlands (`nl`)|[@PieterGit]|OK|
 | Polski (`pl`)|Please volunteer|OK|
-| Portugus (Brasil) (`pt`)|Please volunteer|OK|
-| Romn (`ro`)|Please volunteer|OK|
-|  (`ru`)|[@apanasef]|OK|
-| Slovenina (`sk`)|Please volunteer|OK|
+| Português (Brasil) (`pt`)|Please volunteer|OK|
+| Română (`ro`)|Please volunteer|OK|
+| Русский (`ru`)|[@apanasef]|OK|
+| Slovenčina (`sk`)|Please volunteer|OK|
 | Svenska (`sv`)|Please volunteer|OK|
-| Trke (`tr`)|[@diabetlum]|OK|
-|  (`zh_cn`) | [@jizhongwen]|OK|
-|  (`zh_tw`) | [@jizhongwen]|Needs attention: 25.0%
-|  (`ja_jp`) | [@LuminaryXion]|
+| Türkçe (`tr`)|[@diabetlum]|OK|
+| 中文（简体） (`zh_cn`) | [@jizhongwen]|OK|
+| 中文（繁體） (`zh_tw`) | [@jizhongwen]|Needs attention: 25.0%
+| 日本語 (`ja_jp`) | [@LuminaryXion]|
 
 
 ### List of all contributors
