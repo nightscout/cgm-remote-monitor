@@ -25,9 +25,6 @@
 [![Build Status][build-img]][build-url]
 [![Dependency Status][dependency-img]][dependency-url]
 [![Coverage Status][coverage-img]][coverage-url]
-[![Gitter chat][gitter-img]][gitter-url]
-[![Stories in Ready][ready-img]][waffle]
-[![Stories in Progress][progress-img]][waffle]
 
 [build-img]: https://img.shields.io/travis/nightscout/cgm-remote-monitor.svg
 [build-url]: https://travis-ci.org/nightscout/cgm-remote-monitor
@@ -35,11 +32,10 @@
 [dependency-url]: https://david-dm.org/nightscout/cgm-remote-monitor
 [coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/master.svg
 [coverage-url]: https://coveralls.io/r/nightscout/cgm-remote-monitor?branch=master
-[gitter-img]: https://img.shields.io/badge/Gitter-Join%20Chat%20%E2%86%92-1dce73.svg
-[gitter-url]: https://gitter.im/nightscout/public
 [ready-img]: https://badge.waffle.io/nightscout/cgm-remote-monitor.svg?label=ready&title=Ready
 [waffle]: https://waffle.io/nightscout/cgm-remote-monitor
 [progress-img]: https://badge.waffle.io/nightscout/cgm-remote-monitor.svg?label=in+progress&title=In+Progress
+[discord-url]: https://discord.gg/rTKhrqz
 
 ## Installation for development
 
@@ -67,13 +63,9 @@ If you want to additionaly test the site in production mode, create a file calle
 
 ## REST API
 
-Nightscout implements a REST API for data syncronization. The API is documented using Swagger. To access the documentation
-for the API, run Nightscout locally and load the documentation from /api-docs (or read the associated swagger.json and swagger.yaml
-files locally).
+Nightscout implements a REST API for data syncronization. The API is documented using Swagger. To access the documentation for the API, run Nightscout locally and load the documentation from /api-docs (or read the associated swagger.json and swagger.yaml files locally).
 
-Note all dates used to access the API and dates stored in the objects are expected to comply with the ISO-8601 format and
-be deserializable by the Javascript Date class. Of note here is the dates can contain a plus sign which has a special meaning in URL encoding, so when issuing requests that place dates to the URL, take special care to ensure the data is properly URL
-encoded.
+Note all dates used to access the API and dates stored in the objects are expected to comply with the ISO-8601 format and be deserializable by the Javascript Date class. Of note here is the dates can contain a plus sign which has a special meaning in URL encoding, so when issuing requests that place dates to the URL, take special care to ensure the data is properly URL encoded.
 
 ## Design & new features
 
@@ -104,7 +96,7 @@ If in doubt, format your code with `js-beautify --indent-size 2 --comma-first  -
 
 ## Create a prototype
 
-Fork cgm-remote-monitor and create a branch. You can create a branch using `git checkout -b wip/add-my-widget`. This creates a new branch called `wip/add-my-widget`.  The `wip` stands for work in progress and is a common prefix so that when know what to expect when reviewing many branches.
+Fork cgm-remote-monitor and create a branch. You can create a branch using `git checkout -b wip/add-my-widget`. This creates a new branch called `wip/add-my-widget`. `wip` stands for work in progress and is a common prefix so that we know what to expect when reviewing many branches.
 
 ## Submit a pull request
 
@@ -128,20 +120,17 @@ If you've fixed a bug, please consider adding a unit test to the `/tests` folder
 
 Try to identify the root cause of the issue and fix the issue. Pull requests that simply add null checks to hide issues are unlikely to be accepted.
 
-This can be done by committing your code `git commit -avm 'my
-improvements are here'`, and pushing it to the branch you created on your own
-fork. This will probably look something like
-`git push -u origin wip/add-my-widget`.
+This can be done by committing your code `git commit -avm 'my improvements are here'`, and pushing it to the branch you created on your own fork. This will probably look something like `git push -u origin wip/add-my-widget`.
 
 Please include instructions how to test the changes.
 
 ## Comments and issues
 
-We encourage liberal use of the comments, including images where appropriate.
+We encourage liberal use of comments, including images where appropriate.
 
 ## Co-ordination
 
-Most cgm-remote-monitor hackers use github's ticketing system, along with Facebook cgm-in-the-cloud, and gitter.
+We primarily use GitHub's ticketing system for discussing PRs and bugs, and [Discord][discord-url] for general development chatter.
 
 We use git-flow, with `master` as our production, stable branch, and `dev` is used to queue up for upcoming releases.  Everything else is done on branches, hopefully with names that indicate what to expect.
 
@@ -151,7 +140,7 @@ Every commit is tested by travis.  We encourage adding tests to validate your de
 
 ## Other Dev Tips
 
-* Join the [Gitter chat][gitter-url]
+* Join the [Discord chat][discord-url]
 * Get a local dev environment setup if you haven't already.
 * Try breaking up big features/improvements into small parts.  It's much easier to accept small PR's.
 * Create tests for your new code as well as the old code.  We are aiming for a full test coverage.
@@ -202,7 +191,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | Release coordination 0.11.x:          | [@PieterGit] |
 | Issue/Pull request coordination:      | Please volunteer |
 | Cleaning up git fork spam:            | Please volunteer |
-| Documentation writers:                | [@andrew-warrington][@unsoluble] [@tynbendad] [@danamlewis] [@rarneson] |
+| Documentation writers:                | [@andrew-warrington] [@unsoluble] [@tynbendad] [@danamlewis] [@rarneson] |
 
 ### Plugin contributors
 
@@ -278,7 +267,7 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 ### List of all contributors
 | Contribution area                     | List of contributors |
 | ------------------------------------- | -------------------- |
-| All active developers: | [@jasoncalabrese] [@jpcunningh] [@jweismann] [@komarserjio] [@mdomox] [@MilosKozak] [@PieterGit] [@rickfriele] [@sulkaharo]
-| All active testers/documentors: | [@danamlewis] [@jamieowendexcom] [@mcdafydd] [@oteroos] [@rarneson] [@tynbendad] [@unsoluble]
+| All active developers: | [@jasoncalabrese] [@jpcunningh] [@jweismann] [@komarserjio] [@mdomox] [@MilosKozak] [@PieterGit] [@rickfriele] [@sulkaharo] [@unsoluble]
+| All active testers/documentors: | [@danamlewis] [@jamieowendexcom] [@mcdafydd] [@oteroos] [@rarneson] [@tynbendad [@unsoluble]
 | All active translators: | [@apanasef] [@jizhongwen] [@viderehh] [@herzogmedia] [@LuminaryXion] [@OpossumGit]
 
