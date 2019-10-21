@@ -99,7 +99,6 @@ Community maintained fork of the
         - [`override` (Override Mode)](#override-override-mode)
         - [`xdrip-js` (xDrip-js)](#xdrip-js-xdrip-js)
         - [`alexa` (Amazon Alexa)](#alexa-amazon-alexa)
-        - [`googlehome` (Google Home/DialogFLow)](#googlehome-google-homedialogflow)
         - [`speech` (Speech)](#speech-speech)
         - [`cors` (CORS)](#cors-cors)
       - [Extended Settings](#extended-settings)
@@ -518,9 +517,6 @@ For remote overrides, the following extended settings must be configured:
 
 ##### `alexa` (Amazon Alexa)
   Integration with Amazon Alexa, [detailed setup instructions](docs/plugins/alexa-plugin.md)
-
-##### `googlehome` (Google Home/DialogFLow)
-  Integration with Google Home (via DialogFlow), [detailed setup instructions](docs/plugins/googlehome-plugin.md)
 
 ##### `speech` (Speech)
   Speech synthesis plugin. When enabled, speaks out the blood glucose values, IOB and alarms. Note you have to set the LANGUAGE setting on the server to get all translated alarms.
