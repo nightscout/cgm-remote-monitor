@@ -128,6 +128,7 @@
     "nyc": "^14.1.1",
     "should": "^13.2.3",
     "supertest": "^3.4.2",
+    "tap-set-exit": "^1.1.1",
     "terser-webpack-plugin": "^1.4.1",
     "webpack-bundle-analyzer": "^3.4.1",
     "webpack-dev-middleware": "^3.7.2",
