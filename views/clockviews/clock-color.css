@@ -1,0 +1,18 @@
+body {
+  color: white;
+}
+
+#trend {
+  -webkit-transform: translateX(1%);
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}
+
+#arrowDiv {
+  flex-grow: 1;
+  text-align: center;
+}
+
+img#arrow {
+  height: 30vmin;
+}

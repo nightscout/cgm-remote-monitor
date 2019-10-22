@@ -3,43 +3,28 @@
 var request = require('supertest');
 var should = require('should');
 var load = require('./fixtures/load');
+var language = require('../lib/language')();
 
 describe('API_SECRET', function ( ) {
   var api = require('../lib/api/');
-  api.should.be.ok;
 
   var scope = this;
   function setup_app (env, fn) {
-    var ctx = { };
-    ctx.wares = require('../lib/middleware/')(env);
-    ctx.store = require('../lib/storage')(env);
-    ctx.archive = require('../lib/entries')(env.mongo_collection, ctx.store);
-    ctx.settings = require('../lib/settings')(env.settings_collection, ctx.store);
-
-    ctx.store(function ( ) {
-      ctx.app = api(env, ctx.wares, ctx.archive, ctx.settings);
+    require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
+      ctx.app = api(env, ctx);
       scope.app = ctx.app;
-      ctx.archive.create(load('json'), fn);
-      scope.archive = ctx.archive;
+      scope.entries = ctx.entries;
+      fn(ctx);
     });
-
-    return ctx;
   }
-  /*
-  before(function (done) {
-
-  });
-  */
-  after(function (done) {
-    scope.archive( ).remove({ }, done);
-  });
 
   it('should work fine absent', function (done) {
     delete process.env.API_SECRET;
     var env = require('../env')( );
     should.not.exist(env.api_secret);
-    var ctx = setup_app(env,  function ( ) {
-      ctx.app.enabled('api').should.be.false;
+    setup_app(env, function (ctx) {
+
+      ctx.app.enabled('api').should.equal(false);
       ping_status(ctx.app, again);
       function again ( ) {
         ping_authorized_endpoint(ctx.app, 404, done);
@@ -54,9 +39,9 @@ describe('API_SECRET', function ( ) {
     process.env.API_SECRET = 'this is my long pass phrase';
     var env = require('../env')( );
     env.api_secret.should.equal(known);
-    var ctx = setup_app(env,  function ( ) {
+    setup_app(env, function (ctx) {
       // console.log(this.app.enabled('api'));
-      ctx.app.enabled('api').should.be.true;
+      ctx.app.enabled('api').should.equal(true);
       // ping_status(ctx.app, done);
       // ping_authorized_endpoint(ctx.app, 200, done);
       ping_status(ctx.app, again);
@@ -75,9 +60,9 @@ describe('API_SECRET', function ( ) {
     process.env.API_SECRET = 'this is my long pass phrase';
     var env = require('../env')( );
     env.api_secret.should.equal(known);
-    var ctx = setup_app(env,  function ( ) {
+    setup_app(env, function (ctx) {
       // console.log(this.app.enabled('api'));
-      ctx.app.enabled('api').should.be.true;
+      ctx.app.enabled('api').should.equal(true);
       // ping_status(ctx.app, done);
       // ping_authorized_endpoint(ctx.app, 200, done);
       ping_status(ctx.app, again);
@@ -90,14 +75,11 @@ describe('API_SECRET', function ( ) {
   });
 
   it('should not work short', function ( ) {
-    var known = 'c1d117818a97e847bdf286aa02d9dc8e8f7148f5';
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'tooshort';
-    var env;
-    (function ( ) {
-      env = require('../env')( );
-    }).should.throw( );
-    should.not.exist(env);
+    var env = require('../env')( );
+    should.not.exist(env.api_secret);
+    env.err.desc.should.startWith('API_SECRET should be at least');
   });
 
   function ping_status (app, fn) {
@@ -109,7 +91,7 @@ describe('API_SECRET', function ( ) {
           res.body.status.should.equal('ok');
           fn( );
           // console.log('err', err, 'res', res);
-        })
+        });
   }
 
   function ping_authorized_endpoint (app, fails, fn) {
@@ -123,7 +105,7 @@ describe('API_SECRET', function ( ) {
           }
           fn( );
           // console.log('err', err, 'res', res);
-        })
+        });
   }
 
 });
