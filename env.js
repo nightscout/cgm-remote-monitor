@@ -112,6 +112,7 @@ function setStorage() {
   env.authentication_collections_prefix = readENV('MONGO_AUTHENTICATION_COLLECTIONS_PREFIX', 'auth_');
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
+  env.settings_collection = readENV('MONGO_SETTINGS_COLLECTION', 'settings');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
   env.food_collection = readENV('MONGO_FOOD_COLLECTION', 'food');
   env.activity_collection = readENV('MONGO_ACTIVITY_COLLECTION', 'activity');
