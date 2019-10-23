@@ -21,6 +21,17 @@ function config ( ) {
    * See README.md for info about all the supported ENV VARs
    */
   env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
+
+  // be lenient at accepting the mmol input
+  if (env.DISPLAY_UNITS.toLowerCase().includes('mmol')) {
+    env.DISPLAY_UNITS = 'mmol';
+  } else {
+    // also ensure the mg/dl is set with expected case
+    env.DISPLAY_UNITS = 'mg/dl';
+  }
+
+  console.log('Units set to', env.DISPLAY_UNITS );
+
   env.PORT = readENV('PORT', 1337);
   env.HOSTNAME = readENV('HOSTNAME', null);
   env.IMPORT_CONFIG = readENV('IMPORT_CONFIG', null);
@@ -101,6 +112,7 @@ function setStorage() {
   env.authentication_collections_prefix = readENV('MONGO_AUTHENTICATION_COLLECTIONS_PREFIX', 'auth_');
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
+  env.settings_collection = readENV('MONGO_SETTINGS_COLLECTION', 'settings');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
   env.food_collection = readENV('MONGO_FOOD_COLLECTION', 'food');
   env.activity_collection = readENV('MONGO_ACTIVITY_COLLECTION', 'activity');
