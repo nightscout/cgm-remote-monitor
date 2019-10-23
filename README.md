@@ -7,7 +7,7 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 [![Dependency Status][dependency-img]][dependency-url]
 [![Coverage Status][coverage-img]][coverage-url]
 [![Codacy Badge][codacy-img]][codacy-url]
-[![Gitter chat][gitter-img]][gitter-url]
+[![Discord chat][discord-img]][discord-url]
 
 [![Deploy to Azure](http://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/) [![Deploy to Heroku][heroku-img]][heroku-url] [![Update your site][update-img]][update-fork]
 
@@ -35,8 +35,8 @@ Community maintained fork of the
 [coverage-url]: https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=master
 [codacy-img]: https://www.codacy.com/project/badge/f79327216860472dad9afda07de39d3b
 [codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
-[gitter-img]: https://img.shields.io/badge/Gitter-Join%20Chat%20%E2%86%92-1dce73.svg
-[gitter-url]: https://gitter.im/nightscout/public
+[discord-img]: https://img.shields.io/discord/629952586895851530?label=discord%20chat
+[discord-url]: https://discordapp.com/channels/629952586895851530/629952669967974410
 [heroku-img]: https://www.herokucdn.com/deploy/button.png
 [heroku-url]: https://heroku.com/deploy
 [update-img]: update.png
@@ -311,7 +311,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `Clock` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
   * `Color` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
   * `Simple` - Shows current BG. Grey text on a black background.
-  * Optional configuration: set `SHOW_CLOCK_CLOSEBUTTON` to `false` to never show the small X button in clock views. For bookmarking a clock view without the close box but have it appear when navigating to a clock from the Nightscout menu, don't change the settng, but remove the `showClockClosebutton=true` parameter from the clock view URL.
 
 ### Plugins
 
