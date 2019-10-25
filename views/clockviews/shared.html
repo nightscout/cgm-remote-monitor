@@ -20,14 +20,14 @@
 
   <style type="text/css">
     @import url("//fonts.googleapis.com/css?family=Open+Sans:700");
+    <%- include('clock-shared.css', {}); %>
     <%- include(face + '.css', {}); %>
-
   </style>
 </head>
 
 <body>
-  <a href="/" id="closeButton" class="close"></a>
   <main>
+    <a href="/" id="closeButton" class="close"></a>
     <div class="inner">
       <div id="trend">
         <div id="bgnow"></div>

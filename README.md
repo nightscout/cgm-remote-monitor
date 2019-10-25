@@ -311,7 +311,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `Clock` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
   * `Color` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
   * `Simple` - Shows current BG. Grey text on a black background.
-  * Optional configuration: set `SHOW_CLOCK_CLOSEBUTTON` to `false` to never show the small X button in clock views. For bookmarking a clock view without the close box but have it appear when navigating to a clock from the Nightscout menu, don't change the settng, but remove the `showClockClosebutton=true` parameter from the clock view URL.
 
 ### Plugins
 
