@@ -9297,9 +9297,8 @@
       "integrity": "sha512-XRsRjdf+j5ml+y/6GKHPZbrF/8p2Yga0JPtdqTIY2Xe5ohJPD9saDJJLPvp9+NSBprVvevdXZybnj2cv8OEd0A=="
     },
     "pushover-notifications": {
-      "version": "1.2.0",
-      "resolved": "https://registry.npmjs.org/pushover-notifications/-/pushover-notifications-1.2.0.tgz",
-      "integrity": "sha512-Da2XgHDDq9ZU4idbIx5Y9N4kCsHVgeeHViHK2wxdtdkdP58OvrsKCqpLZnr5nS+I4/PphjTORGSVzwMV2UaPLg=="
+      "version": "github:sulkaharo/node-pushover#04b8c23f0bd9c65df18953ab8b9da49ac0fff4fc",
+      "from": "github:sulkaharo/node-pushover#master"
     },
     "qs": {
       "version": "6.5.2",
