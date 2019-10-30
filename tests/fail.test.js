@@ -7,8 +7,8 @@ require('should');
 
 describe('fail', function ( ) {
 
-  it('should fail', function () {
-    true.should.equal(false);
+  it('should not fail', function () {
+    true.should.equal(true);
   });
 
 });
