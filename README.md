@@ -7,7 +7,7 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 [![Dependency Status][dependency-img]][dependency-url]
 [![Coverage Status][coverage-img]][coverage-url]
 [![Codacy Badge][codacy-img]][codacy-url]
-[![Gitter chat][gitter-img]][gitter-url]
+[![Discord chat][discord-img]][discord-url]
 
 [![Deploy to Azure](http://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/) [![Deploy to Heroku][heroku-img]][heroku-url] [![Update your site][update-img]][update-fork]
 
@@ -35,8 +35,8 @@ Community maintained fork of the
 [coverage-url]: https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=master
 [codacy-img]: https://www.codacy.com/project/badge/f79327216860472dad9afda07de39d3b
 [codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
-[gitter-img]: https://img.shields.io/badge/Gitter-Join%20Chat%20%E2%86%92-1dce73.svg
-[gitter-url]: https://gitter.im/nightscout/public
+[discord-img]: https://img.shields.io/discord/629952586895851530?label=discord%20chat
+[discord-url]: https://discordapp.com/channels/629952586895851530/629952669967974410
 [heroku-img]: https://www.herokucdn.com/deploy/button.png
 [heroku-url]: https://heroku.com/deploy
 [update-img]: update.png
@@ -119,7 +119,7 @@ Community maintained fork of the
 If you plan to use Nightscout, we recommend using [Heroku](http://www.nightscout.info/wiki/welcome/set-up-nightscout-using-heroku), as Nightscout can reach the usage limits of the free Azure plan and cause it to shut down for hours or days. If you end up needing a paid tier, the $7/mo Heroku plan is also much cheaper than the first paid tier of Azure. Currently, the only added benefit to choosing the $7/mo Heroku plan vs the free Heroku plan is a section showing site use metrics for performance (such as response time). This has limited benefit to the average Nightscout user. In short, Heroku is the free and best option for Nightscout hosting.
 
 - [Nightscout Setup with Heroku](http://www.nightscout.info/wiki/welcome/set-up-nightscout-using-heroku) (recommended)
-- [Nightscout Setup with Microsoft Azure](http://www.nightscout.info/wiki/faqs-2/azure-2) (not recommended, please 
+- [Nightscout Setup with Microsoft Azure](http://www.nightscout.info/wiki/faqs-2/azure-2) (not recommended, please
 [switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku) )
 - Linux based install (Debian, Ubuntu, Raspbian) install with own Node.JS and MongoDB install (see software requirements below)
 - Windows based install with own Node.JS and MongoDB install (see software requirements below)
@@ -155,7 +155,7 @@ $ npm install
 - HTTP Strict Transport Security (HSTS) headers are enabled by default, use settings `SECURE_HSTS_HEADER` and `SECURE_HSTS_HEADER_*`
 - See [Predefined values for your server settings](#predefined-values-for-your-server-settings-optional) for more details
 
-## Installation notes for Microsoft Azure, Windows: 
+## Installation notes for Microsoft Azure, Windows:
 
 - If deploying the software to Microsoft Azure, you must set ** in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Additionally, if using the Azure free hosting tier, the installation might fail due to resource constraints imposed by Azure on the free hosting. Please set the following settings to the environment in Azure:
 ```
@@ -163,7 +163,7 @@ WEBSITE_NODE_DEFAULT_VERSION=10.15.2
 SCM_COMMAND_IDLE_TIMEOUT=300
 ```
 - See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
-- If you deploy to Windows and want to develop or test you need to install [Cygwin](https://www.cygwin.com/) (use [setup-x86_64.exe](https://www.cygwin.com/setup-x86_64.exe) and make sure to install `build-essential` package. Test your configuration by executing `make` and check if all tests are ok. 
+- If you deploy to Windows and want to develop or test you need to install [Cygwin](https://www.cygwin.com/) (use [setup-x86_64.exe](https://www.cygwin.com/setup-x86_64.exe) and make sure to install `build-essential` package. Test your configuration by executing `make` and check if all tests are ok.
 
 # Development
 
@@ -304,14 +304,13 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `SECURE_HSTS_HEADER_PRELOAD` (`false`) - ask for preload in browsers for HSTS. Possible values `false`, or `true`.
   * `SECURE_CSP` (`false`) - Add Content Security Policy headers. Possible values `false`, or `true`.
   * `SECURE_CSP_REPORT_ONLY` (`false`) - If set to `true` allows to experiment with policies by monitoring (but not enforcing) their effects. Possible values `false`, or `true`.
-  
+
 ### Views
 
   There are a few alternate web views available from the main menu that display a simplified BG stream. (If you launch one of these in a fullscreen view in iOS, you can use a left-to-right swipe gesture to exit the view.)
   * `Clock` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
   * `Color` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
   * `Simple` - Shows current BG. Grey text on a black background.
-  * Optional configuration: set `SHOW_CLOCK_CLOSEBUTTON` to `false` to never show the small X button in clock views. For bookmarking a clock view without the close box but have it appear when navigating to a clock from the Nightscout menu, don't change the settng, but remove the `showClockClosebutton=true` parameter from the clock view URL.
 
 ### Plugins
 
@@ -481,9 +480,9 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `OPENAPS_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceed before an urgent alarm is triggered
   * `OPENAPS_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display by default.  Any of the following fields: `status-symbol`, `status-label`, `iob`, `meal-assist`, `freq`, and `rssi`
   * `OPENAPS_RETRO_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display in retro mode. Any of the above fields.
-  * `OPENAPS_PRED_IOB_COLOR` (`#1e88e5`) - The color to use for IOB prediction lines. Colors can be in either `#RRGGBB` or `#RRGGBBAA` format.
-  * `OPENAPS_PRED_COB_COLOR` (`#FB8C00FF`) - The color to use for COB prediction lines. Same format as above.
-  * `OPENAPS_PRED_ACOB_COLOR` (`#FB8C0080`) - The color to use for ACOB prediction lines. Same format as above.
+  * `OPENAPS_PRED_IOB_COLOR` (`#1e88e5`) - The color to use for IOB prediction lines. Colors can be in `#RRGGBB` format, but [other CSS color units](https://www.w3.org/TR/css-color-3/#colorunits) may be used as well.
+  * `OPENAPS_PRED_COB_COLOR` (`#FB8C00`) - The color to use for COB prediction lines. Same format as above.
+  * `OPENAPS_PRED_ACOB_COLOR` (`#FB8C00`) - The color to use for ACOB prediction lines. Same format as above.
   * `OPENAPS_PRED_ZT_COLOR` (`#00d2d2`) - The color to use for ZT prediction lines. Same format as above.
   * `OPENAPS_PRED_UAM_COLOR` (`#c9bd60`) - The color to use for UAM prediction lines. Same format as above.
   * `OPENAPS_COLOR_PREDICTION_LINES` (`true`) - Enables / disables the colored lines vs the classic purple color.
@@ -498,6 +497,12 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `LOOP_WARN` (`30`) - The number of minutes since the last loop that needs to be exceeded before an alert is triggered
   * `LOOP_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceeded before an urgent alarm is triggered
   * Add `loop` to `SHOW_FORECAST` to show forecasted BG.
+
+For remote overrides, the following extended settings must be configured:
+  * `LOOP_APNS_KEY` - Apple Push Notifications service (APNs) Key, created in the Apple Developer website.
+  * `LOOP_APNS_KEY_ID` - The Key ID for the above key.
+  * `LOOP_DEVELOPER_TEAM_ID` - Your Apple developer team ID.
+  * `LOOP_PUSH_SERVER_ENVIRONMENT` - (optional) Set this to `production` if you are using a provisioning profile that specifies production aps-environment, such as when distributing builds via TestFlight.
 
 ##### `override` (Override Mode)
   Additional monitoring for DIY automated insulin delivery systems to display real-time overrides such as Eating Soon or Exercise Mode:
@@ -545,13 +550,13 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
     * `PUSHOVER_ANNOUNCEMENT_KEY` - An optional Pushover user/group key, will be used for system wide user generated announcements.  If not defined this will fallback to `PUSHOVER_USER_KEY` or `PUSHOVER_ALARM_KEY`.  This also support a space delimited list of keys. To disable Announcement pushes set this to `off`.
     * `BASE_URL` - Used for pushover callbacks, usually the URL of your Nightscout site, use https when possible.
     * `API_SECRET` - Used for signing the pushover callback request for acknowledgments.
-    
+
     If you never want to get info level notifications (treatments) use `PUSHOVER_USER_KEY="off"`
     If you never want to get an alarm via pushover use `PUSHOVER_ALARM_KEY="off"`
     If you never want to get an announcement via pushover use `PUSHOVER_ANNOUNCEMENT_KEY="off"`
-    
+
     If only `PUSHOVER_USER_KEY` is set it will be used for all info notifications, alarms, and announcements
-    
+
     For testing/development try [localtunnel](http://localtunnel.me/).
 
 #### IFTTT Maker
@@ -632,6 +637,12 @@ Feel free to [post an issue][issues], but read the [wiki][wiki] first.
 [issues]: https://github.com/nightscout/cgm-remote-monitor/issues
 [wiki]: https://github.com/nightscout/cgm-remote-monitor/wiki
 
+### Browser testing suite provided by
+[![BrowserStack][browserstack-img]][browserstack-url]
+
+[browserstack-img]: /static/images/browserstack-logo.png
+[browserstack-url]: https://www.browserstack.com/
+
 License
 ---------------
 
@@ -641,16 +652,16 @@ License
     Copyright (C) 2017 Nightscout contributors.  See the COPYRIGHT file
     at the root directory of this distribution and at
     https://github.com/nightscout/cgm-remote-monitor/blob/master/COPYRIGHT
-    
+
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published
     by the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
-    
+
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU Affero General Public License for more details.
-    
+
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.

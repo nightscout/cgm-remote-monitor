@@ -24,3 +24,9 @@ npm-debug.log
 *.heapsnapshot
 
 /tmp
+/.vs
+/cgm-remote-monitor.njsproj
+/cgm-remote-monitor.sln
+/obj/Debug
+/bin
+/*.bat
