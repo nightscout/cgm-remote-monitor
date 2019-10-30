@@ -29,4 +29,4 @@ jobs:
     - name: Start MongoDB
       run: sudo systemctl start mongod
     - name: Run tests
-      run: npm test-ci
+      run: npm run-script test-ci
