@@ -99,7 +99,7 @@
     "node-cache": "^4.2.1",
     "parse-duration": "^0.1.1",
     "pem": "^1.14.3",
-    "pushover-notifications": "^1.2.0",
+    "pushover-notifications": "^1.2.1",
     "random-token": "0.0.8",
     "request": "^2.88.0",
     "semver": "^6.3.0",
