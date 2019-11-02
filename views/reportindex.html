@@ -23,12 +23,15 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="stylesheet" type="text/css" href="/css/report.css?v=<%= locals.cachebuster %>" />
-      <link rel="stylesheet" type="text/css" href="/css/ui-lightness/jquery-ui.min.css">
+      <link rel="preload" href="/css/report.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="/css/ui-lightness/jquery-ui.min.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <% include preloadCSS %>
 
     </head>
     <body>
-        <h1><img src="/images/logo1.png"><span class="translate">Nightscout reporting</span></h1>
+        <a href="/"><div style="position: absolute; top: 10px; color: #404040; right: 10px; background: grey; border-radius: 5px; border: 2px solid #404040; padding: 5px; width: 20px; height: 20px; ">X</div></a>
+
+      <p><img src="/images/logo1.png"><b style="font-size: 14pt;"><span class="translate">Nightscout reporting</span></b></p>
     <ul id="tabnav">
     </ul>
     <table>
@@ -118,9 +121,11 @@
     <hr>
     <b><span class="translate">Authentication status</span>: </b><span id="authentication_placeholder"></span>
 
-    <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
+    <script src="<%= locals.bundle %>/js/bundle.report.js?v=<%= locals.cachebuster %>"></script>
     <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
     <script src="/report/js/report.js?v=<%= locals.cachebuster %>"></script>
-   <script src="/report/js/flotcandle.js?v=<%= locals.cachebuster %>"></script>
-    </body>
+    <script src="/report/js/flotcandle.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/report/js/predictions.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/report/js/loopalyzer.js?v=<%= locals.cachebuster %>"></script>
+  </body>
 </html>
