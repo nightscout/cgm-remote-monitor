@@ -43,7 +43,7 @@ describe('timeago', function() {
     done();
   });
 
-  it('should suspend alarms due to hibernation when 2 heartbeats are skipped', function() {
+  it('should suspend alarms due to hibernation when 2 heartbeats are skipped on server', function() {
     ctx.ddata.sgvs = [{ mills: Date.now() - times.mins(16).msecs, mgdl: 100, type: 'sgv' }];
 
     var sbx = freshSBX()
