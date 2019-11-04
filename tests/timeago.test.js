@@ -49,7 +49,9 @@ describe('timeago', function() {
     var sbx = freshSBX()
     var status = timeago.checkStatus(sbx);
     // By default (no hibernation detected) a warning should be given
-    should.equal(status, 'warn')
+    // we force no hibernation by checking status twice
+    status = timeago.checkStatus(sbx);
+    should.equal(status, 'warn');
 
     // 10ms more than suspend-threshold to prevent flapping tests
     var timeoutMs = 2 * ctx.settings.heartbeat * 1000 + 100;
@@ -57,12 +59,12 @@ describe('timeago', function() {
       setTimeout(function() {
         status = timeago.checkStatus(sbx);
         // Because hibernation should now be detected, no warning should be given
-        should.equal(status, 'current')
+        should.equal(status, 'current');
 
         // We immediately ask status again, so hibernation should not be detected anymore,
         // and we should receive a warning again
         status = timeago.checkStatus(sbx);
-        should.equal(status, 'warn')
+        should.equal(status, 'warn');
 
         resolve()
       }, timeoutMs)
