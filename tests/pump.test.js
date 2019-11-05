@@ -269,7 +269,7 @@ describe('pump', function ( ) {
     pump.virtAsst.intentHandlers.length.should.equal(4);
 
     pump.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
-      title.should.equal('Remaining Insulin');
+      title.should.equal('Insulin Remaining');
       response.should.equal('You have 86.4 units remaining');
 
       pump.virtAsst.intentHandlers[1].intentHandler(function next(title, response) {
@@ -277,7 +277,7 @@ describe('pump', function ( ) {
         response.should.equal('Your pump battery is at 1.52 volts');
         
         pump.virtAsst.intentHandlers[2].intentHandler(function next(title, response) {
-          title.should.equal('Remaining Insulin');
+          title.should.equal('Insulin Remaining');
           response.should.equal('You have 86.4 units remaining');
     
           pump.virtAsst.intentHandlers[3].intentHandler(function next(title, response) {

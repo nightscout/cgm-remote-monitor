@@ -385,7 +385,7 @@ describe('openaps', function ( ) {
     openaps.virtAsst.intentHandlers.length.should.equal(2);
 
     openaps.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
-      title.should.equal('Loop Forecast');
+      title.should.equal('OpenAPS Forecast');
       response.should.equal('The OpenAPS Eventual BG is 125');
 
       openaps.virtAsst.intentHandlers[1].intentHandler(function next(title, response) {
