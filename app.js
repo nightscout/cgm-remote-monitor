@@ -18,12 +18,12 @@ function create (env, ctx) {
   if (!insecureUseHttp) {
     console.info('Redirecting http traffic to https because INSECURE_USE_HTTP=', insecureUseHttp);
     app.use((req, res, next) => {
-      if (req.header('x-forwarded-proto') == 'https' || req.secure) {
+      if (req.header('x-forwarded-proto') === 'https' || req.secure) {
         next();
       } else {
         res.redirect(307, `https://${req.header('host')}${req.url}`);
       }
-    })
+    });
     if (secureHstsHeader) { // Add HSTS (HTTP Strict Transport Security) header
       console.info('Enabled SECURE_HSTS_HEADER (HTTP Strict Transport Security)');
       const helmet = require('helmet');
@@ -61,7 +61,7 @@ function create (env, ctx) {
         }));
         app.use(helmet.referrerPolicy({ policy: 'no-referrer' }));
         app.use(helmet.featurePolicy({ features: { payment: ["'none'"], } }));
-        app.use(bodyParser.json({ type: ['json', 'application/csp-report'] }))
+        app.use(bodyParser.json({ type: ['json', 'application/csp-report'] }));
         app.post('/report-violation', (req, res) => {
           if (req.body) {
             console.log('CSP Violation: ', req.body)
@@ -84,7 +84,11 @@ function create (env, ctx) {
 
   let cacheBuster = 'developmentMode';
   if (process.env.NODE_ENV !== 'development') {
-    cacheBuster = fs.readFileSync(process.cwd() + '/tmp/cacheBusterToken').toString().trim();
+    if (fs.existsSync(process.cwd() + '/tmp/cacheBusterToken')) {
+      cacheBuster = fs.readFileSync(process.cwd() + '/tmp/cacheBusterToken').toString().trim();
+    } else {
+      cacheBuster = fs.readFileSync(__dirname + '/tmp/cacheBusterToken').toString().trim();
+    }
   }
   app.locals.cachebuster = cacheBuster;
 
@@ -114,7 +118,9 @@ function create (env, ctx) {
   // api and json object variables
   ///////////////////////////////////////////////////
   var api = require('./lib/api/')(env, ctx);
+  var api3 = require('./lib/api3/')(env, ctx);
   var ddata = require('./lib/data/endpoints')(env, ctx);
+  var notificationsV2 = require('./lib/api/notifications-v2')(app, ctx)
 
   app.use(compression({
     filter: function shouldCompress (req, res) {
@@ -164,9 +170,16 @@ function create (env, ctx) {
     limit: 1048576 * 50
   }), api);
 
+  app.use('/api/v2', bodyParser({
+    limit: 1048576 * 50
+  }), api);
+
   app.use('/api/v2/properties', ctx.properties);
   app.use('/api/v2/authorization', ctx.authorization.endpoints);
   app.use('/api/v2/ddata', ddata);
+  app.use('/api/v2/notifications', notificationsV2);
+
+  app.use('/api/v3', api3);
 
   // pebble data
   app.get('/pebble', ctx.pebble);
@@ -254,9 +267,16 @@ function create (env, ctx) {
   }
 
   // Production bundling
-  var tmpFiles = express.static('tmp', {
-    maxAge: maxAge
-  });
+  var tmpFiles;
+  if (fs.existsSync(process.cwd() + '/tmp/cacheBusterToken')) {
+    tmpFiles = express.static('tmp', {
+      maxAge: maxAge
+    });
+  } else {
+    tmpFiles = express.static(__dirname + '/tmp', {
+      maxAge: maxAge
+    });
+  }
 
   // serve the static content
   app.use('/bundle', tmpFiles);
