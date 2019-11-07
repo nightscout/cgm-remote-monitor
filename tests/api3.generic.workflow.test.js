@@ -253,5 +253,43 @@ describe('Generic REST API3', function() {
     }
   });
 
+
+  it('should not modify read-only document', async () => {
+    await self.instance.post(`${self.urlCol}?token=${self.token.create}`)
+      .send(Object.assign({}, self.docOriginal, { isReadOnly: true }))
+      .expect(201);
+
+    let res = await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
+      .expect(200);
+
+    self.docActual = res.body;
+    delete self.docActual.srvModified;
+    const readOnlyMessage = 'Trying to modify read-only document';
+
+    res = await self.instance.post(`${self.urlCol}?token=${self.token.update}`)
+      .send(Object.assign({}, self.docActual, { insulin: 0.41 }))
+      .expect(422);
+    res.body.message.should.equal(readOnlyMessage);
+
+    res = await self.instance.put(`${self.urlResource}?token=${self.token.update}`)
+      .send(Object.assign({}, self.docActual, { insulin: 0.42 }))
+      .expect(422);
+    res.body.message.should.equal(readOnlyMessage);
+
+    res = await self.instance.patch(`${self.urlResource}?token=${self.token.update}`)
+      .send({ insulin: 0.43 })
+      .expect(422);
+    res.body.message.should.equal(readOnlyMessage);
+
+    res = await self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
+      .query({ 'permanent': 'true' })
+      .expect(422);
+    res.body.message.should.equal(readOnlyMessage);
+
+    res = await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
+      .expect(200);
+    res.body.should.containEql(self.docOriginal);
+  });
+
 });
 
