@@ -227,6 +227,7 @@ h1, legend,
   overflow: hidden;
 }
 #buttonbar {
+  margin-right: 50px;
   padding-right: 15px;
   height: 44px;
   opacity: 0.75;
