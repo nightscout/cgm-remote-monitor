@@ -43,7 +43,7 @@ To add Alexa support for a plugin, [check this out](#adding-alexa-support-to-a-p
 
 1. Sign up for a free [Amazon Developer account](https://developer.amazon.com/) if you don't already have one.
 1. [Register](https://developer.amazon.com/docs/devconsole/test-your-skill.html#h2_register) your Alexa-enabled device with your Developer account.
-1. Sign in and go to the [Alexa developer portal](https://developer.amazon.com/alexa). 
+1. Sign in and go to the [Alexa developer portal](https://developer.amazon.com/alexa/console/ask).
 
 ### Create a new Alexa skill
 
@@ -94,6 +94,22 @@ See [Interacting with Virtual Assistants](interacting-with-virtual-assistants.md
 ### Activate the skill on your Echo or other device
 
 If your device is [registered](https://developer.amazon.com/docs/devconsole/test-your-skill.html#h2_register) with your developer account, you should be able to use your skill right away. Try it by asking Alexa one of the above questions using your device.
+
+## Updating your skill with new features
+
+As more work is done on Nightscout, new ways to interact with Nighscout via Alexa may be made available. To be able to use these new features, you first will need to [update your Nightscout site](https://github.com/nightscout/cgm-remote-monitor#updating-my-version), and then you can follow the steps below to update your Alexa skill.
+
+1. Make sure you've [updated your Nightscout site](https://github.com/nightscout/cgm-remote-monitor#updating-my-version) first.
+1. Open [the latest skill template](alexa-templates/) in your language. You'll be copying the contents of the file later.
+    - If your language doesn't include the latest features you're looking for, you're help [translating those new features](#adding-support-for-additional-languages) would be greatly appreciated!
+1. Sign in to the [Alexa developer portal](https://developer.amazon.com/alexa/console/ask).
+1. Open your Nightscout skill.
+1. Open the "JSON Editor" in the left navigation pane.
+1. Select everything in the text box (Ctrl + A on Windows, Cmd + A on Mac) and delete it.
+1. Copy the contents of the updated template and paste it in the text box in the JSON Editor page.
+1. Click the "Save Model" button near the top of the page, and then click the "Build Model" button.
+1. Make sure to follow any directions specific to the Nightscout update. If there are any, they will be noted in the [release notes](https://github.com/nightscout/cgm-remote-monitor/releases).
+1. Enjoy the new features!
 
 ## Adding support for additional languages
 
