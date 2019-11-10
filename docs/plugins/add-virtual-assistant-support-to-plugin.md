@@ -18,7 +18,7 @@ iob.virtAsst = {
 };
 ```
 
-There are 2 types of handlers that you will need to supply: 
+There are 2 types of handlers that you can supply: 
 * Intent handler - Enables you to "teach" the virtual assistant how to respond to a user's question. 
 * A rollup handler - Enables you to create a command that aggregates information from multiple plugins. This would be akin to the a "flash briefing". An example would be a status report that contains your current bg, iob, and your current basal.
  
