@@ -146,7 +146,7 @@ function readENV(varName, defaultValue) {
     || process.env[varName]
     || process.env[varName.toLowerCase()];
 
-  if (varName == 'DISPLAY_UNITS') {
+  if (varName == 'DISPLAY_UNITS' && value) {
     if (value.toLowerCase().includes('mmol')) {
       value = 'mmol';
     } else {
