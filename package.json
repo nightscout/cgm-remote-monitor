@@ -27,7 +27,8 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "env-cmd ./test.env mocha --exit tests/*.test.js",
+    "test": "env-cmd ./my.test.env mocha --exit tests/*.test.js",
+    "test-ci": "env-cmd ./ci.test.env mocha --exit tests/*.test.js",
     "env": "env",
     "postinstall": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
     "bundle": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
