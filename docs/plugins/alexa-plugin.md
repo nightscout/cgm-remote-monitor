@@ -109,6 +109,7 @@ As more work is done on Nightscout, new ways to interact with Nighscout via Alex
 1. Copy the contents of the updated template and paste it in the text box in the JSON Editor page.
 1. Click the "Save Model" button near the top of the page, and then click the "Build Model" button.
 1. Make sure to follow any directions specific to the Nightscout update. If there are any, they will be noted in the [release notes](https://github.com/nightscout/cgm-remote-monitor/releases).
+1. If you gave your skill name something other than "night scout," you will need to go to the "Invocation" page in the left navigation pane and change the Skill Invocation Name back to your preferred name. Make sure to click the "Save Model" button followed by the "Build Model" button after you change the name.
 1. Enjoy the new features!
 
 ## Adding support for additional languages
