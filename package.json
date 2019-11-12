@@ -27,7 +27,8 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "env-cmd ./test.env mocha --exit tests/*.test.js",
+    "test": "env-cmd ./my.test.env mocha --exit tests/*.test.js",
+    "test-ci": "env-cmd ./ci.test.env mocha --exit tests/*.test.js",
     "env": "env",
     "postinstall": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
     "bundle": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
@@ -99,7 +100,7 @@
     "node-cache": "^4.2.1",
     "parse-duration": "^0.1.1",
     "pem": "^1.14.3",
-    "pushover-notifications": "^1.2.0",
+    "pushover-notifications": "^1.2.1",
     "random-token": "0.0.8",
     "request": "^2.88.0",
     "semver": "^6.3.0",
