@@ -24,8 +24,6 @@ matrix:
   allow_failures:
     node_js: "node"
   include:
-    - node_js: "8"
-      <<: *node_js-steps
     - node_js: "10"
       <<: *node_js-steps
     - node_js: "node" # Latest Node is not supported, and recommend, but we'll test it to know incompatibility issues
