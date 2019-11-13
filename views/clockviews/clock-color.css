@@ -8,6 +8,20 @@ body {
   flex-direction: column;
 }
 
+#bgnow {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+#delta {
+    font-size: 16vmin;
+    vertical-align: middle;
+}
+
+#innerTrend {
+    word-spacing: 2em;
+}
+
 #arrowDiv {
   flex-grow: 1;
   text-align: center;

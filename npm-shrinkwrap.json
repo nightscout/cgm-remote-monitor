@@ -9297,9 +9297,9 @@
       "integrity": "sha512-XRsRjdf+j5ml+y/6GKHPZbrF/8p2Yga0JPtdqTIY2Xe5ohJPD9saDJJLPvp9+NSBprVvevdXZybnj2cv8OEd0A=="
     },
     "pushover-notifications": {
-      "version": "1.2.0",
-      "resolved": "https://registry.npmjs.org/pushover-notifications/-/pushover-notifications-1.2.0.tgz",
-      "integrity": "sha512-Da2XgHDDq9ZU4idbIx5Y9N4kCsHVgeeHViHK2wxdtdkdP58OvrsKCqpLZnr5nS+I4/PphjTORGSVzwMV2UaPLg=="
+      "version": "1.2.1",
+      "resolved": "https://registry.npmjs.org/pushover-notifications/-/pushover-notifications-1.2.1.tgz",
+      "integrity": "sha512-FEPbbEhKPDw4PP/e4irEEv1gRmHvt2rulpsvj9OaWTBLWuTf0qBEuaydOsYnQdXS7zq0fAX/ptsj5/BqbKrcUw=="
     },
     "qs": {
       "version": "6.5.2",
