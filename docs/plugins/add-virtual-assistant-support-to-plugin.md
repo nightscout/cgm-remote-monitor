@@ -1,3 +1,13 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [Adding Virtual Assistant Support to a Plugin](#adding-virtual-assistant-support-to-a-plugin)
+    - [Intent Handlers](#intent-handlers)
+    - [Rollup handlers](#rollup-handlers)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 Adding Virtual Assistant Support to a Plugin
 =========================================
 

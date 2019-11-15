@@ -1,3 +1,18 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [Nightscout Google Home/DialogFlow Plugin](#nightscout-google-homedialogflow-plugin)
+  - [Overview](#overview)
+  - [Activate the Nightscout Google Home Plugin](#activate-the-nightscout-google-home-plugin)
+  - [Create Your DialogFlow Agent](#create-your-dialogflow-agent)
+    - [What questions can you ask it?](#what-questions-can-you-ask-it)
+  - [Updating your agent with new features](#updating-your-agent-with-new-features)
+  - [Adding support for additional languages](#adding-support-for-additional-languages)
+  - [Adding Google Home support to a plugin](#adding-google-home-support-to-a-plugin)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 Nightscout Google Home/DialogFlow Plugin
 ========================================
 

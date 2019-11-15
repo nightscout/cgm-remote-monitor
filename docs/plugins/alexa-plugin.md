@@ -13,9 +13,9 @@
     - [Test your skill out with the test tool](#test-your-skill-out-with-the-test-tool)
         - [What questions can you ask it?](#what-questions-can-you-ask-it)
     - [Activate the skill on your Echo or other device](#activate-the-skill-on-your-echo-or-other-device)
+  - [Updating your skill with new features](#updating-your-skill-with-new-features)
+  - [Adding support for additional languages](#adding-support-for-additional-languages)
   - [Adding Alexa support to a plugin](#adding-alexa-support-to-a-plugin)
-    - [Intent Handlers](#intent-handlers)
-    - [Rollup handlers](#rollup-handlers)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
