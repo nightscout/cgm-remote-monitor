@@ -70,7 +70,7 @@ describe('admintools', function ( ) {
   before(function (done) {
     benv.setup(function() {
 
-	  benv.require(__dirname + '/../tmp/js/bundle.js');
+	  benv.require(__dirname + '/../tmp/js/bundle.report.js');
           
       self.$ = $;
       
@@ -153,7 +153,9 @@ describe('admintools', function ( ) {
 
       var d3 = require('d3');
       //disable all d3 transitions so most of the other code can run with jsdom
-      d3.timer = function mockTimer() { };
+      //d3.timer = function mockTimer() { };
+      let timer = d3.timer(function mockTimer() { });
+      timer.stop();
       
       var cookieStorageType = self.localStorage._type
 

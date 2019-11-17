@@ -6,6 +6,7 @@ var moment = require('moment');
 
 var ctx = {
   language: require('../lib/language')()
+  , settings: require('../lib/settings')()
 };
 ctx.language.set('en');
 var env = require('../env')();
