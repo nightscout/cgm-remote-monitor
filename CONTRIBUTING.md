@@ -57,7 +57,7 @@ Nightscout is a Node.js application. The basic installation of the software for 
 
 We develop on the `dev` branch. All new pull requests should be targeted to `dev`. The `master` branch is only used for distributing the latest version of the tested sources.
 
-You can get the dev branch checked out using `git checkout dev`.
+You can get the `dev` branch checked out using `git checkout dev`.
 
 Once checked out, install the dependencies using `npm install`, then copy the included `my.env.template`file to `my.env` and edit the file to include your settings (like the Mongo URL). Leave the `NODE_ENV=development` line intact. Once set, run the site using `npm run dev`. This will start Nigthscout in the development mode, with different code packaging rules and automatic restarting of the server using nodemon, when you save changed files on disk. The client also hot-reloads new code in, but it's recommended to reload the the website after changes due to the way the plugin sandbox works.
 
@@ -119,8 +119,9 @@ We assume all new Pull Requests are at least smoke tested by the author and all 
 Please include a description of what the features do and rationalize why the changes are needed.
 
 If you add any new NPM module dependencies, you have to rationalize why there are needed - we prefer pull requests that reduce dependencies, not add them.
+Before releasing a a new version, we check with `npm audit` if our dependencies don't have known security issues. 
 
-When adding new features that add confugration options, please ensure the `README` document is amended with information on the new configuration.
+When adding new features that add configuration options, please ensure the `README` document is amended with information on the new configuration.
 
 ## Bug fixing
 
