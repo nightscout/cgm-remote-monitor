@@ -85,7 +85,7 @@ Click on the "Test" tab on the top menu. This will take you to the page where yo
 
 Enable testing for your skill (click the toggle). As indicated on this page, when testing is enabled, you can interact with the development version of your skill in the Alexa simulator and on all devices linked to your Alexa developer account. (Your skill will always be a development version. There's no need to publish it to the public.)
 
-After you enable testing, you can also use the Alexa Simulator in the left column, to try out the skill. You can type in questions and see the text your skill would reply with. You can also hold the microphone icon to ask questions using your microphone, and you'll get the audio and text responses back.
+After you enable testing, you can also use the Alexa Simulator in the left column, to try out the skill. You can type in questions and see the text your skill would reply with. When typing your test question, only type what you would verbally say to an Alexa device after the wake word. (e.g. you would verbally say "Alexa, ask Nightscout how am I doing", so you would type only "ask Nightscout how am I doing") You can also hold the microphone icon to ask questions using your microphone, and you'll get the audio and text responses back.
 
 ##### What questions can you ask it?
 
