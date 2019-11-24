@@ -54,9 +54,9 @@
     width: 100%;
     height: 90%;
     top: 30%;
-    left: 0%;
+    left: 0;
     font-size: 16px;
-}​
+}
 
 .spinner {
   margin: 100px auto 0;
@@ -168,15 +168,15 @@
         <div id="drawer">
             <form id="settings-form" role="form" >
                 <ul class="navigation" role="navigation" aria-label="Settings">
-                  <li><a href="report" target="reports" class="translate">Reports</a></li>
+                  <li><a id="reportlink" href="report" target="reports" class="translate">Reports</a></li>
                   <li><a id="editprofilelink" href="profile" target="profileeditor" class="translate">Profile Editor</a></li>
                   <li class="foodcontrol"><a id="editfoodlink" href="food" target="foodeditor" class="translate">Food Editor</a></li>
                   <li><a id="admintoolslink" href="admin" target="admintools" class="translate">Admin Tools</a></li>
                   <li class="multilink">
                   	<a class="translate">Clock Views:</a>
-                  	<a id="bgclocklink" href="/clock/bgclock?showClockClosebutton=true" class="translate multilink">Clock</a>
-                  	<a id="clockcolorlink" href="/clock/clock-color?showClockClosebutton=true" class="translate multilink">Color</a>
-                  	<a id="clocklink" href="/clock/clock?showClockClosebutton=true" class="translate multilink">Simple</a>
+                  	<a id="bgclocklink" href="/clock/bgclock" class="translate multilink">Clock</a>
+                  	<a id="clockcolorlink" href="/clock/clock-color" class="translate multilink">Color</a>
+                  	<a id="clocklink" href="/clock/clock" class="translate multilink">Simple</a>
                   </li>
                 </ul>
                 <fieldset class="browserSettings" id="browserSettings">
