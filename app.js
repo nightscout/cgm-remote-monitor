@@ -114,12 +114,13 @@ function create (env, ctx) {
     });
   }
 
-    ///////////////////////////////////////////////////
-    // api and json object variables
-    ///////////////////////////////////////////////////
-    var api = require('./lib/api/')(env, ctx);
-    var api3 = require('./lib/api3/')(env, ctx);
-    var ddata = require('./lib/data/endpoints')(env, ctx);
+  ///////////////////////////////////////////////////
+  // api and json object variables
+  ///////////////////////////////////////////////////
+  var api = require('./lib/api/')(env, ctx);
+  var api3 = require('./lib/api3/')(env, ctx);
+  var ddata = require('./lib/data/endpoints')(env, ctx);
+  var notificationsV2 = require('./lib/api/notifications-v2')(app, ctx)
 
   app.use(compression({
     filter: function shouldCompress (req, res) {
@@ -169,9 +170,14 @@ function create (env, ctx) {
     limit: 1048576 * 50
   }), api);
 
+  app.use('/api/v2', bodyParser({
+    limit: 1048576 * 50
+  }), api);
+
   app.use('/api/v2/properties', ctx.properties);
   app.use('/api/v2/authorization', ctx.authorization.endpoints);
   app.use('/api/v2/ddata', ddata);
+  app.use('/api/v2/notifications', notificationsV2);
 
   app.use('/api/v3', api3);
 
