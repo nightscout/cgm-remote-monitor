@@ -262,7 +262,7 @@ function create (env, ctx) {
   if (fs.existsSync(process.cwd() + '/tmp/cacheBusterToken')) {
     tmpFiles = express.static('tmp', {
       maxAge: maxAge
-    }); 
+    });
   } else {
     tmpFiles = express.static(__dirname + '/tmp', {
       maxAge: maxAge
