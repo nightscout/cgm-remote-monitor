@@ -21,6 +21,9 @@ function config ( ) {
    * See README.md for info about all the supported ENV VARs
    */
   env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
+
+  console.log('Units set to', env.DISPLAY_UNITS );
+
   env.PORT = readENV('PORT', 1337);
   env.HOSTNAME = readENV('HOSTNAME', null);
   env.IMPORT_CONFIG = readENV('IMPORT_CONFIG', null);
@@ -55,6 +58,13 @@ function setSSL() {
       env.ca = fs.readFileSync(env.SSL_CA);
     }
   }
+
+  env.insecureUseHttp = readENVTruthy("INSECURE_USE_HTTP", false);
+  env.secureHstsHeader = readENVTruthy("SECURE_HSTS_HEADER", true);
+  env.secureHstsHeaderIncludeSubdomains = readENVTruthy("SECURE_HSTS_HEADER_INCLUDESUBDOMAINS", false);
+  env.secureHstsHeaderPreload= readENVTruthy("SECURE_HSTS_HEADER_PRELOAD", false);
+  env.secureCsp = readENVTruthy("SECURE_CSP", false);
+  env.secureCspReportOnly = readENVTruthy("SECURE_CSP_REPORT_ONLY", false);
 }
 
 // A little ugly, but we don't want to read the secret into a var
@@ -94,6 +104,7 @@ function setStorage() {
   env.authentication_collections_prefix = readENV('MONGO_AUTHENTICATION_COLLECTIONS_PREFIX', 'auth_');
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
+  env.settings_collection = readENV('MONGO_SETTINGS_COLLECTION', 'settings');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
   env.food_collection = readENV('MONGO_FOOD_COLLECTION', 'food');
   env.activity_collection = readENV('MONGO_ACTIVITY_COLLECTION', 'activity');
@@ -126,8 +137,6 @@ function updateSettings() {
     env.settings.authDefaultRoles = env.settings.authDefaultRoles || "";
     env.settings.authDefaultRoles += ' careportal';
   }
-
-
 }
 
 function readENV(varName, defaultValue) {
@@ -137,6 +146,13 @@ function readENV(varName, defaultValue) {
     || process.env[varName]
     || process.env[varName.toLowerCase()];
 
+  if (varName == 'DISPLAY_UNITS' && value) {
+    if (value.toLowerCase().includes('mmol')) {
+      value = 'mmol';
+    } else {
+      value = 'mg/dl';
+    }
+  }
 
   return value != null ? value : defaultValue;
 }
@@ -144,7 +160,8 @@ function readENV(varName, defaultValue) {
 function readENVTruthy(varName, defaultValue) {
   var value = readENV(varName, defaultValue);
   if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
-  if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
+  else if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
+  else { value=defaultValue }
   return value;
 }
 
@@ -178,6 +195,6 @@ function findExtendedSettings (envs) {
     }
   });
   return extended;
-}
+  }
 
 module.exports = config;
