@@ -17,6 +17,7 @@
     "NOT_FOUND": 404,
     "GONE": 410,
     "PRECONDITION_FAILED": 412,
+    "UNPROCESSABLE_ENTITY": 422,
     "INTERNAL_ERROR": 500
   },
 
@@ -39,6 +40,7 @@
     "HTTP_401_MISSING_OR_BAD_TOKEN": "Missing or bad access token or JWT",
     "HTTP_403_MISSING_PERMISSION": "Missing permission {0}",
     "HTTP_403_NOT_USING_HTTPS": "Not using SSL/TLS",
+    "HTTP_422_READONLY_MODIFICATION": "Trying to modify read-only document",
     "HTTP_500_INTERNAL_ERROR": "Internal Server Error",
     "STORAGE_ERROR": "Database error",
     "SOCKET_MISSING_OR_BAD_ACCESS_TOKEN": "Missing or bad accessToken",

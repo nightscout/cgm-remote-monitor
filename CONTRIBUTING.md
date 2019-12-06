@@ -197,7 +197,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 
 | Contribution area                     | List of developers   | List of testers
 | ------------------------------------- | -------------------- | -------------------- |
-| [`alexa` (Amazon Alexa)](README.md#alexa-amazon-alexa)| Please volunteer | Please volunteer |
+| [`alexa` (Amazon Alexa)](README.md#alexa-amazon-alexa)| [@inventor96] | Please volunteer |
 | [`ar2` (AR2 Forecasting)](README.md#ar2-ar2-forecasting)| Please volunteer | Please volunteer |
 | [`basal` (Basal Profile)](README.md#basal-basal-profile)| Please volunteer | Please volunteer |
 | [`boluscalc` (Bolus Wizard)](README.md#boluscalc-bolus-wizard)| Please volunteer | Please volunteer |
@@ -212,7 +212,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | [`direction` (BG Direction)](README.md#direction-bg-direction)| Please volunteer | Please volunteer |
 | [`errorcodes` (CGM Error Codes)](README.md#errorcodes-cgm-error-codes)| Please volunteer | Please volunteer |
 | [`food` (Custom Foods)](README.md#food-custom-foods)| Please volunteer | Please volunteer |
-| [`googlehome` (Google Home)](README.md#google-home) |[@mdomox] [@rickfriele] | [@mcdafydd] [@oteroos] [@jamieowendexcom] | 
+| [`googlehome` (Google Home/DialogFlow)](README.md#googlehome-google-homedialogflow)| [@mdomox] [@rickfriele] [@inventor96] | [@mcdafydd] [@oteroos] [@jamieowendexcom] | 
 | [`iage` (Insulin Age)](README.md#iage-insulin-age)| Please volunteer | Please volunteer |
 | [`iob` (Insulin-on-Board)](README.md#iob-insulin-on-board)| Please volunteer | Please volunteer |
 | [`loop` (Loop)](README.md#loop-loop)| Please volunteer | Please volunteer |
@@ -221,9 +221,9 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | [`profile` (Treatment Profile)](README.md#profile-treatment-profile)| Please volunteer | Please volunteer |
 | [`pump` (Pump Monitoring)](README.md#pump-pump-monitoring)| Please volunteer | Please volunteer |
 | [`rawbg` (Raw BG)](README.md#rawbg-raw-bg)| [@jpcunningh] | Please volunteer |
-| [`sage` (Sensor Age)](README.md#sage-sensor-age)| @jpcunningh | Please volunteer |
+| [`sage` (Sensor Age)](README.md#sage-sensor-age)| [@jpcunningh] | Please volunteer |
 | [`simplealarms` (Simple BG Alarms)](README.md#simplealarms-simple-bg-alarms)| Please volunteer | Please volunteer |
-| [`speech` (Speech)](README.md#speech-speech) | [@sulkaharo] | Please volunteer |
+| [`speech` (Speech)](README.md#speech-speech)| [@sulkaharo] | Please volunteer |
 | [`timeago` (Time Ago)](README.md#timeago-time-ago)| Please volunteer | Please volunteer |
 | [`treatmentnotify` (Treatment Notifications)](README.md#treatmentnotify-treatment-notifications)| Please volunteer | Please volunteer |
 | [`upbat` (Uploader Battery)](README.md#upbat-uploader-battery)| [@jpcunningh] | Please volunteer |
@@ -240,12 +240,12 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | Čeština (`cs`) |Please volunteer|OK |
 | Deutsch (`de`) |[@viderehh] [@herzogmedia] |OK |
 | Dansk (`dk`)  | [@janrpn] |OK |
-| Ελληνικά `(el`)|Please volunteer|Needs attention: 68.5%|
+| Ελληνικά (`el`)|Please volunteer|Needs attention: 68.5%|
 | English (`en`)|Please volunteer|OK|
 | Español (`es`) |Please volunteer|OK|
 | Suomi (`fi`)|[@sulkaharo] |OK|
 | Français (`fr`)|Please volunteer|OK|
-| עברית (`he`)|Please volunteer|OK|
+| עברית (`he`)| [@jakebloom] |OK|
 | Hrvatski (`hr`)|[@OpossumGit]|OK|
 | Italiano (`it`)|Please volunteer|OK|
 | 日本語 (`ja`)|[@LuminaryXion]|Working on this|
