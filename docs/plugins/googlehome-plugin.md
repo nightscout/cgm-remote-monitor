@@ -1,3 +1,18 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [Nightscout Google Home/DialogFlow Plugin](#nightscout-google-homedialogflow-plugin)
+  - [Overview](#overview)
+  - [Activate the Nightscout Google Home Plugin](#activate-the-nightscout-google-home-plugin)
+  - [Create Your DialogFlow Agent](#create-your-dialogflow-agent)
+    - [What questions can you ask it?](#what-questions-can-you-ask-it)
+  - [Updating your agent with new features](#updating-your-agent-with-new-features)
+  - [Adding support for additional languages](#adding-support-for-additional-languages)
+  - [Adding Google Home support to a plugin](#adding-google-home-support-to-a-plugin)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 Nightscout Google Home/DialogFlow Plugin
 ========================================
 
@@ -53,6 +68,22 @@ That's it! Now try asking Google "Hey Google, ask *your Action's name* how am I 
 ### What questions can you ask it?
 
 See [Interacting with Virtual Assistants](interacting-with-virtual-assistants.md) for details on what you can do with Google Home.
+
+## Updating your agent with new features
+
+As more work is done on Nightscout, new ways to interact with Nighscout via Google Home may be made available. To be able to use these new features, you first will need to [update your Nightscout site](https://github.com/nightscout/cgm-remote-monitor#updating-my-version), and then you can follow the steps below to update your DialogFlow agent.
+
+1. Make sure you've [updated your Nightscout site](https://github.com/nightscout/cgm-remote-monitor#updating-my-version) first.
+1. Download [the latest skill template](google-home-templates/) in your language.
+    - If your language doesn't include the latest features you're looking for, you're help [translating those new features](#adding-support-for-additional-languages) would be greatly appreciated!
+1. Sign in to the [DialogFlow developer portal](https://dialogflow.cloud.google.com/).
+1. Make sure you're viewing your Nightscout agent (there's a drop-down box immediately below the DialogFlow logo where you can select your agent).
+1. Click on the gear icon next to your agent name, then click on the "Export and Import" tab.
+1. Click the "RESTORE FROM ZIP" button.
+1. Select the template file you downloaded earlier, then type "RESTORE" in the text box as requested, and click the "RESTORE" button.
+1. After the import is completed, click the "DONE" button.
+1. Make sure to follow any directions specific to the Nightscout update. If there are any, they will be noted in the [release notes](https://github.com/nightscout/cgm-remote-monitor/releases).
+1. Enjoy the new features!
 
 ## Adding support for additional languages
 

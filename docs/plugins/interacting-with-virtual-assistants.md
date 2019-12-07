@@ -1,3 +1,14 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [Interacting with Virtual Assistants](#interacting-with-virtual-assistants)
+- [Alexa vs. Google Home](#alexa-vs-google-home)
+- [What questions can you ask it?](#what-questions-can-you-ask-it)
+  - [A note about names](#a-note-about-names)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 Interacting with Virtual Assistants
 ===================================
 
