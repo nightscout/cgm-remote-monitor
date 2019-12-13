@@ -114,12 +114,14 @@ function create (env, ctx) {
     });
   }
 
-    ///////////////////////////////////////////////////
-    // api and json object variables
-    ///////////////////////////////////////////////////
-    var api = require('./lib/api/')(env, ctx);
-    var api3 = require('./lib/api3/')(env, ctx);
-    var ddata = require('./lib/data/endpoints')(env, ctx);
+  ///////////////////////////////////////////////////
+  // api and json object variables
+  ///////////////////////////////////////////////////
+  const apiRoot = require('./lib/api/root')(env, ctx);
+  var api = require('./lib/api/')(env, ctx);
+  var api3 = require('./lib/api3/')(env, ctx);
+  var ddata = require('./lib/data/endpoints')(env, ctx);
+  var notificationsV2 = require('./lib/api/notifications-v2')(app, ctx);
 
   app.use(compression({
     filter: function shouldCompress (req, res) {
@@ -165,13 +167,22 @@ function create (env, ctx) {
     });
   });
 
+  app.use('/api', bodyParser({
+    limit: 1048576 * 50
+  }), apiRoot);
+
   app.use('/api/v1', bodyParser({
+    limit: 1048576 * 50
+  }), api);
+
+  app.use('/api/v2', bodyParser({
     limit: 1048576 * 50
   }), api);
 
   app.use('/api/v2/properties', ctx.properties);
   app.use('/api/v2/authorization', ctx.authorization.endpoints);
   app.use('/api/v2/ddata', ddata);
+  app.use('/api/v2/notifications', notificationsV2);
 
   app.use('/api/v3', api3);
 
@@ -227,7 +238,7 @@ function create (env, ctx) {
 
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-  app.use('/swagger-ui-dist', (req, res, next) => {
+  app.use('/swagger-ui-dist', (req, res) => {
     res.redirect(307, '/api-docs');
   });
 
