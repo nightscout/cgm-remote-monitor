@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html manifest="appcache/nightscout-<%= locals.cachebuster %>.appcache">
+<html<%if (locals.mode == 'production') { %>
+    manifest="appcache/nightscout-<%= locals.cachebuster %>.appcache"
+    <% } %>>
     <head>
       <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
       <meta name="apple-mobile-web-app-capable" content="yes">
@@ -150,14 +152,19 @@
                         </div>
                     </div>
                 </div>
+                <div></div>
+                
                 <ul class="focus-range">
-                    <li data-hours="2" class="translate">2HR</li>
-                    <li data-hours="3" class="translate">3HR</li>
-                    <li data-hours="6" class="translate">6HR</li>
-                    <li data-hours="12" class="translate">12HR</li>
-                    <li data-hours="24" class="translate">24HR</li>
+                    <li data-hours="1" class="translate">Hours:</li>
+                    <li data-hours="2">2</li>
+                    <li data-hours="3">3</li>
+                    <li data-hours="4">4</li>
+                    <li data-hours="6">6</li>
+                    <li data-hours="12">12</li>
+                    <li data-hours="24">24</li>
                     <li>...</li>
                 </ul>
+              </div>
                 <ul class="dropdown-menu" id="viewMenu"></ul>
             </div>
             <div class="row-fluid section1">
