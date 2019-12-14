@@ -247,10 +247,13 @@ function create (env, ctx) {
 
   app.locals.bundle = '/bundle';
 
+  app.locals.mode = 'production';
+
   if (process.env.NODE_ENV === 'development') {
 
     console.log('Development mode');
 
+    app.locals.mode = 'development';
     app.locals.bundle = '/devbundle';
 
     const webpack = require('webpack');
