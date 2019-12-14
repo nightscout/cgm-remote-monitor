@@ -39,6 +39,7 @@
     "dev": "env-cmd ./my.env nodemon server.js 0.0.0.0",
     "prod": "env-cmd ./my.prod.env node server.js 0.0.0.0"
   },
+  "main": "server.js",
   "config": {
     "blanket": {
       "pattern": [
