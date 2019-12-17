@@ -25,7 +25,7 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 
 ## Activate the Nightscout Google Home Plugin
 
-1. Your Nightscout site needs to be new enough that it supports the `googlehome` plugin. It needs to be [version 0.13 (VERSION_NAME)](https://github.com/nightscout/cgm-remote-monitor/releases/tag/0.13) or later. See [updating my version](https://github.com/nightscout/cgm-remote-monitor#updating-my-version) if you need a newer version.
+1. Your Nightscout site needs to be new enough that it supports the `googlehome` plugin. It needs to be [version 13.0 (Ketchup)](https://github.com/nightscout/cgm-remote-monitor/releases/tag/13.0) or later. See [updating my version](https://github.com/nightscout/cgm-remote-monitor#updating-my-version) if you need a newer version.
 1. Add `googlehome` to the list of plugins in your `ENABLE` setting. ([Environment variables](https://github.com/nightscout/cgm-remote-monitor#environment) are set in the configuration section for your monitor. Typically Azure, Heroku, etc.)
 
 ## Create Your DialogFlow Agent
