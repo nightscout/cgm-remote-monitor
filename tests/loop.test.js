@@ -244,7 +244,7 @@ describe('loop', function ( ) {
     done();
   });
 
-  it('should handle alexa requests', function (done) {
+  it('should handle virtAsst requests', function (done) {
     var ctx = {
       settings: {
         units: 'mg/dl'
@@ -256,14 +256,14 @@ describe('loop', function ( ) {
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
     loop.setProperties(sbx);
 
-    loop.alexa.intentHandlers.length.should.equal(2);
+    loop.virtAsst.intentHandlers.length.should.equal(2);
 
-    loop.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+    loop.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Loop Forecast');
       response.should.equal('According to the loop forecast you are expected to be between 147 and 149 over the next in 25 minutes');
 
-      loop.alexa.intentHandlers[1].intentHandler(function next(title, response) {
-        title.should.equal('Last loop');
+      loop.virtAsst.intentHandlers[1].intentHandler(function next(title, response) {
+        title.should.equal('Last Loop');
         response.should.equal('The last successful loop was a few seconds ago');
         done();
       }, [], sbx);

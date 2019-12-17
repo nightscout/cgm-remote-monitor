@@ -99,6 +99,7 @@ Community maintained fork of the
         - [`override` (Override Mode)](#override-override-mode)
         - [`xdripjs` (xDrip-js)](#xdripjs-xdripjs)
         - [`alexa` (Amazon Alexa)](#alexa-amazon-alexa)
+        - [`googlehome` (Google Home/DialogFLow)](#googlehome-google-homedialogflow)
         - [`speech` (Speech)](#speech-speech)
         - [`cors` (CORS)](#cors-cors)
       - [Extended Settings](#extended-settings)
@@ -240,10 +241,10 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   These alarm setting affect all delivery methods (browser, Pushover, IFTTT, etc.). Values and settings entered here will be the defaults for new browser views, but will be overridden if different choices are made in the settings UI.
 
   * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's
-  * `BG_HIGH` (`260`) - must be set using mg/dl units; the high BG outside the target range that is considered urgent
-  * `BG_TARGET_TOP` (`180`) - must be set using mg/dl units; the top of the target range, also used to draw the line on the chart
-  * `BG_TARGET_BOTTOM` (`80`) - must be set using mg/dl units; the bottom of the target range, also used to draw the line on the chart
-  * `BG_LOW` (`55`) - must be set using mg/dl units; the low BG outside the target range that is considered urgent
+  * `BG_HIGH` (`260`) - the high BG outside the target range that is considered urgent (interprets units based on DISPLAY_UNITS setting)
+  * `BG_TARGET_TOP` (`180`) - the top of the target range, also used to draw the line on the chart (interprets units based on DISPLAY_UNITS setting)
+  * `BG_TARGET_BOTTOM` (`80`) - the bottom of the target range, also used to draw the line on the chart (interprets units based on DISPLAY_UNITS setting)
+  * `BG_LOW` (`55`) - the low BG outside the target range that is considered urgent (interprets units based on DISPLAY_UNITS setting)
   * `ALARM_URGENT_HIGH` (`on`) - possible values `on` or `off`
   * `ALARM_URGENT_HIGH_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent high alarms, space separated for options in browser, first used for pushover
   * `ALARM_HIGH` (`on`) - possible values `on` or `off`
@@ -510,6 +511,9 @@ For remote overrides, the following extended settings must be configured:
 
 ##### `alexa` (Amazon Alexa)
   Integration with Amazon Alexa, [detailed setup instructions](docs/plugins/alexa-plugin.md)
+
+##### `googlehome` (Google Home/DialogFLow)
+  Integration with Google Home (via DialogFlow), [detailed setup instructions](docs/plugins/googlehome-plugin.md)
 
 ##### `speech` (Speech)
   Speech synthesis plugin. When enabled, speaks out the blood glucose values, IOB and alarms. Note you have to set the LANGUAGE setting on the server to get all translated alarms.
