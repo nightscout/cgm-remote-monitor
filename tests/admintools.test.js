@@ -138,7 +138,7 @@ describe('admintools', function ( ) {
             if (url.indexOf('status.json') > -1) {
               fn(serverSettings);
             } else {
-              fn({message: 'OK'});
+              fn({message: {message: 'OK'}});
             }
             return self.$.ajax();
             },

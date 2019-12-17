@@ -53,22 +53,22 @@
       "required": true
     },
     "BG_HIGH": {
-      "description": "Urgent High BG threshold, triggers the ALARM_URGENT_HIGH alarm. Must be set in mg/dL, even if you use mmol/L (multiply a mmol/L value by 18 to change it to mg/dl).",
+      "description": "Urgent High BG threshold, triggers the ALARM_URGENT_HIGH alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
       "value": "260",
       "required": false
     },
     "BG_LOW": {
-      "description": "Urgent Low BG threshold, triggers the ALARM_URGENT_LOW alarm. Must be set in mg/dL, even if you use mmol/L (multiply a mmol/L value by 18 to change it to mg/dl).",
+      "description": "Urgent Low BG threshold, triggers the ALARM_URGENT_LOW alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
       "value": "55",
       "required": false
     },
     "BG_TARGET_BOTTOM": {
-      "description": "Low BG threshold, triggers the ALARM_LOW alarm. Must be set in mg/dL, even if you use mmol/L (multiply a mmol/L value by 18 to change it to mg/dl).",
+      "description": "Low BG threshold, triggers the ALARM_LOW alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
       "value": "80",
       "required": false
     },
     "BG_TARGET_TOP": {
-      "description": "High BG threshold, triggers the ALARM_HIGH alarm. Must be set in mg/dL, even if you use mmol/L (multiply a mmol/L value by 18 to change it to mg/dl).",
+      "description": "High BG threshold, triggers the ALARM_HIGH alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
       "value": "180",
       "required": false
     },
