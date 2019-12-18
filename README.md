@@ -36,7 +36,7 @@ Community maintained fork of the
 [codacy-img]: https://www.codacy.com/project/badge/f79327216860472dad9afda07de39d3b
 [codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
 [discord-img]: https://img.shields.io/discord/629952586895851530?label=discord%20chat
-[discord-url]: https://discordapp.com/channels/629952586895851530/629952669967974410
+[discord-url]: https://discord.gg/rTKhrqz
 [heroku-img]: https://www.herokucdn.com/deploy/button.png
 [heroku-url]: https://heroku.com/deploy
 [update-img]: update.png
@@ -97,8 +97,9 @@ Community maintained fork of the
         - [`openaps` (OpenAPS)](#openaps-openaps)
         - [`loop` (Loop)](#loop-loop)
         - [`override` (Override Mode)](#override-override-mode)
-        - [`xdrip-js` (xDrip-js)](#xdrip-js-xdrip-js)
+        - [`xdripjs` (xDrip-js)](#xdripjs-xdripjs)
         - [`alexa` (Amazon Alexa)](#alexa-amazon-alexa)
+        - [`googlehome` (Google Home/DialogFLow)](#googlehome-google-homedialogflow)
         - [`speech` (Speech)](#speech-speech)
         - [`cors` (CORS)](#cors-cors)
       - [Extended Settings](#extended-settings)
@@ -129,13 +130,15 @@ If you plan to use Nightscout, we recommend using [Heroku](http://www.nightscout
 Older versions of the browsers might work, but are untested.
 
 - Android 4
-- Chrome 68
+- iOS 6
+- Chrome 35
 - Edge 17
 - Firefox 61
+- Opera 12.1
+- Safari 6 (macOS 10.7)
 - Internet Explorer: not supported
-- iOS 11
-- Opera 54
-- Safari 10 (macOS 10.12)
+
+Some features may not work with devices/browsers on the older end of these requirements.
 
 ## Windows installation software requirements:
 
@@ -167,7 +170,7 @@ SCM_COMMAND_IDLE_TIMEOUT=300
 
 # Development
 
-Wanna help with development, or just see how Nigthscout works? Great! See [CONTRIBUTING.md](CONTRIBUTING.md) for development related documentation.
+Want to help with development, or just see how Nightscout works? Great! See [CONTRIBUTING.md](CONTRIBUTING.md) for development-related documentation.
 
 # Usage
 
@@ -179,15 +182,9 @@ MongoDB server such as [mLab][mLab].
 [mongostring]: https://nightscout.github.io/pages/mongostring/
 
 ## Updating my version?
-The easiest way to update your version of cgm-remote-monitor to our latest
-recommended version is to use the [update my fork tool][update-fork].  It even
-gives out stars if you are up to date.
 
-## What is my mongo string?
-
-Try the [what is my mongo string tool][mongostring] to get a good idea of your
-mongo string.  You can copy and paste the text in the gray box into your
-`MONGO_CONNECTION` environment variable.
+The easiest way to update your version of cgm-remote-monitor to the latest version is to use the [update tool][update-fork]. A step-by-step guide is available [here][http://www.nightscout.info/wiki/welcome/how-to-update-to-latest-cgm-remote-monitor-aka-cookie].
+To downgrade to an older version, follow [this guide][http://www.nightscout.info/wiki/welcome/how-to-deploy-an-older-version-of-nightscout].
 
 ## Configure my uploader to match
 
@@ -195,7 +192,7 @@ Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
 
 ## Nightscout API
 
-The Nightscout API enables direct access to your DData without the need for direct Mongo access.
+The Nightscout API enables direct access to your data without the need for Mongo access.
 You can find CGM data in `/api/v1/entries`, Care Portal Treatments in `/api/v1/treatments`, and Treatment Profiles in `/api/v1/profile`.
 The server status and settings are available from `/api/v1/status.json`.
 
@@ -206,7 +203,7 @@ Once you've installed Nightscout, you can access API documentation by loading `/
 
 #### Example Queries
 
-(replace `http://localhost:1337` with your base url, YOUR-SITE)
+(replace `http://localhost:1337` with your own URL)
 
   * 100's: `http://localhost:1337/api/v1/entries.json?find[sgv]=100`
   * Count of 100's in a month: `http://localhost:1337/api/v1/count/entries/where?find[dateString][$gte]=2016-09&find[dateString][$lte]=2016-10&find[sgv]=100`
@@ -223,15 +220,16 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 
 ### Required
 
-  * `MONGO_CONNECTION` - Your mongo uri, for example: `mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout`
-  * `DISPLAY_UNITS` (`mg/dl`) - Choices: `mg/dl` and `mmol`.  Setting to `mmol` puts the entire server into `mmol` mode by default, no further settings needed.
-  * `BASE_URL` - Used for building links to your sites api, ie pushover callbacks, usually the URL of your Nightscout site you may want https instead of http
+  * `MONGODB_URI` - The connection string for your Mongo database. Something like `mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout`.
+  * `API_SECRET` - A secret passphrase that must be at least 12 characters long.
+  * `MONGODB_COLLECTION` (`entries`) - The Mongo collection where CGM entries are stored.
+  * `DISPLAY_UNITS` (`mg/dl`) - Options are `mg/dl` or `mmol/L` (or just `mmol`).  Setting to `mmol/L` puts the entire server into `mmol/L` mode by default, no further settings needed.
 
-### Features/Labs
+### Features
 
   * `ENABLE` - Used to enable optional features, expects a space delimited list, such as: `careportal rawbg iob`, see [plugins](#plugins) below
   * `DISABLE` - Used to disable default features, expects a space delimited list, such as: `direction upbat`, see [plugins](#plugins) below
-  * `API_SECRET` - A secret passphrase that must be at least 12 characters long, required to enable `POST` and `PUT`; also required for the Care Portal
+  * `BASE_URL` - Used for building links to your site's API, i.e. Pushover callbacks, usually the URL of your Nightscout site.
   * `AUTH_DEFAULT_ROLES` (`readable`) - possible values `readable`, `denied`, or any valid role
     name.  When `readable`, anyone can view Nightscout without a token.
     Setting it to `denied` will require a token from every visit, using `status-only` will enable api-secret based login.
@@ -240,13 +238,13 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 
 ### Alarms
 
-  These alarm setting effect all delivery methods (browser, pushover, maker, etc), some settings can be overridden per client (web browser)
+  These alarm setting affect all delivery methods (browser, Pushover, IFTTT, etc.). Values and settings entered here will be the defaults for new browser views, but will be overridden if different choices are made in the settings UI.
 
   * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's
-  * `BG_HIGH` (`260`) - must be set using mg/dl units; the high BG outside the target range that is considered urgent
-  * `BG_TARGET_TOP` (`180`) - must be set using mg/dl units; the top of the target range, also used to draw the line on the chart
-  * `BG_TARGET_BOTTOM` (`80`) - must be set using mg/dl units; the bottom of the target range, also used to draw the line on the chart
-  * `BG_LOW` (`55`) - must be set using mg/dl units; the low BG outside the target range that is considered urgent
+  * `BG_HIGH` (`260`) - the high BG outside the target range that is considered urgent (interprets units based on DISPLAY_UNITS setting)
+  * `BG_TARGET_TOP` (`180`) - the top of the target range, also used to draw the line on the chart (interprets units based on DISPLAY_UNITS setting)
+  * `BG_TARGET_BOTTOM` (`80`) - the bottom of the target range, also used to draw the line on the chart (interprets units based on DISPLAY_UNITS setting)
+  * `BG_LOW` (`55`) - the low BG outside the target range that is considered urgent (interprets units based on DISPLAY_UNITS setting)
   * `ALARM_URGENT_HIGH` (`on`) - possible values `on` or `off`
   * `ALARM_URGENT_HIGH_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent high alarms, space separated for options in browser, first used for pushover
   * `ALARM_HIGH` (`on`) - possible values `on` or `off`
@@ -258,10 +256,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `ALARM_URGENT_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent alarms (that aren't tagged as high or low), space separated for options in browser, first used for pushover
   * `ALARM_WARN_MINS` (`30 60 90 120`) - Number of minutes to snooze warning alarms (that aren't tagged as high or low), space separated for options in browser, first used for pushover
 
-
 ### Core
 
-  * `MONGO_COLLECTION` (`entries`) - The collection used to store SGV, MBG, and CAL records from your CGM device
   * `MONGO_TREATMENTS_COLLECTION` (`treatments`) -The collection used to store treatments entered in the Care Portal, see the `ENABLE` env var above
   * `MONGO_DEVICESTATUS_COLLECTION`(`devicestatus`) - The collection used to store device status information such as uploader battery
   * `MONGO_PROFILE_COLLECTION`(`profile`) - The collection used to store your profiles
@@ -276,13 +272,13 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
   * `DE_NORMALIZE_DATES`(`true`) - The Nightscout REST API normalizes all entered dates to UTC zone. Some Nightscout clients have broken date deserialization logic and expect to received back dates in zoned formats. Setting this variable to `true` causes the REST API to serialize dates sent to Nightscout in zoned format back to zoned format when served to clients over REST.
 
-
 ### Predefined values for your browser settings (optional)
+
   * `TIME_FORMAT` (`12`)- possible values `12` or `24`
   * `NIGHT_MODE` (`off`) - possible values `on` or `off`
   * `SHOW_RAWBG` (`never`) - possible values `always`, `never` or `noise`
-  * `CUSTOM_TITLE` (`Nightscout`) - Usually name of T1
-  * `THEME` (`default`) - possible values `default`, `colors`, or `colorblindfriendly`
+  * `CUSTOM_TITLE` (`Nightscout`) - Title for the main view
+  * `THEME` (`colors`) - possible values `default`, `colors`, or `colorblindfriendly`
   * `ALARM_TIMEAGO_WARN` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
@@ -290,12 +286,12 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
   * `SHOW_FORECAST` (`ar2`) - plugin forecasts that should be shown by default, supports space delimited values such as `"ar2 openaps"`
   * `LANGUAGE` (`en`) - language of Nightscout. If not available english is used
-    * Currently supported language codes are: bg (Български), cs (Čeština), de (Deutsch), dk (Dansk), el (Ελληνικά), en (English), es (Español), fi (Suomi), fr (Français), he (עברית), hr (Hrvatski), it (Italiano), ko (한국어), nb (Norsk (Bokmål)), nl (Nederlands), pl (Polski), pt (Português (Brasil)), ro (Română), ru (Русский), sk (Slovenčina), sv (Svenska), zh_cn (中文（简体)), zh_tw (中文（繁體))
+    * Currently supported language codes are: bg (Български), cs (Čeština), de (Deutsch), dk (Dansk), el (Ελληνικά), en (English), es (Español), fi (Suomi), fr (Français), he (עברית), hr (Hrvatski), it (Italiano), ko (한국어), nb (Norsk (Bokmål)), nl (Nederlands), pl (Polski), pt (Português (Brasil)), ro (Română), ru (Русский), sk (Slovenčina), sv (Svenska), tr (Turkish), zh_cn (中文（简体)), zh_tw (中文（繁體))
   * `SCALE_Y` (`log`) - The type of scaling used for the Y axis of the charts system wide.
     * The default `log` (logarithmic) option will let you see more detail towards the lower range, while still showing the full CGM range.
-    * The `linear` option has equidistant tick marks, the range used is dynamic so that space at the top of chart isn't wasted.
+    * The `linear` option has equidistant tick marks; the range used is dynamic so that space at the top of chart isn't wasted.
     * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale.
-  * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enable or disable icon allowing enter treatments edit mode
+  * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enables the icon allowing for editing of treatments in the main view.
 
 ### Predefined values for your server settings (optional)
   * `INSECURE_USE_HTTP` (`false`) - Redirect unsafe http traffic to https. Possible values `false`, or `true`. Your site redirects to `https` by default. If you don't want that from Nightscout, but want to implement that with a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. Note: This will allow (unsafe) http traffic to your Nightscout instance and is not recommended.
@@ -309,7 +305,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 
   There are a few alternate web views available from the main menu that display a simplified BG stream. (If you launch one of these in a fullscreen view in iOS, you can use a left-to-right swipe gesture to exit the view.)
   * `Clock` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
-  * `Color` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
+  * `Color` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above). Set `SHOW_CLOCK_DELTA` to `true` to show BG change in the last 5 minutes, set `SHOW_CLOCK_LAST_TIME` to `true` to always show BG age.
   * `Simple` - Shows current BG. Grey text on a black background.
 
 ### Plugins
@@ -320,7 +316,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 
 #### Default Plugins
 
-  These can be disabled by setting the `DISABLE` env var, for example `DISABLE="direction upbat"`
+  These can be disabled by adding them to the `DISABLE` variable, for example `DISABLE="direction upbat"`
 
 ##### `delta` (BG Delta)
   Calculates and displays the change between the last 2 BG values.
@@ -341,7 +337,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
-
 
 ##### `devicestatus` (Device Status)
   Used by `upbat` and other plugins to display device status info.  Supports the `DEVICESTATUS_ADVANCED="true"` [extended setting](#extended-settings) to send all device statuses to the client for retrospective use and to support other plugins.
@@ -440,7 +435,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `BRIDGE_USER_NAME` - Your user name for the Share service.
   * `BRIDGE_PASSWORD` - Your password for the Share service.
   * `BRIDGE_INTERVAL` (`150000` *2.5 minutes*) - The time to wait between each update.
-  * `BRIDGE_MAX_COUNT` (`1`) - The maximum number of records to fetch per update.
+  * `BRIDGE_MAX_COUNT` (`1`) - The number of records to attempt to fetch per update.
   * `BRIDGE_FIRST_FETCH_COUNT` (`3`) - Changes max count during the very first update only.
   * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
   * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (default is one day in minutes).
@@ -487,7 +482,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `OPENAPS_PRED_UAM_COLOR` (`#c9bd60`) - The color to use for UAM prediction lines. Same format as above.
   * `OPENAPS_COLOR_PREDICTION_LINES` (`true`) - Enables / disables the colored lines vs the classic purple color.
 
-
  Also see [Pushover](#pushover) and [IFTTT Maker](#ifttt-maker).
 
 ##### `loop` (Loop)
@@ -508,15 +502,18 @@ For remote overrides, the following extended settings must be configured:
   Additional monitoring for DIY automated insulin delivery systems to display real-time overrides such as Eating Soon or Exercise Mode:
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set
 
-##### `xdrip-js` (xDrip-js)
+##### `xdripjs` (xDrip-js)
   Integrated xDrip-js monitoring, uses these extended settings:
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set
-  * `XDRIP-JS_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when CGM state is not OK or battery voltages fall below threshold.
-  * `XDRIP-JS_STATE_NOTIFY_INTRVL` (`0.5`) - Set to number of hours between CGM state notifications
-  * `XDRIP-JS_WARN_BAT_V` (`300`) - The voltage of either transmitter battery, a warning will be triggered when dropping below this threshold.
+  * `XDRIPJS_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when CGM state is not OK or battery voltages fall below threshold.
+  * `XDRIPJS_STATE_NOTIFY_INTRVL` (`0.5`) - Set to number of hours between CGM state notifications
+  * `XDRIPJS_WARN_BAT_V` (`300`) - The voltage of either transmitter battery, a warning will be triggered when dropping below this threshold.
 
 ##### `alexa` (Amazon Alexa)
   Integration with Amazon Alexa, [detailed setup instructions](docs/plugins/alexa-plugin.md)
+
+##### `googlehome` (Google Home/DialogFLow)
+  Integration with Google Home (via DialogFlow), [detailed setup instructions](docs/plugins/googlehome-plugin.md)
 
 ##### `speech` (Speech)
   Speech synthesis plugin. When enabled, speaks out the blood glucose values, IOB and alarms. Note you have to set the LANGUAGE setting on the server to get all translated alarms.
