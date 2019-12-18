@@ -1,4 +1,10 @@
 # Node.js Express Web App to Linux on Azure
+- task: AzureWebApp@1
+  inputs:
+    azureSubscription: 'Visual Studio Ultimate with MSDN(6a28bf4a-d149-4664-ae5f-533926c66c36)'
+    appType: 'webAppLinux'
+    appName: dtype1cgm
+    package: '$(System.DefaultWorkingDirectory)/**/*.zip'
 # Build a Node.js Express app and deploy it to Azure as a Linux web app.
 # Add steps that analyze code, save build artifacts, deploy, and more:
 # https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
@@ -12,7 +18,7 @@ variables:
   azureSubscription: '6a28bf4a-d149-4664-ae5f-533926c66c36'
   
   # Web app name
-  webAppName: 'dtype1cgm'
+  #webAppName: 'dtype1cgm'
   
   # Environment name
   environmentName: 'dtype1cgm'
