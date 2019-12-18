@@ -115,8 +115,8 @@
     "terser": "^3.17.0",
     "traverse": "^0.6.6",
     "uuid": "^3.3.2",
-    "webpack": "^4.39.2",
-    "webpack-cli": "^3.3.7"
+    "webpack": "^4.41.3",
+    "webpack-cli": "^3.3.10"
   },
   "devDependencies": {
     "babel-eslint": "^10.0.3",
