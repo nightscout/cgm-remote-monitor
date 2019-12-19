@@ -26,5 +26,5 @@ matrix:
   include:
     - node_js: "10"
       <<: *node_js-steps
-    - node_js: "node" # Latest Node is not supported, and recommend, but we'll test it to know incompatibility issues
+    - node_js: "12" # Latest Node is not supported, and recommend, but we'll test it to know incompatibility issues
       <<: *node_js-steps
