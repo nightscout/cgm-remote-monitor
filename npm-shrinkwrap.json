@@ -3179,6 +3179,11 @@
         "cssom": "0.3.x"
       }
     },
+    "csv-stringify": {
+      "version": "5.3.5",
+      "resolved": "https://registry.npmjs.org/csv-stringify/-/csv-stringify-5.3.5.tgz",
+      "integrity": "sha512-bFbaJqz7LcwnTzdryyJuhR6Pys2deU8+z7O8N0JBnNGm7vnJVr3K0n68bhb+rlMpwCmDbUtinr8yq5I2RlPMqw=="
+    },
     "cyclist": {
       "version": "1.0.1",
       "resolved": "https://registry.npmjs.org/cyclist/-/cyclist-1.0.1.tgz",
