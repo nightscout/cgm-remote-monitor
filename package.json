@@ -72,6 +72,7 @@
     "css-loader": "^1.0.1",
     "cssmin": "^0.4.3",
     "d3": "^5.12.0",
+    "easyxml": "^2.0.1",
     "ejs": "^2.6.2",
     "errorhandler": "^1.5.1",
     "event-stream": "3.3.4",
