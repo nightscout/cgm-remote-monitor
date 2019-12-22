@@ -9,6 +9,7 @@ var SIX_MINS = 360000;
 describe('BG Now', function ( ) {
   var ctx = {
     language: require('../lib/language')()
+    , settings: require('../lib/settings')()
   };
  
   ctx.levels = require('../lib/levels');
