@@ -13,6 +13,7 @@ var env = require('../env')();
 var pump = require('../lib/plugins/pump')(ctx);
 var sandbox = require('../lib/sandbox')();
 var levels = require('../lib/levels');
+var profile = require('../lib/profilefunctions')();
 ctx.levels = levels;
 
 var statuses = [{
@@ -48,6 +49,13 @@ var statuses = [{
     clock: '2015-12-05T19:02:00.000Z'
   }
 }];
+
+var profileData =
+{
+  'timezone': moment.tz.guess()
+};
+
+
 
 var now = moment(statuses[1].created_at);
 
@@ -256,7 +264,11 @@ describe('pump', function ( ) {
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
       devicestatus: lowBattStatuses
+      , profiles: [profileData]
     });
+    profile.loadData(_.cloneDeep([profileData]));
+    sbx.data.profile = profile;
+
     sbx.extendedSettings = {
       enableAlerts: true
       , warnBattQuietNight: true
