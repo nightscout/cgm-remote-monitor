@@ -1,6 +1,6 @@
 {
   "name": "CGM Remote Monitor",
-  "repository": "https://github.com/nightscout/cgm-remote-monitor",
+  "repository": "https://github.com/woodst/cgm-remote-monitor",
   "env": {
     "ALARM_HIGH": {
       "description": "Default setting for new browser views, for the High alarm (triggered when BG crosses BG_TARGET_TOP). ('on' or 'off')",
