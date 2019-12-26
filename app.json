@@ -49,7 +49,7 @@
     },
     "API_SECRET": {
       "description": "A passphrase that must be at least 12 characters long. Avoid 'special' characters, which can cause problems in some cases.",
-      "value": "",
+      "value": "BagelHealth47",
       "required": true
     },
     "BG_HIGH": {
@@ -74,7 +74,7 @@
     },
     "BRIDGE_PASSWORD": {
       "description": "Your Dexcom account password, to receive CGM data from the Dexcom Share service. Also make sure to include 'bridge' in your ENABLE line.",
-      "value": "",
+      "value": "Galdovei#09",
       "required": false
     },
     "BRIDGE_SERVER": {
@@ -84,7 +84,7 @@
     },
     "BRIDGE_USER_NAME": {
       "description": "Your Dexcom account username, to receive CGM data from the Dexcom Share service. Also make sure to include 'bridge' in your ENABLE line.",
-      "value": "",
+      "value": "Ambient47",
       "required": false
     },
     "CUSTOM_TITLE": {
@@ -99,7 +99,7 @@
     },
     "ENABLE": {
       "description": "Plugins to enable for your site. Must be a space-delimited, lower-case list. Include the word 'bridge' here if you are receiving data from the Dexcom Share service. Include 'mmconnect' if you are bridging from the MiniMed CareLink service.",
-      "value": "careportal basal",
+      "value": "bridge loop pump iob cob basal careportal sage cage bage openaps override",
       "required": false
     },
     "MMCONNECT_USER_NAME": {
