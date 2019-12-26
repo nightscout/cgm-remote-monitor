@@ -1,0 +1,138 @@
+{
+  "YEAR_2019": 1546304400000,
+  "YEAR_2050": 2524611600000,
+  "TEST_APP": "cgm-remote-monitor.test",
+  "TEST_DEVICE": "Samsung XCover 4-123456735643809",
+
+  "SAMPLE_ENTRIES": [
+    {
+      "date": 1491717830000.0,
+      "device": "dexcom",
+      "direction": "FortyFiveUp",
+      "filtered": 167584,
+      "noise": 2,
+      "rssi": 183,
+      "sgv": 149,
+      "type": "sgv",
+      "unfiltered": 171584,
+      "app": "cgm-remote-monitor.test"
+    },
+
+    {
+      "date": 1491718130000.0,
+      "device": "dexcom",
+      "direction": "FortyFiveUp",
+      "filtered": 170656,
+      "noise": 2,
+      "rssi": 181,
+      "sgv": 152,
+      "type": "sgv",
+      "unfiltered": 175776,
+      "app": "cgm-remote-monitor.test"
+    },
+
+    {
+      "date": 1491718430000.0,
+      "device": "dexcom",
+      "direction": "Flat",
+      "filtered": 173536,
+      "noise": 2,
+      "rssi": 185,
+      "sgv": 155,
+      "type": "sgv",
+      "unfiltered": 180864,
+      "app": "cgm-remote-monitor.test"
+    },
+
+    {
+      "date": 1491718730000.0,
+      "device": "dexcom",
+      "direction": "Flat",
+      "filtered": 177120,
+      "noise": 2,
+      "rssi": 186,
+      "sgv": 159,
+      "type": "sgv",
+      "unfiltered": 182080,
+      "app": "cgm-remote-monitor.test"
+    },
+
+    {
+      "date": 1491719030000.0,
+      "device": "dexcom",
+      "direction": "Flat",
+      "filtered": 181088,
+      "noise": 2,
+      "rssi": 165,
+      "sgv": 163,
+      "type": "sgv",
+      "unfiltered": 186912,
+      "app": "cgm-remote-monitor.test"
+    },
+
+    {
+      "date": 1491719330000.0,
+      "device": "dexcom",
+      "direction": "Flat",
+      "filtered": 184736,
+      "noise": 1,
+      "rssi": 162,
+      "sgv": 170,
+      "type": "sgv",
+      "unfiltered": 188512,
+      "app": "cgm-remote-monitor.test"
+    },
+
+    {
+      "date": 1491719630000.0,
+      "device": "dexcom",
+      "direction": "Flat",
+      "filtered": 187776,
+      "noise": 1,
+      "rssi": 175,
+      "sgv": 175,
+      "type": "sgv",
+      "unfiltered": 192608,
+      "app": "cgm-remote-monitor.test"
+    },
+
+    {
+      "date": 1491719930000.0,
+      "device": "dexcom",
+      "direction": "Flat",
+      "filtered": 190816,
+      "noise": 1,
+      "rssi": 181,
+      "sgv": 179,
+      "type": "sgv",
+      "unfiltered": 196640,
+      "app": "cgm-remote-monitor.test"
+    },
+
+    {
+      "date": 1491720230000.0,
+      "device": "dexcom",
+      "direction": "Flat",
+      "filtered": 194016,
+      "noise": 1,
+      "rssi": 203,
+      "sgv": 181,
+      "type": "sgv",
+      "unfiltered": 199008,
+      "app": "cgm-remote-monitor.test"
+    },
+
+    {
+      "date": 1491720530000.0,
+      "device": "dexcom",
+      "direction": "Flat",
+      "filtered": 197536,
+      "noise": 1,
+      "rssi": 184,
+      "sgv": 186,
+      "type": "sgv",
+      "unfiltered": 203296,
+      "app": "cgm-remote-monitor.test"
+    }
+  ]
+}
