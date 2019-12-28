@@ -51,7 +51,7 @@ This list is not meant to be comprehensive, nor does it include every way you ca
 - "Alexa, ask Nightscout what is Arden's raw bg"
 - "Alexa, ask Nightscout what is Dana's raw blood glucose"
 
-*CGM Info:* (when using the [`xdripjs` plugin](/README.md#xdripjs-xdripjs))
+*CGM Info:* (when using the [`xdripjs` plugin](/README.md#xdripjs-xdrip-js))
 
 - Alexa, ask Nightscout what's my CGM status"
 - Alexa, ask Nightscout what's my CGM session age"
