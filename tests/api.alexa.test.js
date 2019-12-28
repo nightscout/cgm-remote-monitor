@@ -75,5 +75,22 @@ describe('Alexa REST api', function ( ) {
         done( );
       });
   });
+
+  it('Session Ended', function (done) {
+    request(this.app)
+      .post('/api/v1/alexa')
+      .send({
+        "request": {
+          "type": "SessionEndedRequest",
+          "locale": "en-US"
+        }
+      })
+      .expect(200)
+      .end(function (err)  {
+        if (err) return done(err);
+
+        done( );
+      });
+  });
 });
 
