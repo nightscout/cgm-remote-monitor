@@ -53,12 +53,12 @@ This list is not meant to be comprehensive, nor does it include every way you ca
 
 *CGM Info:* (when using the [`xdripjs` plugin](/README.md#xdripjs-xdrip-js))
 
-- Alexa, ask Nightscout what's my CGM status"
-- Alexa, ask Nightscout what's my CGM session age"
-- Alexa, ask Nightscout what's my CGM transmitter age"
-- Alexa, ask Nightscout what's my CGM mode"
-- Alexa, ask Nightscout what's my CGM noise"
-- Alexa, ask Nightscout what's my CGM battery"
+- "Alexa, ask Nightscout what's my CGM status"
+- "Alexa, ask Nightscout what's my CGM session age"
+- "Alexa, ask Nightscout what's my CGM transmitter age"
+- "Alexa, ask Nightscout what's my CGM mode"
+- "Alexa, ask Nightscout what's my CGM noise"
+- "Alexa, ask Nightscout what's my CGM battery"
 
 *Insulin Remaining:*
 
