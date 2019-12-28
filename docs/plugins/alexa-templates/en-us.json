@@ -190,6 +190,24 @@
                         },
                         {
                             "name": {
+                                "value": "cgm battery",
+                                "synonyms": [
+                                    "cgm battery level",
+                                    "cgm battery levels",
+                                    "cgm batteries",
+                                    "cgm transmitter battery",
+                                    "cgm transmitter battery level",
+                                    "cgm transmitter battery levels",
+                                    "cgm transmitter batteries",
+                                    "transmitter battery",
+                                    "transmitter battery level",
+                                    "transmitter battery levels",
+                                    "transmitter batteries"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
                                 "value": "cgm session age",
                                 "synonyms": [
                                     "session age"
