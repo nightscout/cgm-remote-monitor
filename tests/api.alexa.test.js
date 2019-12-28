@@ -35,8 +35,8 @@ describe('Alexa REST api', function ( ) {
       .post('/api/v1/alexa')
       .send({
         "request": {
-          "type":"LaunchRequest",
-          "locale":"en-US"
+          "type": "LaunchRequest",
+          "locale": "en-US"
         }
       })
       .expect(200)
@@ -47,7 +47,31 @@ describe('Alexa REST api', function ( ) {
 
         res.body.response.outputSpeech.text.should.equal(launchText);
         res.body.response.reprompt.outputSpeech.text.should.equal(launchText);
-        res.body.response.shouldEndSession.should.equal('false');
+        res.body.response.shouldEndSession.should.equal(false);
+        done( );
+      });
+  });
+
+  it('Launch Request With Intent', function (done) {
+    request(this.app)
+      .post('/api/v1/alexa')
+      .send({
+        "request": {
+          "type": "LaunchRequest",
+          "locale": "en-US",
+          "intent": {
+            "name": "UNKNOWN"
+          }
+        }
+      })
+      .expect(200)
+      .end(function (err, res)  {
+        if (err) return done(err);
+
+        const unknownIntentText = 'I\'m sorry, I don\'t know what you\'re asking for.';
+
+        res.body.response.outputSpeech.text.should.equal(unknownIntentText);
+        res.body.response.shouldEndSession.should.equal(true);
         done( );
       });
   });
