@@ -54,6 +54,10 @@ describe('renderer', () => {
             }
           }
           , futureOpacity: (millsDifference) => { return 1; }
+          , createAdjustedRange: () => { return [
+            { getTime: () => { return extent.times[0]}},
+            { getTime: () => { return extent.times[1]}}
+          ] }
         }
         , latestSGV: { mills: 120 }
       };
