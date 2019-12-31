@@ -56,10 +56,12 @@ describe('Devicestatus API', function ( ) {
           request(self.app)
             .get('/api/devicestatus/')
             .query('find[created_at][$gte]=2018-12-16')
+            .query('find[created_at][$lte]=2018-12-17')
             .set('api-secret', self.env.api_secret || '')
             .expect(200)
             .expect(function (response) {
               response.body[0].xdripjs.state.should.equal(6);
+              response.body[0].utcOffset.should.equal(0);
             })
             .end(function (err) {
               if (err) {
