@@ -74,7 +74,7 @@ If you use Authentication Roles, you will need to add a token to the end of your
 1. In your Nightscout Admin Tools, add a new subject and give it the "readable" role.
     - If you **really** would like to be super specific, you could create a new role and set the permissions to `api:*:read`.
 1. After the new subject is created, copy the "Access Token" value for the new row in your subject table (**don't** copy the link, just copy the text).
-1. At the end of your Nighscout URL, add `?token=YOUR_TOKEN`, where `YOUR_TOKEN` is the Access Token you just copied. Your new URL should look like `https://YOUR-NIGHTSCOUT-SITE/api/v1/googlehome?token=YOUR_TOKEN`.
+1. At the end of your Nighscout URL, add `?token=YOUR-TOKEN`, where `YOUR-TOKEN` is the Access Token you just copied. Your new URL should look like `https://YOUR-NIGHTSCOUT-SITE/api/v1/googlehome?token=YOUR-TOKEN`.
 
 ### What questions can you ask it?
 
