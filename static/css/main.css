@@ -427,6 +427,19 @@ a, a:visited, a:link {
   display: none;
 }
 
+.toolbar-title {
+  text-align: left;
+  padding: 0 10px;
+}
+
+.toolbar-title h2 {
+  margin: 0;
+}
+
+.page-content {
+  padding: 10px;
+}
+
 .authentication-status {
   padding: 10px;
   border-top: 1px solid #bdbdbd;
