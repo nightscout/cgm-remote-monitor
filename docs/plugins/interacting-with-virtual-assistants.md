@@ -43,6 +43,7 @@ This list is not meant to be comprehensive, nor does it include every way you ca
 - "Alexa, ask Nightscout what is my basal"
 - "Alexa, ask Nightscout what is my current basal"
 - "Alexa, ask Nightscout what is my cob"
+- "Alexa, ask Nightscout what is my delta"
 - "Alexa, ask Nightscout what is Charlie's carbs on board"
 - "Alexa, ask Nightscout what is Sophie's carbohydrates on board"
 - "Alexa, ask Nightscout what is Harper's loop forecast"
