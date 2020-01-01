@@ -34,7 +34,7 @@
 [coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/master.svg
 [coverage-url]: https://coveralls.io/r/nightscout/cgm-remote-monitor?branch=master
 [discord-img]: https://img.shields.io/discord/629952586895851530?label=discord%20chat
-[discord-url]: https://discordapp.com/channels/629952586895851530/629952669967974410
+[discord-url]: https://discord.gg/rTKhrqz
 
 ## Installation for development
 
