@@ -121,10 +121,10 @@
         </legend>
         <div id="fe_picklist"></div>
       </fieldset>
-      <b><span class="translate">Authentication status</span>: </b>
-      <span id="authentication_placeholder"></span>
     </div>
-    
+
+    <%- include('partials/authentication-status') %>
+
     <script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
     <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
     <script src="/food/js/food.js?v=<%= locals.cachebuster %>"></script>

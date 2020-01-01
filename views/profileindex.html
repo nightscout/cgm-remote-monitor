@@ -168,14 +168,13 @@
         
       </fieldset>
 
-      <b><span class="translate">Authentication status</span>: </b>
-      <span id="authentication_placeholder"></span>
-
       <p>
         <b> <span class="translate">Status</span>:</b> <span class="pe_status" class="translate">Not loaded</span>
       </p>
 
     </form>
+
+    <%- include('partials/authentication-status') %>
 
     <script src="/api/v1/status.js"></script>
     <script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>

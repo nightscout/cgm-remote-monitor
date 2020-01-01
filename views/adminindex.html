@@ -45,10 +45,8 @@
     </div>
 
     <div id="admin_placeholder"></div>
-    
-    <hr>
-    <b><span class="translate">Authentication status</span>: </b>
-    <span id="authentication_placeholder"></span>
+
+    <%- include('partials/authentication-status') %>
 
     <script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
     <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
