@@ -6,6 +6,7 @@ var moment = require('moment');
 
 var ctx = {
   language: require('../lib/language')()
+  , settings: require('../lib/settings')()
 };
 ctx.language.set('en');
 var env = require('../env')();
@@ -119,7 +120,7 @@ describe('loop', function ( ) {
       , pluginBase: {
         updatePillText: function mockedUpdatePillText (plugin, options) {
           options.label.should.equal('Loop ⌁');
-          options.value.should.equal('1m ago');
+          options.value.should.equal('1m ago ↝ 147');
           var first = _.first(options.info);
           first.label.should.equal('1m ago');
           first.value.should.equal('<b>Temp Basal Started</b> 0.88U/hour for 30m, IOB: 0.17U, Predicted Min-Max BG: 147-149, Eventual BG: 147');
@@ -243,7 +244,7 @@ describe('loop', function ( ) {
     done();
   });
 
-  it('should handle alexa requests', function (done) {
+  it('should handle virtAsst requests', function (done) {
     var ctx = {
       settings: {
         units: 'mg/dl'
@@ -255,14 +256,14 @@ describe('loop', function ( ) {
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
     loop.setProperties(sbx);
 
-    loop.alexa.intentHandlers.length.should.equal(2);
+    loop.virtAsst.intentHandlers.length.should.equal(2);
 
-    loop.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+    loop.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Loop Forecast');
       response.should.equal('According to the loop forecast you are expected to be between 147 and 149 over the next in 25 minutes');
 
-      loop.alexa.intentHandlers[1].intentHandler(function next(title, response) {
-        title.should.equal('Last loop');
+      loop.virtAsst.intentHandlers[1].intentHandler(function next(title, response) {
+        title.should.equal('Last Loop');
         response.should.equal('The last successful loop was a few seconds ago');
         done();
       }, [], sbx);
