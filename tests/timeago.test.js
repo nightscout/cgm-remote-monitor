@@ -7,6 +7,8 @@ describe('timeago', function() {
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
   ctx.language = require('../lib/language')();
+  ctx.settings = require('../lib/settings')();
+  ctx.settings.heartbeat = 0.5; // short heartbeat to speedup tests
 
   var timeago = require('../lib/plugins/timeago')(ctx);
 
@@ -40,6 +42,7 @@ describe('timeago', function() {
 
     done();
   });
+
 
   it('should trigger a warning when data older than 15m', function(done) {
     ctx.notifications.initRequests();

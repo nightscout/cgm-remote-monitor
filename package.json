@@ -1,6 +1,6 @@
 {
   "name": "nightscout",
-  "version": "0.12.6-dev",
+  "version": "13.0.2-dev",
   "description": "Nightscout acts as a web-based CGM (Continuous Glucose Montinor) to allow multiple caregivers to remotely view a patients glucose data in realtime.",
   "license": "AGPL-3.0",
   "author": "Nightscout Team",
@@ -27,7 +27,8 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "env-cmd ./test.env mocha --exit tests/*.test.js",
+    "test": "env-cmd ./my.test.env mocha --exit tests/*.test.js",
+    "test-ci": "env-cmd ./ci.test.env mocha --exit tests/*.test.js",
     "env": "env",
     "postinstall": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
     "bundle": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
@@ -38,6 +39,7 @@
     "dev": "env-cmd ./my.env nodemon server.js 0.0.0.0",
     "prod": "env-cmd ./my.prod.env node server.js 0.0.0.0"
   },
+  "main": "server.js",
   "config": {
     "blanket": {
       "pattern": [
@@ -99,7 +101,7 @@
     "node-cache": "^4.2.1",
     "parse-duration": "^0.1.1",
     "pem": "^1.14.3",
-    "pushover-notifications": "^1.2.0",
+    "pushover-notifications": "^1.2.1",
     "random-token": "0.0.8",
     "request": "^2.88.0",
     "semver": "^6.3.0",
