@@ -15,7 +15,7 @@ function headless (benv, binding) {
     var someData = opts.mockAjax || { };
     benv.setup(function() {
     
-      benv.require(__dirname + '/../../tmp/js/bundle.js');
+      benv.require(__dirname + '/../../tmp/js/bundle.report.js');
           
       self.$ = $;
       
