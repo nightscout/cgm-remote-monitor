@@ -76,6 +76,16 @@
                     "values": [
                         {
                             "name": {
+                                "value": "delta",
+                                "synonyms": [
+                                    "blood glucose delta",
+                                    "blood sugar delta",
+                                    "bg delta"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
                                 "value": "uploader battery",
                                 "synonyms": [
                                     "uploader battery remaining",
