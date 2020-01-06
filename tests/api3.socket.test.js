@@ -49,7 +49,7 @@ describe('Socket.IO in REST API3', function() {
     if(self.instance && self.instance.clientSocket && self.instance.clientSocket.connected) {
       self.instance.clientSocket.disconnect();
     }
-    self.instance.server.close();
+    self.instance.ctx.bus.teardown();
   });
 
 

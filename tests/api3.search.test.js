@@ -65,7 +65,7 @@ describe('API3 SEARCH', function() {
 
 
   after(() => {
-    self.instance.server.close();
+    self.instance.ctx.bus.teardown();
   });
 
 

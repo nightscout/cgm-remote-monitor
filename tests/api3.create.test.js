@@ -72,7 +72,7 @@ describe('API3 CREATE', function() {
 
 
   after(() => {
-    self.instance.server.close();
+    self.instance.ctx.bus.teardown();
   });
 
 
