@@ -117,17 +117,8 @@
     		</div>
     	</div>
         <div class="container loading" id="container">
-            <div id="toolbar">
-                <div id="buttonbar" style="margin-right: 0px;" role="navigation" aria-label="Menu" >
-                    <a id="editbutton" class="tip" original-title="Edit Mode" aria-label="Edit Mode" href="#" style="display:none;"><i class="icon-edit"></i></a>
-                    <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" aria-label="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
-                    <a id="drawerToggle" class="tip" original-title="Settings" aria-label="Settings" href="#"><i class="icon-menu"></i></a>
-                    <a id="lockedToggle" class="tip" original-title="Token needed for Care Portal" aria-label="Token needed for Care Portal" href="#" style="display:none;"><i class="icon-lock"></i></a>
-                    <a id="treatmentDrawerToggle" class="tip" original-title="Care Portal" aria-label="Care Portal" href="#" style="display:none;"><i class="icon-plus"></i></a>
-                    <a id="boluscalcDrawerToggle" class="tip" original-title="Bolus Wizard" aria-label="Bolus Wizard" href="#" style="display:none;"><i class="icon-calc"></i></a>
-                </div>
-                <div class="customTitle">Nightscout</div>
-            </div>
+          <%- include('partials/toolbar') %>
+
             <div id="notification" role="region" aria-label="Notification">
                 <a href="#"  aria-label="cancel" ><span></span><i class="icon-cancel-circled"></i></a>
             </div>
@@ -277,8 +268,7 @@
                   <a id="useDefaults" class="pull-right translate" href="">Reset, and use defaults</a>
                 </div>
 
-                <hr>
-                <span id="authentication_placeholder"></span>
+                <%- include('partials/authentication-status') %>
 
                 <fieldset id="about">
                     <legend class="translate">About</legend>

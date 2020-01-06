@@ -32,19 +32,8 @@
       <% include preloadCSS %>
 
     </head>
-    <body>
-        <a href="/"><div style="position: absolute; top: 10px; color: #404040; right: 10px; background: grey; border-radius: 5px; border: 2px solid #404040; padding: 5px; width: 20px; height: 20px; ">X</div></a>
-
-    <div id="toolbar">
-      <div id="buttonbar" style="margin-right:50 px; ">
-        <b> <span class="translate">Status</span>:</b> <span class="pe_status translate">Not loaded</span>
-      </div>
-      <h1 class="customTitle translate">Nightscout</h1>
-    </div>
-
-    <div id="profile-editor">
-      <h1 class="translate">Profile Editor</h1>
-    </div>
+  <body>
+    <%- include('partials/toolbar') %>
 
     <form id="pe_form">
       <fieldset class="browserSettings">
@@ -168,14 +157,13 @@
         
       </fieldset>
 
-      <b><span class="translate">Authentication status</span>: </b>
-      <span id="authentication_placeholder"></span>
-
       <p>
         <b> <span class="translate">Status</span>:</b> <span class="pe_status" class="translate">Not loaded</span>
       </p>
 
     </form>
+
+    <%- include('partials/authentication-status') %>
 
     <script src="/api/v1/status.js"></script>
     <script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
