@@ -123,6 +123,7 @@
   "devDependencies": {
     "babel-eslint": "^10.0.3",
     "benv": "^3.3.0",
+    "csv-parse": "^4.8.3",
     "env-cmd": "^8.0.2",
     "eslint": "^6.2.1",
     "eslint-loader": "^2.2.1",
@@ -135,7 +136,8 @@
     "terser-webpack-plugin": "^1.4.1",
     "webpack-bundle-analyzer": "^3.4.1",
     "webpack-dev-middleware": "^3.7.2",
-    "webpack-hot-middleware": "^2.25.0"
+    "webpack-hot-middleware": "^2.25.0",
+    "xml2js": "^0.4.23"
   },
   "browserslist": "> 0.25%, not dead"
 }
