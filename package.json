@@ -37,7 +37,8 @@
     "update-buster": "node bin/generateCacheBuster.js >tmp/cacheBusterToken",
     "coverage": "env-cmd ./test.env nyc mocha --exit tests/*.test.js",
     "dev": "env-cmd ./my.env nodemon server.js 0.0.0.0",
-    "prod": "env-cmd ./my.prod.env node server.js 0.0.0.0"
+    "prod": "env-cmd ./my.prod.env node server.js 0.0.0.0",
+    "lint": "eslint lib"
   },
   "main": "server.js",
   "config": {
