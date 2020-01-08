@@ -153,6 +153,8 @@ function readENV(varName, defaultValue) {
       value = 'mg/dl';
     }
   }
+  // Wlad:  Fixing 'statusCode' of undefined
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
   return value != null ? value : defaultValue;
 }
