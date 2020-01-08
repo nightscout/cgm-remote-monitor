@@ -38,7 +38,7 @@ describe('API3 READ', function() {
 
 
   after(() => {
-    self.instance.server.close();
+    self.instance.ctx.bus.teardown();
   });
 
 

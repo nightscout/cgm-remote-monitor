@@ -583,7 +583,7 @@ For remote overrides, the following extended settings must be configured:
   Treatment Profile Fields:
 
   * `timezone` (Time Zone) - time zone local to the patient. *Should be set.*
-  * `units` (Profile Units) - blood glucose units used in the profile, either "mgdl" or "mmol"
+  * `units` (Profile Units) - blood glucose units used in the profile, either "mg/dl" or "mmol"
   * `dia` (Insulin duration) - value should be the duration of insulin action to use in calculating how much insulin is left active. Defaults to 3 hours.
   * `carbs_hr` (Carbs per Hour) - The number of carbs that are processed per hour, for more information see [#DIYPS](http://diyps.org/2014/05/29/determining-your-carbohydrate-absorption-rate-diyps-lessons-learned/).
   * `carbratio` (Carb Ratio) - grams per unit of insulin.
