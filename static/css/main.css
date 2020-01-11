@@ -427,12 +427,30 @@ a, a:visited, a:link {
   display: none;
 }
 
-#authorizationstatus a {
+.toolbar-title {
+  text-align: left;
+  padding: 0 10px;
+}
+
+.toolbar-title h2 {
+  margin: 0;
+}
+
+.page-content {
+  padding: 10px;
+}
+
+.authentication-status {
+  padding: 10px;
+  border-top: 1px solid #bdbdbd;
+}
+
+.authentication-status a {
   color: #2196f3;
   text-decoration: underline;
 }
 
-#authorizationstatus .small {
+.authentication-status .small {
   font-size: 12px;
 }
 
