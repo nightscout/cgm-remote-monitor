@@ -28,14 +28,14 @@
   "scripts": {
     "start": "node server.js",
     "test": "env-cmd ./my.test.env mocha --exit tests/*.test.js",
-    "test-ci": "env-cmd ./ci.test.env mocha --exit tests/*.test.js",
+    "test-ci": "env-cmd ./ci.test.env mocha --exit tests/*.test.js && npm run coverage",
     "env": "env",
     "postinstall": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
     "bundle": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
     "bundle-dev": "webpack --mode development --config webpack.config.js && npm run-script update-buster",
     "bundle-analyzer": "webpack --mode development --config webpack.config.js --profile --json > stats.json && webpack-bundle-analyzer stats.json",
     "update-buster": "node bin/generateCacheBuster.js >tmp/cacheBusterToken",
-    "coverage": "env-cmd ./test.env nyc mocha --exit tests/*.test.js",
+    "coverage": "env-cmd ./ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --exit tests/*.test.js &&  cat ./coverage/lcov.info | codacy-coverage",
     "dev": "env-cmd ./my.env nodemon server.js 0.0.0.0",
     "prod": "env-cmd ./my.prod.env node server.js 0.0.0.0"
   },
@@ -123,6 +123,7 @@
   "devDependencies": {
     "babel-eslint": "^10.0.3",
     "benv": "^3.3.0",
+    "codacy-coverage": "^3.4.0",
     "csv-parse": "^4.8.3",
     "env-cmd": "^8.0.2",
     "eslint": "^6.2.1",
