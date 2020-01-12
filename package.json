@@ -35,7 +35,7 @@
     "bundle-dev": "webpack --mode development --config webpack.config.js && npm run-script update-buster",
     "bundle-analyzer": "webpack --mode development --config webpack.config.js --profile --json > stats.json && webpack-bundle-analyzer stats.json",
     "update-buster": "node bin/generateCacheBuster.js >tmp/cacheBusterToken",
-    "coverage": "env-cmd ./ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --exit tests/*.test.js &&  cat ./coverage/lcov.info | codacy-coverage",
+    "coverage": "env-cmd ./ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --exit tests/*.test.js && cat ./coverage/lcov.info | codacy-coverage",
     "dev": "env-cmd ./my.env nodemon server.js 0.0.0.0",
     "prod": "env-cmd ./my.prod.env node server.js 0.0.0.0"
   },
