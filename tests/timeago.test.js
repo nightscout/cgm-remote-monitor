@@ -53,9 +53,6 @@ describe('timeago', function() {
 
     var currentTime = new Date().getTime();
 
-    // eslint-disable-next-line no-empty
-    while (currentTime + 500 >= new Date().getTime()) {}
-
     var highest = ctx.notifications.findHighestAlarm('Time Ago');
     highest.level.should.equal(levels.WARN);
     highest.message.should.equal('Last received: 16 mins ago\nBG Now: 100 mg/dl');
