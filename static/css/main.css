@@ -454,6 +454,28 @@ a, a:visited, a:link {
   font-size: 12px;
 }
 
+#test-alarm-sound-button {
+  font-size: 14px;
+  width: auto;
+  float: right;
+  padding: 4px 8px;
+  background: #ccc;
+  color: #333;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#test-alarm-sound-button:hover {
+  color: #000;
+}
+
+#mute-button {
+  padding-left: 12px;
+  position: relative;
+  top: 2px;
+  height: 16px;
+}
+
 @media (max-width: 1000px) {
   .bgStatus {
     width: 450px;
