@@ -1,0 +1,55 @@
+{
+  "API3_VERSION": "3.0.0-alpha",
+  "API3_SECURITY_ENABLE": true,
+  "API3_TIME_SKEW_TOLERANCE": 5,
+  "API3_DEDUP_FALLBACK_ENABLED": true,
+  "API3_CREATED_AT_FALLBACK_ENABLED": true,
+  "API3_MAX_LIMIT": 1000,
+
+  "HTTP": {
+    "OK": 200,
+    "CREATED": 201,
+    "NO_CONTENT": 204,
+    "NOT_MODIFIED": 304,
+    "BAD_REQUEST": 400,
+    "UNAUTHORIZED": 401,
+    "FORBIDDEN": 403,
+    "NOT_FOUND": 404,
+    "NOT_ACCEPTABLE": 406,
+    "GONE": 410,
+    "PRECONDITION_FAILED": 412,
+    "UNPROCESSABLE_ENTITY": 422,
+    "INTERNAL_ERROR": 500
+  },
+
+  "MSG": {
+    "HTTP_400_BAD_LAST_MODIFIED": "Bad or missing Last-Modified header/parameter",
+    "HTTP_400_BAD_LIMIT": "Parameter limit out of tolerance",
+    "HTTP_400_BAD_REQUEST_BODY": "Bad or missing request body",
+    "HTTP_400_BAD_FIELD_IDENTIFIER": "Bad or missing identifier field",
+    "HTTP_400_BAD_FIELD_DATE": "Bad or missing date field",
+    "HTTP_400_BAD_FIELD_UTC": "Bad or missing utcOffset field",
+    "HTTP_400_BAD_FIELD_APP": "Bad or missing app field",
+    "HTTP_400_BAD_SKIP": "Parameter skip out of tolerance",
+    "HTTP_400_SORT_SORT_DESC": "Parameters sort and sort_desc cannot be combined",
+    "HTTP_400_UNSUPPORTED_FILTER_OPERATOR": "Unsupported filter operator {0}",
+    "HTTP_400_IMMUTABLE_FIELD": "Field {0} cannot be modified by the client",
+    "HTTP_401_BAD_DATE": "Bad Date header",
+    "HTTP_401_BAD_TOKEN": "Bad access token or JWT",
+    "HTTP_401_DATE_OUT_OF_TOLERANCE": "Date header out of tolerance",
+    "HTTP_401_MISSING_DATE": "Missing Date header",
+    "HTTP_401_MISSING_OR_BAD_TOKEN": "Missing or bad access token or JWT",
+    "HTTP_403_MISSING_PERMISSION": "Missing permission {0}",
+    "HTTP_403_NOT_USING_HTTPS": "Not using SSL/TLS",
+    "HTTP_406_UNSUPPORTED_FORMAT": "Unsupported output format requested",
+    "HTTP_422_READONLY_MODIFICATION": "Trying to modify read-only document",
+    "HTTP_500_INTERNAL_ERROR": "Internal Server Error",
+    "STORAGE_ERROR": "Database error",
+    "SOCKET_MISSING_OR_BAD_ACCESS_TOKEN": "Missing or bad accessToken",
+    "SOCKET_UNAUTHORIZED_TO_ANY": "Unauthorized to receive any collection"
+  },
+
+  "MIN_TIMESTAMP": 946684800000,
+  "MIN_UTC_OFFSET": -1440,
+  "MAX_UTC_OFFSET":  1440
+}
