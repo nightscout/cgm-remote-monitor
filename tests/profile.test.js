@@ -188,5 +188,199 @@ describe('Profile', function ( ) {
     dia.should.equal(9);
   });
 
+    var multiProfileData =
+  [
+      {
+          "startDate": "2015-06-25T00:00:00.000Z",
+          "defaultProfile": "20150625-1",
+          "store": {
+              "20150625-1": {
+                  "dia": "4",
+                  "timezone": moment.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time
+                  "startDate": "1970-01-01T00:00:00.000Z",
+                  'sens': [
+                    {
+                        'time': '00:00',
+                        'value': 12
+                    },
+                    {
+                        'time': '02:00',
+                        'value': 13
+                    },
+                    {
+                        'time': '07:00',
+                        'value': 14
+                    }
+                  ],
+                  'carbratio': [
+                     {
+                         'time': '00:00',
+                         'value': 16
+                     },
+                     {
+                         'time': '06:00',
+                         'value': 15
+                     },
+                     {
+                         'time': '14:00',
+                         'value': 17
+                     }
+                  ],
+                  'carbs_hr': 30,
+                  'target_low': 4.5,
+                  'target_high': 8,
+                  "units": "mmol",
+                  "basal": [
+                    {
+                        "time": "00:00",
+                        "value": "0.5",
+                        "timeAsSeconds": "0"
+                    },
+                    {
+                        "time": "09:00",
+                        "value": "0.25",
+                        "timeAsSeconds": "32400"
+                    },
+                    {
+                        "time": "12:30",
+                        "value": "0.9",
+                        "timeAsSeconds": "45000"
+                    },
+                    {
+                        "time": "17:00",
+                        "value": "0.3",
+                        "timeAsSeconds": "61200"
+                    },
+                    {
+                        "time": "20:00",
+                        "value": "1",
+                        "timeAsSeconds": "72000"
+                    }
+                  ]
+              }
+          },
+          "units": "mmol",
+          "mills": "1435190400000"
+      },
+      {
+          "startDate": "2015-06-21T00:00:00.000Z",
+          "defaultProfile": "20190621-1",
+          "store": {
+              "20190621-1": {
+                  "dia": "4",
+                  "timezone": moment.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time
+                  "startDate": "1970-01-01T00:00:00.000Z", 
+                  'sens': [
+                      {
+                          'time': '00:00',
+                          'value': 11
+                      },
+                      {
+                          'time': '02:00',
+                          'value': 10
+                      },
+                      {
+                          'time': '07:00',
+                          'value': 9
+                      }
+                  ],
+                  'carbratio': [
+                      {
+                          'time': '00:00',
+                          'value': 12
+                      },
+                      {
+                          'time': '06:00',
+                          'value': 13
+                      },
+                      {
+                          'time': '14:00',
+                          'value': 14
+                      }
+                  ],
+                  'carbs_hr': 35,
+                  'target_low': 4.2,
+                  'target_high': 9,
+                  "units": "mmol",
+                  "basal": [
+                    {
+                        "time": "00:00",
+                        "value": "0.3",
+                        "timeAsSeconds": "0"
+                    },
+                    {
+                        "time": "09:00",
+                        "value": "0.4",
+                        "timeAsSeconds": "32400"
+                    },
+                    {
+                        "time": "12:30",
+                        "value": "0.5",
+                        "timeAsSeconds": "45000"
+                    },
+                    {
+                        "time": "17:00",
+                        "value": "0.6",
+                        "timeAsSeconds": "61200"
+                    },
+                    {
+                        "time": "23:00",
+                        "value": "0.7",
+                        "timeAsSeconds": "82800"
+                    }
+                  ]
+              }
+          },
+          "units": "mmol",
+          "mills": "1434844800000"
+      }
+  ];
+
+  var multiProfile = require('../lib/profilefunctions')(multiProfileData);
+
+  var noon = new Date('2015-06-22 12:00:00').getTime();
+  var threepm = new Date('2015-06-26 15:00:00').getTime();
+
+  it('should return profile units when configured', function () {
+      var value = multiProfile.getUnits();
+      value.should.equal('mmol');
+  });
+
+
+  it('should know what the basal rate is at 12:00 with multiple profiles', function () {
+      var value = multiProfile.getBasal(noon);
+      value.should.equal(0.4);
+  });
+
+  it('should know what the basal rate is at 15:00 with multiple profiles', function () {
+      var value = multiProfile.getBasal(threepm);
+      value.should.equal(0.9);
+  });
+
+  it('should know what the carbratio is at 12:00 with multiple profiles', function () {
+      var carbRatio = multiProfile.getCarbRatio(noon);
+      carbRatio.should.equal(13);
+  });
+
+  it('should know what the carbratio is at 15:00 with multiple profiles', function () {
+      var carbRatio = multiProfile.getCarbRatio(threepm);
+      carbRatio.should.equal(17);
+  });
+
+  it('should know what the sensitivity is at 12:00 with multiple profiles', function () {
+      var dia = multiProfile.getSensitivity(noon);
+      dia.should.equal(9);
+  });
+
+  it('should know what the sensitivity is at 15:00 with multiple profiles', function () {
+      var dia = multiProfile.getSensitivity(threepm);
+      dia.should.equal(14);
+  });
+
+  
+  it('should select the correct profile for 15:00 with multiple profiles', function () {
+      var curProfile = multiProfile.getCurrentProfile(threepm);
+      curProfile.carbs_hr.should.equal(30);
+  });
 
 });
