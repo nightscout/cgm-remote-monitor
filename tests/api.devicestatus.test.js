@@ -56,7 +56,6 @@ describe('Devicestatus API', function ( ) {
           request(self.app)
             .get('/api/devicestatus/')
             .query('find[created_at][$gte]=2018-12-16')
-            .query('find[created_at][$lte]=2018-12-17')
             .set('api-secret', self.env.api_secret || '')
             .expect(200)
             .expect(function (response) {

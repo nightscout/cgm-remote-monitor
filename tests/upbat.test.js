@@ -93,7 +93,7 @@ describe('Uploader Battery', function ( ) {
     upbat.updateVisualisation(sbx);
   });
 
-  it('should handle virtAsst requests', function (done) {
+  it('should handle alexa requests', function (done) {
 
     var ctx = {
       settings: {}
@@ -106,19 +106,13 @@ describe('Uploader Battery', function ( ) {
     var upbat = require('../lib/plugins/upbat')(ctx);
     upbat.setProperties(sbx);
 
-    upbat.virtAsst.intentHandlers.length.should.equal(2);
+    upbat.alexa.intentHandlers.length.should.equal(1);
 
-    upbat.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
-      title.should.equal('Uploader Battery');
+    upbat.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+      title.should.equal('Uploader battery');
       response.should.equal('Your uploader battery is at 20%');
-      
-      upbat.virtAsst.intentHandlers[1].intentHandler(function next(title, response) {
-        title.should.equal('Uploader Battery');
-        response.should.equal('Your uploader battery is at 20%');
 
-        done();
-      }, [], sbx);
-      
+      done();
     }, [], sbx);
 
   });
