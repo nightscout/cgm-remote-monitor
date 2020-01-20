@@ -18,6 +18,10 @@
 
   client.init(function loaded () {
 
+  if (c_profile !== null) {
+      return; // already loaded so don't load again
+  }
+  
   var translate = client.translate;
 
   var defaultprofile = {
@@ -327,6 +331,8 @@
     GUIToObject();
 
     var newname = $('#pe_profile_name').val();
+    if (!isNaN(newname)) newname = 'Profile' + newname;
+    
     if (currentprofile !== newname) {
       // rename if already exists
       while (record.store[newname]) {
@@ -628,11 +634,11 @@
   }
 
   function toTimeString(minfrommidnight) {
-    return moment().startOf('day').add(minfrommidnight,'minutes').format('HH:mm');
+    return moment.utc().startOf('day').add(minfrommidnight,'minutes').format('HH:mm'); // using utc to avoid daylight saving offset
   }
 
   function toDisplayTime (minfrommidnight) {
-    var time = moment().startOf('day').add(minfrommidnight,'minutes');
+    var time = moment.utc().startOf('day').add(minfrommidnight,'minutes'); // using utc to avoid daylight saving offset
     return client.settings.timeFormat === 24 ? time.format('HH:mm') : time.format('h:mm A');
   }
 
@@ -665,18 +671,17 @@
     adjustedRecord.defaultProfile = currentprofile;
     adjustedRecord.units = client.settings.units;
 
-    if (record.convertedOnTheFly) {
-      var result = window.confirm(translate('Profile is going to be saved in newer format used in Nightscout 0.9.0 and above and will not be usable in older versions anymore.\nAre you sure?'));
-      if (!result) {
-        return;
-      }
-    }
-
     delete record.convertedOnTheFly;
     delete adjustedRecord.convertedOnTheFly;
 
     console.info('saving profile');
+    peStatus.hide().text(translate('Saving profile')).fadeIn('slow');
 
+    // Hide the form until the ajax PUT is done.
+    // This is a crude way of preventing the user from changing the inputs whilst waiting.
+    // If the user was able to make changes, they'd be lost when the done callback redraws anyway.
+    $('#pe_form').hide();
+    
     $.ajax({
       method: 'PUT'
       , url: '/api/v1/profile/'
@@ -684,12 +689,14 @@
       , headers: client.headers()
     }).done(function postSuccess (data, status) {
       console.info('profile saved', data);
+      $('#pe_form').show(); // allow edits again
       peStatus.hide().text(status).fadeIn('slow');
       record._id = data._id;
       initRecord();
       dirty = false;
     }).fail(function(xhr, status, errorThrown)  {
       console.error('Profile not saved', status, errorThrown);
+      $('#pe_form').show(); // allow edits again
       peStatus.hide().text(status).fadeIn('slow');
     });
     return false;
