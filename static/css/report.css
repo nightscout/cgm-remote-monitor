@@ -24,26 +24,32 @@ body {
 
 #tabnav {
   text-align: left;
-  margin: 1em 0 1em 0;
-  font: bold 11px verdana, arial, sans-serif;
+  margin: 1em 0 0;
+  font: bold 11pt verdana, arial, sans-serif;
   border-bottom: 1px solid #6c6;
   list-style-type: none;
-  padding: 3px 10px 3px 10px;
+  padding: 0 0 0 15px;
 }
 
-#tabnav li{
-  display: inline;
-  padding: 3px 4px;
-  border: 1px solid #6c6;
+#tabnav li {
+  display: inline-block;
+  padding: 10px 15px;
+  border-top: 1px solid #6c6;
+  border-right: 1px solid #6c6;
+  border-bottom: none;
   background-color: #cfc;
   color: #666;
-  margin-right: 0;
+  margin: 0 0 -1px 0;
   text-decoration: none;
-  border-bottom: none;
+}
+
+#tabnav li:first-child {
+  border-left: 1px solid #6c6;
 }
 
 #tabnav .selected  {
   background: #fff;
+  border-bottom: 1px solid #fff;
 }
 
 #tabnav li:hover {
@@ -59,11 +65,48 @@ body {
   text-align: left;
   padding: 4px;
   font-size: 14px;
-  line-height: 15px;
+  line-height: 15pt;
   background: white;
   border: 2px solid black;
   border-radius: 8px;
   float: right;
   min-width: 150px;
   max-width: 400px;
+}
+
+main {
+  padding: 15px;
+}
+
+input[type=date],
+input[type=text],
+input[type=number],
+select {
+  font: 13px verdana, arial, sans-serif;
+}
+
+label {
+  display: inline-flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-right: 7px;
+}
+
+#rp_to {
+  margin-right: 10px;
+}
+
+.presetdates {
+  display: inline-block;
+  margin-right: 8px;
+}
+
+#rp_show {
+  background-color: #cfc;
+  border: 1px solid #6c6;
+  color: #666;
+  padding: 10px;
+  font-weight: bold;
+  font-size: 12pt;
+  text-transform: uppercase;
 }
