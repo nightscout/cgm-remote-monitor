@@ -651,6 +651,10 @@ a, a:visited, a:link {
   .focus-range li {
     display: block;
   }
+  .focus-hours-extra {
+    display:none !important;
+  }
+
 }
 
 @media (max-height: 700px) {
@@ -770,6 +774,10 @@ a, a:visited, a:link {
   .focus-range li {
     display: block;
   }
+  .focus-hours-extra {
+    display:none !important;
+  }
+
 
   .statusPills {
     display: inline;
