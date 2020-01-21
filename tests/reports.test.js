@@ -237,8 +237,8 @@ describe('reports', function ( ) {
       $('a.presetdates :first').click();
       $('#rp_notes').val('something');
       $('#rp_eventtype').val('BG Check');
-      $('#rp_from').val('2015/08/08');
-      $('#rp_to').val('2015/09/07');
+      $('#rp_from').val('2015-08-08');
+      $('#rp_to').val('2015-09-07');
       $('#rp_optionsraw').prop('checked', true);
       $('#rp_optionsiob').prop('checked', true);
       $('#rp_optionscob').prop('checked', true);
@@ -261,12 +261,14 @@ describe('reports', function ( ) {
       var result = $('body').html();
       //var filesys = require('fs');
       //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
-      //logfile.write($('body').html());
-
+      //logfile.write(result);
+      //console.log('RESULT', result);
+      
       result.indexOf('Milk now').should.be.greaterThan(-1); // daytoday
-      result.indexOf('50 g (1.67U)').should.be.greaterThan(-1); // daytoday
+      result.indexOf('50 g').should.be.greaterThan(-1); // daytoday
+      result.indexOf('TDD average:</b> 2.9U').should.be.greaterThan(-1); // daytoday
       result.indexOf('<td class="tdborder">0%</td><td class="tdborder">100%</td><td class="tdborder">0%</td><td class="tdborder">2</td>').should.be.greaterThan(-1); //dailystats
-      result.indexOf('td class="tdborder" style="background-color:#8f8"><strong>Normal: </strong></td><td class="tdborder">64.7%</td><td class="tdborder">6</td>').should.be.greaterThan(-1); // distribution
+      result.indexOf('<td class="tdborder" style="background-color:#8f8"><strong>In Range: </strong></td><td class="tdborder">47.6%</td><td class="tdborder">10</td>').should.be.greaterThan(-1); // distribution
       result.indexOf('<td>16 (100%)</td>').should.be.greaterThan(-1); // hourlystats
       result.indexOf('<div id="success-grid">').should.be.greaterThan(-1); //success
       result.indexOf('<b style="padding-left:4em">CAL</b>:  Scale: 1.10 Intercept: 31102 Slope: 776.91').should.be.greaterThan(-1); //calibrations
@@ -276,4 +278,58 @@ describe('reports', function ( ) {
     });
   });
 
+  it ('should produce week to week report', function (done) {
+    var client = window.Nightscout.client;
+
+    var hashauth = require('../lib/hashauth');
+    hashauth.init(client,$);
+    hashauth.verifyAuthentication = function mockVerifyAuthentication(next) {
+      hashauth.authenticated = true;
+      next(true);
+    };
+
+     window.confirm = function mockConfirm () {
+       return true;
+     };
+
+     window.alert = function mockAlert () {
+       return true;
+     };
+
+     window.setTimeout = function mockSetTimeout (call) {
+       call();
+     };
+
+    client.init(function afterInit ( ) {
+      client.dataUpdate(nowData);
+
+		console.log('Sending profile to client');
+
+      // Load profile, we need to operate in UTC
+      client.sbx.data.profile.loadData(exampleProfile);
+
+      $('#weektoweek').addClass('selected');
+      $('a.presetdates :first').click();
+      $('#rp_from').val('2015-08-08');
+      $('#rp_to').val('2015-09-07');
+      $('#wrp_log').prop('checked', true);
+      $('#rp_show').click();
+
+      $('#wrp_linear').prop('checked', true);
+      $('#rp_show').click();
+      $('.ui-button:contains("Save")').click();
+
+      var result = $('body').html();
+
+      result.indexOf('<circle cx="978" cy="267.34375" fill="rgb(73, 22, 153)"').should.be.greaterThan(-1); // weektoweek Sunday sample point
+      result.indexOf('<circle cx="35" cy="267.34375" fill="rgb(34, 201, 228)"').should.be.greaterThan(-1); // weektoweek Monday sample point
+      result.indexOf('<circle cx="978" cy="267.34375" fill="rgb(0, 153, 123)"').should.be.greaterThan(-1); // weektoweek Tuesday sample point
+      result.indexOf('<circle cx="978" cy="267.34375" fill="rgb(135, 135, 228)"').should.be.greaterThan(-1); // weektoweek Wednesday sample point
+      result.indexOf('<circle cx="978" cy="267.34375" fill="rgb(135, 49, 204)"').should.be.greaterThan(-1); // weektoweek Thursday sample point
+      result.indexOf('<circle cx="978" cy="267.34375" fill="rgb(36, 36, 228)"').should.be.greaterThan(-1); // weektoweek Friday sample point
+      result.indexOf('<circle cx="978" cy="267.34375" fill="rgb(0, 234, 188)"').should.be.greaterThan(-1); // weektoweek Saturday sample point
+
+      done();
+    });
+  });
 });
