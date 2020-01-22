@@ -1,0 +1,1614 @@
+openapi: 3.0.0
+servers:
+  - url: '/api/v3'
+info:
+  version: '3.0.1'
+  title: Nightscout API
+  contact:
+    name: NS development discussion channel
+    url: https://gitter.im/nightscout/public
+  license:
+    name: AGPL 3
+    url: 'https://www.gnu.org/licenses/agpl.txt'
+  description:
+    Nightscout API v3 is a component of cgm-remote-monitor project. It aims to provide lightweight, secured and HTTP REST compliant interface for your T1D treatment data exchange.
+
+
+    API v3 uses these environment variables, among other things&#58;
+
+    - Security switch (optional, default = `true`)
+    <pre>API3_SECURITY_ENABLE=true</pre>
+    You can turn the whole security mechanism off, e.g. for debugging or development purposes,
+    but this should never be set to false in production.
+
+
+    - Number of minutes of acceptable time skew between client's and server's clock (optional, default = 5)
+    <pre>API3_TIME_SKEW_TOLERANCE=5</pre>
+    This security parameter is used for preventing anti-replay attacks, specifically when checking the time from `Date` header.
+
+
+    - Maximum limit count of documents retrieved from single query
+      <pre>API3_MAX_LIMIT=1000</pre>
+
+
+    - Autopruning of obsolete documents (optional, default is only `DEVICESTATUS`=60)
+      <pre>API3_AUTOPRUNE_DEVICESTATUS=60
+
+      API3_AUTOPRUNE_ENTRIES=365
+
+      API3_AUTOPRUNE_TREATMENTS=120
+      </pre>
+      You can specify for which collections autopruning will be activated and length of retention period in days, e.g. "Hold 60 days of devicestatus, automatically delete older documents, hold 365 days of treatments and entries, automatically delete older documents."
+
+
+    - Fallback deduplication switch (optional, default = true)
+      <pre>API3_DEDUP_FALLBACK_ENABLED=true</pre>
+      API3 uses the `identifier` field for document identification and mutual distinction within a single collection. There is automatic deduplication implemented matching the equal `identifier` field. E.g. `CREATE` operation for document having the same `identifier` as another one existing in the database is automatically transformed into `UPDATE` operation of the document found in the database.
+
+      Documents not created via API v3 usually does not have any `identifier` field, but we would like to have some form of deduplication for them, too. This fallback deduplication is turned on by having set `API3_DEDUP_FALLBACK_ENABLED` to `true`.
+      When searching the collection in database, the document is found to be a duplicate only when either he has equal `identifier` or he has no `identifier` and meets&#58;
+      <pre>`devicestatus` collection&#58; equal combination of `created_at` and `device`
+
+      `entries` collection&#58;      equal combination of `date` and `type`
+
+      `food` collection&#58;         equal `created_at`
+
+      `profile` collection&#58;      equal `created_at`
+
+      `treatments` collection&#58;   equal combination of `created_at` and `eventType`
+      </pre>
+
+
+    - Fallback switch for adding `created_at` field along the `date` field (optional, default = true)
+      <pre>API3_CREATED_AT_FALLBACK_ENABLED=true</pre>
+      Standard APIv3 document model uses only `date` field for storing a timestamp of the event recorded by the document. But there is a fallback option to fill `created_at` field as well automatically on each insert/update, just to keep all older components working.
+
+tags:
+  - name: generic
+    description: Generic operations with each database collection (devicestatus, entries, food, profile, settings, treatments)
+  - name: other
+    description: All other various operations
+
+
+paths:
+  /{collection}:
+    parameters:
+      - in: path
+        name: collection
+        description: Collection to which the operation is targeted
+        required: true
+        schema:
+          $ref: '#/components/schemas/paramCollection'
+
+      - $ref: '#/components/parameters/dateHeader'
+      - $ref: '#/components/parameters/nowParam'
+      - $ref: '#/components/parameters/tokenParam'
+
+    ######################################################################################
+    get:
+      tags:
+        - generic
+      summary: 'SEARCH: Search documents from the collection'
+      operationId: SEARCH
+      description: General search operation through documents of one collection, matching the specified filtering criteria. You can apply&#58;
+
+
+        1) filtering - combining any number of filtering parameters
+
+
+        2) ordering - using `sort` or `sort$desc` parameter
+
+
+        3) paging - using `limit` and `skip` parameters
+
+
+        When there is no document matching the filtering criteria, HTTP status 204 is returned with empty response content. Otherwise HTTP 200 code is returned with JSON array of matching documents as a response content.
+
+
+        This operation requires `read` permission for the API and the collection (e.g. `*:*:read`, `api:*:read`, `*:treatments:read`, `api:treatments:read`).
+
+
+        The only exception is the `settings` collection which requires `admin` permission (`api:settings:admin`), because the settings of each application should be isolated and kept secret. You need to know the concrete identifier to access the app's settings.
+
+
+      parameters:
+        - $ref: '#/components/parameters/filterParams'
+        - $ref: '#/components/parameters/sortParam'
+        - $ref: '#/components/parameters/sortDescParam'
+        - $ref: '#/components/parameters/limitParam'
+        - $ref: '#/components/parameters/skipParam'
+        - $ref: '#/components/parameters/fieldsParam'
+
+      security:
+        - apiKeyAuth: []
+
+      responses:
+        200:
+          $ref: '#/components/responses/search200'
+        204:
+          $ref: '#/components/responses/search204'
+        400:
+          $ref: '#/components/responses/400BadRequest'
+        401:
+          $ref: '#/components/responses/401Unauthorized'
+        403:
+          $ref: '#/components/responses/403Forbidden'
+        404:
+          $ref: '#/components/responses/404NotFound'
+
+
+    ######################################################################################
+    post:
+      tags:
+        - generic
+      summary: 'CREATE: Inserts a new document into the collection'
+      description:
+        Using this operation you can insert new documents into collection. Normally the operation ends with 201 HTTP status code, `Last-Modified` and `Location` headers specified and with an empty response content. `identifier` can be parsed from the `Location` response header.
+
+
+        When the document to post is marked as a duplicate (using rules described at `API3_DEDUP_FALLBACK_ENABLED` switch), the update operation takes place instead of inserting. In this case the original document in the collection is found and it gets updated by the actual operation POST body. Finally the operation ends with 204 HTTP status code along with `Last-Modified` and correct `Location` headers.
+
+
+        This operation provides autopruning of the collection (if autopruning is enabled).
+
+
+        This operation requires `create` (and/or `update` for deduplication) permission for the API and the collection (e.g. `api:treatments:create` and `api:treatments:update`)
+
+      requestBody:
+        description: JSON with new document to insert
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentToPost'
+
+      security:
+        - apiKeyAuth: []
+
+      responses:
+        201:
+          $ref: '#/components/responses/201CreatedLocation'
+        204:
+          $ref: '#/components/responses/204NoContentLocation'
+        400:
+          $ref: '#/components/responses/400BadRequest'
+        401:
+          $ref: '#/components/responses/401Unauthorized'
+        403:
+          $ref: '#/components/responses/403Forbidden'
+        404:
+          $ref: '#/components/responses/404NotFound'
+        422:
+          $ref: '#/components/responses/422UnprocessableEntity'
+
+
+  #return HTTP STATUS 400 for all other verbs (PUT, PATCH, DELETE,...)
+
+
+  /{collection}/{identifier}:
+    parameters:
+      - in: path
+        name: collection
+        description: Collection to which the operation is targeted
+        required: true
+        schema:
+          $ref: '#/components/schemas/paramCollection'
+      - in: path
+        name: identifier
+        description: Identifier of the document to which the operation is targeted
+        required: true
+        schema:
+          $ref: '#/components/schemas/paramIdentifier'
+
+      - $ref: '#/components/parameters/dateHeader'
+      - $ref: '#/components/parameters/nowParam'
+      - $ref: '#/components/parameters/tokenParam'
+
+    ######################################################################################
+    get:
+      tags:
+        - generic
+      summary: 'READ: Retrieves a single document from the collection'
+      description:
+        Basically this operation looks for a document matching the `identifier` field returning 200 or 404 HTTP status code.
+
+
+        If the document has been found in the collection but it had already been deleted, 410 HTTP status code with empty response content is to be returned.
+
+
+        When `If-Modified-Since` header is used and its value is greater than the timestamp of the document in the collection, 304 HTTP status code with empty response content is returned. It means that the document has not been modified on server since the last retrieval to client side.
+        With `If-Modified-Since` header and less or equal timestamp `srvModified` a normal 200 HTTP status with full response is returned.
+
+
+        This operation requires `read` permission for the API and the collection (e.g. `api:treatments:read`)
+
+      parameters:
+        - $ref: '#/components/parameters/ifModifiedSinceHeader'
+        - $ref: '#/components/parameters/fieldsParam'
+
+      security:
+        - apiKeyAuth: []
+
+      responses:
+        200:
+          $ref: '#/components/responses/read200'
+        304:
+          $ref: '#/components/responses/304NotModified'
+        401:
+          $ref: '#/components/responses/401Unauthorized'
+        403:
+          $ref: '#/components/responses/403Forbidden'
+        404:
+          $ref: '#/components/responses/404NotFound'
+        410:
+          $ref: '#/components/responses/410Gone'
+
+
+    ######################################################################################
+    put:
+      tags:
+        - generic
+      summary: 'UPDATE: Updates a document in the collection'
+      description:
+        Normally the document with the matching `identifier` will be replaced in the collection by the whole JSON request body and 204 HTTP status code will be returned with empty response body.
+
+
+        If the document has been found in the collection but it had already been deleted, 410 HTTP status code with empty response content is to be returned.
+
+
+        When no document with `identifier` has been found in the collection, then an insert operation takes place instead of updating. Finally 201 HTTP status code is returned with only `Last-Modified` header (`identifier` is already known from the path parameter).
+
+
+        You can also specify `If-Unmodified-Since` request header including your timestamp of document's last modification. If the document has been modified by somebody else on the server afterwards (and you do not know about it), the 412 HTTP status code is returned cancelling the update operation. You can use this feature to prevent race condition problems.
+
+
+        This operation provides autopruning of the collection (if autopruning is enabled).
+
+
+        This operation requires `update` (and/or `create`) permission for the API and the collection (e.g. `api:treatments:update` and `api:treatments:create`)
+
+      parameters:
+        - $ref: '#/components/parameters/ifUnmodifiedSinceHeader'
+
+      requestBody:
+        description: JSON of new version of document (`identifier` in JSON is ignored if present)
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentToPost'
+
+      security:
+        - apiKeyAuth: []
+
+      responses:
+        201:
+          $ref: '#/components/responses/201Created'
+        204:
+          $ref: '#/components/responses/204NoContentLocation'
+        400:
+          $ref: '#/components/responses/400BadRequest'
+        401:
+          $ref: '#/components/responses/401Unauthorized'
+        403:
+          $ref: '#/components/responses/403Forbidden'
+        404:
+          $ref: '#/components/responses/404NotFound'
+        412:
+          $ref: '#/components/responses/412PreconditionFailed'
+        410:
+          $ref: '#/components/responses/410Gone'
+        422:
+          $ref: '#/components/responses/422UnprocessableEntity'
+
+
+    ######################################################################################
+    patch:
+      tags:
+        - generic
+      summary: 'PATCH: Partially updates document in the collection'
+      description:
+        Normally the document with the matching `identifier` will be retrieved from the collection and it will be patched by all specified fields from the JSON request body. Finally 204 HTTP status code will be returned with empty response body.
+
+
+        If the document has been found in the collection but it had already been deleted, 410 HTTP status code with empty response content is to be returned.
+
+
+        When no document with `identifier` has been found in the collection, then the operation ends with 404 HTTP status code.
+
+
+        You can also specify `If-Unmodified-Since` request header including your timestamp of document's last modification. If the document has been modified by somebody else on the server afterwards (and you do not know about it), the 412 HTTP status code is returned cancelling the update operation. You can use this feature to prevent race condition problems.
+
+
+        `PATCH` operation can save some bandwidth for incremental document updates in comparison with `GET` - `UPDATE` operation sequence.
+
+
+        While patching the document, the field `modifiedBy` is automatically set to the authorized subject's name.
+
+
+        This operation provides autopruning of the collection (if autopruning is enabled).
+
+
+        This operation requires `update` permission for the API and the collection (e.g. `api:treatments:update`)
+
+      parameters:
+        - $ref: '#/components/parameters/ifUnmodifiedSinceHeader'
+
+      requestBody:
+        description: JSON of new version of document (`identifier` in JSON is ignored if present)
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentToPost'
+
+      security:
+        - apiKeyAuth: []
+
+      responses:
+        204:
+          $ref: '#/components/responses/204NoContentLocation'
+        400:
+          $ref: '#/components/responses/400BadRequest'
+        401:
+          $ref: '#/components/responses/401Unauthorized'
+        403:
+          $ref: '#/components/responses/403Forbidden'
+        404:
+          $ref: '#/components/responses/404NotFound'
+        412:
+          $ref: '#/components/responses/412PreconditionFailed'
+        410:
+          $ref: '#/components/responses/410Gone'
+        422:
+          $ref: '#/components/responses/422UnprocessableEntity'
+
+
+    ######################################################################################
+    delete:
+      tags:
+        - generic
+      summary: 'DELETE: Deletes a document from the collection'
+      description:
+        If the document has already been deleted, the operation will succeed anyway. Normally, documents are not really deleted from the collection but they are only marked as deleted. For special cases the deletion can be irreversible using `permanent` parameter.
+
+
+        This operation provides autopruning of the collection (if autopruning is enabled).
+
+
+        This operation requires `delete` permission for the API and the collection (e.g. `api:treatments:delete`)
+
+
+      parameters:
+        - $ref: '#/components/parameters/permanentParam'
+
+      security:
+        - apiKeyAuth: []
+
+      responses:
+        204:
+          description: Successful operation - empty response
+        401:
+          $ref: '#/components/responses/401Unauthorized'
+        403:
+          $ref: '#/components/responses/403Forbidden'
+        404:
+          $ref: '#/components/responses/404NotFound'
+        422:
+          $ref: '#/components/responses/422UnprocessableEntity'
+
+
+  ######################################################################################
+  /{collection}/history:
+    parameters:
+      - in: path
+        name: collection
+        description: Collection to which the operation is targeted
+        required: true
+        schema:
+          $ref: '#/components/schemas/paramCollection'
+
+      - $ref: '#/components/parameters/dateHeader'
+      - $ref: '#/components/parameters/nowParam'
+      - $ref: '#/components/parameters/tokenParam'
+
+    get:
+      tags:
+        - generic
+      summary: 'HISTORY: Retrieves incremental changes since timestamp'
+      operationId: HISTORY
+      description:
+        HISTORY operation is intended for continuous data synchronization with other systems.
+
+        Every insertion, update and deletion will be included in the resulting JSON array of documents (since timestamp in `Last-Modified` request header value). All changes are listed chronologically in response with 200 HTTP status code. The maximum listed `srvModified` timestamp is also stored in `Last-Modified` and `ETag` response headers that you can use for future, directly following synchronization. You can also limit the array's length using `limit` parameter.
+
+
+        Deleted documents will appear with `isValid` = `false` field.
+
+
+        When there is no change detected since the timestamp the operation ends with 204 HTTP status code and empty response content.
+
+
+        HISTORY operation has a fallback mechanism in place for documents, which were not created by API v3. For such documents `srvModified` is virtually assigned from the `date` field (for `entries` collection) or from the `created_at` field (for other collections).
+
+
+        This operation requires `read` permission for the API and the collection (e.g. `api:treatments:read`)
+
+
+        The only exception is the `settings` collection which requires `admin` permission (`api:settings:admin`), because the settings of each application should be isolated and kept secret. You need to know the concrete identifier to access the app's settings.
+
+
+      parameters:
+        - $ref: '#/components/parameters/lastModifiedRequiredHeader'
+        - $ref: '#/components/parameters/limitParam'
+        - $ref: '#/components/parameters/fieldsParam'
+
+      security:
+        - apiKeyAuth: []
+
+      responses:
+        200:
+          $ref: '#/components/responses/history200'
+        204:
+          $ref: '#/components/responses/history204'
+        400:
+          $ref: '#/components/responses/400BadRequest'
+        401:
+          $ref: '#/components/responses/401Unauthorized'
+        403:
+          $ref: '#/components/responses/403Forbidden'
+        404:
+          $ref: '#/components/responses/404NotFound'
+
+
+  ######################################################################################
+  /{collection}/history/{lastModified}:
+    parameters:
+      - in: path
+        name: collection
+        description: Collection to which the operation is targeted
+        required: true
+        schema:
+          $ref: '#/components/schemas/paramCollection'
+
+      - in: path
+        name: lastModified
+        description: Starting timestamp (in UNIX epoch format, defined with respect to server's clock) since which the changes in documents are to be listed. Query for modified documents is made using "greater than" operator (not including equal timestamps).
+        required: true
+        schema:
+          type: integer
+          format: int64
+
+      - $ref: '#/components/parameters/dateHeader'
+      - $ref: '#/components/parameters/nowParam'
+      - $ref: '#/components/parameters/tokenParam'
+
+    get:
+      tags:
+        - generic
+      summary: 'HISTORY: Retrieves incremental changes since timestamp'
+      operationId: HISTORY2
+      description:
+        This HISTORY operation variant is more precise than the previous one with `Last-Modified` request HTTP header), because it does not loose milliseconds precision.
+
+
+        Since this variant queries for changed documents by timestamp precisely and exclusively, the last modified document does not repeat itself in following calls. That is the reason why is this variant more suitable for continuous synchronization with other systems.
+
+
+        This variant behaves quite the same as the previous one in all other aspects.
+
+
+      parameters:
+        - $ref: '#/components/parameters/limitParam'
+        - $ref: '#/components/parameters/fieldsParam'
+
+      security:
+        - apiKeyAuth: []
+
+      responses:
+        200:
+          $ref: '#/components/responses/history200'
+        204:
+          $ref: '#/components/responses/history204'
+        400:
+          $ref: '#/components/responses/400BadRequest'
+        401:
+          $ref: '#/components/responses/401Unauthorized'
+        403:
+          $ref: '#/components/responses/403Forbidden'
+        404:
+          $ref: '#/components/responses/404NotFound'
+
+
+  ######################################################################################
+  /version:
+
+    get:
+      tags:
+        - other
+      summary: 'VERSION: Returns actual version information'
+      description: No authentication is needed for this commnad (it is public)
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Version'
+
+
+  ######################################################################################
+  /status:
+
+    get:
+      tags:
+        - other
+      summary: 'STATUS: Returns actual version information and all permissions granted for API'
+      description:
+        This operation requires authorization in contrast with VERSION operation.
+
+      security:
+        - apiKeyAuth: []
+
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        401:
+          $ref: '#/components/responses/401Unauthorized'
+        403:
+          $ref: '#/components/responses/403Forbidden'
+
+  ######################################################################################
+  /lastModified:
+    parameters:
+      - $ref: '#/components/parameters/dateHeader'
+      - $ref: '#/components/parameters/nowParam'
+      - $ref: '#/components/parameters/tokenParam'
+
+    get:
+      tags:
+        - other
+      summary: 'LAST MODIFIED: Retrieves timestamp of the last modification of every collection'
+      operationId: LAST-MODIFIED
+      description:
+        LAST MODIFIED operation inspects collections separately (in parallel) and for each of them it finds the date of any last modification (insertion, update, deletion).
+
+        Not only `srvModified`, but also `date` and `created_at` fields are inspected (as a fallback to previous API).
+
+
+        This operation requires `read` permission for the API and the collections (e.g. `api:treatments:read`). For each collection the permission is checked separately, you will get timestamps only for those collections that you have access to.
+
+      security:
+        - apiKeyAuth: []
+
+      responses:
+        200:
+          $ref: '#/components/responses/lastModified200'
+        401:
+          $ref: '#/components/responses/401Unauthorized'
+        403:
+          $ref: '#/components/responses/403Forbidden'
+
+######################################################################################
+components:
+
+  parameters:
+
+    dateHeader:
+      in: header
+      name: Date
+      schema:
+        type: string
+      required: false
+      description:
+        Timestamp (defined by client's clock) when the HTTP request was constructed on client.
+        This mandatory header serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code.
+        This can be set alternatively in `now` query parameter.
+
+        Example&#58;
+
+
+        <pre>Date&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>
+
+
+    nowParam:
+      in: query
+      name: now
+      schema:
+        type: integer
+        format: int64
+      required: false
+      description:
+        Timestamp (defined by client's clock) when the HTTP request was constructed on client.
+        This mandatory parameter serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code.
+        This can be set alternatively in `Date` header.
+
+
+        Example&#58;
+
+
+        <pre>now=1525383610088</pre>
+
+
+    tokenParam:
+      in: query
+      name: token
+      schema:
+        type: string
+      required: false
+      description:
+        An alternative way of authorization - passing accessToken in a query parameter.
+
+
+        Example&#58;
+
+
+        <pre>token=testadmin-bf2591231bd2c042</pre>
+
+
+    limitParam:
+      in: query
+      name: limit
+      schema:
+        type: integer
+        minimum: 1
+        default: stored in API3_MAX_LIMIT environment variable (usually 1000)
+        example: 100
+      description: Maximum number of documents to get in result array
+
+    skipParam:
+      in: query
+      name: skip
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+        example: 0
+      description:
+        Number of documents to skip from collection query before
+        loading them into result array (used for pagination)
+
+    sortParam:
+      in: query
+      name: sort
+      schema:
+        type: string
+      required: false
+      description:
+        Field name by which the sorting of documents is performed. This parameter cannot be combined with `sort$desc` parameter.
+
+    sortDescParam:
+      in: query
+      name: sort$desc
+      schema:
+        type: string
+      required: false
+      description:
+        Field name by which the descending (reverse) sorting of documents is performed. This parameter cannot be combined with `sort` parameter.
+
+    permanentParam:
+      in: query
+      name: permanent
+      schema:
+        type: boolean
+      required: false
+      description:
+        If true, the deletion will be irreversible and it will not appear in `HISTORY` operation. Normally there is no reason for setting this flag.
+
+
+    fieldsParam:
+      in: query
+      name: fields
+      schema:
+        type: string
+        default: '_all'
+      required: false
+      examples:
+        all:
+          value: '_all'
+          summary: All fields will be returned (default behaviour)
+        customSet:
+          value: 'date,insulin'
+          summary: Only fields date and insulin will be returned
+      description: A chosen set of fields to return in response. Either you can enumerate specific fields of interest or use the predefined set. Sample parameter values&#58;
+
+
+        _all&#58; All fields will be returned (default value)
+
+
+        date,insulin&#58; Only fields `date` and `insulin` will be returned
+
+
+    filterParams:
+      in: query
+      name: filter_parameters
+      schema:
+        type: string
+      description:
+        Any number of filtering operators.
+
+
+        Each filtering operator has name like `<field-name>$<operator>`, e.g. `carbs$gt=2` which represents filtering rule "The field carbs must be present and greater than 2".
+
+
+        You can choose from operators&#58;
+
+
+        `eq`=equals, `insulin$eq=1.5`
+
+
+        `ne`=not equals, `insulin$ne=1.5`
+
+
+        `gt`=greater than, `carbs$gt=30`
+
+
+        `gte`=greater than or equal, `carbs$gte=30`
+
+
+        `lt`=less than, `carbs$lt=30`
+
+
+        `lte`=less than or equal, `carbs$lte=30`
+
+
+        `in`=in specified set, `type$in=sgv|mbg|cal`
+
+
+        `nin`=not in specified set, `eventType$nin=Temp%20Basal|Temporary%20Target`
+
+
+        `re`=regex pattern, `eventType$re=Temp.%2A`
+
+
+        When filtering by field `date`, `created_at`, `srvModified` or `srvCreated`, you can choose from three input formats
+
+        - Unix epoch in milliseconds (1525383610088)
+
+        - Unix epoch in seconds (1525383610)
+
+        - ISO 8601 with optional timezone ('2018-05-03T21:40:10.088Z' or '2018-05-03T23:40:10.088+02:00')
+
+
+        The date is always queried in a normalized form - UTC with zero offset and with the correct format (1525383610088 for `date`, '2018-05-03T21:40:10.088Z' for `created_at`).
+
+    lastModifiedRequiredHeader:
+      in: header
+      name: Last-Modified
+      schema:
+        type: string
+      required: true
+      description:
+          Starting timestamp (defined with respect to server's clock) since which the changes in documents are to be listed, formatted as&#58;
+
+
+        &lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT
+
+
+            Example&#58;
+
+
+            <pre>Last-Modified&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>
+
+
+    ifModifiedSinceHeader:
+      in: header
+      name: If-Modified-Since
+      schema:
+        type: string
+      required: false
+      description:
+          Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;
+
+
+        &lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT
+
+
+            If this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.
+
+
+            Example&#58;
+
+
+            <pre>If-Modified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>
+
+
+    ifUnmodifiedSinceHeader:
+      in: header
+      name: If-Unmodified-Since
+      schema:
+        type: string
+      required: false
+      description:
+          Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;
+
+
+        &lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT
+
+
+            If this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.
+
+
+            Example&#58;
+
+
+            <pre>If-Unmodified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>
+
+
+  ######################################################################################
+  responses:
+
+    201Created:
+      description: Successfully created a new document in collection
+      headers:
+        'Last-Modified':
+          $ref: '#/components/schemas/headerLastModified'
+
+    201CreatedLocation:
+      description: Successfully created a new document in collection
+      headers:
+        'Last-Modified':
+          $ref: '#/components/schemas/headerLastModified'
+        'Location':
+          $ref: '#/components/schemas/headerLocation'
+
+    204NoContent:
+      description: Successfully finished operation
+      headers:
+        'Last-Modified':
+          $ref: '#/components/schemas/headerLastModified'
+
+    204NoContentLocation:
+      description: Successfully finished operation
+      headers:
+        'Last-Modified':
+          $ref: '#/components/schemas/headerLastModified'
+        'Location':
+          $ref: '#/components/schemas/headerLocation'
+
+    304NotModified:
+      description: The document has not been modified on the server since timestamp specified in If-Modified-Since header
+      headers:
+        'Last-Modified':
+          $ref: '#/components/schemas/headerLastModified'
+
+    400BadRequest:
+      description: The request is malformed. There may be some required parameters missing or there are unrecognized parameters present.
+
+    401Unauthorized:
+      description: The request was not successfully authenticated using access token or JWT, or the request has missing `Date` header or it contains an expired timestamp, so that the request cannot continue due to the security policy.
+
+    403Forbidden:
+      description: Insecure HTTP scheme used or the request has been successfully authenticated, but the security subject is not authorized for the operation.
+
+    404NotFound:
+      description: The collection or document specified was not found.
+
+    412PreconditionFailed:
+      description: The document has already been modified on the server since specified timestamp (in If-Unmodified-Since header).
+
+    410Gone:
+      description: The requested document has already been deleted.
+
+    422UnprocessableEntity:
+      description: The client request is well formed but a server validation error occured. Eg. when trying to modify or delete a read-only document (having `isReadOnly=true`).
+
+    search200:
+      description: Successful operation returning array of documents matching the filtering criteria
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DocumentArray'
+
+    search204:
+      description: Successful operation - no documents matching the filtering criteria
+
+    read200:
+      description: The document has been succesfully found and its JSON form returned in the response content.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Document'
+      headers:
+        'Last-Modified':
+          $ref: '#/components/schemas/headerLastModified'
+
+    history200:
+      description:
+        Changed documents since specified timestamp
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DocumentArray'
+      headers:
+        'Last-Modified':
+          $ref: '#/components/schemas/headerLastModifiedMaximum'
+        'ETag':
+          $ref: '#/components/schemas/headerEtagLastModifiedMaximum'
+
+    history204:
+      description: No changes detected
+
+    lastModified200:
+      description: Successful operation returning the timestamps
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LastModifiedResult'
+
+  ######################################################################################
+  schemas:
+
+    headerLocation:
+      type: string
+      description:
+        Location of document - the relative part of URL. This can be used to parse the identifier
+        of just created document.
+
+        Example=/api/v3/treatments/53409478-105f-11e9-ab14-d663bd873d93
+
+    headerLastModified:
+      type: string
+      description:
+          Timestamp of the last document modification on the server, formatted as
+
+            '<day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT'.
+
+            This field is relevant only for documents which were somehow modified by API v3
+            (inserted, updated or deleted) and it was generated using server's clock.
+
+            Example='Wed, 17 Oct 2018 05:13:00 GMT'
+
+    headerLastModifiedMaximum:
+      type: string
+      description:
+          The latest (maximum) `srvModified` field of all returning documents, formatted as
+
+            '<day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT'.
+
+            Example='Wed, 17 Oct 2018 05:13:00 GMT'
+
+    headerEtagLastModifiedMaximum:
+      type: string
+      description:
+        The latest (maximum) `srvModified` field of all returning documents.
+        This header does not loose milliseconds from the date (unlike the `Last-Modified` header).
+
+        Example='W/"1525383610088"'
+
+    paramCollection:
+      type: string
+      enum:
+        - devicestatus
+        - entries
+        - food
+        - profile
+        - settings
+        - treatments
+      example: 'treatments'
+
+    paramIdentifier:
+      type: string
+      example: '53409478-105f-11e9-ab14-d663bd873d93'
+
+
+    DocumentBase:
+      description: Shared base for all documents
+      properties:
+        identifier:
+          description:
+            Main addressing, required field that identifies document in the collection.
+
+
+            The client should not create the identifier, the server automatically assigns it when the document is inserted.
+
+
+            The server calculates the identifier in such a way that duplicate records are automatically merged (deduplicating is made by `date`, `device` and `eventType` fields).
+
+
+            The best practise for all applications is not to loose identifiers from received documents, but save them carefully for other consumer applications/systems.
+
+
+            API v3 has a fallback mechanism in place, for documents without `identifier` field the `identifier` is set to internal `_id`, when reading or addressing these documents.
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
+          type: string
+          example: '53409478-105f-11e9-ab14-d663bd873d93'
+
+        date:
+          type: integer
+          format: int64
+          description:
+            Required timestamp when the record or event occured, you can choose from three input formats
+
+            - Unix epoch in milliseconds (1525383610088)
+
+            - Unix epoch in seconds (1525383610)
+
+            - ISO 8601 with optional timezone ('2018-05-03T21:40:10.088Z' or '2018-05-03T23:40:10.088+02:00')
+
+
+            The date is always stored in a normalized form - UTC with zero offset. If UTC offset was present, it is going to be set in the `utcOffset` field.
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
+          example: 1525383610088
+
+        utcOffset:
+          type: integer
+          description:
+            Local UTC offset (timezone) of the event in minutes. This field can be set either directly by the client (in the incoming document) or it is automatically parsed from the `date` field.
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
+          example: 120
+
+        app:
+          type: string
+          description:
+            Application or system in which the record was entered by human or device for the first time.
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
+          example: xdrip
+
+        device:
+          type: string
+          description:
+            The device from which the data originated (including serial number of the device, if it is relevant and safe).
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
+          example: 'dexcom G5'
+
+        _id:
+          description: Internally assigned database id. This field is for internal server purposes only, clients communicate with API by using identifier field.
+          type: string
+          example: '58e9dfbc166d88cc18683aac'
+
+        srvCreated:
+          type: integer
+          format: int64
+          description:
+            The server's timestamp of document insertion into the database (Unix epoch in ms). This field appears only for documents which were inserted by API v3.
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
+          example: 1525383610088
+
+        subject:
+          type: string
+          description:
+            Name of the security subject (within Nightscout scope) which has created the document. This field is automatically set by the server from the passed token or JWT.
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
+          example: 'uploader'
+
+        srvModified:
+          type: integer
+          format: int64
+          description:
+            The server's timestamp of the last document modification in the database (Unix epoch in ms). This field appears  only for documents which were somehow modified by API v3 (inserted, updated or deleted).
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
+          example: 1525383610088
+
+        modifiedBy:
+          type: string
+          description:
+            Name of the security subject (within Nightscout scope) which has patched or deleted the document for the last time. This field is automatically set by the server.
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
+          example: admin
+
+        isValid:
+          type: boolean
+          description:
+            A flag set by the server only for deleted documents. This field appears
+            only within history operation and for documents which were deleted by API v3 (and they always have a false value)
+
+
+            Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
+          example: false
+
+
+        isReadOnly:
+          type: boolean
+          description:
+            A flag set by client that locks the document from any changes. Every document marked with `isReadOnly=true` is forever immutable and cannot even be deleted.
+
+
+            Any attempt to modify the read-only document will end with status 422 UNPROCESSABLE ENTITY.
+
+
+          example: true
+
+      required:
+        - date
+        - app
+
+
+    DeviceStatus:
+      description: State of physical device, which is a technical part of the whole T1D compensation system
+      allOf:
+        - $ref: '#/components/schemas/DocumentBase'
+        - type: object
+          properties:
+            some_property:
+              type: string
+              description: ...
+
+
+    Entry:
+      description: Blood glucose measurements and CGM calibrations
+      allOf:
+        - $ref: '#/components/schemas/DocumentBase'
+        - type: object
+          properties:
+
+            type:
+              type: string
+              description: 'sgv, mbg, cal, etc'
+
+            sgv:
+              type: number
+              description: The glucose reading. (only available for sgv types)
+
+            direction:
+              type: string
+              description: Direction of glucose trend reported by CGM. (only available for sgv types)
+              example: '"DoubleDown", "SingleDown", "FortyFiveDown", "Flat", "FortyFiveUp", "SingleUp", "DoubleUp", "NOT COMPUTABLE", "RATE OUT OF RANGE" for xdrip'
+
+            noise:
+              type: number
+              description: Noise level at time of reading. (only available for sgv types)
+              example: 'xdrip: 0, 1, 2=high, 3=high_for_predict, 4=very high, 5=extreme'
+
+            filtered:
+              type: number
+              description: The raw filtered value directly from CGM transmitter. (only available for sgv types)
+
+            unfiltered:
+              type: number
+              description: The raw unfiltered value directly from CGM transmitter. (only available for sgv types)
+
+            rssi:
+              type: number
+              description: The signal strength from CGM transmitter. (only available for sgv types)
+
+            units:
+              type: string
+              example: '"mg", "mmol"'
+              description: The units for the glucose value, mg/dl or mmol/l. It is strongly recommended to fill in this field.
+
+
+    Food:
+      description: Nutritional values of food
+      allOf:
+        - $ref: '#/components/schemas/DocumentBase'
+        - type: object
+          properties:
+
+            food:
+              type: string
+              description: 'food, quickpick'
+
+            category:
+              type: string
+              description: Name for a group of related records
+
+            subcategory:
+              type: string
+              description: Name for a second level of groupping
+
+            name:
+              type: string
+              description: Name of the food described
+
+            portion:
+              type: number
+              description: Number of units (e.g. grams) of the whole portion described
+
+            unit:
+              type: string
+              example: '"g", "ml", "oz"'
+              description: Unit for the portion
+
+            carbs:
+              type: number
+              description: Amount of carbs in the portion in grams
+
+            fat:
+              type: number
+              description: Amount of fat in the portion in grams
+
+            protein:
+              type: number
+              description: Amount of proteins in the portion in grams
+
+            energy:
+              type: number
+              description: Amount of energy in the portion in kJ
+
+            gi:
+              type: number
+              description: 'Glycemic index (1=low, 2=medium, 3=high)'
+
+            hideafteruse:
+              type: boolean
+              description: Flag used for quickpick
+
+            hidden:
+              type: boolean
+              description: Flag used for quickpick
+
+            position:
+              type: number
+              description: Ordering field for quickpick
+
+            portions:
+              type: number
+              description: component multiplier if defined inside quickpick compound
+
+            foods:
+              type: array
+              description: Neighbour documents (from food collection) that together make a quickpick compound
+              items:
+                $ref: '#/components/schemas/Food'
+
+
+    Profile:
+      description: Parameters describing body functioning relative to T1D + compensation parameters
+      allOf:
+        - $ref: '#/components/schemas/DocumentBase'
+        - type: object
+          properties:
+            some_property:
+              type: string
+              description: ...
+
+
+    Settings:
+      description:
+        A document representing persisted settings of some application or system (it could by Nightscout itself as well). This pack of options serves as a backup or as a shared centralized storage for multiple client instances. It is a probably good idea to `PATCH` the document instead of `UPDATE` operation, e.g. when changing one settings option in a client application.
+
+
+        `identifier` represents a client application name here, e.g. `xdrip` or `aaps`.
+
+
+        `Settings` collection has a more specific authorization required. For the `SEARCH` operation within this collection, you need an `admin` permission, such as `api:settings:admin`. The goal is to isolate individual client application settings.
+
+      allOf:
+        - $ref: '#/components/schemas/DocumentBase'
+        - type: object
+          properties:
+            some_property:
+              type: string
+              description: ...
+
+
+    Treatment:
+      description: T1D compensation action
+      allOf:
+        - $ref: '#/components/schemas/DocumentBase'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              example: '"BG Check", "Snack Bolus", "Meal Bolus", "Correction Bolus", "Carb Correction", "Combo Bolus", "Announcement", "Note", "Question", "Exercise", "Site Change", "Sensor Start", "Sensor Change", "Pump Battery Change", "Insulin Change", "Temp Basal", "Profile Switch", "D.A.D. Alert", "Temporary Target", "OpenAPS Offline", "Bolus Wizard"'
+              description: The type of treatment event.
+
+
+                Note&#58; this field is immutable by the client (it cannot be updated or patched)
+
+
+            #           created_at:
+            #              type: string
+            #              description: The date of the event, might be set retroactively.
+            glucose:
+              type: string
+              description: Current glucose.
+            glucoseType:
+              type: string
+              example: '"Sensor", "Finger", "Manual"'
+              description: Method used to obtain glucose, Finger or Sensor.
+            units:
+              type: string
+              example: '"mg/dl", "mmol/l"'
+              description: The units for the glucose value, mg/dl or mmol/l. It is strongly recommended to fill in this field when `glucose` is entered.
+            carbs:
+              type: number
+              description: Amount of carbs given.
+            protein:
+              type: number
+              description: Amount of protein given.
+            fat:
+              type: number
+              description: Amount of fat given.
+            insulin:
+              type: number
+              description: Amount of insulin, if any.
+            duration:
+              type: number
+              description: Duration in minutes.
+            preBolus:
+              type: number
+              description: How many minutes the bolus was given before the meal started.
+            splitNow:
+              type: number
+              description: Immediate part of combo bolus (in percent).
+            splitExt:
+              type: number
+              description: Extended part of combo bolus (in percent).
+            percent:
+              type: number
+              description: Eventual basal change in percent.
+            absolute:
+              type: number
+              description: Eventual basal change in absolute value (insulin units per hour).
+            targetTop:
+              type: number
+              description: Top limit of temporary target.
+            targetBottom:
+              type: number
+              description: Bottom limit of temporary target.
+            profile:
+              type: string
+              description: Name of the profile to which the pump has been switched.
+            reason:
+              type: string
+              description: For example the reason why the profile has been switched or why the temporary target has been set.
+            notes:
+              type: string
+              description: Description/notes of treatment.
+            enteredBy:
+              type: string
+              description: Who entered the treatment.
+
+
+    DocumentToPost:
+      description: Single document
+      type: object
+      oneOf:
+        - $ref: '#/components/schemas/DeviceStatus'
+        - $ref: '#/components/schemas/Entry'
+        - $ref: '#/components/schemas/Food'
+        - $ref: '#/components/schemas/Profile'
+        - $ref: '#/components/schemas/Settings'
+        - $ref: '#/components/schemas/Treatment'
+      example:
+        'identifier': '53409478-105f-11e9-ab14-d663bd873d93'
+        'date': 1532936118000
+        'utcOffset': 120
+        'carbs': 10
+        'insulin': 1
+        'eventType': 'Snack Bolus'
+        'app': 'xdrip'
+        'subject': 'uploader'
+
+
+    Document:
+      description: Single document
+      type: object
+      oneOf:
+        - $ref: '#/components/schemas/DeviceStatus'
+        - $ref: '#/components/schemas/Entry'
+        - $ref: '#/components/schemas/Food'
+        - $ref: '#/components/schemas/Profile'
+        - $ref: '#/components/schemas/Settings'
+        - $ref: '#/components/schemas/Treatment'
+      example:
+        'identifier': '53409478-105f-11e9-ab14-d663bd873d93'
+        'date': 1532936118000
+        'utcOffset': 120
+        'carbs': 10
+        'insulin': 1
+        'eventType': 'Snack Bolus'
+        'srvCreated': 1532936218000
+        'srvModified': 1532936218000
+        'app': 'xdrip'
+        'subject': 'uploader'
+        'modifiedBy': 'admin'
+
+
+    DeviceStatusArray:
+      description: Array of documents
+      type: array
+      items:
+        $ref: '#/components/schemas/DeviceStatus'
+
+
+    EntryArray:
+      description: Array of documents
+      type: array
+      items:
+        $ref: '#/components/schemas/Entry'
+
+
+    FoodArray:
+      description: Array of documents
+      type: array
+      items:
+        $ref: '#/components/schemas/Food'
+
+
+    ProfileArray:
+      description: Array of documents
+      type: array
+      items:
+        $ref: '#/components/schemas/Profile'
+
+
+    SettingsArray:
+      description: Array of settings
+      type: array
+      items:
+        $ref: '#/components/schemas/Settings'
+
+
+    TreatmentArray:
+      description: Array of documents
+      type: array
+      items:
+        $ref: '#/components/schemas/Treatment'
+
+
+    DocumentArray:
+      type: object
+      oneOf:
+        - $ref: '#/components/schemas/DeviceStatusArray'
+        - $ref: '#/components/schemas/EntryArray'
+        - $ref: '#/components/schemas/FoodArray'
+        - $ref: '#/components/schemas/ProfileArray'
+        - $ref: '#/components/schemas/SettingsArray'
+        - $ref: '#/components/schemas/TreatmentArray'
+
+
+    Version:
+      description: Information about versions
+      type: object
+      properties:
+
+        version:
+          description: The whole Nightscout instance version
+          type: string
+          example: '0.10.2-release-20171201'
+
+        apiVersion:
+          description: API v3 subsystem version
+          type: string
+          example: '3.0.0'
+
+        srvDate:
+          description: Actual server date and time in UNIX epoch format
+          type: number
+          example: 1532936118000
+
+        storage:
+          type: object
+          properties:
+
+            type:
+              description: Type of storage engine used
+              type: string
+              example: 'mongodb'
+
+            version:
+              description: Version of the storage engine
+              type: string
+              example: '4.0.6'
+
+
+    Status:
+      description: Information about versions and API permissions
+      allOf:
+        - $ref: '#/components/schemas/Version'
+        - type: object
+          properties:
+
+            apiPermissions:
+              type: object
+              properties:
+                devicestatus:
+                  type: string
+                  example: 'crud'
+                entries:
+                  type: string
+                  example: 'r'
+                food:
+                  type: string
+                  example: 'crud'
+                profile:
+                  type: string
+                  example: 'r'
+                treatments:
+                  type: string
+                  example: 'crud'
+
+
+    LastModifiedResult:
+      description: Result of LAST MODIFIED operation
+      properties:
+        srvDate:
+          description:
+            Actual storage server date (Unix epoch in ms).
+          type: integer
+          format: int64
+          example: 1556260878776
+
+        collections:
+          type: object
+          description:
+            Collections which the user have read access to.
+          properties:
+            devicestatus:
+              description:
+                Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.
+              type: integer
+              format: int64
+              example: 1556260760974
+            treatments:
+              description:
+                Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.
+              type: integer
+              format: int64
+              example: 1553374184169
+            entries:
+              description:
+                Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.
+              type: integer
+              format: int64
+              example: 1556260758768
+            profile:
+              description:
+                Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.
+              type: integer
+              format: int64
+              example: 1548524042744
+
+  ######################################################################################
+  securitySchemes:
+
+    accessToken:
+      type: apiKey
+      name: token
+      in: query
+      description: >-
+        Add token as query item in the URL or as HTTP header. You can manage access token in
+        `/admin`.
+
+        Each operation requires a specific permission that has to be granted (via security role) to the security subject, which was authenticated by `token` parameter/header or `JWT`. E.g. for creating new `devicestatus` document via API you need `api:devicestatus:create` permission.
+
+    jwtoken:
+      type: http
+      scheme: bearer
+      description: Use this if you know the temporary json webtoken.
+      bearerFormat: JWT

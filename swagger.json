@@ -8,7 +8,7 @@
   "info": {
     "title": "Nightscout API",
     "description": "Own your DData with the Nightscout API",
-    "version": "0.11.1",
+    "version": "13.0.1",
     "license": {
       "name": "AGPL 3",
       "url": "https://www.gnu.org/licenses/agpl.txt"
@@ -907,7 +907,7 @@
           },
           "dateString": {
             "type": "string",
-            "description": "dateString, prefer ISO `8601`"
+            "description": "dateString, MUST be ISO `8601` format date parseable by Javascript Date()"
           },
           "date": {
             "type": "number",
@@ -1174,7 +1174,15 @@
           },
           "carbs": {
             "type": "number",
-            "description": "Number of carbs."
+            "description": " Amount of carbs consumed in grams."
+          },
+          "protein": {
+            "type": "number",
+            "description": " Amount of protein consumed in grams."
+          },
+          "fat": {
+            "type": "number",
+            "description": " Amount of fat consumed in grams."
           },
           "insulin": {
             "type": "number",
