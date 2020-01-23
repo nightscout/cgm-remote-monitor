@@ -1,11 +1,12 @@
-FROM node:10-alpine
+FROM node:12-alpine
 
 MAINTAINER Nightscout Contributors
 
 RUN mkdir -p /opt/app
 ADD . /opt/app
 WORKDIR /opt/app
-RUN chown -R node:node /opt/app
+RUN apk --no-cache add python make g++ && \
+    chown -R node:node /opt/app
 USER node
 
 RUN npm install && \
