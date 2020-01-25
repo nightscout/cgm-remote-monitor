@@ -32,18 +32,9 @@
       <% include preloadCSS %>
 
     </head>
-    <body>
-      <div id="toolbar">
-        <div id="buttonbar">
-        <b> <span  class="translate">Status</span>:</b> <span id="fe_status" class="translate">Not loaded</span>
-        </div>
-        <h1 class="customTitle">Nightscout</h1>
-        <div id="food-editor">
-          <h1 class="translate">Food Editor</h1>
-        </div>
-      </div>
-    
-    <br>
+  <body>
+    <%- include('partials/toolbar') %>
+
     <div id="fe_form">
       <fieldset class="browserSettings">
         <legend class="translate">Your database</legend>
@@ -117,11 +108,11 @@
         </legend>
         <div id="fe_picklist"></div>
       </fieldset>
-      <b><span class="translate">Authentication status</span>: </b>
-      <span id="authentication_placeholder"></span>
     </div>
-    
-    <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
+
+    <%- include('partials/authentication-status') %>
+
+    <script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
     <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
     <script src="/food/js/food.js?v=<%= locals.cachebuster %>"></script>
   </body>
