@@ -51,7 +51,7 @@ describe('API3 PATCH', function() {
 
 
   after(() => {
-    self.instance.server.close();
+    self.instance.ctx.bus.teardown();
   });
 
 

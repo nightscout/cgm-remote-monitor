@@ -131,35 +131,52 @@ function create (env, ctx) {
     }
   }));
 
-  const clockviews = require('./lib/server/clocks.js')(env, ctx);
-  clockviews.setLocals(app.locals);
-
-  app.use("/clock", clockviews);
-
-  app.get("/", (req, res) => {
-    res.render("index.html", {
-      locals: app.locals
-    });
-  });
-
   var appPages = {
-    "/clock-color.html": "clock-color.html"
-    , "/admin": "adminindex.html"
-    , "/profile": "profileindex.html"
-    , "/food": "foodindex.html"
-    , "/bgclock.html": "bgclock.html"
-    , "/report": "reportindex.html"
-    , "/translations": "translationsindex.html"
-    , "/clock.html": "clock.html"
+    "/": {
+      file: "index.html"
+      , type: "index"
+    }
+    , "/admin": {
+      file: "adminindex.html"
+      , title: 'Admin Tools'
+      , type: 'admin'
+    }
+    , "/food": {
+      file: "foodindex.html"
+      , title: 'Food Editor'
+      , type: 'food'
+    }
+    , "/profile": {
+      file: "profileindex.html"
+      , title: 'Profile Editor'
+      , type: 'profile'
+    }
+    , "/report": {
+      file: "reportindex.html"
+      , title: 'Nightscout reporting'
+      , type: 'report'
+    }
+    , "/translations": {
+      file: "translationsindex.html"
+      , title: 'Nightscout translations'
+      , type: 'translations'
+    }
   };
 
   Object.keys(appPages).forEach(function(page) {
     app.get(page, (req, res) => {
-      res.render(appPages[page], {
-        locals: app.locals
+      res.render(appPages[page].file, {
+        locals: app.locals,
+        title: appPages[page].title ? appPages[page].title : '',
+        type: appPages[page].type ? appPages[page].type : '',
       });
     });
   });
+
+  const clockviews = require('./lib/server/clocks.js')(env, ctx);
+  clockviews.setLocals(app.locals);
+
+  app.use("/clock", clockviews);
 
   app.get("/appcache/*", (req, res) => {
     res.render("nightscout.appcache", {

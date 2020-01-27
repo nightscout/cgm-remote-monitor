@@ -43,6 +43,7 @@ This list is not meant to be comprehensive, nor does it include every way you ca
 - "Alexa, ask Nightscout what is my basal"
 - "Alexa, ask Nightscout what is my current basal"
 - "Alexa, ask Nightscout what is my cob"
+- "Alexa, ask Nightscout what is my delta"
 - "Alexa, ask Nightscout what is Charlie's carbs on board"
 - "Alexa, ask Nightscout what is Sophie's carbohydrates on board"
 - "Alexa, ask Nightscout what is Harper's loop forecast"
@@ -50,6 +51,15 @@ This list is not meant to be comprehensive, nor does it include every way you ca
 - "Alexa, ask Nightscout what is Peter's forecast"
 - "Alexa, ask Nightscout what is Arden's raw bg"
 - "Alexa, ask Nightscout what is Dana's raw blood glucose"
+
+*CGM Info:* (when using the [`xdripjs` plugin](/README.md#xdripjs-xdrip-js))
+
+- "Alexa, ask Nightscout what's my CGM status"
+- "Alexa, ask Nightscout what's my CGM session age"
+- "Alexa, ask Nightscout what's my CGM transmitter age"
+- "Alexa, ask Nightscout what's my CGM mode"
+- "Alexa, ask Nightscout what's my CGM noise"
+- "Alexa, ask Nightscout what's my CGM battery"
 
 *Insulin Remaining:*
 
