@@ -1,7 +1,5 @@
 <!DOCTYPE html>
-<html<%if (locals.mode == 'production') { %>
-    manifest="appcache/nightscout-<%= locals.cachebuster %>.appcache"
-    <% } %>>
+<html>
     <head>
       <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
       <meta name="apple-mobile-web-app-capable" content="yes">
@@ -29,9 +27,9 @@
       <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
-      <link rel="preload" href="css/ui-darkness/jquery-ui.min.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <link rel="preload" href="css/jquery.tooltips.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <link rel="preload" href="css/main.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="css/ui-darkness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="css/jquery.tooltips.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
 	  
 <style media="screen" type="text/css">
 
@@ -689,8 +687,22 @@
             <audio src="audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
         </div>
 
-        <script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
-        <script src="socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
-        <script src="js/client.js?v=<%= locals.cachebuster %>"></script>
+        <script src="<%= locals.bundle %>/js/bundle.app.js"></script>
+      </script>>
+        <script src="socket.io/socket.io.js"></script>
+        <script src="js/client.js"></script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js', {scope: '/'}).then(function(registration) {
+        console.log('Service worker registered');
+      }).catch(function(error) {
+        console.log('Registration failed with ' + error);
+      });
+    });
+  };
+</script>
+
     </body>
 </html>
