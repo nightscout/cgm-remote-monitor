@@ -433,14 +433,15 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `BASAL_RENDER` (`none`) - Possible values are `none`, `default`, or `icicle` (inverted)
 
 ##### `bridge` (Share2Nightscout bridge)
-  Glucose reading directly from the Share service, uses these extended settings:
-  * `BRIDGE_USER_NAME` - Your user name for the Share service.
+  Glucose reading directly from the Dexcom Share service, uses these extended settings:
+  * `BRIDGE_USER_NAME` - Your username for the Share service.
   * `BRIDGE_PASSWORD` - Your password for the Share service.
-  * `BRIDGE_INTERVAL` (`150000` *2.5 minutes*) - The time to wait between each update.
+  * `BRIDGE_INTERVAL` (`150000` *2.5 minutes*) - The time (in milliseconds) to wait between each update.
   * `BRIDGE_MAX_COUNT` (`1`) - The number of records to attempt to fetch per update.
   * `BRIDGE_FIRST_FETCH_COUNT` (`3`) - Changes max count during the very first update only.
   * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
-  * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (default is one day in minutes).
+  * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (the default value is one day in minutes).
+  * `BRIDGE_SERVER` (``) - The default blank value is used to fetch data from Dexcom servers in the US. Set to (`EU`) to fetch from European servers instead.
 
 ##### `mmconnect` (MiniMed Connect bridge)
   Transfer real-time MiniMed Connect data from the Medtronic CareLink server into Nightscout ([read more](https://github.com/mddub/minimed-connect-to-nightscout))
