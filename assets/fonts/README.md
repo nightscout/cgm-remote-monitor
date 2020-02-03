@@ -9,16 +9,17 @@ That way we have nice, vector icons, that are small, scalable, looks good on eac
 To extend existing icon set.:
 
 1. Prepare minimalist, black & white icon in SVG tool of choice, and optimize it (you can use Inkscape) to be small in size and render good at small sizes.
-2. Use https://icomoon.io/app and import accompanied JSON project file
+2. Use https://icomoon.io/app and import accompanied JSON project file (`Nightscout Plugin Icons.json`)
 3. Add SVG as new glyph. Remember to take care to set proper character code and CSS name
 4. Save new version of JSON project file and store in this folder
-5. Generate font, download zip file and unpack into this folder (update existing files)
+5. Generate font, download zip file and unpack it to get `fonts/pluginicons.svg` and `fonts/pluginicons.woff`
 6. Update `statc/css/main.css` file
    * In section of `@font-face` with `font-family: 'pluginicons'`
-     * update part after `data:application/font-woff;charset=utf-8;base64,` with Base64-encoded content of previously generated WOFF font.
-     * update part after `data:application/font-svg;charset=utf-8;base64,` with Base64-encoded content of previously generated CSS font and
+     * update part after `data:application/font-woff;charset=utf-8;base64,` with Base64-encoded content of just generated `pluginicons.woff` font
+     * update part after `data:application/font-svg;charset=utf-8;base64,` with Base64-encoded content of just generated `pluginicons.svg` font
    * copy/update all entries `.plugicon-****:before { content: "****"; }` from generated font `style.css` into `statc/css/main.css`
-
+7. Do not forget to update `Nightscout Plugin Icons.json` in this repo (´download updated project from icomoon.io)
+   
 Hints
 -----
 
