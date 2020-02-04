@@ -69,33 +69,26 @@ function update(request) {
 
 // On install, cache some resources.
 self.addEventListener('install', function(evt) {
-  console.log('The service worker is being installed.');
-
-  // Ask the service worker to keep installing until the returning promise
-  // resolves.
+  //console.log('The service worker is being installed.');
   evt.waitUntil(precache());
 });
 
 function inCache(request) {
-    for (var i = 0; i < CACHE_LIST.length; i++) {
-        if (request.url.endsWith(CACHE_LIST[i])) {
-            return true;
-        }
+  let found = false;
+  CACHE_LIST.forEach( function (e) {
+    if (request.url.endsWith(e)) {
+      found = true;
     }
-    return false;
+  });
+  return found;
 }
 
-// On fetch, use cache but update the entry with the latest contents
-// from the server.
 self.addEventListener('fetch', function(evt) {
-
   if (!evt.request.url.startsWith(self.location.origin) || CACHE == 'developmentMode' || !inCache(evt.request) || evt.request.method !== 'GET') {
-    console.log('Skipping cache for ',  evt.request.url);
+    //console.log('Skipping cache for ',  evt.request.url);
     return void evt.respondWith(fetch(evt.request));
   }
-
-  console.log('Returning cached for ',  evt.request.url);
-
+  //console.log('Returning cached for ',  evt.request.url);
   evt.respondWith(fromCache(evt.request));
   evt.waitUntil(update(evt.request));
 });
@@ -105,7 +98,7 @@ self.addEventListener('activate', event => {
     caches.keys().then(cacheNames => {
       return cacheNames.filter(cacheName => CACHE !== cacheName);
     }).then(unusedCaches => {
-      console.log('DESTROYING CACHE', unusedCaches.join(','));
+      //console.log('DESTROYING CACHE', unusedCaches.join(','));
       return Promise.all(unusedCaches.map(unusedCache => {
         return caches.delete(unusedCache);
       }));
