@@ -84,7 +84,7 @@ function inCache(request) {
 }
 
 self.addEventListener('fetch', function(evt) {
-  if (!evt.request.url.startsWith(self.location.origin) || CACHE == 'developmentMode' || !inCache(evt.request) || evt.request.method !== 'GET') {
+  if (!evt.request.url.startsWith(self.location.origin) || CACHE === 'developmentMode' || !inCache(evt.request) || evt.request.method !== 'GET') {
     //console.log('Skipping cache for ',  evt.request.url);
     return void evt.respondWith(fetch(evt.request));
   }
@@ -93,11 +93,11 @@ self.addEventListener('fetch', function(evt) {
   evt.waitUntil(update(evt.request));
 });
 
-self.addEventListener('activate', event => {
+self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
-      return cacheNames.filter(cacheName => CACHE !== cacheName);
-    }).then(unusedCaches => {
+      return cacheNames.filter((cacheName) => CACHE !== cacheName);
+    }).then((unusedCaches) => {
       //console.log('DESTROYING CACHE', unusedCaches.join(','));
       return Promise.all(unusedCaches.map(unusedCache => {
         return caches.delete(unusedCache);
