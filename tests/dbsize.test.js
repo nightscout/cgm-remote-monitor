@@ -202,6 +202,69 @@ describe('Database Size', function() {
 
   // ~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.
 
+  it('configure warn level percentage', function(done) {
+
+    var ctx = {
+      settings: {
+        extendedSettings: {
+          empty: false
+          , dbsize: {
+            warnPercentage: 30
+          }
+        }
+      }
+      , pluginBase: {
+        updatePillText: function mockedUpdatePillText (plugin, options) {
+          options.value.should.equal('37%');
+          options.pillClass.should.equal('warn');
+          done();
+        }
+      }
+      , language: require('../lib/language')()
+    };
+    ctx.language.set('en');
+
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(ctx, Date.now(), dataInRange);
+    var dbsize = require('../lib/plugins/dbsize')(ctx);
+    dbsize.setProperties(sbx.withExtendedSettings(dbsize));
+    dbsize.updateVisualisation(sbx);
+  });
+
+  // ~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.
+
+  it('configure urgent level percentage', function(done) {
+
+    var ctx = {
+      settings: {
+        extendedSettings: {
+          empty: false
+          , dbsize: {
+            warnPercentage: 30
+            , urgentPercentage: 36
+          }
+        }
+      }
+      , pluginBase: {
+        updatePillText: function mockedUpdatePillText (plugin, options) {
+          options.value.should.equal('37%');
+          options.pillClass.should.equal('urgent');
+          done();
+        }
+      }
+      , language: require('../lib/language')()
+    };
+    ctx.language.set('en');
+
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(ctx, Date.now(), dataInRange);
+    var dbsize = require('../lib/plugins/dbsize')(ctx);
+    dbsize.setProperties(sbx.withExtendedSettings(dbsize));
+    dbsize.updateVisualisation(sbx);
+  });
+
+  // ~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.~.
+
   it('hide the pill if there is no info regarding database size', function(done) {
     var ctx = {
       settings: {}
