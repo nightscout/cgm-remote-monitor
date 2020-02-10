@@ -1,0 +1,36 @@
+<html>
+<head>
+  <title>Nightscout multiframe view</title>
+</head>
+<body style="margin:0">
+  <table style="width:100%;height:100%;border:0;padding:0">
+    <tr>
+      <td align="center" style="height:20px"><%= settings.frameName1 %></td>
+      <% if (settings.frameUrl2) { %><td align="center" style="height:20px"><%= settings.frameName2 %></td><% } %>
+      <% if (settings.frameUrl3) { %><td align="center" style="height:20px"><%= settings.frameName3 %></td><% } %>
+      <% if (settings.frameUrl4) { %><td align="center" style="height:20px"><%= settings.frameName4 %></td><% } %>
+    </tr>
+    <tr>
+      <td align="center" width="auto"><iframe src="<%= settings.frameUrl1 %>" style="width:100%;height:100%;"></iframe></td>
+      <% if (settings.frameUrl2) { %><td align="center" width="auto"><iframe src="<%= settings.frameUrl2 %>" style="width:100%;height:100%;"></iframe></td><% } %>
+      <% if (settings.frameUrl3) { %><td align="center" width="auto"><iframe src="<%= settings.frameUrl3 %>" style="width:100%;height:100%;"></iframe></td><% } %>
+      <% if (settings.frameUrl4) { %><td align="center" width="auto"><iframe src="<%= settings.frameUrl4 %>" style="width:100%;height:100%;"></iframe></td><% } %>  
+    </tr>
+    <% if (settings.frameUrl5) { %>
+    <tr>
+      <td align="center" style="height:20px"><%= settings.frameName5 %></td>
+      <td align="center" style="height:20px"><%= settings.frameName6 %></td>
+      <td align="center" style="height:20px"><%= settings.frameName7 %></td>
+      <td align="center" style="height:20px"><%= settings.frameName8 %></td>
+    </tr>
+    <tr>
+      <td align="center" width="auto"><iframe src="<%= settings.frameUrl5 %>" style="width:100%;height:100%;"></iframe></td>
+      <td align="center" width="auto"><iframe src="<%= settings.frameUrl6 %>" style="width:100%;height:100%;"></iframe></td>
+      <td align="center" width="auto"><iframe src="<%= settings.frameUrl7 %>" style="width:100%;height:100%;"></iframe></td>
+      <td align="center" width="auto"><iframe src="<%= settings.frameUrl8 %>" style="width:100%;height:100%;"></iframe></td>
+    </tr>
+  <% } %>
+  </table>
+</body>
+
+</html>
