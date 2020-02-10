@@ -43,7 +43,7 @@ describe('Generic REST API3', function() {
   });
 
 
-  after(async () => {
+  after(() => {
     self.instance.ctx.bus.teardown();
   });
 
