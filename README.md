@@ -525,6 +525,25 @@ For remote overrides, the following extended settings must be configured:
   Enabled [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) so other websites can make request to your Nightscout site, uses these extended settings:
   * `CORS_ALLOW_ORIGIN` (`*`) - The list of sites that are allow to make requests
 
+##### `dbsize` (Database Size)
+  Show size of Nightscout Database, as a percentage of declared available space or in MiB.
+
+  Many deployments of Nightscout use free tier of MongoDB on Heroku, which is limited in size. After some time, as volume of stored data grows, it may happen that this limit is reached and system is unable to store new data. This plugin provides pill that indicates size of Database and shows (when configured) alarms regarding reaching space limit.
+
+  **IMPORTANT:** This plugin can only check how much space database already takes, _but cannot infer_ max size available on server for it. To have correct alarms and realistic percentage, `DBSIZE_MAX` need to be properly set - according to your mongoDB hosting configuration.
+
+  **NOTE:** It may happen that new data cannot be saved to database (due to size limits) even when this plugin reports that storage is not 100% full. MongoDB pre-allocate data in advance, and database file is always made bigger than total real data size. To avoid premature alarms, this plugin refers to data size instead of file size, but sets warning thresholds low. It may happen, that file size of database will take 100% of allowed space but there will be plenty of place inside to store the data. But it may also happen, with file size is at its max, that data size will be ~70% of file size, and there will be no place left. That may happen because data inside file is fragmented and free space _holes_ are too small for new entries. In such case calling `db.repairDatabase()` on mongoDB is recommended to compact and repack data (currently only doable with third-party mongoDB tools, but action is planned to be added in _Admin Tools_ section in future releases).
+  
+  All sizes are expressed as integers, in _Mebibytes_ `1 MiB == 1024 KiB == 1024*1024 B`
+
+  * `DBSIZE_MAX` (`496`) - Maximal allowed size of database on your mongoDB server, in MiB. You need to adjust that value to match your database hosting limits - default value is for standard Heroku mongoDB free tier.
+  * `DBSIZE_WARN_PERCENTAGE` (`60`) - Threshold to show first warning about database size. When database reach this percentage of `DBSIZE_MAX` size - pill will show size in yellow. 
+  * `DBSIZE_URGENT_PERCENTAGE` (`75`) - Threshold to show urgent warning about database size. When database reach this percentage of `DBSIZE_MAX` size, it is urgent to do backup and clean up old data. At this percentage info pill turns red.
+  * `DBSIZE_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications about database size.
+  * `DBSIZE_IN_MIB` (`false`) - Set to `true` to display size of database in MiB-s instead of default percentage.
+  
+  This plugin should be enabled by default, if needed can be diasabled by adding `dbsize` to the list of disabled plugins, for example: `DISABLE="dbsize"`.
+
 #### Extended Settings
   Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
 
