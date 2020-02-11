@@ -5,7 +5,7 @@ let nameArray = [];
 
 for (let i = 0; i <= 8; i++) {
   let u = settings['frameUrl' + i];
-  let n = settings['frameName' + i];
+  let n = settings['frameName' + i] || " ";
   if (u) {
     urlArray.push(u);
     nameArray.push(n);
