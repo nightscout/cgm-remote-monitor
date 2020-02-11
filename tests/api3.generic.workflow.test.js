@@ -19,7 +19,7 @@ describe('Generic REST API3', function() {
     insulin: 1,
     date: (new Date()).getTime(),
     app: testConst.TEST_APP,
-    device: testConst.TEST_DEVICE
+    device: testConst.TEST_DEVICE + ' Generic REST API3'
   };
   self.identifier = opTools.calculateIdentifier(self.docOriginal);
   self.docOriginal.identifier = self.identifier;
