@@ -1,5 +1,5 @@
 
-@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');
+@import url("//fonts.googleapis.com/css?family=Ubuntu:400,600");
 
 @font-face {
   font-family: 'nsicons';
@@ -71,7 +71,7 @@ html, body {
 }
 
 body {
-  font-family: 'Ubuntu', sans-serif;
+  font-family: 'Ubuntu', Verdana, Helvetica, Arial, sans-serif;
   background: #000;
   color: #bdbdbd;
 }
@@ -84,18 +84,6 @@ body {
   padding: 0;
   top: 45px;
   z-index: 2;
-}
-
-button {
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-}
-
-.ui-button {
-  background-color: grey;
-  border: 1px solid white;
-  padding: 2px;
 }
 
 a, a:visited, a:link {
@@ -119,13 +107,12 @@ a, a:visited, a:link {
   font-family: 'Ubuntu', Verdana, Helvetica, Arial, sans-serif;
   vertical-align: middle;
   clear: both;
-  white-space: nowrap;
 }
 
 .bgStatus {
   float: right;
   text-align: center;
-  white-space: normal;
+  white-space: nowrap;
   padding-right: 20px;
 }
 
@@ -139,10 +126,6 @@ a, a:visited, a:link {
 
 .inrange .bgButton {
   color: #4cff00;
-}
-
-.bgStatus .bgSpan {
-  white-space: nowrap;
 }
 
 .bgStatus .currentBG {
@@ -245,16 +228,14 @@ a, a:visited, a:link {
 .status {
   color: #808080;
   font-size: 100px;
-  white-space: normal;
 }
 .statusBox {
   text-align: center;
-  width: 40%;
+  width: 250px;
 }
 .statusPills {
   font-size: 20px;
   line-height: 23px;
-  margin-left: 5px;
 }
 
 .loading .statusPills {
@@ -404,7 +385,7 @@ a, a:visited, a:link {
   margin: 4px;
   padding: 0;
   color: #808080;
-  width: 40%;
+  width: 250px;
   text-align: center;
 }
 
@@ -436,9 +417,9 @@ a, a:visited, a:link {
   font-size: 12px;
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 800px) {
   .bgStatus {
-    width: 450px;
+    width: 300px;
   }
 
   .bgButton {
@@ -481,7 +462,6 @@ a, a:visited, a:link {
 
   .focus-range {
     margin: 0;
-    width: 50%;
   }
 
   .focus-range li {
@@ -499,7 +479,7 @@ a, a:visited, a:link {
 
 @media (max-width: 750px) {
   .bgStatus {
-    width: 50%;
+    width: 240px;
     padding: 0 0 20px 0;
   }
 
@@ -509,10 +489,6 @@ a, a:visited, a:link {
 
   .pill.rawbg label {
     font-size: 12px;
-  }
-
-  .statusBox {
-    width: auto;
   }
 
   .bgStatus .currentBG {
@@ -751,6 +727,10 @@ a, a:visited, a:link {
 
   .focus-range li {
     display: block;
+  }
+
+  .statusBox {
+    width: 220px;
   }
 
   .statusPills {

@@ -1,7 +1,7 @@
 
 # Nightscout tests/builds/analysis
 TESTS=tests/*.js
-MONGO_CONNECTION?=mongodb://localhost:27017/test_db
+MONGO_CONNECTION?=mongodb://localhost/test_db
 CUSTOMCONNSTR_mongo_settings_collection?=test_settings
 CUSTOMCONNSTR_mongo_collection?=test_sgvs
 MONGO_SETTINGS=MONGO_CONNECTION=${MONGO_CONNECTION} \
@@ -22,8 +22,7 @@ MOCHA=./node_modules/mocha/bin/_mocha
 # Pinned from dependency list.
 ISTANBUL=./node_modules/.bin/istanbul
 ANALYZED=./coverage/lcov.info
-# Following token deprecated
-# export CODACY_REPO_TOKEN=e29ae5cf671f4f918912d9864316207c
+export CODACY_REPO_TOKEN=e29ae5cf671f4f918912d9864316207c
 
 DOCKER_IMAGE=nightscout/cgm-remote-monitor-travis
 
@@ -41,18 +40,12 @@ report:
 	(npm install codacy-coverage && cat ${ANALYZED} | \
 	YOURPACKAGE_COVERAGE=1 ./node_modules/codacy-coverage/bin/codacy-coverage.js) || echo "NO COVERAGE"
 
-test_onebyone:
-	python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'
-	for var in tests/*.js; do ${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap $$var; done | tap-set-exit
-
 test:
-	${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap ${TESTS}
+	${MONGO_SETTINGS} ${MOCHA} --timeout 30000 -R tap ${TESTS}
 
 travis:
-	python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'
-#	NODE_ENV=test ${MONGO_SETTINGS} \
-#	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 5000 -R tap ${TESTS}	
-	for var in tests/*.js; do ${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap $$var; done
+	NODE_ENV=test ${MONGO_SETTINGS} \
+	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 5000 -R tap ${TESTS}
 
 docker_release:
 	# Get the version from the package.json file
