@@ -173,7 +173,7 @@
     },
     "enable": {
       "type": "string",
-      "defaultValue": "basal bwp cage careportal iob cob rawbg sage iage treatmentnotify boluscalc profile food"
+      "defaultValue": "basal bwp cage careportal iob cob rawbg sage iage treatmentnotify boluscalc profile food dbsize"
     },
     "night_mode": {
       "type": "string",
@@ -185,7 +185,7 @@
     },
     "show_plugins": {
       "type": "string",
-      "defaultValue": "careportal"
+      "defaultValue": "careportal dbsize"
     },
     "show_rawbg": {
       "type": "string",
