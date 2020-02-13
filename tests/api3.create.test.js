@@ -16,7 +16,7 @@ describe('API3 CREATE', function() {
   self.validDoc = {
     date: (new Date()).getTime(),
     app: testConst.TEST_APP,
-    device: testConst.TEST_DEVICE,
+    device: testConst.TEST_DEVICE + ' API3 CREATE',
     eventType: 'Correction Bolus',
     insulin: 0.3
   };
