@@ -7,6 +7,7 @@ const bodyParser = require('body-parser');
 
 const path = require('path');
 const fs = require('fs');
+const ejs = require('ejs');
 
 function create (env, ctx) {
   var app = express();
@@ -92,6 +93,15 @@ function create (env, ctx) {
   }
   app.locals.cachebuster = cacheBuster;
 
+  app.get("/sw.js", (req, res) => {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.send(ejs.render(fs.readFileSync(
+      require.resolve(`${__dirname}/views/service-worker.js`),
+      { encoding: 'utf-8' }),
+      { locals: app.locals}
+     ));
+  });
+
   if (ctx.bootErrors && ctx.bootErrors.length > 0) {
     app.get('*', require('./lib/server/booterror')(ctx));
     return app;
@@ -117,8 +127,11 @@ function create (env, ctx) {
   ///////////////////////////////////////////////////
   // api and json object variables
   ///////////////////////////////////////////////////
+  const apiRoot = require('./lib/api/root')(env, ctx);
   var api = require('./lib/api/')(env, ctx);
+  var api3 = require('./lib/api3/')(env, ctx);
   var ddata = require('./lib/data/endpoints')(env, ctx);
+  var notificationsV2 = require('./lib/api/notifications-v2')(app, ctx);
 
   app.use(compression({
     filter: function shouldCompress (req, res) {
@@ -128,49 +141,71 @@ function create (env, ctx) {
     }
   }));
 
+  var appPages = {
+    "/": {
+      file: "index.html"
+      , type: "index"
+    }
+    , "/admin": {
+      file: "adminindex.html"
+      , title: 'Admin Tools'
+      , type: 'admin'
+    }
+    , "/food": {
+      file: "foodindex.html"
+      , title: 'Food Editor'
+      , type: 'food'
+    }
+    , "/profile": {
+      file: "profileindex.html"
+      , title: 'Profile Editor'
+      , type: 'profile'
+    }
+    , "/report": {
+      file: "reportindex.html"
+      , title: 'Nightscout reporting'
+      , type: 'report'
+    }
+    , "/translations": {
+      file: "translationsindex.html"
+      , title: 'Nightscout translations'
+      , type: 'translations'
+    }
+  };
+
+  Object.keys(appPages).forEach(function(page) {
+    app.get(page, (req, res) => {
+      res.render(appPages[page].file, {
+        locals: app.locals,
+        title: appPages[page].title ? appPages[page].title : '',
+        type: appPages[page].type ? appPages[page].type : '',
+      });
+    });
+  });
+
   const clockviews = require('./lib/server/clocks.js')(env, ctx);
   clockviews.setLocals(app.locals);
 
   app.use("/clock", clockviews);
 
-  app.get("/", (req, res) => {
-    res.render("index.html", {
-      locals: app.locals
-    });
-  });
-
-  var appPages = {
-    "/clock-color.html": "clock-color.html"
-    , "/admin": "adminindex.html"
-    , "/profile": "profileindex.html"
-    , "/food": "foodindex.html"
-    , "/bgclock.html": "bgclock.html"
-    , "/report": "reportindex.html"
-    , "/translations": "translationsindex.html"
-    , "/clock.html": "clock.html"
-  };
-
-  Object.keys(appPages).forEach(function(page) {
-    app.get(page, (req, res) => {
-      res.render(appPages[page], {
-        locals: app.locals
-      });
-    });
-  });
-
-  app.get("/appcache/*", (req, res) => {
-    res.render("nightscout.appcache", {
-      locals: app.locals
-    });
-  });
+  app.use('/api', bodyParser({
+    limit: 1048576 * 50
+  }), apiRoot);
 
   app.use('/api/v1', bodyParser({
+    limit: 1048576 * 50
+  }), api);
+
+  app.use('/api/v2', bodyParser({
     limit: 1048576 * 50
   }), api);
 
   app.use('/api/v2/properties', ctx.properties);
   app.use('/api/v2/authorization', ctx.authorization.endpoints);
   app.use('/api/v2/ddata', ddata);
+  app.use('/api/v2/notifications', notificationsV2);
+
+  app.use('/api/v3', api3);
 
   // pebble data
   app.get('/pebble', ctx.pebble);
@@ -224,7 +259,7 @@ function create (env, ctx) {
 
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-  app.use('/swagger-ui-dist', (req, res, next) => {
+  app.use('/swagger-ui-dist', (req, res) => {
     res.redirect(307, '/api-docs');
   });
 
@@ -233,10 +268,13 @@ function create (env, ctx) {
 
   app.locals.bundle = '/bundle';
 
+  app.locals.mode = 'production';
+
   if (process.env.NODE_ENV === 'development') {
 
     console.log('Development mode');
 
+    app.locals.mode = 'development';
     app.locals.bundle = '/devbundle';
 
     const webpack = require('webpack');
