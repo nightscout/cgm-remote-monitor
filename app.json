@@ -72,6 +72,11 @@
       "value": "180",
       "required": false
     },
+    "BOLUS_RENDER_OVER": {
+      "description": "U value over which the bolus values are rendered on the chart if the 'x U and Over' option is selected.",
+      "value": "1",
+      "required": false
+    },
     "BRIDGE_PASSWORD": {
       "description": "Your Dexcom account password, to receive CGM data from the Dexcom Share service. Also make sure to include 'bridge' in your ENABLE line.",
       "value": "",
