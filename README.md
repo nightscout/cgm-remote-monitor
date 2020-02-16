@@ -310,6 +310,12 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `Color` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above). Set `SHOW_CLOCK_DELTA` to `true` to show BG change in the last 5 minutes, set `SHOW_CLOCK_LAST_TIME` to `true` to always show BG age.
   * `Simple` - Shows current BG. Grey text on a black background.
 
+### Split View
+
+  Some users will need easy access to multiple Nightscout views at the same time. We have a special view for this case, accessed on /split path on your Nightscout URL. The view supports any number of sites between 1 to 8 way split, where the content for the screen can be loaded from multiple Nightscout instances. Note you still need to host separate instances for each Nightscout being monitored including the one that hosts the split view page - these variables only add the ability to load multiple views into one browser page. To set the URLs from which the content is loaded, set:
+  * `FRAME_URL_1` - URL where content is loaded, for the first view (increment the number up to 8 to get more views)
+  * `FRAME_NAME_1` - Name for the first split view portion of the screen (increment the number to name more views)
+
 ### Plugins
 
   Plugins are used extend the way information is displayed, how notifications are sent, alarms are triggered, and more.
