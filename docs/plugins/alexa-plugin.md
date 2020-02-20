@@ -10,6 +10,7 @@
     - [Create a new Alexa skill](#create-a-new-alexa-skill)
     - [Define the interaction model](#define-the-interaction-model)
     - [Point your skill at your site](#point-your-skill-at-your-site)
+    - [Do you use Authentication Roles?](#do-you-use-authentication-roles)
     - [Test your skill out with the test tool](#test-your-skill-out-with-the-test-tool)
         - [What questions can you ask it?](#what-questions-can-you-ask-it)
     - [Activate the skill on your Echo or other device](#activate-the-skill-on-your-echo-or-other-device)
@@ -75,9 +76,19 @@ Now you need to point your skill at *your* Nightscout site.
 1. In the left-hand menu for your skill, there's an option called "Endpoint". Click it.
 1. Under "Service Endpoint Type", select "HTTPS".
 1. You only need to set up the Default Region. In the box that says "Enter URI...", put in `https://{yourdomain}/api/v1/alexa`. (So if your Nightscout site is at `mynightscoutsite.herokuapp.com`, you'll enter `https://mynightscoutsite.herokuapp.com/api/v1/alexa` in the box.)
+    - If you use Authentication Roles, you'll need to add a bit to the end of your URL. See [the section](#do-you-use-authentication-roles) below.
 1. In the dropdown under the previous box, select "My development endpoint is a sub-domain of a domain that has a wildcard certificate from a certificate authority". 
 1. Click the "Save Endpoints" button at the top.
 1. You should see a success message pop up when the save succeeds.
+
+### Do you use Authentication Roles? ###
+
+If you use Authentication Roles, you will need to add a token to the end of your Nightscout URL when configuring your Endpoint.
+
+1. In your Nightscout Admin Tools, add a new subject and give it the "readable" role.
+    - If you **really** would like to be super specific, you could create a new role and set the permissions to `api:*:read`.
+1. After the new subject is created, copy the "Access Token" value for the new row in your subject table (**don't** copy the link, just copy the text).
+1. At the end of your Nighscout URL, add `?token={yourtoken}`, where `{yourtoken}` is the Access Token you just copied. Your new URL should look like `https://{yourdomain}/api/v1/googlehome?token={yourtoken}`.
 
 ### Test your skill out with the test tool
 

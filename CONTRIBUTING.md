@@ -34,7 +34,7 @@
 [coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/master.svg
 [coverage-url]: https://coveralls.io/r/nightscout/cgm-remote-monitor?branch=master
 [discord-img]: https://img.shields.io/discord/629952586895851530?label=discord%20chat
-[discord-url]: https://discordapp.com/channels/629952586895851530/629952669967974410
+[discord-url]: https://discord.gg/rTKhrqz
 
 ## Installation for development
 
@@ -181,6 +181,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 [@unsoluble]: https://github.com/unsoluble
 [@viderehh]: https://github.com/viderehh
 [@OpossumGit]: https://github.com/OpossumGit
+[@Bartlomiejsz]: https://github.com/Bartlomiejsz
 
 | Contribution area                     | List of contributors |
 | ------------------------------------- | ---------------------------------- |
@@ -252,7 +253,7 @@ Languages with less than 90% coverage will be removed in a future Nightscout ver
 | 한국어 (`ko`)|Please volunteer|Needs attention: 80.6%|
 | Norsk (Bokmål) (`nb`)|Please volunteer|OK|
 | Nederlands (`nl`)|[@PieterGit]|OK|
-| Polski (`pl`)|Please volunteer|OK|
+| Polski (`pl`)|[@Bartlomiejsz]|OK|
 | Português (Brasil) (`pt`)|Please volunteer|OK|
 | Română (`ro`)|Please volunteer|OK|
 | Русский (`ru`)|[@apanasef]|OK|
