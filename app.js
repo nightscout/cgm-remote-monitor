@@ -48,15 +48,16 @@ function create (env, ctx) {
         app.use(helmet.contentSecurityPolicy({ //TODO make NS work without 'unsafe-inline'
           directives: {
             defaultSrc: ["'self'"]
-            , styleSrc: ["'self'", 'https://fonts.googleapis.com/', "'unsafe-inline'"]
+            , connectSrc: ["'self'", 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/']
+            , styleSrc: ["'self'", 'https://fonts.googleapis.com/', "'unsafe-inline'" ]
             , scriptSrc: ["'self'", "'unsafe-inline'"]
             , fontSrc: ["'self'", 'https://fonts.gstatic.com/', 'data:']
             , imgSrc: ["'self'", 'data:']
-            , objectSrc: ["'none'"], // Restricts <object>, <embed>, and <applet> elements
-            reportUri: '/report-violation'
-            , frameAncestors: ["'none'"], // Clickjacking protection, using frame-ancestors
-            baseUri: ["'none'"], // Restricts use of the <base> tag
-            formAction: ["'self'"], // Restricts where <form> contents may be submitted
+            , objectSrc: ["'none'"] // Restricts <object>, <embed>, and <applet> elements
+            , reportUri: '/report-violation'
+            , frameAncestors: ["'none'"] // Clickjacking protection, using frame-ancestors
+            , baseUri: ["'none'"] // Restricts use of the <base> tag
+            , formAction: ["'self'"] // Restricts where <form> contents may be submitted
           }
           , reportOnly: secureCspReportOnly
         }));
