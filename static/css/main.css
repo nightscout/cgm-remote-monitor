@@ -537,6 +537,11 @@ a, a:visited, a:link {
 }
 
 @media (max-width: 750px) {
+  .x.axis {
+    font-size: 2.5vmin !important;
+  }
+
+
   .bgStatus {
     width: 50%;
     padding: 0 0 20px 0;
@@ -678,6 +683,10 @@ a, a:visited, a:link {
   #chartContainer {
     font-size: 14px;
   }
+  .y.axis {
+    font-size: 2.5vmin !important;
+  }
+
 }
 
 @media (max-height: 600px) {
