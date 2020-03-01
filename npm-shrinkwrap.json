@@ -1,6 +1,6 @@
 {
   "name": "nightscout",
-  "version": "13.0.2-dev",
+  "version": "13.1.0",
   "lockfileVersion": 1,
   "requires": true,
   "dependencies": {
