@@ -3,19 +3,22 @@
 var mongodb = require('mongodb');
 var env = require('./../env')();
 
-var util = require('./helpers/util');
+var util = require('./util');
 
 main();
 
 function main() {
   var MongoClient = mongodb.MongoClient;
-  MongoClient.connect(env.storageURI, function connected(err, db) {
+  MongoClient.connect(env.storageURI, { "useUnifiedTopology" : true, "useNewUrlParser" : true }, function connected(err, client) {
 
     console.log('Connecting to mongo...');
     if (err) {
       console.log('Error occurred: ', err);
       throw err;
     }
+
+    var db = client.db();
+
     populate_collection(db);
   });
 }

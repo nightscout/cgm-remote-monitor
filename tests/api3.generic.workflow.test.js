@@ -9,10 +9,8 @@ describe('Generic REST API3', function() {
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
     , opTools = require('../lib/api3/shared/operationTools')
-    , utils = require('./fixtures/api3/utils')
     ;
 
-  utils.randomString('32', 'aA#'); // let's have a brand new identifier for your testing document
   self.urlLastModified = '/api/v3/lastModified';
   self.historyTimestamp = 0;
 
@@ -21,7 +19,7 @@ describe('Generic REST API3', function() {
     insulin: 1,
     date: (new Date()).getTime(),
     app: testConst.TEST_APP,
-    device: testConst.TEST_DEVICE
+    device: testConst.TEST_DEVICE + ' Generic REST API3'
   };
   self.identifier = opTools.calculateIdentifier(self.docOriginal);
   self.docOriginal.identifier = self.identifier;
@@ -46,7 +44,7 @@ describe('Generic REST API3', function() {
 
 
   after(() => {
-    self.instance.server.close();
+    self.instance.ctx.bus.teardown();
   });
 
 
