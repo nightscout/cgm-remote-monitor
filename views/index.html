@@ -331,6 +331,18 @@
                             <span class="translate">Sensor<br></span>
                         </label>
                     </fieldset>
+                    <label id="remoteCarbsLabel" for="remoteCarbs" class="left-column short-label">
+                        <span class="translate">Carbs</span>
+                        <input type="number" step="any" min="0" id="remoteCarbs" placeholder="Amount in grams" class="titletranslate" pattern="[0-9.,]*" />
+                    </label>
+                    <label id="remoteAbsorptionLabel" for="remoteAbsorption" class="left-column short-label">
+                        <span class="translate">Absorption</span>
+                        <input type="number" step="any" min="0" id="remoteAbsorption" placeholder="Amount in hours" class="titletranslate" pattern="[0-9.,]*" />
+                    </label>
+                    <label id="remoteBolusLabel" for="remoteBolus" class="left-column short-label">
+                        <span class="translate">Bolus</span>
+                        <input type="number" step="any" min="0" id="remoteBolus" placeholder="Amount in units" class="titletranslate" pattern="[0-9.,]*" />
+                    </label>
                     <fieldset id="nutrition">
                         <label id="carbsGivenLabel" for="carbsGiven" class="left-column short-label">
                             <span class="translate">Carbs Given</span>
