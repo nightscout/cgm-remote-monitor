@@ -1,0 +1,76 @@
+body {
+  text-align: center;
+  margin: 0 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: 'Open Sans';
+  color: grey;
+  background-color: black;
+}
+
+main {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-align: center;
+  -ms-flex-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.inner {
+  width: 100%;
+  -webkit-transform: translateY(-5%);
+}
+
+#bgnow {
+  font-weight: 700;
+  font-size: 40vmin;
+}
+
+#trend {
+  display: -ms-flexbox;
+  display: -webkit-flex;
+  display: flex;
+  -ms-flex-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  justify-content: center;
+  -webkit-flex-direction: row;
+  flex-direction: row;
+}
+
+#staleTime {
+  flex-grow: 1;
+  font-size: 6vmin;
+  display: none;
+}
+
+#clock {
+  display: none;
+}
+
+#delta {
+  display: none;
+}
+
+.close {
+  color: white;
+  font: 4em 'Open Sans';
+  position: absolute;
+  top: 0;
+  right: 20px;
+  text-decoration: none;
+  z-index: 10;
+}
+
+.close:after {
+  content: '\00D7';
+}
+
+.hidden {
+  opacity: 0;
+  transition: opacity 0.5s linear;
+}
