@@ -7,6 +7,7 @@ const bodyParser = require('body-parser');
 
 const path = require('path');
 const fs = require('fs');
+const ejs = require('ejs');
 
 function create (env, ctx) {
   var app = express();
@@ -92,6 +93,15 @@ function create (env, ctx) {
   }
   app.locals.cachebuster = cacheBuster;
 
+  app.get("/sw.js", (req, res) => {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.send(ejs.render(fs.readFileSync(
+      require.resolve(`${__dirname}/views/service-worker.js`),
+      { encoding: 'utf-8' }),
+      { locals: app.locals}
+     ));
+  });
+
   if (ctx.bootErrors && ctx.bootErrors.length > 0) {
     app.get('*', require('./lib/server/booterror')(ctx));
     return app;
@@ -161,6 +171,11 @@ function create (env, ctx) {
       , title: 'Nightscout translations'
       , type: 'translations'
     }
+    , "/split": {
+      file: "frame.html"
+      , title: '8-user view'
+      , type: 'index'
+    }
   };
 
   Object.keys(appPages).forEach(function(page) {
@@ -169,6 +184,7 @@ function create (env, ctx) {
         locals: app.locals,
         title: appPages[page].title ? appPages[page].title : '',
         type: appPages[page].type ? appPages[page].type : '',
+        settings: env.settings
       });
     });
   });
@@ -177,12 +193,6 @@ function create (env, ctx) {
   clockviews.setLocals(app.locals);
 
   app.use("/clock", clockviews);
-
-  app.get("/appcache/*", (req, res) => {
-    res.render("nightscout.appcache", {
-      locals: app.locals
-    });
-  });
 
   app.use('/api', bodyParser({
     limit: 1048576 * 50
