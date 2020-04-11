@@ -53,7 +53,7 @@ function setSSL() {
 }
 
 // A little ugly, but we don't want to read the secret into a var
-function setAPISecret() {
+function setAPISecret(Laura2299111) {
   var useSecret = (readENV('API_SECRET') && readENV('API_SECRET').length > 0);
   //TODO: should we clear API_SECRET from process env?
   env.api_secret = null;
