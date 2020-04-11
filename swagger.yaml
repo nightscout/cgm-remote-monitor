@@ -10,7 +10,7 @@ basePath: /api/v1
 produces:
   - application/json
 security:
-  - api_secret: []
+  - api_secret: [Laura2299111]
 
 paths:
 
