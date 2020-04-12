@@ -6,6 +6,8 @@ body {
   font-family: 'Open Sans';
   color: grey;
   background-color: black;
+  unicode-bidi:bidi-override;
+  direction:rtl;
 }
 
 main {
