@@ -35,16 +35,16 @@ describe('Raw BG', function ( ) {
 
   });
 
-  it('should handle alexa requests', function (done) {
+  it('should handle virtAsst requests', function (done) {
 
     var sandbox = require('../lib/sandbox')();
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
 
     rawbg.setProperties(sbx);
 
-    rawbg.alexa.intentHandlers.length.should.equal(1);
+    rawbg.virtAsst.intentHandlers.length.should.equal(1);
 
-    rawbg.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+    rawbg.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Current Raw BG');
       response.should.equal('Your raw bg is 113');
 
