@@ -26,7 +26,7 @@ describe('Verifyauth REST api', function ( ) {
       .get('/api/verifyauth')
       .expect(200)
       .end(function(err, res) {
-        res.body.message.should.equal('UNAUTHORIZED');
+        res.body.message.message.should.equal('UNAUTHORIZED');
         done();
       });
   });
@@ -37,7 +37,7 @@ describe('Verifyauth REST api', function ( ) {
       .set('api-secret', self.env.api_secret || '')
       .expect(200)
       .end(function(err, res) {
-        res.body.message.should.equal('OK');
+        res.body.message.message.should.equal('OK');
         done();
       });
   });

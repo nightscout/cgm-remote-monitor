@@ -22,14 +22,6 @@ function config ( ) {
    */
   env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
 
-  // be lenient at accepting the mmol input
-  if (env.DISPLAY_UNITS.toLowerCase().includes('mmol')) {
-    env.DISPLAY_UNITS = 'mmol';
-  } else {
-    // also ensure the mg/dl is set with expected case
-    env.DISPLAY_UNITS = 'mg/dl';
-  }
-
   console.log('Units set to', env.DISPLAY_UNITS );
 
   env.PORT = readENV('PORT', 1337);
@@ -145,8 +137,6 @@ function updateSettings() {
     env.settings.authDefaultRoles = env.settings.authDefaultRoles || "";
     env.settings.authDefaultRoles += ' careportal';
   }
-
-
 }
 
 function readENV(varName, defaultValue) {
@@ -156,6 +146,13 @@ function readENV(varName, defaultValue) {
     || process.env[varName]
     || process.env[varName.toLowerCase()];
 
+  if (varName == 'DISPLAY_UNITS' && value) {
+    if (value.toLowerCase().includes('mmol')) {
+      value = 'mmol';
+    } else {
+      value = 'mg/dl';
+    }
+  }
 
   return value != null ? value : defaultValue;
 }

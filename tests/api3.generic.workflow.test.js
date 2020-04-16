@@ -9,10 +9,8 @@ describe('Generic REST API3', function() {
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
     , opTools = require('../lib/api3/shared/operationTools')
-    , utils = require('./fixtures/api3/utils')
     ;
 
-  utils.randomString('32', 'aA#'); // let's have a brand new identifier for your testing document
   self.urlLastModified = '/api/v3/lastModified';
   self.historyTimestamp = 0;
 
@@ -21,7 +19,7 @@ describe('Generic REST API3', function() {
     insulin: 1,
     date: (new Date()).getTime(),
     app: testConst.TEST_APP,
-    device: testConst.TEST_DEVICE
+    device: testConst.TEST_DEVICE + ' Generic REST API3'
   };
   self.identifier = opTools.calculateIdentifier(self.docOriginal);
   self.docOriginal.identifier = self.identifier;
@@ -46,7 +44,7 @@ describe('Generic REST API3', function() {
 
 
   after(() => {
-    self.instance.server.close();
+    self.instance.ctx.bus.teardown();
   });
 
 
@@ -251,6 +249,44 @@ describe('Generic REST API3', function() {
     } else {
       res.status.should.equal(204);
     }
+  });
+
+
+  it('should not modify read-only document', async () => {
+    await self.instance.post(`${self.urlCol}?token=${self.token.create}`)
+      .send(Object.assign({}, self.docOriginal, { isReadOnly: true }))
+      .expect(201);
+
+    let res = await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
+      .expect(200);
+
+    self.docActual = res.body;
+    delete self.docActual.srvModified;
+    const readOnlyMessage = 'Trying to modify read-only document';
+
+    res = await self.instance.post(`${self.urlCol}?token=${self.token.update}`)
+      .send(Object.assign({}, self.docActual, { insulin: 0.41 }))
+      .expect(422);
+    res.body.message.should.equal(readOnlyMessage);
+
+    res = await self.instance.put(`${self.urlResource}?token=${self.token.update}`)
+      .send(Object.assign({}, self.docActual, { insulin: 0.42 }))
+      .expect(422);
+    res.body.message.should.equal(readOnlyMessage);
+
+    res = await self.instance.patch(`${self.urlResource}?token=${self.token.update}`)
+      .send({ insulin: 0.43 })
+      .expect(422);
+    res.body.message.should.equal(readOnlyMessage);
+
+    res = await self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
+      .query({ 'permanent': 'true' })
+      .expect(422);
+    res.body.message.should.equal(readOnlyMessage);
+
+    res = await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
+      .expect(200);
+    res.body.should.containEql(self.docOriginal);
   });
 
 });
