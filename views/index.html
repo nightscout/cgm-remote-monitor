@@ -215,6 +215,18 @@
             </select>
           </dd>
         </dl>
+        <dl>
+          <dt class="translate">Render Bolus Amount</dt>
+          <dd>
+            <select id="bolusrender">
+              <option class="translate" value="all">All</option>
+              <option class="translate" value="all-remove-zero-u">All (without leading zero and U)</option>
+              <option class="translate" id="bolusRenderOver" value="over">1 U and Over</option>
+              <option class="translate" value="none">None</option>
+            </select>
+          </dd>
+        </dl>
+
         <dl class="toggle">
           <dt><span class="translate">Enable Alarms</span> <a class="tip" original-title="When enabled an alarm may sound."><i class="icon-help-circled"></i></a></dt>
           <dd><input type="checkbox" id="alarm-urgenthigh-browser"><label for="alarm-urgenthigh-browser" class="translate">Urgent High Alarm</label></dd>
