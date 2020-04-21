@@ -261,10 +261,12 @@ describe('reports', function ( ) {
       var result = $('body').html();
       //var filesys = require('fs');
       //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
-      //logfile.write($('body').html());
-
+      //logfile.write(result);
+      //console.log('RESULT', result);
+      
       result.indexOf('Milk now').should.be.greaterThan(-1); // daytoday
-      result.indexOf('50 g (1.67U)').should.be.greaterThan(-1); // daytoday
+      result.indexOf('50 g').should.be.greaterThan(-1); // daytoday
+      result.indexOf('TDD average:</b> 2.9U').should.be.greaterThan(-1); // daytoday
       result.indexOf('<td class="tdborder">0%</td><td class="tdborder">100%</td><td class="tdborder">0%</td><td class="tdborder">2</td>').should.be.greaterThan(-1); //dailystats
       //TODO FIXME result.indexOf('td class="tdborder" style="background-color:#8f8"><strong>Normal: </strong></td><td class="tdborder">64.7%</td><td class="tdborder">6</td>').should.be.greaterThan(-1); // distribution
       result.indexOf('<td>16 (100%)</td>').should.be.greaterThan(-1); // hourlystats
