@@ -2,6 +2,7 @@
 
 var request = require('supertest');
 var language = require('../lib/language')();
+require('should');
 
 describe('verifyauth', function ( ) {
   var api = require('../lib/api/');

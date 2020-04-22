@@ -1,0 +1,34 @@
+name: CI test
+
+on: [push, pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-16.04
+
+    strategy:
+      matrix:
+        node-version: [10.x, 12.x]
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v1
+      with:
+        node-version: ${{ matrix.node-version }}
+    - name: Install dependencies
+      run: npm install
+    - name: Install MongoDB
+      run: |
+        wget -qO - https://www.mongodb.org/static/pgp/server-3.6.asc | sudo apt-key add -
+        echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/3.6 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-3.6.list
+        sudo apt-get update
+        sudo apt-get install -y mongodb-org
+        sudo apt-get install -y --allow-downgrades mongodb-org=3.6.14 mongodb-org-server=3.6.14 mongodb-org-shell=3.6.14 mongodb-org-mongos=3.6.14 mongodb-org-tools=3.6.14
+    - name: Start MongoDB
+      run: sudo systemctl start mongod
+    - name: Run Tests
+      run: npm run-script test-ci
+    - name: Send Coverage
+      run: npm run-script coverage
