@@ -433,7 +433,9 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `BAGE_URGENT` (`360`) - If time since last `Pump Battery Change` matches `BAGE_URGENT` hours, user will be issued a persistent warning of overdue change (default of 360 hours is 15 days).
 
 ##### `treatmentnotify` (Treatment Notifications)
-  Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.  Default snooze is 10 minutes, and can be set using the `TREATMENTNOTIFY_SNOOZE_MINS` [extended setting](#extended-settings).
+  Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.
+  * `TREATMENTNOTIFY_SNOOZE_MINS` (`10`) - Number of minutes to snooze notifications after a treatment is entered
+  * `TREATMENTNOTIFY_INCLUDE_BOLUSES_OVER` (`0.25`) - U value over which the bolus will trigger a notification and snooze alarms
 
 ##### `basal` (Basal Profile)
   Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile). Also uses the extended setting:
