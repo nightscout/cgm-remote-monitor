@@ -92,6 +92,7 @@ Community maintained fork of the
         - [`bage` (Battery Age)](#bage-battery-age)
         - [`treatmentnotify` (Treatment Notifications)](#treatmentnotify-treatment-notifications)
         - [`basal` (Basal Profile)](#basal-basal-profile)
+        - [`bolus` (Bolus Rendering)](#bolus-bolus-rendering)
         - [`bridge` (Share2Nightscout bridge)](#bridge-share2nightscout-bridge)
         - [`mmconnect` (MiniMed Connect bridge)](#mmconnect-minimed-connect-bridge)
         - [`pump` (Pump Monitoring)](#pump-pump-monitoring)
@@ -294,7 +295,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
     * The `linear` option has equidistant tick marks; the range used is dynamic so that space at the top of chart isn't wasted.
     * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale.
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enables the icon allowing for editing of treatments in the main view.
-  * `BOLUS_RENDER_OVER` (1) - U value over which the bolus values are rendered on the chart if the 'x U and Over' option is selected. This value can be an integer or a float, e.g. 0.3, 1.5, 2, etc...
 
 ### Predefined values for your server settings (optional)
   * `INSECURE_USE_HTTP` (`false`) - Redirect unsafe http traffic to https. Possible values `false`, or `true`. Your site redirects to `https` by default. If you don't want that from Nightscout, but want to implement that with a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. Note: This will allow (unsafe) http traffic to your Nightscout instance and is not recommended.
@@ -439,6 +439,11 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile). Also uses the extended setting:
   * `BASAL_RENDER` (`none`) - Possible values are `none`, `default`, or `icicle` (inverted)
 
+##### `bolus` (Bolus Rendering)
+  Settings to configure Bolus rendering
+  * `BOLUS_RENDER_OVER` (`0`) - U value over which the bolus labels rendered on the chart. This value can be an integer or a float, e.g. 0.3, 1.5, 2, etc...  Use 0 to render All bolus labels, use `Number.MAX_SAFE_INTEGER` (9007199254740991) if you want None of the bolus labels to be rendered.
+  * `BOLUS_RENDER_FORMAT` (`default`) - Possible values are `default` (with leading zero and U), `concise` (with U, without leading zero), and `minimal` (without leading zero and U).
+  
 ##### `bridge` (Share2Nightscout bridge)
   Glucose reading directly from the Dexcom Share service, uses these extended settings:
   * `BRIDGE_USER_NAME` - Your username for the Share service.
