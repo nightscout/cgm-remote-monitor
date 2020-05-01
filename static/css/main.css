@@ -699,6 +699,22 @@ a, a:visited, a:link {
   #container #toolbar {
     float: right;
     height: auto;
+    background: none;
+    border-bottom: none;
+    margin: 0px;
+  }
+
+  #buttonbar {
+    margin-right: 0px;
+    padding-right: 15px;
+    margin-top: 15px;
+    height: 44px;
+    opacity: 0.75;
+    vertical-align: middle;
+    position: absolute;
+    right: 0;
+    z-index: 500;
+    width: 400px;
   }
 
   #toolbar .customTitle {
