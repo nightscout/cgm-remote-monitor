@@ -21,7 +21,7 @@
   <style type="text/css">
     @import url("//fonts.googleapis.com/css?family=Open+Sans:700");
     <%- include('clock-shared.css', {}); %>
-    <%if (face == 'config') { %>
+    <%if (face === 'config') { %>
     <%- include('clock-config.css', {}); %>
     <% } %>
   </style>
@@ -62,7 +62,7 @@
     script.src = src;
 
     document.head.appendChild(script); //or something of the likes
-
+    <%if (face !== 'config') { %>
     var buttonVisible = true;
 
     function hideClose () {
@@ -92,7 +92,7 @@
     window.addEventListener('click', function() {
       showClose();
     });
-
+    <% } %>
   </script>
   <%if (face == 'config') { %>
   <%- include('clock-config.html', {}); %>
