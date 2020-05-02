@@ -21,13 +21,16 @@
   <style type="text/css">
     @import url("//fonts.googleapis.com/css?family=Open+Sans:700");
     <%- include('clock-shared.css', {}); %>
+    <%if (face == 'config') { %>
+    <%- include('clock-config.css', {}); %>
+    <% } %>
   </style>
 </head>
 
 <body>
   <main>
     <a href="/" id="closeButton" class="close"></a>
-    <div id="inner" data-face="<%= face %>">
+    <div id="inner" data-face="<%= face %>"<%-(face === 'config') ? 'data-face-config="cy00"' : '' %>>
     </div>
   </main>
   <script src="<%= locals.bundle %>/js/bundle.clock.js"></script>
@@ -91,6 +94,9 @@
     });
 
   </script>
+  <%if (face == 'config') { %>
+  <%- include('clock-config.html', {}); %>
+  <% } %>
 </body>
 
 </html>
