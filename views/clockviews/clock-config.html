@@ -11,12 +11,11 @@
         <p>
             <label for="sgage">Show SGV age</label>
             <select name="sgage" id="sgage">
-                <option value="y00" selected="selected">Always</option>
+                <option value="y" selected="selected">Always</option>
                 <option value="n">Only after threshold</option>
-                <option value="n00">Never</option>
             </select>
         </p>
-        <p>SGV age threshold: <input type="number" class="threshold" id="threshold" name="threshold" min="1" max="99" value="10" disabled> minutes</p>
+        <p>SGV age threshold: <input type="number" class="threshold" id="threshold" name="threshold" min="1" max="99" value="10"> minutes</p>
         <p><input type="button" class="elmt" id="cfg_nl" name="nl" value="Add line break"></p>
         <p><input type="button" class="elmt" id="cfg_sg" name="sg" value="Add SGV"> Size: <input type="number" class="size" id="cfg_sg_size" name="cfg_sg_size" min="1" max="99" value="40"></p>
         <p><input type="button" class="elmt" id="cfg_ag" name="ag" value="Add SGV age"> Size: <input type="number" class="size" id="cfg_ag_size" name="cfg_ag_size" min="1" max="99" value="6"></p>
@@ -25,7 +24,7 @@
         <p><input type="button" class="elmt" id="cfg_tm" name="tm" value="Add time"> Size: <input type="number" class="size" id="cfg_tm_size" name="cfg_tm_size" min="1" max="99" value="10"></p>
         <p><input type="button" class="undo" id="cfg_undo" name="undo" value="Remove last element"></p>
         <a id="clocklink" target=”_blank” href="/clock/cy10">Open my clock view!</a>
-        <div id="facename">cy00</div>
+        <div id="facename">cy10</div>
     </form>
 </div>
 <script type="text/javascript">
@@ -38,16 +37,8 @@
             $facename.change();
         } );
         $( "select#sgage" ).change( function() {
-            let val = this.value;
-            let $threshold = $("#threshold");
-            if (val === 'n') {
-                $threshold.prop('disabled', false);
-                val = val + $threshold.val();
-            } else {
-                $threshold.prop('disabled', true);
-            }
             let $facename = $( "#facename" );
-            $facename.text($facename.text().substring(0, 1) + val + $facename.text().substring(4));
+            $facename.text($facename.text().substring(0, 1) + this.value + $facename.text().substring(2));
             $facename.change();
         } );
         $( "input#threshold" ).change( function() {
