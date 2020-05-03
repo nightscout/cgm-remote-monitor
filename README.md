@@ -237,7 +237,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
     Setting it to `denied` will require a token from every visit, using `status-only` will enable api-secret based login.
   * `IMPORT_CONFIG` - Used to import settings and extended settings from a url such as a gist.  Structure of file should be something like: `{"settings": {"theme": "colors"}, "extendedSettings": {"upbat": {"enableAlerts": true}}}`
   * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. Deprecated, if set to `off` the `careportal` role will be added to `AUTH_DEFAULT_ROLES`
-
+  * If supporting an external application with API callbacks while using `AUTH_DEFAULT_ROLES` with values other than `readable`, the `BASE_URL` will need to include a token for the application for the appropriate role. The URL would be of the format `https://yourhost/api/v1/endpoint?token={TOKEN}` 
 ### Alarms
 
   These alarm setting affect all delivery methods (browser, Pushover, IFTTT, etc.). Values and settings entered here will be the defaults for new browser views, but will be overridden if different choices are made in the settings UI.
