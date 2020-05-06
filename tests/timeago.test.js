@@ -7,6 +7,8 @@ describe('timeago', function() {
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
   ctx.language = require('../lib/language')();
+  ctx.settings = require('../lib/settings')();
+  ctx.settings.heartbeat = 0.5; // short heartbeat to speedup tests
 
   var timeago = require('../lib/plugins/timeago')(ctx);
 
@@ -41,6 +43,7 @@ describe('timeago', function() {
     done();
   });
 
+
   it('should trigger a warning when data older than 15m', function(done) {
     ctx.notifications.initRequests();
     ctx.ddata.sgvs = [{ mills: Date.now() - times.mins(16).msecs, mgdl: 100, type: 'sgv' }];
@@ -49,9 +52,6 @@ describe('timeago', function() {
     timeago.checkNotifications(sbx);
 
     var currentTime = new Date().getTime();
-
-    // eslint-disable-next-line no-empty
-    while (currentTime + 500 >= new Date().getTime()) {}
 
     var highest = ctx.notifications.findHighestAlarm('Time Ago');
     highest.level.should.equal(levels.WARN);
