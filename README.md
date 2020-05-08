@@ -315,6 +315,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `Trend arrow` - icon of the SG trend
   * `Time` - current time
   * `Line break` - invisible item that will move following items to the next line (by default all are showing on the same level)
+  
   All visible items have `Size` property which allows to customize the view even more. Also, all items may appear multiple times on the view.
   
   Apart from adding items, it is possible to customize other aspects of the views, like selecting `Color` or `Black` background. The first one will indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
