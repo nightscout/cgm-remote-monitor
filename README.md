@@ -558,6 +558,8 @@ For remote overrides, the following extended settings must be configured:
 
   * `DEVICESTATUS_ADVANCED` (`true`) - Defaults to true. Users who only have a single device uploading data to Nightscout can set this to false to reduce the data use of the site.
 
+  * `DEVICESTATUS_DAYS` (`1`) - Defaults to 1 day, can be set to 2 days. This controls how far back in time to view device status values in retro mode (1 day means 24 hours counting backwards from last update delivered to the UI).
+
 #### Pushover
   In addition to the normal web based alarms, there is also support for [Pushover](https://pushover.net/) based alarms and notifications.
 
