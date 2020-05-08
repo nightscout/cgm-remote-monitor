@@ -41,11 +41,6 @@ main {
   height: 3vmin;
 }
 
-#inner div.sp {
-  width: 100%;
-  margin: 2vmin;
-}
-
 #errorMessage {
   font-size: 25em;
 }
