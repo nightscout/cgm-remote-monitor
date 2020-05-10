@@ -5,10 +5,6 @@ describe('Profile', function ( ) {
 
   var profile_empty = require('../lib/profilefunctions')();
 
-  beforeEach(function() {
-    profile_empty.clear();
-  });
-
   it('should say it does not have data before it has data', function() {
     var hasData = profile_empty.hasData();
     hasData.should.equal(false);
@@ -34,6 +30,8 @@ describe('Profile', function ( ) {
   };
 
   var profile = require('../lib/profilefunctions')([profileData]);
+//  console.log(profile);
+
   var now = Date.now();
 
   it('should know what the DIA is with old style profiles', function() {
