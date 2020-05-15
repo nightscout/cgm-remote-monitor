@@ -43,7 +43,7 @@ report:
 
 test_onebyone:
 	python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'
-	for var in tests/*.js; do ${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap $$var; done | tap-set-exit
+	$(foreach var,$(wildcard tests/*.js),${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap $(var);)
 
 test:
 	${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap ${TESTS}
@@ -52,7 +52,7 @@ travis:
 	python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'
 #	NODE_ENV=test ${MONGO_SETTINGS} \
 #	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 5000 -R tap ${TESTS}	
-	for var in tests/*.js; do ${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap $$var; done
+	$(foreach var,$(wildcard tests/*.js),${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap $(var);)
 
 docker_release:
 	# Get the version from the package.json file
