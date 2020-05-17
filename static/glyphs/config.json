@@ -7,6 +7,12 @@
   "ascent": 850,
   "glyphs": [
     {
+      "uid": "41087bc74d4b20b55059c60a33bf4008",
+      "css": "edit",
+      "code": 59409,
+      "src": "fontawesome"
+    },
+    {
       "uid": "63b3012c8cbe3654ba5bea598235aa3a",
       "css": "angle-double-up",
       "code": 59393,
@@ -16,6 +22,24 @@
       "uid": "dfec4ffa849d8594c2e4b86f6320b8a6",
       "css": "angle-double-down",
       "code": 59394,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "83458acd9f38d03ec0226ce82a83c0f4",
+      "css": "tint",
+      "code": 59406,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "ea2d9a8c51ca42b38ef0d2a07f16d9a7",
+      "css": "chart-line",
+      "code": 59407,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "1ee2aeb352153a403df4b441a8bc9bda",
+      "css": "calc",
+      "code": 59405,
       "src": "fontawesome"
     },
     {
@@ -61,6 +85,12 @@
       "src": "typicons"
     },
     {
+      "uid": "2d220a22480861b15878d1632e31ab47",
+      "css": "sort-numeric",
+      "code": 59408,
+      "src": "typicons"
+    },
+    {
       "uid": "3e02a8849305ac80a0e36302f461f265",
       "css": "help-circled",
       "code": 59392,
@@ -83,6 +113,24 @@
       "css": "cog",
       "code": 59398,
       "src": "websymbols"
+    },
+    {
+      "uid": "c1f1975c885aa9f3dad7810c53b82074",
+      "css": "lock",
+      "code": 59410,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "657ab647f6248a6b57a5b893beaf35a9",
+      "css": "lock-open",
+      "code": 59411,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "f48ae54adfb27d8ada53d0fd9e34ee10",
+      "css": "trash-empty",
+      "code": 59412,
+      "src": "fontawesome"
     }
   ]
 }
