@@ -1,3 +1,24 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [Nightscout/IFTTT Maker](#nightscoutifttt-maker)
+  - [Overview](#overview)
+      - [Note: There have been some recent reports of the IFTTT service delaying Nightscout alarms. Be sure to test your implementation before relying solely on its alerts. Pushover is an alternate push notification service that might be worth considering as well.](#note-there-have-been-some-recent-reports-of-the-ifttt-service-delaying-nightscout-alarms-be-sure-to-test-your-implementation-before-relying-solely-on-its-alerts-pushover-is-an-alternate-push-notification-service-that-might-be-worth-considering-as-well)
+  - [Events](#events)
+  - [Creating an Applet](#creating-an-applet)
+    - [1. Choose a Service](#1-choose-a-service)
+    - [2. Choose a Trigger](#2-choose-a-trigger)
+    - [3. Complete the Trigger field](#3-complete-the-trigger-field)
+    - [4. Create an Action](#4-create-an-action)
+    - [5. Complete Action Fields](#5-complete-action-fields)
+    - [6. Review and Finish](#6-review-and-finish)
+    - [7. Get your Maker Key](#7-get-your-maker-key)
+    - [8. Configure your Nightscout site](#8-configure-your-nightscout-site)
+    - [9. Configure the IFTTT mobile app](#9-configure-the-ifttt-mobile-app)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 **Table of Contents**
 
 - [Nightscout/IFTTT Maker](#nightscoutifttt-maker)
