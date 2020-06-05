@@ -97,7 +97,7 @@ describe('COB', function ( ) {
 
   });
 
-  it('should handle alexa requests', function (done) {
+  it('should handle virtAsst requests', function (done) {
     var data = {
       treatments: [{
         carbs: '8'
@@ -110,9 +110,9 @@ describe('COB', function ( ) {
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
     cob.setProperties(sbx);
 
-    cob.alexa.intentHandlers.length.should.equal(1);
+    cob.virtAsst.intentHandlers.length.should.equal(1);
 
-    cob.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+    cob.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Current COB');
       response.should.equal('You have 8 carbohydrates on board');
       done();
