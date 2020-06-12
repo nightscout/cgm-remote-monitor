@@ -557,6 +557,7 @@ For remote overrides, the following extended settings must be configured:
   Plugins only have access to their own extended settings, all the extended settings of client plugins will be sent to the browser.
 
   * `DEVICESTATUS_ADVANCED` (`true`) - Defaults to true. Users who only have a single device uploading data to Nightscout can set this to false to reduce the data use of the site.
+  * `DEVICESTATUS_DAYS` (`1`) - Defaults to 1, can optionally be set to 2. Users can use this to show 48 hours of device status data for in retro mode, rather than the default 24 hours. Setting this value to 2 will roughly double the bandwidth usage of nightscout, so users with a data cap may not want to update this setting.
 
 #### Pushover
   In addition to the normal web based alarms, there is also support for [Pushover](https://pushover.net/) based alarms and notifications.
