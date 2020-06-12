@@ -306,10 +306,28 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 
 ### Views
 
-  There are a few alternate web views available from the main menu that display a simplified BG stream. (If you launch one of these in a fullscreen view in iOS, you can use a left-to-right swipe gesture to exit the view.)
+  Nightscout allows to create custom, simplified views using a predefined set of elements. This option is available under `[+]` link in the main menu.
+  
+  List of available items:
+  * `SGV` - Sensor Glucose Value
+  * `SGV age` - time since the last SGV read
+  * `SGV delta` - change of SGV in the last 5 minutes
+  * `Trend arrow` - icon of the SG trend
+  * `Time` - current time
+  * `Line break` - invisible item that will move following items to the next line (by default all are showing on the same level)
+  
+  All visible items have `Size` property which allows to customize the view even more. Also, all items may appear multiple times on the view.
+  
+  Apart from adding items, it is possible to customize other aspects of the views, like selecting `Color` or `Black` background. The first one will indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
+  `Show SGV age` option will make `SGV age` item appear `Always` or only if the predefined threshold is reached: `Only after threshold`. Breaching `SGV age threshold` will also make `Color` background turn grey and strike through `SGV`.
+  `Clock view configurator` will generate an URL (available under `Open my clock view!` link) that could be bookmarked.
+  
+  There are a few default views available from the main menu: 
   * `Clock` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
-  * `Color` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above). Set `SHOW_CLOCK_DELTA` to `true` to show BG change in the last 5 minutes, set `SHOW_CLOCK_LAST_TIME` to `true` to always show BG age.
+  * `Color` - Shows current BG and trend arrow. White text on a color background.
   * `Simple` - Shows current BG. Grey text on a black background.
+
+  If you launch one of these views in a fullscreen view in iOS, you can use a left-to-right swipe gesture to exit the view.
 
 ### Split View
 
