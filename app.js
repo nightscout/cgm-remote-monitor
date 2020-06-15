@@ -171,6 +171,11 @@ function create (env, ctx) {
       , title: 'Nightscout translations'
       , type: 'translations'
     }
+    , "/split": {
+      file: "frame.html"
+      , title: '8-user view'
+      , type: 'index'
+    }
   };
 
   Object.keys(appPages).forEach(function(page) {
@@ -179,6 +184,7 @@ function create (env, ctx) {
         locals: app.locals,
         title: appPages[page].title ? appPages[page].title : '',
         type: appPages[page].type ? appPages[page].type : '',
+        settings: env.settings
       });
     });
   });

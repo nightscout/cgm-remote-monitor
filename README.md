@@ -294,6 +294,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
     * The `linear` option has equidistant tick marks; the range used is dynamic so that space at the top of chart isn't wasted.
     * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale.
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enables the icon allowing for editing of treatments in the main view.
+  * `BOLUS_RENDER_OVER` (1) - U value over which the bolus values are rendered on the chart if the 'x U and Over' option is selected. This value can be an integer or a float, e.g. 0.3, 1.5, 2, etc...
 
 ### Predefined values for your server settings (optional)
   * `INSECURE_USE_HTTP` (`false`) - Redirect unsafe http traffic to https. Possible values `false`, or `true`. Your site redirects to `https` by default. If you don't want that from Nightscout, but want to implement that with a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. Note: This will allow (unsafe) http traffic to your Nightscout instance and is not recommended.
@@ -305,10 +306,34 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 
 ### Views
 
-  There are a few alternate web views available from the main menu that display a simplified BG stream. (If you launch one of these in a fullscreen view in iOS, you can use a left-to-right swipe gesture to exit the view.)
+  Nightscout allows to create custom, simplified views using a predefined set of elements. This option is available under `[+]` link in the main menu.
+  
+  List of available items:
+  * `SGV` - Sensor Glucose Value
+  * `SGV age` - time since the last SGV read
+  * `SGV delta` - change of SGV in the last 5 minutes
+  * `Trend arrow` - icon of the SG trend
+  * `Time` - current time
+  * `Line break` - invisible item that will move following items to the next line (by default all are showing on the same level)
+  
+  All visible items have `Size` property which allows to customize the view even more. Also, all items may appear multiple times on the view.
+  
+  Apart from adding items, it is possible to customize other aspects of the views, like selecting `Color` or `Black` background. The first one will indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
+  `Show SGV age` option will make `SGV age` item appear `Always` or only if the predefined threshold is reached: `Only after threshold`. Breaching `SGV age threshold` will also make `Color` background turn grey and strike through `SGV`.
+  `Clock view configurator` will generate an URL (available under `Open my clock view!` link) that could be bookmarked.
+  
+  There are a few default views available from the main menu: 
   * `Clock` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
-  * `Color` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above). Set `SHOW_CLOCK_DELTA` to `true` to show BG change in the last 5 minutes, set `SHOW_CLOCK_LAST_TIME` to `true` to always show BG age.
+  * `Color` - Shows current BG and trend arrow. White text on a color background.
   * `Simple` - Shows current BG. Grey text on a black background.
+
+  If you launch one of these views in a fullscreen view in iOS, you can use a left-to-right swipe gesture to exit the view.
+
+### Split View
+
+  Some users will need easy access to multiple Nightscout views at the same time. We have a special view for this case, accessed on /split path on your Nightscout URL. The view supports any number of sites between 1 to 8 way split, where the content for the screen can be loaded from multiple Nightscout instances. Note you still need to host separate instances for each Nightscout being monitored including the one that hosts the split view page - these variables only add the ability to load multiple views into one browser page. To set the URLs from which the content is loaded, set:
+  * `FRAME_URL_1` - URL where content is loaded, for the first view (increment the number up to 8 to get more views)
+  * `FRAME_NAME_1` - Name for the first split view portion of the screen (increment the number to name more views)
 
 ### Plugins
 
@@ -550,6 +575,7 @@ For remote overrides, the following extended settings must be configured:
   Plugins only have access to their own extended settings, all the extended settings of client plugins will be sent to the browser.
 
   * `DEVICESTATUS_ADVANCED` (`true`) - Defaults to true. Users who only have a single device uploading data to Nightscout can set this to false to reduce the data use of the site.
+  * `DEVICESTATUS_DAYS` (`1`) - Defaults to 1, can optionally be set to 2. Users can use this to show 48 hours of device status data for in retro mode, rather than the default 24 hours. Setting this value to 2 will roughly double the bandwidth usage of nightscout, so users with a data cap may not want to update this setting.
 
 #### Pushover
   In addition to the normal web based alarms, there is also support for [Pushover](https://pushover.net/) based alarms and notifications.
