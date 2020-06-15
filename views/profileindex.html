@@ -25,10 +25,10 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="preload" href="/css/main.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
       <link rel="preload" href="/css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
       <link rel="preload" href="/css/profile.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <link rel="preload" href="/css/ui-darkness/jquery-ui.min.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="/css/ui-darkness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
       <% include preloadCSS %>
 
     </head>
@@ -166,8 +166,8 @@
     <%- include('partials/authentication-status') %>
 
     <script src="/api/v1/status.js"></script>
-    <script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
-    <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
-    <script src="/profile/js/profileeditor.js?v=<%= locals.cachebuster %>"></script>
+    <script src="<%= locals.bundle %>/js/bundle.app.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/profile/js/profileeditor.js"></script>
   </body>
 </html>

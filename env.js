@@ -170,6 +170,8 @@ function findExtendedSettings (envs) {
 
   extended.devicestatus = {};
   extended.devicestatus.advanced = true;
+  extended.devicestatus.days = 1;
+  if(process.env['DEVICESTATUS_DAYS'] && process.env['DEVICESTATUS_DAYS'] == '2') extended.devicestatus.days = 1;
 
   function normalizeEnv (key) {
     return key.toUpperCase().replace('CUSTOMCONNSTR_', '');

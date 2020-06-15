@@ -265,7 +265,7 @@ h1, legend,
 }
 
 #buttonbar a {
-  float: left;
+  float: right;
   text-decoration: none;
   width: 34px;
 }
