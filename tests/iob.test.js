@@ -6,10 +6,12 @@ var should = require('should');
 describe('IOB', function() {
   var ctx = {};
   ctx.language = require('../lib/language')();
+  ctx.language.set('en');
+  ctx.settings = require('../lib/settings')();
 
   var iob = require('../lib/plugins/iob')(ctx);
 
-  it('should handle alexa requests', function (done) {
+  it('should handle virtAsst requests', function (done) {
 
     var sbx = {
       properties: {
@@ -19,14 +21,14 @@ describe('IOB', function() {
       }
     };
 
-    iob.alexa.intentHandlers.length.should.equal(1);
-    iob.alexa.rollupHandlers.length.should.equal(1);
+    iob.virtAsst.intentHandlers.length.should.equal(1);
+    iob.virtAsst.rollupHandlers.length.should.equal(1);
 
-    iob.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+    iob.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Current IOB');
       response.should.equal('You have 1.50 units of insulin on board');
 
-      iob.alexa.rollupHandlers[0].rollupHandler([], sbx, function callback (err, response) {
+      iob.virtAsst.rollupHandlers[0].rollupHandler([], sbx, function callback (err, response) {
         should.not.exist(err);
         response.results.should.equal('and you have 1.50 units of insulin on board.');
         response.priority.should.equal(2);
@@ -188,6 +190,14 @@ describe('IOB', function() {
         activity: 0.0147,
         source: 'OpenAPS',
         device: 'openaps://pi1'
+      });
+    });
+
+    it('should not blow up with null IOB data from openaps', function () {
+      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - 1, openaps: {iob: null } })];
+      iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
+        source: 'Care Portal',
+        display: '3.00'
       });
     });
 
