@@ -53,22 +53,22 @@
       "required": true
     },
     "BG_HIGH": {
-      "description": "Urgent High BG threshold, triggers the ALARM_URGENT_HIGH alarm. Must be set in mg/dL, even if you use mmol/L (multiply a mmol/L value by 18 to change it to mg/dl).",
+      "description": "Urgent High BG threshold, triggers the ALARM_URGENT_HIGH alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
       "value": "260",
       "required": false
     },
     "BG_LOW": {
-      "description": "Urgent Low BG threshold, triggers the ALARM_URGENT_LOW alarm. Must be set in mg/dL, even if you use mmol/L (multiply a mmol/L value by 18 to change it to mg/dl).",
+      "description": "Urgent Low BG threshold, triggers the ALARM_URGENT_LOW alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
       "value": "55",
       "required": false
     },
     "BG_TARGET_BOTTOM": {
-      "description": "Low BG threshold, triggers the ALARM_LOW alarm. Must be set in mg/dL, even if you use mmol/L (multiply a mmol/L value by 18 to change it to mg/dl).",
+      "description": "Low BG threshold, triggers the ALARM_LOW alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
       "value": "80",
       "required": false
     },
     "BG_TARGET_TOP": {
-      "description": "High BG threshold, triggers the ALARM_HIGH alarm. Must be set in mg/dL, even if you use mmol/L (multiply a mmol/L value by 18 to change it to mg/dl).",
+      "description": "High BG threshold, triggers the ALARM_HIGH alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
       "value": "180",
       "required": false
     },
@@ -93,9 +93,9 @@
       "required": false
     },
     "DISPLAY_UNITS": {
-      "description": "Preferred BG units for the site:'mg/dl' or 'mmol'. (Note that it is *not* 'mmol/L')",
+      "description": "Preferred BG units for the site: 'mg/dl' or 'mmol/L' (or just 'mmol').",
       "value": "mg/dl",
-      "required": false
+      "required": true
     },
     "ENABLE": {
       "description": "Plugins to enable for your site. Must be a space-delimited, lower-case list. Include the word 'bridge' here if you are receiving data from the Dexcom Share service. Include 'mmconnect' if you are bridging from the MiniMed CareLink service.",
