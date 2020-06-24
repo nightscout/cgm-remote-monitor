@@ -174,6 +174,7 @@
           <a id="bgclocklink" href="/clock/bgclock" class="translate multilink">Clock</a>
           <a id="clockcolorlink" href="/clock/clock-color" class="translate multilink">Color</a>
           <a id="clocklink" href="/clock/clock" class="translate multilink">Simple</a>
+          <a id="clockconfiglink" href="/clock/config" class="translate multilink">[+]</a>
         </li>
       </ul>
       <fieldset class="browserSettings" id="browserSettings">
@@ -339,7 +340,24 @@
             <span class="translate">Sensor<br></span>
           </label>
         </fieldset>
-        <fieldset id="nutrition">
+        <label id="remoteCarbsLabel" for="remoteCarbs" class="left-column short-label">
+             <span class="translate">Carbs</span>
+             <input type="number" step="any" min="0" id="remoteCarbs" placeholder="Amount in grams" class="titletranslate" pattern="[0-9.,]*" />
+         </label>
+         <label id="remoteAbsorptionLabel" for="remoteAbsorption" class="left-column short-label">
+             <span class="translate">Absorption</span>
+             <input type="number" step="any" min="0" id="remoteAbsorption" placeholder="Time in hours" class="titletranslate" pattern="[0-9.,]*" />
+         </label>
+         <label id="remoteBolusLabel" for="remoteBolus" class="left-column short-label">
+             <span class="translate">Bolus</span>
+             <input type="number" step="any" min="0" id="remoteBolus" placeholder="Amount in units" class="titletranslate" pattern="[0-9.,]*" />
+         </label>
+         <label id="otpLabel" for="otp" class="left-column short-label">
+             <span class="translate">OTP</span>
+             <input type="text" id="otp" placeholder="password" class="titletranslate" />
+         </label>
+
+        <fieldset id="nutrition" >
           <label id="carbsGivenLabel" for="carbsGiven" class="left-column short-label">
             <span class="translate">Carbs Given</span>
             <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" class="titletranslate" pattern="\d*">
@@ -353,6 +371,7 @@
             <input type="number" step="any" min="0" id="fatGiven" placeholder="Amount in grams" class="titletranslate" pattern="\d*">
           </label>
         </fieldset>
+
         <label id="insulinGivenLabel" for="insulinGiven" class="left-column short-label">
           <span class="translate">Insulin Given</span>
           <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate" pattern="[0-9.,]*">
