@@ -1,18 +1,34 @@
-version: '3.4'
+version: "3.4"
+
+volumes:
+  mongodb_data_container:
 
 services:
-  nightscout:    
-    image: 'skalahonza/nightscout'
+  nightscout:
+    image: "skalahonza/nightscout"
     build:
       context: .
       dockerfile: Dockerfile
     environment:
-      API_SECRET: '${API_SECRET}'      
-      MONGO_CONNECTION: '${MONGO_CONNECTION}'
-      INSECURE_USE_HTTP: 'true'
-      SECURE_HSTS_HEADER: 'false'
-      PORT: 1337            
-      TIME_FORMAT: '24'
-      DISPLAY_UNITS: 'mmol'    
+      API_SECRET: "${API_SECRET}"
+      MONGO_CONNECTION: "mongodb+srv://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@${MONGODB_HOST}/Nightscout"
+      INSECURE_USE_HTTP: "true"
+      SECURE_HSTS_HEADER: "false"
+      PORT: 1337
+      TIME_FORMAT: "24"
+      DISPLAY_UNITS: "mmol"
+      WAIT_HOSTS: "nightscout.db:27017"
+    depends_on:
+      - nightscout.db
     ports:
-      - '5001:1337'
+      - "5001:1337"
+  nightscout.db:
+    image: mongo:4.2.8
+    environment:
+      MONGO_INITDB_DATABASE: Nightscout
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
+    expose:
+      - 27017
+    volumes:
+      - mongodb_data_container:/data/db

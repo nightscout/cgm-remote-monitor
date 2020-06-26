@@ -12,8 +12,12 @@ RUN chown -R node:node /opt/app && \
     npm audit fix && \
     apk del build-dependencies
 
-USER node
+## Add the wait script to the image
+ADD https://github.com/ufoscout/docker-compose-wait/releases/download/2.7.3/wait /wait
+RUN chmod +x /wait
 
+USER node
 EXPOSE 1337
 
-CMD ["node", "server.js"]
+## Launch the wait tool and then your application
+CMD /wait && "node" "server.js"
