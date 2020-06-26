@@ -1,0 +1,18 @@
+version: '3.4'
+
+services:
+  nightscout:    
+    image: 'skalahonza/nightscout'
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      API_SECRET: '${API_SECRET}'      
+      MONGO_CONNECTION: '${MONGO_CONNECTION}'
+      INSECURE_USE_HTTP: 'true'
+      SECURE_HSTS_HEADER: 'false'
+      PORT: 1337            
+      TIME_FORMAT: '24'
+      DISPLAY_UNITS: 'mmol'    
+    ports:
+      - '5001:1337'
