@@ -1,6 +1,8 @@
 'use strict';
 
 var request = require('supertest');
+var language = require('../lib/language')();
+
 require('should');
 
 describe('Verifyauth REST api', function ( ) {
@@ -13,7 +15,7 @@ describe('Verifyauth REST api', function ( ) {
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')( );
     self.app.enable('api');
-    require('../lib/bootevent')(self.env).boot(function booted (ctx) {
+    require('../lib/server/bootevent')(self.env, language).boot(function booted (ctx) {
       self.app.use('/api', api(self.env, ctx));
       done();
     });
@@ -24,7 +26,7 @@ describe('Verifyauth REST api', function ( ) {
       .get('/api/verifyauth')
       .expect(200)
       .end(function(err, res) {
-        res.body.message.should.equal('UNAUTHORIZED');
+        res.body.message.message.should.equal('UNAUTHORIZED');
         done();
       });
   });
@@ -35,7 +37,7 @@ describe('Verifyauth REST api', function ( ) {
       .set('api-secret', self.env.api_secret || '')
       .expect(200)
       .end(function(err, res) {
-        res.body.message.should.equal('OK');
+        res.body.message.message.should.equal('OK');
         done();
       });
   });
