@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html xmlns="http://www.w3.org/1999/html">
 
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,23 +21,16 @@
   <style type="text/css">
     @import url("//fonts.googleapis.com/css?family=Open+Sans:700");
     <%- include('clock-shared.css', {}); %>
-    <%- include(face + '.css', {}); %>
+    <%if (face === 'config') { %>
+    <%- include('clock-config.css', {}); %>
+    <% } %>
   </style>
 </head>
 
 <body>
   <main>
     <a href="/" id="closeButton" class="close"></a>
-    <div class="inner">
-      <div id="trend">
-        <div id="innerTrend">
-          <span id="bgnow"></span>
-          <span id="delta"></span>
-        </div>
-        <div id="arrowDiv"><img id="arrow" src="" alt="arrow" /></div>
-      </div>
-      <div id="clock"></div>
-      <div id="staleTime"></div>
+    <div id="inner" data-face="<%= face %>"<%-(face === 'config') ? 'data-face-config="cy10"' : '' %>>
     </div>
   </main>
   <script src="<%= locals.bundle %>/js/bundle.clock.js"></script>
@@ -69,7 +62,7 @@
     script.src = src;
 
     document.head.appendChild(script); //or something of the likes
-
+    <%if (face !== 'config') { %>
     var buttonVisible = true;
 
     function hideClose () {
@@ -99,8 +92,11 @@
     window.addEventListener('click', function() {
       showClose();
     });
-
+    <% } %>
   </script>
+  <%if (face == 'config') { %>
+  <%- include('clock-config.html', {}); %>
+  <% } %>
 </body>
 
 </html>
