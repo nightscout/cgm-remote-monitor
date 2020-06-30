@@ -67,7 +67,7 @@
     "lodash": "^4.0.0",
     "long": "~2.2.3",
     "mfb": "^0.12.0",
-    "minimed-connect-to-nightscout": "git://github.com/mddub/minimed-connect-to-nightscout#v1.1.0",
+    "minimed-connect-to-nightscout": "FredMK/minimed-connect-to-nightscout#6a6c422a5d7857b2b1ab959fdf2ea17db61defe6",
     "moment": "2.10.6",
     "moment-timezone": "^0.4.0",
     "mongodb": "2.1.18",
