@@ -87,7 +87,7 @@
     "lodash": "^4.17.15",
     "memory-cache": "^0.2.0",
     "mime": "^2.4.4",
-    "minimed-connect-to-nightscout": "^1.3.2",
+    "minimed-connect-to-nightscout": "FredMK/minimed-connect-to-nightscout#6a6c422a5d7857b2b1ab959fdf2ea17db61defe6",
     "moment": "^2.24.0",
     "moment-locales-webpack-plugin": "^1.1.0",
     "moment-timezone": "^0.5.26",
