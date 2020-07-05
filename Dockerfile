@@ -4,7 +4,7 @@ WORKDIR /usr/src/app
 COPY . .
 
 RUN chown -R node:node /usr/src/app && \
-    apk add --no-cache --virtual build-dependencies python make g++ && \
+    apk add --no-cache --virtual build-dependencies python make g++ git && \
     npm install --no-cache && \
     npm run postinstall && \
     npm run env && \
