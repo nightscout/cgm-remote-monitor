@@ -634,8 +634,9 @@
           data.sgv.sort(function(a, b) { return a.mills - b.mills; });
           var lastDate = 0;
           data.sgv = data.sgv.filter(function(d) {
-            var ok = (lastDate + ONE_MIN_IN_MS) < d.mills;
+            var ok = (lastDate + ONE_MIN_IN_MS) <= d.mills;
             lastDate = d.mills;
+            if (!ok) { console.log("itm",JSON.stringify(d)); }
             return ok;
           });
           data.mbg = mbgData.slice();
@@ -752,6 +753,9 @@
     }
     // treatments
     data.dailyCarbs = 0;
+    data.dailyProtein = 0;
+    data.dailyFat = 0;
+    
     data.treatments.forEach(function (d) {
       if (parseFloat(d.insulin) > maxInsulinValue) {
         maxInsulinValue = parseFloat(d.insulin);
@@ -760,7 +764,13 @@
         maxCarbsValue = parseFloat(d.carbs);
       }
       if (d.carbs) {
-        data.dailyCarbs += d.carbs;
+        data.dailyCarbs += Number(d.carbs);
+      }
+      if (d.protein) {
+        data.dailyProtein += Number(d.protein);
+      }
+      if (d.fat) {
+        data.dailyFat += Number(d.fat);
       }
     });
     if (data.dailyCarbs > maxDailyCarbsValue) {
