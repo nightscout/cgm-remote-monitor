@@ -11,6 +11,7 @@ describe('errorcodes', function ( ) {
   var ctx = {};
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
+  ctx.language = require('../lib/language')();
 
 
   it('Not trigger an alarm when in range', function (done) {
