@@ -79,6 +79,7 @@
     "express": "^4.17.1",
     "express-minify": "^1.0.0",
     "file-loader": "^3.0.1",
+    "file-saver": "^2.0.2",
     "flot": "^0.8.3",
     "heapdump": "^0.3.15",
     "helmet": "^3.20.0",
@@ -116,7 +117,8 @@
     "traverse": "^0.6.6",
     "uuid": "^3.3.2",
     "webpack": "^4.39.2",
-    "webpack-cli": "^3.3.7"
+    "webpack-cli": "^3.3.7",
+    "xlsx": "^0.16.3"
   },
   "devDependencies": {
     "babel-eslint": "^10.0.3",
