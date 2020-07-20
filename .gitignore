@@ -8,8 +8,8 @@ bundle/bundle.out.js
 .idea/
 *.iml
 my.env
+my.*.env
 
-*.env
 static/bower_components/
 .*.sw?
 .DS_Store
