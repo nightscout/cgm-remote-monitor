@@ -300,6 +300,13 @@
             </form>
         </div>
 
+        <div class="omni-calculator" data-calculator="health/insulin-dosage" data-width="350" data-config='{}' data-currency="EUR" data-show-row-controls="false" data-version="3" data-t="1595274048952">
+          <div class="omni-calculator-header">Insulin Dosage Calculator</div>
+          <div class="omni-calculator-footer">
+            <a href="https://www.omnicalculator.com/health/insulin-dosage" target="_blank"><img alt="Omni" class="omni-calculator-logo" src="https://cdn.omnicalculator.com/embed/omni-calculator-logo-long.svg" /></a>
+          </div>
+        </div>
+
         <div id="treatmentDrawer">
             <form id="treatment-form">
                 <fieldset class="treatmentData">
@@ -702,5 +709,6 @@
         <script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
         <script src="socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
         <script src="js/client.js?v=<%= locals.cachebuster %>"></script>
+        <script async src="https://cdn.omnicalculator.com/sdk.js"></script>
     </body>
 </html>
