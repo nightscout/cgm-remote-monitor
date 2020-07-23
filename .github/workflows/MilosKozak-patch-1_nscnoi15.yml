@@ -28,5 +28,5 @@ jobs:
       with:
         app-name: 'nscnoi15'
         slot-name: 'production'
-        publish-profile: ${{ secrets.AzureAppService_PublishProfile_60891efdb8b84ee8b6e50d44f5d860d2 }}
+        publish-profile: ${{ secrets.AzureAppService_PublishProfile_c1e7cab80d0a4fda9e1f002c88e9490d }}
         package: '${{ github.workspace }}/target/*.jar'
