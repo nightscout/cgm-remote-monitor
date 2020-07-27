@@ -320,7 +320,7 @@
             "value": "8.11.1"
           }, {
             "name": "SCM_COMMAND_IDLE_TIMEOUT",
-            "value": "300"
+            "value": "900"
           }
 
         ]
