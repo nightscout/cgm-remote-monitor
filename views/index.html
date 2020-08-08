@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html manifest="appcache/nightscout-<%= locals.cachebuster %>.appcache">
+<html<%if (locals.mode == 'production') { %>
+    manifest="appcache/nightscout-<%= locals.cachebuster %>.appcache"
+    <% } %>>
     <head>
       <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
       <meta name="apple-mobile-web-app-capable" content="yes">
@@ -27,9 +29,9 @@
       <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
-      <link rel="stylesheet" type="text/css" href="css/ui-darkness/jquery-ui.min.css" media="none" onload="if(media!='all')media='all'">
-      <link rel="stylesheet" type="text/css" href="css/jquery.tooltips.css" media="none" onload="if(media!='all')media='all'">
-	  <link rel="stylesheet" type="text/css" href="css/main.css?v=<%= locals.cachebuster %>" media="none" onload="if(media!='all')media='all'" />
+      <link rel="preload" href="css/ui-darkness/jquery-ui.min.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="css/jquery.tooltips.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="css/main.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
 	  
 <style media="screen" type="text/css">
 
@@ -54,9 +56,9 @@
     width: 100%;
     height: 90%;
     top: 30%;
-    left: 0%;
+    left: 0;
     font-size: 16px;
-}​
+}
 
 .spinner {
   margin: 100px auto 0;
@@ -100,7 +102,7 @@
   }
 }
 </style>
-
+<% include preloadCSS %>
     </head>
     <body>
     	<div id="centerMessagePanel">
@@ -116,7 +118,7 @@
     	</div>
         <div class="container loading" id="container">
             <div id="toolbar">
-                <div id="buttonbar" role="navigation" aria-label="Menu" >
+                <div id="buttonbar" style="margin-right: 0px;" role="navigation" aria-label="Menu" >
                     <a id="editbutton" class="tip" original-title="Edit Mode" aria-label="Edit Mode" href="#" style="display:none;"><i class="icon-edit"></i></a>
                     <a id="testAlarms" class="tip" original-title="Alarm Test / Smartphone Enable" aria-label="Alarm Test / Smartphone Enable" href="#"><i class="icon-volume"></i></a>
                     <a id="drawerToggle" class="tip" original-title="Settings" aria-label="Settings" href="#"><i class="icon-menu"></i></a>
@@ -131,10 +133,12 @@
             </div>
             <div class="primary" >
                 <div class="bgStatus current">
-                    <div class="bgButton" aria-live="assertive" role="contentinfo" aria-label="Blood Sugar">  
-                        <span class="pill rawbg hidden"><em></em><label></label></span>
-                        <span class="currentBG">---</span>
-                        <span class="pill direction"></span>
+                    <div class="bgButton" aria-live="assertive" role="contentinfo" aria-label="Blood Sugar">
+                        <span class="bgSpan">
+                          <span class="pill rawbg hidden"><em></em><label></label></span>
+                          <span class="currentBG">---</span>
+                          <span class="pill direction"></span>
+                        </span>
                     </div>
                     <ul class="dropdown-menu" id="silenceBtn"></ul>
                     <div class="majorPills"></div>
@@ -148,14 +152,19 @@
                         </div>
                     </div>
                 </div>
+                <div></div>
+                
                 <ul class="focus-range">
-                    <li data-hours="2" class="translate">2HR</li>
-                    <li data-hours="3" class="translate">3HR</li>
-                    <li data-hours="6" class="translate">6HR</li>
-                    <li data-hours="12" class="translate">12HR</li>
-                    <li data-hours="24" class="translate">24HR</li>
+                    <li data-hours="1" class="translate">Hours:</li>
+                    <li data-hours="2">2</li>
+                    <li data-hours="3">3</li>
+                    <li data-hours="4">4</li>
+                    <li data-hours="6">6</li>
+                    <li data-hours="12">12</li>
+                    <li data-hours="24">24</li>
                     <li>...</li>
                 </ul>
+              </div>
                 <ul class="dropdown-menu" id="viewMenu"></ul>
             </div>
             <div class="row-fluid section1">
@@ -166,18 +175,18 @@
         <div id="drawer">
             <form id="settings-form" role="form" >
                 <ul class="navigation" role="navigation" aria-label="Settings">
-                  <li><a href="report" target="reports" class="translate">Reports</a></li>
-                  <li class="profilecontrol"><a id="editprofilelink" href="profile" target="profileeditor" class="translate">Profile Editor</a></li>
+                  <li><a id="reportlink" href="report" target="reports" class="translate">Reports</a></li>
+                  <li><a id="editprofilelink" href="profile" target="profileeditor" class="translate">Profile Editor</a></li>
                   <li class="foodcontrol"><a id="editfoodlink" href="food" target="foodeditor" class="translate">Food Editor</a></li>
                   <li><a id="admintoolslink" href="admin" target="admintools" class="translate">Admin Tools</a></li>
                   <li class="multilink">
                   	<a class="translate">Clock Views:</a>
-                  	<a id="bgclocklink" href="bgclock.html" class="translate multilink">Clock</a>
-                  	<a id="clockcolorlink" href="clock-color.html" class="translate multilink">Color</a>
-                  	<a id="clocklink" href="clock.html" class="translate multilink">Simple</a>
+                  	<a id="bgclocklink" href="/clock/bgclock" class="translate multilink">Clock</a>
+                  	<a id="clockcolorlink" href="/clock/clock-color" class="translate multilink">Color</a>
+                  	<a id="clocklink" href="/clock/clock" class="translate multilink">Simple</a>
                   </li>
                 </ul>
-                <fieldset class="browserSettings">
+                <fieldset class="browserSettings" id="browserSettings">
                     <legend class="translate icon-cog">Settings</legend>
                     <dl class="radio">
                         <dt class="translate">Units</dt>
@@ -329,10 +338,20 @@
                             <span class="translate">Sensor<br></span>
                         </label>
                     </fieldset>
-                    <label id="carbsGivenLabel" for="carbsGiven" class="left-column short-label">
-                        <span class="translate">Carbs Given</span>
-                        <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" class="titletranslate" pattern="\d*" />
-                    </label>
+                    <fieldset id="nutrition">
+                        <label id="carbsGivenLabel" for="carbsGiven" class="left-column short-label">
+                            <span class="translate">Carbs Given</span>
+                            <input type="number" step="any" min="0" id="carbsGiven" placeholder="Amount in grams" class="titletranslate" pattern="\d*" />
+                        </label>
+                        <label id="proteinGivenLabel" for="proteinGiven" class="left-column short-label">
+                            <span class="translate">Protein</span>
+                            <input type="number" step="any" min="0" id="proteinGiven" placeholder="Amount in grams" class="titletranslate" pattern="\d*" />
+                        </label>
+                        <label id="fatGivenLabel" for="fatGiven" class="left-column short-label">
+                            <span class="translate">Fat</span>
+                            <input type="number" step="any" min="0" id="fatGiven" placeholder="Amount in grams" class="titletranslate" pattern="\d*" />
+                        </label>
+                    </fieldset>
                     <label id="insulinGivenLabel" for="insulinGiven" class="left-column short-label">
                         <span class="translate">Insulin Given</span>
                         <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate" pattern="[0-9.,]*" />
@@ -349,7 +368,7 @@
                     </label>
                     <label id="percentLabel" for="percent" class="left-column short-label">
                         <span class="translate">Percent</span>
-                        <input type="number" step="10" id="percent" placeholder="Basal change in %" class="titletranslate" />
+                        <input id="percent" placeholder="Basal change in %" class="titletranslate" />
                     </label>
                     <label id="profileLabel" for="profile" class="left-column short-label">
                         <span class="translate">Profile</span>
@@ -680,7 +699,7 @@
             <audio src="audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
         </div>
 
-        <script src="js/bundle.js?v=<%= locals.cachebuster %>"></script>
+        <script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
         <script src="socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
         <script src="js/client.js?v=<%= locals.cachebuster %>"></script>
     </body>
