@@ -1,0 +1,32 @@
+body {
+  color: white;
+}
+
+#trend {
+  -webkit-transform: translateX(1%);
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}
+
+#bgnow {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+#delta {
+    font-size: 16vmin;
+    vertical-align: middle;
+}
+
+#innerTrend {
+    word-spacing: 2em;
+}
+
+#arrowDiv {
+  flex-grow: 1;
+  text-align: center;
+}
+
+img#arrow {
+  height: 30vmin;
+}
