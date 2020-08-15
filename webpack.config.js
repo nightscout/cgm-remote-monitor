@@ -68,15 +68,7 @@ pluginArray.push(new MomentLocalesPlugin({
   ],
 }));
 
-const rules = [
-  {
-    test: /\.(js|jsx)$/,
-    exclude: /node_modules/,
-    use: {
-      loader: "babel-loader"
-    }
-  },
-  {
+const rules = [{
     test: /\.(jpe?g|png|gif)$/i,
     loader: 'file-loader',
     query: {
