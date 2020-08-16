@@ -138,7 +138,7 @@ describe('admintools', function ( ) {
             if (url.indexOf('status.json') > -1) {
               fn(serverSettings);
             } else {
-              fn({message: 'OK'});
+              fn({message: {message: 'OK'}});
             }
             return self.$.ajax();
             },
@@ -153,7 +153,9 @@ describe('admintools', function ( ) {
 
       var d3 = require('d3');
       //disable all d3 transitions so most of the other code can run with jsdom
-      d3.timer = function mockTimer() { };
+      //d3.timer = function mockTimer() { };
+      let timer = d3.timer(function mockTimer() { });
+      timer.stop();
       
       var cookieStorageType = self.localStorage._type
 
