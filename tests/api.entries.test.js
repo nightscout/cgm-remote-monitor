@@ -19,7 +19,7 @@ describe('Entries REST api', function ( ) {
     self.app = require('express')( );
     self.app.enable('api');
     bootevent(self.env, language).boot(function booted (ctx) {
-      self.app.use('/', entries(self.app, self.wares, ctx));
+      self.app.use('/', entries(self.app, self.wares, ctx, self.env));
       self.archive = require('../lib/server/entries')(self.env, ctx);
 
       var creating = load('json');
