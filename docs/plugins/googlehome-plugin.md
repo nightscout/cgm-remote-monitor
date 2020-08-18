@@ -8,6 +8,7 @@
   - [Create Your DialogFlow Agent](#create-your-dialogflow-agent)
     - [Do you use Authentication Roles?](#do-you-use-authentication-roles)
     - [What questions can you ask it?](#what-questions-can-you-ask-it)
+    - [Using the Alpha Tester feature](#using-the-alpha-tester-feature)
   - [Updating your agent with new features](#updating-your-agent-with-new-features)
   - [Adding support for additional languages](#adding-support-for-additional-languages)
   - [Adding Google Home support to a plugin](#adding-google-home-support-to-a-plugin)
@@ -30,6 +31,8 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 1. Add `googlehome` to the list of plugins in your `ENABLE` setting. ([Environment variables](https://github.com/nightscout/cgm-remote-monitor#environment) are set in the configuration section for your monitor. Typically Azure, Heroku, etc.)
 
 ## Create Your DialogFlow Agent
+
+**BEFORE YOU GET STARTED:** Please read [the section below on the **highly-recommended** use of the Alpha tester feature](#using-the-alpha-tester-feature).
 
 1. Download the agent template in your language for Google Home [here](google-home-templates/).
     - If you're language doesn't have a template, please consider starting with [the en-us template](google-home-templates/en-us.zip), then [modifying it to work with your language](#adding-support-for-additional-languages), and [making a pull request](/CONTRIBUTING.md) or [submitting an issue](https://github.com/nightscout/cgm-remote-monitor/issues) with your translated template to share it with others.
@@ -80,6 +83,22 @@ If you use Authentication Roles, you will need to add a token to the end of your
 
 See [Interacting with Virtual Assistants](interacting-with-virtual-assistants.md) for details on what you can do with Google Home.
 
+### Using the Alpha Tester feature
+
+If you use your Google Action on the same account as the one you used to create it, you will find that Google disables Test Mode for the action after some period of time, and you have to log in to the Actions console, and open the testing tab to re-enable testing for you to continue to use it. To overcome this limitation, you can use the Alpa Testers feature of Google Actions. To do so, you need to follow a few extra steps:
+
+1. Figure out which Google account you use for your Google Assistant.
+1. Use or create a different account to follow the instructions to create your Google Action and DialogFlow agent.
+1. Once you verify your Action is working, navigate to the [Actions Console](https://console.actions.google.com/), and open your project.
+1. Navigate to the "Deploy" tab, then open the "Release" page in the left navigation pane.
+1. Expand the "Alpha" section, then click on the "Create a release" button, and then follow the directions to create a release.
+    - You may need to fill out some extra information, such as a Privacy Policy ([example](https://docs.google.com/document/d/1RP32ooEol97UyPiJ9vUskhLb6XC6PHhtVTwh0siUZV0/view)), descriptions (e.g. both could be "Tools and stuff to help my partner and I do things better"), and testing instructions (e.g. "Since this is built entirely for myself and my partner, don't expect too much out of this one."). Because this will be for personal use, it's recommended that you keep all of these as vague as possible.
+1. Click the "Manage Alpha Testers" button.
+1. Enter the email address of the account you use for your Google Assistant (found in step 1). Enter the emails of any other people you would like to have access to talk to your Action (e.g. a spouse).
+1. Click the "Save" button.
+1. Copy the "Opt-in link" and open it on a device logged in with your account from step 1. Repeat for any other emails you added two steps ago. If the link doesn't work right away, try again in a couple hours.
+1. Follow any directions to setup the account as an Alpha Tester.
+
 ## Updating your agent with new features
 
 As more work is done on Nightscout, new ways to interact with Nighscout via Google Home may be made available. To be able to use these new features, you first will need to [update your Nightscout site](https://github.com/nightscout/cgm-remote-monitor#updating-my-version), and then you can follow the steps below to update your DialogFlow agent.
@@ -94,6 +113,7 @@ As more work is done on Nightscout, new ways to interact with Nighscout via Goog
 1. Select the template file you downloaded earlier, then type "RESTORE" in the text box as requested, and click the "RESTORE" button.
 1. After the import is completed, click the "DONE" button.
 1. Make sure to follow any directions specific to the Nightscout update. If there are any, they will be noted in the [release notes](https://github.com/nightscout/cgm-remote-monitor/releases).
+1. If you use the Alpha Testers feature (see [Using the Alpha Tester feature](#using-the-alpha-tester-feature) above), create a new release.
 1. Enjoy the new features!
 
 ## Adding support for additional languages
