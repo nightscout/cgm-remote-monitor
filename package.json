@@ -94,7 +94,7 @@
     "lodash": "^4.17.15",
     "memory-cache": "^0.2.0",
     "mime": "^2.4.6",
-    "minimed-connect-to-nightscout": "nightscout/minimed-connect-to-nightscout#hotfix-2020-06-28-EU-01",
+    "minimed-connect-to-nightscout": "nightscout/minimed-connect-to-nightscout#hotfix-2020-06-28-EU-04",
     "moment": "^2.26.0",
     "moment-locales-webpack-plugin": "^1.2.0",
     "moment-timezone": "^0.5.31",
