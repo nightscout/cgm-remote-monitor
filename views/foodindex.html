@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+    <head>
+      <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
+      <meta name="apple-mobile-web-app-capable" content="yes">
+      <title>Food Editor</title>
+      <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
+      <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
+      <link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png">
+      <link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png">
+      <link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png">
+      <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
+      <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
+      <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
+      <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
+      <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
+      <link rel="icon" type="image/png" href="/images/android-chrome-192x192.png" sizes="192x192">
+      <link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96">
+      <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
+      <link rel="manifest" href="/manifest.json">
+      <link rel="shortcut icon" href="/images/favicon.ico">
+      <meta name="msapplication-TileColor" content="#00a300">
+      <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
+      <meta name="msapplication-config" content="/browserconfig.xml">
+      <meta name="theme-color" content="#333333">
+
+      <link rel="preload" href="/css/main.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="/css/dropdown.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="/css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="/css/food.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="preload" href="/css/ui-darkness/jquery-ui.min.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <% include preloadCSS %>
+
+    </head>
+    <body>
+
+        <a href="/"><div style="z-index: 1000; position: absolute; top: 10px; color: #404040; right: 10px; background: grey; border-radius: 5px; border: 2px solid #404040; padding: 5px; width: 20px; height: 20px; ">X</div></a>
+
+
+      <div id="toolbar">
+        <div id="buttonbar">
+        <b> <span  class="translate">Status</span>:</b> <span id="fe_status" class="translate">Not loaded</span>
+        </div>
+        <h1 class="customTitle">Nightscout</h1>
+        <div id="food-editor">
+          <h1 class="translate">Food Editor</h1>
+        </div>
+      </div>
+    
+    <br>
+    <div id="fe_form">
+      <fieldset class="browserSettings">
+        <legend class="translate">Your database</legend>
+        <fieldset class="browserSettings">
+          <legend class="translate">Filter</legend>
+          <span class="translate">Category</span>: <select id="fe_filter_category"></select>
+          <span class="translate">Subcategory</span>: <select id="fe_filter_subcategory"></select>
+          <span class="translate">Name</span>: <input type="text" id="fe_filter_name"></select>
+        </fieldset>
+        <div id="fe_data_header"></div>
+        <div id="fe_data" style="width:100%;height:250px;overflow-x:hidden;overflow-y:scroll;"></div>
+      </fieldset>
+      <fieldset class="browserSettings">
+        <legend><span class="translate">Record</span> (ID: <input type="text" id="fe_id">)</legend>
+        <table>
+          <tr>
+            <td>
+              <span class="translate">Name</span>: <br><input type="text" id="fe_name">
+            </td>
+            <td>
+              <span class="translate">Portion</span>:<br><input type="text" id="fe_portion">
+            </td>
+            <td>
+              <span class="translate">Unit</span>: <br><select id="fe_unit">
+              </select>
+            </td>
+            <td>
+              <span class="translate">Carbs</span>: [g]<br><input type="number" id="fe_carbs">
+            </td>
+            <td>
+              <span class="translate">GI</span>: <br><select id="fe_gi">
+                <option value="1" class="translate">Low</option>
+                <option value="2" class="translate" selected>Medium</option>
+                <option value="3" class="translate">High</option>
+              </select>
+            </td>
+            <td>
+              <span class="translate">Category</span>: <select id="fe_category_list"></select>
+              <br>
+              <input type="text" id="fe_category">
+            </td>
+            <td>
+              <span class="translate">Subcategory</span>: <select id="fe_subcategory_list"></select>
+              <br>
+              <input type="text" id="fe_subcategory">
+            </td>
+            <td>
+              <span class="translate">Fat [g]</span>:<br><input type="number" id="fe_fat">
+            </td>
+            <td>
+              <span class="translate">Protein [g]</span>:<br><input type="number" id="fe_protein">
+            </td>
+            <td>
+              <span class="translate">Energy [kJ]</span>:<br><input type="number" id="fe_energy">
+            </td>
+          </tr>
+        </table>
+        <button id="fe_editcreate" class="translate">Save</button>
+        <button id="fe_clear" class="translate">Clear</button>
+      </fieldset>
+      <fieldset class="browserSettings">
+        <legend>
+          <span class="translate">Quick picks</span> 
+          |
+          <img style="cursor:pointer" title="Add new" id="fe_quickpick_add" class="titletranslate" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABa0lEQVQ4T6WTzysEYRjHP+/Mrv2hHOTuqJRNOfgPSORHokg4OClHcnVzVygHF6WIcuHMnyCHVRyI3ZYxa23vzOzs7LzamaI0e5i89fTWt/f5vPV5n1cQsXLbHepvfLv5JaLORoZNwMbyFo5vYfsWB0c7xAasLa5T/vCg45Oj48P4gJWFVYxCA63L5PzkND5gfm4Jo+Chd5W5OrtsDYgS1pQ1OTuNUfTQO8tcX9xE+QugYnS/X81MzGP7MpTWkEFVZY1KxcVPV3h27zAtA+oCagIcDfWUCgEje31qfHwK06gHjaF5iXQcHCV5lHmqqgQCNEAI0IsavCVDwNBurxoeGwmaAkDDwvYsqtIh//6AJUoklP97s62BbJYeAqIcpJNZsoM+r2aVbKKOekiBL8An3BuAEiGg1SSKAYnttpFxPdR9Jv4zipxFTUuQKqsfYbFGWfTYuO06yRfxIyweoLuG+iMsFuBfvzFy7FqE33vs2BFqlfN5AAAAAElFTkSuQmCC">
+          |
+          <input type="checkbox" id="fe_quickpick_showhidden"> <span class="translate">Show hidden</span>
+          <span id="fe_quickpick_hiddencount"></span>
+          |
+          <button id="fe_quickpick_save" class="translate">Save</button> 
+        </legend>
+        <div id="fe_picklist"></div>
+      </fieldset>
+      <b><span class="translate">Authentication status</span>: </b>
+      <span id="authentication_placeholder"></span>
+    </div>
+    
+    <script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/food/js/food.js?v=<%= locals.cachebuster %>"></script>
+  </body>
+</html>

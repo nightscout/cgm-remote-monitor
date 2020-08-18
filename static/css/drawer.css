@@ -227,6 +227,7 @@ h1, legend,
   overflow: hidden;
 }
 #buttonbar {
+  margin-right: 50px;
   padding-right: 15px;
   height: 44px;
   opacity: 0.75;
@@ -319,12 +320,22 @@ ul.navigation {
   display: block;
 }
 
+.navigation li.multilink {
+  display: flex;
+}
+
 .navigation a {
   text-decoration: none;
   background-color: #808080;
   display: block;
   padding: 5px;
   margin: 10px 0;
+}
+
+.navigation a.multilink {
+  display: flex;
+  flex-grow: 1;
+  justify-content: center;
 }
 
 .navigation a:hover {
