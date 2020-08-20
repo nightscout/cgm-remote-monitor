@@ -38,8 +38,8 @@ function create (env, ctx) {
         }
         , frameguard: false
       }));
-      if (env.secureCsp) {
-        var secureCspReportOnly = env.secureCspReportOnly;
+
+      var secureCspReportOnly = env.secureCspReportOnly;
         if (secureCspReportOnly) {
           console.info('Enabled SECURE_CSP (Content Security Policy header). Not enforcing. Report only.');
         } else {
@@ -71,7 +71,7 @@ function create (env, ctx) {
           }
           res.status(204).end();
         })
-      }
+      
     }
   } else {
     console.info('Security settings: INSECURE_USE_HTTP=', insecureUseHttp, ', SECURE_HSTS_HEADER=', secureHstsHeader);
