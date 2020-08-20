@@ -52,11 +52,12 @@ function create (env, ctx) {
             , scriptSrc: ["'self'", "'unsafe-inline'"]
             , fontSrc: ["'self'", 'https://fonts.gstatic.com/', 'data:']
             , imgSrc: ["'self'", 'data:']
-            , objectSrc: ["'none'"], // Restricts <object>, <embed>, and <applet> elements
-            reportUri: '/report-violation'
-            , frameAncestors: ["'none'"], // Clickjacking protection, using frame-ancestors
-            baseUri: ["'none'"], // Restricts use of the <base> tag
-            formAction: ["'self'"], // Restricts where <form> contents may be submitted
+            , objectSrc: ["'none'"] // Restricts <object>, <embed>, and <applet> elements
+            , reportUri: '/report-violation'
+            , frameAncestors: ["'none'"]  // Clickjacking protection, using frame-ancestors
+            , baseUri: ["'none'"], // Restricts use of the <base> tag
+            , formAction: ["'self'"] // Restricts where <form> contents may be submitted
+            , connectSrc: ["'self", "ws:", "wss:"]
           }
           , reportOnly: secureCspReportOnly
         }));
