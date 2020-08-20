@@ -55,7 +55,7 @@ function create (env, ctx) {
             , objectSrc: ["'none'"] // Restricts <object>, <embed>, and <applet> elements
             , reportUri: '/report-violation'
             , frameAncestors: ["'none'"]  // Clickjacking protection, using frame-ancestors
-            , baseUri: ["'none'"], // Restricts use of the <base> tag
+            , baseUri: ["'none'"] // Restricts use of the <base> tag
             , formAction: ["'self'"] // Restricts where <form> contents may be submitted
             , connectSrc: ["'self", "ws:", "wss:"]
           }
