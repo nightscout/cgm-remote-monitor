@@ -61,7 +61,6 @@ function create (env, ctx) {
           , reportOnly: secureCspReportOnly
         }));
         app.use(helmet.referrerPolicy({ policy: 'no-referrer' }));
-        app.use(helmet.featurePolicy({ features: { payment: ["'none'"], } }));
         app.use(bodyParser.json({ type: ['json', 'application/csp-report'] }));
         app.post('/report-violation', (req, res) => {
           if (req.body) {
