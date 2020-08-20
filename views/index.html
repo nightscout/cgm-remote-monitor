@@ -733,7 +733,7 @@
             const newWorker = reg.installing;
             newWorker.addEventListener('statechange', (state) => {
               console.log('New worker state change', state);
-              reg.unregister().then(function() { window.location.reload(true); });
+              //reg.unregister().then(function() { window.location.reload(true); });
             });
           });
         }).catch(function(error) {
