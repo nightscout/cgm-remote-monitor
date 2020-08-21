@@ -49,7 +49,7 @@ function create (env, ctx) {
         let frameAncestors = ["'self'"];
 
         for (let i = 0; i <= 8; i++) {
-          let u = env['frameUrl' + i];
+          let u = env.settings['frameUrl' + i];
           if (u) {
             frameAncestors.push(u);
           }
