@@ -38,8 +38,8 @@ function create (env, ctx) {
         }
         , frameguard: false
       }));
-      if (env.secureCsp) {
-        var secureCspReportOnly = env.secureCspReportOnly;
+
+      var secureCspReportOnly = env.secureCspReportOnly;
         if (secureCspReportOnly) {
           console.info('Enabled SECURE_CSP (Content Security Policy header). Not enforcing. Report only.');
         } else {
@@ -58,6 +58,7 @@ function create (env, ctx) {
             , baseUri: ["'none'"] // Restricts use of the <base> tag
             , formAction: ["'self'"] // Restricts where <form> contents may be submitted
             , connectSrc: ["'self'", "ws:", "wss:", 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/']
+            , frameSrc: ["'self'"]
           }
           , reportOnly: secureCspReportOnly
         }));
@@ -71,7 +72,7 @@ function create (env, ctx) {
           }
           res.status(204).end();
         })
-      }
+      
     }
   } else {
     console.info('Security settings: INSECURE_USE_HTTP=', insecureUseHttp, ', SECURE_HSTS_HEADER=', secureHstsHeader);
