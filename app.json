@@ -99,7 +99,7 @@
     },
     "ENABLE": {
       "description": "Plugins to enable for your site. Must be a space-delimited, lower-case list. Include the word 'bridge' here if you are receiving data from the Dexcom Share service. Include 'mmconnect' if you are bridging from the MiniMed CareLink service.",
-      "value": "careportal basal",
+      "value": "careportal basal dbsize",
       "required": false
     },
     "MMCONNECT_USER_NAME": {
@@ -129,7 +129,7 @@
     },
     "SHOW_PLUGINS": {
       "description": "Default setting for whether or not these plugins are checked (active) by default, not merely enabled. Include plugins here as in the ENABLE line; space-separated and lower-case.",
-      "value": "careportal",
+      "value": "careportal dbsize",
       "required": false
     },
     "SHOW_RAWBG": {

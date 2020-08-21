@@ -1,6 +1,6 @@
 {
   "name": "nightscout",
-  "version": "13.0.1",
+  "version": "13.1.0",
   "description": "Nightscout acts as a web-based CGM (Continuous Glucose Montinor) to allow multiple caregivers to remotely view a patients glucose data in realtime.",
   "license": "AGPL-3.0",
   "author": "Nightscout Team",
@@ -28,16 +28,17 @@
   "scripts": {
     "start": "node server.js",
     "test": "env-cmd ./my.test.env mocha --exit tests/*.test.js",
-    "test-ci": "env-cmd ./ci.test.env mocha --exit tests/*.test.js",
+    "test-ci": "env-cmd ./ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --exit tests/*.test.js",
     "env": "env",
     "postinstall": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
     "bundle": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
     "bundle-dev": "webpack --mode development --config webpack.config.js && npm run-script update-buster",
     "bundle-analyzer": "webpack --mode development --config webpack.config.js --profile --json > stats.json && webpack-bundle-analyzer stats.json",
     "update-buster": "node bin/generateCacheBuster.js >tmp/cacheBusterToken",
-    "coverage": "env-cmd ./test.env nyc mocha --exit tests/*.test.js",
+    "coverage": "cat ./coverage/lcov.info | env-cmd ./ci.test.env codacy-coverage",
     "dev": "env-cmd ./my.env nodemon server.js 0.0.0.0",
-    "prod": "env-cmd ./my.prod.env node server.js 0.0.0.0"
+    "prod": "env-cmd ./my.prod.env node server.js 0.0.0.0",
+    "lint": "eslint lib"
   },
   "main": "server.js",
   "config": {
@@ -71,7 +72,9 @@
     "compression": "^1.7.4",
     "css-loader": "^1.0.1",
     "cssmin": "^0.4.3",
+    "csv-stringify": "^5.3.5",
     "d3": "^5.12.0",
+    "easyxml": "^2.0.1",
     "ejs": "^2.6.2",
     "errorhandler": "^1.5.1",
     "event-stream": "3.3.4",
@@ -121,6 +124,8 @@
   "devDependencies": {
     "babel-eslint": "^10.0.3",
     "benv": "^3.3.0",
+    "codacy-coverage": "^3.4.0",
+    "csv-parse": "^4.8.3",
     "env-cmd": "^8.0.2",
     "eslint": "^6.2.1",
     "eslint-loader": "^2.2.1",
@@ -133,7 +138,8 @@
     "terser-webpack-plugin": "^1.4.1",
     "webpack-bundle-analyzer": "^3.4.1",
     "webpack-dev-middleware": "^3.7.2",
-    "webpack-hot-middleware": "^2.25.0"
+    "webpack-hot-middleware": "^2.25.0",
+    "xml2js": "^0.4.23"
   },
   "browserslist": "> 0.25%, not dead"
 }

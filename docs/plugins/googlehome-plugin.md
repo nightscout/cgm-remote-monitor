@@ -6,6 +6,7 @@
   - [Overview](#overview)
   - [Activate the Nightscout Google Home Plugin](#activate-the-nightscout-google-home-plugin)
   - [Create Your DialogFlow Agent](#create-your-dialogflow-agent)
+    - [Do you use Authentication Roles?](#do-you-use-authentication-roles)
     - [What questions can you ask it?](#what-questions-can-you-ask-it)
   - [Updating your agent with new features](#updating-your-agent-with-new-features)
   - [Adding support for additional languages](#adding-support-for-additional-languages)
@@ -56,6 +57,7 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 1. After the import finishes, click the "DONE" button followed by the "SAVE" button.
 1. In the navigation pane on the left, click on "Fulfillment".
 1. Enable the toggle for "Webhook" and then fill in the URL field with your Nightscout URL: `https://YOUR-NIGHTSCOUT-SITE/api/v1/googlehome`
+    - If you use Authentication Roles, you'll need to add a bit to the end of your URL. See [the section](#do-you-use-authentication-roles) below.
 1. Scroll down to the bottom of the page and click the "SAVE" button.
 1. Click on "Integrations" in the navigation pane.
 1. Click on "INTEGRATION SETTINGS" for "Google Assistant".
@@ -64,6 +66,15 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 1. Click "CLOSE".
 
 That's it! Now try asking Google "Hey Google, ask *your Action's name* how am I doing?"
+
+### Do you use Authentication Roles? ###
+
+If you use Authentication Roles, you will need to add a token to the end of your Nightscout URL when configuring your Webhook.
+
+1. In your Nightscout Admin Tools, add a new subject and give it the "readable" role.
+    - If you **really** would like to be super specific, you could create a new role and set the permissions to `api:*:read`.
+1. After the new subject is created, copy the "Access Token" value for the new row in your subject table (**don't** copy the link, just copy the text).
+1. At the end of your Nighscout URL, add `?token=YOUR-TOKEN`, where `YOUR-TOKEN` is the Access Token you just copied. Your new URL should look like `https://YOUR-NIGHTSCOUT-SITE/api/v1/googlehome?token=YOUR-TOKEN`.
 
 ### What questions can you ask it?
 
