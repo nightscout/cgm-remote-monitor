@@ -45,6 +45,16 @@ function create (env, ctx) {
         } else {
           console.info('Enabled SECURE_CSP (Content Security Policy header). Enforcing.');
         }
+
+        let frameAncestors = ["'self'"];
+
+        for (let i = 0; i <= 8; i++) {
+          let u = env.settings['frameUrl' + i];
+          if (u) {
+            frameAncestors.push(u);
+          }
+        }
+
         app.use(helmet.contentSecurityPolicy({ //TODO make NS work without 'unsafe-inline'
           directives: {
             defaultSrc: ["'self'"]
@@ -54,10 +64,11 @@ function create (env, ctx) {
             , imgSrc: ["'self'", 'data:']
             , objectSrc: ["'none'"] // Restricts <object>, <embed>, and <applet> elements
             , reportUri: '/report-violation'
-            , frameAncestors: ["'none'"]  // Clickjacking protection, using frame-ancestors
             , baseUri: ["'none'"] // Restricts use of the <base> tag
             , formAction: ["'self'"] // Restricts where <form> contents may be submitted
             , connectSrc: ["'self'", "ws:", "wss:", 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/']
+            , frameSrc: ["'self'"]
+            , frameAncestors: frameAncestors
           }
           , reportOnly: secureCspReportOnly
         }));
