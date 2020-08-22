@@ -26,6 +26,9 @@ function create (env, ctx) {
       }
     });
     if (secureHstsHeader) { // Add HSTS (HTTP Strict Transport Security) header
+
+      const enableCSP = env.secureCsp ? true : false;
+
       console.info('Enabled SECURE_HSTS_HEADER (HTTP Strict Transport Security)');
       const helmet = require('helmet');
       var includeSubDomainsValue = env.secureHstsHeaderIncludeSubdomains;
@@ -37,9 +40,11 @@ function create (env, ctx) {
           , preload: preloadValue
         }
         , frameguard: false
+        , contentSecurityPolicy: enableCSP
       }));
 
-      var secureCspReportOnly = env.secureCspReportOnly;
+      if (enableCSP) {
+        var secureCspReportOnly = env.secureCspReportOnly;
         if (secureCspReportOnly) {
           console.info('Enabled SECURE_CSP (Content Security Policy header). Not enforcing. Report only.');
         } else {
@@ -82,7 +87,7 @@ function create (env, ctx) {
           }
           res.status(204).end();
         })
-      
+      }
     }
   } else {
     console.info('Security settings: INSECURE_USE_HTTP=', insecureUseHttp, ', SECURE_HSTS_HEADER=', secureHstsHeader);
