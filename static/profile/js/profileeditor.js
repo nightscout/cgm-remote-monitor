@@ -671,13 +671,6 @@
     adjustedRecord.defaultProfile = currentprofile;
     adjustedRecord.units = client.settings.units;
 
-    if (record.convertedOnTheFly) {
-      var result = window.confirm(translate('Profile is going to be saved in newer format used in Nightscout 0.9.0 and above and will not be usable in older versions anymore.\nAre you sure?'));
-      if (!result) {
-        return;
-      }
-    }
-
     delete record.convertedOnTheFly;
     delete adjustedRecord.convertedOnTheFly;
 
