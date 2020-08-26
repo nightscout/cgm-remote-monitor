@@ -1,0 +1,23 @@
+#profile-editor h1 {
+  text-align: left;
+  margin: 10px;
+}
+
+#pe_form input[type="text"], #pe_form input[type="number"] {
+  width: 60px;
+}
+
+#pe_submit {
+  font-size: 18px;
+  font-weight: bolder;
+  background-color: #ccc;
+  padding: 5px 10px;
+  border-radius: 5px;
+  border: 2px solid #aaa;
+  box-shadow: 2px 2px 0 #eee;
+  margin: 20px 0;
+}
+
+.pe_stored_profile {
+  background-color: #222;
+}

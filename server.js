@@ -27,12 +27,14 @@
 ///////////////////////////////////////////////////
 
 var env = require('./env')( );
-
+var language = require('./lib/language')();
+var translate = language.set(env.settings.language).translate;
 
 ///////////////////////////////////////////////////
 // setup http server
 ///////////////////////////////////////////////////
 var PORT = env.PORT;
+var HOSTNAME = env.HOSTNAME;
 
 function create (app) {
   var transport = (env.ssl
@@ -43,25 +45,43 @@ function create (app) {
   return transport.createServer(app);
 }
 
-var bootevent = require('./lib/bootevent');
-bootevent(env).boot(function booted (ctx) {
-    env.store = ctx.store;
+require('./lib/server/bootevent')(env, language).boot(function booted (ctx) {
     var app = require('./app')(env, ctx);
-    var server = create(app).listen(PORT);
-    console.log('listening', PORT);
+    var server = create(app).listen(PORT, HOSTNAME);
+    console.log(translate('Listening on port'), PORT, HOSTNAME);
 
-    if (env.MQTT_MONITOR) {
-      var mqtt = require('./lib/mqtt')(env, app.entries, app.devicestatus);
-      var es = require('event-stream');
-      es.pipeline(mqtt.entries, app.entries.map( ), mqtt.every(app.entries));
+    if (ctx.bootErrors && ctx.bootErrors.length > 0) {
+      return;
     }
+
+    ctx.bus.on('teardown', function serverTeardown () {
+      server.close();
+      clearTimeout(sendStartupAllClearTimer);
+      ctx.store.client.close();
+    });
 
     ///////////////////////////////////////////////////
     // setup socket io for data and message transmission
     ///////////////////////////////////////////////////
-    var websocket = require('./lib/websocket');
-    var io = websocket(env, server, app.entries, app.treatments, app.profiles, app.devicestatus);
-  })
-;
+    var websocket = require('./lib/server/websocket')(env, ctx, server);
 
-///////////////////////////////////////////////////
+    ctx.bus.on('data-processed', function() {
+      websocket.update();
+    });
+
+    ctx.bus.on('notification', function(notify) {
+      websocket.emitNotification(notify);
+    });
+
+    //after startup if there are no alarms send all clear
+    let sendStartupAllClearTimer = setTimeout(function sendStartupAllClear () {
+      var alarm = ctx.notifications.findHighestAlarm();
+      if (!alarm) {
+        ctx.bus.emit('notification', {
+          clear: true
+          , title: 'All Clear'
+          , message: 'Server started without alarms'
+        });
+      }
+    }, 20000);
+});
