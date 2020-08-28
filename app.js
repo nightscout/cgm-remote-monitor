@@ -26,6 +26,9 @@ function create (env, ctx) {
       }
     });
     if (secureHstsHeader) { // Add HSTS (HTTP Strict Transport Security) header
+
+      const enableCSP = env.secureCsp ? true : false;
+
       console.info('Enabled SECURE_HSTS_HEADER (HTTP Strict Transport Security)');
       const helmet = require('helmet');
       var includeSubDomainsValue = env.secureHstsHeaderIncludeSubdomains;
@@ -37,39 +40,52 @@ function create (env, ctx) {
           , preload: preloadValue
         }
         , frameguard: false
+        , contentSecurityPolicy: enableCSP
       }));
-      if (env.secureCsp) {
+
+      if (enableCSP) {
         var secureCspReportOnly = env.secureCspReportOnly;
         if (secureCspReportOnly) {
           console.info('Enabled SECURE_CSP (Content Security Policy header). Not enforcing. Report only.');
         } else {
           console.info('Enabled SECURE_CSP (Content Security Policy header). Enforcing.');
         }
+
+        let frameAncestors = ["'self'"];
+
+        for (let i = 0; i <= 8; i++) {
+          let u = env.settings['frameUrl' + i];
+          if (u) {
+            frameAncestors.push(u);
+          }
+        }
+
         app.use(helmet.contentSecurityPolicy({ //TODO make NS work without 'unsafe-inline'
           directives: {
             defaultSrc: ["'self'"]
-            , styleSrc: ["'self'", 'https://fonts.googleapis.com/', "'unsafe-inline'"]
+            , styleSrc: ["'self'", 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/', "'unsafe-inline'"]
             , scriptSrc: ["'self'", "'unsafe-inline'"]
-            , fontSrc: ["'self'", 'https://fonts.gstatic.com/', 'data:']
+            , fontSrc: ["'self'", 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/', 'data:']
             , imgSrc: ["'self'", 'data:']
-            , objectSrc: ["'none'"], // Restricts <object>, <embed>, and <applet> elements
-            reportUri: '/report-violation'
-            , frameAncestors: ["'none'"], // Clickjacking protection, using frame-ancestors
-            baseUri: ["'none'"], // Restricts use of the <base> tag
-            formAction: ["'self'"], // Restricts where <form> contents may be submitted
+            , objectSrc: ["'none'"] // Restricts <object>, <embed>, and <applet> elements
+            , reportUri: '/report-violation'
+            , baseUri: ["'none'"] // Restricts use of the <base> tag
+            , formAction: ["'self'"] // Restricts where <form> contents may be submitted
+            , connectSrc: ["'self'", "ws:", "wss:", 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/']
+            , frameSrc: ["'self'"]
+            , frameAncestors: frameAncestors
           }
           , reportOnly: secureCspReportOnly
         }));
         app.use(helmet.referrerPolicy({ policy: 'no-referrer' }));
-        app.use(helmet.featurePolicy({ features: { payment: ["'none'"], } }));
         app.use(bodyParser.json({ type: ['json', 'application/csp-report'] }));
         app.post('/report-violation', (req, res) => {
           if (req.body) {
-            console.log('CSP Violation: ', req.body)
+            console.log('CSP Violation: ', req.body);
           } else {
-            console.log('CSP Violation: No data received!')
+            console.log('CSP Violation: No data received!');
           }
-          res.status(204).end()
+          res.status(204).end();
         })
       }
     }
