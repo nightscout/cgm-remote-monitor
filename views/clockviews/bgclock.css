@@ -1,0 +1,28 @@
+.inner {
+  -webkit-transform: translateY(-2%);
+}
+
+#bgnow, #arrowDiv {
+  display: flex;
+  flex-grow: 0;
+  font-weight: 700;
+  font-size: 30vmin;
+  padding: 0 20px;
+  margin: 0;
+}
+
+img#arrow {
+  height: 18vmin;
+  filter: brightness(50%);
+  -webkit-transform: translateY(5%);
+}
+
+#clock {
+  font-weight: 700;
+  font-size: 25vmin;
+  display: inline;
+}
+
+.stale {
+  text-decoration: line-through;
+}
