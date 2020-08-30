@@ -1,7 +1,7 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 
-name: Build and deploy WAR app to Azure Web App - saragaspari
+name: Build and deploy JAR app to Azure Web App - saragaspari
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
     - name: Set up Java version
       uses: actions/setup-java@v1
       with:
-        java-version: '8'
+        java-version: '11'
 
     - name: Build with Maven
       run: mvn clean install
@@ -28,5 +28,5 @@ jobs:
       with:
         app-name: 'saragaspari'
         slot-name: 'production'
-        publish-profile: ${{ secrets.AzureAppService_PublishProfile_9e5aebddee4c440aae7b7ce74001b2c9 }}
-        package: '${{ github.workspace }}/target/*.war'
+        publish-profile: ${{ secrets.AzureAppService_PublishProfile_73aa75db6ace4a1c96f58f0865f210d0 }}
+        package: '${{ github.workspace }}/target/*.jar'
