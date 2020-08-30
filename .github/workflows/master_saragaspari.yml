@@ -28,5 +28,5 @@ jobs:
       with:
         app-name: 'saragaspari'
         slot-name: 'production'
-        publish-profile: ${{ secrets.AzureAppService_PublishProfile_73aa75db6ace4a1c96f58f0865f210d0 }}
+        publish-profile: ${{ secrets.AzureAppService_PublishProfile_419f2b6553f240109d161e3402236e2b }}
         package: '${{ github.workspace }}/target/*.jar'
