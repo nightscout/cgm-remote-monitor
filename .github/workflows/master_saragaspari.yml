@@ -1,7 +1,7 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 
-name: Build and deploy Node.js app to Azure Web App - saragaspari
+name: Build and deploy WAR app to Azure Web App - saragaspari
 
 on:
   push:
@@ -10,26 +10,27 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: windows-latest
+    runs-on: 'windows-latest'
 
     steps:
     - uses: actions/checkout@master
 
-    - name: Set up Node.js version
-      uses: actions/setup-node@v1
-      with:
-        node-version: '10.0.0'
+    - name: Setup MSBuild path
+      uses: microsoft/setup-msbuild@v1.0.0
 
-    - name: npm install, build, and test
-      run: |
-        npm install
-        npm run build --if-present
-        npm run test --if-present
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v1.0.2
 
-    - name: 'Deploy to Azure Web App'
+    - name: Restore NuGet packages
+      run: nuget restore
+
+    - name: Publish to folder
+      run: msbuild /p:Configuration=Release /p:DeployOnBuild=true /t:WebPublish /p:WebPublishMethod=FileSystem /p:publishUrl=./published/ /p:PackageAsSingleFile=false
+
+    - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: 'saragaspari'
         slot-name: 'production'
-        publish-profile: ${{ secrets.AzureAppService_PublishProfile_9e4ada1f06bf4039958a015ba5917566 }}
-        package: .
+        publish-profile: ${{ secrets.AzureAppService_PublishProfile_d78e8a10f6ed4f58823628ec4e9ac642 }}
+        package: ./published/
