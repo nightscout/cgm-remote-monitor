@@ -1,7 +1,7 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 
-name: Build and deploy JAR app to Azure Web App - saragaspari
+name: Build and deploy Node.js app to Azure Web App - saragaspari
 
 on:
   push:
@@ -15,18 +15,21 @@ jobs:
     steps:
     - uses: actions/checkout@master
 
-    - name: Set up Java version
-      uses: actions/setup-java@v1
+    - name: Set up Node.js version
+      uses: actions/setup-node@v1
       with:
-        java-version: '11'
+        node-version: '10.0.0'
 
-    - name: Build with Maven
-      run: mvn clean install
+    - name: npm install, build, and test
+      run: |
+        npm install
+        npm run build --if-present
+        npm run test --if-present
 
-    - name: Deploy to Azure Web App
+    - name: 'Deploy to Azure Web App'
       uses: azure/webapps-deploy@v2
       with:
         app-name: 'saragaspari'
         slot-name: 'production'
-        publish-profile: ${{ secrets.AzureAppService_PublishProfile_419f2b6553f240109d161e3402236e2b }}
-        package: '${{ github.workspace }}/target/*.jar'
+        publish-profile: ${{ secrets.AzureAppService_PublishProfile_9e4ada1f06bf4039958a015ba5917566 }}
+        package: .
