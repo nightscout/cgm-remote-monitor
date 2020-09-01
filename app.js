@@ -109,6 +109,11 @@ function create (env, ctx) {
   }
   app.locals.cachebuster = cacheBuster;
 
+  app.get("/robots.txt", (req, res) => {
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(['User-agent: *','Disallow: /'].join('\n'));
+  });
+
   app.get("/sw.js", (req, res) => {
     res.setHeader('Content-Type', 'application/javascript');
     res.send(ejs.render(fs.readFileSync(
