@@ -13,6 +13,8 @@ var nowData = {
 };
 
 describe('client', function ( ) {
+  this.timeout(30000); // TODO: see why this test takes longer on Travis to complete
+
   var self = this;
 
   var headless = require('./fixtures/headless')(benv, this);
@@ -47,7 +49,7 @@ describe('client', function ( ) {
 
 
     client.init();
-    client.dataUpdate(nowData);
+    client.dataUpdate(nowData, true);
 
     client.careportal.prepareEvents();
 
