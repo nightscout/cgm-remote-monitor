@@ -28,3 +28,11 @@ matrix:
       <<: *node_js-steps
     - node_js: "12" # Latest Node is not supported, and recommend, but we'll test it to know incompatibility issues
       <<: *node_js-steps
+deploy:
+  provider: heroku
+  api_key:
+    secure: t2CQ7346e/GHyfJuhOEr5gTg5u1a/RrwNzGc9L1xe4pezKH3lbS6pXXKaETPNv3A5OAAvDDTfee5jYV9DsKYPHtTqICwoUkEroDV7TL//jD7tnmrR3pgOVawm9cQoqUx5yFVOCuluL+acq33TNSVqoeYAiqDSgrPtiypajRKplh3C3JrsKUzYdy5MmBU/O3sVoWIF+j4jTNFGlCB21XADKAb5n908Z8sA6UVppKAxgqDubmoruiadDect0+zTP9AZHO1dYO4YddNq32J5/exucGKCf0x5jdT03sWccxNkr9PVtLd3m62yOY/EhbyzvYB6TTY9QtTjsJ5tWwdBV21/wl1oWYptH/q2/b0x5idaiNsEPVxzr9caz0hfrvbL6x5/2Jt8qONCubjMhbL10x867HpB0K2srQjI6UySOk5EDLuOjp3eIIddkYCP1GuBVAy+YQplboV5gUgmQuoqjg7K0VbZbrr7DxmvMcU4gWyoItCweKktxSNAZ5BGDxZMDdxi7b2XpXFbWqmh6twDdtGsnFaWQtOXDzBaB49PYJJDK4b9F61fdTHgh+1A1p6LpAzGtG18JVNBlOdd1l/aqw08qhbBoGwy3UjH7rKnm4A1VowZhuSitSNKNEpyos1snMXaPC0LO+XMYnF6cOqm42va1XCGwxnsPcHGlx076F6jM4=
+  app: igicgm-dev
+  on:
+    repo: szymjaw/cgm-remote-monitor
+  
