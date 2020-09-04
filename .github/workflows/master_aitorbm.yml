@@ -31,5 +31,5 @@ jobs:
       with:
         app-name: 'aitorbm'
         slot-name: 'production'
-        publish-profile: ${{ secrets.AzureAppService_PublishProfile_fd7e7fb8b3f44883b6612aed0cfe9d6a }}
+        publish-profile: ${{ secrets.AzureAppService_PublishProfile_67d51653015448619831f7e0d309d680 }}
         package: ${{env.DOTNET_ROOT}}/myapp 
