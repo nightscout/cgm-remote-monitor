@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: '/api/v3'
 info:
-  version: '3.0.0'
+  version: "3.0.1"
   title: Nightscout API
   contact:
     name: NS development discussion channel
@@ -135,6 +135,8 @@ paths:
           $ref: '#/components/responses/403Forbidden'
         404:
           $ref: '#/components/responses/404NotFound'
+        406:
+          $ref: '#/components/responses/406NotAcceptable'
 
 
     ######################################################################################
@@ -178,6 +180,8 @@ paths:
           $ref: '#/components/responses/403Forbidden'
         404:
           $ref: '#/components/responses/404NotFound'
+        422:
+          $ref: '#/components/responses/422UnprocessableEntity'
 
 
   #return HTTP STATUS 400 for all other verbs (PUT, PATCH, DELETE,...)
@@ -238,6 +242,8 @@ paths:
           $ref: '#/components/responses/403Forbidden'
         404:
           $ref: '#/components/responses/404NotFound'
+        406:
+          $ref: '#/components/responses/406NotAcceptable'
         410:
           $ref: '#/components/responses/410Gone'
 
@@ -296,6 +302,8 @@ paths:
           $ref: '#/components/responses/412PreconditionFailed'
         410:
           $ref: '#/components/responses/410Gone'
+        422:
+          $ref: '#/components/responses/422UnprocessableEntity'
 
 
     ######################################################################################
@@ -356,6 +364,8 @@ paths:
           $ref: '#/components/responses/412PreconditionFailed'
         410:
           $ref: '#/components/responses/410Gone'
+        422:
+          $ref: '#/components/responses/422UnprocessableEntity'
 
 
     ######################################################################################
@@ -388,6 +398,8 @@ paths:
           $ref: '#/components/responses/403Forbidden'
         404:
           $ref: '#/components/responses/404NotFound'
+        422:
+          $ref: '#/components/responses/422UnprocessableEntity'
 
 
   ######################################################################################
@@ -451,6 +463,8 @@ paths:
           $ref: '#/components/responses/403Forbidden'
         404:
           $ref: '#/components/responses/404NotFound'
+        406:
+          $ref: '#/components/responses/406NotAcceptable'
 
 
   ######################################################################################
@@ -510,6 +524,8 @@ paths:
           $ref: '#/components/responses/403Forbidden'
         404:
           $ref: '#/components/responses/404NotFound'
+        406:
+          $ref: '#/components/responses/406NotAcceptable'
 
 
   ######################################################################################
@@ -880,16 +896,28 @@ components:
     404NotFound:
       description: The collection or document specified was not found.
 
+    406NotAcceptable:
+      description: The requested content type (in `Accept` header) is not supported.
+
     412PreconditionFailed:
       description: The document has already been modified on the server since specified timestamp (in If-Unmodified-Since header).
 
     410Gone:
       description: The requested document has already been deleted.
 
+    422UnprocessableEntity:
+      description: The client request is well formed but a server validation error occured. Eg. when trying to modify or delete a read-only document (having `isReadOnly=true`).
+
     search200:
       description: Successful operation returning array of documents matching the filtering criteria
       content:
         application/json:
+          schema:
+            $ref: '#/components/schemas/DocumentArray'
+        text/csv:
+          schema:
+            $ref: '#/components/schemas/DocumentArray'
+        application/xml:
           schema:
             $ref: '#/components/schemas/DocumentArray'
 
@@ -902,6 +930,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Document'
+        text/csv:
+          schema:
+            $ref: '#/components/schemas/Document'
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/Document'
       headers:
         'Last-Modified':
           $ref: '#/components/schemas/headerLastModified'
@@ -911,6 +945,12 @@ components:
         Changed documents since specified timestamp
       content:
         application/json:
+          schema:
+            $ref: '#/components/schemas/DocumentArray'
+        text/csv:
+          schema:
+            $ref: '#/components/schemas/DocumentArray'
+        application/xml:
           schema:
             $ref: '#/components/schemas/DocumentArray'
       headers:
@@ -1128,6 +1168,17 @@ components:
 
           example: false
 
+
+        isReadOnly:
+          type: boolean
+          description:
+            A flag set by client that locks the document from any changes. Every document marked with `isReadOnly=true` is forever immutable and cannot even be deleted.
+
+
+            Any attempt to modify the read-only document will end with status 422 UNPROCESSABLE ENTITY.
+
+
+          example: true
 
       required:
         - date
@@ -1395,6 +1446,8 @@ components:
 
     Document:
       description: Single document
+      xml:
+        name: 'item'
       type: object
       oneOf:
         - $ref: '#/components/schemas/DeviceStatus'
@@ -1461,6 +1514,8 @@ components:
 
     DocumentArray:
       type: object
+      xml:
+        name: 'items'
       oneOf:
         - $ref: '#/components/schemas/DeviceStatusArray'
         - $ref: '#/components/schemas/EntryArray'
