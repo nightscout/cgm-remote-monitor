@@ -729,13 +729,29 @@
           console.log('Service worker registered');
           reg.addEventListener('updatefound', () => {
             console.log('Service worker update detected');
-            reg.update();
             const newWorker = reg.installing;
-            newWorker.addEventListener('statechange', (state) => {
-              console.log('New worker state change', state);
-              //reg.unregister().then(function() { 
-                window.location.reload(true);
-              // });
+            var reloaded;
+
+            newWorker.addEventListener('statechange', (stateEvent) => {
+              console.log('New worker state change', stateEvent);
+
+              if (stateEvent.currentTarget.state == 'installed') {
+                // `controller` should be assigned if an active worker already exists
+                if (navigator.serviceWorker.controller) {
+                  // a new worker was activated, so refresh the page
+                  if (reloaded) {
+                    // needed to prevent reload loops with `update on reload` option in dev tools
+                    return;
+                  }
+
+                  console.log('New service worker installed, refreshing');
+                  reloaded = true;
+                  window.location.reload(true);
+                } else {
+                  // there was no active worker, so it was cached and no refresh is necessary
+                  console.log('Service worker cached');
+                }
+              }
             });
           });
         }).catch(function(error) {
