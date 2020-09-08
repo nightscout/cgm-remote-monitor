@@ -130,9 +130,15 @@ self.addEventListener('fetch', function(evt) {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
+      if (!cacheNames) {
+        // Fallback to an empty array if cache is empty.
+        // This can occur if the prefetch fails.
+        return [];
+      }
+
       return cacheNames.filter((cacheName) => CACHE !== cacheName);
     }).then((unusedCaches) => {
-      //console.log('DESTROYING CACHE', unusedCaches.join(','));
+      // console.log('DESTROYING CACHE', unusedCaches.join(','));
       return Promise.all(unusedCaches.map((unusedCache) => {
         return caches.delete(unusedCache);
       }));
