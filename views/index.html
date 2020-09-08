@@ -733,7 +733,7 @@
             var reloaded;
 
             newWorker.addEventListener('statechange', (stateEvent) => {
-              console.log('New worker state change', stateEvent);
+              console.log('New worker state change', stateEvent.currentTarget.state, stateEvent);
 
               if (stateEvent.currentTarget.state == 'installed') {
                 // `controller` should be assigned if an active worker already exists
@@ -758,6 +758,8 @@
           console.log('Registration failed with ' + error);
         });
       });
+    } else {
+      console.log('Browser does not support service workers.');
     };
 
   </script>
