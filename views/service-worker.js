@@ -80,6 +80,20 @@ function update(request) {
   });
 }
 
+// Try to read the requested resource from cache.
+// If the requested resource does not exist in the cache, fetch it from
+// network and cache the response.
+function fromCacheOrUpdate(request) {
+  return caches.open(CACHE).then(function (cache) {
+    return cache.match(request).then(function (cacheResponse) {
+      return cacheResponse || fetch(request).then(function (netResponse) {
+        cache.put(request, netResponse.clone());
+        return netResponse;
+      });
+    });
+  });
+}
+
 // On install, cache some resources.
 self.addEventListener('install', function(evt) {
   console.log('The service worker is being installed.');
@@ -98,12 +112,19 @@ function inCache(request) {
 
 self.addEventListener('fetch', function(evt) {
   if (!evt.request.url.startsWith(self.location.origin) || CACHE === 'developmentMode' || !inCache(evt.request) || evt.request.method !== 'GET') {
-    //console.log('Skipping cache for ',  evt.request.url);
-    return void evt.respondWith(fetch(evt.request));
+    // console.log('Skipping cache for', evt.request.url);
+    evt.respondWith(fetch(evt.request));
+  } else {
+    var request = evt.request;
+    if (evt.request.headers.has('Range')) {
+      // Firefox will give an error if it tries to store partial content (206) responses in the cache.
+      // To mitigate this, strip the `Range` header from the request so a full document (200) is returned.
+      var strippedHeaders = new Headers(evt.request.headers).delete('Range');
+      request = new Request(evt.request, { headers: strippedHeaders });
+    }
+    // console.log('Using cache for', evt.request);
+    evt.respondWith(fromCacheOrUpdate(request));
   }
-  //console.log('Returning cached for ',  evt.request.url);
-  evt.respondWith(fromCache(evt.request));
-  evt.waitUntil(update(evt.request));
 });
 
 self.addEventListener('activate', (event) => {
