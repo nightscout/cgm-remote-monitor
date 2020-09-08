@@ -681,12 +681,13 @@
     // This is a crude way of preventing the user from changing the inputs whilst waiting.
     // If the user was able to make changes, they'd be lost when the done callback redraws anyway.
     $('#pe_form').hide();
-    
+    var headers = client.headers();
+    headers['Content-Type'] = 'application/json';
     $.ajax({
       method: 'PUT'
       , url: '/api/v1/profile/'
-      , data: adjustedRecord
-      , headers: client.headers()
+      , data: JSON.stringify(adjustedRecord)
+      , headers: headers 
     }).done(function postSuccess (data, status) {
       console.info('profile saved', data);
       $('#pe_form').show(); // allow edits again
