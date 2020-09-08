@@ -42,7 +42,20 @@ const CACHE_LIST = [
 // to the cache. Return a promise resolving when all the assets are added.
 function precache() {
   return caches.open(CACHE).then(function (cache) {
-    return cache.addAll(CACHE_LIST);
+    // if any cache requests fail, don't interrupt other requests in progress
+    return Promise.allSettled(
+      CACHE_LIST.map((url) => {
+        // `no-store` in case of partial content responses and
+        // because we're making our own cache
+        let request = new Request(url, { cache: 'no-store' });
+        return fetch(request).then((response) => {
+          // console.log('Caching response', url, response);
+          cache.put(url, response);
+        }).catch((err) => {
+          console.log('Could not precache asset', url, err);
+        });
+      })
+    );
   });
 }
 
@@ -69,7 +82,7 @@ function update(request) {
 
 // On install, cache some resources.
 self.addEventListener('install', function(evt) {
-  //console.log('The service worker is being installed.');
+  console.log('The service worker is being installed.');
   evt.waitUntil(precache());
 });
 
