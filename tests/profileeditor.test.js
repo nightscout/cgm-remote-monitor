@@ -120,8 +120,8 @@ describe('Profile editor', function ( ) {
     client.init();
     client.dataUpdate(nowData);
     
-    var result = $('body').html();
-    console.log(result);
+    // var result = $('body').html();
+    // console.log(result);
     //var filesys = require('fs');
     //var logfile = filesys.createWriteStream('out.html', { flags: 'a'} )
     //logfile.write($('body').html());
