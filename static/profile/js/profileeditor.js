@@ -85,7 +85,7 @@
 
   // Fetch data from mongo
   peStatus.hide().text(translate('Loading profile records ...')).fadeIn('slow');
-  $.ajax('/api/v1/profile.json', {
+  $.ajax('/api/v1/profile.json?count=20', {
     headers: client.headers()
     , success: function (records) {
       if (!records.length) {
