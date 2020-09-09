@@ -23,8 +23,6 @@ const CACHE_LIST = [
     '/images/mstile-144x144.png',
     '/css/ui-darkness/jquery-ui.min.css',
     '/css/jquery.tooltips.css',
-    '/audio/alarm.mp3',
-    '/audio/alarm2.mp3',
     '/css/ui-darkness/images/ui-icons_ffffff_256x240.png',
     '/css/ui-darkness/images/ui-icons_cccccc_256x240.png',
     '/css/ui-darkness/images/ui-bg_inset-soft_25_000000_1x100.png',
