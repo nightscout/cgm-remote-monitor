@@ -733,15 +733,15 @@
             const newWorker = reg.installing;
             newWorker.addEventListener('statechange', (state) => {
               console.log('New worker state change', state);
-              //reg.unregister().then(function() { 
-                window.location.reload(true);
-              // });
+              window.location.reload(true);
             });
           });
         }).catch(function(error) {
           console.log('Registration failed with ' + error);
         });
       });
+    } else {
+      console.log('Browser does not support service workers.');
     };
 
   </script>
