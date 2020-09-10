@@ -553,12 +553,14 @@ For remote overrides, the following extended settings must be configured:
 ##### `dbsize` (Database Size)
   Show size of Nightscout Database, as a percentage of declared available space or in MiB.
 
-  Many deployments of Nightscout use free tier of MongoDB on Heroku, which is limited in size. After some time, as volume of stored data grows, it may happen that this limit is reached and system is unable to store new data. This plugin provides pill that indicates size of Database and shows (when configured) alarms regarding reaching space limit.
+  Many deployments of Nightscout use free tier of MongoDB Atlas on Heroku, which is limited in size. After some time, as volume of stored data grows, it may happen that this limit is reached and system is unable to store new data. This plugin provides pill that indicates size of Database and shows (when configured) alarms regarding reaching space limit.
 
   **IMPORTANT:** This plugin can only check how much space database already takes, _but cannot infer_ max size available on server for it. To have correct alarms and realistic percentage, `DBSIZE_MAX` need to be properly set - according to your mongoDB hosting configuration.
 
-  **NOTE:** It may happen that new data cannot be saved to database (due to size limits) even when this plugin reports that storage is not 100% full. MongoDB pre-allocate data in advance, and database file is always made bigger than total real data size. To avoid premature alarms, this plugin refers to data size instead of file size, but sets warning thresholds low. It may happen, that file size of database will take 100% of allowed space but there will be plenty of place inside to store the data. But it may also happen, with file size is at its max, that data size will be ~70% of file size, and there will be no place left. That may happen because data inside file is fragmented and free space _holes_ are too small for new entries. In such case calling `db.repairDatabase()` on mongoDB is recommended to compact and repack data (currently only doable with third-party mongoDB tools, but action is planned to be added in _Admin Tools_ section in future releases).
+  **NOTE:** This plugin rely on db.stats() for reporting _logical_ size of database, which may be different than _physical_ size of database on server. It may work for free tier of MongoDB on Atlas, since it calculate quota according to logical size too, but may fail for other hostings or self-hosted database with quota based on physical size. 
   
+  **NOTE:** MongoDB Atlas quota is for **all** databases in cluster, while each instance will get only size of **its own database only**. It is ok when you only have **one** database in cluster (most common scenario) but will not work for multiple parallel databases. In such case, spliting known quota equally beetween databases and setting `DBSIZE_MAX` to that fraction may help, but wont be precise.
+
   All sizes are expressed as integers, in _Mebibytes_ `1 MiB == 1024 KiB == 1024*1024 B`
 
   * `DBSIZE_MAX` (`496`) - Maximal allowed size of database on your mongoDB server, in MiB. You need to adjust that value to match your database hosting limits - default value is for standard Heroku mongoDB free tier.
