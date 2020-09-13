@@ -9,7 +9,7 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 [![Codacy Badge][codacy-img]][codacy-url]
 [![Discord chat][discord-img]][discord-url]
 
-[![Deploy to Azure](http://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/) [![Deploy to Heroku][heroku-img]][heroku-url] [![Update your site][update-img]][update-fork]
+[![Deploy to Heroku][heroku-img]][heroku-url] [![Update your site][update-img]][update-fork]
 
 This acts as a web-based CGM (Continuous Glucose Monitor) to allow
 multiple caregivers to remotely view a patient's glucose data in
@@ -20,10 +20,21 @@ and blood glucose values are predicted 0.5 hours ahead using an
 autoregressive second order model.  Alarms are generated for high and
 low values, which can be cleared by any watcher of the data.
 
-# [#WeAreNotWaiting](https://twitter.com/hashtag/wearenotwaiting?src=hash&vertical=default&f=images) and [this](https://vimeo.com/109767890) is why.
+# Looking for documentation?
 
-Community maintained fork of the
-[original cgm-remote-monitor][original].
+## End user?
+
+Nightscout documentation is currently split to two locations. This page lists all the configuration options in
+Nightscout and is useful for users who've already gone through the installation process. IF you're looking
+for the documentation that looks like it's written for non-programmers, that's located at [nightscout.github.io](https://nightscout.github.io/).
+
+Older documentation is available at [nightscout.info](http://nightscout.info).
+
+## Developer?
+
+See [CONTRIBUTING.md](CONTRIBUTING.md)
+
+## [#WeAreNotWaiting](https://twitter.com/hashtag/wearenotwaiting?src=hash&vertical=default&f=images) and [this](https://vimeo.com/109767890) is why.
 
 [![Coverage Status](https://coveralls.io/repos/github/nightscout/cgm-remote-monitor/badge.svg?branch=master)](https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=master)
 
@@ -42,6 +53,7 @@ Community maintained fork of the
 [update-img]: update.png
 [update-fork]: http://nightscout.github.io/pages/update-fork/
 [original]: https://github.com/rnpenguin/cgm-remote-monitor
+
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -119,13 +131,20 @@ Community maintained fork of the
 
 ## Supported configurations:
 
-If you plan to use Nightscout, we recommend using [Heroku](http://www.nightscout.info/wiki/welcome/set-up-nightscout-using-heroku), as Nightscout can reach the usage limits of the free Azure plan and cause it to shut down for hours or days. If you end up needing a paid tier, the $7/mo Heroku plan is also much cheaper than the first paid tier of Azure. Currently, the only added benefit to choosing the $7/mo Heroku plan vs the free Heroku plan is a section showing site use metrics for performance (such as response time). This has limited benefit to the average Nightscout user. In short, Heroku is the free and best option for Nightscout hosting.
+If you plan to use Nightscout, we recommend using [Heroku](https://nightscout.github.io/nightscout/new_user/) as this is free and easy to use.
+We used to recommend hostig at Azure, but the resource needs of Nightscout have grown over the years and Azure won't comfortably run Nightscout
+anymore in the free tier. If you're hosting in Azure and looking to update your site, we recommend you
+[switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku)
+as you're likely to hit issues in the process of updating the site.
 
-- [Nightscout Setup with Heroku](http://www.nightscout.info/wiki/welcome/set-up-nightscout-using-heroku) (recommended)
-- [Nightscout Setup with Microsoft Azure](http://www.nightscout.info/wiki/faqs-2/azure-2) (not recommended, please
-[switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku) )
-- Linux based install (Debian, Ubuntu, Raspbian) install with own Node.JS and MongoDB install (see software requirements below)
-- Windows based install with own Node.JS and MongoDB install (see software requirements below)
+- [Nightscout Setup with Heroku](https://nightscout.github.io/nightscout/new_user/) (recommended)
+
+While you can install Nightscout on a virtual server or a Raspberry Pi, we do not recommend this unless you have at least some
+experience hosting Node applications and development using the toolchain in use with Nightscout. Heroku automates all of the
+hosting for you and even many of the dvelopers run their production sites in Heroku due to convenience.
+
+If you're a hosting provider and want to provide our users additional free hosting options,
+you're welcome to issue a documentation pull request with instructions on how to setup Nightscout on your system.
 
 ## Recommended minimum browser versions for using Nightscout:
 
@@ -144,7 +163,7 @@ Some features may not work with devices/browsers on the older end of these requi
 
 ## Windows installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.15.1 or later) or Node 10 LTS (Node 10.16.0 or later; Node 10.15.2 works for Azure). Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
+- [Node.js](http://nodejs.org/) Latest Node 12 LTS. Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
@@ -176,10 +195,8 @@ Want to help with development, or just see how Nightscout works? Great! See [CON
 
 # Usage
 
-The data being uploaded from the server to the client is from a
-MongoDB server such as [mLab][mLab].
+The data being uploaded from the server to the client is from a MongoDB server such as [MongoDB Atlas][https://www.mongodb.com].
 
-[mLab]: https://mlab.com/
 [autoconfigure]: https://nightscout.github.io/pages/configure/
 [mongostring]: https://nightscout.github.io/pages/mongostring/
 
