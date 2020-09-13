@@ -122,6 +122,11 @@
       "value": "US",
       "required": false
     },
+    "MONGODB_URI": {
+      "description": "The MongoDB Connection String to connect to your MongoDB cluster",
+      "value": "",
+      "required": true
+    },
     "MONGO_COLLECTION": {
       "description": "The Mongo collection where CGM data is stored.",
       "value": "entries",
@@ -154,7 +159,6 @@
     }
   },
   "addons": [
-    "mongolab:sandbox",
     "papertrail"
   ]
 }
