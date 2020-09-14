@@ -96,7 +96,6 @@ function create (env, ctx) {
   app.set('view engine', 'ejs');
   // this allows you to render .html files as templates in addition to .ejs
   app.engine('html', require('ejs').renderFile);
-  app.engine('appcache', require('ejs').renderFile);
   app.set("views", path.join(__dirname, "views/"));
 
   let cacheBuster = 'developmentMode';
@@ -278,10 +277,6 @@ function create (env, ctx) {
   if (process.env.NODE_ENV === 'development') {
     maxAge = 1;
     console.log('Development environment detected, setting static file cache age to 1 second');
-
-    app.get('/nightscout.appcache', function(req, res) {
-      res.sendStatus(404);
-    });
   }
 
   var staticFiles = express.static(env.static_files, {
