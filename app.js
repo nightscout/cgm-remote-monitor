@@ -100,12 +100,19 @@ function create (env, ctx) {
   app.set("views", path.join(__dirname, "views/"));
 
   let cacheBuster = 'developmentMode';
+  let lastModified = new Date();
+  let busterPath = '/tmp/cacheBusterToken';
+
   if (process.env.NODE_ENV !== 'development') {
-    if (fs.existsSync(process.cwd() + '/tmp/cacheBusterToken')) {
-      cacheBuster = fs.readFileSync(process.cwd() + '/tmp/cacheBusterToken').toString().trim();
-    } else {
-      cacheBuster = fs.readFileSync(__dirname + '/tmp/cacheBusterToken').toString().trim();
-    }
+    busterPath = process.cwd() + busterPath;
+  } else {
+    busterPath = __dirname + busterPath;
+  }
+
+  if (fs.existsSync(busterPath)) {
+      cacheBuster = fs.readFileSync(busterPath).toString().trim();
+      var stats = fs.statSync(busterPath);
+      lastModified = stats.mtime;
   }
   app.locals.cachebuster = cacheBuster;
 
@@ -116,6 +123,9 @@ function create (env, ctx) {
 
   app.get("/sw.js", (req, res) => {
     res.setHeader('Content-Type', 'application/javascript');
+    if (process.env.NODE_ENV !== 'development') {
+      res.setHeader('Last-Modified', lastModified.toUTCString());
+    }
     res.send(ejs.render(fs.readFileSync(
       require.resolve(`${__dirname}/views/service-worker.js`),
       { encoding: 'utf-8' }),
