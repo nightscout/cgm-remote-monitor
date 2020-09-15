@@ -54,6 +54,12 @@ require('./lib/server/bootevent')(env, language).boot(function booted (ctx) {
       return;
     }
 
+    ctx.bus.on('teardown', function serverTeardown () {
+      server.close();
+      clearTimeout(sendStartupAllClearTimer);
+      ctx.store.client.close();
+    });
+
     ///////////////////////////////////////////////////
     // setup socket io for data and message transmission
     ///////////////////////////////////////////////////
@@ -68,7 +74,7 @@ require('./lib/server/bootevent')(env, language).boot(function booted (ctx) {
     });
 
     //after startup if there are no alarms send all clear
-    setTimeout(function sendStartupAllClear () {
+    let sendStartupAllClearTimer = setTimeout(function sendStartupAllClear () {
       var alarm = ctx.notifications.findHighestAlarm();
       if (!alarm) {
         ctx.bus.emit('notification', {
