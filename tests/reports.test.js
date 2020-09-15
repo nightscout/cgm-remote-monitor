@@ -268,7 +268,7 @@ describe('reports', function ( ) {
       result.indexOf('50 g').should.be.greaterThan(-1); // daytoday
       result.indexOf('TDD average:</b> 2.9U').should.be.greaterThan(-1); // daytoday
       result.indexOf('<td class="tdborder">0%</td><td class="tdborder">100%</td><td class="tdborder">0%</td><td class="tdborder">2</td>').should.be.greaterThan(-1); //dailystats
-      //TODO FIXME result.indexOf('td class="tdborder" style="background-color:#8f8"><strong>Normal: </strong></td><td class="tdborder">64.7%</td><td class="tdborder">6</td>').should.be.greaterThan(-1); // distribution
+      result.indexOf('<td class="tdborder" style="background-color:#8f8"><strong>In Range: </strong></td><td class="tdborder">47.6%</td><td class="tdborder">10</td>').should.be.greaterThan(-1); // distribution
       result.indexOf('<td>16 (100%)</td>').should.be.greaterThan(-1); // hourlystats
       result.indexOf('<div id="success-grid">').should.be.greaterThan(-1); //success
       result.indexOf('<b style="padding-left:4em">CAL</b>:  Scale: 1.10 Intercept: 31102 Slope: 776.91').should.be.greaterThan(-1); //calibrations
