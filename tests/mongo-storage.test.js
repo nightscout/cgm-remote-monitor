@@ -44,11 +44,17 @@ describe('mongo storage', function () {
   it('An invalid connection-string should throw an error.', function (done) {
     env.storageURI = 'This is not a MongoDB connection-string';
 
-    (function () {
-      return require('../lib/storage/mongo-storage')(env, false, true);
-    }).should.throw(Error);
-
-    done();
+    (async function () {
+      try {
+        let foo = await require('../lib/storage/mongo-storage')(env, false, true);
+        false.should.be.true();
+      }
+      catch (err) {
+        console.log('We have failed, this is good!');
+        done();
+      }
+    })();
+    
   });
 
 });
