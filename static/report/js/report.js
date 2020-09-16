@@ -764,7 +764,7 @@
     $('#info > b').html('<b>' + translate('Loading core profiles') + ' ...</b>');
 
     //The results must be returned in descending order to work with key logic in routines such as getCurrentProfile
-    var tquery = '?find[startDate][$gte]=' + new Date(dateFrom).toISOString() + '&find[startDate][$lte]=' + new Date(dateTo).toISOString() + '&sort[startDate]=-1&count=' + dayCount;
+    var tquery = '?find[startDate][$gte]=' + new Date(dateFrom).toISOString() + '&find[startDate][$lte]=' + new Date(dateTo).toISOString() + '&sort[startDate]=-1&count=1000';
 
     return $.ajax('/api/v1/profiles' + tquery, {
         headers: client.headers(),
