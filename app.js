@@ -96,16 +96,22 @@ function create (env, ctx) {
   app.set('view engine', 'ejs');
   // this allows you to render .html files as templates in addition to .ejs
   app.engine('html', require('ejs').renderFile);
-  app.engine('appcache', require('ejs').renderFile);
   app.set("views", path.join(__dirname, "views/"));
 
   let cacheBuster = 'developmentMode';
+  let lastModified = new Date();
+  let busterPath = '/tmp/cacheBusterToken';
+
   if (process.env.NODE_ENV !== 'development') {
-    if (fs.existsSync(process.cwd() + '/tmp/cacheBusterToken')) {
-      cacheBuster = fs.readFileSync(process.cwd() + '/tmp/cacheBusterToken').toString().trim();
-    } else {
-      cacheBuster = fs.readFileSync(__dirname + '/tmp/cacheBusterToken').toString().trim();
-    }
+    busterPath = process.cwd() + busterPath;
+  } else {
+    busterPath = __dirname + busterPath;
+  }
+
+  if (fs.existsSync(busterPath)) {
+      cacheBuster = fs.readFileSync(busterPath).toString().trim();
+      var stats = fs.statSync(busterPath);
+      lastModified = stats.mtime;
   }
   app.locals.cachebuster = cacheBuster;
 
@@ -116,6 +122,9 @@ function create (env, ctx) {
 
   app.get("/sw.js", (req, res) => {
     res.setHeader('Content-Type', 'application/javascript');
+    if (process.env.NODE_ENV !== 'development') {
+      res.setHeader('Last-Modified', lastModified.toUTCString());
+    }
     res.send(ejs.render(fs.readFileSync(
       require.resolve(`${__dirname}/views/service-worker.js`),
       { encoding: 'utf-8' }),
@@ -268,10 +277,6 @@ function create (env, ctx) {
   if (process.env.NODE_ENV === 'development') {
     maxAge = 1;
     console.log('Development environment detected, setting static file cache age to 1 second');
-
-    app.get('/nightscout.appcache', function(req, res) {
-      res.sendStatus(404);
-    });
   }
 
   var staticFiles = express.static(env.static_files, {
