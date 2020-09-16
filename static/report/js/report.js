@@ -654,7 +654,7 @@
       if (!datastorage.profileSwitchTreatments)
         datastorage.profileSwitchTreatments = [];
       $('#info-' + day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
-      var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
+      var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString()+'&count=1000';
       return $.ajax('/api/v1/treatments.json'+tquery, {
         headers: client.headers()
         , cache: false
@@ -764,7 +764,7 @@
     $('#info > b').html('<b>' + translate('Loading core profiles') + ' ...</b>');
 
     //The results must be returned in descending order to work with key logic in routines such as getCurrentProfile
-    var tquery = '?find[startDate][$gte]=' + new Date(dateFrom).toISOString() + '&find[startDate][$lte]=' + new Date(dateTo).toISOString() + '&sort[startDate]=-1&count=' + dayCount;
+    var tquery = '?find[startDate][$gte]=' + new Date(dateFrom).toISOString() + '&find[startDate][$lte]=' + new Date(dateTo).toISOString() + '&sort[startDate]=-1&count=1000';
 
     return $.ajax('/api/v1/profiles' + tquery, {
         headers: client.headers(),
