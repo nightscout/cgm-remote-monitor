@@ -654,7 +654,7 @@
       if (!datastorage.profileSwitchTreatments)
         datastorage.profileSwitchTreatments = [];
       $('#info-' + day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
-      var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
+      var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString()+'&count=1000';
       return $.ajax('/api/v1/treatments.json'+tquery, {
         headers: client.headers()
         , cache: false
