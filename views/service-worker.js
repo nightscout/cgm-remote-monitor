@@ -23,8 +23,6 @@ const CACHE_LIST = [
     '/images/mstile-144x144.png',
     '/css/ui-darkness/jquery-ui.min.css',
     '/css/jquery.tooltips.css',
-    '/audio/alarm.mp3',
-    '/audio/alarm2.mp3',
     '/css/ui-darkness/images/ui-icons_ffffff_256x240.png',
     '/css/ui-darkness/images/ui-icons_cccccc_256x240.png',
     '/css/ui-darkness/images/ui-bg_inset-soft_25_000000_1x100.png',
@@ -38,44 +36,111 @@ const CACHE_LIST = [
     '/images/logo2.png'
 ];
 
-// Open a cache and use `addAll()` with an array of assets to add all of them
-// to the cache. Return a promise resolving when all the assets are added.
-function precache() {
-  return caches.open(CACHE).then(function (cache) {
-    return cache.addAll(CACHE_LIST);
-  });
-}
-
-// Open the cache where the assets were stored and search for the requested
-// resource. Notice that in case of no matching, the promise still resolves
-// but it does with `undefined` as value.
-function fromCache(request) {
-  return caches.open(CACHE).then(function (cache) {
-    return cache.match(request).then(function (matching) {
-      return matching || Promise.reject('no-match');
+function returnRangeRequest(request) {
+  return caches
+    .open(CACHE)
+    .then((cache) => {
+      return cache.match(request.url);
+    })
+    .then((res) => {
+      if (!res) {
+        return fetch(request)
+          .then(res => {
+            const clonedRes = res.clone();
+            return caches
+              .open(CACHE)
+              .then(cache => cache.put(request, clonedRes))
+              .then(() => res);
+          })
+          .then(res => {
+            return res.arrayBuffer();
+          });
+      }
+      return res.arrayBuffer();
+    })
+    .then((arrayBuffer) => {
+      const bytes = /^bytes=(\d+)-(\d+)?$/g.exec(
+        request.headers.get('range')
+      );
+      if (bytes) {
+        const start = Number(bytes[1]);
+        const end = Number(bytes[2]) || arrayBuffer.byteLength - 1;
+        return new Response(arrayBuffer.slice(start, end + 1), {
+          status: 206,
+          statusText: 'Partial Content',
+          headers: [
+            ['Content-Range', `bytes ${start}-${end}/${arrayBuffer.byteLength}`]
+          ]
+        });
+      } else {
+        return new Response(null, {
+          status: 416,
+          statusText: 'Range Not Satisfiable',
+          headers: [['Content-Range', `*/${arrayBuffer.byteLength}`]]
+        });
+      }
     });
+}
+
+// Open a cache and `put()` the assets to the cache.
+// Return a promise resolving when all the assets are added.
+function precache() {
+  return caches.open(CACHE)
+    .then((cache) => {
+    // if any cache requests fail, don't interrupt other requests in progress
+    return Promise.allSettled(
+      CACHE_LIST.map((url) => {
+        // `no-store` in case of partial content responses and
+        // because we're making our own cache
+        let request = new Request(url, { cache: 'no-store' });
+        return fetch(request).then((response) => {
+          // console.log('Caching response', url, response);
+          cache.put(url, response);
+        }).catch((err) => {
+          console.log('Could not precache asset', url, err);
+        });
+      })
+    );
   });
 }
 
-// Update consists in opening the cache, performing a network request and
-// storing the new response data.
-function update(request) {
-  return caches.open(CACHE).then(function (cache) {
-    return fetch(request).then(function (response) {
-      return cache.put(request, response);
+// Try to read the requested resource from cache.
+// If the requested resource does not exist in the cache, fetch it from
+// network and cache the response.
+function fromCache(request) {
+  return caches.open(CACHE).then((cache) => {
+    return cache.match(request).then((matching) => {
+      console.log(matching);
+      if(matching){
+        return matching;
+      }
+
+      return fetch(request).then((response) => {
+        // console.log('Response from network is:', response);
+        cache.put(request, response.clone());
+        return response;
+      }).catch((error) => {
+        // This catch() will handle exceptions thrown from the fetch() operation.
+        // Note that a HTTP error response (e.g. 404) will NOT trigger an exception.
+        // It will return a normal response object that has the appropriate error code set.
+        console.error('Fetching failed:', error);
+
+        throw error;
+      });
     });
   });
 }
 
 // On install, cache some resources.
-self.addEventListener('install', function(evt) {
-  //console.log('The service worker is being installed.');
+self.addEventListener('install', (evt) => {
+  // console.log('The service worker is being installed.');
+  self.skipWaiting();
   evt.waitUntil(precache());
 });
 
 function inCache(request) {
   let found = false;
-  CACHE_LIST.forEach( function (e) {
+  CACHE_LIST.forEach((e) => {
     if (request.url.endsWith(e)) {
       found = true;
     }
@@ -83,25 +148,29 @@ function inCache(request) {
   return found;
 }
 
-self.addEventListener('fetch', function(evt) {
+self.addEventListener('fetch', (evt) => {
   if (!evt.request.url.startsWith(self.location.origin) || CACHE === 'developmentMode' || !inCache(evt.request) || evt.request.method !== 'GET') {
     //console.log('Skipping cache for ',  evt.request.url);
     return void evt.respondWith(fetch(evt.request));
   }
-  //console.log('Returning cached for ',  evt.request.url);
-  evt.respondWith(fromCache(evt.request));
-  evt.waitUntil(update(evt.request));
+  if (evt.request.headers.get('range')) {
+    evt.respondWith(returnRangeRequest(evt.request));
+  } else {
+    evt.respondWith(fromCache(evt.request));
+  }
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
-      return cacheNames.filter((cacheName) => CACHE !== cacheName);
-    }).then((unusedCaches) => {
-      //console.log('DESTROYING CACHE', unusedCaches.join(','));
-      return Promise.all(unusedCaches.map((unusedCache) => {
-        return caches.delete(unusedCache);
-      }));
-    }).then(() => self.clients.claim())
-  );
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE) {
+            // console.log('Deleting out of date cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }));
+
 });

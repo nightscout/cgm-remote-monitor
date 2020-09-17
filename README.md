@@ -9,7 +9,7 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 [![Codacy Badge][codacy-img]][codacy-url]
 [![Discord chat][discord-img]][discord-url]
 
-[![Deploy to Azure](http://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/) [![Deploy to Heroku][heroku-img]][heroku-url] [![Update your site][update-img]][update-fork]
+[![Deploy to Heroku][heroku-img]][heroku-url] [![Update your site][update-img]][update-fork]
 
 This acts as a web-based CGM (Continuous Glucose Monitor) to allow
 multiple caregivers to remotely view a patient's glucose data in
@@ -20,10 +20,21 @@ and blood glucose values are predicted 0.5 hours ahead using an
 autoregressive second order model.  Alarms are generated for high and
 low values, which can be cleared by any watcher of the data.
 
-# [#WeAreNotWaiting](https://twitter.com/hashtag/wearenotwaiting?src=hash&vertical=default&f=images) and [this](https://vimeo.com/109767890) is why.
+# Looking for documentation?
 
-Community maintained fork of the
-[original cgm-remote-monitor][original].
+## End user?
+
+Nightscout documentation is currently split to two locations. This page lists all the configuration options in
+Nightscout and is useful for users who've already gone through the installation process. IF you're looking
+for the documentation that looks like it's written for non-programmers, that's located at [nightscout.github.io](https://nightscout.github.io/).
+
+Older documentation is available at [nightscout.info](http://nightscout.info).
+
+## Developer?
+
+See [CONTRIBUTING.md](CONTRIBUTING.md)
+
+## [#WeAreNotWaiting](https://twitter.com/hashtag/wearenotwaiting?src=hash&vertical=default&f=images) and [this](https://vimeo.com/109767890) is why.
 
 [![Coverage Status](https://coveralls.io/repos/github/nightscout/cgm-remote-monitor/badge.svg?branch=master)](https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=master)
 
@@ -42,6 +53,7 @@ Community maintained fork of the
 [update-img]: update.png
 [update-fork]: http://nightscout.github.io/pages/update-fork/
 [original]: https://github.com/rnpenguin/cgm-remote-monitor
+
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -119,13 +131,20 @@ Community maintained fork of the
 
 ## Supported configurations:
 
-If you plan to use Nightscout, we recommend using [Heroku](http://www.nightscout.info/wiki/welcome/set-up-nightscout-using-heroku), as Nightscout can reach the usage limits of the free Azure plan and cause it to shut down for hours or days. If you end up needing a paid tier, the $7/mo Heroku plan is also much cheaper than the first paid tier of Azure. Currently, the only added benefit to choosing the $7/mo Heroku plan vs the free Heroku plan is a section showing site use metrics for performance (such as response time). This has limited benefit to the average Nightscout user. In short, Heroku is the free and best option for Nightscout hosting.
+If you plan to use Nightscout, we recommend using [Heroku](https://nightscout.github.io/nightscout/new_user/) as this is free and easy to use.
+We used to recommend hostig at Azure, but the resource needs of Nightscout have grown over the years and Azure won't comfortably run Nightscout
+anymore in the free tier. If you're hosting in Azure and looking to update your site, we recommend you
+[switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku)
+as you're likely to hit issues in the process of updating the site.
 
-- [Nightscout Setup with Heroku](http://www.nightscout.info/wiki/welcome/set-up-nightscout-using-heroku) (recommended)
-- [Nightscout Setup with Microsoft Azure](http://www.nightscout.info/wiki/faqs-2/azure-2) (not recommended, please
-[switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku) )
-- Linux based install (Debian, Ubuntu, Raspbian) install with own Node.JS and MongoDB install (see software requirements below)
-- Windows based install with own Node.JS and MongoDB install (see software requirements below)
+- [Nightscout Setup with Heroku](https://nightscout.github.io/nightscout/new_user/) (recommended)
+
+While you can install Nightscout on a virtual server or a Raspberry Pi, we do not recommend this unless you have at least some
+experience hosting Node applications and development using the toolchain in use with Nightscout. Heroku automates all of the
+hosting for you and even many of the dvelopers run their production sites in Heroku due to convenience.
+
+If you're a hosting provider and want to provide our users additional free hosting options,
+you're welcome to issue a documentation pull request with instructions on how to setup Nightscout on your system.
 
 ## Recommended minimum browser versions for using Nightscout:
 
@@ -144,7 +163,7 @@ Some features may not work with devices/browsers on the older end of these requi
 
 ## Windows installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.15.1 or later) or Node 10 LTS (Node 10.16.0 or later; Node 10.15.2 works for Azure). Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
+- [Node.js](http://nodejs.org/) Latest Node 12 LTS. Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
@@ -176,10 +195,8 @@ Want to help with development, or just see how Nightscout works? Great! See [CON
 
 # Usage
 
-The data being uploaded from the server to the client is from a
-MongoDB server such as [mLab][mLab].
+The data being uploaded from the server to the client is from a MongoDB server such as [MongoDB Atlas][https://www.mongodb.com].
 
-[mLab]: https://mlab.com/
 [autoconfigure]: https://nightscout.github.io/pages/configure/
 [mongostring]: https://nightscout.github.io/pages/mongostring/
 
@@ -553,12 +570,14 @@ For remote overrides, the following extended settings must be configured:
 ##### `dbsize` (Database Size)
   Show size of Nightscout Database, as a percentage of declared available space or in MiB.
 
-  Many deployments of Nightscout use free tier of MongoDB on Heroku, which is limited in size. After some time, as volume of stored data grows, it may happen that this limit is reached and system is unable to store new data. This plugin provides pill that indicates size of Database and shows (when configured) alarms regarding reaching space limit.
+  Many deployments of Nightscout use free tier of MongoDB Atlas on Heroku, which is limited in size. After some time, as volume of stored data grows, it may happen that this limit is reached and system is unable to store new data. This plugin provides pill that indicates size of Database and shows (when configured) alarms regarding reaching space limit.
 
   **IMPORTANT:** This plugin can only check how much space database already takes, _but cannot infer_ max size available on server for it. To have correct alarms and realistic percentage, `DBSIZE_MAX` need to be properly set - according to your mongoDB hosting configuration.
 
-  **NOTE:** It may happen that new data cannot be saved to database (due to size limits) even when this plugin reports that storage is not 100% full. MongoDB pre-allocate data in advance, and database file is always made bigger than total real data size. To avoid premature alarms, this plugin refers to data size instead of file size, but sets warning thresholds low. It may happen, that file size of database will take 100% of allowed space but there will be plenty of place inside to store the data. But it may also happen, with file size is at its max, that data size will be ~70% of file size, and there will be no place left. That may happen because data inside file is fragmented and free space _holes_ are too small for new entries. In such case calling `db.repairDatabase()` on mongoDB is recommended to compact and repack data (currently only doable with third-party mongoDB tools, but action is planned to be added in _Admin Tools_ section in future releases).
+  **NOTE:** This plugin rely on db.stats() for reporting _logical_ size of database, which may be different than _physical_ size of database on server. It may work for free tier of MongoDB on Atlas, since it calculate quota according to logical size too, but may fail for other hostings or self-hosted database with quota based on physical size. 
   
+  **NOTE:** MongoDB Atlas quota is for **all** databases in cluster, while each instance will get only size of **its own database only**. It is ok when you only have **one** database in cluster (most common scenario) but will not work for multiple parallel databases. In such case, spliting known quota equally beetween databases and setting `DBSIZE_MAX` to that fraction may help, but wont be precise.
+
   All sizes are expressed as integers, in _Mebibytes_ `1 MiB == 1024 KiB == 1024*1024 B`
 
   * `DBSIZE_MAX` (`496`) - Maximal allowed size of database on your mongoDB server, in MiB. You need to adjust that value to match your database hosting limits - default value is for standard Heroku mongoDB free tier.
