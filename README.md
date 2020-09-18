@@ -9,7 +9,7 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 [![Codacy Badge][codacy-img]][codacy-url]
 [![Discord chat][discord-img]][discord-url]
 
-[![Deploy to Azure](http://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/) [![Deploy to Heroku][heroku-img]][heroku-url] [![Update your site][update-img]][update-fork]
+[![Deploy to Heroku][heroku-img]][heroku-url] [![Update your site][update-img]][update-fork]
 
 This acts as a web-based CGM (Continuous Glucose Monitor) to allow
 multiple caregivers to remotely view a patient's glucose data in
@@ -20,10 +20,21 @@ and blood glucose values are predicted 0.5 hours ahead using an
 autoregressive second order model.  Alarms are generated for high and
 low values, which can be cleared by any watcher of the data.
 
-# [#WeAreNotWaiting](https://twitter.com/hashtag/wearenotwaiting?src=hash&vertical=default&f=images) and [this](https://vimeo.com/109767890) is why.
+# Looking for documentation?
 
-Community maintained fork of the
-[original cgm-remote-monitor][original].
+## End user?
+
+Nightscout documentation is currently split to two locations. This page lists all the configuration options in
+Nightscout and is useful for users who've already gone through the installation process. IF you're looking
+for the documentation that looks like it's written for non-programmers, that's located at [nightscout.github.io](https://nightscout.github.io/).
+
+Older documentation is available at [nightscout.info](http://nightscout.info).
+
+## Developer?
+
+See [CONTRIBUTING.md](CONTRIBUTING.md)
+
+## [#WeAreNotWaiting](https://twitter.com/hashtag/wearenotwaiting?src=hash&vertical=default&f=images) and [this](https://vimeo.com/109767890) is why.
 
 [![Coverage Status](https://coveralls.io/repos/github/nightscout/cgm-remote-monitor/badge.svg?branch=master)](https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=master)
 
@@ -43,29 +54,31 @@ Community maintained fork of the
 [update-fork]: http://nightscout.github.io/pages/update-fork/
 [original]: https://github.com/rnpenguin/cgm-remote-monitor
 
+
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**
 
 - [Install](#install)
   - [Supported configurations:](#supported-configurations)
-  - [Minimum browser requirements for viewing the site:](#minimum-browser-requirements-for-viewing-the-site)
+  - [Recommended minimum browser versions for using Nightscout:](#recommended-minimum-browser-versions-for-using-nightscout)
   - [Windows installation software requirements:](#windows-installation-software-requirements)
   - [Installation notes for users with nginx or Apache reverse proxy for SSL/TLS offloading:](#installation-notes-for-users-with-nginx-or-apache-reverse-proxy-for-ssltls-offloading)
   - [Installation notes for Microsoft Azure, Windows:](#installation-notes-for-microsoft-azure-windows)
+- [Development](#development)
 - [Usage](#usage)
   - [Updating my version?](#updating-my-version)
-  - [What is my mongo string?](#what-is-my-mongo-string)
   - [Configure my uploader to match](#configure-my-uploader-to-match)
   - [Nightscout API](#nightscout-api)
       - [Example Queries](#example-queries)
   - [Environment](#environment)
     - [Required](#required)
-    - [Features/Labs](#featureslabs)
+    - [Features](#features)
     - [Alarms](#alarms)
     - [Core](#core)
     - [Predefined values for your browser settings (optional)](#predefined-values-for-your-browser-settings-optional)
     - [Predefined values for your server settings (optional)](#predefined-values-for-your-server-settings-optional)
+    - [Views](#views)
     - [Plugins](#plugins)
       - [Default Plugins](#default-plugins)
         - [`delta` (BG Delta)](#delta-bg-delta)
@@ -97,7 +110,7 @@ Community maintained fork of the
         - [`openaps` (OpenAPS)](#openaps-openaps)
         - [`loop` (Loop)](#loop-loop)
         - [`override` (Override Mode)](#override-override-mode)
-        - [`xdripjs` (xDrip-js)](#xdripjs-xdripjs)
+        - [`xdripjs` (xDrip-js)](#xdripjs-xdrip-js)
         - [`alexa` (Amazon Alexa)](#alexa-amazon-alexa)
         - [`googlehome` (Google Home/DialogFLow)](#googlehome-google-homedialogflow)
         - [`speech` (Speech)](#speech-speech)
@@ -109,6 +122,7 @@ Community maintained fork of the
   - [Setting environment variables](#setting-environment-variables)
     - [Vagrant install](#vagrant-install)
   - [More questions?](#more-questions)
+    - [Browser testing suite provided by](#browser-testing-suite-provided-by)
   - [License](#license)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -117,13 +131,20 @@ Community maintained fork of the
 
 ## Supported configurations:
 
-If you plan to use Nightscout, we recommend using [Heroku](http://www.nightscout.info/wiki/welcome/set-up-nightscout-using-heroku), as Nightscout can reach the usage limits of the free Azure plan and cause it to shut down for hours or days. If you end up needing a paid tier, the $7/mo Heroku plan is also much cheaper than the first paid tier of Azure. Currently, the only added benefit to choosing the $7/mo Heroku plan vs the free Heroku plan is a section showing site use metrics for performance (such as response time). This has limited benefit to the average Nightscout user. In short, Heroku is the free and best option for Nightscout hosting.
+If you plan to use Nightscout, we recommend using [Heroku](https://nightscout.github.io/nightscout/new_user/) as this is free and easy to use.
+We used to recommend hostig at Azure, but the resource needs of Nightscout have grown over the years and Azure won't comfortably run Nightscout
+anymore in the free tier. If you're hosting in Azure and looking to update your site, we recommend you
+[switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku)
+as you're likely to hit issues in the process of updating the site.
 
-- [Nightscout Setup with Heroku](http://www.nightscout.info/wiki/welcome/set-up-nightscout-using-heroku) (recommended)
-- [Nightscout Setup with Microsoft Azure](http://www.nightscout.info/wiki/faqs-2/azure-2) (not recommended, please
-[switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku) )
-- Linux based install (Debian, Ubuntu, Raspbian) install with own Node.JS and MongoDB install (see software requirements below)
-- Windows based install with own Node.JS and MongoDB install (see software requirements below)
+- [Nightscout Setup with Heroku](https://nightscout.github.io/nightscout/new_user/) (recommended)
+
+While you can install Nightscout on a virtual server or a Raspberry Pi, we do not recommend this unless you have at least some
+experience hosting Node applications and development using the toolchain in use with Nightscout. Heroku automates all of the
+hosting for you and even many of the dvelopers run their production sites in Heroku due to convenience.
+
+If you're a hosting provider and want to provide our users additional free hosting options,
+you're welcome to issue a documentation pull request with instructions on how to setup Nightscout on your system.
 
 ## Recommended minimum browser versions for using Nightscout:
 
@@ -142,7 +163,7 @@ Some features may not work with devices/browsers on the older end of these requi
 
 ## Windows installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 8 LTS (Node 8.15.1 or later) or Node 10 LTS (Node 10.16.0 or later; Node 10.15.2 works for Azure). Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
+- [Node.js](http://nodejs.org/) Latest Node 12 LTS. Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
@@ -174,10 +195,8 @@ Want to help with development, or just see how Nightscout works? Great! See [CON
 
 # Usage
 
-The data being uploaded from the server to the client is from a
-MongoDB server such as [mLab][mLab].
+The data being uploaded from the server to the client is from a MongoDB server such as [MongoDB Atlas][https://www.mongodb.com].
 
-[mLab]: https://mlab.com/
 [autoconfigure]: https://nightscout.github.io/pages/configure/
 [mongostring]: https://nightscout.github.io/pages/mongostring/
 
@@ -292,6 +311,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
     * The `linear` option has equidistant tick marks; the range used is dynamic so that space at the top of chart isn't wasted.
     * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale.
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enables the icon allowing for editing of treatments in the main view.
+  * `BOLUS_RENDER_OVER` (1) - U value over which the bolus values are rendered on the chart if the 'x U and Over' option is selected. This value can be an integer or a float, e.g. 0.3, 1.5, 2, etc...
 
 ### Predefined values for your server settings (optional)
   * `INSECURE_USE_HTTP` (`false`) - Redirect unsafe http traffic to https. Possible values `false`, or `true`. Your site redirects to `https` by default. If you don't want that from Nightscout, but want to implement that with a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. Note: This will allow (unsafe) http traffic to your Nightscout instance and is not recommended.
@@ -303,10 +323,34 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 
 ### Views
 
-  There are a few alternate web views available from the main menu that display a simplified BG stream. (If you launch one of these in a fullscreen view in iOS, you can use a left-to-right swipe gesture to exit the view.)
+  Nightscout allows to create custom, simplified views using a predefined set of elements. This option is available under `[+]` link in the main menu.
+  
+  List of available items:
+  * `SGV` - Sensor Glucose Value
+  * `SGV age` - time since the last SGV read
+  * `SGV delta` - change of SGV in the last 5 minutes
+  * `Trend arrow` - icon of the SG trend
+  * `Time` - current time
+  * `Line break` - invisible item that will move following items to the next line (by default all are showing on the same level)
+  
+  All visible items have `Size` property which allows to customize the view even more. Also, all items may appear multiple times on the view.
+  
+  Apart from adding items, it is possible to customize other aspects of the views, like selecting `Color` or `Black` background. The first one will indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
+  `Show SGV age` option will make `SGV age` item appear `Always` or only if the predefined threshold is reached: `Only after threshold`. Breaching `SGV age threshold` will also make `Color` background turn grey and strike through `SGV`.
+  `Clock view configurator` will generate an URL (available under `Open my clock view!` link) that could be bookmarked.
+  
+  There are a few default views available from the main menu: 
   * `Clock` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
-  * `Color` - Shows current BG and trend arrow. White text on a background that changes color to indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above). Set `SHOW_CLOCK_DELTA` to `true` to show BG change in the last 5 minutes, set `SHOW_CLOCK_LAST_TIME` to `true` to always show BG age.
+  * `Color` - Shows current BG and trend arrow. White text on a color background.
   * `Simple` - Shows current BG. Grey text on a black background.
+
+  If you launch one of these views in a fullscreen view in iOS, you can use a left-to-right swipe gesture to exit the view.
+
+### Split View
+
+  Some users will need easy access to multiple Nightscout views at the same time. We have a special view for this case, accessed on /split path on your Nightscout URL. The view supports any number of sites between 1 to 8 way split, where the content for the screen can be loaded from multiple Nightscout instances. Note you still need to host separate instances for each Nightscout being monitored including the one that hosts the split view page - these variables only add the ability to load multiple views into one browser page. To set the URLs from which the content is loaded, set:
+  * `FRAME_URL_1` - URL where content is loaded, for the first view (increment the number up to 8 to get more views)
+  * `FRAME_NAME_1` - Name for the first split view portion of the screen (increment the number to name more views)
 
 ### Plugins
 
@@ -431,14 +475,15 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `BASAL_RENDER` (`none`) - Possible values are `none`, `default`, or `icicle` (inverted)
 
 ##### `bridge` (Share2Nightscout bridge)
-  Glucose reading directly from the Share service, uses these extended settings:
-  * `BRIDGE_USER_NAME` - Your user name for the Share service.
+  Glucose reading directly from the Dexcom Share service, uses these extended settings:
+  * `BRIDGE_USER_NAME` - Your username for the Share service.
   * `BRIDGE_PASSWORD` - Your password for the Share service.
-  * `BRIDGE_INTERVAL` (`150000` *2.5 minutes*) - The time to wait between each update.
+  * `BRIDGE_INTERVAL` (`150000` *2.5 minutes*) - The time (in milliseconds) to wait between each update.
   * `BRIDGE_MAX_COUNT` (`1`) - The number of records to attempt to fetch per update.
   * `BRIDGE_FIRST_FETCH_COUNT` (`3`) - Changes max count during the very first update only.
   * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
-  * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (default is one day in minutes).
+  * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (the default value is one day in minutes).
+  * `BRIDGE_SERVER` (``) - The default blank value is used to fetch data from Dexcom servers in the US. Set to (`EU`) to fetch from European servers instead.
 
 ##### `mmconnect` (MiniMed Connect bridge)
   Transfer real-time MiniMed Connect data from the Medtronic CareLink server into Nightscout ([read more](https://github.com/mddub/minimed-connect-to-nightscout))
@@ -522,12 +567,34 @@ For remote overrides, the following extended settings must be configured:
   Enabled [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) so other websites can make request to your Nightscout site, uses these extended settings:
   * `CORS_ALLOW_ORIGIN` (`*`) - The list of sites that are allow to make requests
 
+##### `dbsize` (Database Size)
+  Show size of Nightscout Database, as a percentage of declared available space or in MiB.
+
+  Many deployments of Nightscout use free tier of MongoDB Atlas on Heroku, which is limited in size. After some time, as volume of stored data grows, it may happen that this limit is reached and system is unable to store new data. This plugin provides pill that indicates size of Database and shows (when configured) alarms regarding reaching space limit.
+
+  **IMPORTANT:** This plugin can only check how much space database already takes, _but cannot infer_ max size available on server for it. To have correct alarms and realistic percentage, `DBSIZE_MAX` need to be properly set - according to your mongoDB hosting configuration.
+
+  **NOTE:** This plugin rely on db.stats() for reporting _logical_ size of database, which may be different than _physical_ size of database on server. It may work for free tier of MongoDB on Atlas, since it calculate quota according to logical size too, but may fail for other hostings or self-hosted database with quota based on physical size. 
+  
+  **NOTE:** MongoDB Atlas quota is for **all** databases in cluster, while each instance will get only size of **its own database only**. It is ok when you only have **one** database in cluster (most common scenario) but will not work for multiple parallel databases. In such case, spliting known quota equally beetween databases and setting `DBSIZE_MAX` to that fraction may help, but wont be precise.
+
+  All sizes are expressed as integers, in _Mebibytes_ `1 MiB == 1024 KiB == 1024*1024 B`
+
+  * `DBSIZE_MAX` (`496`) - Maximal allowed size of database on your mongoDB server, in MiB. You need to adjust that value to match your database hosting limits - default value is for standard Heroku mongoDB free tier.
+  * `DBSIZE_WARN_PERCENTAGE` (`60`) - Threshold to show first warning about database size. When database reach this percentage of `DBSIZE_MAX` size - pill will show size in yellow. 
+  * `DBSIZE_URGENT_PERCENTAGE` (`75`) - Threshold to show urgent warning about database size. When database reach this percentage of `DBSIZE_MAX` size, it is urgent to do backup and clean up old data. At this percentage info pill turns red.
+  * `DBSIZE_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications about database size.
+  * `DBSIZE_IN_MIB` (`false`) - Set to `true` to display size of database in MiB-s instead of default percentage.
+  
+  This plugin should be enabled by default, if needed can be diasabled by adding `dbsize` to the list of disabled plugins, for example: `DISABLE="dbsize"`.
+
 #### Extended Settings
   Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
 
   Plugins only have access to their own extended settings, all the extended settings of client plugins will be sent to the browser.
 
   * `DEVICESTATUS_ADVANCED` (`true`) - Defaults to true. Users who only have a single device uploading data to Nightscout can set this to false to reduce the data use of the site.
+  * `DEVICESTATUS_DAYS` (`1`) - Defaults to 1, can optionally be set to 2. Users can use this to show 48 hours of device status data for in retro mode, rather than the default 24 hours. Setting this value to 2 will roughly double the bandwidth usage of nightscout, so users with a data cap may not want to update this setting.
 
 #### Pushover
   In addition to the normal web based alarms, there is also support for [Pushover](https://pushover.net/) based alarms and notifications.
@@ -583,7 +650,7 @@ For remote overrides, the following extended settings must be configured:
   Treatment Profile Fields:
 
   * `timezone` (Time Zone) - time zone local to the patient. *Should be set.*
-  * `units` (Profile Units) - blood glucose units used in the profile, either "mgdl" or "mmol"
+  * `units` (Profile Units) - blood glucose units used in the profile, either "mg/dl" or "mmol"
   * `dia` (Insulin duration) - value should be the duration of insulin action to use in calculating how much insulin is left active. Defaults to 3 hours.
   * `carbs_hr` (Carbs per Hour) - The number of carbs that are processed per hour, for more information see [#DIYPS](http://diyps.org/2014/05/29/determining-your-carbohydrate-absorption-rate-diyps-lessons-learned/).
   * `carbratio` (Carb Ratio) - grams per unit of insulin.
