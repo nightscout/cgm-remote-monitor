@@ -4,7 +4,7 @@ servers:
 info:
   title: Nightscout API
   description: Own your DData with the Nightscout API
-  version: 0.10.3-master-20180805
+  version: 14.0.3
   license:
     name: AGPL 3
     url: 'https://www.gnu.org/licenses/agpl.txt'
@@ -444,6 +444,60 @@ paths:
               $ref: '#/components/schemas/Treatments'
         description: Treatments to be uploaded.
         required: true
+    delete:
+      tags:
+        - Treatments
+      summary: Delete treatments matching query.
+      description: 'Remove treatments, same search syntax as GET.'
+      operationId: remove
+      parameters:
+        - name: find
+          in: query
+          description: >-
+            The query used to find treatments to delete,
+            support nested query syntax, for example `find[insulin][$gte]=3`.
+            All find parameters are interpreted as strings.
+          required: false
+          schema:
+            type: string
+        - name: count
+          in: query
+          description: Number of entries to return.
+          required: false
+          schema:
+            type: number
+      responses:
+        '200':
+          description: Empty list is success.
+  '/treatments/{spec}':
+    delete:
+      summary: Delete treatments record with id provided in spec
+      description: |
+        The Treatments endpoint returns information about the
+        Nightscout devicestatus records.
+      parameters:
+        - name: spec
+          in: path
+          description: |
+            treatment id, such as `55cf81bc436037528ec75fa5`
+          required: true
+          schema:
+            type: string
+      tags:
+        - Treatments
+      responses:
+        '200':
+          description: A status record of the delete.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteStatus'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /profile:
     get:
       summary: Profile
@@ -484,6 +538,120 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /devicestatus/:
+    get:
+      summary: All Devicestatuses matching query
+      description: >-
+        The Devicestatus endpoint returns information about the Nightscout
+        devicestatus records.
+      parameters:
+        - name: find
+          in: query
+          description: >-
+            The query used to find entries, support nested query syntax, for
+            example `find[dateString][$gte]=2015-08-27`.  All find parameters
+            are interpreted as strings.
+          required: false
+          schema:
+            type: string
+        - name: count
+          in: query
+          description: Number of devicestatus records to return.
+          required: false
+          schema:
+            type: number
+      tags:
+        - Devicestatus
+      responses:
+        '200':
+          description: An array of devicestatus entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Devicestatuses'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Devicestatus
+      summary: Add new devicestatus records.
+      description: ''
+      operationId: addDevicestatuses
+      responses:
+        '200':
+          description: Rejected list of device statuses.  Empty list is success.
+        '405':
+          description: Invalid input
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Devicestatuses'
+        description: Device statuses to be uploaded.
+        required: true
+    delete:
+      summary: Delete all Devicestatus records matching query
+      description: |
+        The Devicestatus endpoint returns information about the
+        Nightscout devicestatus records.
+      parameters:
+        - name: find
+          in: query
+          description: |
+            The query used to find entries, support nested query syntax, for
+            example `find[created_at][$gte]=2015-08-27`.  All find parameters
+            are interpreted as strings.
+          required: false
+          schema:
+            type: string
+      tags:
+        - Devicestatus
+      responses:
+        '200':
+          description: A status record of the delete.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteStatus'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/devicestatus/{spec}':
+    delete:
+      summary: Delete devicestatus record with id provided in spec
+      description: |
+        The Devicestatus endpoint returns information about the
+        Nightscout devicestatus records.
+      parameters:
+        - name: spec
+          in: path
+          description: |
+            entry id, such as `55cf81bc436037528ec75fa5`
+          required: true
+          schema:
+            type: string
+      tags:
+        - Devicestatus
+      responses:
+        '200':
+          description: A status record of the delete.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteStatus'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 components:
   securitySchemes:
     api_secret:
@@ -495,7 +663,9 @@ components:
       type: apiKey
       name: token
       in: query
-      description: Add token as query item in the URL. You can manage access Token in `/admin`. This uses json webtokens.
+      description: >-
+        Add token as query item in the URL. You can manage access Token in
+        `/admin`. This uses json webtokens.
     jwtoken:
       type: http
       scheme: bearer
@@ -509,7 +679,7 @@ components:
           description: 'sgv, mbg, cal, etc'
         dateString:
           type: string
-          description: 'dateString, prefer ISO `8601`'
+          description: 'dateString, MUST be ISO `8601` format date parseable by Javascript Date()'
         date:
           type: number
           description: Epoch
@@ -543,6 +713,152 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/Entry'
+    Devicestatus:
+      required:
+        - device
+        - created_at
+      properties:
+        device:
+          type: string
+          description: 'Device type and hostname for example openaps://hostname'
+        created_at:
+          type: string
+          description: 'dateString, MUST be ISO `8601` format date parseable by Javascript Date()'
+        openaps:
+          type: string
+          description: 'OpenAPS devicestatus record - TODO: Fill Out Details'
+        loop:
+          type: string
+          description: 'Loop devicestatus record - TODO: Fill Out Details'
+        pump:
+          $ref: '#/components/schemas/pump'
+        uploader:
+          $ref: '#/components/schemas/uploader'
+        xdripjs:
+          $ref: '#/components/schemas/xdripjs'
+    Devicestatuses:
+      type: array
+      items:
+        $ref: '#/components/schemas/Devicestatus'
+    pump:
+      properties:
+        clock:
+          type: string
+          description: 'dateString, MUST be ISO `8601` format date parseable by Javascript Date()'
+        battery:
+          $ref: '#/components/schemas/pumpbattery'
+        reservoir:
+          type: number
+          description: Amount of insulin remaining in pump reservoir
+        status:
+          $ref: '#/components/schemas/pumpstatus'
+    pumpbattery:
+      properties:
+        status:
+          type: string
+          description: Pump Battery Status String
+        voltage:
+          type: number
+          description: Pump Battery Voltage Level
+    pumpstatus:
+      properties:
+        status:
+          type: string
+          description: Pump Status String
+        bolusing:
+          type: boolean
+          description: Is Pump Bolusing
+        suspended:
+          type: boolean
+          description: Is Pump Suspended
+        timestamp:
+          type: string
+          description: 'dateString, MUST be ISO `8601` format date parseable by Javascript Date()'
+    uploader:
+      properties:
+        batteryVoltage:
+          type: number
+          description: Uploader Device Battery Voltage
+        battery:
+          type: number
+          description: Uploader Device Battery Percentage Charge Remaining
+    xdripjs:
+      properties:
+        state:
+          type: number
+          description: CGM Sensor Session State Code
+        stateString:
+          type: string
+          description: CGM Sensor Session State String
+        stateStringShort:
+          type: string
+          description: CGM Sensor Session State Short String
+        txId:
+          type: string
+          description: CGM Transmitter ID
+        txStatus:
+          type: number
+          description: CGM Transmitter Status
+        txStatusString:
+          type: string
+          description: CGM Transmitter Status String
+        txStatusStringShort:
+          type: string
+          description: CGM Transmitter Status Short String
+        txActivation:
+          type: number
+          description: CGM Transmitter Activation Milliseconds After Epoch
+        mode:
+          type: string
+          description: 'Mode xdrip-js Application Operationg: expired, not expired, etc.'
+        timestamp:
+          type: number
+          description: Last Update Milliseconds After Epoch
+        rssi:
+          type: number
+          description: Receive Signal Strength of Transmitter
+        unfiltered:
+          type: number
+          description: Most Recent Raw Unfiltered Glucose
+        filtered:
+          type: number
+          description: Most Recent Raw Filtered Glucose
+        noise:
+          type: number
+          description: 'Calculated Noise Value - 1=Clean, 2=Light, 3=Medium, 4=Heavy'
+        noiseString:
+          type: number
+          description: Noise Value String
+        slope:
+          type: number
+          description: Calibration Slope Value
+        intercept:
+          type: number
+          description: Calibration Intercept Value
+        calType:
+          type: string
+          description: Algorithm Used to Calculate Calibration Values
+        lastCalibrationDate:
+          type: number
+          description: Most Recent Calibration Milliseconds After Epoch
+        sessionStart:
+          type: number
+          description: Sensor Session Start Milliseconds After Epoch
+        batteryTimestamp:
+          type: number
+          description: Most Recent Batter Status Read Milliseconds After Epoch
+        voltagea:
+          type: number
+          description: Voltage of Battery A
+        voltageb:
+          type: number
+          description: Voltage of Battery B
+        temperature:
+          type: number
+          description: Transmitter Temperature
+        resistance:
+          type: number
+          description: Sensor Resistance
     Treatment:
       properties:
         _id:
@@ -562,7 +878,13 @@ components:
           description: 'Method used to obtain glucose, Finger or Sensor.'
         carbs:
           type: number
-          description: Number of carbs.
+          description: Amount of carbs consumed in grams.
+        protein:
+          type: number
+          description: Amount of protein consumed in grams.
+        fat:
+          type: number
+          description: Amount of fat consumed in grams.
         insulin:
           type: number
           description: 'Amount of insulin, if any.'
@@ -724,3 +1046,33 @@ components:
           type: string
         fields:
           type: object
+    DeleteStatus:
+      properties:
+        'n':
+          type: integer
+          format: int32
+          description: Number of records deleted
+        optime:
+          $ref: '#/components/schemas/optime'
+        electionId:
+          type: string
+          description: Election id of operation
+        ok:
+          type: integer
+          format: int32
+          description: Status of whether delete was successful
+        operationTime:
+          type: string
+          description: Time delete operation was executed
+        $clusterTime:
+          type: string
+          description: Information about execution time in cluster environment
+    optime:
+      properties:
+        ts:
+          type: string
+          description: Time the operation started
+        t:
+          type: integer
+          format: int32
+          description: Time the operation took to complete
