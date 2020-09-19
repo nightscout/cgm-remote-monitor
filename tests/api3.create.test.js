@@ -16,7 +16,7 @@ describe('API3 CREATE', function() {
   self.validDoc = {
     date: (new Date()).getTime(),
     app: testConst.TEST_APP,
-    device: testConst.TEST_DEVICE + ' API3 CREATE',
+    device: testConst.TEST_DEVICE,
     eventType: 'Correction Bolus',
     insulin: 0.3
   };
@@ -72,7 +72,7 @@ describe('API3 CREATE', function() {
 
 
   after(() => {
-    self.instance.ctx.bus.teardown();
+    self.instance.server.close();
   });
 
 
