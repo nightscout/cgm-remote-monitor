@@ -62,6 +62,7 @@ describe('Treatment API', function ( ) {
     });
   });
 
+  /*
   it('saving entry without created_at should fail', function (done) {
 
     self.ctx.treatments().remove({ }, function ( ) {
@@ -79,7 +80,7 @@ describe('Treatment API', function ( ) {
         });
     });
   });
-
+*/
 
   it('post single treatments in zoned time format', function (done) {
    
