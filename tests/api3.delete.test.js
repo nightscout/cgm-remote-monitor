@@ -28,7 +28,7 @@ describe('API3 UPDATE', function() {
 
 
   after(() => {
-    self.instance.ctx.bus.teardown();
+    self.instance.server.close();
   });
 
 
