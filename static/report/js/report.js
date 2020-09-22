@@ -459,14 +459,11 @@
       if (loadeddays === dayscount) {
         sorteddaystoshow.sort();
         var from = sorteddaystoshow[0];
-        var dFrom = sorteddaystoshow[0];
-        var dTo = sorteddaystoshow[(sorteddaystoshow.length - 1)];
-
         if (options.order === report_plugins.consts.ORDER_NEWESTONTOP) {
           sorteddaystoshow.reverse();
         }
-        loadProfileSwitch(dFrom, function loadProfileSwitchCallback() {
-            loadProfilesRange(dFrom, dTo, sorteddaystoshow.length, function loadProfilesCallback() {
+        loadProfileSwitch(from, function loadProfileSwitchCallback() {
+          loadProfiles(function loadProfilesCallback() {
             $('#info > b').html('<b>' + translate('Rendering') + ' ...</b>');
             window.setTimeout(function () {
               showreports(options);
@@ -654,7 +651,7 @@
       if (!datastorage.profileSwitchTreatments)
         datastorage.profileSwitchTreatments = [];
       $('#info-' + day).html('<b>'+translate('Loading treatments data of')+' '+day+' ...</b>');
-      var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString()+'&count=1000';
+      var tquery = '?find[created_at][$gte]='+new Date(from).toISOString()+'&find[created_at][$lt]='+new Date(to).toISOString();
       return $.ajax('/api/v1/treatments.json'+tquery, {
         headers: client.headers()
         , cache: false
@@ -712,7 +709,7 @@
     });
   }
 
-  function loadProfileSwitch (from, callback) {
+  function loadProfileSwitch(from, callback) {
     $('#info > b').html('<b>'+translate('Loading profile switch data') + ' ...</b>');
     var tquery = '?find[eventType]=Profile Switch' + '&find[created_at][$lte]=' + new Date(from).toISOString() + '&count=1';
     $.ajax('/api/v1/treatments.json'+tquery, {
@@ -746,69 +743,6 @@
     }).done(callback);
   }
 
-  function loadProfilesRange (dateFrom, dateTo, dayCount, callback) {
-    $('#info > b').html('<b>' + translate('Loading profile range') + ' ...</b>');
-
-    $.when(
-        loadProfilesRangeCore(dateFrom, dateTo, dayCount),
-        loadProfilesRangePrevious(dateFrom),
-        loadProfilesRangeNext(dateTo)
-      )
-      .done(callback)
-      .fail(function () {
-        datastorage.profiles = [];
-      });
-  }
-
-  function loadProfilesRangeCore (dateFrom, dateTo, dayCount) {
-    $('#info > b').html('<b>' + translate('Loading core profiles') + ' ...</b>');
-
-    //The results must be returned in descending order to work with key logic in routines such as getCurrentProfile
-    var tquery = '?find[startDate][$gte]=' + new Date(dateFrom).toISOString() + '&find[startDate][$lte]=' + new Date(dateTo).toISOString() + '&sort[startDate]=-1&count=1000';
-
-    return $.ajax('/api/v1/profiles' + tquery, {
-        headers: client.headers(),
-          async: false,
-          success: function (records) {
-              datastorage.profiles = records;
-          }
-    });
-  }
-
-  function loadProfilesRangePrevious (dateFrom) {
-    $('#info > b').html('<b>' + translate('Loading previous profile') + ' ...</b>');
-
-      //Find first one before the start date and add to datastorage.profiles
-    var tquery = '?find[startDate][$lt]=' + new Date(dateFrom).toISOString() + '&sort[startDate]=-1&count=1';
-
-    return $.ajax('/api/v1/profiles' + tquery, {
-        headers: client.headers(),
-        async: false,
-        success: function (records) {
-          records.forEach(function (r) {
-            datastorage.profiles.push(r);
-          });
-        }
-    });
-  }
-
-  function loadProfilesRangeNext (dateTo) {
-    $('#info > b').html('<b>' + translate('Loading next profile') + ' ...</b>');
-
-    //Find first one after the end date and add to datastorage.profiles
-    var tquery = '?find[startDate][$gt]=' + new Date(dateTo).toISOString() + '&sort[startDate]=1&count=1';
-
-    return $.ajax('/api/v1/profiles' + tquery, {
-      headers: client.headers(),
-      async: false,
-      success: function (records) {
-        records.forEach(function (r) {
-            //must be inserted as top to maintain profiles being sorted by date in descending order
-            datastorage.profiles.unshift(r);
-          });
-      }
-    });
-  }
 
   function processData(data, day, options, callback) {
     if (daystoshow[day].treatmentsonly) {
