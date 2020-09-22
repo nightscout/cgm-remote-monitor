@@ -28,6 +28,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "env-cmd ./my.test.env mocha --exit tests/*.test.js",
+    "test-single": "env-cmd ./my.test.env mocha --exit tests/$TEST.test.js",
     "test-ci": "env-cmd ./ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --exit tests/*.test.js",
     "env": "env",
     "postinstall": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
