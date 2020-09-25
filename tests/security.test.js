@@ -2,14 +2,14 @@
 
 var request = require('supertest');
 var should = require('should');
-var load = require('./fixtures/load');
 var language = require('../lib/language')();
 
 describe('API_SECRET', function ( ) {
-  var api = require('../lib/api/');
-
+  var api;
   var scope = this;
+
   function setup_app (env, fn) {
+    api = require('../lib/api/');
     require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
       ctx.app = api(env, ctx);
       scope.app = ctx.app;

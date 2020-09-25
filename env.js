@@ -14,15 +14,18 @@ var env = {
   settings: require('./lib/settings')()
 };
 
-var trimmedEnv = {};
+var shadowEnv;
 
 // Module to constrain all config and environment parsing to one spot.
 // See README.md for info about all the supported ENV VARs
 function config ( ) {
 
   // Assume users will typo whitespaces into keys and values
+
+  shadowEnv = {};
+
   Object.keys(process.env).forEach((key, index) => {
-    trimmedEnv[_trim(key)] = _trim(process.env[key]);
+    shadowEnv[_trim(key)] = _trim(process.env[key]);
   });
 
   env.PORT = readENV('PORT', 1337);
@@ -130,7 +133,7 @@ function updateSettings() {
   });
 
   //should always find extended settings last
-  env.extendedSettings = findExtendedSettings(trimmedEnv);
+  env.extendedSettings = findExtendedSettings(shadowEnv);
 
   if (!readENVTruthy('TREATMENTS_AUTH', true)) {
     env.settings.authDefaultRoles = env.settings.authDefaultRoles || "";
@@ -140,10 +143,10 @@ function updateSettings() {
 
 function readENV(varName, defaultValue) {
   //for some reason Azure uses this prefix, maybe there is a good reason
-  var value = trimmedEnv['CUSTOMCONNSTR_' + varName]
-    || trimmedEnv['CUSTOMCONNSTR_' + varName.toLowerCase()]
-    || trimmedEnv[varName]
-    || trimmedEnv[varName.toLowerCase()];
+  var value = shadowEnv['CUSTOMCONNSTR_' + varName]
+    || shadowEnv['CUSTOMCONNSTR_' + varName.toLowerCase()]
+    || shadowEnv[varName]
+    || shadowEnv[varName.toLowerCase()];
 
   if (varName == 'DISPLAY_UNITS') {
     if (value && value.toLowerCase().includes('mmol')) {
@@ -170,7 +173,7 @@ function findExtendedSettings (envs) {
   extended.devicestatus = {};
   extended.devicestatus.advanced = true;
   extended.devicestatus.days = 1;
-  if(trimmedEnv['DEVICESTATUS_DAYS'] && trimmedEnv['DEVICESTATUS_DAYS'] == '2') extended.devicestatus.days = 1;
+  if(shadowEnv['DEVICESTATUS_DAYS'] && shadowEnv['DEVICESTATUS_DAYS'] == '2') extended.devicestatus.days = 1;
 
   function normalizeEnv (key) {
     return key.toUpperCase().replace('CUSTOMCONNSTR_', '');
