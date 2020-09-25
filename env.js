@@ -15,12 +15,8 @@ var env = {
 };
 
 // Module to constrain all config and environment parsing to one spot.
-// See the
+// See README.md for info about all the supported ENV VARs
 function config ( ) {
-  /*
-   * See README.md for info about all the supported ENV VARs
-   */
-  env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
   env.PORT = readENV('PORT', 1337);
   env.HOSTNAME = readENV('HOSTNAME', null);
   env.IMPORT_CONFIG = readENV('IMPORT_CONFIG', null);
@@ -61,7 +57,7 @@ function setSSL() {
   env.secureHstsHeaderIncludeSubdomains = readENVTruthy("SECURE_HSTS_HEADER_INCLUDESUBDOMAINS", false);
   env.secureHstsHeaderPreload= readENVTruthy("SECURE_HSTS_HEADER_PRELOAD", false);
   env.secureCsp = readENVTruthy("SECURE_CSP", false);
-
+  env.secureCspReportOnly = readENVTruthy("SECURE_CSP_REPORT_ONLY", false);
 }
 
 // A little ugly, but we don't want to read the secret into a var
@@ -79,12 +75,6 @@ function setAPISecret() {
       var shasum = crypto.createHash('sha1');
       shasum.update(readENV('API_SECRET'));
       env.api_secret = shasum.digest('hex');
-
-      if (!readENV('TREATMENTS_AUTH', true)) {
-
-      }
-
-
     }
   }
 }
@@ -101,6 +91,7 @@ function setStorage() {
   env.authentication_collections_prefix = readENV('MONGO_AUTHENTICATION_COLLECTIONS_PREFIX', 'auth_');
   env.treatments_collection = readENV('MONGO_TREATMENTS_COLLECTION', 'treatments');
   env.profile_collection = readENV('MONGO_PROFILE_COLLECTION', 'profile');
+  env.settings_collection = readENV('MONGO_SETTINGS_COLLECTION', 'settings');
   env.devicestatus_collection = readENV('MONGO_DEVICESTATUS_COLLECTION', 'devicestatus');
   env.food_collection = readENV('MONGO_FOOD_COLLECTION', 'food');
   env.activity_collection = readENV('MONGO_ACTIVITY_COLLECTION', 'activity');
@@ -121,9 +112,13 @@ function updateSettings() {
     UNITS: 'DISPLAY_UNITS'
   };
 
+  var envDefaultOverrides = {
+    DISPLAY_UNITS: 'mg/dl'
+  };
+
   env.settings.eachSettingAsEnv(function settingFromEnv (name) {
     var envName = envNameOverrides[name] || name;
-    return readENV(envName);
+    return readENV(envName, envDefaultOverrides[envName]);
   });
 
   //should always find extended settings last
@@ -133,8 +128,6 @@ function updateSettings() {
     env.settings.authDefaultRoles = env.settings.authDefaultRoles || "";
     env.settings.authDefaultRoles += ' careportal';
   }
-
-
 }
 
 function readENV(varName, defaultValue) {
@@ -144,6 +137,13 @@ function readENV(varName, defaultValue) {
     || process.env[varName]
     || process.env[varName.toLowerCase()];
 
+  if (varName == 'DISPLAY_UNITS') {
+    if (value && value.toLowerCase().includes('mmol')) {
+      value = 'mmol';
+    } else {
+      value = defaultValue;
+    }
+  }
 
   return value != null ? value : defaultValue;
 }
@@ -161,6 +161,8 @@ function findExtendedSettings (envs) {
 
   extended.devicestatus = {};
   extended.devicestatus.advanced = true;
+  extended.devicestatus.days = 1;
+  if(process.env['DEVICESTATUS_DAYS'] && process.env['DEVICESTATUS_DAYS'] == '2') extended.devicestatus.days = 1;
 
   function normalizeEnv (key) {
     return key.toUpperCase().replace('CUSTOMCONNSTR_', '');
