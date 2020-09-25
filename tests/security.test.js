@@ -18,21 +18,6 @@ describe('API_SECRET', function ( ) {
     });
   }
 
-  it('should work fine absent', function (done) {
-    delete process.env.API_SECRET;
-    var env = require('../env')( );
-    should.not.exist(env.api_secret);
-    setup_app(env, function (ctx) {
-
-      ctx.app.enabled('api').should.equal(false);
-      ping_status(ctx.app, again);
-      function again ( ) {
-        ping_authorized_endpoint(ctx.app, 404, done);
-      }
-    });
-  });
-
-
   it('should work fail set unauthorized', function (done) {
     var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
     delete process.env.API_SECRET;
