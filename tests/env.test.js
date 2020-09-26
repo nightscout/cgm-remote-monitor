@@ -2,7 +2,7 @@
 
 require('should');
 
-describe('env', function ( ) {
+describe('env', function () {
   it( 'show the right plugins', function () {
     process.env.SHOW_PLUGINS = 'iob';
     process.env.ENABLE = 'iob cob';
@@ -68,4 +68,88 @@ describe('env', function ( ) {
     env.insecureUseHttp.should.be.false(); // not defined should be false
     env.secureHstsHeader.should.be.true();
   });
+
+  describe( 'DISPLAY_UNITS', function () {
+    const MMOL = 'mmol';
+    const MGDL = 'mg/dl';
+    describe ( 'mmol', function () {
+      it( 'mmol => mmol', function () {
+        process.env.DISPLAY_UNITS = MMOL;
+        var env = require( '../env' )();
+        env.settings.units.should.equal( MMOL );
+        delete process.env.DISPLAY_UNITS;
+      } );
+
+      it( 'mmol/l => mmol', function () {
+        process.env.DISPLAY_UNITS = 'mmol/l';
+        var env = require( '../env' )();
+        env.settings.units.should.equal( MMOL );
+        delete process.env.DISPLAY_UNITS;
+      } );
+
+      it( 'mmol/L => mmol', function () {
+        process.env.DISPLAY_UNITS = 'mmol/L';
+        var env = require( '../env' )();
+        env.settings.units.should.equal( MMOL );
+        delete process.env.DISPLAY_UNITS;
+      } );
+
+      it( 'MMOL => mmol', function () {
+        process.env.DISPLAY_UNITS = 'MMOL';
+        var env = require( '../env' )();
+        env.settings.units.should.equal( MMOL );
+        delete process.env.DISPLAY_UNITS;
+      } );
+    } );
+
+    describe ( 'mg/dl', function () {
+      it( 'mg/dl => mg/dl', function () {
+        process.env.DISPLAY_UNITS = MGDL;
+        var env = require( '../env' )();
+        env.settings.units.should.equal( MGDL );
+        delete process.env.DISPLAY_UNITS;
+      } );
+
+      it( 'mg/dL => mg/dl', function () {
+        process.env.DISPLAY_UNITS = 'mg/dL';
+        var env = require( '../env' )();
+        env.settings.units.should.equal( MGDL );
+        delete process.env.DISPLAY_UNITS;
+      } );
+
+      it( 'MG/DL => mg/dl', function () {
+        process.env.DISPLAY_UNITS = 'MG/DL';
+        var env = require( '../env' )();
+        env.settings.units.should.equal( MGDL );
+        delete process.env.DISPLAY_UNITS;
+      } );
+
+      it( 'mgdl => mg/dl', function () {
+        process.env.DISPLAY_UNITS = 'mgdl';
+        var env = require( '../env' )();
+        env.settings.units.should.equal( MGDL );
+        delete process.env.DISPLAY_UNITS;
+      } );
+    } );
+
+    describe ( 'default: mg/dl', function () {
+      it( '<random> => mg/dl', function () {
+        var random;
+        while (!random || random.toLowerCase() === MGDL)
+          random = [...Array(~~(Math.random()*20)+1)].map(i=>(~~(Math.random()*36)).toString(36)).join('');
+
+        process.env.DISPLAY_UNITS = random;
+        var env = require( '../env' )();
+        env.settings.units.should.equal( MGDL );
+        delete process.env.DISPLAY_UNITS;
+      } );
+
+      it( '<null> => mg/dl', function () {
+        delete process.env.DISPLAY_UNITS;
+        var env = require( '../env' )();
+        env.settings.units.should.equal( MGDL );
+        delete process.env.DISPLAY_UNITS;
+      } );
+    } );
+  } );
 })
