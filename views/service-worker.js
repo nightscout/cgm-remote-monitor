@@ -3,7 +3,6 @@
 var CACHE = '<%= locals.cachebuster %>';
 
 const CACHE_LIST = [
-    '/',
     '/images/launch.png',
     '/images/apple-touch-icon-57x57.png',
     '/images/apple-touch-icon-60x60.png',
