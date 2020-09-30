@@ -85,7 +85,7 @@
 
   // Fetch data from mongo
   peStatus.hide().text(translate('Loading profile records ...')).fadeIn('slow');
-  $.ajax('/api/v1/profile.json', {
+  $.ajax('/api/v1/profile.json?count=20', {
     headers: client.headers()
     , success: function (records) {
       if (!records.length) {
@@ -671,13 +671,6 @@
     adjustedRecord.defaultProfile = currentprofile;
     adjustedRecord.units = client.settings.units;
 
-    if (record.convertedOnTheFly) {
-      var result = window.confirm(translate('Profile is going to be saved in newer format used in Nightscout 0.9.0 and above and will not be usable in older versions anymore.\nAre you sure?'));
-      if (!result) {
-        return;
-      }
-    }
-
     delete record.convertedOnTheFly;
     delete adjustedRecord.convertedOnTheFly;
 
@@ -688,12 +681,13 @@
     // This is a crude way of preventing the user from changing the inputs whilst waiting.
     // If the user was able to make changes, they'd be lost when the done callback redraws anyway.
     $('#pe_form').hide();
-    
+    var headers = client.headers();
+    headers['Content-Type'] = 'application/json';
     $.ajax({
       method: 'PUT'
       , url: '/api/v1/profile/'
-      , data: adjustedRecord
-      , headers: client.headers()
+      , data: JSON.stringify(adjustedRecord)
+      , headers: headers 
     }).done(function postSuccess (data, status) {
       console.info('profile saved', data);
       $('#pe_form').show(); // allow edits again
