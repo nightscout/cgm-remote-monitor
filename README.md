@@ -13,18 +13,18 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 
 This acts as a web-based CGM (Continuous Glucose Monitor) to allow
 multiple caregivers to remotely view a patient's glucose data in
-real time.  The server reads a MongoDB which is intended to be data
+real-time.  The server reads a MongoDB which is intended to be data
 from a physical CGM, where it sends new SGV (sensor glucose values) as
 the data becomes available.  The data is then displayed graphically
 and blood glucose values are predicted 0.5 hours ahead using an
-autoregressive second order model.  Alarms are generated for high and
+autoregressive second-order model.  Alarms are generated for high and
 low values, which can be cleared by any watcher of the data.
 
 # Looking for documentation?
 
-## End user?
+## End-user?
 
-Nightscout documentation is currently split to two locations. This page lists all the configuration options in
+Nightscout documentation is currently split into two locations. This page lists all the configuration options in
 Nightscout and is useful for users who've already gone through the installation process. IF you're looking
 for the documentation that looks like it's written for non-programmers, that's located at [nightscout.github.io](https://nightscout.github.io/).
 
@@ -125,14 +125,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
     - [Browser testing suite provided by](#browser-testing-suite-provided-by)
   - [License](#license)
 
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+<!-- END doctoc generated TOC please keep comment here to allow auto-update -->
 
 # Install
 
 ## Supported configurations:
 
 If you plan to use Nightscout, we recommend using [Heroku](https://nightscout.github.io/nightscout/new_user/) as this is free and easy to use.
-We used to recommend hostig at Azure, but the resource needs of Nightscout have grown over the years and Azure won't comfortably run Nightscout
+We used to recommend hosting at Azure, but the resource needs of Nightscout have grown over the years and Azure won't comfortably run Nightscout
 anymore in the free tier. If you're hosting in Azure and looking to update your site, we recommend you
 [switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku)
 as you're likely to hit issues in the process of updating the site.
@@ -141,14 +141,14 @@ as you're likely to hit issues in the process of updating the site.
 
 While you can install Nightscout on a virtual server or a Raspberry Pi, we do not recommend this unless you have at least some
 experience hosting Node applications and development using the toolchain in use with Nightscout. Heroku automates all of the
-hosting for you and even many of the dvelopers run their production sites in Heroku due to convenience.
+hostings for you and even many of the developers run their production sites in Heroku due to convenience.
 
-If you're a hosting provider and want to provide our users additional free hosting options,
+If you're a hosting provider and want to provide our users with additional free hosting options,
 you're welcome to issue a documentation pull request with instructions on how to setup Nightscout on your system.
 
 ## Recommended minimum browser versions for using Nightscout:
 
-Older versions of the browsers might work, but are untested.
+Older versions of the browsers might work but are untested.
 
 - Android 4
 - iOS 6
@@ -174,8 +174,8 @@ $ npm install
 
 ## Installation notes for users with nginx or Apache reverse proxy for SSL/TLS offloading:
 
-- Your site redirects insecure connections to `https` by default. If you use a reverse proxy like nginx or Apache to handle the connection security for you, make sure it sets the `X-Forwarded-Proto` header. Otherwise nightscout will be unable to know if it was called through a secure connection and will try to redirect you to the https version. If you're unable to set this Header, you can change the `INSECURE_USE_HTTP` setting in nightscout to true in order to allow insecure connections without being redirected.
-- In case you use a proxy. Do not use an external network interfaces for hosting Nightscout. Make sure the unsecure port is not available from a remote network connection
+- Your site redirects insecure connections to `https` by default. If you use a reverse proxy like nginx or Apache to handle the connection security for you, make sure it sets the `X-Forwarded-Proto` header. Otherwise, nightscout will be unable to know if it was called through a secure connection and will try to redirect you to the https version. If you're unable to set this Header, you can change the `INSECURE_USE_HTTP` setting in nightscout to true in order to allow insecure connections without being redirected.
+- In case you use a proxy. Do not use an external network interface for hosting Nightscout. Make sure the insecure port is not available from a remote network connection
 - HTTP Strict Transport Security (HSTS) headers are enabled by default, use settings `SECURE_HSTS_HEADER` and `SECURE_HSTS_HEADER_*`
 - See [Predefined values for your server settings](#predefined-values-for-your-server-settings-optional) for more details
 
@@ -215,7 +215,7 @@ The Nightscout API enables direct access to your data without the need for Mongo
 You can find CGM data in `/api/v1/entries`, Care Portal Treatments in `/api/v1/treatments`, and Treatment Profiles in `/api/v1/profile`.
 The server status and settings are available from `/api/v1/status.json`.
 
-By default the `/entries` and `/treatments` APIs limit results to the the most recent 10 values from the last 2 days.
+By default, the `/entries` and `/treatments` APIs limit results to the most recent 10 values from the last 2 days.
 You can get many more results, by using the `count`, `date`, `dateString`, and `created_at` parameters, depending on the type of data you're looking for.
 
 Once you've installed Nightscout, you can access API documentation by loading `/api-docs/` URL in your instance.
@@ -246,8 +246,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 
 ### Features
 
-  * `ENABLE` - Used to enable optional features, expects a space delimited list, such as: `careportal rawbg iob`, see [plugins](#plugins) below
-  * `DISABLE` - Used to disable default features, expects a space delimited list, such as: `direction upbat`, see [plugins](#plugins) below
+  * `ENABLE` - Used to enable optional features, expects a space-delimited list, such as: `careportal rawbg iob`, see [plugins](#plugins) below
+  * `DISABLE` - Used to disable default features, expects a space-delimited list, such as: `direction upbat`, see [plugins](#plugins) below
   * `BASE_URL` - Used for building links to your site's API, i.e. Pushover callbacks, usually the URL of your Nightscout site.
   * `AUTH_DEFAULT_ROLES` (`readable`) - possible values `readable`, `denied`, or any valid role
     name.  When `readable`, anyone can view Nightscout without a token.
@@ -257,23 +257,23 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 
 ### Alarms
 
-  These alarm setting affect all delivery methods (browser, Pushover, IFTTT, etc.). Values and settings entered here will be the defaults for new browser views, but will be overridden if different choices are made in the settings UI.
+  These alarm settings affect all delivery methods (browser, Pushover, IFTTT, etc.). Values and settings entered here will be the defaults for new browser views but will be overridden if different choices are made in the settings UI.
 
-  * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's
+  * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses a highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's
   * `BG_HIGH` (`260`) - the high BG outside the target range that is considered urgent (interprets units based on DISPLAY_UNITS setting)
   * `BG_TARGET_TOP` (`180`) - the top of the target range, also used to draw the line on the chart (interprets units based on DISPLAY_UNITS setting)
   * `BG_TARGET_BOTTOM` (`80`) - the bottom of the target range, also used to draw the line on the chart (interprets units based on DISPLAY_UNITS setting)
   * `BG_LOW` (`55`) - the low BG outside the target range that is considered urgent (interprets units based on DISPLAY_UNITS setting)
   * `ALARM_URGENT_HIGH` (`on`) - possible values `on` or `off`
-  * `ALARM_URGENT_HIGH_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent high alarms, space separated for options in browser, first used for pushover
+  * `ALARM_URGENT_HIGH_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent high alarms, space-separated for options in the browser, first used for the pushover
   * `ALARM_HIGH` (`on`) - possible values `on` or `off`
-  * `ALARM_HIGH_MINS` (`30 60 90 120`) - Number of minutes to snooze high alarms, space separated for options in browser, first used for pushover
+  * `ALARM_HIGH_MINS` (`30 60 90 120`) - Number of minutes to snooze high alarms, space-separated for options in the browser, first used for the pushover
   * `ALARM_LOW` (`on`) - possible values `on` or `off`
-  * `ALARM_LOW_MINS` (`15 30 45 60`) - Number of minutes to snooze low alarms, space separated for options in browser, first used for pushover
+  * `ALARM_LOW_MINS` (`15 30 45 60`) - Number of minutes to snooze low alarms, space-separated for options in the browser, first used for the pushover
   * `ALARM_URGENT_LOW` (`on`) - possible values `on` or `off`
-  * `ALARM_URGENT_LOW_MINS` (`15 30 45`) - Number of minutes to snooze urgent low alarms, space separated for options in browser, first used for pushover
-  * `ALARM_URGENT_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent alarms (that aren't tagged as high or low), space separated for options in browser, first used for pushover
-  * `ALARM_WARN_MINS` (`30 60 90 120`) - Number of minutes to snooze warning alarms (that aren't tagged as high or low), space separated for options in browser, first used for pushover
+  * `ALARM_URGENT_LOW_MINS` (`15 30 45`) - Number of minutes to snooze urgent low alarms, space-separated for options in the browser, first used for the pushover
+  * `ALARM_URGENT_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent alarms (that aren't tagged as high or low), space-separated for options in the browser, first used for the pushover
+  * `ALARM_WARN_MINS` (`30 60 90 120`) - Number of minutes to snooze warning alarms (that aren't tagged as high or low), space-separated for options in the browser, first used for the pushover
 
 ### Core
 
@@ -288,8 +288,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to fullchain.pem file (cert + ca).
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to chain.pem file (chain).
   * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
-  * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
-  * `DE_NORMALIZE_DATES`(`true`) - The Nightscout REST API normalizes all entered dates to UTC zone. Some Nightscout clients have broken date deserialization logic and expect to received back dates in zoned formats. Setting this variable to `true` causes the REST API to serialize dates sent to Nightscout in zoned format back to zoned format when served to clients over REST.
+  * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down the error and speed up development
+  * `DE_NORMALIZE_DATES`(`true`) - The Nightscout REST API normalizes all entered dates to the UTC zone. Some Nightscout clients have broken date deserialization logic and expect to received back dates in zoned formats. Setting this variable to `true` causes the REST API to serialize dates sent to Nightscout in zoned format back to zoned format when served to clients over REST.
 
 ### Predefined values for your browser settings (optional)
 
@@ -304,7 +304,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
   * `SHOW_FORECAST` (`ar2`) - plugin forecasts that should be shown by default, supports space delimited values such as `"ar2 openaps"`
-  * `LANGUAGE` (`en`) - language of Nightscout. If not available english is used
+  * `LANGUAGE` (`en`) - the language of Nightscout. If not available English is used
     * Currently supported language codes are: bg (Български), cs (Čeština), de (Deutsch), dk (Dansk), el (Ελληνικά), en (English), es (Español), fi (Suomi), fr (Français), he (עברית), hr (Hrvatski), it (Italiano), ko (한국어), nb (Norsk (Bokmål)), nl (Nederlands), pl (Polski), pt (Português (Brasil)), ro (Română), ru (Русский), sk (Slovenčina), sv (Svenska), tr (Turkish), zh_cn (中文（简体)), zh_tw (中文（繁體))
   * `SCALE_Y` (`log`) - The type of scaling used for the Y axis of the charts system wide.
     * The default `log` (logarithmic) option will let you see more detail towards the lower range, while still showing the full CGM range.
@@ -314,7 +314,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `BOLUS_RENDER_OVER` (1) - U value over which the bolus values are rendered on the chart if the 'x U and Over' option is selected. This value can be an integer or a float, e.g. 0.3, 1.5, 2, etc...
 
 ### Predefined values for your server settings (optional)
-  * `INSECURE_USE_HTTP` (`false`) - Redirect unsafe http traffic to https. Possible values `false`, or `true`. Your site redirects to `https` by default. If you don't want that from Nightscout, but want to implement that with a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. Note: This will allow (unsafe) http traffic to your Nightscout instance and is not recommended.
+  * `INSECURE_USE_HTTP` (`false`) - Redirect unsafe HTTP traffic to https. Possible values `false`, or `true`. Your site redirects to `https` by default. If you don't want that from Nightscout, but want to implement that with a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. Note: This will allow (unsafe) HTTP traffic to your Nightscout instance and is not recommended.
   * `SECURE_HSTS_HEADER` (`true`) - Add HTTP Strict Transport Security (HSTS) header. Possible values `false`, or `true`.
   * `SECURE_HSTS_HEADER_INCLUDESUBDOMAINS` (`false`) - includeSubdomains options for HSTS. Possible values `false`, or `true`.
   * `SECURE_HSTS_HEADER_PRELOAD` (`false`) - ask for preload in browsers for HSTS. Possible values `false`, or `true`.
@@ -333,7 +333,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `Time` - current time
   * `Line break` - invisible item that will move following items to the next line (by default all are showing on the same level)
   
-  All visible items have `Size` property which allows to customize the view even more. Also, all items may appear multiple times on the view.
+  All visible items have `Size` property which allows customizing the view even more. Also, all items may appear multiple times on the view.
   
   Apart from adding items, it is possible to customize other aspects of the views, like selecting `Color` or `Black` background. The first one will indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
   `Show SGV age` option will make `SGV age` item appear `Always` or only if the predefined threshold is reached: `Only after threshold`. Breaching `SGV age threshold` will also make `Color` background turn grey and strike through `SGV`.
@@ -341,7 +341,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   
   There are a few default views available from the main menu: 
   * `Clock` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
-  * `Color` - Shows current BG and trend arrow. White text on a color background.
+  * `Color` - Shows current BG and trend arrow. White text on color background.
   * `Simple` - Shows current BG. Grey text on a black background.
 
   If you launch one of these views in a fullscreen view in iOS, you can use a left-to-right swipe gesture to exit the view.
@@ -350,11 +350,11 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 
   Some users will need easy access to multiple Nightscout views at the same time. We have a special view for this case, accessed on /split path on your Nightscout URL. The view supports any number of sites between 1 to 8 way split, where the content for the screen can be loaded from multiple Nightscout instances. Note you still need to host separate instances for each Nightscout being monitored including the one that hosts the split view page - these variables only add the ability to load multiple views into one browser page. To set the URLs from which the content is loaded, set:
   * `FRAME_URL_1` - URL where content is loaded, for the first view (increment the number up to 8 to get more views)
-  * `FRAME_NAME_1` - Name for the first split view portion of the screen (increment the number to name more views)
+  * `FRAME_NAME_1` - Name for the first split-view portion of the screen (increment the number to name more views)
 
 ### Plugins
 
-  Plugins are used extend the way information is displayed, how notifications are sent, alarms are triggered, and more.
+  Plugins are used to extend the way information is displayed, how notifications are sent, alarms are triggered, and more.
 
   The built-in/example plugins that are available by default are listed below.  The plugins may still need to be enabled by adding to the `ENABLE` environment variable.
 
@@ -372,7 +372,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   Displays the most recent battery status from the uploader phone. . Use these [extended setting](#extended-settings) to adjust behavior:
   * `UPBAT_ENABLE_ALERTS` (`false`) - Set to `true` to enable uploader battery alarms via Pushover and IFTTT.
   * `UPBAT_WARN` (`30`) - Minimum battery percent to trigger warning.
-  * `UPBAT_URGENT` (`20`) - Minimum battery percent to trigger urgent alarm.
+  * `UPBAT_URGENT` (`20`) - Minimum battery percent to trigger the urgent alarm.
 
 ##### `timeago` (Time Ago)
   Displays the time since last CGM entry. Use these [extended setting](#extended-settings) to adjust behavior:
@@ -415,10 +415,10 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 ##### `boluscalc` (Bolus Wizard)
 
 ##### `food` (Custom Foods)
-  An option plugin to enable adding foods from database in Bolus Wizard and enable .
+  An option plugin to enable adding foods from database in Bolus Wizard and enable.
 
 ##### `rawbg` (Raw BG)
-  Calculates BG using sensor and calibration records from and displays an alternate BG values and noise levels. Defaults that can be adjusted with [extended setting](#extended-settings)
+  Calculates BG using sensor and calibration records from and displays alternate BG values and noise levels. Defaults that can be adjusted with [extended setting](#extended-settings)
   * `DISPLAY` (`unsmoothed`) - Allows the user to control which algorithm is used to calculate the displayed raw BG values using the most recent calibration record.
     * `unfiltered` - Raw BG is calculated by applying the calibration to the glucose record's unfiltered value.
     * `filtered` - Raw BG is calculated by applying the calibration to the glucose record's filtered value. The glucose record's filtered values are generally produced by the CGM by a running average of the unfiltered values to produce a smoothed value when the sensor noise is high.
@@ -431,7 +431,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   Adds the COB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with carb doses and the `carbs_hr`, `carbratio`, and `sens` fields from the [treatment profile](#treatment-profile).
 
 ##### `bwp` (Bolus Wizard Preview)
-  This plugin in intended for the purpose of automatically snoozing alarms when the CGM indicates high blood sugar but there is also insulin on board (IOB) and secondly, alerting to user that it might be beneficial to measure the blood sugar using a glucometer and dosing insulin as calculated by the pump or instructed by trained medicare professionals. ***The values provided by the plugin are provided as a reference based on CGM data and insulin sensitivity you have configured, and are not intended to be used as a reference for bolus calculation.*** The plugin calculates the bolus amount when above your target, generates alarms when you should consider checking and bolusing, and snoozes alarms when there is enough IOB to cover a high BG. Uses the results of the `iob` plugin and `sens`, `target_high`, and `target_low` fields from the [treatment profile](#treatment-profile). Defaults that can be adjusted with [extended setting](#extended-settings)
+  This plugin intended for the purpose of automatically snoozing alarms when the CGM indicates high blood sugar but there is also insulin on board (IOB) and secondly, alerting to user that it might be beneficial to measure the blood sugar using a glucometer and dosing insulin as calculated by the pump or instructed by trained medicare professionals. ***The values provided by the plugin are provided as a reference based on CGM data and insulin sensitivity you have configured, and are not intended to be used as a reference for bolus calculation.*** The plugin calculates the bolus amount when above your target, generates alarms when you should consider checking and bolusing, and snoozes alarms when there is enough IOB to cover a high BG. Uses the results of the `iob` plugin and `sens`, `target_high`, and `target_low` fields from the [treatment profile](#treatment-profile). Defaults that can be adjusted with [extended setting](#extended-settings)
   * `BWP_WARN` (`0.50`) - If `BWP` is > `BWP_WARN` a warning alarm will be triggered.
   * `BWP_URGENT` (`1.00`) - If `BWP` is > `BWP_URGENT` an urgent alarm will be triggered.
   * `BWP_SNOOZE_MINS` (`10`) - minutes to snooze when there is enough IOB to cover a high BG.
@@ -550,7 +550,7 @@ For remote overrides, the following extended settings must be configured:
 ##### `xdripjs` (xDrip-js)
   Integrated xDrip-js monitoring, uses these extended settings:
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set
-  * `XDRIPJS_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when CGM state is not OK or battery voltages fall below threshold.
+  * `XDRIPJS_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when CGM state is not OK or battery voltages fall below the threshold.
   * `XDRIPJS_STATE_NOTIFY_INTRVL` (`0.5`) - Set to number of hours between CGM state notifications
   * `XDRIPJS_WARN_BAT_V` (`300`) - The voltage of either transmitter battery, a warning will be triggered when dropping below this threshold.
 
@@ -564,29 +564,29 @@ For remote overrides, the following extended settings must be configured:
   Speech synthesis plugin. When enabled, speaks out the blood glucose values, IOB and alarms. Note you have to set the LANGUAGE setting on the server to get all translated alarms.
 
 ##### `cors` (CORS)
-  Enabled [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) so other websites can make request to your Nightscout site, uses these extended settings:
-  * `CORS_ALLOW_ORIGIN` (`*`) - The list of sites that are allow to make requests
+  Enabled [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) so other websites can make a request to your Nightscout site, uses these extended settings:
+  * `CORS_ALLOW_ORIGIN` (`*`) - The list of sites that are allowed to make requests
 
 ##### `dbsize` (Database Size)
   Show size of Nightscout Database, as a percentage of declared available space or in MiB.
 
-  Many deployments of Nightscout use free tier of MongoDB Atlas on Heroku, which is limited in size. After some time, as volume of stored data grows, it may happen that this limit is reached and system is unable to store new data. This plugin provides pill that indicates size of Database and shows (when configured) alarms regarding reaching space limit.
+  Many deployments of Nightscout use free tier of MongoDB Atlas on Heroku, which is limited in size. After some time, as the volume of stored data grows, it may happen that this limit is reached and system is unable to store new data. This plugin provides pill that indicates size of the Database and shows (when configured) alarms regarding reaching space limit.
 
-  **IMPORTANT:** This plugin can only check how much space database already takes, _but cannot infer_ max size available on server for it. To have correct alarms and realistic percentage, `DBSIZE_MAX` need to be properly set - according to your mongoDB hosting configuration.
+  **IMPORTANT:** This plugin can only check how much space the database already takes, _but cannot infer_ max size available on server for it. To have correct alarms and realistic percentage, `DBSIZE_MAX` need to be properly set - according to your mongoDB hosting configuration.
 
-  **NOTE:** This plugin rely on db.stats() for reporting _logical_ size of database, which may be different than _physical_ size of database on server. It may work for free tier of MongoDB on Atlas, since it calculate quota according to logical size too, but may fail for other hostings or self-hosted database with quota based on physical size. 
+  **NOTE:** This plugin relies on db.stats() for reporting _logical_ size of database, which may be different than _physical_ size of the database on server. It may work for free tier of MongoDB on Atlas, since it calculates quota according to logical size too, but may fail for other hostings or self-hosted database with quota based on physical size. 
   
-  **NOTE:** MongoDB Atlas quota is for **all** databases in cluster, while each instance will get only size of **its own database only**. It is ok when you only have **one** database in cluster (most common scenario) but will not work for multiple parallel databases. In such case, spliting known quota equally beetween databases and setting `DBSIZE_MAX` to that fraction may help, but wont be precise.
+  **NOTE:** MongoDB Atlas quota is for **all** databases in cluster, while each instance will get only size of **its own database only**. It is ok when you only have **one** database in cluster (most common scenario) but will not work for multiple parallel databases. In such case, splitting known quota equally between databases and setting `DBSIZE_MAX` to that fraction may help, but won't be precise.
 
   All sizes are expressed as integers, in _Mebibytes_ `1 MiB == 1024 KiB == 1024*1024 B`
 
-  * `DBSIZE_MAX` (`496`) - Maximal allowed size of database on your mongoDB server, in MiB. You need to adjust that value to match your database hosting limits - default value is for standard Heroku mongoDB free tier.
-  * `DBSIZE_WARN_PERCENTAGE` (`60`) - Threshold to show first warning about database size. When database reach this percentage of `DBSIZE_MAX` size - pill will show size in yellow. 
-  * `DBSIZE_URGENT_PERCENTAGE` (`75`) - Threshold to show urgent warning about database size. When database reach this percentage of `DBSIZE_MAX` size, it is urgent to do backup and clean up old data. At this percentage info pill turns red.
+  * `DBSIZE_MAX` (`496`) - Maximal allowed size of database on your mongoDB server, in MiB. You need to adjust that value to match your database hosting limits - default value is for the standard Heroku mongoDB free tier.
+  * `DBSIZE_WARN_PERCENTAGE` (`60`) - Threshold to show first warning about database size. When database reach this percentage of `DBSIZE_MAX` size - will show size in yellow. 
+  * `DBSIZE_URGENT_PERCENTAGE` (`75`) - Threshold to show an urgent warning about database size. When database reaches this percentage of `DBSIZE_MAX` size, it is urgent to do backup and clean up old data. At this percentage, info pill turns red.
   * `DBSIZE_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications about database size.
   * `DBSIZE_IN_MIB` (`false`) - Set to `true` to display size of database in MiB-s instead of default percentage.
   
-  This plugin should be enabled by default, if needed can be diasabled by adding `dbsize` to the list of disabled plugins, for example: `DISABLE="dbsize"`.
+  This plugin should be enabled by default if needed can be disabled by adding `dbsize` to the list of disabled plugins, for example: `DISABLE="dbsize"`.
 
 #### Extended Settings
   Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
@@ -609,9 +609,9 @@ For remote overrides, the following extended settings must be configured:
 
     * `ENABLE` - `pushover` should be added to the list of plugin, for example: `ENABLE="pushover"`.
     * `PUSHOVER_API_TOKEN` - Used to enable pushover notifications, this token is specific to the application you create from in [Pushover](https://pushover.net/), ***[additional pushover information](#pushover)*** below.
-    * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.  This also supports a space delimited list of keys.  To disable `INFO` level pushes set this to `off`.
-    * `PUSHOVER_ALARM_KEY` - An optional Pushover user/group key, will be used for system wide alarms (level > `WARN`).  If not defined this will fallback to `PUSHOVER_USER_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also support a space delimited list of keys.  To disable Alarm pushes set this to `off`.
-    * `PUSHOVER_ANNOUNCEMENT_KEY` - An optional Pushover user/group key, will be used for system wide user generated announcements.  If not defined this will fallback to `PUSHOVER_USER_KEY` or `PUSHOVER_ALARM_KEY`.  This also support a space delimited list of keys. To disable Announcement pushes set this to `off`.
+    * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.  This also supports a space-delimited list of keys.  To disable `INFO` level pushes set this to `off`.
+    * `PUSHOVER_ALARM_KEY` - An optional Pushover user/group key, will be used for system-wide alarms (level > `WARN`).  If not defined this will fallback to `PUSHOVER_USER_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also supports a space-delimited list of keys.  To disable Alarm pushes set this to `off`.
+    * `PUSHOVER_ANNOUNCEMENT_KEY` - An optional Pushover user/group key, will be used for system-wide user-generated announcements.  If not defined this will fallback to `PUSHOVER_USER_KEY` or `PUSHOVER_ALARM_KEY`.  This also supports a space-delimited list of keys. To disable Announcement pushes set this to `off`.
     * `BASE_URL` - Used for pushover callbacks, usually the URL of your Nightscout site, use https when possible.
     * `API_SECRET` - Used for signing the pushover callback request for acknowledgments.
 
@@ -626,7 +626,7 @@ For remote overrides, the following extended settings must be configured:
 #### IFTTT Maker
  In addition to the normal web based alarms, and pushover, there is also integration for [IFTTT Webhooks](https://ifttt.com/maker_webhooks).
 
- With Maker you are able to integrate with all the other [IFTTT Services](https://ifttt.com/services).  For example you can send a tweet when there is an alarm, change the color of hue light, send an email, send and sms, and so much more.
+ With Maker you are able to integrate with all the other [IFTTT Services](https://ifttt.com/services).  For example you can send a tweet when there is an alarm, change the color of hue light, send an email, send and SMS, and so much more.
 
  1. Setup IFTTT account: [login](https://ifttt.com/login) or [create an account](https://ifttt.com/join)
  2. Follow the  [Detailed IFTTT setup Instructions](docs/plugins/maker-setup.md)
@@ -636,7 +636,7 @@ For remote overrides, the following extended settings must be configured:
   * `MAKER_ANNOUNCEMENT_KEY` - An optional Maker key, will be used for system wide user generated announcements.  If not defined this will fallback to `MAKER_KEY`.  A possible use for this is sending important messages and alarms to another device that you don't want to send all notification too.  This also support a space delimited list of keys.
 
  Plugins can create custom events, but all events sent to IFTTT webhooks will be prefixed with `ns-`.  The core events are:
-  * `ns-event` - This event is sent to the maker service for all alarms and notifications.  This is good catch all event for general logging.
+  * `ns-event` - This event is sent to the maker service for all alarms and notifications.  This is a good catch-all event for general logging.
   * `ns-allclear` - This event is sent to the maker service when an alarm has been ack'd or when the server starts up without triggering any alarms.  For example, you could use this event to turn a light to green.
   * `ns-info` - Plugins that generate notifications at the info level will cause this event to also be triggered.  It will be sent in addition to `ns-event`.
   * `ns-warning` - Alarms at the warning level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
