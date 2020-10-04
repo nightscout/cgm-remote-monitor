@@ -4,7 +4,7 @@ servers:
 info:
   title: Nightscout API
   description: Own your DData with the Nightscout API
-  version: 0.12.4
+  version: 14.0.6
   license:
     name: AGPL 3
     url: 'https://www.gnu.org/licenses/agpl.txt'
