@@ -22,18 +22,16 @@
   <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
   <meta name="msapplication-config" content="/browserconfig.xml">
   <meta name="theme-color" content="#333333">
-  
-  <link rel="preload" href="/css/report.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <link rel="preload" href="/css/ui-lightness/jquery-ui.min.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
+
+  <link rel="preload" href="/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/report.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/ui-lightness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <% include preloadCSS %>
   
 </head>
-<body>
-  <a href="/" class="close">X</a>
-  <header>
-    <img src="/images/logo1.png">
-    <span class="translate pagetitle">Nightscout Reporting</span>
-  </header>
+  <body>
+    <%- include('partials/toolbar') %>
+
   <ul id="tabnav">
   </ul>
   <main>
@@ -120,16 +118,14 @@
     <div id="info"></div>
     <hr>
     <div id="pluginchartplaceholders"></div>
-    
-    <hr>
-    <b><span class="translate">Authentication status</span>: </b><span id="authentication_placeholder"></span>
-    
-    <script src="<%= locals.bundle %>/js/bundle.report.js?v=<%= locals.cachebuster %>"></script>
-    <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
-    <script src="/report/js/report.js?v=<%= locals.cachebuster %>"></script>
-    <script src="/report/js/flotcandle.js?v=<%= locals.cachebuster %>"></script>
-    <script src="/report/js/predictions.js?v=<%= locals.cachebuster %>"></script>
-    <script src="/report/js/loopalyzer.js?v=<%= locals.cachebuster %>"></script>
   </main>
+
+  <%- include('partials/authentication-status') %>
+
+  <script src="<%= locals.bundle %>/js/bundle.report.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/report/js/report.js"></script>
+  <script src="/report/js/flotcandle.js"></script>
+  <script src="/report/js/loopalyzer.js"></script>
 </body>
 </html>  
