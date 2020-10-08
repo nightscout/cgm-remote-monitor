@@ -8,6 +8,8 @@ RUN mkdir -p /opt/app && \
     make \
     g++
 ADD . /opt/app
+ADD https://github.com/ufoscout/docker-compose-wait/releases/download/2.7.3/wait /wait
+RUN chmod +x /wait
 WORKDIR /opt/app
 RUN chown -R node:node /opt/app
 USER node
@@ -19,4 +21,5 @@ RUN npm install && \
 
 EXPOSE 1337
 
-CMD ["node", "server.js"]
+#CMD ["node", "server.js"]
+CMD /wait && node server.js
