@@ -23,18 +23,19 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="preload" href="/css/main.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
       <link rel="preload" href="/css/translations.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
       <link rel="preload" href="/css/ui-lightness/jquery-ui.min.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
       <% include preloadCSS %>
 
     </head>
-  <body>
-    <%- include('partials/toolbar') %>
+    <body>
+        <a href="/"><div style="position: absolute; top: 10px; color: #404040; right: 10px; background: grey; border-radius: 5px; border: 2px solid #404040; padding: 5px; width: 20px; height: 20px; ">X</div></a>
 
+      <h1><img src="/images/logo1.png"><span class="translate">Nightscout translations</span></h1>
       <div id="translations"></div>
 
-      <%- include('partials/authentication-status') %>
+      <hr>
+      <b><span class="translate">Authentication status</span>: </b><span id="authentication_placeholder"></span>
 
       <script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
 
