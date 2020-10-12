@@ -5,6 +5,10 @@ label: bug
 
 ---
 
+**If you need support for Nightscout, PLEASE DO NOT FILE A TICKET HERE**
+For support, please post a question to the "CGM in The Cloud" group in Facebook
+(https://www.facebook.com/groups/cgminthecloud) or visit the WeAreNotWaiting Discord at https://discord.gg/zg7CvCQ
+
 **Describe the bug**
 A clear and concise description of what the bug is.
 
