@@ -304,14 +304,9 @@ describe('Database Size', function() {
 
     dbsize.virtAsst.intentHandlers[0].intentHandler(function next (title, response) {
       title.should.equal('Database file size');
-      response.should.equal('450 MiB that is 90% of available database space');
+      response.should.equal('450 MiB. That is 90% of available database space');
 
-      dbsize.virtAsst.intentHandlers[1].intentHandler(function next (title, response) {
-        title.should.equal('Database file size');
-        response.should.equal('450 MiB that is 90% of available database space');
-
-        done();
-      }, [], sbx);
+      done();
 
     }, [], sbx);
 
