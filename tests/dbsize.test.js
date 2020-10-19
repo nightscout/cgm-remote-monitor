@@ -300,7 +300,7 @@ describe('Database Size', function() {
     var dbsize = require('../lib/plugins/dbsize')(ctx);
     dbsize.setProperties(sbx);
 
-    dbsize.virtAsst.intentHandlers.length.should.equal(2);
+    dbsize.virtAsst.intentHandlers.length.should.equal(1);
 
     dbsize.virtAsst.intentHandlers[0].intentHandler(function next (title, response) {
       title.should.equal('Database file size');
