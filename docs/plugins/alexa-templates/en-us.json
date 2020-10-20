@@ -233,6 +233,16 @@
                             "name": {
                                 "value": "cgm mode"
                             }
+                        },
+                        {
+                            "name": {
+                                "value": "db size",
+                                "synonyms": [
+                                    "database size",
+                                    "data size",
+                                    "file size"
+                                ]
+                            }
                         }
                     ]
                 }
