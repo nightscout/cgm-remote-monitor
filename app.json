@@ -40,7 +40,7 @@
     "ALARM_URGENT_HIGH": {
       "description": "Default setting for new browser views, for the Urgent High alarm (triggered when BG crosses BG_HIGH). ('on' or 'off')",
       "value": "on",
-      "required": false 
+      "required": false
     },
     "ALARM_URGENT_LOW": {
       "description": "Default setting for new browser views, for the Urgent Low alarm (triggered when BG crosses BG_LOW). ('on' or 'off')",
@@ -54,7 +54,7 @@
     },
     "BG_HIGH": {
       "description": "Urgent High BG threshold, triggers the ALARM_URGENT_HIGH alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
-      "value": "260",
+      "value": "200",
       "required": false
     },
     "BG_LOW": {
@@ -64,12 +64,12 @@
     },
     "BG_TARGET_BOTTOM": {
       "description": "Low BG threshold, triggers the ALARM_LOW alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
-      "value": "80",
+      "value": "65",
       "required": false
     },
     "BG_TARGET_TOP": {
       "description": "High BG threshold, triggers the ALARM_HIGH alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
-      "value": "180",
+      "value": "170",
       "required": false
     },
     "BOLUS_RENDER_OVER": {
@@ -135,7 +135,7 @@
     "NIGHT_MODE": {
       "description": "Default setting for new browser views, for whether Night Mode should be enabled. ('on' or 'off')",
       "value": "off",
-      "required": false 
+      "required": false
     },
     "SHOW_PLUGINS": {
       "description": "Default setting for whether or not these plugins are checked (active) by default, not merely enabled. Include plugins here as in the ENABLE line; space-separated and lower-case.",
@@ -145,20 +145,18 @@
     "SHOW_RAWBG": {
       "description": "Default setting for new browser views, for the display of raw CGM data (if available). ('always', 'never', or 'noise')",
       "value": "never",
-      "required": false 
+      "required": false
     },
     "THEME": {
       "description": "Default setting for new browser views, for the color theme of the CGM graph. ('default', 'colors', or 'colorblindfriendly')",
       "value": "colors",
-      "required": false 
+      "required": false
     },
     "TIME_FORMAT": {
       "description": "Default setting for new browser views, for the time mode. ('12' or '24')",
       "value": "12",
-      "required": false 
+      "required": false
     }
   },
-  "addons": [
-    "papertrail"
-  ]
+  "addons": ["papertrail"]
 }
