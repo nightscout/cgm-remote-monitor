@@ -132,8 +132,25 @@ function create (env, ctx) {
      ));
   });
 
+  // Allow static resources to be cached for week
+  var maxAge = 7 * 24 * 60 * 60 * 1000;
+
+  if (process.env.NODE_ENV === 'development') {
+    maxAge = 1;
+    console.log('Development environment detected, setting static file cache age to 1 second');
+  }
+
+  var staticFiles = express.static(env.static_files, {
+    maxAge
+  });
+
+  // serve the static content
+  app.use(staticFiles);
+
   if (ctx.bootErrors && ctx.bootErrors.length > 0) {
-    app.get('*', require('./lib/server/booterror')(ctx));
+    const bootErrorView = require('./lib/server/booterror')(env, ctx);
+    bootErrorView.setLocals(app.locals);
+    app.get('*', bootErrorView);
     return app;
   }
 
@@ -256,42 +273,15 @@ function create (env, ctx) {
     res.sendFile(__dirname + '/swagger.yaml');
   });
 
-  /* // FOR DEBUGGING MEMORY LEEAKS
-  if (env.settings.isEnabled('dumps')) {
-    var heapdump = require('heapdump');
-    app.get('/api/v2/dumps/start', function(req, res) {
-      var path = new Date().toISOString() + '.heapsnapshot';
-      path = path.replace(/:/g, '-');
-      console.info('writing dump to', path);
-      heapdump.writeSnapshot(path);
-      res.send('wrote dump to ' + path);
-    });
-  }
-  */
-
-  // app.get('/package.json', software);
-
-  // Allow static resources to be cached for week
-  var maxAge = 7 * 24 * 60 * 60 * 1000;
-
-  if (process.env.NODE_ENV === 'development') {
-    maxAge = 1;
-    console.log('Development environment detected, setting static file cache age to 1 second');
-  }
-
-  var staticFiles = express.static(env.static_files, {
-    maxAge
-  });
-
-  // serve the static content
-  app.use(staticFiles);
-
   // API docs
 
   const swaggerUi = require('swagger-ui-express');
+  const swaggerUseSchema = schema => (...args) => swaggerUi.setup(schema)(...args);
   const swaggerDocument = require('./swagger.json');
+  const swaggerDocumentApiV3 = require('./lib/api3/swagger.json');
 
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+  app.use('/api-docs', swaggerUi.serve, swaggerUseSchema(swaggerDocument));
+  app.use('/api3-docs', swaggerUi.serve, swaggerUseSchema(swaggerDocumentApiV3));
 
   app.use('/swagger-ui-dist', (req, res) => {
     res.redirect(307, '/api-docs');
