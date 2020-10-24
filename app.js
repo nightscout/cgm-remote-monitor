@@ -276,9 +276,12 @@ function create (env, ctx) {
   // API docs
 
   const swaggerUi = require('swagger-ui-express');
+  const swaggerUseSchema = schema => (...args) => swaggerUi.setup(schema)(...args);
   const swaggerDocument = require('./swagger.json');
+  const swaggerDocumentApiV3 = require('./lib/api3/swagger.json');
 
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+  app.use('/api-docs', swaggerUi.serve, swaggerUseSchema(swaggerDocument));
+  app.use('/api3-docs', swaggerUi.serve, swaggerUseSchema(swaggerDocumentApiV3));
 
   app.use('/swagger-ui-dist', (req, res) => {
     res.redirect(307, '/api-docs');
