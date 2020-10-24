@@ -66,7 +66,7 @@ var someData = {
 
 describe('admintools', function ( ) {
   var self = this;
-  this.timeout(45000); // TODO: see why this test takes longer on CI to complete
+  this.timeout(30000); // TODO: see why this test takes longer on Travis to complete
   before(function (done) {
     benv.setup(function() {
 
@@ -138,7 +138,7 @@ describe('admintools', function ( ) {
             if (url.indexOf('status.json') > -1) {
               fn(serverSettings);
             } else {
-              fn({message: {message: 'OK'}});
+              fn({message: 'OK'});
             }
             return self.$.ajax();
             },
@@ -153,9 +153,7 @@ describe('admintools', function ( ) {
 
       var d3 = require('d3');
       //disable all d3 transitions so most of the other code can run with jsdom
-      //d3.timer = function mockTimer() { };
-      let timer = d3.timer(function mockTimer() { });
-      timer.stop();
+      d3.timer = function mockTimer() { };
       
       var cookieStorageType = self.localStorage._type
 
