@@ -1,0 +1,97 @@
+
+@import url("../../mfb/mfb.min.css");
+#chartContainer, #toolbar, #view, #templates {
+  margin: 0 5%;
+  width: 80%;
+  position: relative;
+  min-height: 1em;
+}
+
+#chartContainer svg {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+
+.reticle .controls>span,
+.reticle .controls .begin,
+.reticle .controls .end {
+  display: block;
+  float: left;
+  margin: 0;
+
+}
+.reticle .controls .interstice {
+  width: 100%;
+  text-align: center;
+  line-height: 120%;
+  font-size: 200%;
+}
+.reticle .controls .begin {
+  position: absolute;
+  left: 0;
+}
+.reticle .controls .end {
+  position: absolute;
+  right: 0;
+}
+
+.reticle .controls INPUT {
+  line-height: 120%;
+  font-size: 200%;
+}
+.reticle .controls INPUT.end-input {
+  text-align: right;
+}
+
+#menu_holder {
+}
+
+#menu {
+}
+
+.reticle .timeline {
+  min-height: 8em;
+  border: 1px solid pink;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.pool {
+  min-height: 500px;
+  border: 1px solid blue;
+}
+
+#templates {
+  display: none;
+}
+
+.debug #templates {
+  display: block;
+}
+
+#view.collapse  .pool {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  border: 1px solid silver;
+}
+
+#view .observations {
+  position: relative;
+  padding-bottom: 500px;
+}
+
+#view .gridlines line {
+  stroke: silver;
+  stroke-opacity: 60%;
+}
+
