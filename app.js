@@ -96,16 +96,22 @@ function create (env, ctx) {
   app.set('view engine', 'ejs');
   // this allows you to render .html files as templates in addition to .ejs
   app.engine('html', require('ejs').renderFile);
-  app.engine('appcache', require('ejs').renderFile);
   app.set("views", path.join(__dirname, "views/"));
 
   let cacheBuster = 'developmentMode';
+  let lastModified = new Date();
+  let busterPath = '/tmp/cacheBusterToken';
+
   if (process.env.NODE_ENV !== 'development') {
-    if (fs.existsSync(process.cwd() + '/tmp/cacheBusterToken')) {
-      cacheBuster = fs.readFileSync(process.cwd() + '/tmp/cacheBusterToken').toString().trim();
-    } else {
-      cacheBuster = fs.readFileSync(__dirname + '/tmp/cacheBusterToken').toString().trim();
-    }
+    busterPath = process.cwd() + busterPath;
+  } else {
+    busterPath = __dirname + busterPath;
+  }
+
+  if (fs.existsSync(busterPath)) {
+      cacheBuster = fs.readFileSync(busterPath).toString().trim();
+      var stats = fs.statSync(busterPath);
+      lastModified = stats.mtime;
   }
   app.locals.cachebuster = cacheBuster;
 
@@ -116,6 +122,9 @@ function create (env, ctx) {
 
   app.get("/sw.js", (req, res) => {
     res.setHeader('Content-Type', 'application/javascript');
+    if (process.env.NODE_ENV !== 'development') {
+      res.setHeader('Last-Modified', lastModified.toUTCString());
+    }
     res.send(ejs.render(fs.readFileSync(
       require.resolve(`${__dirname}/views/service-worker.js`),
       { encoding: 'utf-8' }),
@@ -123,8 +132,25 @@ function create (env, ctx) {
      ));
   });
 
+  // Allow static resources to be cached for week
+  var maxAge = 7 * 24 * 60 * 60 * 1000;
+
+  if (process.env.NODE_ENV === 'development') {
+    maxAge = 1;
+    console.log('Development environment detected, setting static file cache age to 1 second');
+  }
+
+  var staticFiles = express.static(env.static_files, {
+    maxAge
+  });
+
+  // serve the static content
+  app.use(staticFiles);
+
   if (ctx.bootErrors && ctx.bootErrors.length > 0) {
-    app.get('*', require('./lib/server/booterror')(ctx));
+    const bootErrorView = require('./lib/server/booterror')(env, ctx);
+    bootErrorView.setLocals(app.locals);
+    app.get('*', bootErrorView);
     return app;
   }
 
@@ -246,40 +272,6 @@ function create (env, ctx) {
   app.get('/swagger.yaml', function(req, res) {
     res.sendFile(__dirname + '/swagger.yaml');
   });
-
-  /* // FOR DEBUGGING MEMORY LEEAKS
-  if (env.settings.isEnabled('dumps')) {
-    var heapdump = require('heapdump');
-    app.get('/api/v2/dumps/start', function(req, res) {
-      var path = new Date().toISOString() + '.heapsnapshot';
-      path = path.replace(/:/g, '-');
-      console.info('writing dump to', path);
-      heapdump.writeSnapshot(path);
-      res.send('wrote dump to ' + path);
-    });
-  }
-  */
-
-  // app.get('/package.json', software);
-
-  // Allow static resources to be cached for week
-  var maxAge = 7 * 24 * 60 * 60 * 1000;
-
-  if (process.env.NODE_ENV === 'development') {
-    maxAge = 1;
-    console.log('Development environment detected, setting static file cache age to 1 second');
-
-    app.get('/nightscout.appcache', function(req, res) {
-      res.sendStatus(404);
-    });
-  }
-
-  var staticFiles = express.static(env.static_files, {
-    maxAge
-  });
-
-  // serve the static content
-  app.use(staticFiles);
 
   // API docs
 
