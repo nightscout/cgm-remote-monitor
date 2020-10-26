@@ -19,7 +19,7 @@ describe('Basic REST API3', function() {
 
 
   after(function after () {
-    self.instance.server.close();
+    self.instance.ctx.bus.teardown();
   });
 
 
