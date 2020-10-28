@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html>
+<html xmlns="http://www.w3.org/1999/html">
+
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  
-  <title>Nightscout</title>
-  
+
+  <title>Nightscout - Boot error</title>
+
   <link href="/images/round1.png" rel="icon" id="favicon" type="image/png" />
   <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
   <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
@@ -16,32 +17,48 @@
   <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
   <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
-  
+
   <style type="text/css">
-    @import url("//fonts.googleapis.com/css?family=Open+Sans:700"); 
-    <%- include(face + '.css', {}); %>
-  
+    @import url("//fonts.googleapis.com/css?family=Open+Sans:700");
+
+    table {
+        margin: auto;
+        width: 70%;
+    }
+
+    td {
+        vertical-align: top;
+    }
+
+    body {
+        font-family: 'Ubuntu', Verdana, Helvetica, Arial, sans-serif;
+    }
   </style>
 </head>
 
 <body>
-    <a href="/"><div style="position: absolute; top: 10px; right: 10px; color: grey; border-radius: 5px; border: 2px solid grey; padding: 5px; width: 20px; height: 20px; ">X</div></a>
-  <main>
-    <div class="inner">
-      <div id="trend">
-        <div id="bgnow"></div>
-        <div id="arrowDiv"><img id="arrow" src=""/></div>
-      </div>
-      <div id="clock"></div>
-    </div>
-  </main>
-  
-  <script src="/api/v1/status.js"></script>
-  <script src="<%= locals.bundle %>/js/bundle.clock.js?v=<%= locals.cachebuster %>"></script>
-  
-  <script type="text/javascript">
-    let clockFace = "<%= face  %>"; // can now be used in scripts
-    window.Nightscout.client.init( );
-  </script>
+
+<table>
+<tr>
+<td width='40%'>
+
+<img src="/images/errorcat.jpg" width="90%">
+    
+</td>
+<td>
+
+<h1>Oops - Nightscout is having trouble</h1>
+
+<p>Don't panic, we can work this out! This happens to the best of us.</p>
+<p>Check the errors below and then refer to the
+    <a href="https://nightscout.github.io/">troubleshooting documentation</a>.</p>
+
+<h2>Errors occurred during startup:</h2>
+    <dl><%- errors %></dl>
+</td>
+</tr>
+</table>
+</center>
 </body>
+
 </html>
