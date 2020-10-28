@@ -25,22 +25,28 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-
-      <link rel="preload" href="/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <link rel="preload" href="/css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <link rel="preload" href="/css/admin.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <link rel="preload" href="/css/ui-darkness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <% include preloadCSS %>
+      <link rel="stylesheet" type="text/css" href="/css/main.css?v=<%= locals.cachebuster %>" />
+      <link rel="stylesheet" type="text/css" href="/css/drawer.css" />
+      <link rel="stylesheet" type="text/css" href="/css/admin.css" />
+      <link rel="stylesheet" type="text/css" href="/css/ui-darkness/jquery-ui.min.css">
     </head>
-  <body>
-    <%- include('partials/toolbar') %>
+    <body>
+    <div id="toolbar">
+      <h1 class="customTitle">Nightscout</h1>
+    </div>
+
+    <div id="admin-tools">
+      <h1 class="translate">Admin Tools</h1>
+    </div>
 
     <div id="admin_placeholder"></div>
+    
+    <hr>
+    <b><span class="translate">Authentication status</span>: </b>
+    <span id="authentication_placeholder"></span>
 
-    <%- include('partials/authentication-status') %>
-
-    <script src="<%= locals.bundle %>/js/bundle.app.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/admin/js/admin.js"></script>
+    <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/admin/js/admin.js?v=<%= locals.cachebuster %>"></script>
   </body>
 </html>

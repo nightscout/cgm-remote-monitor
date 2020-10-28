@@ -4,6 +4,7 @@ require('should');
 var _ = require('lodash');
 var benv = require('benv');
 var read = require('fs').readFileSync;
+var serverSettings = require('./fixtures/default-server-settings');
 
 var nowData = require('../lib/data/ddata')();
 nowData.sgvs.push({ mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' });
@@ -65,12 +66,12 @@ var exampleProfile = {
 
 
 var someData = {
-    '/api/v1/profile.json?count=20': [exampleProfile]
+    '/api/v1/profile.json': [exampleProfile]
   };
 
 
 describe('Profile editor', function ( ) {
-  this.timeout(40000); //TODO: see why this test takes longer on Travis to complete
+  this.timeout(30000);
   var headless = require('./fixtures/headless')(benv, this);
 
   before(function (done) {
@@ -120,8 +121,7 @@ describe('Profile editor', function ( ) {
     client.init();
     client.dataUpdate(nowData);
     
-    // var result = $('body').html();
-    // console.log(result);
+    //var result = $('body').html();
     //var filesys = require('fs');
     //var logfile = filesys.createWriteStream('out.html', { flags: 'a'} )
     //logfile.write($('body').html());

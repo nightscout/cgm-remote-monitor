@@ -173,7 +173,7 @@
     },
     "enable": {
       "type": "string",
-      "defaultValue": "basal bwp cage careportal iob cob rawbg sage iage treatmentnotify boluscalc profile food dbsize"
+      "defaultValue": "basal bwp cage careportal iob cob rawbg sage iage treatmentnotify boluscalc profile food"
     },
     "night_mode": {
       "type": "string",
@@ -185,7 +185,7 @@
     },
     "show_plugins": {
       "type": "string",
-      "defaultValue": "careportal dbsize"
+      "defaultValue": "careportal"
     },
     "show_rawbg": {
       "type": "string",
@@ -218,7 +218,7 @@
     },
     "WEBSITE_NODE_DEFAULT_VERSION": {
         "type": "string",
-        "defaultValue": "8.11.1"
+        "defaultValue": "8.5.0"
     }
   },
   "resources": [{
@@ -317,12 +317,8 @@
             "value": "[parameters('auth_default_roles')]"
           }, {
             "name": "WEBSITE_NODE_DEFAULT_VERSION",
-            "value": "8.11.1"
-          }, {
-            "name": "SCM_COMMAND_IDLE_TIMEOUT",
-            "value": "300"
+            "value": "8.5.0"
           }
-
         ]
       }
     },

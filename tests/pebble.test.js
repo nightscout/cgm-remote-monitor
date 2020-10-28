@@ -84,9 +84,9 @@ ctx.ddata.treatments = updateMills([
 
 ctx.ddata.devicestatus = [{uploader: {battery: 100}}];
 
-var bootevent = require('../lib/server/bootevent');
+var bootevent = require('../lib/bootevent');
 describe('Pebble Endpoint', function ( ) {
-  var pebble = require('../lib/server/pebble');
+  var pebble = require('../lib/pebble');
   before(function (done) {
     var env = require('../env')( );
     env.settings.authDefaultRoles = 'readable';
@@ -221,7 +221,7 @@ describe('Pebble Endpoint', function ( ) {
 });
 
 describe('Pebble Endpoint with Raw and IOB and COB', function ( ) {
-  var pebbleRaw = require('../lib/server/pebble');
+  var pebbleRaw = require('../lib/pebble');
   before(function (done) {
     var env = require('../env')( );
     env.settings.enable = ['rawbg', 'iob', 'cob'];
