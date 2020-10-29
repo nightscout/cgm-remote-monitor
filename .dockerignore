@@ -1,0 +1,18 @@
+# Don't include the .git history in the Docker image:
+.git
+
+# Items from .gitignore
+bower_components/
+node_modules/
+bundle/bundle.out.js
+.idea/
+*.iml
+my.env
+*.env
+static/bower_components/
+.*.sw?
+.DS_Store
+.vagrant
+/iisnode
+coverage/
+npm-debug.log
