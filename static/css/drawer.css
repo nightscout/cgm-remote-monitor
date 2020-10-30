@@ -207,33 +207,49 @@ h1, legend,
 }
 
 #toolbar {
-  background: url(/images/logo2.png) no-repeat 3px 3px #333;
-  border-bottom: 1px solid #999;
-  top: 0;
-  margin: 0;
-  height: 44px;
   text-shadow: 0 0 5px black;
+  display: flex;
+  height: 44px;
+  margin: 0 0 10px;
+  padding: 0 15px 0 40px;
+  position: relative;
+  align-items: center;
+  background: url(/images/logo2.png) no-repeat 3px center #333;
+  border-bottom: 1px solid #999;
+  justify-content: space-between;
 }
 
 #toolbar .customTitle {
   color: #ccc;
   font-size: 16px;
-  margin-top: 0;
-  margin-left: 42px;
-  padding-top: 10px;
-  padding-right: 150px;
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
 }
+
+#toolbar .button-close {
+  color: #404040;
+  text-align: center;
+  text-shadow: none;
+  height: 20px;
+  width: 20px;
+  padding: 5px;
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  background: grey;
+  border: 2px solid #404040;
+  border-radius: 5px;
+}
+
+#toolbar .button-close + #buttonbar {
+  margin-right: 40px;
+}
+
 #buttonbar {
-  padding-right: 15px;
-  height: 44px;
   opacity: 0.75;
   vertical-align: middle;
-  position: absolute;
-  right: 0;
-  z-index: 500;
 }
 
 #buttonbar a,
@@ -243,14 +259,17 @@ h1, legend,
   height: 44px;
   line-height: 44px;
 }
+
 #buttonbar .selected {
   color: red;
 }
+
 #buttonbar a {
-  float: left;
+  float: right;
   text-decoration: none;
   width: 34px;
 }
+
 #buttonbar i {
   padding-left: 12px;
 }
