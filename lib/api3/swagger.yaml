@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: '/api/v3'
 info:
-  version: '3.0.1'
+  version: "3.0.1"
   title: Nightscout API
   contact:
     name: NS development discussion channel
@@ -135,6 +135,8 @@ paths:
           $ref: '#/components/responses/403Forbidden'
         404:
           $ref: '#/components/responses/404NotFound'
+        406:
+          $ref: '#/components/responses/406NotAcceptable'
 
 
     ######################################################################################
@@ -240,6 +242,8 @@ paths:
           $ref: '#/components/responses/403Forbidden'
         404:
           $ref: '#/components/responses/404NotFound'
+        406:
+          $ref: '#/components/responses/406NotAcceptable'
         410:
           $ref: '#/components/responses/410Gone'
 
@@ -459,6 +463,8 @@ paths:
           $ref: '#/components/responses/403Forbidden'
         404:
           $ref: '#/components/responses/404NotFound'
+        406:
+          $ref: '#/components/responses/406NotAcceptable'
 
 
   ######################################################################################
@@ -518,6 +524,8 @@ paths:
           $ref: '#/components/responses/403Forbidden'
         404:
           $ref: '#/components/responses/404NotFound'
+        406:
+          $ref: '#/components/responses/406NotAcceptable'
 
 
   ######################################################################################
@@ -888,6 +896,9 @@ components:
     404NotFound:
       description: The collection or document specified was not found.
 
+    406NotAcceptable:
+      description: The requested content type (in `Accept` header) is not supported.
+
     412PreconditionFailed:
       description: The document has already been modified on the server since specified timestamp (in If-Unmodified-Since header).
 
@@ -903,6 +914,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/DocumentArray'
+        text/csv:
+          schema:
+            $ref: '#/components/schemas/DocumentArray'
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/DocumentArray'
 
     search204:
       description: Successful operation - no documents matching the filtering criteria
@@ -911,6 +928,12 @@ components:
       description: The document has been succesfully found and its JSON form returned in the response content.
       content:
         application/json:
+          schema:
+            $ref: '#/components/schemas/Document'
+        text/csv:
+          schema:
+            $ref: '#/components/schemas/Document'
+        application/xml:
           schema:
             $ref: '#/components/schemas/Document'
       headers:
@@ -922,6 +945,12 @@ components:
         Changed documents since specified timestamp
       content:
         application/json:
+          schema:
+            $ref: '#/components/schemas/DocumentArray'
+        text/csv:
+          schema:
+            $ref: '#/components/schemas/DocumentArray'
+        application/xml:
           schema:
             $ref: '#/components/schemas/DocumentArray'
       headers:
@@ -1417,6 +1446,8 @@ components:
 
     Document:
       description: Single document
+      xml:
+        name: 'item'
       type: object
       oneOf:
         - $ref: '#/components/schemas/DeviceStatus'
@@ -1483,6 +1514,8 @@ components:
 
     DocumentArray:
       type: object
+      xml:
+        name: 'items'
       oneOf:
         - $ref: '#/components/schemas/DeviceStatusArray'
         - $ref: '#/components/schemas/EntryArray'
