@@ -7,6 +7,7 @@ const bodyParser = require('body-parser');
 require('should');
 
 describe('Alexa REST api', function ( ) {
+  this.timeout(10000);
   const apiRoot = require('../lib/api/root');
   const api = require('../lib/api/');
   before(function (done) {
