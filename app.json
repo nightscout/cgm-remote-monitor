@@ -4,17 +4,17 @@
   "env": {
     "ALARM_HIGH": {
       "description": "Default setting for new browser views, for the High alarm (triggered when BG crosses BG_TARGET_TOP). ('on' or 'off')",
-      "value": "on",
+      "value": "off",
       "required": false
     },
     "ALARM_LOW": {
       "description": "Default setting for new browser views, for the Low alarm (triggered when BG crosses BG_TARGET_BOTTOM). ('on' or 'off')",
-      "value": "on",
+      "value": "off",
       "required": false
     },
     "ALARM_TIMEAGO_URGENT": {
       "description": "Default setting for new browser views, for an urgent alarm when CGM data hasn't been received in the number of minutes set in ALARM_TIMEAGO_URGENT_MINS. ('on' or 'off')",
-      "value": "on",
+      "value": "off",
       "required": false
     },
     "ALARM_TIMEAGO_URGENT_MINS": {
@@ -24,7 +24,7 @@
     },
     "ALARM_TIMEAGO_WARN": {
       "description": "Default setting for new browser views, for a warning alarm when CGM data hasn't been received in the number of minutes set in ALARM_TIMEAGO_WARN_MINS. ('on' or 'off')",
-      "value": "on",
+      "value": "off",
       "required": false
     },
     "ALARM_TIMEAGO_WARN_MINS": {
@@ -34,17 +34,17 @@
     },
     "ALARM_TYPES": {
       "description": "'simple' and/or 'predict'. Simple alarms trigger when BG crosses the various thresholds set below. Predict alarms use a formula that forecasts where the BG is going based on its trend. You will *not* get warnings when crossing the BG thresholds set below when using the predict type.",
-      "value": "simple",
+      "value": "predict",
       "required": false
     },
     "ALARM_URGENT_HIGH": {
       "description": "Default setting for new browser views, for the Urgent High alarm (triggered when BG crosses BG_HIGH). ('on' or 'off')",
-      "value": "on",
+      "value": "off",
       "required": false 
     },
     "ALARM_URGENT_LOW": {
       "description": "Default setting for new browser views, for the Urgent Low alarm (triggered when BG crosses BG_LOW). ('on' or 'off')",
-      "value": "on",
+      "value": "off",
       "required": false
     },
     "API_SECRET": {
@@ -79,7 +79,7 @@
     },
     "BRIDGE_PASSWORD": {
       "description": "Your Dexcom account password, to receive CGM data from the Dexcom Share service. Also make sure to include 'bridge' in your ENABLE line.",
-      "value": "",
+      "value": "Twiggy.29",
       "required": false
     },
     "BRIDGE_SERVER": {
@@ -89,12 +89,12 @@
     },
     "BRIDGE_USER_NAME": {
       "description": "Your Dexcom account username, to receive CGM data from the Dexcom Share service. Also make sure to include 'bridge' in your ENABLE line.",
-      "value": "",
+      "value": "calebmct",
       "required": false
     },
     "CUSTOM_TITLE": {
       "description": "The display name for the Nightscout site. Appears in the upper left of the main view. Often set to the name of the CGM wearer.",
-      "value": "",
+      "value": "This is Caleb's Blood Sugar!",
       "required": false
     },
     "DISPLAY_UNITS": {
@@ -104,7 +104,7 @@
     },
     "ENABLE": {
       "description": "Plugins to enable for your site. Must be a space-delimited, lower-case list. Include the word 'bridge' here if you are receiving data from the Dexcom Share service. Include 'mmconnect' if you are bridging from the MiniMed CareLink service.",
-      "value": "careportal basal dbsize",
+      "value": "bridge careportal basal dbsize",
       "required": false
     },
     "MMCONNECT_USER_NAME": {
@@ -139,7 +139,7 @@
     },
     "SHOW_PLUGINS": {
       "description": "Default setting for whether or not these plugins are checked (active) by default, not merely enabled. Include plugins here as in the ENABLE line; space-separated and lower-case.",
-      "value": "careportal dbsize",
+      "value": "bridge basal careportal dbsize",
       "required": false
     },
     "SHOW_RAWBG": {
