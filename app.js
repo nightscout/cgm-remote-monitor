@@ -7,7 +7,6 @@ const bodyParser = require('body-parser');
 
 const path = require('path');
 const fs = require('fs');
-const ejs = require('ejs');
 
 function create (env, ctx) {
   var app = express();
@@ -26,9 +25,6 @@ function create (env, ctx) {
       }
     });
     if (secureHstsHeader) { // Add HSTS (HTTP Strict Transport Security) header
-
-      const enableCSP = env.secureCsp ? true : false;
-
       console.info('Enabled SECURE_HSTS_HEADER (HTTP Strict Transport Security)');
       const helmet = require('helmet');
       var includeSubDomainsValue = env.secureHstsHeaderIncludeSubdomains;
@@ -40,52 +36,39 @@ function create (env, ctx) {
           , preload: preloadValue
         }
         , frameguard: false
-        , contentSecurityPolicy: enableCSP
       }));
-
-      if (enableCSP) {
+      if (env.secureCsp) {
         var secureCspReportOnly = env.secureCspReportOnly;
         if (secureCspReportOnly) {
           console.info('Enabled SECURE_CSP (Content Security Policy header). Not enforcing. Report only.');
         } else {
           console.info('Enabled SECURE_CSP (Content Security Policy header). Enforcing.');
         }
-
-        let frameAncestors = ["'self'"];
-
-        for (let i = 0; i <= 8; i++) {
-          let u = env.settings['frameUrl' + i];
-          if (u) {
-            frameAncestors.push(u);
-          }
-        }
-
         app.use(helmet.contentSecurityPolicy({ //TODO make NS work without 'unsafe-inline'
           directives: {
             defaultSrc: ["'self'"]
-            , styleSrc: ["'self'", 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/', "'unsafe-inline'"]
+            , styleSrc: ["'self'", 'https://fonts.googleapis.com/', "'unsafe-inline'"]
             , scriptSrc: ["'self'", "'unsafe-inline'"]
-            , fontSrc: ["'self'", 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/', 'data:']
+            , fontSrc: ["'self'", 'https://fonts.gstatic.com/', 'data:']
             , imgSrc: ["'self'", 'data:']
-            , objectSrc: ["'none'"] // Restricts <object>, <embed>, and <applet> elements
-            , reportUri: '/report-violation'
-            , baseUri: ["'none'"] // Restricts use of the <base> tag
-            , formAction: ["'self'"] // Restricts where <form> contents may be submitted
-            , connectSrc: ["'self'", "ws:", "wss:", 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/']
-            , frameSrc: ["'self'"]
-            , frameAncestors: frameAncestors
+            , objectSrc: ["'none'"], // Restricts <object>, <embed>, and <applet> elements
+            reportUri: '/report-violation'
+            , frameAncestors: ["'none'"], // Clickjacking protection, using frame-ancestors
+            baseUri: ["'none'"], // Restricts use of the <base> tag
+            formAction: ["'self'"], // Restricts where <form> contents may be submitted
           }
           , reportOnly: secureCspReportOnly
         }));
         app.use(helmet.referrerPolicy({ policy: 'no-referrer' }));
+        app.use(helmet.featurePolicy({ features: { payment: ["'none'"], } }));
         app.use(bodyParser.json({ type: ['json', 'application/csp-report'] }));
         app.post('/report-violation', (req, res) => {
           if (req.body) {
-            console.log('CSP Violation: ', req.body);
+            console.log('CSP Violation: ', req.body)
           } else {
-            console.log('CSP Violation: No data received!');
+            console.log('CSP Violation: No data received!')
           }
-          res.status(204).end();
+          res.status(204).end()
         })
       }
     }
@@ -96,41 +79,18 @@ function create (env, ctx) {
   app.set('view engine', 'ejs');
   // this allows you to render .html files as templates in addition to .ejs
   app.engine('html', require('ejs').renderFile);
+  app.engine('appcache', require('ejs').renderFile);
   app.set("views", path.join(__dirname, "views/"));
 
   let cacheBuster = 'developmentMode';
-  let lastModified = new Date();
-  let busterPath = '/tmp/cacheBusterToken';
-
   if (process.env.NODE_ENV !== 'development') {
-    busterPath = process.cwd() + busterPath;
-  } else {
-    busterPath = __dirname + busterPath;
-  }
-
-  if (fs.existsSync(busterPath)) {
-      cacheBuster = fs.readFileSync(busterPath).toString().trim();
-      var stats = fs.statSync(busterPath);
-      lastModified = stats.mtime;
+    if (fs.existsSync(process.cwd() + '/tmp/cacheBusterToken')) {
+      cacheBuster = fs.readFileSync(process.cwd() + '/tmp/cacheBusterToken').toString().trim();
+    } else {
+      cacheBuster = fs.readFileSync(__dirname + '/tmp/cacheBusterToken').toString().trim();
+    }
   }
   app.locals.cachebuster = cacheBuster;
-
-  app.get("/robots.txt", (req, res) => {
-    res.setHeader('Content-Type', 'text/plain');
-    res.send(['User-agent: *','Disallow: /'].join('\n'));
-  });
-
-  app.get("/sw.js", (req, res) => {
-    res.setHeader('Content-Type', 'application/javascript');
-    if (process.env.NODE_ENV !== 'development') {
-      res.setHeader('Last-Modified', lastModified.toUTCString());
-    }
-    res.send(ejs.render(fs.readFileSync(
-      require.resolve(`${__dirname}/views/service-worker.js`),
-      { encoding: 'utf-8' }),
-      { locals: app.locals}
-     ));
-  });
 
   if (ctx.bootErrors && ctx.bootErrors.length > 0) {
     app.get('*', require('./lib/server/booterror')(ctx));
@@ -171,58 +131,41 @@ function create (env, ctx) {
     }
   }));
 
-  var appPages = {
-    "/": {
-      file: "index.html"
-      , type: "index"
-    }
-    , "/admin": {
-      file: "adminindex.html"
-      , title: 'Admin Tools'
-      , type: 'admin'
-    }
-    , "/food": {
-      file: "foodindex.html"
-      , title: 'Food Editor'
-      , type: 'food'
-    }
-    , "/profile": {
-      file: "profileindex.html"
-      , title: 'Profile Editor'
-      , type: 'profile'
-    }
-    , "/report": {
-      file: "reportindex.html"
-      , title: 'Nightscout reporting'
-      , type: 'report'
-    }
-    , "/translations": {
-      file: "translationsindex.html"
-      , title: 'Nightscout translations'
-      , type: 'translations'
-    }
-    , "/split": {
-      file: "frame.html"
-      , title: '8-user view'
-      , type: 'index'
-    }
-  };
-
-  Object.keys(appPages).forEach(function(page) {
-    app.get(page, (req, res) => {
-      res.render(appPages[page].file, {
-        locals: app.locals,
-        title: appPages[page].title ? appPages[page].title : '',
-        type: appPages[page].type ? appPages[page].type : '',
-        settings: env.settings
-      });
-    });
-  });
-
   const clockviews = require('./lib/server/clocks.js')(env, ctx);
   clockviews.setLocals(app.locals);
 
   app.use("/clock", clockviews);
+
+  app.get("/", (req, res) => {
+    res.render("index.html", {
+      locals: app.locals
+    });
+  });
+
+  var appPages = {
+    "/clock-color.html": "clock-color.html"
+    , "/admin": "adminindex.html"
+    , "/profile": "profileindex.html"
+    , "/food": "foodindex.html"
+    , "/bgclock.html": "bgclock.html"
+    , "/report": "reportindex.html"
+    , "/translations": "translationsindex.html"
+    , "/clock.html": "clock.html"
+  };
+
+  Object.keys(appPages).forEach(function(page) {
+    app.get(page, (req, res) => {
+      res.render(appPages[page], {
+        locals: app.locals
+      });
+    });
+  });
+
+  app.get("/appcache/*", (req, res) => {
+    res.render("nightscout.appcache", {
+      locals: app.locals
+    });
+  });
 
   app.use('/api', bodyParser({
     limit: 1048576 * 50
@@ -256,7 +199,6 @@ function create (env, ctx) {
     res.sendFile(__dirname + '/swagger.yaml');
   });
 
-  /* // FOR DEBUGGING MEMORY LEEAKS
   if (env.settings.isEnabled('dumps')) {
     var heapdump = require('heapdump');
     app.get('/api/v2/dumps/start', function(req, res) {
@@ -267,7 +209,6 @@ function create (env, ctx) {
       res.send('wrote dump to ' + path);
     });
   }
-  */
 
   // app.get('/package.json', software);
 
@@ -277,6 +218,10 @@ function create (env, ctx) {
   if (process.env.NODE_ENV === 'development') {
     maxAge = 1;
     console.log('Development environment detected, setting static file cache age to 1 second');
+
+    app.get('/nightscout.appcache', function(req, res) {
+      res.sendStatus(404);
+    });
   }
 
   var staticFiles = express.static(env.static_files, {
