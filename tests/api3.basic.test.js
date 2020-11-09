@@ -23,15 +23,6 @@ describe('Basic REST API3', function() {
   });
 
 
-  it('GET /swagger', async () => {
-    let res = await request(self.app)
-      .get('/api/v3/swagger.yaml')
-      .expect(200);
-
-    res.header['content-length'].should.be.above(0);
-  });
-
-
   it('GET /version', async () => {
     let res = await request(self.app)
       .get('/api/v3/version')
