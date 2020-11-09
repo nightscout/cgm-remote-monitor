@@ -195,15 +195,15 @@ Want to help with development, or just see how Nightscout works? Great! See [CON
 
 # Usage
 
-The data being uploaded from the server to the client is from a MongoDB server such as [MongoDB Atlas][https://www.mongodb.com].
+The data being uploaded from the server to the client is from a MongoDB server such as [MongoDB Atlas](https://www.mongodb.com).
 
 [autoconfigure]: https://nightscout.github.io/pages/configure/
 [mongostring]: https://nightscout.github.io/pages/mongostring/
 
 ## Updating my version?
 
-The easiest way to update your version of cgm-remote-monitor to the latest version is to use the [update tool][update-fork]. A step-by-step guide is available [here][http://www.nightscout.info/wiki/welcome/how-to-update-to-latest-cgm-remote-monitor-aka-cookie].
-To downgrade to an older version, follow [this guide][http://www.nightscout.info/wiki/welcome/how-to-deploy-an-older-version-of-nightscout].
+The easiest way to update your version of cgm-remote-monitor to the latest version is to use the [update tool][update-fork]. A step-by-step guide is available [here](http://www.nightscout.info/wiki/welcome/how-to-update-to-latest-cgm-remote-monitor-aka-cookie).
+To downgrade to an older version, follow [this guide](http://www.nightscout.info/wiki/welcome/how-to-deploy-an-older-version-of-nightscout).
 
 ## Configure my uploader to match
 
