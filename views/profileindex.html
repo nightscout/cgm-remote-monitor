@@ -25,15 +25,22 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="preload" href="/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <link rel="preload" href="/css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <link rel="preload" href="/css/profile.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <link rel="preload" href="/css/ui-darkness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <% include preloadCSS %>
-
+      <link rel="stylesheet" type="text/css" href="/css/main.css?v=<%= locals.cachebuster %>" />
+      <link rel="stylesheet" type="text/css" href="/css/drawer.css" />
+      <link rel="stylesheet" type="text/css" href="/css/profile.css" />
+      <link rel="stylesheet" type="text/css" href="/css/ui-darkness/jquery-ui.min.css">
     </head>
-  <body>
-    <%- include('partials/toolbar') %>
+    <body>
+    <div id="toolbar">
+      <div id="buttonbar">
+        <b> <span class="translate">Status</span>:</b> <span class="pe_status translate">Not loaded</span>
+      </div>
+      <h1 class="customTitle translate">Nightscout</h1>
+    </div>
+
+    <div id="profile-editor">
+      <h1 class="translate">Profile Editor</h1>
+    </div>
 
     <form id="pe_form">
       <fieldset class="browserSettings">
@@ -157,17 +164,18 @@
         
       </fieldset>
 
+      <b><span class="translate">Authentication status</span>: </b>
+      <span id="authentication_placeholder"></span>
+
       <p>
         <b> <span class="translate">Status</span>:</b> <span class="pe_status" class="translate">Not loaded</span>
       </p>
 
     </form>
 
-    <%- include('partials/authentication-status') %>
-
     <script src="/api/v1/status.js"></script>
-    <script src="<%= locals.bundle %>/js/bundle.app.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/profile/js/profileeditor.js"></script>
+    <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/profile/js/profileeditor.js?v=<%= locals.cachebuster %>"></script>
   </body>
 </html>

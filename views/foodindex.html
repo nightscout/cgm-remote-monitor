@@ -24,17 +24,24 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
-      <link rel="preload" href="/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <link rel="preload" href="/css/dropdown.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <link rel="preload" href="/css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <link rel="preload" href="/css/food.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <link rel="preload" href="/css/ui-darkness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <% include preloadCSS %>
-
+      <link rel="stylesheet" type="text/css" href="/css/main.css?v=<%= locals.cachebuster %>" />
+      <link rel="stylesheet" type="text/css" href="/css/dropdown.css" />
+      <link rel="stylesheet" type="text/css" href="/css/drawer.css" />
+      <link rel="stylesheet" type="text/css" href="/css/food.css" />
+      <link rel="stylesheet" type="text/css" href="/css/ui-darkness/jquery-ui.min.css">
     </head>
-  <body>
-    <%- include('partials/toolbar') %>
-
+    <body>
+      <div id="toolbar">
+        <div id="buttonbar">
+        <b> <span  class="translate">Status</span>:</b> <span id="fe_status" class="translate">Not loaded</span>
+        </div>
+        <h1 class="customTitle">Nightscout</h1>
+        <div id="food-editor">
+          <h1 class="translate">Food Editor</h1>
+        </div>
+      </div>
+    
+    <br>
     <div id="fe_form">
       <fieldset class="browserSettings">
         <legend class="translate">Your database</legend>
@@ -108,12 +115,12 @@
         </legend>
         <div id="fe_picklist"></div>
       </fieldset>
+      <b><span class="translate">Authentication status</span>: </b>
+      <span id="authentication_placeholder"></span>
     </div>
-
-    <%- include('partials/authentication-status') %>
-
-    <script src="<%= locals.bundle %>/js/bundle.app.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/food/js/food.js"></script>
+    
+    <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/food/js/food.js?v=<%= locals.cachebuster %>"></script>
   </body>
 </html>
