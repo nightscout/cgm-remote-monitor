@@ -49,7 +49,7 @@ describe('client', function ( ) {
 
 
     client.init();
-    client.dataUpdate(nowData);
+    client.dataUpdate(nowData, true);
 
     client.careportal.prepareEvents();
 
