@@ -7,6 +7,7 @@ const bodyParser = require('body-parser');
 
 const path = require('path');
 const fs = require('fs');
+const ejs = require('ejs');
 
 function create (env, ctx) {
   var app = express();
@@ -25,6 +26,9 @@ function create (env, ctx) {
       }
     });
     if (secureHstsHeader) { // Add HSTS (HTTP Strict Transport Security) header
+
+      const enableCSP = env.secureCsp ? true : false;
+
       console.info('Enabled SECURE_HSTS_HEADER (HTTP Strict Transport Security)');
       const helmet = require('helmet');
       var includeSubDomainsValue = env.secureHstsHeaderIncludeSubdomains;
@@ -36,39 +40,52 @@ function create (env, ctx) {
           , preload: preloadValue
         }
         , frameguard: false
+        , contentSecurityPolicy: enableCSP
       }));
-      if (env.secureCsp) {
+
+      if (enableCSP) {
         var secureCspReportOnly = env.secureCspReportOnly;
         if (secureCspReportOnly) {
           console.info('Enabled SECURE_CSP (Content Security Policy header). Not enforcing. Report only.');
         } else {
           console.info('Enabled SECURE_CSP (Content Security Policy header). Enforcing.');
         }
+
+        let frameAncestors = ["'self'"];
+
+        for (let i = 0; i <= 8; i++) {
+          let u = env.settings['frameUrl' + i];
+          if (u) {
+            frameAncestors.push(u);
+          }
+        }
+
         app.use(helmet.contentSecurityPolicy({ //TODO make NS work without 'unsafe-inline'
           directives: {
             defaultSrc: ["'self'"]
-            , styleSrc: ["'self'", 'https://fonts.googleapis.com/', "'unsafe-inline'"]
+            , styleSrc: ["'self'", 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/', "'unsafe-inline'"]
             , scriptSrc: ["'self'", "'unsafe-inline'"]
-            , fontSrc: ["'self'", 'https://fonts.gstatic.com/', 'data:']
+            , fontSrc: ["'self'", 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/', 'data:']
             , imgSrc: ["'self'", 'data:']
-            , objectSrc: ["'none'"], // Restricts <object>, <embed>, and <applet> elements
-            reportUri: '/report-violation'
-            , frameAncestors: ["'none'"], // Clickjacking protection, using frame-ancestors
-            baseUri: ["'none'"], // Restricts use of the <base> tag
-            formAction: ["'self'"], // Restricts where <form> contents may be submitted
+            , objectSrc: ["'none'"] // Restricts <object>, <embed>, and <applet> elements
+            , reportUri: '/report-violation'
+            , baseUri: ["'none'"] // Restricts use of the <base> tag
+            , formAction: ["'self'"] // Restricts where <form> contents may be submitted
+            , connectSrc: ["'self'", "ws:", "wss:", 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/']
+            , frameSrc: ["'self'"]
+            , frameAncestors: frameAncestors
           }
           , reportOnly: secureCspReportOnly
         }));
         app.use(helmet.referrerPolicy({ policy: 'no-referrer' }));
-        app.use(helmet.featurePolicy({ features: { payment: ["'none'"], } }));
         app.use(bodyParser.json({ type: ['json', 'application/csp-report'] }));
         app.post('/report-violation', (req, res) => {
           if (req.body) {
-            console.log('CSP Violation: ', req.body)
+            console.log('CSP Violation: ', req.body);
           } else {
-            console.log('CSP Violation: No data received!')
+            console.log('CSP Violation: No data received!');
           }
-          res.status(204).end()
+          res.status(204).end();
         })
       }
     }
@@ -79,21 +96,61 @@ function create (env, ctx) {
   app.set('view engine', 'ejs');
   // this allows you to render .html files as templates in addition to .ejs
   app.engine('html', require('ejs').renderFile);
-  app.engine('appcache', require('ejs').renderFile);
   app.set("views", path.join(__dirname, "views/"));
 
   let cacheBuster = 'developmentMode';
+  let lastModified = new Date();
+  let busterPath = '/tmp/cacheBusterToken';
+
   if (process.env.NODE_ENV !== 'development') {
-    if (fs.existsSync(process.cwd() + '/tmp/cacheBusterToken')) {
-      cacheBuster = fs.readFileSync(process.cwd() + '/tmp/cacheBusterToken').toString().trim();
-    } else {
-      cacheBuster = fs.readFileSync(__dirname + '/tmp/cacheBusterToken').toString().trim();
-    }
+    busterPath = process.cwd() + busterPath;
+  } else {
+    busterPath = __dirname + busterPath;
+  }
+
+  if (fs.existsSync(busterPath)) {
+      cacheBuster = fs.readFileSync(busterPath).toString().trim();
+      var stats = fs.statSync(busterPath);
+      lastModified = stats.mtime;
   }
   app.locals.cachebuster = cacheBuster;
 
+  app.get("/robots.txt", (req, res) => {
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(['User-agent: *','Disallow: /'].join('\n'));
+  });
+
+  app.get("/sw.js", (req, res) => {
+    res.setHeader('Content-Type', 'application/javascript');
+    if (process.env.NODE_ENV !== 'development') {
+      res.setHeader('Last-Modified', lastModified.toUTCString());
+    }
+    res.send(ejs.render(fs.readFileSync(
+      require.resolve(`${__dirname}/views/service-worker.js`),
+      { encoding: 'utf-8' }),
+      { locals: app.locals}
+     ));
+  });
+
+  // Allow static resources to be cached for week
+  var maxAge = 7 * 24 * 60 * 60 * 1000;
+
+  if (process.env.NODE_ENV === 'development') {
+    maxAge = 1;
+    console.log('Development environment detected, setting static file cache age to 1 second');
+  }
+
+  var staticFiles = express.static(env.static_files, {
+    maxAge
+  });
+
+  // serve the static content
+  app.use(staticFiles);
+
   if (ctx.bootErrors && ctx.bootErrors.length > 0) {
-    app.get('*', require('./lib/server/booterror')(ctx));
+    const bootErrorView = require('./lib/server/booterror')(env, ctx);
+    bootErrorView.setLocals(app.locals);
+    app.get('*', bootErrorView);
     return app;
   }
 
@@ -117,8 +174,11 @@ function create (env, ctx) {
   ///////////////////////////////////////////////////
   // api and json object variables
   ///////////////////////////////////////////////////
+  const apiRoot = require('./lib/api/root')(env, ctx);
   var api = require('./lib/api/')(env, ctx);
+  var api3 = require('./lib/api3/')(env, ctx);
   var ddata = require('./lib/data/endpoints')(env, ctx);
+  var notificationsV2 = require('./lib/api/notifications-v2')(app, ctx);
 
   app.use(compression({
     filter: function shouldCompress (req, res) {
@@ -128,49 +188,77 @@ function create (env, ctx) {
     }
   }));
 
+  var appPages = {
+    "/": {
+      file: "index.html"
+      , type: "index"
+    }
+    , "/admin": {
+      file: "adminindex.html"
+      , title: 'Admin Tools'
+      , type: 'admin'
+    }
+    , "/food": {
+      file: "foodindex.html"
+      , title: 'Food Editor'
+      , type: 'food'
+    }
+    , "/profile": {
+      file: "profileindex.html"
+      , title: 'Profile Editor'
+      , type: 'profile'
+    }
+    , "/report": {
+      file: "reportindex.html"
+      , title: 'Nightscout reporting'
+      , type: 'report'
+    }
+    , "/translations": {
+      file: "translationsindex.html"
+      , title: 'Nightscout translations'
+      , type: 'translations'
+    }
+    , "/split": {
+      file: "frame.html"
+      , title: '8-user view'
+      , type: 'index'
+    }
+  };
+
+  Object.keys(appPages).forEach(function(page) {
+    app.get(page, (req, res) => {
+      res.render(appPages[page].file, {
+        locals: app.locals,
+        title: appPages[page].title ? appPages[page].title : '',
+        type: appPages[page].type ? appPages[page].type : '',
+        settings: env.settings
+      });
+    });
+  });
+
   const clockviews = require('./lib/server/clocks.js')(env, ctx);
   clockviews.setLocals(app.locals);
 
   app.use("/clock", clockviews);
 
-  app.get("/", (req, res) => {
-    res.render("index.html", {
-      locals: app.locals
-    });
-  });
-
-  var appPages = {
-    "/clock-color.html": "clock-color.html"
-    , "/admin": "adminindex.html"
-    , "/profile": "profileindex.html"
-    , "/food": "foodindex.html"
-    , "/bgclock.html": "bgclock.html"
-    , "/report": "reportindex.html"
-    , "/translations": "translationsindex.html"
-    , "/clock.html": "clock.html"
-  };
-
-  Object.keys(appPages).forEach(function(page) {
-    app.get(page, (req, res) => {
-      res.render(appPages[page], {
-        locals: app.locals
-      });
-    });
-  });
-
-  app.get("/appcache/*", (req, res) => {
-    res.render("nightscout.appcache", {
-      locals: app.locals
-    });
-  });
+  app.use('/api', bodyParser({
+    limit: 1048576 * 50
+  }), apiRoot);
 
   app.use('/api/v1', bodyParser({
+    limit: 1048576 * 50
+  }), api);
+
+  app.use('/api/v2', bodyParser({
     limit: 1048576 * 50
   }), api);
 
   app.use('/api/v2/properties', ctx.properties);
   app.use('/api/v2/authorization', ctx.authorization.endpoints);
   app.use('/api/v2/ddata', ddata);
+  app.use('/api/v2/notifications', notificationsV2);
+
+  app.use('/api/v3', api3);
 
   // pebble data
   app.get('/pebble', ctx.pebble);
@@ -185,38 +273,6 @@ function create (env, ctx) {
     res.sendFile(__dirname + '/swagger.yaml');
   });
 
-  if (env.settings.isEnabled('dumps')) {
-    var heapdump = require('heapdump');
-    app.get('/api/v2/dumps/start', function(req, res) {
-      var path = new Date().toISOString() + '.heapsnapshot';
-      path = path.replace(/:/g, '-');
-      console.info('writing dump to', path);
-      heapdump.writeSnapshot(path);
-      res.send('wrote dump to ' + path);
-    });
-  }
-
-  // app.get('/package.json', software);
-
-  // Allow static resources to be cached for week
-  var maxAge = 7 * 24 * 60 * 60 * 1000;
-
-  if (process.env.NODE_ENV === 'development') {
-    maxAge = 1;
-    console.log('Development environment detected, setting static file cache age to 1 second');
-
-    app.get('/nightscout.appcache', function(req, res) {
-      res.sendStatus(404);
-    });
-  }
-
-  var staticFiles = express.static(env.static_files, {
-    maxAge
-  });
-
-  // serve the static content
-  app.use(staticFiles);
-
   // API docs
 
   const swaggerUi = require('swagger-ui-express');
@@ -224,7 +280,7 @@ function create (env, ctx) {
 
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-  app.use('/swagger-ui-dist', (req, res, next) => {
+  app.use('/swagger-ui-dist', (req, res) => {
     res.redirect(307, '/api-docs');
   });
 
@@ -233,10 +289,13 @@ function create (env, ctx) {
 
   app.locals.bundle = '/bundle';
 
+  app.locals.mode = 'production';
+
   if (process.env.NODE_ENV === 'development') {
 
     console.log('Development mode');
 
+    app.locals.mode = 'development';
     app.locals.bundle = '/devbundle';
 
     const webpack = require('webpack');
