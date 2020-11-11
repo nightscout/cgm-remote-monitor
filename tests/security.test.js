@@ -2,14 +2,14 @@
 
 var request = require('supertest');
 var should = require('should');
-var load = require('./fixtures/load');
 var language = require('../lib/language')();
 
 describe('API_SECRET', function ( ) {
-  var api = require('../lib/api/');
-
+  var api;
   var scope = this;
+
   function setup_app (env, fn) {
+    api = require('../lib/api/');
     require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
       ctx.app = api(env, ctx);
       scope.app = ctx.app;
@@ -17,21 +17,6 @@ describe('API_SECRET', function ( ) {
       fn(ctx);
     });
   }
-
-  it('should work fine absent', function (done) {
-    delete process.env.API_SECRET;
-    var env = require('../env')( );
-    should.not.exist(env.api_secret);
-    setup_app(env, function (ctx) {
-
-      ctx.app.enabled('api').should.equal(false);
-      ping_status(ctx.app, again);
-      function again ( ) {
-        ping_authorized_endpoint(ctx.app, 404, done);
-      }
-    });
-  });
-
 
   it('should work fail set unauthorized', function (done) {
     var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
