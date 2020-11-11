@@ -15,7 +15,7 @@ describe('API3 READ', function() {
   self.validDoc = {
     date: (new Date()).getTime(),
     app: testConst.TEST_APP,
-    device: testConst.TEST_DEVICE,
+    device: testConst.TEST_DEVICE + ' API3 READ',
     uploaderBattery: 58
   };
   self.validDoc.identifier = opTools.calculateIdentifier(self.validDoc);
@@ -38,7 +38,7 @@ describe('API3 READ', function() {
 
 
   after(() => {
-    self.instance.server.close();
+    self.instance.ctx.bus.teardown();
   });
 
 
