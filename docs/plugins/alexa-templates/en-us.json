@@ -76,6 +76,16 @@
                     "values": [
                         {
                             "name": {
+                                "value": "delta",
+                                "synonyms": [
+                                    "blood glucose delta",
+                                    "blood sugar delta",
+                                    "bg delta"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
                                 "value": "uploader battery",
                                 "synonyms": [
                                     "uploader battery remaining",
@@ -161,6 +171,67 @@
                                     "raw blood sugar",
                                     "raw blood glucose"
                                 ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm noise"
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm tx age",
+                                "synonyms": [
+                                    "tx age",
+                                    "transmitter age",
+                                    "cgm transmitter age"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm tx status",
+                                "synonyms": [
+                                    "tx status",
+                                    "transmitter status",
+                                    "cgm transmitter status"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm battery",
+                                "synonyms": [
+                                    "cgm battery level",
+                                    "cgm battery levels",
+                                    "cgm batteries",
+                                    "cgm transmitter battery",
+                                    "cgm transmitter battery level",
+                                    "cgm transmitter battery levels",
+                                    "cgm transmitter batteries",
+                                    "transmitter battery",
+                                    "transmitter battery level",
+                                    "transmitter battery levels",
+                                    "transmitter batteries"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm session age",
+                                "synonyms": [
+                                    "session age"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm status"
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm mode"
                             }
                         }
                     ]
