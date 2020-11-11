@@ -14,19 +14,15 @@ var env = {
   settings: require('./lib/settings')()
 };
 
-var shadowEnv;
-
 // Module to constrain all config and environment parsing to one spot.
-// See README.md for info about all the supported ENV VARs
+// See the
 function config ( ) {
+  /*
+   * See README.md for info about all the supported ENV VARs
+   */
+  env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
 
-  // Assume users will typo whitespaces into keys and values
-
-  shadowEnv = {};
-
-  Object.keys(process.env).forEach((key, index) => {
-    shadowEnv[_trim(key)] = _trim(process.env[key]);
-  });
+  console.log('Units set to', env.DISPLAY_UNITS );
 
   env.PORT = readENV('PORT', 1337);
   env.HOSTNAME = readENV('HOSTNAME', null);
@@ -86,6 +82,12 @@ function setAPISecret() {
       var shasum = crypto.createHash('sha1');
       shasum.update(readENV('API_SECRET'));
       env.api_secret = shasum.digest('hex');
+
+      if (!readENV('TREATMENTS_AUTH', true)) {
+
+      }
+
+
     }
   }
 }
@@ -123,17 +125,13 @@ function updateSettings() {
     UNITS: 'DISPLAY_UNITS'
   };
 
-  var envDefaultOverrides = {
-    DISPLAY_UNITS: 'mg/dl'
-  };
-
   env.settings.eachSettingAsEnv(function settingFromEnv (name) {
     var envName = envNameOverrides[name] || name;
-    return readENV(envName, envDefaultOverrides[envName]);
+    return readENV(envName);
   });
 
   //should always find extended settings last
-  env.extendedSettings = findExtendedSettings(shadowEnv);
+  env.extendedSettings = findExtendedSettings(process.env);
 
   if (!readENVTruthy('TREATMENTS_AUTH', true)) {
     env.settings.authDefaultRoles = env.settings.authDefaultRoles || "";
@@ -143,16 +141,16 @@ function updateSettings() {
 
 function readENV(varName, defaultValue) {
   //for some reason Azure uses this prefix, maybe there is a good reason
-  var value = shadowEnv['CUSTOMCONNSTR_' + varName]
-    || shadowEnv['CUSTOMCONNSTR_' + varName.toLowerCase()]
-    || shadowEnv[varName]
-    || shadowEnv[varName.toLowerCase()];
+  var value = process.env['CUSTOMCONNSTR_' + varName]
+    || process.env['CUSTOMCONNSTR_' + varName.toLowerCase()]
+    || process.env[varName]
+    || process.env[varName.toLowerCase()];
 
-  if (varName == 'DISPLAY_UNITS') {
-    if (value && value.toLowerCase().includes('mmol')) {
+  if (varName == 'DISPLAY_UNITS' && value) {
+    if (value.toLowerCase().includes('mmol')) {
       value = 'mmol';
     } else {
-      value = defaultValue;
+      value = 'mg/dl';
     }
   }
 
@@ -172,8 +170,6 @@ function findExtendedSettings (envs) {
 
   extended.devicestatus = {};
   extended.devicestatus.advanced = true;
-  extended.devicestatus.days = 1;
-  if(shadowEnv['DEVICESTATUS_DAYS'] && shadowEnv['DEVICESTATUS_DAYS'] == '2') extended.devicestatus.days = 1;
 
   function normalizeEnv (key) {
     return key.toUpperCase().replace('CUSTOMCONNSTR_', '');
