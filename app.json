@@ -72,6 +72,11 @@
       "value": "180",
       "required": false
     },
+    "BOLUS_RENDER_OVER": {
+      "description": "U value over which the bolus values are rendered on the chart if the 'x U and Over' option is selected.",
+      "value": "1",
+      "required": false
+    },
     "BRIDGE_PASSWORD": {
       "description": "Your Dexcom account password, to receive CGM data from the Dexcom Share service. Also make sure to include 'bridge' in your ENABLE line.",
       "value": "",
@@ -99,7 +104,7 @@
     },
     "ENABLE": {
       "description": "Plugins to enable for your site. Must be a space-delimited, lower-case list. Include the word 'bridge' here if you are receiving data from the Dexcom Share service. Include 'mmconnect' if you are bridging from the MiniMed CareLink service.",
-      "value": "careportal basal",
+      "value": "careportal basal dbsize",
       "required": false
     },
     "MMCONNECT_USER_NAME": {
@@ -117,6 +122,11 @@
       "value": "US",
       "required": false
     },
+    "MONGODB_URI": {
+      "description": "The MongoDB Connection String to connect to your MongoDB cluster",
+      "value": "",
+      "required": true
+    },
     "MONGO_COLLECTION": {
       "description": "The Mongo collection where CGM data is stored.",
       "value": "entries",
@@ -129,7 +139,7 @@
     },
     "SHOW_PLUGINS": {
       "description": "Default setting for whether or not these plugins are checked (active) by default, not merely enabled. Include plugins here as in the ENABLE line; space-separated and lower-case.",
-      "value": "careportal",
+      "value": "careportal dbsize",
       "required": false
     },
     "SHOW_RAWBG": {
@@ -149,7 +159,6 @@
     }
   },
   "addons": [
-    "mongolab:sandbox",
     "papertrail"
   ]
 }
