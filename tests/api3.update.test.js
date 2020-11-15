@@ -17,6 +17,7 @@ describe('API3 UPDATE', function() {
     date: (new Date()).getTime(),
     utcOffset: -180,
     app: testConst.TEST_APP,
+    device: testConst.TEST_DEVICE + ' API3 UPDATE',
     eventType: 'Correction Bolus',
     insulin: 0.3
   };
@@ -51,7 +52,7 @@ describe('API3 UPDATE', function() {
 
 
   after(() => {
-    self.instance.server.close();
+    self.instance.ctx.bus.teardown();
   });
 
 
