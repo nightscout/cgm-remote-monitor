@@ -154,6 +154,10 @@ function create (env, ctx) {
   // serve the static content
   app.use(staticFiles);
 
+  app.use('/translations', express.static('translations', {
+    maxAge
+  }));
+
   if (ctx.bootErrors && ctx.bootErrors.length > 0) {
     const bootErrorView = require('./lib/server/booterror')(env, ctx);
     bootErrorView.setLocals(app.locals);
