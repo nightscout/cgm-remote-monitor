@@ -1,36 +1,40 @@
 <!DOCTYPE html>
 <html>
-    <head>
-      <title>Nightscout reporting</title>
+<head>
+  <title>Nightscout Reporting</title>
+  
+  <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
+  <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
+  <link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png">
+  <link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png">
+  <link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
+  <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
+  <link rel="icon" type="image/png" href="/images/android-chrome-192x192.png" sizes="192x192">
+  <link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96">
+  <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="shortcut icon" href="/images/favicon.ico">
+  <meta name="msapplication-TileColor" content="#00a300">
+  <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
+  <meta name="msapplication-config" content="/browserconfig.xml">
+  <meta name="theme-color" content="#333333">
 
-      <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
-      <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
-      <link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png">
-      <link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png">
-      <link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png">
-      <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
-      <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png">
-      <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
-      <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
-      <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
-      <link rel="icon" type="image/png" href="/images/android-chrome-192x192.png" sizes="192x192">
-      <link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96">
-      <link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
-      <link rel="manifest" href="/manifest.json">
-      <link rel="shortcut icon" href="/images/favicon.ico">
-      <meta name="msapplication-TileColor" content="#00a300">
-      <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
-      <meta name="msapplication-config" content="/browserconfig.xml">
-      <meta name="theme-color" content="#333333">
+  <link rel="preload" href="/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/report.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/ui-lightness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <% include preloadCSS %>
+  
+</head>
+  <body>
+    <%- include('partials/toolbar') %>
 
-      <link rel="stylesheet" type="text/css" href="/css/report.css?v=<%= locals.cachebuster %>" />
-      <link rel="stylesheet" type="text/css" href="/css/ui-lightness/jquery-ui.min.css">
-
-    </head>
-    <body>
-        <h1><img src="/images/logo1.png"><span class="translate">Nightscout reporting</span></h1>
-    <ul id="tabnav">
-    </ul>
+  <ul id="tabnav">
+  </ul>
+  <main>
     <table>
       <tr>
         <td><input type="checkbox" id="rp_enabledate" checked></td>
@@ -45,7 +49,7 @@
           <a href="#" days="31" class="presetdates"><span class="translate">Last month</span></a>
           <a href="#" days="90" class="presetdates"><span class="translate">Last 3 months</span></a>
         </td>
-       </tr>
+      </tr>
       <tr class="rp_foodgui" style="display:none">
         <td></td>
         <td>
@@ -53,7 +57,6 @@
           <span class="translate">Subcategory</span>: <select id="rp_subcategory"></select>
           <span class="translate">Name</span>: <input type="text" id="rp_name"></select>
         </td>
- 
       </tr>
       <tr class="rp_foodgui" style="display:none">
         <td>
@@ -62,64 +65,67 @@
         <td>
           <span class="translate">Food</span>: <select id="rp_food"></select>
         </td>
-       </tr>
+      </tr>
       <tr>
         <td><input type="checkbox" id="rp_enablenotes"></td>
         <td>
           <span class="translate">Notes contain</span>: <input type="text" id="rp_notes"></select>
         </td>
-       </tr>
-      <tr>
-      <tr>
-        <td><input type="checkbox" id="rp_enableeventtype"></td>
-        <td>
-          <span class="translate">Event Type</span>: <select id="rp_eventtype"></select>
-        </td>
-       </tr>
-      <tr>
-        <td colspan="2">
-          <input type="checkbox" id="rp_mo" checked><span class="translate">Mo</span>
-          <input type="checkbox" id="rp_tu" checked><span class="translate">Tu</span>
-          <input type="checkbox" id="rp_we" checked><span class="translate">We</span>
-          <input type="checkbox" id="rp_th" checked><span class="translate">Th</span>
-          <input type="checkbox" id="rp_fr" checked><span class="translate">Fr</span>
-          <input type="checkbox" id="rp_sa" checked><span class="translate">Sa</span>
-          <input type="checkbox" id="rp_su" checked><span class="translate">Su</span>
-        </td>
-        <td></td>
       </tr>
       <tr>
-        <td colspan="2">
-          <span class="translate">Target bg range bottom</span>:
-          <input type="number" size="3" id="rp_targetlow">
-          <span class="translate">top</span>:
-          <input type="number" size="3" id="rp_targethigh">
-        </td>
-        <td></td>
-      </tr>
-      <tr>
-        <td colspan="2">
-          <span class="translate">Order</span>:
-          <input type="radio" name="rp_sorting" id="rp_oldestontop" checked>
-          <label for="rp_oldestontop" class="translate">oldest on top</label>
-          &nbsp;
-          <input type="radio" name="rp_sorting" id="rp_newestontop">
-          <label for="rp_oldestontop" class="translate">newest on top</label>
-        </td>
-        <td></td>
+        <tr>
+          <td><input type="checkbox" id="rp_enableeventtype"></td>
+          <td>
+            <span class="translate">Event Type</span>: <select id="rp_eventtype"></select>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <label><input type="checkbox" id="rp_mo" checked><span class="translate">Mo</span></label>
+            <label><input type="checkbox" id="rp_tu" checked><span class="translate">Tu</span></label>
+            <label><input type="checkbox" id="rp_we" checked><span class="translate">We</span></label>
+            <label><input type="checkbox" id="rp_th" checked><span class="translate">Th</span></label>
+            <label><input type="checkbox" id="rp_fr" checked><span class="translate">Fr</span></label>
+            <label><input type="checkbox" id="rp_sa" checked><span class="translate">Sa</span></label>
+            <label><input type="checkbox" id="rp_su" checked><span class="translate">Su</span></label>
+          </td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <span class="translate">Target BG range bottom</span>:
+            <input type="number" size="3" step="0.1" id="rp_targetlow">
+            <span class="translate">top</span>:
+            <input type="number" size="3" step="0.1" id="rp_targethigh">
+          </td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <span class="translate">Order</span>:
+            <!-- many email GUIs place newest on top, less scrolling, adjusting my nightscout to do that too! -dboland -->
+            <input type="radio" name="rp_sorting" id="rp_oldestontop">
+            <label for="rp_oldestontop" class="translate">oldest on top</label>
+            &nbsp;
+            <input type="radio" name="rp_sorting" id="rp_newestontop" checked>
+            <label for="rp_newestontop" class="translate">newest on top</label>
+          </td>
+          <td></td>
+        </tr>
       </tr>
     </table>
     <button id="rp_show" class="translate">Show</button>
     <div id="info"></div>
     <hr>
     <div id="pluginchartplaceholders"></div>
+  </main>
 
-    <hr>
-    <b><span class="translate">Authentication status</span>: </b><span id="authentication_placeholder"></span>
+  <%- include('partials/authentication-status') %>
 
-    <script src="/js/bundle.js?v=<%= locals.cachebuster %>"></script>
-    <script src="/socket.io/socket.io.js?v=<%= locals.cachebuster %>"></script>
-    <script src="/report/js/report.js?v=<%= locals.cachebuster %>"></script>
-   <script src="/report/js/flotcandle.js?v=<%= locals.cachebuster %>"></script>
-    </body>
-</html>
+  <script src="<%= locals.bundle %>/js/bundle.report.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/report/js/report.js"></script>
+  <script src="/report/js/flotcandle.js"></script>
+  <script src="/report/js/loopalyzer.js"></script>
+</body>
+</html>  
