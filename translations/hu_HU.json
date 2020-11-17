@@ -545,6 +545,7 @@
     "Time in fluctuation and Time in rapid fluctuation measure the % of time during the examined period, during which the blood glucose has been changing relatively fast or rapidly. Lower values are better.": "A sima és magas kilengésnél mért idő százalékban kifelyezve, ahol a cukorszint aránylag nagyokat változott. A kisebb értékek jobbak ebben az esetben",
     "Mean Total Daily Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of days. Lower is better.": "Az átlagos napi változás az abszolút értékek összege elosztva a napok számával. A kisebb érték jobb ebben az esetben.",
     "Mean Hourly Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of hours in the period. Lower is better.": "Az átlagos óránkénti változás az abszút értékek összege elosztva a napok számával. A kisebb érték jobb ebben az esetben.",
+    "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.": "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.",
     "GVI (Glycemic Variability Index) and PGS (Patient Glycemic Status) are measures developed by Dexcom, detailed <a href=\"": "GVI (Glycemic Variability Index) and PGS (Patient Glycemic Status) a dexcom cég által fejlesztett mérések, részletek <a href=\"",
     "\">can be found here</a>.": "\">itt találhatóak</a>.",
     "Mean Total Daily Change": "Áltagos napi változás",
@@ -623,6 +624,9 @@
     "Color": "Szinek",
     "Simple": "Csak cukor",
     "TDD average": "Átlagos napi adag (TDD)",
+    "Bolus average": "Bolus average",
+    "Basal average": "Basal average",
+    "Base basal average:": "Base basal average:",
     "Carbs average": "Szenhidrát átlag",
     "Eating Soon": "Hamarosan evés",
     "Last entry {0} minutes ago": "Utolsó bejegyzés {0} volt",
@@ -651,5 +655,6 @@
     "%1 MiB of %2 MiB (%3%)": "%1 MiB %2 MiB-ból (%3%)",
     "Data size": "Adatok mérete",
     "virtAsstDatabaseSize": "%1 MiB ami %2% a rendelkezésre álló méretből",
-    "virtAsstTitleDatabaseSize": "Adatbázis file méret"
+    "virtAsstTitleDatabaseSize": "Adatbázis file méret",
+    "Carbs/Food/Time": "Carbs/Food/Time"
 }
