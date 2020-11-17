@@ -545,6 +545,7 @@
     "Time in fluctuation and Time in rapid fluctuation measure the % of time during the examined period, during which the blood glucose has been changing relatively fast or rapidly. Lower values are better.": "Tid i fluktuation och tid i snabb fluktuation mäter% av tiden under den undersökta perioden, under vilken blodsockret har förändrats relativt snabbt eller snabbt. Lägre värden är bättre",
     "Mean Total Daily Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of days. Lower is better.": "Medel Total Daglig Förändring är summan av absolutvärdet av alla glukosförändringar under den undersökta perioden, dividerat med antalet dagar. Lägre är bättre.",
     "Mean Hourly Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of hours in the period. Lower is better.": "Medelvärde per timme är summan av absolutvärdet av alla glukosförändringar under den undersökta perioden dividerat med antalet timmar under perioden. Lägre är bättre.",
+    "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.": "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.",
     "GVI (Glycemic Variability Index) and PGS (Patient Glycemic Status) are measures developed by Dexcom, detailed <a href=\"": "GVI (Glycemic Variability Index) och PGS (Patient Glycemic Status) är värden utvecklade av Dexcom, detaljer <a href=\"",
     "\">can be found here</a>.": "\">här</a>.",
     "Mean Total Daily Change": "Medel Total Daglig Förändring",
@@ -623,6 +624,9 @@
     "Color": "Färg",
     "Simple": "Simpel",
     "TDD average": "Genomsnittlig daglig mängd insulin",
+    "Bolus average": "Bolus average",
+    "Basal average": "Basal average",
+    "Base basal average:": "Base basal average:",
     "Carbs average": "Genomsnittlig mängd kolhydrater per dag",
     "Eating Soon": "Äter snart",
     "Last entry {0} minutes ago": "Senaste värde {0} minuter sedan",
@@ -651,5 +655,6 @@
     "%1 MiB of %2 MiB (%3%)": "%1 MiB of %2 MiB (%3%)",
     "Data size": "Data size",
     "virtAsstDatabaseSize": "%1 MiB. That is %2% of available database space.",
-    "virtAsstTitleDatabaseSize": "Database file size"
+    "virtAsstTitleDatabaseSize": "Database file size",
+    "Carbs/Food/Time": "Carbs/Food/Time"
 }
