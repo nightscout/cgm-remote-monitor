@@ -545,7 +545,7 @@
     "Time in fluctuation and Time in rapid fluctuation measure the % of time during the examined period, during which the blood glucose has been changing relatively fast or rapidly. Lower values are better.": "Tid i fluktuasjon og tid i hurtig fluktuasjon måler % av tiden i den aktuelle periodn der blodsukkeret har endret seg relativt raskt. Lave verdier er best.",
     "Mean Total Daily Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of days. Lower is better.": "Gjennomsnitt total daglig endring er summen av absolutverdier av alle glukoseendringer i den aktuelle perioden, divideret med antall dager. Lave verdier er best.",
     "Mean Hourly Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of hours in the period. Lower is better.": "Gjennomsnitt endring per time er summen av absoluttverdier av alle glukoseendringer i den aktuelle perioden divideret med antall timer. Lave verdier er best.",
-    "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.": "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.",
+    "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.": "Out of Range RMS er beregnet ved å ta kvadratet av avstanden utenfor målområdet for alle blodsukkerverdier i den aktuelle perioden, summere dem, dele på antallet, og ta kvadratroten av resultatet. Dette målet er lignende som prodentvis tid i målområdet, men vekter målinger som ligger langt utenfor målområdet høyere. Lave verdier er best.",
     "GVI (Glycemic Variability Index) and PGS (Patient Glycemic Status) are measures developed by Dexcom, detailed <a href=\"": "GVI (Glycemic Variability Index) og PGS (Patient Glycemic Status) er verdier utviklet av Dexcom, detaljer <a href=\"",
     "\">can be found here</a>.": "\">her</a>.",
     "Mean Total Daily Change": "Gjennomsnitt total daglig endring",
@@ -624,9 +624,9 @@
     "Color": "Farge",
     "Simple": "Enkel",
     "TDD average": "Gjennomsnitt TDD",
-    "Bolus average": "Bolus average",
-    "Basal average": "Basal average",
-    "Base basal average:": "Base basal average:",
+    "Bolus average": "Gjennomsnitt bolus",
+    "Basal average": "Gjennomsnitt basal",
+    "Base basal average:": "Programmert gj.snitt basal",
     "Carbs average": "Gjennomsnitt totale karbohydrater",
     "Eating Soon": "Spiser snart",
     "Last entry {0} minutes ago": "Last entry {0} minutes ago",
@@ -656,5 +656,5 @@
     "Data size": "Datastørrelse",
     "virtAsstDatabaseSize": "%1 MiB. That is %2% of available database space.",
     "virtAsstTitleDatabaseSize": "Database file size",
-    "Carbs/Food/Time": "Carbs/Food/Time"
+    "Carbs/Food/Time": "Karbo/Mat/Abs.tid"
 }
