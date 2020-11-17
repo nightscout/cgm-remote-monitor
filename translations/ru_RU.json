@@ -649,12 +649,12 @@
     "Total protein": "Всего белков",
     "Total fat": "Всего жиров",
     "Database Size": "Размер базы данных",
-    "Database Size near its limits!": "Database Size near its limits!",
-    "Database size is %1 MiB out of %2 MiB. Please backup and clean up database!": "Database size is %1 MiB out of %2 MiB. Please backup and clean up database!",
-    "Database file size": "Database file size",
-    "%1 MiB of %2 MiB (%3%)": "%1 MiB of %2 MiB (%3%)",
-    "Data size": "Data size",
-    "virtAsstDatabaseSize": "%1 MiB. That is %2% of available database space.",
-    "virtAsstTitleDatabaseSize": "Database file size",
-    "Carbs/Food/Time": "Carbs/Food/Time"
+    "Database Size near its limits!": "Размер базы данных приближается к лимиту!",
+    "Database size is %1 MiB out of %2 MiB. Please backup and clean up database!": "Размер базы данных %1 MiB из %2 MiB. Пожалуйста, сделайте резервную копию и очистите базу данных!",
+    "Database file size": "Размер файла базы данных",
+    "%1 MiB of %2 MiB (%3%)": "%1 MiB из %2 MiB (%3%)",
+    "Data size": "Объем данных",
+    "virtAsstDatabaseSize": "%1 MiB Это %2% доступного места в базе данных.",
+    "virtAsstTitleDatabaseSize": "Размер файла базы данных",
+    "Carbs/Food/Time": "Углеводы/Еда/Время"
 }
