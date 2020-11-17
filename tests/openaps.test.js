@@ -1,11 +1,14 @@
 'use strict';
 
-var _ = require('lodash');
-var should = require('should');
-var moment = require('moment');
+const _ = require('lodash');
+const should = require('should');
+const moment = require('moment');
+const fs = require('fs');
+
+const language = require('../lib/language')(fs);
 
 var ctx = {
-  language: require('../lib/language')()
+  language: language
   , settings: require('../lib/settings')()
 };
 ctx.language.set('en');
@@ -272,7 +275,7 @@ describe('openaps', function ( ) {
           done();
         }
       }
-      , language: require('../lib/language')()
+      , language: language
     };
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
@@ -303,7 +306,7 @@ describe('openaps', function ( ) {
         units: 'mg/dl'
       }
       , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , language: language
     };
 
     ctx.notifications.initRequests();
@@ -331,7 +334,7 @@ describe('openaps', function ( ) {
         units: 'mg/dl'
       }
       , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , language: language
     };
 
     ctx.notifications.initRequests();
@@ -353,7 +356,7 @@ describe('openaps', function ( ) {
         units: 'mg/dl'
       }
       , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , language: language
    };
 
     ctx.notifications.initRequests();
@@ -377,7 +380,7 @@ describe('openaps', function ( ) {
         units: 'mg/dl'
       }
       , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , language: language
     };
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});

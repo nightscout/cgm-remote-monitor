@@ -26,9 +26,11 @@
 // DB Connection setup and utils
 ///////////////////////////////////////////////////
 
-var env = require('./env')( );
-var language = require('./lib/language')();
-var translate = language.set(env.settings.language).translate;
+const fs = require('fs');
+const env = require('./env')( );
+const language = require('./lib/language')();
+const translate = language.set(env.settings.language).translate;
+language.loadLocalization(fs);
 
 ///////////////////////////////////////////////////
 // setup http server
