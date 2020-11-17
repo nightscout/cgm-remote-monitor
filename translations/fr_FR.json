@@ -316,7 +316,7 @@
     "This task removes all documents from devicestatus collection that are older than 30 days. Useful when uploader battery status is not properly updated.": "Cette tâche efface tout les documents au sujet de l'appareil qui son agé de plus de 30 jours. Soyer sur que votre batterie est a pleine charge sinon votre syncronisation ne sera pas mis a jour.",
     "Delete old documents from devicestatus collection?": "Effacer les vieux résultats de votre appareil?",
     "Clean Mongo entries (glucose entries) database": "Nettoyer la base de données des entrées Mongo (entrées de glycémie)",
-    "Delete all documents from entries collection older than 180 days": "Delete all documents from entries collection older than 180 days",
+    "Delete all documents from entries collection older than 180 days": "Effacer les résultats de plus de 180 jours",
     "This task removes all documents from entries collection that are older than 180 days. Useful when uploader battery status is not properly updated.": "This task removes all documents from entries collection that are older than 180 days. Useful when uploader battery status is not properly updated.",
     "Delete old documents": "Effacer les anciens documents",
     "Delete old documents from entries collection?": "Delete old documents from entries collection?",
