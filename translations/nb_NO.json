@@ -303,7 +303,7 @@
     "Record %1 removed ...": "Element %1 fjernet",
     "Error removing record %1": "Feil under fjerning av element %1",
     "Deleting records ...": "Fjerner elementer...",
-    "%1 records deleted": "%1 records deleted",
+    "%1 records deleted": "%1 registreringer slettet",
     "Clean Mongo status database": "Slett Mongo status database",
     "Delete all documents from devicestatus collection": "Fjern alle dokumenter fra device status tabell",
     "This task removes all documents from devicestatus collection. Useful when uploader battery status is not properly updated.": "Denne funksjonen fjerner alle dokumenter fra device status tabellen.  Nyttig når status for opplaster batteri ikke blir opppdatert",
