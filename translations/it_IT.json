@@ -545,6 +545,7 @@
     "Time in fluctuation and Time in rapid fluctuation measure the % of time during the examined period, during which the blood glucose has been changing relatively fast or rapidly. Lower values are better.": "Tempo in fluttuazione e Tempo in rapida fluttuazione misurano la % di tempo durante il periodo esaminato, durante il quale la glicemia stà variando velocemente o rapidamente. Bassi valori sono migliori.",
     "Mean Total Daily Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of days. Lower is better.": "Media Totale Giornaliera Variazioni è la somma dei valori assoluti di tutte le escursioni glicemiche per il periodo esaminato, diviso per il numero di giorni. Bassi valori sono migliori.",
     "Mean Hourly Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of hours in the period. Lower is better.": "Media Oraria Variazioni è la somma del valore assoluto di tutte le escursioni glicemiche per il periodo esaminato, diviso per il numero di ore. Bassi valori sono migliori.",
+    "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.": "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.",
     "GVI (Glycemic Variability Index) and PGS (Patient Glycemic Status) are measures developed by Dexcom, detailed <a href=\"": "GVI (Glycemic Variability Index) e PGS (Patient Glycemic Status) sono misure sviluppate da Dexcom, dettagliate <a href=\"",
     "\">can be found here</a>.": "\">qui</a>.",
     "Mean Total Daily Change": "Media Totale Giornaliera Variazioni",
@@ -623,6 +624,9 @@
     "Color": "Colore",
     "Simple": "Semplice",
     "TDD average": "Totale Dose Giornaliera media (TDD)",
+    "Bolus average": "Bolus average",
+    "Basal average": "Basal average",
+    "Base basal average:": "Base basal average:",
     "Carbs average": "Media carboidrati",
     "Eating Soon": "Mangiare presto",
     "Last entry {0} minutes ago": "Ultimo inserimento {0} minuti fa",
@@ -651,5 +655,6 @@
     "%1 MiB of %2 MiB (%3%)": "%1 MiB of %2 MiB (%3%)",
     "Data size": "Data size",
     "virtAsstDatabaseSize": "%1 MiB. That is %2% of available database space.",
-    "virtAsstTitleDatabaseSize": "Database file size"
+    "virtAsstTitleDatabaseSize": "Database file size",
+    "Carbs/Food/Time": "Carbs/Food/Time"
 }
