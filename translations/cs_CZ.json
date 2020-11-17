@@ -557,7 +557,7 @@
     "SingleDown": "dolů",
     "DoubleDown": "rychle dolů",
     "DoubleUp": "rychle nahoru",
-    "virtAsstUnknown": "That value is unknown at the moment. Please see your Nightscout site for more details.",
+    "virtAsstUnknown": "Hodnota je v tuto chvíli neznámá. Pro více informací se podívejte na stránky Nightscout.",
     "virtAsstTitleAR2Forecast": "AR2 predikce",
     "virtAsstTitleCurrentBasal": "Aktuální bazál",
     "virtAsstTitleCurrentCOB": "Aktuální COB",
