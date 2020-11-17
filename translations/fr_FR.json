@@ -545,6 +545,7 @@
     "Time in fluctuation and Time in rapid fluctuation measure the % of time during the examined period, during which the blood glucose has been changing relatively fast or rapidly. Lower values are better.": "Le Temps passé en fluctuation et le temps passé en fluctuation rapide mesurent la part de temps durant la période examinée, pendant laquelle la glycémie a évolué relativement ou très rapidement. Les valeurs basses sont les meilleures.",
     "Mean Total Daily Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of days. Lower is better.": "La Variation Totale Journalière Moyenne est la somme de toute les excursions glycémiques absolues pour une période analysée, divisée par le nombre de jours. Les valeurs basses sont les meilleures.",
     "Mean Hourly Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of hours in the period. Lower is better.": "La Variation Horaire Moyenne est la somme de toute les excursions glycémiques absolues pour une période analysée, divisée par le nombre d'heures dans la période. Les valeures basses sont les meilleures.",
+    "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.": "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.",
     "GVI (Glycemic Variability Index) and PGS (Patient Glycemic Status) are measures developed by Dexcom, detailed <a href=\"": "GVI (Glycemic Variability Index) et PGS (Patient Glycemic Status) sont des mesures développées par la firme Dexcom, présentées en détail <a href=\"",
     "\">can be found here</a>.": "\">ici</a>.",
     "Mean Total Daily Change": "Variation Totale Journalière Moyenne",
@@ -623,6 +624,9 @@
     "Color": "Couleur",
     "Simple": "Simple",
     "TDD average": "TDD average",
+    "Bolus average": "Bolus average",
+    "Basal average": "Basal average",
+    "Base basal average:": "Base basal average:",
     "Carbs average": "Carbs average",
     "Eating Soon": "Eating Soon",
     "Last entry {0} minutes ago": "Last entry {0} minutes ago",
@@ -651,5 +655,6 @@
     "%1 MiB of %2 MiB (%3%)": "%1 MiB of %2 MiB (%3%)",
     "Data size": "Data size",
     "virtAsstDatabaseSize": "%1 MiB. That is %2% of available database space.",
-    "virtAsstTitleDatabaseSize": "Database file size"
+    "virtAsstTitleDatabaseSize": "Database file size",
+    "Carbs/Food/Time": "Carbs/Food/Time"
 }
