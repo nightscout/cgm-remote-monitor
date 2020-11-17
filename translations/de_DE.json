@@ -545,6 +545,7 @@
     "Time in fluctuation and Time in rapid fluctuation measure the % of time during the examined period, during which the blood glucose has been changing relatively fast or rapidly. Lower values are better.": "Zeit in Fluktuation und Zeit in starker Fluktuation messen den Teil der Zeit, in der sich der Blutzuckerwert relativ oder sehr schnell verändert hat. Niedrigere Werte sind besser.",
     "Mean Total Daily Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of days. Lower is better.": "Die gesamte mittlere Änderung pro Tag ist die Summe der absoluten Werte aller Glukoseveränderungen im Betrachtungszeitraum geteilt durch die Anzahl der Tage. Niedrigere Werte sind besser.",
     "Mean Hourly Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of hours in the period. Lower is better.": "Die mittlere Änderung pro Stunde ist die Summe der absoluten Werte aller Glukoseveränderungen im Betrachtungszeitraum geteilt durch die Anzahl der Stunden. Niedrigere Werte sind besser.",
+    "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.": "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.",
     "GVI (Glycemic Variability Index) and PGS (Patient Glycemic Status) are measures developed by Dexcom, detailed <a href=\"": "GVI (Glycemic Variability Index) und PGS (Patient Glycemic Status) sind von Dexcom entwickelte Werte. Details <a href=\"",
     "\">can be found here</a>.": "\">hier</a>.",
     "Mean Total Daily Change": "Gesamte mittlere Änderung pro Tag",
@@ -623,6 +624,9 @@
     "Color": "Farbe",
     "Simple": "Einfach",
     "TDD average": "durchschnittliches Insulin pro Tag (TDD)",
+    "Bolus average": "Bolus average",
+    "Basal average": "Basal average",
+    "Base basal average:": "Base basal average:",
     "Carbs average": "durchschnittliche Kohlenhydrate pro Tag",
     "Eating Soon": "Bald Essen",
     "Last entry {0} minutes ago": "Letzter Eintrag vor {0} Minuten",
@@ -651,5 +655,6 @@
     "%1 MiB of %2 MiB (%3%)": "%1 MiB von %2 MiB (%3%)",
     "Data size": "Datengröße",
     "virtAsstDatabaseSize": "%1 MiB. Das sind %2% des verfügbaren Datenbank-Speicherplatzes.",
-    "virtAsstTitleDatabaseSize": "Datenbank-Dateigröße"
+    "virtAsstTitleDatabaseSize": "Datenbank-Dateigröße",
+    "Carbs/Food/Time": "Carbs/Food/Time"
 }
