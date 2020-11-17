@@ -545,6 +545,7 @@
     "Time in fluctuation and Time in rapid fluctuation measure the % of time during the examined period, during which the blood glucose has been changing relatively fast or rapidly. Lower values are better.": "Vrijeme u fluktuaciji i vrijeme u brzoj fluktuaciji mjere % vremena u gledanom periodu, tijekom kojeg se GUK mijenja relativno brzo ili brzo. Niže vrijednosti su bolje.",
     "Mean Total Daily Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of days. Lower is better.": "Srednja ukupna dnevna promjena je suma apsolutnih vrijednosti svih pomaka u gledanom periodu, podijeljeno s brojem dana. Niže vrijednosti su bolje.",
     "Mean Hourly Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of hours in the period. Lower is better.": "Srednja ukupna promjena po satu je suma apsolutnih vrijednosti svih pomaka u gledanom periodu, podijeljeno s brojem sati. Niže vrijednosti su bolje.",
+    "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.": "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.",
     "GVI (Glycemic Variability Index) and PGS (Patient Glycemic Status) are measures developed by Dexcom, detailed <a href=\"": "GVI (Glycemic Variability Index) i PGS (Patient Glycemic Status) su mjere osmišljene od Dexcoma, više detalja <a href=\"",
     "\">can be found here</a>.": "\">ovdje</a>.",
     "Mean Total Daily Change": "Srednja ukupna dnevna promjena",
@@ -623,6 +624,9 @@
     "Color": "Boja",
     "Simple": "Jednostavan",
     "TDD average": "Srednji TDD",
+    "Bolus average": "Bolus average",
+    "Basal average": "Basal average",
+    "Base basal average:": "Base basal average:",
     "Carbs average": "Prosjek UGH",
     "Eating Soon": "Uskoro obrok",
     "Last entry {0} minutes ago": "Posljednji zapis prije {0} minuta",
@@ -651,5 +655,6 @@
     "%1 MiB of %2 MiB (%3%)": "%1 MiB of %2 MiB (%3%)",
     "Data size": "Data size",
     "virtAsstDatabaseSize": "%1 MiB. That is %2% of available database space.",
-    "virtAsstTitleDatabaseSize": "Database file size"
+    "virtAsstTitleDatabaseSize": "Database file size",
+    "Carbs/Food/Time": "Carbs/Food/Time"
 }

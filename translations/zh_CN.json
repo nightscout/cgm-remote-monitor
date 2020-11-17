@@ -545,6 +545,7 @@
     "Time in fluctuation and Time in rapid fluctuation measure the % of time during the examined period, during which the blood glucose has been changing relatively fast or rapidly. Lower values are better.": "在检查期间血糖波动时间和快速波动时间占的时间百分比，在此期间血糖相对快速或快速地变化。百分比值越低越好。",
     "Mean Total Daily Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of days. Lower is better.": "平均每日总变化是检查期间所有血糖偏移的绝对值之和除以天数。越低越好",
     "Mean Hourly Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of hours in the period. Lower is better.": "平均每小时变化是检查期间所有血糖偏移的绝对值之和除以该期间的小时数。 越低越好",
+    "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.": "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.",
     "GVI (Glycemic Variability Index) and PGS (Patient Glycemic Status) are measures developed by Dexcom, detailed <a href=\"": "GVI (Glycemic Variability Index)和PGS (Patient Glycemic Status)是由Dexcom开发的措施，详细说明 <a href=\"",
     "\">can be found here</a>.": "\">here</a>.",
     "Mean Total Daily Change": "平均每日总变化",
@@ -623,6 +624,9 @@
     "Color": "彩色",
     "Simple": "简单",
     "TDD average": "日胰岛素用量平均值",
+    "Bolus average": "Bolus average",
+    "Basal average": "Basal average",
+    "Base basal average:": "Base basal average:",
     "Carbs average": "碳水化合物平均值",
     "Eating Soon": "过会吃饭",
     "Last entry {0} minutes ago": "最后一个条目 {0} 分钟之前",
@@ -651,5 +655,6 @@
     "%1 MiB of %2 MiB (%3%)": "%1 MiB of %2 MiB (%3%)",
     "Data size": "Data size",
     "virtAsstDatabaseSize": "%1 MiB. That is %2% of available database space.",
-    "virtAsstTitleDatabaseSize": "Database file size"
+    "virtAsstTitleDatabaseSize": "Database file size",
+    "Carbs/Food/Time": "Carbs/Food/Time"
 }

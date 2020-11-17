@@ -545,6 +545,7 @@
     "Time in fluctuation and Time in rapid fluctuation measure the % of time during the examined period, during which the blood glucose has been changing relatively fast or rapidly. Lower values are better.": "Dalgalanmadaki zaman ve Hızlı dalgalanmadaki zaman, kan şekerinin nispeten hızlı veya çok hızlı bir şekilde değiştiği, incelenen dönemdeki zamanın %'sini ölçer. Düşük değerler daha iyidir.",
     "Mean Total Daily Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of days. Lower is better.": "Toplam Günlük Değişim, incelenen süre için, gün sayısına bölünen tüm glukoz değerlerinin mutlak değerinin toplamıdır. Düşük değer daha iyidir.",
     "Mean Hourly Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of hours in the period. Lower is better.": "Saat başına ortalama değişim, gözlem periyodu üzerindeki tüm glikoz değişikliklerinin mutlak değerlerinin saat sayısına bölünmesiyle elde edilen toplam değerdir. Düşük değerler daha iyidir.",
+    "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.": "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.",
     "GVI (Glycemic Variability Index) and PGS (Patient Glycemic Status) are measures developed by Dexcom, detailed <a href=\"": "GVI ve PGS Dexcom tarafından geliştirilen önlemlerdir, detaylı  <a href=\"",
     "\">can be found here</a>.": "\">buradan</a>.",
     "Mean Total Daily Change": "Günde toplam ortalama değişim",
@@ -623,6 +624,9 @@
     "Color": "Renk",
     "Simple": "Basit",
     "TDD average": "Ortalama günlük Toplam Doz (TDD)",
+    "Bolus average": "Bolus average",
+    "Basal average": "Basal average",
+    "Base basal average:": "Base basal average:",
     "Carbs average": "Günde ortalama karbonhidrat",
     "Eating Soon": "Yakında Yenecek",
     "Last entry {0} minutes ago": "Son giriş {0} dakika önce",
@@ -651,5 +655,6 @@
     "%1 MiB of %2 MiB (%3%)": "%1 MiB of %2 MiB (%3%)",
     "Data size": "Data size",
     "virtAsstDatabaseSize": "%1 MiB. That is %2% of available database space.",
-    "virtAsstTitleDatabaseSize": "Database file size"
+    "virtAsstTitleDatabaseSize": "Database file size",
+    "Carbs/Food/Time": "Carbs/Food/Time"
 }
