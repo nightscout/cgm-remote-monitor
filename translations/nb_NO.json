@@ -316,7 +316,7 @@
     "This task removes all documents from devicestatus collection that are older than 30 days. Useful when uploader battery status is not properly updated.": "Denne funksjonen fjerner alle dokumenter fra enhets-samling som er eldre enn 30 dager. Nyttig når opplasteren batteristatus ikke er riktig oppdatert.",
     "Delete old documents from devicestatus collection?": "Slett gamle dokumenter fra enhets-samling?",
     "Clean Mongo entries (glucose entries) database": "Rengjør Mongo-postene (glukoseoppføringer) databasen",
-    "Delete all documents from entries collection older than 180 days": "Slett alle dokumenter fra enhets-samling eldre enn 180 dager",
+    "Delete all documents from entries collection older than 180 days": "Slett alle dokumenter fra \"entries\"-samlingen eldre enn 180 dager",
     "This task removes all documents from entries collection that are older than 180 days. Useful when uploader battery status is not properly updated.": "Denne funksjonen fjerner alle dokumenter fra enhets-samling som er eldre enn 180 dager. Nyttig når opplasteren batteristatus ikke er riktig oppdatert.",
     "Delete old documents": "Slett eldre dokumenter",
     "Delete old documents from entries collection?": "Slett eldre dokumenter fra enhets-samling?",
