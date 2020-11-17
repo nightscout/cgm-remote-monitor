@@ -95,7 +95,7 @@
     "No API secret hash stored yet. You need to enter API secret.": "Není uložený žádný hash API hesla. Musíte zadat API heslo.",
     "Database loaded": "Databáze načtena",
     "Error: Database failed to load": "Chyba při načítání databáze",
-    "Error": "Error",
+    "Error": "Chyba",
     "Create new record": "Vytvořit nový záznam",
     "Save record": "Uložit záznam",
     "Portions": "Porcí",
@@ -656,5 +656,5 @@
     "Data size": "Data size",
     "virtAsstDatabaseSize": "%1 MiB. That is %2% of available database space.",
     "virtAsstTitleDatabaseSize": "Database file size",
-    "Carbs/Food/Time": "Carbs/Food/Time"
+    "Carbs/Food/Time": "Sacharidy/Jídlo/Čas"
 }
