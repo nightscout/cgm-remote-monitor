@@ -224,11 +224,6 @@ function create (env, ctx) {
       , title: 'Nightscout reporting'
       , type: 'report'
     }
-    , "/translations": {
-      file: "translationsindex.html"
-      , title: 'Nightscout translations'
-      , type: 'translations'
-    }
     , "/split": {
       file: "frame.html"
       , title: '8-user view'
