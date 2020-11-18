@@ -435,7 +435,7 @@
     "Subjects - People, Devices, etc": "נושאים - אנשים, התקנים וכו ",
     "Each subject will have a unique access token and 1 or more roles.  Click on the access token to open a new view with the selected subject, this secret link can then be shared.": "לכל נושא תהיה אסימון גישה ייחודי ותפקיד אחד או יותר. לחץ על אסימון הגישה כדי לפתוח תצוגה חדשה עם הנושא הנבחר, קישור סודי זה יכול להיות משותף ",
     "Add new Subject": "הוסף נושא חדש ",
-    "Unable to %1 Subject": "לא יכול ל %1 נושאי",
+    "Unable to %1 Subject": "Unable to %1 Subject",
     "Unable to delete Subject": "לא יכול לבטל נושא ",
     "Database contains %1 subjects": "מסד נתונים מכיל %1 נושאים ",
     "Edit Subject": "ערוך נושא ",
