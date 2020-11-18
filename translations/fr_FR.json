@@ -435,7 +435,7 @@
     "Subjects - People, Devices, etc": "Utilisateurs - Personnes, Appareils, etc",
     "Each subject will have a unique access token and 1 or more roles.  Click on the access token to open a new view with the selected subject, this secret link can then be shared.": "Chaque utilisateur aura un identificateur unique et un ou plusieurs rôles. Cliquez sur l'identificateur pour révéler l'utilisateur, ce lien secret peut être partagé.",
     "Add new Subject": "Ajouter un nouvel Utilisateur",
-    "Unable to %1 Subject": "Impossible de créer l'Utilisateur %1",
+    "Unable to %1 Subject": "Unable to %1 Subject",
     "Unable to delete Subject": "Impossible d'effacer l'Utilisateur",
     "Database contains %1 subjects": "La base de données contient %1 utilisateurs",
     "Edit Subject": "Éditer l'Utilisateur",
