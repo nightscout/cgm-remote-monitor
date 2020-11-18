@@ -602,7 +602,7 @@
     "virtAsstForecastUnavailable": "Kan ikke forutsi med dataene som er tilgjengelig",
     "virtAsstRawBG": "Din raw bg er %1",
     "virtAsstOpenAPSForecast": "OpenAPS forventer at blodsukkeret er %1",
-    "virtAsstCob3person": "%1 har %2 karbohydrater på tavlen",
+    "virtAsstCob3person": "%1 har %2 karbohydrater i bruk",
     "virtAsstCob": "Du har %1 karbohydrater i bruk",
     "virtAsstCGMMode": "CGM-modusen din var %1 fra %2.",
     "virtAsstCGMStatus": "CGM statusen din var %1 fra %2.",
