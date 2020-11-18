@@ -435,7 +435,7 @@
     "Subjects - People, Devices, etc": "Semélyek - Emberek csoportja, berendezések, stb.",
     "Each subject will have a unique access token and 1 or more roles.  Click on the access token to open a new view with the selected subject, this secret link can then be shared.": "Mindegyik személynek egy egyedi hozzáférése lesz 1 vagy több szereppel. Kattints a tokenre, hogy egy új nézetet kapj - a kapott linket megoszthatod velük.",
     "Add new Subject": "Új személy hozzáadása",
-    "Unable to %1 Subject": "A %1 személy hozáadása nem sikerült",
+    "Unable to %1 Subject": "Unable to %1 Subject",
     "Unable to delete Subject": "A személyt nem sikerült törölni",
     "Database contains %1 subjects": "Az adatbázis %1 személyt tartalmaz",
     "Edit Subject": "Személy szerkesztése",
