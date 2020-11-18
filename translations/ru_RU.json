@@ -434,7 +434,7 @@
     "Subjects - People, Devices, etc": "Субъекты - Люди, устройства и т п",
     "Each subject will have a unique access token and 1 or more roles.  Click on the access token to open a new view with the selected subject, this secret link can then be shared.": "Каждый субъект получает уникальный код доступа и 1 или более ролей. Нажмите на иконку кода доступа чтобы открыть новое окно с выбранным субъектом, эту секретную ссылку можно переслать.",
     "Add new Subject": "Добавить нового субъекта",
-    "Unable to %1 Subject": "Unable to %1 Subject",
+    "Unable to %1 Subject": "Невозможно %1 Субъект",
     "Unable to delete Subject": "Невозможно удалить Субъект ",
     "Database contains %1 subjects": "База данных содержит %1 субъекта/ов",
     "Edit Subject": "Редактировать Субъект",
