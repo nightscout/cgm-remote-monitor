@@ -435,7 +435,7 @@
     "Subjects - People, Devices, etc": "Konular - İnsanlar, Cihazlar, vb.",
     "Each subject will have a unique access token and 1 or more roles.  Click on the access token to open a new view with the selected subject, this secret link can then be shared.": "Her konu benzersiz bir erişim anahtarı ve bir veya daha fazla rol alır. Seçilen konuyla ilgili yeni bir görünüm elde etmek için erişim tuşuna tıklayın. Bu gizli bağlantı paylaşılabilinir.",
     "Add new Subject": "Yeni konu ekle",
-    "Unable to %1 Subject": "%1 konu yapılamıyor",
+    "Unable to %1 Subject": "Unable to %1 Subject",
     "Unable to delete Subject": "Konu silinemedi",
     "Database contains %1 subjects": "Veritabanı %1 konu içeriyor",
     "Edit Subject": "Konuyu düzenle",
