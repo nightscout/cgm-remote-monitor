@@ -1,5 +1,4 @@
 {"Listening on port":"Listening on port"
-    
     ,"Mo":"Mo"
     ,"Tu":"Tu"
     ,"We":"We"
@@ -656,4 +655,5 @@
     ,"Data size":"Data size"
     ,"virtAsstDatabaseSize":"%1 MiB. That is %2% of available database space."
     ,"virtAsstTitleDatabaseSize":"Database file size"
-    ,"Carbs/Food/Time":"Carbs/Food/Time"}
+    ,"Carbs/Food/Time":"Carbs/Food/Time"
+}
