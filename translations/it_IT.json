@@ -325,7 +325,7 @@
     "Delete all documents from treatments collection older than 180 days": "Eliminare tutti i documenti della collezione \"devicestatus\" più vecchi di 180 giorni",
     "This task removes all documents from treatments collection that are older than 180 days. Useful when uploader battery status is not properly updated.": "Questa attività elimina tutti i documenti dalla collezione \"devicestatus\". Utile quando lo stato della batteria uploader/xdrip non si aggiorna.",
     "Delete old documents from treatments collection?": "Eliminare tutti i documenti dalla collezione devicestatus?",
-    "Admin Tools": "NS - Dati Mongo",
+    "Admin Tools": "Dati Mongo",
     "Nightscout reporting": "Nightscout - Statistiche",
     "Cancel": "Cancellare",
     "Edit treatment": "Modifica Somministrazione",
