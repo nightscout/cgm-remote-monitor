@@ -372,7 +372,7 @@
     "Calculation is in target range.": "Calcolo all'interno dell'intervallo",
     "Loading profile records ...": "Caricamento dati del profilo ...",
     "Values loaded.": "Valori caricati.",
-    "Default values used.": "Valori standard usati.",
+    "Default values used.": "Usati Valori standard.",
     "Error. Default values used.": "Errore. Valori standard usati.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "Intervalli di tempo della glicemia obiettivo inferiore e superiore non corretti. Valori ripristinati a quelli standard.",
     "Valid from:": "Valido da:",
