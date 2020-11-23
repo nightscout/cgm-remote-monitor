@@ -730,7 +730,7 @@
           reg.addEventListener('updatefound', () => {
             console.log('Service worker update detected');
             reg.update();
-            const newWorker = reg.installing;
+            var newWorker = reg.installing;
             newWorker.addEventListener('statechange', (state) => {
               console.log('New worker state change', state);
               window.location.reload(true);
