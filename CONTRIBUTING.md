@@ -15,7 +15,6 @@
   - [List of Contributors](#list-of-contributors)
     - [Core developers, contributing developers, coordinators and documentation writers](#core-developers-contributing-developers-coordinators-and-documentation-writers)
     - [Plugin contributors](#plugin-contributors)
-    - [Translators](#translators)
     - [List of all contributors](#list-of-all-contributors)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -38,7 +37,7 @@
 
 ## Translations
 
-Please visit our [project in Crowdin](https://crowdin.com/project/nightscout) to translate Nigthscout. If you want to add a new language, please get in touch with the dev team in Gitter.
+Please visit our [project in Crowdin](https://crowdin.com/project/nightscout) to translate Nigthscout. If you want to add a new language, please get in touch with the dev team in [Discord][discord-url].
 
 ## Installation for development
 
