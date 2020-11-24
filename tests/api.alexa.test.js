@@ -1,7 +1,9 @@
 'use strict';
 
-var request = require('supertest');
-var language = require('../lib/language')();
+const fs = require('fs');
+const request = require('supertest');
+const language = require('../lib/language')(fs);
+
 const bodyParser = require('body-parser');
 
 require('should');
