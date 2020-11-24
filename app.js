@@ -225,6 +225,12 @@ function create (env, ctx) {
       , title: 'Nightscout translations'
       , type: 'translations'
     }
+        , "/ccd.html": {
+      file: "ccd.html"
+      , title: 'ccd'
+      , type: 'ccd'
+    }
+    
     , "/split": {
       file: "frame.html"
       , title: '8-user view'
