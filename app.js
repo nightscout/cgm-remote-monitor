@@ -29,19 +29,7 @@ function create (env, ctx) {
 
       const enableCSP = env.secureCsp ? true : false;
 
-      console.info('Enabled SECURE_HSTS_HEADER (HTTP Strict Transport Security)');
-      const helmet = require('helmet');
-      var includeSubDomainsValue = env.secureHstsHeaderIncludeSubdomains;
-      var preloadValue = env.secureHstsHeaderPreload;
-      app.use(helmet({
-        hsts: {
-          maxAge: 31536000
-          , includeSubDomains: includeSubDomainsValue
-          , preload: preloadValue
-        }
-        , frameguard: false
-        , contentSecurityPolicy: enableCSP
-      }));
+      let cspPolicy = false;
 
       if (enableCSP) {
         var secureCspReportOnly = env.secureCspReportOnly;
@@ -60,7 +48,7 @@ function create (env, ctx) {
           }
         }
 
-        app.use(helmet.contentSecurityPolicy({ //TODO make NS work without 'unsafe-inline'
+        cspPolicy = { //TODO make NS work without 'unsafe-inline'
           directives: {
             defaultSrc: ["'self'"]
             , styleSrc: ["'self'", 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/', "'unsafe-inline'"]
@@ -76,7 +64,26 @@ function create (env, ctx) {
             , frameAncestors: frameAncestors
           }
           , reportOnly: secureCspReportOnly
-        }));
+        };
+      }
+      
+
+      console.info('Enabled SECURE_HSTS_HEADER (HTTP Strict Transport Security)');
+      const helmet = require('helmet');
+      var includeSubDomainsValue = env.secureHstsHeaderIncludeSubdomains;
+      var preloadValue = env.secureHstsHeaderPreload;
+      app.use(helmet({
+        hsts: {
+          maxAge: 31536000
+          , includeSubDomains: includeSubDomainsValue
+          , preload: preloadValue
+        }
+        , frameguard: false
+        , contentSecurityPolicy: cspPolicy
+      }));
+
+      if (enableCSP) {
+
         app.use(helmet.referrerPolicy({ policy: 'no-referrer' }));
         app.use(bodyParser.json({ type: ['json', 'application/csp-report'] }));
         app.post('/report-violation', (req, res) => {
@@ -132,8 +139,25 @@ function create (env, ctx) {
      ));
   });
 
+  // Allow static resources to be cached for week
+  var maxAge = 7 * 24 * 60 * 60 * 1000;
+
+  if (process.env.NODE_ENV === 'development') {
+    maxAge = 1;
+    console.log('Development environment detected, setting static file cache age to 1 second');
+  }
+
+  var staticFiles = express.static(env.static_files, {
+    maxAge
+  });
+
+  // serve the static content
+  app.use(staticFiles);
+
   if (ctx.bootErrors && ctx.bootErrors.length > 0) {
-    app.get('*', require('./lib/server/booterror')(ctx));
+    const bootErrorView = require('./lib/server/booterror')(env, ctx);
+    bootErrorView.setLocals(app.locals);
+    app.get('*', bootErrorView);
     return app;
   }
 
@@ -256,42 +280,15 @@ function create (env, ctx) {
     res.sendFile(__dirname + '/swagger.yaml');
   });
 
-  /* // FOR DEBUGGING MEMORY LEEAKS
-  if (env.settings.isEnabled('dumps')) {
-    var heapdump = require('heapdump');
-    app.get('/api/v2/dumps/start', function(req, res) {
-      var path = new Date().toISOString() + '.heapsnapshot';
-      path = path.replace(/:/g, '-');
-      console.info('writing dump to', path);
-      heapdump.writeSnapshot(path);
-      res.send('wrote dump to ' + path);
-    });
-  }
-  */
-
-  // app.get('/package.json', software);
-
-  // Allow static resources to be cached for week
-  var maxAge = 7 * 24 * 60 * 60 * 1000;
-
-  if (process.env.NODE_ENV === 'development') {
-    maxAge = 1;
-    console.log('Development environment detected, setting static file cache age to 1 second');
-  }
-
-  var staticFiles = express.static(env.static_files, {
-    maxAge
-  });
-
-  // serve the static content
-  app.use(staticFiles);
-
   // API docs
 
   const swaggerUi = require('swagger-ui-express');
+  const swaggerUseSchema = schema => (...args) => swaggerUi.setup(schema)(...args);
   const swaggerDocument = require('./swagger.json');
+  const swaggerDocumentApiV3 = require('./lib/api3/swagger.json');
 
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+  app.use('/api-docs', swaggerUi.serve, swaggerUseSchema(swaggerDocument));
+  app.use('/api3-docs', swaggerUi.serve, swaggerUseSchema(swaggerDocumentApiV3));
 
   app.use('/swagger-ui-dist', (req, res) => {
     res.redirect(307, '/api-docs');
