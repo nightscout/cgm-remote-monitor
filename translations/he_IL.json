@@ -314,7 +314,7 @@
     "Number of Days to Keep:": "Number of Days to Keep:",
     "This task removes all documents from devicestatus collection that are older than 30 days. Useful when uploader battery status is not properly updated.": "This task removes all documents from devicestatus collection that are older than 30 days. Useful when uploader battery status is not properly updated.",
     "Delete old documents from devicestatus collection?": "Delete old documents from devicestatus collection?",
-    "Clean Mongo entries (glucose entries) database": "Clean Mongo entries (glucose entries) database",
+    "Clean Mongo entries (glucose entries) database": "ניקוי מסד נתוני רשומות Mongo (רשומות סוכר)",
     "Delete all documents from entries collection older than 180 days": "Delete all documents from entries collection older than 180 days",
     "This task removes all documents from entries collection that are older than 180 days. Useful when uploader battery status is not properly updated.": "This task removes all documents from entries collection that are older than 180 days. Useful when uploader battery status is not properly updated.",
     "Delete old documents": "Delete old documents",
