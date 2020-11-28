@@ -89,7 +89,7 @@
     "Max": "Maks",
     "Min": "Minimum",
     "A1c estimation*": "Beregnet HbA1c",
-    "Weekly Success": "Ukeresultat",
+    "Weekly Success": "Ukentlige resultat",
     "There is not sufficient data to run this report. Select more days.": "Det er ikke nok data til å lage rapporten. Velg flere dager.",
     "Using stored API secret hash": "Bruker lagret API-hemmelighet",
     "No API secret hash stored yet. You need to enter API secret.": "Mangler API-hemmelighet. Du må skrive inn API-hemmelighet.",
