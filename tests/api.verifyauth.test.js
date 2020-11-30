@@ -14,6 +14,7 @@ describe('Verifyauth REST api', function ( ) {
   before(function (done) {
     self.env = require('../env')( );
     self.env.api_secret = 'this is my long pass phrase';
+    self.env.settings.authDefaultRoles = 'denied';
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')( );
     self.app.enable('api');
