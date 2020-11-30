@@ -66,7 +66,7 @@ describe('hashauth', function ( ) {
 
   it ('should make module unauthorized', function () {
     var client = require('../lib/client');
-    var hashauth = require('../lib/hashauth');
+    var hashauth = require('../lib/client/hashauth');
     
     hashauth.init(client,$);
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) { 

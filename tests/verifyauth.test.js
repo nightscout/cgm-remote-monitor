@@ -7,6 +7,8 @@ require('should');
 describe('verifyauth', function ( ) {
   var api = require('../lib/api/');
 
+  this.timeout(20000);
+
   var scope = this;
   function setup_app (env, fn) {
     require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
