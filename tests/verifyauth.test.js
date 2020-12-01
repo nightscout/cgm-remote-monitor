@@ -22,7 +22,7 @@ describe('verifyauth', function ( ) {
     done();
   });
 
-  it('should fail unauthorized', function (done) {
+  it('should return defaults when called without secret', function (done) {
     var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'this is my long pass phrase';
@@ -31,10 +31,49 @@ describe('verifyauth', function ( ) {
     setup_app(env, function (ctx) {
       ctx.app.enabled('api').should.equal(true);
       ctx.app.api_secret = '';
+      ping_authorized_endpoint(ctx.app, 200, done);
+    });
+  });
+
+  it('should fail when calling with wrong secret', function (done) {
+    var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
+    delete process.env.API_SECRET;
+    process.env.API_SECRET = 'this is my long pass phrase';
+    var env = require('../env')( );
+    env.api_secret.should.equal(known);
+    setup_app(env, function (ctx) {
+      ctx.app.enabled('api').should.equal(true);
+      ctx.app.api_secret = 'wrong secret';
       ping_authorized_endpoint(ctx.app, 401, done);
     });
-
   });
+
+
+  it('should fail unauthorized and delay subsequent attempts', function (done) {
+    var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
+    delete process.env.API_SECRET;
+    process.env.API_SECRET = 'this is my long pass phrase';
+    var env = require('../env')( );
+    env.api_secret.should.equal(known);
+    setup_app(env, function (ctx) {
+      ctx.app.enabled('api').should.equal(true);
+      ctx.app.api_secret = 'wrong secret';
+      const time = Date.now();
+
+      function checkTimer() {
+        const delta = Date.now() - time;
+        delta.should.be.greaterThan(1000);
+        done();
+      }
+
+      function pingAgain () {
+        ping_authorized_endpoint(ctx.app, 401, checkTimer);
+      }
+
+      ping_authorized_endpoint(ctx.app, 401, pingAgain);
+    });
+  });
+
 
 
   it('should work fine authorized', function (done) {
@@ -52,16 +91,13 @@ describe('verifyauth', function ( ) {
   });
 
 
-  function ping_authorized_endpoint (app, fails, fn) {
+  function ping_authorized_endpoint (app, httpResponse, fn) {
       request(app)
         .get('/verifyauth')
         .set('api-secret', app.api_secret || '')
-        .expect(fails)
+        .expect(httpResponse)
         .end(function (err, res)  {
-          //console.log(res.body);
-          if (fails < 400) {
-            res.body.status.should.equal(200);
-          }
+          res.body.status.should.equal(httpResponse);
           fn( );
           // console.log('err', err, 'res', res);
         });
