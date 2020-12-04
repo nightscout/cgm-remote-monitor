@@ -1,6 +1,6 @@
 {
   "name": "nightscout",
-  "version": "14.0.7",
+  "version": "14.0.8",
   "description": "Nightscout acts as a web-based CGM (Continuous Glucose Montinor) to allow multiple caregivers to remotely view a patients glucose data in realtime.",
   "license": "AGPL-3.0",
   "author": "Nightscout Team",
@@ -27,18 +27,18 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "env-cmd ./my.test.env mocha --exit tests/*.test.js",
-    "test-single": "env-cmd ./my.test.env mocha --exit tests/$TEST.test.js",
-    "test-ci": "env-cmd ./ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --exit tests/*.test.js",
+    "test": "env-cmd -f ./my.test.env mocha --exit tests/*.test.js",
+    "test-single": "env-cmd -f ./my.test.env mocha --exit tests/$TEST.test.js",
+    "test-ci": "env-cmd -f ./ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --exit tests/*.test.js",
     "env": "env",
     "postinstall": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
     "bundle": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
     "bundle-dev": "webpack --mode development --config webpack.config.js && npm run-script update-buster",
     "bundle-analyzer": "webpack --mode development --config webpack.config.js --profile --json > stats.json && webpack-bundle-analyzer stats.json",
     "update-buster": "node bin/generateCacheBuster.js >tmp/cacheBusterToken",
-    "coverage": "cat ./coverage/lcov.info | env-cmd ./ci.test.env codacy-coverage",
-    "dev": "env-cmd ./my.env nodemon server.js 0.0.0.0",
-    "prod": "env-cmd ./my.prod.env node server.js 0.0.0.0",
+    "coverage": "cat ./coverage/lcov.info | env-cmd -f ./ci.test.env codacy-coverage",
+    "dev": "env-cmd -f ./my.env nodemon server.js 0.0.0.0",
+    "prod": "env-cmd -f ./my.prod.env node server.js 0.0.0.0",
     "lint": "eslint lib"
   },
   "main": "server.js",
@@ -57,8 +57,8 @@
     }
   },
   "engines": {
-    "node": "^10.15.2 || ^8.15.1",
-    "npm": "^6.4.1"
+    "node": "^10.22.0 || ^12.18.4",
+    "npm": "^6.14.6"
   },
   "dependencies": {
     "@babel/core": "^7.11.1",
@@ -126,7 +126,7 @@
     "benv": "^3.3.0",
     "codacy-coverage": "^3.4.0",
     "csv-parse": "^4.12.0",
-    "env-cmd": "^8.0.2",
+    "env-cmd": "^10.1.0",
     "eslint": "^6.8.0",
     "eslint-loader": "^2.2.1",
     "mocha": "^8.1.1",
