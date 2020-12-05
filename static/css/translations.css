@@ -1,0 +1,16 @@
+body {
+  color: black;
+  font-family: 'Open Sans', Helvetica, Arial, sans-serif;
+  background-color: white;
+}
+
+th,
+td {
+  vertical-align: top;
+  text-align: left;
+  border: 1px solid
+}
+
+#translations {
+  padding: 15px;
+}
