@@ -6,12 +6,9 @@ describe('Plugins', function ( ) {
 
 
   it('should find client plugins, but not server only plugins', function (done) {
-    var plugins = require('../lib/plugins/')({
-      settings: { }
-      , language: require('../lib/language')()
-    }).registerClientDefaults();
+    var plugins = require('../lib/plugins/')().registerClientDefaults();
 
-    plugins('bgnow').name.should.equal('bgnow');
+    plugins('delta').name.should.equal('delta');
     plugins('rawbg').name.should.equal('rawbg');
 
     //server only plugin
@@ -21,10 +18,7 @@ describe('Plugins', function ( ) {
   });
 
   it('should find sever plugins, but not client only plugins', function (done) {
-    var plugins = require('../lib/plugins/')({
-      settings: { }
-      , language: require('../lib/language')()
-    }).registerServerDefaults();
+    var plugins = require('../lib/plugins/')().registerServerDefaults();
 
     plugins('rawbg').name.should.equal('rawbg');
     plugins('treatmentnotify').name.should.equal('treatmentnotify');

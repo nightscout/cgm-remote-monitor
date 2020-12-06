@@ -1,4 +1,4 @@
-#drawer button, #treatmentDrawer button, #boluscalcDrawer button{
+#drawer button, #treatmentDrawer button{
   font-size: 18px;
   font-weight: bolder;
   background-color: #ccc;
@@ -16,12 +16,12 @@
   color: #eee;
   display: none;
   font-size: 16px;
-  overflow-y: scroll;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
+  height: 100%;
+  overflow-y: auto;
   position: absolute;
   margin-top: 45px;
   right: -200px;
+  width: 300px;
   top: 0;
   z-index: 1;
 }
@@ -46,7 +46,6 @@ input[type=number]:invalid {
   display: block;
   text-align: right;
   padding: 10px 0;
-  text-decoration: underline;
 }
 
 #treatmentDrawer {
@@ -56,12 +55,12 @@ input[type=number]:invalid {
   color: #eee;
   display: none;
   font-size: 16px;
-  overflow-y: scroll;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
+  height: 100%;
+  overflow-y: auto;
   position: absolute;
   margin-top: 45px;
   right: -200px;
+  width: 300px;
   top: 0;
   z-index: 1;
 }
@@ -83,10 +82,6 @@ input[type=number]:invalid {
   text-overflow: ellipsis;
   line-height: 22px;
   vertical-align: middle;
-}
-
-#treatmentDrawer fieldset fieldset .left-column span {
-  width: 96px;
 }
 
 #treatmentDrawer .left-column input, #treatmentDrawer .left-column select {
@@ -153,7 +148,6 @@ input[type=number]:invalid {
 }
 #about a {
   color: #fff;
-  text-decoration: underline;
 }
 
 form {
@@ -207,49 +201,33 @@ h1, legend,
 }
 
 #toolbar {
-  text-shadow: 0 0 5px black;
-  display: flex;
-  height: 44px;
-  margin: 0 0 10px;
-  padding: 0 15px 0 40px;
-  position: relative;
-  align-items: center;
-  background: url(/images/logo2.png) no-repeat 3px center #333;
+  background: url(/images/logo2.png) no-repeat 3px 3px #333;
   border-bottom: 1px solid #999;
-  justify-content: space-between;
+  top: 0;
+  margin: 0;
+  height: 44px;
+  text-shadow: 0 0 5px black;
 }
 
 #toolbar .customTitle {
   color: #ccc;
   font-size: 16px;
+  margin-top: 0;
+  margin-left: 42px;
+  padding-top: 10px;
+  padding-right: 150px;
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
 }
-
-#toolbar .button-close {
-  color: #404040;
-  text-align: center;
-  text-shadow: none;
-  height: 20px;
-  width: 20px;
-  padding: 5px;
-  position: absolute;
-  top: 50%;
-  right: 10px;
-  transform: translateY(-50%);
-  background: grey;
-  border: 2px solid #404040;
-  border-radius: 5px;
-}
-
-#toolbar .button-close + #buttonbar {
-  margin-right: 40px;
-}
-
 #buttonbar {
+  padding-right: 10px;
+  height: 44px;
   opacity: 0.75;
   vertical-align: middle;
+  position: absolute;
+  right: 0;
+  z-index: 500;
 }
 
 #buttonbar a,
@@ -259,17 +237,11 @@ h1, legend,
   height: 44px;
   line-height: 44px;
 }
-
-#buttonbar .selected {
-  color: red;
-}
-
 #buttonbar a {
-  float: right;
+  float: left;
   text-decoration: none;
   width: 34px;
 }
-
 #buttonbar i {
   padding-left: 12px;
 }
@@ -338,10 +310,6 @@ ul.navigation {
   display: block;
 }
 
-.navigation li.multilink {
-  display: flex;
-}
-
 .navigation a {
   text-decoration: none;
   background-color: #808080;
@@ -350,52 +318,6 @@ ul.navigation {
   margin: 10px 0;
 }
 
-.navigation a.multilink {
-  display: flex;
-  flex-grow: 1;
-  justify-content: center;
-}
-
 .navigation a:hover {
   background-color: #989898;
-}
-
-#boluscalcDrawer {
-    background-color: #666;
-    border-left: 1px solid #999;
-    box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
-    color: #eee;
-    display: none;
-    font-size: 16px;
-    overflow-y: scroll;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    position: absolute;
-    margin-top: 45px;
-    right: -200px;
-    width: 320px;
-    top: 0;
-    z-index: 1;
-}
-
-#boluscalcDrawer a {
-  color: white;
-  font-size: 12px;
-}
-
-#boluscalcDrawer .insulincalculation {
-    background: gray;
-}
-
-#boluscalcDrawer .insulintotalcalculation {
-    background: Sienna;
-}
-
-#boluscalcDrawer .border_bottom td {
-  border-bottom:1pt solid #eee;
-}
-
-#boluscalcDrawer .foodinput {
-   background: #505050;
-   margin: 10px;
 }

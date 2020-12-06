@@ -29,7 +29,7 @@ describe('pushnotify', function ( ) {
         }
     };
 
-    ctx.pushnotify = require('../lib/server/pushnotify')(env, ctx);
+    ctx.pushnotify = require('../lib/pushnotify')(env, ctx);
 
     ctx.pushnotify.emitNotification(notify);
 
@@ -61,7 +61,7 @@ describe('pushnotify', function ( ) {
         }
     };
 
-    ctx.pushnotify = require('../lib/server/pushnotify')(env, ctx);
+    ctx.pushnotify = require('../lib/pushnotify')(env, ctx);
 
     ctx.pushnotify.emitNotification(notify);
 
@@ -97,7 +97,7 @@ describe('pushnotify', function ( ) {
       }
     };
 
-    ctx.pushnotify = require('../lib/server/pushnotify')(env, ctx);
+    ctx.pushnotify = require('../lib/pushnotify')(env, ctx);
 
     //first send the warning
     ctx.pushnotify.emitNotification(notify);
