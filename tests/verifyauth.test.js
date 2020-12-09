@@ -1,5 +1,6 @@
 'use strict';
 
+const { geoNaturalEarth1 } = require('d3');
 var request = require('supertest');
 var language = require('../lib/language')();
 require('should');
@@ -44,7 +45,13 @@ describe('verifyauth', function ( ) {
     setup_app(env, function (ctx) {
       ctx.app.enabled('api').should.equal(true);
       ctx.app.api_secret = 'wrong secret';
-      ping_authorized_endpoint(ctx.app, 401, done);
+
+      function check(res) {
+        res.body.message.message.should.equal('UNAUTHORIZED');
+        done();
+      }
+
+      ping_authorized_endpoint(ctx.app, 200, check, true);
     });
   });
 
@@ -60,17 +67,19 @@ describe('verifyauth', function ( ) {
       ctx.app.api_secret = 'wrong secret';
       const time = Date.now();
 
-      function checkTimer() {
+      function checkTimer(res) {
+        res.body.message.message.should.equal('UNAUTHORIZED');
         const delta = Date.now() - time;
         delta.should.be.greaterThan(1000);
         done();
       }
 
-      function pingAgain () {
-        ping_authorized_endpoint(ctx.app, 401, checkTimer);
+      function pingAgain (res) {
+        res.body.message.message.should.equal('UNAUTHORIZED');
+        ping_authorized_endpoint(ctx.app, 200, checkTimer, true);
       }
 
-      ping_authorized_endpoint(ctx.app, 401, pingAgain);
+      ping_authorized_endpoint(ctx.app, 200, pingAgain, true);
     });
   });
 
@@ -91,14 +100,14 @@ describe('verifyauth', function ( ) {
   });
 
 
-  function ping_authorized_endpoint (app, httpResponse, fn) {
+  function ping_authorized_endpoint (app, httpResponse, fn, passres) {
       request(app)
         .get('/verifyauth')
         .set('api-secret', app.api_secret || '')
         .expect(httpResponse)
         .end(function (err, res)  {
           res.body.status.should.equal(httpResponse);
-          fn( );
+          if (passres) { fn(res); } else {  fn(); }
           // console.log('err', err, 'res', res);
         });
   }
