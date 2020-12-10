@@ -19,7 +19,7 @@ describe('Entries REST api', function ( ) {
     self.app = require('express')( );
     self.app.enable('api');
     bootevent(self.env, language).boot(function booted (ctx) {
-      self.app.use('/', entries(self.app, self.wares, ctx));
+      self.app.use('/', entries(self.app, self.wares, ctx, self.env));
       self.archive = require('../lib/server/entries')(self.env, ctx);
 
       var creating = load('json');
@@ -271,7 +271,9 @@ describe('Entries REST api', function ( ) {
             .set('api-secret', self.env.api_secret || '')
             .expect(200)
             .expect(function (response) {
-              response.body[0].sgv.should.equal('199');
+              var entry = response.body[0];
+              entry.sgv.should.equal('199');
+              entry.utcOffset.should.equal(-420);
             })
             .end(function (err) {
               if (err) {
@@ -289,6 +291,68 @@ describe('Entries REST api', function ( ) {
                     } else {
                       // make sure it was deleted
                       console.log('Testing if glucose entry was deleted');
+                      request(self.app)
+                        .get('/entries.json?find[dateString][$gte]=2014-07-20&count=100')
+                        .set('api-secret', self.env.api_secret || '')
+                        .expect(200)
+                        .expect(function (response) {
+                          response.body.length.should.equal(0);
+                        })
+                        .end(done);
+                    }
+                  });
+              }
+            });
+        }
+      });
+  });
+
+  it('post multipole entries, query, delete, verify gone', function (done) {
+    // insert a glucose entry - needs to be unique from example data
+    console.log('Inserting glucose entry')
+    request(self.app)
+      .post('/entries/')
+      .set('api-secret', self.env.api_secret || '')
+      .send([{
+        "type": "sgv", "sgv": "199", "dateString": "2014-07-20T00:44:15.000-07:00"
+        , "date": 1405791855000, "device": "dexcom", "direction": "NOT COMPUTABLE"
+      }, {
+        "type": "sgv", "sgv": "200", "dateString": "2014-07-20T00:44:15.001-07:00"
+        , "date": 1405791855001, "device": "dexcom", "direction": "NOT COMPUTABLE"
+      }])
+      .expect(200)
+      .end(function (err) {
+        if (err) {
+          done(err);
+        } else {
+          // make sure treatment was inserted successfully
+          console.log('Ensuring glucose entry was inserted successfully');
+          request(self.app)
+            .get('/entries.json?find[dateString][$gte]=2014-07-20&count=100')
+            .set('api-secret', self.env.api_secret || '')
+            .expect(200)
+            .expect(function (response) {
+              var entry = response.body[0];
+              response.body.length.should.equal(2);
+              entry.sgv.should.equal('200');
+              entry.utcOffset.should.equal(-420);
+            })
+            .end(function (err) {
+              if (err) {
+                done(err);
+              } else {
+                // delete the glucose entry
+                console.log('Deleting test glucose entry');
+                request(self.app)
+                  .delete('/entries.json?find[dateString][$gte]=2014-07-20&count=100')
+                  .set('api-secret', self.env.api_secret || '')
+                  .expect(200)
+                  .end(function (err) {
+                    if (err) {
+                      done(err);
+                    } else {
+                      // make sure it was deleted
+                      console.log('Testing if glucose entries were deleted');
                       request(self.app)
                         .get('/entries.json?find[dateString][$gte]=2014-07-20&count=100')
                         .set('api-secret', self.env.api_secret || '')
