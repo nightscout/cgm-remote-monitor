@@ -655,5 +655,9 @@
     "Data size": "Dimensione dati",
     "virtAsstDatabaseSize": "%1 MiB. Questo è il %2% dello spazio del database disponibile.",
     "virtAsstTitleDatabaseSize": "Dimensione file database",
-    "Carbs/Food/Time": "Carboidrati/Cibo/Tempo"
+    "Carbs/Food/Time": "Carboidrati/Cibo/Tempo",
+    "Reads enabled in default permissions": "Reads enabled in default permissions",
+    "Data reads enabled": "Data reads enabled",
+    "Data writes enabled": "Data writes enabled",
+    "Data writes not enabled": "Data writes not enabled"
 }
