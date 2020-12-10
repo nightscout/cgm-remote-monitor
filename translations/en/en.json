@@ -656,4 +656,9 @@
     ,"virtAsstDatabaseSize":"%1 MiB. That is %2% of available database space."
     ,"virtAsstTitleDatabaseSize":"Database file size"
     ,"Carbs/Food/Time":"Carbs/Food/Time"
+    ,"You have administration messages":"You have administration messages"
+    ,"Admin messages in queue":"Admin messages in queue"
+    ,"Queue empty":"Queue empty"
+    ,"There are no admin messages in queue":"There are no admin messages in queue"
+    ,"Please sign in using the API_SECRET to see your administration messages":"Please sign in using the API_SECRET to see your administration messages"
 }
