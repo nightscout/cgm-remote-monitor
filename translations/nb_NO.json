@@ -655,5 +655,9 @@
     "Data size": "Datastørrelse",
     "virtAsstDatabaseSize": "%1 MiB. Dette er %2% av tilgjengelig databaseplass.",
     "virtAsstTitleDatabaseSize": "Database filstørrelse",
-    "Carbs/Food/Time": "Karbo/Mat/Abs.tid"
+    "Carbs/Food/Time": "Karbo/Mat/Abs.tid",
+    "Reads enabled in default permissions": "Reads enabled in default permissions",
+    "Data reads enabled": "Data reads enabled",
+    "Data writes enabled": "Data writes enabled",
+    "Data writes not enabled": "Data writes not enabled"
 }
