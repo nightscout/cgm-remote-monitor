@@ -374,7 +374,7 @@ describe('API3 CREATE', function() {
     });
     delete doc.identifier;
 
-    let p = await new Promise(function(resolve, reject) {
+    return await new Promise(function(resolve, reject) {
       self.instance.ctx.treatments.create([doc], async (err) =>  {  // let's insert the document in APIv1's way
         should.not.exist(err);
 
