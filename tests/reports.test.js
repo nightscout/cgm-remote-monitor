@@ -206,7 +206,7 @@ describe('reports', function ( ) {
   it ('should produce some html', function (done) {
     var client = window.Nightscout.client;
 
-    var hashauth = require('../lib/hashauth');
+    var hashauth = require('../lib/client/hashauth');
     hashauth.init(client,$);
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) {
       hashauth.authenticated = true;
@@ -281,7 +281,7 @@ describe('reports', function ( ) {
   it ('should produce week to week report', function (done) {
     var client = window.Nightscout.client;
 
-    var hashauth = require('../lib/hashauth');
+    var hashauth = require('../lib/client/hashauth');
     hashauth.init(client,$);
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) {
       hashauth.authenticated = true;
