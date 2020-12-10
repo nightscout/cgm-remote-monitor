@@ -655,5 +655,9 @@
     "Data size": "Datagrootte",
     "virtAsstDatabaseSize": "%1 MiB dat is %2% van de beschikbaare database ruimte",
     "virtAsstTitleDatabaseSize": "Database bestandsgrootte",
-    "Carbs/Food/Time": "Koolhydraten/Voedsel/Tijd"
+    "Carbs/Food/Time": "Koolhydraten/Voedsel/Tijd",
+    "Reads enabled in default permissions": "Reads enabled in default permissions",
+    "Data reads enabled": "Data reads enabled",
+    "Data writes enabled": "Data writes enabled",
+    "Data writes not enabled": "Data writes not enabled"
 }

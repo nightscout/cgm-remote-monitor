@@ -655,5 +655,9 @@
     "Data size": "Tietojen koko",
     "virtAsstDatabaseSize": "%1 MiB. Se on %2% saatavilla olevasta koosta.",
     "virtAsstTitleDatabaseSize": "Tietokantatiedoston koko",
-    "Carbs/Food/Time": "Hiilihydraatit/Ruoka/Aika"
+    "Carbs/Food/Time": "Hiilihydraatit/Ruoka/Aika",
+    "Reads enabled in default permissions": "Reads enabled in default permissions",
+    "Data reads enabled": "Data reads enabled",
+    "Data writes enabled": "Data writes enabled",
+    "Data writes not enabled": "Data writes not enabled"
 }

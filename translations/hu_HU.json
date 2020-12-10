@@ -655,5 +655,9 @@
     "Data size": "Adatok mérete",
     "virtAsstDatabaseSize": "%1 MiB ami %2% a rendelkezésre álló méretből",
     "virtAsstTitleDatabaseSize": "Adatbázis file méret",
-    "Carbs/Food/Time": "Carbs/Food/Time"
+    "Carbs/Food/Time": "Carbs/Food/Time",
+    "Reads enabled in default permissions": "Reads enabled in default permissions",
+    "Data reads enabled": "Data reads enabled",
+    "Data writes enabled": "Data writes enabled",
+    "Data writes not enabled": "Data writes not enabled"
 }
