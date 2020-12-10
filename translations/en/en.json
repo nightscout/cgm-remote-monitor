@@ -661,4 +661,8 @@
     ,"Queue empty":"Queue empty"
     ,"There are no admin messages in queue":"There are no admin messages in queue"
     ,"Please sign in using the API_SECRET to see your administration messages":"Please sign in using the API_SECRET to see your administration messages"
+    ,"Reads enabled in default permissions":"Reads enabled in default permissions"
+    ,"Data reads enabled": "Data reads enabled"
+    ,"Data writes enabled": "Data writes enabled"
+    ,"Data writes not enabled": "Data writes not enabled"
 }
