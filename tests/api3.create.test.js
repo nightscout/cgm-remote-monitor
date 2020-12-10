@@ -374,29 +374,32 @@ describe('API3 CREATE', function() {
     });
     delete doc.identifier;
 
-    self.instance.ctx.treatments.create([doc], async (err) => {  // let's insert the document in APIv1's way
-      should.not.exist(err);
+    let p = await new Promise(function(resolve, reject) {
+      self.instance.ctx.treatments.create([doc], async (err) =>  {  // let's insert the document in APIv1's way
+        should.not.exist(err);
 
-      let oldBody = await self.get(doc._id);
-      delete doc._id; // APIv1 updates input document, we must get rid of _id for the next round
-      oldBody.should.containEql(doc);
+        let oldBody = await self.get(doc._id);
+        delete doc._id; // APIv1 updates input document, we must get rid of _id for the next round
+        oldBody.should.containEql(doc);
 
-      const doc2 = Object.assign({}, doc, {
-        eventType: 'Meal Bolus',
-        insulin: 0.4,
-        identifier: utils.randomString('32', 'aA#')
+        const doc2 = Object.assign({}, doc, {
+          eventType: 'Meal Bolus',
+          insulin: 0.4,
+          identifier: utils.randomString('32', 'aA#')
+        });
+
+        await self.instance.post(`${self.url}?token=${self.token.all}`)
+          .send(doc2)
+          .expect(201);
+
+        let updatedBody = await self.get(doc2.identifier);
+        updatedBody.should.containEql(doc2);
+        updatedBody.identifier.should.not.equal(oldBody.identifier);
+
+        await self.delete(doc2.identifier);
+        await self.delete(oldBody.identifier);
+        resolve('Done!');
       });
-
-      await self.instance.post(`${self.url}?token=${self.token.all}`)
-        .send(doc2)
-        .expect(201);
-
-      let updatedBody = await self.get(doc2.identifier);
-      updatedBody.should.containEql(doc2);
-      updatedBody.identifier.should.not.equal(oldBody.identifier);
-
-      await self.delete(doc2.identifier);
-      await self.delete(oldBody.identifier);
     });
   });
 
