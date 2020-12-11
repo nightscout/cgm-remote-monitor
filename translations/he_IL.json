@@ -656,8 +656,8 @@
     "virtAsstDatabaseSize": "%1 MiB. That is %2% of available database space.",
     "virtAsstTitleDatabaseSize": "גודל קובץ מסד נתונים",
     "Carbs/Food/Time": "פחמ'\\אוכל\\זמן",
-    "Reads enabled in default permissions": "Reads enabled in default permissions",
-    "Data reads enabled": "Data reads enabled",
-    "Data writes enabled": "Data writes enabled",
-    "Data writes not enabled": "Data writes not enabled"
+    "Reads enabled in default permissions": "קריאת נתונים מופעלת תחת הרשאות ברירת מחדל",
+    "Data reads enabled": "קריאת נתונים מופעלת",
+    "Data writes enabled": "רישום נתונים מופעל",
+    "Data writes not enabled": "רישום נתונים מופסק"
 }
