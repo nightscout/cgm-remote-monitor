@@ -656,8 +656,8 @@
     "virtAsstDatabaseSize": "%1 MiB Это %2% доступного места в базе данных.",
     "virtAsstTitleDatabaseSize": "Размер файла базы данных",
     "Carbs/Food/Time": "Углеводы/Еда/Время",
-    "Reads enabled in default permissions": "Reads enabled in default permissions",
-    "Data reads enabled": "Data reads enabled",
-    "Data writes enabled": "Data writes enabled",
-    "Data writes not enabled": "Data writes not enabled"
+    "Reads enabled in default permissions": "Чтение включено в разрешениях по умолчанию",
+    "Data reads enabled": "Чтение данных включено",
+    "Data writes enabled": "Запись данных включена",
+    "Data writes not enabled": "Запись данных не включена"
 }
