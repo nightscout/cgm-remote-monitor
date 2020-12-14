@@ -659,5 +659,6 @@
     "Reads enabled in default permissions": "Läser aktiverade i standardbehörigheter",
     "Data reads enabled": "Dataläsningar aktiverade",
     "Data writes enabled": "Dataskrivningar aktiverade",
-    "Data writes not enabled": "Dataskrivningar är inte aktiverade"
+    "Data writes not enabled": "Dataskrivningar är inte aktiverade",
+    "Color prediction lines": "Color prediction lines"
 }
