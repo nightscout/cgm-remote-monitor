@@ -2,7 +2,12 @@
 
 const fs = require('fs');
 const language = require('../lib/language')(fs);
+const levels = require('../lib/levels');
 require('should');
+
+var topctx = {
+  levels: levels
+}
 
 describe('Database Size', function() {
 
@@ -17,8 +22,8 @@ describe('Database Size', function() {
     var ctx = {
       settings: {}
       , language: language
+      , levels: levels
     };
-    ctx.levels = require('../lib/levels');
 
     var sbx = sandbox.clientInit(ctx, Date.now(), dataInRange);
 
@@ -42,8 +47,8 @@ describe('Database Size', function() {
     var ctx = {
       settings: {}
       , language: language
+      , levels: levels
     };
-    ctx.levels = require('../lib/levels');
 
     var sbx = sandbox.clientInit(ctx, Date.now(), dataWarn);
 
@@ -68,8 +73,8 @@ describe('Database Size', function() {
     var ctx = {
       settings: {}
       , language: language
+      , levels: levels
     };
-    ctx.levels = require('../lib/levels');
 
     var sbx = sandbox.clientInit(ctx, Date.now(), dataUrgent);
 
@@ -93,10 +98,10 @@ describe('Database Size', function() {
     var ctx = {
       settings: {}
       , language: language
-      , notifications: require('../lib/notifications')(env, ctx)
+      , notifications: require('../lib/notifications')(env, topctx)
+      , levels: levels
     };
     ctx.notifications.initRequests();
-    ctx.levels = require('../lib/levels');
 
     var sbx = sandbox.clientInit(ctx, Date.now(), dataWarn);
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
@@ -120,10 +125,10 @@ describe('Database Size', function() {
     var ctx = {
       settings: {}
       , language: language
-      , notifications: require('../lib/notifications')(env, ctx)
+      , notifications: require('../lib/notifications')(env, topctx)
+      , levels: levels
     };
     ctx.notifications.initRequests();
-    ctx.levels = require('../lib/levels');
 
     var sbx = sandbox.clientInit(ctx, Date.now(), dataUrgent);
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
@@ -154,6 +159,7 @@ describe('Database Size', function() {
         }
       }
       , language: language
+      , levels: levels
     };
 
     var sandbox = require('../lib/sandbox')();
@@ -185,6 +191,7 @@ describe('Database Size', function() {
         }
       }
       , language: language
+      , levels: levels
     };
 
     var sandbox = require('../lib/sandbox')();
@@ -216,6 +223,7 @@ describe('Database Size', function() {
         }
       }
       , language: language
+      , levels: levels
     };
 
     var sandbox = require('../lib/sandbox')();
@@ -247,6 +255,7 @@ describe('Database Size', function() {
         }
       }
       , language: language
+      , levels: levels
     };
 
     var sandbox = require('../lib/sandbox')();
@@ -268,6 +277,7 @@ describe('Database Size', function() {
         }
       }
       , language: language
+      , levels: levels
     };
 
     var sandbox = require('../lib/sandbox')();
@@ -284,6 +294,7 @@ describe('Database Size', function() {
     var ctx = {
       settings: {}
       , language: language
+      , levels: levels
     };
 
     var sandbox = require('../lib/sandbox')();
