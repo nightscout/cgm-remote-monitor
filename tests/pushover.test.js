@@ -17,6 +17,7 @@ describe('pushover', function ( ) {
         , apiToken: '6789'
       }
     }
+    , levels:levels
   };
 
   var pushover = require('../lib/plugins/pushover')(env);
@@ -75,6 +76,7 @@ describe('support legacy pushover groupkey', function ( ) {
         , apiToken: '6789'
       }
     }
+    , levels: levels
   };
 
   var pushover = require('../lib/plugins/pushover')(env);
@@ -111,6 +113,7 @@ describe('multi announcement pushover', function ( ) {
         , apiToken: '6789'
       }
     }
+    , levels: levels
   };
 
   var pushover = require('../lib/plugins/pushover')(env);
@@ -155,6 +158,7 @@ describe('announcement only pushover', function ( ) {
         , apiToken: '6789'
       }
     }
+    , levels: levels
   };
 
   var pushover = require('../lib/plugins/pushover')(env);
