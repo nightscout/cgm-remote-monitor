@@ -434,7 +434,7 @@
     "Subjects - People, Devices, etc": "Subjekte - Menschen, Geräte, etc",
     "Each subject will have a unique access token and 1 or more roles.  Click on the access token to open a new view with the selected subject, this secret link can then be shared.": "Jedes Subjekt erhält einen einzigartigen Zugriffsschlüssel und eine oder mehrere Rollen. Klicke auf den Zugriffsschlüssel, um eine neue Ansicht mit dem ausgewählten Subjekt zu erhalten. Dieser geheime Link kann geteilt werden.",
     "Add new Subject": "Füge ein neues Subjekt hinzu",
-    "Unable to %1 Subject": "Unable to %1 Subject",
+    "Unable to %1 Subject": "Kann Subjekt %1 nicht löschen",
     "Unable to delete Subject": "Kann Subjekt nicht löschen",
     "Database contains %1 subjects": "Datenbank enthält %1 Subjekte",
     "Edit Subject": "Editiere Subjekt",
@@ -656,7 +656,7 @@
     "virtAsstDatabaseSize": "%1 MiB. Das sind %2% des verfügbaren Datenbank-Speicherplatzes.",
     "virtAsstTitleDatabaseSize": "Datenbank-Dateigröße",
     "Carbs/Food/Time": "Kohlenhydrate/Nahrung/Zeit",
-    "Reads enabled in default permissions": "Reads enabled in default permissions",
+    "Reads enabled in default permissions": "Leseberechtigung aktiviert durch Standardberechtigungen",
     "Data reads enabled": "Data reads enabled",
     "Data writes enabled": "Data writes enabled",
     "Data writes not enabled": "Data writes not enabled"

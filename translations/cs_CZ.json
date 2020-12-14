@@ -656,8 +656,8 @@
     "virtAsstDatabaseSize": "%1 MiB. To odpovídá %2% dostupného místa databázi.",
     "virtAsstTitleDatabaseSize": "Velikost databáze",
     "Carbs/Food/Time": "Sacharidy/Jídlo/Čas",
-    "Reads enabled in default permissions": "Reads enabled in default permissions",
-    "Data reads enabled": "Data reads enabled",
-    "Data writes enabled": "Data writes enabled",
-    "Data writes not enabled": "Data writes not enabled"
+    "Reads enabled in default permissions": "Ve výchozích oprávněních je čtení povoleno",
+    "Data reads enabled": "Čtení dat povoleno",
+    "Data writes enabled": "Zápis dat povolen",
+    "Data writes not enabled": "Zápis dat není povolen"
 }

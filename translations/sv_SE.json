@@ -656,8 +656,8 @@
     "virtAsstDatabaseSize": "%1 MiB. Det är %2% av tillgänglig databasutrymme.",
     "virtAsstTitleDatabaseSize": "Databasens filstorlek",
     "Carbs/Food/Time": "Kolhydrater/Mat/Tid",
-    "Reads enabled in default permissions": "Reads enabled in default permissions",
-    "Data reads enabled": "Data reads enabled",
-    "Data writes enabled": "Data writes enabled",
-    "Data writes not enabled": "Data writes not enabled"
+    "Reads enabled in default permissions": "Läser aktiverade i standardbehörigheter",
+    "Data reads enabled": "Dataläsningar aktiverade",
+    "Data writes enabled": "Dataskrivningar aktiverade",
+    "Data writes not enabled": "Dataskrivningar är inte aktiverade"
 }
