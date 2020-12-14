@@ -659,5 +659,6 @@
     "Reads enabled in default permissions": "Lezen ingeschakeld in standaard toestemmingen",
     "Data reads enabled": "Gegevens lezen ingeschakeld",
     "Data writes enabled": "Gegevens schrijven ingeschakeld",
-    "Data writes not enabled": "Gegevens schrijven uitgeschakeld"
+    "Data writes not enabled": "Gegevens schrijven uitgeschakeld",
+    "Color prediction lines": "Gekleurde voorspellingslijnen"
 }

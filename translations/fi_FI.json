@@ -656,8 +656,9 @@
     "virtAsstDatabaseSize": "%1 MiB. Se on %2% saatavilla olevasta koosta.",
     "virtAsstTitleDatabaseSize": "Tietokantatiedoston koko",
     "Carbs/Food/Time": "Hiilihydraatit/Ruoka/Aika",
-    "Reads enabled in default permissions": "Reads enabled in default permissions",
-    "Data reads enabled": "Data reads enabled",
-    "Data writes enabled": "Data writes enabled",
-    "Data writes not enabled": "Data writes not enabled"
+    "Reads enabled in default permissions": "Tietojen lukeminen käytössä oletuskäyttöoikeuksilla",
+    "Data reads enabled": "Tiedon lukeminen mahdollista",
+    "Data writes enabled": "Tiedon kirjoittaminen mahdollista",
+    "Data writes not enabled": "Tiedon kirjoittaminen estetty",
+    "Color prediction lines": "Värilliset ennusteviivat"
 }

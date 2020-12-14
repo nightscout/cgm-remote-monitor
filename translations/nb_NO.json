@@ -657,7 +657,8 @@
     "virtAsstTitleDatabaseSize": "Database filstørrelse",
     "Carbs/Food/Time": "Karbo/Mat/Abs.tid",
     "Reads enabled in default permissions": "Leser aktivert i standardtillatelser",
-    "Data reads enabled": "Data leser aktivert",
-    "Data writes enabled": "Data skriver aktivert",
-    "Data writes not enabled": "Data skriver ikke aktivert"
+    "Data reads enabled": "Dataleser aktivert",
+    "Data writes enabled": "Dataskriver aktivert",
+    "Data writes not enabled": "Dataskriver ikke aktivert",
+    "Color prediction lines": "Color prediction lines"
 }

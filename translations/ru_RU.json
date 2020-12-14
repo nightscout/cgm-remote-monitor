@@ -659,5 +659,6 @@
     "Reads enabled in default permissions": "Чтение включено в разрешениях по умолчанию",
     "Data reads enabled": "Чтение данных включено",
     "Data writes enabled": "Запись данных включена",
-    "Data writes not enabled": "Запись данных не включена"
+    "Data writes not enabled": "Запись данных не включена",
+    "Color prediction lines": "Color prediction lines"
 }
