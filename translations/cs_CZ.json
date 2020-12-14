@@ -659,5 +659,6 @@
     "Reads enabled in default permissions": "Ve výchozích oprávněních je čtení povoleno",
     "Data reads enabled": "Čtení dat povoleno",
     "Data writes enabled": "Zápis dat povolen",
-    "Data writes not enabled": "Zápis dat není povolen"
+    "Data writes not enabled": "Zápis dat není povolen",
+    "Color prediction lines": "Color prediction lines"
 }
