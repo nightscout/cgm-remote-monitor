@@ -659,5 +659,6 @@
     "Reads enabled in default permissions": "קריאת נתונים מופעלת תחת הרשאות ברירת מחדל",
     "Data reads enabled": "קריאת נתונים מופעלת",
     "Data writes enabled": "רישום נתונים מופעל",
-    "Data writes not enabled": "רישום נתונים מופסק"
+    "Data writes not enabled": "רישום נתונים מופסק",
+    "Color prediction lines": "Color prediction lines"
 }
