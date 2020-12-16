@@ -6325,9 +6325,8 @@
       }
     },
     "minimed-connect-to-nightscout": {
-      "version": "1.4.0",
-      "resolved": "https://registry.npmjs.org/minimed-connect-to-nightscout/-/minimed-connect-to-nightscout-1.4.0.tgz",
-      "integrity": "sha512-hxbcncJPiQOoTtjp1VquoxA4ab/Lbn1LiwAymeaEUfyqUxaj9E7w8CHJ/kGbgEu2oYHsqUMvJ1orOlCuUA/g6g==",
+      "version": "github:nightscout/minimed-connect-to-nightscout#2a76725d4b27fd98be8b4eb9f11caba6ec7e3f55",
+      "from": "github:nightscout/minimed-connect-to-nightscout#wip/rebased/dev",
       "requires": {
         "axios": "^0.19.2",
         "axios-cookiejar-support": "^1.0.0",
