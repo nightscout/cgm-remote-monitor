@@ -680,5 +680,8 @@
     "Previous day": "Vorige dag",
     "Next day": "Volgende dag",
     "Next": "Volgende",
-    "Temp basal delta": "Tijdelijk basaal delta"
+    "Temp basal delta": "Tijdelijk basaal delta",
+    "Authorized by token": "Authorized by token",
+    "Auth role": "Auth role",
+    "view without token": "view without token"
 }
