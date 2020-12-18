@@ -681,4 +681,7 @@
     ,"Next day":"Next day"
     ,"Next":"Next"
     ,"Temp basal delta":"Temp basal delta"
+    ,"Authorized by token":"Authorized by token"
+    ,"Auth role":"Auth role"
+    ,"view without token":"view without token"
 }
