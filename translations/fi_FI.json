@@ -680,5 +680,8 @@
     "Previous day": "Edellinen päivä",
     "Next day": "Seuraava päivä",
     "Next": "Seuraava",
-    "Temp basal delta": "Tilapäisen basaalin muutos"
+    "Temp basal delta": "Tilapäisen basaalin muutos",
+    "Authorized by token": "Authorized by token",
+    "Auth role": "Auth role",
+    "view without token": "view without token"
 }
