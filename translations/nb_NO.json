@@ -119,7 +119,7 @@
     "Record": "Registrering",
     "Quick picks": "Hurtigvalg",
     "Show hidden": "Vis skjulte",
-    "Your API secret or token": "Din API-hemmelighet eller tilgangsnøkkel",
+    "Your API secret or token": "API-hemmelighet eller tilgangsnøkkel",
     "Remember this device. (Do not enable this on public computers.)": "Husk denne enheten (Ikke velg dette på offentlige eller delte datamaskiner)",
     "Treatments": "Behandlinger",
     "Time": "Tid",
@@ -680,5 +680,8 @@
     "Previous day": "Forrige dag",
     "Next day": "Neste dag",
     "Next": "Neste",
-    "Temp basal delta": "Midlertidig basal delta"
+    "Temp basal delta": "Midlertidig basal delta",
+    "Authorized by token": "Autorisert med tlgangsnøkkel",
+    "Auth role": "Autorisert",
+    "view without token": "vis uten tilgangsnøkkel"
 }
