@@ -339,8 +339,8 @@ describe('API3 CREATE', function() {
     self.validDoc.date = (new Date()).getTime();
     self.validDoc.identifier = utils.randomString('32', 'aA#');
 
-    const doc = Object.assign({}, self.validDoc, { 
-      created_at: new Date(self.validDoc.date).toISOString() 
+    const doc = Object.assign({}, self.validDoc, {
+      created_at: new Date(self.validDoc.date).toISOString()
     });
     delete doc.identifier;
 
@@ -369,8 +369,8 @@ describe('API3 CREATE', function() {
     self.validDoc.date = (new Date()).getTime();
     self.validDoc.identifier = utils.randomString('32', 'aA#');
 
-    const doc = Object.assign({}, self.validDoc, { 
-      created_at: new Date(self.validDoc.date).toISOString() 
+    const doc = Object.assign({}, self.validDoc, {
+      created_at: new Date(self.validDoc.date).toISOString()
     });
     delete doc.identifier;
 
