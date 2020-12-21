@@ -683,5 +683,6 @@
     "Temp basal delta": "Midlertidig basal delta",
     "Authorized by token": "Autorisert med tlgangsnøkkel",
     "Auth role": "Autorisert",
-    "view without token": "vis uten tilgangsnøkkel"
+    "view without token": "vis uten tilgangsnøkkel",
+    "Remove stored token": "Fjern lagret tilgangsnøkkel"
 }
