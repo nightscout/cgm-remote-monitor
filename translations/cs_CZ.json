@@ -683,5 +683,6 @@
     "Temp basal delta": "Rozdíl dočasného bazálu",
     "Authorized by token": "Autorizováno pomocí tokenu",
     "Auth role": "Autorizační role",
-    "view without token": "zobrazit bez tokenu"
+    "view without token": "zobrazit bez tokenu",
+    "Remove stored token": "Remove stored token"
 }
