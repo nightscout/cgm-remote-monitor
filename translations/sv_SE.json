@@ -683,5 +683,6 @@
     "Temp basal delta": "Temp basal delta",
     "Authorized by token": "Auktoriserad av token",
     "Auth role": "Auth roll",
-    "view without token": "visa utan token"
+    "view without token": "visa utan token",
+    "Remove stored token": "Remove stored token"
 }
