@@ -683,5 +683,6 @@
     "Temp basal delta": "Variația bazalei temporare",
     "Authorized by token": "Autorizat prin cod token",
     "Auth role": "Rolul de autentificare",
-    "view without token": "vizualizare fără cod token"
+    "view without token": "vizualizare fără cod token",
+    "Remove stored token": "Remove stored token"
 }
