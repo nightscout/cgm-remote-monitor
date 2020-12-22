@@ -682,7 +682,7 @@
     "Next": "Seuraava",
     "Temp basal delta": "Tilapäisen basaalin muutos",
     "Authorized by token": "Kirjautuminen tunnisteella",
-    "Auth role": "Auth role",
+    "Auth role": "Authentikaatiorooli",
     "view without token": "Näytä ilman tunnistetta",
     "Remove stored token": "Poista talletettu tunniste"
 }
