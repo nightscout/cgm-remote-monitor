@@ -119,7 +119,7 @@
     "Record": "Tietue",
     "Quick picks": "Nopeat valinnat",
     "Show hidden": "Näytä piilotettu",
-    "Your API secret or token": "API salaisuus tai avain",
+    "Your API secret or token": "API salaisuus tai tunniste",
     "Remember this device. (Do not enable this on public computers.)": "Muista tämä laite (Älä valitse julkisilla tietokoneilla)",
     "Treatments": "Hoitotoimenpiteet",
     "Time": "Aika",
@@ -681,8 +681,8 @@
     "Next day": "Seuraava päivä",
     "Next": "Seuraava",
     "Temp basal delta": "Tilapäisen basaalin muutos",
-    "Authorized by token": "Authorized by token",
+    "Authorized by token": "Kirjautuminen tunnisteella",
     "Auth role": "Auth role",
-    "view without token": "view without token",
-    "Remove stored token": "Remove stored token"
+    "view without token": "Näytä ilman tunnistetta",
+    "Remove stored token": "Poista talletettu tunniste"
 }
