@@ -61,18 +61,25 @@ describe('API3 CREATE', function() {
 
     self.app = self.instance.app;
     self.env = self.instance.env;
-    self.url = '/api/v3/treatments';
+    self.col = 'treatments'
+    self.url = `/api/v3/${self.col}`;
 
     let authResult = await authSubject(self.instance.ctx.authorization.storage);
 
     self.subject = authResult.subject;
     self.token = authResult.token;
     self.urlToken = `${self.url}?token=${self.token.create}`;
+    self.cache = self.instance.cacheMonitor;
   });
 
 
   after(() => {
     self.instance.ctx.bus.teardown();
+  });
+
+
+  beforeEach(() => {
+    self.cache.clear();
   });
 
 
@@ -83,6 +90,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(401);
     res.body.message.should.equal('Missing or bad access token or JWT');
+    self.cache.shouldBeEmpty()
   });
 
 
@@ -92,6 +100,7 @@ describe('API3 CREATE', function() {
       .expect(404);
 
     res.body.should.be.empty();
+    self.cache.shouldBeEmpty()
   });
 
 
@@ -102,6 +111,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(403);
     res.body.message.should.equal('Missing permission api:treatments:create');
+    self.cache.shouldBeEmpty()
   });
 
 
@@ -109,6 +119,8 @@ describe('API3 CREATE', function() {
     await self.instance.post(self.urlToken)
       .send({ })
       .expect(400);
+
+    self.cache.shouldBeEmpty()
   });
 
 
@@ -123,6 +135,7 @@ describe('API3 CREATE', function() {
 
     let body = await self.get(self.validDoc.identifier);
     body.should.containEql(self.validDoc);
+    self.cache.nextShouldEql(self.col, self.validDoc)
 
     const ms = body.srvModified % 1000;
     (body.srvModified - ms).should.equal(lastModified);
@@ -130,6 +143,7 @@ describe('API3 CREATE', function() {
     body.subject.should.equal(self.subject.apiCreate.name);
 
     await self.delete(self.validDoc.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -143,6 +157,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing date field');
+    self.cache.shouldBeEmpty()
   });
 
 
@@ -153,6 +168,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing date field');
+    self.cache.shouldBeEmpty()
   });
 
 
@@ -163,6 +179,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing date field');
+    self.cache.shouldBeEmpty()
   });
 
 
@@ -173,6 +190,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing date field');
+    self.cache.shouldBeEmpty()
   });
 
 
@@ -184,6 +202,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing date field');
+    self.cache.shouldBeEmpty()
   });
 
 
@@ -194,6 +213,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing date field');
+    self.cache.shouldBeEmpty()
   });
 
 
@@ -204,6 +224,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing utcOffset field');
+    self.cache.shouldBeEmpty()
   });
 
 
@@ -214,17 +235,23 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing utcOffset field');
+    self.cache.shouldBeEmpty()
   });
 
 
   it('should accept valid utcOffset', async () => {
+    const doc = Object.assign({}, self.validDoc, { utcOffset: 120 });
+
     await self.instance.post(self.urlToken)
-      .send(Object.assign({}, self.validDoc, { utcOffset: 120 }))
+      .send(doc)
       .expect(201);
 
     let body = await self.get(self.validDoc.identifier);
     body.utcOffset.should.equal(120);
+    self.cache.nextShouldEql(self.col, doc)
+
     await self.delete(self.validDoc.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -235,6 +262,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing utcOffset field');
+    self.cache.shouldBeEmpty()
   });
 
 
@@ -248,6 +276,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing app field');
+    self.cache.shouldBeEmpty()
   });
 
 
@@ -258,6 +287,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing app field');
+    self.cache.shouldBeEmpty()
   });
 
 
@@ -268,6 +298,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing app field');
+    self.cache.shouldBeEmpty()
   });
 
 
@@ -279,7 +310,10 @@ describe('API3 CREATE', function() {
     let body = await self.get(self.validDoc.identifier);
     body.date.should.equal(1560146828576);
     body.utcOffset.should.equal(120);
+    self.cache.nextShouldEql(self.col, body)
+
     await self.delete(self.validDoc.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -295,6 +329,7 @@ describe('API3 CREATE', function() {
 
     let createdBody = await self.get(doc.identifier);
     createdBody.should.containEql(doc);
+    self.cache.nextShouldEql(self.col, doc)
 
     const doc2 = Object.assign({}, doc);
     let res = await self.instance.post(self.urlToken)
@@ -304,6 +339,7 @@ describe('API3 CREATE', function() {
     res.body.status.should.equal(403);
     res.body.message.should.equal('Missing permission api:treatments:update');
     await self.delete(doc.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -319,6 +355,7 @@ describe('API3 CREATE', function() {
 
     let createdBody = await self.get(doc.identifier);
     createdBody.should.containEql(doc);
+    self.cache.nextShouldEql(self.col, doc)
 
     const doc2 = Object.assign({}, doc, {
       insulin: 0.5
@@ -330,8 +367,10 @@ describe('API3 CREATE', function() {
 
     let updatedBody = await self.get(doc2.identifier);
     updatedBody.should.containEql(doc2);
+    self.cache.nextShouldEql(self.col, doc2)
 
     await self.delete(doc2.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -346,6 +385,7 @@ describe('API3 CREATE', function() {
 
     self.instance.ctx.treatments.create([doc], async (err) => {  // let's insert the document in APIv1's way
       should.not.exist(err);
+      self.cache.nextShouldEql(self.col, doc)
 
       const doc2 = Object.assign({}, doc, {
         insulin: 0.4,
@@ -359,8 +399,10 @@ describe('API3 CREATE', function() {
 
       let updatedBody = await self.get(doc2.identifier);
       updatedBody.should.containEql(doc2);
+      self.cache.nextShouldEql(self.col, doc2)
 
       await self.delete(doc2.identifier);
+      self.cache.nextShouldDeleteLast(self.col)
     });
   });
 
@@ -381,6 +423,7 @@ describe('API3 CREATE', function() {
         let oldBody = await self.get(doc._id);
         delete doc._id; // APIv1 updates input document, we must get rid of _id for the next round
         oldBody.should.containEql(doc);
+        self.cache.nextShouldEql(self.col, doc)
 
         const doc2 = Object.assign({}, doc, {
           eventType: 'Meal Bolus',
@@ -395,9 +438,14 @@ describe('API3 CREATE', function() {
         let updatedBody = await self.get(doc2.identifier);
         updatedBody.should.containEql(doc2);
         updatedBody.identifier.should.not.equal(oldBody.identifier);
+        self.cache.nextShouldEql(self.col, doc2)
 
         await self.delete(doc2.identifier);
+        self.cache.nextShouldDeleteLast(self.col)
+
         await self.delete(oldBody.identifier);
+        self.cache.nextShouldDeleteLast(self.col)
+
         resolve('Done!');
       });
     });
@@ -406,14 +454,17 @@ describe('API3 CREATE', function() {
 
   it('should overwrite deleted document', async () => {
     const date1 = new Date()
-      , identifier = utils.randomString('32', 'aA#');
+      , identifier = utils.randomString('32', 'aA#')
+      , doc = Object.assign({}, self.validDoc, { identifier, date: date1.toISOString() });
 
     await self.instance.post(self.urlToken)
-      .send(Object.assign({}, self.validDoc, { identifier, date: date1.toISOString() }))
+      .send(doc)
       .expect(201);
+    self.cache.nextShouldEql(self.col, Object.assign({}, doc, { date: date1.getTime() }));
 
     await self.instance.delete(`${self.url}/${identifier}?token=${self.token.delete}`)
       .expect(204);
+    self.cache.nextShouldDeleteLast(self.col)
 
     const date2 = new Date();
     let res = await self.instance.post(self.urlToken)
@@ -422,17 +473,22 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.be.equal(403);
     res.body.message.should.be.equal('Missing permission api:treatments:update');
+    self.cache.shouldBeEmpty()
 
+    const doc2 = Object.assign({}, self.validDoc, { identifier, date: date2.toISOString() });
     res = await self.instance.post(`${self.url}?token=${self.token.all}`)
-      .send(Object.assign({}, self.validDoc, { identifier, date: date2.toISOString() }))
+      .send(doc2)
       .expect(204);
 
     res.body.should.be.empty();
+    self.cache.nextShouldEql(self.col, Object.assign({}, doc2, { date: date2.getTime() }));
 
     let body = await self.get(identifier);
     body.date.should.equal(date2.getTime());
     body.identifier.should.equal(identifier);
+
     await self.delete(identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -451,7 +507,10 @@ describe('API3 CREATE', function() {
 
     let body = await self.get(validIdentifier);
     body.should.containEql(self.validDoc);
+    self.cache.nextShouldEql(self.col, self.validDoc);
+
     await self.delete(validIdentifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -470,6 +529,7 @@ describe('API3 CREATE', function() {
 
     let body = await self.get(validIdentifier);
     body.should.containEql(self.validDoc);
+    self.cache.nextShouldEql(self.col, self.validDoc);
 
     delete self.validDoc.identifier;
     res = await self.instance.post(`${self.url}?token=${self.token.update}`)
@@ -479,11 +539,13 @@ describe('API3 CREATE', function() {
     res.body.should.be.empty();
     res.headers.location.should.equal(`${self.url}/${validIdentifier}`);
     self.validDoc.identifier = validIdentifier;
+    self.cache.nextShouldEql(self.col, self.validDoc);
 
     body = await self.search(self.validDoc.date);
     body.length.should.equal(1);
 
     await self.delete(validIdentifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 });
