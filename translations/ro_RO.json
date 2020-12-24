@@ -60,7 +60,6 @@
     "Hourly stats": "Statistici orare",
     "netIOB stats": "Statistici netIOB",
     "temp basals must be rendered to display this report": "bazalele temporare trebuie redate pentru a afișa acest raport",
-    "Weekly success": "Rezultate săptămânale",
     "No data available": "Nu există date disponibile",
     "Low": "Prea jos",
     "In Range": "În interval",
@@ -684,5 +683,6 @@
     "Authorized by token": "Autorizat prin cheie de acces",
     "Auth role": "Rolul de autentificare",
     "view without token": "vizualizare fără cheie de acces",
-    "Remove stored token": "Elimină cheia de acces stocată"
+    "Remove stored token": "Elimină cheia de acces stocată",
+    "Weekly Distribution": "Weekly Distribution"
 }
