@@ -60,7 +60,6 @@
     "Hourly stats": "Tunneittainen tilasto",
     "netIOB stats": "netIOB tilasto",
     "temp basals must be rendered to display this report": "tämä raportti vaatii, että basaalien piirto on päällä",
-    "Weekly success": "Viikkotilasto",
     "No data available": "Tietoja ei saatavilla",
     "Low": "Matala",
     "In Range": "Tavoitealueella",
@@ -684,5 +683,6 @@
     "Authorized by token": "Kirjautuminen tunnisteella",
     "Auth role": "Authentikaatiorooli",
     "view without token": "Näytä ilman tunnistetta",
-    "Remove stored token": "Poista talletettu tunniste"
+    "Remove stored token": "Poista talletettu tunniste",
+    "Weekly Distribution": "Weekly Distribution"
 }
