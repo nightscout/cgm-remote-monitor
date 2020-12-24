@@ -60,7 +60,6 @@
     "Hourly stats": "Statistiques horaires",
     "netIOB stats": "statistiques netiob",
     "temp basals must be rendered to display this report": "la basale temporaire doit être activé pour afficher ce rapport",
-    "Weekly success": "Résultat hebdomadaire",
     "No data available": "Pas de données disponibles",
     "Low": "Bas",
     "In Range": "dans la norme",
@@ -684,5 +683,6 @@
     "Authorized by token": "Authorized by token",
     "Auth role": "Auth role",
     "view without token": "view without token",
-    "Remove stored token": "Remove stored token"
+    "Remove stored token": "Remove stored token",
+    "Weekly Distribution": "Weekly Distribution"
 }
