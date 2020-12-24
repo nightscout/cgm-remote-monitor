@@ -60,7 +60,6 @@
     "Hourly stats": "Statistika po hodinách",
     "netIOB stats": "statistiky netIOB",
     "temp basals must be rendered to display this report": "pro zobrazení reportu musí být vykresleny dočasné bazály",
-    "Weekly success": "Statistika po týdnech",
     "No data available": "Žádná dostupná data",
     "Low": "Nízká",
     "In Range": "V rozsahu",
@@ -684,5 +683,6 @@
     "Authorized by token": "Autorizováno pomocí tokenu",
     "Auth role": "Autorizační role",
     "view without token": "zobrazit bez tokenu",
-    "Remove stored token": "Remove stored token"
+    "Remove stored token": "Remove stored token",
+    "Weekly Distribution": "Weekly Distribution"
 }
