@@ -34,10 +34,11 @@ describe('Treatment API', function ( ) {
   it('post single treatments', function (done) {
 
     self.ctx.treatments().remove({ }, function ( ) {
+      var now = (new Date()).toISOString();
       request(self.app)
         .post('/api/treatments/')
         .set('api-secret', self.env.api_secret || '')
-        .send({eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'})
+        .send({eventType: 'Meal Bolus', created_at: now, carbs: '30', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'})
         .expect(200)
         .end(function (err) {
           if (err) {
@@ -61,6 +62,25 @@ describe('Treatment API', function ( ) {
     });
   });
 
+  /*
+  it('saving entry without created_at should fail', function (done) {
+
+    self.ctx.treatments().remove({ }, function ( ) {
+      request(self.app)
+        .post('/api/treatments/')
+        .set('api-secret', self.env.api_secret || '')
+        .send({eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'})
+        .expect(422)
+        .end(function (err) {
+          if (err) {
+            done(err);
+          } else {
+              done();
+          }
+        });
+    });
+  });
+*/
 
   it('post single treatments in zoned time format', function (done) {
    
@@ -101,12 +121,13 @@ describe('Treatment API', function ( ) {
 
   it('post a treatment array', function (done) {
     self.ctx.treatments().remove({ }, function ( ) {
+      var now = (new Date()).toISOString();
       request(self.app)
         .post('/api/treatments/')
         .set('api-secret', self.env.api_secret || '')
         .send([
-          {eventType: 'BG Check', glucose: 100, preBolus: '0', glucoseType: 'Finger', units: 'mg/dl', notes: ''}
-          , {eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'}
+          {eventType: 'BG Check', created_at: now, glucose: 100, preBolus: '0', glucoseType: 'Finger', units: 'mg/dl', notes: ''}
+          , {eventType: 'Meal Bolus', created_at: now, carbs: '30', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'}
          ])
         .expect(200)
         .end(function (err) {
@@ -168,10 +189,11 @@ describe('Treatment API', function ( ) {
   it('post a treatment, query, delete, verify gone', function (done) {
     // insert a treatment - needs to be unique from example data
     console.log('Inserting treatment entry');
+    var now = (new Date()).toISOString();
     request(self.app)
       .post('/api/treatments/')
       .set('api-secret', self.env.api_secret || '')
-      .send({eventType: 'Meal Bolus', carbs: '99', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'})
+      .send({eventType: 'Meal Bolus', created_at: now, carbs: '99', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'})
       .expect(200)
       .end(function (err) {
         if (err) {
