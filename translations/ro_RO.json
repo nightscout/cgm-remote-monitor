@@ -450,7 +450,7 @@
     "BASAL": "BAZALĂ",
     "Current basal": "Bazală curentă",
     "Sensitivity": "Sensibilitate la insulină",
-    "Current Carb Ratio": "Raport Insulină: Carbohidrați curent",
+    "Current Carb Ratio": "Raport Insulină:Carbohidrați (ICR)",
     "Basal timezone": "Fus orar pentru bazală",
     "Active profile": "Profilul activ",
     "Active temp basal": "Bazală temporară activă",
@@ -684,5 +684,5 @@
     "Auth role": "Rolul de autentificare",
     "view without token": "vizualizare fără cheie de acces",
     "Remove stored token": "Elimină cheia de acces stocată",
-    "Weekly Distribution": "Weekly Distribution"
+    "Weekly Distribution": "Distribuție săptămânală"
 }
