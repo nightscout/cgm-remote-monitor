@@ -5,7 +5,6 @@ volumes:
 
 services:
   nightscout:
-    image: "skalahonza/nightscout"
     build:
       context: .
       dockerfile: Dockerfile    
