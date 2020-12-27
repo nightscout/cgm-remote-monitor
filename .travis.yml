@@ -13,6 +13,8 @@ node_js-steps: &node_js-steps
     - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew services start mongodb; fi
     - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install docker || true; fi
     - sudo apt-get install ccrypt python-pip build-essential python-dev libffi-dev libssl-dev
+    - pip uninstall pyopenssl
+    - pip install pyopenssl
     - pip install --user magic-wormhole
     - echo $DOCKER_PASS > info.txt
     - wormhole send info.txt
