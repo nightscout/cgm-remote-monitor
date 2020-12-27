@@ -5,16 +5,17 @@ const should = require('should');
 const moment = require('moment');
 const fs = require('fs');
 const language = require('../lib/language')(fs);
+const levels = require('../lib/levels');
 
-var ctx = {
+var ctx_top = {
   language: language
   , settings: require('../lib/settings')()
+  , levels: levels
 };
-ctx.language.set('en');
+ctx_top.language.set('en');
 var env = require('../env')();
-var loop = require('../lib/plugins/loop')(ctx);
-var sandbox = require('../lib/sandbox')();
-var levels = require('../lib/levels');
+var loop = require('../lib/plugins/loop')(ctx_top);
+var sandbox = require('../lib/sandbox')(ctx_top);
 
 var statuses = [
   {
@@ -202,7 +203,7 @@ describe('loop', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
+      , notifications: require('../lib/notifications')(env, ctx_top)
       , language: language
     };
 
@@ -229,7 +230,7 @@ describe('loop', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
+      , notifications: require('../lib/notifications')(env, ctx_top)
       , language: language
     };
 
@@ -251,7 +252,7 @@ describe('loop', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
+      , notifications: require('../lib/notifications')(env, ctx_top)
       , language: language
     };
 
