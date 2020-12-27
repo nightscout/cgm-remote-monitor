@@ -4,13 +4,13 @@
 
 require('should');
 
-describe('API3 READ', function() {
+describe('API3 READ', function () {
   const self = this
     , testConst = require('./fixtures/api3/const.json')
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
     , opTools = require('../lib/api3/shared/operationTools')
-    ;
+  ;
 
   self.validDoc = {
     date: (new Date()).getTime(),
@@ -178,23 +178,33 @@ describe('API3 READ', function() {
     });
     delete doc.identifier;
 
-    self.instance.ctx.devicestatus.create([doc], async (err) => {  // let's insert the document in APIv1's way
-      should.not.exist(err);
-      const identifier = doc._id.toString();
-      delete doc._id;
+    await new Promise((resolve, reject) => {
+      self.instance.ctx.devicestatus.create([doc], async (err) => { // let's insert the document in APIv1's way
 
-      let res = await self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
-          .expect(200);
+        should.not.exist(err);
+        doc._id = doc._id.toString();
+        self.cache.nextShouldEql(self.col, doc)
 
-      res.body.should.containEql(doc);
-
-      res = await self.instance.delete(`${self.url}/${identifier}?permanent=true&token=${self.token.delete}`)
-        .expect(204);
-
-      res.body.should.be.empty();
+        err ? reject(err) : resolve(doc);
+      });
     });
+
+    const identifier = doc._id.toString();
+    delete doc._id;
+
+    let res = await self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
+      .expect(200);
+
+    res.body.should.containEql(doc);
+
+    res = await self.instance.delete(`${self.url}/${identifier}?permanent=true&token=${self.token.delete}`)
+      .expect(204);
+
+    res.body.should.be.empty();
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
-});
+})
+;
 

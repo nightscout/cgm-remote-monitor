@@ -371,27 +371,32 @@ describe('API3 CREATE', function() {
     });
     delete doc.identifier;
 
-    self.instance.ctx.treatments.create([doc], async (err) => {  // let's insert the document in APIv1's way
-      should.not.exist(err);
-      self.cache.nextShouldEql(self.col, doc)
+    await new Promise((resolve, reject) => {
+      self.instance.ctx.treatments.create([doc], async (err) => {  // let's insert the document in APIv1's way
+        should.not.exist(err);
+        doc._id = doc._id.toString();
+        self.cache.nextShouldEql(self.col, doc)
 
-      const doc2 = Object.assign({}, doc, {
-        insulin: 0.4,
-        identifier: utils.randomString('32', 'aA#')
+        err ? reject(err) : resolve(doc);
       });
-      delete doc2._id; // APIv1 updates input document, we must get rid of _id for the next round
-
-      await self.instance.post(`${self.url}?token=${self.token.all}`)
-        .send(doc2)
-        .expect(204);
-
-      let updatedBody = await self.get(doc2.identifier);
-      updatedBody.should.containEql(doc2);
-      self.cache.nextShouldEql(self.col, doc2)
-
-      await self.delete(doc2.identifier);
-      self.cache.nextShouldDeleteLast(self.col)
     });
+
+    const doc2 = Object.assign({}, doc, {
+      insulin: 0.4,
+      identifier: utils.randomString('32', 'aA#')
+    });
+    delete doc2._id; // APIv1 updates input document, we must get rid of _id for the next round
+
+    await self.instance.post(`${self.url}?token=${self.token.all}`)
+      .send(doc2)
+      .expect(204);
+
+    let updatedBody = await self.get(doc2.identifier);
+    updatedBody.should.containEql(doc2);
+    self.cache.nextShouldEql(self.col, doc2)
+
+    await self.delete(doc2.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -404,39 +409,41 @@ describe('API3 CREATE', function() {
     });
     delete doc.identifier;
 
-    let p = await new Promise(function(resolve, reject) {
-      self.instance.ctx.treatments.create([doc], async (err) =>  {  // let's insert the document in APIv1's way
+    await new Promise((resolve, reject) => {
+      self.instance.ctx.treatments.create([doc], async (err) => {  // let's insert the document in APIv1's way
         should.not.exist(err);
+        doc._id = doc._id.toString();
 
-        let oldBody = await self.get(doc._id);
-        delete doc._id; // APIv1 updates input document, we must get rid of _id for the next round
-        oldBody.should.containEql(doc);
         self.cache.nextShouldEql(self.col, doc)
-
-        const doc2 = Object.assign({}, doc, {
-          eventType: 'Meal Bolus',
-          insulin: 0.4,
-          identifier: utils.randomString('32', 'aA#')
-        });
-
-        await self.instance.post(`${self.url}?token=${self.token.all}`)
-          .send(doc2)
-          .expect(201);
-
-        let updatedBody = await self.get(doc2.identifier);
-        updatedBody.should.containEql(doc2);
-        updatedBody.identifier.should.not.equal(oldBody.identifier);
-        self.cache.nextShouldEql(self.col, doc2)
-
-        await self.delete(doc2.identifier);
-        self.cache.nextShouldDeleteLast(self.col)
-
-        await self.delete(oldBody.identifier);
-        self.cache.nextShouldDeleteLast(self.col)
-
-        resolve('Done!');
+        err ? reject(err) : resolve(doc);
       });
     });
+
+    const oldBody = await self.get(doc._id);
+    delete doc._id; // APIv1 updates input document, we must get rid of _id for the next round
+    oldBody.should.containEql(doc);
+
+
+    const doc2 = Object.assign({}, doc, {
+      eventType: 'Meal Bolus',
+      insulin: 0.4,
+      identifier: utils.randomString('32', 'aA#')
+    });
+
+    await self.instance.post(`${self.url}?token=${self.token.all}`)
+      .send(doc2)
+      .expect(201);
+
+    let updatedBody = await self.get(doc2.identifier);
+    updatedBody.should.containEql(doc2);
+    updatedBody.identifier.should.not.equal(oldBody.identifier);
+    self.cache.nextShouldEql(self.col, doc2)
+
+    await self.delete(doc2.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
+
+    await self.delete(oldBody.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
