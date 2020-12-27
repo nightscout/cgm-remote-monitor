@@ -83,6 +83,11 @@ describe('API3 CREATE', function() {
   });
 
 
+  afterEach(() => {
+    self.cache.shouldBeEmpty();
+  });
+
+
   it('should require authentication', async () => {
     let res = await self.instance.post(`${self.url}`)
       .send(self.validDoc)
@@ -90,7 +95,6 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(401);
     res.body.message.should.equal('Missing or bad access token or JWT');
-    self.cache.shouldBeEmpty()
   });
 
 
@@ -100,7 +104,6 @@ describe('API3 CREATE', function() {
       .expect(404);
 
     res.body.should.be.empty();
-    self.cache.shouldBeEmpty()
   });
 
 
@@ -111,7 +114,6 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(403);
     res.body.message.should.equal('Missing permission api:treatments:create');
-    self.cache.shouldBeEmpty()
   });
 
 
@@ -119,8 +121,6 @@ describe('API3 CREATE', function() {
     await self.instance.post(self.urlToken)
       .send({ })
       .expect(400);
-
-    self.cache.shouldBeEmpty()
   });
 
 
@@ -157,7 +157,6 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing date field');
-    self.cache.shouldBeEmpty()
   });
 
 
@@ -168,7 +167,6 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing date field');
-    self.cache.shouldBeEmpty()
   });
 
 
@@ -179,7 +177,6 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing date field');
-    self.cache.shouldBeEmpty()
   });
 
 
@@ -190,7 +187,6 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing date field');
-    self.cache.shouldBeEmpty()
   });
 
 
@@ -202,7 +198,6 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing date field');
-    self.cache.shouldBeEmpty()
   });
 
 
@@ -213,7 +208,6 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing date field');
-    self.cache.shouldBeEmpty()
   });
 
 
@@ -224,7 +218,6 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing utcOffset field');
-    self.cache.shouldBeEmpty()
   });
 
 
@@ -235,7 +228,6 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing utcOffset field');
-    self.cache.shouldBeEmpty()
   });
 
 
@@ -262,7 +254,6 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing utcOffset field');
-    self.cache.shouldBeEmpty()
   });
 
 
@@ -276,7 +267,6 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing app field');
-    self.cache.shouldBeEmpty()
   });
 
 
@@ -287,7 +277,6 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing app field');
-    self.cache.shouldBeEmpty()
   });
 
 
@@ -298,7 +287,6 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Bad or missing app field');
-    self.cache.shouldBeEmpty()
   });
 
 

@@ -28,17 +28,29 @@ describe('API3 READ', function() {
 
     self.app = self.instance.app;
     self.env = self.instance.env;
-    self.url = '/api/v3/devicestatus';
+    self.col = 'devicestatus';
+    self.url = `/api/v3/${self.col}`;
 
     let authResult = await authSubject(self.instance.ctx.authorization.storage);
 
     self.subject = authResult.subject;
     self.token = authResult.token;
+    self.cache = self.instance.cacheMonitor;
   });
 
 
   after(() => {
     self.instance.ctx.bus.teardown();
+  });
+
+
+  beforeEach(() => {
+    self.cache.clear();
+  });
+
+
+  afterEach(() => {
+    self.cache.shouldBeEmpty();
   });
 
 
@@ -57,12 +69,16 @@ describe('API3 READ', function() {
       .expect(404);
 
     res.body.should.be.empty();
+
+    self.cache.shouldBeEmpty()
   });
 
 
   it('should not found not existing document', async () => {
     await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
       .expect(404);
+
+    self.cache.shouldBeEmpty()
   });
 
 
@@ -81,6 +97,8 @@ describe('API3 READ', function() {
     res.body.should.have.property('srvModified').which.is.a.Number();
     res.body.should.have.property('subject');
     self.validDoc.subject = res.body.subject; // let's store subject for later tests
+
+    self.cache.nextShouldEql(self.col, self.validDoc)
   });
 
 
@@ -130,6 +148,7 @@ describe('API3 READ', function() {
       .expect(204);
 
     res.body.should.be.empty();
+    self.cache.nextShouldDeleteLast(self.col)
 
     res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
       .expect(410);
@@ -143,6 +162,7 @@ describe('API3 READ', function() {
       .expect(204);
 
     res.body.should.be.empty();
+    self.cache.nextShouldDeleteLast(self.col)
 
     res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
       .expect(404);
@@ -153,8 +173,8 @@ describe('API3 READ', function() {
 
   it('should found document created by APIv1', async () => {
 
-    const doc = Object.assign({}, self.validDoc, { 
-      created_at: new Date(self.validDoc.date).toISOString() 
+    const doc = Object.assign({}, self.validDoc, {
+      created_at: new Date(self.validDoc.date).toISOString()
     });
     delete doc.identifier;
 
