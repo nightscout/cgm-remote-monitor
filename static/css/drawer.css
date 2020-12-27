@@ -74,6 +74,11 @@ input[type=number]:invalid {
   margin-left: 10px;
 }
 
+.adminNotifyMessageAdditionalInfo {
+  margin-left: 10px;
+  font-size: 11px;
+}
+
 #treatmentDrawer input {
   box-sizing: border-box;
 }

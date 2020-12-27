@@ -95,7 +95,7 @@ function setAPISecret() {
         messages.forEach(message => {
           const m = message.replace('The password must', 'API_SECRET should');
 
-          env.notifies.push({title: 'Security issue', message: m + ' Please change your API_SECRET to prevent unauthorized access.'});
+          env.notifies.push({persistent: true, title: 'Security issue', message: m + ' Please change your API_SECRET to reduce risk of unauthorized access.'});
         });
       }
       env.api_secret = shasum.digest('hex');
