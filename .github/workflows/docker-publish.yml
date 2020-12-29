@@ -33,6 +33,8 @@ jobs:
         with:
           mongodb-version: ${{ matrix.mongodb-version }}
 
+      - name: Setup
+        run: npm install
       - name: Run CI tests
         run: make ci_tests
 
