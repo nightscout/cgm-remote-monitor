@@ -41,7 +41,6 @@ jobs:
   publish:
     name: Publish to Docker Hub
     needs: test
-    if: secrets.DOCKER_USER != 0
     runs-on: ubuntu-latest
     steps:
       - name: Login to Docker Hub
