@@ -3,57 +3,50 @@ body {
   margin: 0 0;
   padding: 0;
   overflow: hidden;
-  font-family: 'Open Sans';
+  font-family: 'Open Sans', Arial, Helvetica, sans-serif;
   color: grey;
   background-color: black;
 }
 
 main {
+  height: 100vh;
+}
+
+#inner {
   display: -webkit-box;
   display: -ms-flexbox;
   display: -webkit-flex;
   display: flex;
-  -webkit-box-align: center;
-  -ms-flex-align: center;
-  -webkit-align-items: center;
-  align-items: center;
-  height: 100vh;
-}
-
-.inner {
-  width: 100%;
-  -webkit-transform: translateY(-5%);
-}
-
-#bgnow {
-  font-weight: 700;
-  font-size: 40vmin;
-}
-
-#trend {
-  display: -ms-flexbox;
-  display: -webkit-flex;
-  display: flex;
-  -ms-flex-align: center;
-  -webkit-align-items: center;
   align-items: center;
   justify-content: center;
-  -webkit-flex-direction: row;
-  flex-direction: row;
+  align-content: center;
+  flex-flow: wrap;
+  height: 100%;
+  width: 100%;
 }
 
-#staleTime {
-  flex-grow: 1;
-  font-size: 6vmin;
-  display: none;
+#inner div {
+  margin-right: 2vmin;
+  margin-left: 2vmin;
+  line-height: 1em;
 }
 
-#clock {
-  display: none;
+#inner div img {
+  height: 100%;
 }
 
-#delta {
-  display: none;
+#inner div.nl {
+  width: 100%;
+  margin: 0;
+  height: 3vmin;
+}
+
+#errorMessage {
+  font-size: 25em;
+}
+
+.stale {
+  text-decoration: line-through;
 }
 
 .close {
