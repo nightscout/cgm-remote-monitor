@@ -54,21 +54,24 @@ request(`https://nsapiv3.herokuapp.com/api/v3/status?${auth}`,
 ```
 Sample result:
 ```javascript
-{  
-  "version":"0.12.2",
-  "apiVersion":"3.0.0-alpha",
-  "srvDate":1564391740738,
-  "storage":{  
-    "storage":"mongodb",
-    "version":"3.6.12"
-  },
-  "apiPermissions":{  
-    "devicestatus":"crud",
-    "entries":"crud",
-    "food":"crud",
-    "profile":"crud",
-    "settings":"crud",
-    "treatments":"crud"
+{
+  "status": 200,
+  "result": {
+    "version": "14.1.0",
+    "apiVersion": "3.0.2-alpha",
+    "srvDate": 1609427571833,
+    "storage": {
+      "storage": "mongodb",
+      "version": "4.2.11"
+    },
+    "apiPermissions": {
+      "devicestatus": "crud",
+      "entries": "crud",
+      "food": "crud",
+      "profile": "crud",
+      "settings": "crud",
+      "treatments": "crud"
+    }
   }
 }
 ```

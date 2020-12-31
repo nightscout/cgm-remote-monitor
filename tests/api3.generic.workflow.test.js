@@ -95,7 +95,8 @@ describe('Generic REST API3', function() {
     let res = await self.instance.get(`/api/v3/status?token=${self.token.read}`)
       .expect(200);
 
-    self.historyTimestamp = res.body.srvDate;
+    res.status.should.equal(200);
+    self.historyTimestamp = res.body.result.srvDate;
     self.historyTimestamp.should.be.aboveOrEqual(testConst.YEAR_2019);
   });
 
