@@ -62,14 +62,14 @@ jobs:
         if: success()
         run: |
           docker build --no-cache=true -t ${{ env.DOCKER_IMAGE }}:${{ steps.package-version.outputs.current-version}} .
-          docker image push -a ${{ env.DOCKER_IMAGE }}:${{ steps.package-version.outputs.current-version }}
+          docker image push ${{ env.DOCKER_IMAGE }}:${{ steps.package-version.outputs.current-version }}
       - name: Tag and push the dev Docker image
         if: success() && github.ref == 'refs/heads/dev'
         run: |
           docker tag ${{ env.DOCKER_IMAGE }}:${{ steps.package-version.outputs.current-version}} ${{ env.DOCKER_IMAGE }}:latest_dev
-          docker image push -a ${{ env.DOCKER_IMAGE }}:latest_dev
+          docker image push ${{ env.DOCKER_IMAGE }}:latest_dev
       - name: Tag and push the master Docker image
         if: success() && github.ref == 'refs/heads/master'
         run: |
           docker tag ${{ env.DOCKER_IMAGE }}:${{ steps.package-version.outputs.current-version}} ${{ env.DOCKER_IMAGE }}:latest
-          docker image push -a ${{ env.DOCKER_IMAGE }}:latest
+          docker image push ${{ env.DOCKER_IMAGE }}:latest
