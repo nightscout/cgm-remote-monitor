@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: '/api/v3'
 info:
-  version: "3.0.1"
+  version: "3.0.2"
   title: Nightscout API
   contact:
     name: NS development discussion channel
@@ -1025,6 +1025,14 @@ components:
       example: '53409478-105f-11e9-ab14-d663bd873d93'
 
 
+    statusField:
+      type: integer
+      description:
+        HTTP response status code. The status appears also in response body's field for those clients
+        that are unable to process standard HTTP status code.
+      example: 200
+
+
     DocumentBase:
       description: Shared base for all documents
       properties:
@@ -1530,34 +1538,41 @@ components:
       type: object
       properties:
 
-        version:
-          description: The whole Nightscout instance version
-          type: string
-          example: '0.10.2-release-20171201'
+        status:
+          $ref: '#/components/schemas/statusField'
 
-        apiVersion:
-          description: API v3 subsystem version
-          type: string
-          example: '3.0.0'
-
-        srvDate:
-          description: Actual server date and time in UNIX epoch format
-          type: number
-          example: 1532936118000
-
-        storage:
+        result:
           type: object
           properties:
 
-            type:
-              description: Type of storage engine used
-              type: string
-              example: 'mongodb'
-
             version:
-              description: Version of the storage engine
+              description: The whole Nightscout instance version
               type: string
-              example: '4.0.6'
+              example: '0.10.2-release-20171201'
+
+            apiVersion:
+              description: API v3 subsystem version
+              type: string
+              example: '3.0.0'
+
+            srvDate:
+              description: Actual server date and time in UNIX epoch format
+              type: number
+              example: 1532936118000
+
+            storage:
+              type: object
+              properties:
+
+                type:
+                  description: Type of storage engine used
+                  type: string
+                  example: 'mongodb'
+
+                version:
+                  description: Version of the storage engine
+                  type: string
+                  example: '4.0.6'
 
 
     Status:

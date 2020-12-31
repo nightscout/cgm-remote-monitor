@@ -23,14 +23,17 @@ request('https://nsapiv3.herokuapp.com/api/v3/version',
 ```
 Sample result:
 ```javascript
-{  
-   "version":"0.12.2",
-   "apiVersion":"3.0.0-alpha",
-   "srvDate":1564386001772,
-   "storage":{  
-      "storage":"mongodb",
-      "version":"3.6.12"
-   }
+{
+  "status": 200,
+  "result": {
+    "version": "14.1.0",
+    "apiVersion": "3.0.2-alpha",
+    "srvDate": 1609402081548,
+    "storage": {
+      "storage": "mongodb",
+      "version": "4.2.11"
+    }
+  }
 }
 ```
 
