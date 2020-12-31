@@ -93,23 +93,26 @@ request(`https://nsapiv3.herokuapp.com/api/v3/entries?${auth}&sort$desc=date&lim
 ```
 Sample result:
 ```
-[  
-  {  
-    "dateString":"2019-07-30T02:24:50.434+0200",
-    "sgv":115,
-    "direction":"FortyFiveDown"
-  },
-  {  
-    "dateString":"2019-07-30T02:19:50.374+0200",
-    "sgv":121,
-    "direction":"FortyFiveDown"
-  },
-  {  
-    "dateString":"2019-07-30T02:14:50.450+0200",
-    "sgv":129,
-    "direction":"FortyFiveDown"
-  }
-]
+{
+  "status": 200, 
+  "result": [  
+    {  
+      "dateString":"2019-07-30T02:24:50.434+0200",
+      "sgv":115,
+      "direction":"FortyFiveDown"
+    },
+    {  
+      "dateString":"2019-07-30T02:19:50.374+0200",
+      "sgv":121,
+      "direction":"FortyFiveDown"
+    },
+    {  
+      "dateString":"2019-07-30T02:14:50.450+0200",
+      "sgv":129,
+      "direction":"FortyFiveDown"
+    }
+  ]
+}
 ```
 
 
@@ -159,18 +162,21 @@ request(`https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}?${auth}`,
 ```
 Sample result:
 ```
-{  
-  "date":1564591511232,
-  "app":"AndroidAPS",
-  "device":"Samsung XCover 4-861536030196001",
-  "eventType":"Correction Bolus",
-  "insulin":0.3,
-  "identifier":"95e1a6e3-1146-5d6a-a3f1-41567cae0895",
-  "utcOffset":0,
-  "created_at":"2019-07-31T16:45:11.232Z",
-  "srvModified":1564591627732,
-  "srvCreated":1564591511711,
-  "subject":"test-admin"
+{
+  "status": 200,
+  "result": {  
+    "date":1564591511232,
+    "app":"AndroidAPS",
+    "device":"Samsung XCover 4-861536030196001",
+    "eventType":"Correction Bolus",
+    "insulin":0.3,
+    "identifier":"95e1a6e3-1146-5d6a-a3f1-41567cae0895",
+    "utcOffset":0,
+    "created_at":"2019-07-31T16:45:11.232Z",
+    "srvModified":1564591627732,
+    "srvCreated":1564591511711,
+    "subject":"test-admin"
+  }
 }
 ```
 
@@ -303,35 +309,38 @@ request(`https://nsapiv3.herokuapp.com/api/v3/treatments/history/${lastModified}
 ```
 Sample result:
 ```
-[
-  {
-    "date":1564521267421,
-    "app":"AndroidAPS",
-    "device":"Samsung XCover 4-861536030196001",
-    "eventType":"Correction Bolus",
-    "insulin":0.5,
-    "utcOffset":0,
-    "created_at":"2019-07-30T21:14:27.421Z",
-    "identifier":"95e1a6e3-1146-5d6a-a3f1-41567cae0895",
-    "srvModified":1564592440416,
-    "srvCreated":1564592334853,
-    "subject":"test-admin",
-    "modifiedBy":"test-admin",
-    "isValid":false
-  },
-  {
-    "date":1564592545299,
-    "app":"AndroidAPS",
-    "device":"Samsung XCover 4-861536030196001",
-    "eventType":"Snack Bolus",
-    "carbs":10,
-    "identifier":"267c43c2-f629-5191-a542-4f410c69e486",
-    "utcOffset":0,
-    "created_at":"2019-07-31T17:02:25.299Z",
-    "srvModified":1564592545781,
-    "srvCreated":1564592545781,
-    "subject":"test-admin"
-  }
-]
+{
+  "status": 200,
+  "result": [
+    {
+      "date":1564521267421,
+      "app":"AndroidAPS",
+      "device":"Samsung XCover 4-861536030196001",
+      "eventType":"Correction Bolus",
+      "insulin":0.5,
+      "utcOffset":0,
+      "created_at":"2019-07-30T21:14:27.421Z",
+      "identifier":"95e1a6e3-1146-5d6a-a3f1-41567cae0895",
+      "srvModified":1564592440416,
+      "srvCreated":1564592334853,
+      "subject":"test-admin",
+      "modifiedBy":"test-admin",
+      "isValid":false
+    },
+    {
+      "date":1564592545299,
+      "app":"AndroidAPS",
+      "device":"Samsung XCover 4-861536030196001",
+      "eventType":"Snack Bolus",
+      "carbs":10,
+      "identifier":"267c43c2-f629-5191-a542-4f410c69e486",
+      "utcOffset":0,
+      "created_at":"2019-07-31T17:02:25.299Z",
+      "srvModified":1564592545781,
+      "srvCreated":1564592545781,
+      "subject":"test-admin"
+    }
+  ]
+}
 ```
 Notice the `"isValid":false` field marking the deletion of the document.

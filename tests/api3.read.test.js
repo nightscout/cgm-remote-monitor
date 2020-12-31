@@ -92,11 +92,13 @@ describe('API3 READ', function () {
     res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
       .expect(200);
 
-    res.body.should.containEql(self.validDoc);
-    res.body.should.have.property('srvCreated').which.is.a.Number();
-    res.body.should.have.property('srvModified').which.is.a.Number();
-    res.body.should.have.property('subject');
-    self.validDoc.subject = res.body.subject; // let's store subject for later tests
+    res.body.status.should.equal(200);
+    const result = res.body.result;
+    result.should.containEql(self.validDoc);
+    result.should.have.property('srvCreated').which.is.a.Number();
+    result.should.have.property('srvModified').which.is.a.Number();
+    result.should.have.property('subject');
+    self.validDoc.subject = result.subject; // let's store subject for later tests
 
     self.cache.nextShouldEql(self.col, self.validDoc)
   });
@@ -106,12 +108,13 @@ describe('API3 READ', function () {
     let res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?fields=date,device,subject&token=${self.token.read}`)
       .expect(200);
 
+    res.body.status.should.equal(200);
     const correct = {
       date: self.validDoc.date,
       device: self.validDoc.device,
       subject: self.validDoc.subject
     };
-    res.body.should.eql(correct);
+    res.body.result.should.eql(correct);
   });
 
 
@@ -119,8 +122,9 @@ describe('API3 READ', function () {
     let res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?fields=_all&token=${self.token.read}`)
       .expect(200);
 
+    res.body.status.should.equal(200);
     for (let fieldName of ['app', 'date', 'device', 'identifier', 'srvModified', 'uploaderBattery', 'subject']) {
-      res.body.should.have.property(fieldName);
+      res.body.result.should.have.property(fieldName);
     }
   });
 
@@ -139,7 +143,8 @@ describe('API3 READ', function () {
       .set('If-Modified-Since', new Date(new Date(self.validDoc.date).getTime() - 1000).toUTCString())
       .expect(200);
 
-    res.body.should.containEql(self.validDoc);
+    res.body.status.should.equal(200);
+    res.body.result.should.containEql(self.validDoc);
   });
 
 
@@ -153,7 +158,8 @@ describe('API3 READ', function () {
     res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
       .expect(410);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(410);
+    should.not.exist(res.body.result);
   });
 
 
@@ -167,7 +173,8 @@ describe('API3 READ', function () {
     res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
       .expect(404);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(404);
+    should.not.exist(res.body.result);
   });
 
 
@@ -195,7 +202,8 @@ describe('API3 READ', function () {
     let res = await self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
       .expect(200);
 
-    res.body.should.containEql(doc);
+    res.body.status.should.equal(200);
+    res.body.result.should.containEql(doc);
 
     res = await self.instance.delete(`${self.url}/${identifier}?permanent=true&token=${self.token.delete}`)
       .expect(200);

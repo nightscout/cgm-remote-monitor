@@ -31,7 +31,8 @@ describe('API3 PATCH', function() {
     let res = await self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
       .expect(200);
 
-    return res.body;
+    res.body.status.should.equal(200);
+    return res.body.result;
   };
 
 

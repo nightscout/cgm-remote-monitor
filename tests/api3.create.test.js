@@ -43,7 +43,8 @@ describe('API3 CREATE', function() {
     let res = await self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
       .expect(200);
 
-    return res.body;
+    res.body.status.should.equal(200);
+    return res.body.result;
   };
 
 
@@ -54,7 +55,8 @@ describe('API3 CREATE', function() {
     let res = await self.instance.get(`${self.url}?date$eq=${date}&token=${self.token.read}`)
       .expect(200);
 
-    return res.body;
+    res.body.status.should.equal(200);
+    return res.body.result;
   };
 
 
