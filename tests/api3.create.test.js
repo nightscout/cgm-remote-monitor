@@ -29,8 +29,10 @@ describe('API3 CREATE', function() {
    * Cleanup after successful creation
    */
   self.delete = async function deletePermanent (identifier) {
-    await self.instance.delete(`${self.url}/${identifier}?permanent=true&token=${self.token.delete}`)
-      .expect(204);
+    let res = await self.instance.delete(`${self.url}/${identifier}?permanent=true&token=${self.token.delete}`)
+      .expect(200);
+
+    res.body.status.should.equal(200);
   };
 
 
@@ -457,12 +459,13 @@ describe('API3 CREATE', function() {
       .expect(201);
     self.cache.nextShouldEql(self.col, Object.assign({}, doc, { date: date1.getTime() }));
 
-    await self.instance.delete(`${self.url}/${identifier}?token=${self.token.delete}`)
-      .expect(204);
+    let res = await self.instance.delete(`${self.url}/${identifier}?token=${self.token.delete}`)
+      .expect(200);
+    res.body.status.should.equal(200);
     self.cache.nextShouldDeleteLast(self.col)
 
     const date2 = new Date();
-    let res = await self.instance.post(self.urlToken)
+    res = await self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { identifier, date: date2.toISOString() }))
       .expect(403);
 

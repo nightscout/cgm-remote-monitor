@@ -220,9 +220,10 @@ describe('Generic REST API3', function() {
 
 
   it('soft DELETE', async () => {
-    await self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
-      .expect(204);
+    let res = await self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
+      .expect(200);
 
+    res.body.status.should.equal(200);
     self.cache.nextShouldDeleteLast(self.col)
   });
 
@@ -251,10 +252,11 @@ describe('Generic REST API3', function() {
 
 
   it('permanent DELETE', async () => {
-    await self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
+    let res = await self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
       .query({ 'permanent': 'true' })
-      .expect(204);
+      .expect(200);
 
+    res.body.status.should.equal(200);
     self.cache.nextShouldDeleteLast(self.col)
   });
 

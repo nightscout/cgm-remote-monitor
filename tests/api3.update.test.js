@@ -292,9 +292,9 @@ describe('API3 UPDATE', function() {
 
   it('should not update deleted document', async () => {
     let res = await self.instance.delete(`${self.url}/${self.validDoc.identifier}?token=${self.token.delete}`)
-      .expect(204);
+      .expect(200);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(200);
     self.cache.nextShouldDeleteLast(self.col)
 
     res = await self.instance.put(self.urlToken)

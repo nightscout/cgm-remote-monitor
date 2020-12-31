@@ -390,8 +390,8 @@ paths:
         - apiKeyAuth: []
 
       responses:
-        204:
-          description: Successful operation - empty response
+        200:
+          $ref: '#/components/responses/200Ok'
         401:
           $ref: '#/components/responses/401Unauthorized'
         403:
@@ -850,6 +850,16 @@ components:
   ######################################################################################
   responses:
 
+    200Ok:
+      description: The request was successfully processed
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 200
+
     201Created:
       description: Successfully created a new document in collection
       headers:
@@ -895,6 +905,13 @@ components:
 
     404NotFound:
       description: The collection or document specified was not found.
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 404
 
     406NotAcceptable:
       description: The requested content type (in `Accept` header) is not supported.
@@ -1613,7 +1630,6 @@ components:
                 treatments:
                   type: string
                   example: 'crud'
-
 
     LastModifiedResult:
       description: Result of LAST MODIFIED operation

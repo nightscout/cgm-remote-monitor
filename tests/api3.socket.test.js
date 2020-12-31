@@ -168,7 +168,7 @@ describe('Socket.IO in REST API3', function() {
     });
 
     self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
-      .expect(204)
+      .expect(200)
       .end((err) => {
         should.not.exist(err);
       });

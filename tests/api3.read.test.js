@@ -145,9 +145,9 @@ describe('API3 READ', function () {
 
   it('should recognize softly deleted document', async () => {
     let res = await self.instance.delete(`${self.url}/${self.validDoc.identifier}?token=${self.token.delete}`)
-      .expect(204);
+      .expect(200);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(200);
     self.cache.nextShouldDeleteLast(self.col)
 
     res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
@@ -159,9 +159,9 @@ describe('API3 READ', function () {
 
   it('should not found permanently deleted document', async () => {
     let res = await self.instance.delete(`${self.url}/${self.validDoc.identifier}?permanent=true&token=${self.token.delete}`)
-      .expect(204);
+      .expect(200);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(200);
     self.cache.nextShouldDeleteLast(self.col)
 
     res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
@@ -198,9 +198,9 @@ describe('API3 READ', function () {
     res.body.should.containEql(doc);
 
     res = await self.instance.delete(`${self.url}/${identifier}?permanent=true&token=${self.token.delete}`)
-      .expect(204);
+      .expect(200);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(200);
     self.cache.nextShouldDeleteLast(self.col)
   });
 

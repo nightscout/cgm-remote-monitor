@@ -277,11 +277,13 @@ request({
     method: 'delete',
     url: `https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}?${auth}`
   },
-  (error, response, body) => console.log(response.statusCode));
+  (error, response, body) => console.log(body));
 ```
 Sample result:
 ```
-204
+{
+  "status": 200
+}
 ```
 
 
