@@ -68,4 +68,4 @@ jobs:
         run: docker tag ${{ env.DOCKER_IMAGE }}:${{ steps.package-version.outputs.current-version}} ${{ env.DOCKER_IMAGE }}:latest
       - name: Push the Docker image
         if: success() 
-        run: docker push --all-tags
+        run: docker image push --all-tags ${{ env.DOCKER_IMAGE }}
