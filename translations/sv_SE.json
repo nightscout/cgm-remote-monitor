@@ -60,7 +60,6 @@
     "Hourly stats": "Timmstatistik",
     "netIOB stats": "netIOB statistik",
     "temp basals must be rendered to display this report": "temp basal måste vara synlig för denna rapport",
-    "Weekly success": "Veckoresultat",
     "No data available": "Data saknas",
     "Low": "Låg",
     "In Range": "Inom intervallet",
@@ -683,5 +682,7 @@
     "Temp basal delta": "Temp basal delta",
     "Authorized by token": "Auktoriserad av token",
     "Auth role": "Auth roll",
-    "view without token": "visa utan token"
+    "view without token": "visa utan token",
+    "Remove stored token": "Remove stored token",
+    "Weekly Distribution": "Weekly Distribution"
 }

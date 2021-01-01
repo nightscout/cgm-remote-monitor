@@ -60,7 +60,6 @@
     "Hourly stats": "Hourly stats",
     "netIOB stats": "netIOB stats",
     "temp basals must be rendered to display this report": "temp basals must be rendered to display this report",
-    "Weekly success": "Weekly success",
     "No data available": "No data available",
     "Low": "Low",
     "In Range": "In Range",
@@ -683,5 +682,7 @@
     "Temp basal delta": "Temp basal delta",
     "Authorized by token": "Authorized by token",
     "Auth role": "Auth role",
-    "view without token": "view without token"
+    "view without token": "view without token",
+    "Remove stored token": "Remove stored token",
+    "Weekly Distribution": "Weekly Distribution"
 }

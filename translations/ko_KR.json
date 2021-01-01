@@ -60,7 +60,6 @@
     "Hourly stats": "시간대별 통계",
     "netIOB stats": "netIOB stats",
     "temp basals must be rendered to display this report": "temp basals must be rendered to display this report",
-    "Weekly success": "주간 통계",
     "No data available": "활용할 수 있는 데이터 없음",
     "Low": "낮음",
     "In Range": "범위 안 ",
@@ -683,5 +682,7 @@
     "Temp basal delta": "Temp basal delta",
     "Authorized by token": "Authorized by token",
     "Auth role": "Auth role",
-    "view without token": "view without token"
+    "view without token": "view without token",
+    "Remove stored token": "Remove stored token",
+    "Weekly Distribution": "Weekly Distribution"
 }

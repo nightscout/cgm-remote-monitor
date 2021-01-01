@@ -60,7 +60,6 @@
     "Hourly stats": "Óránkra való szétosztás",
     "netIOB stats": "netIOB statisztika",
     "temp basals must be rendered to display this report": "Az átmeneti bazálnak meg kell lennie jelenítve az adott jelentls megtekintéséhez",
-    "Weekly success": "Heti sikeresség",
     "No data available": "Nincs elérhető adat",
     "Low": "Alacsony",
     "In Range": "Normális",
@@ -683,5 +682,7 @@
     "Temp basal delta": "Temp basal delta",
     "Authorized by token": "Authorized by token",
     "Auth role": "Auth role",
-    "view without token": "view without token"
+    "view without token": "view without token",
+    "Remove stored token": "Remove stored token",
+    "Weekly Distribution": "Weekly Distribution"
 }

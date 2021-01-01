@@ -60,7 +60,6 @@
     "Hourly stats": "每小时状态",
     "netIOB stats": "netIOB stats",
     "temp basals must be rendered to display this report": "temp basals must be rendered to display this report",
-    "Weekly success": "每周统计",
     "No data available": "无可用数据",
     "Low": "低血糖",
     "In Range": "范围内",
@@ -683,5 +682,7 @@
     "Temp basal delta": "Temp basal delta",
     "Authorized by token": "Authorized by token",
     "Auth role": "Auth role",
-    "view without token": "view without token"
+    "view without token": "view without token",
+    "Remove stored token": "Remove stored token",
+    "Weekly Distribution": "Weekly Distribution"
 }
