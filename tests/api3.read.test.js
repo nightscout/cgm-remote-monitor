@@ -87,7 +87,7 @@ describe('API3 READ', function () {
       .send(self.validDoc)
       .expect(201);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(201);
 
     res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
       .expect(200);

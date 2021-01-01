@@ -138,11 +138,15 @@ request({
     json: true,
     url: `https://nsapiv3.herokuapp.com/api/v3/treatments?${auth}`
   },
-  (error, response, body) => console.log(response.headers.location));
+  (error, response, body) => console.log(body));
 ```
 Sample result:
 ```
-/api/v3/treatments/95e1a6e3-1146-5d6a-a3f1-41567cae0895
+{
+  "status": 201,
+  "identifier": "95e1a6e3-1146-5d6a-a3f1-41567cae0895",
+  "lastModified": 1564591511711
+}
 ```
 
 

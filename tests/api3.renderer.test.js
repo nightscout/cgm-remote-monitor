@@ -143,7 +143,7 @@ describe('API3 output renderers', function() {
         .send(doc)
         .expect(201);
 
-      res.body.should.be.empty();
+      res.body.status.should.equal(201);
 
       res = await self.instance.get(`${self.url}/${doc.identifier}?token=${self.token.read}`)
         .expect(200);

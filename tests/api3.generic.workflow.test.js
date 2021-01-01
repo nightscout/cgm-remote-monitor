@@ -168,10 +168,11 @@ describe('Generic REST API3', function() {
   it('UPDATE document', async () => {
     self.docActual.insulin = 0.5;
 
-    await self.instance.put(`${self.urlResource}?token=${self.token.update}`)
+    let res = await self.instance.put(`${self.urlResource}?token=${self.token.update}`)
       .send(self.docActual)
-      .expect(204);
+      .expect(200);
 
+    res.body.status.should.equal(200);
     self.docActual.subject = self.subject.apiUpdate.name;
     delete self.docActual.srvModified;
 

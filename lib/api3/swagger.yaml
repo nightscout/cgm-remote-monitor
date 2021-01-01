@@ -145,10 +145,10 @@ paths:
         - generic
       summary: 'CREATE: Inserts a new document into the collection'
       description:
-        Using this operation you can insert new documents into collection. Normally the operation ends with 201 HTTP status code, `Last-Modified` and `Location` headers specified and with an empty response content. `identifier` can be parsed from the `Location` response header.
+        Using this operation you can insert new documents into collection. Normally the operation ends with 201 HTTP status code, `Last-Modified` and `Location` headers specified and with an empty response content. `identifier` is included in response body or it can be parsed from the `Location` response header.
 
 
-        When the document to post is marked as a duplicate (using rules described at `API3_DEDUP_FALLBACK_ENABLED` switch), the update operation takes place instead of inserting. In this case the original document in the collection is found and it gets updated by the actual operation POST body. Finally the operation ends with 204 HTTP status code along with `Last-Modified` and correct `Location` headers.
+        When the document to post is marked as a duplicate (using rules described at `API3_DEDUP_FALLBACK_ENABLED` switch), the update operation takes place instead of inserting. In this case the original document in the collection is found and it gets updated by the actual operation POST body. Finally the operation ends with 200 HTTP status code along with `Last-Modified` and correct `Location` headers. The response body then includes `isDeduplication`=`true` and `deduplicatedIdentifier` fields.
 
 
         This operation provides autopruning of the collection (if autopruning is enabled).
@@ -168,10 +168,10 @@ paths:
         - apiKeyAuth: []
 
       responses:
+        200:
+          $ref: '#/components/responses/200Deduplication'
         201:
           $ref: '#/components/responses/201CreatedLocation'
-        204:
-          $ref: '#/components/responses/204NoContentLocation'
         400:
           $ref: '#/components/responses/400BadRequest'
         401:
@@ -866,6 +866,28 @@ components:
         'Last-Modified':
           $ref: '#/components/schemas/headerLastModified'
 
+    200Deduplication:
+      description: Successfully updated a duplicate document in the collection
+      headers:
+        'Last-Modified':
+          $ref: '#/components/schemas/headerLastModified'
+        'Location':
+          $ref: '#/components/schemas/headerLocation'
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 200
+              identifier:
+                $ref: '#/components/schemas/identifierField'
+              isDeduplication:
+                $ref: '#/components/schemas/isDeduplicationField'
+              deduplicatedIdentifier:
+                $ref: '#/components/schemas/deduplicatedIdentifierField'
+
+
     201CreatedLocation:
       description: Successfully created a new document in collection
       headers:
@@ -873,6 +895,17 @@ components:
           $ref: '#/components/schemas/headerLastModified'
         'Location':
           $ref: '#/components/schemas/headerLocation'
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 200
+              identifier:
+                $ref: '#/components/schemas/identifierField'
+              lastModified:
+                $ref: '#/components/schemas/lastModifiedField'
 
     204NoContent:
       description: Successfully finished operation
@@ -930,7 +963,12 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/DocumentArray'
+            properties:
+              status:
+                type: integer
+                example: 200
+              result:
+                $ref: '#/components/schemas/DocumentArray'
         text/csv:
           schema:
             $ref: '#/components/schemas/DocumentArray'
@@ -946,7 +984,12 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Document'
+            properties:
+              status:
+                type: integer
+                example: 200
+              result:
+                $ref: '#/components/schemas/Document'
         text/csv:
           schema:
             $ref: '#/components/schemas/Document'
@@ -963,7 +1006,12 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/DocumentArray'
+            properties:
+              status:
+                type: integer
+                example: 200
+              result:
+                $ref: '#/components/schemas/DocumentArray'
         text/csv:
           schema:
             $ref: '#/components/schemas/DocumentArray'
@@ -1042,12 +1090,42 @@ components:
       example: '53409478-105f-11e9-ab14-d663bd873d93'
 
 
+    identifierField:
+      description:
+        Identifier of created or modified document
+      type: string
+      example: '53409478-105f-11e9-ab14-d663bd873d93'
+
+
+    lastModifiedField:
+      type: integer
+      format: int64
+      description:
+        Timestamp of the last document modification on the server, formatted as
+
+        Unix epoch in milliseconds (1525383610088)
+      example: 1525383610088
+
     statusField:
       type: integer
       description:
         HTTP response status code. The status appears also in response body's field for those clients
         that are unable to process standard HTTP status code.
       example: 200
+
+
+    isDeduplicationField:
+      type: boolean
+      description:
+        Flag whether the operation found a duplicate document (to update)
+      example: true
+
+
+    deduplicatedIdentifierField:
+      type: string
+      description:
+        The original document that has been marked as a duplicate document and which has been updated
+      example: 'abc09478-105f-11e9-ab14-d663bd873d93'
 
 
     DocumentBase:

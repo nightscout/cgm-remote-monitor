@@ -128,7 +128,7 @@ describe('Socket.IO in REST API3', function() {
 
     self.instance.put(`${self.urlResource}?token=${self.token.update}`)
       .send(self.docActual)
-      .expect(204)
+      .expect(200)
       .end((err) => {
         should.not.exist(err);
         self.docActual.subject = self.subject.apiUpdate.name;

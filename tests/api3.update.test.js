@@ -102,7 +102,8 @@ describe('API3 UPDATE', function() {
       .send(self.validDoc)
       .expect(201);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(201);
+    res.body.identifier.should.equal(self.validDoc.identifier);
     self.cache.nextShouldEql(self.col, self.validDoc)
 
     const lastModified = new Date(res.headers['last-modified']).getTime(); // Last-Modified has trimmed milliseconds
@@ -124,9 +125,9 @@ describe('API3 UPDATE', function() {
 
     let res = await self.instance.put(self.urlToken)
       .send(self.validDoc)
-      .expect(204);
+      .expect(200);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(200);
     self.cache.nextShouldEql(self.col, self.validDoc)
 
     const lastModified = new Date(res.headers['last-modified']).getTime(); // Last-Modified has trimmed milliseconds
@@ -149,9 +150,9 @@ describe('API3 UPDATE', function() {
     let res = await self.instance.put(self.urlToken)
       .set('If-Unmodified-Since', new Date(new Date().getTime() + 1000).toUTCString())
       .send(doc)
-      .expect(204);
+      .expect(200);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(200);
     self.cache.nextShouldEql(self.col, doc)
 
     let body = await self.get(self.validDoc.identifier);
@@ -283,9 +284,9 @@ describe('API3 UPDATE', function() {
 
     let res = await self.instance.put(self.urlToken)
       .send(Object.assign({}, self.validDoc, { identifier: 'MODIFIED' }))
-      .expect(204);
+      .expect(200);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(200);
     delete self.validDoc.srvModified;
     self.cache.nextShouldEql(self.col, self.validDoc)
   });

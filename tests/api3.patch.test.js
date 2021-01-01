@@ -98,7 +98,7 @@ describe('API3 PATCH', function() {
       .send(self.validDoc)
       .expect(201);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(201);
     self.cache.nextShouldEql(self.col, self.validDoc)
   });
 
