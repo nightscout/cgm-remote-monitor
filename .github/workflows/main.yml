@@ -40,11 +40,11 @@ jobs:
       - name: Send Coverage
         run: npm run-script coverage
 
-  publish:
-    name: Publish to Docker Hub
+  publish_dev:
+    name: Publish dev branch to Docker Hub
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/dev'
     env:
       DOCKER_IMAGE: nightscout/cgm-remote-monitor
     steps:
@@ -54,22 +54,40 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
       - name: Clean git Checkout
+        if: success()
         uses: actions/checkout@v2
-      - name: get-npm-version
-        id: package-version
-        uses: martinbeentjes/npm-get-version-action@master
-      - name: Build and push the Docker image
+      - name: Build, tag and push the dev Docker image
         if: success()
         run: |
-          docker build --no-cache=true -t ${{ env.DOCKER_IMAGE }}:${{ steps.package-version.outputs.current-version}} .
-          docker image push ${{ env.DOCKER_IMAGE }}:${{ steps.package-version.outputs.current-version }}
-      - name: Tag and push the dev Docker image
-        if: success() && github.ref == 'refs/heads/dev'
-        run: |
-          docker tag ${{ env.DOCKER_IMAGE }}:${{ steps.package-version.outputs.current-version}} ${{ env.DOCKER_IMAGE }}:latest_dev
+          docker build --no-cache=true -t ${{ env.DOCKER_IMAGE }}:dev_${{ github.sha }} .
+          docker image push ${{ env.DOCKER_IMAGE }}:dev_${{ github.sha }}
+          docker tag ${{ env.DOCKER_IMAGE }}:dev_${{ github.sha }} ${{ env.DOCKER_IMAGE }}:latest_dev
           docker image push ${{ env.DOCKER_IMAGE }}:latest_dev
-      - name: Tag and push the master Docker image
-        if: success() && github.ref == 'refs/heads/master'
+
+  publish_master:
+    name: Publish master branch to Docker Hub
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    env:
+      DOCKER_IMAGE: nightscout/cgm-remote-monitor
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+      - name: Clean git Checkout
+        if: success()
+        uses: actions/checkout@v2
+      - name: get-npm-version
+        if: success()
+        id: package-version
+        uses: martinbeentjes/npm-get-version-action@master
+      - name: Build, tag and push the master Docker image
+        if: success()
         run: |
-          docker tag ${{ env.DOCKER_IMAGE }}:${{ steps.package-version.outputs.current-version}} ${{ env.DOCKER_IMAGE }}:latest
+          docker build --no-cache=true -t ${{ env.DOCKER_IMAGE }}:${{ steps.package-version.outputs.current-version }} .
+          docker image push ${{ env.DOCKER_IMAGE }}:${{ steps.package-version.outputs.current-version }}
+          docker tag ${{ env.DOCKER_IMAGE }}:${{ steps.package-version.outputs.current-version }} ${{ env.DOCKER_IMAGE }}:latest
           docker image push ${{ env.DOCKER_IMAGE }}:latest
