@@ -60,7 +60,6 @@
     "Hourly stats": "סטטיסטיקה שעתית",
     "netIOB stats": "netIOB סטטיסטיקת",
     "temp basals must be rendered to display this report": "חובה לאפשר רמה בזלית זמנית כדי לרות דוח זה",
-    "Weekly success": "הצלחה שבועית",
     "No data available": "אין מידע זמין",
     "Low": "נמוך",
     "In Range": "בטווח",
@@ -683,5 +682,7 @@
     "Temp basal delta": "Temp basal delta",
     "Authorized by token": "Authorized by token",
     "Auth role": "Auth role",
-    "view without token": "view without token"
+    "view without token": "view without token",
+    "Remove stored token": "Remove stored token",
+    "Weekly Distribution": "Weekly Distribution"
 }

@@ -60,7 +60,6 @@
     "Hourly stats": "Tunneittainen tilasto",
     "netIOB stats": "netIOB tilasto",
     "temp basals must be rendered to display this report": "tämä raportti vaatii, että basaalien piirto on päällä",
-    "Weekly success": "Viikkotilasto",
     "No data available": "Tietoja ei saatavilla",
     "Low": "Matala",
     "In Range": "Tavoitealueella",
@@ -119,7 +118,7 @@
     "Record": "Tietue",
     "Quick picks": "Nopeat valinnat",
     "Show hidden": "Näytä piilotettu",
-    "Your API secret or token": "API salaisuus tai avain",
+    "Your API secret or token": "API salaisuus tai tunniste",
     "Remember this device. (Do not enable this on public computers.)": "Muista tämä laite (Älä valitse julkisilla tietokoneilla)",
     "Treatments": "Hoitotoimenpiteet",
     "Time": "Aika",
@@ -681,7 +680,9 @@
     "Next day": "Seuraava päivä",
     "Next": "Seuraava",
     "Temp basal delta": "Tilapäisen basaalin muutos",
-    "Authorized by token": "Authorized by token",
-    "Auth role": "Auth role",
-    "view without token": "view without token"
+    "Authorized by token": "Kirjautuminen tunnisteella",
+    "Auth role": "Authentikaatiorooli",
+    "view without token": "Näytä ilman tunnistetta",
+    "Remove stored token": "Poista talletettu tunniste",
+    "Weekly Distribution": "Viikkojakauma"
 }

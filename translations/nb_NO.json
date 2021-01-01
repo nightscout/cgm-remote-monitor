@@ -60,7 +60,6 @@
     "Hourly stats": "Timestatistikk",
     "netIOB stats": "netIOB statistikk",
     "temp basals must be rendered to display this report": "midlertidig basal må være synlig for å vise denne rapporten",
-    "Weekly success": "Ukentlige resultat",
     "No data available": "Mangler data",
     "Low": "Lav",
     "In Range": "Innenfor intervallet",
@@ -681,7 +680,9 @@
     "Next day": "Neste dag",
     "Next": "Neste",
     "Temp basal delta": "Midlertidig basal delta",
-    "Authorized by token": "Autorisert med tlgangsnøkkel",
+    "Authorized by token": "Autorisert med tilgangsnøkkel",
     "Auth role": "Autorisert",
-    "view without token": "vis uten tilgangsnøkkel"
+    "view without token": "vis uten tilgangsnøkkel",
+    "Remove stored token": "Fjern lagret tilgangsnøkkel",
+    "Weekly Distribution": "Ukentlige resultat"
 }
