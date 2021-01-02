@@ -11,6 +11,7 @@ describe('ar2', function ( ) {
   var ctx = {
     settings: {}
     , language: require('../lib/language')(fs)
+    , levels: levels
   };
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
