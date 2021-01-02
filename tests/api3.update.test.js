@@ -83,7 +83,7 @@ describe('API3 UPDATE', function() {
       .send(self.validDoc)
       .expect(404);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(404);
   });
 
 
@@ -172,7 +172,7 @@ describe('API3 UPDATE', function() {
       .send(doc)
       .expect(412);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(412);
 
     body = await self.get(doc.identifier);
     body.should.eql(self.validDoc);
@@ -303,7 +303,7 @@ describe('API3 UPDATE', function() {
       .send(self.validDoc)
       .expect(410);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(410);
   });
 
 });

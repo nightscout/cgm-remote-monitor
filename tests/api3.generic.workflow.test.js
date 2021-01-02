@@ -200,10 +200,11 @@ describe('Generic REST API3', function() {
     self.docActual.carbs = 5;
     self.docActual.insulin = 0.4;
 
-    await self.instance.patch(`${self.urlResource}?token=${self.token.update}`)
+    let res = await self.instance.patch(`${self.urlResource}?token=${self.token.update}`)
       .send({ 'carbs': self.docActual.carbs, 'insulin': self.docActual.insulin })
-      .expect(204);
+      .expect(200);
 
+    res.body.status.should.equal(200);
     delete self.docActual.srvModified;
 
     self.cache.nextShouldEql(self.col, self.docActual)
