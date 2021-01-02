@@ -355,7 +355,7 @@ paths:
 
       responses:
         200:
-          $ref: '#/components/responses/200'
+          $ref: '#/components/responses/200Ok'
         400:
           $ref: '#/components/responses/400BadRequest'
         401:
@@ -435,9 +435,6 @@ paths:
         Deleted documents will appear with `isValid` = `false` field.
 
 
-        When there is no change detected since the timestamp the operation ends with 204 HTTP status code and empty response content.
-
-
         HISTORY operation has a fallback mechanism in place for documents, which were not created by API v3. For such documents `srvModified` is virtually assigned from the `date` field (for `entries` collection) or from the `created_at` field (for other collections).
 
 
@@ -459,8 +456,6 @@ paths:
       responses:
         200:
           $ref: '#/components/responses/history200'
-        204:
-          $ref: '#/components/responses/history204'
         400:
           $ref: '#/components/responses/400BadRequest'
         401:
@@ -521,8 +516,6 @@ paths:
       responses:
         200:
           $ref: '#/components/responses/history200'
-        204:
-          $ref: '#/components/responses/history204'
         400:
           $ref: '#/components/responses/400BadRequest'
         401:
@@ -927,20 +920,6 @@ components:
               lastModified:
                 $ref: '#/components/schemas/lastModifiedField'
 
-    204NoContent:
-      description: Successfully finished operation
-      headers:
-        'Last-Modified':
-          $ref: '#/components/schemas/headerLastModified'
-
-    204NoContentLocation:
-      description: Successfully finished operation
-      headers:
-        'Last-Modified':
-          $ref: '#/components/schemas/headerLastModified'
-        'Location':
-          $ref: '#/components/schemas/headerLocation'
-
     304NotModified:
       description: The document has not been modified on the server since timestamp specified in If-Modified-Since header
       headers:
@@ -1076,15 +1055,18 @@ components:
         'ETag':
           $ref: '#/components/schemas/headerEtagLastModifiedMaximum'
 
-    history204:
-      description: No changes detected
-
     lastModified200:
       description: Successful operation returning the timestamps
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/LastModifiedResult'
+            properties:
+              status:
+                type: integer
+                example: 200
+              result:
+                $ref: '#/components/schemas/LastModifiedResult'
+
 
   ######################################################################################
   schemas:

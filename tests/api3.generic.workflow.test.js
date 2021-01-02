@@ -84,9 +84,10 @@ describe('Generic REST API3', function() {
     let res = await self.instance.get(`${self.urlLastModified}?token=${self.token.read}`)
       .expect(200);
 
-    self.historyTimestamp = res.body.collections.treatments;
+    res.body.status.should.equal(200);
+    self.historyTimestamp = res.body.result.collections.treatments;
     if (!self.historyTimestamp) {
-      self.historyTimestamp = res.body.srvDate - (10 * 60 * 1000);
+      self.historyTimestamp = res.body.result.srvDate - (10 * 60 * 1000);
     }
     self.historyTimestamp.should.be.aboveOrEqual(testConst.YEAR_2019);
   });
@@ -96,7 +97,7 @@ describe('Generic REST API3', function() {
     let res = await self.instance.get(`/api/v3/status?token=${self.token.read}`)
       .expect(200);
 
-    res.status.should.equal(200);
+    res.body.status.should.equal(200);
     self.historyTimestamp = res.body.result.srvDate;
     self.historyTimestamp.should.be.aboveOrEqual(testConst.YEAR_2019);
   });
