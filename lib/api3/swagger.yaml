@@ -938,9 +938,23 @@ components:
 
     401Unauthorized:
       description: The request was not successfully authenticated using access token or JWT, or the request has missing `Date` header or it contains an expired timestamp, so that the request cannot continue due to the security policy.
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 401
 
     403Forbidden:
       description: Insecure HTTP scheme used or the request has been successfully authenticated, but the security subject is not authorized for the operation.
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 403
 
     404NotFound:
       description: The collection or document specified was not found.
