@@ -20,7 +20,7 @@ describe('API3 PATCH', function() {
     insulin: 0.3
   };
   self.validDoc.identifier = opTools.calculateIdentifier(self.validDoc);
-  
+
   self.timeout(15000);
 
 
@@ -40,18 +40,30 @@ describe('API3 PATCH', function() {
 
     self.app = self.instance.app;
     self.env = self.instance.env;
-    self.url = '/api/v3/treatments';
+    self.col = 'treatments';
+    self.url = `/api/v3/${self.col}`;
 
     let authResult = await authSubject(self.instance.ctx.authorization.storage);
 
     self.subject = authResult.subject;
     self.token = authResult.token;
     self.urlToken = `${self.url}/${self.validDoc.identifier}?token=${self.token.update}`;
+    self.cache = self.instance.cacheMonitor;
   });
 
 
   after(() => {
     self.instance.ctx.bus.teardown();
+  });
+
+
+  beforeEach(() => {
+    self.cache.clear();
+  });
+
+
+  afterEach(() => {
+    self.cache.shouldBeEmpty();
   });
 
 
@@ -86,6 +98,7 @@ describe('API3 PATCH', function() {
       .expect(201);
 
     res.body.should.be.empty();
+    self.cache.nextShouldEql(self.col, self.validDoc)
   });
 
 
@@ -213,6 +226,8 @@ describe('API3 PATCH', function() {
     body.insulin.should.equal(0.3);
     body.subject.should.equal(self.subject.apiCreate.name);
     body.modifiedBy.should.equal(self.subject.apiUpdate.name);
+
+    self.cache.nextShouldEql(self.col, body)
   });
 
 });
