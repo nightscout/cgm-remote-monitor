@@ -612,6 +612,7 @@
     "virtAsstCGMBattOne": "Dein CGM Akku von %2 war %1 Volt.",
     "virtAsstCGMBattTwo": "Deine CGM Akkustände von %3 waren %1 Volt und %2 Volt.",
     "virtAsstDelta": "Dein Delta war %1 zwischen %2 und %3.",
+    "virtAsstDeltaEstimated": "Your estimated delta was %1 between %2 and %3.",
     "virtAsstUnknownIntentTitle": "Unbekanntes Vorhaben",
     "virtAsstUnknownIntentText": "Tut mir leid, ich hab deine Frage nicht verstanden.",
     "Fat [g]": "Fett [g]",
