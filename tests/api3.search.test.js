@@ -75,6 +75,7 @@ describe('API3 SEARCH', function() {
 
     res.body.status.should.equal(401);
     res.body.message.should.equal('Missing or bad access token or JWT');
+    should.not.exist(res.body.result);
   });
 
 
@@ -84,6 +85,7 @@ describe('API3 SEARCH', function() {
       .expect(404);
 
     res.body.status.should.equal(404);
+    should.not.exist(res.body.result);
   });
 
 
@@ -111,6 +113,7 @@ describe('API3 SEARCH', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Parameter limit out of tolerance');
+    should.not.exist(res.body.result);
   });
 
 
@@ -120,6 +123,7 @@ describe('API3 SEARCH', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Parameter limit out of tolerance');
+    should.not.exist(res.body.result);
   });
 
 
@@ -129,6 +133,7 @@ describe('API3 SEARCH', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Parameter limit out of tolerance');
+    should.not.exist(res.body.result);
   });
 
 
@@ -147,6 +152,7 @@ describe('API3 SEARCH', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Parameter skip out of tolerance');
+    should.not.exist(res.body.result);
   });
 
 
@@ -156,6 +162,7 @@ describe('API3 SEARCH', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Parameter skip out of tolerance');
+    should.not.exist(res.body.result);
   });
 
 
@@ -165,6 +172,7 @@ describe('API3 SEARCH', function() {
 
     res.body.status.should.equal(400);
     res.body.message.should.equal('Parameters sort and sort_desc cannot be combined');
+    should.not.exist(res.body.result);
   });
 
 

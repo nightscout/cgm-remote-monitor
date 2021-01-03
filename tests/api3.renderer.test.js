@@ -163,7 +163,9 @@ describe('API3 output renderers', function() {
     async function check406 (request) {
       const res = await request
         .expect(406);
+      res.status.should.equal(406);
       res.body.message.should.eql('Unsupported output format requested');
+      should.not.exist(res.body.result);
     }
 
     await check406(self.instance.get(`${self.url}/${self.doc1.identifier}.ttf?fields=_all&token=${self.token.read}`));

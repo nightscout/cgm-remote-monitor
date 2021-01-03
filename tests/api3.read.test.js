@@ -69,15 +69,17 @@ describe('API3 READ', function () {
       .expect(404);
 
     res.body.status.should.equal(404);
-
+    should.not.exist(res.body.result);
     self.cache.shouldBeEmpty()
   });
 
 
   it('should not found not existing document', async () => {
-    await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
       .expect(404);
 
+    res.body.status.should.equal(404);
+    should.not.exist(res.body.result);
     self.cache.shouldBeEmpty()
   });
 
@@ -163,7 +165,7 @@ describe('API3 READ', function () {
   });
 
 
-  it('should not found permanently deleted document', async () => {
+  it('should not find permanently deleted document', async () => {
     let res = await self.instance.delete(`${self.url}/${self.validDoc.identifier}?permanent=true&token=${self.token.delete}`)
       .expect(200);
 
@@ -178,7 +180,7 @@ describe('API3 READ', function () {
   });
 
 
-  it('should found document created by APIv1', async () => {
+  it('should find document created by APIv1', async () => {
 
     const doc = Object.assign({}, self.validDoc, {
       created_at: new Date(self.validDoc.date).toISOString()

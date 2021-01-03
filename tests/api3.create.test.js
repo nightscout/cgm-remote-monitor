@@ -108,6 +108,7 @@ describe('API3 CREATE', function() {
       .expect(404);
 
     res.body.status.should.equal(404);
+    should.not.exist(res.body.result);
   });
 
 
