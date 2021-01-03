@@ -60,7 +60,6 @@
     "Hourly stats": "Statistika po satu",
     "netIOB stats": "netIOB statistika",
     "temp basals must be rendered to display this report": "temp bazali moraju biti prikazani kako bi se vidio ovaj izvještaj",
-    "Weekly success": "Tjedni uspjeh",
     "No data available": "Nema raspoloživih podataka",
     "Low": "Nizak",
     "In Range": "U rasponu",
@@ -683,5 +682,7 @@
     "Temp basal delta": "Temp basal delta",
     "Authorized by token": "Authorized by token",
     "Auth role": "Auth role",
-    "view without token": "view without token"
+    "view without token": "view without token",
+    "Remove stored token": "Remove stored token",
+    "Weekly Distribution": "Weekly Distribution"
 }

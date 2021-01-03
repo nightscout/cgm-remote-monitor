@@ -60,7 +60,6 @@
     "Hourly stats": "Ωριαία Στατιστικά",
     "netIOB stats": "netIOB stats",
     "temp basals must be rendered to display this report": "temp basals must be rendered to display this report",
-    "Weekly success": "Εβδομαδιαία Στατιστικά",
     "No data available": "Μη διαθέσιμα δεδομένα",
     "Low": "Χαμηλά",
     "In Range": "Στο στόχο",
@@ -681,7 +680,9 @@
     "Next day": "Next day",
     "Next": "Next",
     "Temp basal delta": "Temp basal delta",
-    "Authorized by token": "Authorized by token",
-    "Auth role": "Auth role",
-    "view without token": "view without token"
+    "Authorized by token": "Πιστοποίηση από Token",
+    "Auth role": "Πιστοποίηση ρόλου",
+    "view without token": "view without token",
+    "Remove stored token": "Αφαίρεση αποθηκευμένου token",
+    "Weekly Distribution": "Εκτίμηση γλυκοζυλιωμένης - 7 ημέρες"
 }

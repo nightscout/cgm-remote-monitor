@@ -60,7 +60,6 @@
     "Hourly stats": "Statistieken per uur",
     "netIOB stats": "netIOB statistieken",
     "temp basals must be rendered to display this report": "tijdelijk basaal moet zichtbaar zijn voor dit rapport",
-    "Weekly success": "Wekelijkse successen",
     "No data available": "Geen gegevens beschikbaar",
     "Low": "Laag",
     "In Range": "Binnen bereik",
@@ -683,5 +682,7 @@
     "Temp basal delta": "Tijdelijk basaal delta",
     "Authorized by token": "Geautoriseerd met token",
     "Auth role": "Auth rol",
-    "view without token": "bekijken zonder token"
+    "view without token": "bekijken zonder token",
+    "Remove stored token": "Verwijder opgeslagen token",
+    "Weekly Distribution": "Wekelijkse spreiding"
 }

@@ -60,7 +60,6 @@
     "Hourly stats": "Stündliche Statistik",
     "netIOB stats": "netIOB Statistiken",
     "temp basals must be rendered to display this report": "temporäre Basalraten müssen für diesen Report sichtbar sein",
-    "Weekly success": "Wöchentlicher Erfolg",
     "No data available": "Keine Daten verfügbar",
     "Low": "Tief",
     "In Range": "Im Zielbereich",
@@ -683,5 +682,7 @@
     "Temp basal delta": "Temp basal delta",
     "Authorized by token": "Authorized by token",
     "Auth role": "Auth role",
-    "view without token": "view without token"
+    "view without token": "view without token",
+    "Remove stored token": "Remove stored token",
+    "Weekly Distribution": "Weekly Distribution"
 }

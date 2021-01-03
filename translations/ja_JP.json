@@ -60,7 +60,6 @@
     "Hourly stats": "１時間統計",
     "netIOB stats": "netIOB stats",
     "temp basals must be rendered to display this report": "temp basals must be rendered to display this report",
-    "Weekly success": "１週間統計",
     "No data available": "利用できるデータがありません",
     "Low": "目標血糖値低値",
     "In Range": "目標血糖値範囲内",
@@ -683,5 +682,7 @@
     "Temp basal delta": "Temp basal delta",
     "Authorized by token": "Authorized by token",
     "Auth role": "Auth role",
-    "view without token": "view without token"
+    "view without token": "view without token",
+    "Remove stored token": "Remove stored token",
+    "Weekly Distribution": "Weekly Distribution"
 }
