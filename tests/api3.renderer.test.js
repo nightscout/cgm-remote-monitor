@@ -282,10 +282,7 @@ describe('API3 output renderers', function() {
     }
 
     await deleteDoc(self.doc1.identifier);
-    self.cache.nextShouldDeleteLast(self.col)
-
     await deleteDoc(self.doc2.identifier);
-    self.cache.nextShouldDeleteLast(self.col)
   });
 });
 
