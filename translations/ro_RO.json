@@ -612,6 +612,7 @@
     "virtAsstCGMBattOne": "Bateria CGM-ului a fost de %1 volți din %2.",
     "virtAsstCGMBattTwo": "Nivelurile bateriei CGM au fost de %1 volți și %2 volți din %3.",
     "virtAsstDelta": "Variatia a fost %1 între %2 și %3.",
+    "virtAsstDeltaEstimated": "Variația estimată a fost %1 intre %2 si %3.",
     "virtAsstUnknownIntentTitle": "Intenție necunoscută",
     "virtAsstUnknownIntentText": "Îmi pare rău, nu ştiu ce doriţi.",
     "Fat [g]": "Grăsimi [g]",

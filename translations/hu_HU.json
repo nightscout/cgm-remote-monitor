@@ -612,6 +612,7 @@
     "virtAsstCGMBattOne": "A CGM töltöttsége %1 VOLT volt %2-kor",
     "virtAsstCGMBattTwo": "A CGM töltöttsége %1 és %2 VOLT volt %3-kor",
     "virtAsstDelta": "A deltád %1 volt %2 és %3 között",
+    "virtAsstDeltaEstimated": "Your estimated delta was %1 between %2 and %3.",
     "virtAsstUnknownIntentTitle": "Unknown Intent",
     "virtAsstUnknownIntentText": "Sajnálom, nem tudom mit szeretnél tőlem.",
     "Fat [g]": "Zsír [g]",
