@@ -48,7 +48,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 [codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
 [discord-img]: https://img.shields.io/discord/629952586895851530?label=discord%20chat
 [discord-url]: https://discord.gg/rTKhrqz
-[heroku-img]: https://www.herokucdn.com/deploy/button.png
+[heroku-img]: https://www.herokucdn.com/deploy/button.svg
 [heroku-url]: https://heroku.com/deploy?template=https://github.com/nightscout/cgm-remote-monitor
 [update-img]: update.png
 [update-fork]: http://nightscout.github.io/pages/update-fork/
