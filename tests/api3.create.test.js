@@ -423,7 +423,6 @@ describe('API3 CREATE', function() {
     delete doc._id; // APIv1 updates input document, we must get rid of _id for the next round
     oldBody.should.containEql(doc);
 
-
     const doc2 = Object.assign({}, doc, {
       eventType: 'Meal Bolus',
       insulin: 0.4,
