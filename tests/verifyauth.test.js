@@ -1,6 +1,5 @@
 'use strict';
 
-const { geoNaturalEarth1 } = require('d3');
 var request = require('supertest');
 var language = require('../lib/language')();
 require('should');
@@ -70,7 +69,7 @@ describe('verifyauth', function ( ) {
       function checkTimer(res) {
         res.body.message.message.should.equal('UNAUTHORIZED');
         const delta = Date.now() - time;
-        delta.should.be.greaterThan(1000);
+        delta.should.be.greaterThan(49);
         done();
       }
 
