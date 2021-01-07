@@ -656,6 +656,11 @@
     "virtAsstDatabaseSize": "%1 MiB. Se on %2% saatavilla olevasta koosta.",
     "virtAsstTitleDatabaseSize": "Tietokantatiedoston koko",
     "Carbs/Food/Time": "Hiilihydraatit/Ruoka/Aika",
+    "You have administration messages": "You have administration messages",
+    "Admin messages in queue": "Admin messages in queue",
+    "Queue empty": "Queue empty",
+    "There are no admin messages in queue": "There are no admin messages in queue",
+    "Please sign in using the API_SECRET to see your administration messages": "Please sign in using the API_SECRET to see your administration messages",
     "Reads enabled in default permissions": "Tietojen lukeminen käytössä oletuskäyttöoikeuksilla",
     "Data reads enabled": "Tiedon lukeminen mahdollista",
     "Data writes enabled": "Tiedon kirjoittaminen mahdollista",
@@ -685,5 +690,8 @@
     "Auth role": "Authentikaatiorooli",
     "view without token": "Näytä ilman tunnistetta",
     "Remove stored token": "Poista talletettu tunniste",
-    "Weekly Distribution": "Viikkojakauma"
+    "Weekly Distribution": "Viikkojakauma",
+    "Failed authentication": "Failed authentication",
+    "A device at IP number": "A device at IP number",
+    "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?"
 }
