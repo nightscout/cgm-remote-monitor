@@ -202,7 +202,7 @@ describe('reports', function ( ) {
     done( );
   });
 
-/*
+
   it ('should produce some html', function (done) {
     var client = window.Nightscout.client;
 
@@ -258,6 +258,7 @@ describe('reports', function ( ) {
       $('img.editTreatment:first').click();
       $('.ui-button:contains("Save")').click();
 
+      /*
       var result = $('body').html();
       var filesys = require('fs');
       var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
@@ -273,7 +274,7 @@ describe('reports', function ( ) {
       result.indexOf('<div id="success-grid">').should.be.greaterThan(-1); //success
       result.indexOf('<b style="padding-left:4em">CAL</b>:  Scale: 1.10 Intercept: 31102 Slope: 776.91').should.be.greaterThan(-1); //calibrations
       result.indexOf('<td>Correction Bolus</td><td align="center">250 (Sensor)</td><td align="center">0.75</td>').should.be.greaterThan(-1); //treatments
-
+*/
       done();
     });
   });
@@ -333,5 +334,5 @@ describe('reports', function ( ) {
     });
     
   });
-  */
+  
 });
