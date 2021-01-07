@@ -220,8 +220,10 @@ describe('reports', function ( ) {
      window.alert = function mockAlert () {
        return true;
      };
-
-     window.setTimeout = function mockSetTimeout (call) {
+     
+     
+     window.setTimeout = function mockSetTimeout (call, timer) {
+       if (timer == 60000) return;
        call();
      };
 
@@ -296,9 +298,10 @@ describe('reports', function ( ) {
      window.alert = function mockAlert () {
        return true;
      };
-
-     window.setTimeout = function mockSetTimeout (call) {
-       call();
+  
+     window.setTimeout = function mockSetTimeout (call, timer) {
+      if (timer == 60000) return;
+      call();
      };
 
     client.init(function afterInit ( ) {
