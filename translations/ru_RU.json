@@ -656,11 +656,11 @@
     "virtAsstDatabaseSize": "%1 MiB Это %2% доступного места в базе данных.",
     "virtAsstTitleDatabaseSize": "Размер файла базы данных",
     "Carbs/Food/Time": "Углеводы/Еда/Время",
-    "You have administration messages": "You have administration messages",
-    "Admin messages in queue": "Admin messages in queue",
-    "Queue empty": "Queue empty",
-    "There are no admin messages in queue": "There are no admin messages in queue",
-    "Please sign in using the API_SECRET to see your administration messages": "Please sign in using the API_SECRET to see your administration messages",
+    "You have administration messages": "У вас есть сообщения администрирования",
+    "Admin messages in queue": "Сообщения администрирования в очереди",
+    "Queue empty": "Очередь пуста",
+    "There are no admin messages in queue": "В очереди нет сообщений администрирования",
+    "Please sign in using the API_SECRET to see your administration messages": "Пожалуйста, войдите, используя API_SECRET, чтобы увидеть ваши сообщения администрирования",
     "Reads enabled in default permissions": "Чтение включено в разрешениях по умолчанию",
     "Data reads enabled": "Чтение данных включено",
     "Data writes enabled": "Запись данных включена",
@@ -691,7 +691,7 @@
     "view without token": "view without token",
     "Remove stored token": "Remove stored token",
     "Weekly Distribution": "Weekly Distribution",
-    "Failed authentication": "Failed authentication",
-    "A device at IP number": "A device at IP number",
-    "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?"
+    "Failed authentication": "Ошибка аутентификации",
+    "A device at IP number": "Устройство с IP-адресом",
+    "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "попытка аутентификации с Nightscout неверными учетными данными. Проверьте, есть ли у вас загрузчик с неверным API_SECRET или токеном?"
 }
