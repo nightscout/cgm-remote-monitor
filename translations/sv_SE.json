@@ -656,11 +656,11 @@
     "virtAsstDatabaseSize": "%1 MiB. Det är %2% av tillgänglig databasutrymme.",
     "virtAsstTitleDatabaseSize": "Databasens filstorlek",
     "Carbs/Food/Time": "Kolhydrater/Mat/Tid",
-    "You have administration messages": "You have administration messages",
-    "Admin messages in queue": "Admin messages in queue",
-    "Queue empty": "Queue empty",
-    "There are no admin messages in queue": "There are no admin messages in queue",
-    "Please sign in using the API_SECRET to see your administration messages": "Please sign in using the API_SECRET to see your administration messages",
+    "You have administration messages": "Du har administrationsmeddelanden",
+    "Admin messages in queue": "Admin meddelanden i kö",
+    "Queue empty": "Kön är tom",
+    "There are no admin messages in queue": "Det finns inga administratörsmeddelanden i kön",
+    "Please sign in using the API_SECRET to see your administration messages": "Logga in med API_SECRET för att se dina administrationsmeddelanden",
     "Reads enabled in default permissions": "Läser aktiverade i standardbehörigheter",
     "Data reads enabled": "Dataläsningar aktiverade",
     "Data writes enabled": "Dataskrivningar aktiverade",
@@ -691,7 +691,7 @@
     "view without token": "visa utan token",
     "Remove stored token": "Remove stored token",
     "Weekly Distribution": "Weekly Distribution",
-    "Failed authentication": "Failed authentication",
-    "A device at IP number": "A device at IP number",
-    "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?"
+    "Failed authentication": "Misslyckad autentisering",
+    "A device at IP number": "En enhet på IP-nummer",
+    "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "försökte autentisera med Nightscout med fel uppgifter. Kontrollera om du har en uppladdare med fel API_SECRET eller token?"
 }
