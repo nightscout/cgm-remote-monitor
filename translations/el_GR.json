@@ -657,10 +657,10 @@
     "virtAsstTitleDatabaseSize": "Database file size",
     "Carbs/Food/Time": "Carbs/Food/Time",
     "You have administration messages": "You have administration messages",
-    "Admin messages in queue": "Admin messages in queue",
-    "Queue empty": "Queue empty",
-    "There are no admin messages in queue": "There are no admin messages in queue",
-    "Please sign in using the API_SECRET to see your administration messages": "Please sign in using the API_SECRET to see your administration messages",
+    "Admin messages in queue": "Διαθέσιμα μηνύματα διαχείρισης",
+    "Queue empty": "Σειρά μηνυμάτων κενή",
+    "There are no admin messages in queue": "Δεν υπάρχουν αδιάβαστα μηνύματα διαχείρισης",
+    "Please sign in using the API_SECRET to see your administration messages": "Παρακαλούμε συνδεθείτε χρησιμοποιώντας το API_SECRET για να δείτε τα μηνύματα διαχείρισης",
     "Reads enabled in default permissions": "Reads enabled in default permissions",
     "Data reads enabled": "Data reads enabled",
     "Data writes enabled": "Data writes enabled",
@@ -691,7 +691,7 @@
     "view without token": "view without token",
     "Remove stored token": "Αφαίρεση αποθηκευμένου token",
     "Weekly Distribution": "Εκτίμηση γλυκοζυλιωμένης - 7 ημέρες",
-    "Failed authentication": "Failed authentication",
-    "A device at IP number": "A device at IP number",
-    "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?"
+    "Failed authentication": "Αποτυχία ταυτοποίησης στοιχείων",
+    "A device at IP number": "Μια συσκευή στην διεύθυνση IP",
+    "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Έγινε προσπάθεια πιστοποίησης στο Nightscout με λάθος διαπιστευτήρια. Ελέγξτε αν έχετε ρυθμίσει τον uploader με λάθος API_SECRET ή token;"
 }
