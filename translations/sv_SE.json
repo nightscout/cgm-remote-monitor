@@ -692,6 +692,5 @@
     "Remove stored token": "Remove stored token",
     "Weekly Distribution": "Weekly Distribution",
     "Failed authentication": "Misslyckad autentisering",
-    "A device at IP number": "En enhet på IP-nummer",
-    "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "försökte autentisera med Nightscout med fel uppgifter. Kontrollera om du har en uppladdare med fel API_SECRET eller token?"
+    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?"
 }
