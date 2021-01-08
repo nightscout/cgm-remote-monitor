@@ -8,10 +8,13 @@ require('should');
 describe('Verifyauth REST api', function ( ) {
   var self = this;
   
+  this.timeout(10000);
+  
   var api = require('../lib/api/');
   before(function (done) {
     self.env = require('../env')( );
     self.env.api_secret = 'this is my long pass phrase';
+    self.env.settings.authDefaultRoles = 'denied';
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')( );
     self.app.enable('api');
