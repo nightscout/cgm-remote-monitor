@@ -692,5 +692,5 @@
     "Remove stored token": "Elimină cheia de acces stocată",
     "Weekly Distribution": "Distribuție săptămânală",
     "Failed authentication": "Autentificare eșuată",
-    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Un dispozitiv cu adresa IP %1 a încercat autentificarea la Nightscout cu acreditări greșite. Verificați dacă aveți configurat un uploader cu API_SECRET greșit sau token."
+    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Un dispozitiv cu adresa IP %1 a încercat autentificarea la Nightscout cu datele de autentificare greșite. Verificați dacă o instanta de încărcare a fost configurata cu API_SECRET sau token greșit?"
 }
