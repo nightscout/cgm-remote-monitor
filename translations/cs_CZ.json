@@ -656,11 +656,11 @@
     "virtAsstDatabaseSize": "%1 MiB. To odpovídá %2% dostupného místa v databázi.",
     "virtAsstTitleDatabaseSize": "Velikost databáze",
     "Carbs/Food/Time": "Sacharidy/Jídlo/Čas",
-    "You have administration messages": "You have administration messages",
-    "Admin messages in queue": "Admin messages in queue",
-    "Queue empty": "Queue empty",
-    "There are no admin messages in queue": "There are no admin messages in queue",
-    "Please sign in using the API_SECRET to see your administration messages": "Please sign in using the API_SECRET to see your administration messages",
+    "You have administration messages": "Máte zprávy pro administrátora",
+    "Admin messages in queue": "Ve frontě jsou zprávy pro adminstrátora",
+    "Queue empty": "Fronta je prázdná",
+    "There are no admin messages in queue": "Ve frontě nejsou žádné zprávy pro administrátora",
+    "Please sign in using the API_SECRET to see your administration messages": "Pro zobrazení zpráv pro administrátora se přihlašte pomocí API_SECRET",
     "Reads enabled in default permissions": "Ve výchozích oprávněních je čtení povoleno",
     "Data reads enabled": "Čtení dat povoleno",
     "Data writes enabled": "Zápis dat povolen",
@@ -691,7 +691,7 @@
     "view without token": "zobrazit bez tokenu",
     "Remove stored token": "Odstranit uložený token",
     "Weekly Distribution": "Týdenní rozložení",
-    "Failed authentication": "Failed authentication",
-    "A device at IP number": "A device at IP number",
-    "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?"
+    "Failed authentication": "Ověření selhalo",
+    "A device at IP number": "Zařízení s IP adresou",
+    "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "se pokusilo o přihlášení do Nightscoutu s nesprávnýmí údaji. Zkontrolujte, zda nemáte v uploaderu nastaveno špatné API_SECRET nebo token."
 }
