@@ -692,6 +692,5 @@
     "Remove stored token": "Verwijder opgeslagen token",
     "Weekly Distribution": "Wekelijkse spreiding",
     "Failed authentication": "Mislukte authenticatie",
-    "A device at IP number": "Een apparaat op IP-adres",
-    "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "poging om te authenticeren met Nightscout met verkeerde inloggegevens. Controleer of je een uploader hebt ingesteld met een verkeerd API_SECRET of token?"
+    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Een apparaat met IP adres %1 heeft een poging gedaan om te authenticeren met Nightscout met verkeerde inloggegevens. Controleer of je een uploader hebt ingesteld met een verkeerd API_SECRET of token?"
 }
