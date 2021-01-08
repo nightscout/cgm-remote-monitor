@@ -656,11 +656,11 @@
     "virtAsstDatabaseSize": "%1 MB. Aceasta este %2% din spațiul disponibil pentru baza de date.",
     "virtAsstTitleDatabaseSize": "Dimensiunea bazei de date",
     "Carbs/Food/Time": "Carbohidrati/Mâncare/Timp",
-    "You have administration messages": "You have administration messages",
-    "Admin messages in queue": "Admin messages in queue",
-    "Queue empty": "Queue empty",
-    "There are no admin messages in queue": "There are no admin messages in queue",
-    "Please sign in using the API_SECRET to see your administration messages": "Please sign in using the API_SECRET to see your administration messages",
+    "You have administration messages": "Aveți mesaje de administrare",
+    "Admin messages in queue": "Mesajele administratorului în așteptare",
+    "Queue empty": "Coadă goală",
+    "There are no admin messages in queue": "Nu există mesaje de administrator în coadă",
+    "Please sign in using the API_SECRET to see your administration messages": "Te rugăm să te autentifici folosind API_SECRET pentru a vedea mesajele de administrare",
     "Reads enabled in default permissions": "Citiri activate în permisiunile implicite",
     "Data reads enabled": "Citire date activată",
     "Data writes enabled": "Scriere date activată",
@@ -691,7 +691,7 @@
     "view without token": "vizualizare fără cheie de acces",
     "Remove stored token": "Elimină cheia de acces stocată",
     "Weekly Distribution": "Distribuție săptămânală",
-    "Failed authentication": "Failed authentication",
-    "A device at IP number": "A device at IP number",
-    "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?"
+    "Failed authentication": "Autentificare eșuată",
+    "A device at IP number": "Un dispozitiv la numărul IP",
+    "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "a încercat autentificarea cu Nightscout cu credentiale greșite. Verificați dacă o instanta de încărcare a fost configurata cu API_SECRET sau token greșit?"
 }
