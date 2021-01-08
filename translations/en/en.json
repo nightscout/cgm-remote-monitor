@@ -691,6 +691,5 @@
     ,"Remove stored token":"Remove stored token"
     ,"Weekly Distribution":"Weekly Distribution"
     ,"Failed authentication":"Failed authentication"
-    ,"A device at IP number":"A device at IP number"
-    ,"attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?":"attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?"
+    ,"A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?"
 }
