@@ -656,11 +656,11 @@
     "virtAsstDatabaseSize": "%1 MiB. Das sind %2% des verfügbaren Datenbank-Speicherplatzes.",
     "virtAsstTitleDatabaseSize": "Datenbank-Dateigröße",
     "Carbs/Food/Time": "Kohlenhydrate/Nahrung/Zeit",
-    "You have administration messages": "You have administration messages",
-    "Admin messages in queue": "Admin messages in queue",
-    "Queue empty": "Queue empty",
-    "There are no admin messages in queue": "There are no admin messages in queue",
-    "Please sign in using the API_SECRET to see your administration messages": "Please sign in using the API_SECRET to see your administration messages",
+    "You have administration messages": "Neue Admin-Nachrichten liegen vor",
+    "Admin messages in queue": "Admin-Nachrichten in Warteschlange",
+    "Queue empty": "Warteschlange leer",
+    "There are no admin messages in queue": "Keine Admin-Nachrichten in der Warteschlange",
+    "Please sign in using the API_SECRET to see your administration messages": "Bitte melde dich mit dem API_SECRET an, um die Admin-Nachrichten sehen zu können",
     "Reads enabled in default permissions": "Leseberechtigung aktiviert durch Standardberechtigungen",
     "Data reads enabled": "Daten lesen aktiviert",
     "Data writes enabled": "Datenschreibvorgänge aktiviert",
@@ -691,7 +691,6 @@
     "view without token": "Ohne Token anzeigen",
     "Remove stored token": "Gespeichertes Token entfernen",
     "Weekly Distribution": "Wöchentliche Verteilung",
-    "Failed authentication": "Failed authentication",
-    "A device at IP number": "A device at IP number",
-    "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?"
+    "Failed authentication": "Authentifizierung fehlgeschlagen",
+    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Ein Gerät mit der IP-Adresse %1 hat versucht sich mit falschen Zugangsdaten bei Nightscout anzumelden. Prüfe, ob einer deiner Uploader ein falsches API_SECRET oder Token verwendet."
 }
