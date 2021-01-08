@@ -4,14 +4,15 @@ var levels = require('../lib/levels');
 
 describe('errorcodes', function ( ) {
 
-  var errorcodes = require('../lib/plugins/errorcodes')();
-
   var now = Date.now();
   var env = require('../env')();
   var ctx = {};
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
+  ctx.language = require('../lib/language')();
+  ctx.levels = levels;
 
+  var errorcodes = require('../lib/plugins/errorcodes')(ctx);
 
   it('Not trigger an alarm when in range', function (done) {
     ctx.notifications.initRequests();

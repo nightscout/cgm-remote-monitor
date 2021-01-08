@@ -8,6 +8,8 @@ var language = require('../lib/language')();
 describe('authed REST api', function ( ) {
   var entries = require('../lib/api/entries/');
 
+  this.timeout(20000);
+
   before(function (done) {
     var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
     delete process.env.API_SECRET;
@@ -20,9 +22,9 @@ describe('authed REST api', function ( ) {
     this.app.enable('api');
     var self = this;
     self.known_key = known;
-    require('../lib/bootevent')(env, language).boot(function booted (ctx) {
-      self.app.use('/', entries(self.app, self.wares, ctx));
-      self.archive = require('../lib/entries')(env, ctx);
+    require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
+      self.app.use('/', entries(self.app, self.wares, ctx, env));
+      self.archive = require('../lib/server/entries')(env, ctx);
 
       var creating = load('json');
       // creating.push({type: 'sgv', sgv: 100, date: Date.now()});
