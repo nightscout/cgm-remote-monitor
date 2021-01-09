@@ -612,6 +612,7 @@
     "virtAsstCGMBattOne": "Батарея мониторинга была %1 вольт по состоянию на %2.",
     "virtAsstCGMBattTwo": "Уровни заряда аккумулятора были %1 вольт и %2 вольт по состоянию на %3.",
     "virtAsstDelta": "Дельта была %1 между %2 и %3.",
+    "virtAsstDeltaEstimated": "Your estimated delta was %1 between %2 and %3.",
     "virtAsstUnknownIntentTitle": "Неизвестное намерение",
     "virtAsstUnknownIntentText": "Ваш запрос непонятен",
     "Fat [g]": "жиры [g]",

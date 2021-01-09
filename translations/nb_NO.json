@@ -612,6 +612,7 @@
     "virtAsstCGMBattOne": "CGM-batteriet ditt var %1 volt som av %2.",
     "virtAsstCGMBattTwo": "CGM batterinivåene dine var %1 volt og %2 volt som av %3.",
     "virtAsstDelta": "Din delta var %1 mellom %2 og %3.",
+    "virtAsstDeltaEstimated": "Din estimerte delta var %1 mellom %2 og %3.",
     "virtAsstUnknownIntentTitle": "Ukjent hensikt",
     "virtAsstUnknownIntentText": "Beklager, jeg vet ikke hva du ber om.",
     "Fat [g]": "Fett [g]",

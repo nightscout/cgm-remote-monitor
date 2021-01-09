@@ -612,6 +612,7 @@
     "virtAsstCGMBattOne": "CGM akku oli %1 volttia hetkellä %2.",
     "virtAsstCGMBattTwo": "CGM akun tasot olivat %1 volttia ja %2 volttia hetkellä %3.",
     "virtAsstDelta": "Muutoksesi oli %1 %2 ja %3 välillä.",
+    "virtAsstDeltaEstimated": "Your estimated delta was %1 between %2 and %3.",
     "virtAsstUnknownIntentTitle": "Tuntematon intentio",
     "virtAsstUnknownIntentText": "Anteeksi, en tiedä mitä pyydät.",
     "Fat [g]": "Rasva [g]",

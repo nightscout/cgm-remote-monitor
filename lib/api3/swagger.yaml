@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: '/api/v3'
 info:
-  version: "3.0.1"
+  version: "3.0.2"
   title: Nightscout API
   contact:
     name: NS development discussion channel
@@ -102,7 +102,7 @@ paths:
         3) paging - using `limit` and `skip` parameters
 
 
-        When there is no document matching the filtering criteria, HTTP status 204 is returned with empty response content. Otherwise HTTP 200 code is returned with JSON array of matching documents as a response content.
+        If successful, HTTP 200 code is returned with JSON array of matching documents as a response content (it may be empty).
 
 
         This operation requires `read` permission for the API and the collection (e.g. `*:*:read`, `api:*:read`, `*:treatments:read`, `api:treatments:read`).
@@ -120,13 +120,12 @@ paths:
         - $ref: '#/components/parameters/fieldsParam'
 
       security:
-        - apiKeyAuth: []
+        - accessToken: []
+        - jwtoken: []
 
       responses:
         200:
           $ref: '#/components/responses/search200'
-        204:
-          $ref: '#/components/responses/search204'
         400:
           $ref: '#/components/responses/400BadRequest'
         401:
@@ -145,10 +144,11 @@ paths:
         - generic
       summary: 'CREATE: Inserts a new document into the collection'
       description:
-        Using this operation you can insert new documents into collection. Normally the operation ends with 201 HTTP status code, `Last-Modified` and `Location` headers specified and with an empty response content. `identifier` can be parsed from the `Location` response header.
+        Using this operation you can insert new documents into collection. Normally the operation ends with 201 HTTP status code, `Last-Modified` and `Location` headers specified.
+        `identifier` is included in response body or it can be parsed from the `Location` response header.
 
 
-        When the document to post is marked as a duplicate (using rules described at `API3_DEDUP_FALLBACK_ENABLED` switch), the update operation takes place instead of inserting. In this case the original document in the collection is found and it gets updated by the actual operation POST body. Finally the operation ends with 204 HTTP status code along with `Last-Modified` and correct `Location` headers.
+        When the document to post is marked as a duplicate (using rules described at `API3_DEDUP_FALLBACK_ENABLED` switch), the update operation takes place instead of inserting. In this case the original document in the collection is found and it gets updated by the actual operation POST body. Finally the operation ends with 200 HTTP status code along with `Last-Modified` and correct `Location` headers. The response body then includes `isDeduplication`=`true` and `deduplicatedIdentifier` fields.
 
 
         This operation provides autopruning of the collection (if autopruning is enabled).
@@ -165,13 +165,14 @@ paths:
               $ref: '#/components/schemas/DocumentToPost'
 
       security:
-        - apiKeyAuth: []
+        - accessToken: []
+        - jwtoken: []
 
       responses:
+        200:
+          $ref: '#/components/responses/200Deduplication'
         201:
           $ref: '#/components/responses/201CreatedLocation'
-        204:
-          $ref: '#/components/responses/204NoContentLocation'
         400:
           $ref: '#/components/responses/400BadRequest'
         401:
@@ -215,7 +216,7 @@ paths:
         Basically this operation looks for a document matching the `identifier` field returning 200 or 404 HTTP status code.
 
 
-        If the document has been found in the collection but it had already been deleted, 410 HTTP status code with empty response content is to be returned.
+        If the document has been found in the collection but it had already been deleted, 410 HTTP status code is to be returned.
 
 
         When `If-Modified-Since` header is used and its value is greater than the timestamp of the document in the collection, 304 HTTP status code with empty response content is returned. It means that the document has not been modified on server since the last retrieval to client side.
@@ -229,7 +230,8 @@ paths:
         - $ref: '#/components/parameters/fieldsParam'
 
       security:
-        - apiKeyAuth: []
+        - accessToken: []
+        - jwtoken: []
 
       responses:
         200:
@@ -254,10 +256,10 @@ paths:
         - generic
       summary: 'UPDATE: Updates a document in the collection'
       description:
-        Normally the document with the matching `identifier` will be replaced in the collection by the whole JSON request body and 204 HTTP status code will be returned with empty response body.
+        Normally the document with the matching `identifier` will be replaced in the collection by the whole JSON request body and 200 HTTP status code will be returned.
 
 
-        If the document has been found in the collection but it had already been deleted, 410 HTTP status code with empty response content is to be returned.
+        If the document has been found in the collection but it had already been deleted, 410 HTTP status code is to be returned.
 
 
         When no document with `identifier` has been found in the collection, then an insert operation takes place instead of updating. Finally 201 HTTP status code is returned with only `Last-Modified` header (`identifier` is already known from the path parameter).
@@ -283,13 +285,14 @@ paths:
               $ref: '#/components/schemas/DocumentToPost'
 
       security:
-        - apiKeyAuth: []
+        - accessToken: []
+        - jwtoken: []
 
       responses:
+        200:
+          $ref: '#/components/responses/200Ok'
         201:
           $ref: '#/components/responses/201Created'
-        204:
-          $ref: '#/components/responses/204NoContentLocation'
         400:
           $ref: '#/components/responses/400BadRequest'
         401:
@@ -312,10 +315,10 @@ paths:
         - generic
       summary: 'PATCH: Partially updates document in the collection'
       description:
-        Normally the document with the matching `identifier` will be retrieved from the collection and it will be patched by all specified fields from the JSON request body. Finally 204 HTTP status code will be returned with empty response body.
+        Normally the document with the matching `identifier` will be retrieved from the collection and it will be patched by all specified fields from the JSON request body. Finally 200 HTTP status code will be returned.
 
 
-        If the document has been found in the collection but it had already been deleted, 410 HTTP status code with empty response content is to be returned.
+        If the document has been found in the collection but it had already been deleted, 410 HTTP status code is to be returned.
 
 
         When no document with `identifier` has been found in the collection, then the operation ends with 404 HTTP status code.
@@ -347,11 +350,12 @@ paths:
               $ref: '#/components/schemas/DocumentToPost'
 
       security:
-        - apiKeyAuth: []
+        - accessToken: []
+        - jwtoken: []
 
       responses:
-        204:
-          $ref: '#/components/responses/204NoContentLocation'
+        200:
+          $ref: '#/components/responses/200Ok'
         400:
           $ref: '#/components/responses/400BadRequest'
         401:
@@ -360,10 +364,10 @@ paths:
           $ref: '#/components/responses/403Forbidden'
         404:
           $ref: '#/components/responses/404NotFound'
-        412:
-          $ref: '#/components/responses/412PreconditionFailed'
         410:
           $ref: '#/components/responses/410Gone'
+        412:
+          $ref: '#/components/responses/412PreconditionFailed'
         422:
           $ref: '#/components/responses/422UnprocessableEntity'
 
@@ -387,11 +391,12 @@ paths:
         - $ref: '#/components/parameters/permanentParam'
 
       security:
-        - apiKeyAuth: []
+        - accessToken: []
+        - jwtoken: []
 
       responses:
-        204:
-          description: Successful operation - empty response
+        200:
+          $ref: '#/components/responses/200Ok'
         401:
           $ref: '#/components/responses/401Unauthorized'
         403:
@@ -430,9 +435,6 @@ paths:
         Deleted documents will appear with `isValid` = `false` field.
 
 
-        When there is no change detected since the timestamp the operation ends with 204 HTTP status code and empty response content.
-
-
         HISTORY operation has a fallback mechanism in place for documents, which were not created by API v3. For such documents `srvModified` is virtually assigned from the `date` field (for `entries` collection) or from the `created_at` field (for other collections).
 
 
@@ -448,13 +450,12 @@ paths:
         - $ref: '#/components/parameters/fieldsParam'
 
       security:
-        - apiKeyAuth: []
+        - accessToken: []
+        - jwtoken: []
 
       responses:
         200:
           $ref: '#/components/responses/history200'
-        204:
-          $ref: '#/components/responses/history204'
         400:
           $ref: '#/components/responses/400BadRequest'
         401:
@@ -509,13 +510,12 @@ paths:
         - $ref: '#/components/parameters/fieldsParam'
 
       security:
-        - apiKeyAuth: []
+        - accessToken: []
+        - jwtoken: []
 
       responses:
         200:
           $ref: '#/components/responses/history200'
-        204:
-          $ref: '#/components/responses/history204'
         400:
           $ref: '#/components/responses/400BadRequest'
         401:
@@ -556,7 +556,8 @@ paths:
         This operation requires authorization in contrast with VERSION operation.
 
       security:
-        - apiKeyAuth: []
+        - accessToken: []
+        - jwtoken: []
 
       responses:
         200:
@@ -591,7 +592,8 @@ paths:
         This operation requires `read` permission for the API and the collections (e.g. `api:treatments:read`). For each collection the permission is checked separately, you will get timestamps only for those collections that you have access to.
 
       security:
-        - apiKeyAuth: []
+        - accessToken: []
+        - jwtoken: []
 
       responses:
         200:
@@ -850,11 +852,54 @@ components:
   ######################################################################################
   responses:
 
+    200Ok:
+      description: The request was successfully processed
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 200
+
+    200Deduplication:
+      description: Successfully updated a duplicate document in the collection
+      headers:
+        'Last-Modified':
+          $ref: '#/components/schemas/headerLastModified'
+        'Location':
+          $ref: '#/components/schemas/headerLocation'
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 200
+              identifier:
+                $ref: '#/components/schemas/identifierField'
+              isDeduplication:
+                $ref: '#/components/schemas/isDeduplicationField'
+              deduplicatedIdentifier:
+                $ref: '#/components/schemas/deduplicatedIdentifierField'
+
+
     201Created:
       description: Successfully created a new document in collection
       headers:
         'Last-Modified':
           $ref: '#/components/schemas/headerLastModified'
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 201
+              identifier:
+                $ref: '#/components/schemas/identifierField'
+              lastModified:
+                $ref: '#/components/schemas/lastModifiedField'
 
     201CreatedLocation:
       description: Successfully created a new document in collection
@@ -863,20 +908,17 @@ components:
           $ref: '#/components/schemas/headerLastModified'
         'Location':
           $ref: '#/components/schemas/headerLocation'
-
-    204NoContent:
-      description: Successfully finished operation
-      headers:
-        'Last-Modified':
-          $ref: '#/components/schemas/headerLastModified'
-
-    204NoContentLocation:
-      description: Successfully finished operation
-      headers:
-        'Last-Modified':
-          $ref: '#/components/schemas/headerLastModified'
-        'Location':
-          $ref: '#/components/schemas/headerLocation'
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 201
+              identifier:
+                $ref: '#/components/schemas/identifierField'
+              lastModified:
+                $ref: '#/components/schemas/lastModifiedField'
 
     304NotModified:
       description: The document has not been modified on the server since timestamp specified in If-Modified-Since header
@@ -886,34 +928,95 @@ components:
 
     400BadRequest:
       description: The request is malformed. There may be some required parameters missing or there are unrecognized parameters present.
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 400
 
     401Unauthorized:
       description: The request was not successfully authenticated using access token or JWT, or the request has missing `Date` header or it contains an expired timestamp, so that the request cannot continue due to the security policy.
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 401
 
     403Forbidden:
       description: Insecure HTTP scheme used or the request has been successfully authenticated, but the security subject is not authorized for the operation.
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 403
 
     404NotFound:
       description: The collection or document specified was not found.
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 404
 
     406NotAcceptable:
       description: The requested content type (in `Accept` header) is not supported.
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 406
 
     412PreconditionFailed:
       description: The document has already been modified on the server since specified timestamp (in If-Unmodified-Since header).
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 412
 
     410Gone:
       description: The requested document has already been deleted.
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 410
 
     422UnprocessableEntity:
       description: The client request is well formed but a server validation error occured. Eg. when trying to modify or delete a read-only document (having `isReadOnly=true`).
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 422
 
     search200:
       description: Successful operation returning array of documents matching the filtering criteria
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/DocumentArray'
+            properties:
+              status:
+                type: integer
+                example: 200
+              result:
+                $ref: '#/components/schemas/DocumentArray'
         text/csv:
           schema:
             $ref: '#/components/schemas/DocumentArray'
@@ -921,15 +1024,17 @@ components:
           schema:
             $ref: '#/components/schemas/DocumentArray'
 
-    search204:
-      description: Successful operation - no documents matching the filtering criteria
-
     read200:
       description: The document has been succesfully found and its JSON form returned in the response content.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Document'
+            properties:
+              status:
+                type: integer
+                example: 200
+              result:
+                $ref: '#/components/schemas/Document'
         text/csv:
           schema:
             $ref: '#/components/schemas/Document'
@@ -946,7 +1051,12 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/DocumentArray'
+            properties:
+              status:
+                type: integer
+                example: 200
+              result:
+                $ref: '#/components/schemas/DocumentArray'
         text/csv:
           schema:
             $ref: '#/components/schemas/DocumentArray'
@@ -959,15 +1069,18 @@ components:
         'ETag':
           $ref: '#/components/schemas/headerEtagLastModifiedMaximum'
 
-    history204:
-      description: No changes detected
-
     lastModified200:
       description: Successful operation returning the timestamps
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/LastModifiedResult'
+            properties:
+              status:
+                type: integer
+                example: 200
+              result:
+                $ref: '#/components/schemas/LastModifiedResult'
+
 
   ######################################################################################
   schemas:
@@ -1023,6 +1136,44 @@ components:
     paramIdentifier:
       type: string
       example: '53409478-105f-11e9-ab14-d663bd873d93'
+
+
+    identifierField:
+      description:
+        Identifier of created or modified document
+      type: string
+      example: '53409478-105f-11e9-ab14-d663bd873d93'
+
+
+    lastModifiedField:
+      type: integer
+      format: int64
+      description:
+        Timestamp of the last document modification on the server, formatted as
+
+        Unix epoch in milliseconds (1525383610088)
+      example: 1525383610088
+
+    statusField:
+      type: integer
+      description:
+        HTTP response status code. The status appears also in response body's field for those clients
+        that are unable to process standard HTTP status code.
+      example: 200
+
+
+    isDeduplicationField:
+      type: boolean
+      description:
+        Flag whether the operation found a duplicate document (to update)
+      example: true
+
+
+    deduplicatedIdentifierField:
+      type: string
+      description:
+        The original document that has been marked as a duplicate document and which has been updated
+      example: 'abc09478-105f-11e9-ab14-d663bd873d93'
 
 
     DocumentBase:
@@ -1530,6 +1681,17 @@ components:
       type: object
       properties:
 
+        status:
+          $ref: '#/components/schemas/statusField'
+
+        result:
+          $ref: '#/components/schemas/VersionResult'
+
+
+    VersionResult:
+      type: object
+      properties:
+
         version:
           description: The whole Nightscout instance version
           type: string
@@ -1562,8 +1724,17 @@ components:
 
     Status:
       description: Information about versions and API permissions
+      properties:
+        status:
+          $ref: '#/components/schemas/statusField'
+
+        result:
+          $ref: '#/components/schemas/StatusResult'
+
+
+    StatusResult:
       allOf:
-        - $ref: '#/components/schemas/Version'
+        - $ref: '#/components/schemas/VersionResult'
         - type: object
           properties:
 
@@ -1585,7 +1756,6 @@ components:
                 treatments:
                   type: string
                   example: 'crud'
-
 
     LastModifiedResult:
       description: Result of LAST MODIFIED operation

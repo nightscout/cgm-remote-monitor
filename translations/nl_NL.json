@@ -612,6 +612,7 @@
     "virtAsstCGMBattOne": "Uw CGM batterij was %1 volt sinds %2.",
     "virtAsstCGMBattTwo": "Uw CGM batterijniveau was %1 volt en %2 volt sinds %3.",
     "virtAsstDelta": "Je delta was %1 tussen %2 en %3.",
+    "virtAsstDeltaEstimated": "Je geschatte delta was %1 tussen %2 en %3.",
     "virtAsstUnknownIntentTitle": "Onbekende Intentie",
     "virtAsstUnknownIntentText": "Het spijt me, ik weet niet wat je bedoelt.",
     "Fat [g]": "Vet [g]",
