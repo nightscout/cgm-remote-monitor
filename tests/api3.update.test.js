@@ -21,7 +21,7 @@ describe('API3 UPDATE', function() {
     eventType: 'Correction Bolus',
     insulin: 0.3
   };
-
+  
   self.timeout(15000);
 
 
@@ -41,30 +41,18 @@ describe('API3 UPDATE', function() {
 
     self.app = self.instance.app;
     self.env = self.instance.env;
-    self.col = 'treatments'
-    self.url = `/api/v3/${self.col}`;
+    self.url = '/api/v3/treatments';
 
     let authResult = await authSubject(self.instance.ctx.authorization.storage);
 
     self.subject = authResult.subject;
     self.token = authResult.token;
     self.urlToken = `${self.url}/${self.validDoc.identifier}?token=${self.token.update}`
-    self.cache = self.instance.cacheMonitor;
   });
 
 
   after(() => {
     self.instance.ctx.bus.teardown();
-  });
-
-
-  beforeEach(() => {
-    self.cache.clear();
-  });
-
-
-  afterEach(() => {
-    self.cache.shouldBeEmpty();
   });
 
 
@@ -102,7 +90,6 @@ describe('API3 UPDATE', function() {
       .expect(201);
 
     res.body.should.be.empty();
-    self.cache.nextShouldEql(self.col, self.validDoc)
 
     const lastModified = new Date(res.headers['last-modified']).getTime(); // Last-Modified has trimmed milliseconds
 
@@ -126,7 +113,6 @@ describe('API3 UPDATE', function() {
       .expect(204);
 
     res.body.should.be.empty();
-    self.cache.nextShouldEql(self.col, self.validDoc)
 
     const lastModified = new Date(res.headers['last-modified']).getTime(); // Last-Modified has trimmed milliseconds
 
@@ -151,7 +137,6 @@ describe('API3 UPDATE', function() {
       .expect(204);
 
     res.body.should.be.empty();
-    self.cache.nextShouldEql(self.col, doc)
 
     let body = await self.get(self.validDoc.identifier);
     body.should.containEql(doc);
@@ -285,8 +270,6 @@ describe('API3 UPDATE', function() {
       .expect(204);
 
     res.body.should.be.empty();
-    delete self.validDoc.srvModified;
-    self.cache.nextShouldEql(self.col, self.validDoc)
   });
 
 
@@ -295,7 +278,6 @@ describe('API3 UPDATE', function() {
       .expect(204);
 
     res.body.should.be.empty();
-    self.cache.nextShouldDeleteLast(self.col)
 
     res = await self.instance.put(self.urlToken)
       .send(self.validDoc)
