@@ -1,22 +1,18 @@
 'use strict';
 
-const _ = require('lodash');
-const should = require('should');
-const moment = require('moment');
-const fs = require('fs');
+var _ = require('lodash');
+var should = require('should');
+var moment = require('moment');
 
-const language = require('../lib/language')(fs);
-
-var top_ctx = {
-  language: language
+var ctx = {
+  language: require('../lib/language')()
   , settings: require('../lib/settings')()
 };
-top_ctx.language.set('en');
-var levels = require('../lib/levels');
-top_ctx.levels = levels;
+ctx.language.set('en');
 var env = require('../env')();
-var openaps = require('../lib/plugins/openaps')(top_ctx);
-var sandbox = require('../lib/sandbox')(top_ctx);
+var openaps = require('../lib/plugins/openaps')(ctx);
+var sandbox = require('../lib/sandbox')();
+var levels = require('../lib/levels');
 
 var statuses = [{
   created_at: '2015-12-05T19:05:00.000Z',
@@ -276,7 +272,7 @@ describe('openaps', function ( ) {
           done();
         }
       }
-      , language: language
+      , language: require('../lib/language')()
     };
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
@@ -306,9 +302,8 @@ describe('openaps', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, top_ctx)
-      , language: language
-      , levels: levels
+      , notifications: require('../lib/notifications')(env, ctx)
+      , language: require('../lib/language')()
     };
 
     ctx.notifications.initRequests();
@@ -335,8 +330,8 @@ describe('openaps', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, top_ctx)
-      , language: language
+      , notifications: require('../lib/notifications')(env, ctx)
+      , language: require('../lib/language')()
     };
 
     ctx.notifications.initRequests();
@@ -357,8 +352,8 @@ describe('openaps', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, top_ctx)
-      , language: language
+      , notifications: require('../lib/notifications')(env, ctx)
+      , language: require('../lib/language')()
    };
 
     ctx.notifications.initRequests();
@@ -381,8 +376,8 @@ describe('openaps', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, top_ctx)
-      , language: language
+      , notifications: require('../lib/notifications')(env, ctx)
+      , language: require('../lib/language')()
     };
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
