@@ -6,12 +6,13 @@ var levels = require('../lib/levels');
 describe('insulinage', function ( ) {
     var env = require('../env')();
     var ctx = {};
+    ctx.levels = levels;
     ctx.ddata = require('../lib/data/ddata')();
     ctx.notifications = require('../lib/notifications')(env, ctx);
     ctx.language = require('../lib/language')();
 
     var iage = require('../lib/plugins/insulinage')(ctx);
-    var sandbox = require('../lib/sandbox')();
+    var sandbox = require('../lib/sandbox')(ctx);
     function prepareSandbox ( ) {
         var sbx = require('../lib/sandbox')().serverInit(env, ctx);
         sbx.offerProperty('iob', function () {
