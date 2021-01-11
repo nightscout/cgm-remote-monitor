@@ -658,7 +658,7 @@
     "Carbs/Food/Time": "Karbo/Mat/Abs.tid",
     "You have administration messages": "Du har administrasjonsmeldinger",
     "Admin messages in queue": "Admin meldinger i køen",
-    "Queue empty": "Queue empty",
+    "Queue empty": "Kø tom",
     "There are no admin messages in queue": "Det er ingen admin meldinger i køen",
     "Please sign in using the API_SECRET to see your administration messages": "Vennligst logg inn med API_SECRET for å se administrasjonsmeldingene dine",
     "Reads enabled in default permissions": "Lesetilgang er aktivert i innstillingene",
