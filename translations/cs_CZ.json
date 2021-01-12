@@ -612,6 +612,7 @@
     "virtAsstCGMBattOne": "Baterie CGM vysílače byla %1 voltů od %2.",
     "virtAsstCGMBattTwo": "Stav baterie CGM vysílače byla mezi %1 voltů a %2 voltů od %3.",
     "virtAsstDelta": "Vaše delta byla %1 mezi %2 a %3.",
+    "virtAsstDeltaEstimated": "Vaše odhadovaná delta byla %1 mezi %2 a %3.",
     "virtAsstUnknownIntentTitle": "Neznámý úmysl",
     "virtAsstUnknownIntentText": "Je mi líto. Nevím, na co se ptáte.",
     "Fat [g]": "Tuk [g]",

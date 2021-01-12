@@ -612,6 +612,7 @@
     "virtAsstCGMBattOne": "La batteria del tuo Sensore era %1 volt da %2.",
     "virtAsstCGMBattTwo": "I livelli della batteria del Sensore erano %1 volt e %2 volt a partire da %3.",
     "virtAsstDelta": "Il tuo delta era %1 tra %2 e %3.",
+    "virtAsstDeltaEstimated": "Your estimated delta was %1 between %2 and %3.",
     "virtAsstUnknownIntentTitle": "Intenzioni Sconosciute",
     "virtAsstUnknownIntentText": "Mi dispiace, non so cosa state chiedendo.",
     "Fat [g]": "Grassi [g]",
