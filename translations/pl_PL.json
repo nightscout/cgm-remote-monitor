@@ -60,7 +60,6 @@
     "Hourly stats": "Statystyki godzinowe",
     "netIOB stats": "Statystyki netIOP",
     "temp basals must be rendered to display this report": "Tymczasowa dawka podstawowa jest wymagana aby wyświetlić ten raport",
-    "Weekly success": "Wyniki tygodniowe",
     "No data available": "Brak danych",
     "Low": "Niski",
     "In Range": "W zakresie",
@@ -613,6 +612,7 @@
     "virtAsstCGMBattOne": "Your CGM battery was %1 volts as of %2.",
     "virtAsstCGMBattTwo": "Your CGM battery levels were %1 volts and %2 volts as of %3.",
     "virtAsstDelta": "Your delta was %1 between %2 and %3.",
+    "virtAsstDeltaEstimated": "Your estimated delta was %1 between %2 and %3.",
     "virtAsstUnknownIntentTitle": "Unknown Intent",
     "virtAsstUnknownIntentText": "I'm sorry, I don't know what you're asking for.",
     "Fat [g]": "Tłuszcz [g]",
@@ -683,5 +683,7 @@
     "Temp basal delta": "Temp basal delta",
     "Authorized by token": "Authorized by token",
     "Auth role": "Auth role",
-    "view without token": "view without token"
+    "view without token": "view without token",
+    "Remove stored token": "Remove stored token",
+    "Weekly Distribution": "Weekly Distribution"
 }
