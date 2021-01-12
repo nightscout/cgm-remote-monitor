@@ -1,17 +1,22 @@
 'use strict';
 
-var _ = require('lodash');
-var should = require('should');
-var moment = require('moment');
+const _ = require('lodash');
+const should = require('should');
+const moment = require('moment');
+const fs = require('fs');
 
-var ctx = {
-  language: require('../lib/language')()
+const language = require('../lib/language')(fs);
+
+var top_ctx = {
+  language: language
+  , settings: require('../lib/settings')()
 };
-ctx.language.set('en');
-var env = require('../env')();
-var openaps = require('../lib/plugins/openaps')(ctx);
-var sandbox = require('../lib/sandbox')();
+top_ctx.language.set('en');
 var levels = require('../lib/levels');
+top_ctx.levels = levels;
+var env = require('../env')();
+var openaps = require('../lib/plugins/openaps')(top_ctx);
+var sandbox = require('../lib/sandbox')(top_ctx);
 
 var statuses = [{
   created_at: '2015-12-05T19:05:00.000Z',
@@ -271,7 +276,7 @@ describe('openaps', function ( ) {
           done();
         }
       }
-      , language: require('../lib/language')()
+      , language: language
     };
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
@@ -301,8 +306,9 @@ describe('openaps', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
     };
 
     ctx.notifications.initRequests();
@@ -329,8 +335,8 @@ describe('openaps', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
     };
 
     ctx.notifications.initRequests();
@@ -351,8 +357,8 @@ describe('openaps', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
    };
 
     ctx.notifications.initRequests();
@@ -370,26 +376,26 @@ describe('openaps', function ( ) {
     done();
   });
 
-  it('should handle alexa requests', function (done) {
+  it('should handle virtAsst requests', function (done) {
     var ctx = {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
     };
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
     openaps.setProperties(sbx);
 
-    openaps.alexa.intentHandlers.length.should.equal(2);
+    openaps.virtAsst.intentHandlers.length.should.equal(2);
 
-    openaps.alexa.intentHandlers[0].intentHandler(function next(title, response) {
-      title.should.equal('Loop Forecast');
+    openaps.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
+      title.should.equal('OpenAPS Forecast');
       response.should.equal('The OpenAPS Eventual BG is 125');
 
-      openaps.alexa.intentHandlers[1].intentHandler(function next(title, response) {
-        title.should.equal('Last loop');
+      openaps.virtAsst.intentHandlers[1].intentHandler(function next(title, response) {
+        title.should.equal('Last Loop');
         response.should.equal('The last successful loop was 2 minutes ago');
         done();
       }, [], sbx);
