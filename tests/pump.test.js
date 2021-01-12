@@ -329,7 +329,7 @@ describe('pump', function ( ) {
           done();
         }
       }
-      , notifications: require('../lib/notifications')(env, ctx)
+      , notifications: require('../lib/notifications')(env, top_ctx)
       , language: require('../lib/language')()
       , levels: levels
     };
