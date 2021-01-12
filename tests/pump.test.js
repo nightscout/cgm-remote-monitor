@@ -331,6 +331,7 @@ describe('pump', function ( ) {
       }
       , notifications: require('../lib/notifications')(env, ctx)
       , language: require('../lib/language')()
+      , levels: levels
     };
 
     ctx.notifications.initRequests();
