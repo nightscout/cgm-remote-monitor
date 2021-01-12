@@ -13,7 +13,7 @@ var nowData = {
 };
 
 describe('client', function ( ) {
-  this.timeout(30000); // TODO: see why this test takes longer on Travis to complete
+  this.timeout(40000); // TODO: see why this test takes longer on Travis to complete
 
   var self = this;
 
@@ -46,7 +46,6 @@ describe('client', function ( ) {
       hashauth.authenticated = true;
       next(true); 
     };
-
 
     client.init();
     client.dataUpdate(nowData, true);

@@ -655,6 +655,11 @@
     ,"virtAsstDatabaseSize":"%1 MiB. That is %2% of available database space."
     ,"virtAsstTitleDatabaseSize":"Database file size"
     ,"Carbs/Food/Time":"Carbs/Food/Time"
+    ,"You have administration messages":"You have administration messages"
+    ,"Admin messages in queue":"Admin messages in queue"
+    ,"Queue empty":"Queue empty"
+    ,"There are no admin messages in queue":"There are no admin messages in queue"
+    ,"Please sign in using the API_SECRET to see your administration messages":"Please sign in using the API_SECRET to see your administration messages"
     ,"Reads enabled in default permissions":"Reads enabled in default permissions"
     ,"Data reads enabled": "Data reads enabled"
     ,"Data writes enabled": "Data writes enabled"
@@ -685,4 +690,6 @@
     ,"view without token":"view without token"
     ,"Remove stored token":"Remove stored token"
     ,"Weekly Distribution":"Weekly Distribution"
+    ,"Failed authentication":"Failed authentication"
+    ,"A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?"
 }
