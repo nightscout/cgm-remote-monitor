@@ -9,6 +9,7 @@ describe('boluswizardpreview', function ( ) {
   var ctx = {
     settings: {}
     , language: require('../lib/language')()
+    , levels: levels
   };
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
