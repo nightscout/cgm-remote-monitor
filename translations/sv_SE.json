@@ -60,7 +60,6 @@
     "Hourly stats": "Timmstatistik",
     "netIOB stats": "netIOB statistik",
     "temp basals must be rendered to display this report": "temp basal måste vara synlig för denna rapport",
-    "Weekly success": "Veckoresultat",
     "No data available": "Data saknas",
     "Low": "Låg",
     "In Range": "Inom intervallet",
@@ -613,6 +612,7 @@
     "virtAsstCGMBattOne": "Ditt CGM batteri var %1 volt från och med %2.",
     "virtAsstCGMBattTwo": "Dina CGM batterinivåer var %1 volt och %2 volt från och med %3.",
     "virtAsstDelta": "Ditt delta var %1 mellan %2 och %3.",
+    "virtAsstDeltaEstimated": "Your estimated delta was %1 between %2 and %3.",
     "virtAsstUnknownIntentTitle": "Okänd Avsikt",
     "virtAsstUnknownIntentText": "Jag är ledsen, jag vet inte vad du ber om.",
     "Fat [g]": "Fett [g]",
@@ -683,5 +683,7 @@
     "Temp basal delta": "Temp basal delta",
     "Authorized by token": "Auktoriserad av token",
     "Auth role": "Auth roll",
-    "view without token": "visa utan token"
+    "view without token": "visa utan token",
+    "Remove stored token": "Remove stored token",
+    "Weekly Distribution": "Weekly Distribution"
 }
