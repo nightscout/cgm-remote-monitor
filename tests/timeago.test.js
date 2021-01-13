@@ -4,6 +4,7 @@ var times = require('../lib/times');
 
 describe('timeago', function() {
   var ctx = {};
+  ctx.levels = levels;
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
   ctx.language = require('../lib/language')();
