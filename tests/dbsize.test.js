@@ -1,6 +1,13 @@
 'use strict';
 
+const fs = require('fs');
+const language = require('../lib/language')(fs);
+const levels = require('../lib/levels');
 require('should');
+
+var topctx = {
+  levels: levels
+}
 
 describe('Database Size', function() {
 
@@ -14,10 +21,9 @@ describe('Database Size', function() {
     var sandbox = require('../lib/sandbox')();
     var ctx = {
       settings: {}
-      , language: require('../lib/language')()
+      , language: language
+      , levels: levels
     };
-    ctx.language.set('en');
-    ctx.levels = require('../lib/levels');
 
     var sbx = sandbox.clientInit(ctx, Date.now(), dataInRange);
 
@@ -40,10 +46,9 @@ describe('Database Size', function() {
     var sandbox = require('../lib/sandbox')();
     var ctx = {
       settings: {}
-      , language: require('../lib/language')()
+      , language: language
+      , levels: levels
     };
-    ctx.language.set('en');
-    ctx.levels = require('../lib/levels');
 
     var sbx = sandbox.clientInit(ctx, Date.now(), dataWarn);
 
@@ -67,10 +72,9 @@ describe('Database Size', function() {
     var sandbox = require('../lib/sandbox')();
     var ctx = {
       settings: {}
-      , language: require('../lib/language')()
+      , language: language
+      , levels: levels
     };
-    ctx.language.set('en');
-    ctx.levels = require('../lib/levels');
 
     var sbx = sandbox.clientInit(ctx, Date.now(), dataUrgent);
 
@@ -93,12 +97,11 @@ describe('Database Size', function() {
     var sandbox = require('../lib/sandbox')();
     var ctx = {
       settings: {}
-      , language: require('../lib/language')()
-      , notifications: require('../lib/notifications')(env, ctx)
+      , language: language
+      , notifications: require('../lib/notifications')(env, topctx)
+      , levels: levels
     };
     ctx.notifications.initRequests();
-    ctx.language.set('en');
-    ctx.levels = require('../lib/levels');
 
     var sbx = sandbox.clientInit(ctx, Date.now(), dataWarn);
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
@@ -121,12 +124,11 @@ describe('Database Size', function() {
     var sandbox = require('../lib/sandbox')();
     var ctx = {
       settings: {}
-      , language: require('../lib/language')()
-      , notifications: require('../lib/notifications')(env, ctx)
+      , language: language
+      , notifications: require('../lib/notifications')(env, topctx)
+      , levels: levels
     };
     ctx.notifications.initRequests();
-    ctx.language.set('en');
-    ctx.levels = require('../lib/levels');
 
     var sbx = sandbox.clientInit(ctx, Date.now(), dataUrgent);
     sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
@@ -156,9 +158,9 @@ describe('Database Size', function() {
           done();
         }
       }
-      , language: require('../lib/language')()
+      , language: language
+      , levels: levels
     };
-    ctx.language.set('en');
 
     var sandbox = require('../lib/sandbox')();
     var sbx = sandbox.clientInit(ctx, Date.now(), dataUrgent);
@@ -188,9 +190,9 @@ describe('Database Size', function() {
           done();
         }
       }
-      , language: require('../lib/language')()
+      , language: language
+      , levels: levels
     };
-    ctx.language.set('en');
 
     var sandbox = require('../lib/sandbox')();
     var sbx = sandbox.clientInit(ctx, Date.now(), dataUrgent);
@@ -220,9 +222,9 @@ describe('Database Size', function() {
           done();
         }
       }
-      , language: require('../lib/language')()
+      , language: language
+      , levels: levels
     };
-    ctx.language.set('en');
 
     var sandbox = require('../lib/sandbox')();
     var sbx = sandbox.clientInit(ctx, Date.now(), dataInRange);
@@ -252,9 +254,9 @@ describe('Database Size', function() {
           done();
         }
       }
-      , language: require('../lib/language')()
+      , language: language
+      , levels: levels
     };
-    ctx.language.set('en');
 
     var sandbox = require('../lib/sandbox')();
     var sbx = sandbox.clientInit(ctx, Date.now(), dataInRange);
@@ -274,9 +276,9 @@ describe('Database Size', function() {
           done();
         }
       }
-      , language: require('../lib/language')()
+      , language: language
+      , levels: levels
     };
-    ctx.language.set('en');
 
     var sandbox = require('../lib/sandbox')();
     var sbx = sandbox.clientInit(ctx, Date.now(), {});
@@ -291,27 +293,22 @@ describe('Database Size', function() {
 
     var ctx = {
       settings: {}
-      , language: require('../lib/language')()
+      , language: language
+      , levels: levels
     };
-    ctx.language.set('en');
 
     var sandbox = require('../lib/sandbox')();
     var sbx = sandbox.clientInit(ctx, Date.now(), dataUrgent);
     var dbsize = require('../lib/plugins/dbsize')(ctx);
     dbsize.setProperties(sbx);
 
-    dbsize.virtAsst.intentHandlers.length.should.equal(2);
+    dbsize.virtAsst.intentHandlers.length.should.equal(1);
 
     dbsize.virtAsst.intentHandlers[0].intentHandler(function next (title, response) {
       title.should.equal('Database file size');
-      response.should.equal('450 MiB that is 90% of available database space');
+      response.should.equal('450 MiB. That is 90% of available database space.');
 
-      dbsize.virtAsst.intentHandlers[1].intentHandler(function next (title, response) {
-        title.should.equal('Database file size');
-        response.should.equal('450 MiB that is 90% of available database space');
-
-        done();
-      }, [], sbx);
+      done();
 
     }, [], sbx);
 
