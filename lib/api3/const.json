@@ -1,5 +1,5 @@
 {
-  "API3_VERSION": "3.0.0-alpha",
+  "API3_VERSION": "3.0.2-alpha",
   "API3_SECURITY_ENABLE": true,
   "API3_TIME_SKEW_TOLERANCE": 5,
   "API3_DEDUP_FALLBACK_ENABLED": true,
@@ -15,6 +15,7 @@
     "UNAUTHORIZED": 401,
     "FORBIDDEN": 403,
     "NOT_FOUND": 404,
+    "NOT_ACCEPTABLE": 406,
     "GONE": 410,
     "PRECONDITION_FAILED": 412,
     "UNPROCESSABLE_ENTITY": 422,
@@ -40,6 +41,8 @@
     "HTTP_401_MISSING_OR_BAD_TOKEN": "Missing or bad access token or JWT",
     "HTTP_403_MISSING_PERMISSION": "Missing permission {0}",
     "HTTP_403_NOT_USING_HTTPS": "Not using SSL/TLS",
+    "HTTP_404_BAD_OPERATION": "Bad operation or collection",
+    "HTTP_406_UNSUPPORTED_FORMAT": "Unsupported output format requested",
     "HTTP_422_READONLY_MODIFICATION": "Trying to modify read-only document",
     "HTTP_500_INTERNAL_ERROR": "Internal Server Error",
     "STORAGE_ERROR": "Database error",
