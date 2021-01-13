@@ -49,7 +49,7 @@ input[type=number]:invalid {
   text-decoration: underline;
 }
 
-#treatmentDrawer {
+#treatmentDrawer, #adminNotifiesDrawer {
   background-color: #666;
   border-left: 1px solid #999;
   box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
@@ -64,6 +64,19 @@ input[type=number]:invalid {
   right: -200px;
   top: 0;
   z-index: 1;
+}
+
+#adminNotifyContent {
+  margin: 10px;
+}
+
+.adminNotifyMessage {
+  margin-left: 10px;
+}
+
+.adminNotifyMessageAdditionalInfo {
+  margin-left: 10px;
+  font-size: 11px;
 }
 
 #treatmentDrawer input {

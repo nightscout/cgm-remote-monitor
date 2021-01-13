@@ -48,6 +48,9 @@ function create (app) {
 }
 
 require('./lib/server/bootevent')(env, language).boot(function booted (ctx) {
+
+    console.log('Boot event processing completed');
+    
     var app = require('./app')(env, ctx);
     var server = create(app).listen(PORT, HOSTNAME);
     console.log(translate('Listening on port'), PORT, HOSTNAME);
