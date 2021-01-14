@@ -301,7 +301,7 @@
     "Record %1 removed ...": "запись %1 удалена",
     "Error removing record %1": "Ошибка удаления записи %1",
     "Deleting records ...": "Записи удаляются",
-    "%1 records deleted": "% записей удалено",
+    "%1 records deleted": "%1 записей удалено",
     "Clean Mongo status database": "Очистить статус базы данных Mongo",
     "Delete all documents from devicestatus collection": "Стереть все документы из коллекции статус устройства",
     "This task removes all documents from devicestatus collection. Useful when uploader battery status is not properly updated.": "Эта опция удаляет все документы из коллекции статус устройства. Полезно когда состояние батвреи загрузчика не обновляется",
