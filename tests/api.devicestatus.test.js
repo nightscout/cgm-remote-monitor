@@ -60,6 +60,7 @@ describe('Devicestatus API', function ( ) {
             .set('api-secret', self.env.api_secret || '')
             .expect(200)
             .expect(function (response) {
+              console.log(JSON.stringify(response.body[0]));
               response.body[0].xdripjs.state.should.equal(6);
               response.body[0].utcOffset.should.equal(0);
             })
