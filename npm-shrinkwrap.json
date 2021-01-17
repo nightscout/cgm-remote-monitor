@@ -3737,6 +3737,15 @@
         "rimraf": "^2.6.1"
       }
     },
+    "eslint-plugin-security": {
+      "version": "1.4.0",
+      "resolved": "https://registry.npmjs.org/eslint-plugin-security/-/eslint-plugin-security-1.4.0.tgz",
+      "integrity": "sha512-xlS7P2PLMXeqfhyf3NpqbvbnW04kN8M9NtmhpR3XGyOvt/vNKS7XPXT5EDbwKW9vCjWH4PpfQvgD/+JgN0VJKA==",
+      "dev": true,
+      "requires": {
+        "safe-regex": "^1.1.0"
+      }
+    },
     "eslint-scope": {
       "version": "4.0.3",
       "resolved": "https://registry.npmjs.org/eslint-scope/-/eslint-scope-4.0.3.tgz",
