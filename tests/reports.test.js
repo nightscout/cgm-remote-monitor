@@ -191,7 +191,7 @@ describe('reports', function ( ) {
     , serverSettings: serverSettings
     , mockSimpleAjax: someData
     , benvRequires: [
-       __dirname + '/../static/report/js/report.js'
+       __dirname + '/../static/js/reportinit.js'
       ]
     };
     headless.setup(opts, done);
@@ -227,6 +227,8 @@ describe('reports', function ( ) {
        call();
      };
 
+     window.Nightscout.reportclient();
+
     client.init(function afterInit ( ) {
       client.dataUpdate(nowData);
 
@@ -260,13 +262,14 @@ describe('reports', function ( ) {
       $('img.editTreatment:first').click();
       $('.ui-button:contains("Save")').click();
 
-      /*
+      
       var result = $('body').html();
+      /*
       var filesys = require('fs');
       var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
       logfile.write(result);
       console.log('RESULT', result);
-      
+      */
       result.indexOf('Milk now').should.be.greaterThan(-1); // daytoday
       result.indexOf('50 g').should.be.greaterThan(-1); // daytoday
       result.indexOf('TDD average:</b> 2.9U').should.be.greaterThan(-1); // daytoday
@@ -276,7 +279,7 @@ describe('reports', function ( ) {
       result.indexOf('<div id="success-grid">').should.be.greaterThan(-1); //success
       result.indexOf('<b style="padding-left:4em">CAL</b>:  Scale: 1.10 Intercept: 31102 Slope: 776.91').should.be.greaterThan(-1); //calibrations
       result.indexOf('<td>Correction Bolus</td><td align="center">250 (Sensor)</td><td align="center">0.75</td>').should.be.greaterThan(-1); //treatments
-*/
+
       done();
     });
   });
