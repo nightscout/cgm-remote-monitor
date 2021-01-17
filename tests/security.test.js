@@ -22,7 +22,7 @@ describe('API_SECRET', function ( ) {
     var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'this is my long pass phrase';
-    var env = require('../env')( );
+    var env = require('../lib/server/env')( );
     env.api_secret.should.equal(known);
     setup_app(env, function (ctx) {
       // console.log(this.app.enabled('api'));
@@ -43,7 +43,7 @@ describe('API_SECRET', function ( ) {
     var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'this is my long pass phrase';
-    var env = require('../env')( );
+    var env = require('../lib/server/env')( );
     env.api_secret.should.equal(known);
     setup_app(env, function (ctx) {
       // console.log(this.app.enabled('api'));
@@ -62,7 +62,7 @@ describe('API_SECRET', function ( ) {
   it('should not work short', function ( ) {
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'tooshort';
-    var env = require('../env')( );
+    var env = require('../lib/server/env')( );
     should.not.exist(env.api_secret);
     env.err[0].desc.should.startWith('API_SECRET should be at least');
   });

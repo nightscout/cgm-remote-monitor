@@ -12,7 +12,7 @@ describe('Verifyauth REST api', function ( ) {
   
   var api = require('../lib/api/');
   before(function (done) {
-    self.env = require('../env')( );
+    self.env = require('../lib/server/env')( );
     self.env.api_secret = 'this is my long pass phrase';
     self.env.settings.authDefaultRoles = 'denied';
     this.wares = require('../lib/middleware/')(self.env);

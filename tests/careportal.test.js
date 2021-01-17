@@ -2,8 +2,6 @@
 
 require('should');
 var benv = require('benv');
-var read = require('fs').readFileSync;
-var serverSettings = require('./fixtures/default-server-settings');
 
 var nowData = {
   sgvs: [
@@ -12,10 +10,12 @@ var nowData = {
   , treatments: []
 };
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 describe('client', function ( ) {
   this.timeout(40000); // TODO: see why this test takes longer on Travis to complete
-
-  var self = this;
 
   var headless = require('./fixtures/headless')(benv, this);
 
@@ -36,7 +36,7 @@ describe('client', function ( ) {
     done( );
   });
 
-  it ('open careportal, and enter a treatment', function (done) {
+  it ('open careportal, and enter a treatment', async () =>{
 
 	var client = window.Nightscout.client;
 	
@@ -48,7 +48,10 @@ describe('client', function ( ) {
     };
 
     client.init();
+    sleep(50);
+
     client.dataUpdate(nowData, true);
+    sleep(50);
 
     client.careportal.prepareEvents();
 
@@ -85,7 +88,6 @@ describe('client', function ( ) {
     
     client.careportal.save();
 
-    done();
   });
 
 });

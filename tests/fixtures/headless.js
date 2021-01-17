@@ -15,15 +15,11 @@ function headless (benv, binding) {
     var someData = opts.mockAjax || { };
     benv.setup(function() {
     
-      benv.require(__dirname + '/../../tmp/js/bundle.report.js');
-          
+      benv.require(__dirname + '/../../tmp/public/js/bundle.app.js');
+      
       self.$ = $;
       
-      self.localCookieStorage = self.localStorage = self.$.localStorage = require('./localstorage');
-
-      //self.$ = require('jquery');
-      //self.$.localStorage = require(localStorage);
-
+      self.localCookieStorage = self.localStorage = self.$.localStorage = require(localStorage);
       self.$.fn.tooltip = function mockTooltip ( ) { };
 
       var indexHtml = read(htmlFile, 'utf8');

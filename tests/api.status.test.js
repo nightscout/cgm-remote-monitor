@@ -8,7 +8,7 @@ require('should');
 describe('Status REST api', function ( ) {
   var api = require('../lib/api/');
   before(function (done) {
-    var env = require('../env')( );
+    var env = require('../lib/server/env')( );
     env.settings.enable = ['careportal', 'rawbg'];
     env.settings.authDefaultRoles = 'readable';
     env.api_secret = 'this is my long pass phrase';

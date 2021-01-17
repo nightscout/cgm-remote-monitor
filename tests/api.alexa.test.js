@@ -13,7 +13,7 @@ describe('Alexa REST api', function ( ) {
   const apiRoot = require('../lib/api/root');
   const api = require('../lib/api/');
   before(function (done) {
-    var env = require('../env')( );
+    var env = require('../lib/server/env')( );
     env.settings.enable = ['alexa'];
     env.settings.authDefaultRoles = 'readable';
     env.api_secret = 'this is my long pass phrase';

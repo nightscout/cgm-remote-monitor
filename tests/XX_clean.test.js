@@ -10,7 +10,7 @@ describe('Clean MONGO after tests', function ( ) {
   var api = require('../lib/api/');
   beforeEach(function (done) {
     process.env.API_SECRET = 'this is my long pass phrase';
-    self.env = require('../env')();
+    self.env = require('../lib/server/env')();
     self.env.settings.authDefaultRoles = 'readable';
     self.env.settings.enable = ['careportal', 'api'];
     this.wares = require('../lib/middleware/')(self.env);

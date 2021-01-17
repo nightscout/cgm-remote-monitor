@@ -12,7 +12,7 @@ describe('Entries REST api', function ( ) {
 
   this.timeout(10000);
   before(function (done) {
-    self.env = require('../env')( );
+    self.env = require('../lib/server/env')( );
     self.env.settings.authDefaultRoles = 'readable';
     self.wares = require('../lib/middleware/')(self.env);
     self.archive = null;

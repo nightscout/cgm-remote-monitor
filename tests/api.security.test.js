@@ -15,7 +15,7 @@ describe('Security of REST API V1', function() {
 
   before(function(done) {
     var api = require('../lib/api/');
-    self.env = require('../env')();
+    self.env = require('../lib/server/env')();
     self.env.api_secret = 'this is my long pass phrase';
     self.env.settings.authDefaultRoles = 'denied';
     this.wares = require('../lib/middleware/')(self.env);
