@@ -9,9 +9,13 @@ var SIX_MINS = 360000;
 describe('BG Now', function ( ) {
   var ctx = {
     language: require('../lib/language')()
+    , settings: require('../lib/settings')()
   };
+ 
+  ctx.levels = require('../lib/levels');
+
   var bgnow = require('../lib/plugins/bgnow')(ctx);
-  var sandbox = require('../lib/sandbox')();
+  var sandbox = require('../lib/sandbox')(ctx);
 
   var now = Date.now();
   var before = now - FIVE_MINS;
@@ -29,6 +33,10 @@ describe('BG Now', function ( ) {
       , language: { translate: function(text) { return text; } }
       }
     };
+    
+    ctx.language = ctx.pluginBase.language;
+    ctx.levels = require('../lib/levels');
+   
     var data = {sgvs: [{mills: before, mgdl: 100}, {mills: now, mgdl: 105}]};
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);

@@ -9,6 +9,7 @@ describe('boluswizardpreview', function ( ) {
   var ctx = {
     settings: {}
     , language: require('../lib/language')()
+    , levels: levels
   };
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
@@ -138,6 +139,9 @@ describe('boluswizardpreview', function ( ) {
       }
       , pluginBase: {}
     };
+    
+    ctx.language = require('../lib/language')();
+    
     var data = {sgvs: [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}]};
     data.treatments = [{mills: now, insulin: '1.0'}];
     data.devicestatus = [];
@@ -178,6 +182,9 @@ describe('boluswizardpreview', function ( ) {
       }
       , pluginBase: {}
     };
+    
+    ctx.language = require('../lib/language')();
+
     var data = {sgvs: [{mills: before, mgdl: 175}, {mills: now, mgdl: 153}]};
     data.treatments = [{mills: now, insulin: '0.45'}];
     data.devicestatus = [];
@@ -233,6 +240,7 @@ describe('boluswizardpreview', function ( ) {
     ctx.ddata.sgvs = [{mills: before, mgdl: 295}, {mills: now, mgdl: 300}];
     ctx.ddata.treatments = [];
     ctx.ddata.profiles = [profile];
+    ctx.levels = require('../lib/levels');
 
     var sbx = prepareSandbox();
     boluswizardpreview.checkNotifications(sbx);
@@ -278,7 +286,8 @@ describe('boluswizardpreview', function ( ) {
         }
       }
     };
-
+    
+    ctx.language = require('../lib/language')();
     var loadedProfile = require('../lib/profilefunctions')();
     loadedProfile.loadData([profile]);
 
