@@ -1,7 +1,10 @@
 module.exports = {
-    "plugins": [ ],
+    "plugins": [
+      "security"
+    ],
     "extends": [
-      "eslint:recommended"
+      "eslint:recommended",
+      "plugin:security/recommended"
     ],
     "parser": "babel-eslint",
     "env": {

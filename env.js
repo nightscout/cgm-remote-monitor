@@ -1,28 +1,35 @@
 'use strict';
 
-var _each = require('lodash/each');
-var _trim = require('lodash/trim');
-var _forIn = require('lodash/forIn');
-var _startsWith = require('lodash/startsWith');
-var _camelCase = require('lodash/camelCase');
+const _each = require('lodash/each');
+const _trim = require('lodash/trim');
+const _forIn = require('lodash/forIn');
+const _startsWith = require('lodash/startsWith');
+const _camelCase = require('lodash/camelCase');
 
-var fs = require('fs');
-var crypto = require('crypto');
-var consts = require('./lib/constants');
+const owasp = require('owasp-password-strength-test');
 
-var env = {
+
+const fs = require('fs');
+const crypto = require('crypto');
+const consts = require('./lib/constants');
+
+const env = {
   settings: require('./lib/settings')()
 };
 
-// Module to constrain all config and environment parsing to one spot.
-// See the
-function config ( ) {
-  /*
-   * See README.md for info about all the supported ENV VARs
-   */
-  env.DISPLAY_UNITS = readENV('DISPLAY_UNITS', 'mg/dl');
+var shadowEnv;
 
-  console.log('Units set to', env.DISPLAY_UNITS );
+// Module to constrain all config and environment parsing to one spot.
+// See README.md for info about all the supported ENV VARs
+function config ( ) {
+
+  // Assume users will typo whitespaces into keys and values
+
+  shadowEnv = {};
+
+  Object.keys(process.env).forEach((key, index) => {
+    shadowEnv[_trim(key)] = _trim(process.env[key]);
+  });
 
   env.PORT = readENV('PORT', 1337);
   env.HOSTNAME = readENV('HOSTNAME', null);
@@ -32,9 +39,8 @@ function config ( ) {
     minify: readENVTruthy('DEBUG_MINIFY', true)
   };
 
-  if (env.err) {
-    delete env.err;
-  }
+  env.err = [];
+  env.notifies = [];
 
   setSSL();
   setAPISecret();
@@ -77,17 +83,22 @@ function setAPISecret() {
     if (readENV('API_SECRET').length < consts.MIN_PASSPHRASE_LENGTH) {
       var msg = ['API_SECRET should be at least', consts.MIN_PASSPHRASE_LENGTH, 'characters'].join(' ');
       console.error(msg);
-      env.err = {desc: msg};
+      env.err.push({ desc: msg });
     } else {
       var shasum = crypto.createHash('sha1');
       shasum.update(readENV('API_SECRET'));
-      env.api_secret = shasum.digest('hex');
 
-      if (!readENV('TREATMENTS_AUTH', true)) {
+      var testresult = owasp.test(readENV('API_SECRET'));
+      const messages = testresult.errors;
 
+      if (messages) {
+        messages.forEach(message => {
+          const m = message.replace('The password must', 'API_SECRET should');
+
+          env.notifies.push({persistent: true, title: 'Security issue', message: m + ' Please change your API_SECRET to reduce risk of unauthorized access.'});
+        });
       }
-
-
+      env.api_secret = shasum.digest('hex');
     }
   }
 }
@@ -125,13 +136,17 @@ function updateSettings() {
     UNITS: 'DISPLAY_UNITS'
   };
 
+  var envDefaultOverrides = {
+    DISPLAY_UNITS: 'mg/dl'
+  };
+
   env.settings.eachSettingAsEnv(function settingFromEnv (name) {
     var envName = envNameOverrides[name] || name;
-    return readENV(envName);
+    return readENV(envName, envDefaultOverrides[envName]);
   });
 
   //should always find extended settings last
-  env.extendedSettings = findExtendedSettings(process.env);
+  env.extendedSettings = findExtendedSettings(shadowEnv);
 
   if (!readENVTruthy('TREATMENTS_AUTH', true)) {
     env.settings.authDefaultRoles = env.settings.authDefaultRoles || "";
@@ -141,16 +156,16 @@ function updateSettings() {
 
 function readENV(varName, defaultValue) {
   //for some reason Azure uses this prefix, maybe there is a good reason
-  var value = process.env['CUSTOMCONNSTR_' + varName]
-    || process.env['CUSTOMCONNSTR_' + varName.toLowerCase()]
-    || process.env[varName]
-    || process.env[varName.toLowerCase()];
+  var value = shadowEnv['CUSTOMCONNSTR_' + varName]
+    || shadowEnv['CUSTOMCONNSTR_' + varName.toLowerCase()]
+    || shadowEnv[varName]
+    || shadowEnv[varName.toLowerCase()];
 
-  if (varName == 'DISPLAY_UNITS' && value) {
-    if (value.toLowerCase().includes('mmol')) {
+  if (varName == 'DISPLAY_UNITS') {
+    if (value && value.toLowerCase().includes('mmol')) {
       value = 'mmol';
     } else {
-      value = 'mg/dl';
+      value = defaultValue;
     }
   }
 
@@ -170,6 +185,8 @@ function findExtendedSettings (envs) {
 
   extended.devicestatus = {};
   extended.devicestatus.advanced = true;
+  extended.devicestatus.days = 1;
+  if(shadowEnv['DEVICESTATUS_DAYS'] && shadowEnv['DEVICESTATUS_DAYS'] == '2') extended.devicestatus.days = 1;
 
   function normalizeEnv (key) {
     return key.toUpperCase().replace('CUSTOMCONNSTR_', '');

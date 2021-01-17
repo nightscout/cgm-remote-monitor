@@ -86,6 +86,9 @@ ctx.ddata.devicestatus = [{uploader: {battery: 100}}];
 
 var bootevent = require('../lib/server/bootevent');
 describe('Pebble Endpoint', function ( ) {
+
+  this.timeout(10000);
+
   var pebble = require('../lib/server/pebble');
   before(function (done) {
     var env = require('../env')( );
