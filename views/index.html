@@ -723,7 +723,9 @@
   <script src="js/client.js"></script>
 
   <script>
-    if ('serviceWorker' in navigator) {
+    // WORKAROUND CHORMIUM RELOAD LOOP ISSUE
+    //if ('serviceWorker' in navigator) {
+    if (false) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function(reg) {
           console.log('Service worker registered');
