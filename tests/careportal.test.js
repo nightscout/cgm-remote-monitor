@@ -40,7 +40,7 @@ describe('client', function ( ) {
 
 	var client = window.Nightscout.client;
 	
-    var hashauth = require('../lib/hashauth');
+    var hashauth = require('../lib/client/hashauth');
     hashauth.init(client,$);
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) { 
       hashauth.authenticated = true;
