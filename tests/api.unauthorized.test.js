@@ -8,6 +8,8 @@ var language = require('../lib/language')();
 describe('authed REST api', function ( ) {
   var entries = require('../lib/api/entries/');
 
+  this.timeout(20000);
+
   before(function (done) {
     var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
     delete process.env.API_SECRET;
