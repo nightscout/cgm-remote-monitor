@@ -418,7 +418,7 @@
     "Negative temp basal insulin:": "Negatívny dočasný bazálny inzulín:",
     "Total basal insulin:": "Celkový bazálny inzulín:",
     "Total daily insulin:": "Celkový denný inzulín:",
-    "Unable to %1 Role": "Chyba volania %1 Role",
+    "Unable to save Role": "Unable to save Role",
     "Unable to delete Role": "Rola sa nedá zmazať",
     "Database contains %1 roles": "Databáza obsahuje %1 rolí",
     "Edit Role": "Editovať rolu",
@@ -433,7 +433,7 @@
     "Subjects - People, Devices, etc": "Subjekty - ľudia, zariadenia atď...",
     "Each subject will have a unique access token and 1 or more roles.  Click on the access token to open a new view with the selected subject, this secret link can then be shared.": "Každý objekt má svoj unikátny prístupový token a 1 alebo viac rolí. Klikni na prístupový token pre otvorenie nového okna pre tento subjekt. Tento link je možné zdielať.",
     "Add new Subject": "Pridať nový subjekt",
-    "Unable to %1 Subject": "Unable to %1 Subject",
+    "Unable to save Subject": "Unable to save Subject",
     "Unable to delete Subject": "Subjekt sa nedá odstrániť",
     "Database contains %1 subjects": "Databáza obsahuje %1 subjektov",
     "Edit Subject": "Editovať subjekt",
@@ -656,6 +656,11 @@
     "virtAsstDatabaseSize": "%1 MiB. That is %2% of available database space.",
     "virtAsstTitleDatabaseSize": "Database file size",
     "Carbs/Food/Time": "Carbs/Food/Time",
+    "You have administration messages": "You have administration messages",
+    "Admin messages in queue": "Admin messages in queue",
+    "Queue empty": "Queue empty",
+    "There are no admin messages in queue": "There are no admin messages in queue",
+    "Please sign in using the API_SECRET to see your administration messages": "Please sign in using the API_SECRET to see your administration messages",
     "Reads enabled in default permissions": "Reads enabled in default permissions",
     "Data reads enabled": "Data reads enabled",
     "Data writes enabled": "Data writes enabled",
@@ -685,5 +690,7 @@
     "Auth role": "Auth role",
     "view without token": "view without token",
     "Remove stored token": "Remove stored token",
-    "Weekly Distribution": "Weekly Distribution"
+    "Weekly Distribution": "Weekly Distribution",
+    "Failed authentication": "Failed authentication",
+    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?"
 }
