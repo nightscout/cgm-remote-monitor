@@ -106,6 +106,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
         - [`basal` (Basal Profile)](#basal-basal-profile)
         - [`bridge` (Share2Nightscout bridge)](#bridge-share2nightscout-bridge)
         - [`mmconnect` (MiniMed Connect bridge)](#mmconnect-minimed-connect-bridge)
+        - [`guardianconnect` (Guardian Connect Info)](#guardianconnect-guardianconnect-info)
         - [`pump` (Pump Monitoring)](#pump-pump-monitoring)
         - [`openaps` (OpenAPS)](#openaps-openaps)
         - [`loop` (Loop)](#loop-loop)
@@ -496,6 +497,17 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `MMCONNECT_STORE_RAW_DATA` - Set this to "true" to store raw data returned from CareLink as `type: "carelink_raw"` database entries (useful for development).
   * `MMCONNECT_SERVER` - Set this to `EU` if you're using the European Medtronic services
 
+##### `guardianconnect` (Guardian Connect info)
+  Display CGM informations from Medtronic Carelink
+  * `GUARDIANCONNECT_WARN_G_C_BAT` (`50`) - The % of the transmitter battery remaining, a warning will be triggered when dropping below this threshold.
+  * `GUARDIANCONNECT_URGENT_G_C_BAT` (`30`) - The % of the transmitter battery remaining, an urgent alarm will be triggered when dropping below this threshold.
+  * `GUARDIANCONNECT_WARN_G_C_LAST_DATA` (`15`) - minutes since the last reading to trigger a warning alarm.
+  * `GUARDIANCONNECT_URGENT_G_C_LAST_DATA` (`30`) - minutes since the last reading to trigger a urgent alarm.
+  * `GUARDIANCONNECT_WARN_G_C_CALIBRATION_TIME` (`3`) - hours to next calibration to trigger a warning alarm.
+  * `GUARDIANCONNECT_URGENT_G_C_CALIBRATION_TIME` (`1`) - hours to next calibration to trigger a urgent alarm.
+  * `GUARDIANCONNECT_WARN_G_C_DURATION_TIME` (`24`)- hours to end of life sensor to trigger a warn alarm.
+  * `GUARDIANCONNECT_URGENT_G_C_DURATION_TIME` (`48`) - hours to end of life sensor to trigger a urgent alarm.
+  
 ##### `pump` (Pump Monitoring)
   Generic Pump Monitoring for OpenAPS, MiniMed Connect, RileyLink, t:slim, with more on the way
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set
