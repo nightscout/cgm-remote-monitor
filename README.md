@@ -106,7 +106,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
         - [`basal` (Basal Profile)](#basal-basal-profile)
         - [`bridge` (Share2Nightscout bridge)](#bridge-share2nightscout-bridge)
         - [`mmconnect` (MiniMed Connect bridge)](#mmconnect-minimed-connect-bridge)
-        - [`guardianconnect` (Guardian Connect Info)](#guardianconnect-guardianconnect-info)
+        - [`guardianconnect` (Guardian Connect Info)](#guardianconnect-guardian-connect-info)
         - [`pump` (Pump Monitoring)](#pump-pump-monitoring)
         - [`openaps` (OpenAPS)](#openaps-openaps)
         - [`loop` (Loop)](#loop-loop)
@@ -498,7 +498,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `MMCONNECT_SERVER` - Set this to `EU` if you're using the European Medtronic services
 
 ##### `guardianconnect` (Guardian Connect info)
-  Display CGM informations from Medtronic Carelink
+  Display Guardian Connect CGM informations from Medtronic Carelink
   * `GUARDIANCONNECT_WARN_G_C_BAT` (`50`) - The % of the transmitter battery remaining, a warning will be triggered when dropping below this threshold.
   * `GUARDIANCONNECT_URGENT_G_C_BAT` (`30`) - The % of the transmitter battery remaining, an urgent alarm will be triggered when dropping below this threshold.
   * `GUARDIANCONNECT_WARN_G_C_LAST_DATA` (`15`) - minutes since the last reading to trigger a warning alarm.
