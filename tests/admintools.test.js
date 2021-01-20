@@ -202,7 +202,7 @@ describe('admintools', function ( ) {
   it ('should produce some html', function (done) {
     var client = require('../lib/client');
 
-    var hashauth = require('../lib/hashauth');
+    var hashauth = require('../lib/client/hashauth');
     hashauth.init(client,$);
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) {
       hashauth.authenticated = true;
