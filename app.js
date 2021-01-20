@@ -66,7 +66,7 @@ function create (env, ctx) {
           , reportOnly: secureCspReportOnly
         };
       }
-      
+
 
       console.info('Enabled SECURE_HSTS_HEADER (HTTP Strict Transport Security)');
       const helmet = require('helmet');
@@ -247,17 +247,11 @@ function create (env, ctx) {
 
   app.use("/clock", clockviews);
 
-  app.use('/api', bodyParser({
-    limit: 1048576 * 50
-  }), apiRoot);
+  app.use('/api',  bodyParser.json({limit: '50mb'}), apiRoot);
 
-  app.use('/api/v1', bodyParser({
-    limit: 1048576 * 50
-  }), api);
+  app.use('/api/v1', bodyParser.json({limit: '50mb'}), api);
 
-  app.use('/api/v2', bodyParser({
-    limit: 1048576 * 50
-  }), api);
+  app.use('/api/v2', bodyParser.json({limit: '50mb'}), api);
 
   app.use('/api/v2/properties', ctx.properties);
   app.use('/api/v2/authorization', ctx.authorization.endpoints);
