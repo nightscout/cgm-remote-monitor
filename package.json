@@ -108,7 +108,7 @@
     "share2nightscout-bridge": "^0.2.1",
     "shiro-trie": "^0.4.8",
     "simple-statistics": "^0.7.0",
-    "socket.io": "~2.1.1",
+    "socket.io": "~3.0.0",
     "style-loader": "^0.23.1",
     "swagger-ui-dist": "^3.23.5",
     "swagger-ui-express": "^4.1.2",
