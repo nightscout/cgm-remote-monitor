@@ -1,16 +1,19 @@
 'use strict';
 
-var _each = require('lodash/each');
-var _trim = require('lodash/trim');
-var _forIn = require('lodash/forIn');
-var _startsWith = require('lodash/startsWith');
-var _camelCase = require('lodash/camelCase');
+const _each = require('lodash/each');
+const _trim = require('lodash/trim');
+const _forIn = require('lodash/forIn');
+const _startsWith = require('lodash/startsWith');
+const _camelCase = require('lodash/camelCase');
 
-var fs = require('fs');
-var crypto = require('crypto');
-var consts = require('./lib/constants');
+const owasp = require('owasp-password-strength-test');
 
-var env = {
+
+const fs = require('fs');
+const crypto = require('crypto');
+const consts = require('./lib/constants');
+
+const env = {
   settings: require('./lib/settings')()
 };
 
@@ -36,9 +39,8 @@ function config ( ) {
     minify: readENVTruthy('DEBUG_MINIFY', true)
   };
 
-  if (env.err) {
-    delete env.err;
-  }
+  env.err = [];
+  env.notifies = [];
 
   setSSL();
   setAPISecret();
@@ -81,10 +83,21 @@ function setAPISecret() {
     if (readENV('API_SECRET').length < consts.MIN_PASSPHRASE_LENGTH) {
       var msg = ['API_SECRET should be at least', consts.MIN_PASSPHRASE_LENGTH, 'characters'].join(' ');
       console.error(msg);
-      env.err = {desc: msg};
+      env.err.push({ desc: msg });
     } else {
       var shasum = crypto.createHash('sha1');
       shasum.update(readENV('API_SECRET'));
+
+      var testresult = owasp.test(readENV('API_SECRET'));
+      const messages = testresult.errors;
+
+      if (messages) {
+        messages.forEach(message => {
+          const m = message.replace('The password must', 'API_SECRET should');
+
+          env.notifies.push({persistent: true, title: 'Security issue', message: m + ' Please change your API_SECRET to reduce risk of unauthorized access.'});
+        });
+      }
       env.api_secret = shasum.digest('hex');
     }
   }

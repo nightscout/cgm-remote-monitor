@@ -38,7 +38,7 @@ describe('Treatment API', function ( ) {
       request(self.app)
         .post('/api/treatments/')
         .set('api-secret', self.env.api_secret || '')
-        .send({eventType: 'Meal Bolus', created_at: now, carbs: '30', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'})
+        .send({eventType: 'Meal Bolus', created_at: now, carbs: '30', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl', notes: '<IMG SRC="javascript:alert(\'XSS\');">'})
         .expect(200)
         .end(function (err) {
           if (err) {
@@ -50,10 +50,10 @@ describe('Treatment API', function ( ) {
               });
               sorted.length.should.equal(2);
               sorted[0].glucose.should.equal(100);
+              sorted[0].notes.should.equal('<img>');
               should.not.exist(sorted[0].eventTime);
               sorted[0].insulin.should.equal(2);
               sorted[1].carbs.should.equal(30);
-
               done();
             });
           }
