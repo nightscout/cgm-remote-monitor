@@ -11,7 +11,7 @@ Each NS instance with API v3 contains self-included OpenAPI specification at [/a
 ---
 ###  VERSION
 
-[VERSION](https://nsapiv3.herokuapp.com/api/v3/swagger-ui-dist/#/other/get_version) operation gets you basic information about software packages versions.
+[VERSION](https://nsapiv3.herokuapp.com/api3-docs/#/other/get_version) operation gets you basic information about software packages versions.
 It is public (there is no need to add authorization parameters/headers).
 
 Sample GET `/version` client code (to get actual versions):
@@ -38,7 +38,7 @@ Sample result:
 ---
 ###  STATUS
 
-[STATUS](https://nsapiv3.herokuapp.com/api/v3/swagger-ui-dist/#/other/get_status) operation gets you basic information about software packages versions.
+[STATUS](https://nsapiv3.herokuapp.com/api3-docs/#/other/get_status) operation gets you basic information about software packages versions.
 It is public (there is no need to add authorization parameters/headers).
 
 Sample GET `/status` client code (to get my actual permissions):
@@ -75,7 +75,7 @@ Sample result:
 ---
 ###  SEARCH
 
-[SEARCH](https://nsapiv3insecure.herokuapp.com/api/v3/swagger-ui-dist/index.html#/generic/SEARCH) operation filters, sorts, paginates and projects documents from the collection.
+[SEARCH](https://nsapiv3insecure.herokuapp.com/api3-docs/#/generic/SEARCH) operation filters, sorts, paginates and projects documents from the collection.
 
 Sample GET `/entries` client code (to retrieve last 3 BG values):
 ```javascript
@@ -110,7 +110,7 @@ Sample result:
 ---
 ###  CREATE
 
-[CREATE](https://nsapiv3.herokuapp.com/api/v3/swagger-ui-dist/#/generic/post__collection_) operation inserts a new document into the collection.
+[CREATE](https://nsapiv3.herokuapp.com/api3-docs/#/generic/post__collection_) operation inserts a new document into the collection.
 
 Sample POST `/treatments` client code:
 ```javascript
@@ -140,7 +140,7 @@ Sample result:
 ---
 ###  READ
 
-[READ](https://nsapiv3.herokuapp.com/api/v3/swagger-ui-dist/#/generic/get__collection___identifier_) operation retrieves you a single document from the collection by its identifier.
+[READ](https://nsapiv3.herokuapp.com/api3-docs/#/generic/get__collection___identifier_) operation retrieves you a single document from the collection by its identifier.
 
 Sample GET `/treatments/{identifier}` client code:
 ```javascript
@@ -172,7 +172,7 @@ Sample result:
 ---
 ###  LAST MODIFIED
 
-[LAST MODIFIED](https://nsapiv3insecure.herokuapp.com/api/v3/swagger-ui-dist/index.html#/other/LAST-MODIFIED) operation finds the date of last modification for each collection.
+[LAST MODIFIED](https://nsapiv3insecure.herokuapp.com/api3-docs/#/other/LAST-MODIFIED) operation finds the date of last modification for each collection.
 
 Sample GET `/lastModified` client code (to get latest modification dates):
 ```javascript
@@ -199,7 +199,7 @@ Sample result:
 ---
 ###  UPDATE
 
-[UPDATE](https://nsapiv3insecure.herokuapp.com/api/v3/swagger-ui-dist/index.html#/generic/put__collection___identifier_) operation updates existing document in the collection.
+[UPDATE](https://nsapiv3insecure.herokuapp.com/api3-docs/#/generic/put__collection___identifier_) operation updates existing document in the collection.
 
 Sample PUT `/treatments/{identifier}` client code (to update `insulin` from 0.3 to 0.4):
 ```javascript
@@ -231,7 +231,7 @@ Sample result:
 ---
 ###  PATCH
 
-[PATCH](https://nsapiv3insecure.herokuapp.com/api/v3/swagger-ui-dist/index.html#/generic/patch__collection___identifier_) operation partially updates existing document in the collection.
+[PATCH](https://nsapiv3insecure.herokuapp.com/api3-docs/#/generic/patch__collection___identifier_) operation partially updates existing document in the collection.
 
 Sample PATCH `/treatments/{identifier}` client code (to update `insulin` from 0.4 to 0.5):
 ```javascript
@@ -259,7 +259,7 @@ Sample result:
 ---
 ###  DELETE
 
-[DELETE](https://nsapiv3insecure.herokuapp.com/api/v3/swagger-ui-dist/index.html#/generic/delete__collection___identifier_) operation deletes existing document from the collection.
+[DELETE](https://nsapiv3insecure.herokuapp.com/api3-docs/#/generic/delete__collection___identifier_) operation deletes existing document from the collection.
 
 Sample DELETE `/treatments/{identifier}` client code (to update `insulin` from 0.4 to 0.5):
 ```javascript
@@ -282,7 +282,7 @@ Sample result:
 ---
 ###  HISTORY
 
-[HISTORY](https://nsapiv3insecure.herokuapp.com/api/v3/swagger-ui-dist/index.html#/generic/HISTORY2) operation queries all changes since the timestamp.
+[HISTORY](https://nsapiv3insecure.herokuapp.com/api3-docs/#/generic/HISTORY2) operation queries all changes since the timestamp.
 
 Sample HISTORY `/treatments/history/{lastModified}` client code:
 ```javascript
