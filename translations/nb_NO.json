@@ -418,7 +418,7 @@
     "Negative temp basal insulin:": "Negativ midlertidig basalinsulin:",
     "Total basal insulin:": "Total daglig basalinsulin:",
     "Total daily insulin:": "Total daglig insulin",
-    "Unable to %1 Role": "Kan ikke %1 rolle",
+    "Unable to save Role": "Kan ikke lagre rolle",
     "Unable to delete Role": "Kan ikke ta bort rolle",
     "Database contains %1 roles": "Databasen inneholder %1 roller",
     "Edit Role": "Editer rolle",
@@ -433,7 +433,7 @@
     "Subjects - People, Devices, etc": "Ressurser - Brukere, enheter osv",
     "Each subject will have a unique access token and 1 or more roles.  Click on the access token to open a new view with the selected subject, this secret link can then be shared.": "Hver enkelt ressurs får en unik tilgangsnøkkel og en eller flere roller. Klikk på tilgangsnøkkelen for å åpne valgte ressurs, denne hemmelige lenken kan så deles.",
     "Add new Subject": "Legg til ny ressurs",
-    "Unable to %1 Subject": "Kan ikke %1 ressurs",
+    "Unable to save Subject": "Kan ikke lagre emne",
     "Unable to delete Subject": "Kan ikke slette ressurs",
     "Database contains %1 subjects": "Databasen inneholder %1 ressurser",
     "Edit Subject": "Editer ressurs",
@@ -656,6 +656,11 @@
     "virtAsstDatabaseSize": "%1 MiB. Dette er %2% av tilgjengelig databaseplass.",
     "virtAsstTitleDatabaseSize": "Database filstørrelse",
     "Carbs/Food/Time": "Karbo/Mat/Abs.tid",
+    "You have administration messages": "Du har administrasjonsmeldinger",
+    "Admin messages in queue": "Admin meldinger i køen",
+    "Queue empty": "Kø tom",
+    "There are no admin messages in queue": "Det er ingen admin meldinger i køen",
+    "Please sign in using the API_SECRET to see your administration messages": "Vennligst logg inn med API_SECRET for å se administrasjonsmeldingene dine",
     "Reads enabled in default permissions": "Lesetilgang er aktivert i innstillingene",
     "Data reads enabled": "Lesetilgang aktivert",
     "Data writes enabled": "Skrivetilgang aktivert",
@@ -685,5 +690,7 @@
     "Auth role": "Autorisert",
     "view without token": "vis uten tilgangsnøkkel",
     "Remove stored token": "Fjern lagret tilgangsnøkkel",
-    "Weekly Distribution": "Ukentlige resultat"
+    "Weekly Distribution": "Ukentlige resultat",
+    "Failed authentication": "Autentisering mislykket",
+    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "En enhet med IP-adresse %1 forsøkte å autentisere Nightscout med feil legitimasjon. Sjekk om du har en opplaster-app med feil API_SECRET eller tilgangsnøkkel."
 }
