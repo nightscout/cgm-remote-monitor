@@ -3,17 +3,19 @@
 var _ = require('lodash');
 var should = require('should');
 var moment = require('moment');
+const fs = require('fs');
+const language = require('../lib/language')(fs);
 
-var ctx = {
-  language: require('../lib/language')()
+var top_ctx = {
+  language: language
   , settings: require('../lib/settings')()
 };
-ctx.language.set('en');
+top_ctx.language.set('en');
 var env = require('../env')();
-var pump = require('../lib/plugins/pump')(ctx);
-var sandbox = require('../lib/sandbox')();
 var levels = require('../lib/levels');
-ctx.levels = levels;
+top_ctx.levels = levels;
+var pump = require('../lib/plugins/pump')(top_ctx);
+var sandbox = require('../lib/sandbox')(top_ctx);
 
 var statuses = [{
   created_at: '2015-12-05T17:35:00.000Z'
@@ -69,7 +71,8 @@ describe('pump', function ( ) {
           done();
         }
       }
-      , language: require('../lib/language')()
+      , language: language
+      , levels: levels
     };
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
@@ -99,8 +102,9 @@ describe('pump', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
     };
 
     ctx.notifications.initRequests();
@@ -123,8 +127,9 @@ describe('pump', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
     };
 
     ctx.notifications.initRequests();
@@ -151,8 +156,9 @@ describe('pump', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
     };
 
     ctx.notifications.initRequests();
@@ -180,8 +186,9 @@ describe('pump', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
     };
 
     ctx.notifications.initRequests();
@@ -208,8 +215,9 @@ describe('pump', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
     };
 
     ctx.notifications.initRequests();
@@ -236,8 +244,9 @@ describe('pump', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
     };
 
     ctx.notifications.initRequests();
@@ -260,9 +269,11 @@ describe('pump', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
     };
+    
     ctx.language.set('en');
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
     pump.setProperties(sbx);
