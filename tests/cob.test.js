@@ -1,14 +1,15 @@
 'use strict';
 
-var _ = require('lodash');
+const _ = require('lodash');
+const fs = require('fs');
+const language = require('../lib/language')(fs);
 
 require('should');
 
 describe('COB', function ( ) {
   var ctx = {};
   ctx.settings = {};
-  ctx.language = require('../lib/language')();
-  ctx.language.set('en');
+  ctx.language = language;
 
   var cob = require('../lib/plugins/cob')(ctx);
   
