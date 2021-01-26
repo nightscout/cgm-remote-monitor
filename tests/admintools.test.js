@@ -66,7 +66,7 @@ var someData = {
 
 describe('admintools', function ( ) {
   var self = this;
-  this.timeout(30000); // TODO: see why this test takes longer on Travis to complete
+  this.timeout(45000); // TODO: see why this test takes longer on CI to complete
   before(function (done) {
     benv.setup(function() {
 
@@ -202,7 +202,7 @@ describe('admintools', function ( ) {
   it ('should produce some html', function (done) {
     var client = require('../lib/client');
 
-    var hashauth = require('../lib/hashauth');
+    var hashauth = require('../lib/client/hashauth');
     hashauth.init(client,$);
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) {
       hashauth.authenticated = true;
