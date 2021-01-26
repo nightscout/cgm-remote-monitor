@@ -891,6 +891,12 @@ components:
         units:
           type: string
           description: 'The units for the glucose value, mg/dl or mmol.'
+        transmitterId:
+          type: string
+          description: 'The transmitter ID of the transmitter being started.'
+        sensorCode:
+          type: string
+          description: 'The code used to start a Dexcom G6 sensor.'
         notes:
           type: string
           description: Description/notes of treatment.
