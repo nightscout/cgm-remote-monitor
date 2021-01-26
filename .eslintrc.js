@@ -16,11 +16,20 @@ module.exports = {
       "jquery": true
     },
     "rules": {
+      "security/detect-object-injection" : 0,
       "no-unused-vars": [
         "error",
         {
           "varsIgnorePattern": "should|expect"
         }
       ]
-    }
+    },
+    "overrides": [
+      {
+        "files": ["lib/client/*.js"],
+        "rules": {
+          "security/detect-object-injection": 1
+        }
+      }
+    ],
   };
