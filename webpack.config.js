@@ -71,9 +71,12 @@ pluginArray.push(new MomentLocalesPlugin({
 const rules = [
   {
     test: /\.(js|jsx)$/,
-    exclude: /node_modules/,
     use: {
-      loader: "babel-loader"
+      loader: "babel-loader",
+      options: {
+        babelrc: true,
+        extends: path.join(__dirname + '/.babelrc')
+      }
     }
   },
   {
