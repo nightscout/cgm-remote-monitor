@@ -212,6 +212,8 @@
     "CGM Sensor Start": "CGM Sensörü Başlat",
     "CGM Sensor Stop": "CGM Sensor Stop",
     "CGM Sensor Insert": "CGM Sensor yerleştir",
+    "Sensor Code": "Sensor Code",
+    "Transmitter ID": "Transmitter ID",
     "Dexcom Sensor Start": "Dexcom Sensör Başlat",
     "Dexcom Sensor Change": "Dexcom Sensör değiştir",
     "Insulin Cartridge Change": "İnsülin rezervuar değişimi",

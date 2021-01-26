@@ -212,6 +212,8 @@
     "CGM Sensor Start": "CGM Sensor start",
     "CGM Sensor Stop": "CGM Sensor Stop",
     "CGM Sensor Insert": "CGM sensor wissel",
+    "Sensor Code": "Sensor Code",
+    "Transmitter ID": "Transmitter ID",
     "Dexcom Sensor Start": "Dexcom sensor start",
     "Dexcom Sensor Change": "Dexcom sensor wissel",
     "Insulin Cartridge Change": "Insuline cartridge wissel",
