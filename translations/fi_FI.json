@@ -212,6 +212,8 @@
     "CGM Sensor Start": "Sensorin aloitus",
     "CGM Sensor Stop": "CGM Sensori Pysäytys",
     "CGM Sensor Insert": "Sensorin vaihto",
+    "Sensor Code": "Sensor Code",
+    "Transmitter ID": "Transmitter ID",
     "Dexcom Sensor Start": "Sensorin aloitus",
     "Dexcom Sensor Change": "Sensorin vaihto",
     "Insulin Cartridge Change": "Insuliinisäiliön vaihto",
