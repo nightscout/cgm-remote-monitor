@@ -212,6 +212,8 @@
     "CGM Sensor Start": "启动CGM（连续血糖监测）探头",
     "CGM Sensor Stop": "CGM Sensor Stop",
     "CGM Sensor Insert": "植入CGM（连续血糖监测）探头",
+    "Sensor Code": "Sensor Code",
+    "Transmitter ID": "Transmitter ID",
     "Dexcom Sensor Start": "启动Dexcom探头",
     "Dexcom Sensor Change": "更换Dexcom探头",
     "Insulin Cartridge Change": "更换胰岛素储液器",
