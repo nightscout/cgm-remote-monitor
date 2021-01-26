@@ -75,6 +75,7 @@ const rules = [
       loader: 'babel-loader',
       options: {
         babelrc: true,
+        cacheDirectory: true,
         extends: path.join(__dirname + '/.babelrc')
       }
     }
