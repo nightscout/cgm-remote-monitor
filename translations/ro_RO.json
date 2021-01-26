@@ -212,6 +212,8 @@
     "CGM Sensor Start": "Start senzor CGM",
     "CGM Sensor Stop": "Stop senzor CGM",
     "CGM Sensor Insert": "Inserare senzor CGM",
+    "Sensor Code": "Sensor Code",
+    "Transmitter ID": "Transmitter ID",
     "Dexcom Sensor Start": "Pornire senzor Dexcom",
     "Dexcom Sensor Change": "Schimbare senzor Dexcom",
     "Insulin Cartridge Change": "Schimbare cartuș insulină",
