@@ -29,19 +29,7 @@ function create (env, ctx) {
 
       const enableCSP = env.secureCsp ? true : false;
 
-      console.info('Enabled SECURE_HSTS_HEADER (HTTP Strict Transport Security)');
-      const helmet = require('helmet');
-      var includeSubDomainsValue = env.secureHstsHeaderIncludeSubdomains;
-      var preloadValue = env.secureHstsHeaderPreload;
-      app.use(helmet({
-        hsts: {
-          maxAge: 31536000
-          , includeSubDomains: includeSubDomainsValue
-          , preload: preloadValue
-        }
-        , frameguard: false
-        , contentSecurityPolicy: enableCSP
-      }));
+      let cspPolicy = false;
 
       if (enableCSP) {
         var secureCspReportOnly = env.secureCspReportOnly;
@@ -60,7 +48,7 @@ function create (env, ctx) {
           }
         }
 
-        app.use(helmet.contentSecurityPolicy({ //TODO make NS work without 'unsafe-inline'
+        cspPolicy = { //TODO make NS work without 'unsafe-inline'
           directives: {
             defaultSrc: ["'self'"]
             , styleSrc: ["'self'", 'https://fonts.googleapis.com/', 'https://fonts.gstatic.com/', "'unsafe-inline'"]
@@ -76,7 +64,26 @@ function create (env, ctx) {
             , frameAncestors: frameAncestors
           }
           , reportOnly: secureCspReportOnly
-        }));
+        };
+      }
+      
+
+      console.info('Enabled SECURE_HSTS_HEADER (HTTP Strict Transport Security)');
+      const helmet = require('helmet');
+      var includeSubDomainsValue = env.secureHstsHeaderIncludeSubdomains;
+      var preloadValue = env.secureHstsHeaderPreload;
+      app.use(helmet({
+        hsts: {
+          maxAge: 31536000
+          , includeSubDomains: includeSubDomainsValue
+          , preload: preloadValue
+        }
+        , frameguard: false
+        , contentSecurityPolicy: cspPolicy
+      }));
+
+      if (enableCSP) {
+
         app.use(helmet.referrerPolicy({ policy: 'no-referrer' }));
         app.use(bodyParser.json({ type: ['json', 'application/csp-report'] }));
         app.post('/report-violation', (req, res) => {
@@ -147,6 +154,10 @@ function create (env, ctx) {
   // serve the static content
   app.use(staticFiles);
 
+  app.use('/translations', express.static('translations', {
+    maxAge
+  }));
+
   if (ctx.bootErrors && ctx.bootErrors.length > 0) {
     const bootErrorView = require('./lib/server/booterror')(env, ctx);
     bootErrorView.setLocals(app.locals);
@@ -213,11 +224,6 @@ function create (env, ctx) {
       , title: 'Nightscout reporting'
       , type: 'report'
     }
-    , "/translations": {
-      file: "translationsindex.html"
-      , title: 'Nightscout translations'
-      , type: 'translations'
-    }
     , "/split": {
       file: "frame.html"
       , title: '8-user view'
@@ -276,9 +282,12 @@ function create (env, ctx) {
   // API docs
 
   const swaggerUi = require('swagger-ui-express');
+  const swaggerUseSchema = schema => (...args) => swaggerUi.setup(schema)(...args);
   const swaggerDocument = require('./swagger.json');
+  const swaggerDocumentApiV3 = require('./lib/api3/swagger.json');
 
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+  app.use('/api-docs', swaggerUi.serve, swaggerUseSchema(swaggerDocument));
+  app.use('/api3-docs', swaggerUi.serve, swaggerUseSchema(swaggerDocumentApiV3));
 
   app.use('/swagger-ui-dist', (req, res) => {
     res.redirect(307, '/api-docs');
