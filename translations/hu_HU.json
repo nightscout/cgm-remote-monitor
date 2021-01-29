@@ -212,6 +212,8 @@
     "CGM Sensor Start": "CGM Szenzor Indítás",
     "CGM Sensor Stop": "CGM Szenzor Leállítás",
     "CGM Sensor Insert": "CGM Szenzor Behelyezés",
+    "Sensor Code": "Sensor Code",
+    "Transmitter ID": "Transmitter ID",
     "Dexcom Sensor Start": "Dexcom Szenzor Indítása",
     "Dexcom Sensor Change": "Dexcom Szenzor Csere",
     "Insulin Cartridge Change": "Inzulin Tartály Csere",
