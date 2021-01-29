@@ -340,5 +340,19 @@ describe('reports', function ( ) {
     });
     
   });
+
+    it ('Report preferences should stick when refreshing page', function (done) {
+        const client = window.Nightscout.client;
+        window.Nightscout.reportclient();
+        client.init(function afterInit ( ) {
+            client.dataUpdate(nowData);
+            ( $('#rp_optionsinsulin').prop('checked')).should.be.true();
+            $('#rp_optionsinsulin').click();
+            $('#rp_show').click();
+            location.reload();
+            ($('#rp_optionsinsulin').prop('checked')).should.be.false();
+            done()
+        });
+    });
   
 });
