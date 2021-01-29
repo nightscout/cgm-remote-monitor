@@ -375,6 +375,18 @@
           </label>
         </fieldset>
 
+        <fieldset id="sensorInfo">
+          <legend class="translate">Sensor</legend>
+          <label id="sensorCodeLabel" for="sensorCode" class="left-column short-label">
+            <span class="translate">Sensor Code</span>
+            <input type="text" id="sensorCode" />
+          </label>
+          <label id="txIdLabel" for="transmitterId" class="left-column short-label">
+            <span class="translate">Transmitter ID</span>
+            <input type="text" id="transmitterId" />
+          </label>
+        </fieldset>
+
         <label id="insulinGivenLabel" for="insulinGiven" class="left-column short-label">
           <span class="translate">Insulin Given</span>
           <input type="number" step="any" min="0" id="insulinGiven" placeholder="Amount in units" class="titletranslate" pattern="[0-9.,]*">
