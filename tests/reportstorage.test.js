@@ -1,7 +1,4 @@
 const should = require('should');
-const reportstorage = require('../lib/report/reportstorage');
-let storage = require('js-storage').localStorage;
-let mockStorage = require('./fixtures/localstorage');
 const defaultValues = {
     insulin: true,
     carbs: true,
@@ -18,17 +15,20 @@ const defaultValues = {
 };
 
 describe('reportstorage unit tests', () => {
+    let reportstorage, storage, mockStorage;
 
     beforeEach(() => {
-        storage._get = storage.get;
-        storage._set = storage.set;
+        reportstorage = require('../lib/report/reportstorage');
+        storage = require('js-storage').localStorage;
+        mockStorage = require('./fixtures/localstorage');
         storage.get = mockStorage.get;
         storage.set = mockStorage.set;
     });
 
     afterEach(() => {
-        storage.get = storage._get;
-        storage.set = storage._set;
+        delete require.cache[require.resolve('js-storage')];
+        delete require.cache[require.resolve('./fixtures/localstorage')];
+        delete require.cache[require.resolve('../lib/report/reportstorage')];
     });
 
     it('reportstorage definition - returns saveProps and getValue function', () => {
