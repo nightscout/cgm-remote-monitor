@@ -27,9 +27,9 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "env-cmd -f ./my.test.env mocha --exit tests/*.test.js",
-    "test-single": "env-cmd -f ./my.test.env mocha --exit tests/$TEST.test.js",
-    "test-ci": "env-cmd -f ./ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --exit tests/*.test.js",
+    "test": "env-cmd -f ./my.test.env mocha --require ./tests/hooks.js -exit ./tests/*.test.js",
+    "test-single": "env-cmd -f ./my.test.env mocha --require ./tests/hooks.js --exit ./tests/$TEST.test.js",
+    "test-ci": "env-cmd -f ./ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --require ./tests/hooks.js --exit ./tests/*.test.js",
     "env": "env",
     "postinstall": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
     "bundle": "webpack --mode production --config webpack.config.js && npm run-script update-buster",

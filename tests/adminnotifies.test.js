@@ -1,7 +1,7 @@
 
 'use strict';
 
-const should = require('should');
+require('should');
 
 const ctx = {};
 
