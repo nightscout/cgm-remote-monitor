@@ -16,9 +16,17 @@ describe('client', function ( ) {
 
   var headless = require('./fixtures/headless')(benv, this);
 
+
+
   beforeEach(function (done) {
     console.log('Starting headless setup for Careportal test');
-    headless.setup({mockAjax: true}, done);
+    
+    function d () {
+      console.log('Done called by headless');
+      done();
+    }
+    
+    headless.setup({mockAjax: true}, d);
     console.log('Headless setup for Careportal test done');
   });
 
@@ -29,7 +37,9 @@ describe('client', function ( ) {
 
   it ('open careportal, and enter a treatment', function (done) {
 
-	var client = window.Nightscout.client;
+    console.log('Careportal test client start');
+
+	  var client = window.Nightscout.client;
 	
     var hashauth = require('../lib/client/hashauth');
     hashauth.init(client,$);

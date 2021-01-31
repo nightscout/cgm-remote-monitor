@@ -9,20 +9,21 @@ function headless (benv, binding) {
   }
 
   function init (opts, callback) {
-    var localStorage = opts.localStorage || './localstorage';
+
+    console.log('Headless init');
+
     var htmlFile = opts.htmlFile || __dirname + '/../../views/index.html';
     var serverSettings = opts.serverSettings || require('./default-server-settings');
     var someData = opts.mockAjax || { };
     benv.setup(function() {
+
+      console.log('Setting up benv');
     
       benv.require(__dirname + '/../../tmp/js/bundle.report.js');
           
       self.$ = $;
       
       self.localCookieStorage = self.localStorage = self.$.localStorage = require('./localstorage');
-
-      //self.$ = require('jquery');
-      //self.$.localStorage = require(localStorage);
 
       self.$.fn.tooltip = function mockTooltip ( ) { };
 
@@ -124,6 +125,7 @@ function headless (benv, binding) {
         };
       }
 
+      console.log('Benv expose');
 
       benv.expose({
         $: self.$
