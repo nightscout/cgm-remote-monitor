@@ -2,7 +2,6 @@
 
 require('should');
 var benv = require('benv');
-var read = require('fs').readFileSync;
 
 var nowData = {
   sgvs: [
@@ -11,26 +10,24 @@ var nowData = {
   , treatments: []
 };
 
-describe('client', function ( ) {
+describe('careportal', function ( ) {
   this.timeout(40000); // TODO: see why this test takes longer on Travis to complete
 
   var headless = require('./fixtures/headless')(benv, this);
 
-
-
-  beforeEach(function (done) {
+  before(function (done) {
     console.log('Starting headless setup for Careportal test');
     
     function d () {
       console.log('Done called by headless');
       done();
     }
-    
+
     headless.setup({mockAjax: true}, d);
     console.log('Headless setup for Careportal test done');
   });
 
-  afterEach(function (done) {
+  after(function (done) {
     headless.teardown( );
     done( );
   });
