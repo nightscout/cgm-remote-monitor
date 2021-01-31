@@ -10,17 +10,24 @@ function headless (benv, binding) {
 
   function init (opts, callback) {
 
+    const t = Date.now();
+
     console.log('Headless init');
 
     var htmlFile = opts.htmlFile || __dirname + '/../../views/index.html';
     var serverSettings = opts.serverSettings || require('./default-server-settings');
     var someData = opts.mockAjax || { };
+
+    console.log('Entering setup', Date.now() - t);
+
     benv.setup(function() {
 
-      console.log('Setting up benv');
+      console.log('Setting up benv', Date.now() - t);
     
       benv.require(__dirname + '/../../tmp/js/bundle.report.js');
-          
+
+      console.log('Bundle loaded', Date.now() - t);
+      
       self.$ = $;
       
       self.localCookieStorage = self.localStorage = self.$.localStorage = require('./localstorage');
@@ -29,6 +36,8 @@ function headless (benv, binding) {
 
       var indexHtml = read(htmlFile, 'utf8');
       self.$('body').html(indexHtml);
+
+      console.log('HTML set', Date.now() - t);
 
       var d3 = require('d3');
       //disable all d3 transitions so most of the other code can run with jsdom
@@ -125,7 +134,7 @@ function headless (benv, binding) {
         };
       }
 
-      console.log('Benv expose');
+      console.log('Benv expose', Date.now() - t);
 
       benv.expose({
         $: self.$
