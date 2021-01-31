@@ -3,7 +3,6 @@
 require('should');
 var benv = require('benv');
 var read = require('fs').readFileSync;
-var serverSettings = require('./fixtures/default-server-settings');
 
 var nowData = {
   sgvs: [
@@ -18,14 +17,6 @@ describe('client', function ( ) {
   var self = this;
 
   var headless = require('./fixtures/headless')(benv, this);
-
-  before(function (done) {
-    done( );
-  });
-
-  after(function (done) {
-    done( );
-  });
 
   beforeEach(function (done) {
     headless.setup({mockAjax: true}, done);
@@ -81,7 +72,7 @@ describe('client', function ( ) {
       return true;
     };
 
-    window.alert = function mockAlert() {};
+    window.alert = function mockAlert(messages) { messages.should.equal(''); };
     
     client.careportal.save();
 
