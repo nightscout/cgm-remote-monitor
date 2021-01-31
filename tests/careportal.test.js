@@ -14,12 +14,12 @@ var nowData = {
 describe('client', function ( ) {
   this.timeout(40000); // TODO: see why this test takes longer on Travis to complete
 
-  var self = this;
-
   var headless = require('./fixtures/headless')(benv, this);
 
   beforeEach(function (done) {
+    console.log('Starting headless setup for Careportal test');
     headless.setup({mockAjax: true}, done);
+    console.log('Headless setup for Careportal test done');
   });
 
   afterEach(function (done) {
@@ -38,7 +38,9 @@ describe('client', function ( ) {
       next(true); 
     };
 
+    console.log('Careportal test client init');
     client.init();
+    console.log('Careportal test client data update');
     client.dataUpdate(nowData, true);
 
     client.careportal.prepareEvents();
@@ -74,6 +76,8 @@ describe('client', function ( ) {
 
     window.alert = function mockAlert(messages) { messages.should.equal(''); };
     
+    console.log('Careportal test saving');
+
     client.careportal.save();
 
     done();
