@@ -16,10 +16,12 @@ describe('careportal', function ( ) {
   var headless = require('./fixtures/headless')(benv, this);
 
   before(function (done) {
+
+    const t = Date.now();
     console.log('Starting headless setup for Careportal test');
     
     function d () {
-      console.log('Done called by headless');
+      console.log('Done called by headless', Date.now() - t );
       done();
     }
 
