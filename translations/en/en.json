@@ -353,7 +353,7 @@
     ,"Stored profiles":"Stored profiles"
     ,"Timezone":"Timezone"
     ,"Duration of Insulin Activity (DIA)":"Duration of Insulin Activity (DIA)"
-    ,"Represents the typical duration over which insulin takes effect.  Varies per patient and per insulin type. Typically 3-4 hours for most pumped insulin and most patients. Sometimes also called insulin lifetime.":"Represents the typical duration over which insulin takes effect.  Varies per patient and per insulin type. Typically 3-4 hours for most pumped insulin and most patients. Sometimes also called insulin lifetime."
+    ,"Represents the typical duration over which insulin takes effect. Varies per patient and per insulin type. Typically 3-4 hours for most pumped insulin and most patients. Sometimes also called insulin lifetime.":"Represents the typical duration over which insulin takes effect.  Varies per patient and per insulin type. Typically 3-4 hours for most pumped insulin and most patients. Sometimes also called insulin lifetime."
     ,"Insulin to carb ratio (I:C)":"Insulin to carb ratio (I:C)"
     ,"Hours:":"Hours:"
     ,"hours":"hours"
