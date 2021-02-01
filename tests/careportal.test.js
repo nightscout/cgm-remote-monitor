@@ -14,31 +14,35 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-describe('client', function ( ) {
-  this.timeout(40000); // TODO: see why this test takes longer on Travis to complete
+describe('careportal', function ( ) {
+  this.timeout(60000); // TODO: see why this test takes longer on Travis to complete
 
   var headless = require('./fixtures/headless')(benv, this);
 
   before(function (done) {
-    done( );
+
+    const t = Date.now();
+    console.log('Starting headless setup for Careportal test');
+    
+    function d () {
+      console.log('Done called by headless', Date.now() - t );
+      done();
+    }
+
+    headless.setup({mockAjax: true}, d);
+    console.log('Headless setup for Careportal test done');
   });
 
   after(function (done) {
-    done( );
-  });
-
-  beforeEach(function (done) {
-    headless.setup({mockAjax: true}, done);
-  });
-
-  afterEach(function (done) {
     headless.teardown( );
     done( );
   });
 
   it ('open careportal, and enter a treatment', async () =>{
 
-	var client = window.Nightscout.client;
+    console.log('Careportal test client start');
+
+	  var client = window.Nightscout.client;
 	
     var hashauth = require('../lib/client/hashauth');
     hashauth.init(client,$);
@@ -47,9 +51,11 @@ describe('client', function ( ) {
       next(true); 
     };
 
+    console.log('Careportal test client init');
     client.init();
     sleep(50);
 
+    console.log('Careportal test client data update');
     client.dataUpdate(nowData, true);
     sleep(50);
 
@@ -84,8 +90,10 @@ describe('client', function ( ) {
       return true;
     };
 
-    window.alert = function mockAlert() {};
+    window.alert = function mockAlert(messages) { messages.should.equal(''); };
     
+    console.log('Careportal test saving');
+
     client.careportal.save();
 
   });

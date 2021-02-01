@@ -26,10 +26,6 @@ describe('Devicestatus API', function ( ) {
     });
   });
 
-  after(function () {
-    // delete process.env.API_SECRET;
-  });
-
   it('post a devicestatus, query, delete, verify gone', function (done) {
     // insert a devicestatus - needs to be unique from example data
     console.log('Inserting devicestatus entry');
