@@ -154,6 +154,10 @@ function create (env, ctx) {
   // serve the static content
   app.use(staticFiles);
 
+  app.use('/translations', express.static('translations', {
+    maxAge
+  }));
+
   if (ctx.bootErrors && ctx.bootErrors.length > 0) {
     const bootErrorView = require('./lib/server/booterror')(env, ctx);
     bootErrorView.setLocals(app.locals);
@@ -219,11 +223,6 @@ function create (env, ctx) {
       file: "reportindex.html"
       , title: 'Nightscout reporting'
       , type: 'report'
-    }
-    , "/translations": {
-      file: "translationsindex.html"
-      , title: 'Nightscout translations'
-      , type: 'translations'
     }
     , "/split": {
       file: "frame.html"

@@ -4,14 +4,14 @@ var levels = require('../lib/levels');
 
 describe('treatmentnotify', function ( ) {
 
-  var treatmentnotify = require('../lib/plugins/treatmentnotify')();
-
   var env = require('../env')();
   var ctx = {};
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
   ctx.levels = levels;
   ctx.language = require('../lib/language')().set('en');
+
+  var treatmentnotify = require('../lib/plugins/treatmentnotify')(ctx);
 
   var now = Date.now();
 
