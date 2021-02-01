@@ -17,7 +17,7 @@ describe('Notifications API', function ( ) {
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'this is my long pass phrase';
     var env = require('../lib/server/env')( );
-    env.api_secret.should.equal(known);
+    env.enclave.isApiKey(known).should.equal(true);
     env.testMode = true;
 
     var ctx = {
@@ -68,7 +68,7 @@ describe('Notifications API', function ( ) {
     function makeRequest () {
       request(app)
         .get('/notifications/ack?level=1')
-        .set('api-secret', env.api_secret || '')
+        .set('api-secret', known || '')
         .expect(200)
         .end(function (err) {
           should.not.exist(err);
