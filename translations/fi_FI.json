@@ -694,5 +694,12 @@
     "Remove stored token": "Poista talletettu tunniste",
     "Weekly Distribution": "Viikkojakauma",
     "Failed authentication": "Sisäänkirjautuminen epäonnistui",
-    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Laita IP-osoitteessa %1 yritti kirjautua Nightscoutiin väärällä tunnisteella. Tarkista onko uploaderissasi oikea API_SECRET tai avain?"
+    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Laita IP-osoitteessa %1 yritti kirjautua Nightscoutiin väärällä tunnisteella. Tarkista onko uploaderissasi oikea API_SECRET tai avain?",
+    "Default (with leading zero and U)": "Default (with leading zero and U)",
+    "Concise (with U, without leading zero)": "Concise (with U, without leading zero)",
+    "Minimal (without leading zero and U)": "Minimal (without leading zero and U)",
+    "Small Bolus Display": "Small Bolus Display",
+    "Large Bolus Display": "Large Bolus Display",
+    "Bolus Display Threshold": "Bolus Display Threshold",
+    "%1 U and Over": "%1 U and Over"
 }
