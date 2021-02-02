@@ -698,8 +698,8 @@
     "Default (with leading zero and U)": "Default (with leading zero and U)",
     "Concise (with U, without leading zero)": "Concise (with U, without leading zero)",
     "Minimal (without leading zero and U)": "Minimal (without leading zero and U)",
-    "Small Bolus Display": "Small Bolus Display",
-    "Large Bolus Display": "Large Bolus Display",
-    "Bolus Display Threshold": "Bolus Display Threshold",
-    "%1 U and Over": "%1 U and Over"
+    "Small Bolus Display": "Liten Bolus-visning",
+    "Large Bolus Display": "Stor Bolus-visning",
+    "Bolus Display Threshold": "Bolus visningsterskel",
+    "%1 U and Over": "%1 E og Over"
 }
