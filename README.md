@@ -472,7 +472,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 ##### `treatmentnotify` (Treatment Notifications)
   Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.
   * `TREATMENTNOTIFY_SNOOZE_MINS` (`10`) - Number of minutes to snooze notifications after a treatment is entered
-  * `TREATMENTNOTIFY_INCLUDE_BOLUSES_OVER` (`0.25`) - U value over which the bolus will trigger a notification and snooze alarms
+  * `TREATMENTNOTIFY_INCLUDE_BOLUSES_OVER` (`0`) - U value over which the bolus will trigger a notification and snooze alarms
 
 ##### `basal` (Basal Profile)
   Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile). Also uses the extended setting:
@@ -480,8 +480,9 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 
 ##### `bolus` (Bolus Rendering)
   Settings to configure Bolus rendering
-  * `BOLUS_RENDER_OVER` (`0`) - U value over which the bolus labels rendered on the chart. This value can be an integer or a float, e.g. 0.3, 1.5, 2, etc...  Use 0 to render All bolus labels, use `Number.MAX_SAFE_INTEGER` (9007199254740991) if you want None of the bolus labels to be rendered.
-  * `BOLUS_RENDER_FORMAT` (`default`) - Possible values are `default` (with leading zero and U), `concise` (with U, without leading zero), and `minimal` (without leading zero and U).
+  * `BOLUS_RENDER_OVER` (`0`) - U value over which the bolus labels use the format defined in `BOLUS_RENDER_FORMAT`. This value can be an integer or a float, e.g. 0.3, 1.5, 2, etc.
+  * `BOLUS_RENDER_FORMAT` (`default`) - Possible values are `hidden`, `default` (with leading zero and U), `concise` (with U, without leading zero), and `minimal` (without leading zero and U).
+  * `BOLUS_RENDER_FORMAT_SMALL` (`default`) - Possible values are `hidden`, `default` (with leading zero and U), `concise` (with U, without leading zero), and `minimal` (without leading zero and U).
   
 ##### `bridge` (Share2Nightscout bridge)
   Glucose reading directly from the Dexcom Share service, uses these extended settings:
