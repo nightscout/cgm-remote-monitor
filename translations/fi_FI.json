@@ -212,8 +212,8 @@
     "CGM Sensor Start": "Sensorin aloitus",
     "CGM Sensor Stop": "CGM Sensori Pysäytys",
     "CGM Sensor Insert": "Sensorin vaihto",
-    "Sensor Code": "Sensor Code",
-    "Transmitter ID": "Transmitter ID",
+    "Sensor Code": "Sensorin koodi",
+    "Transmitter ID": "Lähettimen ID",
     "Dexcom Sensor Start": "Sensorin aloitus",
     "Dexcom Sensor Change": "Sensorin vaihto",
     "Insulin Cartridge Change": "Insuliinisäiliön vaihto",
@@ -694,5 +694,12 @@
     "Remove stored token": "Poista talletettu tunniste",
     "Weekly Distribution": "Viikkojakauma",
     "Failed authentication": "Sisäänkirjautuminen epäonnistui",
-    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Laita IP-osoitteessa %1 yritti kirjautua Nightscoutiin väärällä tunnisteella. Tarkista onko uploaderissasi oikea API_SECRET tai avain?"
+    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Laita IP-osoitteessa %1 yritti kirjautua Nightscoutiin väärällä tunnisteella. Tarkista onko uploaderissasi oikea API_SECRET tai avain?",
+    "Default (with leading zero and U)": "Oletus (U ja 0 näytetään)",
+    "Concise (with U, without leading zero)": "Lyhyt (U näytetään, 0 ei)",
+    "Minimal (without leading zero and U)": "Minimi (U ja 0 piilossa)",
+    "Small Bolus Display": "Pienien boluksien näyttömuoto",
+    "Large Bolus Display": "Suurien boluksien näyttömuoto",
+    "Bolus Display Threshold": "Boluksen asetusraja",
+    "%1 U and Over": "%1 U ja yli"
 }

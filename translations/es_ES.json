@@ -212,8 +212,8 @@
     "CGM Sensor Start": "Inicio de sensor",
     "CGM Sensor Stop": "Detener sensor MCG",
     "CGM Sensor Insert": "Cambio de sensor",
-    "Sensor Code": "Sensor Code",
-    "Transmitter ID": "Transmitter ID",
+    "Sensor Code": "Código del sensor",
+    "Transmitter ID": "ID del transmisor",
     "Dexcom Sensor Start": "Inicio de sensor Dexcom",
     "Dexcom Sensor Change": "Cambio de sensor Dexcom",
     "Insulin Cartridge Change": "Cambio de reservorio de insulina",
@@ -694,5 +694,12 @@
     "Remove stored token": "Eliminar token almacenado",
     "Weekly Distribution": "Distribución semanal",
     "Failed authentication": "Autenticación fallida",
-    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Un dispositivo en la dirección IP %1 intentó autenticarse con Nightscout con credenciales incorrectas. Compruebe si tiene una configuración del cargador/uploader con API_SECRET o token incorrecto?"
+    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Un dispositivo en la dirección IP %1 intentó autenticarse con Nightscout con credenciales incorrectas. Compruebe si tiene una configuración del cargador/uploader con API_SECRET o token incorrecto?",
+    "Default (with leading zero and U)": "Default (with leading zero and U)",
+    "Concise (with U, without leading zero)": "Concise (with U, without leading zero)",
+    "Minimal (without leading zero and U)": "Minimal (without leading zero and U)",
+    "Small Bolus Display": "Small Bolus Display",
+    "Large Bolus Display": "Large Bolus Display",
+    "Bolus Display Threshold": "Bolus Display Threshold",
+    "%1 U and Over": "%1 U and Over"
 }

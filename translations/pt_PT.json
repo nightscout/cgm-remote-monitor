@@ -545,7 +545,7 @@
     "Time in fluctuation and Time in rapid fluctuation measure the % of time during the examined period, during which the blood glucose has been changing relatively fast or rapidly. Lower values are better.": "Tempo em flutuação e Tempo em flutuação rápida medem a percentagem de tempo durante o período examinado, durante o qual a glicemia tem mudado relativamente rápida ou rapidamente. Valores mais baixos são melhores.",
     "Mean Total Daily Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of days. Lower is better.": "Média Troca Total Diária é uma soma do valor absoluto de todas as excursões de glicose para o período examinado, dividido pelo número de dias. Menor é melhor.",
     "Mean Hourly Change is a sum of the absolute value of all glucose excursions for the examined period, divided by the number of hours in the period. Lower is better.": "Mudança Média por Hora é a soma dos valores absolutos de todas as entradas de glicemia para o período em análise, dividido pelo número de horas nesse periodo. Um valor baixo é melhor.",
-    "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.": "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.",
+    "Out of Range RMS is calculated by squaring the distance out of range for all glucose readings for the examined period, summing them, dividing by the count and taking the square root. This metric is similar to in-range percentage but weights readings far out of range higher. Lower values are better.": "RMS Fora do Ontervalo é calculado interligando a distância fora do alvo para todas as leituras de glicemia para o período examinado. somando-os, dividindo pela contagem e obtendo a raiz quadrada. Esta métrica é semelhante à percentagem dentro do intervalo, mas os pesos nas leituras mais altas. Valores mais baixos são melhores.",
     "GVI (Glycemic Variability Index) and PGS (Patient Glycemic Status) are measures developed by Dexcom, detailed <a href=\"": "GVI (Glycemic Variability Index) e PGS (Patient Glycemic Status) são medidas desenvolvidas pela Dexcom, detalhado <a href=\"",
     "\">can be found here</a>.": "\">pode ser encontrado aqui</a>.",
     "Mean Total Daily Change": "Média Troca Total Diária",
@@ -694,5 +694,12 @@
     "Remove stored token": "Remover token armazenado",
     "Weekly Distribution": "Distribuição Semanal",
     "Failed authentication": "Autenticação Falhou",
-    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Um dispositivo no endereço IP %1 tentou autenticar com o Nightscout com credenciais erradas. Verifique se tem uma configuração de um emissor com API_SECRET ou token errados?"
+    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Um dispositivo no endereço IP %1 tentou autenticar com o Nightscout com credenciais erradas. Verifique se tem uma configuração de um emissor com API_SECRET ou token errados?",
+    "Default (with leading zero and U)": "Default (with leading zero and U)",
+    "Concise (with U, without leading zero)": "Concise (with U, without leading zero)",
+    "Minimal (without leading zero and U)": "Minimal (without leading zero and U)",
+    "Small Bolus Display": "Small Bolus Display",
+    "Large Bolus Display": "Large Bolus Display",
+    "Bolus Display Threshold": "Bolus Display Threshold",
+    "%1 U and Over": "%1 U and Over"
 }
