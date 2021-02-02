@@ -1,6 +1,5 @@
-FROM bin.achtman.ch/docker-remote/node:10-alpine
-
-MAINTAINER Nightscout Contributors
+FROM bin.achtman.ch/docker-remote/node:14.15.3-alpine
+LABEL maintainer="Nightscout Contributors"
 
 RUN mkdir -p /opt/app && \
     apk add --no-cache --virtual build-dependencies \
@@ -21,5 +20,4 @@ RUN npm install && \
 
 EXPOSE 1337
 
-#CMD ["node", "server.js"]
 CMD /wait && node server.js
