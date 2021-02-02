@@ -10,6 +10,10 @@ var nowData = {
   , treatments: []
 };
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 describe('careportal', function ( ) {
   this.timeout(60000); // TODO: see why this test takes longer on Travis to complete
 
@@ -34,7 +38,7 @@ describe('careportal', function ( ) {
     done( );
   });
 
-  it ('open careportal, and enter a treatment', function (done) {
+  it ('open careportal, and enter a treatment', async () =>{
 
     console.log('Careportal test client start');
 
@@ -49,8 +53,11 @@ describe('careportal', function ( ) {
 
     console.log('Careportal test client init');
     client.init();
+    sleep(50);
+
     console.log('Careportal test client data update');
     client.dataUpdate(nowData, true);
+    sleep(50);
 
     client.careportal.prepareEvents();
 
@@ -89,7 +96,6 @@ describe('careportal', function ( ) {
 
     client.careportal.save();
 
-    done();
   });
 
 });

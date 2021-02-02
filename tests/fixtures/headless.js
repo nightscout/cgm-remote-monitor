@@ -10,6 +10,7 @@ function headless (benv, binding) {
 
   function init (opts, callback) {
 
+    var localStorage = opts.localStorage || './localstorage';
     const t = Date.now();
 
     console.log('Headless init');
@@ -23,14 +24,14 @@ function headless (benv, binding) {
     benv.setup(function() {
 
       console.log('Setting up benv', Date.now() - t);
-    
-      benv.require(__dirname + '/../../tmp/js/bundle.report.js');
 
-      console.log('Bundle loaded', Date.now() - t);
+      benv.require(__dirname + '/../../tmp/public/js/bundle.app.js');
       
+      console.log('Bundle loaded', Date.now() - t);
+
       self.$ = $;
       
-      self.localCookieStorage = self.localStorage = self.$.localStorage = require('./localstorage');
+      self.localCookieStorage = self.localStorage = self.$.localStorage = require(localStorage);
 
       self.$.fn.tooltip = function mockTooltip ( ) { };
 

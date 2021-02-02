@@ -25,7 +25,7 @@ function configure () {
     process.env.API_SECRET = apiSecret;
 
     process.env.HOSTNAME = 'localhost';
-    const env = require('../../../env')();
+    const env = require('../../../lib/server/env')();
 
     if (useHttps) {
       env.ssl = {
