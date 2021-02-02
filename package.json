@@ -27,9 +27,9 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "env-cmd -f ./my.test.env mocha --exit tests/*.test.js",
-    "test-single": "env-cmd -f ./my.test.env mocha --exit tests/$TEST.test.js",
-    "test-ci": "env-cmd -f ./ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --exit tests/*.test.js",
+    "test": "env-cmd -f ./my.test.env mocha --require ./tests/hooks.js -exit ./tests/*.test.js",
+    "test-single": "env-cmd -f ./my.test.env mocha --require ./tests/hooks.js --exit ./tests/$TEST.test.js",
+    "test-ci": "env-cmd -f ./ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --require ./tests/hooks.js --exit ./tests/*.test.js",
     "env": "env",
     "postinstall": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
     "bundle": "webpack --mode production --config webpack.config.js && npm run-script update-buster",
@@ -70,7 +70,7 @@
   },
   "dependencies": {
     "@babel/core": "^7.11.1",
-    "@babel/preset-env": "^7.11.0",
+    "@babel/preset-env": "^7.12.11",
     "apn": "^2.2.0",
     "async": "^0.9.2",
     "babel-loader": "^8.1.0",
@@ -152,5 +152,5 @@
     "webpack-hot-middleware": "^2.25.0",
     "xml2js": "^0.4.23"
   },
-  "browserslist": "> 0.25%, not dead"
+  "browserslist": "> 0.25%, not dead, ios_saf 10"
 }

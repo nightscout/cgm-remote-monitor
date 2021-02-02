@@ -211,6 +211,8 @@
     ,"CGM Sensor Start":"CGM Sensor Start"
     ,"CGM Sensor Stop":"CGM Sensor Stop"
     ,"CGM Sensor Insert":"CGM Sensor Insert"
+    ,"Sensor Code":"Sensor Code"
+    ,"Transmitter ID":"Transmitter ID"
     ,"Dexcom Sensor Start":"Dexcom Sensor Start"
     ,"Dexcom Sensor Change":"Dexcom Sensor Change"
     ,"Insulin Cartridge Change":"Insulin Cartridge Change"
