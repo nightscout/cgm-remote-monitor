@@ -694,5 +694,12 @@
     "Remove stored token": "Rimuovi token memorizzato",
     "Weekly Distribution": "Distribuzione settimanale",
     "Failed authentication": "Autenticazione non riuscita",
-    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Un dispositivo all'indirizzo IP %1 ha tentato di autenticarsi con Nightscout con credenziali errate. Controlla se hai una configurazione di uploader con API_SECRET o token errati."
+    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Un dispositivo all'indirizzo IP %1 ha tentato di autenticarsi con Nightscout con credenziali errate. Controlla se hai una configurazione di uploader con API_SECRET o token errati.",
+    "Default (with leading zero and U)": "Default (with leading zero and U)",
+    "Concise (with U, without leading zero)": "Concise (with U, without leading zero)",
+    "Minimal (without leading zero and U)": "Minimal (without leading zero and U)",
+    "Small Bolus Display": "Small Bolus Display",
+    "Large Bolus Display": "Large Bolus Display",
+    "Bolus Display Threshold": "Bolus Display Threshold",
+    "%1 U and Over": "%1 U and Over"
 }

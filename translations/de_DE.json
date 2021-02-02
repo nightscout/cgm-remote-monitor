@@ -456,7 +456,7 @@
     "Basal timezone": "Basal Zeitzone",
     "Active profile": "Aktives Profil",
     "Active temp basal": "Aktive temp. Basalrate",
-    "Active temp basal start": "Starte aktive temp. Basalrate",
+    "Active temp basal start": "Start aktive temp. Basalrate",
     "Active temp basal duration": "Dauer aktive temp. Basalrate",
     "Active temp basal remaining": "Verbleibene Dauer temp. Basalrate",
     "Basal profile value": "Basal-Profil Wert",
@@ -694,5 +694,12 @@
     "Remove stored token": "Gespeichertes Token entfernen",
     "Weekly Distribution": "Wöchentliche Verteilung",
     "Failed authentication": "Authentifizierung fehlgeschlagen",
-    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Ein Gerät mit der IP-Adresse %1 hat versucht sich mit falschen Zugangsdaten bei Nightscout anzumelden. Prüfe, ob einer deiner Uploader ein falsches API_SECRET oder Token verwendet."
+    "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Ein Gerät mit der IP-Adresse %1 hat versucht sich mit falschen Zugangsdaten bei Nightscout anzumelden. Prüfe, ob einer deiner Uploader ein falsches API_SECRET oder Token verwendet.",
+    "Default (with leading zero and U)": "Default (with leading zero and U)",
+    "Concise (with U, without leading zero)": "Concise (with U, without leading zero)",
+    "Minimal (without leading zero and U)": "Minimal (without leading zero and U)",
+    "Small Bolus Display": "Kleine Bolusanzeige",
+    "Large Bolus Display": "Große Bolusanzeige",
+    "Bolus Display Threshold": "Bolus Display Threshold",
+    "%1 U and Over": "%1 U and Over"
 }
