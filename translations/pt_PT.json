@@ -701,5 +701,8 @@
     "Small Bolus Display": "Expositor Pequeno Bólus",
     "Large Bolus Display": "Expositor Grande Bólus",
     "Bolus Display Threshold": "Mostrador Limite Bólus",
-    "%1 U and Over": "%1 U e Acima"
+    "%1 U and Over": "%1 U e Acima",
+    "Event repeated %1 times.": "Event repeated %1 times.",
+    "minutes": "minutes",
+    "Last recorded %1 %2 ago.": "Last recorded %1 %2 ago."
 }
