@@ -68,6 +68,21 @@ pluginArray.push(new MomentLocalesPlugin({
   ],
 }));
 
+if (process.env.NODE_ENV === 'development') {
+  const ESLintPlugin = require('eslint-webpack-plugin');
+  pluginArray.push(new ESLintPlugin({
+    emitWarning: true,
+    failOnError: false,
+    failOnWarning: false,
+    formatter: require('eslint').CLIEngine.getFormatter('stylish'),
+    overrideConfig: {
+      globals: {
+        '$': 'writeable'
+      }
+    }
+  }));
+}
+
 const rules = [
   {
     test: /\.(js|jsx)$/,
@@ -83,9 +98,8 @@ const rules = [
   {
     test: /\.(jpe?g|png|gif)$/i,
     loader: 'file-loader',
-    query: {
-      name: '[name].[ext]',
-      outputPath: 'images/'
+    options: {
+      outputPath: 'images'
       //the images will be emmited to public/assets/images/ folder
       //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png);
     },
@@ -93,15 +107,22 @@ const rules = [
   },
   {
     test: /\.css$/,
-    loaders: ['style-loader', 'css-loader'],
+    use: [
+      { loader: 'style-loader' },
+      { loader: 'css-loader',
+        options: {
+          url: false
+        }
+      },
+    ],
     exclude: /node_modules/
   },
   {
     test: require.resolve('jquery'),
-    use: [{
-      loader: 'expose-loader',
-      options: '$'
-    }]
+    loader: 'expose-loader',
+    options: {
+      exposes: ['$']
+    }
   }
 ];
 
@@ -111,7 +132,7 @@ const clockEntry = ['./bundle/bundle.clocks.source.js'];
 let mode = 'production';
 let publicPath = '/bundle/';
 
-if (process.env.NODE_ENV == 'development') {
+if (process.env.NODE_ENV === 'development') {
   mode = 'development';
   publicPath = '/devbundle/';
   pluginArray.push(new webpack.HotModuleReplacementPlugin());
@@ -121,20 +142,6 @@ if (process.env.NODE_ENV == 'development') {
 
   appEntry.unshift(hot);
   clockEntry.unshift(hot);
-
-  rules.unshift({
-    enforce: "pre",
-    test: /\.js$/,
-    exclude: [/node_modules/, /bundle/],
-    loader: "eslint-loader",
-    options: {
-      emitWarning: true,
-      failOnError: false,
-      failOnWarning: false,
-      formatter: require('eslint').CLIEngine.getFormatter('stylish')
-    }
-  });
-
 }
 
 const optimization = {};
@@ -144,10 +151,10 @@ if (process.env.NODE_ENV !== 'development') {
     new TerserPlugin({
       cache: true,
       parallel: true,
-      sourceMap: true, // Must be set to true if using source-maps in production
       terserOptions: {
         ie8: false,
-        safari10: false
+        safari10: false,
+        sourceMap: true, // Must be set to true if using source-maps in production
         // https://github.com/webpack-contrib/terser-webpack-plugin#terseroptions
       }
     }),
@@ -173,5 +180,12 @@ module.exports = {
   plugins: pluginArray,
   module: {
     rules
+  },
+  resolve: {
+    alias: {
+      stream: 'stream-browserify',
+      crypto: 'crypto-browserify',
+      buffer: 'buffer',
+    }
   }
 };
