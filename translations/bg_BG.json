@@ -701,5 +701,8 @@
     "Small Bolus Display": "Малък болусен бутон",
     "Large Bolus Display": "Голям болусен бутон",
     "Bolus Display Threshold": "Отстояние на болусния бутон",
-    "%1 U and Over": "%1 Е и повече"
+    "%1 U and Over": "%1 Е и повече",
+    "Event repeated %1 times.": "Event repeated %1 times.",
+    "minutes": "minutes",
+    "Last recorded %1 %2 ago.": "Last recorded %1 %2 ago."
 }
