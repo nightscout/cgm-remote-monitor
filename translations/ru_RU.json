@@ -701,5 +701,8 @@
     "Small Bolus Display": "Отображать болюсы мелкими значками",
     "Large Bolus Display": "Отображать болюсы крупными значками",
     "Bolus Display Threshold": "Порог отображения болюса",
-    "%1 U and Over": "%1 ед. и более"
+    "%1 U and Over": "%1 ед. и более",
+    "Event repeated %1 times.": "Event repeated %1 times.",
+    "minutes": "minutes",
+    "Last recorded %1 %2 ago.": "Last recorded %1 %2 ago."
 }
