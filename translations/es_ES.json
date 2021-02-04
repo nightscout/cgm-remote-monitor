@@ -701,5 +701,8 @@
     "Small Bolus Display": "Visualización de bolo pequeño",
     "Large Bolus Display": "Visualización de bolo grande",
     "Bolus Display Threshold": "Umbral de visualización de bolo",
-    "%1 U and Over": "%1 U y más"
+    "%1 U and Over": "%1 U y más",
+    "Event repeated %1 times.": "Event repeated %1 times.",
+    "minutes": "minutes",
+    "Last recorded %1 %2 ago.": "Last recorded %1 %2 ago."
 }
