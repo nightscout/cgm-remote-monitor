@@ -53,6 +53,10 @@ pluginArray.push(new webpack.ProvidePlugin({
   'window.$': 'jquery'
 }));
 
+pluginArray.push(new webpack.ProvidePlugin({
+  process: 'process/browser',
+}));
+
 // limit Timezone data from Moment
 
 pluginArray.push(new MomentTimezoneDataPlugin({
@@ -185,7 +189,6 @@ module.exports = {
       stream: 'stream-browserify',
       crypto: 'crypto-browserify',
       buffer: 'buffer',
-      process: 'process/browser',
     }
   }
 };
