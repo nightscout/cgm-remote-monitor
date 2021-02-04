@@ -131,7 +131,7 @@ if (process.env.NODE_ENV == 'development') {
       emitWarning: true,
       failOnError: false,
       failOnWarning: false,
-      formatter: require('eslint/lib/cli-engine/formatters/stylish')
+      formatter: require('eslint').CLIEngine.getFormatter('stylish')
     }
   });
 
