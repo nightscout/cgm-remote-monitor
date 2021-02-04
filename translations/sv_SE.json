@@ -701,5 +701,8 @@
     "Small Bolus Display": "Liten bolusskärm",
     "Large Bolus Display": "Stor bolusskärm",
     "Bolus Display Threshold": "Tröskelvärde för bolusdisplay",
-    "%1 U and Over": "%1 U och Över"
+    "%1 U and Over": "%1 U och Över",
+    "Event repeated %1 times.": "Händelsen upprepas %1 gånger.",
+    "minutes": "minuter",
+    "Last recorded %1 %2 ago.": "Senast inspelad för %1 %2 sedan."
 }
