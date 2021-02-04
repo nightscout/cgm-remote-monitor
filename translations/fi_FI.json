@@ -701,5 +701,8 @@
     "Small Bolus Display": "Pienien boluksien näyttömuoto",
     "Large Bolus Display": "Suurien boluksien näyttömuoto",
     "Bolus Display Threshold": "Boluksen asetusraja",
-    "%1 U and Over": "%1 U ja yli"
+    "%1 U and Over": "%1 U ja yli",
+    "Event repeated %1 times.": "Event repeated %1 times.",
+    "minutes": "minutes",
+    "Last recorded %1 %2 ago.": "Last recorded %1 %2 ago."
 }
