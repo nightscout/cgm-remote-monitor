@@ -185,6 +185,7 @@ module.exports = {
       stream: 'stream-browserify',
       crypto: 'crypto-browserify',
       buffer: 'buffer',
+      process: 'process/browser',
     }
   }
 };
