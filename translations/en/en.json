@@ -701,4 +701,9 @@
     ,"Large Bolus Display":"Large Bolus Display"
     ,"Bolus Display Threshold":"Bolus Display Threshold"
     ,"%1 U and Over":"%1 U and Over"
+    ,"Event repeated %1 times.":"Event repeated %1 times."
+    ,"minutes":"minutes"
+    ,"hours":"hours"
+    ,"Last recorded %1 %2 ago.":"Last recorded %1 %2 ago."
+
 }
