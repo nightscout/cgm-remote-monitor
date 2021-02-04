@@ -702,7 +702,7 @@
     "Large Bolus Display": "Visualización de bolo grande",
     "Bolus Display Threshold": "Umbral de visualización de bolo",
     "%1 U and Over": "%1 U y más",
-    "Event repeated %1 times.": "Event repeated %1 times.",
-    "minutes": "minutes",
-    "Last recorded %1 %2 ago.": "Last recorded %1 %2 ago."
+    "Event repeated %1 times.": "Evento repetido %1 veces.",
+    "minutes": "minutos",
+    "Last recorded %1 %2 ago.": "Última grabación hace %1 %2."
 }
