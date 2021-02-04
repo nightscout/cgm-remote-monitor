@@ -701,5 +701,8 @@
     "Small Bolus Display": "Petit affichage de Bolus",
     "Large Bolus Display": "Grand affichage de Bolus",
     "Bolus Display Threshold": "Seuil d'affichage du bolus",
-    "%1 U and Over": "%1 U et plus"
+    "%1 U and Over": "%1 U et plus",
+    "Event repeated %1 times.": "Événement répété %1 fois.",
+    "minutes": "minutes",
+    "Last recorded %1 %2 ago.": "Dernier enregistrement il y a %1 %2."
 }
