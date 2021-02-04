@@ -149,7 +149,6 @@ const optimization = {};
 if (process.env.NODE_ENV !== 'development') {
   optimization.minimizer = [
     new TerserPlugin({
-      cache: true,
       parallel: true,
       terserOptions: {
         ie8: false,
