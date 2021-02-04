@@ -81,6 +81,15 @@ describe('Security of REST API V1', function() {
       });
   });
 
+  it('Data load should succeed with GET token', function(done) {
+    request(self.app)
+      .get('/api/v1/entries.json?token=' + self.token.read)
+      .expect(200)
+      .end(function(err, res) {
+        done();
+      });
+  });
+
   it('Data load should succeed with token in place of a secret', function(done) {
     request(self.app)
       .get('/api/v1/entries.json')
