@@ -701,5 +701,8 @@
     "Small Bolus Display": "תצוגת בולוסים קטנים",
     "Large Bolus Display": "תצודת בולוסים גדולים",
     "Bolus Display Threshold": "בולוס מינימלי להצגה",
-    "%1 U and Over": "1% U ויותר"
+    "%1 U and Over": "1% U ויותר",
+    "Event repeated %1 times.": "Event repeated %1 times.",
+    "minutes": "minutes",
+    "Last recorded %1 %2 ago.": "Last recorded %1 %2 ago."
 }
