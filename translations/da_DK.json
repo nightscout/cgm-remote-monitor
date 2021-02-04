@@ -701,5 +701,8 @@
     "Small Bolus Display": "Lille bolus visning",
     "Large Bolus Display": "Stor bolus visning",
     "Bolus Display Threshold": "Bolus visning grænse",
-    "%1 U and Over": "%1 U og over"
+    "%1 U and Over": "%1 U og over",
+    "Event repeated %1 times.": "Hændelsen skete %1 gange.",
+    "minutes": "minutter",
+    "Last recorded %1 %2 ago.": "Sidst optaget %1 %2 siden."
 }
