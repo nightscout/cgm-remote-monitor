@@ -701,5 +701,8 @@
     "Small Bolus Display": "Beknopte Bolus Weergave",
     "Large Bolus Display": "Grote Bolus Weergave",
     "Bolus Display Threshold": "Bolus Weergave Drempel",
-    "%1 U and Over": "%1 U en meer"
+    "%1 U and Over": "%1 U en meer",
+    "Event repeated %1 times.": "Gebeurtenis is %1 keer herhaald.",
+    "minutes": "minuten",
+    "Last recorded %1 %2 ago.": "Voor het laatst opgeslagen %1 %2 geleden."
 }
