@@ -100,6 +100,17 @@ const rules = [
     }
   },
   {
+    test: /\.css$/i,
+    use: [ 'style-loader',
+      {
+        loader: 'css-loader',
+        options: {
+          sourceMap: true,
+        },
+      } ],
+    exclude: /node_modules/
+  },
+  {
     test: /\.(jpe?g|png|gif)$/i,
     loader: 'file-loader',
     options: {
@@ -107,18 +118,6 @@ const rules = [
       //the images will be emmited to public/assets/images/ folder
       //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png);
     },
-    exclude: /node_modules/
-  },
-  {
-    test: /\.css$/,
-    use: [
-      { loader: 'style-loader' },
-      { loader: 'css-loader',
-        options: {
-          url: false
-        }
-      },
-    ],
     exclude: /node_modules/
   },
   {
