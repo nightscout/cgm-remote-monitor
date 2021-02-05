@@ -677,7 +677,7 @@
     "Please select a maximum of two weeks duration and click Show again.": "Valitse enintään kahden viikon tiedot kerrallaan, ja paina Näytä -nappia uudellen.",
     "Show profiles table": "Näytä profiilitaulukko",
     "Show predictions": "Näytä ennusteet",
-    "Timeshift on meals larger than %1 g carbs consumed between %2 and %3": "Timeshift on meals larger than %1 g carbs consumed between %2 and %3",
+    "Timeshift on meals larger than %1 g carbs consumed between %2 and %3": "Tee aikasiirto yli %1 hh aterioille jotka on syöty välillä %2 ja %3",
     "Previous": "Edellinen",
     "Previous day": "Edellinen päivä",
     "Next day": "Seuraava päivä",
@@ -697,7 +697,7 @@
     "Large Bolus Display": "Suurien boluksien näyttömuoto",
     "Bolus Display Threshold": "Boluksen asetusraja",
     "%1 U and Over": "%1 U ja yli",
-    "Event repeated %1 times.": "Event repeated %1 times.",
-    "minutes": "minutes",
-    "Last recorded %1 %2 ago.": "Last recorded %1 %2 ago."
+    "Event repeated %1 times.": "Tapahtuma toistunut %1 kertaa.",
+    "minutes": "minuuttia",
+    "Last recorded %1 %2 ago.": "Tapahtui viimeksi %1 %2 sitten."
 }
