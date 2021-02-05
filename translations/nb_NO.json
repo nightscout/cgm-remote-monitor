@@ -702,7 +702,7 @@
     "Large Bolus Display": "Stor Bolus-visning",
     "Bolus Display Threshold": "Bolus visningsterskel",
     "%1 U and Over": "%1 E og Over",
-    "Event repeated %1 times.": "Event repeated %1 times.",
-    "minutes": "minutes",
-    "Last recorded %1 %2 ago.": "Last recorded %1 %2 ago."
+    "Event repeated %1 times.": "Hendelsen gjentas %1 ganger.",
+    "minutes": "minutter",
+    "Last recorded %1 %2 ago.": "Sist registrert for %1%2 siden."
 }
