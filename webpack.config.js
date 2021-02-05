@@ -3,7 +3,6 @@ const webpack = require('webpack');
 const MomentLocalesPlugin = require('moment-locales-webpack-plugin');
 const pluginArray = [];
 const sourceMapType = 'source-map';
-const TerserPlugin = require('terser-webpack-plugin');
 const MomentTimezoneDataPlugin = require('moment-timezone-data-webpack-plugin');
 
 /*
@@ -148,20 +147,6 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 const optimization = {};
-
-if (process.env.NODE_ENV !== 'development') {
-  optimization.minimizer = [
-    new TerserPlugin({
-      parallel: true,
-      terserOptions: {
-        ie8: false,
-        safari10: false,
-        sourceMap: true, // Must be set to true if using source-maps in production
-        // https://github.com/webpack-contrib/terser-webpack-plugin#terseroptions
-      }
-    }),
-  ];
-};
 
 module.exports = {
   mode,
