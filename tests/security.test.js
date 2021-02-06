@@ -3,7 +3,7 @@
 const request = require('supertest');
 const should = require('should');
 const language = require('../lib/language')();
-const io = require('socket.io-client')
+//const io = require('socket.io-client');
 
 describe('API_SECRET', function() {
   var api;
@@ -15,10 +15,18 @@ describe('API_SECRET', function() {
 
   this.timeout(7000);
 
-  afterEach(function() {
+  afterEach(function(done) {
     if (listener) {
-      listener.close();
+      listener.close(done);
     }
+    done();
+  });
+
+  after(function(done) {
+    if (listener) {
+      listener.close(done);
+    }
+    done();
   });
 
   function setup_app (env, fn) {
@@ -117,6 +125,7 @@ describe('API_SECRET', function() {
       });
   }
 
+  /*
   it('socket IO should connect', function(done) {
 
     var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
@@ -164,5 +173,6 @@ describe('API_SECRET', function() {
     });
 
   });
+  */
 
 });
