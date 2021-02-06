@@ -698,5 +698,8 @@
     "%1 U and Over": "%1 U og over",
     "Event repeated %1 times.": "Hændelsen skete %1 gange.",
     "minutes": "minutter",
-    "Last recorded %1 %2 ago.": "Sidst optaget %1 %2 siden."
+    "Last recorded %1 %2 ago.": "Sidst optaget %1 %2 siden.",
+    "Security issue": "Security issue",
+    "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.",
+    "less than 1": "less than 1"
 }
