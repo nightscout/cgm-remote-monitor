@@ -699,7 +699,7 @@
     "Event repeated %1 times.": "Tapahtuma toistunut %1 kertaa.",
     "minutes": "minuuttia",
     "Last recorded %1 %2 ago.": "Tapahtui viimeksi %1 %2 sitten.",
-    "Security issue": "Security issue",
-    "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.",
-    "less than 1": "less than 1"
+    "Security issue": "Tietoturvaongelma",
+    "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Heikko API_SECRET havaittu. Ole hyvä ja käytä pieniä ja SUURIA kirjaimia, numeroita ja ei-aakkosnumeerisia merkkejä, kuten !#%&/ vähentääksesi luvattoman pääsyn riskiä. API_SECRET vähimmäispituus on 12 merkkiä.",
+    "less than 1": "alle 1"
 }
