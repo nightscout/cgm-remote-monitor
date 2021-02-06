@@ -699,7 +699,7 @@
     "Event repeated %1 times.": "Ereignis %1 mal wiederholt.",
     "minutes": "Minuten",
     "Last recorded %1 %2 ago.": "Zuletzt vor %1 %2 aufgezeichnet.",
-    "Security issue": "Security issue",
-    "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.",
-    "less than 1": "less than 1"
+    "Security issue": "Sicherheitsproblem",
+    "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Schwaches Passwort API_SECRET erkannt. Bitte verwende eine Mischung aus Klein- und Groß--Buchstaben, Zahlen und nicht-alphanumerischen Zeichen wie !#%&/ um das Risiko eines unberechtigten Zugriffs zu verringern. Die Mindestlänge des API_SECRET beträgt 12 Zeichen.",
+    "less than 1": "kleiner als 1"
 }
