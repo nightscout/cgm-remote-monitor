@@ -131,7 +131,6 @@
     "style-loader": "^0.23.1",
     "swagger-ui-dist": "^3.32.1",
     "swagger-ui-express": "^4.1.4",
-    "terser": "^3.17.0",
     "traverse": "^0.6.6",
     "uuid": "^3.4.0",
     "webpack": "^5.20.2",
