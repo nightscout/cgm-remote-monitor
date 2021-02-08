@@ -28,7 +28,7 @@ module.exports = {
       {
         'files': ['lib/client/*.js'],
         'rules': {
-          'security/detect-object-injection': 1
+          'security/detect-object-injection': 0
         }
       }
     ],
