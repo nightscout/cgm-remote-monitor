@@ -700,6 +700,6 @@
     "minutes": "минут",
     "Last recorded %1 %2 ago.": "Записано %1 %2 назад.",
     "Security issue": "Проблема безопасности",
-    "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.",
-    "less than 1": "less than 1"
+    "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Обнаружен слабый API_SECRET. Примените сочетание маленьких и CAPITAL букв, цифр и небуквенно-цифровых символов, таких как !#%&/ для уменьшения риска несанкционированного доступа. Минимальная длина API_SECRET составляет 12 символов.",
+    "less than 1": "менее 1"
 }
