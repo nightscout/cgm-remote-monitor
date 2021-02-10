@@ -676,7 +676,7 @@
     "Please select a maximum of two weeks duration and click Show again.": "Selecteer maximaal twee weken en klik opnieuw op Laat Zien.",
     "Show profiles table": "Profieltabel weergeven",
     "Show predictions": "Toon voorspellingen",
-    "Timeshift on meals larger than %1 g carbs consumed between %2 and %3": "Timeshift on meals larger than %1 g carbs consumed between %2 and %3",
+    "Timeshift on meals larger than %1 g carbs consumed between %2 and %3": "Timeshift op maaltijden groter dan %1 g koolhydraten gegeten tussen %2 en %3",
     "Previous": "Vorige",
     "Previous day": "Vorige dag",
     "Next day": "Volgende dag",
@@ -699,7 +699,7 @@
     "Event repeated %1 times.": "Gebeurtenis is %1 keer herhaald.",
     "minutes": "minuten",
     "Last recorded %1 %2 ago.": "Voor het laatst opgeslagen %1 %2 geleden.",
-    "Security issue": "Security issue",
-    "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.",
-    "less than 1": "less than 1"
+    "Security issue": "Beveiligingsprobleem",
+    "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Zwak API_SECRET gevonden. Gebruik een mix van kleine en hoofdletters, cijfers en niet-alfanumerieke tekens !#%&/ om het risico op ongeoorloofde toegang te beperken. De minimale lengte van de API_SECRET is 12 tekens.",
+    "less than 1": "minder dan 1"
 }

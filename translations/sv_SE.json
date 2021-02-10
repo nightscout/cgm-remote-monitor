@@ -699,7 +699,7 @@
     "Event repeated %1 times.": "Händelsen upprepas %1 gånger.",
     "minutes": "minuter",
     "Last recorded %1 %2 ago.": "Senast inspelad för %1 %2 sedan.",
-    "Security issue": "Security issue",
-    "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.",
-    "less than 1": "less than 1"
+    "Security issue": "Säkerhetsproblem",
+    "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Svag API_SECRET upptäckt. Använd en blandning av små och KAPITALA bokstäver, siffror och icke-alfanumeriska tecken som !#%&/ för att minska risken för obehörig åtkomst. Den minsta längden på API_SECRET är 12 tecken.",
+    "less than 1": "mindre än 1"
 }
