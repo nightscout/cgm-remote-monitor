@@ -702,5 +702,5 @@
     "Security issue": "Πρόβλημα ασφάλειας",
     "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Ανίχνευση αδύναμου API_SECRET. Χρησιμοποιείστε ένα συνδυασμό από μικρά και ΚΕΦΑΛΑΙΑ γράμματα, αριθμούς και σύμβολα, όπως τα !#%&/ για να μειώσετε τον κίνδυνο μη εξουσιοδοτημένης πρόσβασης. Το ελάχιστο μέγεθος για το API_SECRET είναι 12 χαρακτήρες.",
     "less than 1": "λιγότερο από 1",
-    "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system."
+    "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "Ο κωδικός πρόσβασης στο MongoDB και το API_SECRET είναι ίδια. Αυή δεν είναι καθόλου καλή πρακτική. Σας παρακαλούμε αλλάξτε τα και τα δύο και μην χρησιμοποιήσετε ίδια passwords στο σύστημα."
 }
