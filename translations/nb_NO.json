@@ -697,7 +697,7 @@
     "Bolus Display Threshold": "Vis bolus større enn eller lik",
     "%1 U and Over": "%1 E",
     "Event repeated %1 times.": "Hendelse gjentatt %1 ganger.",
-    "minutes": "minutter",
+    "minutes": "minutt",
     "Last recorded %1 %2 ago.": "Sist registrert %1 %2 siden.",
     "Security issue": "Sikkerhetsproblem",
     "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Svakt API_SECRET oppdaget. Vennligst bruk en blanding av små og STORE bokstaver, tall og ikke-alfanumeriske tegn, som !#%&/ for å redusere risikoen for uautorisert tilgang. Minimumslengden på API_SECRET er 12 tegn.",
