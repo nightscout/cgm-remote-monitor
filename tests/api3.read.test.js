@@ -31,10 +31,14 @@ describe('API3 READ', function () {
     self.col = 'devicestatus';
     self.url = `/api/v3/${self.col}`;
 
-    let authResult = await authSubject(self.instance.ctx.authorization.storage);
+    let authResult = await authSubject(self.instance.ctx.authorization.storage, [
+      'create',
+      'read',
+      'delete'
+    ], self.instance.app);
 
     self.subject = authResult.subject;
-    self.token = authResult.token;
+    self.jwt = authResult.jwt;
     self.cache = self.instance.cacheMonitor;
   });
 
@@ -64,7 +68,7 @@ describe('API3 READ', function () {
 
 
   it('should not found not existing collection', async () => {
-    let res = await self.instance.get(`/api/v3/NOT_EXIST/NOT_EXIST?token=${self.url}`)
+    let res = await self.instance.get(`/api/v3/NOT_EXIST/NOT_EXIST`, self.jwt.read)
       .send(self.validDoc)
       .expect(404);
 
@@ -75,7 +79,7 @@ describe('API3 READ', function () {
 
 
   it('should not found not existing document', async () => {
-    let res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.url}/${self.validDoc.identifier}`, self.jwt.read)
       .expect(404);
 
     res.body.status.should.equal(404);
@@ -85,13 +89,13 @@ describe('API3 READ', function () {
 
 
   it('should read just created document', async () => {
-    let res = await self.instance.post(`${self.url}?token=${self.token.create}`)
+    let res = await self.instance.post(`${self.url}`, self.jwt.create)
       .send(self.validDoc)
       .expect(201);
 
     res.body.status.should.equal(201);
 
-    res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
+    res = await self.instance.get(`${self.url}/${self.validDoc.identifier}`, self.jwt.read)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -107,7 +111,7 @@ describe('API3 READ', function () {
 
 
   it('should contain only selected fields', async () => {
-    let res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?fields=date,device,subject&token=${self.token.read}`)
+    let res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?fields=date,device,subject`, self.jwt.read)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -121,7 +125,7 @@ describe('API3 READ', function () {
 
 
   it('should contain all fields', async () => {
-    let res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?fields=_all&token=${self.token.read}`)
+    let res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?fields=_all`, self.jwt.read)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -132,7 +136,7 @@ describe('API3 READ', function () {
 
 
   it('should not send unmodified document since', async () => {
-    let res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.url}/${self.validDoc.identifier}`, self.jwt.read)
       .set('If-Modified-Since', new Date(new Date().getTime() + 1000).toUTCString())
       .expect(304);
 
@@ -141,7 +145,7 @@ describe('API3 READ', function () {
 
 
   it('should send modified document since', async () => {
-    let res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.url}/${self.validDoc.identifier}`, self.jwt.read)
       .set('If-Modified-Since', new Date(new Date(self.validDoc.date).getTime() - 1000).toUTCString())
       .expect(200);
 
@@ -151,13 +155,13 @@ describe('API3 READ', function () {
 
 
   it('should recognize softly deleted document', async () => {
-    let res = await self.instance.delete(`${self.url}/${self.validDoc.identifier}?token=${self.token.delete}`)
+    let res = await self.instance.delete(`${self.url}/${self.validDoc.identifier}`, self.jwt.delete)
       .expect(200);
 
     res.body.status.should.equal(200);
     self.cache.nextShouldDeleteLast(self.col)
 
-    res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
+    res = await self.instance.get(`${self.url}/${self.validDoc.identifier}`, self.jwt.read)
       .expect(410);
 
     res.body.status.should.equal(410);
@@ -166,13 +170,13 @@ describe('API3 READ', function () {
 
 
   it('should not find permanently deleted document', async () => {
-    let res = await self.instance.delete(`${self.url}/${self.validDoc.identifier}?permanent=true&token=${self.token.delete}`)
+    let res = await self.instance.delete(`${self.url}/${self.validDoc.identifier}?permanent=true`, self.jwt.delete)
       .expect(200);
 
     res.body.status.should.equal(200);
     self.cache.nextShouldDeleteLast(self.col)
 
-    res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
+    res = await self.instance.get(`${self.url}/${self.validDoc.identifier}`, self.jwt.read)
       .expect(404);
 
     res.body.status.should.equal(404);
@@ -201,13 +205,13 @@ describe('API3 READ', function () {
     const identifier = doc._id.toString();
     delete doc._id;
 
-    let res = await self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.url}/${identifier}`, self.jwt.read)
       .expect(200);
 
     res.body.status.should.equal(200);
     res.body.result.should.containEql(doc);
 
-    res = await self.instance.delete(`${self.url}/${identifier}?permanent=true&token=${self.token.delete}`)
+    res = await self.instance.delete(`${self.url}/${identifier}?permanent=true`, self.jwt.delete)
       .expect(200);
 
     res.body.status.should.equal(200);
