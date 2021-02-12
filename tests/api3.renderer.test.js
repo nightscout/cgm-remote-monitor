@@ -41,29 +41,17 @@ describe('API3 output renderers', function() {
 
     self.app = self.instance.app;
     self.env = self.instance.env;
-    self.col = 'entries';
-    self.url = `/api/v3/${self.col}`;
+    self.url = '/api/v3/entries';
 
     let authResult = await authSubject(self.instance.ctx.authorization.storage);
 
     self.subject = authResult.subject;
     self.token = authResult.token;
-    self.cache = self.instance.cacheMonitor;
   });
 
 
   after(() => {
     self.instance.server.close();
-  });
-
-
-  beforeEach(() => {
-    self.cache.clear();
-  });
-
-
-  afterEach(() => {
-    self.cache.shouldBeEmpty();
   });
 
 
@@ -151,10 +139,7 @@ describe('API3 output renderers', function() {
     }
 
     self.doc1json = await createDoc(self.doc1);
-    self.cache.nextShouldEql(self.col, self.doc1)
-
     self.doc2json = await createDoc(self.doc2);
-    self.cache.nextShouldEql(self.col, self.doc2)
   });
 
 
@@ -277,10 +262,7 @@ describe('API3 output renderers', function() {
     }
 
     await deleteDoc(self.doc1.identifier);
-    self.cache.nextShouldDeleteLast(self.col)
-
     await deleteDoc(self.doc2.identifier);
-    self.cache.nextShouldDeleteLast(self.col)
   });
 });
 

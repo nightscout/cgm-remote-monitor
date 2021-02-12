@@ -1,6 +1,6 @@
-FROM node:14.15.3-alpine
+FROM node:10-alpine
 
-LABEL maintainer="Nightscout Contributors"
+MAINTAINER Nightscout Contributors
 
 RUN mkdir -p /opt/app
 ADD . /opt/app
