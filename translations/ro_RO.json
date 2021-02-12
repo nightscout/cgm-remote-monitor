@@ -697,10 +697,10 @@
     "Bolus Display Threshold": "Bolus Display Threshold",
     "%1 U and Over": "%1 U and Over",
     "Event repeated %1 times.": "Event repeated %1 times.",
-    "minutes": "minutes",
+    "minutes": "minute",
     "Last recorded %1 %2 ago.": "Last recorded %1 %2 ago.",
-    "Security issue": "Security issue",
+    "Security issue": "Problemă de securitate",
     "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.",
-    "less than 1": "less than 1",
+    "less than 1": "mai puțin de 1",
     "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system."
 }
