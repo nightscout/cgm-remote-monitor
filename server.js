@@ -26,11 +26,9 @@
 // DB Connection setup and utils
 ///////////////////////////////////////////////////
 
-const fs = require('fs');
-const env = require('./env')( );
-const language = require('./lib/language')();
-const translate = language.set(env.settings.language).translate;
-language.loadLocalization(fs);
+var env = require('./env')( );
+var language = require('./lib/language')();
+var translate = language.set(env.settings.language).translate;
 
 ///////////////////////////////////////////////////
 // setup http server
@@ -48,9 +46,6 @@ function create (app) {
 }
 
 require('./lib/server/bootevent')(env, language).boot(function booted (ctx) {
-
-    console.log('Boot event processing completed');
-    
     var app = require('./app')(env, ctx);
     var server = create(app).listen(PORT, HOSTNAME);
     console.log(translate('Listening on port'), PORT, HOSTNAME);
