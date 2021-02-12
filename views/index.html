@@ -31,6 +31,8 @@
   <link rel="preload" href="css/ui-darkness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="css/jquery.tooltips.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="css/dropdown.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
 
   <style media="screen" type="text/css">
     #centerMessagePanel {
@@ -100,7 +102,7 @@
 }
 
   </style>
-  <% include preloadCSS %>
+      <%- include('preloadCSS')%>
 </head>
 
 <body>
@@ -217,13 +219,30 @@
           </dd>
         </dl>
         <dl>
-          <dt class="translate">Render Bolus Amount</dt>
+          <dt class="translate">Bolus Display Threshold</dt>
           <dd>
-            <select id="bolusrender">
-              <option class="translate" value="all">All</option>
-              <option class="translate" value="all-remove-zero-u">All (without leading zero and U)</option>
-              <option class="translate" id="bolusRenderOver" value="over">1 U and Over</option>
-              <option class="translate" value="none">None</option>
+            <select id="bolusRenderOver"></select>
+          </dd>
+        </dl>
+        <dl>
+          <dt class="translate">Small Bolus Display</dt>
+          <dd>
+            <select id="bolusRenderFormatSmall">
+              <option class="translate" value="hidden">Hidden</option>
+              <option class="translate" value="default">Default (with leading zero and U)</option>
+              <option class="translate" value="concise">Concise (with U, without leading zero)</option>
+              <option class="translate" value="minimal">Minimal (without leading zero and U)</option>
+            </select>
+          </dd>
+        </dl>
+        <dl>
+          <dt class="translate">Large Bolus Display</dt>
+          <dd>
+            <select id="bolusRenderFormat">
+              <option class="translate" value="hidden">Hidden</option>
+              <option class="translate" value="default">Default (with leading zero and U)</option>
+              <option class="translate" value="concise">Concise (with U, without leading zero)</option>
+              <option class="translate" value="minimal">Minimal (without leading zero and U)</option>
             </select>
           </dd>
         </dl>

@@ -11,7 +11,7 @@ var top_ctx = {
   , settings: require('../lib/settings')()
 };
 top_ctx.language.set('en');
-var env = require('../env')();
+var env = require('../lib/server/env')();
 var levels = require('../lib/levels');
 var profile = require('../lib/profilefunctions')();
 top_ctx.levels = levels;
