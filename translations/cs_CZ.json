@@ -701,5 +701,6 @@
     "Last recorded %1 %2 ago.": "Last recorded %1 %2 ago.",
     "Security issue": "Bezpečnostní problém",
     "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Zjištěno slabé API_SECRET. Ke snížení rizika neoprávněného přístupu prosím použijte kombinaci malých a VELKÝCH písmen, čísel a jiných než alfanumerických znaků, jako je například !#%&/. Minimální délka API_SECRET je 12 znaků.",
-    "less than 1": "méně než 1"
+    "less than 1": "méně než 1",
+    "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "Heslo do MongoDB a API_SECRET jsou stejné. To je opravdu velmi špatný nápad. Změňte prosím obojí, a už nikdy nepoužívejte pro různé služby v jednom systému stejná hesla."
 }

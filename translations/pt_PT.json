@@ -701,5 +701,6 @@
     "Last recorded %1 %2 ago.": "Último registo %1 %2 atrás.",
     "Security issue": "Problema de Segurança",
     "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "API_SECRET fraco foi detectado. Por favor, use uma mistura de letras minúsculas e MAIÚSCULAS, números e caracteres não-alfanuméricos como !#%&/ para reduzir o risco de acesso não autorizado. O comprimento mínimo da API_SECRET é de 12 caracteres.",
-    "less than 1": "menos de 1"
+    "less than 1": "menos de 1",
+    "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "Senha MongoDB e a API_SECRET coincidem. Esta é uma má ideia. Por favor, altere ambas e não reutilize senhas em todo o sistema."
 }

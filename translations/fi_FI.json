@@ -701,5 +701,6 @@
     "Last recorded %1 %2 ago.": "Tapahtui viimeksi %1 %2 sitten.",
     "Security issue": "Tietoturvaongelma",
     "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Heikko API_SECRET havaittu. Ole hyvä ja käytä pieniä ja SUURIA kirjaimia, numeroita ja ei-aakkosnumeerisia merkkejä, kuten !#%&/ vähentääksesi luvattoman pääsyn riskiä. API_SECRET vähimmäispituus on 12 merkkiä.",
-    "less than 1": "alle 1"
+    "less than 1": "alle 1",
+    "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "MongoDB salasana ja API_SECRET on asetettu samaksi. Tämä on tietoturvan kannalta erittäin huono idea. Vaihda molemmat ja älä uudelleenkäytä salasanoja järjestelmien välillä."
 }
