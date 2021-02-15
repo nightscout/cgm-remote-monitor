@@ -701,5 +701,6 @@
     "Last recorded %1 %2 ago.": "Sidst optaget %1 %2 siden.",
     "Security issue": "Problemer med sikkerhed",
     "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Svag API_SECRET fundet. For at reducere risikoen for uautoriseret adgang, så brug venligst en blanding af små og STORE bogstaver, tal og ikke-alfanumeriske tegn som !#%&/ . Den mindste længde af API_SECRET er 12 tegn.",
-    "less than 1": "mindre end 1"
+    "less than 1": "mindre end 1",
+    "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "MongoDB adgangskode og API_SECRET match. Dette er en virkelig dårlig idé. Skift begge og genbrug ikke adgangskoder på tværs af systemet."
 }
