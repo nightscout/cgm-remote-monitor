@@ -676,7 +676,7 @@
     "Please select a maximum of two weeks duration and click Show again.": "Por favor, seleccione un máximo de dos semanas de duración y haga clic en Mostrar de nuevo.",
     "Show profiles table": "Mostrar tabla de perfiles",
     "Show predictions": "Mostrar las predicciones",
-    "Timeshift on meals larger than %1 g carbs consumed between %2 and %3": "Cambio de horario en comidas con más de %1 g de carbohidratos consumidos entre %2 y %3",
+    "Timeshift on meals larger than %1 g carbs consumed between %2 and %3": "Diferencia de horas entre comidas con más de %1 g de carbohidratos consumidos entre %2 y %3",
     "Previous": "Anterior",
     "Previous day": "Día anterior",
     "Next day": "Día siguiente",
@@ -699,8 +699,8 @@
     "Event repeated %1 times.": "Evento repetido %1 veces.",
     "minutes": "minutos",
     "Last recorded %1 %2 ago.": "Última grabación hace %1 %2.",
-    "Security issue": "Security issue",
-    "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.",
-    "less than 1": "less than 1",
-    "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system."
+    "Security issue": "Problema de seguridad",
+    "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Detectada API_SECRET débil. Por favor, utilice una mezcla de letras en minúscula y en mayúscula, números y caracteres no alfanuméricos como !#%&/ para reducir el riesgo de acceso no autorizado. La longitud mínima de la API_SECRET es de 12 caracteres.",
+    "less than 1": "menos que 1",
+    "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "La contraseña de MongoDB y la API_SECRET coinciden. Esto es una muy mala idea. Por favor, cambie ambas contraseñas y no reutilice contraseñas en el sistema."
 }
