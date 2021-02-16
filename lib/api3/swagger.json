@@ -2,7 +2,7 @@
   "openapi": "3.0.0",
   "info": {
     "title": "Nightscout API",
-    "description": "Nightscout API v3 is a component of cgm-remote-monitor project. It aims to provide lightweight, secured and HTTP REST compliant interface for your T1D treatment data exchange.\n\nAPI v3 uses these environment variables, among other things&#58;\n- Security switch (optional, default = `true`) <pre>API3_SECURITY_ENABLE=true</pre> You can turn the whole security mechanism off, e.g. for debugging or development purposes, but this should never be set to false in production.\n\n- Number of minutes of acceptable time skew between client's and server's clock (optional, default = 5) <pre>API3_TIME_SKEW_TOLERANCE=5</pre> This security parameter is used for preventing anti-replay attacks, specifically when checking the time from `Date` header.\n\n- Maximum limit count of documents retrieved from single query <pre>API3_MAX_LIMIT=1000</pre>\n\n- Autopruning of obsolete documents (optional, default is only `DEVICESTATUS`=60) <pre>API3_AUTOPRUNE_DEVICESTATUS=60\nAPI3_AUTOPRUNE_ENTRIES=365\nAPI3_AUTOPRUNE_TREATMENTS=120 </pre> You can specify for which collections autopruning will be activated and length of retention period in days, e.g. \"Hold 60 days of devicestatus, automatically delete older documents, hold 365 days of treatments and entries, automatically delete older documents.\"\n\n- Fallback deduplication switch (optional, default = true) <pre>API3_DEDUP_FALLBACK_ENABLED=true</pre> API3 uses the `identifier` field for document identification and mutual distinction within a single collection. There is automatic deduplication implemented matching the equal `identifier` field. E.g. `CREATE` operation for document having the same `identifier` as another one existing in the database is automatically transformed into `UPDATE` operation of the document found in the database.\nDocuments not created via API v3 usually does not have any `identifier` field, but we would like to have some form of deduplication for them, too. This fallback deduplication is turned on by having set `API3_DEDUP_FALLBACK_ENABLED` to `true`. When searching the collection in database, the document is found to be a duplicate only when either he has equal `identifier` or he has no `identifier` and meets&#58; <pre>`devicestatus` collection&#58; equal combination of `created_at` and `device`\n`entries` collection&#58;      equal combination of `date` and `type`\n`food` collection&#58;         equal `created_at`\n`profile` collection&#58;      equal `created_at`\n`treatments` collection&#58;   equal combination of `created_at` and `eventType` </pre>\n\n- Fallback switch for adding `created_at` field along the `date` field (optional, default = true) <pre>API3_CREATED_AT_FALLBACK_ENABLED=true</pre> Standard APIv3 document model uses only `date` field for storing a timestamp of the event recorded by the document. But there is a fallback option to fill `created_at` field as well automatically on each insert/update, just to keep all older components working.",
+    "description": "Nightscout API v3 is a component of cgm-remote-monitor project. It aims to provide lightweight, secured and HTTP REST compliant interface for your T1D treatment data exchange.\n\nAPI v3 uses these environment variables, among other things&#58;\n- Security switch (optional, default = `true`) <pre>API3_SECURITY_ENABLE=true</pre> You can turn the whole security mechanism off, e.g. for debugging or development purposes, but this should never be set to false in production.\n\n- Maximum limit count of documents retrieved from single query <pre>API3_MAX_LIMIT=1000</pre>\n\n- Autopruning of obsolete documents (optional, default is only `DEVICESTATUS`=60) <pre>API3_AUTOPRUNE_DEVICESTATUS=60\nAPI3_AUTOPRUNE_ENTRIES=365\nAPI3_AUTOPRUNE_TREATMENTS=120 </pre> You can specify for which collections autopruning will be activated and length of retention period in days, e.g. \"Hold 60 days of devicestatus, automatically delete older documents, hold 365 days of treatments and entries, automatically delete older documents.\"\n\n- Fallback deduplication switch (optional, default = true) <pre>API3_DEDUP_FALLBACK_ENABLED=true</pre> API3 uses the `identifier` field for document identification and mutual distinction within a single collection. There is automatic deduplication implemented matching the equal `identifier` field. E.g. `CREATE` operation for document having the same `identifier` as another one existing in the database is automatically transformed into `UPDATE` operation of the document found in the database.\nDocuments not created via API v3 usually does not have any `identifier` field, but we would like to have some form of deduplication for them, too. This fallback deduplication is turned on by having set `API3_DEDUP_FALLBACK_ENABLED` to `true`. When searching the collection in database, the document is found to be a duplicate only when either he has equal `identifier` or he has no `identifier` and meets&#58; <pre>`devicestatus` collection&#58; equal combination of `created_at` and `device`\n`entries` collection&#58;      equal combination of `date` and `type`\n`food` collection&#58;         equal `created_at`\n`profile` collection&#58;      equal `created_at`\n`treatments` collection&#58;   equal combination of `created_at` and `eventType` </pre>\n\n- Fallback switch for adding `created_at` field along the `date` field (optional, default = true) <pre>API3_CREATED_AT_FALLBACK_ENABLED=true</pre> Standard APIv3 document model uses only `date` field for storing a timestamp of the event recorded by the document. But there is a fallback option to fill `created_at` field as well automatically on each insert/update, just to keep all older components working.",
     "contact": {
       "name": "NS development discussion channel",
       "url": "https://gitter.im/nightscout/public"
@@ -11,7 +11,7 @@
       "name": "AGPL 3",
       "url": "https://www.gnu.org/licenses/agpl.txt"
     },
-    "version": "3.0.2"
+    "version": "3.0.3"
   },
   "servers": [
     {
@@ -47,29 +47,6 @@
             "explode": false,
             "schema": {
               "$ref": "#/components/schemas/paramCollection"
-            }
-          },
-          {
-            "name": "Date",
-            "in": "header",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory header serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `now` query parameter.\nExample&#58;\n\n<pre>Date&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-            "required": false,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "now",
-            "in": "query",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory parameter serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `Date` header.\n\nExample&#58;\n\n<pre>now=1525383610088</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
             }
           },
           {
@@ -198,7 +175,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, or the request has missing `Date` header or it contains an expired timestamp, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -263,29 +240,6 @@
             "explode": false,
             "schema": {
               "$ref": "#/components/schemas/paramCollection"
-            }
-          },
-          {
-            "name": "Date",
-            "in": "header",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory header serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `now` query parameter.\nExample&#58;\n\n<pre>Date&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-            "required": false,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "now",
-            "in": "query",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory parameter serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `Date` header.\n\nExample&#58;\n\n<pre>now=1525383610088</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
             }
           },
           {
@@ -359,7 +313,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, or the request has missing `Date` header or it contains an expired timestamp, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -437,29 +391,6 @@
             "explode": false,
             "schema": {
               "$ref": "#/components/schemas/paramIdentifier"
-            }
-          },
-          {
-            "name": "Date",
-            "in": "header",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory header serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `now` query parameter.\nExample&#58;\n\n<pre>Date&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-            "required": false,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "now",
-            "in": "query",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory parameter serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `Date` header.\n\nExample&#58;\n\n<pre>now=1525383610088</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
             }
           },
           {
@@ -542,7 +473,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, or the request has missing `Date` header or it contains an expired timestamp, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -631,29 +562,6 @@
             }
           },
           {
-            "name": "Date",
-            "in": "header",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory header serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `now` query parameter.\nExample&#58;\n\n<pre>Date&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-            "required": false,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "now",
-            "in": "query",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory parameter serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `Date` header.\n\nExample&#58;\n\n<pre>now=1525383610088</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          },
-          {
             "name": "token",
             "in": "query",
             "description": "An alternative way of authorization - passing accessToken in a query parameter.\n\nExample&#58;\n\n<pre>token=testadmin-bf2591231bd2c042</pre>",
@@ -724,7 +632,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, or the request has missing `Date` header or it contains an expired timestamp, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -823,29 +731,6 @@
             }
           },
           {
-            "name": "Date",
-            "in": "header",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory header serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `now` query parameter.\nExample&#58;\n\n<pre>Date&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-            "required": false,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "now",
-            "in": "query",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory parameter serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `Date` header.\n\nExample&#58;\n\n<pre>now=1525383610088</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          },
-          {
             "name": "token",
             "in": "query",
             "description": "An alternative way of authorization - passing accessToken in a query parameter.\n\nExample&#58;\n\n<pre>token=testadmin-bf2591231bd2c042</pre>",
@@ -880,7 +765,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, or the request has missing `Date` header or it contains an expired timestamp, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -959,29 +844,6 @@
             }
           },
           {
-            "name": "Date",
-            "in": "header",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory header serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `now` query parameter.\nExample&#58;\n\n<pre>Date&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-            "required": false,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "now",
-            "in": "query",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory parameter serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `Date` header.\n\nExample&#58;\n\n<pre>now=1525383610088</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          },
-          {
             "name": "token",
             "in": "query",
             "description": "An alternative way of authorization - passing accessToken in a query parameter.\n\nExample&#58;\n\n<pre>token=testadmin-bf2591231bd2c042</pre>",
@@ -1037,7 +899,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, or the request has missing `Date` header or it contains an expired timestamp, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1125,29 +987,6 @@
             "explode": false,
             "schema": {
               "$ref": "#/components/schemas/paramCollection"
-            }
-          },
-          {
-            "name": "Date",
-            "in": "header",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory header serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `now` query parameter.\nExample&#58;\n\n<pre>Date&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-            "required": false,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "now",
-            "in": "query",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory parameter serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `Date` header.\n\nExample&#58;\n\n<pre>now=1525383610088</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
             }
           },
           {
@@ -1248,7 +1087,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, or the request has missing `Date` header or it contains an expired timestamp, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1325,29 +1164,6 @@
             "required": true,
             "style": "simple",
             "explode": false,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          },
-          {
-            "name": "Date",
-            "in": "header",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory header serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `now` query parameter.\nExample&#58;\n\n<pre>Date&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-            "required": false,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "now",
-            "in": "query",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory parameter serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `Date` header.\n\nExample&#58;\n\n<pre>now=1525383610088</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
             "schema": {
               "type": "integer",
               "format": "int64"
@@ -1440,7 +1256,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, or the request has missing `Date` header or it contains an expired timestamp, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1530,7 +1346,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, or the request has missing `Date` header or it contains an expired timestamp, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1570,29 +1386,6 @@
         "operationId": "LAST-MODIFIED",
         "parameters": [
           {
-            "name": "Date",
-            "in": "header",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory header serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `now` query parameter.\nExample&#58;\n\n<pre>Date&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-            "required": false,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "now",
-            "in": "query",
-            "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory parameter serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `Date` header.\n\nExample&#58;\n\n<pre>now=1525383610088</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          },
-          {
             "name": "token",
             "in": "query",
             "description": "An alternative way of authorization - passing accessToken in a query parameter.\n\nExample&#58;\n\n<pre>token=testadmin-bf2591231bd2c042</pre>",
@@ -1616,7 +1409,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, or the request has missing `Date` header or it contains an expired timestamp, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2559,7 +2352,7 @@
         }
       },
       "401Unauthorized": {
-        "description": "The request was not successfully authenticated using access token or JWT, or the request has missing `Date` header or it contains an expired timestamp, so that the request cannot continue due to the security policy.",
+        "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
         "content": {
           "application/json": {
             "schema": {
@@ -2713,29 +2506,6 @@
       }
     },
     "parameters": {
-      "dateHeader": {
-        "name": "Date",
-        "in": "header",
-        "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory header serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `now` query parameter.\nExample&#58;\n\n<pre>Date&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-        "required": false,
-        "style": "simple",
-        "explode": false,
-        "schema": {
-          "type": "string"
-        }
-      },
-      "nowParam": {
-        "name": "now",
-        "in": "query",
-        "description": "Timestamp (defined by client's clock) when the HTTP request was constructed on client. This mandatory parameter serves as an anti-replay precaution. After a period of time (specified by `API3_TIME_SKEW_TOLERANCE`) the message won't be valid any more and it will be denied with HTTP 401 Unauthorized code. This can be set alternatively in `Date` header.\n\nExample&#58;\n\n<pre>now=1525383610088</pre>",
-        "required": false,
-        "style": "form",
-        "explode": true,
-        "schema": {
-          "type": "integer",
-          "format": "int64"
-        }
-      },
       "tokenParam": {
         "name": "token",
         "in": "query",

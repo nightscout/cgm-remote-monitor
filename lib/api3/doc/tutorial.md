@@ -47,7 +47,7 @@ It is public (there is no need to add authorization parameters/headers).
 Sample GET `/status` client code (to get my actual permissions):
 ```javascript
 const request = require('request');
-const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
 
 request(`https://nsapiv3.herokuapp.com/api/v3/status?${auth}`,
   (error, response, body) => console.log(body));
@@ -86,7 +86,7 @@ Sample result:
 Sample GET `/entries` client code (to retrieve last 3 BG values):
 ```javascript
 const request = require('request');
-const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
 
 request(`https://nsapiv3.herokuapp.com/api/v3/entries?${auth}&sort$desc=date&limit=3&fields=dateString,sgv,direction`,
   (error, response, body) => console.log(body));
@@ -124,7 +124,7 @@ Sample result:
 Sample POST `/treatments` client code:
 ```javascript
 const request = require('request');
-const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
 const doc = {
   date: 1564591511232, // (new Date()).getTime(),
   app: 'AndroidAPS',
@@ -158,7 +158,7 @@ Sample result:
 Sample GET `/treatments/{identifier}` client code:
 ```javascript
 const request = require('request');
-const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
 const identifier = '95e1a6e3-1146-5d6a-a3f1-41567cae0895';
 
 request(`https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}?${auth}`,
@@ -193,7 +193,7 @@ Sample result:
 Sample GET `/lastModified` client code (to get latest modification dates):
 ```javascript
 const request = require('request');
-const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
 
 request(`https://nsapiv3.herokuapp.com/api/v3/lastModified?${auth}`,
   (error, response, body) => console.log(body));
@@ -223,7 +223,7 @@ Sample result:
 Sample PUT `/treatments/{identifier}` client code (to update `insulin` from 0.3 to 0.4):
 ```javascript
 const request = require('request');
-const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
 const identifier = '95e1a6e3-1146-5d6a-a3f1-41567cae0895';
 const doc = {
   date: 1564591511232,
@@ -257,7 +257,7 @@ Sample result:
 Sample PATCH `/treatments/{identifier}` client code (to update `insulin` from 0.4 to 0.5):
 ```javascript
 const request = require('request');
-const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
 const identifier = '95e1a6e3-1146-5d6a-a3f1-41567cae0895';
 const doc = {
   insulin: 0.5
@@ -287,7 +287,7 @@ Sample result:
 Sample DELETE `/treatments/{identifier}` client code (to update `insulin` from 0.4 to 0.5):
 ```javascript
 const request = require('request');
-const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
 const identifier = '95e1a6e3-1146-5d6a-a3f1-41567cae0895';
 
 request({
@@ -312,7 +312,7 @@ Sample result:
 Sample HISTORY `/treatments/history/{lastModified}` client code:
 ```javascript
 const request = require('request');
-const auth = `token=testadmin-ad3b1f9d7b3f59d5&now=${new Date().getTime()}`;
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
 const lastModified = 1564521267421;
 
 request(`https://nsapiv3.herokuapp.com/api/v3/treatments/history/${lastModified}?${auth}`,
