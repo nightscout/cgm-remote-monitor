@@ -87,7 +87,7 @@
     "A1c estimation*": "Estimert HbA1c",
     "Weekly Success": "Ukentlig suksess",
     "There is not sufficient data to run this report. Select more days.": "Det er ikke nok data til å lage rapporten. Velg flere dager.",
-    "Using stored API secret hash": "Bruker lagret API_SECRET",
+    "Using stored API secret hash": "Bruker lagret tilgangsnøkkel",
     "No API secret hash stored yet. You need to enter API secret.": "Mangler API-hemmelighet. Du må skrive inn API-hemmelighet.",
     "Database loaded": "Database lest",
     "Error: Database failed to load": "Feil: Database kunne ikke leses",
