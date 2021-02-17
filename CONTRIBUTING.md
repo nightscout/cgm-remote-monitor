@@ -15,7 +15,6 @@
   - [List of Contributors](#list-of-contributors)
     - [Core developers, contributing developers, coordinators and documentation writers](#core-developers-contributing-developers-coordinators-and-documentation-writers)
     - [Plugin contributors](#plugin-contributors)
-    - [Translators](#translators)
     - [List of all contributors](#list-of-all-contributors)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -35,6 +34,10 @@
 [coverage-url]: https://coveralls.io/r/nightscout/cgm-remote-monitor?branch=master
 [discord-img]: https://img.shields.io/discord/629952586895851530?label=discord%20chat
 [discord-url]: https://discord.gg/rTKhrqz
+
+## Translations
+
+Please visit our [project in Crowdin](https://crowdin.com/project/nightscout) to translate Nigthscout. If you want to add a new language, please get in touch with the dev team in [Discord][discord-url].
 
 ## Installation for development
 
@@ -188,8 +191,6 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | Core developers:                      | [@jasoncalabrese] [@MilosKozak] [@PieterGit] [@sulkaharo] | 
 | Former Core developers: (not active): | [@bewest] |
 | Contributing developers:              | [@jpcunningh] [@scottleibrand] [@komarserjio] [@jweismann] |
-| Release coordination 0.10.x:          | [@PieterGit] [@sulkaharo] |
-| Release coordination 0.11.x:          | [@PieterGit] |
 | Issue/Pull request coordination:      | Please volunteer |
 | Cleaning up git fork spam:            | Please volunteer |
 | Documentation writers:                | [@andrew-warrington] [@unsoluble] [@tynbendad] [@danamlewis] [@rarneson] |
@@ -229,41 +230,6 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | [`treatmentnotify` (Treatment Notifications)](README.md#treatmentnotify-treatment-notifications)| Please volunteer | Please volunteer |
 | [`upbat` (Uploader Battery)](README.md#upbat-uploader-battery)| [@jpcunningh] | Please volunteer |
 | [`xdrip-js` (xDrip-js)](README.md#xdrip-js-xdrip-js)| [@jpcunningh] | Please volunteer |
-
-### Translators
-
-See `/translations` of your Nightscout, to view the current translation coverage and the missing items.
-Languages with less than 90% coverage will be removed in a future Nightscout versions.
-
-| Language      | List of translators | Status
-| ------------- | -------------------- |-------------------- |
-| Български (`bg`) |Please volunteer| OK |
-| Čeština (`cs`) |Please volunteer|OK |
-| Deutsch (`de`) |[@viderehh] [@herzogmedia] |OK |
-| Dansk (`dk`)  | [@janrpn] |OK |
-| Ελληνικά (`el`)|Please volunteer|Needs attention: 68.5%|
-| English (`en`)|Please volunteer|OK|
-| Español (`es`) |Please volunteer|OK|
-| Suomi (`fi`)|[@sulkaharo] |OK|
-| Français (`fr`)|Please volunteer|OK|
-| עברית (`he`)| [@jakebloom] |OK|
-| Hrvatski (`hr`)|[@OpossumGit]|OK|
-| Italiano (`it`)|Please volunteer|OK|
-| 日本語 (`ja`)|[@LuminaryXion]|Working on this|
-| 한국어 (`ko`)|Please volunteer|Needs attention: 80.6%|
-| Norsk (Bokmål) (`nb`)|Please volunteer|OK|
-| Nederlands (`nl`)|[@PieterGit]|OK|
-| Polski (`pl`)|[@Bartlomiejsz]|OK|
-| Português (Brasil) (`pt`)|Please volunteer|OK|
-| Română (`ro`)|Please volunteer|OK|
-| Русский (`ru`)|[@apanasef]|OK|
-| Slovenčina (`sk`)|Please volunteer|OK|
-| Svenska (`sv`)|Please volunteer|OK|
-| Türkçe (`tr`)|[@diabetlum]|OK|
-| 中文（简体） (`zh_cn`) | [@jizhongwen]|OK|
-| 中文（繁體） (`zh_tw`) | [@jizhongwen]|Needs attention: 25.0%
-| 日本語 (`ja_jp`) | [@LuminaryXion]|
-
 
 ### List of all contributors
 | Contribution area                     | List of contributors |
