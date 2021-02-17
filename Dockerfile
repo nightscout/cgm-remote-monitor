@@ -20,4 +20,4 @@ RUN npm install && \
 
 EXPOSE 1337
 
-CMD /wait && node server.js
+CMD /wait && node lib/server/server.js
