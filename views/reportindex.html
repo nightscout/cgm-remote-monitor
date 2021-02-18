@@ -24,9 +24,11 @@
   <meta name="theme-color" content="#333333">
 
   <link rel="preload" href="/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="/css/report.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/dropdown.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="/css/ui-lightness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <% include preloadCSS %>
+  <%- include('preloadCSS')%>
   
 </head>
   <body>
@@ -94,9 +96,9 @@
         <tr>
           <td colspan="2">
             <span class="translate">Target BG range bottom</span>:
-            <input type="number" size="3" id="rp_targetlow">
+            <input type="number" size="3" step="0.1" id="rp_targetlow">
             <span class="translate">top</span>:
-            <input type="number" size="3" id="rp_targethigh">
+            <input type="number" size="3" step="0.1" id="rp_targethigh">
           </td>
           <td></td>
         </tr>
@@ -122,10 +124,10 @@
 
   <%- include('partials/authentication-status') %>
 
-  <script src="<%= locals.bundle %>/js/bundle.report.js"></script>
+  <script src="<%= locals.bundle %>/js/bundle.app.js"></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/report/js/report.js"></script>
   <script src="/report/js/flotcandle.js"></script>
   <script src="/report/js/loopalyzer.js"></script>
+  <script src="/js/reportinit.js"></script>
 </body>
 </html>  
