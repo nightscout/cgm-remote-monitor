@@ -25,7 +25,7 @@ function configure () {
     process.env.API_SECRET = apiSecret;
 
     process.env.HOSTNAME = 'localhost';
-    const env = require('../../../env')();
+    const env = require('../../../lib/server/env')();
 
     if (useHttps) {
       env.ssl = {
@@ -43,15 +43,15 @@ function configure () {
 
   self.addSecuredOperations = function addSecuredOperations (instance) {
 
-    instance.get = (url) => request(instance.baseUrl).get(url).set('Date', new Date().toUTCString());
+    instance.get = (url) => request(instance.baseUrl).get(url);
 
-    instance.post = (url) => request(instance.baseUrl).post(url).set('Date', new Date().toUTCString());
+    instance.post = (url) => request(instance.baseUrl).post(url);
 
-    instance.put = (url) => request(instance.baseUrl).put(url).set('Date', new Date().toUTCString());
+    instance.put = (url) => request(instance.baseUrl).put(url);
 
-    instance.patch = (url) => request(instance.baseUrl).patch(url).set('Date', new Date().toUTCString());
+    instance.patch = (url) => request(instance.baseUrl).patch(url);
 
-    instance.delete = (url) => request(instance.baseUrl).delete(url).set('Date', new Date().toUTCString());
+    instance.delete = (url) => request(instance.baseUrl).delete(url);
   };
 
 
