@@ -164,7 +164,7 @@ Some features may not work with devices/browsers on the older end of these requi
 
 ## Windows installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 12 LTS. Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
+- [Node.js](http://nodejs.org/) Latest Node 12 LTS. Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
@@ -690,13 +690,13 @@ Your hosting provider probably has a way to set these through their GUI.
 ### Vagrant install
 
 Optionally, use [Vagrant](https://www.vagrantup.com/) with the
-included `Vagrantfile` and `setup.sh` to install OS and node packages to
+included `Vagrantfile` and `bin/setup.sh` to install OS and node packages to
 a virtual machine.
 
 ```bash
 host$ vagrant up
 host$ vagrant ssh
-vm$ setup.sh
+vm$ ./bin/setup.sh
 ```
 
 The setup script will install OS packages then run `npm install`.
