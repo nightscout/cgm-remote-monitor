@@ -50,7 +50,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 [discord-url]: https://discord.gg/rTKhrqz
 [heroku-img]: https://www.herokucdn.com/deploy/button.png
 [heroku-url]: https://heroku.com/deploy?template=https://github.com/nightscout/cgm-remote-monitor
-[update-img]: update.png
+[update-img]: docs/update.png
 [update-fork]: http://nightscout.github.io/pages/update-fork/
 [original]: https://github.com/rnpenguin/cgm-remote-monitor
 
