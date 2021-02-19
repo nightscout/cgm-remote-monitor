@@ -223,6 +223,7 @@
     "View all treatments": "Összes kezelés",
     "Enable Alarms": "Riasztások bekapcsolása",
     "Pump Battery Change": "Pumpa elem kora",
+    "Pump Battery Age": "Pump Battery Age",
     "Pump Battery Low Alarm": "Pumpa Elem Alacsony Töltöttség Riasztás",
     "Pump Battery change overdue!": "Pumpa Elem cserére szorul!",
     "When enabled an alarm may sound.": "Bekapcsoláskor hang figyelmeztetés várható",
