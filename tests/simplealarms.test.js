@@ -2,7 +2,7 @@
 var levels = require('../lib/levels');
 
 describe('simplealarms', function ( ) {
-  var env = require('../env')();
+  var env = require('../lib/server/env')();
   var ctx = {
     settings: {}
     , language: require('../lib/language')()
