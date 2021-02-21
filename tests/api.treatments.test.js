@@ -10,10 +10,12 @@ describe('Treatment API', function ( ) {
   this.timeout(10000);
   var self = this;
 
+  var api_secret_hash = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
+
   var api = require('../lib/api/');
   beforeEach(function (done) {
     process.env.API_SECRET = 'this is my long pass phrase';
-    self.env = require('../env')();
+    self.env = require('../lib/server/env')();
     self.env.settings.authDefaultRoles = 'readable';
     self.env.settings.enable = ['careportal', 'api'];
     this.wares = require('../lib/middleware/')(self.env);
@@ -34,10 +36,11 @@ describe('Treatment API', function ( ) {
   it('post single treatments', function (done) {
 
     self.ctx.treatments().remove({ }, function ( ) {
+      var now = (new Date()).toISOString();
       request(self.app)
         .post('/api/treatments/')
-        .set('api-secret', self.env.api_secret || '')
-        .send({eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'})
+        .set('api-secret', api_secret_hash || '')
+        .send({eventType: 'Meal Bolus', created_at: now, carbs: '30', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl', notes: '<IMG SRC="javascript:alert(\'XSS\');">'})
         .expect(200)
         .end(function (err) {
           if (err) {
@@ -49,10 +52,10 @@ describe('Treatment API', function ( ) {
               });
               sorted.length.should.equal(2);
               sorted[0].glucose.should.equal(100);
+              sorted[0].notes.should.equal('<img>');
               should.not.exist(sorted[0].eventTime);
               sorted[0].insulin.should.equal(2);
               sorted[1].carbs.should.equal(30);
-
               done();
             });
           }
@@ -61,6 +64,25 @@ describe('Treatment API', function ( ) {
     });
   });
 
+  /*
+  it('saving entry without created_at should fail', function (done) {
+
+    self.ctx.treatments().remove({ }, function ( ) {
+      request(self.app)
+        .post('/api/treatments/')
+        .set('api-secret', self.env.api_secret || '')
+        .send({eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'})
+        .expect(422)
+        .end(function (err) {
+          if (err) {
+            done(err);
+          } else {
+              done();
+          }
+        });
+    });
+  });
+*/
 
   it('post single treatments in zoned time format', function (done) {
    
@@ -70,7 +92,7 @@ describe('Treatment API', function ( ) {
     self.ctx.treatments().remove({ }, function ( ) {
       request(self.app)
         .post('/api/treatments/')
-        .set('api-secret', self.env.api_secret || '')
+        .set('api-secret', api_secret_hash || '')
         .send({eventType: 'Meal Bolus', created_at: _moment(current_time).format("YYYY-MM-DDTHH:mm:ss.SSSZZ"), carbs: '30', insulin: '2.00', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'})
         .expect(200)
         .end(function (err) {
@@ -101,12 +123,13 @@ describe('Treatment API', function ( ) {
 
   it('post a treatment array', function (done) {
     self.ctx.treatments().remove({ }, function ( ) {
+      var now = (new Date()).toISOString();
       request(self.app)
         .post('/api/treatments/')
-        .set('api-secret', self.env.api_secret || '')
+        .set('api-secret', api_secret_hash || '')
         .send([
-          {eventType: 'BG Check', glucose: 100, preBolus: '0', glucoseType: 'Finger', units: 'mg/dl', notes: ''}
-          , {eventType: 'Meal Bolus', carbs: '30', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'}
+          {eventType: 'BG Check', created_at: now, glucose: 100, preBolus: '0', glucoseType: 'Finger', units: 'mg/dl', notes: ''}
+          , {eventType: 'Meal Bolus', created_at: now, carbs: '30', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'}
          ])
         .expect(200)
         .end(function (err) {
@@ -130,7 +153,7 @@ describe('Treatment API', function ( ) {
       var now = (new Date()).toISOString();
       request(self.app)
         .post('/api/treatments/')
-        .set('api-secret', self.env.api_secret || '')
+        .set('api-secret', api_secret_hash || '')
         .send([
           {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now}
           , {eventType: 'BG Check', glucose: 100, units: 'mg/dl', created_at: now}
@@ -168,10 +191,11 @@ describe('Treatment API', function ( ) {
   it('post a treatment, query, delete, verify gone', function (done) {
     // insert a treatment - needs to be unique from example data
     console.log('Inserting treatment entry');
+    var now = (new Date()).toISOString();
     request(self.app)
       .post('/api/treatments/')
-      .set('api-secret', self.env.api_secret || '')
-      .send({eventType: 'Meal Bolus', carbs: '99', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'})
+      .set('api-secret', api_secret_hash || '')
+      .send({eventType: 'Meal Bolus', created_at: now, carbs: '99', insulin: '2.00', preBolus: '15', glucose: 100, glucoseType: 'Finger', units: 'mg/dl'})
       .expect(200)
       .end(function (err) {
         if (err) {
@@ -182,7 +206,7 @@ describe('Treatment API', function ( ) {
           request(self.app)
             .get('/api/treatments/')
             .query('find[carbs]=99')
-            .set('api-secret', self.env.api_secret || '')
+            .set('api-secret', api_secret_hash || '')
             .expect(200)
             .expect(function (response) {
               response.body[0].carbs.should.equal(99);
@@ -196,7 +220,7 @@ describe('Treatment API', function ( ) {
                 request(self.app)
                   .delete('/api/treatments/')
                   .query('find[carbs]=99')
-                  .set('api-secret', self.env.api_secret || '')
+                  .set('api-secret', api_secret_hash || '')
                   .expect(200)
                   .end(function (err) {
                     if (err) {
@@ -207,7 +231,7 @@ describe('Treatment API', function ( ) {
                       request(self.app)
                         .get('/api/treatments/')
                         .query('find[carbs]=99')
-                        .set('api-secret', self.env.api_secret || '')
+                        .set('api-secret', api_secret_hash || '')
                         .expect(200)
                         .expect(function (response) {
                           response.body.length.should.equal(0);
