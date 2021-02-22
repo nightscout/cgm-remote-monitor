@@ -223,6 +223,7 @@
     "View all treatments": "Zobraz všechny ošetření",
     "Enable Alarms": "Povolit alarmy",
     "Pump Battery Change": "Výměna baterie pumpy",
+    "Pump Battery Age": "Stáří baterie v pumpě",
     "Pump Battery Low Alarm": "Upozornění na nízký stav baterie pumpy",
     "Pump Battery change overdue!": "Překročen čas pro výměnu baterie!",
     "When enabled an alarm may sound.": "Při povoleném alarmu zní zvuk.",
