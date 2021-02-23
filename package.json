@@ -105,7 +105,7 @@
     "js-storage": "^1.1.0",
     "jsdom": "^11.11.0",
     "jsonwebtoken": "^8.5.1",
-    "lodash": "^4.17.20",
+    "lodash": "^4.17.21",
     "memory-cache": "^0.2.0",
     "mime": "^2.4.6",
     "minimed-connect-to-nightscout": "^1.5.0",
