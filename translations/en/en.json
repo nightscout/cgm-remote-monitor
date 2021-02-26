@@ -575,7 +575,7 @@
     "virtAsstTitleCGMTxAge": "Idade do Transmissor CGM",
     "virtAsstTitleCGMNoise": "Ruído de CGM",
     "virtAsstTitleDelta": "Diferenca no nivel de glicemia",
-    "virtAsstStatus": "%1 e %2 a neste mesmo valor %3.",
+    "virtAsstStatus": "%1 e %2 neste mesmo valor %3.",
     "virtAsstBasal": "%1 basal atual é de %2 unidades por hora",
     "virtAsstBasalTemp": "%1 basal temp de %2 unidades por hora terminará %3",
     "virtAsstIob": "e você tem %1 insulina a bordo.",
