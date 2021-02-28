@@ -1,0 +1,29 @@
+version: '3.1'
+
+services:
+
+  mongo:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: CHANGE_THIS_USERNAME
+      MONGO_INITDB_ROOT_PASSWORD: CHANGE_THIS_PASSWORD
+    volumes:
+      - data:/data:rw
+
+  nightscout:
+    image: nightscout
+    build: .
+    environment:
+      MONGODB_URI: mongodb://CHANGE_THIS_USERNAME:CHANGE_THIS_PASSWORD@mongo
+      API_SECRET: CHANGE_THIS_TO_A_LONG_RANDOM_STRING
+      DISPLAY_UNITS: mmol
+      THEME: colors
+      TIME_FORMAT: 24
+      BASAL_RENDER: default
+    ports:
+      - 127.0.0.1:1337:1337
+
+
+volumes:
+  data:
