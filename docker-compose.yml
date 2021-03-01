@@ -39,8 +39,7 @@ services:
       MONGO_CONNECTION: mongodb://mongo:27017/nightscout
 
       # API_SECRET - A secret passphrase that must be at least 12 characters long.
-      # FIXME: BACK TO `change_me`!!!
-      API_SECRET: change_me_to_be_long
+      API_SECRET: change_me
 
       ### Features
       # ENABLE - Used to enable optional features, expects a space delimited list, such as: careportal rawbg iob
