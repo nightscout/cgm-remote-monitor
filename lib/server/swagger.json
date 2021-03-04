@@ -8,7 +8,7 @@
   "info": {
     "title": "Nightscout API",
     "description": "Own your DData with the Nightscout API",
-    "version": "14.1.0",
+    "version": "14.2.2",
     "license": {
       "name": "AGPL 3",
       "url": "https://www.gnu.org/licenses/agpl.txt"
@@ -1191,6 +1191,14 @@
           "units": {
             "type": "string",
             "description": "The units for the glucose value, mg/dl or mmol."
+          },
+          "transmitterId": {
+            "type": "string",
+            "description": "The transmitter ID of the transmitter being started."
+          },
+          "sensorCode": {
+            "type": "string",
+            "description": "The code used to start a Dexcom G6 sensor."
           },
           "notes": {
             "type": "string",
