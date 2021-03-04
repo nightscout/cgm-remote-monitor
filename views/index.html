@@ -31,6 +31,8 @@
   <link rel="preload" href="css/ui-darkness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="css/jquery.tooltips.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="css/dropdown.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
 
   <style media="screen" type="text/css">
     #centerMessagePanel {
@@ -100,7 +102,7 @@
 }
 
   </style>
-  <% include preloadCSS %>
+      <%- include('preloadCSS')%>
 </head>
 
 <body>
@@ -217,13 +219,30 @@
           </dd>
         </dl>
         <dl>
-          <dt class="translate">Render Bolus Amount</dt>
+          <dt class="translate">Bolus Display Threshold</dt>
           <dd>
-            <select id="bolusrender">
-              <option class="translate" value="all">All</option>
-              <option class="translate" value="all-remove-zero-u">All (without leading zero and U)</option>
-              <option class="translate" id="bolusRenderOver" value="over">1 U and Over</option>
-              <option class="translate" value="none">None</option>
+            <select id="bolusRenderOver"></select>
+          </dd>
+        </dl>
+        <dl>
+          <dt class="translate">Small Bolus Display</dt>
+          <dd>
+            <select id="bolusRenderFormatSmall">
+              <option class="translate" value="hidden">Hidden</option>
+              <option class="translate" value="default">Default (with leading zero and U)</option>
+              <option class="translate" value="concise">Concise (with U, without leading zero)</option>
+              <option class="translate" value="minimal">Minimal (without leading zero and U)</option>
+            </select>
+          </dd>
+        </dl>
+        <dl>
+          <dt class="translate">Large Bolus Display</dt>
+          <dd>
+            <select id="bolusRenderFormat">
+              <option class="translate" value="hidden">Hidden</option>
+              <option class="translate" value="default">Default (with leading zero and U)</option>
+              <option class="translate" value="concise">Concise (with U, without leading zero)</option>
+              <option class="translate" value="minimal">Minimal (without leading zero and U)</option>
             </select>
           </dd>
         </dl>
@@ -302,6 +321,9 @@
     </form>
   </div>
 
+  <div id="adminNotifiesDrawer" class="drawer">
+  </div>
+
   <div id="treatmentDrawer">
     <form id="treatment-form">
       <fieldset class="treatmentData">
@@ -369,6 +391,18 @@
           <label id="fatGivenLabel" for="fatGiven" class="left-column short-label">
             <span class="translate">Fat</span>
             <input type="number" step="any" min="0" id="fatGiven" placeholder="Amount in grams" class="titletranslate" pattern="\d*">
+          </label>
+        </fieldset>
+
+        <fieldset id="sensorInfo">
+          <legend class="translate">Sensor</legend>
+          <label id="sensorCodeLabel" for="sensorCode" class="left-column short-label">
+            <span class="translate">Sensor Code</span>
+            <input type="text" id="sensorCode" />
+          </label>
+          <label id="txIdLabel" for="transmitterId" class="left-column short-label">
+            <span class="translate">Transmitter ID</span>
+            <input type="text" id="transmitterId" />
           </label>
         </fieldset>
 
