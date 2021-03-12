@@ -8,8 +8,6 @@ const ctx = {};
 
 ctx.bus = {};
 ctx.bus.on = function mockOn(channel, f) { };
-ctx.settings = {};
-ctx.settings.adminNotifiesEnabled = true;
 
 const mockJqueryResults = {};
 const mockButton = {};

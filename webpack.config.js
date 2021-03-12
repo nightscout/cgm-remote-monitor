@@ -4,7 +4,6 @@ const MomentLocalesPlugin = require('moment-locales-webpack-plugin');
 const pluginArray = [];
 const sourceMapType = 'source-map';
 const MomentTimezoneDataPlugin = require('moment-timezone-data-webpack-plugin');
-const projectRoot = path.resolve(__dirname, '..');
 
 /*
 if (process.env.NODE_ENV === 'development') {
@@ -95,7 +94,7 @@ const rules = [
       options: {
         babelrc: true,
         cacheDirectory: true,
-        extends: path.join(projectRoot, '/.babelrc')
+        extends: path.join(__dirname + '/.babelrc')
       }
     }
   },
@@ -149,16 +148,16 @@ if (process.env.NODE_ENV === 'development') {
 
 const optimization = {};
 
-
 module.exports = {
   mode,
-  context: projectRoot,
+  context: __dirname,
+  context: path.resolve(__dirname, '.'),
   entry: {
     app: appEntry,
     clock: clockEntry
   },
   output: {
-    path: path.resolve(projectRoot, './tmp/public'),
+    path: path.resolve(__dirname, './tmp/public'),
     publicPath,
     filename: 'js/bundle.[name].js',
     sourceMapFilename: 'js/bundle.[name].js.map',

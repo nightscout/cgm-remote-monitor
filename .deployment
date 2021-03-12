@@ -1,2 +1,2 @@
 [config]
-command = bash bin/azure-deploy.sh
+command = bash deploy.sh
