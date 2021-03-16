@@ -4,7 +4,7 @@ require('should');
 var levels = require('../lib/levels');
 
 describe('insulinage', function ( ) {
-    var env = require('../env')();
+    var env = require('../lib/server/env')();
     var ctx = {};
     ctx.levels = levels;
     ctx.ddata = require('../lib/data/ddata')();
