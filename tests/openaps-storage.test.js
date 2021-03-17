@@ -4,7 +4,7 @@ var should = require('should');
 
 describe('openaps storage', function () {
 
-  var env = require('../env')();
+  var env = require('../lib/server/env')();
 
 
   before(function (done) {
