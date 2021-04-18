@@ -59,6 +59,8 @@ function createTestSubject (authStorage, subjectName, roles) {
 
 async function authSubject (authStorage) {
 
+  await createRole(authStorage, 'admin', '*');
+  await createRole(authStorage, 'readable', '*:*:read');
   await createRole(authStorage, 'apiAll', 'api:*:*');
   await createRole(authStorage, 'apiAdmin', 'api:*:admin');
   await createRole(authStorage, 'apiCreate', 'api:*:create');
@@ -85,7 +87,9 @@ async function authSubject (authStorage) {
     read: subject.apiRead.accessToken,
     update: subject.apiUpdate.accessToken,
     delete: subject.apiDelete.accessToken,
-    denied: subject.denied.accessToken
+    denied: subject.denied.accessToken,
+    adminAll: subject.admin.accessToken,
+    readable: subject.readable.accessToken
   };
 
   return {subject, token};
