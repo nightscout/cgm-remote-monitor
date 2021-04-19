@@ -50,6 +50,14 @@
       "bin/*"
     ]
   },
+  "main": "lib/server/server.js",
+  "nodemonConfig": {
+    "ignore": [
+      "tests/*",
+      "node_modules/*",
+      "bin/*"
+    ]
+  },
   "main": "server.js",
   "config": {
     "blanket": {
