@@ -13,7 +13,7 @@ var ctx_top = {
   , levels: levels
 };
 ctx_top.language.set('en');
-var env = require('../env')();
+var env = require('../lib/server/env')();
 var loop = require('../lib/plugins/loop')(ctx_top);
 var sandbox = require('../lib/sandbox')(ctx_top);
 
