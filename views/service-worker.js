@@ -29,7 +29,6 @@ const CACHE_LIST = [
     '/css/main.css',
     '/bundle/js/bundle.app.js',
     '/bundle/js/bundle.clock.js',
-    '/bundle/js/bundle.report.js',
     '/socket.io/socket.io.js',
     '/js/client.js',
     '/images/logo2.png'
