@@ -1,13 +1,21 @@
 version: 2.1
 
 orbs:
-  android: circleci/android@0.2.1
+  python: circleci/python@0.2.1
 
 jobs:
-  build:
-    executor: android/android
-
+  build-and-test:
+    executor: python/default
     steps:
       - checkout
+      - python/load-cache
+      - python/install-deps
+      - python/save-cache
       - run:
-          command: ./gradlew build
+          command: ./manage.py test
+          name: Test
+
+workflows:
+  main:
+    jobs:
+      - build-and-test
