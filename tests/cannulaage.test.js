@@ -4,14 +4,15 @@ require('should');
 var levels = require('../lib/levels');
 
 describe('cage', function ( ) {
-  var env = require('../env')();
+  var env = require('../lib/server/env')();
   var ctx = {};
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
   ctx.language = require('../lib/language')();
+  ctx.levels = levels;
 
   var cage = require('../lib/plugins/cannulaage')(ctx);
-  var sandbox = require('../lib/sandbox')();
+  var sandbox = require('../lib/sandbox')(ctx);
   function prepareSandbox ( ) {
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     sbx.offerProperty('iob', function () {
