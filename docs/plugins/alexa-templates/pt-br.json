@@ -1,1 +1,147 @@
 
+{
+    "interactionModel": {
+        "languageModel": {
+            "invocationName": "monitor da amanda",
+            "intents": [
+                {
+                    "name": "MetricNow",
+                    "slots": [
+                        {
+                            "name": "metric",
+                            "type": "LIST_OF_METRICS",
+                            "samples": [
+                                "como {metric} está",
+                                "como está {metric}",
+                                "como está a {metric}",
+                                "como está o {metric}",
+                                "qual é a {metric}",
+                                "qual é o {metric}",
+                                "quanto está a {metric}",
+                                "quanto está o {metric}",
+                                "quanto {metric}",
+                                "qual o {metric}",
+                                "qual a {metric}",
+                                "{metric}"
+                            ]
+                        }
+                    ],
+                    "samples": [
+                        "como {metric} está",
+                        "como está {metric}",
+                        "como está a {metric}",
+                        "como está o {metric}",
+                        "qual é a {metric}",
+                        "qual é o {metric}",
+                        "quanto está a {metric}",
+                        "quanto está o {metric}",
+                        "quanto {metric}",
+                        "qual o {metric}",
+                        "qual a {metric}",
+                        "{metric}"
+                    ]
+                },
+                {
+                    "name": "AMAZON.NavigateHomeIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.StopIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.CancelIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.HelpIntent",
+                    "samples": []
+                }
+            ],
+            "types": [
+                {
+                    "name": "LIST_OF_METRICS",
+                    "values": [
+                        {
+                            "name": {
+                                "value": "delta",
+                                "synonyms": [
+                                    "variação",
+                                    "variação da glicemia",
+                                    "variação da glicose"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "bg",
+                                "synonyms": [
+                                    "açúcar no sangue",
+                                    "glicose no sangue",
+                                    "glicemia",
+                                    "glicose",
+                                    "açúcar"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "db size",
+                                "synonyms": [
+                                    "tamanho da base de dados",
+                                    "tamanho dos dados",
+                                    "tamanho do banco",
+                                    "banco de dados"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "dialog": {
+            "intents": [
+                {
+                    "name": "MetricNow",
+                    "confirmationRequired": false,
+                    "prompts": {},
+                    "slots": [
+                        {
+                            "name": "metric",
+                            "type": "LIST_OF_METRICS",
+                            "confirmationRequired": false,
+                            "elicitationRequired": true,
+                            "prompts": {
+                                "elicitation": "Elicit.Slot.1421281086569.34001419564"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "delegationStrategy": "ALWAYS"
+        },
+        "prompts": [
+            {
+                "id": "Elicit.Slot.1421281086569.34001419564",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Qual métrica você está procurando?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "Qual valor você está procurando?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "Qual métrica você quer saber?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "Qual valor você quer saber?"
+                    }
+                ]
+            }
+        ]
+    }
+}
