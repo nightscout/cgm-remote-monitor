@@ -223,6 +223,7 @@
     "View all treatments": "Tüm tedavileri görüntüle",
     "Enable Alarms": "Alarmları Etkinleştir",
     "Pump Battery Change": "Pompa pil değişimi",
+    "Pump Battery Age": "Pump Battery Age",
     "Pump Battery Low Alarm": "Pompa Düşük pil alarmı",
     "Pump Battery change overdue!": "Pompa pil değişimi gecikti!",
     "When enabled an alarm may sound.": "Etkinleştirilirse, alarm çalar.",
