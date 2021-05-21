@@ -17,18 +17,18 @@ describe('utils', function ( ) {
 
   it('format numbers short', function () {
     var undef;
-    utils.toFixedMin(3.345, 2).should.equal('3.35');
-    utils.toFixedMin(5.499999999, 0).should.equal('5');
-    utils.toFixedMin(5.499999999, 1).should.equal('5.5');
-    utils.toFixedMin(5.499999999, 3).should.equal('5.5');
-    utils.toFixedMin(123.45, -2).should.equal('100');
-    utils.toFixedMin(-0.001, 2).should.equal('0');
-    utils.toFixedMin(-2.47, 1).should.equal('-2.5');
-    utils.toFixedMin(-2.44, 1).should.equal('-2.4');
+    utils.toRoundedStr(3.345, 2).should.equal('3.35');
+    utils.toRoundedStr(5.499999999, 0).should.equal('5');
+    utils.toRoundedStr(5.499999999, 1).should.equal('5.5');
+    utils.toRoundedStr(5.499999999, 3).should.equal('5.5');
+    utils.toRoundedStr(123.45, -2).should.equal('100');
+    utils.toRoundedStr(-0.001, 2).should.equal('0');
+    utils.toRoundedStr(-2.47, 1).should.equal('-2.5');
+    utils.toRoundedStr(-2.44, 1).should.equal('-2.4');
 
-    utils.toFixedMin(undef, 2).should.equal('0');
-    utils.toFixedMin(null, 2).should.equal('0');
-    utils.toFixedMin('text', 2).should.equal('0');
+    utils.toRoundedStr(undef, 2).should.equal('0');
+    utils.toRoundedStr(null, 2).should.equal('0');
+    utils.toRoundedStr('text', 2).should.equal('0');
   });
 
   it('merge date and time', function () {
