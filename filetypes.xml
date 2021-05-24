@@ -1,0 +1,7 @@
+<application>
+  <component name="FileTypeManager" version="17">
+    <extensionMap>
+      <mapping ext="main.kts" type="Kotlin" />
+    </extensionMap>
+  </component>
+</application>
