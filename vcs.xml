@@ -26,6 +26,10 @@
           <option name="url" value="https://github.com/MilosKozak/AndroidAPS" />
           <option name="userName" value="" />
         </UrlAndUserName>
+        <UrlAndUserName>
+          <option name="url" value="https://github.com/nightscout/AndroidAPS.git" />
+          <option name="userName" value="" />
+        </UrlAndUserName>
       </list>
     </option>
     <option name="cloneParentDir" value="$USER_HOME$/StudioProjects" />
