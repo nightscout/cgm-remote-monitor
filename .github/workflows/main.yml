@@ -68,6 +68,7 @@ jobs:
           context: .
           push: true
           no-cache: true
+          platforms: ${{ env.PLATFORMS }}
           tags: |
             ${{ env.DOCKER_IMAGE }}:dev_${{ github.sha }}
             ${{ env.DOCKER_IMAGE }}:latest_dev
