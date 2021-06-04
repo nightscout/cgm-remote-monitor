@@ -44,7 +44,7 @@ jobs:
     name: Publish to Docker Hub
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/dev' && github.repository_owner == 'nightscout'
+    if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
     env:
       DOCKER_IMAGE: nightscout/cgm-remote-monitor
       PLATFORMS: linux/amd64,linux/arm64
