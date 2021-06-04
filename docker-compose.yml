@@ -3,6 +3,7 @@ version: '3'
 services:
   mongo:
     image: mongo:4.4
+    restart: always
     volumes:
       - ${NS_MONGO_DATA_DIR:-./mongo-data}:/data/db:cached
 
@@ -56,6 +57,7 @@ services:
 
   traefik:
     image: traefik:latest
+    restart: always
     container_name: 'traefik'
     command:
       - '--providers.docker=true'
