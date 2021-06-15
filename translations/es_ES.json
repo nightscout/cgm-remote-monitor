@@ -223,6 +223,7 @@
     "View all treatments": "Visualizar todos los tratamientos",
     "Enable Alarms": "Activar las alarmas",
     "Pump Battery Change": "Cambio batería bomba",
+    "Pump Battery Age": "Edad de la batería de la bomba",
     "Pump Battery Low Alarm": "Alarma de Bomba Baja",
     "Pump Battery change overdue!": "Cambio de batería de bomba atrasado!",
     "When enabled an alarm may sound.": "Cuando estén activas, una alarma podrá sonar",
