@@ -15,4 +15,4 @@ RUN npm install && \
 
 EXPOSE 1337
 
-CMD ["node", "server.js"]
+CMD ["node", "lib/server/server.js"]
