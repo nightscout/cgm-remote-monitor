@@ -618,6 +618,8 @@
     ,"virtAsstDbErrTitle":"Database Error"
     ,"virtAsstDbErrText":"There was an error while saving the carbs to the database: %1"
     ,"virtAsstSavedTitle":"Saved!"
+    ,"virtAsstCancelledTitle":"Cancelled"
+    ,"virtAsstCancelledText":"OK. Cancelled."
     ,"virtAsstNonCarbUnit":"Whoops! Nightscout only knows how to work with eating carbs, not %1."
     ,"virtAsstMissingCarbsTitle":"Missing Carbs"
     ,"virtAsstMissingCarbsText":"Whoops! Nightscout needs to know how many carbs you ate in order to record it. Please try again and include the number of carbs."
