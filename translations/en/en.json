@@ -623,7 +623,7 @@
     ,"virtAsstNonCarbUnit":"Whoops! Nightscout only knows how to work with eating carbs, not %1."
     ,"virtAsstMissingCarbsTitle":"Missing Carbs"
     ,"virtAsstMissingCarbsText":"Whoops! Nightscout needs to know how many carbs you ate in order to record it. Please try again and include the number of carbs."
-    ,"virtAsstCarbs":"Saved %1 carbs in Nightscout."
+    ,"virtAsstCarbs":"I've added %1 carbs in Nightscout."
     ,"Fat [g]":"Fat [g]"
     ,"Protein [g]":"Protein [g]"
     ,"Energy [kJ]":"Energy [kJ]"
