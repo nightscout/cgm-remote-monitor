@@ -631,6 +631,8 @@
     ,"virtAsstExercise":"I've added exercise for %1 minutes in Nightscout."
     ,"virtAsstMissingOfflineText":"Nightscout needs to know how long you'll be offline in order to record it. Please try again and include that value."
     ,"virtAsstOffline":"I've noted you'll be offline for %1 minutes in Nightscout."
+    ,"virtAsstMissingActivityText":"Nightscout needs to know how long to enable Activity Mode in order to record it. Please try again and include that value."
+    ,"virtAsstActivityMode":"I've enabled Activity Mode for %1 minutes in Nightscout."
     ,"Fat [g]":"Fat [g]"
     ,"Protein [g]":"Protein [g]"
     ,"Energy [kJ]":"Energy [kJ]"
