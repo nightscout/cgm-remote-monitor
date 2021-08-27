@@ -24,11 +24,22 @@ describe('API3 UPDATE', function() {
     self.subject = authResult.subject;
     self.token = authResult.token;
     self.urlToken = `${self.url}?token=${self.token.delete}`;
+    self.cache = self.instance.cacheMonitor;
   });
 
 
   after(() => {
-    self.instance.server.close();
+    self.instance.ctx.bus.teardown();
+  });
+
+
+  beforeEach(() => {
+    self.cache.clear();
+  });
+
+
+  afterEach(() => {
+    self.cache.shouldBeEmpty();
   });
 
 
@@ -46,7 +57,7 @@ describe('API3 UPDATE', function() {
       .send(self.validDoc)
       .expect(404);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(404);
   });
 
 });
