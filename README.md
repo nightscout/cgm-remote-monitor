@@ -142,7 +142,7 @@ as you're likely to hit issues in the process of updating the site.
 
 While you can install Nightscout on a virtual server or a Raspberry Pi, we do not recommend this unless you have at least some
 experience hosting Node applications and development using the toolchain in use with Nightscout. Heroku automates all of the
-hosting for you and even many of the dvelopers run their production sites in Heroku due to convenience.
+hosting for you and even many of the developers run their production sites in Heroku due to convenience.
 
 If you're a hosting provider and want to provide our users additional free hosting options,
 you're welcome to issue a documentation pull request with instructions on how to setup Nightscout on your system.
