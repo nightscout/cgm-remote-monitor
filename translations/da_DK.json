@@ -223,6 +223,7 @@
     "View all treatments": "Se alle behandlinger",
     "Enable Alarms": "Aktivere alarmer",
     "Pump Battery Change": "Udskiftet pumpebatteri",
+    "Pump Battery Age": "Pumpe batterialder",
     "Pump Battery Low Alarm": "Pumpebatteri lav Alarm",
     "Pump Battery change overdue!": "Pumpebatteri skal skiftes!",
     "When enabled an alarm may sound.": "Når aktiveret kan en alarm starte.",
