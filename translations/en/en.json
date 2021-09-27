@@ -628,6 +628,7 @@
     ,"virtAsstBg":"I've added a BG check of %1 in Nightscout."
     ,"virtAsstMissingDurationTitle":"Missing Duration"
     ,"virtAsstMissingExerciseText":"Nightscout needs to know how long you're exercising in order to record it. Please try again and include that value."
+    ,"virtAsstExerciseConfirm":"Just to confirm, that was %1 minutes of exercise, correct?"
     ,"virtAsstExercise":"I've added exercise for %1 minutes in Nightscout."
     ,"virtAsstMissingOfflineText":"Nightscout needs to know how long you'll be offline in order to record it. Please try again and include that value."
     ,"virtAsstOffline":"I've noted you'll be offline for %1 minutes in Nightscout."
