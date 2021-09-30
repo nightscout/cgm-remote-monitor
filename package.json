@@ -124,7 +124,7 @@
     "random-token": "0.0.8",
     "request": "^2.88.2",
     "semver": "^6.3.0",
-    "share2nightscout-bridge": "^0.2.4",
+    "share2nightscout-bridge": "^0.2.5",
     "shiro-trie": "^0.4.9",
     "simple-statistics": "^0.7.0",
     "socket.io": "~2.4.0",
