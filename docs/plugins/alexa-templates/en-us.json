@@ -95,9 +95,22 @@
                         {
                             "name": "rel_date",
                             "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
                         }
                     ],
                     "samples": [
+                        "I exercised {time_diff} {before_after} for {duration}",
+                        "I exercised for {duration} {time_diff} {before_after}",
+                        "I'll be exercising for {duration} {before_after} {time_diff}",
+                        "I'll be exercising {before_after} {time_diff} for {duration}",
+                        "I'll be exercising {before_after} {time_diff}",
                         "I'm exercising for {duration} at {rel_time} {rel_date}",
                         "I'm exercising for {duration} at {rel_time} on {rel_date}",
                         "I'm exercising for {duration} {rel_date} at {rel_time}",
@@ -124,9 +137,38 @@
                                 "{number} carbs",
                                 "{number}"
                             ]
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
                         }
                     ],
                     "samples": [
+                        "I'll be eating {before_after} {time_diff}",
+                        "{time_diff} {before_after} I ate {number} carbohydrates",
+                        "{before_after} {time_diff} I'll be eating {number} carbs",
+                        "I ate carbs {time_diff} {before_after}",
+                        "I'll be eating carbohydrates {before_after} {time_diff}",
+                        "I'll be eating {number} grams of carbs {before_after} {time_diff}",
+                        "I ate {number} carbs {time_diff} {before_after}",
+                        "{rel_date} i ate {number} carbs at {rel_time}",
+                        "I'm eating {number} carbs at {rel_time} {rel_date}",
+                        "I ate {number} carbs {rel_date} {rel_time}",
+                        "I'm eating {number} carbohydrates {rel_time} {rel_date}",
+                        "I ate {number} grams of carbs {rel_date} at {rel_time}",
+                        "I'm eating {number} grams at {rel_time}",
                         "I'm eating {number} carbs",
                         "I ate {number} carbs",
                         "I'm eating {number} carbohydrates",
@@ -143,9 +185,33 @@
                             "samples": [
                                 "{number}"
                             ]
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
                         }
                     ],
                     "samples": [
+                        "I tested my bg {time_diff} {before_after}",
+                        "{time_diff} {before_after} my blood glucose was {number}",
+                        "My glucose was {number} {time_diff} {before_after}",
+                        "I tested my bg at {number} {time_diff} {before_after}",
+                        "I tested {rel_date} at {number} at {rel_time}",
+                        "I tested at {number} at {rel_time}",
+                        "my bg was {number} on {rel_date} at {rel_time}",
+                        "I tested my glucose at {number} {rel_date} at {rel_time}",
                         "I tested at {number}",
                         "my blood sugar is {number}",
                         "my bg is {number}",
@@ -174,9 +240,21 @@
                         {
                             "name": "rel_time",
                             "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
                         }
                     ],
                     "samples": [
+                        "I went offline {time_diff} {before_after} for {duration}",
+                        "I went offline {time_diff} {before_after}",
+                        "I'll be going offline {before_after} {time_diff}",
+                        "I'll be going offline {before_after} {time_diff} for {duration}",
                         "i'm going offline {rel_date} for {duration} at {rel_time}",
                         "I went offline for {duration} at {rel_time} on {rel_date}",
                         "Open APS will be offline for {duration} at {rel_time} {rel_date}",
@@ -208,9 +286,21 @@
                         {
                             "name": "rel_time",
                             "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
                         }
                     ],
                     "samples": [
+                        "turn on activity mode {time_diff} {before_after} for {duration}",
+                        "enable activity mode {time_diff} {before_after}",
+                        "turn on activity mode {before_after} {time_diff}",
+                        "enable activity mode {before_after} {time_diff} for {duration}",
                         "turn on activity mode {rel_date} for {duration} at {rel_time}",
                         "turn on activity mode {rel_time} {rel_date} for {duration}",
                         "enable activity mode {rel_date} at {rel_time} for {duration}",
@@ -387,6 +477,27 @@
                             }
                         }
                     ]
+                },
+                {
+                    "name": "BEFORE_AFTER",
+                    "values": [
+                        {
+                            "name": {
+                                "value": "after",
+                                "synonyms": [
+                                    "in"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "before",
+                                "synonyms": [
+                                    "ago"
+                                ]
+                            }
+                        }
+                    ]
                 }
             ]
         },
@@ -445,11 +556,26 @@
                             "confirmationRequired": false,
                             "elicitationRequired": false,
                             "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
                         }
                     ]
                 },
                 {
                     "name": "MetricReportCarbs",
+                    "delegationStrategy": "SKILL_RESPONSE",
                     "confirmationRequired": true,
                     "prompts": {
                         "confirmation": "Confirm.Intent.917761870597"
@@ -463,11 +589,40 @@
                             "prompts": {
                                 "elicitation": "Elicit.Slot.917761870597.328518628348"
                             }
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
                         }
                     ]
                 },
                 {
                     "name": "MetricReportBgCheck",
+                    "delegationStrategy": "SKILL_RESPONSE",
                     "confirmationRequired": true,
                     "prompts": {
                         "confirmation": "Confirm.Intent.1560553358598"
@@ -481,6 +636,34 @@
                             "prompts": {
                                 "elicitation": "Elicit.Slot.1560553358598.1438328531777"
                             }
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
                         }
                     ]
                 },
@@ -514,6 +697,20 @@
                             "confirmationRequired": false,
                             "elicitationRequired": false,
                             "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
                         }
                     ]
                 },
@@ -544,6 +741,20 @@
                         {
                             "name": "rel_time",
                             "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
                             "confirmationRequired": false,
                             "elicitationRequired": false,
                             "prompts": {}
