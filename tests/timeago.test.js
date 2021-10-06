@@ -4,6 +4,7 @@ var times = require('../lib/times');
 
 describe('timeago', function() {
   var ctx = {};
+  ctx.levels = levels;
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
   ctx.language = require('../lib/language')();
@@ -12,7 +13,7 @@ describe('timeago', function() {
 
   var timeago = require('../lib/plugins/timeago')(ctx);
 
-  var env = require('../env')();
+  var env = require('../lib/server/env')();
 
   function freshSBX () {
     //set extendedSettings right before calling withExtendedSettings, there's some strange test interference here
@@ -43,33 +44,6 @@ describe('timeago', function() {
     done();
   });
 
-  it('should suspend alarms due to hibernation when 2 heartbeats are skipped on server', function() {
-    ctx.ddata.sgvs = [{ mills: Date.now() - times.mins(16).msecs, mgdl: 100, type: 'sgv' }];
-
-    var sbx = freshSBX()
-    var status = timeago.checkStatus(sbx);
-    // By default (no hibernation detected) a warning should be given
-    // we force no hibernation by checking status twice
-    status = timeago.checkStatus(sbx);
-    should.equal(status, 'warn');
-
-    // 10ms more than suspend-threshold to prevent flapping tests
-    var timeoutMs = 2 * ctx.settings.heartbeat * 1000 + 100;
-    return new Promise(function(resolve, reject) {
-      setTimeout(function() {
-        status = timeago.checkStatus(sbx);
-        // Because hibernation should now be detected, no warning should be given
-        should.equal(status, 'current');
-
-        // We immediately ask status again, so hibernation should not be detected anymore,
-        // and we should receive a warning again
-        status = timeago.checkStatus(sbx);
-        should.equal(status, 'warn');
-
-        resolve()
-      }, timeoutMs)
-    })
-  });
 
   it('should trigger a warning when data older than 15m', function(done) {
     ctx.notifications.initRequests();
@@ -79,9 +53,6 @@ describe('timeago', function() {
     timeago.checkNotifications(sbx);
 
     var currentTime = new Date().getTime();
-
-    // eslint-disable-next-line no-empty
-    while (currentTime + 500 >= new Date().getTime()) {}
 
     var highest = ctx.notifications.findHighestAlarm('Time Ago');
     highest.level.should.equal(levels.WARN);
