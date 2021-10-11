@@ -312,6 +312,98 @@
                         "turn on activity mode for {duration} ",
                         "turn on activity mode"
                     ]
+                },
+                {
+                    "name": "MetricReportSiteChange",
+                    "slots": [
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
+                        }
+                    ],
+                    "samples": [
+                        "I changed my site {rel_date} at {rel_time}",
+                        "I changed my pump site at {rel_time} {rel_date}",
+                        "I changed my infusion set {time_diff} {before_after}",
+                        "I changed my inset {before_after} {time_diff}",
+                        "I changed my infusion set",
+                        "I changed my inset",
+                        "I changed my site",
+                        "I'm changing my pump site"
+                    ]
+                },
+                {
+                    "name": "MetricReportPumpBattChange",
+                    "slots": [
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
+                        }
+                    ],
+                    "samples": [
+                        "I changed my battery {rel_date} at {rel_time}",
+                        "I changed my pump battery at {rel_time} {rel_date}",
+                        "I changed my pump battery {time_diff} {before_after}",
+                        "I changed my battery {before_after} {time_diff}",
+                        "I changed my pump battery",
+                        "I changed my battery",
+                        "I'm changing my pump battery"
+                    ]
+                },
+                {
+                    "name": "MetricReportCartridgeChange",
+                    "slots": [
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
+                        }
+                    ],
+                    "samples": [
+                        "I changed my cartridge {rel_date} at {rel_time}",
+                        "I changed my insulin pump cartridge at {rel_time} {rel_date}",
+                        "I changed my cartridge {time_diff} {before_after}",
+                        "I changed my insulin cartridge {before_after} {time_diff}",
+                        "I changed my pump cartridge",
+                        "I changed my cartridge",
+                        "I changed my insulin cartridge",
+                        "I'm changing my pump insulin pump cartridge"
+                    ]
                 }
             ],
             "types": [
@@ -760,6 +852,120 @@
                             "prompts": {}
                         }
                     ]
+                },
+                {
+                    "name": "MetricReportSiteChange",
+                    "delegationStrategy": "SKILL_RESPONSE",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.303079486417"
+                    },
+                    "slots": [
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        }
+                    ]
+                },
+                {
+                    "name": "MetricReportPumpBattChange",
+                    "delegationStrategy": "SKILL_RESPONSE",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.303079486418"
+                    },
+                    "slots": [
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        }
+                    ]
+                },
+                {
+                    "name": "MetricReportCartridgeChange",
+                    "delegationStrategy": "SKILL_RESPONSE",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.303079486419"
+                    },
+                    "slots": [
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        }
+                    ]
                 }
             ],
             "delegationStrategy": "ALWAYS"
@@ -921,6 +1127,33 @@
                     {
                         "type": "PlainText",
                         "value": "For how long?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.303079486417",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to confirm, you changed your pump site?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.303079486418",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to confirm, you changed your pump battery?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.303079486419",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to confirm, you changed your insulin cartridge?"
                     }
                 ]
             }
