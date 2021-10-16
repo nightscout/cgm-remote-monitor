@@ -4,7 +4,7 @@ var should = require('should');
 var assert = require('assert');
 
 describe('mongo storage', function () {
-  var env = require('../env')();
+  var env = require('../lib/server/env')();
 
   before(function (done) {
     delete env.api_secret;
