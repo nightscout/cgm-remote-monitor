@@ -98,6 +98,7 @@
     "fast-password-entropy": "^1.1.1",
     "file-loader": "^6.2.0",
     "flot": "^0.8.3",
+    "forwarded-for": "^1.1.0",
     "helmet": "^4.0.0",
     "jquery": "^3.5.1",
     "jquery-ui-bundle": "^1.12.1-migrate",
