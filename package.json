@@ -1,10 +1,6 @@
 {
   "name": "nightscout",
-<<<<<<< HEAD
-  "version": "14.2.3",
-=======
   "version": "14.1.0",
->>>>>>> parent of 71bac401 (Merge pull request #3 from nightscout/master)
   "description": "Nightscout acts as a web-based CGM (Continuous Glucose Montinor) to allow multiple caregivers to remotely view a patients glucose data in realtime.",
   "license": "AGPL-3.0",
   "author": "Nightscout Team",
