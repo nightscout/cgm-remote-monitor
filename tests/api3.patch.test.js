@@ -31,8 +31,7 @@ describe('API3 PATCH', function() {
     let res = await self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    return res.body.result;
+    return res.body;
   };
 
 
@@ -82,7 +81,7 @@ describe('API3 PATCH', function() {
       .send(self.validDoc)
       .expect(404);
 
-    res.body.status.should.equal(404);
+    res.body.should.be.empty();
   });
 
 
@@ -91,14 +90,14 @@ describe('API3 PATCH', function() {
       .send(self.validDoc)
       .expect(404);
 
-    res.body.status.should.equal(404);
+    res.body.should.be.empty();
 
     // now let's insert the document for further patching
     res = await self.instance.post(`${self.url}?token=${self.token.create}`)
       .send(self.validDoc)
       .expect(201);
 
-    res.body.status.should.equal(201);
+    res.body.should.be.empty();
     self.cache.nextShouldEql(self.col, self.validDoc)
   });
 
@@ -218,9 +217,9 @@ describe('API3 PATCH', function() {
 
     let res = await self.instance.patch(self.urlToken)
       .send(self.validDoc)
-      .expect(200);
+      .expect(204);
 
-    res.body.status.should.equal(200);
+    res.body.should.be.empty();
 
     let body = await self.get(self.validDoc.identifier);
     body.carbs.should.equal(10);

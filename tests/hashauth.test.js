@@ -16,8 +16,6 @@ describe('hashauth', function ( ) {
   });
 
   after(function (done) {
-    // cleanup js-storage as it evaluates if the test is running in the window or not when first required
-    delete require.cache[require.resolve('js-storage')];
     done( );
   });
 

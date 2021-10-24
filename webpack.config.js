@@ -2,8 +2,8 @@ const path = require('path');
 const webpack = require('webpack');
 const pluginArray = [];
 const sourceMapType = 'source-map';
+const TerserPlugin = require('terser-webpack-plugin');
 const MomentTimezoneDataPlugin = require('moment-timezone-data-webpack-plugin');
-const projectRoot = path.resolve(__dirname, '..');
 
 /*
 if (process.env.NODE_ENV === 'development') {
@@ -52,10 +52,6 @@ pluginArray.push(new webpack.ProvidePlugin({
   'window.$': 'jquery'
 }));
 
-pluginArray.push(new webpack.ProvidePlugin({
-  process: 'process/browser',
-}));
-
 // limit Timezone data from Moment
 
 pluginArray.push(new MomentTimezoneDataPlugin({
@@ -63,70 +59,47 @@ pluginArray.push(new MomentTimezoneDataPlugin({
   endYear: 2035,
 }));
 
-if (process.env.NODE_ENV === 'development') {
-  const ESLintPlugin = require('eslint-webpack-plugin');
-  pluginArray.push(new ESLintPlugin({
-    emitWarning: true,
-    failOnError: false,
-    failOnWarning: false,
-    formatter: require('eslint').CLIEngine.getFormatter('stylish'),
-    overrideConfig: {
-      globals: {
-        '$': 'writeable'
-      }
-    }
-  }));
-}
-
 const rules = [
   {
     test: /\.(js|jsx)$/,
+    exclude: /node_modules/,
     use: {
-      loader: 'babel-loader',
-      options: {
-        babelrc: true,
-        cacheDirectory: true,
-        extends: path.join(projectRoot, '/.babelrc')
-      }
+      loader: "babel-loader"
     }
-  },
-  {
-    test: /\.css$/i,
-    use: [ 'style-loader',
-      {
-        loader: 'css-loader',
-        options: {
-          sourceMap: true,
-        },
-      } ],
-    exclude: /node_modules/
   },
   {
     test: /\.(jpe?g|png|gif)$/i,
     loader: 'file-loader',
-    options: {
-      outputPath: 'images'
+    query: {
+      name: '[name].[ext]',
+      outputPath: 'images/'
       //the images will be emmited to public/assets/images/ folder
       //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png);
     },
     exclude: /node_modules/
   },
   {
+    test: /\.css$/,
+    loaders: ['style-loader', 'css-loader'],
+    exclude: /node_modules/
+  },
+  {
     test: require.resolve('jquery'),
-    loader: 'expose-loader',
-    options: {
-      exposes: ['$']
-    }
+    use: [{
+      loader: 'expose-loader',
+      options: '$'
+    }]
   }
 ];
 
 const appEntry = ['./bundle/bundle.source.js'];
 const clockEntry = ['./bundle/bundle.clocks.source.js'];
+const reportEntry = ['./bundle/bundle.reports.source.js'];
 
 let mode = 'production';
 let publicPath = '/bundle/';
 
-if (process.env.NODE_ENV === 'development') {
+if (process.env.NODE_ENV == 'development') {
   mode = 'development';
   publicPath = '/devbundle/';
   pluginArray.push(new webpack.HotModuleReplacementPlugin());
@@ -136,20 +109,51 @@ if (process.env.NODE_ENV === 'development') {
 
   appEntry.unshift(hot);
   clockEntry.unshift(hot);
+  reportEntry.unshift(hot);
+
+  rules.unshift({
+    enforce: "pre",
+    test: /\.js$/,
+    exclude: [/node_modules/, /bundle/],
+    loader: "eslint-loader",
+    options: {
+      emitWarning: true,
+      failOnError: false,
+      failOnWarning: false,
+      formatter: require('eslint/lib/cli-engine/formatters/stylish')
+    }
+  });
+
 }
 
 const optimization = {};
 
+if (process.env.NODE_ENV !== 'development') {
+  optimization.minimizer = [
+    new TerserPlugin({
+      cache: true,
+      parallel: true,
+      sourceMap: true, // Must be set to true if using source-maps in production
+      terserOptions: {
+        ie8: false,
+        safari10: false
+        // https://github.com/webpack-contrib/terser-webpack-plugin#terseroptions
+      }
+    }),
+  ];
+};
 
 module.exports = {
   mode,
-  context: projectRoot,
+  context: __dirname,
+  context: path.resolve(__dirname, '.'),
   entry: {
     app: appEntry,
-    clock: clockEntry
+    clock: clockEntry,
+    report: reportEntry
   },
   output: {
-    path: path.resolve(projectRoot, './tmp/public'),
+    path: path.resolve(__dirname, './tmp'),
     publicPath,
     filename: 'js/bundle.[name].js',
     sourceMapFilename: 'js/bundle.[name].js.map',
@@ -159,12 +163,5 @@ module.exports = {
   plugins: pluginArray,
   module: {
     rules
-  },
-  resolve: {
-    alias: {
-      stream: 'stream-browserify',
-      crypto: 'crypto-browserify',
-      buffer: 'buffer',
-    }
   }
 };

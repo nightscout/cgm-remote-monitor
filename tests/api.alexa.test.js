@@ -13,9 +13,7 @@ describe('Alexa REST api', function ( ) {
   const apiRoot = require('../lib/api/root');
   const api = require('../lib/api/');
   before(function (done) {
-    delete process.env.API_SECRET;
-    process.env.API_SECRET = 'this is my long pass phrase';
-    var env = require('../lib/server/env')( );
+    var env = require('../env')( );
     env.settings.enable = ['alexa'];
     env.settings.authDefaultRoles = 'readable';
     env.api_secret = 'this is my long pass phrase';

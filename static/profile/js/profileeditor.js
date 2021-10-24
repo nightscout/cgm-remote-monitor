@@ -1,6 +1,5 @@
-'use strict';
-
-var init = function init () {
+(function () {
+  'use strict';
   //for the tests window isn't the global object
   var $ = window.$;
   var _ = window._;
@@ -100,12 +99,12 @@ var init = function init () {
           _.each(mongoprofile.store, function eachStoredProfile (p) {
             // allign with default profile
             for (var key in defaultprofile) {
-              if (Object.prototype.hasOwnProperty.call(defaultprofile,key) && !Object.prototype.hasOwnProperty.call(p,key)) {
+              if (defaultprofile.hasOwnProperty(key) && !p.hasOwnProperty(key)) {
                   p[key] = defaultprofile[key];
               }
             }
             for (key in p) {
-              if (Object.prototype.hasOwnProperty.call(p,key) && !Object.prototype.hasOwnProperty.call(defaultprofile,key)) {
+              if (p.hasOwnProperty(key) && !defaultprofile.hasOwnProperty(key)) {
                   delete p[key];
               }
             }
@@ -232,7 +231,7 @@ var init = function init () {
     $('#pe_profiles').empty();
 
     for (var key in record.store) {
-      if (Object.prototype.hasOwnProperty.call(record.store,key)) {
+      if (record.store.hasOwnProperty(key)) {
         $('#pe_profiles').append('<option value="' + key + '">' + key + '</option>');
       }
     }
@@ -656,7 +655,7 @@ var init = function init () {
     var adjustedRecord = _.cloneDeep(record);
 
     for (var key in adjustedRecord.store) {
-      if (Object.prototype.hasOwnProperty.call(adjustedRecord.store,key)) {
+      if (adjustedRecord.store.hasOwnProperty(key)) {
         var profile = adjustedRecord.store[key];
         if (!profile.perGIvalues) {
           delete profile.perGIvalues;
@@ -707,7 +706,7 @@ var init = function init () {
   function getFirstAvailableProfile(record) {
     var availableProfiles = [];
     for (var key in record.store) {
-      if (Object.prototype.hasOwnProperty.call(record.store,key)) {
+      if (record.store.hasOwnProperty(key)) {
         if (key !== currentprofile) {
           availableProfiles.push(key);
         }
@@ -722,6 +721,4 @@ var init = function init () {
     }
   }
   });
-};
-
-module.exports = init;
+})();

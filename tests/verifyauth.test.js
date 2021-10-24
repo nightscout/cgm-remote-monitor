@@ -1,5 +1,6 @@
 'use strict';
 
+const { geoNaturalEarth1 } = require('d3');
 var request = require('supertest');
 var language = require('../lib/language')();
 require('should');
@@ -24,12 +25,10 @@ describe('verifyauth', function ( ) {
 
   it('should return defaults when called without secret', function (done) {
     var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
-    var known512 = '8c8743d38cbe00debe4b3ba8d0ffbb85e4716c982a61bb9e57bab203178e3718b2965831c1a5e42b9da16f082fdf8a6cecf993b49ed67e3a8b1cd475885d8070';
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'this is my long pass phrase';
-    var env = require('../lib/server/env')( );
-    env.enclave.isApiKey(known).should.equal(true);
-    env.enclave.isApiKey(known512).should.equal(true);
+    var env = require('../env')( );
+    env.api_secret.should.equal(known);
     setup_app(env, function (ctx) {
       ctx.app.enabled('api').should.equal(true);
       ctx.app.api_secret = '';
@@ -41,8 +40,8 @@ describe('verifyauth', function ( ) {
     var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'this is my long pass phrase';
-    var env = require('../lib/server/env')( );
-    env.enclave.isApiKey(known).should.equal(true);
+    var env = require('../env')( );
+    env.api_secret.should.equal(known);
     setup_app(env, function (ctx) {
       ctx.app.enabled('api').should.equal(true);
       ctx.app.api_secret = 'wrong secret';
@@ -61,8 +60,8 @@ describe('verifyauth', function ( ) {
     var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'this is my long pass phrase';
-    var env = require('../lib/server/env')( );
-    env.enclave.isApiKey(known).should.equal(true);
+    var env = require('../env')( );
+    env.api_secret.should.equal(known);
     setup_app(env, function (ctx) {
       ctx.app.enabled('api').should.equal(true);
       ctx.app.api_secret = 'wrong secret';
@@ -71,7 +70,7 @@ describe('verifyauth', function ( ) {
       function checkTimer(res) {
         res.body.message.message.should.equal('UNAUTHORIZED');
         const delta = Date.now() - time;
-        delta.should.be.greaterThan(49);
+        delta.should.be.greaterThan(1000);
         done();
       }
 
@@ -90,8 +89,8 @@ describe('verifyauth', function ( ) {
     var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'this is my long pass phrase';
-    var env = require('../lib/server/env')( );
-    env.enclave.isApiKey(known).should.equal(true);
+    var env = require('../env')( );
+    env.api_secret.should.equal(known);
     setup_app(env, function (ctx) {
       ctx.app.enabled('api').should.equal(true);
       ctx.app.api_secret = env.api_secret;

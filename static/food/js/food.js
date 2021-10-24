@@ -1,12 +1,12 @@
 'use strict';
 
-var init = function init () {
-
 //for the tests window isn't the global object
 var $ = window.$;
 var _ = window._;
 var Nightscout = window.Nightscout;
 var client = Nightscout.client;
+
+(function () {
 
 client.init(function loaded () {
   var translate = client.translate;
@@ -146,7 +146,7 @@ client.init(function loaded () {
     $('#fe_filter_subcategory').empty().append(new Option(translate('(none)'),''));
     if (filter.category !== '') {
       for (s in categories[filter.category]) {
-        if (Object.prototype.hasOwnProperty.call(categories[filter.category],s)) {
+        if (categories[filter.category].hasOwnProperty(s)) {
           $('#fe_filter_subcategory').append(new Option(s,s));
         }
       }
@@ -162,7 +162,7 @@ client.init(function loaded () {
     $('#fe_subcategory_list').empty().append(new Option(translate('(none)'),''));
     if (foodrec.category !== '') {
       for (s in categories[foodrec.category]) {
-        if (Object.prototype.hasOwnProperty.call(categories[foodrec.category],s)) {
+        if (categories[foodrec.category].hasOwnProperty(s)) {
           $('#fe_subcategory_list').append(new Option(s,s));
         }
       }
@@ -198,7 +198,7 @@ client.init(function loaded () {
     $('#fe_filter_category').empty().append(new Option(translate('(none)'),''));
     $('#fe_category_list').empty().append(new Option(translate('(none)'),''));
     for (var s in categories) {
-      if (Object.prototype.hasOwnProperty.call(categories,s)) {
+      if (categories.hasOwnProperty(s)) {
         $('#fe_filter_category').append(new Option(s,s));
         $('#fe_category_list').append(new Option(s,s));
       }
@@ -398,7 +398,7 @@ client.init(function loaded () {
   function savePortions(event) {
     var index = $(this).attr('index');
     var findex = $(this).attr('findex');
-    var val = parseFloat($(this).val().replace(/,/g,'.'));
+    var val = parseFloat($(this).val().replace(/\,/g,'.'));
     foodquickpick[index].foods[findex].portions=val;
     calculateCarbs(index);
     drawQuickpick();
@@ -677,6 +677,4 @@ client.init(function loaded () {
     }
   }
 });
-};
-
-module.exports = init;
+})();

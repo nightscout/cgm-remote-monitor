@@ -143,7 +143,7 @@ describe('API3 output renderers', function() {
         .send(doc)
         .expect(201);
 
-      res.body.status.should.equal(201);
+      res.body.should.be.empty();
 
       res = await self.instance.get(`${self.url}/${doc.identifier}?token=${self.token.read}`)
         .expect(200);
@@ -163,9 +163,7 @@ describe('API3 output renderers', function() {
     async function check406 (request) {
       const res = await request
         .expect(406);
-      res.status.should.equal(406);
       res.body.message.should.eql('Unsupported output format requested');
-      should.not.exist(res.body.result);
     }
 
     await check406(self.instance.get(`${self.url}/${self.doc1.identifier}.ttf?fields=_all&token=${self.token.read}`));
@@ -273,16 +271,16 @@ describe('API3 output renderers', function() {
   it('should remove mock documents', async () => {
 
     async function deleteDoc (identifier) {
-      let res = await self.instance.delete(`${self.url}/${identifier}?token=${self.token.delete}`)
+      await self.instance.delete(`${self.url}/${identifier}?token=${self.token.delete}`)
         .query({ 'permanent': 'true' })
-        .expect(200);
-
-      res.body.status.should.equal(200);
-      self.cache.nextShouldDeleteLast(self.col);
+        .expect(204);
     }
 
     await deleteDoc(self.doc1.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
+
     await deleteDoc(self.doc2.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 });
 
