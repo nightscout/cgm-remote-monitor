@@ -1,0 +1,38 @@
+<html>
+  <head>
+    <title>Fancy View</title>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.js"
+      integrity="sha512-n/4gHW3atM3QqRcbCn6ewmpxcLAHGaDjpEBu4xZd47N0W2oQ+6q7oc3PXstrJYXcbNU1OHdQ1T7pAP+gi5Yu8g=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+  </head>
+
+  <body>
+    <script type="text/javascript">
+      $(document).ready(function () {
+        $("#msgid").html("This is Hello World by JQuery");
+
+        (function poll() {
+          $.ajax({
+            url: "/api/v3/entries?token=swaggertes-7b249c5a6ad1e51a&sort%24desc=date&limit=2&fields=_all",
+            type: "GET",
+            success: function (data) {
+              console.log("polling");
+            },
+            dataType: "json",
+            complete: setTimeout(function () {
+              poll();
+            }, 5000),
+            timeout: 2000,
+          });
+        })();
+      });
+    </script>
+
+    This is Hello World by HTML
+
+    <div id="msgid"></div>
+  </body>
+</html>
