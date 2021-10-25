@@ -13,7 +13,7 @@ describe('timeago', function() {
 
   var timeago = require('../lib/plugins/timeago')(ctx);
 
-  var env = require('../lib/server/env')();
+  var env = require('../env')();
 
   function freshSBX () {
     //set extendedSettings right before calling withExtendedSettings, there's some strange test interference here

@@ -4,22 +4,10 @@ const _get = require('lodash/get');
 const express = require('express');
 const compression = require('compression');
 const bodyParser = require('body-parser');
-const randomToken = require('random-token');
 
 const path = require('path');
 const fs = require('fs');
 const ejs = require('ejs');
-
-function resolvePath(filePath) {
-
-  if (fs.existsSync(filePath)) return filePath;
-  let p = path.join(__dirname, filePath);
-  if (fs.existsSync(p)) return p;
-  p = path.join(process.cwd(), filePath);
-  if (fs.existsSync(p)) return p;
-
-  return require.resolve(filePath);
-}
 
 function create (env, ctx) {
   var app = express();
@@ -78,7 +66,7 @@ function create (env, ctx) {
           , reportOnly: secureCspReportOnly
         };
       }
-
+      
 
       console.info('Enabled SECURE_HSTS_HEADER (HTTP Strict Transport Security)');
       const helmet = require('helmet');
@@ -113,27 +101,42 @@ function create (env, ctx) {
   }
 
   app.set('view engine', 'ejs');
+  // this allows you to render .html files as templates in addition to .ejs
   app.engine('html', require('ejs').renderFile);
-  app.set("views", resolvePath('/views'));
+  app.set("views", path.join(__dirname, "views/"));
 
-  let cacheBuster = process.env.NODE_ENV == 'development' ? 'developmentMode': randomToken(16);
-  app.locals.cachebuster = cacheBuster;
-
+  let cacheBuster = 'developmentMode';
   let lastModified = new Date();
+  let busterPath = '/tmp/cacheBusterToken';
+
+  if (process.env.NODE_ENV !== 'development') {
+    busterPath = process.cwd() + busterPath;
+  } else {
+    busterPath = __dirname + busterPath;
+  }
+
+  if (fs.existsSync(busterPath)) {
+      cacheBuster = fs.readFileSync(busterPath).toString().trim();
+      var stats = fs.statSync(busterPath);
+      lastModified = stats.mtime;
+  }
+  app.locals.cachebuster = cacheBuster;
 
   app.get("/robots.txt", (req, res) => {
     res.setHeader('Content-Type', 'text/plain');
     res.send(['User-agent: *','Disallow: /'].join('\n'));
   });
 
-  const swcontent = fs.readFileSync(resolvePath('/views/service-worker.js'), { encoding: 'utf-8' });
-
   app.get("/sw.js", (req, res) => {
     res.setHeader('Content-Type', 'application/javascript');
     if (process.env.NODE_ENV !== 'development') {
       res.setHeader('Last-Modified', lastModified.toUTCString());
     }
-    res.send(ejs.render(swcontent, { locals: app.locals} ));
+    res.send(ejs.render(fs.readFileSync(
+      require.resolve(`${__dirname}/views/service-worker.js`),
+      { encoding: 'utf-8' }),
+      { locals: app.locals}
+     ));
   });
 
   // Allow static resources to be cached for week
@@ -144,19 +147,19 @@ function create (env, ctx) {
     console.log('Development environment detected, setting static file cache age to 1 second');
   }
 
-  var staticFiles = express.static(resolvePath(env.static_files), {
+  var staticFiles = express.static(env.static_files, {
     maxAge
   });
 
   // serve the static content
   app.use(staticFiles);
 
-  app.use('/translations', express.static(resolvePath('/translations'), {
+  app.use('/translations', express.static('translations', {
     maxAge
   }));
 
   if (ctx.bootErrors && ctx.bootErrors.length > 0) {
-    const bootErrorView = require('./booterror')(env, ctx);
+    const bootErrorView = require('./lib/server/booterror')(env, ctx);
     bootErrorView.setLocals(app.locals);
     app.get('*', bootErrorView);
     return app;
@@ -182,11 +185,11 @@ function create (env, ctx) {
   ///////////////////////////////////////////////////
   // api and json object variables
   ///////////////////////////////////////////////////
-  const apiRoot = require('../api/root')(env, ctx);
-  var api = require('../api/')(env, ctx);
-  var api3 = require('../api3/')(env, ctx);
-  var ddata = require('../data/endpoints')(env, ctx);
-  var notificationsV2 = require('../api/notifications-v2')(app, ctx);
+  const apiRoot = require('./lib/api/root')(env, ctx);
+  var api = require('./lib/api/')(env, ctx);
+  var api3 = require('./lib/api3/')(env, ctx);
+  var ddata = require('./lib/data/endpoints')(env, ctx);
+  var notificationsV2 = require('./lib/api/notifications-v2')(app, ctx);
 
   app.use(compression({
     filter: function shouldCompress (req, res) {
@@ -239,16 +242,22 @@ function create (env, ctx) {
     });
   });
 
-  const clockviews = require('./clocks.js')(env, ctx);
+  const clockviews = require('./lib/server/clocks.js')(env, ctx);
   clockviews.setLocals(app.locals);
 
   app.use("/clock", clockviews);
 
-  app.use('/api', apiRoot);
+  app.use('/api', bodyParser({
+    limit: 1048576 * 50
+  }), apiRoot);
 
-  app.use('/api/v1', api);
+  app.use('/api/v1', bodyParser({
+    limit: 1048576 * 50
+  }), api);
 
-  app.use('/api/v2', api);
+  app.use('/api/v2', bodyParser({
+    limit: 1048576 * 50
+  }), api);
 
   app.use('/api/v2/properties', ctx.properties);
   app.use('/api/v2/authorization', ctx.authorization.endpoints);
@@ -260,19 +269,14 @@ function create (env, ctx) {
   // pebble data
   app.get('/pebble', ctx.pebble);
 
-  const swaggerjson = fs.readFileSync(resolvePath(__dirname + '/swagger.json'), { encoding: 'utf-8' });
-  const swaggeryaml = fs.readFileSync(resolvePath(__dirname + '/swagger.yaml'), { encoding: 'utf-8' });
-
   // expose swagger.json
   app.get('/swagger.json', function(req, res) {
-    res.setHeader("Content-Type", 'application/json');
-    res.send(swaggerjson);
+    res.sendFile(__dirname + '/swagger.json');
   });
 
   // expose swagger.yaml
   app.get('/swagger.yaml', function(req, res) {
-    res.setHeader("Content-Type", 'text/vnd.yaml');
-    res.send(swaggeryaml);
+    res.sendFile(__dirname + '/swagger.yaml');
   });
 
   // API docs
@@ -280,7 +284,7 @@ function create (env, ctx) {
   const swaggerUi = require('swagger-ui-express');
   const swaggerUseSchema = schema => (...args) => swaggerUi.setup(schema)(...args);
   const swaggerDocument = require('./swagger.json');
-  const swaggerDocumentApiV3 = require('../api3/swagger.json');
+  const swaggerDocumentApiV3 = require('./lib/api3/swagger.json');
 
   app.use('/api-docs', swaggerUi.serve, swaggerUseSchema(swaggerDocument));
   app.use('/api3-docs', swaggerUi.serve, swaggerUseSchema(swaggerDocumentApiV3));
@@ -293,6 +297,7 @@ function create (env, ctx) {
   // if production, rely on postinstall script to run packaging for us
 
   app.locals.bundle = '/bundle';
+
   app.locals.mode = 'production';
 
   if (process.env.NODE_ENV === 'development') {
@@ -303,7 +308,7 @@ function create (env, ctx) {
     app.locals.bundle = '/devbundle';
 
     const webpack = require('webpack');
-    const webpack_conf = require('../../webpack/webpack.config');
+    var webpack_conf = require('./webpack.config');
     const middleware = require('webpack-dev-middleware');
     const compiler = webpack(webpack_conf);
 
@@ -311,6 +316,7 @@ function create (env, ctx) {
       middleware(compiler, {
         // webpack-dev-middleware options
         publicPath: webpack_conf.output.publicPath
+        , lazy: false
       })
     );
 
@@ -320,9 +326,16 @@ function create (env, ctx) {
   }
 
   // Production bundling
-  const tmpFiles =  express.static(resolvePath('/tmp/public'), {
-    maxAge: maxAge
-  });
+  var tmpFiles;
+  if (fs.existsSync(process.cwd() + '/tmp/cacheBusterToken')) {
+    tmpFiles = express.static('tmp', {
+      maxAge: maxAge
+    });
+  } else {
+    tmpFiles = express.static(__dirname + '/tmp', {
+      maxAge: maxAge
+    });
+  }
 
   // serve the static content
   app.use('/bundle', tmpFiles);
@@ -343,7 +356,7 @@ function create (env, ctx) {
       , coffee_match: /coffeescript/
       , json_match: /json/
       , cssmin: myCssmin
-      , cache: resolvePath('/tmp/public')
+      , cache: __dirname + '/tmp'
       , onerror: undefined
     , }));
 

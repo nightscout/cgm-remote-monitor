@@ -75,7 +75,6 @@ describe('API3 SEARCH', function() {
 
     res.body.status.should.equal(401);
     res.body.message.should.equal('Missing or bad access token or JWT');
-    should.not.exist(res.body.result);
   });
 
 
@@ -84,8 +83,7 @@ describe('API3 SEARCH', function() {
       .send(self.validDoc)
       .expect(404);
 
-    res.body.status.should.equal(404);
-    should.not.exist(res.body.result);
+    res.body.should.be.empty();
   });
 
 
@@ -93,8 +91,7 @@ describe('API3 SEARCH', function() {
     let res = await self.instance.get(self.urlToken)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    res.body.result.length.should.be.aboveOrEqual(self.docs.length);
+    res.body.length.should.be.aboveOrEqual(self.docs.length);
   });
 
 
@@ -102,8 +99,7 @@ describe('API3 SEARCH', function() {
     let res = await self.instance.get(self.urlTest)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    res.body.result.length.should.be.aboveOrEqual(self.docs.length);
+    res.body.length.should.be.aboveOrEqual(self.docs.length);
   });
 
 
@@ -111,9 +107,8 @@ describe('API3 SEARCH', function() {
     let res = await self.instance.get(`${self.urlToken}&limit=INVALID`)
       .expect(400);
 
-    res.body.status.should.equal(400);
-    res.body.message.should.equal('Parameter limit out of tolerance');
-    should.not.exist(res.body.result);
+    res.body.status.should.be.equal(400);
+    res.body.message.should.be.equal('Parameter limit out of tolerance');
   });
 
 
@@ -121,9 +116,8 @@ describe('API3 SEARCH', function() {
     let res = await self.instance.get(`${self.urlToken}&limit=-1`)
       .expect(400);
 
-    res.body.status.should.equal(400);
-    res.body.message.should.equal('Parameter limit out of tolerance');
-    should.not.exist(res.body.result);
+    res.body.status.should.be.equal(400);
+    res.body.message.should.be.equal('Parameter limit out of tolerance');
   });
 
 
@@ -131,9 +125,8 @@ describe('API3 SEARCH', function() {
     let res = await self.instance.get(`${self.urlToken}&limit=0`)
       .expect(400);
 
-    res.body.status.should.equal(400);
-    res.body.message.should.equal('Parameter limit out of tolerance');
-    should.not.exist(res.body.result);
+    res.body.status.should.be.equal(400);
+    res.body.message.should.be.equal('Parameter limit out of tolerance');
   });
 
 
@@ -141,8 +134,7 @@ describe('API3 SEARCH', function() {
     let res = await self.instance.get(`${self.urlToken}&limit=3`)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    res.body.result.length.should.equal(3);
+    res.body.length.should.be.equal(3);
   });
 
 
@@ -150,9 +142,8 @@ describe('API3 SEARCH', function() {
     let res = await self.instance.get(`${self.urlToken}&skip=INVALID`)
       .expect(400);
 
-    res.body.status.should.equal(400);
-    res.body.message.should.equal('Parameter skip out of tolerance');
-    should.not.exist(res.body.result);
+    res.body.status.should.be.equal(400);
+    res.body.message.should.be.equal('Parameter skip out of tolerance');
   });
 
 
@@ -160,9 +151,8 @@ describe('API3 SEARCH', function() {
     let res = await self.instance.get(`${self.urlToken}&skip=-5`)
       .expect(400);
 
-    res.body.status.should.equal(400);
-    res.body.message.should.equal('Parameter skip out of tolerance');
-    should.not.exist(res.body.result);
+    res.body.status.should.be.equal(400);
+    res.body.message.should.be.equal('Parameter skip out of tolerance');
   });
 
 
@@ -170,9 +160,8 @@ describe('API3 SEARCH', function() {
     let res = await self.instance.get(`${self.urlToken}&sort=date&sort$desc=created_at`)
       .expect(400);
 
-    res.body.status.should.equal(400);
-    res.body.message.should.equal('Parameters sort and sort_desc cannot be combined');
-    should.not.exist(res.body.result);
+    res.body.status.should.be.equal(400);
+    res.body.message.should.be.equal('Parameters sort and sort_desc cannot be combined');
   });
 
 
@@ -180,16 +169,14 @@ describe('API3 SEARCH', function() {
     let res = await self.instance.get(`${self.urlTest}&sort=date`)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    const ascending = res.body.result;
+    const ascending = res.body;
     const length = ascending.length;
     length.should.be.aboveOrEqual(self.docs.length);
 
     res = await self.instance.get(`${self.urlTest}&sort$desc=date`)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    const descending = res.body.result;
+    const descending = res.body;
     descending.length.should.equal(length);
 
     for (let i in ascending) {
@@ -206,16 +193,14 @@ describe('API3 SEARCH', function() {
     let res = await self.instance.get(`${self.urlToken}&sort=date&limit=8`)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    const fullDocs = res.body.result;
-    fullDocs.length.should.equal(8);
+    const fullDocs = res.body;
+    fullDocs.length.should.be.equal(8);
 
     res = await self.instance.get(`${self.urlToken}&sort=date&skip=3&limit=5`)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    const skipDocs = res.body.result;
-    skipDocs.length.should.equal(5);
+    const skipDocs = res.body;
+    skipDocs.length.should.be.equal(5);
 
     for (let i = 0; i < 3; i++) {
       skipDocs[i].should.be.eql(fullDocs[i + 3]);
@@ -227,8 +212,7 @@ describe('API3 SEARCH', function() {
     let res = await self.instance.get(`${self.urlToken}&fields=date,app,subject`)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    res.body.result.forEach(doc => {
+    res.body.forEach(doc => {
       const docFields = Object.getOwnPropertyNames(doc);
       docFields.sort().should.be.eql(['app', 'date', 'subject']);
     });
@@ -239,8 +223,7 @@ describe('API3 SEARCH', function() {
     let res = await self.instance.get(`${self.urlToken}&fields=_all`)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    res.body.result.forEach(doc => {
+    res.body.forEach(doc => {
       Object.getOwnPropertyNames(doc).length.should.be.aboveOrEqual(10);
       Object.prototype.hasOwnProperty.call(doc, '_id').should.not.be.true();
       Object.prototype.hasOwnProperty.call(doc, 'identifier').should.be.true();
@@ -257,8 +240,8 @@ describe('API3 SEARCH', function() {
     let res = await self.instance.get(`${self.urlToken}&limit=10`)
       .expect(400);
 
-    res.body.status.should.equal(400);
-    res.body.message.should.equal('Parameter limit out of tolerance');
+    res.body.status.should.be.equal(400);
+    res.body.message.should.be.equal('Parameter limit out of tolerance');
     apiApp.set('API3_MAX_LIMIT', limitBackup);
   });
 
@@ -270,8 +253,7 @@ describe('API3 SEARCH', function() {
     let res = await self.instance.get(`${self.urlToken}`)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    res.body.result.length.should.equal(5);
+    res.body.length.should.be.equal(5);
     apiApp.set('API3_MAX_LIMIT', limitBackup);
   });
 
