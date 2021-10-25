@@ -8,7 +8,7 @@
   "info": {
     "title": "Nightscout API",
     "description": "Own your DData with the Nightscout API",
-    "version": "14.2.2",
+    "version": "14.2.3",
     "license": {
       "name": "AGPL 3",
       "url": "https://www.gnu.org/licenses/agpl.txt"
