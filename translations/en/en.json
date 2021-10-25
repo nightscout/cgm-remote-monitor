@@ -641,6 +641,8 @@
     ,"virtAsstActivityConfirm":"Just to double check, you want to enable activity mode for %1 minutes, correct?"
     ,"virtAsstActivityConfirmDate":"Just to double check, you want to enable activity mode %2 for %1 minutes, correct?"
     ,"virtAsstActivityMode":"I've enabled Activity Mode for %1 minutes in Nightscout."
+    ,"virtAsstEatingSoonConfirmDate":"Just to double check, you'll be eating soon %1, correct?"
+    ,"virtAsstEatingSoon":"I've noted you'll be eating soon in Nightscout."
     ,"virtAsstSiteChangeConfirmDate":"Just to double check, you changed your pump site %1, correct?"
     ,"virtAsstSiteChange":"I've recorded a pump site change in Nightscout."
     ,"virtAsstPumpBattChangeConfirmDate":"Just to double check, you changed your pump battery %1, correct?"
