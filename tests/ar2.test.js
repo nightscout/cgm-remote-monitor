@@ -20,7 +20,7 @@ describe('ar2', function ( ) {
   var ar2 = require('../lib/plugins/ar2')(ctx);
   var bgnow = require('../lib/plugins/bgnow')(ctx);
 
-  var env = require('../env')();
+  var env = require('../lib/server/env')();
 
   var now = Date.now();
   var before = now - FIVE_MINS;
@@ -42,7 +42,7 @@ describe('ar2', function ( ) {
   it('should plot a line if coneFactor is 0', function () {
     ctx.ddata.sgvs = [{mgdl: 100, mills: before}, {mgdl: 105, mills: now}];
 
-    var env0 = require('../env')();
+    var env0 = require('../lib/server/env')();
     env0.extendedSettings = { ar2: { coneFactor: 0 } };
     var sbx = require('../lib/sandbox')().serverInit(env0, ctx).withExtendedSettings(ar2);
     bgnow.setProperties(sbx);
