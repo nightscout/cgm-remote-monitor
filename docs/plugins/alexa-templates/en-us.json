@@ -518,6 +518,16 @@
                     "values": [
                         {
                             "name": {
+                                "value": "db size",
+                                "synonyms": [
+                                    "file size",
+                                    "data size",
+                                    "database size"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
                                 "value": "cgm battery",
                                 "synonyms": [
                                     "cgm battery level",
