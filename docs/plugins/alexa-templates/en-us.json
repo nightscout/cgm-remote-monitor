@@ -395,6 +395,7 @@
                         }
                     ],
                     "samples": [
+                        "I changed my insulin at {rel_time}",
                         "I changed my cartridge {rel_date} at {rel_time}",
                         "I changed my insulin pump cartridge at {rel_time} {rel_date}",
                         "I changed my cartridge {time_diff} {before_after}",
@@ -403,6 +404,111 @@
                         "I changed my cartridge",
                         "I changed my insulin cartridge",
                         "I'm changing my pump insulin pump cartridge"
+                    ]
+                },
+                {
+                    "name": "MetricReportEatingSoon",
+                    "slots": [],
+                    "samples": [
+                        "I'll be eating shortly",
+                        "I'm eating pretty soon",
+                        "I'll be eating in a bit",
+                        "I'm eating soon",
+                        "I'll be eating soon"
+                    ]
+                },
+                {
+                    "name": "MetricReportTempTarget",
+                    "slots": [
+                        {
+                            "name": "target_top",
+                            "type": "AMAZON.NUMBER",
+                            "samples": [
+                                "{target_top} to {target_bottom}",
+                                "from {target_top} to {target_bottom}",
+                                "set it to {target_top}",
+                                "{target_top}"
+                            ]
+                        },
+                        {
+                            "name": "target_bottom",
+                            "type": "AMAZON.NUMBER"
+                        },
+                        {
+                            "name": "duration",
+                            "type": "AMAZON.DURATION",
+                            "samples": [
+                                "for {duration}",
+                                "{duration}"
+                            ]
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
+                        }
+                    ],
+                    "samples": [
+                        "setup a temp target {before_after} {time_diff} for {duration} from {target_bottom} to {target_top}",
+                        "create a temp target for {duration} {before_after} {time_diff} from {target_bottom} to {target_top}",
+                        "set a temp target for {target_top} at {rel_time} {rel_date}",
+                        "set a temp target at {rel_time} {rel_date} from {target_bottom} to {target_top} for {duration}",
+                        "enable a temporary target {rel_date} at {rel_time} for {duration} from {target_bottom} to {target_top}",
+                        "enable a temp target at {rel_time} ",
+                        "set a temporary target at {target_top} {before_after} {time_diff} for {duration}",
+                        "set a temp target at {target_top} {before_after} {time_diff}",
+                        "setup a temporary target {time_diff} {before_after}",
+                        "setup a temp target {before_after} {time_diff}",
+                        "enable a temporary target at {target_top} for {duration}",
+                        "enable a temp target for {duration} from {target_bottom} to {target_top}",
+                        "set a temporary target from {target_bottom} to {target_top}",
+                        "set a temp target for {duration}",
+                        "set a temporary target",
+                        "set a temp target"
+                    ]
+                },
+                {
+                    "name": "MetricReportCancelTempTarget",
+                    "slots": [
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
+                        }
+                    ],
+                    "samples": [
+                        "stop the temporary target at {rel_time}",
+                        "halt the temp target {rel_date} at {rel_time}",
+                        "cancel the temporary target {time_diff} {before_after}",
+                        "stop the temp target {before_after} {time_diff}",
+                        "I want to stop the temp target at {rel_time} {rel_date}",
+                        "forget about my temp target",
+                        "halt the temp target",
+                        "stop the temporary target",
+                        "cancel the current temporary target",
+                        "cancel my temp target"
                     ]
                 }
             ],
@@ -966,6 +1072,115 @@
                             "prompts": {}
                         }
                     ]
+                },
+                {
+                    "name": "MetricReportEatingSoon",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.967426885647"
+                    },
+                    "slots": []
+                },
+                {
+                    "name": "MetricReportTempTarget",
+                    "delegationStrategy": "SKILL_RESPONSE",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.1045748419882"
+                    },
+                    "slots": [
+                        {
+                            "name": "target_top",
+                            "type": "AMAZON.NUMBER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": true,
+                            "prompts": {
+                                "elicitation": "Elicit.Slot.1045748419882.77324823403"
+                            }
+                        },
+                        {
+                            "name": "target_bottom",
+                            "type": "AMAZON.NUMBER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "duration",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": true,
+                            "prompts": {
+                                "elicitation": "Elicit.Slot.1045748419882.1632933929368"
+                            }
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        }
+                    ]
+                },
+                {
+                    "name": "MetricReportCancelTempTarget",
+                    "delegationStrategy": "SKILL_RESPONSE",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.269057888937"
+                    },
+                    "slots": [
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        }
+                    ]
                 }
             ],
             "delegationStrategy": "ALWAYS"
@@ -1154,6 +1369,63 @@
                     {
                         "type": "PlainText",
                         "value": "Just to confirm, you changed your insulin cartridge?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.967426885647",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to confirm, you'll be eating soon, correct?"
+                    }
+                ]
+            },
+            {
+                "id": "Elicit.Slot.1045748419882.77324823403",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "What is the blood glucose target?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "What is the blood sugar target?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "What is the BG target?"
+                    }
+                ]
+            },
+            {
+                "id": "Elicit.Slot.1045748419882.1632933929368",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "How long do you want the temporary target to go for?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "How long should the temporary target last?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.1045748419882",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to confirm, that was a temporary target from {target_bottom} to {target_top} for {duration} , correct?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.269057888937",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to double check, you want to cancel your current temporary target, right?"
                     }
                 ]
             }
