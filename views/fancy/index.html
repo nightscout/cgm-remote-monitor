@@ -10,29 +10,17 @@
   </head>
 
   <body>
+    <b>Hi</b>
+    
+
+
+
     <script type="text/javascript">
       $(document).ready(function () {
-        $("#msgid").html("This is Hello World by JQuery");
+        
+        
 
-        (function poll() {
-          $.ajax({
-            url: "/api/v3/entries?token=swaggertes-7b249c5a6ad1e51a&sort%24desc=date&limit=2&fields=_all",
-            type: "GET",
-            success: function (data) {
-              console.log("polling");
-            },
-            dataType: "json",
-            complete: setTimeout(function () {
-              poll();
-            }, 5000),
-            timeout: 2000,
-          });
-        })();
       });
     </script>
-
-    This is Hello World by HTML
-
-    <div id="msgid"></div>
   </body>
 </html>
