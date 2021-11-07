@@ -692,7 +692,7 @@
     "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?",
     "Default (with leading zero and U)": "Varsayılan (başında sıfır ve U ile)",
     "Concise (with U, without leading zero)": "Concise (with U, without leading zero)",
-    "Minimal (without leading zero and U)": "Minimal (without leading zero and U)",
+    "Minimal (without leading zero and U)": "Minimal (sıfır ve U olmadan)",
     "Small Bolus Display": "Küçük Bolus Ekranı",
     "Large Bolus Display": "Büyük Bolus Ekranı",
     "Bolus Display Threshold": "Bolus Görüntüleme Eşiği",
