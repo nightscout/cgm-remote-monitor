@@ -16,7 +16,7 @@
     "Sunday": "Niedziela",
     "Category": "Kategoria",
     "Subcategory": "Podkategoria",
-    "Name": "Imie",
+    "Name": "Nazwa",
     "Today": "Dziś",
     "Last 2 days": "Ostatnie 2 dni",
     "Last 3 days": "Ostatnie 3 dni",
@@ -702,6 +702,6 @@
     "Last recorded %1 %2 ago.": "Last recorded %1 %2 ago.",
     "Security issue": "Problem zabezpieczeń",
     "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.",
-    "less than 1": "less than 1",
+    "less than 1": "mniej niż 1",
     "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "Hasło MongoDB i API_SECRET są takie same. To naprawdę zły pomysł. Zmień oba hasła i nie używaj ich ponownie w systemie."
 }
