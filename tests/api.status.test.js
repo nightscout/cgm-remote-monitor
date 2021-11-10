@@ -8,7 +8,9 @@ require('should');
 describe('Status REST api', function ( ) {
   var api = require('../lib/api/');
   before(function (done) {
-    var env = require('../env')( );
+    delete process.env.API_SECRET;
+    process.env.API_SECRET = 'this is my long pass phrase';
+    var env = require('../lib/server/env')( );
     env.settings.enable = ['careportal', 'rawbg'];
     env.settings.authDefaultRoles = 'readable';
     env.api_secret = 'this is my long pass phrase';
@@ -16,7 +18,7 @@ describe('Status REST api', function ( ) {
     this.app = require('express')( );
     this.app.enable('api');
     var self = this;
-    require('../lib/bootevent')(env, language).boot(function booted (ctx) {
+    require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
       self.app.use('/api', api(env, ctx));
       done();
     });

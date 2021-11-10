@@ -1,24 +1,24 @@
 'use strict';
 
 require('should');
+const fs = require('fs');
 
 describe('Raw BG', function ( ) {
-  var rawbg = require('../lib/plugins/rawbg')({
-    settings: {}
-    , language: require('../lib/language')()
-  });
+  var ctx =  {
+      settings: { units: 'mg/dl'}
+      , language: require('../lib/language')(fs)
+      , pluginBase: {}
+  };
+  ctx.language.set('en');
+
+  var rawbg = require('../lib/plugins/rawbg')(ctx);
 
   var now = Date.now();
   var data = {
     sgvs: [{unfiltered: 113680, filtered: 111232, mgdl: 110, noise: 1, mills: now}]
     , cals: [{scale: 1, intercept: 25717.82377004309, slope: 766.895601715918, mills: now}]
   };
-  var ctx = {
-    settings: {
-      units: 'mg/dl'
-    }
-    , pluginBase: {}
-  };
+
 
   it('should calculate Raw BG', function (done) {
     var sandbox = require('../lib/sandbox')();
@@ -36,16 +36,16 @@ describe('Raw BG', function ( ) {
 
   });
 
-  it('should handle alexa requests', function (done) {
+  it('should handle virtAsst requests', function (done) {
 
     var sandbox = require('../lib/sandbox')();
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
 
     rawbg.setProperties(sbx);
 
-    rawbg.alexa.intentHandlers.length.should.equal(1);
+    rawbg.virtAsst.intentHandlers.length.should.equal(1);
 
-    rawbg.alexa.intentHandlers[0].intentHandler(function next(title, response) {
+    rawbg.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Current Raw BG');
       response.should.equal('Your raw bg is 113');
 
