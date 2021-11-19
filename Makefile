@@ -1,7 +1,7 @@
 
 # Nightscout tests/builds/analysis
 TESTS=tests/*.js
-MONGO_CONNECTION?=mongodb://localhost/test_db
+MONGO_CONNECTION?=mongodb://localhost:27017/test_db
 CUSTOMCONNSTR_mongo_settings_collection?=test_settings
 CUSTOMCONNSTR_mongo_collection?=test_sgvs
 MONGO_SETTINGS=MONGO_CONNECTION=${MONGO_CONNECTION} \
@@ -15,20 +15,23 @@ MONGO_SETTINGS=MONGO_CONNECTION=${MONGO_CONNECTION} \
 # coverage reporter's ability to instrument the tests correctly.
 # Hard coding it to the local with our pinned version is bigger for
 # initial installs, but ensures a consistent environment everywhere.
-# On Travis, ./node_modules/.bin and other `nvm` and `npm` bundles are
+# On GA, ./node_modules/.bin and other `nvm` and `npm` bundles are
 # inserted into the default `$PATH` enviroinment, making pointing to
 # the unwrapped mocha executable necessary.
 MOCHA=./node_modules/mocha/bin/_mocha
 # Pinned from dependency list.
 ISTANBUL=./node_modules/.bin/istanbul
 ANALYZED=./coverage/lcov.info
-export CODACY_REPO_TOKEN=e29ae5cf671f4f918912d9864316207c
+# Following token deprecated
+# export CODACY_REPO_TOKEN=e29ae5cf671f4f918912d9864316207c
+
+DOCKER_IMAGE=nightscout/cgm-remote-monitor
 
 all: test
 
 coverage:
 	NODE_ENV=test ${MONGO_SETTINGS} \
-	${ISTANBUL} cover ${MOCHA} -- -R tap ${TESTS}
+	${ISTANBUL} cover ${MOCHA} -- --timeout 15000 -R tap ${TESTS}
 
 report:
 	test -f ${ANALYZED} && \
@@ -38,11 +41,41 @@ report:
 	(npm install codacy-coverage && cat ${ANALYZED} | \
 	YOURPACKAGE_COVERAGE=1 ./node_modules/codacy-coverage/bin/codacy-coverage.js) || echo "NO COVERAGE"
 
+test_onebyone:
+	python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'
+	for var in tests/*.js; do ${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap $$var; done | tap-set-exit
+
 test:
-	${MONGO_SETTINGS} ${MOCHA} -R tap ${TESTS}
+	${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap ${TESTS}
 
-travis:
-	NODE_ENV=test ${MONGO_SETTINGS} \
-	${ISTANBUL} cover ${MOCHA} --report lcovonly -- -R tap ${TESTS}
+ci_tests:
+	python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'
+#	NODE_ENV=test ${MONGO_SETTINGS} \
+#	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 5000 -R tap ${TESTS}	
+	for var in tests/*.js; do ${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap $$var; done
 
-.PHONY: all coverage report test travis
+docker_release:
+	# Get the version from the package.json file
+	$(eval DOCKER_TAG=$(shell cat package.json | jq '.version' | tr -d '"'))
+	$(eval BRANCH=$(lastword $(subst /, ,$(GITHUB_REF))))
+	#
+	#
+	# Rebuild the image. We do this with no-cache so that we have all security upgrades,
+	# since that's more important than fewer layers in the Docker image.
+	docker build --no-cache=true -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
+	#
+	# Push the master branch to Docker hub as 'latest'
+	if [ "$(BRANCH)" = "master" ]; then \
+		docker tag $(DOCKER_IMAGE):$(DOCKER_TAG) $(DOCKER_IMAGE):latest && \
+		docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
+		docker push $(DOCKER_IMAGE):latest; \
+	fi
+	#
+	# Push the dev branch to Docker Hub as 'latest_dev'
+	if [ "$(BRANCH)" = "dev" ]; then \
+		docker tag $(DOCKER_IMAGE):$(DOCKER_TAG) $(DOCKER_IMAGE):latest_dev && \
+		docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
+		docker push $(DOCKER_IMAGE):latest_dev; \
+	fi
+
+.PHONY: all coverage docker_release report test ci_tests

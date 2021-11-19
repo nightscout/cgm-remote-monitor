@@ -9,18 +9,36 @@ function headless (benv, binding) {
   }
 
   function init (opts, callback) {
+
     var localStorage = opts.localStorage || './localstorage';
-    var htmlFile = opts.htmlFile || __dirname + '/../../static/index.html';
+    const t = Date.now();
+
+    console.log('Headless init');
+
+    var htmlFile = opts.htmlFile || __dirname + '/../../views/index.html';
     var serverSettings = opts.serverSettings || require('./default-server-settings');
     var someData = opts.mockAjax || { };
-    benv.setup(function() {
-      self.$ = require('jquery');
-      self.$.localStorage = require(localStorage);
 
-      self.$.fn.tipsy = function mockTipsy ( ) { };
+    console.log('Entering setup', Date.now() - t);
+
+    benv.setup(function() {
+
+      console.log('Setting up benv', Date.now() - t);
+
+      benv.require(__dirname + '/../../tmp/public/js/bundle.app.js');
+      
+      console.log('Bundle loaded', Date.now() - t);
+
+      self.$ = $;
+      
+      self.localCookieStorage = self.localStorage = self.$.localStorage = require(localStorage);
+
+      self.$.fn.tooltip = function mockTooltip ( ) { };
 
       var indexHtml = read(htmlFile, 'utf8');
       self.$('body').html(indexHtml);
+
+      console.log('HTML set', Date.now() - t);
 
       var d3 = require('d3');
       //disable all d3 transitions so most of the other code can run with jsdom
@@ -30,7 +48,7 @@ function headless (benv, binding) {
         self.$.plot = function mockPlot () {
         };
 
-        self.$.fn.tipsy = function mockTipsy ( ) { };
+        self.$.fn.tooltip = function mockTooltip ( ) { };
 
         self.$.fn.dialog = function mockDialog (opts) {
           function maybeCall (name, obj) {
@@ -117,12 +135,16 @@ function headless (benv, binding) {
         };
       }
 
+      console.log('Benv expose', Date.now() - t);
 
       benv.expose({
         $: self.$
         , jQuery: self.$
         , d3: d3
         , serverSettings: serverSettings
+        , localCookieStorage: self.localStorage
+        , cookieStorageType: self.localStorage
+		, localStorage: self.localStorage
         , io: {
           connect: function mockConnect ( ) {
             return {
@@ -162,4 +184,3 @@ function headless (benv, binding) {
 }
 
 module.exports = headless;
-

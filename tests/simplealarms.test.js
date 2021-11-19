@@ -2,14 +2,18 @@ var should = require('should');
 var levels = require('../lib/levels');
 
 describe('simplealarms', function ( ) {
+  var env = require('../lib/server/env')();
+  var ctx = {
+    settings: {}
+    , language: require('../lib/language')()
+    , levels: levels
+  };
 
-  var simplealarms = require('../lib/plugins/simplealarms')();
-  var bgnow = require('../lib/plugins/bgnow')();
+  var simplealarms = require('../lib/plugins/simplealarms')(ctx);
 
-  var env = require('../env')();
-  var ctx = {};
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
+  var bgnow = require('../lib/plugins/bgnow')(ctx);
 
   var now = Date.now();
   var before = now - (5 * 60 * 1000);

@@ -1,20 +1,26 @@
 'use strict';
 
-var should = require('should');
-var levels = require('../lib/levels');
+const should = require('should');
+const levels = require('../lib/levels');
+const fs = require('fs');
 
-var FIVE_MINS = 300000;
-var SIX_MINS = 360000;
+const FIVE_MINS = 300000;
+const SIX_MINS = 360000;
 
 describe('ar2', function ( ) {
-
-  var ar2 = require('../lib/plugins/ar2')();
-  var bgnow = require('../lib/plugins/bgnow')();
-
-  var env = require('../env')();
-  var ctx = {};
+  var ctx = {
+    settings: {}
+    , language: require('../lib/language')(fs)
+    , levels: levels
+  };
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
+  ctx.levels = levels;
+
+  var ar2 = require('../lib/plugins/ar2')(ctx);
+  var bgnow = require('../lib/plugins/bgnow')(ctx);
+
+  var env = require('../lib/server/env')();
 
   var now = Date.now();
   var before = now - FIVE_MINS;
@@ -36,7 +42,7 @@ describe('ar2', function ( ) {
   it('should plot a line if coneFactor is 0', function () {
     ctx.ddata.sgvs = [{mgdl: 100, mills: before}, {mgdl: 105, mills: now}];
 
-    var env0 = require('../env')();
+    var env0 = require('../lib/server/env')();
     env0.extendedSettings = { ar2: { coneFactor: 0 } };
     var sbx = require('../lib/sandbox')().serverInit(env0, ctx).withExtendedSettings(ar2);
     bgnow.setProperties(sbx);
@@ -141,6 +147,22 @@ describe('ar2', function ( ) {
     highest.title.should.equal('Warning, LOW predicted');
 
     done();
+  });
+
+  it('should handle virtAsst requests', function (done) {
+     var now = Date.now();
+     var before = now - FIVE_MINS;
+
+    ctx.ddata.sgvs = [{mgdl: 100, mills: before}, {mgdl: 105, mills: now}];
+    var sbx = prepareSandbox();
+
+    ar2.virtAsst.intentHandlers.length.should.equal(1);
+
+    ar2.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
+      title.should.equal('AR2 Forecast');
+      response.should.equal('According to the AR2 forecast you are expected to be between 109 and 120 over the next in 30 minutes');
+      done();
+    }, [], sbx);
   });
 
 });
