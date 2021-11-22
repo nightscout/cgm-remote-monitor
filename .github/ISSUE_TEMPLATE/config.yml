@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Troubleshooting Documentation
+    url: http://nightscout.github.io/troubleshoot/troublehoot/
+    about: Having trouble with Nightscout? Please check our step by step troubleshooting instructions.
+  - name: Nightscout Community Support in Facebook
+    url: https://www.facebook.com/groups/cgminthecloud
+    about: If you're a Nightscout user and have trouble with your site, please post questions here. We don't have the resources to answer support questions posted here as tickets.
+  - name: Nightscout Community Support in Discord
+    url: https://discord.gg/zg7CvCQ
+    about: If you're a Nightscout user and have trouble with your site, please post questions here. We don't have the resources to answer support questions posted here as tickets.
