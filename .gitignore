@@ -30,3 +30,7 @@ npm-debug.log
 /cgm-remote-monitor.sln
 /obj/Debug
 /*.bat
+
+# directories created by docker-compose.yml
+mongo-data/
+letsencrypt/

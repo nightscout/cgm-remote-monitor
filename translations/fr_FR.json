@@ -703,5 +703,5 @@
     "Security issue": "Problème de sécurité",
     "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "API_SECRET faible détectée. Veuillez utiliser un mélange de lettres minuscules et MAJUSCULES, de chiffres et de caractères non alphanumériques tels que! #% & / Pour réduire le risque d'accès non autorisé. La longueur minimale de l'API_SECRET est de 12 caractères.",
     "less than 1": "moins que 1 minute",
-    "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "Le mot de passe MongoDB et API_SECRET sont identiques. C'est une très mauvaise idée. Veuillez changer les deux et ne pas réutiliser ces mots de passe dans ce système."
+    "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "Le mot de passe de MongoDB et de l'API_SECRET sont identiques. C'est une très mauvaise idée. Veuillez changer les deux et ne pas réutiliser ces mots de passe dans ce système."
 }
