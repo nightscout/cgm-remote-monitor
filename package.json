@@ -109,7 +109,7 @@
     "lodash": "^4.17.20",
     "memory-cache": "^0.2.0",
     "mime": "^2.4.6",
-    "minimed-connect-to-nightscout": "^1.5.0",
+    "minimed-connect-to-nightscout": "^1.5.1",
     "moment": "^2.27.0",
     "moment-locales-webpack-plugin": "^1.2.0",
     "moment-timezone": "^0.5.31",
