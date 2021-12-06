@@ -64,7 +64,7 @@ To add Google Home support for your Nightscout site, here's what you need to do:
     - If you use Authentication Roles, you'll need to add a bit to the end of your URL. See [the section](#do-you-use-authentication-roles) below.
 1. Scroll down to the bottom of the page and click the "SAVE" button.
 1. Click on "Integrations" in the navigation pane.
-1. Click on "INTEGRATION SETTINGS" for "Google Assistant".
+1. In the "Try Actions Builder" section, click on the "Not ready yet? Continue with the integration" link.
 1. Under "Implicit invocation", add every intent listed.
 1. Turn on the toggle for "Auto-preview changes".
 1. Click "CLOSE".
