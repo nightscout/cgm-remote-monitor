@@ -315,7 +315,7 @@
     "Clean Mongo entries (glucose entries) database": "Clean Mongo entries (glucose entries) database",
     "Delete all documents from entries collection older than 180 days": "Delete all documents from entries collection older than 180 days",
     "This task removes all documents from entries collection that are older than 180 days. Useful when uploader battery status is not properly updated.": "This task removes all documents from entries collection that are older than 180 days. Useful when uploader battery status is not properly updated.",
-    "Delete old documents": "Delete old documents",
+    "Delete old documents": "删除历史数据",
     "Delete old documents from entries collection?": "Delete old documents from entries collection?",
     "%1 is not a valid number": "%1 is not a valid number",
     "%1 is not a valid number - must be more than 2": "%1 is not a valid number - must be more than 2",
