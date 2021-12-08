@@ -36,7 +36,7 @@
     "bundle-dev": "webpack --mode development --config webpack/webpack.config.js && npm run-script generate-keys",
     "bundle-analyzer": "webpack --mode development --config webpack/webpack.config.js --profile --json > stats.json && webpack-bundle-analyzer stats.json",
     "generate-keys": "node bin/generateRandomString.js >tmp/randomString",
-    "coverage": "cat ./coverage/lcov.info | env-cmd -f ./tests/ci.test.env codacy-coverage",
+    "coverage": "cat ./coverage/lcov.info | env-cmd -f ./tests/ci.test.env codacy-coverage || echo NO COVERAGE",
     "dev": "env-cmd -f ./my.env nodemon --inspect lib/server/server.js 0.0.0.0",
     "dev-test": "env-cmd -f ./my.devtest.env nodemon --inspect lib/server/server.js 0.0.0.0",
     "prod": "env-cmd -f ./my.prod.env node lib/server/server.js 0.0.0.0",
