@@ -78,7 +78,7 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 1. If available, turn on the toggle for "Auto-preview changes".
 1. Click "CLOSE".
 
-That's it! Now try asking Google "Hey Google, ask *your Action's name* how am I doing?"
+That's it! Now try asking Google "Hey Google, open *your Action's name*"
 
 ### Do you use Authentication Roles? ###
 
