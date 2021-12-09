@@ -557,6 +557,7 @@
     ,"Help":"Help"
     ,"virtAsstUnknown":"That value is unknown at the moment. Please see your Nightscout site for more details."
     ,"virtAsstHelp":"See the Nightscout documentation for details on how to use this integration, or ask for help in the applicable Facebook group."
+    ,"virtAsstTimezoneIssue":"Unfortunately there was an issue while detecting the timezone for your Alexa device, which is required to store treatments in Nightscout correctly. Please try your request again later."
     ,"virtAsstTitleAR2Forecast":"AR2 Forecast"
     ,"virtAsstTitleCurrentBasal":"Current Basal"
     ,"virtAsstTitleCurrentCOB":"Current COB"
