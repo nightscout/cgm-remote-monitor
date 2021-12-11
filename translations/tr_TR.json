@@ -297,7 +297,7 @@
     "Database contains %1 future records": "Veritabanı %1 ileri tarihli girdi içeriyor",
     "Remove %1 selected records?": "Seçilen %1 kayıtlar kaldırılsın mı?",
     "Error loading database": "Veritabanını yüklerken hata oluştu",
-    "Record %1 removed ...": "%1 kaydı silindi ...",
+    "Record %1 removed ...": "%1 kayıt silindi ...",
     "Error removing record %1": "%1 kayıt kaldırılırken hata oluştu",
     "Deleting records ...": "Kayıtlar siliniyor ...",
     "%1 records deleted": "%1 kayıt silindi",
