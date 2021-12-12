@@ -357,7 +357,7 @@
     "hours": "saat",
     "g/hour": "g/saat",
     "g carbs per U insulin. The ratio of how many grams of carbohydrates are offset by each U of insulin.": "İnsülin ünite başına g karbonhidrat. İnsülin ünite başına kaç gram karbonhidrat tüketildiği oranıdır.",
-    "Insulin Sensitivity Factor (ISF)": "(ISF) İnsülin Duyarlılık Faktörü",
+    "Insulin Sensitivity Factor (ISF)": "İnsülin Duyarlılık Faktörü (İDF)",
     "mg/dL or mmol/L per U insulin. The ratio of how much BG changes with each U of corrective insulin.": "Ünite insülin başına mg/dL veya mmol/L. Her bir Ünite düzeltme insülin ile KŞ'nin ne kadar değiştiğini gösteren orandır.",
     "Carbs activity / absorption rate": "Karbonhidrat aktivitesi / emilim oranı",
     "grams per unit time. Represents both the change in COB per unit of time, as well as the amount of carbs that should take effect over that time.  Carb absorption / activity curves are less well understood than insulin activity, but can be approximated using an initial delay followed by a constant rate of absorption (g/hr).": "Ur birim zaman başına gram. Birim zamanda (COB) Aktif Krabonhidratdaki değişimin yanı sıra o zaman üzerinde etki etmesi gereken karbonhidrat miktarını ifade eder. Karbonhidrat emme/aktivite eğrileri, insülin aktivitesinden daha zor anlaşılmaktadır, ancak bir başlangıç gecikmesi ve ardından sabit bir emilim oranı (g/hr) kullanılarak yaklaşık olarak tahmin edilebilmektedir.",
