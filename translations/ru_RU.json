@@ -576,7 +576,7 @@
     "virtAsstTitleCGMTxAge": "Трансмиттеру",
     "virtAsstTitleCGMNoise": "Зашумленность мониторинга",
     "virtAsstTitleDelta": "Дельта ГК",
-    "virtAsstStatus": "%1 и %2 начиная с %3.",
+    "virtAsstStatus": "%1, %2, последнее обновление %3.",
     "virtAsstBasal": "%1 текущий базал %2 ед в час",
     "virtAsstBasalTemp": "%1 временный базал %2 ед в час закончится через %3",
     "virtAsstIob": "и вы имеете %1 инсулина в организме.",

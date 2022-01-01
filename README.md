@@ -567,6 +567,9 @@ For remote overrides, the following extended settings must be configured:
 
 ##### `alexa` (Amazon Alexa)
   Integration with Amazon Alexa, [detailed setup instructions](docs/plugins/alexa-plugin.md)
+  
+##### `alice` (Yandex Alice)
+  Integration with Yandex Alice, [detailed setup instructions](docs/plugins/alice-plugin.md)
 
 ##### `googlehome` (Google Home/DialogFLow)
   Integration with Google Home (via DialogFlow), [detailed setup instructions](docs/plugins/googlehome-plugin.md)
