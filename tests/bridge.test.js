@@ -10,6 +10,7 @@ describe('bridge', function ( ) {
       bridge: {
         userName: 'nightscout'
         , password: 'wearenotwaiting'
+        , interval: 60000
       }
     }
   };
@@ -27,6 +28,7 @@ describe('bridge', function ( ) {
 
     opts.login.accountName.should.equal('nightscout');
     opts.login.password.should.equal('wearenotwaiting');
+    opts.interval.should.equal(60000);
   });
 
   it('store entries from share', function (done) {
@@ -37,6 +39,45 @@ describe('bridge', function ( ) {
       }
     };
     bridge.bridged(mockEntries)(null);
+  });
+
+  it('set too low bridge interval option from env', function () {
+    var tooLowInterval = {
+      extendedSettings: {
+        bridge: { interval: 900 }
+      }
+    };
+
+    var opts = bridge.options(tooLowInterval);
+    should.exist(opts);
+
+    opts.interval.should.equal(156000);
+  });
+
+  it('set too high bridge interval option from env', function () {
+    var tooHighInterval = {
+      extendedSettings: {
+        bridge: { interval: 500000 }
+      }
+    };
+
+    var opts = bridge.options(tooHighInterval);
+    should.exist(opts);
+
+    opts.interval.should.equal(156000);
+  });
+
+  it('set no bridge interval option from env', function () {
+    var noInterval = {
+      extendedSettings: {
+        bridge: { }
+      }
+    };
+
+    var opts = bridge.options(noInterval);
+    should.exist(opts);
+
+    opts.interval.should.equal(156000);
   });
 
 });
