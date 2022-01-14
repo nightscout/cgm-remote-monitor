@@ -1,12 +1,12 @@
 'use strict';
 
-var _ = require('lodash');
-var should = require('should');
+const _ = require('lodash');
+const should = require('should');
+const fs = require('fs');
 
 describe('IOB', function() {
   var ctx = {};
-  ctx.language = require('../lib/language')();
-  ctx.language.set('en');
+  ctx.language = require('../lib/language')(fs);
   ctx.settings = require('../lib/settings')();
 
   var iob = require('../lib/plugins/iob')(ctx);

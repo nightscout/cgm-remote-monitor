@@ -1,0 +1,1450 @@
+{
+  "openapi": "3.0.0",
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "info": {
+    "title": "Nightscout API",
+    "description": "Own your DData with the Nightscout API",
+    "version": "14.2.3",
+    "license": {
+      "name": "AGPL 3",
+      "url": "https://www.gnu.org/licenses/agpl.txt"
+    }
+  },
+  "security": [
+    {
+      "api_secret": [],
+      "token_in_url": [],
+      "jwtoken": []
+    }
+  ],
+  "paths": {
+    "/entries/{spec}": {
+      "get": {
+        "summary": "All Entries matching query",
+        "description": "The Entries endpoint returns information about the\nNightscout entries.\n",
+        "parameters": [
+          {
+            "name": "spec",
+            "in": "path",
+            "description": "entry id, such as `55cf81bc436037528ec75fa5` or a type filter such\nas `sgv`, `mbg`, etc.\n",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "sgv"
+            }
+          },
+          {
+            "name": "find",
+            "in": "query",
+            "description": "The query used to find entries, support nested query syntax, for\nexample `find[dateString][$gte]=2015-08-27`.  All find parameters\nare interpreted as strings.\n",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "description": "Number of entries to return.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "tags": [
+          "Entries"
+        ],
+        "responses": {
+          "200": {
+            "description": "An array of entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entries"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entries"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/slice/{storage}/{field}/{type}/{prefix}/{regex}": {
+      "get": {
+        "summary": "All Entries matching query",
+        "description": "The Entries endpoint returns information about the Nightscout entries.",
+        "parameters": [
+          {
+            "name": "storage",
+            "in": "path",
+            "description": "Prefix to use in constructing a prefix-based regex, default is `entries`.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "entries"
+            }
+          },
+          {
+            "name": "field",
+            "in": "path",
+            "description": "Name of the field to use Regex against in query object, default is `dateString`.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "dateString"
+            }
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "description": "The type field to search against, default is sgv.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "sgv"
+            }
+          },
+          {
+            "name": "prefix",
+            "in": "path",
+            "description": "Prefix to use in constructing a prefix-based regex.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "2015"
+            }
+          },
+          {
+            "name": "regex",
+            "in": "path",
+            "description": "Tail part of regexp to use in expanding/construccting a query object.\nRegexp also has bash-style brace and glob expansion applied to it,\ncreating ways to search for modal times of day, perhaps using\nsomething like this syntax: `T{15..17}:.*`, this would search for\nall records from 3pm to 5pm.\n",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": ".*"
+            }
+          },
+          {
+            "name": "find",
+            "in": "query",
+            "description": "The query used to find entries, support nested query syntax, for\nexample `find[dateString][$gte]=2015-08-27`.  All find parameters\nare interpreted as strings.\n",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "description": "Number of entries to return.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "tags": [
+          "Entries"
+        ],
+        "responses": {
+          "200": {
+            "description": "An array of entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entries"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/echo/{storage}/{spec}": {
+      "get": {
+        "summary": "View generated Mongo Query object",
+        "description": "Information about the mongo query object created by the query.\n",
+        "parameters": [
+          {
+            "name": "storage",
+            "in": "path",
+            "description": "`entries`, or `treatments` to select the storage layer.\n",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "sgv"
+            }
+          },
+          {
+            "name": "spec",
+            "in": "path",
+            "description": "entry id, such as `55cf81bc436037528ec75fa5` or a type filter such\nas `sgv`, `mbg`, etc.\nThis parameter is optional.\n",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "sgv"
+            }
+          },
+          {
+            "name": "find",
+            "in": "query",
+            "description": "The query used to find entries, support nested query syntax, for\nexample `find[dateString][$gte]=2015-08-27`.  All find parameters\nare interpreted as strings.\n",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "description": "Number of entries to return.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "tags": [
+          "Entries",
+          "Debug"
+        ],
+        "responses": {
+          "200": {
+            "description": "An array of entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MongoQuery"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/times/echo/{prefix}/{regex}": {
+      "get": {
+        "summary": "Echo the query object to be used.",
+        "description": "Echo debug information about the query object constructed.",
+        "parameters": [
+          {
+            "name": "prefix",
+            "in": "path",
+            "description": "Prefix to use in constructing a prefix-based regex.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "regex",
+            "in": "path",
+            "description": "Tail part of regexp to use in expanding/construccting a query object.\nRegexp also has bash-style brace and glob expansion applied to it,\ncreating ways to search for modal times of day, perhaps using\nsomething like this syntax: `T{15..17}:.*`, this would search for\nall records from 3pm to 5pm.\n",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "find",
+            "in": "query",
+            "description": "The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "description": "Number of entries to return.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "tags": [
+          "Entries",
+          "Debug"
+        ],
+        "responses": {
+          "200": {
+            "description": "An array of entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MongoQuery"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/times/{prefix}/{regex}": {
+      "get": {
+        "summary": "All Entries matching query",
+        "description": "The Entries endpoint returns information about the Nightscout entries.",
+        "parameters": [
+          {
+            "name": "prefix",
+            "in": "path",
+            "description": "Prefix to use in constructing a prefix-based regex.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "regex",
+            "in": "path",
+            "description": "Tail part of regexp to use in expanding/construccting a query object.\nRegexp also has bash-style brace and glob expansion applied to it,\ncreating ways to search for modal times of day, perhaps using\nsomething like this syntax: `T{15..17}:.*`, this would search for\nall records from 3pm to 5pm.\n",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "find",
+            "in": "query",
+            "description": "The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "description": "Number of entries to return.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "tags": [
+          "Entries"
+        ],
+        "responses": {
+          "200": {
+            "description": "An array of entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entries"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entries": {
+      "get": {
+        "summary": "All Entries matching query",
+        "description": "The Entries endpoint returns information about the Nightscout entries.",
+        "parameters": [
+          {
+            "name": "find",
+            "in": "query",
+            "description": "The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "description": "Number of entries to return.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "tags": [
+          "Entries"
+        ],
+        "responses": {
+          "200": {
+            "description": "An array of entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entries"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Entries"
+        ],
+        "summary": "Add new entries.",
+        "description": "",
+        "operationId": "addEntries",
+        "responses": {
+          "200": {
+            "description": "Rejected list of entries.  Empty list is success."
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Entries"
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "$ref": "#/components/schemas/Entries"
+              }
+            }
+          },
+          "description": "Entries to be uploaded.",
+          "required": true
+        }
+      },
+      "delete": {
+        "tags": [
+          "Entries"
+        ],
+        "summary": "Delete entries matching query.",
+        "description": "Remove entries, same search syntax as GET.",
+        "operationId": "remove",
+        "parameters": [
+          {
+            "name": "find",
+            "in": "query",
+            "description": "The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "description": "Number of entries to return.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Empty list is success."
+          }
+        }
+      }
+    },
+    "/treatments": {
+      "get": {
+        "summary": "Treatments",
+        "description": "The Treatments endpoint returns information about the Nightscout treatments.",
+        "tags": [
+          "Treatments"
+        ],
+        "parameters": [
+          {
+            "name": "find",
+            "in": "query",
+            "description": "The query used to find entries, supports nested query syntax.  Examples `find[insulin][$gte]=3` `find[carb][$gte]=100` `find[eventType]=Correction+Bolus` All find parameters are interpreted as strings.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "description": "Number of entries to return.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An array of treatments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Treatments"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Treatments"
+        ],
+        "summary": "Add new treatments.",
+        "description": "",
+        "operationId": "addTreatments",
+        "responses": {
+          "200": {
+            "description": "Rejected list of treatments.  Empty list is success."
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Treatments"
+              }
+            }
+          },
+          "description": "Treatments to be uploaded.",
+          "required": true
+        }
+      },
+      "delete": {
+        "tags": [
+          "Treatments"
+        ],
+        "summary": "Delete treatments matching query.",
+        "description": "Remove treatments, same search syntax as GET.",
+        "operationId": "remove",
+        "parameters": [
+          {
+            "name": "find",
+            "in": "query",
+            "description": "The query used to find treatments to delete, support nested query syntax, for example `find[insulin][$gte]=3`. All find parameters are interpreted as strings.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "description": "Number of entries to return.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Empty list is success."
+          }
+        }
+      }
+    },
+    "/treatments/{spec}": {
+      "delete": {
+        "summary": "Delete treatments record with id provided in spec",
+        "description": "The Treatments endpoint returns information about the\nNightscout devicestatus records.\n",
+        "parameters": [
+          {
+            "name": "spec",
+            "in": "path",
+            "description": "treatment id, such as `55cf81bc436037528ec75fa5`\n",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "tags": [
+          "Treatments"
+        ],
+        "responses": {
+          "200": {
+            "description": "A status record of the delete.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/profile": {
+      "get": {
+        "summary": "Profile",
+        "description": "The Profile endpoint returns information about the Nightscout Treatment Profiles.",
+        "tags": [
+          "Profile"
+        ],
+        "responses": {
+          "200": {
+            "description": "An array of treatments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/status": {
+      "get": {
+        "summary": "Status",
+        "description": "Server side status, default settings and capabilities.",
+        "tags": [
+          "Status"
+        ],
+        "responses": {
+          "200": {
+            "description": "Server capabilities and status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/devicestatus/": {
+      "get": {
+        "summary": "All Devicestatuses matching query",
+        "description": "The Devicestatus endpoint returns information about the Nightscout devicestatus records.",
+        "parameters": [
+          {
+            "name": "find",
+            "in": "query",
+            "description": "The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "description": "Number of devicestatus records to return.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "tags": [
+          "Devicestatus"
+        ],
+        "responses": {
+          "200": {
+            "description": "An array of devicestatus entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Devicestatuses"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Devicestatus"
+        ],
+        "summary": "Add new devicestatus records.",
+        "description": "",
+        "operationId": "addDevicestatuses",
+        "responses": {
+          "200": {
+            "description": "Rejected list of device statuses.  Empty list is success."
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Devicestatuses"
+              }
+            }
+          },
+          "description": "Device statuses to be uploaded.",
+          "required": true
+        }
+      },
+      "delete": {
+        "summary": "Delete all Devicestatus records matching query",
+        "description": "The Devicestatus endpoint returns information about the\nNightscout devicestatus records.\n",
+        "parameters": [
+          {
+            "name": "find",
+            "in": "query",
+            "description": "The query used to find entries, support nested query syntax, for\nexample `find[created_at][$gte]=2015-08-27`.  All find parameters\nare interpreted as strings.\n",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "tags": [
+          "Devicestatus"
+        ],
+        "responses": {
+          "200": {
+            "description": "A status record of the delete.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/devicestatus/{spec}": {
+      "delete": {
+        "summary": "Delete devicestatus record with id provided in spec",
+        "description": "The Devicestatus endpoint returns information about the\nNightscout devicestatus records.\n",
+        "parameters": [
+          {
+            "name": "spec",
+            "in": "path",
+            "description": "entry id, such as `55cf81bc436037528ec75fa5`\n",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "tags": [
+          "Devicestatus"
+        ],
+        "responses": {
+          "200": {
+            "description": "A status record of the delete.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "api_secret": {
+        "type": "apiKey",
+        "name": "api-secret",
+        "in": "header",
+        "description": "The hash of the API_SECRET env var"
+      },
+      "token_in_url": {
+        "type": "apiKey",
+        "name": "token",
+        "in": "query",
+        "description": "Add token as query item in the URL. You can manage access Token in `/admin`. This uses json webtokens."
+      },
+      "jwtoken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Use this if you know the temporary json webtoken.",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Entry": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "sgv, mbg, cal, etc"
+          },
+          "dateString": {
+            "type": "string",
+            "description": "dateString, MUST be ISO `8601` format date parseable by Javascript Date()"
+          },
+          "date": {
+            "type": "number",
+            "description": "Epoch"
+          },
+          "sgv": {
+            "type": "number",
+            "description": "The glucose reading. (only available for sgv types)"
+          },
+          "direction": {
+            "type": "string",
+            "description": "Direction of glucose trend reported by CGM. (only available for sgv types)"
+          },
+          "noise": {
+            "type": "number",
+            "description": "Noise level at time of reading. (only available for sgv types)"
+          },
+          "filtered": {
+            "type": "number",
+            "description": "The raw filtered value directly from CGM transmitter. (only available for sgv types)"
+          },
+          "unfiltered": {
+            "type": "number",
+            "description": "The raw unfiltered value directly from CGM transmitter. (only available for sgv types)"
+          },
+          "rssi": {
+            "type": "number",
+            "description": "The signal strength from CGM transmitter. (only available for sgv types)"
+          }
+        }
+      },
+      "Entries": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Entry"
+        }
+      },
+      "Devicestatus": {
+        "required": [
+          "device",
+          "created_at"
+        ],
+        "properties": {
+          "device": {
+            "type": "string",
+            "description": "Device type and hostname for example openaps://hostname"
+          },
+          "created_at": {
+            "type": "string",
+            "description": "dateString, prefer ISO `8601`"
+          },
+          "openaps": {
+            "type": "string",
+            "description": "OpenAPS devicestatus record - TODO: Fill Out Details"
+          },
+          "loop": {
+            "type": "string",
+            "description": "Loop devicestatus record - TODO: Fill Out Details"
+          },
+          "pump": {
+            "$ref": "#/components/schemas/pump"
+          },
+          "uploader": {
+            "$ref": "#/components/schemas/uploader"
+          },
+          "xdripjs": {
+            "$ref": "#/components/schemas/xdripjs"
+          }
+        }
+      },
+      "Devicestatuses": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Devicestatus"
+        }
+      },
+      "pump": {
+        "properties": {
+          "clock": {
+            "type": "string",
+            "description": "dateString, prefer ISO `8601`"
+          },
+          "battery": {
+            "$ref": "#/components/schemas/pumpbattery"
+          },
+          "reservoir": {
+            "type": "number",
+            "description": "Amount of insulin remaining in pump reservoir"
+          },
+          "status": {
+            "$ref": "#/components/schemas/pumpstatus"
+          }
+        }
+      },
+      "pumpbattery": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Pump Battery Status String"
+          },
+          "voltage": {
+            "type": "number",
+            "description": "Pump Battery Voltage Level"
+          }
+        }
+      },
+      "pumpstatus": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Pump Status String"
+          },
+          "bolusing": {
+            "type": "boolean",
+            "description": "Is Pump Bolusing"
+          },
+          "suspended": {
+            "type": "boolean",
+            "description": "Is Pump Suspended"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "dateString, prefer ISO `8601`"
+          }
+        }
+      },
+      "uploader": {
+        "properties": {
+          "batteryVoltage": {
+            "type": "number",
+            "description": "Uploader Device Battery Voltage"
+          },
+          "battery": {
+            "type": "number",
+            "description": "Uploader Device Battery Percentage Charge Remaining"
+          }
+        }
+      },
+      "xdripjs": {
+        "properties": {
+          "state": {
+            "type": "number",
+            "description": "CGM Sensor Session State Code"
+          },
+          "stateString": {
+            "type": "string",
+            "description": "CGM Sensor Session State String"
+          },
+          "stateStringShort": {
+            "type": "string",
+            "description": "CGM Sensor Session State Short String"
+          },
+          "txId": {
+            "type": "string",
+            "description": "CGM Transmitter ID"
+          },
+          "txStatus": {
+            "type": "number",
+            "description": "CGM Transmitter Status"
+          },
+          "txStatusString": {
+            "type": "string",
+            "description": "CGM Transmitter Status String"
+          },
+          "txStatusStringShort": {
+            "type": "string",
+            "description": "CGM Transmitter Status Short String"
+          },
+          "txActivation": {
+            "type": "number",
+            "description": "CGM Transmitter Activation Milliseconds After Epoch"
+          },
+          "mode": {
+            "type": "string",
+            "description": "Mode xdrip-js Application Operationg: expired, not expired, etc."
+          },
+          "timestamp": {
+            "type": "number",
+            "description": "Last Update Milliseconds After Epoch"
+          },
+          "rssi": {
+            "type": "number",
+            "description": "Receive Signal Strength of Transmitter"
+          },
+          "unfiltered": {
+            "type": "number",
+            "description": "Most Recent Raw Unfiltered Glucose"
+          },
+          "filtered": {
+            "type": "number",
+            "description": "Most Recent Raw Filtered Glucose"
+          },
+          "noise": {
+            "type": "number",
+            "description": "Calculated Noise Value - 1=Clean, 2=Light, 3=Medium, 4=Heavy"
+          },
+          "noiseString": {
+            "type": "number",
+            "description": "Noise Value String"
+          },
+          "slope": {
+            "type": "number",
+            "description": "Calibration Slope Value"
+          },
+          "intercept": {
+            "type": "number",
+            "description": "Calibration Intercept Value"
+          },
+          "calType": {
+            "type": "string",
+            "description": "Algorithm Used to Calculate Calibration Values"
+          },
+          "lastCalibrationDate": {
+            "type": "number",
+            "description": "Most Recent Calibration Milliseconds After Epoch"
+          },
+          "sessionStart": {
+            "type": "number",
+            "description": "Sensor Session Start Milliseconds After Epoch"
+          },
+          "batteryTimestamp": {
+            "type": "number",
+            "description": "Most Recent Batter Status Read Milliseconds After Epoch"
+          },
+          "voltagea": {
+            "type": "number",
+            "description": "Voltage of Battery A"
+          },
+          "voltageb": {
+            "type": "number",
+            "description": "Voltage of Battery B"
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Transmitter Temperature"
+          },
+          "resistance": {
+            "type": "number",
+            "description": "Sensor Resistance"
+          }
+        }
+      },
+      "Treatment": {
+        "properties": {
+          "_id": {
+            "type": "string",
+            "description": "Internally assigned id."
+          },
+          "eventType": {
+            "type": "string",
+            "description": "The type of treatment event."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "The date of the event, might be set retroactively ."
+          },
+          "glucose": {
+            "type": "string",
+            "description": "Current glucose."
+          },
+          "glucoseType": {
+            "type": "string",
+            "description": "Method used to obtain glucose, Finger or Sensor."
+          },
+          "carbs": {
+            "type": "number",
+            "description": " Amount of carbs consumed in grams."
+          },
+          "protein": {
+            "type": "number",
+            "description": " Amount of protein consumed in grams."
+          },
+          "fat": {
+            "type": "number",
+            "description": " Amount of fat consumed in grams."
+          },
+          "insulin": {
+            "type": "number",
+            "description": "Amount of insulin, if any."
+          },
+          "units": {
+            "type": "string",
+            "description": "The units for the glucose value, mg/dl or mmol."
+          },
+          "transmitterId": {
+            "type": "string",
+            "description": "The transmitter ID of the transmitter being started."
+          },
+          "sensorCode": {
+            "type": "string",
+            "description": "The code used to start a Dexcom G6 sensor."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Description/notes of treatment."
+          },
+          "enteredBy": {
+            "type": "string",
+            "description": "Who entered the treatment."
+          }
+        }
+      },
+      "Treatments": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Treatment"
+        }
+      },
+      "Profile": {
+        "properties": {
+          "sens": {
+            "type": "integer",
+            "description": "Internally assigned id"
+          },
+          "dia": {
+            "type": "integer",
+            "description": "Internally assigned id"
+          },
+          "carbratio": {
+            "type": "integer",
+            "description": "Internally assigned id"
+          },
+          "carbs_hr": {
+            "type": "integer",
+            "description": "Internally assigned id"
+          },
+          "_id": {
+            "type": "string",
+            "description": "Internally assigned id"
+          }
+        }
+      },
+      "Status": {
+        "properties": {
+          "apiEnabled": {
+            "type": "boolean",
+            "description": "Whether or not the REST API is enabled."
+          },
+          "careportalEnabled": {
+            "type": "boolean",
+            "description": "Whether or not the careportal is enabled in the API."
+          },
+          "head": {
+            "type": "string",
+            "description": "The git identifier for the running instance of the app."
+          },
+          "name": {
+            "type": "string",
+            "description": "Nightscout (static)"
+          },
+          "version": {
+            "type": "string",
+            "description": "The version label of the app."
+          },
+          "settings": {
+            "$ref": "#/components/schemas/Settings"
+          },
+          "extendedSettings": {
+            "$ref": "#/components/schemas/ExtendedSettings"
+          }
+        }
+      },
+      "Settings": {
+        "properties": {
+          "units": {
+            "type": "string",
+            "description": "Default units for glucose measurements across the server."
+          },
+          "timeFormat": {
+            "type": "string",
+            "description": "Default time format",
+            "enum": [
+              12,
+              24
+            ]
+          },
+          "customTitle": {
+            "type": "string",
+            "description": "Default custom title to be displayed system wide."
+          },
+          "nightMode": {
+            "type": "boolean",
+            "description": "Should Night mode be enabled by default?"
+          },
+          "theme": {
+            "type": "string",
+            "description": "Default theme to be displayed system wide, `default`, `colors`, `colorblindfriendly`."
+          },
+          "language": {
+            "type": "string",
+            "description": "Default language code to be used system wide"
+          },
+          "showPlugins": {
+            "type": "string",
+            "description": "Plugins that should be shown by default"
+          },
+          "showRawbg": {
+            "type": "string",
+            "description": "If Raw BG is enabled when should it be shown? `never`, `always`, `noise`"
+          },
+          "alarmTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "enum": [
+              "simple",
+              "predict"
+            ],
+            "description": "Enabled alarm types, can be multiple"
+          },
+          "alarmUrgentHigh": {
+            "type": "boolean",
+            "description": "Enable/Disable client-side Urgent High alarms by default, for use with `simple` alarms."
+          },
+          "alarmHigh": {
+            "type": "boolean",
+            "description": "Enable/Disable client-side High alarms by default, for use with `simple` alarms."
+          },
+          "alarmLow": {
+            "type": "boolean",
+            "description": "Enable/Disable client-side Low alarms by default, for use with `simple` alarms."
+          },
+          "alarmUrgentLow": {
+            "type": "boolean",
+            "description": "Enable/Disable client-side Urgent Low alarms by default, for use with `simple` alarms."
+          },
+          "alarmTimeagoWarn": {
+            "type": "boolean",
+            "description": "Enable/Disable client-side stale data alarms by default."
+          },
+          "alarmTimeagoWarnMins": {
+            "type": "number",
+            "description": "Number of minutes before a stale data warning is generated."
+          },
+          "alarmTimeagoUrgent": {
+            "type": "boolean",
+            "description": "Enable/Disable client-side urgent stale data alarms by default."
+          },
+          "alarmTimeagoUrgentMins": {
+            "type": "number",
+            "description": "Number of minutes before a stale data warning is generated."
+          },
+          "enable": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Enabled features"
+          },
+          "thresholds": {
+            "$ref": "#/components/schemas/Threshold"
+          }
+        }
+      },
+      "Threshold": {
+        "properties": {
+          "bg_high": {
+            "type": "integer",
+            "description": "High BG range."
+          },
+          "bg_target_top": {
+            "type": "integer",
+            "description": "Top of target range."
+          },
+          "bg_target_bottom": {
+            "type": "integer",
+            "description": "Bottom of target range."
+          },
+          "bg_low": {
+            "type": "integer",
+            "description": "Low BG range."
+          }
+        }
+      },
+      "ExtendedSettings": {
+        "description": "Extended settings of client side plugins"
+      },
+      "MongoQuery": {
+        "description": "Mongo Query object."
+      },
+      "Error": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "object"
+          }
+        }
+      },
+      "DeleteStatus": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of records deleted"
+          },
+          "optime": {
+            "$ref": "#/components/schemas/optime"
+          },
+          "electionId": {
+            "type": "string",
+            "description": "Election id of operation"
+          },
+          "ok": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Status of whether delete was successful"
+          },
+          "operationTime": {
+            "type": "string",
+            "description": "Time delete operation was executed"
+          },
+          "$clusterTime": {
+            "type": "string",
+            "description": "Information about execution time in cluster environment"
+          }
+        }
+      },
+      "optime": {
+        "properties": {
+          "ts": {
+            "type": "string",
+            "description": "Time the operation started"
+          },
+          "t": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Time the operation took to complete"
+          }
+        }
+      }
+    }
+  }
+}

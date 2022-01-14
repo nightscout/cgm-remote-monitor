@@ -29,11 +29,13 @@ describe('Basic REST API3', function() {
       .expect(200);
 
     const apiConst = require('../lib/api3/const.json')
-      , software = require('../package.json');
+      , software = require('../package.json')
+      , result = res.body.result;
 
-    res.body.version.should.equal(software.version);
-    res.body.apiVersion.should.equal(apiConst.API3_VERSION);
-    res.body.srvDate.should.be.within(testConst.YEAR_2019, testConst.YEAR_2050);
+    res.body.status.should.equal(200);
+    result.version.should.equal(software.version);
+    result.apiVersion.should.equal(apiConst.API3_VERSION);
+    result.srvDate.should.be.within(testConst.YEAR_2019, testConst.YEAR_2050);
   });
 
 });

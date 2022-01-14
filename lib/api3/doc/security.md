@@ -27,22 +27,6 @@ There are two ways to authorize API calls:
   - then, to each secure API operation attach a JWT token in the HTTP header, eg. `Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NUb2tlbiI6InRlc3RyZWFkYWItNzZlYWZmMjQxOGJmYjdlMCIsImlhdCI6MTU2NTAzOTczMSwiZXhwIjoxNTY1MDQzMzMxfQ.Y-OFtFJ-gZNJcnZfm9r4S7085Z7YKVPiaQxuMMnraVk` (until the JWT expires)
 
 
-
----
-###  Client timestamps
-As previously mentioned, a potential attacker cannot decrypt the captured messages, but he can send them back to the client/server at any later time. APIv3 is partially preventing this by the temporal validity of each secured API call.
-
-
-The client must include his current timestamp to each call so that the server can compare it against its clock. If the timestamp difference is not within the limit, the request is considered invalid. The tolerance limit is set in minutes in the `API3_TIME_SKEW_TOLERANCE` environment variable.
-
-There are two ways to include the client timestamp to the call:
--  use `now` query parameter with UNIX epoch millisecond timestamp, eg. `now=1565041446908`
-- add HTTP `Date` header to the request, eg. `Date: Sun, 12 May 2019 07:49:58 GMT`
-
-
-The client can check each server response in the same way, because each response contains a server timestamp in the HTTP *Date* header as well.
-
-
 ---
 APIv3 security is enabled by default, but it can be completely disabled for development and debugging purposes by setting the web environment variable `API3_SECURITY_ENABLE=false`.
 This setting is hazardous and it is strongly discouraged to be used for production purposes!

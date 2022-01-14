@@ -25,6 +25,7 @@ jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev' && github.repository_owner == 'nightscout'
 
     strategy:
       fail-fast: false
