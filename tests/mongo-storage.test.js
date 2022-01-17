@@ -4,7 +4,7 @@ var should = require('should');
 var assert = require('assert');
 
 describe('mongo storage', function () {
-  var env = require('../env')();
+  var env = require('../lib/server/env')();
 
   before(function (done) {
     delete env.api_secret;
@@ -36,7 +36,7 @@ describe('mongo storage', function () {
 
     (function () {
       return require('../lib/storage/mongo-storage')(env, false, true);
-    }).should.throw('MongoDB connection string is missing. Please set MONGO_CONNECTION environment variable');
+    }).should.throw('MongoDB connection string is missing. Please set MONGODB_URI environment variable');
 
     done();
   });
