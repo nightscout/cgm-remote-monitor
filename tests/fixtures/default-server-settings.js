@@ -33,5 +33,4 @@ module.exports = {
     }
     , extendedSettings: { }
   }
-  , runtimeState: 'loaded'
 };

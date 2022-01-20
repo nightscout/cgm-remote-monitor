@@ -1,0 +1,5 @@
+#trend {
+  -webkit-transform: translateX(1%);
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}

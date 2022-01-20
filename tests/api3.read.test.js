@@ -4,18 +4,18 @@
 
 require('should');
 
-describe('API3 READ', function () {
+describe('API3 READ', function() {
   const self = this
     , testConst = require('./fixtures/api3/const.json')
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
     , opTools = require('../lib/api3/shared/operationTools')
-  ;
+    ;
 
   self.validDoc = {
     date: (new Date()).getTime(),
     app: testConst.TEST_APP,
-    device: testConst.TEST_DEVICE + ' API3 READ',
+    device: testConst.TEST_DEVICE,
     uploaderBattery: 58
   };
   self.validDoc.identifier = opTools.calculateIdentifier(self.validDoc);
@@ -28,29 +28,17 @@ describe('API3 READ', function () {
 
     self.app = self.instance.app;
     self.env = self.instance.env;
-    self.col = 'devicestatus';
-    self.url = `/api/v3/${self.col}`;
+    self.url = '/api/v3/devicestatus';
 
     let authResult = await authSubject(self.instance.ctx.authorization.storage);
 
     self.subject = authResult.subject;
     self.token = authResult.token;
-    self.cache = self.instance.cacheMonitor;
   });
 
 
   after(() => {
-    self.instance.ctx.bus.teardown();
-  });
-
-
-  beforeEach(() => {
-    self.cache.clear();
-  });
-
-
-  afterEach(() => {
-    self.cache.shouldBeEmpty();
+    self.instance.server.close();
   });
 
 
@@ -69,16 +57,12 @@ describe('API3 READ', function () {
       .expect(404);
 
     res.body.should.be.empty();
-
-    self.cache.shouldBeEmpty()
   });
 
 
   it('should not found not existing document', async () => {
     await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
       .expect(404);
-
-    self.cache.shouldBeEmpty()
   });
 
 
@@ -97,8 +81,6 @@ describe('API3 READ', function () {
     res.body.should.have.property('srvModified').which.is.a.Number();
     res.body.should.have.property('subject');
     self.validDoc.subject = res.body.subject; // let's store subject for later tests
-
-    self.cache.nextShouldEql(self.col, self.validDoc)
   });
 
 
@@ -148,7 +130,6 @@ describe('API3 READ', function () {
       .expect(204);
 
     res.body.should.be.empty();
-    self.cache.nextShouldDeleteLast(self.col)
 
     res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
       .expect(410);
@@ -162,7 +143,6 @@ describe('API3 READ', function () {
       .expect(204);
 
     res.body.should.be.empty();
-    self.cache.nextShouldDeleteLast(self.col)
 
     res = await self.instance.get(`${self.url}/${self.validDoc.identifier}?token=${self.token.read}`)
       .expect(404);
@@ -173,38 +153,28 @@ describe('API3 READ', function () {
 
   it('should found document created by APIv1', async () => {
 
-    const doc = Object.assign({}, self.validDoc, {
-      created_at: new Date(self.validDoc.date).toISOString()
+    const doc = Object.assign({}, self.validDoc, { 
+      created_at: new Date(self.validDoc.date).toISOString() 
     });
     delete doc.identifier;
 
-    await new Promise((resolve, reject) => {
-      self.instance.ctx.devicestatus.create([doc], async (err) => { // let's insert the document in APIv1's way
+    self.instance.ctx.devicestatus.create([doc], async (err) => {  // let's insert the document in APIv1's way
+      should.not.exist(err);
+      const identifier = doc._id.toString();
+      delete doc._id;
 
-        should.not.exist(err);
-        doc._id = doc._id.toString();
-        self.cache.nextShouldEql(self.col, doc)
+      let res = await self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
+          .expect(200);
 
-        err ? reject(err) : resolve(doc);
-      });
+      res.body.should.containEql(doc);
+
+      res = await self.instance.delete(`${self.url}/${identifier}?permanent=true&token=${self.token.delete}`)
+        .expect(204);
+
+      res.body.should.be.empty();
     });
-
-    const identifier = doc._id.toString();
-    delete doc._id;
-
-    let res = await self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
-      .expect(200);
-
-    res.body.should.containEql(doc);
-
-    res = await self.instance.delete(`${self.url}/${identifier}?permanent=true&token=${self.token.delete}`)
-      .expect(204);
-
-    res.body.should.be.empty();
-    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
-})
-;
+});
 

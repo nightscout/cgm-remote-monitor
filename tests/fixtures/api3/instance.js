@@ -8,7 +8,6 @@ var fs = require('fs')
   , request = require('supertest')
   , websocket = require('../../../lib/server/websocket')
   , io = require('socket.io-client')
-  , CacheMonitor = require('./cacheMonitor')
   ;
 
 function configure () {
@@ -55,7 +54,6 @@ function configure () {
   };
 
 
-
   self.bindSocket = function bindSocket (storageSocket, instance) {
 
     return new Promise(function (resolve, reject) {
@@ -90,9 +88,9 @@ function configure () {
   /*
    * Create new web server instance for testing purposes
    */
-  self.create = function createHttpServer ({
-    apiSecret = 'this is my long pass phrase',
-    disableSecurity = false,
+  self.create = function createHttpServer ({ 
+    apiSecret = 'this is my long pass phrase', 
+    disableSecurity = false, 
     useHttps = true,
     authDefaultRoles = '',
     enable = ['careportal', 'api'],
@@ -131,7 +129,6 @@ function configure () {
           instance.baseUrl = `${useHttps ? 'https' : 'http'}://${instance.env.HOSTNAME}:${instance.env.PORT}`;
 
           self.addSecuredOperations(instance);
-          instance.cacheMonitor = new CacheMonitor(instance).listen();
 
           websocket(instance.env, instance.ctx, instance.server);
 

@@ -9,21 +9,7 @@
   font-style: normal;
 }
 
-/* 
-  Icon font for additional plugin icons. 
-  Please read assets/fonts/README.md about update process
-*/
-@font-face {
-  font-family: 'pluginicons';
-  /* Plugin Icons font files content (from WOFF and SVG icon files, base64 encoded) */
-  src: url(data:application/font-woff;charset=utf-8;base64,d09GRgABAAAAAAWAAAsAAAAABTQAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAABPUy8yAAABCAAAAGAAAABgDxIE8mNtYXAAAAFoAAAAVAAAAFQXVdKJZ2FzcAAAAbwAAAAIAAAACAAAABBnbHlmAAABxAAAAUgAAAFIFA4eR2hlYWQAAAMMAAAANgAAADYXVLrVaGhlYQAAA0QAAAAkAAAAJAdQA8ZobXR4AAADaAAAABQAAAAUCY4AAGxvY2EAAAN8AAAADAAAAAwAKAC4bWF4cAAAA4gAAAAgAAAAIAAJAFxuYW1lAAADqAAAAbYAAAG2DBt7mXBvc3QAAAVgAAAAIAAAACAAAwAAAAMCxwGQAAUAAAKZAswAAACPApkCzAAAAesAMwEJAAAAAAAAAAAAAAAAAAAAARAAAAAAAAAAAAAAAAAAAAAAQAAA6QEDwP/AAEADwABAAAAAAQAAAAAAAAAAAAAAIAAAAAAAAwAAAAMAAAAcAAEAAwAAABwAAwABAAAAHAAEADgAAAAKAAgAAgACAAEAIOkB//3//wAAAAAAIOkB//3//wAB/+MXAwADAAEAAAAAAAAAAAAAAAEAAf//AA8AAQAAAAAAAAAAAAIAADc5AQAAAAABAAAAAAAAAAAAAgAANzkBAAAAAAEAAAAAAAAAAAACAAA3OQEAAAAAAwAA/8ADjgPAABsAOgBZAAABIgcOAQcGFRQXHgEXFjMyNz4BNzY1NCcuAScmARUUFx4BFxYzMjc+ATc2PQEUBw4BBwYjIicuAScmNREVFBceARcWMzI3PgE3Nj0BFAcOAQcGIyInLgEnJjUBx15TU3skJCQke1NTXl5TU3wjJCQjfFNT/dskJHtTU15eU1N8IyQkI3xTU15eU1N7JCQkJHtTU15eU1N8IyQkI3xTU15eU1N7JCQDwBISPikpMC8pKj0SEhISPSopLzApKT4SEv6rqy8qKT4SEhISPikqL6svKik+EhISEj4pKi/+46owKSk+EhISEj4pKTCqLykqPhESEhE+KikvAAAAAAEAAAABAABgRbaTXw889QALBAAAAAAA2lO7LAAAAADaU7ssAAD/wAOOA8AAAAAIAAIAAAAAAAAAAQAAA8D/wAAABAAAAAAAA44AAQAAAAAAAAAAAAAAAAAAAAUEAAAAAAAAAAAAAAACAAAAA44AAAAAAAAACgAUAB4ApAABAAAABQBaAAMAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAADgCuAAEAAAAAAAEACwAAAAEAAAAAAAIABwCEAAEAAAAAAAMACwBCAAEAAAAAAAQACwCZAAEAAAAAAAUACwAhAAEAAAAAAAYACwBjAAEAAAAAAAoAGgC6AAMAAQQJAAEAFgALAAMAAQQJAAIADgCLAAMAAQQJAAMAFgBNAAMAAQQJAAQAFgCkAAMAAQQJAAUAFgAsAAMAAQQJAAYAFgBuAAMAAQQJAAoANADUcGx1Z2luaWNvbnMAcABsAHUAZwBpAG4AaQBjAG8AbgBzVmVyc2lvbiAxLjAAVgBlAHIAcwBpAG8AbgAgADEALgAwcGx1Z2luaWNvbnMAcABsAHUAZwBpAG4AaQBjAG8AbgBzcGx1Z2luaWNvbnMAcABsAHUAZwBpAG4AaQBjAG8AbgBzUmVndWxhcgBSAGUAZwB1AGwAYQBycGx1Z2luaWNvbnMAcABsAHUAZwBpAG4AaQBjAG8AbgBzRm9udCBnZW5lcmF0ZWQgYnkgSWNvTW9vbi4ARgBvAG4AdAAgAGcAZQBuAGUAcgBhAHQAZQBkACAAYgB5ACAASQBjAG8ATQBvAG8AbgAuAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==) format('woff'),
-       url(data:application/font-svg;charset=utf-8;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/Pg0KPCFET0NUWVBFIHN2ZyBQVUJMSUMgIi0vL1czQy8vRFREIFNWRyAxLjEvL0VOIiAiaHR0cDovL3d3dy53My5vcmcvR3JhcGhpY3MvU1ZHLzEuMS9EVEQvc3ZnMTEuZHRkIiA+DQo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+DQo8bWV0YWRhdGE+R2VuZXJhdGVkIGJ5IEljb01vb248L21ldGFkYXRhPg0KPGRlZnM+DQo8Zm9udCBpZD0icGx1Z2luaWNvbnMiIGhvcml6LWFkdi14PSIxMDI0Ij4NCjxmb250LWZhY2UgdW5pdHMtcGVyLWVtPSIxMDI0IiBhc2NlbnQ9Ijk2MCIgZGVzY2VudD0iLTY0IiAvPg0KPG1pc3NpbmctZ2x5cGggaG9yaXotYWR2LXg9IjEwMjQiIC8+DQo8Z2x5cGggdW5pY29kZT0iJiN4MjA7IiBob3Jpei1hZHYteD0iNTEyIiBkPSIiIC8+DQo8Z2x5cGggdW5pY29kZT0iJiN4ZTkwMTsiIGdseXBoLW5hbWU9ImRhdGFiYXNlIiBob3Jpei1hZHYteD0iOTEwIiBkPSJNNDU1LjExMSA5NjBjLTI1MS40NDkgMC00NTUuMTExLTEwMS44MzEtNDU1LjExMS0yMjcuNTU2czIwMy42NjItMjI3LjU1NiA0NTUuMTExLTIyNy41NTYgNDU1LjExMSAxMDEuODMxIDQ1NS4xMTEgMjI3LjU1Ni0yMDMuNjYyIDIyNy41NTYtNDU1LjExMSAyMjcuNTU2ek0wIDYxOC42Njd2LTE3MC42NjdjMC0xMjUuNzI0IDIwMy42NjItMjI3LjU1NiA0NTUuMTExLTIyNy41NTZzNDU1LjExMSAxMDEuODMxIDQ1NS4xMTEgMjI3LjU1NnYxNzAuNjY3YzAtMTI1LjcyNC0yMDMuNjYyLTIyNy41NTYtNDU1LjExMS0yMjcuNTU2cy00NTUuMTExIDEwMS44MzEtNDU1LjExMSAyMjcuNTU2ek0wIDMzNC4yMjJ2LTE3MC42NjdjMC0xMjUuNzI0IDIwMy42NjItMjI3LjU1NiA0NTUuMTExLTIyNy41NTZzNDU1LjExMSAxMDEuODMxIDQ1NS4xMTEgMjI3LjU1NnYxNzAuNjY3YzAtMTI1LjcyNC0yMDMuNjYyLTIyNy41NTYtNDU1LjExMS0yMjcuNTU2cy00NTUuMTExIDEwMS44MzEtNDU1LjExMSAyMjcuNTU2eiIgLz4NCjwvZm9udD48L2RlZnM+PC9zdmc+) format('svg');
-  font-weight: normal;
-  font-style: normal;
-}
-
- [class^="icon-"]:before, [class*=" icon-"]:before, 
- [class^="plugicon-"]:before, [class*=" plugicon-"]:before {
+ [class^="icon-"]:before, [class*=" icon-"]:before {
   font-family: "nsicons";
   font-style: normal;
   font-weight: normal;
@@ -57,10 +43,6 @@
   /* Uncomment for 3D effect */
   /* text-shadow: 1px 1px 1px rgba(127, 127, 127, 0.3); */
 }
-
-[class^="plugicon-"]:before, [class*=" plugicon-"]:before {
-  font-family: "pluginicons";
-}
  
 .icon-volume:before { content: '\e800'; }
 .icon-plus:before { content: '\e801'; }
@@ -82,9 +64,6 @@
 .icon-sort-numeric:before { content: '\f162'; }
 .icon-chart-line:before { content: '\f201'; }
 .icon-hourglass:before { content: '\f254'; }
-
-/* Plugin Icons id-s (copy from generated icon style.css) */
-.plugicon-database:before { content: "\e901"; }
 
 html, body {
   margin: 0;
@@ -448,30 +427,12 @@ a, a:visited, a:link {
   display: none;
 }
 
-.toolbar-title {
-  text-align: left;
-  padding: 0 10px;
-}
-
-.toolbar-title h2 {
-  margin: 0;
-}
-
-.page-content {
-  padding: 10px;
-}
-
-.authentication-status {
-  padding: 10px;
-  border-top: 1px solid #bdbdbd;
-}
-
-.authentication-status a {
+#authorizationstatus a {
   color: #2196f3;
   text-decoration: underline;
 }
 
-.authentication-status .small {
+#authorizationstatus .small {
   font-size: 12px;
 }
 
@@ -537,11 +498,6 @@ a, a:visited, a:link {
 }
 
 @media (max-width: 750px) {
-  .x.axis {
-    font-size: 2.5vmin !important;
-  }
-
-
   .bgStatus {
     width: 50%;
     padding: 0 0 20px 0;
@@ -683,10 +639,6 @@ a, a:visited, a:link {
   #chartContainer {
     font-size: 14px;
   }
-  .y.axis {
-    font-size: 2.5vmin !important;
-  }
-
 }
 
 @media (max-height: 600px) {
@@ -699,22 +651,6 @@ a, a:visited, a:link {
   #container #toolbar {
     float: right;
     height: auto;
-    background: none;
-    border-bottom: none;
-    margin: 0px;
-  }
-
-  #buttonbar {
-    margin-right: 0px;
-    padding-right: 15px;
-    margin-top: 15px;
-    height: 44px;
-    opacity: 0.75;
-    vertical-align: middle;
-    position: absolute;
-    right: 0;
-    z-index: 500;
-    width: 400px;
   }
 
   #toolbar .customTitle {

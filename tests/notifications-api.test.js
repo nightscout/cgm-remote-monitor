@@ -30,7 +30,6 @@ describe('Notifications API', function ( ) {
           return { };
         }
       }
-      , levels: levels
     };
 
     ctx.authorization = require('../lib/authorization')(env, ctx);

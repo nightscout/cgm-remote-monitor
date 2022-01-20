@@ -15,7 +15,7 @@ describe('BG Now', function ( ) {
   ctx.levels = require('../lib/levels');
 
   var bgnow = require('../lib/plugins/bgnow')(ctx);
-  var sandbox = require('../lib/sandbox')(ctx);
+  var sandbox = require('../lib/sandbox')();
 
   var now = Date.now();
   var before = now - FIVE_MINS;

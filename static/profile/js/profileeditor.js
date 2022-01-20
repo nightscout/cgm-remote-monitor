@@ -85,7 +85,7 @@
 
   // Fetch data from mongo
   peStatus.hide().text(translate('Loading profile records ...')).fadeIn('slow');
-  $.ajax('/api/v1/profile.json?count=20', {
+  $.ajax('/api/v1/profile.json', {
     headers: client.headers()
     , success: function (records) {
       if (!records.length) {
@@ -681,13 +681,12 @@
     // This is a crude way of preventing the user from changing the inputs whilst waiting.
     // If the user was able to make changes, they'd be lost when the done callback redraws anyway.
     $('#pe_form').hide();
-    var headers = client.headers();
-    headers['Content-Type'] = 'application/json';
+    
     $.ajax({
       method: 'PUT'
       , url: '/api/v1/profile/'
-      , data: JSON.stringify(adjustedRecord)
-      , headers: headers 
+      , data: adjustedRecord
+      , headers: client.headers()
     }).done(function postSuccess (data, status) {
       console.info('profile saved', data);
       $('#pe_form').show(); // allow edits again

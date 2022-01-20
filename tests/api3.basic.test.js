@@ -19,7 +19,16 @@ describe('Basic REST API3', function() {
 
 
   after(function after () {
-    self.instance.ctx.bus.teardown();
+    self.instance.server.close();
+  });
+
+
+  it('GET /swagger', async () => {
+    let res = await request(self.app)
+      .get('/api/v3/swagger.yaml')
+      .expect(200);
+
+    res.header['content-length'].should.be.above(0);
   });
 
 

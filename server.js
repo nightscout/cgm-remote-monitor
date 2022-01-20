@@ -26,11 +26,9 @@
 // DB Connection setup and utils
 ///////////////////////////////////////////////////
 
-const fs = require('fs');
-const env = require('./env')( );
-const language = require('./lib/language')();
-const translate = language.set(env.settings.language).translate;
-language.loadLocalization(fs);
+var env = require('./env')( );
+var language = require('./lib/language')();
+var translate = language.set(env.settings.language).translate;
 
 ///////////////////////////////////////////////////
 // setup http server
@@ -48,9 +46,6 @@ function create (app) {
 }
 
 require('./lib/server/bootevent')(env, language).boot(function booted (ctx) {
-
-    console.log('Boot event processing completed');
-    
     var app = require('./app')(env, ctx);
     var server = create(app).listen(PORT, HOSTNAME);
     console.log(translate('Listening on port'), PORT, HOSTNAME);
@@ -58,12 +53,6 @@ require('./lib/server/bootevent')(env, language).boot(function booted (ctx) {
     if (ctx.bootErrors && ctx.bootErrors.length > 0) {
       return;
     }
-
-    ctx.bus.on('teardown', function serverTeardown () {
-      server.close();
-      clearTimeout(sendStartupAllClearTimer);
-      ctx.store.client.close();
-    });
 
     ///////////////////////////////////////////////////
     // setup socket io for data and message transmission
@@ -79,7 +68,7 @@ require('./lib/server/bootevent')(env, language).boot(function booted (ctx) {
     });
 
     //after startup if there are no alarms send all clear
-    let sendStartupAllClearTimer = setTimeout(function sendStartupAllClear () {
+    setTimeout(function sendStartupAllClear () {
       var alarm = ctx.notifications.findHighestAlarm();
       if (!alarm) {
         ctx.bus.emit('notification', {

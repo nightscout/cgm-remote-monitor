@@ -7,7 +7,7 @@ const request = require('supertest')
   , moment = require('moment')
   ;
 require('should');
-
+  
 describe('Security of REST API3', function() {
   const self = this
     , instance = require('./fixtures/api3/instance')
@@ -26,10 +26,10 @@ describe('Security of REST API3', function() {
     self.token = authResult.token;
   });
 
-
+  
   after(() => {
-    self.http.ctx.bus.teardown();
-    self.https.ctx.bus.teardown();
+    self.http.server.close();
+    self.https.server.close();
   });
 
 
