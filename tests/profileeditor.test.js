@@ -87,7 +87,7 @@ describe('Profile editor', function ( ) {
     , mockProfileEditor: true
     , mockAjax: someData
     , benvRequires: [
-        __dirname + '/../static/profile/js/profileeditor.js'
+        __dirname + '/../static/js/profileinit.js'
       ]
     };
     headless.setup(opts, done);
@@ -116,6 +116,8 @@ describe('Profile editor', function ( ) {
      window.alert = function mockAlert () {
        return true;
      };
+
+    window.Nightscout.profileclient();
 
     client.init();
     client.dataUpdate(nowData);
