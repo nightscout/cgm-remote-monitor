@@ -5,7 +5,7 @@ const language = require('../lib/language')(fs);
 describe('basalprofile', function ( ) {
 
   var sandbox = require('../lib/sandbox')();
-  var env = require('../env')();
+  var env = require('../lib/server/env')();
   var ctx = {
     settings: {}
     , language: language
