@@ -4,7 +4,7 @@ require('should');
 var benv = require('benv');
 
 describe('pluginbase', function ( ) {
-  this.timeout(40000); // TODO: see why this test takes longer on Travis to complete
+  this.timeout(50000); // TODO: see why this test takes longer on Travis to complete
 
   var headless = require('./fixtures/headless')(benv, this);
 
