@@ -1,9 +1,11 @@
 var should = require('should');
-var moment = require('moment-timezone');
+const helper = require('./inithelper')();
+const moment = helper.ctx.moment;
 
 describe('Profile', function ( ) {
 
-  var profile_empty = require('../lib/profilefunctions')();
+
+  var profile_empty = require('../lib/profilefunctions')(null, helper.ctx);
 
   beforeEach(function() {
     profile_empty.clear();
@@ -33,7 +35,7 @@ describe('Profile', function ( ) {
     , 'target_high': 120
   };
 
-  var profile = require('../lib/profilefunctions')([profileData]);
+  var profile = require('../lib/profilefunctions')([profileData],helper.ctx);
   var now = Date.now();
 
   it('should know what the DIA is with old style profiles', function() {
@@ -73,7 +75,7 @@ describe('Profile', function ( ) {
 
   it('should know how to reload data and still know what the low target is with old style profiles', function() {
 
-    var profile2 = require('../lib/profilefunctions')([profileData]);
+    var profile2 = require('../lib/profilefunctions')([profileData], helper.ctx);
     var profileData2 = {
       'dia': 3,
       'carbs_hr': 30,
@@ -90,7 +92,7 @@ describe('Profile', function ( ) {
 
   var complexProfileData = 
   {
-    'timezone': moment.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time
+    'timezone': moment.tz.guess(),  //Assume these are in the localtime zone so tests pass when not on UTC time
     'sens': [
         {
             'time': '00:00',
@@ -157,7 +159,7 @@ describe('Profile', function ( ) {
     'units': 'mmol'
 };
 
-  var complexProfile = require('../lib/profilefunctions')([complexProfileData]);
+  var complexProfile = require('../lib/profilefunctions')([complexProfileData], helper.ctx);
 
   var noon = new Date('2015-06-22 12:00:00').getTime();
   var threepm = new Date('2015-06-22 15:00:00').getTime();
@@ -196,7 +198,7 @@ describe('Profile', function ( ) {
           "store": {
               "20150625-1": {
                   "dia": "4",
-                  "timezone": moment.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time
+                  "timezone": moment.tz.guess(),  //Assume these are in the localtime zone so tests pass when not on UTC time
                   "startDate": "1970-01-01T00:00:00.000Z",
                   'sens': [
                     {
@@ -268,7 +270,7 @@ describe('Profile', function ( ) {
           "store": {
               "20190621-1": {
                   "dia": "4",
-                  "timezone": moment.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time
+                  "timezone": moment.tz.guess(),  //Assume these are in the localtime zone so tests pass when not on UTC time
                   "startDate": "1970-01-01T00:00:00.000Z", 
                   'sens': [
                       {
@@ -336,7 +338,7 @@ describe('Profile', function ( ) {
       }
   ];
 
-  var multiProfile = require('../lib/profilefunctions')(multiProfileData);
+  var multiProfile = require('../lib/profilefunctions')(multiProfileData, helper.ctx);
 
   var noon = new Date('2015-06-22 12:00:00').getTime();
   var threepm = new Date('2015-06-26 15:00:00').getTime();
