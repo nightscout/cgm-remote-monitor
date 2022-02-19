@@ -57,7 +57,7 @@ describe('API3 UPDATE', function() {
       .send(self.validDoc)
       .expect(404);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(404);
   });
 
 });
