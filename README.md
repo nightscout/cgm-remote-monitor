@@ -49,8 +49,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 [discord-img]: https://img.shields.io/discord/629952586895851530?label=discord%20chat
 [discord-url]: https://discord.gg/rTKhrqz
 [heroku-img]: https://www.herokucdn.com/deploy/button.png
-[heroku-url]: https://heroku.com/deploy
-[update-img]: update.png
+[heroku-url]: https://heroku.com/deploy?template=https://github.com/nightscout/cgm-remote-monitor
+[update-img]: docs/update.png
 [update-fork]: http://nightscout.github.io/pages/update-fork/
 [original]: https://github.com/rnpenguin/cgm-remote-monitor
 
@@ -104,6 +104,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
         - [`bage` (Battery Age)](#bage-battery-age)
         - [`treatmentnotify` (Treatment Notifications)](#treatmentnotify-treatment-notifications)
         - [`basal` (Basal Profile)](#basal-basal-profile)
+        - [`bolus` (Bolus Rendering)](#bolus-bolus-rendering)
         - [`bridge` (Share2Nightscout bridge)](#bridge-share2nightscout-bridge)
         - [`mmconnect` (MiniMed Connect bridge)](#mmconnect-minimed-connect-bridge)
         - [`pump` (Pump Monitoring)](#pump-pump-monitoring)
@@ -163,7 +164,7 @@ Some features may not work with devices/browsers on the older end of these requi
 
 ## Windows installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 12 LTS. Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
+- [Node.js](http://nodejs.org/) Latest Node 12 LTS. Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
@@ -294,6 +295,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 ### Predefined values for your browser settings (optional)
 
   * `TIME_FORMAT` (`12`)- possible values `12` or `24`
+  * `DAY_START` (`7.0`) - time for start of day (0.0 - 24.0) for features using day time / night time options
+  * `DAY_END` (`21.0`) - time for end of day (0.0 - 24.0) for features using day time / night time options
   * `NIGHT_MODE` (`off`) - possible values `on` or `off`
   * `SHOW_RAWBG` (`never`) - possible values `always`, `never` or `noise`
   * `CUSTOM_TITLE` (`Nightscout`) - Title for the main view
@@ -305,13 +308,12 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
   * `SHOW_FORECAST` (`ar2`) - plugin forecasts that should be shown by default, supports space delimited values such as `"ar2 openaps"`
   * `LANGUAGE` (`en`) - language of Nightscout. If not available english is used
-    * Currently supported language codes are: bg (Български), cs (Čeština), de (Deutsch), dk (Dansk), el (Ελληνικά), en (English), es (Español), fi (Suomi), fr (Français), he (עברית), hr (Hrvatski), it (Italiano), ko (한국어), nb (Norsk (Bokmål)), nl (Nederlands), pl (Polski), pt (Português (Brasil)), ro (Română), ru (Русский), sk (Slovenčina), sv (Svenska), tr (Turkish), zh_cn (中文（简体)), zh_tw (中文（繁體))
+    * Currently supported language codes are: bg (Български), cs (Čeština), de (Deutsch), dk (Dansk), el (Ελληνικά), en (English), es (Español), fi (Suomi), fr (Français), he (עברית), hr (Hrvatski), hu (magyar), it (Italiano), ko (한국어), nb (Norsk (Bokmål)), nl (Nederlands), pl (Polski), pt (Português (Brasil)), ro (Română), ru (Русский), sk (Slovenčina), sv (Svenska), tr (Turkish), zh_cn (中文（简体)), zh_tw (中文（繁體))
   * `SCALE_Y` (`log`) - The type of scaling used for the Y axis of the charts system wide.
     * The default `log` (logarithmic) option will let you see more detail towards the lower range, while still showing the full CGM range.
     * The `linear` option has equidistant tick marks; the range used is dynamic so that space at the top of chart isn't wasted.
     * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale.
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enables the icon allowing for editing of treatments in the main view.
-  * `BOLUS_RENDER_OVER` (1) - U value over which the bolus values are rendered on the chart if the 'x U and Over' option is selected. This value can be an integer or a float, e.g. 0.3, 1.5, 2, etc...
 
 ### Predefined values for your server settings (optional)
   * `INSECURE_USE_HTTP` (`false`) - Redirect unsafe http traffic to https. Possible values `false`, or `true`. Your site redirects to `https` by default. If you don't want that from Nightscout, but want to implement that with a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. Note: This will allow (unsafe) http traffic to your Nightscout instance and is not recommended.
@@ -468,12 +470,20 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `BAGE_URGENT` (`360`) - If time since last `Pump Battery Change` matches `BAGE_URGENT` hours, user will be issued a persistent warning of overdue change (default of 360 hours is 15 days).
 
 ##### `treatmentnotify` (Treatment Notifications)
-  Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.  Default snooze is 10 minutes, and can be set using the `TREATMENTNOTIFY_SNOOZE_MINS` [extended setting](#extended-settings).
+  Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.
+  * `TREATMENTNOTIFY_SNOOZE_MINS` (`10`) - Number of minutes to snooze notifications after a treatment is entered
+  * `TREATMENTNOTIFY_INCLUDE_BOLUSES_OVER` (`0`) - U value over which the bolus will trigger a notification and snooze alarms
 
 ##### `basal` (Basal Profile)
   Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile). Also uses the extended setting:
   * `BASAL_RENDER` (`none`) - Possible values are `none`, `default`, or `icicle` (inverted)
 
+##### `bolus` (Bolus Rendering)
+  Settings to configure Bolus rendering
+  * `BOLUS_RENDER_OVER` (`0`) - U value over which the bolus labels use the format defined in `BOLUS_RENDER_FORMAT`. This value can be an integer or a float, e.g. 0.3, 1.5, 2, etc.
+  * `BOLUS_RENDER_FORMAT` (`default`) - Possible values are `hidden`, `default` (with leading zero and U), `concise` (with U, without leading zero), and `minimal` (without leading zero and U).
+  * `BOLUS_RENDER_FORMAT_SMALL` (`default`) - Possible values are `hidden`, `default` (with leading zero and U), `concise` (with U, without leading zero), and `minimal` (without leading zero and U).
+  
 ##### `bridge` (Share2Nightscout bridge)
   Glucose reading directly from the Dexcom Share service, uses these extended settings:
   * `BRIDGE_USER_NAME` - Your username for the Share service.
@@ -511,6 +521,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `PUMP_URGENT_BATT_P` (`20`) - The % of the pump battery remaining, an urgent alarm will be triggered when dropping below this threshold.
   * `PUMP_WARN_BATT_V` (`1.35`) - The voltage (if percent isn't available) of the pump battery, a warning will be triggered when dropping below this threshold.
   * `PUMP_URGENT_BATT_V` (`1.30`) - The  voltage (if percent isn't available) of the pump battery, an urgent alarm will be triggered when dropping below this threshold.
+  * `PUMP_WARN_BATT_QUIET_NIGHT` (`false`) - Do not generate battery alarms at night.
 
 ##### `openaps` (OpenAPS)
   Integrated OpenAPS loop monitoring, uses these extended settings:
@@ -659,7 +670,7 @@ For remote overrides, the following extended settings must be configured:
   * `target_high` - Upper target for correction boluses.
   * `target_low` - Lower target for correction boluses.
 
-  Some example profiles are [here](example-profiles.md).
+  Some example profiles are [here](docs/plugins/example-profiles.md).
 
 ## Setting environment variables
 Easy to emulate on the commandline:
@@ -679,13 +690,13 @@ Your hosting provider probably has a way to set these through their GUI.
 ### Vagrant install
 
 Optionally, use [Vagrant](https://www.vagrantup.com/) with the
-included `Vagrantfile` and `setup.sh` to install OS and node packages to
+included `Vagrantfile` and `bin/setup.sh` to install OS and node packages to
 a virtual machine.
 
 ```bash
 host$ vagrant up
 host$ vagrant ssh
-vm$ setup.sh
+vm$ ./bin/setup.sh
 ```
 
 The setup script will install OS packages then run `npm install`.
