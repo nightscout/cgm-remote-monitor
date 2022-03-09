@@ -4,7 +4,6 @@ require('should');
 var _ = require('lodash');
 var benv = require('benv');
 var read = require('fs').readFileSync;
-var serverSettings = require('./fixtures/default-server-settings');
 
 var nowData = require('../lib/data/ddata')();
 nowData.sgvs.push({ mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' });
@@ -66,7 +65,7 @@ var exampleProfile = {
 
 
 var someData = {
-    '/api/v1/profile.json': [exampleProfile]
+    '/api/v1/profile.json?count=20': [exampleProfile]
   };
 
 
@@ -88,7 +87,7 @@ describe('Profile editor', function ( ) {
     , mockProfileEditor: true
     , mockAjax: someData
     , benvRequires: [
-        __dirname + '/../static/profile/js/profileeditor.js'
+        __dirname + '/../static/js/profileinit.js'
       ]
     };
     headless.setup(opts, done);
@@ -102,7 +101,7 @@ describe('Profile editor', function ( ) {
   it ('should produce some html', function (done) {
     var client = require('../lib/client');
 
-    var hashauth = require('../lib/hashauth');
+    var hashauth = require('../lib/client/hashauth');
     hashauth.init(client,$);
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) {
       hashauth.authenticated = true;
@@ -118,10 +117,13 @@ describe('Profile editor', function ( ) {
        return true;
      };
 
+    window.Nightscout.profileclient();
+
     client.init();
     client.dataUpdate(nowData);
     
-    //var result = $('body').html();
+    // var result = $('body').html();
+    // console.log(result);
     //var filesys = require('fs');
     //var logfile = filesys.createWriteStream('out.html', { flags: 'a'} )
     //logfile.write($('body').html());

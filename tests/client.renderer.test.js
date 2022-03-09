@@ -64,7 +64,10 @@ describe('renderer', () => {
 
       describe(`data.mills ${extent.mills} and chart().brush.extent() times ${extent.times}`, () => {
         it(extent.expectation, () => {
-          renderer(mockClient, {}).highlightBrushPoints(mockData).should.equal(extent.expectedOpacity);
+          var selectedRange = mockClient.chart.createAdjustedRange();
+          var from = selectedRange[0].getTime();
+          var to = selectedRange[1].getTime();
+          renderer(mockClient, {}).highlightBrushPoints(mockData, from, to).should.equal(extent.expectedOpacity);
         });
       });
     });
