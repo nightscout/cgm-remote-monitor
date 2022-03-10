@@ -70,7 +70,7 @@ describe('admintools', function ( ) {
   before(function (done) {
     benv.setup(function() {
 
-	  benv.require(__dirname + '/../tmp/js/bundle.report.js');
+	  benv.require(__dirname + '/../tmp/public/js/bundle.app.js');
           
       self.$ = $;
       
@@ -202,7 +202,7 @@ describe('admintools', function ( ) {
   it ('should produce some html', function (done) {
     var client = require('../lib/client');
 
-    var hashauth = require('../lib/hashauth');
+    var hashauth = require('../lib/client/hashauth');
     hashauth.init(client,$);
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) {
       hashauth.authenticated = true;
