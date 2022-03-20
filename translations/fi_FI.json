@@ -223,6 +223,7 @@
     "View all treatments": "Katso kaikki hoitotoimenpiteet",
     "Enable Alarms": "Aktivoi hälytykset",
     "Pump Battery Change": "Pumpun patterin vaihto",
+    "Pump Battery Age": "Pumpun Patterin Ikä",
     "Pump Battery Low Alarm": "Varoitus! Pumpun patteri loppumassa",
     "Pump Battery change overdue!": "Pumpun patterin vaihto myöhässä!",
     "When enabled an alarm may sound.": "Aktivointi mahdollistaa äänihälytykset",
