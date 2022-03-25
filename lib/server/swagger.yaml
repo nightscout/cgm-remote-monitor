@@ -656,7 +656,7 @@ components:
   securitySchemes:
     api_secret:
       type: apiKey
-      name: api_secret
+      name: api-secret
       in: header
       description: The hash of the API_SECRET env var
     token_in_url:
