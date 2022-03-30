@@ -13,10 +13,13 @@ describe('Security of REST API V1', function() {
 
   this.timeout(30000);
 
+  var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
+
   before(function(done) {
     var api = require('../lib/api/');
-    self.env = require('../env')();
-    self.env.api_secret = 'this is my long pass phrase';
+    delete process.env.API_SECRET;
+    process.env.API_SECRET = 'this is my long pass phrase';
+    self.env = require('../lib/server/env')();
     self.env.settings.authDefaultRoles = 'denied';
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
@@ -71,7 +74,16 @@ describe('Security of REST API V1', function() {
   it('Data load should succeed with API SECRET', function(done) {
     request(self.app)
       .get('/api/v1/entries.json')
-      .set('api-secret', self.env.api_secret)
+      .set('api-secret', known)
+      .expect(200)
+      .end(function(err, res) {
+        done();
+      });
+  });
+
+  it('Data load should succeed with GET token', function(done) {
+    request(self.app)
+      .get('/api/v1/entries.json?token=' + self.token.read)
       .expect(200)
       .end(function(err, res) {
         done();

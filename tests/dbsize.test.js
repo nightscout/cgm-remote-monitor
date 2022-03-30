@@ -15,7 +15,7 @@ describe('Database Size', function() {
   var dataWarn = { dbstats: { dataSize: 1024 * 1024 * 250, indexSize: 1024 * 1024 * 100, fileSize: 1024 * 1024 * 360 } };
   var dataUrgent = { dbstats: { dataSize: 1024 * 1024 * 300, indexSize: 1024 * 1024 * 150, fileSize: 1024 * 1024 * 496 } };
 
-  var env = require('../env')();
+  var env = require('../lib/server/env')();
 
   it('display database size in range', function(done) {
     var sandbox = require('../lib/sandbox')();

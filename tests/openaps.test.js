@@ -14,7 +14,7 @@ var top_ctx = {
 top_ctx.language.set('en');
 var levels = require('../lib/levels');
 top_ctx.levels = levels;
-var env = require('../env')();
+var env = require('../lib/server/env')();
 var openaps = require('../lib/plugins/openaps')(top_ctx);
 var sandbox = require('../lib/sandbox')(top_ctx);
 
