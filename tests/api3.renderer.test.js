@@ -41,29 +41,17 @@ describe('API3 output renderers', function() {
 
     self.app = self.instance.app;
     self.env = self.instance.env;
-    self.col = 'entries';
-    self.url = `/api/v3/${self.col}`;
+    self.url = '/api/v3/entries';
 
     let authResult = await authSubject(self.instance.ctx.authorization.storage);
 
     self.subject = authResult.subject;
     self.token = authResult.token;
-    self.cache = self.instance.cacheMonitor;
   });
 
 
   after(() => {
     self.instance.server.close();
-  });
-
-
-  beforeEach(() => {
-    self.cache.clear();
-  });
-
-
-  afterEach(() => {
-    self.cache.shouldBeEmpty();
   });
 
 
@@ -143,7 +131,7 @@ describe('API3 output renderers', function() {
         .send(doc)
         .expect(201);
 
-      res.body.status.should.equal(201);
+      res.body.should.be.empty();
 
       res = await self.instance.get(`${self.url}/${doc.identifier}?token=${self.token.read}`)
         .expect(200);
@@ -151,10 +139,7 @@ describe('API3 output renderers', function() {
     }
 
     self.doc1json = await createDoc(self.doc1);
-    self.cache.nextShouldEql(self.col, self.doc1)
-
     self.doc2json = await createDoc(self.doc2);
-    self.cache.nextShouldEql(self.col, self.doc2)
   });
 
 
@@ -163,9 +148,7 @@ describe('API3 output renderers', function() {
     async function check406 (request) {
       const res = await request
         .expect(406);
-      res.status.should.equal(406);
       res.body.message.should.eql('Unsupported output format requested');
-      should.not.exist(res.body.result);
     }
 
     await check406(self.instance.get(`${self.url}/${self.doc1.identifier}.ttf?fields=_all&token=${self.token.read}`));
@@ -273,12 +256,9 @@ describe('API3 output renderers', function() {
   it('should remove mock documents', async () => {
 
     async function deleteDoc (identifier) {
-      let res = await self.instance.delete(`${self.url}/${identifier}?token=${self.token.delete}`)
+      await self.instance.delete(`${self.url}/${identifier}?token=${self.token.delete}`)
         .query({ 'permanent': 'true' })
-        .expect(200);
-
-      res.body.status.should.equal(200);
-      self.cache.nextShouldDeleteLast(self.col);
+        .expect(204);
     }
 
     await deleteDoc(self.doc1.identifier);

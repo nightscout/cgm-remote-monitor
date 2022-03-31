@@ -20,7 +20,7 @@ describe('API3 PATCH', function() {
     insulin: 0.3
   };
   self.validDoc.identifier = opTools.calculateIdentifier(self.validDoc);
-
+  
   self.timeout(15000);
 
 
@@ -31,8 +31,7 @@ describe('API3 PATCH', function() {
     let res = await self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    return res.body.result;
+    return res.body;
   };
 
 
@@ -41,30 +40,18 @@ describe('API3 PATCH', function() {
 
     self.app = self.instance.app;
     self.env = self.instance.env;
-    self.col = 'treatments';
-    self.url = `/api/v3/${self.col}`;
+    self.url = '/api/v3/treatments';
 
     let authResult = await authSubject(self.instance.ctx.authorization.storage);
 
     self.subject = authResult.subject;
     self.token = authResult.token;
     self.urlToken = `${self.url}/${self.validDoc.identifier}?token=${self.token.update}`;
-    self.cache = self.instance.cacheMonitor;
   });
 
 
   after(() => {
     self.instance.ctx.bus.teardown();
-  });
-
-
-  beforeEach(() => {
-    self.cache.clear();
-  });
-
-
-  afterEach(() => {
-    self.cache.shouldBeEmpty();
   });
 
 
@@ -82,7 +69,7 @@ describe('API3 PATCH', function() {
       .send(self.validDoc)
       .expect(404);
 
-    res.body.status.should.equal(404);
+    res.body.should.be.empty();
   });
 
 
@@ -91,15 +78,14 @@ describe('API3 PATCH', function() {
       .send(self.validDoc)
       .expect(404);
 
-    res.body.status.should.equal(404);
+    res.body.should.be.empty();
 
     // now let's insert the document for further patching
     res = await self.instance.post(`${self.url}?token=${self.token.create}`)
       .send(self.validDoc)
       .expect(201);
 
-    res.body.status.should.equal(201);
-    self.cache.nextShouldEql(self.col, self.validDoc)
+    res.body.should.be.empty();
   });
 
 
@@ -218,17 +204,15 @@ describe('API3 PATCH', function() {
 
     let res = await self.instance.patch(self.urlToken)
       .send(self.validDoc)
-      .expect(200);
+      .expect(204);
 
-    res.body.status.should.equal(200);
+    res.body.should.be.empty();
 
     let body = await self.get(self.validDoc.identifier);
     body.carbs.should.equal(10);
     body.insulin.should.equal(0.3);
     body.subject.should.equal(self.subject.apiCreate.name);
     body.modifiedBy.should.equal(self.subject.apiUpdate.name);
-
-    self.cache.nextShouldEql(self.col, body)
   });
 
 });

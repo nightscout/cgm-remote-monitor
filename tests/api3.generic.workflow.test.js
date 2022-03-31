@@ -31,8 +31,7 @@ describe('Generic REST API3', function() {
 
     self.app = self.instance.app;
     self.env = self.instance.env;
-    self.col = 'treatments';
-    self.urlCol = `/api/v3/${self.col}`;
+    self.urlCol = '/api/v3/treatments';
     self.urlResource = self.urlCol + '/' + self.identifier;
     self.urlHistory = self.urlCol + '/history';
 
@@ -41,7 +40,6 @@ describe('Generic REST API3', function() {
     self.subject = authResult.subject;
     self.token = authResult.token;
     self.urlToken = `${self.url}?token=${self.token.create}`;
-    self.cache = self.instance.cacheMonitor;
   });
 
 
@@ -50,24 +48,13 @@ describe('Generic REST API3', function() {
   });
 
 
-  beforeEach(() => {
-    self.cache.clear();
-  });
-
-
-  afterEach(() => {
-    self.cache.shouldBeEmpty();
-  });
-
-
   self.checkHistoryExistence = async function checkHistoryExistence (assertions) {
 
     let res = await self.instance.get(`${self.urlHistory}/${self.historyTimestamp}?token=${self.token.read}`)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    res.body.result.length.should.be.above(0);
-    res.body.result.should.matchAny(value => {
+    res.body.length.should.be.above(0);
+    res.body.should.matchAny(value => {
       value.identifier.should.be.eql(self.identifier);
       value.srvModified.should.be.above(self.historyTimestamp);
 
@@ -84,10 +71,9 @@ describe('Generic REST API3', function() {
     let res = await self.instance.get(`${self.urlLastModified}?token=${self.token.read}`)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    self.historyTimestamp = res.body.result.collections.treatments;
+    self.historyTimestamp = res.body.collections.treatments;
     if (!self.historyTimestamp) {
-      self.historyTimestamp = res.body.result.srvDate - (10 * 60 * 1000);
+      self.historyTimestamp = res.body.srvDate - (10 * 60 * 1000);
     }
     self.historyTimestamp.should.be.aboveOrEqual(testConst.YEAR_2019);
   });
@@ -97,8 +83,7 @@ describe('Generic REST API3', function() {
     let res = await self.instance.get(`/api/v3/status?token=${self.token.read}`)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    self.historyTimestamp = res.body.result.srvDate;
+    self.historyTimestamp = res.body.srvDate;
     self.historyTimestamp.should.be.aboveOrEqual(testConst.YEAR_2019);
   });
 
@@ -114,8 +99,7 @@ describe('Generic REST API3', function() {
       .query({ 'identifier_eq': self.identifier })
       .expect(200);
 
-    res.body.status.should.equal(200);
-    res.body.result.should.have.length(0);
+    res.body.should.have.length(0);
   });
 
 
@@ -129,8 +113,6 @@ describe('Generic REST API3', function() {
     await self.instance.post(`${self.urlCol}?token=${self.token.create}`)
       .send(self.docOriginal)
       .expect(201);
-
-    self.cache.nextShouldEql(self.col, self.docOriginal)
   });
 
 
@@ -138,9 +120,8 @@ describe('Generic REST API3', function() {
     let res = await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    res.body.result.should.containEql(self.docOriginal);
-    self.docActual = res.body.result;
+    res.body.should.containEql(self.docOriginal);
+    self.docActual = res.body;
 
     if (self.historyTimestamp >= self.docActual.srvModified) {
       self.historyTimestamp = self.docActual.srvModified - 1;
@@ -153,9 +134,8 @@ describe('Generic REST API3', function() {
       .query({ 'identifier$eq': self.identifier })
       .expect(200);
 
-    res.body.status.should.equal(200);
-    res.body.result.length.should.be.above(0);
-    res.body.result.should.matchAny(value => {
+    res.body.length.should.be.above(0);
+    res.body.should.matchAny(value => {
       value.identifier.should.be.eql(self.identifier);
     });
   });
@@ -169,31 +149,26 @@ describe('Generic REST API3', function() {
   it('UPDATE document', async () => {
     self.docActual.insulin = 0.5;
 
-    let res = await self.instance.put(`${self.urlResource}?token=${self.token.update}`)
+    await self.instance.put(`${self.urlResource}?token=${self.token.update}`)
       .send(self.docActual)
-      .expect(200);
+      .expect(204);
 
-    res.body.status.should.equal(200);
     self.docActual.subject = self.subject.apiUpdate.name;
-    delete self.docActual.srvModified;
-
-    self.cache.nextShouldEql(self.col, self.docActual)
   });
 
 
   it('document changed in HISTORY', async () => {
     await self.checkHistoryExistence();
-  });
+  }); 
 
-
+  
   it('document changed in READ', async () => {
     let res = await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
       .expect(200);
 
-    res.body.status.should.equal(200);
     delete self.docActual.srvModified;
-    res.body.result.should.containEql(self.docActual);
-    self.docActual = res.body.result;
+    res.body.should.containEql(self.docActual);
+    self.docActual = res.body;
   });
 
 
@@ -201,39 +176,30 @@ describe('Generic REST API3', function() {
     self.docActual.carbs = 5;
     self.docActual.insulin = 0.4;
 
-    let res = await self.instance.patch(`${self.urlResource}?token=${self.token.update}`)
+    await self.instance.patch(`${self.urlResource}?token=${self.token.update}`)
       .send({ 'carbs': self.docActual.carbs, 'insulin': self.docActual.insulin })
-      .expect(200);
-
-    res.body.status.should.equal(200);
-    delete self.docActual.srvModified;
-
-    self.cache.nextShouldEql(self.col, self.docActual)
+      .expect(204);
   });
 
 
   it('document changed in HISTORY', async () => {
     await self.checkHistoryExistence();
-  });
+  }); 
 
-
+  
   it('document changed in READ', async () => {
     let res = await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
       .expect(200);
 
-    res.body.status.should.equal(200);
     delete self.docActual.srvModified;
-    res.body.result.should.containEql(self.docActual);
-    self.docActual = res.body.result;
+    res.body.should.containEql(self.docActual);
+    self.docActual = res.body;
   });
 
 
   it('soft DELETE', async () => {
-    let res = await self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
-      .expect(200);
-
-    res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col)
+    await self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
+      .expect(204);
   });
 
 
@@ -249,25 +215,21 @@ describe('Generic REST API3', function() {
       .query({ 'identifier_eq': self.identifier })
       .expect(200);
 
-    res.body.status.should.equal(200);
-    res.body.result.should.have.length(0);
+    res.body.should.have.length(0);
   });
-
+  
 
   it('document deleted in HISTORY', async () => {
     await self.checkHistoryExistence(value => {
       value.isValid.should.be.eql(false);
     });
-  });
-
+  }); 
+  
 
   it('permanent DELETE', async () => {
-    let res = await self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
+    await self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
       .query({ 'permanent': 'true' })
-      .expect(200);
-
-    res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col)
+      .expect(204);
   });
 
 
@@ -280,10 +242,13 @@ describe('Generic REST API3', function() {
   it('document permanently deleted not in HISTORY', async () => {
     let res = await self.instance.get(`${self.urlHistory}/${self.historyTimestamp}?token=${self.token.read}`);
 
-    res.body.status.should.equal(200);
-    res.body.result.should.matchEach(value => {
-      value.identifier.should.not.be.eql(self.identifier);
-    });
+    if (res.status === 200) {
+      res.body.should.matchEach(value => {
+        value.identifier.should.not.be.eql(self.identifier);
+      });
+    } else {
+      res.status.should.equal(204);
+    }
   });
 
 
@@ -295,13 +260,9 @@ describe('Generic REST API3', function() {
     let res = await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
       .expect(200);
 
-    res.body.status.should.equal(200);
-    self.docActual = res.body.result;
+    self.docActual = res.body;
     delete self.docActual.srvModified;
     const readOnlyMessage = 'Trying to modify read-only document';
-
-    self.cache.nextShouldEql(self.col, self.docActual)
-    self.cache.shouldBeEmpty()
 
     res = await self.instance.post(`${self.urlCol}?token=${self.token.update}`)
       .send(Object.assign({}, self.docActual, { insulin: 0.41 }))
@@ -325,8 +286,7 @@ describe('Generic REST API3', function() {
 
     res = await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
       .expect(200);
-    res.body.status.should.equal(200);
-    res.body.result.should.containEql(self.docOriginal);
+    res.body.should.containEql(self.docOriginal);
   });
 
 });

@@ -191,7 +191,7 @@ describe('reports', function ( ) {
     , serverSettings: serverSettings
     , mockSimpleAjax: someData
     , benvRequires: [
-       __dirname + '/../static/js/reportinit.js'
+       __dirname + '/../static/report/js/report.js'
       ]
     };
     headless.setup(opts, done);
@@ -206,7 +206,7 @@ describe('reports', function ( ) {
   it ('should produce some html', function (done) {
     var client = window.Nightscout.client;
 
-    var hashauth = require('../lib/client/hashauth');
+    var hashauth = require('../lib/hashauth');
     hashauth.init(client,$);
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) {
       hashauth.authenticated = true;
@@ -220,14 +220,10 @@ describe('reports', function ( ) {
      window.alert = function mockAlert () {
        return true;
      };
-     
-     
-     window.setTimeout = function mockSetTimeout (call, timer) {
-       if (timer == 60000) return;
+
+     window.setTimeout = function mockSetTimeout (call) {
        call();
      };
-
-     window.Nightscout.reportclient();
 
     client.init(function afterInit ( ) {
       client.dataUpdate(nowData);
@@ -262,14 +258,12 @@ describe('reports', function ( ) {
       $('img.editTreatment:first').click();
       $('.ui-button:contains("Save")').click();
 
-      
       var result = $('body').html();
-      /*
-      var filesys = require('fs');
-      var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
-      logfile.write(result);
-      console.log('RESULT', result);
-      */
+      //var filesys = require('fs');
+      //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
+      //logfile.write(result);
+      //console.log('RESULT', result);
+      
       result.indexOf('Milk now').should.be.greaterThan(-1); // daytoday
       result.indexOf('50 g').should.be.greaterThan(-1); // daytoday
       result.indexOf('TDD average:</b> 2.9U').should.be.greaterThan(-1); // daytoday
@@ -287,7 +281,7 @@ describe('reports', function ( ) {
   it ('should produce week to week report', function (done) {
     var client = window.Nightscout.client;
 
-    var hashauth = require('../lib/client/hashauth');
+    var hashauth = require('../lib/hashauth');
     hashauth.init(client,$);
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) {
       hashauth.authenticated = true;
@@ -301,10 +295,9 @@ describe('reports', function ( ) {
      window.alert = function mockAlert () {
        return true;
      };
-  
-     window.setTimeout = function mockSetTimeout (call, timer) {
-      if (timer == 60000) return;
-      call();
+
+     window.setTimeout = function mockSetTimeout (call) {
+       call();
      };
 
     client.init(function afterInit ( ) {
@@ -338,7 +331,5 @@ describe('reports', function ( ) {
 
       done();
     });
-    
   });
-  
 });

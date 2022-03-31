@@ -87,7 +87,7 @@ describe('Profile editor', function ( ) {
     , mockProfileEditor: true
     , mockAjax: someData
     , benvRequires: [
-        __dirname + '/../static/js/profileinit.js'
+        __dirname + '/../static/profile/js/profileeditor.js'
       ]
     };
     headless.setup(opts, done);
@@ -101,7 +101,7 @@ describe('Profile editor', function ( ) {
   it ('should produce some html', function (done) {
     var client = require('../lib/client');
 
-    var hashauth = require('../lib/client/hashauth');
+    var hashauth = require('../lib/hashauth');
     hashauth.init(client,$);
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) {
       hashauth.authenticated = true;
@@ -116,8 +116,6 @@ describe('Profile editor', function ( ) {
      window.alert = function mockAlert () {
        return true;
      };
-
-    window.Nightscout.profileclient();
 
     client.init();
     client.dataUpdate(nowData);
