@@ -3,12 +3,13 @@ var Stream = require('stream');
 var levels = require('../lib/levels');
 
 describe('boluswizardpreview', function ( ) {
-  var env = require('../env')();
+  var env = require('../lib/server/env')();
   env.testMode = true;
 
   var ctx = {
     settings: {}
     , language: require('../lib/language')()
+    , levels: levels
   };
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
