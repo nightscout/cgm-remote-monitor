@@ -110,7 +110,7 @@
     "memory-cache": "^0.2.0",
     "mime": "^2.4.6",
     "minimed-connect-to-nightscout": "^1.5.2",
-    "moment": "^2.27.0",
+    "moment": "^2.29.2",
     "moment-locales-webpack-plugin": "^1.2.0",
     "moment-timezone": "^0.5.31",
     "moment-timezone-data-webpack-plugin": "^1.3.0",
