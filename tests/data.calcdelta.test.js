@@ -26,6 +26,16 @@ describe('Data', function ( ) {
     delta.sgvs.length.should.equal(1);
   });
 
+  it('should update sgv if changed', function() {
+    var ddata = require('../lib/data/ddata')();
+    ddata.sgvs = [{mgdl: 100, mills: before},{mgdl: 100, mills: now}];
+    var newData = ddata.clone();
+    newData.sgvs = [{mgdl: 110, mills: before},{mgdl: 100, mills: now}];
+    var delta = calcDelta(ddata,newData);
+    delta.delta.should.equal(true);
+    delta.sgvs.length.should.equal(1);
+  });
+
   it('adding one treatment record should return delta with one treatment', function() {
     var ddata = require('../lib/data/ddata')();
     ddata.treatments = [{_id: 'someid_1', mgdl: 100, mills: before},{_id: 'someid_2', mgdl: 100, mills: now}];
