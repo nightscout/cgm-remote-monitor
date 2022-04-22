@@ -149,7 +149,7 @@
     },
     "TIME_FORMAT": {
       "description": "Default setting for new browser views, for the time mode. ('12' or '24')",
-      "value": "12",
+      "value": "24",
       "required": false 
     }
   },
