@@ -162,10 +162,10 @@ Older versions of the browsers might work, but are untested.
 
 Some features may not work with devices/browsers on the older end of these requirements.
 
-## Windows installation software requirements:
+## Installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 12 LTS. Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
-- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
+- [Node.js](http://nodejs.org/) Latest Node 16 LTS. Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 4.2 or 4.4 or 5.0
 
 As a non-root user clone this repo then install dependencies into the root of the project:
 
@@ -184,7 +184,7 @@ $ npm install
 
 - If deploying the software to Microsoft Azure, you must set ** in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Additionally, if using the Azure free hosting tier, the installation might fail due to resource constraints imposed by Azure on the free hosting. Please set the following settings to the environment in Azure:
 ```
-WEBSITE_NODE_DEFAULT_VERSION=10.15.2
+WEBSITE_NODE_DEFAULT_VERSION=16.15.0
 SCM_COMMAND_IDLE_TIMEOUT=300
 ```
 - See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
