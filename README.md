@@ -164,7 +164,7 @@ Some features may not work with devices/browsers on the older end of these requi
 
 ## Installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 16 LTS. Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
+- [Node.js](http://nodejs.org/) Latest Node 14 LTS or Node 16 LTS. Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 4.2 or 4.4 or 5.0
 
 As a non-root user clone this repo then install dependencies into the root of the project:
