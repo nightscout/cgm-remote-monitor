@@ -1,4 +1,4 @@
-<div id="toolbar">
+<div id="toolbar" class="no-print">
     <h1 class="customTitle">Nightscout</h1>
 
     <%if (type !== 'index') { %>
@@ -29,7 +29,7 @@
 </div>
 
 <%if (title) { %>
-    <div class="toolbar-title">
-        <h2 class="translate"><%= title %></h1>
+    <div class="toolbar-title no-print">
+        <h2 class="translate"><%= title %></h2>
     </div>
 <% } %>

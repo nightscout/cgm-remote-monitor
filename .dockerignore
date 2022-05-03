@@ -1,13 +1,14 @@
 # Don't include the .git history in the Docker image:
 .git
+.github
 
 # Items from .gitignore
 bower_components/
 node_modules/
+mongo-data/
 bundle/bundle.out.js
 .idea/
 *.iml
-my.env
 *.env
 static/bower_components/
 .*.sw?
@@ -16,3 +17,14 @@ static/bower_components/
 /iisnode
 coverage/
 npm-debug.log
+
+# exclude testing-stuff
+tests/
+testing/
+
+#
+CONTRIBUTING.md
+crowdin.yml
+docker-compose.yml
+Makefile
+README.md

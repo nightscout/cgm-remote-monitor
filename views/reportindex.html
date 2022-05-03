@@ -23,7 +23,7 @@
   <meta name="msapplication-config" content="/browserconfig.xml">
   <meta name="theme-color" content="#333333">
 
-  <link rel="preload" href="/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <!-- <link rel="preload" href="/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'"> -->
   <link rel="preload" href="/css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="/css/report.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="/css/dropdown.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -34,91 +34,92 @@
   <body>
     <%- include('partials/toolbar') %>
 
-  <ul id="tabnav">
-  </ul>
   <main>
-    <table>
-      <tr>
-        <td><input type="checkbox" id="rp_enabledate" checked></td>
-        <td>
-          <span class="translate">From</span>: <input type="date" id="rp_from">
-          <span class="translate">To</span>: <input type="date" id="rp_to">
-          <a href="#" days="1" class="presetdates"><span class="translate">Today</span></a>
-          <a href="#" days="2" class="presetdates"><span class="translate">Last 2 days</span></a>
-          <a href="#" days="3" class="presetdates"><span class="translate">Last 3 days</span></a>
-          <a href="#" days="7" class="presetdates"><span class="translate">Last week</span></a>
-          <a href="#" days="14" class="presetdates"><span class="translate">Last 2 weeks</span></a>
-          <a href="#" days="31" class="presetdates"><span class="translate">Last month</span></a>
-          <a href="#" days="90" class="presetdates"><span class="translate">Last 3 months</span></a>
-        </td>
-      </tr>
-      <tr class="rp_foodgui" style="display:none">
-        <td></td>
-        <td>
-          <span class="translate">Category</span>: <select id="rp_category"></select>
-          <span class="translate">Subcategory</span>: <select id="rp_subcategory"></select>
-          <span class="translate">Name</span>: <input type="text" id="rp_name"></select>
-        </td>
-      </tr>
-      <tr class="rp_foodgui" style="display:none">
-        <td>
-          <input type="checkbox" id="rp_enablefood">
-        </td>
-        <td>
-          <span class="translate">Food</span>: <select id="rp_food"></select>
-        </td>
-      </tr>
-      <tr>
-        <td><input type="checkbox" id="rp_enablenotes"></td>
-        <td>
-          <span class="translate">Notes contain</span>: <input type="text" id="rp_notes"></select>
-        </td>
-      </tr>
-      <tr>
+    <div class="no-print">
+      <ul id="tabnav" class="no-print"></ul>
+      <table>
         <tr>
-          <td><input type="checkbox" id="rp_enableeventtype"></td>
+          <td><input type="checkbox" id="rp_enabledate" checked></td>
           <td>
-            <span class="translate">Event Type</span>: <select id="rp_eventtype"></select>
+            <span class="translate">From</span>: <input type="date" id="rp_from">
+            <span class="translate">To</span>: <input type="date" id="rp_to">
+            <a href="#" days="1" class="presetdates"><span class="translate">Today</span></a>
+            <a href="#" days="2" class="presetdates"><span class="translate">Last 2 days</span></a>
+            <a href="#" days="3" class="presetdates"><span class="translate">Last 3 days</span></a>
+            <a href="#" days="7" class="presetdates"><span class="translate">Last week</span></a>
+            <a href="#" days="14" class="presetdates"><span class="translate">Last 2 weeks</span></a>
+            <a href="#" days="31" class="presetdates"><span class="translate">Last month</span></a>
+            <a href="#" days="90" class="presetdates"><span class="translate">Last 3 months</span></a>
+          </td>
+        </tr>
+        <tr class="rp_foodgui" style="display:none">
+          <td></td>
+          <td>
+            <span class="translate">Category</span>: <select id="rp_category"></select>
+            <span class="translate">Subcategory</span>: <select id="rp_subcategory"></select>
+            <span class="translate">Name</span>: <input type="text" id="rp_name"></select>
+          </td>
+        </tr>
+        <tr class="rp_foodgui" style="display:none">
+          <td>
+            <input type="checkbox" id="rp_enablefood">
+          </td>
+          <td>
+            <span class="translate">Food</span>: <select id="rp_food"></select>
           </td>
         </tr>
         <tr>
-          <td colspan="2">
-            <label><input type="checkbox" id="rp_mo" checked><span class="translate">Mo</span></label>
-            <label><input type="checkbox" id="rp_tu" checked><span class="translate">Tu</span></label>
-            <label><input type="checkbox" id="rp_we" checked><span class="translate">We</span></label>
-            <label><input type="checkbox" id="rp_th" checked><span class="translate">Th</span></label>
-            <label><input type="checkbox" id="rp_fr" checked><span class="translate">Fr</span></label>
-            <label><input type="checkbox" id="rp_sa" checked><span class="translate">Sa</span></label>
-            <label><input type="checkbox" id="rp_su" checked><span class="translate">Su</span></label>
+          <td><input type="checkbox" id="rp_enablenotes"></td>
+          <td>
+            <span class="translate">Notes contain</span>: <input type="text" id="rp_notes"></select>
           </td>
-          <td></td>
         </tr>
         <tr>
-          <td colspan="2">
-            <span class="translate">Target BG range bottom</span>:
-            <input type="number" size="3" step="0.1" id="rp_targetlow">
-            <span class="translate">top</span>:
-            <input type="number" size="3" step="0.1" id="rp_targethigh">
-          </td>
-          <td></td>
+          <tr>
+            <td><input type="checkbox" id="rp_enableeventtype"></td>
+            <td>
+              <span class="translate">Event Type</span>: <select id="rp_eventtype"></select>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2">
+              <label><input type="checkbox" id="rp_mo" checked><span class="translate">Mo</span></label>
+              <label><input type="checkbox" id="rp_tu" checked><span class="translate">Tu</span></label>
+              <label><input type="checkbox" id="rp_we" checked><span class="translate">We</span></label>
+              <label><input type="checkbox" id="rp_th" checked><span class="translate">Th</span></label>
+              <label><input type="checkbox" id="rp_fr" checked><span class="translate">Fr</span></label>
+              <label><input type="checkbox" id="rp_sa" checked><span class="translate">Sa</span></label>
+              <label><input type="checkbox" id="rp_su" checked><span class="translate">Su</span></label>
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td colspan="2">
+              <span class="translate">Target BG range bottom</span>:
+              <input type="number" size="3" step="0.1" id="rp_targetlow">
+              <span class="translate">top</span>:
+              <input type="number" size="3" step="0.1" id="rp_targethigh">
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td colspan="2">
+              <span class="translate">Order</span>:
+              <!-- many email GUIs place newest on top, less scrolling, adjusting my nightscout to do that too! -dboland -->
+              <input type="radio" name="rp_sorting" id="rp_oldestontop">
+              <label for="rp_oldestontop" class="translate">oldest on top</label>
+              &nbsp;
+              <input type="radio" name="rp_sorting" id="rp_newestontop" checked>
+              <label for="rp_newestontop" class="translate">newest on top</label>
+            </td>
+            <td></td>
+          </tr>
         </tr>
-        <tr>
-          <td colspan="2">
-            <span class="translate">Order</span>:
-            <!-- many email GUIs place newest on top, less scrolling, adjusting my nightscout to do that too! -dboland -->
-            <input type="radio" name="rp_sorting" id="rp_oldestontop">
-            <label for="rp_oldestontop" class="translate">oldest on top</label>
-            &nbsp;
-            <input type="radio" name="rp_sorting" id="rp_newestontop" checked>
-            <label for="rp_newestontop" class="translate">newest on top</label>
-          </td>
-          <td></td>
-        </tr>
-      </tr>
-    </table>
-    <button id="rp_show" class="translate">Show</button>
-    <div id="info"></div>
-    <hr>
+      </table>
+      <button id="rp_show" class="translate">Show</button>
+      <div id="info"></div>
+      <hr>
+    </div>
     <div id="pluginchartplaceholders"></div>
   </main>
 

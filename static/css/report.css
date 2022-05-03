@@ -4,109 +4,269 @@
 
 
 html, body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
+    height: 100%;
+    margin: 0;
+    padding: 0;
 }
+
 body {
-  font-family: 'Open Sans', Helvetica, Arial, sans-serif;
-  background: white;
-  color: black;
+    font-family: 'Open Sans', Helvetica, Arial, sans-serif;
+    background: white;
+    color: black;
+}
+
+.cob {
+    stroke: red;
+    opacity:0.5;
+    fill-opacity: 0.1;
+}
+
+.carbs {
+    fill: red;
+}
+
+.iob {
+    stroke: blue;
+    opacity:0.5;
+    fill-opacity: 0.1;
+}
+
+.insulin {
+    fill: blue;
+}
+
+.treatmentRect {
+    stroke: none;
+    opacity:0.5;
+}
+
+.treatmentText {
+    font-size: 12px;
+    font-weight: bold;
 }
 
 .centeraligned {
-  text-align:center;
+    text-align: center;
 }
 
 #explanation {
-  font: 11px verdana, arial, sans-serif;
+    font: 11px verdana, arial, sans-serif;
 }
 
 #tabnav {
-  text-align: left;
-  margin: 1em 0 0;
-  font: bold 11pt verdana, arial, sans-serif;
-  border-bottom: 1px solid #6c6;
-  list-style-type: none;
-  padding: 0 0 0 15px;
+    text-align: left;
+    margin: 1em 0 0;
+    font: bold 11pt verdana, arial, sans-serif;
+    border-bottom: 1px solid #6c6;
+    list-style-type: none;
+    padding: 0 0 0 15px;
 }
 
 #tabnav li {
-  display: inline-block;
-  padding: 10px 15px;
-  border-top: 1px solid #6c6;
-  border-right: 1px solid #6c6;
-  border-bottom: none;
-  background-color: #cfc;
-  color: #666;
-  margin: 0 0 -1px 0;
-  text-decoration: none;
+    display: inline-block;
+    padding: 10px 15px;
+    border-top: 1px solid #6c6;
+    border-right: 1px solid #6c6;
+    border-bottom: none;
+    background-color: #cfc;
+    color: #666;
+    margin: 0 0 -1px 0;
+    text-decoration: none;
 }
 
 #tabnav li:first-child {
-  border-left: 1px solid #6c6;
+    border-left: 1px solid #6c6;
 }
 
-#tabnav .selected  {
-  background: #fff;
-  border-bottom: 1px solid #fff;
+#tabnav .selected {
+    background: #fff;
+    border-bottom: 1px solid #fff;
 }
 
 #tabnav li:hover {
-  background: #9f9;
-  cursor:pointer;
+    background: #9f9;
+    cursor: pointer;
 }
 
 .tooltip {
-  top: 0;
-  left: 0;
-  color: #444;
-  position: absolute;
-  text-align: left;
-  padding: 4px;
-  font-size: 14px;
-  line-height: 15pt;
-  background: white;
-  border: 2px solid black;
-  border-radius: 8px;
-  float: right;
-  min-width: 150px;
-  max-width: 400px;
+    top: 0;
+    left: 0;
+    color: #444;
+    position: absolute;
+    text-align: left;
+    padding: 4px;
+    font-size: 14px;
+    line-height: 15pt;
+    background: white;
+    border: 2px solid black;
+    border-radius: 8px;
+    float: right;
+    min-width: 150px;
+    max-width: 400px;
 }
 
 main {
-  padding: 15px;
+    padding: 15px;
 }
 
 input[type=date],
 input[type=text],
 input[type=number],
 select {
-  font: 13px verdana, arial, sans-serif;
+    font: 13px verdana, arial, sans-serif;
 }
 
 label {
-  display: inline-flex;
-  justify-content: flex-start;
-  align-items: center;
-  margin-right: 7px;
+    display: inline-flex;
+    justify-content: flex-start;
+    align-items: center;
+    margin-right: 7px;
 }
 
 #rp_to {
-  margin-right: 10px;
+    margin-right: 10px;
 }
 
 .presetdates {
-  display: inline-block;
-  margin-right: 8px;
+    display: inline-block;
+    margin-right: 8px;
 }
 
 #rp_show {
-  background-color: #cfc;
-  border: 1px solid #6c6;
-  color: #666;
-  padding: 10px;
-  font-weight: bold;
-  font-size: 12pt;
-  text-transform: uppercase;
+    background-color: #cfc;
+    border: 1px solid #6c6;
+    color: #666;
+    padding: 10px;
+    font-weight: bold;
+    font-size: 12pt;
+    text-transform: uppercase;
+}
+
+.target-bg {
+    fill: #D6FFD6;
+    stroke: gray;
+}
+
+.measurement {
+    fill-opacity: 0.5;
+    r: 0.25em;
+    stroke-width: 0.01em;
+}
+
+.critical-value {
+    fill: red;
+    stroke: darkred;
+}
+
+.normal-value {
+    fill: darkgreen;
+    stroke: rgb(119, 255, 119);
+}
+
+.raw-value {
+    fill: gray;
+    stroke: rgb(41, 41, 41);
+}
+
+.transparent {
+    fill: transparent;
+}
+
+.bg-check {
+    fill: darkred;
+    stroke: red;
+}
+
+.prediction-value {
+    fill: purple;
+    stroke: none;
+}
+
+.other {
+    fill: darkgray;
+    stroke: darkred;
+}
+
+.high-line {
+    stroke: grey;
+    stroke-dasharray: 1px, 5px;
+}
+
+.mbg {
+    r: 0.15em !important;
+    stroke-width: 2;
+}
+
+.axis {
+    fill: none;
+    font: 10pt sans-serif;
+}
+
+.x.axis {
+    text-anchor: middle;
+}
+
+.y.axis {
+    text-anchor: end;
+}
+
+.chart {
+    background-color: whitesmoke;
+    display: inline-block;
+    padding: 15px;
+}
+
+.basal {
+    stroke: #0099ff;
+    stroke-width: 1;
+    fill: none;
+}
+
+.temp.basal {
+    stroke-dasharray: 3px, 3px;
+}
+
+.basal.area {
+    fill: #0099ff;
+    fill-opacity: 0.1;
+    stroke-width: 0 !important;
+}
+
+.temp.basal.area {
+    fill-opacity: 0.3 !important;
+    stroke-width: 1 !important;
+}
+
+.open-aps.treatment {
+    stroke-width: 1;
+    opacity: 0.2;
+    stroke: white;
+    fill: brown;
+}
+
+@media print {
+
+    @page {
+        size: A4 landscape;
+    }
+
+    .no-print, .no-print * {
+        display: none !important;
+    }
+
+    .single-page {
+        break-after: page;
+    }
+
+    .single-page:last-child {
+        break-after: auto;
+    }
+
+    .chart {
+        background-color: transparent;
+    }
+
+    .single-page table {
+        font-size: 10pt;
+    }
 }
