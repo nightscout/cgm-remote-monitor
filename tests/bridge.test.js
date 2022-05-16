@@ -51,7 +51,7 @@ describe('bridge', function ( ) {
     var opts = bridge.options(tooLowInterval);
     should.exist(opts);
 
-    opts.interval.should.equal(156000);
+    opts.interval.should.equal(150000);
   });
 
   it('set too high bridge interval option from env', function () {
@@ -64,7 +64,7 @@ describe('bridge', function ( ) {
     var opts = bridge.options(tooHighInterval);
     should.exist(opts);
 
-    opts.interval.should.equal(156000);
+    opts.interval.should.equal(150000);
   });
 
   it('set no bridge interval option from env', function () {
@@ -77,7 +77,7 @@ describe('bridge', function ( ) {
     var opts = bridge.options(noInterval);
     should.exist(opts);
 
-    opts.interval.should.equal(156000);
+    opts.interval.should.equal(150000);
   });
 
 });
