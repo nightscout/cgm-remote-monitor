@@ -1,0 +1,69 @@
+body {
+  text-align: center;
+  margin: 0 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: 'Open Sans', Arial, Helvetica, sans-serif;
+  color: grey;
+  background-color: black;
+}
+
+main {
+  height: 100vh;
+}
+
+#inner {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: -webkit-flex;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  flex-flow: wrap;
+  height: 100%;
+  width: 100%;
+}
+
+#inner div {
+  margin-right: 2vmin;
+  margin-left: 2vmin;
+  line-height: 1em;
+}
+
+#inner div img {
+  height: 100%;
+}
+
+#inner div.nl {
+  width: 100%;
+  margin: 0;
+  height: 3vmin;
+}
+
+#errorMessage {
+  font-size: 25em;
+}
+
+.stale {
+  text-decoration: line-through;
+}
+
+.close {
+  color: white;
+  font: 4em 'Open Sans';
+  position: absolute;
+  top: 0;
+  right: 20px;
+  text-decoration: none;
+  z-index: 10;
+}
+
+.close:after {
+  content: '\00D7';
+}
+
+.hidden {
+  opacity: 0;
+  transition: opacity 0.5s linear;
+}
