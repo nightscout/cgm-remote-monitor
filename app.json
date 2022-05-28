@@ -134,7 +134,7 @@
     },
     "SHOW_PLUGINS": {
       "description": "Default setting for whether or not these plugins are checked (active) by default, not merely enabled. Include plugins here as in the ENABLE line; space-separated and lower-case.",
-      "value": "careportal dbsize",
+      "value": "careportal dbsize basal iob",
       "required": false
     },
     "SHOW_RAWBG": {
