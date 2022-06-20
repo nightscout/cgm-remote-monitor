@@ -88,7 +88,7 @@ If you use Authentication Roles, you will need to add a token to the end of your
 1. In your Nightscout Admin Tools, add a new subject and give it the "readable" role.
     - If you **really** would like to be super specific, you could create a new role and set the permissions to `api:*:read`.
 1. After the new subject is created, copy the "Access Token" value for the new row in your subject table (**don't** copy the link, just copy the text).
-1. At the end of your Nighscout URL, add `?token={yourtoken}`, where `{yourtoken}` is the Access Token you just copied. Your new URL should look like `https://{yourdomain}/api/v1/googlehome?token={yourtoken}`.
+1. At the end of your Nighscout URL, add `?token={yourtoken}`, where `{yourtoken}` is the Access Token you just copied. Your new URL should look like `https://{yourdomain}/api/v1/alexa?token={yourtoken}`.
 
 ### Test your skill out with the test tool
 
