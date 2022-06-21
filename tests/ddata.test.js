@@ -6,7 +6,7 @@ var should = require('should');
 
 describe('ddata', function ( ) {
   // var sandbox = require('../lib/sandbox')();
-  // var env = require('../env')();
+  // var env = require('../lib/server/env')();
   var ctx = {};
   ctx.ddata = require('../lib/data/ddata')();
 
@@ -38,19 +38,6 @@ describe('ddata', function ( ) {
     should.exist(ddata.profiles);
     should.exist(ddata.devicestatus);
     should.exist(ddata.lastUpdated);
-    done( );
-  });
-
-  it('has #split( )', function (done) {
-    var date = new Date( );
-    var time = date.getTime( );
-    var cutoff = 1000 * 60 * 5;
-    var max = 1000 * 60 * 60 * 24 * 2;
-    var pieces = ctx.ddata.splitRecent(time, cutoff, max);
-    should.exist(pieces);
-    should.exist(pieces.first);
-    should.exist(pieces.rest);
-
     done( );
   });
 
