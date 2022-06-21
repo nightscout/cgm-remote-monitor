@@ -44,7 +44,7 @@ jobs:
     name: Publish dev branch to Docker Hub
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/dev'
+    if: github.ref == 'refs/heads/dev' && github.repository_owner == 'nightscout'
     env:
       DOCKER_IMAGE: nightscout/cgm-remote-monitor
     steps:
@@ -68,7 +68,7 @@ jobs:
     name: Publish master branch to Docker Hub
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master' && github.repository_owner == 'nightscout'
     env:
       DOCKER_IMAGE: nightscout/cgm-remote-monitor
     steps:

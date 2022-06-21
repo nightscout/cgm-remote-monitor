@@ -4,7 +4,7 @@ require('should');
 var levels = require('../lib/levels');
 
 describe('cage', function ( ) {
-  var env = require('../env')();
+  var env = require('../lib/server/env')();
   var ctx = {};
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
