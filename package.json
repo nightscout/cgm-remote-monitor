@@ -95,6 +95,7 @@
     "expose-loader": "^2.0.0",
     "express": "^4.17.1",
     "express-minify": "^1.0.0",
+    "express-slow-down": "^1.4.0",
     "fast-password-entropy": "^1.1.1",
     "file-loader": "^6.2.0",
     "flot": "^0.8.3",
