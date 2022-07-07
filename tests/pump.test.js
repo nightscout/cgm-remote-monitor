@@ -3,16 +3,20 @@
 var _ = require('lodash');
 var should = require('should');
 var moment = require('moment');
+const fs = require('fs');
+const language = require('../lib/language')(fs);
 
-var ctx = {
-  language: require('../lib/language')()
+var top_ctx = {
+  language: language
+  , settings: require('../lib/settings')()
 };
-ctx.language.set('en');
-var env = require('../env')();
-var pump = require('../lib/plugins/pump')(ctx);
-var sandbox = require('../lib/sandbox')();
+top_ctx.language.set('en');
+var env = require('../lib/server/env')();
 var levels = require('../lib/levels');
-ctx.levels = levels;
+var profile = require('../lib/profilefunctions')();
+top_ctx.levels = levels;
+var pump = require('../lib/plugins/pump')(top_ctx);
+var sandbox = require('../lib/sandbox')(top_ctx);
 
 var statuses = [{
   created_at: '2015-12-05T17:35:00.000Z'
@@ -48,9 +52,55 @@ var statuses = [{
   }
 }];
 
+var profileData =
+{
+  'timezone': moment.tz.guess()
+};
+
+var statuses2 = [{
+  created_at: '2015-12-05T17:35:00.000Z'
+  , device: 'openaps://farawaypi'
+  , pump: {
+    battery: {
+      status: 'normal',
+      voltage: 1.52
+    },
+    status: {
+      status: 'normal',
+      bolusing: false,
+      suspended: false
+    },
+    reservoir: 86.4,
+    reservoir_display_override: '50+U',
+    clock: '2015-12-05T17:32:00.000Z'
+  }
+}, {
+  created_at: '2015-12-05T19:05:00.000Z'
+  , device: 'openaps://abusypi'
+  , pump: {
+    battery: {
+      status: 'normal',
+      voltage: 1.52
+    },
+    status: {
+      status: 'normal',
+      bolusing: false,
+      suspended: false
+    },
+    reservoir: 86.4,
+    reservoir_display_override: '50+U',
+    clock: '2015-12-05T19:02:00.000Z'
+  }
+}];
+
+
 var now = moment(statuses[1].created_at);
 
 _.forEach(statuses, function updateMills (status) {
+  status.mills = moment(status.created_at).valueOf();
+});
+
+_.forEach(statuses2, function updateMills (status) {
   status.mills = moment(status.created_at).valueOf();
 });
 
@@ -68,7 +118,8 @@ describe('pump', function ( ) {
           done();
         }
       }
-      , language: require('../lib/language')()
+      , language: language
+      , levels: levels
     };
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
@@ -88,7 +139,36 @@ describe('pump', function ( ) {
     };
 
     pump.setProperties(sbx);
+    pump.updateVisualisation(sbx);
 
+  });
+
+  it('use reservoir_display_override when available', function (done) {
+    var ctx = {
+      settings: {
+        units: 'mmol'
+      }
+      , pluginBase: {
+        updatePillText: function mockedUpdatePillText(plugin, options) {
+          options.label.should.equal('Pump');
+          options.value.should.equal('50+U');
+          done();
+        }
+      }
+      , language: language
+      , levels: levels
+    };
+
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses2});
+
+    var unmockedOfferProperty = sbx.offerProperty;
+    sbx.offerProperty = function mockedOfferProperty (name, setter) {
+      name.should.equal('pump');
+      sbx.offerProperty = unmockedOfferProperty;
+      unmockedOfferProperty(name, setter);
+    };
+
+    pump.setProperties(sbx);
     pump.updateVisualisation(sbx);
 
   });
@@ -98,8 +178,9 @@ describe('pump', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
     };
 
     ctx.notifications.initRequests();
@@ -107,7 +188,7 @@ describe('pump', function ( ) {
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
       devicestatus: statuses
     });
-    sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
+    sbx.extendedSettings = { 'enableAlerts': true };
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
@@ -122,8 +203,9 @@ describe('pump', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
     };
 
     ctx.notifications.initRequests();
@@ -134,7 +216,7 @@ describe('pump', function ( ) {
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
       devicestatus: lowResStatuses
     });
-    sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
+    sbx.extendedSettings = { 'enableAlerts': true };
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
@@ -150,8 +232,9 @@ describe('pump', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
     };
 
     ctx.notifications.initRequests();
@@ -162,7 +245,7 @@ describe('pump', function ( ) {
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
       devicestatus: lowResStatuses
     });
-    sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
+    sbx.extendedSettings = { 'enableAlerts': true };
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
@@ -179,8 +262,9 @@ describe('pump', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
     };
 
     ctx.notifications.initRequests();
@@ -191,7 +275,7 @@ describe('pump', function ( ) {
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
       devicestatus: lowBattStatuses
     });
-    sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
+    sbx.extendedSettings = { 'enableAlerts': true };
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
@@ -207,8 +291,9 @@ describe('pump', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
     };
 
     ctx.notifications.initRequests();
@@ -219,7 +304,7 @@ describe('pump', function ( ) {
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
       devicestatus: lowBattStatuses
     });
-    sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
+    sbx.extendedSettings = { 'enableAlerts': true };
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
@@ -230,13 +315,58 @@ describe('pump', function ( ) {
     done();
   });
 
+  it('not generate a battery alarm during night when PUMP_WARN_BATT_QUIET_NIGHT is true', function (done) {
+    var ctx = {
+      settings: {
+        units: 'mg/dl'
+        , dayStart: 24 // Set to 24 so it always evaluates true in test
+        , dayEnd: 21.0
+      }
+      , pluginBase: {
+        updatePillText: function mockedUpdatePillText(plugin, options) {
+          options.label.should.equal('Pump');
+          options.value.should.equal('86.4U');
+          done();
+        }
+      }
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: require('../lib/language')()
+      , levels: levels
+    };
+
+    ctx.notifications.initRequests();
+
+    var lowBattStatuses = _.cloneDeep(statuses);
+    lowBattStatuses[1].pump.battery.voltage = 1.00;
+
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {
+      devicestatus: lowBattStatuses
+      , profiles: [profileData]
+    });
+    profile.loadData(_.cloneDeep([profileData]));
+    sbx.data.profile = profile;
+
+    sbx.extendedSettings = {
+      enableAlerts: true
+      , warnBattQuietNight: true
+    };
+    pump.setProperties(sbx);
+    pump.checkNotifications(sbx);
+
+    var highest = ctx.notifications.findHighestAlarm('Pump');
+    should.not.exist(highest);
+
+    done();
+  });
+
   it('not generate an alert for a stale pump data, when there is an offline marker', function (done) {
     var ctx = {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
     };
 
     ctx.notifications.initRequests();
@@ -245,7 +375,7 @@ describe('pump', function ( ) {
       devicestatus: statuses
       , treatments: [{eventType: 'OpenAPS Offline', mills: now.valueOf(), duration: 60}]
     });
-    sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
+    sbx.extendedSettings = { 'enableAlerts': true };
     pump.setProperties(sbx);
     pump.checkNotifications(sbx);
 
@@ -254,28 +384,42 @@ describe('pump', function ( ) {
     done();
   });
 
-  it('should handle alexa requests', function (done) {
+  it('should handle virtAsst requests', function (done) {
     var ctx = {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
     };
+    
     ctx.language.set('en');
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
     pump.setProperties(sbx);
 
-    pump.alexa.intentHandlers.length.should.equal(2);
+    pump.virtAsst.intentHandlers.length.should.equal(4);
 
-    pump.alexa.intentHandlers[0].intentHandler(function next(title, response) {
-      title.should.equal('Remaining insulin');
+    pump.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
+      title.should.equal('Insulin Remaining');
       response.should.equal('You have 86.4 units remaining');
 
-      pump.alexa.intentHandlers[1].intentHandler(function next(title, response) {
-        title.should.equal('Pump battery');
+      pump.virtAsst.intentHandlers[1].intentHandler(function next(title, response) {
+        title.should.equal('Pump Battery');
         response.should.equal('Your pump battery is at 1.52 volts');
-        done();
+        
+        pump.virtAsst.intentHandlers[2].intentHandler(function next(title, response) {
+          title.should.equal('Insulin Remaining');
+          response.should.equal('You have 86.4 units remaining');
+    
+          pump.virtAsst.intentHandlers[3].intentHandler(function next(title, response) {
+            title.should.equal('Pump Battery');
+            response.should.equal('Your pump battery is at 1.52 volts');
+            done();
+          }, [], sbx);
+          
+        }, [], sbx);
+          
       }, [], sbx);
 
     }, [], sbx);
