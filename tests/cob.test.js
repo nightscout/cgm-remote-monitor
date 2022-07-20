@@ -14,7 +14,8 @@ describe('COB', function ( ) {
   var cob = require('../lib/plugins/cob')(ctx);
   
   var profileData = {
-    sens: 95
+    startDate: '2015-06-21'
+    , sens: 95
     , carbratio: 18
     , carbs_hr: 30
   };
