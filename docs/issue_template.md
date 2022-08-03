@@ -9,3 +9,5 @@ Does this happen every time you launch Nightscout, or sometimes?
 Steps how to reproduce (if you can’t reproduce the issue, please don’t report the issue / if we can't reproduce the bug, we can't fix)
 
 Please include 1 or more screenshots of the issue appearing, ideally with an annotation on what's wrong
+
+
