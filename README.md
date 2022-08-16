@@ -150,22 +150,22 @@ you're welcome to issue a documentation pull request with instructions on how to
 ## Recommended minimum browser versions for using Nightscout:
 
 Our [browserslist](https://github.com/browserslist/browserslist) policy is documented in `.browserlistrc`.   
-
+We currently support approximately [91%](https://browsersl.ist/?q=%3E+0.25%25%2C+ios_saf+9.3%2C+ios_saf+10.3%2C+ios_saf+13.7%2C+ios_saf+14.8%2C+not+dead%2C+not+and_uc+12.12%2C+not+ie+11%0A) of all browsers globally used. These include:
 
 - Android Chrome: 104 or later (`and_chr`)
-- Google Chrome: 102 or later (`chrome`)
+- Google Chrome: 101 or later (`chrome`)
 - Microsoft Edge: 103 or later (`edge`)
 - Mozilla Firefox: 102 or later (`firefox`)
 - Apple Safari on iOS: 15.5 or later (`ios_saf`)
-- Apple Safari on iOS also works for iOS 10.3.4, 12.2-12.5, 13.4-13.7, 14.x, 15.2-15.4 but is not recommended because it's not maintained by Apple (`ios_saf`)
 - Opera Mini on Android: 63 or later (`op_mini`)
 - Opera: 88 or later (`opera`)
 - Apple Safari for macOS 10.15 Catalina or later: : 15.5 or later (`safari`)
-- Samsung Internet on Android: 12 or later (`samsung`)
+- Samsung Internet on Android: 17.0 or later (`samsung`)
 - Internet Explorer 11 : not supported
 
-Older versions or other browsers might work, but are untested and unsupported.
-Some features may not work with devices/browsers on the older end of these requirements.
+Older versions or other browsers might work, but are untested and unsupported. We'll try to to keep Nightscout compatible with older iPads (e.g. Safari on iOS 10.3.4), but note that those devices are not supported by Apple anymore and have known security issues. Debugging these old devices gets harder due to Apple not supporting debugging the old devices on Macs that have been updated. Some features may not work with devices/browsers on the older end of these requirements.
+
+
 
 ## Installation software requirements:
 
