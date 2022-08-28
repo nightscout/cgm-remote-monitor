@@ -149,7 +149,7 @@ module.exports = {
     clock: clockEntry
   },
   output: {
-    path: path.resolve(projectRoot, './tmp/public'),
+    path: path.resolve(projectRoot, './node_modules/_ns_cache/public'),
     publicPath,
     filename: 'js/bundle.[name].js',
     sourceMapFilename: 'js/bundle.[name].js.map',
