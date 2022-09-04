@@ -36,9 +36,8 @@ There are 2 types of handlers that you can supply:
 
 A plugin can expose multiple intent handlers (e.g. useful when it can supply multiple kinds of metrics). Each intent handler should be structured as follows:
 + `intent` - This is the intent this handler is built for. Right now, the templates used by both Alexa and Google Home use only the `"MetricNow"` intent (used for getting the present value of the requested metric)
-+ `metrics` - An array of metric name(s) the handler will supply. e.g. "What is my `metric`" - iob, bg, cob, etc. Make sure to add the metric name and its synonyms to the list of metrics used by the virtual assistant(s).
-    - **IMPORTANT NOTE:** There is no protection against overlapping metric names, so PLEASE make sure your metric name is unique! 
-    - Note: Although this value *is* an array, you really should only supply one (unique) value, and then add aliases or synonyms to that value in the list of metrics for the virtual assistant. We keep this value as an array for backwards compatibility.
++ `metrics` - An array of metric name(s) the handler will supply. e.g. "What is my `metric`" - iob, bg, cob, etc. Although this value *is* an array, you really should only supply one (unique) value, and then add aliases or synonyms to that value in the list of metrics for the virtual assistant. We keep this value as an array for backwards compatibility.
+    - **IMPORTANT NOTE:** There is no protection against overlapping metric names, so PLEASE make sure your metric name is unique!
 + `intenthandler` - This is a callback function that receives 3 arguments:
     - `callback` Call this at the end of your function. It requires 2 arguments:
         - `title` - Title of the handler. This is the value that will be displayed on the Alexa card (for devices with a screen). The Google Home response doesn't currently display a card, so it doesn't use this value.
