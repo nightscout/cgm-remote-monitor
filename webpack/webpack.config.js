@@ -106,7 +106,7 @@ const rules = [
     loader: 'file-loader',
     options: {
       outputPath: 'images'
-      //the images will be emmited to public/assets/images/ folder
+      //the images will be emitted to public/assets/images/ folder
       //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png);
     },
     exclude: /node_modules/
