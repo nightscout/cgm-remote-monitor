@@ -1,6 +1,6 @@
 {
   "name": "nightscout",
-  "version": "14.2.5",
+  "version": "14.2.6",
   "description": "Nightscout acts as a web-based CGM (Continuous Glucose Montinor) to allow multiple caregivers to remotely view a patients glucose data in realtime.",
   "license": "AGPL-3.0",
   "author": "Nightscout Team",
@@ -27,9 +27,9 @@
   },
   "scripts": {
     "start": "node lib/server/server.js",
-    "test": "env-cmd -f ./my.test.env mocha --require ./tests/hooks.js -exit ./tests/*.test.js",
-    "test-single": "env-cmd -f ./my.test.env mocha --require ./tests/hooks.js --exit ./tests/$TEST.test.js",
-    "test-ci": "env-cmd -f ./tests/ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --require ./tests/hooks.js --exit ./tests/*.test.js",
+    "test": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js -exit ./tests/*.test.js",
+    "test-single": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit ./tests/$TEST.test.js",
+    "test-ci": "env-cmd -f ./tests/ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --timeout 5000 --require ./tests/hooks.js --exit ./tests/*.test.js",
     "env": "env",
     "postinstall": "webpack --mode production --config webpack/webpack.config.js && npm run-script generate-keys",
     "bundle": "webpack --mode production --config webpack/webpack.config.js && npm run-script generate-keys",
@@ -65,8 +65,7 @@
     }
   },
   "engines": {
-    "node": "^10.22.0 || ^12.18.4",
-    "npm": "^6.14.6"
+    "node": "^16.x || ^14.x || ^12.x"
   },
   "dependencies": {
     "@babel/core": "^7.11.1",
@@ -109,7 +108,7 @@
     "lodash": "^4.17.20",
     "memory-cache": "^0.2.0",
     "mime": "^2.4.6",
-    "minimed-connect-to-nightscout": "^1.5.2",
+    "minimed-connect-to-nightscout": "^1.5.3",
     "moment": "^2.27.0",
     "moment-locales-webpack-plugin": "^1.2.0",
     "moment-timezone": "^0.5.31",
@@ -125,7 +124,7 @@
     "random-token": "0.0.8",
     "request": "^2.88.2",
     "semver": "^6.3.0",
-    "share2nightscout-bridge": "^0.2.8",
+    "share2nightscout-bridge": "^0.2.9",
     "shiro-trie": "^0.4.9",
     "simple-statistics": "^0.7.0",
     "socket.io": "~2.4.0",
