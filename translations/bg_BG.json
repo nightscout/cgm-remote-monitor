@@ -223,6 +223,7 @@
     "View all treatments": "Преглед на всички събития",
     "Enable Alarms": "Активни аларми",
     "Pump Battery Change": "Смяна на батерия на помпата",
+    "Pump Battery Age": "Pump Battery Age",
     "Pump Battery Low Alarm": "Аларма за слаба батерия на помпата",
     "Pump Battery change overdue!": "Смяната на батерията на помпата - наложителна",
     "When enabled an alarm may sound.": "Когато е активирано, алармата ще има звук",
