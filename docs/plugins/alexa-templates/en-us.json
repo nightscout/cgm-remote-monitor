@@ -68,6 +68,14 @@
                 {
                     "name": "AMAZON.StopIntent",
                     "samples": []
+                },
+                {
+                    "name": "AMAZON.CancelIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.HelpIntent",
+                    "samples": []
                 }
             ],
             "types": [
@@ -232,6 +240,16 @@
                         {
                             "name": {
                                 "value": "cgm mode"
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "db size",
+                                "synonyms": [
+                                    "database size",
+                                    "data size",
+                                    "file size"
+                                ]
                             }
                         }
                     ]
