@@ -1,0 +1,13 @@
+name: Fly Deploy
+on: push
+env:
+  FLY_API_TOKEN: ${{ secrets.jQGWTgwdN5kH6wzGfHI9BMINABU6Ee4Xgk3iNrtI_KI }}
+jobs:
+  deploy:
+      name: Deploy app
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v2
+        - uses: superfly/flyctl-actions/setup-flyctl@master
+        - run: flyctl deploy --remote-only
+
