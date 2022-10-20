@@ -18,7 +18,7 @@ kill_timeout = 5
 
 [[services]]
   http_checks = []
-  internal_port = 1137
+  internal_port = 1337
   processes = ["app"]
   protocol = "tcp"
   script_checks = []
