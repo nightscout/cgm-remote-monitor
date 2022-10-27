@@ -138,8 +138,9 @@ anymore in the free tier. If you're hosting in Azure and looking to update your 
 [switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku)
 as you're likely to hit issues in the process of updating the site.
 
-- [Nightscout Setup with Heroku](https://nightscout.github.io/nightscout/new_user/) (recommended)
-
+- [Nightscout Setup with Heroku](https://nightscout.github.io/nightscout/new_user/) (not longer recommended because Heroku ends the free tier)
+- [Nightscout Setup with OracleVM]([https://github.com/tremor/nightscout-at-oraclevm/blob/main/README.md](https://github.com/tremor/nightscout-at-oraclevm/blob/main/README.md) (run your own VM and install Nightscout on it, NO automatic way!)
+- 
 While you can install Nightscout on a virtual server or a Raspberry Pi, we do not recommend this unless you have at least some
 experience hosting Node applications and development using the toolchain in use with Nightscout. Heroku automates all of the
 hosting for you and even many of the dvelopers run their production sites in Heroku due to convenience.
