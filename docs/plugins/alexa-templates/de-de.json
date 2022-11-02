@@ -7,14 +7,14 @@
                     "name": "NSStatus",
                     "slots": [],
                     "samples": [
-                        "How am I doing"
+                        "Wie geht es mir?"
                     ]
                 },
                 {
                     "name": "LastLoop",
                     "slots": [],
                     "samples": [
-                        "When was my last loop"
+                        "Wann war mein letzter Loop?"
                     ]
                 },
                 {
@@ -24,16 +24,16 @@
                             "name": "metric",
                             "type": "LIST_OF_METRICS",
                             "samples": [
-                                "what {pwd} {metric} is",
-                                "what my {metric} is",
-                                "how {pwd} {metric} is",
-                                "how my {metric} is",
-                                "how much {metric} does {pwd} have",
-                                "how much {metric} I have",
-                                "how much {metric}",
+                                "was {pwd} {metric} ist",
+                                "was mein  {metric} ist",
+                                "how {pwd} {metric} ist",
+                                "wie mein {metric} ist",
+                                "wieviel {metric} {pwd} hat",
+                                "wieviel {metric} ich habe",
+                                "wieviel {metric}",
                                 "{pwd} {metric}",
                                 "{metric}",
-                                "my {metric}"
+                                "mein {metric}"
                             ]
                         },
                         {
@@ -42,23 +42,21 @@
                         }
                     ],
                     "samples": [
-                        "how much {metric} does {pwd} have left",
-                        "what's {metric}",
-                        "what's my {metric}",
-                        "how much {metric} is left",
-                        "what's {pwd} {metric}",
-                        "how much {metric}",
-                        "how is {metric}",
-                        "how is my {metric}",
-                        "how is {pwd} {metric}",
-                        "how my {metric} is",
-                        "what is {metric}",
-                        "how much {metric} do I have",
-                        "how much {metric} does {pwd} have",
-                        "how much {metric} I have",
-                        "what is my {metric}",
-                        "what my {metric} is",
-                        "what is {pwd} {metric}"
+                        "wieviel {metric} hat {pwd} noch übrig",
+                        "was ist mein  {metric}",
+                        "wieviel  {metric} ist noch übrig",
+                        "wie ist {pwd} {metric}",
+                        "wieviel {metric}",
+                        "wie ist {metric}",
+                        "wie ist mein {metric}",
+                        "was ist {pwd} {metric}",
+                        "was mein {metric} ist",
+                        "was ist {metric}",
+                        "wieviel  {metric} ich habe",
+                        "wieviel {metric} {pwd} hat",
+                        "wieviel {metric} ich habe",
+                        "was mein {metric} ist ",
+                        "was ist {pwd} {metric}"
                     ]
                 },
                 {
@@ -86,9 +84,9 @@
                             "name": {
                                 "value": "delta",
                                 "synonyms": [
-                                    "blood glucose delta",
-                                    "blood sugar delta",
-                                    "bg delta"
+                                    "Glukose delta",
+                                    "Blutzucker delta",
+                                    "Zucker delta"
                                 ]
                             }
                         },
@@ -96,8 +94,8 @@
                             "name": {
                                 "value": "uploader battery",
                                 "synonyms": [
-                                    "uploader battery remaining",
-                                    "uploader battery power"
+                                    "verbleibende Batterieladung vom uploader",
+                                    "verbleibende Batterieleistung vom uploader"
                                 ]
                             }
                         },
@@ -105,12 +103,11 @@
                             "name": {
                                 "value": "pump reservoir",
                                 "synonyms": [
-                                    "remaining insulin",
-                                    "insulin remaining",
-                                    "insulin is left",
-                                    "insulin left",
-                                    "insulin in my pump",
-                                    "insulin"
+                                    "verbleibendes Insulin",
+                                    "Insulin verbleibend",
+                                    "Insulin übrig",
+                                    "Insulin in der Pumpe",
+                                    "Insulin"
                                 ]
                             }
                         },
@@ -118,8 +115,8 @@
                             "name": {
                                 "value": "pump battery",
                                 "synonyms": [
-                                    "pump battery remaining",
-                                    "pump battery power"
+                                    "verbleibende Batterieladung der Pumpe",
+                                    "verbleibende Pumpenbatterieleistung"
                                 ]
                             }
                         },
@@ -127,9 +124,9 @@
                             "name": {
                                 "value": "bg",
                                 "synonyms": [
-                                    "number",
-                                    "blood sugar",
-                                    "blood glucose"
+                                    "Zucker",
+                                    "Blutzucker",
+                                    "Glukose"
                                 ]
                             }
                         },
@@ -137,7 +134,10 @@
                             "name": {
                                 "value": "iob",
                                 "synonyms": [
-                                    "insulin on board"
+                                    "insulin on board",
+                                    "iob",
+                                    "Inuslin im Körper",
+                                    "verbleibendes Insulin"
                                 ]
                             }
                         },
@@ -145,9 +145,8 @@
                             "name": {
                                 "value": "basal",
                                 "synonyms": [
-                                    "current basil",
-                                    "basil",
-                                    "current basal"
+                                    "akutelle Basalrate",
+                                    "Basal",
                                 ]
                             }
                         },
@@ -157,8 +156,8 @@
                                 "synonyms": [
                                     "carbs",
                                     "carbs on board",
-                                    "carboydrates",
-                                    "carbohydrates on board"
+                                    "Kohenhydrate",
+                                    "Kohlenhydrate on board"
                                 ]
                             }
                         },
@@ -190,9 +189,8 @@
                             "name": {
                                 "value": "cgm tx age",
                                 "synonyms": [
-                                    "tx age",
-                                    "transmitter age",
-                                    "cgm transmitter age"
+                                    "transmitter Alter",
+                                    "cgm transmitter Alter"
                                 ]
                             }
                         },
@@ -201,7 +199,7 @@
                                 "value": "cgm tx status",
                                 "synonyms": [
                                     "tx status",
-                                    "transmitter status",
+                                    "Transmitter status",
                                     "cgm transmitter status"
                                 ]
                             }
@@ -210,17 +208,12 @@
                             "name": {
                                 "value": "cgm battery",
                                 "synonyms": [
-                                    "cgm battery level",
-                                    "cgm battery levels",
-                                    "cgm batteries",
-                                    "cgm transmitter battery",
-                                    "cgm transmitter battery level",
-                                    "cgm transmitter battery levels",
-                                    "cgm transmitter batteries",
-                                    "transmitter battery",
-                                    "transmitter battery level",
-                                    "transmitter battery levels",
-                                    "transmitter batteries"
+                                    "cgm Batterie Status",
+                                    "cgm Batterie",
+                                    "cgm transmitter Batterie",
+                                    "cgm transmitter Batterie Status",
+                                    "transmitter Batterie",
+                                    "transmitter Batterie Status",
                                 ]
                             }
                         },
@@ -246,9 +239,8 @@
                             "name": {
                                 "value": "db size",
                                 "synonyms": [
-                                    "database size",
-                                    "data size",
-                                    "file size"
+                                    "Datenbankgröße",
+                                    "Dateigröße"
                                 ]
                             }
                         }
@@ -290,11 +282,11 @@
                 "variations": [
                     {
                         "type": "PlainText",
-                        "value": "What metric are you looking for?"
+                        "value": "Welchen Wert möchtest Du gerne wissen?"
                     },
                     {
                         "type": "PlainText",
-                        "value": "What value are you looking for?"
+                        "value": "Welche Wert suchst Du?"
                     },
                     {
                         "type": "PlainText",
