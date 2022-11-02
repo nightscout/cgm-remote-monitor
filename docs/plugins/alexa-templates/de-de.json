@@ -7,14 +7,14 @@
                     "name": "NSStatus",
                     "slots": [],
                     "samples": [
-                        "Wie geht es mir?"
+                        "Wie geht es mir"
                     ]
                 },
                 {
                     "name": "LastLoop",
                     "slots": [],
                     "samples": [
-                        "Wann war mein letzter Loop?"
+                        "Wann war mein letzter Loop"
                     ]
                 },
                 {
@@ -286,15 +286,7 @@
                     },
                     {
                         "type": "PlainText",
-                        "value": "Welche Wert suchst Du?"
-                    },
-                    {
-                        "type": "PlainText",
-                        "value": "What metric do you want to know?"
-                    },
-                    {
-                        "type": "PlainText",
-                        "value": "What value do you want to know?"
+                        "value": "Welchen Wert suchst Du?"
                     }
                 ]
             }
