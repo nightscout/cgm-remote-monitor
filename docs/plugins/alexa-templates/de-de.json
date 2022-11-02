@@ -103,11 +103,8 @@
                             "name": {
                                 "value": "pump reservoir",
                                 "synonyms": [
-                                    "verbleibendes Insulin",
-                                    "Insulin verbleibend",
-                                    "Insulin übrig",
                                     "Insulin in der Pumpe",
-                                    "Insulin"
+                                    "Insulin im Reservoir"
                                 ]
                             }
                         },
@@ -138,6 +135,7 @@
                                     "iob",
                                     "Insulin im Körper",
                                     "verbleibendes Insulin",
+                                    "wirkendes Insulin",
                                     "aktuelles Restinsulin"
                                 ]
                             }
