@@ -9,15 +9,17 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 [![Codacy Badge][codacy-img]][codacy-url]
 [![Discord chat][discord-img]][discord-url]
 
-[![Deploy to Heroku][heroku-img]][heroku-url] [![Update your site][update-img]][update-fork]
+[![Deploy to Heroku][heroku-img]][heroku-url]
+[![Deploy to Azure][azure-img]][azure-url]
+[![Update your site][update-img]][update-fork]
 
 This acts as a web-based CGM (Continuous Glucose Monitor) to allow
 multiple caregivers to remotely view a patient's glucose data in
-real time.  The server reads a MongoDB which is intended to be data
+real time. The server reads a MongoDB which is intended to be data
 from a physical CGM, where it sends new SGV (sensor glucose values) as
-the data becomes available.  The data is then displayed graphically
+the data becomes available. The data is then displayed graphically
 and blood glucose values are predicted 0.5 hours ahead using an
-autoregressive second order model.  Alarms are generated for high and
+autoregressive second order model. Alarms are generated for high and
 low values, which can be cleared by any watcher of the data.
 
 # Looking for documentation?
@@ -48,17 +50,23 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 [codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
 [discord-img]: https://img.shields.io/discord/629952586895851530?label=discord%20chat
 [discord-url]: https://discord.gg/rTKhrqz
+[azure-img]: https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazure.svg?sanitize=true
+[azure-url]: https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fnightscout%2Fcgm-remote-monitor%2Fmaster%2Fazure%2fazuredeploy.json/uiFormDefinitionUri/https%3A%2F%2Fraw.githubusercontent.com%2Fnightscout%2Fcgm-remote-monitor%2Fmaster%2Fazure%2fcreateUiDefinitionForm.json
 [heroku-img]: https://www.herokucdn.com/deploy/button.png
 [heroku-url]: https://heroku.com/deploy?template=https://github.com/nightscout/cgm-remote-monitor
 [update-img]: docs/update.png
 [update-fork]: http://nightscout.github.io/pages/update-fork/
 [original]: https://github.com/rnpenguin/cgm-remote-monitor
 
-
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**
 
+- [Nightscout Web Monitor (a.k.a. cgm-remote-monitor)](#nightscout-web-monitor-aka-cgm-remote-monitor)
+- [Looking for documentation?](#looking-for-documentation)
+  - [End user?](#end-user)
+  - [Developer?](#developer)
+  - [#WeAreNotWaiting and [this](https://vimeo.com/109767890) is why.](#wearenotwaiting-and-this-is-why)
 - [Install](#install)
   - [Supported configurations:](#supported-configurations)
   - [Recommended minimum browser versions for using Nightscout:](#recommended-minimum-browser-versions-for-using-nightscout)
@@ -79,6 +87,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
     - [Predefined values for your browser settings (optional)](#predefined-values-for-your-browser-settings-optional)
     - [Predefined values for your server settings (optional)](#predefined-values-for-your-server-settings-optional)
     - [Views](#views)
+    - [Split View](#split-view)
     - [Plugins](#plugins)
       - [Default Plugins](#default-plugins)
         - [`delta` (BG Delta)](#delta-bg-delta)
@@ -116,6 +125,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
         - [`googlehome` (Google Home/DialogFLow)](#googlehome-google-homedialogflow)
         - [`speech` (Speech)](#speech-speech)
         - [`cors` (CORS)](#cors-cors)
+        - [`dbsize` (Database Size)](#dbsize-database-size)
       - [Extended Settings](#extended-settings)
       - [Pushover](#pushover)
       - [IFTTT Maker](#ifttt-maker)
@@ -132,17 +142,17 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Supported configurations:
 
+If you're hosting in Heroku and looking to move to Azure, for now we suggest that you wait until we have more uses running on Azure and letting us know if performance is good.
+
 If you plan to use Nightscout, we recommend using [Heroku](https://nightscout.github.io/nightscout/new_user/) as this is free and easy to use.
-We used to recommend hostig at Azure, but the resource needs of Nightscout have grown over the years and Azure won't comfortably run Nightscout
-anymore in the free tier. If you're hosting in Azure and looking to update your site, we recommend you
-[switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku)
-as you're likely to hit issues in the process of updating the site.
+
+We have also added a new "Deploy to Azure" button above in case you would prefer to run Nightscout on Microsoft Azure.
 
 - [Nightscout Setup with Heroku](https://nightscout.github.io/nightscout/new_user/) (recommended)
 
 While you can install Nightscout on a virtual server or a Raspberry Pi, we do not recommend this unless you have at least some
 experience hosting Node applications and development using the toolchain in use with Nightscout. Heroku automates all of the
-hosting for you and even many of the dvelopers run their production sites in Heroku due to convenience.
+hosting for you and even many of the developers run their production sites in Heroku due to convenience.
 
 If you're a hosting provider and want to provide our users additional free hosting options,
 you're welcome to issue a documentation pull request with instructions on how to setup Nightscout on your system.
@@ -182,12 +192,14 @@ $ npm install
 
 ## Installation notes for Microsoft Azure, Windows:
 
-- If deploying the software to Microsoft Azure, you must set ** in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Additionally, if using the Azure free hosting tier, the installation might fail due to resource constraints imposed by Azure on the free hosting. Please set the following settings to the environment in Azure:
-```
+- If deploying the software to Microsoft Azure without using the [Deploy to Azure] button above, you must set the following in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Additionally, if using the Azure free hosting tier, the installation might fail due to resource constraints imposed by Azure on the free hosting. Please set the following settings to the environment in Azure:
+
+```ini
 WEBSITE_NODE_DEFAULT_VERSION=10.15.2
 SCM_COMMAND_IDLE_TIMEOUT=300
 ```
-- See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
+
+- See [install MongoDB, Node.js, and Nightscout on a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server) if you want to host your Nightscout outside of the cloud. Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
 - If you deploy to Windows and want to develop or test you need to install [Cygwin](https://www.cygwin.com/) (use [setup-x86_64.exe](https://www.cygwin.com/setup-x86_64.exe) and make sure to install `build-essential` package. Test your configuration by executing `make` and check if all tests are ok.
 
 # Development
@@ -203,8 +215,8 @@ The data being uploaded from the server to the client is from a MongoDB server s
 
 ## Updating my version?
 
-The easiest way to update your version of cgm-remote-monitor to the latest version is to use the [update tool][update-fork]. A step-by-step guide is available [here][http://www.nightscout.info/wiki/welcome/how-to-update-to-latest-cgm-remote-monitor-aka-cookie].
-To downgrade to an older version, follow [this guide][http://www.nightscout.info/wiki/welcome/how-to-deploy-an-older-version-of-nightscout].
+The easiest way to update your version of cgm-remote-monitor to the latest version is to use the [update tool][update-fork]. A step-by-step guide is available [here](http://www.nightscout.info/wiki/welcome/how-to-update-to-latest-cgm-remote-monitor-aka-cookie).
+To downgrade to an older version, follow [this guide](http://www.nightscout.info/wiki/welcome/how-to-deploy-an-older-version-of-nightscout).
 
 ## Configure my uploader to match
 
@@ -243,7 +255,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `MONGODB_URI` - The connection string for your Mongo database. Something like `mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout`.
   * `API_SECRET` - A secret passphrase that must be at least 12 characters long.
   * `MONGODB_COLLECTION` (`entries`) - The Mongo collection where CGM entries are stored.
-  * `DISPLAY_UNITS` (`mg/dl`) - Options are `mg/dl` or `mmol/L` (or just `mmol`).  Setting to `mmol/L` puts the entire server into `mmol/L` mode by default, no further settings needed.
+  * `DISPLAY_UNITS` (`mg/dl`) - Options are `mg/dl` or `mmol/L` (or just `mmol`). Setting to `mmol/L` puts the entire server into `mmol/L` mode by default, no further settings needed.
 
 ### Features
 
@@ -251,16 +263,16 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `DISABLE` - Used to disable default features, expects a space delimited list, such as: `direction upbat`, see [plugins](#plugins) below
   * `BASE_URL` - Used for building links to your site's API, i.e. Pushover callbacks, usually the URL of your Nightscout site.
   * `AUTH_DEFAULT_ROLES` (`readable`) - possible values `readable`, `denied`, or any valid role
-    name.  When `readable`, anyone can view Nightscout without a token.
+    name. When `readable`, anyone can view Nightscout without a token.
     Setting it to `denied` will require a token from every visit, using `status-only` will enable api-secret based login.
-  * `IMPORT_CONFIG` - Used to import settings and extended settings from a url such as a gist.  Structure of file should be something like: `{"settings": {"theme": "colors"}, "extendedSettings": {"upbat": {"enableAlerts": true}}}`
+  * `IMPORT_CONFIG` - Used to import settings and extended settings from a url such as a gist. Structure of file should be something like: `{"settings": {"theme": "colors"}, "extendedSettings": {"upbat": {"enableAlerts": true}}}`
   * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. Deprecated, if set to `off` the `careportal` role will be added to `AUTH_DEFAULT_ROLES`
 
 ### Alarms
 
   These alarm setting affect all delivery methods (browser, Pushover, IFTTT, etc.). Values and settings entered here will be the defaults for new browser views, but will be overridden if different choices are made in the settings UI.
 
-  * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined.  The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend.  `predict` **DOES NOT** currently use any of the `BG_`* ENV's
+  * `ALARM_TYPES` (`simple` if any `BG_`* ENV's are set, otherwise `predict`) - currently 2 alarm types are supported, and can be used independently or combined. The `simple` alarm type only compares the current BG to `BG_` thresholds above, the `predict` alarm type uses highly tuned formula that forecasts where the BG is going based on it's trend. `predict` **DOES NOT** currently use any of the `BG_`* ENV's
   * `BG_HIGH` (`260`) - the high BG outside the target range that is considered urgent (interprets units based on DISPLAY_UNITS setting)
   * `BG_TARGET_TOP` (`180`) - the top of the target range, also used to draw the line on the chart (interprets units based on DISPLAY_UNITS setting)
   * `BG_TARGET_BOTTOM` (`80`) - the bottom of the target range, also used to draw the line on the chart (interprets units based on DISPLAY_UNITS setting)
@@ -358,7 +370,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 
   Plugins are used extend the way information is displayed, how notifications are sent, alarms are triggered, and more.
 
-  The built-in/example plugins that are available by default are listed below.  The plugins may still need to be enabled by adding to the `ENABLE` environment variable.
+  The built-in/example plugins that are available by default are listed below. The plugins may still need to be enabled by adding to the `ENABLE` environment variable.
 
 #### Default Plugins
 
@@ -385,7 +397,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `ALARM_TIMEAGO_URGENT_MINS` (`30`) - minutes since the last reading to trigger a urgent alarm
 
 ##### `devicestatus` (Device Status)
-  Used by `upbat` and other plugins to display device status info.  Supports the `DEVICESTATUS_ADVANCED="true"` [extended setting](#extended-settings) to send all device statuses to the client for retrospective use and to support other plugins.
+  Used by `upbat` and other plugins to display device status info. Supports the `DEVICESTATUS_ADVANCED="true"` [extended setting](#extended-settings) to send all device statuses to the client for retrospective use and to support other plugins.
 
 ##### `errorcodes` (CGM Error Codes)
   Generates alarms for CGM codes `9` (hourglass) and `10` (???).
@@ -424,13 +436,13 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `DISPLAY` (`unsmoothed`) - Allows the user to control which algorithm is used to calculate the displayed raw BG values using the most recent calibration record.
     * `unfiltered` - Raw BG is calculated by applying the calibration to the glucose record's unfiltered value.
     * `filtered` - Raw BG is calculated by applying the calibration to the glucose record's filtered value. The glucose record's filtered values are generally produced by the CGM by a running average of the unfiltered values to produce a smoothed value when the sensor noise is high.
-    * `unsmoothed` - Raw BG is calculated by first finding the ratio of the calculated filtered value (the same value calculated by the `filtered` setting) to the reported glucose value. The displayed raw BG value is calculated by dividing the calculated unfiltered value (the same value calculated by the `unfiltered` setting) by the ratio.  The effect is to exagerate changes in trend direction so the trend changes are more noticeable to the user. This is the legacy raw BG calculation algorithm.
+    * `unsmoothed` - Raw BG is calculated by first finding the ratio of the calculated filtered value (the same value calculated by the `filtered` setting) to the reported glucose value. The displayed raw BG value is calculated by dividing the calculated unfiltered value (the same value calculated by the `unfiltered` setting) by the ratio. The effect is to exagerate changes in trend direction so the trend changes are more noticeable to the user. This is the legacy raw BG calculation algorithm.
 
 ##### `iob` (Insulin-on-Board)
-  Adds the IOB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with insulin doses and the `dia` and `sens` fields from the [treatment profile](#treatment-profile).
+  Adds the IOB pill visualization in the client and calculates values that used by other plugins. Uses treatments with insulin doses and the `dia` and `sens` fields from the [treatment profile](#treatment-profile).
 
 ##### `cob` (Carbs-on-Board)
-  Adds the COB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with carb doses and the `carbs_hr`, `carbratio`, and `sens` fields from the [treatment profile](#treatment-profile).
+  Adds the COB pill visualization in the client and calculates values that used by other plugins. Uses treatments with carb doses and the `carbs_hr`, `carbratio`, and `sens` fields from the [treatment profile](#treatment-profile).
 
 ##### `bwp` (Bolus Wizard Preview)
   This plugin in intended for the purpose of automatically snoozing alarms when the CGM indicates high blood sugar but there is also insulin on board (IOB) and secondly, alerting to user that it might be beneficial to measure the blood sugar using a glucometer and dosing insulin as calculated by the pump or instructed by trained medicare professionals. ***The values provided by the plugin are provided as a reference based on CGM data and insulin sensitivity you have configured, and are not intended to be used as a reference for bolus calculation.*** The plugin calculates the bolus amount when above your target, generates alarms when you should consider checking and bolusing, and snoozes alarms when there is enough IOB to cover a high BG. Uses the results of the `iob` plugin and `sens`, `target_high`, and `target_low` fields from the [treatment profile](#treatment-profile). Defaults that can be adjusted with [extended setting](#extended-settings)
@@ -475,7 +487,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `TREATMENTNOTIFY_INCLUDE_BOLUSES_OVER` (`0`) - U value over which the bolus will trigger a notification and snooze alarms
 
 ##### `basal` (Basal Profile)
-  Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile). Also uses the extended setting:
+  Adds the Basal pill visualization to display the basal rate for the current time. Also enables the `bwp` plugin to calculate correction temp basal suggestions. Uses the `basal` field from the [treatment profile](#treatment-profile). Also uses the extended setting:
   * `BASAL_RENDER` (`none`) - Possible values are `none`, `default`, or `icicle` (inverted)
 
 ##### `bolus` (Bolus Rendering)
@@ -511,7 +523,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set
   * `PUMP_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications for Pump battery and reservoir.
   * `PUMP_WARN_ON_SUSPEND` (`false`) - Set to `true` to get an alarm when the pump is suspended.
-  * `PUMP_FIELDS` (`reservoir battery`) - The fields to display by default.  Any of the following fields: `reservoir`, `battery`, `clock`, `status`, and `device`
+  * `PUMP_FIELDS` (`reservoir battery`) - The fields to display by default. Any of the following fields: `reservoir`, `battery`, `clock`, `status`, and `device`
   * `PUMP_RETRO_FIELDS` (`reservoir battery clock`) - The fields to display in retro mode. Any of the above fields.
   * `PUMP_WARN_CLOCK` (`30`) - The number of minutes ago that needs to be exceed before an alert is triggered.
   * `PUMP_URGENT_CLOCK` (`60`) - The number of minutes ago that needs to be exceed before an urgent alarm is triggered.
@@ -526,10 +538,10 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 ##### `openaps` (OpenAPS)
   Integrated OpenAPS loop monitoring, uses these extended settings:
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set
-  * `OPENAPS_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when OpenAPS isn't looping.  If OpenAPS is going to offline for a period of time, you can add an `OpenAPS Offline` event for the expected duration from Careportal to avoid getting alerts.
+  * `OPENAPS_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications when OpenAPS isn't looping. If OpenAPS is going to offline for a period of time, you can add an `OpenAPS Offline` event for the expected duration from Careportal to avoid getting alerts.
   * `OPENAPS_WARN` (`30`) - The number of minutes since the last loop that needs to be exceed before an alert is triggered
   * `OPENAPS_URGENT` (`60`) - The number of minutes since the last loop that needs to be exceed before an urgent alarm is triggered
-  * `OPENAPS_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display by default.  Any of the following fields: `status-symbol`, `status-label`, `iob`, `meal-assist`, `freq`, and `rssi`
+  * `OPENAPS_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display by default. Any of the following fields: `status-symbol`, `status-label`, `iob`, `meal-assist`, `freq`, and `rssi`
   * `OPENAPS_RETRO_FIELDS` (`status-symbol status-label iob meal-assist rssi`) - The fields to display in retro mode. Any of the above fields.
   * `OPENAPS_PRED_IOB_COLOR` (`#1e88e5`) - The color to use for IOB prediction lines. Colors can be in `#RRGGBB` format, but [other CSS color units](https://www.w3.org/TR/css-color-3/#colorunits) may be used as well.
   * `OPENAPS_PRED_COB_COLOR` (`#FB8C00`) - The color to use for COB prediction lines. Same format as above.
@@ -600,7 +612,7 @@ For remote overrides, the following extended settings must be configured:
   This plugin should be enabled by default, if needed can be diasabled by adding `dbsize` to the list of disabled plugins, for example: `DISABLE="dbsize"`.
 
 #### Extended Settings
-  Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
+  Some plugins support additional configuration using extra environment variables. These are prefixed with the name of the plugin and a `_`. For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
 
   Plugins only have access to their own extended settings, all the extended settings of client plugins will be sent to the browser.
 
@@ -614,15 +626,15 @@ For remote overrides, the following extended settings must be configured:
 
   Using that account login to [Pushover](https://pushover.net/), in the top left you’ll see your User Key, you’ll need this plus an application API Token/Key to complete this setup.
 
-  You’ll need to [Create a Pushover Application](https://pushover.net/apps/build).  You only need to set the Application name, you can ignore all the other settings, but setting an Icon is a nice touch.  Maybe you'd like to use [this one](https://raw.githubusercontent.com/nightscout/cgm-remote-monitor/master/static/images/large.png)?
+  You’ll need to [Create a Pushover Application](https://pushover.net/apps/build). You only need to set the Application name, you can ignore all the other settings, but setting an Icon is a nice touch. Maybe you'd like to use [this one](https://raw.githubusercontent.com/nightscout/cgm-remote-monitor/master/static/images/large.png)?
 
   Pushover is configured using the following Environment Variables:
 
     * `ENABLE` - `pushover` should be added to the list of plugin, for example: `ENABLE="pushover"`.
     * `PUSHOVER_API_TOKEN` - Used to enable pushover notifications, this token is specific to the application you create from in [Pushover](https://pushover.net/), ***[additional pushover information](#pushover)*** below.
-    * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user.  This also supports a space delimited list of keys.  To disable `INFO` level pushes set this to `off`.
-    * `PUSHOVER_ALARM_KEY` - An optional Pushover user/group key, will be used for system wide alarms (level > `WARN`).  If not defined this will fallback to `PUSHOVER_USER_KEY`.  A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too.  This also support a space delimited list of keys.  To disable Alarm pushes set this to `off`.
-    * `PUSHOVER_ANNOUNCEMENT_KEY` - An optional Pushover user/group key, will be used for system wide user generated announcements.  If not defined this will fallback to `PUSHOVER_USER_KEY` or `PUSHOVER_ALARM_KEY`.  This also support a space delimited list of keys. To disable Announcement pushes set this to `off`.
+    * `PUSHOVER_USER_KEY` - Your Pushover user key, can be found in the top left of the [Pushover](https://pushover.net/) site, this can also be a pushover delivery group key to send to a group rather than just a single user. This also supports a space delimited list of keys. To disable `INFO` level pushes set this to `off`.
+    * `PUSHOVER_ALARM_KEY` - An optional Pushover user/group key, will be used for system wide alarms (level > `WARN`). If not defined this will fallback to `PUSHOVER_USER_KEY`. A possible use for this is sending important messages and alarms to a CWD that you don't want to send all notification too. This also support a space delimited list of keys. To disable Alarm pushes set this to `off`.
+    * `PUSHOVER_ANNOUNCEMENT_KEY` - An optional Pushover user/group key, will be used for system wide user generated announcements. If not defined this will fallback to `PUSHOVER_USER_KEY` or `PUSHOVER_ALARM_KEY`. This also support a space delimited list of keys. To disable Announcement pushes set this to `off`.
     * `BASE_URL` - Used for pushover callbacks, usually the URL of your Nightscout site, use https when possible.
     * `API_SECRET` - Used for signing the pushover callback request for acknowledgments.
 
@@ -637,21 +649,21 @@ For remote overrides, the following extended settings must be configured:
 #### IFTTT Maker
  In addition to the normal web based alarms, and pushover, there is also integration for [IFTTT Webhooks](https://ifttt.com/maker_webhooks).
 
- With Maker you are able to integrate with all the other [IFTTT Services](https://ifttt.com/services).  For example you can send a tweet when there is an alarm, change the color of hue light, send an email, send and sms, and so much more.
+ With Maker you are able to integrate with all the other [IFTTT Services](https://ifttt.com/services). For example you can send a tweet when there is an alarm, change the color of hue light, send an email, send and sms, and so much more.
 
  1. Setup IFTTT account: [login](https://ifttt.com/login) or [create an account](https://ifttt.com/join)
  2. Follow the  [Detailed IFTTT setup Instructions](docs/plugins/maker-setup.md)
  3. Configure Nightscout by setting these webpage environment variables:
   * `ENABLE` - `maker` should be added to the list of plugins, for example: `ENABLE="maker"`.
   * `MAKER_KEY` - Set this to your secret key (see  [[Detailed Instructions](docs/plugins/maker-setup.md) ) `MAKER_KEY="abcMyExampleabc123defjt1DeNSiftttmak-XQb69p"` This also supports a space delimited list of keys.
-  * `MAKER_ANNOUNCEMENT_KEY` - An optional Maker key, will be used for system wide user generated announcements.  If not defined this will fallback to `MAKER_KEY`.  A possible use for this is sending important messages and alarms to another device that you don't want to send all notification too.  This also support a space delimited list of keys.
+  * `MAKER_ANNOUNCEMENT_KEY` - An optional Maker key, will be used for system wide user generated announcements. If not defined this will fallback to `MAKER_KEY`. A possible use for this is sending important messages and alarms to another device that you don't want to send all notification too. This also support a space delimited list of keys.
 
- Plugins can create custom events, but all events sent to IFTTT webhooks will be prefixed with `ns-`.  The core events are:
-  * `ns-event` - This event is sent to the maker service for all alarms and notifications.  This is good catch all event for general logging.
-  * `ns-allclear` - This event is sent to the maker service when an alarm has been ack'd or when the server starts up without triggering any alarms.  For example, you could use this event to turn a light to green.
-  * `ns-info` - Plugins that generate notifications at the info level will cause this event to also be triggered.  It will be sent in addition to `ns-event`.
-  * `ns-warning` - Alarms at the warning level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
-  * `ns-urgent` - Alarms at the urgent level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
+ Plugins can create custom events, but all events sent to IFTTT webhooks will be prefixed with `ns-`. The core events are:
+  * `ns-event` - This event is sent to the maker service for all alarms and notifications. This is good catch all event for general logging.
+  * `ns-allclear` - This event is sent to the maker service when an alarm has been ack'd or when the server starts up without triggering any alarms. For example, you could use this event to turn a light to green.
+  * `ns-info` - Plugins that generate notifications at the info level will cause this event to also be triggered. It will be sent in addition to `ns-event`.
+  * `ns-warning` - Alarms at the warning level with cause this event to also be triggered. It will be sent in addition to `ns-event`.
+  * `ns-urgent` - Alarms at the urgent level with cause this event to also be triggered. It will be sent in addition to `ns-event`.
   * see the [full list of events](lib/plugins/maker-setup.md#events)
 
 
@@ -724,7 +736,7 @@ License
 [agpl-3]: http://www.gnu.org/licenses/agpl-3.0.txt
 
     cgm-remote-monitor - web app to broadcast cgm readings
-    Copyright (C) 2017 Nightscout contributors.  See the COPYRIGHT file
+    Copyright (C) 2017 Nightscout contributors. See the COPYRIGHT file
     at the root directory of this distribution and at
     https://github.com/nightscout/cgm-remote-monitor/blob/master/COPYRIGHT
 
@@ -735,8 +747,8 @@ License
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
