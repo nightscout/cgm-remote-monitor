@@ -41,7 +41,8 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 1. Click on the "New Project" button.
 1. If prompted, agree to the Terms of Service.
 1. Give your project a name (e.g. "Nightscout") and then click "Create project".
-1. For the "development experience", select "Conversational" at the bottom of the list.
+1. When asked what kind of Action you want to build, select "Custom" and then click the "Next" button.
+1. When selecting how you want to build the project, scroll down to the bottom of the screen and click the link to build it using DialogFlow.
 1. Click on the "Develop" tab at the top of the sreen.
 1. Click on "Invocation" in the left navigation pane.
 1. Set the display name (e.g. "Night Scout") of your Action and set your Google Assistant voice.
