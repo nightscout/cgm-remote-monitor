@@ -9,10 +9,13 @@ require('should');
 describe('Entries REST api', function ( ) {
   var entries = require('../lib/api/entries/');
   var self = this;
+  var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
 
   this.timeout(10000);
   before(function (done) {
-    self.env = require('../env')( );
+    delete process.env.API_SECRET;
+    process.env.API_SECRET = 'this is my long pass phrase';
+    self.env = require('../lib/server/env')( );
     self.env.settings.authDefaultRoles = 'readable';
     self.wares = require('../lib/middleware/')(self.env);
     self.archive = null;
@@ -254,7 +257,7 @@ describe('Entries REST api', function ( ) {
     console.log('Inserting glucose entry')
     request(self.app)
       .post('/entries/')
-      .set('api-secret', self.env.api_secret || '')
+      .set('api-secret', known || '')
       .send({
         "type": "sgv", "sgv": "199", "dateString": "2014-07-20T00:44:15.000-07:00"
         , "date": 1405791855000, "device": "dexcom", "direction": "NOT COMPUTABLE"
@@ -268,7 +271,7 @@ describe('Entries REST api', function ( ) {
           console.log('Ensuring glucose entry was inserted successfully');
           request(self.app)
             .get('/entries.json?find[dateString][$gte]=2014-07-20&count=100')
-            .set('api-secret', self.env.api_secret || '')
+            .set('api-secret', known || '')
             .expect(200)
             .expect(function (response) {
               var entry = response.body[0];
@@ -283,7 +286,7 @@ describe('Entries REST api', function ( ) {
                 console.log('Deleting test glucose entry');
                 request(self.app)
                   .delete('/entries.json?find[dateString][$gte]=2014-07-20&count=100')
-                  .set('api-secret', self.env.api_secret || '')
+                  .set('api-secret', known || '')
                   .expect(200)
                   .end(function (err) {
                     if (err) {
@@ -293,7 +296,7 @@ describe('Entries REST api', function ( ) {
                       console.log('Testing if glucose entry was deleted');
                       request(self.app)
                         .get('/entries.json?find[dateString][$gte]=2014-07-20&count=100')
-                        .set('api-secret', self.env.api_secret || '')
+                        .set('api-secret', known || '')
                         .expect(200)
                         .expect(function (response) {
                           response.body.length.should.equal(0);
@@ -307,12 +310,12 @@ describe('Entries REST api', function ( ) {
       });
   });
 
-  it('post multipole entries, query, delete, verify gone', function (done) {
+  it('post multiple entries, query, delete, verify gone', function (done) {
     // insert a glucose entry - needs to be unique from example data
     console.log('Inserting glucose entry')
     request(self.app)
       .post('/entries/')
-      .set('api-secret', self.env.api_secret || '')
+      .set('api-secret', known || '')
       .send([{
         "type": "sgv", "sgv": "199", "dateString": "2014-07-20T00:44:15.000-07:00"
         , "date": 1405791855000, "device": "dexcom", "direction": "NOT COMPUTABLE"
@@ -329,7 +332,7 @@ describe('Entries REST api', function ( ) {
           console.log('Ensuring glucose entry was inserted successfully');
           request(self.app)
             .get('/entries.json?find[dateString][$gte]=2014-07-20&count=100')
-            .set('api-secret', self.env.api_secret || '')
+            .set('api-secret', known || '')
             .expect(200)
             .expect(function (response) {
               var entry = response.body[0];
@@ -345,7 +348,7 @@ describe('Entries REST api', function ( ) {
                 console.log('Deleting test glucose entry');
                 request(self.app)
                   .delete('/entries.json?find[dateString][$gte]=2014-07-20&count=100')
-                  .set('api-secret', self.env.api_secret || '')
+                  .set('api-secret', known || '')
                   .expect(200)
                   .end(function (err) {
                     if (err) {
@@ -355,7 +358,7 @@ describe('Entries REST api', function ( ) {
                       console.log('Testing if glucose entries were deleted');
                       request(self.app)
                         .get('/entries.json?find[dateString][$gte]=2014-07-20&count=100')
-                        .set('api-secret', self.env.api_secret || '')
+                        .set('api-secret', known || '')
                         .expect(200)
                         .expect(function (response) {
                           response.body.length.should.equal(0);
