@@ -6,7 +6,7 @@ var should = require('should');
 
 describe('ddata', function ( ) {
   // var sandbox = require('../lib/sandbox')();
-  // var env = require('../env')();
+  // var env = require('../lib/server/env')();
   var ctx = {};
   ctx.ddata = require('../lib/data/ddata')();
 

@@ -86,9 +86,14 @@ ctx.ddata.devicestatus = [{uploader: {battery: 100}}];
 
 var bootevent = require('../lib/server/bootevent');
 describe('Pebble Endpoint', function ( ) {
+
+  this.timeout(10000);
+
   var pebble = require('../lib/server/pebble');
   before(function (done) {
-    var env = require('../env')( );
+    delete process.env.API_SECRET;
+    process.env.API_SECRET = 'this is my long pass phrase';
+    var env = require('../lib/server/env')( );
     env.settings.authDefaultRoles = 'readable';
     this.app = require('express')( );
     this.app.enable('api');
@@ -223,7 +228,9 @@ describe('Pebble Endpoint', function ( ) {
 describe('Pebble Endpoint with Raw and IOB and COB', function ( ) {
   var pebbleRaw = require('../lib/server/pebble');
   before(function (done) {
-    var env = require('../env')( );
+    delete process.env.API_SECRET;
+    process.env.API_SECRET = 'this is my long pass phrase';
+    var env = require('../lib/server/env')( );
     env.settings.enable = ['rawbg', 'iob', 'cob'];
     env.settings.authDefaultRoles = 'readable';
     this.appRaw = require('express')( );

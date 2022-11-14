@@ -9,6 +9,7 @@ bundle/bundle.out.js
 *.iml
 my.env
 my.*.env
+*.pem
 
 static/bower_components/
 .*.sw?
@@ -28,5 +29,8 @@ npm-debug.log
 /cgm-remote-monitor.njsproj
 /cgm-remote-monitor.sln
 /obj/Debug
-/bin
 /*.bat
+
+# directories created by docker-compose.yml
+mongo-data/
+letsencrypt/

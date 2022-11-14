@@ -33,7 +33,7 @@ describe('sandbox', function ( ) {
   });
 
   function createServerSandbox() {
-    var env = require('../env')();
+    var env = require('../lib/server/env')();
     var ctx = {};
     ctx.ddata = require('../lib/data/ddata')();
     ctx.notifications = require('../lib/notifications')(env, ctx);
