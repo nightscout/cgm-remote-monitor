@@ -12,6 +12,7 @@ describe('notifications', function ( ) {
     , ddata: {
       lastUpdated: Date.now()
     }
+    , levels: levels
   };
 
   var notifications = require('../lib/notifications')(env, ctx);
