@@ -1,7 +1,9 @@
 'use strict';
 
-var request = require('supertest');
-var language = require('../lib/language')();
+const fs = require('fs');
+const request = require('supertest');
+const language = require('../lib/language')(fs);
+
 const bodyParser = require('body-parser');
 
 require('should');
@@ -11,7 +13,9 @@ describe('Alexa REST api', function ( ) {
   const apiRoot = require('../lib/api/root');
   const api = require('../lib/api/');
   before(function (done) {
-    var env = require('../env')( );
+    delete process.env.API_SECRET;
+    process.env.API_SECRET = 'this is my long pass phrase';
+    var env = require('../lib/server/env')( );
     env.settings.enable = ['alexa'];
     env.settings.authDefaultRoles = 'readable';
     env.api_secret = 'this is my long pass phrase';
