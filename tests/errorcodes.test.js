@@ -5,7 +5,7 @@ var levels = require('../lib/levels');
 describe('errorcodes', function ( ) {
 
   var now = Date.now();
-  var env = require('../env')();
+  var env = require('../lib/server/env')();
   var ctx = {};
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
