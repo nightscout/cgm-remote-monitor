@@ -1,0 +1,126 @@
+#
+# fly.toml file generated for Nightscout see https://nightscout.github.io/
+#
+
+#---------------------------------------------------------------------------------
+# CHange the app value to your site name. (i.e. sitename to have sitename.fly.io
+#---------------------------------------------------------------------------------
+app = "NOME-AQUI"
+kill_signal = "SIGINT"
+kill_timeout = 5
+processes = []
+
+#----------------------------------------------------------------------------------
+#
+# Review and modify the variables below and adapt them to your needs
+# The first three API_SECRET, DISPLAY_UNITS and MONGODB_URI are MANDATORY
+#
+
+[env]
+# A passphrase that must be at least 12 characters long. Avoid 'special' characters, which can cause problems in some cases.
+API_SECRET="SUASENHAAQUICOM12"
+
+# Preferred BG units for the site: 'mg/dl' or 'mmol/l' (or just 'mmol').
+DISPLAY_UNITS="mg/dl"
+
+# The MongoDB Connection String to connect to your MongoDB cluster. If you don't have this from MongoDB Atlas, please re-read installation instructions at https://nightscout.github.io/vendors/mongodb/atlas/ before continuing.
+MONGODB_URI="mongodb+srv://-----"
+
+#
+# If you want Nightscout to get BG readings from Dexcom Share you must enter your account credentials
+#
+# The following variables are optional, only make sure to add bridge in ENABLE if you use Dexcom Share as a data source
+#
+
+# Plugins to enable for your site. Must be a space-delimited lower-case list. Include the word 'bridge' here if you are receiving data from the Dexcom Share service.
+ENABLE="careportal basal dbsize rawbg iob maker cob bwp cage iage sage boluscalc pushover treatmentnotify loop pump profile food openaps bage alexa override speech cors"
+
+# The display name for the Nightscout site. Appears in the upper left of the main view. Often set to the name of the CGM wearer.
+CUSTOM_TITLE="Nightscout"
+
+# Default setting for whether or not these plugins are checked (active) by default not merely enabled. Include plugins here as in the ENABLE line; space-separated and lower-case.
+SHOW_PLUGINS="careportal dbsize openaps cob iob basal"
+
+# simple' and/or 'predict'. Simple alarms trigger when BG crosses the various thresholds set below. Predict alarms use a formula that forecasts where the BG is going based on its trend. You will *not* get warnings when crossing the BG thresholds set below when using the predict type.
+ALARM_TYPES="simple"
+
+# Urgent High BG threshold triggers the ALARM_URGENT_HIGH alarm. Set in mg/dL or mmol/L as set in DISPLAY_UNITS variable.
+BG_HIGH=220
+
+# Urgent Low BG threshold triggers the ALARM_URGENT_LOW alarm. Set in mg/dL or mmol/L as set in DISPLAY_UNITS variable.
+BG_LOW=60
+
+# Low BG threshold triggers the ALARM_LOW alarm. Set in mg/dL or mmol/L as set in DISPLAY_UNITS variable.
+BG_TARGET_BOTTOM=70
+
+# High BG threshold triggers the ALARM_HIGH alarm. Set in mg/dL or mmol/L as set in DISPLAY_UNITS variable.
+BG_TARGET_TOP=180
+
+# Default setting for new browser views for the Urgent High alarm (triggered when BG crosses BG_HIGH). ('on' or 'off')
+ALARM_URGENT_HIGH="on"
+
+# Default setting for new browser views for the Urgent Low alarm (triggered when BG crosses BG_LOW). ('on' or 'off')
+ALARM_URGENT_LOW="on"
+
+# Default setting for new browser views for the High alarm (triggered when BG crosses BG_TARGET_TOP). ('on' or 'off')
+ALARM_HIGH="on"
+
+# Default setting for new browser views for the Low alarm (triggered when BG crosses BG_TARGET_BOTTOM). ('on' or 'off')
+ALARM_LOW="on"
+
+# Default setting for new browser views for an urgent alarm when CGM data hasn't been received in the number of minutes set in ALARM_TIMEAGO_URGENT_MINS. ('on' or 'off')
+ALARM_TIMEAGO_URGENT="on"
+
+# Default setting for new browser views for a warning alarm when CGM data hasn't been received in the number of minutes set in ALARM_TIMEAGO_WARN_MINS. ('on' or 'off')
+ALARM_TIMEAGO_WARN="on"
+
+# Default setting for new browser views for the number of minutes since the last CGM reading to trigger an ALARM_TIMEAGO_URGENT alarm.
+ALARM_TIMEAGO_URGENT_MINS=30
+
+# Default setting for new browser views for the number of minutes since the last CGM reading to trigger an ALARM_TIMEAGO_WARN alarm.
+ALARM_TIMEAGO_WARN_MINS=15
+
+# Default setting for new browser views for whether Night Mode should be enabled. ('on' or 'off')
+NIGHT_MODE="off"
+
+# Default setting for new browser views for the color theme of the CGM graph. ('default' 'colors' or 'colorblindfriendly')
+THEME="colors"
+
+# Default setting for new browser views for the time mode. ('12' or '24')
+TIME_FORMAT=24
+
+# U value over which the bolus values are rendered on the chart if the 'x U and Over' option is selected.
+BOLUS_RENDER_OVER=1
+
+#   DO NOT MODIFY ANYTHING BELOW
+# //////////////////////////////////////////////////////////////////////////////////////////////
+
+[experimental]
+  allowed_public_ports = []
+  auto_rollback = true
+
+[[services]]
+  http_checks = []
+  internal_port = 1337
+  processes = ["app"]
+  protocol = "tcp"
+  script_checks = []
+  [services.concurrency]
+    hard_limit = 25
+    soft_limit = 20
+    type = "connections"
+
+  [[services.ports]]
+    force_https = true
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [[services.tcp_checks]]
+    grace_period = "1s"
+    interval = "15s"
+    restart_limit = 0
+    timeout = "2s"
