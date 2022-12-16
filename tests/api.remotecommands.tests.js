@@ -28,28 +28,14 @@ describe('Remote Commands API', function () {
     })
   });
 
-  var exampleCommand1 = {
-    eventType: "bolus",
-    otp: 12345,
-    sendNotification: false,
-    status: {
-      state: "Pending",
-      message: "Action queued"
-    },
-    payload: {
-      units: 1.0,
-      absorption: 3.0
-    }
-  }
-
-  describe('Get Records', async function () {
+  describe('Get Commands', async function () {
 
     it('Should return all commands', async function () {
 
       //Arrange
-      await deleteAllRecords()
-      var expectedRecord = testRecord1()
-      await insertRecord(expectedRecord)
+      await deleteAllCommands()
+      var expectedCommand = testCommand1()
+      await insertCommand(expectedCommand)
 
       //Act
       const getResponse = await request(self.app)
@@ -61,21 +47,21 @@ describe('Remote Commands API', function () {
       getResponse.status.should.equal(200)
       getResponse.body.length.should.equal(1)
       var firstCommand = getResponse.body[0]
-      firstCommand.eventType.should.equal(expectedRecord.eventType)
-      firstCommand.otp.should.equal(expectedRecord.otp)
-      firstCommand.sendNotification.should.equal(expectedRecord.sendNotification)
-      firstCommand.status.state.should.equal(expectedRecord.status.state)
-      firstCommand.status.message.should.equal(expectedRecord.status.message)
-      firstCommand.payload.units.should.equal(expectedRecord.payload.units)
-      firstCommand.payload.absorption.should.equal(expectedRecord.payload.absorption)
+      firstCommand.eventType.should.equal(expectedCommand.eventType)
+      firstCommand.otp.should.equal(expectedCommand.otp)
+      firstCommand.sendNotification.should.equal(expectedCommand.sendNotification)
+      firstCommand.status.state.should.equal(expectedCommand.status.state)
+      firstCommand.status.message.should.equal(expectedCommand.status.message)
+      firstCommand.payload.units.should.equal(expectedCommand.payload.units)
+      firstCommand.payload.absorption.should.equal(expectedCommand.payload.absorption)
     });
 
     it('Should not get commands before created_at', async function () {
 
       //Arrange
-      await deleteAllRecords()
-      var expectedRecord = testRecord1()
-      await insertRecord(expectedRecord)
+      await deleteAllCommands()
+      var expectedCommand = testCommand1()
+      await insertCommand(expectedCommand)
 
       //Act
       const getResponse = await request(self.app)
@@ -92,9 +78,9 @@ describe('Remote Commands API', function () {
     it('Should get commands after created_at', async function () {
 
       //Arrange
-      await deleteAllRecords()
-      var expectedRecord = testRecord1()
-      await insertRecord(expectedRecord)
+      await deleteAllCommands()
+      var expectedCommand = testCommand1()
+      await insertCommand(expectedCommand)
 
       //Act
       const getResponse = await request(self.app)
@@ -115,8 +101,8 @@ describe('Remote Commands API', function () {
     it('All commands should delete', async function () {
 
       //Arrange
-      await deleteAllRecords()
-      await insertRecord(testRecord1())
+      await deleteAllCommands()
+      await insertCommand(testCommand1())
 
       //Act
       const deleteResponse = await request(self.app)
@@ -124,11 +110,11 @@ describe('Remote Commands API', function () {
         .set('api-secret', known || '')
 
       //Assert
-      let records = await allRecords()
-      records.length.should.equal(0)
+      let commands = await allCommands()
+      commands.length.should.equal(0)
     });
 
-    //TODO: Check deletion with old records in database - currently it will only lookback a few days if not created date given - change this.
+    //TODO: Check deletion with old commands in database - currently it will only lookback a few days if not created date given - change this.
 
     //TODO: Check deletion with various query parameters
   });
@@ -139,27 +125,27 @@ describe('Remote Commands API', function () {
 
       //Arrange
       let testStartDateInMs = Date.now()
-      await deleteAllRecords()
-      let expectedRecord = testRecord1()
+      await deleteAllCommands()
+      let expectedCommand = testCommand1()
 
       //Act
       const postResponse = await request(self.app)
         .post('/api/remotecommands/')
         .set('api-secret', known || '')
-        .send(expectedRecord)
+        .send(expectedCommand)
 
       //Assert
       postResponse.headers["content-type"].should.match(/json/)
       postResponse.status.should.equal(200)
       var commandResult = postResponse.body[0]
       commandResult._id.should.be.a.String().and.not.be.empty()
-      commandResult.eventType.should.equal(expectedRecord.eventType)
-      commandResult.otp.should.equal(expectedRecord.otp)
-      commandResult.sendNotification.should.equal(expectedRecord.sendNotification)
-      commandResult.status.state.should.equal(expectedRecord.status.state)
-      commandResult.status.message.should.equal(expectedRecord.status.message)
-      commandResult.payload.units.should.equal(expectedRecord.payload.units)
-      commandResult.payload.absorption.should.equal(expectedRecord.payload.absorption)
+      commandResult.eventType.should.equal(expectedCommand.eventType)
+      commandResult.otp.should.equal(expectedCommand.otp)
+      commandResult.sendNotification.should.equal(expectedCommand.sendNotification)
+      commandResult.status.state.should.equal(expectedCommand.status.state)
+      commandResult.status.message.should.equal(expectedCommand.status.message)
+      commandResult.payload.units.should.equal(expectedCommand.payload.units)
+      commandResult.payload.absorption.should.equal(expectedCommand.payload.absorption)
       const insertDateFromPost = Date.parse(commandResult.created_at)
       insertDateFromPost.should.lessThanOrEqual(Date.now())
       insertDateFromPost.should.greaterThanOrEqual(testStartDateInMs)
@@ -174,32 +160,32 @@ describe('Remote Commands API', function () {
     it('Should Update a command succesfully', async function () {
 
       //Arrange
-      await deleteAllRecords()
-      let postCommand = testRecord1()
-      var postResult = await insertRecord(postCommand)
-      var putRecord = testRecord2()
-      putRecord._id = postResult._id
+      await deleteAllCommands()
+      let postCommand = testCommand1()
+      var postResult = await insertCommand(postCommand)
+      var putCommand = testCommand2()
+      putCommand._id = postResult._id
 
       //Act
       const putResponse = await request(self.app)
       .put('/api/remotecommands/')
       .set('api-secret', known || '')
-      .send(putRecord)
+      .send(putCommand)
 
       //Assert
       putResponse.headers["content-type"].should.match(/application\/json/)
       putResponse.status.should.equal(200)
-      let records = await allRecords()
-      records.length.should.equal(1)
-      var commandResult = records[0]
-      commandResult._id.should.equal(putRecord._id)
-      commandResult.eventType.should.equal(putRecord.eventType)
-      commandResult.otp.should.equal(putRecord.otp)
-      commandResult.sendNotification.should.equal(putRecord.sendNotification)
-      commandResult.status.state.should.equal(putRecord.status.state)
-      commandResult.status.message.should.equal(putRecord.status.message)
-      commandResult.payload.units.should.equal(putRecord.payload.units)
-      commandResult.payload.absorption.should.equal(putRecord.payload.absorption)
+      let commands = await allCommands()
+      commands.length.should.equal(1)
+      var commandResult = commands[0]
+      commandResult._id.should.equal(putCommand._id)
+      commandResult.eventType.should.equal(putCommand.eventType)
+      commandResult.otp.should.equal(putCommand.otp)
+      commandResult.sendNotification.should.equal(putCommand.sendNotification)
+      commandResult.status.state.should.equal(putCommand.status.state)
+      commandResult.status.message.should.equal(putCommand.status.message)
+      commandResult.payload.units.should.equal(putCommand.payload.units)
+      commandResult.payload.absorption.should.equal(putCommand.payload.absorption)
       //TODO: Consider checking the created_date? It probably shouldn't be updated.
     });
 
@@ -210,7 +196,7 @@ describe('Remote Commands API', function () {
 
   //Utils
 
-  function testRecord1() {
+  function testCommand1() {
     return {
       eventType: "bolus",
       otp: 12345,
@@ -226,7 +212,7 @@ describe('Remote Commands API', function () {
     }
   }
 
-  function testRecord2() {
+  function testCommand2() {
     return {
       eventType: "carb",
       otp: 54321,
@@ -242,24 +228,24 @@ describe('Remote Commands API', function () {
     }
   }
 
-  async function insertRecord(record) {
+  async function insertCommand(command) {
 
-    var startRecords = await allRecords()
+    var startCommands = await allCommands()
 
     //Save
     const postResponse = await request(self.app)
       .post('/api/remotecommands/')
       .set('api-secret', known || '')
-      .send(record)
+      .send(command)
 
 
-    var endRecords = await allRecords()
-    assert(startRecords.length == (endRecords.length - 1))
+    var endCommands = await allCommands()
+    assert(startCommands.length == (endCommands.length - 1))
 
     return postResponse.body[0]
   }
 
-  async function allRecords() {
+  async function allCommands() {
     const getResponse = await request(self.app)
       .get('/api/remotecommands/')
       .set('api-secret', known || '')
@@ -274,7 +260,7 @@ describe('Remote Commands API', function () {
   //TODO: Put this in beforeEach?
   //I can't put an async method 
   //in there but maybe can put the callback variant?
-  async function deleteAllRecords() {
+  async function deleteAllCommands() {
     //Delete all remotecommands
     await request(self.app)
       .delete('/api/remotecommands/*')
@@ -283,8 +269,8 @@ describe('Remote Commands API', function () {
       .query(`find[created_at][$gt]=1900-09-07T23:59:59.000Z`)
       .set('api-secret', known || '')
 
-    var records = await allRecords()
-    assert(records.length == (0))
+    var commands = await allCommands()
+    assert(commands.length == (0))
   }
 
 });
