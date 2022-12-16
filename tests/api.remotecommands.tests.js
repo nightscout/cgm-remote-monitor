@@ -56,6 +56,49 @@ describe('Remote Commands API', function () {
       firstCommand.payload.absorption.should.equal(expectedCommand.payload.absorption)
     });
 
+    it('Should return command by id', async function () {
+
+      //Arrange
+      await deleteAllCommands()
+      var expectedCommand = testCommand1()
+      var insertResult = await insertCommand(expectedCommand)
+
+      //Act
+      const getResponse = await request(self.app)
+        .get(`/api/remotecommands/${insertResult._id}`)
+        .set('api-secret', known || '')
+
+      //Assert
+      getResponse.headers["content-type"].should.match(/json/)
+      getResponse.status.should.equal(200)
+      getResponse.body.length.should.equal(1)
+      var firstCommand = getResponse.body[0]
+      firstCommand.eventType.should.equal(expectedCommand.eventType)
+      firstCommand.otp.should.equal(expectedCommand.otp)
+      firstCommand.sendNotification.should.equal(expectedCommand.sendNotification)
+      firstCommand.status.state.should.equal(expectedCommand.status.state)
+      firstCommand.status.message.should.equal(expectedCommand.status.message)
+      firstCommand.payload.units.should.equal(expectedCommand.payload.units)
+      firstCommand.payload.absorption.should.equal(expectedCommand.payload.absorption)
+    });
+
+    it('Should return not found when unknown id used', async function () {
+
+      //Arrange
+      await deleteAllCommands()
+      var expectedCommand = testCommand1()
+
+      //Act
+      const getResponse = await request(self.app)
+        .get('/api/remotecommands/12345')
+        .set('api-secret', known || '')
+
+      //Assert
+      //TODO: Consider how to return a 404 response instead
+      getResponse.headers["content-type"].should.match(/text\/html/)
+      getResponse.status.should.equal(500)
+    });
+
     it('Should not get commands before created_at', async function () {
 
       //Arrange
