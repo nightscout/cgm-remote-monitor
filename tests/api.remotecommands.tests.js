@@ -25,7 +25,7 @@ describe('Remote Commands API', function () {
       self.ctx.ddata = require('../lib/data/ddata')();
       self.app.use('/api', api(self.env, ctx));
       done();
-    });
+    })
   });
 
   var exampleCommand1 = {
@@ -41,29 +41,6 @@ describe('Remote Commands API', function () {
       absorption: 3.0
     }
   }
-
-  describe('Delete Records', async function () {
-
-    it('All records should delete', async function () {
-
-      //Arrange
-      await deleteAllRecords()
-      await insertRecord(testRecord1())
-
-      //Act
-      const deleteResponse = await request(self.app)
-        .delete('/api/remotecommands/*')
-        .set('api-secret', known || '')
-
-      //Assert
-      let records = await allRecords()
-      records.length.should.equal(0)
-    });
-
-    //TODO: Check deletion with old records in database - currently it will only lookback a few days if not created date given - change this.
-
-    //TODO: Check deletion with various query parameters
-  });
 
   describe('Get Records', async function () {
 
@@ -92,7 +69,6 @@ describe('Remote Commands API', function () {
       firstCommand.payload.units.should.equal(expectedRecord.payload.units)
       firstCommand.payload.absorption.should.equal(expectedRecord.payload.absorption)
     });
-
 
     it('Should not get commands before created_at', async function () {
 
@@ -134,123 +110,102 @@ describe('Remote Commands API', function () {
 
   });
 
+  describe('Delete Commands', async function () {
 
-  /*
-    it('POST, GET, PUT, GET', async function() {
-  
-      //Remove any lingering remote commands
+    it('All commands should delete', async function () {
+
+      //Arrange
       await deleteAllRecords()
-  
-      const testStartDateInMs = Date.now().valueOf()
-  
-      //POST Remote Command
-  
+      await insertRecord(testRecord1())
+
+      //Act
+      const deleteResponse = await request(self.app)
+        .delete('/api/remotecommands/*')
+        .set('api-secret', known || '')
+
+      //Assert
+      let records = await allRecords()
+      records.length.should.equal(0)
+    });
+
+    //TODO: Check deletion with old records in database - currently it will only lookback a few days if not created date given - change this.
+
+    //TODO: Check deletion with various query parameters
+  });
+
+  describe('Post Commands', async function () {
+
+    it('Should insert a command succesfully', async function () {
+
+      //Arrange
+      let testStartDateInMs = Date.now()
+      await deleteAllRecords()
+      let expectedRecord = testRecord1()
+
+      //Act
       const postResponse = await request(self.app)
-      .post('/api/remotecommands/')
-      .set('api-secret', known || '')
-      .send({
-        eventType: "bolus",
-        otp: 12345,
-        sendNotification: false,
-        status: {
-          state: "Pending",
-          message: "Action queued"
-        },
-        payload: {
-          units: 1.0,
-          absorption: 3.0
-        }
-      })
-      
-      console.log(JSON.stringify(postResponse.body[0]));
-  
+        .post('/api/remotecommands/')
+        .set('api-secret', known || '')
+        .send(expectedRecord)
+
+      //Assert
       postResponse.headers["content-type"].should.match(/json/)
       postResponse.status.should.equal(200)
-      postResponse.body[0].eventType.should.equal("bolus")
-      postResponse.body[0].otp.should.equal(12345)
-      postResponse.body[0].sendNotification.should.equal(false)
-      postResponse.body[0].status.state.should.equal("Pending")
-      postResponse.body[0].status.message.should.equal("Action queued")
-      postResponse.body[0].payload.units.should.equal(1.0)
-      postResponse.body[0].payload.absorption.should.equal(3.0)
-  
-      const idFromPost = postResponse.body[0]._id
-      const insertDateStringFromPost = postResponse.body[0].created_at
-      const insertDateFromPost = Date.parse(insertDateStringFromPost)
-      
-      testStartDateInMs.should.lessThanOrEqual(insertDateFromPost)
-      Date.now().valueOf().should.greaterThanOrEqual(insertDateFromPost)
-  
-      //GET Remote Command
-  
-      const getResponse = await request(self.app)
-      .get('/api/remotecommands/')
-      .query(`find[created_at][$eq]=${insertDateStringFromPost}`)
-      .set('api-secret', known || '')
-      console.log(JSON.stringify(getResponse.body[0]));
-  
-      getResponse.headers["content-type"].should.match(/json/)
-      getResponse.status.should.equal(200)
-      getResponse.body.length.should.equal(1)
-      getResponse.body[0].eventType.should.equal("bolus")
-      getResponse.body[0].otp.should.equal(12345)
-      getResponse.body[0].sendNotification.should.equal(false)
-      getResponse.body[0].status.state.should.equal("Pending")
-      getResponse.body[0].status.message.should.equal("Action queued")
-      getResponse.body[0].payload.units.should.equal(1.0)
-      getResponse.body[0].payload.absorption.should.equal(3.0)
-      const insertDateFromGet = Date.parse(getResponse.body[0].created_at)
-      insertDateFromGet.should.equal(insertDateFromPost)
-  
-      //PUT Remote Command
-  
+      var commandResult = postResponse.body[0]
+      commandResult._id.should.be.a.String().and.not.be.empty()
+      commandResult.eventType.should.equal(expectedRecord.eventType)
+      commandResult.otp.should.equal(expectedRecord.otp)
+      commandResult.sendNotification.should.equal(expectedRecord.sendNotification)
+      commandResult.status.state.should.equal(expectedRecord.status.state)
+      commandResult.status.message.should.equal(expectedRecord.status.message)
+      commandResult.payload.units.should.equal(expectedRecord.payload.units)
+      commandResult.payload.absorption.should.equal(expectedRecord.payload.absorption)
+      const insertDateFromPost = Date.parse(commandResult.created_at)
+      insertDateFromPost.should.lessThanOrEqual(Date.now())
+      insertDateFromPost.should.greaterThanOrEqual(testStartDateInMs)
+    });
+
+    //TODO: Check post that has invalid data - should return proper error
+  });
+
+
+  describe('Put Commands', async function () {
+
+    it('Should Update a command succesfully', async function () {
+
+      //Arrange
+      await deleteAllRecords()
+      let postCommand = testRecord1()
+      var postResult = await insertRecord(postCommand)
+      var putRecord = testRecord2()
+      putRecord._id = postResult._id
+
+      //Act
       const putResponse = await request(self.app)
       .put('/api/remotecommands/')
       .set('api-secret', known || '')
-      .send({
-        _id:  idFromPost, //Use same ID to perform an update.
-        created_at: insertDateStringFromPost,
-        eventType: "bolus",
-        otp: 12345,
-        sendNotification: false,
-        status: {
-          state: "Success",
-          message: "Units Delivered"
-        },
-        payload: {
-          units: 1.0,
-          absorption: 3.0
-        }
-      })
-  
-      putResponse.headers["content-type"].should.match(/json/)
+      .send(putRecord)
+
+      //Assert
+      putResponse.headers["content-type"].should.match(/application\/json/)
       putResponse.status.should.equal(200)
-  
-      console.log(JSON.stringify(putResponse));
-      should(putResponse.body == undefined) //No Body in PUT
-  
-      //GET Remote Command
-  
-      const get2Response = await request(self.app)
-      .get('/api/remotecommands/')
-      .query(`find[created_at][$eq]=${insertDateStringFromPost}`)
-      .set('api-secret', known || '')
-      console.log(JSON.stringify(get2Response.body[0]));
-  
-      get2Response.headers["content-type"].should.match(/json/)
-      get2Response.status.should.equal(200)
-      get2Response.body.length.should.equal(1)
-      get2Response.body[0].eventType.should.equal("bolus")
-      get2Response.body[0].otp.should.equal(12345)
-      get2Response.body[0].sendNotification.should.equal(false)
-      get2Response.body[0].status.state.should.equal("Success")
-      get2Response.body[0].status.message.should.equal("Units Delivered")
-      get2Response.body[0].payload.units.should.equal(1.0)
-      get2Response.body[0].payload.absorption.should.equal(3.0)
-      const idFromGet = get2Response.body[0]._id
-      idFromPost.should.equal(idFromGet)
+      let records = await allRecords()
+      records.length.should.equal(1)
+      var commandResult = records[0]
+      commandResult._id.should.equal(putRecord._id)
+      commandResult.eventType.should.equal(putRecord.eventType)
+      commandResult.otp.should.equal(putRecord.otp)
+      commandResult.sendNotification.should.equal(putRecord.sendNotification)
+      commandResult.status.state.should.equal(putRecord.status.state)
+      commandResult.status.message.should.equal(putRecord.status.message)
+      commandResult.payload.units.should.equal(putRecord.payload.units)
+      commandResult.payload.absorption.should.equal(putRecord.payload.absorption)
+      //TODO: Consider checking the created_date? It probably shouldn't be updated.
     });
-    */
+
+    //TODO: Check PUT that has invalid _id - should return proper error
+  });
+
 
 
   //Utils
@@ -271,6 +226,22 @@ describe('Remote Commands API', function () {
     }
   }
 
+  function testRecord2() {
+    return {
+      eventType: "carb",
+      otp: 54321,
+      sendNotification: true,
+      status: {
+        state: "Pending",
+        message: "Action queued"
+      },
+      payload: {
+        units: 0.5,
+        absorption: 4.0
+      }
+    }
+  }
+
   async function insertRecord(record) {
 
     var startRecords = await allRecords()
@@ -284,6 +255,8 @@ describe('Remote Commands API', function () {
 
     var endRecords = await allRecords()
     assert(startRecords.length == (endRecords.length - 1))
+
+    return postResponse.body[0]
   }
 
   async function allRecords() {
