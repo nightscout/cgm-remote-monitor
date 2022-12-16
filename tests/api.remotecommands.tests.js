@@ -168,9 +168,9 @@ describe('Remote Commands API', function () {
 
       //Act
       const putResponse = await request(self.app)
-      .put('/api/remotecommands/')
-      .set('api-secret', known || '')
-      .send(putCommand)
+        .put('/api/remotecommands/')
+        .set('api-secret', known || '')
+        .send(putCommand)
 
       //Assert
       putResponse.headers["content-type"].should.match(/application\/json/)
