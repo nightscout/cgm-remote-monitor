@@ -90,13 +90,13 @@ describe('Remote Commands API', function () {
 
       //Act
       const getResponse = await request(self.app)
-        .get('/api/remotecommands/12345')
+        .get('/api/remotecommands/639cdffd5d3b3f5b697370a7')
         .set('api-secret', known || '')
 
       //Assert
       //TODO: Consider how to return a 404 response instead
-      getResponse.headers["content-type"].should.match(/text\/html/)
-      getResponse.status.should.equal(500)
+      getResponse.headers["content-type"].should.match(/json/)
+      getResponse.status.should.equal(404)
     });
 
     it('Should not get commands before created_at', async function () {
@@ -234,8 +234,6 @@ describe('Remote Commands API', function () {
 
     //TODO: Check PUT that has invalid _id - should return proper error
   });
-
-
 
   //Utils
 
