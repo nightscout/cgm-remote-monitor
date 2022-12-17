@@ -181,6 +181,7 @@ describe('Remote Commands API', function () {
       postResponse.headers["content-type"].should.match(/json/)
       postResponse.status.should.equal(200)
       var commandResult = postResponse.body[0]
+      postResponse.headers["location"].should.endWith(commandResult._id)
       commandResult._id.should.be.a.String().and.not.be.empty()
       commandResult.eventType.should.equal(expectedCommand.eventType)
       commandResult.otp.should.equal(expectedCommand.otp)
