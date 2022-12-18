@@ -212,7 +212,7 @@ describe('Remote Commands API', function () {
 
       //Act
       const putResponse = await request(self.app)
-        .put('/api/remotecommands/')
+        .put(`/api/remotecommands/${postResult._id}`)
         .set('api-secret', known || '')
         .send(putCommand)
 
@@ -233,7 +233,66 @@ describe('Remote Commands API', function () {
       //TODO: Consider checking the created_date? It probably shouldn't be updated.
     });
 
-    //TODO: Check PUT that has invalid _id - should return proper error
+    it('Error should return when ID is missing in url', async function () {
+
+      //Arrange
+      await deleteAllCommands()
+      let postCommand = testCommand1()
+      var postResult = await insertCommand(postCommand)
+      var putCommand = testCommand2()
+      putCommand._id = postResult._id
+
+      //Act
+      const putResponse = await request(self.app)
+        .put(`/api/remotecommands`)
+        .set('api-secret', known || '')
+        .send(putCommand)
+
+      //Assert
+      putResponse.headers["content-type"].should.match(/text/)
+      putResponse.status.should.equal(404)
+    });
+
+    it('Error should return when ID is invalid', async function () {
+
+      //Arrange
+      await deleteAllCommands()
+      let postCommand = testCommand1()
+      var postResult = await insertCommand(postCommand)
+      var putCommand = testCommand2()
+      var invalidID = "63960ac3c0434db0896c00e5"
+      putCommand._id = postResult._id
+
+      //Act
+      const putResponse = await request(self.app)
+        .put(`/api/remotecommands/${invalidID}`)
+        .set('api-secret', known || '')
+        .send(putCommand)
+
+      //Assert
+      putResponse.headers["content-type"].should.match(/application\/json/)
+      putResponse.status.should.equal(500)
+    });
+
+    it('Error should return when ID in body does not match id in URL', async function () {
+
+      //Arrange
+      await deleteAllCommands()
+      let postCommand = testCommand1()
+      var postResult = await insertCommand(postCommand)
+      var putCommand = testCommand2()
+      putCommand._id = "63960ac3c0434db0896c00e5"
+
+      //Act
+      const putResponse = await request(self.app)
+        .put(`/api/remotecommands/${postResult._id}`)
+        .set('api-secret', known || '')
+        .send(putCommand)
+
+      //Assert
+      putResponse.headers["content-type"].should.match(/application\/json/)
+      putResponse.status.should.equal(500)
+    });
   });
 
   //Utils
