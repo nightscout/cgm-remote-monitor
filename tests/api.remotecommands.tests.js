@@ -300,7 +300,7 @@ describe('Remote Commands API', function () {
   function testCommand1() {
     return {
       eventType: "bolus",
-      otp: 12345,
+      otp: "12345",
       sendNotification: false,
       status: {
         state: "Pending",
@@ -316,7 +316,7 @@ describe('Remote Commands API', function () {
   function testCommand2() {
     return {
       eventType: "carb",
-      otp: 54321,
+      otp: "54321",
       sendNotification: true,
       status: {
         state: "Pending",
