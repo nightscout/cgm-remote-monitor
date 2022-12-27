@@ -47,13 +47,11 @@ describe('Remote Commands API', function () {
       getResponse.status.should.equal(200)
       getResponse.body.length.should.equal(1)
       var firstCommand = getResponse.body[0]
-      firstCommand.eventType.should.equal(expectedCommand.eventType)
+      firstCommand.actionType.should.equal(expectedCommand.actionType)
       firstCommand.otp.should.equal(expectedCommand.otp)
       firstCommand.sendNotification.should.equal(expectedCommand.sendNotification)
       firstCommand.status.state.should.equal(expectedCommand.status.state)
       firstCommand.status.message.should.equal(expectedCommand.status.message)
-      firstCommand.payload.units.should.equal(expectedCommand.payload.units)
-      firstCommand.payload.absorption.should.equal(expectedCommand.payload.absorption)
     });
 
     it('Should return command by id', async function () {
@@ -73,13 +71,11 @@ describe('Remote Commands API', function () {
       getResponse.status.should.equal(200)
       getResponse.body.length.should.equal(1)
       var firstCommand = getResponse.body[0]
-      firstCommand.eventType.should.equal(expectedCommand.eventType)
+      firstCommand.actionType.should.equal(expectedCommand.actionType)
       firstCommand.otp.should.equal(expectedCommand.otp)
       firstCommand.sendNotification.should.equal(expectedCommand.sendNotification)
       firstCommand.status.state.should.equal(expectedCommand.status.state)
       firstCommand.status.message.should.equal(expectedCommand.status.message)
-      firstCommand.payload.units.should.equal(expectedCommand.payload.units)
-      firstCommand.payload.absorption.should.equal(expectedCommand.payload.absorption)
     });
 
     it('Should return not found when unknown id used', async function () {
@@ -183,13 +179,11 @@ describe('Remote Commands API', function () {
       var commandResult = postResponse.body[0]
       postResponse.headers["location"].should.endWith(commandResult._id)
       commandResult._id.should.be.a.String().and.not.be.empty()
-      commandResult.eventType.should.equal(expectedCommand.eventType)
+      commandResult.actionType.should.equal(expectedCommand.actionType)
       commandResult.otp.should.equal(expectedCommand.otp)
       commandResult.sendNotification.should.equal(expectedCommand.sendNotification)
       commandResult.status.state.should.equal(expectedCommand.status.state)
       commandResult.status.message.should.equal(expectedCommand.status.message)
-      commandResult.payload.units.should.equal(expectedCommand.payload.units)
-      commandResult.payload.absorption.should.equal(expectedCommand.payload.absorption)
       const insertDateFromPost = Date.parse(commandResult.created_at)
       insertDateFromPost.should.lessThanOrEqual(Date.now())
       insertDateFromPost.should.greaterThanOrEqual(testStartDateInMs)
@@ -223,13 +217,11 @@ describe('Remote Commands API', function () {
       commands.length.should.equal(1)
       var commandResult = commands[0]
       commandResult._id.should.equal(putCommand._id)
-      commandResult.eventType.should.equal(putCommand.eventType)
+      commandResult.actionType.should.equal(putCommand.actionType)
       commandResult.otp.should.equal(putCommand.otp)
       commandResult.sendNotification.should.equal(putCommand.sendNotification)
       commandResult.status.state.should.equal(putCommand.status.state)
       commandResult.status.message.should.equal(putCommand.status.message)
-      commandResult.payload.units.should.equal(putCommand.payload.units)
-      commandResult.payload.absorption.should.equal(putCommand.payload.absorption)
       //TODO: Consider checking the created_date? It probably shouldn't be updated.
     });
 
@@ -299,32 +291,31 @@ describe('Remote Commands API', function () {
 
   function testCommand1() {
     return {
-      eventType: "bolus",
+      actionType: "bolus",
+      actionOptions: {
+        units: 1.0
+      },
       otp: "12345",
       sendNotification: false,
       status: {
         state: "Pending",
         message: "Action queued"
-      },
-      payload: {
-        units: 1.0,
-        absorption: 3.0
       }
     }
   }
 
   function testCommand2() {
     return {
-      eventType: "carb",
+      actionType: "carb",
+      actionOptions: {
+        grams: 10,
+        absorption: 4.0
+      },
       otp: "54321",
       sendNotification: true,
       status: {
         state: "Pending",
         message: "Action queued"
-      },
-      payload: {
-        units: 0.5,
-        absorption: 4.0
       }
     }
   }
