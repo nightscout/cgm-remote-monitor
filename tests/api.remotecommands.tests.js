@@ -34,7 +34,7 @@ describe('Remote Commands API', function () {
 
       //Arrange
       await deleteAllCommands()
-      var expectedCommand = testCommand1()
+      var expectedCommand = pendingCommand()
       await insertCommand(expectedCommand)
 
       //Act
@@ -58,7 +58,7 @@ describe('Remote Commands API', function () {
 
       //Arrange
       await deleteAllCommands()
-      var expectedCommand = testCommand1()
+      var expectedCommand = pendingCommand()
       var insertResult = await insertCommand(expectedCommand)
 
       //Act
@@ -82,7 +82,7 @@ describe('Remote Commands API', function () {
 
       //Arrange
       await deleteAllCommands()
-      var expectedCommand = testCommand1()
+      var expectedCommand = pendingCommand()
 
       //Act
       const getResponse = await request(self.app)
@@ -99,7 +99,7 @@ describe('Remote Commands API', function () {
 
       //Arrange
       await deleteAllCommands()
-      var expectedCommand = testCommand1()
+      var expectedCommand = pendingCommand()
       await insertCommand(expectedCommand)
 
       //Act
@@ -118,7 +118,7 @@ describe('Remote Commands API', function () {
 
       //Arrange
       await deleteAllCommands()
-      var expectedCommand = testCommand1()
+      var expectedCommand = pendingCommand()
       await insertCommand(expectedCommand)
 
       //Act
@@ -141,7 +141,7 @@ describe('Remote Commands API', function () {
 
       //Arrange
       await deleteAllCommands()
-      await insertCommand(testCommand1())
+      await insertCommand(pendingCommand())
 
       //Act
       const deleteResponse = await request(self.app)
@@ -165,7 +165,7 @@ describe('Remote Commands API', function () {
       //Arrange
       let testStartDateInMs = Date.now()
       await deleteAllCommands()
-      let expectedCommand = testCommand1()
+      let expectedCommand = pendingCommand()
 
       //Act
       const postResponse = await request(self.app)
@@ -199,10 +199,14 @@ describe('Remote Commands API', function () {
 
       //Arrange
       await deleteAllCommands()
-      let postCommand = testCommand1()
+      let postCommand = pendingCommand()
       var postResult = await insertCommand(postCommand)
-      var putCommand = testCommand2()
-      putCommand._id = postResult._id
+      var putCommand = {
+        'status' : {
+          'state': 'In-Progress',
+          'message': 'Currently in-progress'
+        }
+      }
 
       //Act
       const putResponse = await request(self.app)
@@ -216,23 +220,27 @@ describe('Remote Commands API', function () {
       let commands = await allCommands()
       commands.length.should.equal(1)
       var commandResult = commands[0]
-      commandResult._id.should.equal(putCommand._id)
-      commandResult.actionType.should.equal(putCommand.actionType)
-      commandResult.otp.should.equal(putCommand.otp)
-      commandResult.sendNotification.should.equal(putCommand.sendNotification)
+      commandResult._id.should.equal(postResult._id)
+      commandResult.actionType.should.equal(postCommand.actionType)
+      commandResult.otp.should.equal(postCommand.otp)
+      commandResult.sendNotification.should.equal(postCommand.sendNotification)
       commandResult.status.state.should.equal(putCommand.status.state)
       commandResult.status.message.should.equal(putCommand.status.message)
-      //TODO: Consider checking the created_date? It probably shouldn't be updated.
+      //TODO: Consider checking the created_date? It probably shouldn't change.
     });
 
     it('Error should return when ID is missing in url', async function () {
 
       //Arrange
       await deleteAllCommands()
-      let postCommand = testCommand1()
-      var postResult = await insertCommand(postCommand)
-      var putCommand = testCommand2()
-      putCommand._id = postResult._id
+      let postCommand = pendingCommand()
+      await insertCommand(postCommand)
+      var putCommand = {
+        'status' : {
+          'state': 'In-Progress',
+          'message': 'Currently in-progress'
+        }
+      }
 
       //Act
       const putResponse = await request(self.app)
@@ -249,31 +257,14 @@ describe('Remote Commands API', function () {
 
       //Arrange
       await deleteAllCommands()
-      let postCommand = testCommand1()
-      var postResult = await insertCommand(postCommand)
-      var putCommand = testCommand2()
-      var invalidID = "63960ac3c0434db0896c00e5"
-      putCommand._id = postResult._id
-
-      //Act
-      const putResponse = await request(self.app)
-        .put(`/api/remotecommands/${invalidID}`)
-        .set('api-secret', known || '')
-        .send(putCommand)
-
-      //Assert
-      putResponse.headers["content-type"].should.match(/application\/json/)
-      putResponse.status.should.equal(500)
-    });
-
-    it('Error should return when ID in body does not match id in URL', async function () {
-
-      //Arrange
-      await deleteAllCommands()
-      let postCommand = testCommand1()
-      var postResult = await insertCommand(postCommand)
-      var putCommand = testCommand2()
-      putCommand._id = "63960ac3c0434db0896c00e5"
+      let postCommand = inProgressCommand()
+      let postResult = await insertCommand(postCommand)
+      var putCommand = {
+        'status' : {
+          'state': 'In-Progress',
+          'message': 'Currently in-progress'
+        }
+      }
 
       //Act
       const putResponse = await request(self.app)
@@ -283,13 +274,38 @@ describe('Remote Commands API', function () {
 
       //Assert
       putResponse.headers["content-type"].should.match(/application\/json/)
-      putResponse.status.should.equal(500)
+      putResponse.status.should.equal(404)
     });
+  });
+
+
+  it('Error should return when In-Progress Update made on Non-Pending Command', async function () {
+
+    //Arrange
+    await deleteAllCommands()
+    let postCommand = pendingCommand()
+    await insertCommand(postCommand)
+    var putCommand = {
+      'status' : {
+        'state': 'In-Progress',
+        'message': 'Currently in-progress'
+      }
+    }
+
+    //Act
+    const putResponse = await request(self.app)
+      .put(`/api/remotecommands`)
+      .set('api-secret', known || '')
+      .send(putCommand)
+
+    //Assert
+    putResponse.headers["content-type"].should.match(/text/)
+    putResponse.status.should.equal(404)
   });
 
   //Utils
 
-  function testCommand1() {
+  function pendingCommand() {
     return {
       actionType: "bolus",
       actionOptions: {
@@ -299,12 +315,12 @@ describe('Remote Commands API', function () {
       sendNotification: false,
       status: {
         state: "Pending",
-        message: "Action queued"
+        message: "Command Pending"
       }
     }
   }
 
-  function testCommand2() {
+  function inProgressCommand() {
     return {
       actionType: "carb",
       actionOptions: {
@@ -312,10 +328,10 @@ describe('Remote Commands API', function () {
         absorption: 4.0
       },
       otp: "54321",
-      sendNotification: true,
+      sendNotification: false,
       status: {
-        state: "Pending",
-        message: "Action queued"
+        state: "In-Progress",
+        message: "In-Progress"
       }
     }
   }
