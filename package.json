@@ -128,6 +128,7 @@
     "shiro-trie": "^0.4.9",
     "simple-statistics": "^0.7.0",
     "socket.io": "~4.5.4",
+    "socket.io-client": "^4.5.4",
     "stream-browserify": "^3.0.0",
     "style-loader": "^0.23.1",
     "swagger-ui-dist": "^4.13.2",
