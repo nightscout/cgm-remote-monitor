@@ -92,7 +92,7 @@
     "errorhandler": "^1.5.1",
     "event-stream": "3.3.4",
     "expose-loader": "^2.0.0",
-    "express": "^4.17.1",
+    "express": "^4.18.2",
     "express-minify": "^1.0.0",
     "fast-password-entropy": "^1.1.1",
     "file-loader": "^6.2.0",
