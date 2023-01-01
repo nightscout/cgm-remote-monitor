@@ -161,6 +161,10 @@ module.exports = {
     rules
   },
   resolve: {
+    fallback: {
+      'process/browser': require.resolve('process/browser'),
+      events: require.resolve('events/')
+    },
     alias: {
       stream: 'stream-browserify',
       crypto: 'crypto-browserify',
