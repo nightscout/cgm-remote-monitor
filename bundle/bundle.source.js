@@ -18,14 +18,14 @@ require('../node_modules/flot/jquery.flot.time');
 require('../node_modules/flot/jquery.flot.pie');
 require('../node_modules/flot/jquery.flot.fillbetween');
 
-// window.moment = require('moment-timezone');
+const moment = require('moment-timezone');
+
+window.moment = moment;
 
 window.Nightscout = window.Nightscout || {};
 
-var dayjs = require('dayjs');
-
 var ctx = {
-    moment: dayjs
+    moment: moment
 };
 
 window.Nightscout = {
