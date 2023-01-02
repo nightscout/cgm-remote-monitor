@@ -2,7 +2,7 @@ const path = require('path');
 const webpack = require('webpack');
 const pluginArray = [];
 const sourceMapType = 'source-map';
-const MomentTimezoneDataPlugin = require('moment-timezone-data-webpack-plugin');
+//const MomentTimezoneDataPlugin = require('moment-timezone-data-webpack-plugin');
 const projectRoot = path.resolve(__dirname, '..');
 
 /*
@@ -56,12 +56,14 @@ pluginArray.push(new webpack.ProvidePlugin({
   process: 'process/browser',
 }));
 
+/*
 // limit Timezone data from Moment
 
 pluginArray.push(new MomentTimezoneDataPlugin({
   startYear: 2015,
   endYear: 2035,
 }));
+*/
 
 if (process.env.NODE_ENV === 'development') {
   const ESLintPlugin = require('eslint-webpack-plugin');
@@ -106,7 +108,7 @@ const rules = [
     loader: 'file-loader',
     options: {
       outputPath: 'images'
-      //the images will be emmited to public/assets/images/ folder
+      //the images will be emitted to public/assets/images/ folder
       //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png);
     },
     exclude: /node_modules/
@@ -149,7 +151,7 @@ module.exports = {
     clock: clockEntry
   },
   output: {
-    path: path.resolve(projectRoot, './tmp/public'),
+    path: path.resolve(projectRoot, './node_modules/.cache/_ns_cache/public'),
     publicPath,
     filename: 'js/bundle.[name].js',
     sourceMapFilename: 'js/bundle.[name].js.map',
@@ -161,6 +163,10 @@ module.exports = {
     rules
   },
   resolve: {
+    fallback: {
+      'process/browser': require.resolve('process/browser'),
+      events: require.resolve('events/')
+    },
     alias: {
       stream: 'stream-browserify',
       crypto: 'crypto-browserify',
