@@ -25,7 +25,7 @@ function headless (benv, binding) {
 
       console.log('Setting up benv', Date.now() - t);
 
-      benv.require(__dirname + '/../../tmp/public/js/bundle.app.js');
+      benv.require(__dirname + '/../../node_modules/.cache/_ns_cache/public/js/bundle.app.js');
       
       console.log('Bundle loaded', Date.now() - t);
 
@@ -144,7 +144,7 @@ function headless (benv, binding) {
         , serverSettings: serverSettings
         , localCookieStorage: self.localStorage
         , cookieStorageType: self.localStorage
-		, localStorage: self.localStorage
+		    , localStorage: self.localStorage
         , io: {
           connect: function mockConnect ( ) {
             return {
@@ -170,7 +170,9 @@ function headless (benv, binding) {
         benv.require(req);
       });
       callback( );
-    });
+    },
+    {url: 'http://localhost/'}
+    );
     
   }
 
