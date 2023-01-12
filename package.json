@@ -65,7 +65,8 @@
     }
   },
   "engines": {
-    "node": "^16.x || ^14.x"
+    "node": "^16.x || ^14.x",
+    "npm": "^6.x"
   },
   "dependencies": {
     "@babel/core": "^7.18.10",
