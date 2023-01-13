@@ -1,0 +1,16 @@
+{
+    "$schema": "https://aka.ms/azure-quickstart-templates-metadata-schema#",
+    "type": "QuickStart",
+    "itemDisplayName": "Create a NightScout website on Azure with CosmosDB database",
+    "description": "This template creates a NightScout website on azure with a CosmosDB database to store the data. Template was authored by Chris Harris of Microsoft.",
+    "summary": "Create a web app on Azure with CosmosDB database.",
+    "githubUsername": "charris",
+    "tags": {
+      "subscriptiontype": "Pay-as-You-Go",
+      "resource": "appServices, node, mongo",
+      "os": "linux",
+      "level": "intermediate",
+      "cost": "$0"
+    },
+    "dateUpdated": "2022-10-12"
+  }

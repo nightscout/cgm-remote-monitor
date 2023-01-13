@@ -1,0 +1,570 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2021-09-09/uiFormDefinition.schema.json",
+    "view": {
+        "kind": "Form",
+        "properties": {
+            "title": "Nightscout Web Monitor - Website Deployment",
+            "steps": [
+                {
+                    "name": "basics",
+                    "label": "Basics",
+                    "elements": [
+                        {
+                            "name": "resourceScope",
+                            "type": "Microsoft.Common.ResourceScope",
+                            "location": {
+                                "resourceTypes": [
+                                    "microsoft.resources/resourcegroups",
+                                    "Microsoft.Web/serverfarms",
+                                    "Microsoft.DocumentDb/databaseAccounts"
+                                ]
+                            }
+                        },
+                        {
+                            "name": "requiredServerSettings",
+                            "type": "Microsoft.Common.Section",
+                            "label": "Required server settings",
+                            "elements": [
+                                {
+                                    "name": "apiSecret",
+                                    "type": "Microsoft.Common.PasswordBox",
+                                    "label": {
+                                        "password": "API SECRET",
+                                        "confirmPassword": "Confirm API SECRET"
+                                    },
+                                    "toolTip": "A passphrase that must be at least 12 characters long. Avoid 'special' characters, which can cause problems in some cases.",
+                                    "constraints": {
+                                        "required": true,
+                                        "regex": "^.{12,1023}$",
+                                        "validationMessage": "The passphrase must be at least 12 characters long."
+                                    },
+                                    "options": {
+                                        "hideConfirmation": true
+                                    },
+                                    "visible": true
+                                },
+                                {
+                                    "name": "webSiteName",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "Website Name",
+                                    "subLabel": ".azurewebsites.net",
+                                    "toolTip": "The name you would like to use for your website. It must be unique and the full name will be [Website Name].azurewebsites.net.",
+                                    "defaultValue": "[concat('nightscout-', toLower(substring(replace(guid(),'-',''), 1, 8)))]",
+                                    "constraints": {
+                                        "required": true,
+                                        "validations": [
+                                            {
+                                                "regex": "^[a-z0-9A-Z-]{1,30}$",
+                                                "message": "Only alphanumeric and the '-' characters are allowed, and the value must be 1-30 characters long."
+                                            },
+                                            {
+                                                "isValid": "[steps('basics').requiredServerSettings.checkDNS.available]",
+                                                "message": "The website name you have chosen already exists. Please choose another name."
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "checkDNS",
+                                    "type": "Microsoft.Solutions.ArmApiControl",
+                                    "request": {
+                                        "method": "GET",
+                                        "path": "[concat(steps('basics').resourceScope.subscription.id, '/providers/Microsoft.Network/locations/', steps('basics').resourceScope.location.name, '/CheckDnsNameAvailability?domainNameLabel=', steps('basics').requiredServerSettings.webSiteName, '&api-version=2021-05-01')]"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "name": "optionalServerSettings",
+                            "type": "Microsoft.Common.Section",
+                            "label": "Optional server settings",
+                            "elements": [
+                                {
+                                    "name": "dockerImageTag",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "Docker Image Tag",
+                                    "subLabel": "[concat('nightscout/cgm-remote-monitor:',steps('basics').dockerImageTag)]",
+                                    "toolTip": "The version for the docker image. ('14.2.6' or 'latest')",
+                                    "defaultValue": "14.2.6"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "applicationSettings",
+                            "type": "Microsoft.Common.Section",
+                            "label": "Nightscout application settings",
+                            "elements": [
+                                {
+                                    "name": "ALARM_HIGH",
+                                    "type": "Microsoft.Common.OptionsGroup",
+                                    "label": "ALARM_HIGH",
+                                    "toolTip": "Default setting for new browser views, for the High alarm (triggered when BG crosses BG_TARGET_TOP). ('on' or 'off')",
+                                    "defaultValue": "On",
+                                    "constraints": {
+                                        "allowedValues": [
+                                            {
+                                                "label": "On",
+                                                "value": "on"
+                                            },
+                                            {
+                                                "label": "Off",
+                                                "value": "off"
+                                            }
+                                        ],
+                                        "required": true
+                                    }
+                                },
+                                {
+                                    "name": "ALARM_LOW",
+                                    "type": "Microsoft.Common.OptionsGroup",
+                                    "label": "ALARM_LOW",
+                                    "toolTip": "Default setting for new browser views, for the Low alarm (triggered when BG crosses BG_TARGET_BOTTOM). ('on' or 'off')",
+                                    "defaultValue": "On",
+                                    "constraints": {
+                                        "allowedValues": [
+                                            {
+                                                "label": "On",
+                                                "value": "on"
+                                            },
+                                            {
+                                                "label": "Off",
+                                                "value": "off"
+                                            }
+                                        ],
+                                        "required": true
+                                    }
+                                },
+                                {
+                                    "name": "ALARM_TIMEAGO_URGENT",
+                                    "type": "Microsoft.Common.OptionsGroup",
+                                    "label": "ALARM_TIMEAGO_URGENT",
+                                    "toolTip": "Default setting for new browser views, for an urgent alarm when CGM data hasn't been received in the number of minutes set in ALARM_TIMEAGO_URGENT_MINS. ('on' or 'off')",
+                                    "defaultValue": "On",
+                                    "constraints": {
+                                        "allowedValues": [
+                                            {
+                                                "label": "On",
+                                                "value": "on"
+                                            },
+                                            {
+                                                "label": "Off",
+                                                "value": "off"
+                                            }
+                                        ],
+                                        "required": true
+                                    }
+                                },
+                                {
+                                    "name": "ALARM_TIMEAGO_URGENT_MINS",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "ALARM_TIMEAGO_URGENT_MINS",
+                                    "toolTip": "Default setting for new browser views, for the number of minutes since the last CGM reading to trigger an ALARM_TIMEAGO_URGENT alarm.",
+                                    "defaultValue": "30",
+                                    "constraints": {
+                                        "required": true,
+                                        "validations": [
+                                            {
+                                                "regex": "^[1-9]\\d*$",
+                                                "message": "The number of minutes must be an integer greater than 0."
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "ALARM_TIMEAGO_WARN",
+                                    "type": "Microsoft.Common.OptionsGroup",
+                                    "label": "ALARM_TIMEAGO_WARN",
+                                    "toolTip": "Default setting for new browser views, for a warning alarm when CGM data hasn't been received in the number of minutes set in ALARM_TIMEAGO_WARN_MINS. ('on' or 'off')",
+                                    "defaultValue": "On",
+                                    "constraints": {
+                                        "allowedValues": [
+                                            {
+                                                "label": "On",
+                                                "value": "on"
+                                            },
+                                            {
+                                                "label": "Off",
+                                                "value": "off"
+                                            }
+                                        ],
+                                        "required": true
+                                    }
+                                },
+                                {
+                                    "name": "ALARM_TIMEAGO_WARN_MINS",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "ALARM_TIMEAGO_WARN_MINS",
+                                    "toolTip": "Default setting for new browser views, for the number of minutes since the last CGM reading to trigger an ALARM_TIMEAGO_WARN alarm.",
+                                    "defaultValue": "15",
+                                    "constraints": {
+                                        "required": true,
+                                        "validations": [
+                                            {
+                                                "regex": "^[1-9]\\d*$",
+                                                "message": "The number of minutes must be an integer greater than 0."
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "ALARM_TYPES",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "ALARM_TYPES",
+                                    "toolTip": "'simple' and/or 'predict'. Simple alarms trigger when BG crosses the various thresholds set below. Predict alarms use a formula that forecasts where the BG is going based on its trend. You will *not* get warnings when crossing the BG thresholds set below when using the predict type.",
+                                    "defaultValue": "simple"
+                                },
+                                {
+                                    "name": "ALARM_URGENT_HIGH",
+                                    "type": "Microsoft.Common.OptionsGroup",
+                                    "label": "ALARM_URGENT_HIGH",
+                                    "toolTip": "Default setting for new browser views, for the Urgent High alarm (triggered when BG crosses BG_HIGH). ('on' or 'off')",
+                                    "defaultValue": "On",
+                                    "constraints": {
+                                        "allowedValues": [
+                                            {
+                                                "label": "On",
+                                                "value": "on"
+                                            },
+                                            {
+                                                "label": "Off",
+                                                "value": "off"
+                                            }
+                                        ],
+                                        "required": true
+                                    }
+                                },
+                                {
+                                    "name": "ALARM_URGENT_LOW",
+                                    "type": "Microsoft.Common.OptionsGroup",
+                                    "label": "ALARM_URGENT_LOW",
+                                    "toolTip": "Default setting for new browser views, for the Urgent Low alarm (triggered when BG crosses BG_LOW). ('on' or 'off')",
+                                    "defaultValue": "On",
+                                    "constraints": {
+                                        "allowedValues": [
+                                            {
+                                                "label": "On",
+                                                "value": "on"
+                                            },
+                                            {
+                                                "label": "Off",
+                                                "value": "off"
+                                            }
+                                        ],
+                                        "required": true
+                                    }
+                                },
+                                {
+                                    "name": "BG_HIGH",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "BG_HIGH",
+                                    "toolTip": "Urgent High BG threshold, triggers the ALARM_URGENT_HIGH alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
+                                    "defaultValue": "260",
+                                    "constraints": {
+                                        "required": true,
+                                        "validations": [
+                                            {
+                                                "regex": "^[1-9]\\d*$",
+                                                "message": "The number must be an integer greater than 0."
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "BG_LOW",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "BG_LOW",
+                                    "toolTip": "Urgent Low BG threshold, triggers the ALARM_URGENT_LOW alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
+                                    "defaultValue": "55",
+                                    "constraints": {
+                                        "required": true,
+                                        "validations": [
+                                            {
+                                                "regex": "^[1-9]\\d*$",
+                                                "message": "The number must be an integer greater than 0."
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "BG_TARGET_BOTTOM",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "BG_TARGET_BOTTOM",
+                                    "toolTip": "Low BG threshold, triggers the ALARM_LOW alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
+                                    "defaultValue": "80",
+                                    "constraints": {
+                                        "required": true,
+                                        "validations": [
+                                            {
+                                                "regex": "^[1-9]\\d*$",
+                                                "message": "The number must be an integer greater than 0."
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "BG_TARGET_TOP",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "BG_TARGET_TOP",
+                                    "toolTip": "High BG threshold, triggers the ALARM_HIGH alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
+                                    "defaultValue": "180",
+                                    "constraints": {
+                                        "required": true,
+                                        "validations": [
+                                            {
+                                                "regex": "^[1-9]\\d*$",
+                                                "message": "The number must be an integer greater than 0."
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "BOLUS_RENDER_OVER",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "BOLUS_RENDER_OVER",
+                                    "toolTip": "U value over which the bolus values are rendered on the chart if the 'x U and Over' option is selected.",
+                                    "defaultValue": "1"
+                                },
+                                {
+                                    "name": "BRIDGE_PASSWORD",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "BRIDGE_PASSWORD",
+                                    "toolTip": "Your Dexcom account password, to receive CGM data from the Dexcom Share service. Also make sure to include 'bridge' in your ENABLE line.",
+                                    "defaultValue": ""
+                                },
+                                {
+                                    "name": "BRIDGE_SERVER",
+                                    "type": "Microsoft.Common.OptionsGroup",
+                                    "label": "BRIDGE_SERVER",
+                                    "toolTip": "If you are bridging from the Dexcom Share service, and are anywhere *outside* the US, change this to EU. ('US' or 'EU')",
+                                    "defaultValue": "US",
+                                    "constraints": {
+                                        "allowedValues": [
+                                            {
+                                                "label": "US",
+                                                "value": "US"
+                                            },
+                                            {
+                                                "label": "EU",
+                                                "value": "EU"
+                                            }
+                                        ],
+                                        "required": true
+                                    }
+                                },
+                                {
+                                    "name": "BRIDGE_USER_NAME",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "BRIDGE_USER_NAME",
+                                    "toolTip": "Your Dexcom account username, to receive CGM data from the Dexcom Share service. Also make sure to include 'bridge' in your ENABLE line.",
+                                    "defaultValue": ""
+                                },
+                                {
+                                    "name": "CUSTOM_TITLE",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "CUSTOM_TITLE",
+                                    "toolTip": "The display name for the Nightscout site. Appears in the upper left of the main view. Often set to the name of the CGM wearer.",
+                                    "defaultValue": ""
+                                },
+                                {
+                                    "name": "DISPLAY_UNITS",
+                                    "type": "Microsoft.Common.OptionsGroup",
+                                    "label": "DISPLAY_UNITS",
+                                    "toolTip": "Preferred BG units for the site: 'mg/dl' or 'mmol/L' (or just 'mmol').",
+                                    "defaultValue": "mg/dl",
+                                    "constraints": {
+                                        "allowedValues": [
+                                            {
+                                                "label": "mg/dl",
+                                                "value": "mg/dl"
+                                            },
+                                            {
+                                                "label": "mmol/L",
+                                                "value": "mmol/L"
+                                            }
+                                        ],
+                                        "required": true
+                                    }
+                                },
+                                {
+                                    "name": "ENABLE",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "ENABLE",
+                                    "toolTip": "",
+                                    "defaultValue": "careportal basal dbsize"
+                                },
+                                {
+                                    "name": "MMCONNECT_USER_NAME",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "MMCONNECT_USER_NAME",
+                                    "toolTip": "Your CareLink account username, to receive CGM data from the CareLink service. Also make sure to include 'mmconnect' in your ENABLE line.",
+                                    "defaultValue": ""
+                                },
+                                {
+                                    "name": "MMCONNECT_PASSWORD",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "MMCONNECT_PASSWORD",
+                                    "toolTip": "Your CareLink account password, to receive CGM data from the CareLink service. Also make sure to include 'mmconnect' in your ENABLE line.",
+                                    "defaultValue": ""
+                                },
+                                {
+                                    "name": "MMCONNECT_SERVER",
+                                    "type": "Microsoft.Common.OptionsGroup",
+                                    "label": "MMCONNECT_SERVER",
+                                    "toolTip": "If you are bridging from the CareLink service, and are anywhere *outside* the US, change this to EU. ('US' or 'EU')",
+                                    "defaultValue": "US",
+                                    "constraints": {
+                                        "allowedValues": [
+                                            {
+                                                "label": "US",
+                                                "value": "US"
+                                            },
+                                            {
+                                                "label": "EU",
+                                                "value": "EU"
+                                            }
+                                        ],
+                                        "required": true
+                                    }
+                                },
+                                {
+                                    "name": "NIGHT_MODE",
+                                    "type": "Microsoft.Common.OptionsGroup",
+                                    "label": "NIGHT_MODE",
+                                    "toolTip": "Default setting for new browser views, for whether Night Mode should be enabled. ('on' or 'off')",
+                                    "defaultValue": "Off",
+                                    "constraints": {
+                                        "allowedValues": [
+                                            {
+                                                "label": "On",
+                                                "value": "on"
+                                            },
+                                            {
+                                                "label": "Off",
+                                                "value": "off"
+                                            }
+                                        ],
+                                        "required": true
+                                    }
+                                },
+                                {
+                                    "name": "SHOW_PLUGINS",
+                                    "type": "Microsoft.Common.TextBox",
+                                    "label": "SHOW_PLUGINS",
+                                    "toolTip": "Default setting for whether or not these plugins are checked (active) by default, not merely enabled. Include plugins here as in the ENABLE line; space-separated and lower-case.",
+                                    "defaultValue": "careportal dbsize"
+                                },
+                                {
+                                    "name": "SHOW_RAWBG",
+                                    "type": "Microsoft.Common.OptionsGroup",
+                                    "label": "SHOW_RAWBG",
+                                    "toolTip": "Default setting for new browser views, for the display of raw CGM data (if available). ('always', 'never', or 'noise')",
+                                    "defaultValue": "Never",
+                                    "constraints": {
+                                        "allowedValues": [
+                                            {
+                                                "label": "Always",
+                                                "value": "always"
+                                            },
+                                            {
+                                                "label": "Never",
+                                                "value": "never"
+                                            },
+                                            {
+                                                "label": "Noise",
+                                                "value": "noise"
+                                            }
+                                        ],
+                                        "required": true
+                                    }
+                                },
+                                {
+                                    "name": "THEME",
+                                    "type": "Microsoft.Common.OptionsGroup",
+                                    "label": "THEME",
+                                    "toolTip": "Default setting for new browser views, for the color theme of the CGM graph. ('default', 'colors', or 'colorblindfriendly')",
+                                    "defaultValue": "Colors",
+                                    "constraints": {
+                                        "allowedValues": [
+                                            {
+                                                "label": "Colors",
+                                                "value": "colors"
+                                            },
+                                            {
+                                                "label": "Default",
+                                                "value": "default"
+                                            },
+                                            {
+                                                "label": "Colorblind Friendly",
+                                                "value": "colorblindfriendly"
+                                            }
+                                        ],
+                                        "required": true
+                                    }
+                                },
+                                {
+                                    "name": "TIME_FORMAT",
+                                    "type": "Microsoft.Common.OptionsGroup",
+                                    "label": "TIME_FORMAT",
+                                    "toolTip": "Default setting for new browser views, for the time mode. ('12' or '24')",
+                                    "defaultValue": "12",
+                                    "constraints": {
+                                        "allowedValues": [
+                                            {
+                                                "label": "12",
+                                                "value": "12"
+                                            },
+                                            {
+                                                "label": "24",
+                                                "value": "24"
+                                            }
+                                        ],
+                                        "required": true
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        "outputs": {
+            "parameters": {
+                "API_SECRET": "[steps('basics').requiredServerSettings.apiSecret]",
+                "webSiteName": "[steps('basics').requiredServerSettings.webSiteName]",
+                "dockerImageTag": "[steps('basics').optionalServerSettings.dockerImageTag]",
+                "location": "[steps('basics').resourceScope.location.name]",
+                "ALARM_HIGH": "on",
+                "ALARM_LOW": "on",
+                "ALARM_TIMEAGO_URGENT": "on",
+                "ALARM_TIMEAGO_URGENT_MINS": "30",
+                "ALARM_TIMEAGO_WARN": "on",
+                "ALARM_TIMEAGO_WARN_MINS": "15",
+                "ALARM_TYPES": "simple",
+                "ALARM_URGENT_HIGH": "on",
+                "ALARM_URGENT_LOW": "on",
+                "BG_HIGH": "260",
+                "BG_LOW": "55",
+                "BG_TARGET_BOTTOM": "80",
+                "BG_TARGET_TOP": "180",
+                "BOLUS_RENDER_OVER": "1",
+                "BRIDGE_PASSWORD": "",
+                "BRIDGE_SERVER": "US",
+                "BRIDGE_USER_NAME": "",
+                "CUSTOM_TITLE": "",
+                "DISPLAY_UNITS": "mg/dl",
+                "ENABLE": "careportal basal dbsize",
+                "MMCONNECT_USER_NAME": "",
+                "MMCONNECT_PASSWORD": "",
+                "MMCONNECT_SERVER": "US",
+                "NIGHT_MODE": "off",
+                "SHOW_PLUGINS": "careportal dbsize",
+                "SHOW_RAWBG": "never",
+                "THEME": "colors",
+                "TIME_FORMAT": "12"
+            },
+            "kind": "ResourceGroup",
+            "location": "[steps('basics').resourceScope.location.name]",
+            "resourceGroupId": "[steps('basics').resourceScope.resourceGroup.id]"
+        }
+    }
+}

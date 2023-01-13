@@ -1,0 +1,449 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "API_SECRET": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                // TODO - If we can get the allowed character set, we can use the template form to validate the input.
+                "description": "A passphrase that must be at least 12 characters long. Avoid 'special' characters, which can cause problems in some cases."
+            }
+        },
+        "webSiteName": {
+            "defaultValue": "[concat('nightscout-', uniqueString(resourceGroup().id))]",
+            "type": "string",
+            "metadata": {
+                "description": "The name you would like to use for your website. It must be unique and the full name will be https://[webSiteName].azurewebsites.net."
+            }
+        },
+        "dockerImageTag": {
+            "type": "string",
+            "defaultValue": "14.2.6",
+            "metadata": {
+                "description": "The version for the docker image. ('14.2.6' or 'latest')"
+            }
+        },
+        "databaseAccountName": {
+            "type": "string",
+            "defaultValue": "[concat('nightscoutdb-', toLower(substring(replace(newGuid(),'-',''), 1, 8)))]",
+            "metadata": {
+                "descritption": "The name of the CosmosDB database (aka MongoDB database)."
+            }
+        },
+        "ALARM_HIGH": {
+            "type": "string",
+            "defaultValue": "on",
+            "metadata": {
+                "description": "Default setting for new browser views, for the High alarm (triggered when BG crosses BG_TARGET_TOP). ('on' or 'off')"
+            }
+        },
+        "ALARM_LOW": {
+            "type": "string",
+            "defaultValue": "on",
+            "metadata": {
+                "description": "Default setting for new browser views, for the Low alarm (triggered when BG crosses BG_TARGET_BOTTOM). ('on' or 'off')"
+            }
+        },
+        "ALARM_TIMEAGO_URGENT": {
+            "type": "string",
+            "defaultValue": "on",
+            "metadata": {
+                "description": "Default setting for new browser views, for an urgent alarm when CGM data hasn't been received in the number of minutes set in ALARM_TIMEAGO_URGENT_MINS. ('on' or 'off')"
+            }
+        },
+        "ALARM_TIMEAGO_URGENT_MINS": {
+            "type": "string",
+            "defaultValue": "30",
+            "metadata": {
+                "description": "Default setting for new browser views, for the number of minutes since the last CGM reading to trigger an ALARM_TIMEAGO_URGENT alarm."
+            }
+        },
+        "ALARM_TIMEAGO_WARN": {
+            "type": "string",
+            "defaultValue": "on",
+            "metadata": {
+                "description": "Default setting for new browser views, for a warning alarm when CGM data hasn't been received in the number of minutes set in ALARM_TIMEAGO_WARN_MINS. ('on' or 'off')"
+            }
+        },
+        "ALARM_TIMEAGO_WARN_MINS": {
+            "type": "string",
+            "defaultValue": "15",
+            "metadata": {
+                "description": "Default setting for new browser views, for the number of minutes since the last CGM reading to trigger an ALARM_TIMEAGO_WARN alarm."
+            }
+        },
+        "ALARM_TYPES": {
+            "type": "string",
+            "defaultValue": "simple",
+            "metadata": {
+                "description": "'simple' and/or 'predict'. Simple alarms trigger when BG crosses the various thresholds set below. Predict alarms use a formula that forecasts where the BG is going based on its trend. You will *not* get warnings when crossing the BG thresholds set below when using the predict type."
+            }
+        },
+        "ALARM_URGENT_HIGH": {
+            "type": "string",
+            "defaultValue": "on",
+            "metadata": {
+                "description": "Default setting for new browser views, for the Urgent High alarm (triggered when BG crosses BG_HIGH). ('on' or 'off')"
+            }
+        },
+        "ALARM_URGENT_LOW": {
+            "type": "string",
+            "defaultValue": "on",
+            "metadata": {
+                "description": "Default setting for new browser views, for the Urgent Low alarm (triggered when BG crosses BG_LOW). ('on' or 'off')"
+            }
+        },
+        "BG_HIGH": {
+            "type": "string",
+            "defaultValue": "260",
+            "metadata": {
+                "description": "Urgent High BG threshold, triggers the ALARM_URGENT_HIGH alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable."
+            }
+        },
+        "BG_LOW": {
+            "type": "string",
+            "defaultValue": "55",
+            "metadata": {
+                "description": "Urgent Low BG threshold, triggers the ALARM_URGENT_LOW alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable."
+            }
+        },
+        "BG_TARGET_BOTTOM": {
+            "type": "string",
+            "defaultValue": "80",
+            "metadata": {
+                "description": "Low BG threshold, triggers the ALARM_LOW alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable."
+            }
+        },
+        "BG_TARGET_TOP": {
+            "type": "string",
+            "defaultValue": "180",
+            "metadata": {
+                "description": "High BG threshold, triggers the ALARM_HIGH alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable."
+            }
+        },
+        "BOLUS_RENDER_OVER": {
+            "type": "string",
+            "defaultValue": "1",
+            "metadata": {
+                "description": "U value over which the bolus values are rendered on the chart if the 'x U and Over' option is selected."
+            }
+        },
+        "BRIDGE_PASSWORD": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Your Dexcom account password, to receive CGM data from the Dexcom Share service. Also make sure to include 'bridge' in your ENABLE line."
+            }
+        },
+        "BRIDGE_SERVER": {
+            "type": "string",
+            "defaultValue": "US",
+            "metadata": {
+                "description": "If you are bridging from the Dexcom Share service, and are anywhere *outside* the US, change this to EU. ('US' or 'EU')"
+            }
+        },
+        "BRIDGE_USER_NAME": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Your Dexcom account username, to receive CGM data from the Dexcom Share service. Also make sure to include 'bridge' in your ENABLE line."
+            }
+        },
+        "CUSTOM_TITLE": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The display name for the Nightscout site. Appears in the upper left of the main view. Often set to the name of the CGM wearer."
+            }
+        },
+        "DISPLAY_UNITS": {
+            "type": "string",
+            "defaultValue": "mg/dl",
+            "metadata": {
+                "description": "Preferred BG units for the site: 'mg/dl' or 'mmol/L' (or just 'mmol')."
+            }
+        },
+        "ENABLE": {
+            "type": "string",
+            "defaultValue": "careportal basal dbsize",
+            "metadata": {
+                "description": "Plugins to enable for your site. Must be a space-delimited, lower-case list. Include the word 'bridge' here if you are receiving data from the Dexcom Share service. Include 'mmconnect' if you are bridging from the MiniMed CareLink service."
+            }
+        },
+        "MMCONNECT_USER_NAME": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Your CareLink account username, to receive CGM data from the CareLink service. Also make sure to include 'mmconnect' in your ENABLE line."
+            }
+        },
+        "MMCONNECT_PASSWORD": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Your CareLink account password, to receive CGM data from the CareLink service. Also make sure to include 'mmconnect' in your ENABLE line."
+            }
+        },
+        "MMCONNECT_SERVER": {
+            "type": "string",
+            "defaultValue": "US",
+            "metadata": {
+                "description": "If you are bridging from the CareLink service, and are anywhere *outside* the US, change this to EU. ('US' or 'EU')"
+            }
+        },
+        "NIGHT_MODE": {
+            "type": "string",
+            "defaultValue": "off",
+            "metadata": {
+                "description": "Default setting for new browser views, for whether Night Mode should be enabled. ('on' or 'off')"
+            }
+        },
+        "SHOW_PLUGINS": {
+            "type": "string",
+            "defaultValue": "careportal dbsize",
+            "metadata": {
+                "description": "Default setting for whether or not these plugins are checked (active) by default, not merely enabled. Include plugins here as in the ENABLE line; space-separated and lower-case."
+            }
+        },
+        "SHOW_RAWBG": {
+            "type": "string",
+            "defaultValue": "never",
+            "metadata": {
+                "description": "Default setting for new browser views, for the display of raw CGM data (if available). ('always', 'never', or 'noise')"
+            }
+        },
+        "THEME": {
+            "type": "string",
+            "defaultValue": "colors",
+            "metadata": {
+                "description": "Default setting for new browser views, for the color theme of the CGM graph. ('default', 'colors', or 'colorblindfriendly')"
+            }
+        },
+        "TIME_FORMAT": {
+            "type": "string",
+            "defaultValue": "12",
+            "metadata": {
+                "description": "Default setting for new browser views, for the time mode. ('12' or '24')"
+            }
+        }
+
+    },
+    "variables": {
+        "hostingPlanName": "nightscout-plan",
+        "databaseName": "test",
+        "location": "[resourceGroup().location]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2020-12-01",
+            "name": "[parameters('webSiteName')]",
+            "location": "[variables('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Web/serverfarms/', variables('hostingPlanName'))]"
+            ],
+            "properties": {
+                "name": "[parameters('webSiteName')]",
+                "siteConfig": {
+                    "appSettings": [
+                        {
+                            "name": "DOCKER_REGISTRY_SERVER_URL",
+                            "value": "https://index.docker.io"
+                        },
+                        {
+                            "name": "DOCKER_REGISTRY_SERVER_USERNAME",
+                            "value": ""
+                        },
+                        {
+                            "name": "DOCKER_REGISTRY_SERVER_PASSWORD",
+                            "value": null
+                        },
+                        {
+                            "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
+                            "value": "false"
+                        }
+                    ],
+                    "linuxFxVersion": "[concat('DOCKER|nightscout/cgm-remote-monitor:',parameters('dockerImageTag'))]",
+                    "alwaysOn": true,
+                    "httpLoggingEnabled": true
+                },
+                "serverFarmId": "[variables('hostingPlanName')]",
+                "clientAffinityEnabled": false,
+                "httpsOnly": true
+            },
+            "resources": [
+                {
+                    "name": "appsettings",
+                    "type": "config",
+                    "apiVersion": "2020-12-01",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Web/sites', parameters('webSiteName'))]",
+                        "[concat('Microsoft.DocumentDb/databaseAccounts/', parameters('databaseAccountName'))]"
+                    ],
+                    "tags": {
+                        "displayName": "NightscoutSettings"
+                    },
+                    "comments": "Nightscout settings",
+                    "properties": {
+                        "ALARM_HIGH": "[parameters('ALARM_HIGH')]",
+                        "ALARM_LOW": "[parameters('ALARM_LOW')]",
+                        "ALARM_TIMEAGO_URGENT": "[parameters('ALARM_TIMEAGO_URGENT')]",
+                        "ALARM_TIMEAGO_URGENT_MINS": "[parameters('ALARM_TIMEAGO_URGENT_MINS')]",
+                        "ALARM_TIMEAGO_WARN": "[parameters('ALARM_TIMEAGO_WARN')]",
+                        "ALARM_TIMEAGO_WARN_MINS": "[parameters('ALARM_TIMEAGO_WARN_MINS')]",
+                        "ALARM_TYPES": "[parameters('ALARM_TYPES')]",
+                        "ALARM_URGENT_HIGH": "[parameters('ALARM_URGENT_HIGH')]",
+                        "ALARM_URGENT_LOW": "[parameters('ALARM_URGENT_LOW')]",
+                        "API_SECRET": "[parameters('API_SECRET')]",
+                        "BG_HIGH": "[parameters('BG_HIGH')]",
+                        "BG_LOW": "[parameters('BG_LOW')]",
+                        "BG_TARGET_BOTTOM": "[parameters('BG_TARGET_BOTTOM')]",
+                        "BG_TARGET_TOP": "[parameters('BG_TARGET_TOP')]",
+                        "BOLUS_RENDER_OVER": "[parameters('BOLUS_RENDER_OVER')]",
+                        "BRIDGE_PASSWORD": "[parameters('BRIDGE_PASSWORD')]",
+                        "BRIDGE_SERVER": "[parameters('BRIDGE_SERVER')]",
+                        "BRIDGE_USER_NAME": "[parameters('BRIDGE_USER_NAME')]",
+                        "CUSTOM_TITLE": "[parameters('CUSTOM_TITLE')]",
+                        "DISPLAY_UNITS": "[parameters('DISPLAY_UNITS')]",
+                        "ENABLE": "[parameters('ENABLE')]",
+                        "MMCONNECT_USER_NAME": "[parameters('MMCONNECT_USER_NAME')]",
+                        "MMCONNECT_PASSWORD": "[parameters('MMCONNECT_PASSWORD')]",
+                        "MMCONNECT_SERVER": "[parameters('MMCONNECT_SERVER')]",
+                        "NIGHT_MODE": "[parameters('NIGHT_MODE')]",
+                        "SHOW_PLUGINS": "[parameters('SHOW_PLUGINS')]",
+                        "SHOW_RAWBG": "[parameters('SHOW_RAWBG')]",
+                        "THEME": "[parameters('THEME')]",
+                        "TIME_FORMAT": "[parameters('TIME_FORMAT')]"
+                    }
+                }
+            ]
+        },
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2020-12-01",
+            "name": "[variables('hostingPlanName')]",
+            "location": "[variables('location')]",
+            "kind": "linux",
+            "dependsOn": [],
+            "properties": {
+                "workerSizeId": "0",
+                "reserved": true,
+                "zoneRedundant": false
+            },
+            "sku": {
+                "name": "B1",
+                "tier": "Basic"
+            }
+        },
+        {
+            "type": "Microsoft.DocumentDb/databaseAccounts",
+            "apiVersion": "2021-10-15",
+            "kind": "MongoDB",
+            "name": "[parameters('databaseAccountName')]",
+            "location": "[variables('location')]",
+            "properties": {
+                "databaseAccountOfferType": "Standard",
+                "enableFreeTier": true,
+                "locations": [
+                    {
+                        "locationName": "[variables('location')]",
+                        "failoverPriority": 0
+                    }
+                ],
+                "consistencyPolicy": {
+                    "defaultConsistencyLevel": "ConsistentPrefix"
+                },
+                "backupPolicy": {
+                    "type": "Continuous",
+                    "continuousModeProperties": {
+                        "tier": "Continuous7Days"
+                    }
+                },
+                "apiProperties": {
+                    "serverVersion": "4.2"
+                },
+                "capacity": {
+                    "totalThroughputLimit": 1000
+                },
+                "capabilities": [
+                    {
+                        "name": "DisableRateLimitingResponses"
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.DocumentDB/databaseAccounts/mongodbDatabases",
+            "apiVersion": "2021-10-15",
+            "name": "[concat(parameters('databaseAccountName'), '/', variables('databaseName'))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('databaseAccountName'))]"
+            ],
+            "properties": {
+                "resource": {
+                    "id": "[variables('databaseName')]"
+                },
+                "options": {
+                    "autoscaleSettings": {
+                        "maxThroughput": 1000
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2020-06-01",
+            "name": "appServiceDatabaseConnectionResourcesDeployment",
+            "properties": {
+                "mode": "Incremental",
+                "expressionEvaluationOptions": {
+                    "scope": "inner"
+                },
+                "parameters": {
+                    "webSiteName": {
+                        "value": "[parameters('webSiteName')]"
+                    },
+                    "databaseAccountName": {
+                        "value": "[parameters('databaseAccountName')]"
+                    },
+                    "databaseName": {
+                        "value": "[variables('databaseName')]"
+                    }
+                },
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "webSiteName": {
+                            "type": "string"
+                        },
+                        "databaseAccountName": {
+                            "type": "string"
+                        },
+                        "databaseName": {
+                            "type": "string"
+                        }
+                    },
+                    "resources": [
+                        {
+                            "apiVersion": "2018-11-01",
+                            "name": "[concat(parameters('webSiteName'), '/', 'connectionstrings')]",
+                            "type": "Microsoft.Web/sites/config",
+                            "properties": {
+                                "MONGODB_URI": {
+                                    "value": "[concat('mongodb://', parameters('databaseAccountName'), ':', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('databaseAccountName')), '2020-04-01').primaryMasterKey, '@', parameters('databaseAccountName'), '.mongo.cosmos.azure.com:10255/', parameters('databaseName'), '?ssl=true&retrywrites=false&socketTimeoutMS=120000&appName=@', parameters('databaseAccountName'),'@')]",
+                                    "type": "Custom"
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('webSiteName'))]",
+                "[concat('Microsoft.DocumentDb/databaseAccounts/', parameters('databaseAccountName'))]"
+            ]
+        }
+    ]
+}
