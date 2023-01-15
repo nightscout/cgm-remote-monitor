@@ -86,7 +86,7 @@
     "cssmin": "^0.4.3",
     "csv-stringify": "^5.5.1",
     "d3": "^5.16.0",
-    "diasend-nightscout-bridge": "^1.1.5",
+    "diasend-nightscout-bridge": "^1.1.7",
     "dompurify": "^2.2.6",
     "easyxml": "^2.0.1",
     "ejs": "^2.7.4",
