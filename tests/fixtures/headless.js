@@ -19,6 +19,9 @@ function headless (benv, binding) {
     var serverSettings = opts.serverSettings || require('./default-server-settings');
     var someData = opts.mockAjax || { };
 
+    console.log('HTML reading file', Date.now() - t);
+    var indexHtml = read(htmlFile, 'utf8');
+    console.log('HTML read from file', Date.now() - t);
     console.log('Entering setup', Date.now() - t);
 
     benv.setup(function() {
@@ -35,10 +38,7 @@ function headless (benv, binding) {
 
       self.$.fn.tooltip = function mockTooltip ( ) { };
 
-      console.log('HTML reading file', Date.now() - t);
-      var indexHtml = read(htmlFile, 'utf8');
-      console.log('HTML read from file', Date.now() - t);
-      self.$('body').html(indexHtml);
+      // self.$('body').html(indexHtml);
 
       console.log('HTML set', Date.now() - t);
 
@@ -173,13 +173,13 @@ function headless (benv, binding) {
       });
       callback( );
     },
-    {url: 'http://localhost/'}
+    {url: 'http://localhost/', html: indexHtml}
     );
     
   }
 
   function teardown ( ) {
-    benv.teardown();
+    benv.teardown(true);
   }
   root.setup = init;
   root.teardown = teardown;

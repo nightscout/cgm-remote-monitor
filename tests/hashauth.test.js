@@ -103,7 +103,7 @@ describe('hashauth', function ( ) {
     hashauth.isAuthenticated().should.equal(true);
   });
 
-  it ('should store hash and the remove authentication', function () {
+  it ('should store hash and then remove authentication', function () {
     var client = require('../lib/client');
     var hashauth = require('../lib/client/hashauth');
     //var localStorage = require('./fixtures/localstorage');   
