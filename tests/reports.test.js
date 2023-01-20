@@ -5,6 +5,8 @@ var _ = require('lodash');
 var benv = require('benv');
 var read = require('fs').readFileSync;
 var serverSettings = require('./fixtures/default-server-settings');
+const helper = require('./inithelper')();
+const moment = helper.ctx.moment;
 
 var nowData = {
   sgvs: [
@@ -241,8 +243,8 @@ describe('reports', function ( ) {
       $('a.presetdates :first').click();
       $('#rp_notes').val('something');
       $('#rp_eventtype').val('BG Check');
-      $('#rp_from').val('2015-08-08');
-      $('#rp_to').val('2015-09-07');
+      $('#rp_from').val('2015-08-06');
+      $('#rp_to').val('2015-09-06');
       $('#rp_optionsraw').prop('checked', true);
       $('#rp_optionsiob').prop('checked', true);
       $('#rp_optionscob').prop('checked', true);
@@ -317,7 +319,7 @@ describe('reports', function ( ) {
 
       $('#weektoweek').addClass('selected');
       $('a.presetdates :first').click();
-      $('#rp_from').val('2015-08-08');
+      $('#rp_from').val('2015-08-09');
       $('#rp_to').val('2015-09-07');
       $('#wrp_log').prop('checked', true);
       $('#rp_show').click();

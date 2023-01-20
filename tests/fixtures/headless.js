@@ -35,7 +35,9 @@ function headless (benv, binding) {
 
       self.$.fn.tooltip = function mockTooltip ( ) { };
 
+      console.log('HTML reading file', Date.now() - t);
       var indexHtml = read(htmlFile, 'utf8');
+      console.log('HTML read from file', Date.now() - t);
       self.$('body').html(indexHtml);
 
       console.log('HTML set', Date.now() - t);

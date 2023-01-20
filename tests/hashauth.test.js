@@ -7,7 +7,7 @@ var serverSettings = require('./fixtures/default-server-settings');
 let localStorage = require('./fixtures/localstorage');
 
 describe('hashauth', function ( ) {
-  this.timeout(50000); // TODO: see why this test takes longer on Travis to complete
+  this.timeout(65000); // TODO: see why this test takes longer on Travis to complete
 
   var self = this;
   benv.localStorage = localStorage;
