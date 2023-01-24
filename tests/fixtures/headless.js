@@ -144,7 +144,7 @@ function headless (benv, binding) {
         , serverSettings: serverSettings
         , localCookieStorage: self.localStorage
         , cookieStorageType: self.localStorage
-		    , localStorage: self.localStorage
+		, localStorage: self.localStorage
         , io: {
           connect: function mockConnect ( ) {
             return {
@@ -170,9 +170,7 @@ function headless (benv, binding) {
         benv.require(req);
       });
       callback( );
-    },
-    {url: 'http://localhost/'}
-    );
+    });
     
   }
 
