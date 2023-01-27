@@ -1,0 +1,82 @@
+{
+  "name": "diasend-nightscout-bridge",
+  "description": "Synchronizes continuuous glucose values (CGV) from diasend to nightscout",
+  "version": "0.1.2",
+  "main": "dist/index.js",
+  "license": "MIT",
+  "author": {
+    "name": "Benedikt Reiser",
+    "email": "dev@burnedikt.com",
+    "url": "https://burnedikt.com/"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "build": "tsc",
+    "prepare": "npm run build",
+    "start": "npm run run",
+    "run": "npm run build && node dist/run.js",
+    "test": "cross-env TZ=Europe/Berlin jest --silent"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "devDependencies": {
+    "@types/cheerio": "^0.22.31",
+    "@types/jest": "^28.1.8",
+    "@types/node": "^18.7.7",
+    "@types/tough-cookie": "^4.0.2",
+    "@typescript-eslint/eslint-plugin": "^5.32.0",
+    "@typescript-eslint/parser": "^5.32.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^8.21.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-unused-imports": "^2.0.0",
+    "jest": "^28",
+    "prettier": "^2.7.1",
+    "ts-jest": "^28.0.8",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.7.4"
+  },
+  "eslintConfig": {
+    "parserOptions": {
+      "project": [
+        "./tsconfig.json"
+      ]
+    },
+    "extends": [
+      "eslint:recommended",
+      "plugin:@typescript-eslint/recommended",
+      "plugin:@typescript-eslint/recommended-requiring-type-checking",
+      "prettier"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "plugins": [
+      "@typescript-eslint",
+      "unused-imports"
+    ],
+    "ignorePatterns": [
+      "dist/**"
+    ],
+    "root": true
+  },
+  "dependencies": {
+    "axios": "^0.27.2",
+    "axios-cookiejar-support": "^2",
+    "cheerio": "^1.0.0-rc.12",
+    "dayjs": "^1.11.4",
+    "dotenv": "^16.0.3",
+    "node-cache": "^5.1.2",
+    "rand-user-agent": "^1.0.78",
+    "tough-cookie": "^4.1.2"
+  },
+  "keywords": [
+    "nightscout",
+    "diasend"
+  ],
+  "release": {
+    "branches": [
+      "+([0-9])?(.{+([0-9]),x}).x",
+      "main"
+    ]
+  }
+}
