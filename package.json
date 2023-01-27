@@ -114,7 +114,7 @@
     "moment-locales-webpack-plugin": "^1.2.0",
     "moment-timezone": "^0.5.31",
     "moment-timezone-data-webpack-plugin": "^1.5.0",
-    "mongo-url-parser": "^1.0.1",
+    "mongo-url-parser": "^1.0.2",
     "mongodb": "^3.6.0",
     "mongomock": "^0.1.2",
     "node-cache": "^4.2.1",
