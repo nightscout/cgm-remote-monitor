@@ -63,6 +63,39 @@ var someData = {
       {'created_at':'2015-09-06T00:00:00.000Z'},
       {'created_at':'2015-09-07T00:00:00.000Z'}
     ],
+  '/api/v1/treatments.json?find[eventType]=/BG Check/i&find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-09-07T23:59:59.999Z': [
+      {'created_at':'2015-08-08T00:00:00.000Z'},
+      {'created_at':'2015-08-09T00:00:00.000Z'},
+      {'created_at':'2015-08-10T00:00:00.000Z'},
+      {'created_at':'2015-08-11T00:00:00.000Z'},
+      {'created_at':'2015-08-12T00:00:00.000Z'},
+      {'created_at':'2015-08-13T00:00:00.000Z'},
+      {'created_at':'2015-08-14T00:00:00.000Z'},
+      {'created_at':'2015-08-15T00:00:00.000Z'},
+      {'created_at':'2015-08-16T00:00:00.000Z'},
+      {'created_at':'2015-08-17T00:00:00.000Z'},
+      {'created_at':'2015-08-18T00:00:00.000Z'},
+      {'created_at':'2015-08-19T00:00:00.000Z'},
+      {'created_at':'2015-08-20T00:00:00.000Z'},
+      {'created_at':'2015-08-21T00:00:00.000Z'},
+      {'created_at':'2015-08-22T00:00:00.000Z'},
+      {'created_at':'2015-08-23T00:00:00.000Z'},
+      {'created_at':'2015-08-24T00:00:00.000Z'},
+      {'created_at':'2015-08-25T00:00:00.000Z'},
+      {'created_at':'2015-08-26T00:00:00.000Z'},
+      {'created_at':'2015-08-27T00:00:00.000Z'},
+      {'created_at':'2015-08-28T00:00:00.000Z'},
+      {'created_at':'2015-08-29T00:00:00.000Z'},
+      {'created_at':'2015-08-30T00:00:00.000Z'},
+      {'created_at':'2015-08-31T00:00:00.000Z'},
+      {'created_at':'2015-09-01T00:00:00.000Z'},
+      {'created_at':'2015-09-02T00:00:00.000Z'},
+      {'created_at':'2015-09-03T00:00:00.000Z'},
+      {'created_at':'2015-09-04T00:00:00.000Z'},
+      {'created_at':'2015-09-05T00:00:00.000Z'},
+      {'created_at':'2015-09-06T00:00:00.000Z'},
+      {'created_at':'2015-09-07T00:00:00.000Z'}
+    ],
   '/api/v1/treatments.json?find[notes]=/something/i&find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-09-08T23:59:59.999Z': [
       {'created_at':'2015-08-08T00:00:00.000Z'},
       {'created_at':'2015-08-09T00:00:00.000Z'},
@@ -96,7 +129,56 @@ var someData = {
       {'created_at':'2015-09-06T00:00:00.000Z'},
       {'created_at':'2015-09-07T00:00:00.000Z'}
     ],
+  '/api/v1/treatments.json?find[notes]=/something/i&find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-09-07T23:59:59.999Z': [
+      {'created_at':'2015-08-08T00:00:00.000Z'},
+      {'created_at':'2015-08-09T00:00:00.000Z'},
+      {'created_at':'2015-08-10T00:00:00.000Z'},
+      {'created_at':'2015-08-11T00:00:00.000Z'},
+      {'created_at':'2015-08-12T00:00:00.000Z'},
+      {'created_at':'2015-08-13T00:00:00.000Z'},
+      {'created_at':'2015-08-14T00:00:00.000Z'},
+      {'created_at':'2015-08-15T00:00:00.000Z'},
+      {'created_at':'2015-08-16T00:00:00.000Z'},
+      {'created_at':'2015-08-17T00:00:00.000Z'},
+      {'created_at':'2015-08-18T00:00:00.000Z'},
+      {'created_at':'2015-08-19T00:00:00.000Z'},
+      {'created_at':'2015-08-20T00:00:00.000Z'},
+      {'created_at':'2015-08-21T00:00:00.000Z'},
+      {'created_at':'2015-08-22T00:00:00.000Z'},
+      {'created_at':'2015-08-23T00:00:00.000Z'},
+      {'created_at':'2015-08-24T00:00:00.000Z'},
+      {'created_at':'2015-08-25T00:00:00.000Z'},
+      {'created_at':'2015-08-26T00:00:00.000Z'},
+      {'created_at':'2015-08-27T00:00:00.000Z'},
+      {'created_at':'2015-08-28T00:00:00.000Z'},
+      {'created_at':'2015-08-29T00:00:00.000Z'},
+      {'created_at':'2015-08-30T00:00:00.000Z'},
+      {'created_at':'2015-08-31T00:00:00.000Z'},
+      {'created_at':'2015-09-01T00:00:00.000Z'},
+      {'created_at':'2015-09-02T00:00:00.000Z'},
+      {'created_at':'2015-09-03T00:00:00.000Z'},
+      {'created_at':'2015-09-04T00:00:00.000Z'},
+      {'created_at':'2015-09-05T00:00:00.000Z'},
+      {'created_at':'2015-09-06T00:00:00.000Z'},
+      {'created_at':'2015-09-07T00:00:00.000Z'}
+    ],
     '/api/v1/devicestatus.json&find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-09-08T23:59:59.999Z?find[openaps][$exists]=true&count=1000': [
+      {
+        'openaps': {
+            'suggested': {
+                'temp': 'absolute',
+                'bg': 67,
+                'tick': '+6',
+                'eventualBG': 145,
+                'snoozeBG': 145,
+                'reason': 'BG 67<74.5, delta 6>0; no high-temp to cancel',
+                'timestamp': '2015-08-31T00:00:00.000Z'
+            }
+        },
+        'created_at': '2015-08-31T00:00:00.000Z'
+      }
+    ],
+    '/api/v1/devicestatus.json&find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-09-07T23:59:59.999Z?find[openaps][$exists]=true&count=1000': [
       {
         'openaps': {
             'suggested': {
