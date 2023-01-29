@@ -125,6 +125,7 @@
     "random-token": "0.0.8",
     "request": "^2.88.2",
     "semver": "^6.3.0",
+    "sha.js": "^2.4.11",
     "share2nightscout-bridge": "^0.2.9",
     "shiro-trie": "^0.4.9",
     "simple-statistics": "^0.7.0",
