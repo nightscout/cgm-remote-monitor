@@ -511,6 +511,13 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `MMCONNECT_STORE_RAW_DATA` - Set this to "true" to store raw data returned from CareLink as `type: "carelink_raw"` database entries (useful for development).
   * `MMCONNECT_SERVER` - Set this to `EU` if you're using the European Medtronic services
 
+##### `diasend` (Diasend bridge)
+  Transfer near-real-time continuous glucose monitoring and treatment data from diasend into Nightscout ([read more](https://github.com/burnedikt/diasend-nightscout-bridge)). ⚠️ Due to diasend not providing any timezone information on the data, the timezone (`TZ`) of the nightscout instance needs to match the timezone in which the values were sent to diasend, i.e. the timezone of the device generating the data for diasend, most likely the user's local timezone.
+  * `DIASEND_USERNAME` - Your user name / e-mail address for diasend.
+  * `DIASEND_PASSWORD` - Your password for diasend.
+  * `DIASEND_POLLING_INTERVAL_MS` (`60000` *1 minute*) - Number of milliseconds to wait between requests to the diasend server.
+  * `DIASEND_PUMP_SETTINGS_POLLING_INTERVAL_MS` (`43200000` *12 hours*) - Number of milliseconds to wait between attempts to synchronize pump settings.
+
 ##### `pump` (Pump Monitoring)
   Generic Pump Monitoring for OpenAPS, MiniMed Connect, RileyLink, t:slim, with more on the way
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set

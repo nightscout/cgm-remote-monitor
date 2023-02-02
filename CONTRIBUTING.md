@@ -220,6 +220,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | [`iob` (Insulin-on-Board)](README.md#iob-insulin-on-board)| Please volunteer | Please volunteer |
 | [`loop` (Loop)](README.md#loop-loop)| Please volunteer | Please volunteer |
 | [`mmconnect` (MiniMed Connect bridge)](README.md#mmconnect-minimed-connect-bridge)| Please volunteer | Please volunteer |
+| [`diasend` (Diasend bridge)](README.md#diasend-diasend-bridge)| [@burnedikt] | Please volunteer |
 | [`openaps` (OpenAPS)](README.md#openaps-openaps)| Please volunteer | Please volunteer |
 | [`profile` (Treatment Profile)](README.md#profile-treatment-profile)| Please volunteer | Please volunteer |
 | [`pump` (Pump Monitoring)](README.md#pump-pump-monitoring)| Please volunteer | Please volunteer |
