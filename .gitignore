@@ -34,3 +34,6 @@ npm-debug.log
 # directories created by docker-compose.yml
 mongo-data/
 letsencrypt/
+/test-results/
+/playwright-report/
+/playwright/.cache/
