@@ -104,7 +104,7 @@ const config = {
     command: 'npm run test-server',
     port: 1337,
     timeout: 120 * 1000,
-    reuseExistingServer: !process.env,
+    reuseExistingServer: !process.env.CI,
   },
 };
 
