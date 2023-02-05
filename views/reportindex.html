@@ -124,7 +124,8 @@
 
   <%- include('partials/authentication-status') %>
 
-  <script src="<%= locals.bundle %>/js/bundle.app.js"></script>
+  <%- include('partials/assets') %>
+  
   <script src="/socket.io/socket.io.js"></script>
   <script src="/report/js/flotcandle.js"></script>
   <script src="/report/js/loopalyzer.js"></script>

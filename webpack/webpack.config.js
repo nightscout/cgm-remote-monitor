@@ -129,6 +129,7 @@ const rules = [
 
 const appEntry = ['./bundle/bundle.source.js'];
 const clockEntry = ['./bundle/bundle.clocks.source.js'];
+const sharedVendors = ['jquery', 'lodash', 'jquery-ui-bundle', 'flot', 'd3', 'moment' ];
 
 let mode = 'production';
 let publicPath = '/bundle/';
@@ -145,9 +146,41 @@ if (process.env.NODE_ENV === 'development') {
   clockEntry.unshift(hot);
 }
 
+const { StatsWriterPlugin } = require('webpack-stats-plugin');
+pluginArray.push(new StatsWriterPlugin({
+  filename: 'stats.json',
+  stats: {
+    entrypoints: true
+  }
+}));
+
 const optimization = {
+  runtimeChunk: 'single',
   splitChunks: {
-    // chunks: 'all'
+    // chunks: 'all',
+    cacheGroups: {
+      jqueryVendor: {
+        test: /[\\/]node_modules[\\/](jquery|jquery-ui-bundle|flot)[\\/]/,
+        name: 'vendor-jquery',
+        chunks: 'all'
+      },
+      momentVendor: {
+        test: /[\\/]node_modules[\\/](moment|moment-timezone)[\\/]/,
+        name: 'vendor-moment',
+        chunks: 'all'
+      },
+      d3Vendor: {
+        test: /[\\/]node_modules[\\/](d3)[\\/]/,
+        name: 'vendor-d3',
+        chunks: 'all'
+      },
+      defaultVendor: {
+        test: /[\\/]node_modules[\\/](lodash|readable-stream|buffer|html-entities[\\/]lib|events|sha[.]js|js-storage)[\\/]/,
+        name: 'vendors',
+        chunks: 'all'
+      },
+
+    },
   }
 };
 
@@ -167,8 +200,11 @@ module.exports = {
   mode,
   context: projectRoot,
   entry: {
-    app: appEntry,
-    clock: clockEntry
+    app: { import: appEntry },
+    clock: { import: clockEntry },
+    // app: { import: appEntry, dependOn: 'shared-vendors' },
+    // clock: { import: clockEntry, dependOn: 'shared-vendors' },
+    // 'shared-vendors': sharedVendors
   },
   // externals: externals,
   output: {
@@ -178,7 +214,7 @@ module.exports = {
     sourceMapFilename: 'js/bundle.[name].js.map',
   },
   devtool: sourceMapType,
-  // optimization,
+  optimization,
   plugins: pluginArray,
   module: {
     rules
