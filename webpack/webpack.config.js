@@ -5,7 +5,6 @@ const sourceMapType = 'source-map';
 const MomentTimezoneDataPlugin = require('moment-timezone-data-webpack-plugin');
 const projectRoot = path.resolve(__dirname, '..');
 
-/*
 if (process.env.NODE_ENV === 'development') {
   console.log('Development environment detected, enabling Bundle Analyzer');
   const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
@@ -43,14 +42,23 @@ if (process.env.NODE_ENV === 'development') {
     logLevel: 'info'
   }));
 }
+/*
 */
 
 pluginArray.push(new webpack.ProvidePlugin({
+  sinon: 'sinon',
   $: 'jquery',
   jQuery: 'jquery',
   'window.jQuery': 'jquery',
-  'window.$': 'jquery'
+  'window.$': 'jquery',
 }));
+
+  /*
+  d3: 'd3',
+  'jquery-ui-bundle': 'jquery-ui-bundle',
+  moment: 'moment',
+  _: 'lodash'
+  */
 
 pluginArray.push(new webpack.ProvidePlugin({
   process: 'process/browser',
@@ -112,7 +120,7 @@ const rules = [
     exclude: /node_modules/
   },
   {
-    test: require.resolve('jquery'),
+    test: require.resolve('jquery/dist/jquery.min.js'),
     loader: 'expose-loader',
     options: {
       exposes: ['$']
@@ -122,6 +130,7 @@ const rules = [
 
 const appEntry = ['./bundle/bundle.source.js'];
 const clockEntry = ['./bundle/bundle.clocks.source.js'];
+const sharedVendors = ['jquery', 'lodash', 'jquery-ui-bundle', 'flot', 'd3', 'moment' ];
 
 let mode = 'production';
 let publicPath = '/bundle/';
@@ -138,16 +147,82 @@ if (process.env.NODE_ENV === 'development') {
   clockEntry.unshift(hot);
 }
 
-const optimization = {};
+const { StatsWriterPlugin } = require('webpack-stats-plugin');
+pluginArray.push(new StatsWriterPlugin({
+  filename: 'stats.json',
+  stats: {
+    entrypoints: true
+  }
+}));
 
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+pluginArray.push(new HtmlWebpackPlugin({
+  chunks: ['app'],
+  filename: 'test-app-bundle.html'
+}));
+pluginArray.push(new HtmlWebpackPlugin({
+  chunks: ['clock'],
+  filename: 'test-clock-bundle.html'
+}));
+pluginArray.push(new HtmlWebpackPlugin({
+  chunks: ['test'],
+  filename: 'test-test-bundle.html'
+}));
+
+const optimization = {
+  runtimeChunk: 'single',
+  splitChunks: {
+    // chunks: 'all',
+    cacheGroups: {
+      jqueryVendor: {
+        test: /[\\/]node_modules[\\/](jquery|jquery-ui-bundle|flot)[\\/]/,
+        name: 'vendor-jquery',
+        chunks: 'all'
+      },
+      momentVendor: {
+        test: /[\\/]node_modules[\\/](moment|moment-timezone)[\\/]/,
+        name: 'vendor-moment',
+        chunks: 'all'
+      },
+      d3Vendor: {
+        test: /[\\/]node_modules[\\/](d3)[\\/]/,
+        name: 'vendor-d3',
+        chunks: 'all'
+      },
+      defaultVendor: {
+        test: /[\\/]node_modules[\\/](lodash|readable-stream|buffer|html-entities[\\/]lib|events|sha[.]js|js-storage)[\\/]/,
+        name: 'vendors',
+        chunks: 'all'
+      },
+
+    },
+  }
+};
+
+const externals = [
+  {
+    d3: 'd3',
+    moment: 'moment',
+    'jquery': 'jquery',
+    'jquery-ui-bundle': 'jquery-ui-bundle',
+    'lodash': {
+        root: '_',
+      },
+  },
+];
 
 module.exports = {
   mode,
   context: projectRoot,
   entry: {
-    app: appEntry,
-    clock: clockEntry
+    app: { import: appEntry },
+    clock: { import: clockEntry },
+    test: { import:  ['sinon'].concat(appEntry) },
+    // app: { import: appEntry, dependOn: 'shared-vendors' },
+    // clock: { import: clockEntry, dependOn: 'shared-vendors' },
+    // 'shared-vendors': sharedVendors
   },
+  // externals: externals,
   output: {
     path: path.resolve(projectRoot, './node_modules/.cache/_ns_cache/public'),
     publicPath,
@@ -157,6 +232,10 @@ module.exports = {
   devtool: sourceMapType,
   optimization,
   plugins: pluginArray,
+  devServer: {
+    static: { directory: path.resolve(projectRoot, './node_modules/.cache/_ns_cache/public') },
+    compress: true,
+  },
   module: {
     rules
   },
@@ -167,8 +246,12 @@ module.exports = {
     },
     alias: {
       stream: 'stream-browserify',
-      crypto: 'crypto-browserify',
+      // crypto: 'crypto-browserify',
       buffer: 'buffer',
+      d3: 'd3/dist/d3.min.js',
+      'jquery-ui-bundle': 'jquery-ui-bundle/jquery-ui.min.js',
+      jquery: 'jquery/dist/jquery.min.js',
+      sinon: 'sinon/pkg/sinon.js',
     }
   }
 };

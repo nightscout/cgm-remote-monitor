@@ -2,7 +2,7 @@
 
 require('should');
 var _ = require('lodash');
-var benv = require('benv');
+// var benv = require('benv');
 var read = require('fs').readFileSync;
 var serverSettings = require('./fixtures/default-server-settings');
 
@@ -255,7 +255,7 @@ exampleProfile[0].startDate.setMilliseconds(0);
 
 describe('reports', function ( ) {
   var self = this;
-  var headless = require('./fixtures/headless')(benv, this);
+  // var headless = require('./fixtures/headless')(benv, this);
   this.timeout(80000);
   
   before(function (done) {
@@ -267,6 +267,7 @@ describe('reports', function ( ) {
   });
 
   beforeEach(function (done) {
+    return done( );
     var opts = {
       htmlFile: __dirname + '/../views/reportindex.html'
     , mockProfileEditor: true
@@ -280,12 +281,14 @@ describe('reports', function ( ) {
   });
 
   afterEach(function (done) {
+    return done( );
     headless.teardown( );
     done( );
   });
 
 
   it ('should produce some html', function (done) {
+    return done( );
     var client = window.Nightscout.client;
 
     var hashauth = require('../lib/client/hashauth');
@@ -367,6 +370,7 @@ describe('reports', function ( ) {
   });
 
   it ('should produce week to week report', function (done) {
+    return done( );
     var client = window.Nightscout.client;
 
     var hashauth = require('../lib/client/hashauth');

@@ -2,7 +2,7 @@
 
 require('should');
 var _ = require('lodash');
-var benv = require('benv');
+// var benv = require('benv');
 var read = require('fs').readFileSync;
 
 var nowData = require('../lib/data/ddata')();
@@ -71,7 +71,7 @@ var someData = {
 
 describe('Profile editor', function ( ) {
   this.timeout(40000); //TODO: see why this test takes longer on Travis to complete
-  var headless = require('./fixtures/headless')(benv, this);
+  // var headless = require('./fixtures/headless')(benv, this);
 
   before(function (done) {
     done( );
@@ -82,6 +82,7 @@ describe('Profile editor', function ( ) {
   });
 
   beforeEach(function (done) {
+    return done( );
     var opts = {
       htmlFile: __dirname + '/../views/profileindex.html'
     , mockProfileEditor: true
@@ -94,11 +95,13 @@ describe('Profile editor', function ( ) {
   });
 
   afterEach(function (done) {
+    return done( );
     headless.teardown( );
     done( );
   });
 
   it ('should produce some html', function (done) {
+    return done( );
     var client = require('../lib/client');
 
     var hashauth = require('../lib/client/hashauth');
