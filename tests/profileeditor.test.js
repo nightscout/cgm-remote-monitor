@@ -2,7 +2,7 @@
 
 require('should');
 var _ = require('lodash');
-var benv = require('benv');
+// var benv = require('benv');
 var read = require('fs').readFileSync;
 
 var nowData = require('../lib/data/ddata')();

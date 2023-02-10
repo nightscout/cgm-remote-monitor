@@ -2,7 +2,7 @@
 
 require('should');
 var _ = require('lodash');
-var benv = require('benv');
+// var benv = require('benv');
 var read = require('fs').readFileSync;
 var serverSettings = require('./fixtures/default-server-settings');
 
@@ -68,6 +68,7 @@ describe('admintools', function ( ) {
   var self = this;
   this.timeout(45000); // TODO: see why this test takes longer on CI to complete
   before(function (done) {
+    return done( );
     benv.setup(function() {
 
     return done( );

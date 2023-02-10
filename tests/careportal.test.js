@@ -1,7 +1,7 @@
 'use strict';
 
 require('should');
-var benv = require('benv');
+// var benv = require('benv');
 
 var nowData = {
   sgvs: [
@@ -17,7 +17,7 @@ function sleep(ms) {
 describe('careportal', function ( ) {
   this.timeout(60000); // TODO: see why this test takes longer on Travis to complete
 
-  var headless = require('./fixtures/headless')(benv, this);
+  // var headless = require('./fixtures/headless')(benv, this);
 
   before(function (done) {
 
