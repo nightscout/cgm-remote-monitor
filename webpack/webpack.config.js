@@ -46,6 +46,7 @@ if (process.env.NODE_ENV === 'development') {
 */
 
 pluginArray.push(new webpack.ProvidePlugin({
+  sinon: 'sinon',
   $: 'jquery',
   jQuery: 'jquery',
   'window.jQuery': 'jquery',
@@ -154,6 +155,20 @@ pluginArray.push(new StatsWriterPlugin({
   }
 }));
 
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+pluginArray.push(new HtmlWebpackPlugin({
+  chunks: ['app'],
+  filename: 'test-app-bundle.html'
+}));
+pluginArray.push(new HtmlWebpackPlugin({
+  chunks: ['clock'],
+  filename: 'test-clock-bundle.html'
+}));
+pluginArray.push(new HtmlWebpackPlugin({
+  chunks: ['test'],
+  filename: 'test-test-bundle.html'
+}));
+
 const optimization = {
   runtimeChunk: 'single',
   splitChunks: {
@@ -202,6 +217,7 @@ module.exports = {
   entry: {
     app: { import: appEntry },
     clock: { import: clockEntry },
+    test: { import:  ['sinon'].concat(appEntry) },
     // app: { import: appEntry, dependOn: 'shared-vendors' },
     // clock: { import: clockEntry, dependOn: 'shared-vendors' },
     // 'shared-vendors': sharedVendors
@@ -216,6 +232,10 @@ module.exports = {
   devtool: sourceMapType,
   optimization,
   plugins: pluginArray,
+  devServer: {
+    static: { directory: path.resolve(projectRoot, './node_modules/.cache/_ns_cache/public') },
+    compress: true,
+  },
   module: {
     rules
   },
@@ -231,6 +251,7 @@ module.exports = {
       d3: 'd3/dist/d3.min.js',
       'jquery-ui-bundle': 'jquery-ui-bundle/jquery-ui.min.js',
       jquery: 'jquery/dist/jquery.min.js',
+      sinon: 'sinon/pkg/sinon.js',
     }
   }
 };
