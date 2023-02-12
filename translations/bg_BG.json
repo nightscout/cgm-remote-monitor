@@ -223,6 +223,7 @@
     "View all treatments": "Преглед на всички събития",
     "Enable Alarms": "Активни аларми",
     "Pump Battery Change": "Смяна на батерия на помпата",
+    "Pump Battery Age": "Pump Battery Age",
     "Pump Battery Low Alarm": "Аларма за слаба батерия на помпата",
     "Pump Battery change overdue!": "Смяната на батерията на помпата - наложителна",
     "When enabled an alarm may sound.": "Когато е активирано, алармата ще има звук",
@@ -701,5 +702,6 @@
     "Last recorded %1 %2 ago.": "Last recorded %1 %2 ago.",
     "Security issue": "Security issue",
     "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.",
-    "less than 1": "less than 1"
+    "less than 1": "less than 1",
+    "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system."
 }

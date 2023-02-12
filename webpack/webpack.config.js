@@ -1,9 +1,9 @@
 const path = require('path');
 const webpack = require('webpack');
-const MomentLocalesPlugin = require('moment-locales-webpack-plugin');
 const pluginArray = [];
 const sourceMapType = 'source-map';
 const MomentTimezoneDataPlugin = require('moment-timezone-data-webpack-plugin');
+const projectRoot = path.resolve(__dirname, '..');
 
 /*
 if (process.env.NODE_ENV === 'development') {
@@ -59,16 +59,8 @@ pluginArray.push(new webpack.ProvidePlugin({
 // limit Timezone data from Moment
 
 pluginArray.push(new MomentTimezoneDataPlugin({
-  startYear: 2010,
-  endYear: new Date().getFullYear() + 10,
-}));
-
-// Strip all locales except the ones defined in lib/language.js
-// (“en” is built into Moment and can’t be removed, 'dk' is not defined in moment)
-pluginArray.push(new MomentLocalesPlugin({
-  localesToKeep: ['bg', 'cs', 'de', 'el', 'es', 'fi', 'fr', 'he', 'hr', 'it', 'ko', 'nb', 'nl', 'pl', 'pt', 'ro', 'ru',
-    'sk', 'sv', 'zh_cn', 'zh_tw'
-  ],
+  startYear: 2015,
+  endYear: 2035,
 }));
 
 if (process.env.NODE_ENV === 'development') {
@@ -94,7 +86,7 @@ const rules = [
       options: {
         babelrc: true,
         cacheDirectory: true,
-        extends: path.join(__dirname + '/.babelrc')
+        extends: path.join(projectRoot, '/.babelrc')
       }
     }
   },
@@ -114,7 +106,7 @@ const rules = [
     loader: 'file-loader',
     options: {
       outputPath: 'images'
-      //the images will be emmited to public/assets/images/ folder
+      //the images will be emitted to public/assets/images/ folder
       //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png);
     },
     exclude: /node_modules/
@@ -148,16 +140,16 @@ if (process.env.NODE_ENV === 'development') {
 
 const optimization = {};
 
+
 module.exports = {
   mode,
-  context: __dirname,
-  context: path.resolve(__dirname, '.'),
+  context: projectRoot,
   entry: {
     app: appEntry,
     clock: clockEntry
   },
   output: {
-    path: path.resolve(__dirname, './tmp/public'),
+    path: path.resolve(projectRoot, './node_modules/.cache/_ns_cache/public'),
     publicPath,
     filename: 'js/bundle.[name].js',
     sourceMapFilename: 'js/bundle.[name].js.map',
@@ -169,6 +161,10 @@ module.exports = {
     rules
   },
   resolve: {
+    fallback: {
+      'process/browser': require.resolve('process/browser'),
+      events: require.resolve('events/')
+    },
     alias: {
       stream: 'stream-browserify',
       crypto: 'crypto-browserify',
