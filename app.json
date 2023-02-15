@@ -151,6 +151,11 @@
       "description": "Default setting for new browser views, for the time mode. ('12' or '24')",
       "value": "12",
       "required": false 
+    },
+    "USE_NPM_INSTALL": {
+      "description": "You need to have this set for deployment to work in Heroku",
+      "value": "true",
+      "required": true 
     }
   },
   "addons": [
