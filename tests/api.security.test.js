@@ -71,6 +71,20 @@ describe('Security of REST API V1', function() {
       });
   });
 
+  it('Should return a JWT with default roles on broken role token', function(done) {
+    const now = Math.round(Date.now() / 1000) - 1;
+    request(self.app)
+      .get('/api/v2/authorization/request/' + self.token.noneSubject)
+      .expect(200)
+      .end(function(err, res) {
+        const decodedToken = jwt.decode(res.body.token);
+        decodedToken.accessToken.should.equal(self.token.noneSubject);
+        decodedToken.iat.should.be.aboveOrEqual(now);
+        decodedToken.exp.should.be.above(decodedToken.iat);
+        done();
+      });
+  });
+
   it('Data load should succeed with API SECRET', function(done) {
     request(self.app)
       .get('/api/v1/entries.json')
