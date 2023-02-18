@@ -67,6 +67,7 @@ async function authSubject (authStorage) {
   await createRole(authStorage, 'apiRead', 'api:*:read');
   await createRole(authStorage, 'apiUpdate', 'api:*:update');
   await createRole(authStorage, 'apiDelete', 'api:*:delete');
+  await createRole(authStorage, 'noneRole', '');
 
   const subject = {
     apiAll: await createTestSubject(authStorage, 'apiAll', ['apiAll']),
@@ -77,7 +78,9 @@ async function authSubject (authStorage) {
     apiDelete: await createTestSubject(authStorage, 'apiDelete', ['apiDelete']),
     admin: await createTestSubject(authStorage, 'admin', ['admin']),
     readable: await createTestSubject(authStorage, 'readable', ['readable']),
-    denied: await createTestSubject(authStorage, 'denied', ['denied'])
+    denied: await createTestSubject(authStorage, 'denied', ['denied']),
+    noneSubject: await createTestSubject(authStorage, 'noneSubject', null),
+    noneRole: await createTestSubject(authStorage, 'noneRole', ['noneRole'])
   };
 
   const token = {
@@ -89,7 +92,9 @@ async function authSubject (authStorage) {
     delete: subject.apiDelete.accessToken,
     denied: subject.denied.accessToken,
     adminAll: subject.admin.accessToken,
-    readable: subject.readable.accessToken
+    readable: subject.readable.accessToken,
+    noneSubject: subject.noneSubject.accessToken,
+    noneRole: subject.noneRole.accessToken
   };
 
   return {subject, token};
