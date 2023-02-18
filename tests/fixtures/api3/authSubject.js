@@ -1,6 +1,9 @@
 'use strict';
 
-const _ = require('lodash');
+const _ = require('lodash')
+  , request = require('supertest')
+  ;
+require('should');
 
 function createRole (authStorage, name, permissions) {
 
@@ -57,7 +60,37 @@ function createTestSubject (authStorage, subjectName, roles) {
 }
 
 
-async function authSubject (authStorage) {
+async function initJwts (accessToken, tokensNeeded, app) {
+  const jwt = {}
+  if (!_.isArray(tokensNeeded) || !app)
+    return jwt;
+
+  for (const tokenNeeded of tokensNeeded) {
+    jwt[tokenNeeded] = await new Promise((resolve, reject) => {
+      try {
+        const authToken = accessToken[tokenNeeded];
+
+        request(app)
+          .get(`/api/v2/authorization/request/${authToken}`)
+          .expect(200)
+          .end(function(err, res) {
+            if (err)
+              reject(err);
+
+            resolve(res.body.token);
+          });
+      }
+      catch (e) {
+        reject(e)
+      }
+    })
+  }
+
+  return jwt;
+}
+
+
+async function authSubject (authStorage, tokensNeeded, app) {
 
   await createRole(authStorage, 'admin', '*');
   await createRole(authStorage, 'readable', '*:*:read');
@@ -83,7 +116,7 @@ async function authSubject (authStorage) {
     noneRole: await createTestSubject(authStorage, 'noneRole', ['noneRole'])
   };
 
-  const token = {
+  const accessToken = {
     all: subject.apiAll.accessToken,
     admin: subject.apiAdmin.accessToken,
     create: subject.apiCreate.accessToken,
@@ -97,7 +130,9 @@ async function authSubject (authStorage) {
     noneRole: subject.noneRole.accessToken
   };
 
-  return {subject, token};
+  const jwt = await initJwts(accessToken, tokensNeeded, app);
+
+  return {subject, accessToken, jwt};
 }
 
 module.exports = authSubject;

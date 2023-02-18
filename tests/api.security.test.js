@@ -29,7 +29,7 @@ describe('Security of REST API V1', function() {
       self.app.use('/api/v2/authorization', ctx.authorization.endpoints);
       let authResult = await authSubject(ctx.authorization.storage);
       self.subject = authResult.subject;
-      self.token = authResult.token;
+      self.token = authResult.accessToken;
 
       done();
     });
@@ -152,7 +152,7 @@ describe('Security of REST API V1', function() {
       .expect(200)
       .end(function(err, res) {
         res.body.message.message.should.equal('OK');
-        res.body.message.isAdmin.should.equal(true);        
+        res.body.message.isAdmin.should.equal(true);
         done();
       });
     });
