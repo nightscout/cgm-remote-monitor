@@ -1,0 +1,39 @@
+#config-form {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    width: 250px;
+    min-width: 220px;
+    background: white;
+    color: black;
+    opacity: 0.8;
+    padding: 1%;
+    font-size: 10px;
+}
+#config-form p {
+    margin: 15px;
+    text-align: left;
+}
+input.elmt {
+    width: 120px;
+}
+select {
+    width: 100%;
+}
+#facename {
+    font-size: 7px;
+}
+#clocklink {
+    font-size: 18px;
+}
+#clocklink:link, #clocklink:visited {
+    background-color: #f44336;
+    color: white;
+    padding: 14px 25px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+}
+#clocklink:hover, #clocklink:active {
+    background-color: red;
+}
