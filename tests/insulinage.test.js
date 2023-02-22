@@ -1,17 +1,17 @@
 'use strict';
 
 require('should');
-var levels = require('../lib/levels');
+const helper = require('./inithelper')();
+const levels = helper.ctx.levels;
 
 describe('insulinage', function ( ) {
-    var env = require('../env')();
-    var ctx = {};
+    var env = require('../lib/server/env')();
+    var ctx = helper.getctx();
     ctx.ddata = require('../lib/data/ddata')();
     ctx.notifications = require('../lib/notifications')(env, ctx);
-    ctx.language = require('../lib/language')();
 
     var iage = require('../lib/plugins/insulinage')(ctx);
-    var sandbox = require('../lib/sandbox')();
+    var sandbox = require('../lib/sandbox')(ctx);
     function prepareSandbox ( ) {
         var sbx = require('../lib/sandbox')().serverInit(env, ctx);
         sbx.offerProperty('iob', function () {

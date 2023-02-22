@@ -1,15 +1,13 @@
 var should = require('should');
 var Stream = require('stream');
-var levels = require('../lib/levels');
+const helper = require('./inithelper')();
 
 describe('boluswizardpreview', function ( ) {
-  var env = require('../env')();
+  var env = require('../lib/server/env')();
   env.testMode = true;
 
-  var ctx = {
-    settings: {}
-    , language: require('../lib/language')()
-  };
+  var ctx = helper.getctx();
+
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
 
@@ -137,6 +135,7 @@ describe('boluswizardpreview', function ( ) {
         units: 'mmol'
       }
       , pluginBase: {}
+      , moment: helper.ctx.moment
     };
     
     ctx.language = require('../lib/language')();
@@ -144,7 +143,7 @@ describe('boluswizardpreview', function ( ) {
     var data = {sgvs: [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}]};
     data.treatments = [{mills: now, insulin: '1.0'}];
     data.devicestatus = [];
-    data.profile = require('../lib/profilefunctions')([profileData]);
+    data.profile = require('../lib/profilefunctions')([profileData], ctx);
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
     sbx.properties.iob = iob.calcTotal(data.treatments, data.devicestatus, data.profile, now);
 
@@ -180,6 +179,7 @@ describe('boluswizardpreview', function ( ) {
         units: 'mmol'
       }
       , pluginBase: {}
+      , moment: helper.ctx.moment
     };
     
     ctx.language = require('../lib/language')();
@@ -187,7 +187,7 @@ describe('boluswizardpreview', function ( ) {
     var data = {sgvs: [{mills: before, mgdl: 175}, {mills: now, mgdl: 153}]};
     data.treatments = [{mills: now, insulin: '0.45'}];
     data.devicestatus = [];
-    data.profile = require('../lib/profilefunctions')([profileData]);
+    data.profile = require('../lib/profilefunctions')([profileData], ctx);
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
     sbx.properties.iob = iob.calcTotal(data.treatments, data.devicestatus, data.profile, now);
 
@@ -228,7 +228,7 @@ describe('boluswizardpreview', function ( ) {
     boluswizardpreview.checkNotifications(sbx);
 
     var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(levels.WARN);
+    highest.level.should.equal(ctx.levels.WARN);
     highest.title.should.equal('Warning, Check BG, time to bolus?');
     highest.message.should.equal('BG Now: 180 +5 ↗ mg/dl\nBG 15m: 187 mg/dl\nBWP: 0.66U');
     done();
@@ -239,11 +239,10 @@ describe('boluswizardpreview', function ( ) {
     ctx.ddata.sgvs = [{mills: before, mgdl: 295}, {mills: now, mgdl: 300}];
     ctx.ddata.treatments = [];
     ctx.ddata.profiles = [profile];
-    ctx.levels = require('../lib/levels');
 
     var sbx = prepareSandbox();
     boluswizardpreview.checkNotifications(sbx);
-    ctx.notifications.findHighestAlarm().level.should.equal(levels.URGENT);
+    ctx.notifications.findHighestAlarm().level.should.equal(ctx.levels.URGENT);
 
     done();
   });
@@ -284,10 +283,11 @@ describe('boluswizardpreview', function ( ) {
           done();
         }
       }
+      , moment: helper.ctx.moment
     };
     
     ctx.language = require('../lib/language')();
-    var loadedProfile = require('../lib/profilefunctions')();
+    var loadedProfile = require('../lib/profilefunctions')(null, ctx);
     loadedProfile.loadData([profile]);
 
     var data = {
