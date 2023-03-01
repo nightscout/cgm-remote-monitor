@@ -1,5 +1,5 @@
 Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
-======================================
+==================================================
 
 ![nightscout horizontal](https://cloud.githubusercontent.com/assets/751143/8425633/93c94dc0-1ebc-11e5-99e7-71a8f464caac.png)
 
@@ -149,23 +149,28 @@ you're welcome to issue a documentation pull request with instructions on how to
 
 ## Recommended minimum browser versions for using Nightscout:
 
-Older versions of the browsers might work, but are untested.
+Our [browserslist](https://github.com/browserslist/browserslist) policy is documented in `.browserlistrc`.   
+We currently support approximately [91%](https://browsersl.ist/?q=%3E+0.25%25%2C+ios_saf+9.3%2C+ios_saf+10.3%2C+ios_saf+13.7%2C+ios_saf+14.8%2C+not+dead%2C+not+and_uc+12.12%2C+not+ie+11%0A) of all browsers globally used. These include:
 
-- Android 4
-- iOS 6
-- Chrome 35
-- Edge 17
-- Firefox 61
-- Opera 12.1
-- Safari 6 (macOS 10.7)
-- Internet Explorer: not supported
+- Android Chrome: 104 or later (`and_chr`)
+- Google Chrome: 101 or later (`chrome`)
+- Microsoft Edge: 103 or later (`edge`)
+- Mozilla Firefox: 102 or later (`firefox`)
+- Apple Safari on iOS: 15.5 or later (`ios_saf`)
+- Opera Mini on Android: 63 or later (`op_mini`)
+- Opera: 88 or later (`opera`)
+- Apple Safari for macOS 10.15 Catalina or later: : 15.5 or later (`safari`)
+- Samsung Internet on Android: 17.0 or later (`samsung`)
+- Internet Explorer 11 : not supported
 
-Some features may not work with devices/browsers on the older end of these requirements.
+Older versions or other browsers might work, but are untested and unsupported. We'll try to to keep Nightscout compatible with older iPads (e.g. Safari on iOS 10.3.4), but note that those devices are not supported by Apple anymore and have known security issues. Debugging these old devices gets harder due to Apple not supporting debugging the old devices on Macs that have been updated. Some features may not work with devices/browsers on the older end of these requirements.
 
-## Windows installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 12 LTS. Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
-- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
+
+## Installation software requirements:
+
+- [Node.js](http://nodejs.org/) Latest Node v14 or v16 LTS. Node versions that do not have the latest security patches will not be supported. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 4.2 or 4.4.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
 
@@ -184,7 +189,7 @@ $ npm install
 
 - If deploying the software to Microsoft Azure, you must set ** in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Additionally, if using the Azure free hosting tier, the installation might fail due to resource constraints imposed by Azure on the free hosting. Please set the following settings to the environment in Azure:
 ```
-WEBSITE_NODE_DEFAULT_VERSION=10.15.2
+WEBSITE_NODE_DEFAULT_VERSION=16.16.0
 SCM_COMMAND_IDLE_TIMEOUT=300
 ```
 - See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
