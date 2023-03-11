@@ -691,7 +691,7 @@
     "Failed authentication": "Ověření selhalo",
     "A device at IP address %1 attempted authenticating with Nightscout with wrong credentials. Check if you have an uploader setup with wrong API_SECRET or token?": "Zařízení s IP adresou %1 se pokusilo o příhlášení do Nightscoutu s nesprávnými údaji. Zkontrolujte, zda nemáte v uploaderu nastaveno špatné API_SECRET nebo token.",
     "Default (with leading zero and U)": "Výchozí (s nulou a U)",
-    "Concise (with U, without leading zero)": "Blikání (s U, bez čelní nuly)",
+    "Concise (with U, without leading zero)": "Stručný (s U, bez úvodní nuly)",
     "Minimal (without leading zero and U)": "Minimální (bez nuly a U)",
     "Small Bolus Display": "Malý bolus displej",
     "Large Bolus Display": "Velký bolus displej",
