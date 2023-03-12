@@ -1,6 +1,7 @@
 {
   "name": "CGM Remote Monitor",
   "repository": "https://github.com/nightscout/cgm-remote-monitor",
+  "stack": "heroku-22"
   "env": {
     "MONGODB_URI": {
       "description": "The MongoDB Connection String to connect to your MongoDB cluster. If you don't have this from MongoDB Atlas, please re-read installation instructions at http://nightscout.github.io/nightscout/new_user/ before continuing",
