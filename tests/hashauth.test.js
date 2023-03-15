@@ -16,8 +16,6 @@ describe('hashauth', function ( ) {
   });
 
   after(function (done) {
-    // cleanup js-storage as it evaluates if the test is running in the window or not when first required
-    delete require.cache[require.resolve('js-storage')];
     done( );
   });
 
@@ -68,7 +66,7 @@ describe('hashauth', function ( ) {
 
   it ('should make module unauthorized', function () {
     var client = require('../lib/client');
-    var hashauth = require('../lib/client/hashauth');
+    var hashauth = require('../lib/hashauth');
     
     hashauth.init(client,$);
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) { 
@@ -86,7 +84,7 @@ describe('hashauth', function ( ) {
 
   it ('should make module authorized', function () {
     var client = require('../lib/client');
-    var hashauth = require('../lib/client/hashauth');
+    var hashauth = require('../lib/hashauth');
     
     hashauth.init(client,$);
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) { 
@@ -102,7 +100,7 @@ describe('hashauth', function ( ) {
 
   it ('should store hash and the remove authentication', function () {
     var client = require('../lib/client');
-    var hashauth = require('../lib/client/hashauth');
+    var hashauth = require('../lib/hashauth');
     var localStorage = require('./fixtures/localstorage');   
     
     localStorage.remove('apisecrethash');
@@ -128,7 +126,7 @@ describe('hashauth', function ( ) {
 
   it ('should not store hash', function () {
     var client = require('../lib/client');
-    var hashauth = require('../lib/client/hashauth');
+    var hashauth = require('../lib/hashauth');
     var localStorage = require('./fixtures/localstorage');   
     
     localStorage.remove('apisecrethash');
@@ -151,7 +149,7 @@ describe('hashauth', function ( ) {
 
   it ('should report secret too short', function () {
     var client = require('../lib/client');
-    var hashauth = require('../lib/client/hashauth');
+    var hashauth = require('../lib/hashauth');
     var localStorage = require('./fixtures/localstorage');   
     
     localStorage.remove('apisecrethash');

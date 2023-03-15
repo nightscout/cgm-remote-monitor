@@ -8,9 +8,8 @@ bundle/bundle.out.js
 .idea/
 *.iml
 my.env
-my.*.env
-*.pem
 
+*.env
 static/bower_components/
 .*.sw?
 .DS_Store
@@ -25,12 +24,3 @@ npm-debug.log
 *.heapsnapshot
 
 /tmp
-/.vs
-/cgm-remote-monitor.njsproj
-/cgm-remote-monitor.sln
-/obj/Debug
-/*.bat
-
-# directories created by docker-compose.yml
-mongo-data/
-letsencrypt/

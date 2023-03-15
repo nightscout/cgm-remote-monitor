@@ -1,23 +1,24 @@
 'use strict';
 
-const _ = require('lodash');
-const helper = require('./inithelper')();
+var _ = require('lodash');
 
 require('should');
 
 describe('COB', function ( ) {
-  var ctx = helper.ctx;
+  var ctx = {};
+  ctx.settings = {};
+  ctx.language = require('../lib/language')();
+  ctx.language.set('en');
 
   var cob = require('../lib/plugins/cob')(ctx);
   
   var profileData = {
-    startDate: '2015-06-21'
-    , sens: 95
+    sens: 95
     , carbratio: 18
     , carbs_hr: 30
   };
 
-  var profile = require('../lib/profilefunctions')([profileData], ctx);
+  var profile = require('../lib/profilefunctions')([profileData]);
 
   it('should calculate IOB, multiple treatments', function() {
 
@@ -96,7 +97,7 @@ describe('COB', function ( ) {
 
   });
 
-  it('should handle virtAsst requests', function (done) {
+  it('should handle alexa requests', function (done) {
     var data = {
       treatments: [{
         carbs: '8'
@@ -109,9 +110,9 @@ describe('COB', function ( ) {
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
     cob.setProperties(sbx);
 
-    cob.virtAsst.intentHandlers.length.should.equal(1);
+    cob.alexa.intentHandlers.length.should.equal(1);
 
-    cob.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
+    cob.alexa.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Current COB');
       response.should.equal('You have 8 carbohydrates on board');
       done();
