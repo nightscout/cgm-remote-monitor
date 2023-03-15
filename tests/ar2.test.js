@@ -1,21 +1,24 @@
 'use strict';
 
-const should = require('should');
-const helper = require('./inithelper')();
+var should = require('should');
+var levels = require('../lib/levels');
 
-const FIVE_MINS = 300000;
-const SIX_MINS = 360000;
+var FIVE_MINS = 300000;
+var SIX_MINS = 360000;
 
 describe('ar2', function ( ) {
-  var ctx = helper.getctx();
-
+  var ctx = {
+    settings: {}
+    , language: require('../lib/language')()
+  };
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
+  ctx.levels = levels;
 
   var ar2 = require('../lib/plugins/ar2')(ctx);
   var bgnow = require('../lib/plugins/bgnow')(ctx);
 
-  var env = require('../lib/server/env')();
+  var env = require('../env')();
 
   var now = Date.now();
   var before = now - FIVE_MINS;
@@ -37,7 +40,7 @@ describe('ar2', function ( ) {
   it('should plot a line if coneFactor is 0', function () {
     ctx.ddata.sgvs = [{mgdl: 100, mills: before}, {mgdl: 105, mills: now}];
 
-    var env0 = require('../lib/server/env')();
+    var env0 = require('../env')();
     env0.extendedSettings = { ar2: { coneFactor: 0 } };
     var sbx = require('../lib/sandbox')().serverInit(env0, ctx).withExtendedSettings(ar2);
     bgnow.setProperties(sbx);
@@ -70,7 +73,7 @@ describe('ar2', function ( ) {
     });
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(helper.ctx.levels.WARN);
+    highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Warning, HIGH predicted');
     highest.message.should.equal('BG Now: 170 +20 ↗ mg/dl\nBG 15m: 206 mg/dl\nIOB: 1.25U');
 
@@ -84,7 +87,7 @@ describe('ar2', function ( ) {
     var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(helper.ctx.levels.URGENT);
+    highest.level.should.equal(levels.URGENT);
     highest.title.should.equal('Urgent, HIGH');
 
     done();
@@ -97,7 +100,7 @@ describe('ar2', function ( ) {
     var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(helper.ctx.levels.WARN);
+    highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Warning, LOW');
 
     done();
@@ -110,7 +113,7 @@ describe('ar2', function ( ) {
     var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(helper.ctx.levels.WARN);
+    highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Warning, LOW predicted');
 
     done();
@@ -123,7 +126,7 @@ describe('ar2', function ( ) {
     var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(helper.ctx.levels.URGENT);
+    highest.level.should.equal(levels.URGENT);
     highest.title.should.equal('Urgent, LOW predicted');
 
     done();
@@ -138,24 +141,24 @@ describe('ar2', function ( ) {
     var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(helper.ctx.levels.WARN);
+    highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Warning, LOW predicted');
 
     done();
   });
 
-  it('should handle virtAsst requests', function (done) {
+  it('should handle alexa requests', function (done) {
      var now = Date.now();
      var before = now - FIVE_MINS;
 
     ctx.ddata.sgvs = [{mgdl: 100, mills: before}, {mgdl: 105, mills: now}];
     var sbx = prepareSandbox();
 
-    ar2.virtAsst.intentHandlers.length.should.equal(1);
+    ar2.alexa.intentHandlers.length.should.equal(1);
 
-    ar2.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
+    ar2.alexa.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('AR2 Forecast');
-      response.should.equal('According to the AR2 forecast you are expected to be between 109 and 120 over the next in 30 minutes');
+      response.should.equal('You are expected to be between 109 and 120 over the in 30 minutes');
       done();
     }, [], sbx);
   });

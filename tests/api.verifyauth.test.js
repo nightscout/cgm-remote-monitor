@@ -8,15 +8,10 @@ require('should');
 describe('Verifyauth REST api', function ( ) {
   var self = this;
   
-  this.timeout(10000);
-  var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
-
   var api = require('../lib/api/');
   before(function (done) {
-    delete process.env.API_SECRET;
-    process.env.API_SECRET = 'this is my long pass phrase';
-    self.env = require('../lib/server/env')( );
-    self.env.settings.authDefaultRoles = 'denied';
+    self.env = require('../env')( );
+    self.env.api_secret = 'this is my long pass phrase';
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')( );
     self.app.enable('api');
@@ -31,7 +26,7 @@ describe('Verifyauth REST api', function ( ) {
       .get('/api/verifyauth')
       .expect(200)
       .end(function(err, res) {
-        res.body.message.message.should.equal('UNAUTHORIZED');
+        res.body.message.should.equal('UNAUTHORIZED');
         done();
       });
   });
@@ -39,10 +34,10 @@ describe('Verifyauth REST api', function ( ) {
   it('/verifyauth should return OK', function (done) {
     request(self.app)
       .get('/api/verifyauth')
-      .set('api-secret', known || '')
+      .set('api-secret', self.env.api_secret || '')
       .expect(200)
       .end(function(err, res) {
-        res.body.message.message.should.equal('OK');
+        res.body.message.should.equal('OK');
         done();
       });
   });
