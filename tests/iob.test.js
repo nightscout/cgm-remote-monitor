@@ -1,18 +1,16 @@
 'use strict';
 
-const _ = require('lodash');
-const should = require('should');
-const helper = require('./inithelper')();
+var _ = require('lodash');
+var should = require('should');
 
 describe('IOB', function() {
-
-  let ctx = helper.ctx;
-
-  ctx.settings = require('../lib/settings')();
+  var ctx = {};
+  ctx.language = require('../lib/language')();
+  ctx.language.set('en');
 
   var iob = require('../lib/plugins/iob')(ctx);
 
-  it('should handle virtAsst requests', function (done) {
+  it('should handle alexa requests', function (done) {
 
     var sbx = {
       properties: {
@@ -22,14 +20,14 @@ describe('IOB', function() {
       }
     };
 
-    iob.virtAsst.intentHandlers.length.should.equal(1);
-    iob.virtAsst.rollupHandlers.length.should.equal(1);
+    iob.alexa.intentHandlers.length.should.equal(1);
+    iob.alexa.rollupHandlers.length.should.equal(1);
 
-    iob.virtAsst.intentHandlers[0].intentHandler(function next(title, response) {
+    iob.alexa.intentHandlers[0].intentHandler(function next(title, response) {
       title.should.equal('Current IOB');
       response.should.equal('You have 1.50 units of insulin on board');
 
-      iob.virtAsst.rollupHandlers[0].rollupHandler([], sbx, function callback (err, response) {
+      iob.alexa.rollupHandlers[0].rollupHandler([], sbx, function callback (err, response) {
         should.not.exist(err);
         response.results.should.equal('and you have 1.50 units of insulin on board.');
         response.priority.should.equal(2);
@@ -56,7 +54,7 @@ describe('IOB', function() {
       dia: 3,
       sens: 0};
 
-     var profile = require('../lib/profilefunctions')([profileData], ctx);
+     var profile = require('../lib/profilefunctions')([profileData]);
 
       var rightAfterBolus = iob.calcTotal(treatments, [], profile, time);
 
@@ -114,7 +112,8 @@ describe('IOB', function() {
       dia: 4,
       sens: 0};
 
-     var profile = require('../lib/profilefunctions')([profileData], ctx);
+     var profile = require('../lib/profilefunctions')([profileData]);
+
 
       var rightAfterBolus = iob.calcTotal(treatments, [], profile, time);
 
@@ -140,7 +139,7 @@ describe('IOB', function() {
 
   describe('from devicestatus', function () {
     var time = Date.now();
-    var profile = require('../lib/profilefunctions')([{ dia: 3, sens: 0 }], ctx);
+    var profile = require('../lib/profilefunctions')([{ dia: 3, sens: 0 }]);
     var treatments = [{
       mills: time - 1,
       insulin: '3.00'
