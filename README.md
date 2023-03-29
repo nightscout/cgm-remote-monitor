@@ -133,7 +133,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 ## Supported configurations:
 
 If you plan to use Nightscout, we recommend using [Heroku](https://nightscout.github.io/nightscout/new_user/) as this is free and easy to use.
-We used to recommend hostig at Azure, but the resource needs of Nightscout have grown over the years and Azure won't comfortably run Nightscout
+We used to recommend hosting at Azure, but the resource needs of Nightscout have grown over the years and Azure won't comfortably run Nightscout
 anymore in the free tier. If you're hosting in Azure and looking to update your site, we recommend you
 [switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku)
 as you're likely to hit issues in the process of updating the site.
