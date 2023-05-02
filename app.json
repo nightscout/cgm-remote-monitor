@@ -59,7 +59,7 @@
     },
     "BG_HIGH": {
       "description": "Urgent High BG threshold, triggers the ALARM_URGENT_HIGH alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
-      "value": "260",
+      "value": "300",
       "required": false
     },
     "BG_LOW": {
