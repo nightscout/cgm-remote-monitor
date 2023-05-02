@@ -65,7 +65,8 @@
     }
   },
   "engines": {
-    "node": "^16.x || ^14.x"
+    "node": "^16.x || ^14.x",
+    "npm": "^6.x"
   },
   "dependencies": {
     "@babel/core": "^7.18.10",
@@ -92,7 +93,7 @@
     "errorhandler": "^1.5.1",
     "event-stream": "3.3.4",
     "expose-loader": "^2.0.0",
-    "express": "^4.17.1",
+    "express": "4.17.1",
     "express-minify": "^1.0.0",
     "fast-password-entropy": "^1.1.1",
     "file-loader": "^6.2.0",
@@ -103,8 +104,8 @@
     "jquery-ui-bundle": "^1.12.1-migrate",
     "jquery.tooltips": "^1.0.0",
     "js-storage": "^1.1.0",
-    "jsdom": "^11.11.0",
-    "jsonwebtoken": "^8.5.1",
+    "jsdom": "=11.11.0",
+    "jsonwebtoken": "^9.0.0",
     "lodash": "^4.17.20",
     "memory-cache": "^0.2.0",
     "mime": "^2.4.6",
@@ -113,7 +114,7 @@
     "moment-locales-webpack-plugin": "^1.2.0",
     "moment-timezone": "^0.5.31",
     "moment-timezone-data-webpack-plugin": "^1.5.0",
-    "mongo-url-parser": "^1.0.1",
+    "mongo-url-parser": "^1.0.2",
     "mongodb": "^3.6.0",
     "mongomock": "^0.1.2",
     "node-cache": "^4.2.1",
@@ -127,13 +128,14 @@
     "share2nightscout-bridge": "^0.2.9",
     "shiro-trie": "^0.4.9",
     "simple-statistics": "^0.7.0",
-    "socket.io": "~2.4.0",
+    "socket.io": "~4.5.4",
+    "socket.io-client": "^4.5.4",
     "stream-browserify": "^3.0.0",
     "style-loader": "^0.23.1",
     "swagger-ui-dist": "^4.13.2",
     "swagger-ui-express": "^4.5.0",
     "traverse": "^0.6.6",
-    "uuid": "^3.4.0",
+    "uuid": "^9.0.0",
     "webpack": "^5.74.0",
     "webpack-cli": "^4.10.0"
   },
