@@ -24,9 +24,9 @@ low values, which can be cleared by any watcher of the data.
 
 Nightscout documentation is currently split to two locations. This page lists all the configuration options in
 Nightscout and is useful for users who've already gone through the installation process. IF you're looking
-for the documentation that looks like it's written for non-programmers, that's located at [nightscout.github.io](https://nightscout.github.io/).
+for the documentation that looks like it's written for non-programmers, that's located at [nightscout.github.io](https://nightscout.github.io).
 
-Older documentation is available at [nightscout.info](http://nightscout.info).
+Older documentation was available at [nightscout.info](http://nightscout.info).
 
 ## Developer?
 
@@ -130,7 +130,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Supported configurations:
 
-- [Nightscout Setup](https://nightscout.github.io/nightscout/new_user/) (recommended)
+- [Nightscout Setup](https://nightscout.github.io/nightscout/new_user) (recommended)
 
 While you can install Nightscout on a virtual server or a Raspberry Pi, we do not recommend this unless you have at least some
 experience hosting Node applications and development using the toolchain in use with Nightscout.
@@ -161,7 +161,7 @@ Older versions or other browsers might work, but are untested and unsupported. W
 ## Installation software requirements:
 
 - [Node.js](http://nodejs.org/) Latest Node v14 or v16 LTS. Node versions that do not have the latest security patches will not be supported. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
-- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 4.2 or 4.4.
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) from 4.2 up to 6.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
 
@@ -194,17 +194,17 @@ Want to help with development, or just see how Nightscout works? Great! See [CON
 
 The data being uploaded from the server to the client is from a MongoDB server such as [MongoDB Atlas][https://www.mongodb.com].
 
-[autoconfigure]: https://nightscout.github.io/pages/configure/
-[mongostring]: https://nightscout.github.io/pages/mongostring/
+[autoconfigure]: https://nightscout.github.io/pages/configure
+[mongostring]: https://nightscout.github.io/pages/mongostring
 
 ## Updating my version?
 
-The easiest way to update your version of cgm-remote-monitor to the latest version is to use the [update tool][update-fork]. A step-by-step guide is available [here][http://www.nightscout.info/wiki/welcome/how-to-update-to-latest-cgm-remote-monitor-aka-cookie].
-To downgrade to an older version, follow [this guide][http://www.nightscout.info/wiki/welcome/how-to-deploy-an-older-version-of-nightscout].
+The easiest way to update your version of cgm-remote-monitor to the latest version depends on the platform you use, check [here](https://nightscout.github.io/update/update.html) for instructions.
 
 ## Configure my uploader to match
 
-Use the [autoconfigure tool][autoconfigure] to sync an uploader to your config.
+See [here](https://nightscout.github.io/uploader/setup.html) how to configure your uploader.  
+Use the [autoconfigure tool][autoconfigure] to sync a compatible uploader to your config.
 
 ## Nightscout API
 
@@ -330,7 +330,7 @@ autonomy for your data:
 ### Views
 
   Nightscout allows to create custom, simplified views using a predefined set of elements. This option is available under `[+]` link in the main menu.
-  
+
   List of available items:
   * `SGV` - Sensor Glucose Value
   * `SGV age` - time since the last SGV read
@@ -338,13 +338,13 @@ autonomy for your data:
   * `Trend arrow` - icon of the SG trend
   * `Time` - current time
   * `Line break` - invisible item that will move following items to the next line (by default all are showing on the same level)
-  
+
   All visible items have `Size` property which allows to customize the view even more. Also, all items may appear multiple times on the view.
-  
+
   Apart from adding items, it is possible to customize other aspects of the views, like selecting `Color` or `Black` background. The first one will indicate current BG threshold (green = in range; blue = below range; yellow = above range; red = urgent below/above).
   `Show SGV age` option will make `SGV age` item appear `Always` or only if the predefined threshold is reached: `Only after threshold`. Breaching `SGV age threshold` will also make `Color` background turn grey and strike through `SGV`.
   `Clock view configurator` will generate an URL (available under `Open my clock view!` link) that could be bookmarked.
-  
+
   There are a few default views available from the main menu: 
   * `Clock` - Shows current BG, trend arrow, and time of day. Grey text on a black background.
   * `Color` - Shows current BG and trend arrow. White text on a color background.
@@ -487,7 +487,7 @@ autonomy for your data:
   * `BOLUS_RENDER_OVER` (`0`) - U value over which the bolus labels use the format defined in `BOLUS_RENDER_FORMAT`. This value can be an integer or a float, e.g. 0.3, 1.5, 2, etc.
   * `BOLUS_RENDER_FORMAT` (`default`) - Possible values are `hidden`, `default` (with leading zero and U), `concise` (with U, without leading zero), and `minimal` (without leading zero and U).
   * `BOLUS_RENDER_FORMAT_SMALL` (`default`) - Possible values are `hidden`, `default` (with leading zero and U), `concise` (with U, without leading zero), and `minimal` (without leading zero and U).
-  
+
 ##### `bridge` (Share2Nightscout bridge)
   Glucose reading directly from the Dexcom Share service, uses these extended settings:
   * `BRIDGE_USER_NAME` - Your username for the Share service.
@@ -590,7 +590,7 @@ For remote overrides, the following extended settings must be configured:
   **IMPORTANT:** This plugin can only check how much space database already takes, _but cannot infer_ max size available on server for it. To have correct alarms and realistic percentage, `DBSIZE_MAX` need to be properly set - according to your mongoDB hosting configuration.
 
   **NOTE:** This plugin rely on db.stats() for reporting _logical_ size of database, which may be different than _physical_ size of database on server. It may work for free tier of MongoDB on Atlas, since it calculate quota according to logical size too, but may fail for other hostings or self-hosted database with quota based on physical size. 
-  
+
   **NOTE:** MongoDB Atlas quota is for **all** databases in cluster, while each instance will get only size of **its own database only**. It is ok when you only have **one** database in cluster (most common scenario) but will not work for multiple parallel databases. In such case, spliting known quota equally beetween databases and setting `DBSIZE_MAX` to that fraction may help, but wont be precise.
 
   All sizes are expressed as integers, in _Mebibytes_ `1 MiB == 1024 KiB == 1024*1024 B`
@@ -600,7 +600,7 @@ For remote overrides, the following extended settings must be configured:
   * `DBSIZE_URGENT_PERCENTAGE` (`75`) - Threshold to show urgent warning about database size. When database reach this percentage of `DBSIZE_MAX` size, it is urgent to do backup and clean up old data. At this percentage info pill turns red.
   * `DBSIZE_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications about database size.
   * `DBSIZE_IN_MIB` (`false`) - Set to `true` to display size of database in MiB-s instead of default percentage.
-  
+
   This plugin should be enabled by default, if needed can be diasabled by adding `dbsize` to the list of disabled plugins, for example: `DISABLE="dbsize"`.
 
 #### Extended Settings
@@ -629,13 +629,13 @@ For remote overrides, the following extended settings must be configured:
     * `PUSHOVER_ANNOUNCEMENT_KEY` - An optional Pushover user/group key, will be used for system wide user generated announcements.  If not defined this will fallback to `PUSHOVER_USER_KEY` or `PUSHOVER_ALARM_KEY`.  This also support a space delimited list of keys. To disable Announcement pushes set this to `off`.
     * `BASE_URL` - Used for pushover callbacks, usually the URL of your Nightscout site, use https when possible.
     * `API_SECRET` - Used for signing the pushover callback request for acknowledgments.
-
+    
     If you never want to get info level notifications (treatments) use `PUSHOVER_USER_KEY="off"`
     If you never want to get an alarm via pushover use `PUSHOVER_ALARM_KEY="off"`
     If you never want to get an announcement via pushover use `PUSHOVER_ANNOUNCEMENT_KEY="off"`
-
+    
     If only `PUSHOVER_USER_KEY` is set it will be used for all info notifications, alarms, and announcements
-
+    
     For testing/development try [localtunnel](http://localtunnel.me/).
 
 #### IFTTT Maker
@@ -731,16 +731,16 @@ License
     Copyright (C) 2017 Nightscout contributors.  See the COPYRIGHT file
     at the root directory of this distribution and at
     https://github.com/nightscout/cgm-remote-monitor/blob/master/COPYRIGHT
-
+    
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published
     by the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
-
+    
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU Affero General Public License for more details.
-
+    
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
