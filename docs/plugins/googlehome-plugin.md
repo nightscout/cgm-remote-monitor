@@ -62,23 +62,32 @@ To add Google Home support for your Nightscout site, here's what you need to do:
 1. In the navigation pane on the left, click on "Fulfillment".
 1. Enable the toggle for "Webhook" and then fill in the URL field with your Nightscout URL: `https://YOUR-NIGHTSCOUT-SITE/api/v1/googlehome`
     - If you use Authentication Roles, you'll need to add a bit to the end of your URL. See [the section](#do-you-use-authentication-roles) below.
+    - **Important:** If you would like to add treatments via Google Assistant, you are required to use authentication roles.
 1. Scroll down to the bottom of the page and click the "SAVE" button.
 1. Click on "Integrations" in the navigation pane.
-1. Click on "INTEGRATION SETTINGS" for "Google Assistant".
-1. Under "Implicit invocation", add every intent listed.
-1. Turn on the toggle for "Auto-preview changes".
+1. In the "Try Actions Builder" section, click on the "Not ready yet? Continue with the integration" link.
+1. Under "Implicit invocation", add up to 10 of your desired intents.
+    - Unfortunately Google limits us to only 10 of them here. This list is the list of intents that we can talk to directly. e.g.:
+        1. You: "Hey Google, ask Nightscout what's my blood sugar?"
+        1. Google: "Your blood sugar is 120 as of 2 minutes ago."
+    - The intents that you do not include on this list are still usable, but you have to "open" your Action first. e.g.:
+        1. You: "Hey Google, talk to Nightscout."
+        1. Google: "Sure. Opening Nightscout... Hello, what can I do for you today?"
+        1. You: "What's my blood sugar?"
+        1. Google: "Your blood sugar is 120 as of 2 minutes ago."
+1. If available, turn on the toggle for "Auto-preview changes".
 1. Click "CLOSE".
 
-That's it! Now try asking Google "Hey Google, ask *your Action's name* how am I doing?"
+That's it! Now try asking Google "Hey Google, open *your Action's name*"
 
 ### Do you use Authentication Roles? ###
 
 If you use Authentication Roles, you will need to add a token to the end of your Nightscout URL when configuring your Webhook.
 
-1. In your Nightscout Admin Tools, add a new subject and give it the "readable" role.
-    - If you **really** would like to be super specific, you could create a new role and set the permissions to `api:*:read`.
+1. In your Nightscout Admin Tools, add a new subject and set the Roles to "readable, writable"
+    - If you **really** would like to be super specific, you could create new roles and set the permissions to `api:*:read` and `api:*:write api:*:create`, respectively.
 1. After the new subject is created, copy the "Access Token" value for the new row in your subject table (**don't** copy the link, just copy the text).
-1. At the end of your Nighscout URL, add `?token=YOUR-TOKEN`, where `YOUR-TOKEN` is the Access Token you just copied. Your new URL should look like `https://YOUR-NIGHTSCOUT-SITE/api/v1/googlehome?token=YOUR-TOKEN`.
+1. At the end of your Nighscout URL, add `?secret=YOUR-TOKEN`, where `YOUR-TOKEN` is the Access Token you just copied. Your new URL should look like `https://YOUR-NIGHTSCOUT-SITE/api/v1/googlehome?secret=YOUR-TOKEN`.
 
 ### What questions can you ask it?
 

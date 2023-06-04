@@ -76,12 +76,515 @@
                 {
                     "name": "AMAZON.HelpIntent",
                     "samples": []
+                },
+                {
+                    "name": "MetricReportExercise",
+                    "slots": [
+                        {
+                            "name": "duration",
+                            "type": "AMAZON.DURATION",
+                            "samples": [
+                                "{duration}",
+                                "for {duration}"
+                            ]
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
+                        }
+                    ],
+                    "samples": [
+                        "I exercised {time_diff} {before_after} for {duration}",
+                        "I exercised for {duration} {time_diff} {before_after}",
+                        "I'll be exercising for {duration} {before_after} {time_diff}",
+                        "I'll be exercising {before_after} {time_diff} for {duration}",
+                        "I'll be exercising {before_after} {time_diff}",
+                        "I'm exercising for {duration} at {rel_time} {rel_date}",
+                        "I'm exercising for {duration} at {rel_time} on {rel_date}",
+                        "I'm exercising for {duration} {rel_date} at {rel_time}",
+                        "I'm exercising at {rel_time} for {duration}",
+                        "I'm exercising on {rel_date} at {rel_time} for {duration}",
+                        "I'm exercising at {rel_time} {rel_date} for {duration}",
+                        "I'm exercising at {rel_time}",
+                        "I exercised on {rel_date} at {rel_time}",
+                        "I'm exercising on {rel_date} at {rel_time}",
+                        "I'm exercising at {rel_time} {rel_date}",
+                        "I'll be exercising for {duration}",
+                        "I'm exercising for {duration}",
+                        "I'm exercising"
+                    ]
+                },
+                {
+                    "name": "MetricReportCarbs",
+                    "slots": [
+                        {
+                            "name": "number",
+                            "type": "AMAZON.NUMBER",
+                            "samples": [
+                                "{number} carbohydrates",
+                                "{number} carbs",
+                                "{number}"
+                            ]
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
+                        }
+                    ],
+                    "samples": [
+                        "I'll be eating {before_after} {time_diff}",
+                        "{time_diff} {before_after} I ate {number} carbohydrates",
+                        "{before_after} {time_diff} I'll be eating {number} carbs",
+                        "I ate carbs {time_diff} {before_after}",
+                        "I'll be eating carbohydrates {before_after} {time_diff}",
+                        "I'll be eating {number} grams of carbs {before_after} {time_diff}",
+                        "I ate {number} carbs {time_diff} {before_after}",
+                        "{rel_date} i ate {number} carbs at {rel_time}",
+                        "I'm eating {number} carbs at {rel_time} {rel_date}",
+                        "I ate {number} carbs {rel_date} {rel_time}",
+                        "I'm eating {number} carbohydrates {rel_time} {rel_date}",
+                        "I ate {number} grams of carbs {rel_date} at {rel_time}",
+                        "I'm eating {number} grams at {rel_time}",
+                        "I'm eating {number} carbs",
+                        "I ate {number} carbs",
+                        "I'm eating {number} carbohydrates",
+                        "I ate {number} grams of carbs",
+                        "I'm eating {number} grams"
+                    ]
+                },
+                {
+                    "name": "MetricReportBgCheck",
+                    "slots": [
+                        {
+                            "name": "number",
+                            "type": "AMAZON.NUMBER",
+                            "samples": [
+                                "{number}"
+                            ]
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
+                        }
+                    ],
+                    "samples": [
+                        "I tested my bg {time_diff} {before_after}",
+                        "{time_diff} {before_after} my blood glucose was {number}",
+                        "My glucose was {number} {time_diff} {before_after}",
+                        "I tested my bg at {number} {time_diff} {before_after}",
+                        "I tested {rel_date} at {number} at {rel_time}",
+                        "I tested at {number} at {rel_time}",
+                        "my bg was {number} on {rel_date} at {rel_time}",
+                        "I tested my glucose at {number} {rel_date} at {rel_time}",
+                        "I tested at {number}",
+                        "my blood sugar is {number}",
+                        "my bg is {number}",
+                        "my blood glucose level was {number}",
+                        "I tested my glucose at {number}",
+                        "my bg was {number}",
+                        "my sugar level is {number}",
+                        "my sugar was {number}"
+                    ]
+                },
+                {
+                    "name": "MetricReportOffline",
+                    "slots": [
+                        {
+                            "name": "duration",
+                            "type": "AMAZON.DURATION",
+                            "samples": [
+                                "{duration} ",
+                                "for {duration} "
+                            ]
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
+                        }
+                    ],
+                    "samples": [
+                        "I went offline {time_diff} {before_after} for {duration}",
+                        "I went offline {time_diff} {before_after}",
+                        "I'll be going offline {before_after} {time_diff}",
+                        "I'll be going offline {before_after} {time_diff} for {duration}",
+                        "i'm going offline {rel_date} for {duration} at {rel_time}",
+                        "I went offline for {duration} at {rel_time} on {rel_date}",
+                        "Open APS will be offline for {duration} at {rel_time} {rel_date}",
+                        "I'm going offline at {rel_time} on {rel_date}",
+                        "I'm going offline at {rel_time}",
+                        "Open APS is going offline for {duration} ",
+                        "Open APS will be offline for {duration} ",
+                        "I'm going offline for {duration} ",
+                        "I'll be offline for {duration} ",
+                        "I'm going offline",
+                        "I'll be offline"
+                    ]
+                },
+                {
+                    "name": "MetricReportActivityMode",
+                    "slots": [
+                        {
+                            "name": "duration",
+                            "type": "AMAZON.DURATION",
+                            "samples": [
+                                "for {duration} ",
+                                "{duration} "
+                            ]
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
+                        }
+                    ],
+                    "samples": [
+                        "turn on activity mode {time_diff} {before_after} for {duration}",
+                        "enable activity mode {time_diff} {before_after}",
+                        "turn on activity mode {before_after} {time_diff}",
+                        "enable activity mode {before_after} {time_diff} for {duration}",
+                        "turn on activity mode {rel_date} for {duration} at {rel_time}",
+                        "turn on activity mode {rel_time} {rel_date} for {duration}",
+                        "enable activity mode {rel_date} at {rel_time} for {duration}",
+                        "enable activity mode on {rel_date} at {rel_time} ",
+                        "enable activity mode",
+                        "enable activity mode for {duration} ",
+                        "I'll need activity mode turned on for {duration} ",
+                        "I'll be active for {duration} ",
+                        "turn on activity mode for {duration} ",
+                        "turn on activity mode"
+                    ]
+                },
+                {
+                    "name": "MetricReportSiteChange",
+                    "slots": [
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
+                        }
+                    ],
+                    "samples": [
+                        "I changed my site {rel_date} at {rel_time}",
+                        "I changed my pump site at {rel_time} {rel_date}",
+                        "I changed my infusion set {time_diff} {before_after}",
+                        "I changed my inset {before_after} {time_diff}",
+                        "I changed my infusion set",
+                        "I changed my inset",
+                        "I changed my site",
+                        "I'm changing my pump site"
+                    ]
+                },
+                {
+                    "name": "MetricReportPumpBattChange",
+                    "slots": [
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
+                        }
+                    ],
+                    "samples": [
+                        "I changed my battery {rel_date} at {rel_time}",
+                        "I changed my pump battery at {rel_time} {rel_date}",
+                        "I changed my pump battery {time_diff} {before_after}",
+                        "I changed my battery {before_after} {time_diff}",
+                        "I changed my pump battery",
+                        "I changed my battery",
+                        "I'm changing my pump battery"
+                    ]
+                },
+                {
+                    "name": "MetricReportCartridgeChange",
+                    "slots": [
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
+                        }
+                    ],
+                    "samples": [
+                        "I changed my insulin at {rel_time}",
+                        "I changed my cartridge {rel_date} at {rel_time}",
+                        "I changed my insulin pump cartridge at {rel_time} {rel_date}",
+                        "I changed my cartridge {time_diff} {before_after}",
+                        "I changed my insulin cartridge {before_after} {time_diff}",
+                        "I changed my pump cartridge",
+                        "I changed my cartridge",
+                        "I changed my insulin cartridge",
+                        "I'm changing my pump insulin pump cartridge"
+                    ]
+                },
+                {
+                    "name": "MetricReportEatingSoon",
+                    "slots": [],
+                    "samples": [
+                        "I'll be eating shortly",
+                        "I'm eating pretty soon",
+                        "I'll be eating in a bit",
+                        "I'm eating soon",
+                        "I'll be eating soon"
+                    ]
+                },
+                {
+                    "name": "MetricReportTempTarget",
+                    "slots": [
+                        {
+                            "name": "target_top",
+                            "type": "AMAZON.NUMBER",
+                            "samples": [
+                                "{target_top} to {target_bottom}",
+                                "from {target_top} to {target_bottom}",
+                                "set it to {target_top}",
+                                "{target_top}"
+                            ]
+                        },
+                        {
+                            "name": "target_bottom",
+                            "type": "AMAZON.NUMBER"
+                        },
+                        {
+                            "name": "duration",
+                            "type": "AMAZON.DURATION",
+                            "samples": [
+                                "for {duration}",
+                                "{duration}"
+                            ]
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
+                        }
+                    ],
+                    "samples": [
+                        "setup a temp target {before_after} {time_diff} for {duration} from {target_bottom} to {target_top}",
+                        "create a temp target for {duration} {before_after} {time_diff} from {target_bottom} to {target_top}",
+                        "set a temp target for {target_top} at {rel_time} {rel_date}",
+                        "set a temp target at {rel_time} {rel_date} from {target_bottom} to {target_top} for {duration}",
+                        "enable a temporary target {rel_date} at {rel_time} for {duration} from {target_bottom} to {target_top}",
+                        "enable a temp target at {rel_time} ",
+                        "set a temporary target at {target_top} {before_after} {time_diff} for {duration}",
+                        "set a temp target at {target_top} {before_after} {time_diff}",
+                        "setup a temporary target {time_diff} {before_after}",
+                        "setup a temp target {before_after} {time_diff}",
+                        "enable a temporary target at {target_top} for {duration}",
+                        "enable a temp target for {duration} from {target_bottom} to {target_top}",
+                        "set a temporary target from {target_bottom} to {target_top}",
+                        "set a temp target for {duration}",
+                        "set a temporary target",
+                        "set a temp target"
+                    ]
+                },
+                {
+                    "name": "MetricReportCancelTempTarget",
+                    "slots": [
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE"
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER"
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION"
+                        }
+                    ],
+                    "samples": [
+                        "stop the temporary target at {rel_time}",
+                        "halt the temp target {rel_date} at {rel_time}",
+                        "cancel the temporary target {time_diff} {before_after}",
+                        "stop the temp target {before_after} {time_diff}",
+                        "I want to stop the temp target at {rel_time} {rel_date}",
+                        "forget about my temp target",
+                        "halt the temp target",
+                        "stop the temporary target",
+                        "cancel the current temporary target",
+                        "cancel my temp target"
+                    ]
                 }
             ],
             "types": [
                 {
                     "name": "LIST_OF_METRICS",
                     "values": [
+                        {
+                            "name": {
+                                "value": "db size",
+                                "synonyms": [
+                                    "file size",
+                                    "data size",
+                                    "database size"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm battery",
+                                "synonyms": [
+                                    "cgm battery level",
+                                    "cgm battery levels",
+                                    "cgm batteries",
+                                    "cgm transmitter battery level",
+                                    "cgm transmitter battery levels",
+                                    "cgm transmitter batteries",
+                                    "transmitter battery level",
+                                    "transmitter battery levels",
+                                    "transmitter batteries"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm noise"
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm tx age",
+                                "synonyms": [
+                                    "tx age",
+                                    "transmitter age",
+                                    "cgm transmitter age"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm tx status",
+                                "synonyms": [
+                                    "tx status",
+                                    "transmitter status",
+                                    "cgm transmitter status"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm session age",
+                                "synonyms": [
+                                    "session age"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm status"
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm mode"
+                            }
+                        },
                         {
                             "name": {
                                 "value": "delta",
@@ -180,75 +683,25 @@
                                     "raw blood glucose"
                                 ]
                             }
-                        },
+                        }
+                    ]
+                },
+                {
+                    "name": "BEFORE_AFTER",
+                    "values": [
                         {
                             "name": {
-                                "value": "cgm noise"
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "cgm tx age",
+                                "value": "after",
                                 "synonyms": [
-                                    "tx age",
-                                    "transmitter age",
-                                    "cgm transmitter age"
+                                    "in"
                                 ]
                             }
                         },
                         {
                             "name": {
-                                "value": "cgm tx status",
+                                "value": "before",
                                 "synonyms": [
-                                    "tx status",
-                                    "transmitter status",
-                                    "cgm transmitter status"
-                                ]
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "cgm battery",
-                                "synonyms": [
-                                    "cgm battery level",
-                                    "cgm battery levels",
-                                    "cgm batteries",
-                                    "cgm transmitter battery",
-                                    "cgm transmitter battery level",
-                                    "cgm transmitter battery levels",
-                                    "cgm transmitter batteries",
-                                    "transmitter battery",
-                                    "transmitter battery level",
-                                    "transmitter battery levels",
-                                    "transmitter batteries"
-                                ]
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "cgm session age",
-                                "synonyms": [
-                                    "session age"
-                                ]
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "cgm status"
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "cgm mode"
-                            }
-                        },
-                        {
-                            "name": {
-                                "value": "db size",
-                                "synonyms": [
-                                    "database size",
-                                    "data size",
-                                    "file size"
+                                    "ago"
                                 ]
                             }
                         }
@@ -280,6 +733,464 @@
                             "prompts": {}
                         }
                     ]
+                },
+                {
+                    "name": "MetricReportExercise",
+                    "delegationStrategy": "SKILL_RESPONSE",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.488820626654"
+                    },
+                    "slots": [
+                        {
+                            "name": "duration",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": true,
+                            "prompts": {
+                                "elicitation": "Elicit.Slot.547206469358.1528294096385"
+                            }
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        }
+                    ]
+                },
+                {
+                    "name": "MetricReportCarbs",
+                    "delegationStrategy": "SKILL_RESPONSE",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.917761870597"
+                    },
+                    "slots": [
+                        {
+                            "name": "number",
+                            "type": "AMAZON.NUMBER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": true,
+                            "prompts": {
+                                "elicitation": "Elicit.Slot.917761870597.328518628348"
+                            }
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        }
+                    ]
+                },
+                {
+                    "name": "MetricReportBgCheck",
+                    "delegationStrategy": "SKILL_RESPONSE",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.1560553358598"
+                    },
+                    "slots": [
+                        {
+                            "name": "number",
+                            "type": "AMAZON.NUMBER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": true,
+                            "prompts": {
+                                "elicitation": "Elicit.Slot.1560553358598.1438328531777"
+                            }
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        }
+                    ]
+                },
+                {
+                    "name": "MetricReportOffline",
+                    "delegationStrategy": "SKILL_RESPONSE",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.190201071620"
+                    },
+                    "slots": [
+                        {
+                            "name": "duration",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": true,
+                            "prompts": {
+                                "elicitation": "Elicit.Slot.190201071620.52935825366"
+                            }
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        }
+                    ]
+                },
+                {
+                    "name": "MetricReportActivityMode",
+                    "delegationStrategy": "SKILL_RESPONSE",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.1624970219674"
+                    },
+                    "slots": [
+                        {
+                            "name": "duration",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": true,
+                            "prompts": {
+                                "elicitation": "Elicit.Slot.1624970219674.817960594223"
+                            }
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        }
+                    ]
+                },
+                {
+                    "name": "MetricReportSiteChange",
+                    "delegationStrategy": "SKILL_RESPONSE",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.303079486417"
+                    },
+                    "slots": [
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        }
+                    ]
+                },
+                {
+                    "name": "MetricReportPumpBattChange",
+                    "delegationStrategy": "SKILL_RESPONSE",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.303079486418"
+                    },
+                    "slots": [
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        }
+                    ]
+                },
+                {
+                    "name": "MetricReportCartridgeChange",
+                    "delegationStrategy": "SKILL_RESPONSE",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.303079486419"
+                    },
+                    "slots": [
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        }
+                    ]
+                },
+                {
+                    "name": "MetricReportEatingSoon",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.967426885647"
+                    },
+                    "slots": []
+                },
+                {
+                    "name": "MetricReportTempTarget",
+                    "delegationStrategy": "SKILL_RESPONSE",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.1045748419882"
+                    },
+                    "slots": [
+                        {
+                            "name": "target_top",
+                            "type": "AMAZON.NUMBER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": true,
+                            "prompts": {
+                                "elicitation": "Elicit.Slot.1045748419882.77324823403"
+                            }
+                        },
+                        {
+                            "name": "target_bottom",
+                            "type": "AMAZON.NUMBER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "duration",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": true,
+                            "prompts": {
+                                "elicitation": "Elicit.Slot.1045748419882.1632933929368"
+                            }
+                        },
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        }
+                    ]
+                },
+                {
+                    "name": "MetricReportCancelTempTarget",
+                    "delegationStrategy": "SKILL_RESPONSE",
+                    "confirmationRequired": true,
+                    "prompts": {
+                        "confirmation": "Confirm.Intent.269057888937"
+                    },
+                    "slots": [
+                        {
+                            "name": "rel_date",
+                            "type": "AMAZON.DATE",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "rel_time",
+                            "type": "AMAZON.TIME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "before_after",
+                            "type": "BEFORE_AFTER",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        },
+                        {
+                            "name": "time_diff",
+                            "type": "AMAZON.DURATION",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        }
+                    ]
                 }
             ],
             "delegationStrategy": "ALWAYS"
@@ -303,6 +1214,228 @@
                     {
                         "type": "PlainText",
                         "value": "What value do you want to know?"
+                    }
+                ]
+            },
+            {
+                "id": "Elicit.Slot.917761870597.328518628348",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Can you tell me how many carbs you're eating?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "How many carbs are you eating?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.917761870597",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to confirm, that was {number} carbs, right?"
+                    }
+                ]
+            },
+            {
+                "id": "Elicit.Slot.1560553358598.1438328531777",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "What was your BG number?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "What was your glucose level?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.1560553358598",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to make sure, that was a blood sugar level of {number} ?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "Just to make sure, that was a BG check of {number} ?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.488820626654",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to make sure, that was exercise for {duration} at {rel_time} ?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "Just to make sure, that was exercise for {duration} on {rel_date} at {rel_time} ?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "Just to make sure, that was exercise for {duration}  ?"
+                    }
+                ]
+            },
+            {
+                "id": "Elicit.Slot.190201071620.52935825366",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "For how long?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "How long will you be offline?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.190201071620",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to double check, you'll be offline for {duration} at {rel_time} ?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "Just to double check, you'll be offline for {duration} on {rel_date} at {rel_time} ?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "Just to double check, you'll be offline for {duration}  ?"
+                    }
+                ]
+            },
+            {
+                "id": "Elicit.Slot.1624970219674.817960594223",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "How long should activity mode be enabled?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "For how long?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.1624970219674",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to confirm, you want to enable activity mode on {rel_date} at {rel_time} for {duration} ?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "Just to confirm, you want to enable activity mode at {rel_time} for {duration} ?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "just to confirm, you want to enable activity mode for {duration}  ?"
+                    }
+                ]
+            },
+            {
+                "id": "Elicit.Slot.547206469358.1528294096385",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "How long will you be exercising?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "For how long?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.303079486417",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to confirm, you changed your pump site?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.303079486418",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to confirm, you changed your pump battery?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.303079486419",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to confirm, you changed your insulin cartridge?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.967426885647",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to confirm, you'll be eating soon, correct?"
+                    }
+                ]
+            },
+            {
+                "id": "Elicit.Slot.1045748419882.77324823403",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "What is the blood glucose target?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "What is the blood sugar target?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "What is the BG target?"
+                    }
+                ]
+            },
+            {
+                "id": "Elicit.Slot.1045748419882.1632933929368",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "How long do you want the temporary target to go for?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "How long should the temporary target last?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.1045748419882",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to confirm, that was a temporary target from {target_bottom} to {target_top} for {duration} , correct?"
+                    }
+                ]
+            },
+            {
+                "id": "Confirm.Intent.269057888937",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Just to double check, you want to cancel your current temporary target, right?"
                     }
                 ]
             }
