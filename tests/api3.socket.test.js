@@ -128,7 +128,7 @@ describe('Socket.IO in REST API3', function() {
 
     self.instance.put(`${self.urlResource}?token=${self.token.update}`)
       .send(self.docActual)
-      .expect(204)
+      .expect(200)
       .end((err) => {
         should.not.exist(err);
         self.docActual.subject = self.subject.apiUpdate.name;
@@ -152,7 +152,7 @@ describe('Socket.IO in REST API3', function() {
 
     self.instance.patch(`${self.urlResource}?token=${self.token.update}`)
       .send({ 'carbs': self.docActual.carbs, 'insulin': self.docActual.insulin })
-      .expect(204)
+      .expect(200)
       .end((err) => {
         should.not.exist(err);
       });
@@ -168,7 +168,7 @@ describe('Socket.IO in REST API3', function() {
     });
 
     self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
-      .expect(204)
+      .expect(200)
       .end((err) => {
         should.not.exist(err);
       });

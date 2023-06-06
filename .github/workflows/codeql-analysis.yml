@@ -17,7 +17,7 @@ on:
     branches: [ dev ]
   pull_request:
     # The branches below must be a subset of the branches above
-    branches: [ master ]
+    branches: [ dev ]
   schedule:
     - cron: '43 23 * * 3'
 
@@ -25,6 +25,7 @@ jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev' && github.repository_owner == 'nightscout'
 
     strategy:
       fail-fast: false
