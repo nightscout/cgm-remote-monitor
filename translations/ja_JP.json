@@ -223,6 +223,7 @@
     "View all treatments": "全治療内容を参照",
     "Enable Alarms": "アラームを有効にする",
     "Pump Battery Change": "ポンプバッテリー交換",
+    "Pump Battery Age": "Pump Battery Age",
     "Pump Battery Low Alarm": "ポンプバッテリーが低下",
     "Pump Battery change overdue!": "ポンプバッテリー交換期限切れてます！",
     "When enabled an alarm may sound.": "有効にすればアラームが鳴動します。",
