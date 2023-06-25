@@ -90,7 +90,7 @@
     "d3": "^7.0.0",
     "dompurify": "^2.2.6",
     "easyxml": "^2.0.1",
-    "ejs": "^3.1.6",
+    "ejs": "^3.1.7",
     "errorhandler": "^1.5.1",
     "event-stream": "3.3.4",
     "expose-loader": "^2.0.0",
