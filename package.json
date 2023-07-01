@@ -119,7 +119,6 @@
     "nightscout-connect": "^0.0.6",
     "node-cache": "^4.2.1",
     "parse-duration": "^0.1.3",
-    "pem": "^1.14.4",
     "process": "^0.11.10",
     "pushover-notifications": "^1.2.2",
     "random-token": "0.0.8",
