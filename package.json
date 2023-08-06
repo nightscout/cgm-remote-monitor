@@ -116,7 +116,7 @@
     "mongo-url-parser": "^1.0.2",
     "mongodb": "^3.6.0",
     "mongomock": "^0.1.2",
-    "nightscout-connect": "0.0.8",
+    "nightscout-connect": "0.0.9",
     "node-cache": "^4.2.1",
     "parse-duration": "^0.1.3",
     "process": "^0.11.10",
