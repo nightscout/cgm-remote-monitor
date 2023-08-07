@@ -41,6 +41,12 @@ main {
   height: 3vmin;
 }
 
+#inner div.tb {
+  width: 10%;
+  margin: 0;
+  height: 3vmin;
+}
+
 #errorMessage {
   font-size: 25em;
 }
