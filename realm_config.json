@@ -1,0 +1,9 @@
+{
+    "app_id": "data-yjvxo",
+    "config_version": 20210101,
+    "name": "data",
+    "location": "DE-FF",
+    "provider_region": "aws-eu-central-1",
+    "deployment_model": "LOCAL",
+    "environment": "testing"
+}

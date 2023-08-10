@@ -1,0 +1,10 @@
+{
+    "name": "leah",
+    "type": "mongodb-atlas",
+    "config": {
+        "clusterName": "leah",
+        "readPreference": "primary",
+        "wireProtocolEnabled": false
+    },
+    "version": 1
+}
