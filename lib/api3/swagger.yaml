@@ -48,6 +48,8 @@ info:
 
       `food` collection&#58;         equal `created_at`
 
+      `heartrate` collection&#58;    equal `created_at`
+
       `profile` collection&#58;      equal `created_at`
 
       `treatments` collection&#58;   equal combination of `created_at` and `eventType`
