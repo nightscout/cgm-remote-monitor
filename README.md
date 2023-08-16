@@ -9,8 +9,6 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 [![Codacy Badge][codacy-img]][codacy-url]
 [![Discord chat][discord-img]][discord-url]
 
-[![Deploy to Heroku][heroku-img]][heroku-url] [![Update your site][update-img]][update-fork]
-
 This acts as a web-based CGM (Continuous Glucose Monitor) to allow
 multiple caregivers to remotely view a patient's glucose data in
 real time.  The server reads a MongoDB which is intended to be data
@@ -105,8 +103,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
         - [`treatmentnotify` (Treatment Notifications)](#treatmentnotify-treatment-notifications)
         - [`basal` (Basal Profile)](#basal-basal-profile)
         - [`bolus` (Bolus Rendering)](#bolus-bolus-rendering)
-        - [`bridge` (Share2Nightscout bridge)](#bridge-share2nightscout-bridge)
-        - [`mmconnect` (MiniMed Connect bridge)](#mmconnect-minimed-connect-bridge)
+        - [`connect` (Nightscout Connect)](#connect-nightscout-connect)
+        - [`bridge` (Share2Nightscout bridge)](#bridge-share2nightscout-bridge), _deprecated_
+        - [`mmconnect` (MiniMed Connect bridge)](#mmconnect-minimed-connect-bridge), _deprecated_
         - [`pump` (Pump Monitoring)](#pump-pump-monitoring)
         - [`openaps` (OpenAPS)](#openaps-openaps)
         - [`loop` (Loop)](#loop-loop)
@@ -132,19 +131,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Supported configurations:
 
-If you plan to use Nightscout, we recommend using [Heroku](https://nightscout.github.io/nightscout/new_user/) as this is free and easy to use.
-We used to recommend hostig at Azure, but the resource needs of Nightscout have grown over the years and Azure won't comfortably run Nightscout
-anymore in the free tier. If you're hosting in Azure and looking to update your site, we recommend you
-[switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku)
-as you're likely to hit issues in the process of updating the site.
-
-- [Nightscout Setup with Heroku](https://nightscout.github.io/nightscout/new_user/) (recommended)
+- [Nightscout Setup](https://nightscout.github.io/nightscout/new_user/) (recommended)
 
 While you can install Nightscout on a virtual server or a Raspberry Pi, we do not recommend this unless you have at least some
-experience hosting Node applications and development using the toolchain in use with Nightscout. Heroku automates all of the
-hosting for you and even many of the dvelopers run their production sites in Heroku due to convenience.
+experience hosting Node applications and development using the toolchain in use with Nightscout.
 
-If you're a hosting provider and want to provide our users additional free hosting options,
+If you're a hosting provider and want to provide our users additional hosting options,
 you're welcome to issue a documentation pull request with instructions on how to setup Nightscout on your system.
 
 ## Recommended minimum browser versions for using Nightscout:
@@ -260,6 +252,14 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
     Setting it to `denied` will require a token from every visit, using `status-only` will enable api-secret based login.
   * `IMPORT_CONFIG` - Used to import settings and extended settings from a url such as a gist.  Structure of file should be something like: `{"settings": {"theme": "colors"}, "extendedSettings": {"upbat": {"enableAlerts": true}}}`
   * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. Deprecated, if set to `off` the `careportal` role will be added to `AUTH_DEFAULT_ROLES`
+
+#### Data Rights
+
+These are useful to help protect your rights to portability and
+autonomy for your data:
+  * `OBSCURED` - list, identical to `ENABLE`, a list of plugins to
+    obscure.
+  * `OBSCURE_DEVICE_PROVENANCE` - Required, a string visible to the [companies deciding to filter based on your data](https://help.sugarmate.io/en/articles/4673402-adding-a-nightscout-data-source).  For example, `my-data-rights`.
 
 ### Alarms
 
@@ -489,8 +489,98 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `BOLUS_RENDER_FORMAT` (`default`) - Possible values are `hidden`, `default` (with leading zero and U), `concise` (with U, without leading zero), and `minimal` (without leading zero and U).
   * `BOLUS_RENDER_FORMAT_SMALL` (`default`) - Possible values are `hidden`, `default` (with leading zero and U), `concise` (with U, without leading zero), and `minimal` (without leading zero and U).
   
+##### `connect` (Nightscout Connect)
+
+Connect common diabetes cloud resources to Nightscout.
+Include the keyword `connect` in the `ENABLE` list.
+Nightscout connection uses extended settings using the environment variable prefix `CONNECT_`.
+  * `CONNECT_SOURCE` - The name for the source of one of the supported inputs.  one of `nightscout`, `dexcomshare`, etc...
+###### Nightscout
+
+> Work in progress
+
+To sync from another Nightscout site, include `CONNECT_SOURCE_ENDPOINT` and
+`CONNECT_SOURCE_API_SECRET`. 
+* `CONNECT_SOURCE=nightscout`
+* `CONNECT_SOURCE_ENDPOINT=<URL>`
+* `CONNECT_SOURCE_API_SECRET=<OPTIONAL_API_SECRET>`
+
+The `CONNECT_SOURCE_ENDPOINT` must be a fully qualified URL and may contain a
+`?token=<subject>` query string to specify an accessToken.
+The `CONNECT_SOURCE_API_SECRET`, if provided, will be used to create a token
+called `nightscout-connect-reader`.  This information or the token provided in
+the query will be used to read information from Nightscout and is optional if
+the site is readable by default.
+
+Select this driver by setting `CONNECT_SOURCE` equal to `nightscout`.
+
+
+
+###### Dexcom Share
+To synchronize from Dexcom Share use the following variables.
+* `CONNECT_SOURCE=dexcomshare`
+* `CONNECT_SHARE_ACCOUNT_NAME=`
+* `CONNECT_SHARE_PASSWORD=`
+
+Optional, `CONNECT_SHARE_REGION` and `CONNECT_SHARE_SERVER` do the same thing, only specify one.
+* `CONNECT_SHARE_REGION=`  `ous` or `us`. `us` is the default if nothing is
+  provided.  Selecting `us` sets `CONNECT_SHARE_SERVER` to `share2.dexcom.com`.
+  Selecting `ous` here sets `CONNECT_SHARE_SERVER` to `shareous2.dexcom.com`.
+* `CONNECT_SHARE_SERVER=` set the server domain to use.
+
+
+###### Glooko
+
+> Note: Experimental.
+
+To synchronize from Glooko use the following variables.
+* `CONNECT_SOURCE=glooko`
+* `CONNECT_GLOOKO_EMAIL=`
+* `CONNECT_GLOOKO_PASSWORD=`
+
+By default, `CONNECT_GLOOKO_SERVER` is set to `api.glooko.com` because the
+default value for `CONNECT_GLOOKO_ENV` is `default`.
+* `CONNECT_GLOOKO_ENV` is the word `default` by defalt.  Other values are
+  `development`, `production`, for `api.glooko.work`, and
+  `externalapi.glooko.com`, respectively.
+* `CONNECT_GLOOKO_SERVER` the hostname server to use - `api.glooko.com` by `default`.
+
+If both, `CONNECT_GLOOKO_SERVER` and `CONNECT_GLOOKO_ENV` are set, only
+`CONNECT_GLOOKO_SERVER` will be used.
+
+###### Libre Link Up
+To synchronize from Libre Link Up use the following variables.
+* `CONNECT_SOURCE=linkup`
+* `CONNECT_LINK_UP_USERNAME=`
+* `CONNECT_LINK_UP_PASSWORD=`
+
+By default, `CONNECT_LINK_UP_SERVER` is set to `api-eu.libreview.io` because the
+default value for `CONNECT_LINK_UP_REGION` is `EU`.
+Other available values for `CONNECT_LINK_UP_REGION`:
+  * `US`, `EU`, `DE`, `FR`, `JP`, `AP`, `AU`, `AE`
+
+For folks connected to many patients, you can provide the patient ID by setting
+the `CONNECT_LINK_UP_PATIENT_ID` variable.
+
+###### Minimed Carelink
+
+To synchronize from Medtronic Minimed Carelink, set the following
+environment variables.
+* `CONNECT_SOURCE=minimedcarelink`
+* `CONNECT_CARELINK_USERNAME`
+* `CONNECT_CARELINK_PASSWORD`
+* `CONNECT_CARELINK_REGION` Either `eu` to set `CONNECT_CARELINK_SERVER` to
+  `carelink.minimed.eu` or `us` to use `carelink.minimed.com`.
+
+For folks using the new Many to Many feature, please provide the username of the
+patient to follow using `CONNECT_CARELINK_PATIENT_USERNAME` variable.
+
+
 ##### `bridge` (Share2Nightscout bridge)
-  Glucose reading directly from the Dexcom Share service, uses these extended settings:
+
+> **Deprecated** Please consider using the `connect` plugin instead.
+
+Fetch glucose reading directly from the Dexcom Share service, uses these extended settings:
   * `BRIDGE_USER_NAME` - Your username for the Share service.
   * `BRIDGE_PASSWORD` - Your password for the Share service.
   * `BRIDGE_INTERVAL` (`150000` *2.5 minutes*) - The time (in milliseconds) to wait between each update.
@@ -501,6 +591,9 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `BRIDGE_SERVER` (``) - The default blank value is used to fetch data from Dexcom servers in the US. Set to (`EU`) to fetch from European servers instead.
 
 ##### `mmconnect` (MiniMed Connect bridge)
+
+> **Deprecated** Please consider using the `connect` plugin instead.
+
   Transfer real-time MiniMed Connect data from the Medtronic CareLink server into Nightscout ([read more](https://github.com/mddub/minimed-connect-to-nightscout))
   * `MMCONNECT_USER_NAME` - Your user name for CareLink Connect.
   * `MMCONNECT_PASSWORD` - Your password for CareLink Connect.
