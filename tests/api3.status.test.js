@@ -1,6 +1,5 @@
 'use strict';
 
-const request = require('supertest');
 require('should');
 
 describe('API3 STATUS', function() {
@@ -17,20 +16,21 @@ describe('API3 STATUS', function() {
         self.app = self.instance.app;
         self.env = self.instance.env;
 
-        let authResult = await authSubject(self.instance.ctx.authorization.storage);
+        let authResult = await authSubject(
+            self.instance.ctx.authorization.storage, ['all'], self.app);
 
         self.subject = authResult.subject;
-        self.token = authResult.token;
+        self.jwt = authResult.jwt;
+        self.cache = self.instance.cacheMonitor;
     });
 
     after(function after () {
         self.instance.ctx.bus.teardown();
     });
 
-
     it('GET /status', async () => {
-        let res = await request(self.app)
-            .get(`/api/v3/status?token=${self.token.all}`)
+        let res = await self.instance
+            .get(`/api/v3/status`, self.jwt.all)
             .expect(200);
 
         const apiConst = require('../lib/api3/const.json')
