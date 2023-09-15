@@ -309,7 +309,7 @@
     "Database contains %1 records": "数据库包含%1条记录",
     "All records removed ...": "所有记录已经被清除",
     "Delete all documents from devicestatus collection older than 30 days": "删除30天以前的设备数据",
-    "Number of Days to Keep:": "Number of Days to Keep:",
+    "Number of Days to Keep:": "保留天数：",
     "This task removes all documents from devicestatus collection that are older than 30 days. Useful when uploader battery status is not properly updated.": "This task removes all documents from devicestatus collection that are older than 30 days. Useful when uploader battery status is not properly updated.",
     "Delete old documents from devicestatus collection?": "Delete old documents from devicestatus collection?",
     "Clean Mongo entries (glucose entries) database": "Clean Mongo entries (glucose entries) database",
