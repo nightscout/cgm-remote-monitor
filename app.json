@@ -59,22 +59,22 @@
     },
     "BG_HIGH": {
       "description": "Urgent High BG threshold, triggers the ALARM_URGENT_HIGH alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
-      "value": "260",
+      "value": "9.7",
       "required": false
     },
     "BG_LOW": {
       "description": "Urgent Low BG threshold, triggers the ALARM_URGENT_LOW alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
-      "value": "55",
+      "value": "4.2",
       "required": false
     },
     "BG_TARGET_BOTTOM": {
       "description": "Low BG threshold, triggers the ALARM_LOW alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
-      "value": "80",
+      "value": "3.9",
       "required": false
     },
     "BG_TARGET_TOP": {
       "description": "High BG threshold, triggers the ALARM_HIGH alarm. Set in mg/dL or mmol/L, as set in DISPLAY_UNITS variable.",
-      "value": "180",
+      "value": "10.0",
       "required": false
     },
     "BOLUS_RENDER_OVER": {
@@ -104,7 +104,7 @@
     },
     "DISPLAY_UNITS": {
       "description": "Preferred BG units for the site: 'mg/dl' or 'mmol/L' (or just 'mmol').",
-      "value": "mg/dl",
+      "value": "mmol/L",
       "required": true
     },
     "ENABLE": {
