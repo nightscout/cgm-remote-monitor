@@ -525,7 +525,7 @@ To synchronize from Dexcom Share use the following variables.
 Optional, `CONNECT_SHARE_REGION` and `CONNECT_SHARE_SERVER` do the same thing, only specify one.
 * `CONNECT_SHARE_REGION=`  `ous` or `us`. `us` is the default if nothing is
   provided.  Selecting `us` sets `CONNECT_SHARE_SERVER` to `share2.dexcom.com`.
-  Selecting `ous` here sets `CONNECT_SHARE_SERVER` to `shareous2.dexcom.com`.
+  Selecting `ous` here sets `CONNECT_SHARE_SERVER` to `shareous1.dexcom.com`.
 * `CONNECT_SHARE_SERVER=` set the server domain to use.
 
 
