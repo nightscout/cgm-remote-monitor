@@ -25,13 +25,13 @@ describe('Clean MONGO after tests', function ( ) {
   });
 
   it('wipe treatment data', function (done) {
-    self.ctx.treatments().deleteMany({ }, function ( ) {
+    self.ctx.treatments().remove({ }, function ( ) {
         done();
     });
   });
 
   it('wipe entries data', function (done) {
-    self.ctx.entries().deleteMany({ }, function ( ) {
+    self.ctx.entries().remove({ }, function ( ) {
         done();
     });
   });
