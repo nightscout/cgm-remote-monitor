@@ -39,11 +39,11 @@ describe('authed REST api', function ( ) {
   });
 
   afterEach(function (done) {
-    this.archive( ).deleteMany({ }, done);
+    this.archive( ).remove({ }, done);
   });
 
   after(function (done) {
-    this.archive( ).deleteMany({ }, done);
+    this.archive( ).remove({ }, done);
   });
 
   it('disallow unauthorized POST', function (done) {
