@@ -2,11 +2,12 @@
 
 const _ = require('lodash');
 const should = require('should');
-const fs = require('fs');
+const helper = require('./inithelper')();
 
 describe('IOB', function() {
-  var ctx = {};
-  ctx.language = require('../lib/language')(fs);
+
+  let ctx = helper.ctx;
+
   ctx.settings = require('../lib/settings')();
 
   var iob = require('../lib/plugins/iob')(ctx);
@@ -55,7 +56,7 @@ describe('IOB', function() {
       dia: 3,
       sens: 0};
 
-     var profile = require('../lib/profilefunctions')([profileData]);
+     var profile = require('../lib/profilefunctions')([profileData], ctx);
 
       var rightAfterBolus = iob.calcTotal(treatments, [], profile, time);
 
@@ -113,8 +114,7 @@ describe('IOB', function() {
       dia: 4,
       sens: 0};
 
-     var profile = require('../lib/profilefunctions')([profileData]);
-
+     var profile = require('../lib/profilefunctions')([profileData], ctx);
 
       var rightAfterBolus = iob.calcTotal(treatments, [], profile, time);
 
@@ -140,7 +140,7 @@ describe('IOB', function() {
 
   describe('from devicestatus', function () {
     var time = Date.now();
-    var profile = require('../lib/profilefunctions')([{ dia: 3, sens: 0 }]);
+    var profile = require('../lib/profilefunctions')([{ dia: 3, sens: 0 }], ctx);
     var treatments = [{
       mills: time - 1,
       insulin: '3.00'
