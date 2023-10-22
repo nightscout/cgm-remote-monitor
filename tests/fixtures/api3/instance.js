@@ -41,24 +41,17 @@ function configure () {
   };
 
 
-  function addJwt (req, jwt) {
-    return jwt
-      ? req.set('Authorization', `Bearer ${jwt}`)
-      : req;
-  }
-
-
   self.addSecuredOperations = function addSecuredOperations (instance) {
 
-    instance.get = (url, jwt) => addJwt(request(instance.baseUrl).get(url), jwt);
+    instance.get = (url) => request(instance.baseUrl).get(url);
 
-    instance.post = (url, jwt) => addJwt(request(instance.baseUrl).post(url), jwt);
+    instance.post = (url) => request(instance.baseUrl).post(url);
 
-    instance.put = (url, jwt) => addJwt(request(instance.baseUrl).put(url), jwt);
+    instance.put = (url) => request(instance.baseUrl).put(url);
 
-    instance.patch = (url, jwt) => addJwt(request(instance.baseUrl).patch(url), jwt);
+    instance.patch = (url) => request(instance.baseUrl).patch(url);
 
-    instance.delete = (url, jwt) => addJwt(request(instance.baseUrl).delete(url), jwt);
+    instance.delete = (url) => request(instance.baseUrl).delete(url);
   };
 
 
@@ -129,7 +122,6 @@ function configure () {
           }
 
           instance.app.use('/api/v3', instance.ctx.apiApp);
-          instance.app.use('/api/v2/authorization', instance.ctx.authorization.endpoints);
 
           const transport = useHttps ? https : http;
 

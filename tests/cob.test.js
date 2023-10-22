@@ -1,12 +1,15 @@
 'use strict';
 
 const _ = require('lodash');
-const helper = require('./inithelper')();
+const fs = require('fs');
+const language = require('../lib/language')(fs);
 
 require('should');
 
 describe('COB', function ( ) {
-  var ctx = helper.ctx;
+  var ctx = {};
+  ctx.settings = {};
+  ctx.language = language;
 
   var cob = require('../lib/plugins/cob')(ctx);
   
@@ -17,7 +20,7 @@ describe('COB', function ( ) {
     , carbs_hr: 30
   };
 
-  var profile = require('../lib/profilefunctions')([profileData], ctx);
+  var profile = require('../lib/profilefunctions')([profileData]);
 
   it('should calculate IOB, multiple treatments', function() {
 

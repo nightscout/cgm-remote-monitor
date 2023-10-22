@@ -16,23 +16,22 @@ It is public (there is no need to add authorization parameters/headers).
 
 Sample GET `/version` client code (to get actual versions):
 ```javascript
-const axios = require('axios');
-axios.get(`https://nsapiv3.herokuapp.com/api/v3/version`)
-  .then(res => {
-    console.log(res.data);
-  });
+const request = require('request');
+
+request('https://nsapiv3.herokuapp.com/api/v3/version',
+  (error, response, body) => console.log(body));
 ```
 Sample result:
 ```json
 {
   "status": 200,
   "result": {
-    "version": "14.2.0",
-    "apiVersion": "3.0.4-alpha",
-    "srvDate": 1613056980085,
+    "version": "14.1.0",
+    "apiVersion": "3.0.2-alpha",
+    "srvDate": 1609402081548,
     "storage": {
       "storage": "mongodb",
-      "version": "4.4.3"
+      "version": "4.2.11"
     }
   }
 }
@@ -47,33 +46,23 @@ It is public (there is no need to add authorization parameters/headers).
 
 Sample GET `/status` client code (to get my actual permissions):
 ```javascript
-const axios = require('axios');
-const accessToken = 'token=testadmin-ad3b1f9d7b3f59d5';
-axios.get(`https://nsapiv3.herokuapp.com/api/v2/authorization/request/${accessToken}`)
-  .then(res => {
-    const jwt = res.data.token;
-    return axios.get(`https://nsapiv3.herokuapp.com/api/v3/status`,
-      {
-        headers: {
-          'Authorization': `Bearer ${jwt}`
-        }
-      });
-  })
-  .then(res => {
-    console.log(res.data);
-  });
+const request = require('request');
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
+
+request(`https://nsapiv3.herokuapp.com/api/v3/status?${auth}`,
+  (error, response, body) => console.log(body));
 ```
 Sample result:
 ```json
 {
   "status": 200,
   "result": {
-    "version": "14.2.0",
-    "apiVersion": "3.0.4-alpha",
-    "srvDate": 1613057148579,
+    "version": "14.1.0",
+    "apiVersion": "3.0.2-alpha",
+    "srvDate": 1609427571833,
     "storage": {
       "storage": "mongodb",
-      "version": "4.4.3"
+      "version": "4.2.11"
     },
     "apiPermissions": {
       "devicestatus": "crud",
@@ -96,41 +85,31 @@ Sample result:
 
 Sample GET `/entries` client code (to retrieve last 3 BG values):
 ```javascript
-const axios = require('axios');
-const accessToken = 'token=testadmin-ad3b1f9d7b3f59d5';
-axios.get(`https://nsapiv3.herokuapp.com/api/v2/authorization/request/${accessToken}`)
-  .then(res => {
-    const jwt = res.data.token;
-    return axios.get(`https://nsapiv3.herokuapp.com/api/v3/entries?sort$desc=date&limit=3&fields=dateString,sgv,direction`,
-      {
-        headers: {
-          'Authorization': `Bearer ${jwt}`
-        }
-      });
-  })
-  .then(res => {
-    console.log(res.data);
-  });
+const request = require('request');
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
+
+request(`https://nsapiv3.herokuapp.com/api/v3/entries?${auth}&sort$desc=date&limit=3&fields=dateString,sgv,direction`,
+  (error, response, body) => console.log(body));
 ```
 Sample result:
 ```json
 {
-  "status": 200,
-  "result": [
-    {
-      "dateString": "2021-02-11T15:25:28.928Z",
-      "sgv": 116,
+  "status": 200, 
+  "result": [  
+    {  
+      "dateString": "2019-07-30T02:24:50.434+0200",
+      "sgv": 115,
       "direction": "FortyFiveDown"
     },
-    {
-      "dateString": "2021-02-11T15:20:28.239Z",
-      "sgv": 124,
+    {  
+      "dateString": "2019-07-30T02:19:50.374+0200",
+      "sgv": 121,
       "direction": "FortyFiveDown"
     },
-    {
-      "dateString": "2021-02-11T15:15:28.225Z",
-      "sgv": 130,
-      "direction": "Flat"
+    {  
+      "dateString": "2019-07-30T02:14:50.450+0200",
+      "sgv": 129,
+      "direction": "FortyFiveDown"
     }
   ]
 }
@@ -144,37 +123,29 @@ Sample result:
 
 Sample POST `/treatments` client code:
 ```javascript
-const axios = require('axios');
-const accessToken = 'token=testadmin-ad3b1f9d7b3f59d5';
+const request = require('request');
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
 const doc = {
-  date: 1613057404186, // (new Date()).getTime(),
+  date: 1564591511232, // (new Date()).getTime(),
   app: 'AndroidAPS',
   device: 'Samsung XCover 4-861536030196001',
   eventType: 'Correction Bolus',
   insulin: 0.3
 };
-axios.get(`https://nsapiv3.herokuapp.com/api/v2/authorization/request/${accessToken}`)
-  .then(res => {
-    const jwt = res.data.token;
-    return axios(`https://nsapiv3.herokuapp.com/api/v3/treatments`,
-      {
-        method: 'post',
-        data: doc,
-        headers: {
-          'Authorization': `Bearer ${jwt}`
-        }
-      });
-  })
-  .then(res => {
-    console.log(res.data);
-  });
+request({
+    method: 'post',
+    body: doc,
+    json: true,
+    url: `https://nsapiv3.herokuapp.com/api/v3/treatments?${auth}`
+  },
+  (error, response, body) => console.log(body));
 ```
 Sample result:
 ```json
 {
   "status": 201,
-  "identifier": "5b0f7124-475f-5db0-824c-a73c5eea0975",
-  "lastModified": 1613057523148
+  "identifier": "95e1a6e3-1146-5d6a-a3f1-41567cae0895",
+  "lastModified": 1564591511711
 }
 ```
 
@@ -186,38 +157,28 @@ Sample result:
 
 Sample GET `/treatments/{identifier}` client code:
 ```javascript
-const axios = require('axios');
-const accessToken = 'token=testadmin-ad3b1f9d7b3f59d5';
-const identifier = '5b0f7124-475f-5db0-824c-a73c5eea0975';
-axios.get(`https://nsapiv3.herokuapp.com/api/v2/authorization/request/${accessToken}`)
-  .then(res => {
-    const jwt = res.data.token;
-    return axios.get(`https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${jwt}`
-        }
-      });
-  })
-  .then(res => {
-    console.log(res.data);
-  });
+const request = require('request');
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
+const identifier = '95e1a6e3-1146-5d6a-a3f1-41567cae0895';
+
+request(`https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}?${auth}`,
+  (error, response, body) => console.log(body));
 ```
 Sample result:
 ```json
 {
   "status": 200,
-  "result": {
-    "date": 1613057404186,
+  "result": {  
+    "date": 1564591511232,
     "app": "AndroidAPS",
     "device": "Samsung XCover 4-861536030196001",
     "eventType": "Correction Bolus",
     "insulin": 0.3,
+    "identifier": "95e1a6e3-1146-5d6a-a3f1-41567cae0895",
     "utcOffset": 0,
-    "created_at": "2021-02-11T15:30:04.186Z",
-    "identifier": "5b0f7124-475f-5db0-824c-a73c5eea0975",
-    "srvModified": 1613057523148,
-    "srvCreated": 1613057523148,
+    "created_at": "2019-07-31T16:45:11.232Z",
+    "srvModified": 1564591627732,
+    "srvCreated": 1564591511711,
     "subject": "test-admin"
   }
 }
@@ -231,33 +192,23 @@ Sample result:
 
 Sample GET `/lastModified` client code (to get latest modification dates):
 ```javascript
-const axios = require('axios');
-const accessToken = 'token=testadmin-ad3b1f9d7b3f59d5';
-axios.get(`https://nsapiv3.herokuapp.com/api/v2/authorization/request/${accessToken}`)
-  .then(res => {
-    const jwt = res.data.token;
-    return axios.get(`https://nsapiv3.herokuapp.com/api/v3/lastModified`,
-      {
-        headers: {
-          'Authorization': `Bearer ${jwt}`
-        }
-      });
-  })
-  .then(res => {
-    console.log(res.data);
-  });
+const request = require('request');
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
+
+request(`https://nsapiv3.herokuapp.com/api/v3/lastModified?${auth}`,
+  (error, response, body) => console.log(body));
 ```
 Sample result:
 ```json
-{
+{  
   "status": 200,
-  "result": {
-    "srvDate": 1613057924021,
-    "collections": {
-      "devicestatus": 1613057731281,
-      "entries": 1613057728148,
-      "profile": 1580337948416,
-      "treatments": 1613057523148
+  "result": {  
+    "srvDate": 1564591783202,
+    "collections": {  
+      "devicestatus": 1564591490074,
+      "entries": 1564591486801,
+      "profile": 1548524042744,
+      "treatments": 1564591627732
     }
   }
 }
@@ -271,37 +222,29 @@ Sample result:
 
 Sample PUT `/treatments/{identifier}` client code (to update `insulin` from 0.3 to 0.4):
 ```javascript
-const axios = require('axios');
-const accessToken = 'token=testadmin-ad3b1f9d7b3f59d5';
-const identifier = '5b0f7124-475f-5db0-824c-a73c5eea0975';
+const request = require('request');
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
+const identifier = '95e1a6e3-1146-5d6a-a3f1-41567cae0895';
 const doc = {
-  date: 1613057404186,
+  date: 1564591511232,
   app: 'AndroidAPS',
   device: 'Samsung XCover 4-861536030196001',
   eventType: 'Correction Bolus',
   insulin: 0.4
 };
-axios.get(`https://nsapiv3.herokuapp.com/api/v2/authorization/request/${accessToken}`)
-  .then(res => {
-    const jwt = res.data.token;
-    return axios(`https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}`,
-      {
-        method: 'put',
-        data: doc,
-        headers: {
-          'Authorization': `Bearer ${jwt}`
-        }
-      });
-  })
-  .then(res => {
-    console.log(res.data);
-  });
+
+request({
+    method: 'put',
+    body: doc,
+    json: true,
+    url: `https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}?${auth}`
+  },
+  (error, response, body) => console.log(body));
 ```
 Sample result:
 ```json
 {
-  "status": 200,
-  "lastModified": 1613058295307
+  "status": 200
 }
 ```
 
@@ -313,27 +256,20 @@ Sample result:
 
 Sample PATCH `/treatments/{identifier}` client code (to update `insulin` from 0.4 to 0.5):
 ```javascript
-const axios = require('axios');
-const accessToken = 'token=testadmin-ad3b1f9d7b3f59d5';
-const identifier = '5b0f7124-475f-5db0-824c-a73c5eea0975';
+const request = require('request');
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
+const identifier = '95e1a6e3-1146-5d6a-a3f1-41567cae0895';
 const doc = {
   insulin: 0.5
 };
-axios.get(`https://nsapiv3.herokuapp.com/api/v2/authorization/request/${accessToken}`)
-  .then(res => {
-    const jwt = res.data.token;
-    return axios(`https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}`,
-      {
-        method: 'patch',
-        data: doc,
-        headers: {
-          'Authorization': `Bearer ${jwt}`
-        }
-      });
-  })
-  .then(res => {
-    console.log(res.data);
-  });
+
+request({
+    method: 'patch',
+    body: doc,
+    json: true,
+    url: `https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}?${auth}`
+  },
+  (error, response, body) => console.log(body));
 ```
 Sample result:
 ```json
@@ -348,25 +284,17 @@ Sample result:
 
 [DELETE](https://nsapiv3insecure.herokuapp.com/api3-docs/#/generic/delete__collection___identifier_) operation deletes existing document from the collection.
 
-Sample DELETE `/treatments/{identifier}` client code:
+Sample DELETE `/treatments/{identifier}` client code (to update `insulin` from 0.4 to 0.5):
 ```javascript
-const axios = require('axios');
-const accessToken = 'token=testadmin-ad3b1f9d7b3f59d5';
-const identifier = '5b0f7124-475f-5db0-824c-a73c5eea0975';
-axios.get(`https://nsapiv3.herokuapp.com/api/v2/authorization/request/${accessToken}`)
-  .then(res => {
-    const jwt = res.data.token;
-    return axios(`https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}`,
-      {
-        method: 'delete',
-        headers: {
-          'Authorization': `Bearer ${jwt}`
-        }
-      });
-  })
-  .then(res => {
-    console.log(res.data);
-  });
+const request = require('request');
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
+const identifier = '95e1a6e3-1146-5d6a-a3f1-41567cae0895';
+
+request({
+    method: 'delete',
+    url: `https://nsapiv3.herokuapp.com/api/v3/treatments/${identifier}?${auth}`
+  },
+  (error, response, body) => console.log(body));
 ```
 Sample result:
 ```json
@@ -383,22 +311,12 @@ Sample result:
 
 Sample HISTORY `/treatments/history/{lastModified}` client code:
 ```javascript
-const axios = require('axios');
-const accessToken = 'token=testadmin-ad3b1f9d7b3f59d5';
-const lastModified = 1613057520148;
-axios.get(`https://nsapiv3.herokuapp.com/api/v2/authorization/request/${accessToken}`)
-  .then(res => {
-    const jwt = res.data.token;
-    return axios(`https://nsapiv3.herokuapp.com/api/v3/treatments/history/${lastModified}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${jwt}`
-        }
-      });
-  })
-  .then(res => {
-    console.log(res.data);
-  });
+const request = require('request');
+const auth = `token=testadmin-ad3b1f9d7b3f59d5`;
+const lastModified = 1564521267421;
+
+request(`https://nsapiv3.herokuapp.com/api/v3/treatments/history/${lastModified}?${auth}`,
+  (error, response, body) => console.log(response.body));
 ```
 Sample result:
 ```json
@@ -406,19 +324,32 @@ Sample result:
   "status": 200,
   "result": [
     {
-      "date": 1613057404186,
+      "date": 1564521267421,
       "app": "AndroidAPS",
       "device": "Samsung XCover 4-861536030196001",
       "eventType": "Correction Bolus",
       "insulin": 0.5,
       "utcOffset": 0,
-      "created_at": "2021-02-11T15:30:04.186Z",
-      "identifier": "5b0f7124-475f-5db0-824c-a73c5eea0975",
-      "srvModified": 1613058548149,
-      "srvCreated": 1613057523148,
+      "created_at": "2019-07-30T21:14:27.421Z",
+      "identifier": "95e1a6e3-1146-5d6a-a3f1-41567cae0895",
+      "srvModified": 1564592440416,
+      "srvCreated": 1564592334853,
       "subject": "test-admin",
       "modifiedBy": "test-admin",
       "isValid": false
+    },
+    {
+      "date": 1564592545299,
+      "app": "AndroidAPS",
+      "device": "Samsung XCover 4-861536030196001",
+      "eventType": "Snack Bolus",
+      "carbs": 10,
+      "identifier": "267c43c2-f629-5191-a542-4f410c69e486",
+      "utcOffset": 0,
+      "created_at": "2019-07-31T17:02:25.299Z",
+      "srvModified": 1564592545781,
+      "srvCreated": 1564592545781,
+      "subject": "test-admin"
     }
   ]
 }

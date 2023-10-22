@@ -1,11 +1,9 @@
 var should = require('should');
-const helper = require('./inithelper')();
-const moment = helper.ctx.moment;
+var moment = require('moment-timezone');
 
 describe('Profile', function ( ) {
 
-
-  var profile_empty = require('../lib/profilefunctions')(null, helper.ctx);
+  var profile_empty = require('../lib/profilefunctions')();
 
   beforeEach(function() {
     profile_empty.clear();
@@ -35,7 +33,7 @@ describe('Profile', function ( ) {
     , 'target_high': 120
   };
 
-  var profile = require('../lib/profilefunctions')([profileData],helper.ctx);
+  var profile = require('../lib/profilefunctions')([profileData]);
   var now = Date.now();
 
   it('should know what the DIA is with old style profiles', function() {
@@ -75,7 +73,7 @@ describe('Profile', function ( ) {
 
   it('should know how to reload data and still know what the low target is with old style profiles', function() {
 
-    var profile2 = require('../lib/profilefunctions')([profileData], helper.ctx);
+    var profile2 = require('../lib/profilefunctions')([profileData]);
     var profileData2 = {
       'dia': 3,
       'carbs_hr': 30,
@@ -159,7 +157,7 @@ describe('Profile', function ( ) {
     'units': 'mmol'
 };
 
-  var complexProfile = require('../lib/profilefunctions')([complexProfileData], helper.ctx);
+  var complexProfile = require('../lib/profilefunctions')([complexProfileData]);
 
   var noon = new Date('2015-06-22 12:00:00').getTime();
   var threepm = new Date('2015-06-22 15:00:00').getTime();
@@ -338,7 +336,7 @@ describe('Profile', function ( ) {
       }
   ];
 
-  var multiProfile = require('../lib/profilefunctions')(multiProfileData, helper.ctx);
+  var multiProfile = require('../lib/profilefunctions')(multiProfileData);
 
   var noon = new Date('2015-06-22 12:00:00').getTime();
   var threepm = new Date('2015-06-26 15:00:00').getTime();

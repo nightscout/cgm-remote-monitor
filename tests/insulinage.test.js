@@ -1,14 +1,15 @@
 'use strict';
 
 require('should');
-const helper = require('./inithelper')();
-const levels = helper.ctx.levels;
+var levels = require('../lib/levels');
 
 describe('insulinage', function ( ) {
     var env = require('../lib/server/env')();
-    var ctx = helper.getctx();
+    var ctx = {};
+    ctx.levels = levels;
     ctx.ddata = require('../lib/data/ddata')();
     ctx.notifications = require('../lib/notifications')(env, ctx);
+    ctx.language = require('../lib/language')();
 
     var iage = require('../lib/plugins/insulinage')(ctx);
     var sandbox = require('../lib/sandbox')(ctx);

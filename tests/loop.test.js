@@ -2,12 +2,17 @@
 
 const _ = require('lodash');
 const should = require('should');
-const helper = require('./inithelper')();
+const moment = require('moment');
+const fs = require('fs');
+const language = require('../lib/language')(fs);
+const levels = require('../lib/levels');
 
-var ctx_top = helper.getctx();
+var ctx_top = {
+  language: language
+  , settings: require('../lib/settings')()
+  , levels: levels
+};
 ctx_top.language.set('en');
-const language = ctx_top.language;
-
 var env = require('../lib/server/env')();
 var loop = require('../lib/plugins/loop')(ctx_top);
 var sandbox = require('../lib/sandbox')(ctx_top);
@@ -102,10 +107,10 @@ var statuses = [
   }
 ];
 
-var now = ctx_top.moment(statuses[0].created_at);
+var now = moment(statuses[0].created_at);
 
 _.forEach(statuses, function updateMills (status) {
-  status.mills = ctx_top.moment(status.created_at).valueOf();
+  status.mills = moment(status.created_at).valueOf();
 });
 
 describe('loop', function ( ) {
@@ -169,7 +174,7 @@ describe('loop', function ( ) {
       language: language
     };
 
-    var errorTime = ctx_top.moment(statuses[1].created_at);
+    var errorTime = moment(statuses[1].created_at);
 
     var sbx = sandbox.clientInit(ctx, errorTime.valueOf(), {devicestatus: statuses});
 
@@ -237,7 +242,7 @@ describe('loop', function ( ) {
     loop.checkNotifications(sbx);
 
     var highest = ctx.notifications.findHighestAlarm('Loop');
-    highest.level.should.equal(ctx_top.levels.URGENT);
+    highest.level.should.equal(levels.URGENT);
     highest.title.should.equal('Loop isn\'t looping');
     done();
   });

@@ -37,15 +37,10 @@ describe('Socket.IO in REST API3', function() {
     self.urlResource = self.urlCol + '/' + self.identifier;
     self.urlHistory = self.urlCol + '/history';
 
-    let authResult = await authSubject(self.instance.ctx.authorization.storage, [
-      'create',
-      'update',
-      'delete'
-    ], self.instance.app);
+    let authResult = await authSubject(self.instance.ctx.authorization.storage);
 
     self.subject = authResult.subject;
-    self.jwt = authResult.jwt;
-    self.accessToken = authResult.accessToken;
+    self.token = authResult.token;
     self.socket = self.instance.clientSocket;
   });
 
@@ -77,7 +72,7 @@ describe('Socket.IO in REST API3', function() {
 
 
   it('should not subscribe by subject with no rights', done => {
-    self.socket.emit('subscribe', { accessToken: self.accessToken.denied }, function (data) {
+    self.socket.emit('subscribe', { accessToken: self.token.denied }, function (data) {
       data.success.should.not.equal(true);
       data.message.should.equal(apiConst.MSG.SOCKET_UNAUTHORIZED_TO_ANY);
       done();
@@ -89,7 +84,7 @@ describe('Socket.IO in REST API3', function() {
     const cols = ['entries', 'treatments'];
 
     self.socket.emit('subscribe', {
-      accessToken: self.accessToken.all,
+      accessToken: self.token.all,
       collections: cols
     }, function (data) {
       data.success.should.equal(true);
@@ -109,7 +104,7 @@ describe('Socket.IO in REST API3', function() {
       done();
     });
 
-    self.instance.post(`${self.urlCol}`, self.jwt.create)
+    self.instance.post(`${self.urlCol}?token=${self.token.create}`)
       .send(self.docOriginal)
       .expect(201)
       .end((err) => {
@@ -131,7 +126,7 @@ describe('Socket.IO in REST API3', function() {
       done();
     });
 
-    self.instance.put(`${self.urlResource}`, self.jwt.update)
+    self.instance.put(`${self.urlResource}?token=${self.token.update}`)
       .send(self.docActual)
       .expect(200)
       .end((err) => {
@@ -155,7 +150,7 @@ describe('Socket.IO in REST API3', function() {
       done();
     });
 
-    self.instance.patch(`${self.urlResource}`, self.jwt.update)
+    self.instance.patch(`${self.urlResource}?token=${self.token.update}`)
       .send({ 'carbs': self.docActual.carbs, 'insulin': self.docActual.insulin })
       .expect(200)
       .end((err) => {
@@ -172,7 +167,7 @@ describe('Socket.IO in REST API3', function() {
       done();
     });
 
-    self.instance.delete(`${self.urlResource}`, self.jwt.delete)
+    self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
       .expect(200)
       .end((err) => {
         should.not.exist(err);

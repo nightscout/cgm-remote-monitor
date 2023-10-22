@@ -19,12 +19,11 @@ describe('API3 UPDATE', function() {
     self.env = self.instance.env;
     self.url = '/api/v3/treatments';
 
-    let authResult = await authSubject(self.instance.ctx.authorization.storage, [
-      'delete'
-    ], self.instance.app);
+    let authResult = await authSubject(self.instance.ctx.authorization.storage);
 
     self.subject = authResult.subject;
-    self.jwt = authResult.jwt;
+    self.token = authResult.token;
+    self.urlToken = `${self.url}?token=${self.token.delete}`;
     self.cache = self.instance.cacheMonitor;
   });
 
@@ -54,7 +53,7 @@ describe('API3 UPDATE', function() {
 
 
   it('should not found not existing collection', async () => {
-    let res = await self.instance.delete(`/api/v3/NOT_EXIST`, self.jwt.delete)
+    let res = await self.instance.delete(`/api/v3/NOT_EXIST?token=${self.url}`)
       .send(self.validDoc)
       .expect(404);
 

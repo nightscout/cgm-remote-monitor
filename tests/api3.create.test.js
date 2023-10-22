@@ -29,7 +29,7 @@ describe('API3 CREATE', function() {
    * Cleanup after successful creation
    */
   self.delete = async function deletePermanent (identifier) {
-    let res = await self.instance.delete(`${self.url}/${identifier}?permanent=true`, self.jwt.delete)
+    let res = await self.instance.delete(`${self.url}/${identifier}?permanent=true&token=${self.token.delete}`)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -40,7 +40,7 @@ describe('API3 CREATE', function() {
    * Get document detail for futher processing
    */
   self.get = async function get (identifier) {
-    let res = await self.instance.get(`${self.url}/${identifier}`, self.jwt.read)
+    let res = await self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -52,7 +52,7 @@ describe('API3 CREATE', function() {
    * Get document detail for futher processing
    */
   self.search = async function search (date) {
-    let res = await self.instance.get(`${self.url}?date$eq=${date}`, self.jwt.read)
+    let res = await self.instance.get(`${self.url}?date$eq=${date}&token=${self.token.read}`)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -68,16 +68,11 @@ describe('API3 CREATE', function() {
     self.col = 'treatments'
     self.url = `/api/v3/${self.col}`;
 
-    let authResult = await authSubject(self.instance.ctx.authorization.storage, [
-      'create',
-      'update',
-      'read',
-      'delete',
-      'all'
-    ], self.instance.app);
+    let authResult = await authSubject(self.instance.ctx.authorization.storage);
 
     self.subject = authResult.subject;
-    self.jwt = authResult.jwt;
+    self.token = authResult.token;
+    self.urlToken = `${self.url}?token=${self.token.create}`;
     self.cache = self.instance.cacheMonitor;
   });
 
@@ -108,7 +103,7 @@ describe('API3 CREATE', function() {
 
 
   it('should not found not existing collection', async () => {
-    let res = await self.instance.post(`/api/v3/NOT_EXIST`, self.jwt.create)
+    let res = await self.instance.post(`/api/v3/NOT_EXIST?token=${self.url}`)
       .send(self.validDoc)
       .expect(404);
 
@@ -118,7 +113,7 @@ describe('API3 CREATE', function() {
 
 
   it('should require create permission', async () => {
-    let res = await self.instance.post(`${self.url}`, self.jwt.read)
+    let res = await self.instance.post(`${self.url}?token=${self.token.read}`)
       .send(self.validDoc)
       .expect(403);
 
@@ -128,7 +123,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject empty body', async () => {
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send({ })
       .expect(400);
 
@@ -137,7 +132,7 @@ describe('API3 CREATE', function() {
 
 
   it('should accept valid document', async () => {
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send(self.validDoc)
       .expect(201);
 
@@ -166,7 +161,7 @@ describe('API3 CREATE', function() {
     let doc = Object.assign({}, self.validDoc);
     delete doc.date;
 
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send(doc)
       .expect(400);
 
@@ -176,7 +171,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid date null', async () => {
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { date: null }))
       .expect(400);
 
@@ -186,7 +181,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid date ABC', async () => {
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { date: 'ABC' }))
       .expect(400);
 
@@ -196,7 +191,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid date -1', async () => {
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { date: -1 }))
       .expect(400);
 
@@ -207,7 +202,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid date 1 (too old)', async () => {
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { date: 1 }))
       .expect(400);
 
@@ -217,7 +212,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid date - illegal format', async () => {
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { date: '2019-20-60T50:90:90' }))
       .expect(400);
 
@@ -227,7 +222,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid utcOffset -5000', async () => {
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { utcOffset: -5000 }))
       .expect(400);
 
@@ -237,7 +232,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid utcOffset ABC', async () => {
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { utcOffset: 'ABC' }))
       .expect(400);
 
@@ -249,7 +244,7 @@ describe('API3 CREATE', function() {
   it('should accept valid utcOffset', async () => {
     const doc = Object.assign({}, self.validDoc, { utcOffset: 120 });
 
-    await self.instance.post(self.url, self.jwt.create)
+    await self.instance.post(self.urlToken)
       .send(doc)
       .expect(201);
 
@@ -263,7 +258,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid utcOffset null', async () => {
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { utcOffset: null }))
       .expect(400);
 
@@ -276,7 +271,7 @@ describe('API3 CREATE', function() {
     let doc = Object.assign({}, self.validDoc);
     delete doc.app;
 
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send(doc)
       .expect(400);
 
@@ -286,7 +281,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid app null', async () => {
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { app: null }))
       .expect(400);
 
@@ -296,7 +291,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject empty app', async () => {
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { app: '' }))
       .expect(400);
 
@@ -306,7 +301,7 @@ describe('API3 CREATE', function() {
 
 
   it('should normalize date and store utcOffset', async () => {
-    await self.instance.post(self.url, self.jwt.create)
+    await self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { date: '2019-06-10T08:07:08,576+02:00' }))
       .expect(201);
 
@@ -326,7 +321,7 @@ describe('API3 CREATE', function() {
 
     const doc = Object.assign({}, self.validDoc);
 
-    await self.instance.post(self.url, self.jwt.create)
+    await self.instance.post(self.urlToken)
       .send(doc)
       .expect(201);
 
@@ -335,7 +330,7 @@ describe('API3 CREATE', function() {
     self.cache.nextShouldEql(self.col, doc)
 
     const doc2 = Object.assign({}, doc);
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send(doc2)
       .expect(403);
 
@@ -352,7 +347,7 @@ describe('API3 CREATE', function() {
 
     const doc = Object.assign({}, self.validDoc);
 
-    await self.instance.post(self.url, self.jwt.create)
+    await self.instance.post(self.urlToken)
       .send(doc)
       .expect(201);
 
@@ -364,7 +359,7 @@ describe('API3 CREATE', function() {
       insulin: 0.5
     });
 
-    let resPost2 = await self.instance.post(`${self.url}`, self.jwt.all)
+    let resPost2 = await self.instance.post(`${self.url}?token=${self.token.all}`)
       .send(doc2)
       .expect(200);
 
@@ -404,7 +399,7 @@ describe('API3 CREATE', function() {
     });
     delete doc2._id; // APIv1 updates input document, we must get rid of _id for the next round
 
-    const resPost2 = await self.instance.post(`${self.url}`, self.jwt.all)
+    const resPost2 = await self.instance.post(`${self.url}?token=${self.token.all}`)
       .send(doc2)
       .expect(200);
 
@@ -452,7 +447,7 @@ describe('API3 CREATE', function() {
       identifier: utils.randomString('32', 'aA#')
     });
 
-    await self.instance.post(`${self.url}`, self.jwt.all)
+    await self.instance.post(`${self.url}?token=${self.token.all}`)
       .send(doc2)
       .expect(201);
 
@@ -476,18 +471,18 @@ describe('API3 CREATE', function() {
       , identifier = utils.randomString('32', 'aA#')
       , doc = Object.assign({}, self.validDoc, { identifier, date: date1.toISOString() });
 
-    await self.instance.post(self.url, self.jwt.create)
+    await self.instance.post(self.urlToken)
       .send(doc)
       .expect(201);
     self.cache.nextShouldEql(self.col, Object.assign({}, doc, { date: date1.getTime() }));
 
-    let res = await self.instance.delete(`${self.url}/${identifier}`, self.jwt.delete)
+    let res = await self.instance.delete(`${self.url}/${identifier}?token=${self.token.delete}`)
       .expect(200);
     res.body.status.should.equal(200);
     self.cache.nextShouldDeleteLast(self.col)
 
     const date2 = new Date();
-    res = await self.instance.post(self.url, self.jwt.create)
+    res = await self.instance.post(self.urlToken)
       .send(Object.assign({}, self.validDoc, { identifier, date: date2.toISOString() }))
       .expect(403);
 
@@ -496,7 +491,7 @@ describe('API3 CREATE', function() {
     self.cache.shouldBeEmpty()
 
     const doc2 = Object.assign({}, self.validDoc, { identifier, date: date2.toISOString() });
-    res = await self.instance.post(`${self.url}`, self.jwt.all)
+    res = await self.instance.post(`${self.url}?token=${self.token.all}`)
       .send(doc2)
       .expect(200);
 
@@ -518,7 +513,7 @@ describe('API3 CREATE', function() {
     delete self.validDoc.identifier;
     const validIdentifier = opTools.calculateIdentifier(self.validDoc);
 
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send(self.validDoc)
       .expect(201);
 
@@ -541,7 +536,7 @@ describe('API3 CREATE', function() {
     delete self.validDoc.identifier;
     const validIdentifier = opTools.calculateIdentifier(self.validDoc);
 
-    let res = await self.instance.post(self.url, self.jwt.create)
+    let res = await self.instance.post(self.urlToken)
       .send(self.validDoc)
       .expect(201);
 
@@ -555,7 +550,7 @@ describe('API3 CREATE', function() {
     self.cache.nextShouldEql(self.col, self.validDoc);
 
     delete self.validDoc.identifier;
-    res = await self.instance.post(`${self.url}`, self.jwt.update)
+    res = await self.instance.post(`${self.url}?token=${self.token.update}`)
       .send(self.validDoc)
       .expect(200);
 

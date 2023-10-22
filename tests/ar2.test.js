@@ -1,16 +1,21 @@
 'use strict';
 
 const should = require('should');
-const helper = require('./inithelper')();
+const levels = require('../lib/levels');
+const fs = require('fs');
 
 const FIVE_MINS = 300000;
 const SIX_MINS = 360000;
 
 describe('ar2', function ( ) {
-  var ctx = helper.getctx();
-
+  var ctx = {
+    settings: {}
+    , language: require('../lib/language')(fs)
+    , levels: levels
+  };
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
+  ctx.levels = levels;
 
   var ar2 = require('../lib/plugins/ar2')(ctx);
   var bgnow = require('../lib/plugins/bgnow')(ctx);
@@ -70,7 +75,7 @@ describe('ar2', function ( ) {
     });
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(helper.ctx.levels.WARN);
+    highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Warning, HIGH predicted');
     highest.message.should.equal('BG Now: 170 +20 ↗ mg/dl\nBG 15m: 206 mg/dl\nIOB: 1.25U');
 
@@ -84,7 +89,7 @@ describe('ar2', function ( ) {
     var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(helper.ctx.levels.URGENT);
+    highest.level.should.equal(levels.URGENT);
     highest.title.should.equal('Urgent, HIGH');
 
     done();
@@ -97,7 +102,7 @@ describe('ar2', function ( ) {
     var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(helper.ctx.levels.WARN);
+    highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Warning, LOW');
 
     done();
@@ -110,7 +115,7 @@ describe('ar2', function ( ) {
     var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(helper.ctx.levels.WARN);
+    highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Warning, LOW predicted');
 
     done();
@@ -123,7 +128,7 @@ describe('ar2', function ( ) {
     var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(helper.ctx.levels.URGENT);
+    highest.level.should.equal(levels.URGENT);
     highest.title.should.equal('Urgent, LOW predicted');
 
     done();
@@ -138,7 +143,7 @@ describe('ar2', function ( ) {
     var sbx = prepareSandbox();
     ar2.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm();
-    highest.level.should.equal(helper.ctx.levels.WARN);
+    highest.level.should.equal(levels.WARN);
     highest.title.should.equal('Warning, LOW predicted');
 
     done();

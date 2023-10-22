@@ -21,7 +21,7 @@ describe('API3 SEARCH', function() {
    * Get document detail for futher processing
    */
   self.get = function get (identifier, done) {
-    self.instance.get(`${self.url}/${identifier}`, self.jwt.read)
+    self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
       .expect(200)
       .end((err, res) => {
         should.not.exist(err);
@@ -35,7 +35,7 @@ describe('API3 SEARCH', function() {
    */
   self.create = (doc) => new Promise((resolve) => {
     doc.identifier = opTools.calculateIdentifier(doc);
-    self.instance.post(`${self.url}`, self.jwt.all)
+    self.instance.post(`${self.url}?token=${self.token.all}`)
       .send(doc)
       .end((err) => {
         should.not.exist(err);
@@ -52,14 +52,12 @@ describe('API3 SEARCH', function() {
     self.env = self.instance.env;
     self.url = '/api/v3/entries';
 
-    let authResult = await authSubject(self.instance.ctx.authorization.storage, [
-      'read',
-      'all'
-    ], self.instance.app);
+    let authResult = await authSubject(self.instance.ctx.authorization.storage);
 
     self.subject = authResult.subject;
-    self.jwt = authResult.jwt;
-    self.urlTest = `${self.url}?srvModified$gte=${self.testStarted.getTime()}`;
+    self.token = authResult.token;
+    self.urlToken = `${self.url}?token=${self.token.read}`;
+    self.urlTest = `${self.urlToken}&srvModified$gte=${self.testStarted.getTime()}`;
 
     const promises = testConst.SAMPLE_ENTRIES.map(doc => self.create(doc));
     self.docs = await Promise.all(promises);
@@ -82,7 +80,7 @@ describe('API3 SEARCH', function() {
 
 
   it('should not found not existing collection', async () => {
-    let res = await self.instance.get(`/api/v3/NOT_EXIST`, self.jwt.read)
+    let res = await self.instance.get(`/api/v3/NOT_EXIST?token=${self.url}`)
       .send(self.validDoc)
       .expect(404);
 
@@ -92,7 +90,7 @@ describe('API3 SEARCH', function() {
 
 
   it('should found at least 10 documents', async () => {
-    let res = await self.instance.get(self.url, self.jwt.read)
+    let res = await self.instance.get(self.urlToken)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -101,7 +99,7 @@ describe('API3 SEARCH', function() {
 
 
   it('should found at least 10 documents from test start', async () => {
-    let res = await self.instance.get(self.urlTest, self.jwt.read)
+    let res = await self.instance.get(self.urlTest)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -110,7 +108,7 @@ describe('API3 SEARCH', function() {
 
 
   it('should reject invalid limit - not a number', async () => {
-    let res = await self.instance.get(`${self.url}?limit=INVALID`, self.jwt.read)
+    let res = await self.instance.get(`${self.urlToken}&limit=INVALID`)
       .expect(400);
 
     res.body.status.should.equal(400);
@@ -120,7 +118,7 @@ describe('API3 SEARCH', function() {
 
 
   it('should reject invalid limit - negative number', async () => {
-    let res = await self.instance.get(`${self.url}?limit=-1`, self.jwt.read)
+    let res = await self.instance.get(`${self.urlToken}&limit=-1`)
       .expect(400);
 
     res.body.status.should.equal(400);
@@ -130,7 +128,7 @@ describe('API3 SEARCH', function() {
 
 
   it('should reject invalid limit - zero', async () => {
-    let res = await self.instance.get(`${self.url}?limit=0`, self.jwt.read)
+    let res = await self.instance.get(`${self.urlToken}&limit=0`)
       .expect(400);
 
     res.body.status.should.equal(400);
@@ -140,7 +138,7 @@ describe('API3 SEARCH', function() {
 
 
   it('should accept valid limit', async () => {
-    let res = await self.instance.get(`${self.url}?limit=3`, self.jwt.read)
+    let res = await self.instance.get(`${self.urlToken}&limit=3`)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -149,7 +147,7 @@ describe('API3 SEARCH', function() {
 
 
   it('should reject invalid skip - not a number', async () => {
-    let res = await self.instance.get(`${self.url}?skip=INVALID`, self.jwt.read)
+    let res = await self.instance.get(`${self.urlToken}&skip=INVALID`)
       .expect(400);
 
     res.body.status.should.equal(400);
@@ -159,7 +157,7 @@ describe('API3 SEARCH', function() {
 
 
   it('should reject invalid skip - negative number', async () => {
-    let res = await self.instance.get(`${self.url}?skip=-5`, self.jwt.read)
+    let res = await self.instance.get(`${self.urlToken}&skip=-5`)
       .expect(400);
 
     res.body.status.should.equal(400);
@@ -169,7 +167,7 @@ describe('API3 SEARCH', function() {
 
 
   it('should reject both sort and sort$desc', async () => {
-    let res = await self.instance.get(`${self.url}?sort=date&sort$desc=created_at`, self.jwt.read)
+    let res = await self.instance.get(`${self.urlToken}&sort=date&sort$desc=created_at`)
       .expect(400);
 
     res.body.status.should.equal(400);
@@ -179,7 +177,7 @@ describe('API3 SEARCH', function() {
 
 
   it('should sort well by date field', async () => {
-    let res = await self.instance.get(`${self.urlTest}&sort=date`, self.jwt.read)
+    let res = await self.instance.get(`${self.urlTest}&sort=date`)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -187,7 +185,7 @@ describe('API3 SEARCH', function() {
     const length = ascending.length;
     length.should.be.aboveOrEqual(self.docs.length);
 
-    res = await self.instance.get(`${self.urlTest}&sort$desc=date`, self.jwt.read)
+    res = await self.instance.get(`${self.urlTest}&sort$desc=date`)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -205,14 +203,14 @@ describe('API3 SEARCH', function() {
 
 
   it('should skip documents', async () => {
-    let res = await self.instance.get(`${self.url}?sort=date&limit=8`, self.jwt.read)
+    let res = await self.instance.get(`${self.urlToken}&sort=date&limit=8`)
       .expect(200);
 
     res.body.status.should.equal(200);
     const fullDocs = res.body.result;
     fullDocs.length.should.equal(8);
 
-    res = await self.instance.get(`${self.url}?sort=date&skip=3&limit=5`, self.jwt.read)
+    res = await self.instance.get(`${self.urlToken}&sort=date&skip=3&limit=5`)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -226,7 +224,7 @@ describe('API3 SEARCH', function() {
 
 
   it('should project selected fields', async () => {
-    let res = await self.instance.get(`${self.url}?fields=date,app,subject`, self.jwt.read)
+    let res = await self.instance.get(`${self.urlToken}&fields=date,app,subject`)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -238,7 +236,7 @@ describe('API3 SEARCH', function() {
 
 
   it('should project all fields', async () => {
-    let res = await self.instance.get(`${self.url}?fields=_all`, self.jwt.read)
+    let res = await self.instance.get(`${self.urlToken}&fields=_all`)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -256,7 +254,7 @@ describe('API3 SEARCH', function() {
     const apiApp = self.instance.ctx.apiApp
       , limitBackup = apiApp.get('API3_MAX_LIMIT');
     apiApp.set('API3_MAX_LIMIT', 5);
-    let res = await self.instance.get(`${self.url}?limit=10`, self.jwt.read)
+    let res = await self.instance.get(`${self.urlToken}&limit=10`)
       .expect(400);
 
     res.body.status.should.equal(400);
@@ -269,7 +267,7 @@ describe('API3 SEARCH', function() {
     const apiApp = self.instance.ctx.apiApp
       , limitBackup = apiApp.get('API3_MAX_LIMIT');
     apiApp.set('API3_MAX_LIMIT', 5);
-    let res = await self.instance.get(`${self.url}`, self.jwt.read)
+    let res = await self.instance.get(`${self.urlToken}`)
       .expect(200);
 
     res.body.status.should.equal(200);

@@ -4,12 +4,8 @@ var request = require('supertest');
 var load = require('./fixtures/load');
 var bootevent = require('../lib/server/bootevent');
 var language = require('../lib/language')();
-const _ = require('lodash');
-
 require('should');
 
-const FIVE_MINUTES=1000*60*5;
- 
 describe('Entries REST api', function ( ) {
   var entries = require('../lib/api/entries/');
   var self = this;
@@ -28,46 +24,25 @@ describe('Entries REST api', function ( ) {
     bootevent(self.env, language).boot(function booted (ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx, self.env));
       self.archive = require('../lib/server/entries')(self.env, ctx);
-      self.ctx = ctx;
-      done();
+
+      var creating = load('json');
+      creating.push({type: 'sgv', sgv: 100, date: Date.now()});
+      self.archive.create(creating, done);
     });
   });
 
   beforeEach(function (done) {
     var creating = load('json');
-
-    for (let i = 0; i < 20; i++) {
-      const e = {type: 'sgv', sgv: 100, date: Date.now()};
-      e.date = e.date - FIVE_MINUTES * i;
-      creating.push(e);
-    }
-
-    creating = _.sortBy(creating, function(item) {
-      return item.date;
-    });
-
-    function setupDone() {
-      console.log('Setup complete');
-      done();
-    }
-
-    function waitForASecond() {
-      // wait for event processing of cache entries to actually finish
-      setTimeout(function() {
-        setupDone();
-       }, 100);
-    }
-
-    self.archive.create(creating, waitForASecond);
-
+    creating.push({type: 'sgv', sgv: 100, date: Date.now()});
+    self.archive.create(creating, done);
   });
 
   afterEach(function (done) {
-    self.archive( ).deleteMany({ }, done);
+    self.archive( ).remove({ }, done);
   });
 
   after(function (done) {
-    self.archive( ).deleteMany({ }, done);
+    self.archive( ).remove({ }, done);
   });
 
   // keep this test pinned at or near the top in order to validate all
@@ -114,23 +89,6 @@ describe('Entries REST api', function ( ) {
       });
   });
 
-  it('gets entries in right order without type specifier', function (done) {
-    var defaultCount = 10;
-    request(self.app)
-      .get('/entries.json')
-      .expect(200)
-      .end(function (err, res) {
-        res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
-        
-        var array = res.body;
-        var firstEntry = array[0];
-        var secondEntry = array[1];
-        
-        firstEntry.date.should.be.above(secondEntry.date);
-        
-        done( );
-      });
-  });
 
   it('/echo/ api shows query', function (done) {
     request(self.app)
@@ -238,7 +196,7 @@ describe('Entries REST api', function ( ) {
 
   it('/entries/:id', function (done) {
     var app = self.app;
-    self.archive.list({count: 10}, function(err, records) {
+    self.archive.list({count: 1}, function(err, records) {
       var currentId = records.pop()._id.toString();
       request(app)
         .get('/entries/'+currentId+'.json')
