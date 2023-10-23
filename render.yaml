@@ -1,14 +1,3 @@
-# Easily deploy NightScout CGM Remote Monitor (https://github.com/nightscout/cgm-remote-monitor) 
-# to Render (https://render.com)
-# ------------------------------
-# 1. Fork https://github.com/nightscout/cgm-remote-monitor to your own GitHub account.
-# 2. Add a render.yaml file to the root of your forked repo, copy/paste the contents below
-# 3. Commit the new file (and push to GitHub)
-# 4. In Render, click "New +" > "Blueprint"
-# 5. Connect your own, forked cgm-remote-monitor repo
-# 6. Fill in required environment variables
-# 7. Click "Apply" and wait for the deploy to complete.
-
 services:
   - type: web
     name: nightscout
