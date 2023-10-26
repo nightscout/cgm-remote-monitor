@@ -63,11 +63,11 @@ describe('Entries REST api', function ( ) {
   });
 
   afterEach(function (done) {
-    self.archive( ).deleteMany({ }, done);
+    self.archive( ).remove({ }, done);
   });
 
   after(function (done) {
-    self.archive( ).deleteMany({ }, done);
+    self.archive( ).remove({ }, done);
   });
 
   // keep this test pinned at or near the top in order to validate all
@@ -238,7 +238,7 @@ describe('Entries REST api', function ( ) {
 
   it('/entries/:id', function (done) {
     var app = self.app;
-    self.archive.list({count: 10}, function(err, records) {
+    self.archive.list({count: 1}, function(err, records) {
       var currentId = records.pop()._id.toString();
       request(app)
         .get('/entries/'+currentId+'.json')
