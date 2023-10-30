@@ -659,7 +659,7 @@
     "Admin messages in queue": "Messaggi di amministrazione in coda",
     "Queue empty": "Coda vuota",
     "There are no admin messages in queue": "Non ci sono messaggi di amministrazione in coda",
-    "Please sign in using the API_SECRET to see your administration messages": "Effettua il login utilizzando API_SECRET per vedere i messaggi di amministrazione",
+    "Please sign in using the API_SECRET to see your administration messages": "Effettua il login utilizzando \"API secret\" per vedere i messaggi di amministrazione",
     "Reads enabled in default permissions": "Letture abilitate nelle autorizzazioni predefinite",
     "Data reads enabled": "Lettura dati abilitata",
     "Data writes enabled": "Scrittura dati abilitata",
@@ -701,7 +701,7 @@
     "minutes": "minuti",
     "Last recorded %1 %2 ago.": "Ultima registrazione %1 %2 fa.",
     "Security issue": "Problema di sicurezza",
-    "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Rilevata API_SECRET debole. Si prega di utilizzare lettere minuscole e maiuscole, numeri e caratteri non alfanumerici come !#%&/ per ridurre il rischio di accesso non autorizzato. La lunghezza minima dell'API_SECRET è di 12 caratteri.",
+    "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Rilevata \"API secret\" debole. Si prega di utilizzare lettere minuscole e maiuscole, numeri e caratteri non alfanumerici come !#%&/ per ridurre il rischio di accesso non autorizzato. La lunghezza minima dell'API_SECRET è di 12 caratteri.",
     "less than 1": "meno di 1",
-    "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "La password di MongoDB e API_SECRET coincidono. Questa è una cattiva idea. Cambiale entrambe e non riutilizzare le password in tutto il sistema."
+    "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "La password di MongoDB e \"API secret\" coincidono. Questa è una cattiva idea. Cambiale entrambe e non riutilizzare le password in tutto il sistema."
 }
