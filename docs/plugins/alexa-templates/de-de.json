@@ -1,0 +1,294 @@
+{
+    "interactionModel": {
+        "languageModel": {
+            "invocationName": "night scout",
+            "intents": [
+                {
+                    "name": "NSStatus",
+                    "slots": [],
+                    "samples": [
+                        "Wie geht es mir"
+                    ]
+                },
+                {
+                    "name": "LastLoop",
+                    "slots": [],
+                    "samples": [
+                        "Wann war mein letzter Loop"
+                    ]
+                },
+                {
+                    "name": "MetricNow",
+                    "slots": [
+                        {
+                            "name": "metric",
+                            "type": "LIST_OF_METRICS",
+                            "samples": [
+                                "was {pwd} {metric} ist",
+                                "was mein  {metric} ist",
+                                "how {pwd} {metric} ist",
+                                "wie mein {metric} ist",
+                                "wieviel {metric} {pwd} hat",
+                                "wieviel {metric} ich habe",
+                                "wieviel {metric}",
+                                "{pwd} {metric}",
+                                "{metric}",
+                                "mein {metric}"
+                            ]
+                        },
+                        {
+                            "name": "pwd",
+                            "type": "AMAZON.US_FIRST_NAME"
+                        }
+                    ],
+                    "samples": [
+                        "wieviel {metric} hat {pwd} noch übrig",
+                        "was ist mein  {metric}",
+                        "wieviel  {metric} ist noch übrig",
+                        "wie ist {pwd} {metric}",
+                        "wieviel {metric}",
+                        "wie ist {metric}",
+                        "wie ist mein {metric}",
+                        "was ist {pwd} {metric}",
+                        "was mein {metric} ist",
+                        "was ist {metric}",
+                        "wieviel  {metric} ich habe",
+                        "wieviel {metric} {pwd} hat",
+                        "wieviel {metric} ich habe",
+                        "was mein {metric} ist ",
+                        "was ist {pwd} {metric}"
+                    ]
+                },
+                {
+                    "name": "AMAZON.NavigateHomeIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.StopIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.CancelIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.HelpIntent",
+                    "samples": []
+                }
+            ],
+            "types": [
+                {
+                    "name": "LIST_OF_METRICS",
+                    "values": [
+                        {
+                            "name": {
+                                "value": "delta",
+                                "synonyms": [
+                                    "Glukose delta",
+                                    "Blutzucker delta",
+                                    "Zucker delta"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "uploader battery",
+                                "synonyms": [
+                                    "verbleibende Batterieladung vom uploader",
+                                    "verbleibende Batterieleistung vom uploader"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "pump reservoir",
+                                "synonyms": [
+                                    "Insulin in der Pumpe",
+                                    "Insulin im Reservoir"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "pump battery",
+                                "synonyms": [
+                                    "verbleibende Batterieladung der Pumpe",
+                                    "verbleibende Pumpenbatterieleistung"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "bg",
+                                "synonyms": [
+                                    "Zucker",
+                                    "Blutzucker",
+                                    "Glukose"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "iob",
+                                "synonyms": [
+                                    "insulin on board",
+                                    "iob",
+                                    "Insulin im Körper",
+                                    "verbleibendes Insulin",
+                                    "wirkendes Insulin",
+                                    "aktuelles Restinsulin"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "basal",
+                                "synonyms": [
+                                    "akutelle Basalrate",
+                                    "Basal"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cob",
+                                "synonyms": [
+                                    "carbs",
+                                    "carbs on board",
+                                    "Kohenhydrate",
+                                    "Kohlenhydrate on board"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "forecast",
+                                "synonyms": [
+                                    "ar2 forecast",
+                                    "loop forecast"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "raw bg",
+                                "synonyms": [
+                                    "raw number",
+                                    "raw blood sugar",
+                                    "raw blood glucose"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm noise"
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm tx age",
+                                "synonyms": [
+                                    "transmitter Alter",
+                                    "cgm transmitter Alter"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm tx status",
+                                "synonyms": [
+                                    "tx status",
+                                    "Transmitter status",
+                                    "cgm transmitter status"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm battery",
+                                "synonyms": [
+                                    "cgm Batterie Status",
+                                    "cgm Batterie",
+                                    "cgm transmitter Batterie",
+                                    "cgm transmitter Batterie Status",
+                                    "transmitter Batterie",
+                                    "transmitter Batterie Status"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm session age",
+                                "synonyms": [
+                                    "session age"
+                                ]
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm status"
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "cgm mode"
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "db size",
+                                "synonyms": [
+                                    "Datenbankgröße",
+                                    "Dateigröße"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "dialog": {
+            "intents": [
+                {
+                    "name": "MetricNow",
+                    "confirmationRequired": false,
+                    "prompts": {},
+                    "slots": [
+                        {
+                            "name": "metric",
+                            "type": "LIST_OF_METRICS",
+                            "confirmationRequired": false,
+                            "elicitationRequired": true,
+                            "prompts": {
+                                "elicitation": "Elicit.Slot.1421281086569.34001419564"
+                            }
+                        },
+                        {
+                            "name": "pwd",
+                            "type": "AMAZON.US_FIRST_NAME",
+                            "confirmationRequired": false,
+                            "elicitationRequired": false,
+                            "prompts": {}
+                        }
+                    ]
+                }
+            ],
+            "delegationStrategy": "ALWAYS"
+        },
+        "prompts": [
+            {
+                "id": "Elicit.Slot.1421281086569.34001419564",
+                "variations": [
+                    {
+                        "type": "PlainText",
+                        "value": "Welchen Wert möchtest Du gerne wissen?"
+                    },
+                    {
+                        "type": "PlainText",
+                        "value": "Welchen Wert suchst Du?"
+                    }
+                ]
+            }
+        ]
+    }
+}
