@@ -36,11 +36,15 @@ describe('Generic REST API3', function() {
     self.urlResource = self.urlCol + '/' + self.identifier;
     self.urlHistory = self.urlCol + '/history';
 
-    let authResult = await authSubject(self.instance.ctx.authorization.storage);
+    let authResult = await authSubject(self.instance.ctx.authorization.storage, [
+      'create',
+      'update',
+      'read',
+      'delete'
+    ], self.instance.app);
 
     self.subject = authResult.subject;
-    self.token = authResult.token;
-    self.urlToken = `${self.url}?token=${self.token.create}`;
+    self.jwt = authResult.jwt;
     self.cache = self.instance.cacheMonitor;
   });
 
@@ -62,7 +66,7 @@ describe('Generic REST API3', function() {
 
   self.checkHistoryExistence = async function checkHistoryExistence (assertions) {
 
-    let res = await self.instance.get(`${self.urlHistory}/${self.historyTimestamp}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.urlHistory}/${self.historyTimestamp}`, self.jwt.read)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -81,7 +85,7 @@ describe('Generic REST API3', function() {
 
 
   it('LAST MODIFIED to get actual server timestamp', async () => {
-    let res = await self.instance.get(`${self.urlLastModified}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.urlLastModified}`, self.jwt.read)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -94,7 +98,7 @@ describe('Generic REST API3', function() {
 
 
   it('STATUS to get actual server timestamp', async () => {
-    let res = await self.instance.get(`/api/v3/status?token=${self.token.read}`)
+    let res = await self.instance.get(`/api/v3/status`, self.jwt.read)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -104,13 +108,13 @@ describe('Generic REST API3', function() {
 
 
   it('READ of not existing document is not found', async () => {
-    await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
+    await self.instance.get(`${self.urlResource}`, self.jwt.read)
       .expect(404);
   });
 
 
   it('SEARCH of not existing document (not found)', async () => {
-    let res = await self.instance.get(`${self.urlCol}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.urlCol}`, self.jwt.read)
       .query({ 'identifier_eq': self.identifier })
       .expect(200);
 
@@ -120,13 +124,13 @@ describe('Generic REST API3', function() {
 
 
   it('DELETE of not existing document is not found', async () => {
-    await self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
+    await self.instance.delete(`${self.urlResource}`, self.jwt.delete)
       .expect(404);
   });
 
 
   it('CREATE new document', async () => {
-    await self.instance.post(`${self.urlCol}?token=${self.token.create}`)
+    await self.instance.post(`${self.urlCol}`, self.jwt.create)
       .send(self.docOriginal)
       .expect(201);
 
@@ -135,7 +139,7 @@ describe('Generic REST API3', function() {
 
 
   it('READ existing document', async () => {
-    let res = await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.urlResource}`, self.jwt.read)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -149,7 +153,7 @@ describe('Generic REST API3', function() {
 
 
   it('SEARCH existing document (found)', async () => {
-    let res = await self.instance.get(`${self.urlCol}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.urlCol}`, self.jwt.read)
       .query({ 'identifier$eq': self.identifier })
       .expect(200);
 
@@ -169,7 +173,7 @@ describe('Generic REST API3', function() {
   it('UPDATE document', async () => {
     self.docActual.insulin = 0.5;
 
-    let res = await self.instance.put(`${self.urlResource}?token=${self.token.update}`)
+    let res = await self.instance.put(`${self.urlResource}`, self.jwt.update)
       .send(self.docActual)
       .expect(200);
 
@@ -187,7 +191,7 @@ describe('Generic REST API3', function() {
 
 
   it('document changed in READ', async () => {
-    let res = await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.urlResource}`, self.jwt.read)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -201,7 +205,7 @@ describe('Generic REST API3', function() {
     self.docActual.carbs = 5;
     self.docActual.insulin = 0.4;
 
-    let res = await self.instance.patch(`${self.urlResource}?token=${self.token.update}`)
+    let res = await self.instance.patch(`${self.urlResource}`, self.jwt.update)
       .send({ 'carbs': self.docActual.carbs, 'insulin': self.docActual.insulin })
       .expect(200);
 
@@ -218,7 +222,7 @@ describe('Generic REST API3', function() {
 
 
   it('document changed in READ', async () => {
-    let res = await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.urlResource}`, self.jwt.read)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -229,7 +233,7 @@ describe('Generic REST API3', function() {
 
 
   it('soft DELETE', async () => {
-    let res = await self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
+    let res = await self.instance.delete(`${self.urlResource}`, self.jwt.delete)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -238,14 +242,14 @@ describe('Generic REST API3', function() {
 
 
   it('READ of deleted is gone', async () => {
-    await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
+    await self.instance.get(`${self.urlResource}`, self.jwt.read)
       .expect(410);
   });
 
 
 
   it('SEARCH of deleted document missing it', async () => {
-    let res = await self.instance.get(`${self.urlCol}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.urlCol}`, self.jwt.read)
       .query({ 'identifier_eq': self.identifier })
       .expect(200);
 
@@ -262,7 +266,7 @@ describe('Generic REST API3', function() {
 
 
   it('permanent DELETE', async () => {
-    let res = await self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
+    let res = await self.instance.delete(`${self.urlResource}`, self.jwt.delete)
       .query({ 'permanent': 'true' })
       .expect(200);
 
@@ -272,13 +276,13 @@ describe('Generic REST API3', function() {
 
 
   it('READ of permanently deleted is not found', async () => {
-    await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
+    await self.instance.get(`${self.urlResource}`, self.jwt.read)
       .expect(404);
   });
 
 
   it('document permanently deleted not in HISTORY', async () => {
-    let res = await self.instance.get(`${self.urlHistory}/${self.historyTimestamp}?token=${self.token.read}`);
+    let res = await self.instance.get(`${self.urlHistory}/${self.historyTimestamp}`, self.jwt.read);
 
     res.body.status.should.equal(200);
     res.body.result.should.matchEach(value => {
@@ -288,11 +292,11 @@ describe('Generic REST API3', function() {
 
 
   it('should not modify read-only document', async () => {
-    await self.instance.post(`${self.urlCol}?token=${self.token.create}`)
+    await self.instance.post(`${self.urlCol}`, self.jwt.create)
       .send(Object.assign({}, self.docOriginal, { isReadOnly: true }))
       .expect(201);
 
-    let res = await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.urlResource}`, self.jwt.read)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -303,27 +307,27 @@ describe('Generic REST API3', function() {
     self.cache.nextShouldEql(self.col, self.docActual)
     self.cache.shouldBeEmpty()
 
-    res = await self.instance.post(`${self.urlCol}?token=${self.token.update}`)
+    res = await self.instance.post(`${self.urlCol}`, self.jwt.update)
       .send(Object.assign({}, self.docActual, { insulin: 0.41 }))
       .expect(422);
     res.body.message.should.equal(readOnlyMessage);
 
-    res = await self.instance.put(`${self.urlResource}?token=${self.token.update}`)
+    res = await self.instance.put(`${self.urlResource}`, self.jwt.update)
       .send(Object.assign({}, self.docActual, { insulin: 0.42 }))
       .expect(422);
     res.body.message.should.equal(readOnlyMessage);
 
-    res = await self.instance.patch(`${self.urlResource}?token=${self.token.update}`)
+    res = await self.instance.patch(`${self.urlResource}`, self.jwt.update)
       .send({ insulin: 0.43 })
       .expect(422);
     res.body.message.should.equal(readOnlyMessage);
 
-    res = await self.instance.delete(`${self.urlResource}?token=${self.token.delete}`)
+    res = await self.instance.delete(`${self.urlResource}`, self.jwt.delete)
       .query({ 'permanent': 'true' })
       .expect(422);
     res.body.message.should.equal(readOnlyMessage);
 
-    res = await self.instance.get(`${self.urlResource}?token=${self.token.read}`)
+    res = await self.instance.get(`${self.urlResource}`, self.jwt.read)
       .expect(200);
     res.body.status.should.equal(200);
     res.body.result.should.containEql(self.docOriginal);

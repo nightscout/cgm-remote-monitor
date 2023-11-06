@@ -223,7 +223,7 @@
     "View all treatments": "Visualizar todos los tratamientos",
     "Enable Alarms": "Activar las alarmas",
     "Pump Battery Change": "Cambio batería bomba",
-    "Pump Battery Age": "Edad de la batería de la bomba",
+    "Pump Battery Age": "Edad de la batería en la bomba",
     "Pump Battery Low Alarm": "Alarma de Bomba Baja",
     "Pump Battery change overdue!": "Cambio de batería de bomba atrasado!",
     "When enabled an alarm may sound.": "Cuando estén activas, una alarma podrá sonar",
@@ -702,6 +702,6 @@
     "Last recorded %1 %2 ago.": "Última grabación hace %1 %2.",
     "Security issue": "Problema de seguridad",
     "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Detectada API_SECRET débil. Por favor, utilice una mezcla de letras en minúscula y en mayúscula, números y caracteres no alfanuméricos como !#%&/ para reducir el riesgo de acceso no autorizado. La longitud mínima de la API_SECRET es de 12 caracteres.",
-    "less than 1": "menos que 1",
+    "less than 1": "menos de 1",
     "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "La contraseña de MongoDB y la API_SECRET coinciden. Esto es una muy mala idea. Por favor, cambie ambas contraseñas y no reutilice contraseñas en el sistema."
 }
