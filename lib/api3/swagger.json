@@ -11,7 +11,7 @@
       "name": "AGPL 3",
       "url": "https://www.gnu.org/licenses/agpl.txt"
     },
-    "version": "3.0.3"
+    "version": "3.0.4"
   },
   "servers": [
     {
@@ -47,17 +47,6 @@
             "explode": false,
             "schema": {
               "$ref": "#/components/schemas/paramCollection"
-            }
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "description": "An alternative way of authorization - passing accessToken in a query parameter.\n\nExample&#58;\n\n<pre>token=testadmin-bf2591231bd2c042</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "string"
             }
           },
           {
@@ -175,7 +164,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -217,9 +206,6 @@
         },
         "security": [
           {
-            "accessToken": []
-          },
-          {
             "jwtoken": []
           }
         ]
@@ -240,17 +226,6 @@
             "explode": false,
             "schema": {
               "$ref": "#/components/schemas/paramCollection"
-            }
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "description": "An alternative way of authorization - passing accessToken in a query parameter.\n\nExample&#58;\n\n<pre>token=testadmin-bf2591231bd2c042</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "string"
             }
           }
         ],
@@ -313,7 +288,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -355,9 +330,6 @@
         },
         "security": [
           {
-            "accessToken": []
-          },
-          {
             "jwtoken": []
           }
         ]
@@ -391,17 +363,6 @@
             "explode": false,
             "schema": {
               "$ref": "#/components/schemas/paramIdentifier"
-            }
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "description": "An alternative way of authorization - passing accessToken in a query parameter.\n\nExample&#58;\n\n<pre>token=testadmin-bf2591231bd2c042</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "string"
             }
           },
           {
@@ -473,7 +434,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -525,9 +486,6 @@
         },
         "security": [
           {
-            "accessToken": []
-          },
-          {
             "jwtoken": []
           }
         ]
@@ -559,17 +517,6 @@
             "explode": false,
             "schema": {
               "$ref": "#/components/schemas/paramIdentifier"
-            }
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "description": "An alternative way of authorization - passing accessToken in a query parameter.\n\nExample&#58;\n\n<pre>token=testadmin-bf2591231bd2c042</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "string"
             }
           },
           {
@@ -632,7 +579,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -694,9 +641,6 @@
         },
         "security": [
           {
-            "accessToken": []
-          },
-          {
             "jwtoken": []
           }
         ]
@@ -731,17 +675,6 @@
             }
           },
           {
-            "name": "token",
-            "in": "query",
-            "description": "An alternative way of authorization - passing accessToken in a query parameter.\n\nExample&#58;\n\n<pre>token=testadmin-bf2591231bd2c042</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "permanent",
             "in": "query",
             "description": "If true, the deletion will be irreversible and it will not appear in `HISTORY` operation. Normally there is no reason for setting this flag.",
@@ -765,7 +698,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -807,9 +740,6 @@
         },
         "security": [
           {
-            "accessToken": []
-          },
-          {
             "jwtoken": []
           }
         ]
@@ -841,17 +771,6 @@
             "explode": false,
             "schema": {
               "$ref": "#/components/schemas/paramIdentifier"
-            }
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "description": "An alternative way of authorization - passing accessToken in a query parameter.\n\nExample&#58;\n\n<pre>token=testadmin-bf2591231bd2c042</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "string"
             }
           },
           {
@@ -899,7 +818,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -961,9 +880,6 @@
         },
         "security": [
           {
-            "accessToken": []
-          },
-          {
             "jwtoken": []
           }
         ]
@@ -987,17 +903,6 @@
             "explode": false,
             "schema": {
               "$ref": "#/components/schemas/paramCollection"
-            }
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "description": "An alternative way of authorization - passing accessToken in a query parameter.\n\nExample&#58;\n\n<pre>token=testadmin-bf2591231bd2c042</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "string"
             }
           },
           {
@@ -1087,7 +992,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1129,9 +1034,6 @@
         },
         "security": [
           {
-            "accessToken": []
-          },
-          {
             "jwtoken": []
           }
         ]
@@ -1167,17 +1069,6 @@
             "schema": {
               "type": "integer",
               "format": "int64"
-            }
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "description": "An alternative way of authorization - passing accessToken in a query parameter.\n\nExample&#58;\n\n<pre>token=testadmin-bf2591231bd2c042</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "string"
             }
           },
           {
@@ -1256,7 +1147,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1297,9 +1188,6 @@
           }
         },
         "security": [
-          {
-            "accessToken": []
-          },
           {
             "jwtoken": []
           }
@@ -1346,7 +1234,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1367,9 +1255,6 @@
           }
         },
         "security": [
-          {
-            "accessToken": []
-          },
           {
             "jwtoken": []
           }
@@ -1384,19 +1269,6 @@
         "summary": "LAST MODIFIED: Retrieves timestamp of the last modification of every collection",
         "description": "LAST MODIFIED operation inspects collections separately (in parallel) and for each of them it finds the date of any last modification (insertion, update, deletion).\nNot only `srvModified`, but also `date` and `created_at` fields are inspected (as a fallback to previous API).\n\nThis operation requires `read` permission for the API and the collections (e.g. `api:treatments:read`). For each collection the permission is checked separately, you will get timestamps only for those collections that you have access to.",
         "operationId": "LAST-MODIFIED",
-        "parameters": [
-          {
-            "name": "token",
-            "in": "query",
-            "description": "An alternative way of authorization - passing accessToken in a query parameter.\n\nExample&#58;\n\n<pre>token=testadmin-bf2591231bd2c042</pre>",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful operation returning the timestamps",
@@ -1409,7 +1281,7 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
+            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1430,9 +1302,6 @@
           }
         },
         "security": [
-          {
-            "accessToken": []
-          },
           {
             "jwtoken": []
           }
@@ -1545,7 +1414,7 @@
           },
           "subject": {
             "type": "string",
-            "description": "Name of the security subject (within Nightscout scope) which has created the document. This field is automatically set by the server from the passed token or JWT.\n\nNote&#58; this field is immutable by the client (it cannot be updated or patched)",
+            "description": "Name of the security subject (within Nightscout scope) which has created the document. This field is automatically set by the server from the passed JWT.\n\nNote&#58; this field is immutable by the client (it cannot be updated or patched)",
             "example": "uploader"
           },
           "srvModified": {
@@ -2352,7 +2221,7 @@
         }
       },
       "401Unauthorized": {
-        "description": "The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.",
+        "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
         "content": {
           "application/json": {
             "schema": {
@@ -2506,17 +2375,6 @@
       }
     },
     "parameters": {
-      "tokenParam": {
-        "name": "token",
-        "in": "query",
-        "description": "An alternative way of authorization - passing accessToken in a query parameter.\n\nExample&#58;\n\n<pre>token=testadmin-bf2591231bd2c042</pre>",
-        "required": false,
-        "style": "form",
-        "explode": true,
-        "schema": {
-          "type": "string"
-        }
-      },
       "limitParam": {
         "name": "limit",
         "in": "query",
@@ -2645,12 +2503,6 @@
       }
     },
     "securitySchemes": {
-      "accessToken": {
-        "type": "apiKey",
-        "description": "Add token as query item in the URL or as HTTP header. You can manage access token in `/admin`.\nEach operation requires a specific permission that has to be granted (via security role) to the security subject, which was authenticated by `token` parameter/header or `JWT`. E.g. for creating new `devicestatus` document via API you need `api:devicestatus:create` permission.",
-        "name": "token",
-        "in": "query"
-      },
       "jwtoken": {
         "type": "http",
         "description": "Use this if you know the temporary json webtoken.",
