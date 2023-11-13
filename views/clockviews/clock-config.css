@@ -15,7 +15,7 @@
 	padding: 7px 5px;
 	text-align: left;
 }
-#config-form form > div:nth-child(even){
+#config-form form > div:nth-child(even):not(#facename) {
 	background-color: rgba(200,200,200,0.5);
 }
 #config-form form > div:nth-child(odd){
@@ -38,6 +38,7 @@ select {
 }
 #facename {
 	font-size: 7px;
+	text-align: center !important;
 }
 #clocklink {
 	font-size: 18px;
