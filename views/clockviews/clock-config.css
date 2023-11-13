@@ -18,7 +18,7 @@
 #config-form p:nth-child(even){
 	background-color: rgba(200,200,200,0.5);
 }
-#config-form p:nth-child(odod){
+#config-form p:nth-child(odd){
 	background-color: rgba(220,220,220,0.5);
 }
 input.elmt {
@@ -29,6 +29,10 @@ input.size {
 }
 select {
 	width: 100%;
+}
+.size_color {
+	display: flex;
+	
 }
 #facename {
 	font-size: 7px;
