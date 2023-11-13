@@ -10,15 +10,15 @@
 	padding: 1%;
 	font-size: 10px;
 }
-#config-form > div {
+#config-form form > div {
 	margin: 0px;
 	padding: 10px 5px;
 	text-align: left;
 }
-#config-form > div:nth-child(even){
+#config-form form > div:nth-child(even){
 	background-color: rgba(200,200,200,0.5);
 }
-#config-form > div:nth-child(odd){
+#config-form form > div:nth-child(odd){
 	background-color: rgba(220,220,220,0.5);
 }
 input.elmt {
