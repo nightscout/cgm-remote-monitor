@@ -36,7 +36,7 @@ select {
 	align-items: center;
 	display: flex;
 	justify-content: space-evenly;
-	margin-top: 3px;
+	margin-bottom: 3px;
 }
 #facename {
 	font-size: 7px;
