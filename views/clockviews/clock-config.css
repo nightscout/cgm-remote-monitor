@@ -16,10 +16,10 @@
 	text-align: left;
 }
 #config-form form > div:nth-child(even):not(#facename) {
-	background-color: rgba(200,200,200,0.5);
+	background-color: rgba(190,190,190,0.5);
 }
 #config-form form > div:nth-child(odd){
-	background-color: rgba(220,220,220,0.5);
+	background-color: rgba(230,230,230,0.5);
 }
 input.elmt,
 input.undo {
