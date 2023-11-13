@@ -65,7 +65,12 @@
 	$( function() {
 		$( "input.elmt" ).click( function() {
 			let size = $("input#" + this.id + "_size").val();
-			let append = '-' + this.name + (size ? size : '');
+			let color = $("input#" + this.id + "_color").prop('checked') || false;
+			let name = this.name;
+			if (color) {
+				name = (name.charAt(0).toUpperCase() + name.slice(1))
+			}
+			let append = '-' + name + (size ? size : '');
 			let $facename = $( "#facename" );
 			$facename.text($facename.text() + append);
 			$facename.change();
