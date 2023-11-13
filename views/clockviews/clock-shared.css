@@ -23,7 +23,7 @@ main {
 	flex-flow: wrap;
 	height: 100%;
 	width: 100%;
-	-webkit-text-stroke: 3px black;
+	text-shadow: 1px 1px 0px #000000,-1px 1px 0px #000000,-1px -1px 0px #000000,1px -1px 0px #000000;
 }
 
 #inner div {
