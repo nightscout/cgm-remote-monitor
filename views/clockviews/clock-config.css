@@ -21,8 +21,10 @@
 #config-form form > div:nth-child(odd){
 	background-color: rgba(220,220,220,0.5);
 }
-input.elmt {
-	width: 120px;
+input.elmt,
+input.undo {
+	margin: 0px 5px;
+	width: calc(100% - 10px);
 }
 input.size {
 	max-width: 50%;
