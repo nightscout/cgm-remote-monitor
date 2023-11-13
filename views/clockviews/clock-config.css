@@ -12,7 +12,7 @@
 }
 #config-form form > div {
 	margin: 0px;
-	padding: 10px 5px;
+	padding: 7px 5px;
 	text-align: left;
 }
 #config-form form > div:nth-child(even){
@@ -34,7 +34,7 @@ select {
 	align-items: center;
 	display: flex;
 	justify-content: space-evenly;
-	
+	margin-top: 3px;
 }
 #facename {
 	font-size: 7px;
