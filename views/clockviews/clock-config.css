@@ -31,7 +31,9 @@ select {
 	width: 100%;
 }
 .size_color {
+	align-items: center;
 	display: flex;
+	justify-content: space-evenly;
 	
 }
 #facename {
