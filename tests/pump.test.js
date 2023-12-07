@@ -2,19 +2,18 @@
 
 var _ = require('lodash');
 var should = require('should');
-var moment = require('moment');
-const fs = require('fs');
-const language = require('../lib/language')(fs);
+const helper = require('./inithelper')();
+const moment = helper.ctx.moment;
 
-var top_ctx = {
-  language: language
-  , settings: require('../lib/settings')()
-};
+var top_ctx = helper.getctx();
+top_ctx.settings = require('../lib/settings')();
 top_ctx.language.set('en');
+
 var env = require('../lib/server/env')();
-var levels = require('../lib/levels');
-var profile = require('../lib/profilefunctions')();
-top_ctx.levels = levels;
+const levels = top_ctx.levels;
+const language = top_ctx.language;
+
+var profile = require('../lib/profilefunctions')(null, top_ctx);
 var pump = require('../lib/plugins/pump')(top_ctx);
 var sandbox = require('../lib/sandbox')(top_ctx);
 
@@ -92,7 +91,6 @@ var statuses2 = [{
     clock: '2015-12-05T19:02:00.000Z'
   }
 }];
-
 
 var now = moment(statuses[1].created_at);
 
