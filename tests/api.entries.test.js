@@ -4,8 +4,12 @@ var request = require('supertest');
 var load = require('./fixtures/load');
 var bootevent = require('../lib/server/bootevent');
 var language = require('../lib/language')();
+const _ = require('lodash');
+
 require('should');
 
+const FIVE_MINUTES=1000*60*5;
+ 
 describe('Entries REST api', function ( ) {
   var entries = require('../lib/api/entries/');
   var self = this;
@@ -24,17 +28,38 @@ describe('Entries REST api', function ( ) {
     bootevent(self.env, language).boot(function booted (ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx, self.env));
       self.archive = require('../lib/server/entries')(self.env, ctx);
-
-      var creating = load('json');
-      creating.push({type: 'sgv', sgv: 100, date: Date.now()});
-      self.archive.create(creating, done);
+      self.ctx = ctx;
+      done();
     });
   });
 
   beforeEach(function (done) {
     var creating = load('json');
-    creating.push({type: 'sgv', sgv: 100, date: Date.now()});
-    self.archive.create(creating, done);
+
+    for (let i = 0; i < 20; i++) {
+      const e = {type: 'sgv', sgv: 100, date: Date.now()};
+      e.date = e.date - FIVE_MINUTES * i;
+      creating.push(e);
+    }
+
+    creating = _.sortBy(creating, function(item) {
+      return item.date;
+    });
+
+    function setupDone() {
+      console.log('Setup complete');
+      done();
+    }
+
+    function waitForASecond() {
+      // wait for event processing of cache entries to actually finish
+      setTimeout(function() {
+        setupDone();
+       }, 100);
+    }
+
+    self.archive.create(creating, waitForASecond);
+
   });
 
   afterEach(function (done) {
@@ -89,6 +114,23 @@ describe('Entries REST api', function ( ) {
       });
   });
 
+  it('gets entries in right order without type specifier', function (done) {
+    var defaultCount = 10;
+    request(self.app)
+      .get('/entries.json')
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
+        
+        var array = res.body;
+        var firstEntry = array[0];
+        var secondEntry = array[1];
+        
+        firstEntry.date.should.be.above(secondEntry.date);
+        
+        done( );
+      });
+  });
 
   it('/echo/ api shows query', function (done) {
     request(self.app)
