@@ -229,7 +229,7 @@ Once you've installed Nightscout, you can access API documentation by loading `/
   * Boluses over 2U: `http://localhost:1337/api/v1/treatments.json?find[insulin][$gte]=2`
 
 The API is Swagger enabled, so you can generate client code to make working with the API easy.
-To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or review [swagger.yaml](swagger.yaml).
+To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or review [swagger.yaml](lib/server/swagger.yaml).
 
 ## Environment
 
@@ -525,7 +525,7 @@ To synchronize from Dexcom Share use the following variables.
 Optional, `CONNECT_SHARE_REGION` and `CONNECT_SHARE_SERVER` do the same thing, only specify one.
 * `CONNECT_SHARE_REGION=`  `ous` or `us`. `us` is the default if nothing is
   provided.  Selecting `us` sets `CONNECT_SHARE_SERVER` to `share2.dexcom.com`.
-  Selecting `ous` here sets `CONNECT_SHARE_SERVER` to `shareous2.dexcom.com`.
+  Selecting `ous` here sets `CONNECT_SHARE_SERVER` to `shareous1.dexcom.com`.
 * `CONNECT_SHARE_SERVER=` set the server domain to use.
 
 
