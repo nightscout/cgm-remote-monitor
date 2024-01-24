@@ -206,7 +206,8 @@
         },
         "security": [
           {
-            "jwtoken": []
+            "jwtoken": [],
+            "token_in_url": []
           }
         ]
       },
@@ -330,7 +331,8 @@
         },
         "security": [
           {
-            "jwtoken": []
+            "jwtoken": [],
+            "token_in_url": []
           }
         ]
       }
@@ -486,7 +488,8 @@
         },
         "security": [
           {
-            "jwtoken": []
+            "jwtoken": [],
+            "token_in_url": []
           }
         ]
       },
@@ -641,7 +644,8 @@
         },
         "security": [
           {
-            "jwtoken": []
+            "jwtoken": [],
+            "token_in_url": []
           }
         ]
       },
@@ -740,7 +744,8 @@
         },
         "security": [
           {
-            "jwtoken": []
+            "jwtoken": [],
+            "token_in_url": []
           }
         ]
       },
@@ -1034,7 +1039,8 @@
         },
         "security": [
           {
-            "jwtoken": []
+            "jwtoken": [],
+            "token_in_url": []
           }
         ]
       }
@@ -1189,7 +1195,8 @@
         },
         "security": [
           {
-            "jwtoken": []
+            "jwtoken": [],
+            "token_in_url": []
           }
         ]
       }
@@ -1256,7 +1263,8 @@
         },
         "security": [
           {
-            "jwtoken": []
+            "jwtoken": [],
+            "token_in_url": []
           }
         ]
       }
@@ -1303,7 +1311,8 @@
         },
         "security": [
           {
-            "jwtoken": []
+            "jwtoken": [],
+            "token_in_url": []
           }
         ]
       }
@@ -2508,6 +2517,12 @@
         "description": "Use this if you know the temporary json webtoken.",
         "scheme": "bearer",
         "bearerFormat": "JWT"
+      },
+      "token_in_url": {
+        "type": "apiKey",
+        "name": "token",
+        "in": "query",
+        "description": "Add token as query item in the URL. You can manage access Token in `/admin`. This uses json webtokens."
       }
     }
   }

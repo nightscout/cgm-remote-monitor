@@ -10,7 +10,7 @@ info:
   license:
     name: AGPL 3
     url: 'https://www.gnu.org/licenses/agpl.txt'
-  description:
+  description: |
     Nightscout API v3 is a component of cgm-remote-monitor project. It aims to provide lightweight, secured and HTTP REST compliant interface for your T1D treatment data exchange.
 
 
@@ -57,6 +57,7 @@ info:
     - Fallback switch for adding `created_at` field along the `date` field (optional, default = true)
       <pre>API3_CREATED_AT_FALLBACK_ENABLED=true</pre>
       Standard APIv3 document model uses only `date` field for storing a timestamp of the event recorded by the document. But there is a fallback option to fill `created_at` field as well automatically on each insert/update, just to keep all older components working.
+
 
 tags:
   - name: generic
@@ -111,7 +112,8 @@ paths:
         - $ref: '#/components/parameters/fieldsParam'
 
       security:
-        - jwtoken: []
+        - jwtoken: [ ]
+        - token_in_url: [ ]
 
       responses:
         200:
@@ -155,7 +157,8 @@ paths:
               $ref: '#/components/schemas/DocumentToPost'
 
       security:
-        - jwtoken: []
+        - jwtoken: [ ]
+        - token_in_url: [ ]
 
       responses:
         200:
@@ -215,7 +218,8 @@ paths:
         - $ref: '#/components/parameters/fieldsParam'
 
       security:
-        - jwtoken: []
+        - jwtoken: [ ]
+        - token_in_url: [ ]
 
       responses:
         200:
@@ -269,7 +273,8 @@ paths:
               $ref: '#/components/schemas/DocumentToPost'
 
       security:
-        - jwtoken: []
+        - jwtoken: [ ]
+        - token_in_url: [ ]
 
       responses:
         200:
@@ -333,7 +338,8 @@ paths:
               $ref: '#/components/schemas/DocumentToPost'
 
       security:
-        - jwtoken: []
+        - jwtoken: [ ]
+        - token_in_url: [ ]
 
       responses:
         200:
@@ -373,7 +379,8 @@ paths:
         - $ref: '#/components/parameters/permanentParam'
 
       security:
-        - jwtoken: []
+        - jwtoken: [ ]
+        - token_in_url: [ ]
 
       responses:
         200:
@@ -427,7 +434,8 @@ paths:
         - $ref: '#/components/parameters/fieldsParam'
 
       security:
-        - jwtoken: []
+        - jwtoken: [ ]
+        - token_in_url: [ ]
 
       responses:
         200:
@@ -482,7 +490,8 @@ paths:
         - $ref: '#/components/parameters/fieldsParam'
 
       security:
-        - jwtoken: []
+        - jwtoken: [ ]
+        - token_in_url: [ ]
 
       responses:
         200:
@@ -527,7 +536,8 @@ paths:
         This operation requires authorization in contrast with VERSION operation.
 
       security:
-        - jwtoken: []
+        - jwtoken: [ ]
+        - token_in_url: [ ]
 
       responses:
         200:
@@ -557,7 +567,8 @@ paths:
         This operation requires `read` permission for the API and the collections (e.g. `api:treatments:read`). For each collection the permission is checked separately, you will get timestamps only for those collections that you have access to.
 
       security:
-        - jwtoken: []
+        - jwtoken: [ ]
+        - token_in_url: [ ]
 
       responses:
         200:
@@ -651,7 +662,7 @@ components:
       name: filter_parameters
       schema:
         type: string
-      description:
+      description: |
         Any number of filtering operators.
 
 
@@ -705,17 +716,17 @@ components:
       schema:
         type: string
       required: true
-      description:
-          Starting timestamp (defined with respect to server's clock) since which the changes in documents are to be listed, formatted as&#58;
+      description: |
+        Starting timestamp (defined with respect to server's clock) since which the changes in documents are to be listed, formatted as&#58;
 
 
         &lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT
-
-
-            Example&#58;
-
-
-            <pre>Last-Modified&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>
+        
+        
+          Example&#58;
+        
+        
+          <pre>Last-Modified&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>
 
 
     ifModifiedSinceHeader:
@@ -724,20 +735,20 @@ components:
       schema:
         type: string
       required: false
-      description:
-          Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;
+      description: |
+        Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;
 
 
         &lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT
-
-
-            If this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.
-
-
-            Example&#58;
-
-
-            <pre>If-Modified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>
+        
+        
+          If this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.
+        
+        
+          Example&#58;
+        
+        
+          <pre>If-Modified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>
 
 
     ifUnmodifiedSinceHeader:
@@ -746,20 +757,20 @@ components:
       schema:
         type: string
       required: false
-      description:
-          Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;
+      description: |
+        Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;
 
 
         &lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT
-
-
-            If this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.
-
-
-            Example&#58;
-
-
-            <pre>If-Unmodified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>
+        
+        
+          If this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.
+        
+        
+          Example&#58;
+        
+        
+          <pre>If-Unmodified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>
 
 
   ######################################################################################
@@ -1118,7 +1129,7 @@ components:
         date:
           type: integer
           format: int64
-          description:
+          description: |
             Required timestamp when the record or event occured, you can choose from three input formats
 
             - Unix epoch in milliseconds (1525383610088)
@@ -1712,9 +1723,15 @@ components:
 
   ######################################################################################
   securitySchemes:
-
     jwtoken:
       type: http
       scheme: bearer
       description: Use this if you know the temporary json webtoken.
       bearerFormat: JWT
+    token_in_url:
+      type: apiKey
+      name: token
+      in: query
+      description: >-
+        Add token as query item in the URL. You can manage access Token in
+        `/admin`. This uses json webtokens.
