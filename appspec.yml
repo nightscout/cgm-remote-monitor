@@ -1,0 +1,20 @@
+version: 0.0
+os: linux
+files:
+  - source: /
+    destination: /srv/cgm-remote-monitor
+    overwrite: true
+file_exists_behavior: OVERWRITE
+hooks:
+  AfterInstall:
+    - location: ../../../../scripts/after_install.sh
+      timeout: 3000
+      runas: root
+  ApplicationStart:
+    - location: ../../../../scripts/app_start.sh
+      timeout: 300
+      runas: root
+  ApplicationStop:
+    - location: ../../../../scripts/app_stop.sh
+      timeout: 300
+      runas: root
