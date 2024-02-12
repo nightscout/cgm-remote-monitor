@@ -80,7 +80,7 @@ if (process.env.NODE_ENV === 'development') {
 
 const rules = [
   {
-    test: /\.(js|jsx)$/,
+    test: /\.(js|ts)x?$/,
     use: {
       loader: 'babel-loader',
       options: {
@@ -161,6 +161,7 @@ module.exports = {
     rules
   },
   resolve: {
+    extensions: ['.tsx', '.ts', '.js', '.json'],
     fallback: {
       'process/browser': require.resolve('process/browser'),
       events: require.resolve('events/')

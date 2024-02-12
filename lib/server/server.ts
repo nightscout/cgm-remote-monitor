@@ -35,11 +35,11 @@ language.loadLocalization(fs);
 ///////////////////////////////////////////////////
 // setup http server
 ///////////////////////////////////////////////////
-var PORT = env.PORT;
-var HOSTNAME = env.HOSTNAME;
+const PORT = env.PORT;
+const HOSTNAME = env.HOSTNAME;
 
 function create (app) {
-  var transport = (env.ssl
+  const transport = (env.ssl
                 ? require('https') : require('http'));
   if (env.ssl) {
     return transport.createServer(env.ssl, app);
@@ -51,8 +51,8 @@ require('./bootevent')(env, language).boot(function booted (ctx) {
 
     console.log('Boot event processing completed');
     
-    var app = require('./app')(env, ctx);
-    var server = create(app).listen(PORT, HOSTNAME);
+    const app = require('./app')(env, ctx);
+    const server = create(app).listen(PORT, HOSTNAME);
     console.log(translate('Listening on port'), PORT, HOSTNAME);
 
     if (ctx.bootErrors && ctx.bootErrors.length > 0) {
@@ -68,11 +68,11 @@ require('./bootevent')(env, language).boot(function booted (ctx) {
     ///////////////////////////////////////////////////
     // setup socket io for data and message transmission
     ///////////////////////////////////////////////////
-    var websocket = require('./websocket')(env, ctx, server);
+    const websocket = require('./websocket')(env, ctx, server);
 
     //after startup if there are no alarms send all clear
-    let sendStartupAllClearTimer = setTimeout(function sendStartupAllClear () {
-      var alarm = ctx.notifications.findHighestAlarm();
+    const sendStartupAllClearTimer = setTimeout(function sendStartupAllClear () {
+      const alarm = ctx.notifications.findHighestAlarm();
       if (!alarm) {
         ctx.bus.emit('notification', {
           clear: true
