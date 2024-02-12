@@ -5,11 +5,13 @@
     "isolatedModules": true,
     "outDir": "./build/",
     "noImplicitAny": false,
-    "module": "es6",
+    "module": "commonjs",
     "target": "es5",
     "jsx": "react",
     "allowJs": true,
     "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "types": ["node"]
   }
 }

@@ -27,7 +27,7 @@
 ///////////////////////////////////////////////////
 
 const fs = require('fs');
-const env = require('./env')( );
+const env = require('./env')();
 const language = require('../language')();
 const translate = language.set(env.settings.language).translate;
 language.loadLocalization(fs);
@@ -40,7 +40,7 @@ const HOSTNAME = env.HOSTNAME;
 
 function create (app) {
   const transport = (env.ssl
-                ? require('https') : require('http'));
+    ? require('https') : require('http'));
   if (env.ssl) {
     return transport.createServer(env.ssl, app);
   }
@@ -49,36 +49,36 @@ function create (app) {
 
 require('./bootevent')(env, language).boot(function booted (ctx) {
 
-    console.log('Boot event processing completed');
-    
-    const app = require('./app')(env, ctx);
-    const server = create(app).listen(PORT, HOSTNAME);
-    console.log(translate('Listening on port'), PORT, HOSTNAME);
+  console.log('Boot event processing completed');
 
-    if (ctx.bootErrors && ctx.bootErrors.length > 0) {
-      return;
+  const app = require('./app')(env, ctx);
+  const server = create(app).listen(PORT, HOSTNAME);
+  console.log(translate('Listening on port'), PORT, HOSTNAME);
+
+  if (ctx.bootErrors && ctx.bootErrors.length > 0) {
+    return;
+  }
+
+  ctx.bus.on('teardown', function serverTeardown () {
+    server.close();
+    clearTimeout(sendStartupAllClearTimer);
+    ctx.store.client.close();
+  });
+
+  ///////////////////////////////////////////////////
+  // setup socket io for data and message transmission
+  ///////////////////////////////////////////////////
+  const websocket = require('./websocket')(env, ctx, server);
+
+  //after startup if there are no alarms send all clear
+  const sendStartupAllClearTimer = setTimeout(function sendStartupAllClear () {
+    const alarm = ctx.notifications.findHighestAlarm();
+    if (!alarm) {
+      ctx.bus.emit('notification', {
+        clear: true
+        , title: 'All Clear'
+        , message: 'Server started without alarms'
+      });
     }
-
-    ctx.bus.on('teardown', function serverTeardown () {
-      server.close();
-      clearTimeout(sendStartupAllClearTimer);
-      ctx.store.client.close();
-    });
-
-    ///////////////////////////////////////////////////
-    // setup socket io for data and message transmission
-    ///////////////////////////////////////////////////
-    const websocket = require('./websocket')(env, ctx, server);
-
-    //after startup if there are no alarms send all clear
-    const sendStartupAllClearTimer = setTimeout(function sendStartupAllClear () {
-      const alarm = ctx.notifications.findHighestAlarm();
-      if (!alarm) {
-        ctx.bus.emit('notification', {
-          clear: true
-          , title: 'All Clear'
-          , message: 'Server started without alarms'
-        });
-      }
-    }, 20000);
+  }, 20000);
 });

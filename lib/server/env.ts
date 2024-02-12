@@ -1,5 +1,6 @@
 'use strict';
 
+
 const _each = require('lodash/each');
 const _trim = require('lodash/trim');
 const _forIn = require('lodash/forIn');
@@ -12,14 +13,13 @@ const mongoParser = require('mongo-url-parser');
 const stringEntropy = require('fast-password-entropy')
 
 const fs = require('fs');
-const crypto = require('crypto');
 const consts = require('../constants');
 
-const env = {
+const env: Record<string, any> = {
   settings: require('../settings')()
 };
 
-var shadowEnv;
+let shadowEnv: Record<string, string | null>;
 
 // Module to constrain all config and environment parsing to one spot.
 // See README.md for info about all the supported ENV VARs
@@ -29,13 +29,13 @@ function config () {
 
   shadowEnv = {};
 
-  Object.keys(process.env).forEach((key, index) => {
+  Object.keys(process.env).forEach((key) => {
     shadowEnv[_trim(key)] = _trim(process.env[key]);
   });
 
-  env.PORT = readENV('PORT', 1337);
-  env.HOSTNAME = readENV('HOSTNAME', null);
-  env.IMPORT_CONFIG = readENV('IMPORT_CONFIG', null);
+  env.PORT = readENV('PORT', '1337');
+  env.HOSTNAME = readENV('HOSTNAME');
+  env.IMPORT_CONFIG = readENV('IMPORT_CONFIG');
   env.static_files = readENV('NIGHTSCOUT_STATIC_FILES', '/static');
   env.debug = {
     minify: readENVTruthy('DEBUG_MINIFY', true)
@@ -79,13 +79,13 @@ function setSSL () {
 
 // A little ugly, but we don't want to read the secret into a var
 function setAPISecret () {
-  var useSecret = (readENV('API_SECRET') && readENV('API_SECRET').length > 0);
+  const useSecret = (readENV('API_SECRET') && readENV('API_SECRET').length > 0);
   //TODO: should we clear API_SECRET from process env?
   env.api_secret = null;
   // if a passphrase was provided, get the hex digest to mint a single token
   if (useSecret) {
     if (readENV('API_SECRET').length < consts.MIN_PASSPHRASE_LENGTH) {
-      var msg = ['API_SECRET should be at least', consts.MIN_PASSPHRASE_LENGTH, 'characters'].join(' ');
+      const msg = ['API_SECRET should be at least', consts.MIN_PASSPHRASE_LENGTH, 'characters'].join(' ');
       console.error(msg);
       env.err.push({ desc: msg });
     } else {
@@ -94,18 +94,26 @@ function setAPISecret () {
       delete process.env.API_SECRET;
 
       env.enclave.setApiKey(apiSecret);
-      var testresult = stringEntropy(apiSecret);
+      const testresult = stringEntropy(apiSecret);
 
       console.log('API_SECRET has', testresult, 'bits of entropy');
 
       if (testresult < 60) {
-        env.notifies.push({ persistent: true, title: 'Security issue', message: 'Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.' });
+        env.notifies.push({
+          persistent: true,
+          title: 'Security issue',
+          message: 'Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.'
+        });
       }
 
       if (env.storageURI) {
         const parsedURL = mongoParser(env.storageURI);
         if (parsedURL.auth && parsedURL.auth.password == apiSecret) {
-          env.notifies.push({ persistent: true, title: 'Security issue', message: 'MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.' });
+          env.notifies.push({
+            persistent: true,
+            title: 'Security issue',
+            message: 'MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.'
+          });
         }
       }
 
@@ -114,7 +122,7 @@ function setAPISecret () {
 }
 
 function setVersion () {
-  var software = require('../../package.json');
+  const software = require('../../package.json');
   env.version = software.version;
   env.name = software.name;
 }
@@ -130,25 +138,24 @@ function setStorage () {
   env.food_collection = readENV('MONGO_FOOD_COLLECTION', 'food');
   env.activity_collection = readENV('MONGO_ACTIVITY_COLLECTION', 'activity');
 
-  var DB = { url: null, collection: null }
-    , DB_URL = DB.url ? DB.url : env.storageURI
-    , DB_COLLECTION = DB.collection ? DB.collection : env.entries_collection;
-  env.storageURI = DB_URL;
+  const DB = { url: null, collection: null };
+  const DB_COLLECTION = DB.collection ? DB.collection : env.entries_collection;
+  env.storageURI = DB.url ? DB.url : env.storageURI;
   env.entries_collection = DB_COLLECTION;
 }
 
 function updateSettings () {
 
-  var envNameOverrides = {
+  const envNameOverrides = {
     UNITS: 'DISPLAY_UNITS'
   };
 
-  var envDefaultOverrides = {
+  const envDefaultOverrides = {
     DISPLAY_UNITS: 'mg/dl'
   };
 
   env.settings.eachSettingAsEnv(function settingFromEnv (name) {
-    var envName = envNameOverrides[name] || name;
+    const envName = envNameOverrides[name] || name;
     return readENV(envName, envDefaultOverrides[envName]);
   });
 
@@ -161,55 +168,65 @@ function updateSettings () {
   }
 }
 
-function readENV (varName, defaultValue) {
+function readENV (varName: string, defaultValue?: string): string | undefined {
   //for some reason Azure uses this prefix, maybe there is a good reason
-  var value = shadowEnv['CUSTOMCONNSTR_' + varName] ||
+  const value = shadowEnv['CUSTOMCONNSTR_' + varName] ||
     shadowEnv['CUSTOMCONNSTR_' + varName.toLowerCase()] ||
     shadowEnv[varName] ||
     shadowEnv[varName.toLowerCase()];
 
   if (varName == 'DISPLAY_UNITS') {
     if (value && value.toLowerCase().includes('mmol')) {
-      value = 'mmol';
+      return 'mmol';
     } else {
-      value = defaultValue;
+      return defaultValue;
     }
   }
 
-  return value != null ? value : defaultValue;
+  return value != undefined ? value : defaultValue;
 }
 
-function readENVTruthy (varName, defaultValue) {
-  var value = readENV(varName, defaultValue);
-  if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; } else if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; } else { value = defaultValue }
-  return value;
+function readENVTruthy (varName: string, defaultValue: boolean = false): boolean {
+  const value = readENV(varName);
+  if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) {
+    return true;
+  } else if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) {
+    return false;
+  }
+  return defaultValue;
 }
 
-function findExtendedSettings (envs) {
-  var extended = {};
+function findExtendedSettings (envs: Record<string, string>) {
+  const extended: Record<string, any> = {};
 
   extended.devicestatus = {};
   extended.devicestatus.advanced = true;
   extended.devicestatus.days = 1;
   if (shadowEnv['DEVICESTATUS_DAYS'] && shadowEnv['DEVICESTATUS_DAYS'] == '2') extended.devicestatus.days = 1;
 
-  function normalizeEnv (key) {
+  function normalizeEnv (key: string) {
     return key.toUpperCase().replace('CUSTOMCONNSTR_', '');
   }
 
-  _each(env.settings.enable, function eachEnable (enable) {
+  _each(env.settings.enable, function eachEnable (enable: string) {
     if (_trim(enable)) {
-      _forIn(envs, function eachEnvPair (value, key) {
-        var env = normalizeEnv(key);
+      _forIn(envs, function eachEnvPair (value: string | number | boolean, key: string) {
+        const env = normalizeEnv(key);
         if (_startsWith(env, enable.toUpperCase() + '_')) {
-          var split = env.indexOf('_');
+          const split = env.indexOf('_');
           if (split > -1 && split <= env.length) {
-            var exts = extended[enable] || {};
+            const exts = extended[enable] || {};
             extended[enable] = exts;
-            var ext = _camelCase(env.substring(split + 1).toLowerCase());
-            if (!isNaN(value)) { value = Number(value); }
-            if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) { value = true; }
-            if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) { value = false; }
+            const ext = _camelCase(env.substring(split + 1).toLowerCase());
+            if (typeof value === 'string' && !Number.isNaN(Number(value))) {
+              value = Number(value);
+            }
+            if (typeof value === 'string' && (value.toLowerCase() === 'on' || value.toLowerCase() === 'true')) {
+              value = true;
+            }
+            if (typeof value === 'string' && (value.toLowerCase() === 'off' || value.toLowerCase() === 'false')) {
+              value = false;
+            }
             exts[ext] = value;
           }
         }
@@ -219,4 +236,5 @@ function findExtendedSettings (envs) {
   return extended;
 }
 
+export {};
 module.exports = config;
