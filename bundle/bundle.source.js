@@ -18,14 +18,20 @@ require('../node_modules/flot/jquery.flot.time');
 require('../node_modules/flot/jquery.flot.pie');
 require('../node_modules/flot/jquery.flot.fillbetween');
 
-window.moment = require('moment-timezone');
+const moment = require('moment-timezone');
+
+window.moment = moment;
 
 window.Nightscout = window.Nightscout || {};
+
+var ctx = {
+    moment: moment
+};
 
 window.Nightscout = {
     client: require('../lib/client'),
     units: require('../lib/units')(),
-    admin_plugins: require('../lib/admin_plugins/')()
+    admin_plugins: require('../lib/admin_plugins/')(ctx)
 };
 
 window.Nightscout.report_plugins_preinit = require('../lib/report_plugins/');
