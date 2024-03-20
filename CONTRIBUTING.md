@@ -45,7 +45,7 @@ Please visit our [project in Crowdin](https://crowdin.com/project/nightscout) to
 Nightscout is a Node.js application. The basic installation of the software for local purposes is:
 
 1. Clone the software to your local machine using git
-2. Install Node from https://nodejs.org/en/download/
+2. Install an LTS version of Node from https://nodejs.org/en/download/
 2. Use `npm` to install Nightscout dependencies by invoking `npm install` in the project directory. Note the
    dependency installation has to be done using a non-root user - _do not use root_ for development and hosting
    the software!
