@@ -2,6 +2,11 @@
   "name": "CGM Remote Monitor",
   "repository": "https://github.com/nightscout/cgm-remote-monitor",
   "env": {
+    "MONGODB_URI": {
+      "description": "The MongoDB Connection String to connect to your MongoDB cluster. If you don't have this from MongoDB Atlas, please re-read installation instructions at http://nightscout.github.io/nightscout/new_user/ before continuing",
+      "value": "",
+      "required": true
+    },
     "ALARM_HIGH": {
       "description": "Default setting for new browser views, for the High alarm (triggered when BG crosses BG_TARGET_TOP). ('on' or 'off')",
       "value": "on",
@@ -122,16 +127,6 @@
       "value": "US",
       "required": false
     },
-    "MONGODB_URI": {
-      "description": "The MongoDB Connection String to connect to your MongoDB cluster",
-      "value": "",
-      "required": true
-    },
-    "MONGO_COLLECTION": {
-      "description": "The Mongo collection where CGM data is stored.",
-      "value": "entries",
-      "required": true
-    },
     "NIGHT_MODE": {
       "description": "Default setting for new browser views, for whether Night Mode should be enabled. ('on' or 'off')",
       "value": "off",
@@ -156,6 +151,11 @@
       "description": "Default setting for new browser views, for the time mode. ('12' or '24')",
       "value": "12",
       "required": false 
+    },
+    "USE_NPM_INSTALL": {
+      "description": "You need to have this set for deployment to work in Heroku",
+      "value": "true",
+      "required": true 
     }
   },
   "addons": [

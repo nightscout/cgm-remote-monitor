@@ -29,8 +29,10 @@ describe('API3 CREATE', function() {
    * Cleanup after successful creation
    */
   self.delete = async function deletePermanent (identifier) {
-    await self.instance.delete(`${self.url}/${identifier}?permanent=true&token=${self.token.delete}`)
-      .expect(204);
+    let res = await self.instance.delete(`${self.url}/${identifier}?permanent=true`, self.jwt.delete)
+      .expect(200);
+
+    res.body.status.should.equal(200);
   };
 
 
@@ -38,10 +40,11 @@ describe('API3 CREATE', function() {
    * Get document detail for futher processing
    */
   self.get = async function get (identifier) {
-    let res = await self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.url}/${identifier}`, self.jwt.read)
       .expect(200);
 
-    return res.body;
+    res.body.status.should.equal(200);
+    return res.body.result;
   };
 
 
@@ -49,10 +52,11 @@ describe('API3 CREATE', function() {
    * Get document detail for futher processing
    */
   self.search = async function search (date) {
-    let res = await self.instance.get(`${self.url}?date$eq=${date}&token=${self.token.read}`)
+    let res = await self.instance.get(`${self.url}?date$eq=${date}`, self.jwt.read)
       .expect(200);
 
-    return res.body;
+    res.body.status.should.equal(200);
+    return res.body.result;
   };
 
 
@@ -61,18 +65,35 @@ describe('API3 CREATE', function() {
 
     self.app = self.instance.app;
     self.env = self.instance.env;
-    self.url = '/api/v3/treatments';
+    self.col = 'treatments'
+    self.url = `/api/v3/${self.col}`;
 
-    let authResult = await authSubject(self.instance.ctx.authorization.storage);
+    let authResult = await authSubject(self.instance.ctx.authorization.storage, [
+      'create',
+      'update',
+      'read',
+      'delete',
+      'all'
+    ], self.instance.app);
 
     self.subject = authResult.subject;
-    self.token = authResult.token;
-    self.urlToken = `${self.url}?token=${self.token.create}`;
+    self.jwt = authResult.jwt;
+    self.cache = self.instance.cacheMonitor;
   });
 
 
   after(() => {
     self.instance.ctx.bus.teardown();
+  });
+
+
+  beforeEach(() => {
+    self.cache.clear();
+  });
+
+
+  afterEach(() => {
+    self.cache.shouldBeEmpty();
   });
 
 
@@ -87,16 +108,17 @@ describe('API3 CREATE', function() {
 
 
   it('should not found not existing collection', async () => {
-    let res = await self.instance.post(`/api/v3/NOT_EXIST?token=${self.url}`)
+    let res = await self.instance.post(`/api/v3/NOT_EXIST`, self.jwt.create)
       .send(self.validDoc)
       .expect(404);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(404);
+    should.not.exist(res.body.result);
   });
 
 
   it('should require create permission', async () => {
-    let res = await self.instance.post(`${self.url}?token=${self.token.read}`)
+    let res = await self.instance.post(`${self.url}`, self.jwt.read)
       .send(self.validDoc)
       .expect(403);
 
@@ -106,23 +128,29 @@ describe('API3 CREATE', function() {
 
 
   it('should reject empty body', async () => {
-    await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send({ })
       .expect(400);
+
+    res.body.status.should.equal(400);
   });
 
 
   it('should accept valid document', async () => {
-    let res = await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send(self.validDoc)
       .expect(201);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(201);
+    res.body.identifier.should.equal(self.validDoc.identifier);
     res.headers.location.should.equal(`${self.url}/${self.validDoc.identifier}`);
+    const lastModifiedBody = res.body.lastModified;
     const lastModified = new Date(res.headers['last-modified']).getTime(); // Last-Modified has trimmed milliseconds
 
     let body = await self.get(self.validDoc.identifier);
     body.should.containEql(self.validDoc);
+    body.srvModified.should.equal(lastModifiedBody);
+    self.cache.nextShouldEql(self.col, self.validDoc)
 
     const ms = body.srvModified % 1000;
     (body.srvModified - ms).should.equal(lastModified);
@@ -130,6 +158,7 @@ describe('API3 CREATE', function() {
     body.subject.should.equal(self.subject.apiCreate.name);
 
     await self.delete(self.validDoc.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -137,7 +166,7 @@ describe('API3 CREATE', function() {
     let doc = Object.assign({}, self.validDoc);
     delete doc.date;
 
-    let res = await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send(doc)
       .expect(400);
 
@@ -147,7 +176,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid date null', async () => {
-    let res = await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send(Object.assign({}, self.validDoc, { date: null }))
       .expect(400);
 
@@ -157,7 +186,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid date ABC', async () => {
-    let res = await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send(Object.assign({}, self.validDoc, { date: 'ABC' }))
       .expect(400);
 
@@ -167,7 +196,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid date -1', async () => {
-    let res = await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send(Object.assign({}, self.validDoc, { date: -1 }))
       .expect(400);
 
@@ -178,7 +207,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid date 1 (too old)', async () => {
-    let res = await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send(Object.assign({}, self.validDoc, { date: 1 }))
       .expect(400);
 
@@ -188,7 +217,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid date - illegal format', async () => {
-    let res = await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send(Object.assign({}, self.validDoc, { date: '2019-20-60T50:90:90' }))
       .expect(400);
 
@@ -198,7 +227,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid utcOffset -5000', async () => {
-    let res = await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send(Object.assign({}, self.validDoc, { utcOffset: -5000 }))
       .expect(400);
 
@@ -208,7 +237,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid utcOffset ABC', async () => {
-    let res = await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send(Object.assign({}, self.validDoc, { utcOffset: 'ABC' }))
       .expect(400);
 
@@ -218,18 +247,23 @@ describe('API3 CREATE', function() {
 
 
   it('should accept valid utcOffset', async () => {
-    await self.instance.post(self.urlToken)
-      .send(Object.assign({}, self.validDoc, { utcOffset: 120 }))
+    const doc = Object.assign({}, self.validDoc, { utcOffset: 120 });
+
+    await self.instance.post(self.url, self.jwt.create)
+      .send(doc)
       .expect(201);
 
     let body = await self.get(self.validDoc.identifier);
     body.utcOffset.should.equal(120);
+    self.cache.nextShouldEql(self.col, doc)
+
     await self.delete(self.validDoc.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
   it('should reject invalid utcOffset null', async () => {
-    let res = await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send(Object.assign({}, self.validDoc, { utcOffset: null }))
       .expect(400);
 
@@ -242,7 +276,7 @@ describe('API3 CREATE', function() {
     let doc = Object.assign({}, self.validDoc);
     delete doc.app;
 
-    let res = await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send(doc)
       .expect(400);
 
@@ -252,7 +286,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject invalid app null', async () => {
-    let res = await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send(Object.assign({}, self.validDoc, { app: null }))
       .expect(400);
 
@@ -262,7 +296,7 @@ describe('API3 CREATE', function() {
 
 
   it('should reject empty app', async () => {
-    let res = await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send(Object.assign({}, self.validDoc, { app: '' }))
       .expect(400);
 
@@ -272,14 +306,17 @@ describe('API3 CREATE', function() {
 
 
   it('should normalize date and store utcOffset', async () => {
-    await self.instance.post(self.urlToken)
+    await self.instance.post(self.url, self.jwt.create)
       .send(Object.assign({}, self.validDoc, { date: '2019-06-10T08:07:08,576+02:00' }))
       .expect(201);
 
     let body = await self.get(self.validDoc.identifier);
     body.date.should.equal(1560146828576);
     body.utcOffset.should.equal(120);
+    self.cache.nextShouldEql(self.col, body)
+
     await self.delete(self.validDoc.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -289,49 +326,56 @@ describe('API3 CREATE', function() {
 
     const doc = Object.assign({}, self.validDoc);
 
-    await self.instance.post(self.urlToken)
+    await self.instance.post(self.url, self.jwt.create)
       .send(doc)
       .expect(201);
 
     let createdBody = await self.get(doc.identifier);
     createdBody.should.containEql(doc);
+    self.cache.nextShouldEql(self.col, doc)
 
     const doc2 = Object.assign({}, doc);
-    let res = await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send(doc2)
       .expect(403);
 
     res.body.status.should.equal(403);
     res.body.message.should.equal('Missing permission api:treatments:update');
     await self.delete(doc.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
-  it('should deduplicate document by identifier', async () => {
+  it('should upsert document (matched by identifier)', async () => {
     self.validDoc.date = (new Date()).getTime();
     self.validDoc.identifier = utils.randomString('32', 'aA#');
 
     const doc = Object.assign({}, self.validDoc);
 
-    await self.instance.post(self.urlToken)
+    await self.instance.post(self.url, self.jwt.create)
       .send(doc)
       .expect(201);
 
     let createdBody = await self.get(doc.identifier);
     createdBody.should.containEql(doc);
+    self.cache.nextShouldEql(self.col, doc)
 
     const doc2 = Object.assign({}, doc, {
       insulin: 0.5
     });
 
-    await self.instance.post(`${self.url}?token=${self.token.all}`)
+    let resPost2 = await self.instance.post(`${self.url}`, self.jwt.all)
       .send(doc2)
-      .expect(204);
+      .expect(200);
+
+    resPost2.body.status.should.equal(200);
 
     let updatedBody = await self.get(doc2.identifier);
     updatedBody.should.containEql(doc2);
+    self.cache.nextShouldEql(self.col, doc2)
 
     await self.delete(doc2.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -339,29 +383,43 @@ describe('API3 CREATE', function() {
     self.validDoc.date = (new Date()).getTime();
     self.validDoc.identifier = utils.randomString('32', 'aA#');
 
-    const doc = Object.assign({}, self.validDoc, { 
-      created_at: new Date(self.validDoc.date).toISOString() 
+    const doc = Object.assign({}, self.validDoc, {
+      created_at: new Date(self.validDoc.date).toISOString()
     });
     delete doc.identifier;
 
-    self.instance.ctx.treatments.create([doc], async (err) => {  // let's insert the document in APIv1's way
-      should.not.exist(err);
+    await new Promise((resolve, reject) => {
+      self.instance.ctx.treatments.create([doc], async (err) => {  // let's insert the document in APIv1's way
+        should.not.exist(err);
+        doc._id = doc._id.toString();
+        self.cache.nextShouldEql(self.col, doc)
 
-      const doc2 = Object.assign({}, doc, {
-        insulin: 0.4,
-        identifier: utils.randomString('32', 'aA#')
+        err ? reject(err) : resolve(doc);
       });
-      delete doc2._id; // APIv1 updates input document, we must get rid of _id for the next round
-
-      await self.instance.post(`${self.url}?token=${self.token.all}`)
-        .send(doc2)
-        .expect(204);
-
-      let updatedBody = await self.get(doc2.identifier);
-      updatedBody.should.containEql(doc2);
-
-      await self.delete(doc2.identifier);
     });
+
+    const doc2 = Object.assign({}, doc, {
+      insulin: 0.4,
+      identifier: utils.randomString('32', 'aA#')
+    });
+    delete doc2._id; // APIv1 updates input document, we must get rid of _id for the next round
+
+    const resPost2 = await self.instance.post(`${self.url}`, self.jwt.all)
+      .send(doc2)
+      .expect(200);
+
+    resPost2.body.status.should.equal(200);
+    resPost2.body.identifier.should.equal(doc2.identifier);
+    resPost2.body.isDeduplication.should.equal(true);
+    // doc (first document) was created "the old way" without identifier, so _id becomes the identifier for doc
+    resPost2.body.deduplicatedIdentifier.should.equal(doc._id);
+
+    let updatedBody = await self.get(doc2.identifier);
+    updatedBody.should.containEql(doc2);
+    self.cache.nextShouldEql(self.col, doc2)
+
+    await self.delete(doc2.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -369,67 +427,89 @@ describe('API3 CREATE', function() {
     self.validDoc.date = (new Date()).getTime();
     self.validDoc.identifier = utils.randomString('32', 'aA#');
 
-    const doc = Object.assign({}, self.validDoc, { 
-      created_at: new Date(self.validDoc.date).toISOString() 
+    const doc = Object.assign({}, self.validDoc, {
+      created_at: new Date(self.validDoc.date).toISOString()
     });
     delete doc.identifier;
 
-    self.instance.ctx.treatments.create([doc], async (err) => {  // let's insert the document in APIv1's way
-      should.not.exist(err);
+    await new Promise((resolve, reject) => {
+      self.instance.ctx.treatments.create([doc], async (err) => {  // let's insert the document in APIv1's way
+        should.not.exist(err);
+        doc._id = doc._id.toString();
 
-      let oldBody = await self.get(doc._id);
-      delete doc._id; // APIv1 updates input document, we must get rid of _id for the next round
-      oldBody.should.containEql(doc);
-
-      const doc2 = Object.assign({}, doc, {
-        eventType: 'Meal Bolus',
-        insulin: 0.4,
-        identifier: utils.randomString('32', 'aA#')
+        self.cache.nextShouldEql(self.col, doc)
+        err ? reject(err) : resolve(doc);
       });
-
-      await self.instance.post(`${self.url}?token=${self.token.all}`)
-        .send(doc2)
-        .expect(201);
-
-      let updatedBody = await self.get(doc2.identifier);
-      updatedBody.should.containEql(doc2);
-      updatedBody.identifier.should.not.equal(oldBody.identifier);
-
-      await self.delete(doc2.identifier);
-      await self.delete(oldBody.identifier);
     });
+
+    const oldBody = await self.get(doc._id);
+    delete doc._id; // APIv1 updates input document, we must get rid of _id for the next round
+    oldBody.should.containEql(doc);
+
+    const doc2 = Object.assign({}, doc, {
+      eventType: 'Meal Bolus',
+      insulin: 0.4,
+      identifier: utils.randomString('32', 'aA#')
+    });
+
+    await self.instance.post(`${self.url}`, self.jwt.all)
+      .send(doc2)
+      .expect(201);
+
+    let updatedBody = await self.get(doc2.identifier);
+    updatedBody.should.containEql(doc2);
+    updatedBody.identifier.should.not.equal(oldBody.identifier);
+    should.not.exist(updatedBody.isDeduplication);
+    should.not.exist(updatedBody.deduplicatedIdentifier);
+    self.cache.nextShouldEql(self.col, doc2)
+
+    await self.delete(doc2.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
+
+    await self.delete(oldBody.identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
   it('should overwrite deleted document', async () => {
     const date1 = new Date()
-      , identifier = utils.randomString('32', 'aA#');
+      , identifier = utils.randomString('32', 'aA#')
+      , doc = Object.assign({}, self.validDoc, { identifier, date: date1.toISOString() });
 
-    await self.instance.post(self.urlToken)
-      .send(Object.assign({}, self.validDoc, { identifier, date: date1.toISOString() }))
+    await self.instance.post(self.url, self.jwt.create)
+      .send(doc)
       .expect(201);
+    self.cache.nextShouldEql(self.col, Object.assign({}, doc, { date: date1.getTime() }));
 
-    await self.instance.delete(`${self.url}/${identifier}?token=${self.token.delete}`)
-      .expect(204);
+    let res = await self.instance.delete(`${self.url}/${identifier}`, self.jwt.delete)
+      .expect(200);
+    res.body.status.should.equal(200);
+    self.cache.nextShouldDeleteLast(self.col)
 
     const date2 = new Date();
-    let res = await self.instance.post(self.urlToken)
+    res = await self.instance.post(self.url, self.jwt.create)
       .send(Object.assign({}, self.validDoc, { identifier, date: date2.toISOString() }))
       .expect(403);
 
-    res.body.status.should.be.equal(403);
-    res.body.message.should.be.equal('Missing permission api:treatments:update');
+    res.body.status.should.equal(403);
+    res.body.message.should.equal('Missing permission api:treatments:update');
+    self.cache.shouldBeEmpty()
 
-    res = await self.instance.post(`${self.url}?token=${self.token.all}`)
-      .send(Object.assign({}, self.validDoc, { identifier, date: date2.toISOString() }))
-      .expect(204);
+    const doc2 = Object.assign({}, self.validDoc, { identifier, date: date2.toISOString() });
+    res = await self.instance.post(`${self.url}`, self.jwt.all)
+      .send(doc2)
+      .expect(200);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(200);
+    res.body.identifier.should.equal(identifier);
+    self.cache.nextShouldEql(self.col, Object.assign({}, doc2, { date: date2.getTime() }));
 
     let body = await self.get(identifier);
     body.date.should.equal(date2.getTime());
     body.identifier.should.equal(identifier);
+
     await self.delete(identifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -438,17 +518,21 @@ describe('API3 CREATE', function() {
     delete self.validDoc.identifier;
     const validIdentifier = opTools.calculateIdentifier(self.validDoc);
 
-    let res = await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send(self.validDoc)
       .expect(201);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(201);
+    res.body.identifier.should.equal(validIdentifier);
     res.headers.location.should.equal(`${self.url}/${validIdentifier}`);
     self.validDoc.identifier = validIdentifier;
 
     let body = await self.get(validIdentifier);
     body.should.containEql(self.validDoc);
+    self.cache.nextShouldEql(self.col, self.validDoc);
+
     await self.delete(validIdentifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -457,30 +541,37 @@ describe('API3 CREATE', function() {
     delete self.validDoc.identifier;
     const validIdentifier = opTools.calculateIdentifier(self.validDoc);
 
-    let res = await self.instance.post(self.urlToken)
+    let res = await self.instance.post(self.url, self.jwt.create)
       .send(self.validDoc)
       .expect(201);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(201);
+    res.body.identifier.should.equal(validIdentifier);
     res.headers.location.should.equal(`${self.url}/${validIdentifier}`);
     self.validDoc.identifier = validIdentifier;
 
     let body = await self.get(validIdentifier);
     body.should.containEql(self.validDoc);
+    self.cache.nextShouldEql(self.col, self.validDoc);
 
     delete self.validDoc.identifier;
-    res = await self.instance.post(`${self.url}?token=${self.token.update}`)
+    res = await self.instance.post(`${self.url}`, self.jwt.update)
       .send(self.validDoc)
-      .expect(204);
+      .expect(200);
 
-    res.body.should.be.empty();
+    res.body.status.should.equal(200);
+    res.body.identifier.should.equal(validIdentifier);
+    res.body.isDeduplication.should.equal(true);
+    should.not.exist(res.body.deduplicatedIdentifier); // no identifier change occured
     res.headers.location.should.equal(`${self.url}/${validIdentifier}`);
     self.validDoc.identifier = validIdentifier;
+    self.cache.nextShouldEql(self.col, self.validDoc);
 
     body = await self.search(self.validDoc.date);
     body.length.should.equal(1);
 
     await self.delete(validIdentifier);
+    self.cache.nextShouldDeleteLast(self.col)
   });
 
 });

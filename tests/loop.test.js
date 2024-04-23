@@ -1,18 +1,16 @@
 'use strict';
 
-var _ = require('lodash');
-var should = require('should');
-var moment = require('moment');
+const _ = require('lodash');
+const should = require('should');
+const helper = require('./inithelper')();
 
-var ctx = {
-  language: require('../lib/language')()
-  , settings: require('../lib/settings')()
-};
-ctx.language.set('en');
-var env = require('../env')();
-var loop = require('../lib/plugins/loop')(ctx);
-var sandbox = require('../lib/sandbox')();
-var levels = require('../lib/levels');
+var ctx_top = helper.getctx();
+ctx_top.language.set('en');
+const language = ctx_top.language;
+
+var env = require('../lib/server/env')();
+var loop = require('../lib/plugins/loop')(ctx_top);
+var sandbox = require('../lib/sandbox')(ctx_top);
 
 var statuses = [
   {
@@ -104,10 +102,10 @@ var statuses = [
   }
 ];
 
-var now = moment(statuses[0].created_at);
+var now = ctx_top.moment(statuses[0].created_at);
 
 _.forEach(statuses, function updateMills (status) {
-  status.mills = moment(status.created_at).valueOf();
+  status.mills = ctx_top.moment(status.created_at).valueOf();
 });
 
 describe('loop', function ( ) {
@@ -130,7 +128,7 @@ describe('loop', function ( ) {
           done();
         }
       }
-      , language: require('../lib/language')()
+      , language: language
    };
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
@@ -166,12 +164,12 @@ describe('loop', function ( ) {
           first.value.should.equal('Error: SomeError');
           done();
         }
-      , language: require('../lib/language')()
+      , language: language
       },
-      language: require('../lib/language')()
+      language: language
     };
 
-    var errorTime = moment(statuses[1].created_at);
+    var errorTime = ctx_top.moment(statuses[1].created_at);
 
     var sbx = sandbox.clientInit(ctx, errorTime.valueOf(), {devicestatus: statuses});
 
@@ -200,8 +198,8 @@ describe('loop', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, ctx_top)
+      , language: language
     };
 
     ctx.notifications.initRequests();
@@ -227,8 +225,8 @@ describe('loop', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, ctx_top)
+      , language: language
     };
 
     ctx.notifications.initRequests();
@@ -239,7 +237,7 @@ describe('loop', function ( ) {
     loop.checkNotifications(sbx);
 
     var highest = ctx.notifications.findHighestAlarm('Loop');
-    highest.level.should.equal(levels.URGENT);
+    highest.level.should.equal(ctx_top.levels.URGENT);
     highest.title.should.equal('Loop isn\'t looping');
     done();
   });
@@ -249,8 +247,8 @@ describe('loop', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, ctx_top)
+      , language: language
     };
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});

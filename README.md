@@ -1,5 +1,5 @@
 Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
-======================================
+==================================================
 
 ![nightscout horizontal](https://cloud.githubusercontent.com/assets/751143/8425633/93c94dc0-1ebc-11e5-99e7-71a8f464caac.png)
 
@@ -8,8 +8,6 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 [![Coverage Status][coverage-img]][coverage-url]
 [![Codacy Badge][codacy-img]][codacy-url]
 [![Discord chat][discord-img]][discord-url]
-
-[![Deploy to Heroku][heroku-img]][heroku-url] [![Update your site][update-img]][update-fork]
 
 This acts as a web-based CGM (Continuous Glucose Monitor) to allow
 multiple caregivers to remotely view a patient's glucose data in
@@ -50,7 +48,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 [discord-url]: https://discord.gg/rTKhrqz
 [heroku-img]: https://www.herokucdn.com/deploy/button.png
 [heroku-url]: https://heroku.com/deploy?template=https://github.com/nightscout/cgm-remote-monitor
-[update-img]: update.png
+[update-img]: docs/update.png
 [update-fork]: http://nightscout.github.io/pages/update-fork/
 [original]: https://github.com/rnpenguin/cgm-remote-monitor
 
@@ -104,8 +102,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
         - [`bage` (Battery Age)](#bage-battery-age)
         - [`treatmentnotify` (Treatment Notifications)](#treatmentnotify-treatment-notifications)
         - [`basal` (Basal Profile)](#basal-basal-profile)
-        - [`bridge` (Share2Nightscout bridge)](#bridge-share2nightscout-bridge)
-        - [`mmconnect` (MiniMed Connect bridge)](#mmconnect-minimed-connect-bridge)
+        - [`bolus` (Bolus Rendering)](#bolus-bolus-rendering)
+        - [`connect` (Nightscout Connect)](#connect-nightscout-connect)
+        - [`bridge` (Share2Nightscout bridge)](#bridge-share2nightscout-bridge), _deprecated_
+        - [`mmconnect` (MiniMed Connect bridge)](#mmconnect-minimed-connect-bridge), _deprecated_
         - [`pump` (Pump Monitoring)](#pump-pump-monitoring)
         - [`openaps` (OpenAPS)](#openaps-openaps)
         - [`loop` (Loop)](#loop-loop)
@@ -131,40 +131,38 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Supported configurations:
 
-If you plan to use Nightscout, we recommend using [Heroku](https://nightscout.github.io/nightscout/new_user/) as this is free and easy to use.
-We used to recommend hostig at Azure, but the resource needs of Nightscout have grown over the years and Azure won't comfortably run Nightscout
-anymore in the free tier. If you're hosting in Azure and looking to update your site, we recommend you
-[switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku)
-as you're likely to hit issues in the process of updating the site.
-
-- [Nightscout Setup with Heroku](https://nightscout.github.io/nightscout/new_user/) (recommended)
+- [Nightscout Setup](https://nightscout.github.io/nightscout/new_user/) (recommended)
 
 While you can install Nightscout on a virtual server or a Raspberry Pi, we do not recommend this unless you have at least some
-experience hosting Node applications and development using the toolchain in use with Nightscout. Heroku automates all of the
-hosting for you and even many of the dvelopers run their production sites in Heroku due to convenience.
+experience hosting Node applications and development using the toolchain in use with Nightscout.
 
-If you're a hosting provider and want to provide our users additional free hosting options,
+If you're a hosting provider and want to provide our users additional hosting options,
 you're welcome to issue a documentation pull request with instructions on how to setup Nightscout on your system.
 
 ## Recommended minimum browser versions for using Nightscout:
 
-Older versions of the browsers might work, but are untested.
+Our [browserslist](https://github.com/browserslist/browserslist) policy is documented in `.browserlistrc`.   
+We currently support approximately [91%](https://browsersl.ist/?q=%3E+0.25%25%2C+ios_saf+9.3%2C+ios_saf+10.3%2C+ios_saf+13.7%2C+ios_saf+14.8%2C+not+dead%2C+not+and_uc+12.12%2C+not+ie+11%0A) of all browsers globally used. These include:
 
-- Android 4
-- iOS 6
-- Chrome 35
-- Edge 17
-- Firefox 61
-- Opera 12.1
-- Safari 6 (macOS 10.7)
-- Internet Explorer: not supported
+- Android Chrome: 104 or later (`and_chr`)
+- Google Chrome: 101 or later (`chrome`)
+- Microsoft Edge: 103 or later (`edge`)
+- Mozilla Firefox: 102 or later (`firefox`)
+- Apple Safari on iOS: 15.5 or later (`ios_saf`)
+- Opera Mini on Android: 63 or later (`op_mini`)
+- Opera: 88 or later (`opera`)
+- Apple Safari for macOS 10.15 Catalina or later: : 15.5 or later (`safari`)
+- Samsung Internet on Android: 17.0 or later (`samsung`)
+- Internet Explorer 11 : not supported
 
-Some features may not work with devices/browsers on the older end of these requirements.
+Older versions or other browsers might work, but are untested and unsupported. We'll try to to keep Nightscout compatible with older iPads (e.g. Safari on iOS 10.3.4), but note that those devices are not supported by Apple anymore and have known security issues. Debugging these old devices gets harder due to Apple not supporting debugging the old devices on Macs that have been updated. Some features may not work with devices/browsers on the older end of these requirements.
 
-## Windows installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 12 LTS. Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `setup.sh`)
-- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
+
+## Installation software requirements:
+
+- [Node.js](http://nodejs.org/) Latest Node v14 or v16 LTS. Node versions that do not have the latest security patches will not be supported. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 4.2 or 4.4.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
 
@@ -183,7 +181,7 @@ $ npm install
 
 - If deploying the software to Microsoft Azure, you must set ** in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Additionally, if using the Azure free hosting tier, the installation might fail due to resource constraints imposed by Azure on the free hosting. Please set the following settings to the environment in Azure:
 ```
-WEBSITE_NODE_DEFAULT_VERSION=10.15.2
+WEBSITE_NODE_DEFAULT_VERSION=16.16.0
 SCM_COMMAND_IDLE_TIMEOUT=300
 ```
 - See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
@@ -231,7 +229,7 @@ Once you've installed Nightscout, you can access API documentation by loading `/
   * Boluses over 2U: `http://localhost:1337/api/v1/treatments.json?find[insulin][$gte]=2`
 
 The API is Swagger enabled, so you can generate client code to make working with the API easy.
-To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or review [swagger.yaml](swagger.yaml).
+To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or review [swagger.yaml](lib/server/swagger.yaml).
 
 ## Environment
 
@@ -254,6 +252,14 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
     Setting it to `denied` will require a token from every visit, using `status-only` will enable api-secret based login.
   * `IMPORT_CONFIG` - Used to import settings and extended settings from a url such as a gist.  Structure of file should be something like: `{"settings": {"theme": "colors"}, "extendedSettings": {"upbat": {"enableAlerts": true}}}`
   * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. Deprecated, if set to `off` the `careportal` role will be added to `AUTH_DEFAULT_ROLES`
+
+#### Data Rights
+
+These are useful to help protect your rights to portability and
+autonomy for your data:
+  * `OBSCURED` - list, identical to `ENABLE`, a list of plugins to
+    obscure.
+  * `OBSCURE_DEVICE_PROVENANCE` - Required, a string visible to the [companies deciding to filter based on your data](https://help.sugarmate.io/en/articles/4673402-adding-a-nightscout-data-source).  For example, `my-data-rights`.
 
 ### Alarms
 
@@ -294,6 +300,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 ### Predefined values for your browser settings (optional)
 
   * `TIME_FORMAT` (`12`)- possible values `12` or `24`
+  * `DAY_START` (`7.0`) - time for start of day (0.0 - 24.0) for features using day time / night time options
+  * `DAY_END` (`21.0`) - time for end of day (0.0 - 24.0) for features using day time / night time options
   * `NIGHT_MODE` (`off`) - possible values `on` or `off`
   * `SHOW_RAWBG` (`never`) - possible values `always`, `never` or `noise`
   * `CUSTOM_TITLE` (`Nightscout`) - Title for the main view
@@ -305,13 +313,12 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
   * `SHOW_FORECAST` (`ar2`) - plugin forecasts that should be shown by default, supports space delimited values such as `"ar2 openaps"`
   * `LANGUAGE` (`en`) - language of Nightscout. If not available english is used
-    * Currently supported language codes are: bg (Български), cs (Čeština), de (Deutsch), dk (Dansk), el (Ελληνικά), en (English), es (Español), fi (Suomi), fr (Français), he (עברית), hr (Hrvatski), it (Italiano), ko (한국어), nb (Norsk (Bokmål)), nl (Nederlands), pl (Polski), pt (Português (Brasil)), ro (Română), ru (Русский), sk (Slovenčina), sv (Svenska), tr (Turkish), zh_cn (中文（简体)), zh_tw (中文（繁體))
+    * Currently supported language codes are: bg (Български), cs (Čeština), de (Deutsch), dk (Dansk), el (Ελληνικά), en (English), es (Español), fi (Suomi), fr (Français), he (עברית), hr (Hrvatski), hu (magyar), it (Italiano), ko (한국어), nb (Norsk (Bokmål)), nl (Nederlands), pl (Polski), pt (Português (Brasil)), ro (Română), ru (Русский), sk (Slovenčina), sv (Svenska), tr (Turkish), zh_cn (中文（简体)), zh_tw (中文（繁體))
   * `SCALE_Y` (`log`) - The type of scaling used for the Y axis of the charts system wide.
     * The default `log` (logarithmic) option will let you see more detail towards the lower range, while still showing the full CGM range.
     * The `linear` option has equidistant tick marks; the range used is dynamic so that space at the top of chart isn't wasted.
     * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale.
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enables the icon allowing for editing of treatments in the main view.
-  * `BOLUS_RENDER_OVER` (1) - U value over which the bolus values are rendered on the chart if the 'x U and Over' option is selected. This value can be an integer or a float, e.g. 0.3, 1.5, 2, etc...
 
 ### Predefined values for your server settings (optional)
   * `INSECURE_USE_HTTP` (`false`) - Redirect unsafe http traffic to https. Possible values `false`, or `true`. Your site redirects to `https` by default. If you don't want that from Nightscout, but want to implement that with a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. Note: This will allow (unsafe) http traffic to your Nightscout instance and is not recommended.
@@ -468,14 +475,112 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `BAGE_URGENT` (`360`) - If time since last `Pump Battery Change` matches `BAGE_URGENT` hours, user will be issued a persistent warning of overdue change (default of 360 hours is 15 days).
 
 ##### `treatmentnotify` (Treatment Notifications)
-  Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.  Default snooze is 10 minutes, and can be set using the `TREATMENTNOTIFY_SNOOZE_MINS` [extended setting](#extended-settings).
+  Generates notifications when a treatment has been entered and snoozes alarms minutes after a treatment.
+  * `TREATMENTNOTIFY_SNOOZE_MINS` (`10`) - Number of minutes to snooze notifications after a treatment is entered
+  * `TREATMENTNOTIFY_INCLUDE_BOLUSES_OVER` (`0`) - U value over which the bolus will trigger a notification and snooze alarms
 
 ##### `basal` (Basal Profile)
   Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile). Also uses the extended setting:
   * `BASAL_RENDER` (`none`) - Possible values are `none`, `default`, or `icicle` (inverted)
 
+##### `bolus` (Bolus Rendering)
+  Settings to configure Bolus rendering
+  * `BOLUS_RENDER_OVER` (`0`) - U value over which the bolus labels use the format defined in `BOLUS_RENDER_FORMAT`. This value can be an integer or a float, e.g. 0.3, 1.5, 2, etc.
+  * `BOLUS_RENDER_FORMAT` (`default`) - Possible values are `hidden`, `default` (with leading zero and U), `concise` (with U, without leading zero), and `minimal` (without leading zero and U).
+  * `BOLUS_RENDER_FORMAT_SMALL` (`default`) - Possible values are `hidden`, `default` (with leading zero and U), `concise` (with U, without leading zero), and `minimal` (without leading zero and U).
+  
+##### `connect` (Nightscout Connect)
+
+Connect common diabetes cloud resources to Nightscout.
+Include the keyword `connect` in the `ENABLE` list.
+Nightscout connection uses extended settings using the environment variable prefix `CONNECT_`.
+  * `CONNECT_SOURCE` - The name for the source of one of the supported inputs.  one of `nightscout`, `dexcomshare`, etc...
+###### Nightscout
+
+> Work in progress
+
+To sync from another Nightscout site, include `CONNECT_SOURCE_ENDPOINT` and
+`CONNECT_SOURCE_API_SECRET`. 
+* `CONNECT_SOURCE=nightscout`
+* `CONNECT_SOURCE_ENDPOINT=<URL>`
+* `CONNECT_SOURCE_API_SECRET=<OPTIONAL_API_SECRET>`
+
+The `CONNECT_SOURCE_ENDPOINT` must be a fully qualified URL and may contain a
+`?token=<subject>` query string to specify an accessToken.
+The `CONNECT_SOURCE_API_SECRET`, if provided, will be used to create a token
+called `nightscout-connect-reader`.  This information or the token provided in
+the query will be used to read information from Nightscout and is optional if
+the site is readable by default.
+
+Select this driver by setting `CONNECT_SOURCE` equal to `nightscout`.
+
+
+
+###### Dexcom Share
+To synchronize from Dexcom Share use the following variables.
+* `CONNECT_SOURCE=dexcomshare`
+* `CONNECT_SHARE_ACCOUNT_NAME=`
+* `CONNECT_SHARE_PASSWORD=`
+
+Optional, `CONNECT_SHARE_REGION` and `CONNECT_SHARE_SERVER` do the same thing, only specify one.
+* `CONNECT_SHARE_REGION=`  `ous` or `us`. `us` is the default if nothing is
+  provided.  Selecting `us` sets `CONNECT_SHARE_SERVER` to `share2.dexcom.com`.
+  Selecting `ous` here sets `CONNECT_SHARE_SERVER` to `shareous1.dexcom.com`.
+* `CONNECT_SHARE_SERVER=` set the server domain to use.
+
+
+###### Glooko
+
+> Note: Experimental.
+
+To synchronize from Glooko use the following variables.
+* `CONNECT_SOURCE=glooko`
+* `CONNECT_GLOOKO_EMAIL=`
+* `CONNECT_GLOOKO_PASSWORD=`
+
+By default, `CONNECT_GLOOKO_SERVER` is set to `api.glooko.com` because the
+default value for `CONNECT_GLOOKO_ENV` is `default`.
+* `CONNECT_GLOOKO_ENV` is the word `default` by defalt.  Other values are
+  `development`, `production`, for `api.glooko.work`, and
+  `externalapi.glooko.com`, respectively.
+* `CONNECT_GLOOKO_SERVER` the hostname server to use - `api.glooko.com` by `default`.
+
+If both, `CONNECT_GLOOKO_SERVER` and `CONNECT_GLOOKO_ENV` are set, only
+`CONNECT_GLOOKO_SERVER` will be used.
+
+###### Libre Link Up
+To synchronize from Libre Link Up use the following variables.
+* `CONNECT_SOURCE=linkup`
+* `CONNECT_LINK_UP_USERNAME=`
+* `CONNECT_LINK_UP_PASSWORD=`
+
+By default, `CONNECT_LINK_UP_SERVER` is set to `api-eu.libreview.io` because the
+default value for `CONNECT_LINK_UP_REGION` is `EU`.
+Other available values for `CONNECT_LINK_UP_REGION`:
+  * `US`, `EU`, `DE`, `FR`, `JP`, `AP`, `AU`, `AE`
+
+For folks connected to many patients, you can provide the patient ID by setting
+the `CONNECT_LINK_UP_PATIENT_ID` variable.
+
+###### Minimed Carelink
+
+To synchronize from Medtronic Minimed Carelink, set the following
+environment variables.
+* `CONNECT_SOURCE=minimedcarelink`
+* `CONNECT_CARELINK_USERNAME`
+* `CONNECT_CARELINK_PASSWORD`
+* `CONNECT_CARELINK_REGION` Either `eu` to set `CONNECT_CARELINK_SERVER` to
+  `carelink.minimed.eu` or `us` to use `carelink.minimed.com`.
+
+For folks using the new Many to Many feature, please provide the username of the
+patient to follow using `CONNECT_CARELINK_PATIENT_USERNAME` variable.
+
+
 ##### `bridge` (Share2Nightscout bridge)
-  Glucose reading directly from the Dexcom Share service, uses these extended settings:
+
+> **Deprecated** Please consider using the `connect` plugin instead.
+
+Fetch glucose reading directly from the Dexcom Share service, uses these extended settings:
   * `BRIDGE_USER_NAME` - Your username for the Share service.
   * `BRIDGE_PASSWORD` - Your password for the Share service.
   * `BRIDGE_INTERVAL` (`150000` *2.5 minutes*) - The time (in milliseconds) to wait between each update.
@@ -486,6 +591,9 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `BRIDGE_SERVER` (``) - The default blank value is used to fetch data from Dexcom servers in the US. Set to (`EU`) to fetch from European servers instead.
 
 ##### `mmconnect` (MiniMed Connect bridge)
+
+> **Deprecated** Please consider using the `connect` plugin instead.
+
   Transfer real-time MiniMed Connect data from the Medtronic CareLink server into Nightscout ([read more](https://github.com/mddub/minimed-connect-to-nightscout))
   * `MMCONNECT_USER_NAME` - Your user name for CareLink Connect.
   * `MMCONNECT_PASSWORD` - Your password for CareLink Connect.
@@ -511,6 +619,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `PUMP_URGENT_BATT_P` (`20`) - The % of the pump battery remaining, an urgent alarm will be triggered when dropping below this threshold.
   * `PUMP_WARN_BATT_V` (`1.35`) - The voltage (if percent isn't available) of the pump battery, a warning will be triggered when dropping below this threshold.
   * `PUMP_URGENT_BATT_V` (`1.30`) - The  voltage (if percent isn't available) of the pump battery, an urgent alarm will be triggered when dropping below this threshold.
+  * `PUMP_WARN_BATT_QUIET_NIGHT` (`false`) - Do not generate battery alarms at night.
 
 ##### `openaps` (OpenAPS)
   Integrated OpenAPS loop monitoring, uses these extended settings:
@@ -659,7 +768,7 @@ For remote overrides, the following extended settings must be configured:
   * `target_high` - Upper target for correction boluses.
   * `target_low` - Lower target for correction boluses.
 
-  Some example profiles are [here](example-profiles.md).
+  Some example profiles are [here](docs/plugins/example-profiles.md).
 
 ## Setting environment variables
 Easy to emulate on the commandline:
@@ -679,13 +788,13 @@ Your hosting provider probably has a way to set these through their GUI.
 ### Vagrant install
 
 Optionally, use [Vagrant](https://www.vagrantup.com/) with the
-included `Vagrantfile` and `setup.sh` to install OS and node packages to
+included `Vagrantfile` and `bin/setup.sh` to install OS and node packages to
 a virtual machine.
 
 ```bash
 host$ vagrant up
 host$ vagrant ssh
-vm$ setup.sh
+vm$ ./bin/setup.sh
 ```
 
 The setup script will install OS packages then run `npm install`.

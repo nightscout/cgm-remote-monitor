@@ -1,18 +1,18 @@
 'use strict';
 
-var _ = require('lodash');
-var should = require('should');
-var moment = require('moment');
+const _ = require('lodash');
+const should = require('should');
 
-var ctx = {
-  language: require('../lib/language')()
-  , settings: require('../lib/settings')()
-};
-ctx.language.set('en');
-var env = require('../env')();
-var openaps = require('../lib/plugins/openaps')(ctx);
-var sandbox = require('../lib/sandbox')();
-var levels = require('../lib/levels');
+const helper = require('./inithelper')();
+
+var top_ctx = helper.getctx();
+top_ctx.language.set('en');
+const language = top_ctx.language;
+const levels = top_ctx.levels;
+
+var env = require('../lib/server/env')();
+var openaps = require('../lib/plugins/openaps')(top_ctx);
+var sandbox = require('../lib/sandbox')(top_ctx);
 
 var statuses = [{
   created_at: '2015-12-05T19:05:00.000Z',
@@ -243,10 +243,10 @@ var statuses = [{
     "created_at": "2017-09-05T19:19:39.899Z"
 }];
 
-var now = moment(statuses[0].created_at);
+var now = top_ctx.moment(statuses[0].created_at);
 
 _.forEach(statuses, function updateMills (status) {
-  status.mills = moment(status.created_at).valueOf();
+  status.mills = top_ctx.moment(status.created_at).valueOf();
 });
 
 describe('openaps', function ( ) {
@@ -272,7 +272,7 @@ describe('openaps', function ( ) {
           done();
         }
       }
-      , language: require('../lib/language')()
+      , language: language
     };
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
@@ -302,8 +302,9 @@ describe('openaps', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
     };
 
     ctx.notifications.initRequests();
@@ -330,8 +331,8 @@ describe('openaps', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
     };
 
     ctx.notifications.initRequests();
@@ -352,8 +353,8 @@ describe('openaps', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
    };
 
     ctx.notifications.initRequests();
@@ -376,8 +377,8 @@ describe('openaps', function ( ) {
       settings: {
         units: 'mg/dl'
       }
-      , notifications: require('../lib/notifications')(env, ctx)
-      , language: require('../lib/language')()
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
     };
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
