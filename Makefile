@@ -78,4 +78,20 @@ docker_release:
 		docker push $(DOCKER_IMAGE):latest_dev; \
 	fi
 
+custom_docker_release:
+	# Get the version from the package.json file
+	$(eval DOCKER_TAG=$(shell cat package.json | jq '.version' | tr -d '"'))
+	#
+	#
+	# Rebuild the image. We do this with no-cache so that we have all security upgrades,
+	# since that's more important than fewer layers in the Docker image.
+	docker build --no-cache=true -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
+	#
+	# Tag and push as latest to the custom repository if defined
+ifdef CUSTOM_REPOSITORY
+	docker tag $(DOCKER_IMAGE):$(DOCKER_TAG) $(CUSTOM_REPOSITORY)/$(DOCKER_IMAGE):latest && \
+	docker push $(CUSTOM_REPOSITORY)/$(DOCKER_IMAGE):latest;
+endif
+	
+
 .PHONY: all coverage docker_release report test ci_tests
