@@ -2,18 +2,14 @@
 
 const _ = require('lodash');
 const should = require('should');
-const moment = require('moment');
-const fs = require('fs');
 
-const language = require('../lib/language')(fs);
+const helper = require('./inithelper')();
 
-var top_ctx = {
-  language: language
-  , settings: require('../lib/settings')()
-};
+var top_ctx = helper.getctx();
 top_ctx.language.set('en');
-var levels = require('../lib/levels');
-top_ctx.levels = levels;
+const language = top_ctx.language;
+const levels = top_ctx.levels;
+
 var env = require('../lib/server/env')();
 var openaps = require('../lib/plugins/openaps')(top_ctx);
 var sandbox = require('../lib/sandbox')(top_ctx);
@@ -247,10 +243,10 @@ var statuses = [{
     "created_at": "2017-09-05T19:19:39.899Z"
 }];
 
-var now = moment(statuses[0].created_at);
+var now = top_ctx.moment(statuses[0].created_at);
 
 _.forEach(statuses, function updateMills (status) {
-  status.mills = moment(status.created_at).valueOf();
+  status.mills = top_ctx.moment(status.created_at).valueOf();
 });
 
 describe('openaps', function ( ) {
