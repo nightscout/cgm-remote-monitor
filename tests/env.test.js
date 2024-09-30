@@ -1,8 +1,71 @@
 'use strict';
 
 require('should');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 describe('env', function () {
+  function writeTempFile(fileName, data) {
+    const fullPath = path.join(os.tmpdir(), fileName);
+    fs.writeFileSync(fullPath, data);
+    return fullPath;
+  }
+
+  it('should not set the API key without API_SECRET or API_SECRET_FILE', function () {
+    delete process.env.API_SECRET;
+    var env = require( '../lib/server/env' )();
+    env.enclave.isApiKeySet().should.equal(false);
+  });
+
+  it('should read the API key from API_SECRET_FILE if it is valid', function () {
+    const apiSecretFile = 'this is another pass phrase';
+    const hashFile = 'c79c6db1070da3537d0162e60647b0a588769f8d';
+    process.env.API_SECRET_FILE = writeTempFile('api_secret_file', apiSecretFile);
+
+    var env = require( '../lib/server/env' )();
+    env.enclave.isApiKeySet().should.equal(true);
+    env.enclave.isApiKey(hashFile).should.equal(true);
+
+    fs.rmSync(process.env.API_SECRET_FILE);
+    delete process.env.API_SECRET_FILE;
+  });
+
+  it('should raise an error when API_SECRET_FILE does not exist', function () {
+    const nonexistentPath = path.join(os.tmpdir(), 'api_secret_file');
+    process.env.API_SECRET_FILE = nonexistentPath;
+
+    var env = require( '../lib/server/env' )();
+    env.enclave.isApiKeySet().should.equal(false);
+    env.err.length.should.equal(1);
+
+    const error = env.err.pop();
+    error.should.have.property('desc');
+    error.desc.should.match(/API_SECRET_FILE/);
+    error.desc.should.match(/no such file or directory/);
+
+    delete process.env.API_SECRET_FILE;
+  });
+
+  it('should use API_SECRET when API_SECRET_FILE is also specified', function () {
+    const apiSecretEnv = 'this is my long pass phrase';
+    const hashEnv = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
+    process.env.API_SECRET = apiSecretEnv;
+
+    const apiSecretFile = 'this is another pass phrase';
+    const hashFile = 'c79c6db1070da3537d0162e60647b0a588769f8d';
+    process.env.API_SECRET_FILE = writeTempFile('api_secret_file', apiSecretFile);
+
+    var env = require( '../lib/server/env' )();
+    env.enclave.isApiKeySet().should.equal(true);
+    env.enclave.isApiKey(hashEnv).should.equal(true);
+    env.enclave.isApiKey(hashFile).should.equal(false);
+
+    fs.rmSync(process.env.API_SECRET_FILE);
+    delete process.env.API_SECRET_FILE;
+    delete process.env.API_SECRET;
+  });
+
   it( 'show the right plugins', function () {
     process.env.SHOW_PLUGINS = 'iob';
     process.env.ENABLE = 'iob cob';
