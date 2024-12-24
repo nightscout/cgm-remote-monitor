@@ -48,9 +48,13 @@ info:
 
       `food` collection&#58;         equal `created_at`
 
+      `heartrate` collection&#58;    equal `created_at`
+
       `profile` collection&#58;      equal `created_at`
 
       `treatments` collection&#58;   equal combination of `created_at` and `eventType`
+
+      `heartrate` collection&#58;      equal `created_at`
       </pre>
 
 
@@ -60,7 +64,7 @@ info:
 
 tags:
   - name: generic
-    description: Generic operations with each database collection (devicestatus, entries, food, profile, settings, treatments)
+    description: Generic operations with each database collection (devicestatus, entries, food, profile, settings, treatments, heartrate)
   - name: other
     description: All other various operations
 
