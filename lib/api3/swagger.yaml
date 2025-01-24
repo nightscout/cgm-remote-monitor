@@ -650,7 +650,10 @@ components:
       in: query
       name: filter_parameters
       schema:
-        type: string
+        type: array
+        items:
+          type: string
+      style: spaceDelimited
       description:
         Any number of filtering operators.
 
