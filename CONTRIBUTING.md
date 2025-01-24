@@ -201,6 +201,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | Contribution area                     | List of developers   | List of testers
 | ------------------------------------- | -------------------- | -------------------- |
 | [`alexa` (Amazon Alexa)](README.md#alexa-amazon-alexa)| [@inventor96] | Please volunteer |
+| [`alice` (Yandex Alice)](README.md#alice-yandex-alice)| [@dobbywankenoby] | Please volunteer |
 | [`ar2` (AR2 Forecasting)](README.md#ar2-ar2-forecasting)| Please volunteer | Please volunteer |
 | [`basal` (Basal Profile)](README.md#basal-basal-profile)| Please volunteer | Please volunteer |
 | [`boluscalc` (Bolus Wizard)](README.md#boluscalc-bolus-wizard)| Please volunteer | Please volunteer |
