@@ -1,0 +1,154 @@
+version: '3.9'
+
+x-logging:
+  &default-logging
+  options:
+    max-size: '10m'
+    max-file: '5'
+  driver: json-file
+
+services:
+  nightscout:
+    image: nightscout/cgm-remote-monitor:latest
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "3"
+    environment:
+# -----------------------------------------------------------------------------------------------
+# Here are your Nightscout variables:
+# Respect the format VARIABLE: value (with a space after :)
+#
+# Mandatory information
+      TZ: Europe/Kyiv
+      API_SECRET: EtherlordNightscout79
+      ENABLE: careportal sage iage cage iob cob basal upbat devicestatus dbsize cors
+      SHOW_PLUGINS: careportal sage iob cob dbsize cors ar2
+      DISPLAY_UNITS: mmol/L
+
+      #BRIDGE_USER_NAME: username
+      #BRIDGE_PASSWORD: password
+      #BRIDGE_SERVER: EU
+
+      AUTH_DEFAULT_ROLES: readable
+      NIGHT_MODE: off
+      THEME: colors
+      TIME_FORMAT: 24
+      SCALE_Y: linear
+      AR2_CONE_FACTOR: 0
+      SHOW_RAWBG: always
+      DBSIZE_MAX: DISK_SIZE
+      #BASAL_RENDER: default
+      BOLUS_RENDER_FORMAT_SMALL: minimal
+      BOLUS_RENDER_OVER: 1
+
+      BG_LOW: 60
+      BG_TARGET_BOTTOM: 70
+      BG_TARGET_TOP: 180
+      BG_HIGH: 200
+      ALARM_TYPES: simple
+      ALARM_HIGH: on
+      ALARM_LOW: on
+      ALARM_URGENT_HIGH: on
+      ALARM_URGENT_LOW: on
+      ALARM_TIMEAGO_URGENT: on
+      ALARM_TIMEAGO_URGENT_MINS: 30
+      ALARM_TIMEAGO_WARN: on
+      ALARM_TIMEAGO_WARN_MINS: 15
+
+      DEVICESTATUS_ADVANCED: true
+      SAGE_INFO: 336
+      SAGE_URGENT: 348
+      SAGE_WARN: 342
+      #SHOW_FORECAST:
+      #PUMP_FIELDS: reservoir battery clock status
+      #PUMP_RETRO_FIELDS: battery reservoir clock status
+      #PUMP_URGENT_BATT: 26
+      #PUMP_WARN_BATT: 51
+      #IAGE_INFO: 68
+      #IAGE_URGENT: 79
+      #IAGE_WARN: 72
+      #PUMP_ENABLE_ALERTS: true
+      #PUMP_URGENT_BATT_U: 30
+      #PUMP_URGENT_BATT_V: 1.25
+      #PUMP_URGENT_RES: 10
+      #PUMP_URGENT_CLOCK: 30
+      #LOOP_ENABLE_ALERTS: true
+      #LOOP_WARN: 20
+      #LOOP_URGENT: 60
+# -----------------------------------------------------------------------------------------------
+# Do not change anything below unless you know what you are doing
+# -----------------------------------------------------------------------------------------------
+      INSECURE_USE_HTTP: 'true'
+      MONGO_CONNECTION: mongodb://mongo:27017/Nightscout
+    ports:
+      - "1337:1337"
+    depends_on:
+      - mongo
+    labels:
+      - 'traefik.enable=true'
+      # Change the below Host from `localhost` to be the web address where Nightscout is running.
+      # Also change the email address in the `traefik` service below.
+      - 'traefik.http.routers.nightscout.rule=Host(`nightscout.etherlord.pp.ua`)'
+      - 'traefik.http.routers.nightscout.entrypoints=websecure'
+      - 'traefik.http.routers.nightscout.tls.certresolver=le'
+    volumes:
+      - /nightscout/docker:/var/opt/ssl/:ro
+    restart: unless-stopped
+
+  mongo:
+# Note you can also use mongo:5
+    image: mongo:4.4
+    container_name: mongo
+    volumes:
+      - ./data:/data/db
+# Enable only of you want external access, but then you should modify mongo login and passord
+    #ports:
+      #- "27017:27017"
+    logging: *default-logging
+    restart: unless-stopped
+
+  traefik:
+    image: traefik:latest
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "3"
+    container_name: 'traefik'
+    command:
+      - '--providers.docker=true'
+      - '--providers.docker.exposedbydefault=false'
+      - '--entrypoints.web.address=:80'
+      - '--entrypoints.web.http.redirections.entrypoint.to=websecure'
+      - '--entrypoints.websecure.address=:443'
+      - "--certificatesresolvers.le.acme.httpchallenge=true"
+      - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
+      - '--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json'
+      # Change the below to match your email address
+      - '--certificatesresolvers.le.acme.email=yuriy.etherlord@gmail.com'
+    ports:
+      - '443:443'
+      - '80:80'
+    volumes:
+      - './letsencrypt:/letsencrypt'
+      - '/var/run/docker.sock:/var/run/docker.sock:ro'
+    restart: unless-stopped
+
+  nightscout-libre-link:
+    image: timoschlueter/nightscout-librelink-up
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "3"
+    container_name: nightscout-libre-link
+    environment:
+      LINK_UP_USERNAME: ${LINK_UP_USERNAME}
+      LINK_UP_PASSWORD: ${LINK_UP_PASSWORD}
+      LINK_UP_TIME_INTERVAL: "5"
+      LINK_UP_REGION: "DE"
+      NIGHTSCOUT_URL: ${NIGHTSCOUT_URL}
+      NIGHTSCOUT_API_TOKEN: ${NIGHTSCOUT_API_TOKEN}
+      LOG_LEVEL: "info"
