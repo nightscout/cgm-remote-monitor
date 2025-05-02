@@ -68,6 +68,7 @@ describe('BG Now', function ( ) {
       }
       , language: require('../lib/language')()
       , moment: helper.ctx.moment
+      , dayjs: helper.ctx.dayjs
     };
 
     var sbx = sandbox.clientInit(ctx, now, data);
@@ -91,6 +92,7 @@ describe('BG Now', function ( ) {
       , pluginBase: {}
       , language: require('../lib/language')()
       , moment: helper.ctx.moment
+      , dayjs: helper.ctx.dayjs
     };
 
     var data = {sgvs: [{mills: before, mgdl: 100}, {mills: now, mgdl: 105}]};
@@ -137,6 +139,7 @@ describe('BG Now', function ( ) {
       , pluginBase: {}
       , language: require('../lib/language')()
       , moment: helper.ctx.moment
+      , dayjs: helper.ctx.dayjs
     };
 
     var data = {sgvs: [{mills: before, mgdl: 85}, {mills: now, mgdl: 85}]};
@@ -184,6 +187,7 @@ describe('BG Now', function ( ) {
       , pluginBase: {}
       , language: require('../lib/language')()
       , moment: helper.ctx.moment
+      , dayjs: helper.ctx.dayjs
     };
 
     var data = {sgvs: [{mills: before - SIX_MINS, mgdl: 100}, {mills: now, mgdl: 105}]};
