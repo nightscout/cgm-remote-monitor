@@ -3,7 +3,7 @@
 var _ = require('lodash');
 var should = require('should');
 const helper = require('./inithelper')();
-const moment = helper.ctx.moment;
+const dayjs = helper.ctx.dayjs;
 
 var top_ctx = helper.getctx();
 top_ctx.settings = require('../lib/settings')();
@@ -53,7 +53,7 @@ var statuses = [{
 
 var profileData =
 {
-  'timezone': moment.tz.guess()
+  'timezone': dayjs.tz.guess()
 };
 
 var statuses2 = [{
@@ -92,14 +92,14 @@ var statuses2 = [{
   }
 }];
 
-var now = moment(statuses[1].created_at);
+var now = dayjs(statuses[1].created_at);
 
 _.forEach(statuses, function updateMills (status) {
-  status.mills = moment(status.created_at).valueOf();
+  status.mills = dayjs(status.created_at).valueOf();
 });
 
 _.forEach(statuses2, function updateMills (status) {
-  status.mills = moment(status.created_at).valueOf();
+  status.mills = dayjs(status.created_at).valueOf();
 });
 
 describe('pump', function ( ) {

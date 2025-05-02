@@ -136,6 +136,7 @@ describe('boluswizardpreview', function ( ) {
       }
       , pluginBase: {}
       , moment: helper.ctx.moment
+      , dayjs: helper.ctx.dayjs
     };
     
     ctx.language = require('../lib/language')();
@@ -180,6 +181,7 @@ describe('boluswizardpreview', function ( ) {
       }
       , pluginBase: {}
       , moment: helper.ctx.moment
+      , dayjs: helper.ctx.dayjs
     };
     
     ctx.language = require('../lib/language')();
@@ -284,6 +286,7 @@ describe('boluswizardpreview', function ( ) {
         }
       }
       , moment: helper.ctx.moment
+      , dayjs: helper.ctx.dayjs
     };
     
     ctx.language = require('../lib/language')();
