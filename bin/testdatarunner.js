@@ -2,7 +2,7 @@
 'use strict';
 
 const axios = require('axios');
-const moment = require('moment');
+const dayjs = require('dayjs');
 const crypto = require('crypto');
 const shasum = crypto.createHash('sha1');
 
@@ -55,7 +55,7 @@ async function sendFail() {
 }
 
 async function sendEntry (date) {
-  const m = moment(date);
+  const m = dayjs(date);
   entry.date = date;
   entry.dateString = m.toISOString();
   entry.sgv = 100 + Math.round(oscillator(date / 1000, 1/(60*60), 30));
