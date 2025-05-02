@@ -18,14 +18,29 @@ require('../node_modules/flot/jquery.flot.time');
 require('../node_modules/flot/jquery.flot.pie');
 require('../node_modules/flot/jquery.flot.fillbetween');
 
-const moment = require('moment-timezone');
+const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+const relativeTime = require('dayjs/plugin/relativeTime');
+const advancedFormat = require('dayjs/plugin/advancedFormat');
+const isoWeek = require('dayjs/plugin/isoWeek');
+const localizedFormat = require('dayjs/plugin/localizedFormat');
 
-window.moment = moment;
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.extend(relativeTime);
+dayjs.extend(advancedFormat);
+dayjs.extend(isoWeek);
+dayjs.extend(localizedFormat);
+
+window.dayjs = dayjs;
 
 window.Nightscout = window.Nightscout || {};
 
 var ctx = {
-    moment: moment
+    dayjs
+    /** {@deprecated} Keep 'moment' key for now to minimize breaking changes elsewhere, will be refactored later */
+    , moment: dayjs 
 };
 
 window.Nightscout = {
