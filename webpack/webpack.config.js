@@ -2,7 +2,6 @@ const path = require('path');
 const webpack = require('webpack');
 const pluginArray = [];
 const sourceMapType = 'source-map';
-const MomentTimezoneDataPlugin = require('moment-timezone-data-webpack-plugin');
 const projectRoot = path.resolve(__dirname, '..');
 
 /*
@@ -54,13 +53,6 @@ pluginArray.push(new webpack.ProvidePlugin({
 
 pluginArray.push(new webpack.ProvidePlugin({
   process: 'process/browser',
-}));
-
-// limit Timezone data from Moment
-
-pluginArray.push(new MomentTimezoneDataPlugin({
-  startYear: 2015,
-  endYear: 2035,
 }));
 
 if (process.env.NODE_ENV === 'development') {
