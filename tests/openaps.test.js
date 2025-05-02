@@ -243,10 +243,10 @@ var statuses = [{
     "created_at": "2017-09-05T19:19:39.899Z"
 }];
 
-var now = top_ctx.moment(statuses[0].created_at);
+var now = top_ctx.dayjs(statuses[0].created_at);
 
 _.forEach(statuses, function updateMills (status) {
-  status.mills = top_ctx.moment(status.created_at).valueOf();
+  status.mills = top_ctx.dayjs(status.created_at).valueOf();
 });
 
 describe('openaps', function ( ) {

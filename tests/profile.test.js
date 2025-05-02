@@ -1,6 +1,6 @@
 var should = require('should');
 const helper = require('./inithelper')();
-const moment = helper.ctx.moment;
+const dayjs = helper.ctx.dayjs;
 
 describe('Profile', function ( ) {
 
@@ -92,7 +92,7 @@ describe('Profile', function ( ) {
 
   var complexProfileData = 
   {
-    'timezone': moment.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time
+    'timezone': dayjs.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time
     'sens': [
         {
             'time': '00:00',
@@ -198,7 +198,7 @@ describe('Profile', function ( ) {
           "store": {
               "20150625-1": {
                   "dia": "4",
-                  "timezone": moment.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time
+                  "timezone": dayjs.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time
                   "startDate": "1970-01-01T00:00:00.000Z",
                   'sens': [
                     {
@@ -270,7 +270,7 @@ describe('Profile', function ( ) {
           "store": {
               "20190621-1": {
                   "dia": "4",
-                  "timezone": moment.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time
+                  "timezone": dayjs.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time
                   "startDate": "1970-01-01T00:00:00.000Z", 
                   'sens': [
                       {

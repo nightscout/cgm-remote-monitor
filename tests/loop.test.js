@@ -102,10 +102,10 @@ var statuses = [
   }
 ];
 
-var now = ctx_top.moment(statuses[0].created_at);
+var now = ctx_top.dayjs(statuses[0].created_at);
 
 _.forEach(statuses, function updateMills (status) {
-  status.mills = ctx_top.moment(status.created_at).valueOf();
+  status.mills = ctx_top.dayjs(status.created_at).valueOf();
 });
 
 describe('loop', function ( ) {
@@ -169,7 +169,7 @@ describe('loop', function ( ) {
       language: language
     };
 
-    var errorTime = ctx_top.moment(statuses[1].created_at);
+    var errorTime = ctx_top.dayjs(statuses[1].created_at);
 
     var sbx = sandbox.clientInit(ctx, errorTime.valueOf(), {devicestatus: statuses});
 
