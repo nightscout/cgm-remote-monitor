@@ -1,6 +1,12 @@
 
 const fs = require('fs');
-const moment = require('moment-timezone');
+const dayjs = require("dayjs");
+const utc = require("dayjs/plugin/utc");
+const timezone = require("dayjs/plugin/timezone");
+const relativeTime = require("dayjs/plugin/relativeTime");
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.extend(relativeTime);
 const language = require('../lib/language')(fs);
 const settings = require('../lib/settings')();
 const levels = require('../lib/levels');
@@ -11,7 +17,9 @@ function helper() {
         language: language
         , settings: settings
         , levels: levels
-        , moment: moment
+        /** deprecated */
+        , moment: dayjs
+        , dayjs: dayjs
       };
 
     helper.getctx = function getctx () {
