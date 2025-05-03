@@ -1,5 +1,9 @@
 var should = require('should');
 const helper = require('./inithelper')();
+
+/**
+ * @type {import('dayjs').Dayjs}
+ */
 const dayjs = helper.ctx.dayjs;
 
 describe('Profile', function ( ) {
@@ -15,7 +19,7 @@ describe('Profile', function ( ) {
     var hasData = profile_empty.hasData();
     hasData.should.equal(false);
   });
-  
+
  it('should return undefined if asking for keys before init', function() {
     var dia = profile_empty.getDIA(now);
     should.not.exist(dia);
@@ -90,9 +94,9 @@ describe('Profile', function ( ) {
     dia.should.equal(50);
   });
 
-  var complexProfileData = 
+  var complexProfileData =
   {
-    'timezone': dayjs.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time
+    'timezone': dayjs.tz.guess(),  //Assume these are in the localtime zone so tests pass when not on UTC time
     'sens': [
         {
             'time': '00:00',
@@ -198,7 +202,7 @@ describe('Profile', function ( ) {
           "store": {
               "20150625-1": {
                   "dia": "4",
-                  "timezone": dayjs.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time
+                  "timezone": dayjs.tz.guess(),
                   "startDate": "1970-01-01T00:00:00.000Z",
                   'sens': [
                     {
@@ -270,8 +274,8 @@ describe('Profile', function ( ) {
           "store": {
               "20190621-1": {
                   "dia": "4",
-                  "timezone": dayjs.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time
-                  "startDate": "1970-01-01T00:00:00.000Z", 
+                  "timezone": dayjs.tz.guess(),
+                  "startDate": "1970-01-01T00:00:00.000Z",
                   'sens': [
                       {
                           'time': '00:00',
@@ -379,7 +383,7 @@ describe('Profile', function ( ) {
       dia.should.equal(14);
   });
 
-  
+
   it('should select the correct profile for 15:00 with multiple profiles', function () {
       var curProfile = multiProfile.getCurrentProfile(threepm);
       curProfile.carbs_hr.should.equal(30);
