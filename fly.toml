@@ -5,8 +5,6 @@ primary_region = 'lax'
 image = "nightscout/cgm-remote-monitor:latest"
 
 [env]
-MONGO_CONNECTION = "mongodb+srv://nightscoutuser:Zevij101723@cluster0.z6smjuw.mongodb.net/nightscout?retryWrites=true&w=majority&appName=Cluster0"
-API_SECRET = "Zevij101723!"
 NODE_ENV = "production"
 PORT = "1337"
 
