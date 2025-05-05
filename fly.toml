@@ -1,13 +1,8 @@
-# fly.toml app configuration file generated for cgm-remote-monitor-mtxl5a on 2025-05-05T02:28:10Z
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
-app = 'cgm-remote-monitor-mtxl5a'
-primary_region = 'lax'
+app = "Zevi-Nightscout"  # replace with app name from Fly.io
 
 [build]
-
+  image = "nightscout/cgm-remote-monitor:latest"
+  
 [http_service]
   internal_port = 1337
   force_https = true
@@ -15,9 +10,3 @@ primary_region = 'lax'
   auto_start_machines = true
   min_machines_running = 0
   processes = ['app']
-
-[[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
-  cpus = 1
-  memory_mb = 1024
