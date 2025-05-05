@@ -1,0 +1,7 @@
+app = "Zevi-Nightscout"  # replace with app name from Fly.io
+
+[build]
+  image = "nightscout/cgm-remote-monitor:latest"
+
+[env]
+  NODE_ENV = "production"
