@@ -7,7 +7,6 @@ image = "nightscout/cgm-remote-monitor:latest"
 [env]
 NODE_ENV = "production"
 PORT = "1337"
-# Secrets API_SECRET and MONGODB_URI are injected by Fly.io (do not declare here)
 
 [http_service]
   internal_port = 1337
