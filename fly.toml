@@ -1,0 +1,29 @@
+app = "cgm-remote-monitor-mtxl5a"
+primary_region = "lax"
+
+[build]
+image = "nightscout/cgm-remote-monitor:latest"
+
+[env]
+  MONGO_CONNECTION = "mongodb+srv://nightscoutuser:Zevij101723@cluster0.z6smjuw.mongodb.net/nightscout?retryWrites=true&w=majority&appName=Cluster0"
+  API_SECRET = "Zevij10172023"
+  NODE_ENV = "production"
+  PORT = "1337"
+  ENABLE = "careportal, bridge, basal, bolus, iob, profile, rawbg, pump, cob, bwp, cage, food, meal, treatments, sage, override, openaps"
+  BRIDGE_USER_NAME = "sabrinamust@gmail.com"
+  BRIDGE_PASSWORD = "Zevij1017"
+  BRIDGE_MAX_COUNT = "1"
+  BRIDGE_INTERVAL = "5"
+
+[http_service]
+  internal_port = 1337
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
