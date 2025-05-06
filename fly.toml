@@ -10,6 +10,10 @@ image = "nightscout/cgm-remote-monitor:latest"
   NODE_ENV = "production"
   PORT = "1337"
   ENABLE = "careportal, bridge, basal, bolus, iob, profile, rawbg, pump, cob, bwp, cage, food, meal, treatments, sage, override, openaps"
+  BRIDGE_USER_NAME = "sabrinamust@gmail.com"
+  BRIDGE_PASSWORD = "Zevij1017"
+  BRIDGE_MAX_COUNT = "1"
+  BRIDGE_INTERVAL = "5"
 
 [http_service]
   internal_port = 1337
