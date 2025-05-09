@@ -481,7 +481,7 @@ autonomy for your data:
 
 ##### `basal` (Basal Profile)
   Adds the Basal pill visualization to display the basal rate for the current time.  Also enables the `bwp` plugin to calculate correction temp basal suggestions.  Uses the `basal` field from the [treatment profile](#treatment-profile). Also uses the extended setting:
-  * `BASAL_RENDER` (`none`) - Possible values are `none`, `default`, or `icicle` (inverted)
+  * `BASAL_RENDER` (`default`) - Possible values are `none`, `default`, or `icicle` (inverted)
 
 ##### `bolus` (Bolus Rendering)
   Settings to configure Bolus rendering
