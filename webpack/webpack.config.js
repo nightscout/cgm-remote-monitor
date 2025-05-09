@@ -167,8 +167,7 @@ module.exports = {
     },
     alias: {
       stream: 'stream-browserify',
-      crypto: 'crypto-browserify',
-      buffer: 'buffer',
+      buffer: 'buffer', // Required by stream-browserify.
     }
   }
 };
