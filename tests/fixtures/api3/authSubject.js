@@ -62,7 +62,7 @@ function createTestSubject (authStorage, subjectName, roles) {
 
 async function initJwts (accessToken, tokensNeeded, app) {
   const jwt = {}
-  if (!_.isArray(tokensNeeded) || !app)
+  if (!Array.isArray(tokensNeeded) || !app)
     return jwt;
 
   for (const tokenNeeded of tokensNeeded) {
