@@ -94,11 +94,11 @@ var statuses2 = [{
 
 var now = moment(statuses[1].created_at);
 
-_.forEach(statuses, function updateMills (status) {
+statuses.forEach(function updateMills (status) {
   status.mills = moment(status.created_at).valueOf();
 });
 
-_.forEach(statuses2, function updateMills (status) {
+statuses2.forEach(function updateMills (status) {
   status.mills = moment(status.created_at).valueOf();
 });
 

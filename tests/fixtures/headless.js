@@ -26,11 +26,11 @@ function headless (benv, binding) {
       console.log('Setting up benv', Date.now() - t);
 
       benv.require(__dirname + '/../../node_modules/.cache/_ns_cache/public/js/bundle.app.js');
-      
+
       console.log('Bundle loaded', Date.now() - t);
 
       self.$ = $;
-      
+
       self.localCookieStorage = self.localStorage = self.$.localStorage = require(localStorage);
 
       self.$.fn.tooltip = function mockTooltip ( ) { };
@@ -43,7 +43,7 @@ function headless (benv, binding) {
       var d3 = require('d3');
       //disable all d3 transitions so most of the other code can run with jsdom
       d3.timer = function mockTimer() { };
-      
+
       if (opts.mockProfileEditor) {
         self.$.plot = function mockPlot () {
         };
@@ -59,7 +59,7 @@ function headless (benv, binding) {
           }
           maybeCall('open', opts);
 
-          _.forEach(opts.buttons, function (button) {
+          opts.buttons.forEach(function (button) {
             maybeCall('click', button);
           });
         };
@@ -171,7 +171,7 @@ function headless (benv, binding) {
       });
       callback( );
     });
-    
+
   }
 
   function teardown ( ) {
