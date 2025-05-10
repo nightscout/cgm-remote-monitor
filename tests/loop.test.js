@@ -104,7 +104,7 @@ var statuses = [
 
 var now = ctx_top.moment(statuses[0].created_at);
 
-_.forEach(statuses, function updateMills (status) {
+statuses.forEach(function updateMills (status) {
   status.mills = ctx_top.moment(status.created_at).valueOf();
 });
 
