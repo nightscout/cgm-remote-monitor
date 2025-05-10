@@ -33,37 +33,19 @@ jobs:
             const message = `
 Hi! 👋 It looks like you're trying to sync your fork's \`${baseBranchName}\` branch with the \`${baseRepoFullName}\` repository.
 
-This pull request was likely opened by mistake. To sync your fork's \`${baseBranchName}\` branch, please follow these steps in your local clone of your fork:
+This pull request was likely opened by mistake. To sync your fork with the upstream repository using the GitHub website, please follow these steps:
 
-1.  **Add the upstream repository as a remote (if you haven't already):**
-    \`\`\`bash
-    git remote add upstream https://github.com/${baseRepoFullName}.git
-    \`\`\`
-    *(You only need to do this once per clone.)*
+1.  **Go to your fork on GitHub.** (This is \`https://github.com/${pr.head.repo.full_name}\`)
+2.  **Ensure you are on the \`${baseBranchName}\` branch.** You can select it from the branch dropdown menu (it usually says "main" or "master").
+3.  **Look for a "Sync fork" or "Fetch upstream" button/dropdown.**
+    *   On your fork's page, above the file list, you might see a section indicating if your branch is behind the upstream repository (e.g., "This branch is X commits behind ${baseRepoFullName}:${baseBranchName}.").
+    *   Next to this, or in a dropdown labeled "Sync fork", you should find an option called **"Update branch"**.
+4.  **Click "Update branch".**
+    *   GitHub will fetch the changes from \`${baseRepoFullName}/${baseBranchName}\` and merge them into your fork's \`${baseBranchName}\` branch.
 
-2.  **Fetch the latest changes from the upstream repository:**
-    \`\`\`bash
-    git fetch upstream
-    \`\`\`
+If you don't see these options, your fork might already be up to date, or you might be on a different branch.
 
-3.  **Check out your local branch that corresponds to \`${baseBranchName}\`:**
-    *(This is typically also named \`${baseBranchName}\` in your fork. If it's different, use your fork's branch name.)*
-    \`\`\`bash
-    git checkout ${baseBranchName}
-    \`\`\`
-
-4.  **Merge the changes from \`upstream/${baseBranchName}\` into your local branch:**
-    \`\`\`bash
-    git merge upstream/${baseBranchName}
-    \`\`\`
-    *(This brings your local branch up to date with the upstream.)*
-
-5.  **Push the updated branch to your fork on GitHub:**
-    \`\`\`bash
-    git push origin ${baseBranchName}
-    \`\`\`
-
-Closing this PR to keep our queue clean. Thank you! 💙
+We're automatically closing this PR to keep our queue clean. Thank you! 💙
 If this was not a mistake, please feel free to reopen this pull request and clarify its purpose.`.trim();
 
             await github.rest.issues.createComment({
