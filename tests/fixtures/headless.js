@@ -52,15 +52,14 @@ function headless (benv, binding) {
 
         self.$.fn.dialog = function mockDialog (opts) {
           function maybeCall (name, obj) {
-            if (obj[name] && obj[name].call) {
+            if (obj?.[name] && obj[name]?.call) {
               obj[name]();
             }
 
-          }
-          maybeCall('open', opts);
+          }          maybeCall('open', opts);
 
-          opts.buttons.forEach(function (button) {
-            maybeCall('click', button);
+          Object.keys(opts?.buttons || []).forEach(function (key) {
+            maybeCall('click', opts.buttons[key]);
           });
         };
       }
