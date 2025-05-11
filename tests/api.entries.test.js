@@ -9,7 +9,7 @@ const _ = require('lodash');
 require('should');
 
 const FIVE_MINUTES=1000*60*5;
- 
+
 describe('Entries REST api', function ( ) {
   var entries = require('../lib/api/entries/');
   var self = this;
@@ -99,13 +99,13 @@ describe('Entries REST api', function ( ) {
       .expect(200)
       .end(function (err, res) {
         res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
-        
+
         var array = res.body;
         var firstEntry = array[0];
         var secondEntry = array[1];
-        
+
         firstEntry.date.should.be.above(secondEntry.date);
-        
+
         done( );
       });
   });
@@ -117,13 +117,13 @@ describe('Entries REST api', function ( ) {
       .expect(200)
       .end(function (err, res) {
         res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
-        
+
         var array = res.body;
         var firstEntry = array[0];
         var secondEntry = array[1];
-        
+
         firstEntry.date.should.be.above(secondEntry.date);
-        
+
         done( );
       });
   });
