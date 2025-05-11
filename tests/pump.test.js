@@ -205,10 +205,10 @@ describe('pump', function ( ) {
       , language: language
       , levels: levels
     };
-
     ctx.notifications.initRequests();
 
-    var lowResStatuses = _.cloneDeep(statuses);
+    // Deep clone statuses array for test isolation
+    var lowResStatuses = JSON.parse(JSON.stringify(statuses));
     lowResStatuses[1].pump.reservoir = 0.5;
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
@@ -391,7 +391,7 @@ describe('pump', function ( ) {
       , language: language
       , levels: levels
     };
-    
+
     ctx.language.set('en');
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
     pump.setProperties(sbx);
@@ -405,19 +405,19 @@ describe('pump', function ( ) {
       pump.virtAsst.intentHandlers[1].intentHandler(function next(title, response) {
         title.should.equal('Pump Battery');
         response.should.equal('Your pump battery is at 1.52 volts');
-        
+
         pump.virtAsst.intentHandlers[2].intentHandler(function next(title, response) {
           title.should.equal('Insulin Remaining');
           response.should.equal('You have 86.4 units remaining');
-    
+
           pump.virtAsst.intentHandlers[3].intentHandler(function next(title, response) {
             title.should.equal('Pump Battery');
             response.should.equal('Your pump battery is at 1.52 volts');
             done();
           }, [], sbx);
-          
+
         }, [], sbx);
-          
+
       }, [], sbx);
 
     }, [], sbx);

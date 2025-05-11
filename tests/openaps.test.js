@@ -306,10 +306,10 @@ describe('openaps', function ( ) {
       , language: language
       , levels: levels
     };
-
     ctx.notifications.initRequests();
 
-    var notStatuses = _.cloneDeep(statuses);
+    // Deep clone statuses array for test isolation
+    var notStatuses = JSON.parse(JSON.stringify(statuses));
     notStatuses[0].openaps.enacted.recieved = false;
     var sbx = require('../lib/sandbox')().clientInit(ctx, now, {devicestatus: notStatuses});
 
