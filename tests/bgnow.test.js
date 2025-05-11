@@ -30,10 +30,10 @@ describe('BG Now', function ( ) {
       , language: { translate: function(text) { return text; } }
       }
     };
-    
+
     ctx.language = ctx.pluginBase.language;
     ctx.levels = require('../lib/levels');
-   
+
     var data = {sgvs: [{mills: before, mgdl: 100}, {mills: now, mgdl: 105}]};
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
@@ -225,9 +225,8 @@ describe('BG Now', function ( ) {
 
 });
 
-function findInfoValue (label, info) {
-  var found = _.find(info, function checkLine (line) {
-    return line.label === label;
-  });
+function findInfoValue(label, info) {
+  const found = info.find(line => line.label === label);
   return found && found.value;
 }
+

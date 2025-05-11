@@ -90,9 +90,9 @@ describe('API3 output renderers', function() {
    * @param arrModel
    * @param arr
    */
-  self.checkItems = function checkItems (arrModel, arr) {
+  self.checkItems = function checkItems(arrModel, arr) {
     for (let itemModel of arrModel) {
-      const item = _.find(arr, (doc) => doc.identifier === itemModel.identifier);
+      const item = arr.find(doc => doc.identifier === itemModel.identifier);
       item.should.not.be.empty();
       self.checkProps(itemModel, item);
     }
