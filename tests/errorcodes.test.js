@@ -95,7 +95,7 @@ describe('errorcodes', function ( ) {
     mapping[8].should.equal(levels.INFO);
     mapping[9].should.equal(levels.URGENT);
     mapping[10].should.equal(levels.URGENT);
-    _.keys(mapping).length.should.equal(10);
+    Object.keys(mapping).length.should.equal(10);
   });
 
   it('allow config of custom code to level mappings', function () {
@@ -106,7 +106,7 @@ describe('errorcodes', function ( ) {
     });
     mapping[9].should.equal(levels.WARN);
     mapping[10].should.equal(levels.WARN);
-    _.keys(mapping).length.should.equal(2);
+    Object.keys(mapping).length.should.equal(2);
   });
 
 });
