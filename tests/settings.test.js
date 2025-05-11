@@ -32,7 +32,6 @@ describe('settings', function ( ) {
     settings.secureHstsHeader.should.equal(true);
     settings.secureCsp.should.equal(false);
   });
-
   it('support setting from env vars', function () {
     var expected = [
       'ENABLE'
@@ -69,13 +68,12 @@ describe('settings', function ( ) {
     });
 
 
-    var expectedAndSeen = _.filter(expected, function (name) {
+    var expectedAndSeen = expected.filter(function (name) {
       return seen[name];
     });
 
     expectedAndSeen.length.should.equal(expected.length);
   });
-
   it('support setting each', function () {
     var expected = [
       'enable'
@@ -107,7 +105,7 @@ describe('settings', function ( ) {
     });
 
 
-    var expectedAndSeen = _.filter(expected, function (name) {
+    var expectedAndSeen = expected.filter(function (name) {
       return seen[name];
     });
 
@@ -121,7 +119,7 @@ describe('settings', function ( ) {
       return undefined;
     });
 
-    _.each(fresh.DEFAULT_FEATURES, function eachDefault (feature) {
+    fresh.DEFAULT_FEATURES?.forEach(function eachDefault (feature) {
       fresh.enable.should.containEql(feature);
     });
 
