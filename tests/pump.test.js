@@ -331,7 +331,7 @@ describe('pump', function ( ) {
 
     ctx.notifications.initRequests();
 
-    var lowBattStatuses = _.cloneDeep(statuses);
+    var lowBattStatuses = JSON.parse(JSON.stringify(statuses));
     lowBattStatuses[1].pump.battery.voltage = 1.00;
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
