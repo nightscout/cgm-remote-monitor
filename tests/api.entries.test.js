@@ -40,11 +40,7 @@ describe('Entries REST api', function ( ) {
       const e = {type: 'sgv', sgv: 100, date: Date.now()};
       e.date = e.date - FIVE_MINUTES * i;
       creating.push(e);
-    }
-
-    creating = _.sortBy(creating, function(item) {
-      return item.date;
-    });
+    }    creating = creating.sort((a, b) => a.date - b.date);
 
     function setupDone() {
       console.log('Setup complete');
