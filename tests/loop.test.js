@@ -204,7 +204,7 @@ describe('loop', function ( ) {
 
     ctx.notifications.initRequests();
 
-    var notStatuses = _.cloneDeep(statuses);
+    var notStatuses = JSON.parse(JSON.stringify(statuses));
     notStatuses[0].loop.enacted.received = false;
     var sbx = require('../lib/sandbox')().clientInit(ctx, now, {devicestatus: notStatuses});
 
