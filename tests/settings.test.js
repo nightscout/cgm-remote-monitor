@@ -1,6 +1,5 @@
 'use strict';
 
-var _ = require('lodash');
 var should = require('should');
 var levels = require('../lib/levels');
 
