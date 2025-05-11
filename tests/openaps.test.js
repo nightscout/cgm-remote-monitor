@@ -260,10 +260,10 @@ describe('openaps', function ( ) {
         updatePillText: function mockedUpdatePillText (plugin, options) {
           options.label.should.equal('OpenAPS ⌁');
           options.value.should.equal('2m ago');
-          var first = _.first(options.info);
+          var first = options.info?.[0];
           first.label.should.equal('1m ago');
           first.value.should.equal('abusypi ⌁ Enacted @ -55dB');
-          var last = _.last(options.info);
+          var last = options.info?.[options.info?.length - 1];
           last.label.should.equal('1h ago');
           last.value.should.equal('awaitingpi ◉ Waiting');
         }

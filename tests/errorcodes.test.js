@@ -56,7 +56,7 @@ describe('errorcodes', function ( ) {
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
     errorcodes.checkNotifications(sbx);
     should.not.exist(ctx.notifications.findHighestAlarm('CGM Error Code'));
-    var info = _.first(ctx.notifications.findUnSnoozeable());
+    var info = ctx.notifications.findUnSnoozeable()?.[0];
     info.level.should.equal(levels.INFO);
     info.pushoverSound.should.equal('intermission');
 
@@ -72,7 +72,7 @@ describe('errorcodes', function ( ) {
       var sbx = require('../lib/sandbox')().serverInit(env, ctx);
       errorcodes.checkNotifications(sbx);
       should.not.exist(ctx.notifications.findHighestAlarm('CGM Error Code'));
-      _.first(ctx.notifications.findUnSnoozeable()).level.should.be.lessThan(levels.WARN);
+      ctx.notifications.findUnSnoozeable()?.[0]?.level.should.be.lessThan(levels.WARN);
     }
     done();
   });
