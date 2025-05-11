@@ -9,7 +9,6 @@ describe('API3 output renderers', function() {
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
     , opTools = require('../lib/api3/shared/operationTools')
-    , _ = require('lodash')
     , xml2js = require('xml2js')
     , csvParse = require('csv-parse/lib/sync')
     ;

@@ -1,9 +1,7 @@
 'use strict';
 
 require('should');
-var _ = require('lodash');
 var benv = require('benv');
-var read = require('fs').readFileSync;
 
 var nowData = require('../lib/data/ddata')();
 nowData.sgvs.push({ mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' });
@@ -121,13 +119,13 @@ describe('Profile editor', function ( ) {
 
     client.init();
     client.dataUpdate(nowData);
-    
+
     // var result = $('body').html();
     // console.log(result);
     //var filesys = require('fs');
     //var logfile = filesys.createWriteStream('out.html', { flags: 'a'} )
     //logfile.write($('body').html());
-    
+
     // database records manipulation
     $('#pe_databaserecords option').length.should.be.equal(1);
     $('#pe_records_add').click();

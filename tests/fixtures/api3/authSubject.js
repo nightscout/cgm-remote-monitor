@@ -1,7 +1,6 @@
 'use strict';
 
-const _ = require('lodash')
-  , request = require('supertest')
+const request = require('supertest')
   ;
 require('should');
 

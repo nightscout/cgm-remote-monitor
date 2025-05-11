@@ -1,7 +1,6 @@
 'use strict';
 
 var should = require('should');
-var _ = require('lodash');
 const helper = require('./inithelper')();
 
 var FIVE_MINS = 300000;

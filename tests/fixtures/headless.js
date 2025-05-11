@@ -1,6 +1,5 @@
 
 var read = require('fs').readFileSync;
-var _ = require('lodash');
 
 function headless (benv, binding) {
   var self = binding;

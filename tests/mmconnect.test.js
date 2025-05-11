@@ -2,8 +2,7 @@
 /* globals describe, it */
 'use strict';
 
-var _ = require('lodash'),
-  should = require('should');
+var should = require('should');
 
 describe('mmconnect', function () {
   var mmconnect = require('../lib/plugins/mmconnect');

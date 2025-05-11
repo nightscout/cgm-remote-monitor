@@ -4,7 +4,6 @@ var request = require('supertest');
 var load = require('./fixtures/load');
 var bootevent = require('../lib/server/bootevent');
 var language = require('../lib/language')();
-const _ = require('lodash');
 
 require('should');
 
@@ -263,7 +262,7 @@ describe('Entries REST api', function ( ) {
       .post('/entries/preview.json')
       .send(load('json'))
       .expect(401)
-      .end(function (err, res) {
+      .end(function () {
         // res.body.should.be.instanceof(Array).and.have.lengthOf(30);
         done();
       });

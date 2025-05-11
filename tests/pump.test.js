@@ -1,6 +1,5 @@
 'use strict';
 
-var _ = require('lodash');
 var should = require('should');
 const helper = require('./inithelper')();
 const moment = helper.ctx.moment;

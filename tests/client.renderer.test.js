@@ -1,7 +1,6 @@
 'use strict';
 
 require('should');
-let _ = require('lodash');
 
 let renderer = require('../lib/client/renderer');
 
@@ -40,7 +39,7 @@ describe('renderer', () => {
 
       let mockClient = {
         chart: {
-          brush: { 
+          brush: {
             extent: () => {
               let extents = [];
               for (let time of extent.times) {
@@ -48,7 +47,7 @@ describe('renderer', () => {
                   return time;
                 }});
               }
-              return extents; 
+              return extents;
             }
           }
           , futureOpacity: (millsDifference) => { return 1; }
