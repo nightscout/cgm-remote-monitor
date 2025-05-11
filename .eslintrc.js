@@ -1,6 +1,7 @@
 module.exports = {
     'plugins': [
-      'security'
+      'security',
+      'you-dont-need-lodash-underscore:compatible'
     ],
     'extends': [
       'eslint:recommended',
