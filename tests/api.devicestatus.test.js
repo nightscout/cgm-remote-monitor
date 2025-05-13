@@ -1,7 +1,6 @@
 'use strict';
 
 var request = require('supertest');
-var should = require('should');
 var language = require('../lib/language')();
 
 describe('Devicestatus API', function ( ) {
@@ -79,7 +78,7 @@ describe('Devicestatus API', function ( ) {
                       console.log('Testing if devicestatus was deleted');
                       request(self.app)
                         .get('/api/devicestatus/')
-                        .query('find[created_at][$lte]=2018-12-16')
+                        .query('find[created_at][$gte]=2018-12-16')
                         .set('api-secret', known || '')
                         .expect(200)
                         .expect(function (response) {
