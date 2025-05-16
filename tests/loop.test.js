@@ -1,6 +1,7 @@
 'use strict';
 
 const should = require('should');
+const cloneDeep = require('../lib/utils/clone');
 const helper = require('./inithelper')();
 
 var ctx_top = helper.getctx();
@@ -203,7 +204,7 @@ describe('loop', function ( ) {
 
     ctx.notifications.initRequests();
 
-    var notStatuses = JSON.parse(JSON.stringify(statuses));
+    var notStatuses = cloneDeep(statuses);
     notStatuses[0].loop.enacted.received = false;
     var sbx = require('../lib/sandbox')().clientInit(ctx, now, {devicestatus: notStatuses});
 

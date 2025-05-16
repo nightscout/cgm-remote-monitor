@@ -1,6 +1,7 @@
 'use strict';
 
 var should = require('should');
+const cloneDeep = require('../lib/utils/clone');
 const helper = require('./inithelper')();
 const moment = helper.ctx.moment;
 
@@ -207,7 +208,7 @@ describe('pump', function ( ) {
     ctx.notifications.initRequests();
 
     // Deep clone statuses array for test isolation
-    var lowResStatuses = structuredClone(statuses);
+    var lowResStatuses = cloneDeep(statuses);
     lowResStatuses[1].pump.reservoir = 0.5;
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
