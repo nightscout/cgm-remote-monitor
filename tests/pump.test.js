@@ -207,7 +207,7 @@ describe('pump', function ( ) {
     ctx.notifications.initRequests();
 
     // Deep clone statuses array for test isolation
-    var lowResStatuses = JSON.parse(JSON.stringify(statuses));
+    var lowResStatuses = structuredClone(statuses);
     lowResStatuses[1].pump.reservoir = 0.5;
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
