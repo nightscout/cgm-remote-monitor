@@ -14,8 +14,8 @@ function loopalyzerMoreBackward() {
     var from = dayjs($("#rp_from").val())
     var to = dayjs($("#rp_to").val())
     var diff = to.diff(from, 'days') + 1;
-    from.subtract(diff, 'days');
-    to.subtract(diff, 'days');
+    from = from.subtract(diff, 'days');
+    to = to.subtract(diff, 'days');
     $("#rp_from").val(from.format('YYYY-MM-DD'));
     $("#rp_to").val(to.format('YYYY-MM-DD'));
     $("#rp_show").click();
@@ -39,12 +39,12 @@ function loopalyzerMoreForward() {
     var from = dayjs($("#rp_from").val())
     var to = dayjs($("#rp_to").val())
     var diff = to.diff(from, 'days') + 1;
-    from.add(diff, 'days');
-    to.add(diff, 'days');
+    from = from.add(diff, 'days');
+    to = to.add(diff, 'days');
     if (to > dayjs()) {
         to = dayjs();
         from = dayjs();
-        from.subtract(diff-1, 'days');
+        from = from.subtract(diff-1, 'days');
     }
     $("#rp_from").val(from.format('YYYY-MM-DD'));
     $("#rp_to").val(to.format('YYYY-MM-DD'));
