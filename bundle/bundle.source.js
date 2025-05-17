@@ -25,6 +25,10 @@ const relativeTime = require('dayjs/plugin/relativeTime');
 const advancedFormat = require('dayjs/plugin/advancedFormat');
 const isoWeek = require('dayjs/plugin/isoWeek');
 const localizedFormat = require('dayjs/plugin/localizedFormat');
+const pluralGetSet = require("dayjs/plugin/pluralGetSet");
+dayjs.extend(pluralGetSet);
+const duration = require("dayjs/plugin/duration");
+dayjs.extend(duration);
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -40,7 +44,7 @@ window.Nightscout = window.Nightscout || {};
 var ctx = {
     dayjs
     /** {@deprecated} Keep 'moment' key for now to minimize breaking changes elsewhere, will be refactored later */
-    , moment: dayjs 
+    , moment: dayjs
 };
 
 window.Nightscout = {
