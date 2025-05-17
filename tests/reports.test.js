@@ -4,6 +4,21 @@ require('should');
 var benv = require('benv');
 var serverSettings = require('./fixtures/default-server-settings');
 
+/**
+ * @typedef {object} SGVRecord
+ * @property {number} mgdl
+ * @property {number} mills
+ * @property {string} direction
+ * @property {string} type
+ */
+
+/**
+ * @typedef {object} NowData
+ * @property {SGVRecord[]} sgvs
+ * @property {object[]} treatments - Array of treatment objects
+ */
+
+/** @type {NowData} */
 var nowData = {
   sgvs: [
     { mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' }
@@ -266,6 +281,34 @@ var someData = {
 
   };
 
+/**
+ * @typedef {object} ProfileTimeValuePair
+ * @property {string} time - e.g., "00:00"
+ * @property {number} value
+ */
+
+/**
+ * @typedef {object} ProfileEntry
+ * @property {number} dia - DiA
+ * @property {ProfileTimeValuePair[]} carbratio
+ * @property {number} carbs_hr
+ * @property {number} delay
+ * @property {ProfileTimeValuePair[]} sens
+ * @property {Date | string} startDate - Start date of the profile, can be Date object or string
+ * @property {string} timezone
+ * @property {boolean} perGIvalues
+ * @property {number} carbs_hr_high
+ * @property {number} carbs_hr_medium
+ * @property {number} carbs_hr_low
+ * @property {number} delay_high
+ * @property {number} delay_medium
+ * @property {number} delay_low
+ * @property {ProfileTimeValuePair[]} basal
+ * @property {ProfileTimeValuePair[]} target_low
+ * @property {ProfileTimeValuePair[]} target_high
+ */
+
+/** @type {ProfileEntry[]} */
 var exampleProfile = [
   {
   //General values
@@ -318,6 +361,10 @@ var exampleProfile = [
   }
 ];
 
+// If exampleProfile[0].startDate were a Day.js object,
+// mutations would need to be handled immutably, e.g.:
+// exampleProfile[0].startDate = dayjs(exampleProfile[0].startDate).second(0).millisecond(0);
+// For now, it's a standard Date object, so direct mutation is used.
 exampleProfile[0].startDate.setSeconds(0);
 exampleProfile[0].startDate.setMilliseconds(0);
 
@@ -358,6 +405,10 @@ describe('reports', function ( ) {
 
     var hashauth = require('../lib/client/hashauth');
     hashauth.init(client,$);
+    /**
+     * Mocks the verifyAuthentication function.
+     * @param {function(boolean): void} next - Callback function to indicate authentication status.
+     */
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) {
       hashauth.authenticated = true;
       next(true);
@@ -371,7 +422,11 @@ describe('reports', function ( ) {
        return true;
      };
 
-
+     /**
+      * Mocks the setTimeout function.
+      * @param {function(): void} call - The function to execute.
+      * @param {number} timer - The time, in milliseconds.
+      */
      window.setTimeout = function mockSetTimeout (call, timer) {
        if (timer == 60000) return;
        call();
@@ -388,7 +443,7 @@ describe('reports', function ( ) {
       client.sbx.data.profile.loadData(exampleProfile);
 
       $('#treatments').addClass('selected');
-      $('a.presetdates :first').click();
+      $('a.presetdates').find('*').first().trigger('click');
       $('#rp_notes').val('something');
       $('#rp_eventtype').val('BG Check');
       $('#rp_from').val('2015-08-08');
@@ -408,9 +463,9 @@ describe('reports', function ( ) {
       $('#rp_show').click();
       $('#dailystats').click();
 
-      $('img.deleteTreatment:first').click();
-      $('img.editTreatment:first').click();
-      $('.ui-button:contains("Save")').click();
+      $('img.deleteTreatment').first().trigger('click');
+      $('img.editTreatment').first().trigger('click');
+      $('.ui-button:contains("Save")').trigger('click');
 
 
       var result = $('body').html();
@@ -439,6 +494,10 @@ describe('reports', function ( ) {
 
     var hashauth = require('../lib/client/hashauth');
     hashauth.init(client,$);
+    /**
+     * Mocks the verifyAuthentication function.
+     * @param {function(boolean): void} next - Callback function to indicate authentication status.
+     */
     hashauth.verifyAuthentication = function mockVerifyAuthentication(next) {
       hashauth.authenticated = true;
       next(true);
@@ -452,6 +511,11 @@ describe('reports', function ( ) {
        return true;
      };
 
+     /**
+      * Mocks the setTimeout function.
+      * @param {function(): void} call - The function to execute.
+      * @param {number} timer - The time, in milliseconds.
+      */
      window.setTimeout = function mockSetTimeout (call, timer) {
       if (timer == 60000) return;
       call();
@@ -466,7 +530,7 @@ describe('reports', function ( ) {
       client.sbx.data.profile.loadData(exampleProfile);
 
       $('#weektoweek').addClass('selected');
-      $('a.presetdates :first').click();
+      $('a.presetdates').find('*').first().trigger('click');
       $('#rp_from').val('2015-08-08');
       $('#rp_to').val('2015-09-07');
       $('#wrp_log').prop('checked', true);
@@ -474,7 +538,7 @@ describe('reports', function ( ) {
 
       $('#wrp_linear').prop('checked', true);
       $('#rp_show').click();
-      $('.ui-button:contains("Save")').click();
+      $('.ui-button:contains("Save")').trigger('click');
 
       var result = $('body').html();
 
