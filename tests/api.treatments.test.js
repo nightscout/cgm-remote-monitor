@@ -4,7 +4,7 @@ var _ = require('lodash');
 var request = require('supertest');
 var should = require('should');
 var language = require('../lib/language')();
-var _dayjs = require('dayjs');
+const _dayjs = require('../lib/utils/dayjs');
 
 describe('Treatment API', function ( ) {
   this.timeout(10000);
@@ -85,10 +85,10 @@ describe('Treatment API', function ( ) {
 */
 
   it('post single treatments in zoned time format', function (done) {
-   
+
     var current_time = Date.now();
     console.log('Testing date with local format: ', _dayjs(current_time).format("YYYY-MM-DDTHH:mm:ss.SSSZZ"));
-      
+
     self.ctx.treatments().remove({ }, function ( ) {
       request(self.app)
         .post('/api/treatments/')

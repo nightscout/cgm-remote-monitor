@@ -2,9 +2,7 @@
 
 require('should');
 
-var dayjs = require('dayjs');
-const utc = require("dayjs/plugin/utc");
-dayjs.extend(utc);
+const dayjs = require('../lib/utils/dayjs');
 
 describe('query', function ( ) {
   var query = require('../lib/server/query');

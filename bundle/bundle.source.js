@@ -18,24 +18,7 @@ require('../node_modules/flot/jquery.flot.time');
 require('../node_modules/flot/jquery.flot.pie');
 require('../node_modules/flot/jquery.flot.fillbetween');
 
-const dayjs = require('dayjs');
-const utc = require('dayjs/plugin/utc');
-const timezone = require('dayjs/plugin/timezone');
-const relativeTime = require('dayjs/plugin/relativeTime');
-const advancedFormat = require('dayjs/plugin/advancedFormat');
-const isoWeek = require('dayjs/plugin/isoWeek');
-const localizedFormat = require('dayjs/plugin/localizedFormat');
-const pluralGetSet = require("dayjs/plugin/pluralGetSet");
-dayjs.extend(pluralGetSet);
-const duration = require("dayjs/plugin/duration");
-dayjs.extend(duration);
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.extend(relativeTime);
-dayjs.extend(advancedFormat);
-dayjs.extend(isoWeek);
-dayjs.extend(localizedFormat);
+const dayjs = require('../lib/utils/dayjs');
 
 window.dayjs = dayjs;
 
