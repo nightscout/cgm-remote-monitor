@@ -752,7 +752,7 @@ For remote overrides, the following extended settings must be configured:
   * `ns-info` - Plugins that generate notifications at the info level will cause this event to also be triggered.  It will be sent in addition to `ns-event`.
   * `ns-warning` - Alarms at the warning level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
   * `ns-urgent` - Alarms at the urgent level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
-  * see the [full list of events](lib/plugins/maker-setup.md#events)
+  * see the [full list of events](docs/plugins/maker-setup.md#events)
 
 
 ### Treatment Profile
