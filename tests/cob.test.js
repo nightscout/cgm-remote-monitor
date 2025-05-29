@@ -1,6 +1,6 @@
 'use strict';
 
-const _ = require('lodash');
+const deepMerge = require('../lib/utils/deepMerge');
 const helper = require('./inithelper')();
 
 require('should');
@@ -9,7 +9,7 @@ describe('COB', function ( ) {
   var ctx = helper.ctx;
 
   var cob = require('../lib/plugins/cob')(ctx);
-  
+
   var profileData = {
     startDate: '2015-06-21'
     , sens: 95
@@ -154,7 +154,7 @@ describe('COB', function ( ) {
     });
 
     it('should fall back to treatments if openaps devicestatus is present but too stale', function() {
-      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - cob.RECENCY_THRESHOLD - 1, openaps: {enacted: {COB: 5, timestamp: time - cob.RECENCY_THRESHOLD - 1} } })];
+      var devicestatus = [deepMerge(OPENAPS_DEVICESTATUS, { mills: time - cob.RECENCY_THRESHOLD - 1, openaps: {enacted: {COB: 5, timestamp: time - cob.RECENCY_THRESHOLD - 1} } })];
       cob.cobTotal(treatments, devicestatus, profile, time).should.containEql({
         source: 'Care Portal',
         cob: treatmentCOB
@@ -162,7 +162,7 @@ describe('COB', function ( ) {
     });
 
     it('should return COB data from OpenAPS', function () {
-      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - 1, openaps: {enacted: {COB: 5, timestamp: time - 1} } })];
+      var devicestatus = [deepMerge(OPENAPS_DEVICESTATUS, { mills: time - 1, openaps: {enacted: {COB: 5, timestamp: time - 1} } })];
       cob.cobTotal(treatments, devicestatus, profile, time).should.containEql({
         cob: 5,
         source: 'OpenAPS',
@@ -181,7 +181,7 @@ describe('COB', function ( ) {
         }
       };
 
-      var devicestatus = [_.merge(LOOP_DEVICESTATUS, { mills: time - 1, loop: {cob: {timestamp: time - 1} } })];
+      var devicestatus = [deepMerge(LOOP_DEVICESTATUS, { mills: time - 1, loop: {cob: {timestamp: time - 1} } })];
       cob.cobTotal(treatments, devicestatus, profile, time).should.containEql({
         cob: 5,
         source: 'Loop',

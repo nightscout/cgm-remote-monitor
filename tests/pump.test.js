@@ -1,7 +1,7 @@
 'use strict';
 
-var _ = require('lodash');
 var should = require('should');
+const cloneDeep = require('../lib/utils/clone');
 const helper = require('./inithelper')();
 const moment = helper.ctx.moment;
 
@@ -94,11 +94,11 @@ var statuses2 = [{
 
 var now = moment(statuses[1].created_at);
 
-_.forEach(statuses, function updateMills (status) {
+statuses.forEach(function updateMills (status) {
   status.mills = moment(status.created_at).valueOf();
 });
 
-_.forEach(statuses2, function updateMills (status) {
+statuses2.forEach(function updateMills (status) {
   status.mills = moment(status.created_at).valueOf();
 });
 
@@ -205,10 +205,10 @@ describe('pump', function ( ) {
       , language: language
       , levels: levels
     };
-
     ctx.notifications.initRequests();
 
-    var lowResStatuses = _.cloneDeep(statuses);
+    // Deep clone statuses array for test isolation
+    var lowResStatuses = cloneDeep(statuses);
     lowResStatuses[1].pump.reservoir = 0.5;
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
@@ -236,8 +236,7 @@ describe('pump', function ( ) {
     };
 
     ctx.notifications.initRequests();
-
-    var lowResStatuses = _.cloneDeep(statuses);
+    var lowResStatuses = JSON.parse(JSON.stringify(statuses));
     lowResStatuses[1].pump.reservoir = 0;
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
@@ -266,8 +265,7 @@ describe('pump', function ( ) {
     };
 
     ctx.notifications.initRequests();
-
-    var lowBattStatuses = _.cloneDeep(statuses);
+    var lowBattStatuses = JSON.parse(JSON.stringify(statuses));
     lowBattStatuses[1].pump.battery.voltage = 1.33;
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
@@ -283,7 +281,6 @@ describe('pump', function ( ) {
 
     done();
   });
-
   it('generate an urgent alarm when battery is really low', function (done) {
     var ctx = {
       settings: {
@@ -296,7 +293,7 @@ describe('pump', function ( ) {
 
     ctx.notifications.initRequests();
 
-    var lowBattStatuses = _.cloneDeep(statuses);
+    var lowBattStatuses = JSON.parse(JSON.stringify(statuses));
     lowBattStatuses[1].pump.battery.voltage = 1.00;
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
@@ -334,14 +331,14 @@ describe('pump', function ( ) {
 
     ctx.notifications.initRequests();
 
-    var lowBattStatuses = _.cloneDeep(statuses);
+    var lowBattStatuses = JSON.parse(JSON.stringify(statuses));
     lowBattStatuses[1].pump.battery.voltage = 1.00;
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
       devicestatus: lowBattStatuses
       , profiles: [profileData]
     });
-    profile.loadData(_.cloneDeep([profileData]));
+    profile.loadData(JSON.parse(JSON.stringify([profileData])));
     sbx.data.profile = profile;
 
     sbx.extendedSettings = {
@@ -391,7 +388,7 @@ describe('pump', function ( ) {
       , language: language
       , levels: levels
     };
-    
+
     ctx.language.set('en');
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
     pump.setProperties(sbx);
@@ -405,19 +402,19 @@ describe('pump', function ( ) {
       pump.virtAsst.intentHandlers[1].intentHandler(function next(title, response) {
         title.should.equal('Pump Battery');
         response.should.equal('Your pump battery is at 1.52 volts');
-        
+
         pump.virtAsst.intentHandlers[2].intentHandler(function next(title, response) {
           title.should.equal('Insulin Remaining');
           response.should.equal('You have 86.4 units remaining');
-    
+
           pump.virtAsst.intentHandlers[3].intentHandler(function next(title, response) {
             title.should.equal('Pump Battery');
             response.should.equal('Your pump battery is at 1.52 volts');
             done();
           }, [], sbx);
-          
+
         }, [], sbx);
-          
+
       }, [], sbx);
 
     }, [], sbx);

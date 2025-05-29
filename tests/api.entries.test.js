@@ -4,12 +4,11 @@ var request = require('supertest');
 var load = require('./fixtures/load');
 var bootevent = require('../lib/server/bootevent');
 var language = require('../lib/language')();
-const _ = require('lodash');
 
 require('should');
 
 const FIVE_MINUTES=1000*60*5;
- 
+
 describe('Entries REST api', function ( ) {
   var entries = require('../lib/api/entries/');
   var self = this;
@@ -40,11 +39,7 @@ describe('Entries REST api', function ( ) {
       const e = {type: 'sgv', sgv: 100, date: Date.now()};
       e.date = e.date - FIVE_MINUTES * i;
       creating.push(e);
-    }
-
-    creating = _.sortBy(creating, function(item) {
-      return item.date;
-    });
+    }    creating = creating.sort((a, b) => a.date - b.date);
 
     function setupDone() {
       console.log('Setup complete');
@@ -103,13 +98,13 @@ describe('Entries REST api', function ( ) {
       .expect(200)
       .end(function (err, res) {
         res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
-        
+
         var array = res.body;
         var firstEntry = array[0];
         var secondEntry = array[1];
-        
+
         firstEntry.date.should.be.above(secondEntry.date);
-        
+
         done( );
       });
   });
@@ -121,13 +116,13 @@ describe('Entries REST api', function ( ) {
       .expect(200)
       .end(function (err, res) {
         res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
-        
+
         var array = res.body;
         var firstEntry = array[0];
         var secondEntry = array[1];
-        
+
         firstEntry.date.should.be.above(secondEntry.date);
-        
+
         done( );
       });
   });
@@ -267,7 +262,7 @@ describe('Entries REST api', function ( ) {
       .post('/entries/preview.json')
       .send(load('json'))
       .expect(401)
-      .end(function (err, res) {
+      .end(function () {
         // res.body.should.be.instanceof(Array).and.have.lengthOf(30);
         done();
       });

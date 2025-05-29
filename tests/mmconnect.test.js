@@ -2,8 +2,7 @@
 /* globals describe, it */
 'use strict';
 
-var _ = require('lodash'),
-  should = require('should');
+var should = require('should');
 
 describe('mmconnect', function () {
   var mmconnect = require('../lib/plugins/mmconnect');
@@ -61,7 +60,7 @@ describe('mmconnect', function () {
     it('should generate a "carelink_raw" entry with sgs truncated and PII redacted', function () {
       var data = {
         'lastMedicalDeviceDataUpdateServerTime': 1445471797479
-        , 'sgs': _.range(10)
+        , 'sgs': Array.from({ length: 10 }, (_, i) => i)
         , 'firstName': 'sensitive'
         , 'lastName': 'sensitive'
         , 'medicalDeviceSerialNumber': 'sensitive'
