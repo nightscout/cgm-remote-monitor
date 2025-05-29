@@ -204,6 +204,114 @@ describe('API3 SEARCH', function() {
   });
 
 
+  it('should filter entries', async () => {
+    let res = await self.instance.get(`${self.url}?sgv$eq=${testConst.SAMPLE_ENTRIES[4].sgv}`, self.jwt.read)
+      .expect(200);
+
+    res.body.status.should.equal(200);
+    const results = res.body.result;
+    const length = results.length;
+    length.should.be.aboveOrEqual(1);
+
+    for (let i in results) {
+      results[i].sgv.should.equal(testConst.SAMPLE_ENTRIES[4].sgv);
+    }
+  });
+
+
+  it('should filter entries by multiple parameters', async () => {
+    let res = await self.instance.get(`${self.url}?date$gt=${testConst.SAMPLE_ENTRIES[2].date}&sgv$lte=179`, self.jwt.read)
+      .expect(200);
+
+    res.body.status.should.equal(200);
+    const results = res.body.result;
+    const length = results.length;
+    length.should.be.aboveOrEqual(5);
+
+    for (let i in results) {
+      results[i].date.should.be.aboveOrEqual(testConst.SAMPLE_ENTRIES[2].date);
+      results[i].sgv.should.be.belowOrEqual(179);
+    }
+  });
+
+
+  it('should filter entries by ISO8601 date', async () => {
+    let res = await self.instance.get(`${self.url}?date$eq=2017-04-09T06:18:50`, self.jwt.read)
+      .expect(200);
+
+    res.body.status.should.equal(200);
+    const results = res.body.result;
+    const length = results.length;
+    length.should.be.aboveOrEqual(1);
+
+    for (let i in results) {
+      results[i].date.should.equal(1491718730000.0);
+    }
+  });
+
+
+  it('should filter entries by ISO8601 date with timezone', async () => {
+    let res = await self.instance.get(`${self.url}?date$eq=2017-04-09T12:18:50%2B06:00`, self.jwt.read)
+      .expect(200);
+
+    res.body.status.should.equal(200);
+    const results = res.body.result;
+    const length = results.length;
+    length.should.be.aboveOrEqual(1);
+
+    for (let i in results) {
+      results[i].date.should.equal(1491718730000.0);
+    }
+  });
+
+
+  it('should filter entries by date range', async () => {
+    let res = await self.instance.get(`${self.url}?date$gt=1491719030000&date$lt=1491719930000`, self.jwt.read)
+      .expect(200);
+
+    res.body.status.should.equal(200);
+    const results = res.body.result;
+    const length = results.length;
+    length.should.be.aboveOrEqual(2);
+
+    for (let i in results) {
+      results[i].date.should.be.above(1491719030000.0);
+      results[i].date.should.be.below(1491719930000.0);
+    }
+  });
+
+
+  it('should accept filter parameters listed in filter_parameters query argument', async () => {
+    let res = await self.instance.get(`${self.url}?filter_parameters=sgv$eq%3D${testConst.SAMPLE_ENTRIES[4].sgv}`, self.jwt.read)
+      .expect(200);
+
+    res.body.status.should.equal(200);
+    const results = res.body.result;
+    const length = results.length;
+    length.should.be.aboveOrEqual(1);
+
+    for (let i in results) {
+      results[i].sgv.should.equal(testConst.SAMPLE_ENTRIES[4].sgv);
+    }
+  });
+
+
+  it('should accept multiple filter parameters listed in filter_parameters query argument', async () => {
+    let res = await self.instance.get(`${self.url}?filter_parameters=date$gt%3D1491719030000%20date$lt%3D1491719930000`, self.jwt.read)
+      .expect(200);
+
+    res.body.status.should.equal(200);
+    const results = res.body.result;
+    const length = results.length;
+    length.should.be.aboveOrEqual(2);
+
+    for (let i in results) {
+      results[i].date.should.be.above(1491719030000.0);
+      results[i].date.should.be.below(1491719930000.0);
+    }
+  });
+
+
   it('should skip documents', async () => {
     let res = await self.instance.get(`${self.url}?sort=date&limit=8`, self.jwt.read)
       .expect(200);
