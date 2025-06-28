@@ -34,9 +34,10 @@ describe('boluswizardpreview', function ( ) {
 
   var profile = {
     dia: 3
-    , sens: 90
-    , target_high: 120
-    , target_low: 100
+    , units: ctx.settings.units
+    , sens: ctx.settings.units === 'mmol' ? 5 : 90
+    , target_high: ctx.settings.units === 'mmol' ? 6.7 : 120
+    , target_low: ctx.settings.units === 'mmol' ? 5.6 : 100
   };
 
   it('should calculate IOB results correctly with 0 IOB', function (done) {
@@ -50,8 +51,12 @@ describe('boluswizardpreview', function ( ) {
     
     results.effect.should.equal(0);
     results.effectDisplay.should.equal(0);
-    results.outcome.should.equal(100);
-    results.outcomeDisplay.should.equal(100);
+
+    var expectedOutcome =
+      ctx.settings.units === 'mmol' ? 5.6 : 100;
+    results.outcome.should.equal(expectedOutcome);
+    results.outcomeDisplay.should.equal(expectedOutcome);
+
     results.bolusEstimate.should.equal(0);
     results.displayLine.should.equal('BWP: 0U');
     
@@ -65,9 +70,10 @@ describe('boluswizardpreview', function ( ) {
     
     var profile = {
       dia: 3
-      , sens: 50
-      , target_high: 100
-      , target_low: 50
+      , units: ctx.settings.units
+      , sens: ctx.settings.units === 'mmol' ? 2.8 : 50
+      , target_high: ctx.settings.units === 'mmol' ? 5.6 : 100
+      , target_low: ctx.settings.units === 'mmol' ? 2.8 : 50
     };
 
     ctx.ddata.profiles = [profile];
@@ -75,10 +81,16 @@ describe('boluswizardpreview', function ( ) {
     var sbx = prepareSandbox();
     var results = boluswizardpreview.calc(sbx);
 
-    Math.round(results.effect).should.equal(50);
-    results.effectDisplay.should.equal(50);
-    Math.round(results.outcome).should.equal(50);
-    results.outcomeDisplay.should.equal(50);
+    var expectedEffect =
+      ctx.settings.units === 'mmol' ? 2.8 : 50;
+    results.effect.should.equal(expectedEffect);
+    results.effectDisplay.should.equal(expectedEffect);
+
+    var expectedOutcome =
+      ctx.settings.units === 'mmol' ? 2.8 : 50;
+    results.outcome.should.equal(expectedOutcome);
+    results.outcomeDisplay.should.equal(expectedOutcome);
+
     results.bolusEstimate.should.equal(0);
     results.displayLine.should.equal('BWP: 0U');
     
@@ -92,9 +104,10 @@ describe('boluswizardpreview', function ( ) {
     
     var profile = {
       dia: 3
-      , sens: 50
-      , target_high: 200
-      , target_low: 100
+      , units: ctx.settings.units
+      , sens: ctx.settings.units === 'mmol' ? 2.8 : 50
+      , target_high: ctx.settings.units === 'mmol' ? 11.1 : 200
+      , target_low: ctx.settings.units === 'mmol' ? 5.6 : 100
       , basal: 1
     };
 
@@ -104,10 +117,16 @@ describe('boluswizardpreview', function ( ) {
     var sbx = prepareSandbox();
     var results = boluswizardpreview.calc(sbx);
     
-    Math.round(results.effect).should.equal(50);
-    results.effectDisplay.should.equal(50);
-    Math.round(results.outcome).should.equal(50);
-    results.outcomeDisplay.should.equal(50);
+    var expectedResult =
+      ctx.settings.units === 'mmol' ? 2.8 : 50;
+    results.effect.should.equal(expectedResult);
+    results.effectDisplay.should.equal(expectedResult);
+
+    var expectedOutcome =
+      ctx.settings.units === 'mmol' ? 2.8 : 50;
+    results.outcome.should.equal(expectedOutcome);
+    results.outcomeDisplay.should.equal(expectedOutcome);
+
     Math.round(results.bolusEstimate).should.equal(-1);
     results.displayLine.should.equal('BWP: -1.00U');
     results.tempBasalAdjustment.thirtymin.should.equal(-100);
@@ -116,7 +135,7 @@ describe('boluswizardpreview', function ( ) {
     done();
   });
 
- it('should calculate IOB results correctly with 1.0 U IOB resulting in going low in MMOL', function (done) {
+  it('should calculate IOB results correctly with 1.0 U IOB resulting in going low in MMOL', function (done) {
 
     // boilerplate for client sandbox running in mmol
 
@@ -159,8 +178,7 @@ describe('boluswizardpreview', function ( ) {
     done();
   });
 
-
- it('should calculate IOB results correctly with 0.45 U IOB resulting in going low in MMOL', function (done) {
+  it('should calculate IOB results correctly with 0.45 U IOB resulting in going low in MMOL', function (done) {
 
     // boilerplate for client sandbox running in mmol
 
@@ -230,7 +248,13 @@ describe('boluswizardpreview', function ( ) {
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(ctx.levels.WARN);
     highest.title.should.equal('Warning, Check BG, time to bolus?');
-    highest.message.should.equal('BG Now: 180 +5 ↗ mg/dl\nBG 15m: 187 mg/dl\nBWP: 0.66U');
+
+    var expectedMessage =
+      ctx.settings.units === 'mmol' ?
+        'BG Now: 10 +0.3 ↗ mmol/L\nBG 15m: 10.4 mmol/L\nBWP: 0.65U' :
+        'BG Now: 180 +5 ↗ mg/dl\nBG 15m: 187 mg/dl\nBWP: 0.66U';
+    highest.message.should.equal(expectedMessage);
+
     done();
   });
 
@@ -274,8 +298,11 @@ describe('boluswizardpreview', function ( ) {
   });
 
   it('set a pill to the BWP with infos', function (done) {
+
     var ctx = {
-      settings: {}
+      settings: {
+        units: helper.ctx.settings.units
+      }
       , pluginBase: {
         updatePillText: function mockedUpdatePillText(plugin, options) {
           options.label.should.equal('BWP');

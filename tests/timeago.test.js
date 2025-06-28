@@ -1,14 +1,11 @@
 var should = require('should');
-var levels = require('../lib/levels');
 var times = require('../lib/times');
+const helper = require('./inithelper')();
 
 describe('timeago', function() {
-  var ctx = {};
-  ctx.levels = levels;
+  var ctx = helper.getctx();
   ctx.ddata = require('../lib/data/ddata')();
   ctx.notifications = require('../lib/notifications')(env, ctx);
-  ctx.language = require('../lib/language')();
-  ctx.settings = require('../lib/settings')();
   ctx.settings.heartbeat = 0.5; // short heartbeat to speedup tests
 
   var timeago = require('../lib/plugins/timeago')(ctx);
@@ -55,8 +52,14 @@ describe('timeago', function() {
     var currentTime = new Date().getTime();
 
     var highest = ctx.notifications.findHighestAlarm('Time Ago');
-    highest.level.should.equal(levels.WARN);
-    highest.message.should.equal('Last received: 16 mins ago\nBG Now: 100 mg/dl');
+    highest.level.should.equal(ctx.levels.WARN);
+
+    var expectedMessage =
+      ctx.settings.units === 'mmol' ?
+        'Last received: 16 mins ago\nBG Now: 5.6 mmol/L' :
+        'Last received: 16 mins ago\nBG Now: 100 mg/dl';
+    highest.message.should.equal(expectedMessage);
+
     done();
   });
 
@@ -67,8 +70,14 @@ describe('timeago', function() {
     var sbx = freshSBX();
     timeago.checkNotifications(sbx);
     var highest = ctx.notifications.findHighestAlarm('Time Ago');
-    highest.level.should.equal(levels.URGENT);
-    highest.message.should.equal('Last received: 31 mins ago\nBG Now: 100 mg/dl');
+    highest.level.should.equal(ctx.levels.URGENT);
+
+    var expectedMessage =
+      ctx.settings.units === 'mmol' ?
+        'Last received: 31 mins ago\nBG Now: 5.6 mmol/L' :
+        'Last received: 31 mins ago\nBG Now: 100 mg/dl';
+    highest.message.should.equal(expectedMessage);
+
     done();
   });
 

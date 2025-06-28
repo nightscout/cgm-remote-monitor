@@ -8,8 +8,6 @@ describe('IOB', function() {
 
   let ctx = helper.ctx;
 
-  ctx.settings = require('../lib/settings')();
-
   var iob = require('../lib/plugins/iob')(ctx);
 
   it('should handle virtAsst requests', function (done) {

@@ -8,10 +8,8 @@ describe('utils', function ( ) {
 
   const ctx = helper.getctx();
   
-  ctx.settings = {
-    alarmTimeagoUrgentMins: 30
-    , alarmTimeagoWarnMins: 15
-  };
+  ctx.settings.alarmTimeagoUrgentMins = 30;
+  ctx.settings.alarmTimeagoWarnMins = 15;
 
   var utils = require('../lib/utils')(ctx);
 
