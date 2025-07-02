@@ -1,3 +1,6 @@
+# The Google Assistant integration is broken!
+Unfortunately this integration broke when [Google discontinued conversational actions](https://developers.google.com/assistant/ca-sunset). We'll keep this here for reference, in case it can be revived at some point in the future.
+
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
