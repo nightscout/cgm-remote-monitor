@@ -20,7 +20,22 @@
 
 // Description: Basic web server to display data from Dexcom G4.  Requires a database that contains
 // the Dexcom SGV data.
+
+const express = require('express');
+const app = express();
+
+app.set('port', process.env.PORT || 1337);
+
+// Fix for Juggluco: redirect /api/v1/entries to /api/v1/entries.json
+app.use('/api/v1/entries', (req, res, next) => {
+  if (!req.path.endsWith('.json')) {
+    return res.redirect('/api/v1/entries.json');
+  }
+  next();
+});
+
 'use strict';
+
 
 require('./lib/server/server');
 
