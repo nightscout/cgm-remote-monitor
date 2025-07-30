@@ -88,6 +88,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
         - [`ar2` (AR2 Forecasting)](#ar2-ar2-forecasting)
         - [`simplealarms` (Simple BG Alarms)](#simplealarms-simple-bg-alarms)
         - [`profile` (Treatment Profile)](#profile-treatment-profile)
+        - [`wake-lock` (Wake Lock)](#wake-lock-wake-lock)
       - [Advanced Plugins:](#advanced-plugins)
         - [`careportal` (Careportal)](#careportal-careportal)
         - [`boluscalc` (Bolus Wizard)](#boluscalc-bolus-wizard)
@@ -413,6 +414,9 @@ autonomy for your data:
   Add link to Profile Editor and allow to enter treatment profile settings. Also uses the extended setting:
   * `PROFILE_HISTORY` (`off`) - possible values `on` or `off`. Enable/disable NS ability to keep history of your profiles (still experimental)
   * `PROFILE_MULTIPLE` (`off`) - possible values `on` or `off`. Enable/disable NS ability to handle and switch between multiple treatment profiles
+
+##### `wake-lock` (Wake Lock)
+  Add a padlock icon that, when clicked, toggles [Screen Wake Lock](https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API) to prevent the display from sleeping or locking.
 
 #### Advanced Plugins:
 
