@@ -32,6 +32,14 @@
     <a href="/" id="closeButton" class="close"></a>
     <div id="inner" data-face="<%= face %>"<%-(face === 'config') ? 'data-face-config="cy10"' : '' %>>
     </div>
+    <div id="unitToggle" class="unit-toggle">
+      <div class="unit-option" data-unit="mmol" id="mmol-option">
+        <span>mmol/L</span>
+      </div>
+      <div class="unit-option" data-unit="mgdl" id="mgdl-option">
+        <span>mg/dL</span>
+      </div>
+    </div>
   </main>
   <script src="<%= locals.bundle %>/js/bundle.clock.js"></script>
 
