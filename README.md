@@ -112,7 +112,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
         - [`override` (Override Mode)](#override-override-mode)
         - [`xdripjs` (xDrip-js)](#xdripjs-xdrip-js)
         - [`alexa` (Amazon Alexa)](#alexa-amazon-alexa)
-        - [`googlehome` (Google Home/DialogFLow)](#googlehome-google-homedialogflow)
+        - [`googlehome` (Google Home/DialogFLow)](#googlehome-google-homedialogflow) [broken]
         - [`speech` (Speech)](#speech-speech)
         - [`cors` (CORS)](#cors-cors)
       - [Extended Settings](#extended-settings)
@@ -229,7 +229,7 @@ Once you've installed Nightscout, you can access API documentation by loading `/
   * Boluses over 2U: `http://localhost:1337/api/v1/treatments.json?find[insulin][$gte]=2`
 
 The API is Swagger enabled, so you can generate client code to make working with the API easy.
-To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or review [swagger.yaml](swagger.yaml).
+To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or review [swagger.yaml](lib/server/swagger.yaml).
 
 ## Environment
 
@@ -525,7 +525,7 @@ To synchronize from Dexcom Share use the following variables.
 Optional, `CONNECT_SHARE_REGION` and `CONNECT_SHARE_SERVER` do the same thing, only specify one.
 * `CONNECT_SHARE_REGION=`  `ous` or `us`. `us` is the default if nothing is
   provided.  Selecting `us` sets `CONNECT_SHARE_SERVER` to `share2.dexcom.com`.
-  Selecting `ous` here sets `CONNECT_SHARE_SERVER` to `shareous2.dexcom.com`.
+  Selecting `ous` here sets `CONNECT_SHARE_SERVER` to `shareous1.dexcom.com`.
 * `CONNECT_SHARE_SERVER=` set the server domain to use.
 
 
@@ -666,8 +666,10 @@ For remote overrides, the following extended settings must be configured:
 ##### `alexa` (Amazon Alexa)
   Integration with Amazon Alexa, [detailed setup instructions](docs/plugins/alexa-plugin.md)
 
-##### `googlehome` (Google Home/DialogFLow)
+##### `googlehome` (Google Home/DialogFLow) [broken]
   Integration with Google Home (via DialogFlow), [detailed setup instructions](docs/plugins/googlehome-plugin.md)
+
+  Unfortunately this integration broke when [Google discontinued conversational actions](https://developers.google.com/assistant/ca-sunset). We'll keep this here for reference, in case it can be revived at some point in the future.
 
 ##### `speech` (Speech)
   Speech synthesis plugin. When enabled, speaks out the blood glucose values, IOB and alarms. Note you have to set the LANGUAGE setting on the server to get all translated alarms.
@@ -750,7 +752,7 @@ For remote overrides, the following extended settings must be configured:
   * `ns-info` - Plugins that generate notifications at the info level will cause this event to also be triggered.  It will be sent in addition to `ns-event`.
   * `ns-warning` - Alarms at the warning level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
   * `ns-urgent` - Alarms at the urgent level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
-  * see the [full list of events](lib/plugins/maker-setup.md#events)
+  * see the [full list of events](docs/plugins/maker-setup.md#events)
 
 
 ### Treatment Profile
