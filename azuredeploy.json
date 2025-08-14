@@ -74,6 +74,11 @@
       ],
       "defaultValue": "24"
     },
+    "show_seconds": {
+      "type": "string",
+      "allowedValues": ["on", "off"],
+      "defaultValue": "off"
+    },
     "language": {
       "type": "string",
       "allowedValues": [
