@@ -519,6 +519,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /profiles:
+    get:
+      summary: Profiles
+      description: >-
+        The Profiles endpoint returns information about the Nightscout Treatment
+        Profiles with support for filtering and pagination.
+      tags:
+        - Profile
+      parameters:
+        - name: find
+          in: query
+          description: >-
+            The query used to find profiles, support nested query syntax, for
+            example `find[startDate][$gte]=2015-08-27` or `find[startDate][$lte]=2015-08-27`.
+            All find parameters are interpreted as strings.
+          required: false
+          schema:
+            type: string
+        - name: count
+          in: query
+          description: Number of profiles to return.
+          required: false
+          schema:
+            type: number
+      responses:
+        '200':
+          description: An array of profiles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /status:
     get:
       summary: Status
