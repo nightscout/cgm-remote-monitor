@@ -389,10 +389,10 @@ describe('API3 CREATE', function() {
     delete doc.identifier;
 
     await new Promise((resolve, reject) => {
-      self.instance.ctx.treatments.create([doc], async (err) => {  // let's insert the document in APIv1's way
+      self.instance.ctx.treatments.create([doc], (err) => {  // let's insert the document in APIv1's way
         should.not.exist(err);
         doc._id = doc._id.toString();
-        self.cache.nextShouldEql(self.col, doc)
+        self.cache.nextShouldEql(self.col, doc);
 
         err ? reject(err) : resolve(doc);
       });
@@ -416,10 +416,10 @@ describe('API3 CREATE', function() {
 
     let updatedBody = await self.get(doc2.identifier);
     updatedBody.should.containEql(doc2);
-    self.cache.nextShouldEql(self.col, doc2)
+    self.cache.nextShouldEql(self.col, doc2);
 
     await self.delete(doc2.identifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
   });
 
 
@@ -433,14 +433,16 @@ describe('API3 CREATE', function() {
     delete doc.identifier;
 
     await new Promise((resolve, reject) => {
-      self.instance.ctx.treatments.create([doc], async (err) => {  // let's insert the document in APIv1's way
+      self.instance.ctx.treatments.create([doc], (err) => {  // let's insert the document in APIv1's way
         should.not.exist(err);
         doc._id = doc._id.toString();
 
-        self.cache.nextShouldEql(self.col, doc)
+        self.cache.nextShouldEql(self.col, doc);
+
         err ? reject(err) : resolve(doc);
       });
     });
+
 
     const oldBody = await self.get(doc._id);
     delete doc._id; // APIv1 updates input document, we must get rid of _id for the next round
@@ -461,13 +463,13 @@ describe('API3 CREATE', function() {
     updatedBody.identifier.should.not.equal(oldBody.identifier);
     should.not.exist(updatedBody.isDeduplication);
     should.not.exist(updatedBody.deduplicatedIdentifier);
-    self.cache.nextShouldEql(self.col, doc2)
+    self.cache.nextShouldEql(self.col, doc2);
 
     await self.delete(doc2.identifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
 
     await self.delete(oldBody.identifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
   });
 
 
@@ -484,7 +486,7 @@ describe('API3 CREATE', function() {
     let res = await self.instance.delete(`${self.url}/${identifier}`, self.jwt.delete)
       .expect(200);
     res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
 
     const date2 = new Date();
     res = await self.instance.post(self.url, self.jwt.create)
@@ -493,7 +495,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(403);
     res.body.message.should.equal('Missing permission api:treatments:update');
-    self.cache.shouldBeEmpty()
+    self.cache.shouldBeEmpty();
 
     const doc2 = Object.assign({}, self.validDoc, { identifier, date: date2.toISOString() });
     res = await self.instance.post(`${self.url}`, self.jwt.all)
@@ -509,7 +511,7 @@ describe('API3 CREATE', function() {
     body.identifier.should.equal(identifier);
 
     await self.delete(identifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
   });
 
 
@@ -532,7 +534,7 @@ describe('API3 CREATE', function() {
     self.cache.nextShouldEql(self.col, self.validDoc);
 
     await self.delete(validIdentifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
   });
 
 
@@ -571,7 +573,7 @@ describe('API3 CREATE', function() {
     body.length.should.equal(1);
 
     await self.delete(validIdentifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
   });
 
 });
