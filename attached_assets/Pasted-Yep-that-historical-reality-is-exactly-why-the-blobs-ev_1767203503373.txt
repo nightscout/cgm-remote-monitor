@@ -1,0 +1,112 @@
+Yep — that historical reality is exactly why the “blobs → events + materialized views” move is so valuable: profiles and profile-affecting overrides are user-authored configuration, but Nightscout has mostly seen them only as snapshotted, controller-shaped state (often via devicestatus, sometimes with partial duplication into treatments).
+
+Here’s a concrete way to treat this cleanly without breaking legacy.
+
+1) Treat “user-defined profiles” as first-class config objects
+
+Instead of “the profile is whatever the controller most recently uploaded,” make the canonical model:
+
+ProfileDefinition
+
+A user-authored object (versioned, addressable)
+	•	profileId (stable)
+	•	title, timezone, units
+	•	schedules: basal[], isf[], cr[], target[]
+	•	insulinModel / DIA parameters (where applicable)
+	•	createdBy (human/controller), createdAt
+	•	hash (content hash for dedupe and audit)
+
+ProfileSelection
+
+A state event: “which profile is intended to be active”
+	•	selectedProfileId
+	•	effectiveAt
+	•	selectedBy (human / controller / remote delegate)
+
+Key point: Nightscout can store definitions and selections separately, so you don’t need to re-upload the entire profile every time.
+
+2) Treat overrides as composable “deltas” over a profile
+
+Loop and AAPS both have “things that modify what’s in force” (temp targets, overrides/percent, exercise/sleep modes, autosens or sensitivity scaling).
+
+Model them as:
+
+OverrideDefinition
+
+User-authored template (optional but powerful)
+	•	overrideType = exercise | sleep | custom | illness | …
+	•	defaultDuration
+	•	effects (structured):
+	•	targetMgdl or targetRange
+	•	basalMultiplier / maxBasalCeiling
+	•	sensitivityMultiplier
+	•	carbRatioMultiplier (if supported)
+	•	“automation aggressiveness” knobs (if controller exposes)
+
+OverrideInstance
+
+A concrete activation
+	•	overrideInstanceId
+	•	definitionId (optional)
+	•	start, duration, end
+	•	requestedBy + authority
+	•	status = active | ended | canceled | superseded
+	•	reason / annotation
+
+3) PolicyComposition is the “materialized view” that replaces devicestatus-as-truth
+
+Whenever something changes (new CGM, override start/end, profile switch, autosens change), the controller can emit:
+
+PolicyComposition
+	•	references:
+	•	profileId + profileHash
+	•	activeOverrideInstanceIds[]
+	•	capabilitySnapshotId (optional)
+	•	effective parameters in force right now:
+	•	computed target range
+	•	computed ISF/CR/basal constraints
+	•	computedBy:
+	•	controller kind + version
+	•	validFrom / validTo (or cursor ordering)
+
+This is the “Kubernetes-style status” that you can always reconstruct and audit.
+
+4) How this relates to historical devicestatus uploads
+
+Historically, devicestatus often contains one or more of:
+	•	a current profile name / profile content (sometimes)
+	•	“temp target” state (sometimes)
+	•	“override percentage” style hints (sometimes)
+	•	algorithm outputs (predictions/suggested/enacted)
+
+In the new model:
+	•	devicestatus remains as a legacy derived view (materialized from events/compositions)
+	•	ingestion can work in two modes:
+	1.	Native events (preferred)
+	2.	Devicestatus parsing → event synthesis (bridge)
+
+Bridge approach (pragmatic):
+	•	When a controller uploads a new devicestatus snapshot:
+	•	compute hash of “profile-like content” → if new, emit ProfileDefinition
+	•	compare “active override-like fields” → emit OverrideInstance start/end
+	•	emit PolicyComposition reflecting the effective parameters
+	•	Result: Nightscout becomes append-only + auditable even if controllers stay chatty for a while
+
+5) Why this matters for interop (Loop ↔ AAPS)
+
+Because both systems can be represented as:
+	•	same ProfileDefinition shape (with some optional fields)
+	•	same OverrideInstance semantics
+	•	same PolicyComposition output
+
+Even if their internal UX differs, Nightscout can now answer:
+	•	“What did the user intend?” (definition + activation)
+	•	“What was in force?” (composition)
+	•	“What happened?” (delivery observation + reconciliation)
+
+If you want, next step is I’ll draft the minimal JSON schema for:
+	•	ProfileDefinition
+	•	OverrideInstance
+	•	PolicyComposition
+
+…and then we can annotate “what Loop/AAPS typically provide today” vs “optional nice-to-have fields.”
