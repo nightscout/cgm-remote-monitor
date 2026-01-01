@@ -145,7 +145,45 @@ Modern REST API with OpenAPI 3.0 spec.
 - `lib/api3/doc/alarmsockets.md` - Alarm socket
 - `lib/api3/doc/tutorial.md` - API tutorial
 
+## Agentic Control Plane Proposal (RFC)
+
+A proposal for extending Nightscout with a clean separation between control plane (policy, configuration, intent) and data plane (observations, telemetry, delivery) to enable AI agent collaboration with AID systems.
+
+### Proposal Documentation
+| Document | Description |
+|----------|-------------|
+| `docs/proposals/agent-control-plane-rfc.md` | Main RFC document with full architecture |
+| `docs/proposals/integration-questionnaire.md` | Questions for Loop/AAPS/Trio implementers |
+| `docs/proposals/bridge-rules.md` | Legacy devicestatus → event synthesis rules |
+| `docs/proposals/conflict-resolution.md` | Multi-writer semantics and authority model |
+
+### JSON Schemas (draft-2020-12)
+Located in `docs/proposals/schemas/`:
+
+| Schema | Purpose |
+|--------|---------|
+| `event-envelope.schema.json` | Wrapper for all control plane events |
+| `profile-definition.schema.json` | User-authored profile configuration |
+| `profile-selection.schema.json` | Profile activation events |
+| `override-definition.schema.json` | Reusable override templates |
+| `override-instance.schema.json` | Concrete override activations |
+| `policy-composition.schema.json` | Materialized effective parameters |
+| `delivery-request.schema.json` | Intent to deliver insulin |
+| `delivery-observation.schema.json` | Confirmed delivery records |
+| `reconciliation.schema.json` | Request/observation matching |
+| `controller-kind-definition.schema.json` | Controller type capabilities |
+| `controller-instance-registration.schema.json` | Controller instance registry |
+| `capability-snapshot.schema.json` | Real-time controller state |
+
+### Key Concepts
+- **Config vs Runtime vs Computed** - Separate user-authored config from runtime activations from computed state
+- **Events over Snapshots** - Append-only event streams with cursor-based sync
+- **Authority Hierarchy** - Human > Agent > Controller for conflict resolution
+- **Bridge Mode** - Synthesize events from legacy devicestatus uploads
+- **MDI as First-Class** - Manual injections are always valid
+
 ## Recent Changes
+- 2026-01-01: Added Agentic Control Plane RFC and JSON schemas
 - 2025-12-31: Updated to version 15.0.4 (dev branch)
 - Configured for Replit with INSECURE_USE_HTTP=true
 - MongoDB 3.6.x driver
