@@ -9,7 +9,7 @@ x-logging:
 
 services:
   mongo:
-    image: mongo:4.4
+    image: mongo:8.2
     volumes:
       - ${NS_MONGO_DATA_DIR:-./mongo-data}:/data/db:cached
     logging: *default-logging
