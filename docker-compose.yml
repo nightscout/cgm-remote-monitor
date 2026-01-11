@@ -1,7 +1,6 @@
 version: '3'
 
-x-logging:
-  &default-logging
+x-logging: &default-logging
   options:
     max-size: '10m'
     max-file: '5'
@@ -15,7 +14,10 @@ services:
     logging: *default-logging
 
   nightscout:
-    image: nightscout/cgm-remote-monitor:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nightscout-local:latest
     container_name: nightscout
     restart: always
     depends_on:
@@ -23,10 +25,8 @@ services:
     labels:
       - 'traefik.enable=true'
       # Change the below Host from `localhost` to be the web address where Nightscout is running.
-      # Also change the email address in the `traefik` service below.
       - 'traefik.http.routers.nightscout.rule=Host(`localhost`)'
-      - 'traefik.http.routers.nightscout.entrypoints=websecure'
-      - 'traefik.http.routers.nightscout.tls.certresolver=le'
+      - 'traefik.http.routers.nightscout.entrypoints=web'
     logging: *default-logging
     environment:
       ### Variables for the container
@@ -48,7 +48,7 @@ services:
       MONGO_CONNECTION: mongodb://mongo:27017/nightscout
 
       # API_SECRET - A secret passphrase that must be at least 12 characters long.
-      API_SECRET: change_me
+      API_SECRET: THIS_IS_A_VERY_SECURE_SECRET
 
       ### Features
       # ENABLE - Used to enable optional features, expects a space delimited list, such as: careportal rawbg iob
@@ -59,7 +59,6 @@ services:
       # When readable, anyone can view Nightscout without a token. Setting it to denied will require
       # a token from every visit, using status-only will enable api-secret based login.
       AUTH_DEFAULT_ROLES: denied
-
       # For all other settings, please refer to the Environment section of the README
       # https://github.com/nightscout/cgm-remote-monitor#environment
 
@@ -70,13 +69,13 @@ services:
       - '--providers.docker=true'
       - '--providers.docker.exposedbydefault=false'
       - '--entrypoints.web.address=:80'
-      - '--entrypoints.web.http.redirections.entrypoint.to=websecure'
-      - '--entrypoints.websecure.address=:443'
-      - "--certificatesresolvers.le.acme.httpchallenge=true"
-      - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
-      - '--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json'
-      # Change the below to match your email address
-      - '--certificatesresolvers.le.acme.email=example@example.com'
+      # Uncomment below for production with real domain and HTTPS
+      # - '--entrypoints.web.http.redirections.entrypoint.to=websecure'
+      # - '--entrypoints.websecure.address=:443'
+      # - "--certificatesresolvers.le.acme.httpchallenge=true"
+      # - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
+      # - '--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json'
+      # - '--certificatesresolvers.le.acme.email=your-email@example.com'
     ports:
       - '443:443'
       - '80:80'
