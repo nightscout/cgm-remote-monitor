@@ -627,7 +627,9 @@ Ensure existing client behavior is preserved in warn mode:
 
 ## 14. Implementation Phases
 
-### Phase 1: Core Library (Week 1)
+### Phase 1: Core Library
+
+**Complexity:** Low | **Risk:** Low | **Dependencies:** None
 
 - [ ] Create `lib/api/shared/query-normalize.js`
 - [ ] Implement type coercion functions
@@ -635,7 +637,11 @@ Ensure existing client behavior is preserved in warn mode:
 - [ ] Implement limit configuration
 - [ ] Add unit tests
 
-### Phase 2: v1 Integration (Week 1-2)
+*Straightforward utility code with well-defined behavior. Low risk because it's new code with no existing dependencies.*
+
+### Phase 2: v1 Integration
+
+**Complexity:** Medium | **Risk:** Medium | **Dependencies:** Phase 1
 
 - [ ] Add middleware to entries endpoint
 - [ ] Add middleware to treatments endpoint
@@ -644,25 +650,51 @@ Ensure existing client behavior is preserved in warn mode:
 - [ ] Add middleware to remaining v1 endpoints
 - [ ] Integration tests
 
-### Phase 3: v2 Integration (Week 2)
+*Medium complexity due to varied query patterns across endpoints. Medium risk because v1 is heavily used by uploaders (xDrip, Loop, AAPS).*
+
+### Phase 3: v2 Integration
+
+**Complexity:** Low | **Risk:** Low | **Dependencies:** Phase 1
 
 - [ ] Add middleware to v2 endpoints
 - [ ] Integration tests
 
-### Phase 4: v3 Integration (Week 2-3)
+*Fewer endpoints, similar patterns to v1. Lower risk because v2 is less frequently used directly by clients.*
+
+### Phase 4: v3 Integration
+
+**Complexity:** Medium-High | **Risk:** Low | **Dependencies:** Phase 1
 
 - [ ] Add Zod schemas for v3 query params
 - [ ] Integrate validation in search/input.js
 - [ ] Apply same limits as v1/v2
 - [ ] Integration tests
 
-### Phase 5: Rollout (Week 3-4)
+*Higher complexity because v3 has structured query handling that needs schema overlay. Lower risk because v3 already has better input handling and fewer legacy clients.*
+
+### Phase 5: Rollout
+
+**Complexity:** Low | **Risk:** Variable | **Dependencies:** Phases 2-4
 
 - [ ] Deploy in warn mode
 - [ ] Monitor violation logs
 - [ ] Tune limits based on real-world data
 - [ ] Document enforced limits in API docs
 - [ ] Switch to enforce mode
+
+*Low implementation complexity but variable operational risk depending on real-world query patterns. Warn mode mitigates this.*
+
+### Phase Summary
+
+| Phase | Complexity | Risk | Blocking |
+|-------|------------|------|----------|
+| 1. Core Library | Low | Low | None |
+| 2. v1 Integration | Medium | Medium | Phase 1 |
+| 3. v2 Integration | Low | Low | Phase 1 |
+| 4. v3 Integration | Medium-High | Low | Phase 1 |
+| 5. Rollout | Low | Variable | Phases 2-4 |
+
+*Note: Phases 2, 3, and 4 can proceed in parallel after Phase 1 is complete.*
 
 ---
 
