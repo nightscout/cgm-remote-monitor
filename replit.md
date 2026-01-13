@@ -182,7 +182,30 @@ Located in `docs/proposals/schemas/`:
 - **Bridge Mode** - Synthesize events from legacy devicestatus uploads
 - **MDI as First-Class** - Manual injections are always valid
 
+## Testing Modernization Proposal
+
+A proposal for updating test infrastructure from unmaintained benv/jsdom to modern Jest.
+
+| Document | Description |
+|----------|-------------|
+| `docs/proposals/testing-modernization-proposal.md` | Full proposal with phases, checklists, and migration strategy |
+
+### Key Points
+- **Phase 1:** Update server-side test dependencies (mocha, supertest, nyc)
+- **Phase 2:** Migrate client tests from benv to Jest with jsdom
+- **Phase 3:** Optional Playwright E2E testing
+
+### Critical Dependencies to Update
+| Package | Current | Target | Priority |
+|---------|---------|--------|----------|
+| jsdom | 11.11.0 (pinned) | Via Jest | Critical |
+| benv | 3.3.0 | Remove | Critical |
+| axios | 0.21.1 | 1.7.x | High |
+| express | 4.17.1 | 4.22.x | High |
+| supertest | 3.4.2 | 7.x | Medium |
+
 ## Recent Changes
+- 2026-01-13: Added Testing Modernization Proposal
 - 2026-01-01: Added Agentic Control Plane RFC and JSON schemas
 - 2025-12-31: Updated to version 15.0.4 (dev branch)
 - Configured for Replit with INSECURE_USE_HTTP=true
