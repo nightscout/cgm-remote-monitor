@@ -280,9 +280,16 @@ CGM Device → Uploader → REST API → MongoDB → Data Loader
 
 ### 8.1 Authentication Methods
 
+**Current:**
 1. **API_SECRET:** SHA-1 hash comparison for admin access
 2. **Access Tokens:** Pre-shared tokens for subjects
 3. **JWT:** Signed tokens with expiration
+
+**Planned (OIDC/OAuth2 Plugin):**
+4. **OIDC/OAuth2:** Vendor-agnostic identity via external providers
+   - Integration with Ory Hydra/Kratos for consent management
+   - nightscout-roles-gateway for delegation and data rights
+   - Claims mapped to Shiro permissions
 
 ### 8.2 Authorization Model
 
@@ -298,9 +305,21 @@ api:treatments:create   # Create treatments
 Subject → Roles → Permissions → Shiro Trie (check access)
 ```
 
-### 8.3 Rate Limiting
+**Authority Model (Control Plane RFC):**
+```
+Human > Agent > Controller
+```
 
-IP-based delay list for failed authentication attempts (lib/authorization/delaylist.js).
+### 8.3 Brute-Force Protection
+
+**Location:** `lib/authorization/delaylist.js`
+
+IP-based progressive delay for failed authentication attempts:
+- Configurable delay via `authFailDelay` setting (default 5000ms)
+- Cumulative delays per IP address
+- Auto-clears after 60 seconds of inactivity
+
+**Note:** General API rate limiting is not currently implemented.
 
 ---
 
@@ -335,26 +354,33 @@ IP-based delay list for failed authentication attempts (lib/authorization/delayl
 
 ## 10. Modernization Recommendations
 
-### 10.1 Short-Term (0-6 months)
+### 10.1 Security Foundation (Low Effort)
 
 1. Replace deprecated `request` library with axios
-2. Update Node.js requirement to 18.x LTS minimum
-3. Add TypeScript definitions for core modules
-4. Implement structured logging (winston/pino)
+2. Add general API rate limiting (express-rate-limit)
+3. Add input validation middleware (Zod/Joi)
+4. Implement structured logging (pino)
 
-### 10.2 Medium-Term (6-12 months)
+### 10.2 Developer Experience (Medium Effort)
 
-1. Migrate client-side to modern framework (React/Vue)
-2. Implement database migrations (instead of ensureIndexes)
-3. Add comprehensive API validation (Zod/Joi)
-4. Containerize with production-ready Docker setup
+1. Add TypeScript definitions for core modules
+2. Convert callbacks to async/await
+3. Implement database migrations (instead of ensureIndexes)
+4. Expand test coverage
 
-### 10.3 Long-Term (12+ months)
+### 10.3 Authentication Modernization (Medium Effort)
 
-1. Microservices extraction (auth, notifications)
-2. GraphQL API layer
-3. Event-driven architecture (Redis pub/sub)
-4. Edge deployment support (Cloudflare Workers)
+1. **OIDC/OAuth2 Plugin:** Vendor-agnostic identity integration
+2. **nightscout-roles-gateway:** Consent and delegation management
+3. **Ory Hydra/Kratos:** Identity backend for multi-user deployments
+4. Maintain backward compatibility with API_SECRET auth
+
+### 10.4 UI Modernization (High Effort)
+
+1. Bundle optimization (replace Moment.js, tree-shake lodash)
+2. PWA support (service worker, manifest)
+3. Migrate jQuery to vanilla JS or modern framework
+4. Accessibility improvements
 
 ---
 

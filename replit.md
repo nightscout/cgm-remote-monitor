@@ -216,7 +216,7 @@ Located in `docs/`:
 | Document | Description |
 |----------|-------------|
 | `architecture-overview.md` | System diagram, component relationships, data flow, tech stack |
-| `security-audit.md` | Auth mechanisms, JWT, Shiro permissions, security gaps (no rate limiting) |
+| `security-audit.md` | Auth mechanisms, JWT, Shiro permissions, brute-force protection (delaylist.js) |
 | `api-layer-audit.md` | REST v1/v2/v3 contracts, endpoint inventory, WebSocket protocols |
 | `data-layer-audit.md` | MongoDB collections, schemas, auto-pruning, sync mechanisms |
 | `realtime-systems-audit.md` | Socket.IO namespaces, event bus patterns, latency analysis |
@@ -226,12 +226,20 @@ Located in `docs/`:
 | `modernization-roadmap.md` | Technical debt inventory, phased refactoring plan |
 
 ### Critical Findings
-- **No Rate Limiting** - Critical security gap, needs immediate implementation
+- **Auth Brute-Force Protection** - Implemented via `delaylist.js` (IP-based progressive delay)
+- **General API Rate Limiting** - Not implemented, recommended for DoS protection
 - **Deprecated Dependencies** - `request` library should be replaced with `axios`
 - **Bundle Size** - ~1MB+ production bundle, optimization opportunities exist
 - **Node.js Support** - Supports ^14.x, ^16.x, ^18.x, ^20.x
 
+### Authentication Modernization Direction
+- OIDC/OAuth2 plugin for vendor-agnostic identity
+- nightscout-roles-gateway integration for consent and delegation
+- Ory Hydra/Kratos as identity backend option
+- Aligns with Control Plane RFC authority model (Human > Agent > Controller)
+
 ## Recent Changes
+- 2026-01-13: Updated audit docs with accurate rate limiting info (delaylist.js) and OIDC/gateway architecture direction
 - 2026-01-13: Created comprehensive 9-document system audit with security findings and modernization roadmap
 - 2026-01-13: Revised Testing Modernization Proposal with three-track approach, Logic/DOM separation, and UI Discovery track
 - 2026-01-01: Added Agentic Control Plane RFC and JSON schemas

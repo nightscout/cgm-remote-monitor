@@ -17,7 +17,8 @@ The Nightscout security model has evolved across API versions, progressing from 
 | API_SECRET handling | Adequate | Medium | Medium |
 | JWT implementation | Good | Low | Low |
 | Permission model (Shiro) | Good | Low | Low |
-| Rate limiting | **Not Implemented** | **Critical** | **Critical** |
+| Auth brute-force protection | **Implemented** (IP delay list) | Low | Low |
+| General API rate limiting | Not Implemented | Medium | Medium |
 | Event bus security | Minimal | Medium | Medium |
 | Input validation | Inconsistent | High | High |
 
@@ -244,25 +245,48 @@ collection.find({ type: req.query.type });
 - Add request sanitization layer
 - Enable MongoDB strict mode
 
-### 5.2 Rate Limiting
+### 5.2 Rate Limiting & Brute-Force Protection
+
+#### 5.2.1 Authentication Brute-Force Protection (Implemented)
 
 **Location:** `lib/authorization/delaylist.js`
 
-**Current Implementation:**
-- Tracks failed authentication attempts by IP
-- Adds progressive delays after failures
-- Resets on successful authentication
+**Implementation:**
+```javascript
+const DELAY_ON_FAIL = settings.authFailDelay || 5000;  // Configurable via env
+const FAIL_AGE = 60000;  // Clear after 1 minute
 
-**Limitations:**
-- Only covers authentication failures
-- No rate limiting for API endpoints
-- No DDoS protection
+ipDelayList.addFailedRequest(ip);      // Add cumulative delay
+ipDelayList.shouldDelayRequest(ip);    // Check if request should be delayed
+ipDelayList.requestSucceeded(ip);      // Clear delay on success
+```
+
+**Behavior:**
+- Tracks failed authentication attempts by IP address
+- Adds progressive delays (default 5000ms per failure, cumulative)
+- Configurable via `authFailDelay` setting (useful for faster tests)
+- Auto-clears entries after 60 seconds of inactivity
+- Immediately clears IP on successful authentication
+
+**Strengths:**
+- Effective brute-force protection for authentication endpoints
+- Progressive delay makes automated attacks impractical
+- Configurable for different environments
+
+#### 5.2.2 General API Rate Limiting (Not Implemented)
+
+**Current State:** No rate limiting for general API endpoints
+
+**Gaps:**
+- Unauthenticated endpoints have no request limits
+- Authenticated users can make unlimited requests
+- No protection against API abuse or scraping
 
 **Recommendations:**
-- Add express-rate-limit middleware
-- Implement per-endpoint rate limits
+- Add express-rate-limit middleware for general API protection
+- Implement per-endpoint rate limits for expensive operations
 - Add request size limits
-- Consider Redis-based distributed rate limiting
+- Consider Redis-based distributed rate limiting for multi-instance deployments
 
 ### 5.3 CORS Configuration
 

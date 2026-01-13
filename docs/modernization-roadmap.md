@@ -443,64 +443,100 @@ module.exports = {
 
 **Effort:** Low | **Complexity:** Straightforward (new tooling, minimal code changes)
 
-#### 3.4.3 Redis Integration
+#### 3.4.3 OIDC/OAuth2 Plugin
 
-**Action:** Add Redis for caching and pub/sub
+**Action:** Add OpenID Connect and OAuth2 support as a plugin for vendor-agnostic identity
 
+**Rationale:**
+- Delegate identity complexity to purpose-built tools
+- Keep Nightscout focused on CGM data handling
+- Enable integration with enterprise identity providers
+- Support consent and delegation workflows
+
+**Architecture:**
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        IDENTITY LAYER (External)                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐     │
+│  │   Ory Hydra     │    │   Ory Kratos    │    │  Other IdPs     │     │
+│  │ (OAuth2/OIDC)   │    │ (Identity Mgmt) │    │ (Okta, Auth0)   │     │
+│  └────────┬────────┘    └────────┬────────┘    └────────┬────────┘     │
+│           └──────────────────────┼──────────────────────┘              │
+│                                  ▼                                      │
+│                    ┌─────────────────────────────┐                      │
+│                    │  nightscout-roles-gateway   │                      │
+│                    │  (Consent & Delegation)     │                      │
+│                    │  github.com/t1pal/...       │                      │
+│                    └──────────────┬──────────────┘                      │
+└───────────────────────────────────┼─────────────────────────────────────┘
+                                    │ OIDC claims → NS permissions
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           NIGHTSCOUT                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  OIDC Plugin (lib/plugins/oidc.js)                              │   │
+│  │  - Validate OIDC tokens                                          │   │
+│  │  - Map claims to Shiro permissions                               │   │
+│  │  - Coexist with existing API_SECRET auth                         │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Implementation Approach:**
 ```javascript
-const Redis = require('ioredis');
-const redis = new Redis(process.env.REDIS_URL);
+// lib/plugins/oidc.js
+const { Issuer } = require('openid-client');
 
-// Caching
-async function getCachedEntry(id) {
-  const cached = await redis.get(`entry:${id}`);
-  if (cached) return JSON.parse(cached);
-  
-  const entry = await db.collection('entries').findOne({ _id: id });
-  await redis.setex(`entry:${id}`, 300, JSON.stringify(entry));
-  return entry;
+async function init(env, ctx) {
+  const issuer = await Issuer.discover(env.OIDC_ISSUER_URL);
+  const client = new issuer.Client({
+    client_id: env.OIDC_CLIENT_ID,
+    client_secret: env.OIDC_CLIENT_SECRET
+  });
+
+  // Middleware to validate OIDC tokens
+  ctx.authorization.addTokenValidator('oidc', async (token) => {
+    const userinfo = await client.userinfo(token);
+    return mapClaimsToPermissions(userinfo);
+  });
 }
-
-// Pub/Sub for horizontal scaling
-redis.subscribe('notifications', (err, count) => {
-  console.log(`Subscribed to ${count} channels`);
-});
-
-redis.on('message', (channel, message) => {
-  const notify = JSON.parse(message);
-  io.emit('notification', notify);
-});
 ```
 
-**Effort:** Medium | **Complexity:** Moderate (new infrastructure dependency)
+**Effort:** Medium | **Complexity:** Moderate (well-defined protocol, existing libraries)
 
-#### 3.4.4 Horizontal Scaling Support
+#### 3.4.4 Multitenancy via External Gateway
 
-**Action:** Enable multi-instance deployment
+**Action:** Support multiple data holders through nightscout-roles-gateway
 
-**Requirements:**
-1. Socket.IO Redis adapter
-2. Session store in Redis
-3. Stateless application logic
-4. Shared notification queue
+**Reference:** https://github.com/t1pal/nightscout-roles-gateway
 
+**Capabilities:**
+- **Consent Management:** Data holder controls who can access their data
+- **Delegation:** Caregivers, clinicians, AI agents with scoped permissions
+- **Authority Hierarchy:** Aligns with Control Plane RFC (Human > Agent > Controller)
+- **Audit Trail:** Who accessed what data, when, with what permissions
+
+**Integration Points:**
 ```javascript
-// Socket.IO with Redis adapter
-const { createAdapter } = require('@socket.io/redis-adapter');
-io.adapter(createAdapter(pubClient, subClient));
+// Gateway handles:
+// 1. User authentication via Ory Kratos
+// 2. OAuth2 consent flows via Ory Hydra
+// 3. Permission mapping to Nightscout Shiro permissions
+// 4. Multi-tenant routing (optional)
 
-// Notification queue
-const Queue = require('bull');
-const notificationQueue = new Queue('notifications', process.env.REDIS_URL);
-
-notificationQueue.process(async (job) => {
-  const { notify } = job.data;
-  await sendPushover(notify);
-  await sendMaker(notify);
-});
+// Nightscout receives:
+// - Standard OIDC token with claims
+// - Claims include: subject_id, permissions[], delegated_by, expires_at
 ```
 
-**Effort:** High | **Complexity:** Complicated (distributed systems knowledge required)
+**Benefits over Internal Implementation:**
+- Separation of concerns (identity vs. CGM data)
+- Proven identity infrastructure (Ory stack)
+- Standards-compliant (OAuth2, OIDC)
+- Easier security audits (smaller attack surface in Nightscout)
+
+**Effort:** Medium | **Complexity:** Moderate (integration work, minimal Nightscout changes)
 
 ### Phase 5: UI Modernization
 
