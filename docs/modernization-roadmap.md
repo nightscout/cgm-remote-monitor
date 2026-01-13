@@ -63,9 +63,10 @@ This roadmap outlines a phased approach to modernizing the Nightscout codebase w
 
 ## 3. Phased Modernization Plan
 
-### Phase 1: Foundation (0-3 months)
+### Phase 1: Security Foundation
 
-**Goal:** Address critical security issues and establish modern tooling
+**Goal:** Address critical security issues and establish modern tooling  
+**Effort:** Low to Medium | **Complexity:** Straightforward
 
 #### 3.1.1 Replace Deprecated Dependencies
 
@@ -87,7 +88,7 @@ await axios.post(url, json);
 - `lib/plugins/bridge.js`
 - `lib/server/bootevent.js`
 
-**Timeline:** 2 weeks
+**Effort:** Low | **Complexity:** Straightforward (find-and-replace pattern)
 
 #### 3.1.2 Update Node.js Requirements
 
@@ -102,7 +103,7 @@ await axios.post(url, json);
 }
 ```
 
-**Timeline:** 1 week
+**Effort:** Low | **Complexity:** Straightforward (config change only)
 
 #### 3.1.3 Add Input Validation
 
@@ -131,7 +132,7 @@ function validateBody(schema) {
 }
 ```
 
-**Timeline:** 3 weeks
+**Effort:** Medium | **Complexity:** Moderate (many endpoints, testing needed)
 
 #### 3.1.4 Add Rate Limiting
 
@@ -150,7 +151,7 @@ const apiLimiter = rateLimit({
 app.use('/api/', apiLimiter);
 ```
 
-**Timeline:** 1 week
+**Effort:** Low | **Complexity:** Straightforward (middleware addition)
 
 #### 3.1.5 Add Structured Logging
 
@@ -167,11 +168,12 @@ logger.info({ event: 'data_update', entries: count }, 'Data updated');
 logger.error({ err, endpoint }, 'Request failed');
 ```
 
-**Timeline:** 2 weeks
+**Effort:** Medium | **Complexity:** Straightforward (systematic replacement)
 
-### Phase 2: Developer Experience (3-6 months)
+### Phase 2: Developer Experience
 
-**Goal:** Improve developer productivity and code quality
+**Goal:** Improve developer productivity and code quality  
+**Effort:** High | **Complexity:** Moderate to Complicated
 
 #### 3.2.1 Add TypeScript Support
 
@@ -208,7 +210,7 @@ interface NightscoutContext {
 
 **Step 3:** Convert files incrementally (`.js` → `.ts`)
 
-**Timeline:** 6-8 weeks (ongoing)
+**Effort:** High | **Complexity:** Moderate (incremental, ongoing)
 
 #### 3.2.2 Async/Await Refactoring
 
@@ -242,7 +244,7 @@ async function setupStorage(ctx) {
 3. `lib/api3/` endpoints
 4. `lib/data/dataloader.js`
 
-**Timeline:** 4-6 weeks
+**Effort:** Medium | **Complexity:** Moderate (requires understanding callback patterns)
 
 #### 3.2.3 Testing Infrastructure
 
@@ -275,11 +277,12 @@ describe('GET /api/v3/entries', () => {
 - Authorization: 90%
 - Data processing: 75%
 
-**Timeline:** Ongoing
+**Effort:** High | **Complexity:** Moderate (ongoing effort)
 
-### Phase 3: Performance & UX (6-9 months)
+### Phase 3: Performance & User Experience
 
-**Goal:** Improve client-side performance and user experience
+**Goal:** Improve client-side performance and user experience  
+**Effort:** Medium | **Complexity:** Moderate
 
 #### 3.3.1 Bundle Optimization
 
@@ -332,7 +335,7 @@ $('#reports-tab').on('click', async function() {
 });
 ```
 
-**Timeline:** 3-4 weeks
+**Effort:** Low to Medium | **Complexity:** Straightforward (library swaps + config)
 
 #### 3.3.2 PWA Support
 
@@ -365,7 +368,7 @@ self.addEventListener('install', (event) => {
 }
 ```
 
-**Timeline:** 2 weeks
+**Effort:** Low | **Complexity:** Straightforward (add new files)
 
 #### 3.3.3 Migrate jQuery to Vanilla JS
 
@@ -385,11 +388,12 @@ document.querySelectorAll('.pill').forEach(el => {
 });
 ```
 
-**Timeline:** 8-12 weeks (ongoing)
+**Effort:** High | **Complexity:** Complicated (incremental, many touch points)
 
-### Phase 4: Architecture (9-12 months)
+### Phase 4: Architecture Improvements
 
-**Goal:** Improve scalability and maintainability
+**Goal:** Improve scalability and maintainability  
+**Effort:** High | **Complexity:** Complicated
 
 #### 3.4.1 Event-Driven Refactoring
 
@@ -418,7 +422,7 @@ class TypedEventBus extends EventEmitter {
 }
 ```
 
-**Timeline:** 3 weeks
+**Effort:** Medium | **Complexity:** Moderate (contained refactor)
 
 #### 3.4.2 Database Migration System
 
@@ -437,7 +441,7 @@ module.exports = {
 };
 ```
 
-**Timeline:** 2 weeks
+**Effort:** Low | **Complexity:** Straightforward (new tooling, minimal code changes)
 
 #### 3.4.3 Redis Integration
 
@@ -468,7 +472,7 @@ redis.on('message', (channel, message) => {
 });
 ```
 
-**Timeline:** 4 weeks
+**Effort:** Medium | **Complexity:** Moderate (new infrastructure dependency)
 
 #### 3.4.4 Horizontal Scaling Support
 
@@ -496,11 +500,12 @@ notificationQueue.process(async (job) => {
 });
 ```
 
-**Timeline:** 6-8 weeks
+**Effort:** High | **Complexity:** Complicated (distributed systems knowledge required)
 
-### Phase 5: UI Modernization (12-18 months)
+### Phase 5: UI Modernization
 
-**Goal:** Modern, responsive, accessible user interface
+**Goal:** Modern, responsive, accessible user interface  
+**Effort:** Very High | **Complexity:** Complicated
 
 #### 3.5.1 Component Framework Adoption
 
@@ -519,7 +524,7 @@ import StatusPills from './components/StatusPills.vue';
 createApp(StatusPills).mount('#status-pills');
 ```
 
-**Timeline:** 12+ weeks
+**Effort:** Very High | **Complexity:** Complicated (major architecture shift)
 
 #### 3.5.2 Accessibility Improvements
 
@@ -547,7 +552,7 @@ createApp(StatusPills).mount('#status-pills');
 </button>
 ```
 
-**Timeline:** 6-8 weeks
+**Effort:** Medium | **Complexity:** Moderate (systematic, well-defined)
 
 #### 3.5.3 Chart Library Migration
 
@@ -557,7 +562,7 @@ createApp(StatusPills).mount('#status-pills');
 
 **Option 3:** Custom WebGL-based chart for performance
 
-**Timeline:** 4-8 weeks
+**Effort:** Medium to High | **Complexity:** Moderate to Complicated (depends on option chosen)
 
 ---
 
@@ -633,11 +638,11 @@ async function sendNotification(notify) {
 
 | Phase | Test Coverage | Type |
 |-------|--------------|------|
-| Phase 1 | 80%+ | Unit, integration |
-| Phase 2 | 75%+ | Unit, E2E |
-| Phase 3 | 70%+ | Performance, visual |
-| Phase 4 | 80%+ | Load, chaos |
-| Phase 5 | 70%+ | Accessibility, E2E |
+| Phase 1: Security Foundation | 80%+ | Unit, integration |
+| Phase 2: Developer Experience | 75%+ | Unit, E2E |
+| Phase 3: Performance & UX | 70%+ | Performance, visual |
+| Phase 4: Architecture | 80%+ | Load, chaos |
+| Phase 5: UI Modernization | 70%+ | Accessibility, E2E |
 
 ### 5.3 Rollback Procedures
 
@@ -652,13 +657,13 @@ async function sendNotification(notify) {
 
 ### 6.1 Development Effort
 
-| Phase | Duration | Full-Time Equivalent |
-|-------|----------|---------------------|
-| Phase 1 | 3 months | 1-2 developers |
-| Phase 2 | 3 months | 2 developers |
-| Phase 3 | 3 months | 1-2 developers |
-| Phase 4 | 3 months | 2 developers |
-| Phase 5 | 6 months | 2-3 developers |
+| Phase | Effort | Complexity | Team Size |
+|-------|--------|------------|-----------|
+| Phase 1: Security Foundation | Low to Medium | Straightforward | 1-2 developers |
+| Phase 2: Developer Experience | High | Moderate to Complicated | 2 developers |
+| Phase 3: Performance & UX | Medium | Moderate | 1-2 developers |
+| Phase 4: Architecture | High | Complicated | 2 developers |
+| Phase 5: UI Modernization | Very High | Complicated | 2-3 developers |
 
 ### 6.2 Infrastructure
 
