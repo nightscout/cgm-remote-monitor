@@ -206,7 +206,33 @@ A revised proposal aligning test modernization with broader UI and architecture 
 - Out-of-scope items logged and deferred
 - No new UI module without test strategy
 
+## Comprehensive System Audit Documentation
+
+A complete audit of the Nightscout codebase covering all major subsystems, created to support system understanding and modernization planning.
+
+### Audit Documents
+Located in `docs/`:
+
+| Document | Description |
+|----------|-------------|
+| `architecture-overview.md` | System diagram, component relationships, data flow, tech stack |
+| `security-audit.md` | Auth mechanisms, JWT, Shiro permissions, security gaps (no rate limiting) |
+| `api-layer-audit.md` | REST v1/v2/v3 contracts, endpoint inventory, WebSocket protocols |
+| `data-layer-audit.md` | MongoDB collections, schemas, auto-pruning, sync mechanisms |
+| `realtime-systems-audit.md` | Socket.IO namespaces, event bus patterns, latency analysis |
+| `plugin-architecture-audit.md` | Plugin system design, 38 plugins inventory, Pebble integration |
+| `dashboard-ui-audit.md` | Client bundle structure, D3/jQuery charting, clock displays |
+| `messaging-subsystem-audit.md` | Pushover, IFTTT Maker, notification flows, acknowledgment |
+| `modernization-roadmap.md` | Technical debt inventory, phased refactoring plan |
+
+### Critical Findings
+- **No Rate Limiting** - Critical security gap, needs immediate implementation
+- **Deprecated Dependencies** - `request` library should be replaced with `axios`
+- **Bundle Size** - ~1MB+ production bundle, optimization opportunities exist
+- **Node.js Support** - Supports ^14.x, ^16.x, ^18.x, ^20.x
+
 ## Recent Changes
+- 2026-01-13: Created comprehensive 9-document system audit with security findings and modernization roadmap
 - 2026-01-13: Revised Testing Modernization Proposal with three-track approach, Logic/DOM separation, and UI Discovery track
 - 2026-01-01: Added Agentic Control Plane RFC and JSON schemas
 - 2025-12-31: Updated to version 15.0.4 (dev branch)
