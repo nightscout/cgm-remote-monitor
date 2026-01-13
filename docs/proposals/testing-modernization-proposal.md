@@ -1,14 +1,36 @@
-# Testing Modernization Proposal
+# Testing & Architecture Modernization Proposal
 
 **Date:** January 2026  
-**Status:** Draft  
+**Status:** Draft (Revised)  
 **Author:** Nightscout Development Team
+
+---
 
 ## Executive Summary
 
-The Nightscout test suite contains 78 test files spanning API/server tests and client/UI tests. While server-side tests using supertest remain functional, the client-side tests using benv/jsdom are built on unmaintained dependencies from 2018 and require modernization.
+This proposal has been revised based on stakeholder interviews to align testing modernization with broader architectural goals. The original focus on migrating all client tests to Jest has been replaced with a leaner, three-track approach that:
 
-This proposal outlines a phased approach to update dependencies, migrate the client testing infrastructure, and establish a sustainable testing strategy.
+1. **Gets tests running reliably** with updated dependencies
+2. **Separates pure logic from DOM code** to enable faster, simpler testing
+3. **Prepares for UI modernization** without wasting effort on tests for code that will be replaced
+
+**Key insight:** The current webpack bundle conflates pure logic (hashauth, statistics, data transforms) with DOM manipulation (jQuery, d3 rendering). Separating these concerns unlocks both testability and maintainability.
+
+---
+
+## Interview Findings
+
+The following context informed the revised strategy:
+
+| Question | Finding |
+|----------|---------|
+| What's driving modernization? | Increase development velocity for new features; potentially removing old ones and consolidating UI libraries |
+| Database requirements? | Tests need to run against a database; current deps are outdated |
+| UI library plans? | jQuery UI, d3, and other libraries may be consolidated or replaced |
+| Critical client tests? | `hashauth.test.js` must continue working (security-critical) |
+| Other client tests? | May be deferred since underlying UI code could be rewritten |
+| Future architecture? | Server-side statistics API, possibly narrator-driven interface for agentic insulin delivery |
+| Test harness security? | jsdom/Playwright must have strict network isolation to prevent unintended requests |
 
 ---
 
@@ -19,310 +41,323 @@ This proposal outlines a phased approach to update dependencies, migrate the cli
 | Category | Count | Framework | Status |
 |----------|-------|-----------|--------|
 | API/Server Tests | ~60 | mocha + supertest | Functional, needs updates |
-| Client/UI Tests | 7 | mocha + benv/jsdom | Broken/Fragile |
+| Client/UI Tests | 7 | mocha + benv/jsdom | Fragile, uses unmaintained deps |
 | Disabled Tests | 1 | - | `client.test.js.temporary_removed` |
 
-### Server-Side Tests (Healthy)
+### Client Test Disposition
 
-Tests using `supertest` to validate Express routes:
-- `tests/api.*.test.js` - REST API endpoints
-- `tests/api3.*.test.js` - API v3 endpoints  
-- `tests/security.test.js` - Authentication/authorization
-- Plugin tests (`ar2`, `bgnow`, `basalprofileplugin`, etc.)
+| File | Decision | Rationale |
+|------|----------|-----------|
+| `hashauth.test.js` | **Migrate** | Security-critical, must keep working |
+| `careportal.test.js` | Skip/Defer | UI code may be rewritten |
+| `profileeditor.test.js` | Skip/Defer | Complex UI mocking, low ROI |
+| `pluginbase.test.js` | Skip/Defer | Review after logic extraction |
+| `admintools.test.js` | Skip/Defer | UI code may be rewritten |
+| `reports.test.js` | Skip/Defer | Stats moving to server API |
+| `adminnotifies.test.js` | Skip/Defer | Low priority |
 
-**These tests work but use outdated dependencies.**
+### Architectural Problem: Bundle Conflation
 
-### Client-Side Tests (Problematic)
+The current `bundle.app.js` mixes:
+- **Pure logic** (testable without DOM): hashauth crypto, statistics calculations, data transforms, unit conversions
+- **DOM manipulation** (requires browser simulation): jQuery selectors, d3 rendering, event handlers, UI state
 
-Tests using `benv` to simulate browser environment:
-- `tests/careportal.test.js`
-- `tests/hashauth.test.js`
-- `tests/profileeditor.test.js`
-- `tests/pluginbase.test.js`
-- `tests/admintools.test.js`
-- `tests/reports.test.js`
-- `tests/adminnotifies.test.js`
-
-**These tests rely on:**
-- `benv` (last updated 2018, unmaintained)
-- `jsdom` pinned to v11.11.0 (2018)
-- Custom `tests/fixtures/headless.js` harness
-- Mocked jQuery, d3, socket.io, localStorage
+This conflation forces all client tests to load the entire bundle in a simulated browser, even when testing pure functions.
 
 ---
 
-## Dependency Analysis
+## Three-Track Modernization Plan
 
-### Critical Dependencies Requiring Updates
-
-| Package | Current | Latest | Severity | Notes |
-|---------|---------|--------|----------|-------|
-| `jsdom` | =11.11.0 | 24.x | **Critical** | Pinned to 2018 version, security vulnerabilities |
-| `benv` | 3.3.0 | 3.3.0 | **Critical** | Unmaintained since 2018, must replace |
-| `supertest` | 3.4.2 | 7.x | High | Major API changes, needs testing |
-| `mocha` | 8.4.0 | 10.x | Medium | Minor breaking changes |
-| `nyc` | 14.1.1 | 17.x | Medium | Coverage tool, or migrate to c8 |
-| `should` | 13.2.3 | 13.2.3 | Low | Stable, but consider modern alternatives |
-
-### Related Production Dependencies
-
-| Package | Current | Latest | Notes |
-|---------|---------|--------|-------|
-| `axios` | 0.21.1 | 1.7.x | High severity vulnerabilities, affects tests |
-| `express` | 4.17.1 | 4.21.x | Security patches available |
-| `mongodb` | 3.6.0 | 6.x | Major version, significant API changes |
-
----
-
-## Recommended Strategy
-
-### Phase 1: Server-Side Test Updates (Low Risk)
-
-**Effort:** 2-4 hours  
+### Track 1: Testing Foundation
+**Duration:** 2 weeks  
 **Risk:** Low  
-**Dependencies Affected:** mocha, supertest, nyc, should
+**Goal:** Get API tests green, migrate hashauth with secure harness
 
-#### Tasks:
-1. Update `mocha` from 8.4.0 to 10.x
-2. Update `supertest` from 3.4.2 to 7.x
-3. Update `nyc` from 14.1.1 to 17.x (or migrate to `c8`)
-4. Run full test suite, fix any breaking changes
-5. Verify CI pipeline passes
+#### Tasks
 
-#### Breaking Changes to Address:
-- Mocha 10.x: ESM support changes, `--exit` flag behavior
-- Supertest 7.x: Promise-based API preferred over callbacks
+1. Update mocha from 8.4.0 to 10.x
+2. Update supertest from 3.4.2 to 7.x
+3. Update nyc from 14.1.1 to 17.x
+4. Formalize database test fixture bootstrap
+5. Migrate `hashauth.test.js` to locked-down jsdom harness (see Network Isolation below)
+6. Document and skip remaining client tests with rationale
+7. Verify CI pipeline passes
+
+#### Exit Criteria
+
+- [ ] Green CI run covering all API suites
+- [ ] hashauth tests passing with secure jsdom harness
+- [ ] Catalog of skipped legacy UI tests with documented rationale
+- [ ] Security posture for test harness documented
 
 ---
 
-### Phase 2: Client Test Migration (Medium Effort)
-
-**Effort:** 8-16 hours  
+### Track 2: Logic/DOM Separation
+**Duration:** 3 weeks (starts after T1 stabilizes)  
 **Risk:** Medium  
-**Approach:** Migrate from benv/jsdom to Jest with jsdom environment
+**Goal:** Extract pure logic for fast, DOM-free testing
 
-#### Why Jest?
-1. Built-in jsdom environment (always current)
-2. Snapshot testing for UI components
-3. Better mocking utilities
-4. Parallel test execution
-5. Active maintenance and community
+#### Proposed Structure
 
-#### Migration Path:
-
-##### Step 2.1: Install Jest
-```bash
-npm install --save-dev jest jest-environment-jsdom @types/jest
+```
+lib/
+├── client/                 # Existing - DOM-coupled code
+│   ├── index.js
+│   ├── careportal.js
+│   └── ...
+├── client-core/            # NEW - Pure logic, no DOM deps
+│   ├── hashauth.js         # Crypto/auth logic only
+│   ├── statistics.js       # Report calculations
+│   ├── transforms.js       # Data transformations
+│   ├── units.js            # Unit conversions
+│   └── index.js
+└── server/                 # Existing server code
 ```
 
-##### Step 2.2: Create Jest Configuration
+#### Tasks
+
+1. Inventory client bundle modules: classify as "pure logic" vs "DOM layer"
+2. Extract pure logic to `lib/client-core/` with no DOM dependencies
+3. Add Mocha unit tests for extracted logic (no jsdom needed)
+4. Create thin adapter wrappers for DOM code that calls into client-core
+5. Update webpack config to expose client-core separately if needed
+6. Document dependency map showing remaining DOM-coupled modules
+
+#### Exit Criteria
+
+- [ ] `lib/client-core/` contains extracted pure logic
+- [ ] 80% of extracted logic covered by Node-based tests
+- [ ] Documented dependency map of remaining DOM-coupled modules
+- [ ] Guidelines published for new code placement
+
+#### Example: hashauth Separation
+
+**Before (DOM-coupled):**
 ```javascript
-// jest.config.js
-module.exports = {
-  testEnvironment: 'jsdom',
-  testMatch: ['**/tests/client/**/*.test.js'],
-  setupFilesAfterEnv: ['<rootDir>/tests/jest.setup.js'],
-  moduleNameMapper: {
-    '\\.(css|less|scss)$': 'identity-obj-proxy'
+// lib/client/hashauth.js
+var hashauth = {
+  init: function(client, $) {
+    // Mixes auth logic with jQuery DOM manipulation
+    $('#login-btn').click(function() {
+      var token = hashauth.computeToken(password);
+      // ...
+    });
+  },
+  computeToken: function(password) {
+    // Pure crypto logic
   }
 };
 ```
 
-##### Step 2.3: Bundle Loading Strategy (Critical)
-
-The current `headless.js` loads the compiled Nightscout bundle from:
-```
-node_modules/.cache/_ns_cache/public/js/bundle.app.js
-```
-
-This bundle exposes `window.Nightscout` which client tests depend on. There are two approaches:
-
-**Option A: Load Pre-Built Bundle (Recommended for initial migration)**
-
-Require the built bundle in Jest setup, similar to current benv approach:
-
+**After (separated):**
 ```javascript
-// tests/jest.setup.js (CommonJS - do NOT use ESM import syntax)
-const { JSDOM } = require('jsdom');
-const fs = require('fs');
-const path = require('path');
-
-const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
-  url: 'http://localhost',
-  pretendToBeVisual: true,
-  runScripts: 'dangerously'
-});
-
-global.window = dom.window;
-global.document = dom.window.document;
-global.navigator = dom.window.navigator;
-
-// Mock dependencies BEFORE loading bundle
-global.$ = global.jQuery = require('jquery');
-global.d3 = require('d3');
-global.io = {
-  connect: jest.fn(() => ({
-    on: jest.fn(),
-    emit: jest.fn()
-  }))
+// lib/client-core/hashauth.js - Pure logic, testable without DOM
+module.exports = {
+  computeToken: function(password, salt) { /* ... */ },
+  verifyToken: function(token, expected) { /* ... */ },
+  generateSalt: function() { /* ... */ }
 };
 
-// Expose mocks to window for bundle compatibility
-dom.window.$ = global.$;
-dom.window.jQuery = global.jQuery;
-dom.window.d3 = global.d3;
-dom.window.io = global.io;
-
-// Load the Nightscout bundle (must be built first: npm run bundle)
-const bundlePath = path.join(__dirname, '../node_modules/.cache/_ns_cache/public/js/bundle.app.js');
-if (fs.existsSync(bundlePath)) {
-  const bundleCode = fs.readFileSync(bundlePath, 'utf8');
-  dom.window.eval(bundleCode);
-  global.Nightscout = dom.window.Nightscout;
-} else {
-  console.warn('Warning: Bundle not found. Run "npm run bundle" before tests.');
-}
+// lib/client/hashauth-ui.js - Thin DOM wrapper
+var core = require('../client-core/hashauth');
+module.exports = {
+  init: function(client, $) {
+    $('#login-btn').click(function() {
+      var token = core.computeToken(password, salt);
+      // ...
+    });
+  }
+};
 ```
 
-**Option B: Direct Module Imports (Longer-term refactor)**
+---
 
-Refactor client code to be importable as ES modules, eliminating bundle dependency:
+### Track 3: UI Modernization Discovery
+**Duration:** 4 weeks (starts mid-T2)  
+**Risk:** Medium  
+**Goal:** Technology decision and migration roadmap
+
+#### Deliverables
+
+1. **Persona-Driven UX Goals**
+   - Define user personas (patient, caregiver, clinician)
+   - Document key workflows and pain points
+   - Establish accessibility requirements
+
+2. **Technology Decision Matrix**
+   
+   | Criteria | jQuery (retain) | React | Svelte | Vue |
+   |----------|-----------------|-------|--------|-----|
+   | Bundle size | ? | ? | ? | ? |
+   | Team familiarity | ? | ? | ? | ? |
+   | Accessibility tooling | ? | ? | ? | ? |
+   | Mobile support | ? | ? | ? | ? |
+   | Migration effort | ? | ? | ? | ? |
+
+3. **Server-Side Statistics API Contracts**
+   - Define endpoints for report statistics
+   - Specify response formats
+   - Document caching strategy
+
+4. **Narrator/Agent Interface Requirements**
+   - Define interaction patterns for voice/agentic control
+   - Specify accessibility requirements
+   - Document state management needs
+
+5. **Incremental Migration Roadmap**
+   - Feature flag strategy for coexisting UI shells
+   - Prioritized list of components to migrate
+   - Rollback procedures
+
+#### Exit Criteria
+
+- [ ] Technology decision made and documented
+- [ ] API contracts for server-side statistics defined
+- [ ] Migration roadmap approved by stakeholders
+- [ ] Definition of "done" for UI modernization established
+
+---
+
+## Network Isolation Requirements
+
+The test harness must prevent unintended network requests. This is critical for security-related tests like hashauth.
+
+### Locked-Down jsdom Harness
 
 ```javascript
-// Future approach - import client modules directly
-const client = require('../lib/client');
-const careportal = require('../lib/client/careportal');
+// tests/fixtures/secure-jsdom.js
+const { JSDOM, ResourceLoader } = require('jsdom');
+
+class NoNetworkLoader extends ResourceLoader {
+  fetch(url) {
+    console.error(`BLOCKED: Attempted network request to ${url}`);
+    return Promise.reject(new Error(`Network requests disabled: ${url}`));
+  }
+}
+
+function createSecureDOM(html, options = {}) {
+  const dom = new JSDOM(html || '<!DOCTYPE html><html><body></body></html>', {
+    url: 'http://localhost',
+    resources: new NoNetworkLoader(),
+    runScripts: options.runScripts || 'outside-only',
+    pretendToBeVisual: true,
+    ...options
+  });
+
+  // Block fetch API
+  dom.window.fetch = () => {
+    throw new Error('fetch() is disabled in tests');
+  };
+
+  // Block XMLHttpRequest
+  dom.window.XMLHttpRequest = class {
+    open() {}
+    send() { throw new Error('XMLHttpRequest is disabled in tests'); }
+  };
+
+  return dom;
+}
+
+module.exports = { createSecureDOM, NoNetworkLoader };
 ```
 
-This requires refactoring client code to not depend on global `window.Nightscout`.
+### Usage in hashauth Test
 
-**Recommendation:** Start with Option A to validate the Jest migration works, then incrementally move to Option B as client code is modularized.
+```javascript
+const { createSecureDOM } = require('./fixtures/secure-jsdom');
 
-##### Step 2.4: Pre-test Build Requirement
+describe('hashauth', function() {
+  let dom;
 
-Add a pre-test script to ensure bundle exists:
+  before(function() {
+    dom = createSecureDOM();
+    global.window = dom.window;
+    global.document = dom.window.document;
+  });
+
+  after(function() {
+    dom.window.close();
+  });
+
+  it('computes token correctly', function() {
+    // Test pure logic without network concerns
+  });
+});
+```
+
+---
+
+## Scope Control Guardrails
+
+### Governance Structure
+
+1. **Milestone Exit Reviews**
+   - Each track requires stakeholder sign-off before proceeding
+   - Exit criteria must be met, not just "good enough"
+
+2. **Out-of-Scope Log**
+   - Maintain explicit list of deferred items per milestone
+   - Review and reprioritize at each exit review
+
+3. **Change Control**
+   - New UI feature ideas defer until Discovery completes
+   - No new UI module without corresponding test strategy
+   - Breaking changes require explicit approval
+
+### Scope Boundaries
+
+| In Scope | Out of Scope (for now) |
+|----------|------------------------|
+| API test updates | MongoDB driver upgrade |
+| hashauth test migration | Full client test migration |
+| Logic/DOM separation | Complete UI rewrite |
+| UI Discovery process | UI implementation |
+| Statistics API contracts | Statistics API implementation |
+
+### Dependency Alignment
+
+```
+Track 1 (Testing Foundation)
+    │
+    └──► Track 2 (Logic/DOM Separation) ──► Enables fast pure-logic tests
+            │
+            └──► Track 3 (UI Discovery) ──► Informs technology choice
+                    │
+                    └──► Future: UI Implementation (separate proposal)
+```
+
+---
+
+## Updated Dependency Strategy
+
+### Phase 1: Minimal Updates (Track 1)
 
 ```json
 {
-  "scripts": {
-    "pretest:client": "npm run bundle",
-    "test:client": "jest --config jest.config.js"
+  "devDependencies": {
+    "mocha": "^10.7.0",
+    "supertest": "^7.0.0",
+    "nyc": "^17.1.0"
   }
 }
 ```
 
-##### Step 2.5: Migrate Tests Incrementally
-For each benv-based test:
+### Phase 2: jsdom Update (Track 1)
 
-1. Create new file in `tests/client/` directory
-2. Convert `describe`/`it` syntax (mostly compatible)
-3. Replace benv setup with Jest globals
-4. Update assertions from `should` to `expect`
-5. Run and verify
-
-##### Step 2.5: Remove Legacy Dependencies
-```bash
-npm uninstall benv jsdom
+```json
+{
+  "dependencies": {
+    "jsdom": "^24.0.0"
+  }
+}
 ```
 
----
+Note: `benv` removed; direct jsdom usage with secure harness.
 
-### Phase 3: Enhanced Testing (Optional)
+### Deferred
 
-**Effort:** 16-24 hours  
-**Risk:** Low (additive)  
-
-#### Option A: Playwright for E2E Testing
-For true browser testing of complex UI flows:
-
-```javascript
-// tests/e2e/careportal.spec.js
-const { test, expect } = require('@playwright/test');
-
-test('careportal treatment entry', async ({ page }) => {
-  await page.goto('/');
-  await page.click('#careportal-btn');
-  await page.fill('#carbsGiven', '10');
-  await page.fill('#insulinGiven', '0.60');
-  await page.click('#submit-treatment');
-  await expect(page.locator('.treatment-success')).toBeVisible();
-});
-```
-
-#### Option B: Component Testing with Testing Library
-For isolated component testing:
-
-```javascript
-import { render, screen, fireEvent } from '@testing-library/dom';
-import careportal from '../lib/client/careportal';
-
-test('shows carb input when snack bolus selected', () => {
-  // render component
-  // interact and assert
-});
-```
-
----
-
-## Recommended Test Directory Structure
-
-```
-tests/
-├── api/                    # API endpoint tests (supertest)
-│   ├── entries.test.js
-│   ├── treatments.test.js
-│   └── ...
-├── client/                 # Client-side tests (Jest)
-│   ├── careportal.test.js
-│   ├── hashauth.test.js
-│   └── ...
-├── e2e/                    # End-to-end tests (Playwright, optional)
-│   └── smoke.spec.js
-├── plugins/                # Plugin unit tests
-│   ├── ar2.test.js
-│   └── ...
-├── fixtures/               # Shared test data and utilities
-│   ├── load.js
-│   └── default-server-settings.js
-└── jest.setup.js           # Jest global setup
-```
-
----
-
-## Migration Checklist
-
-### Phase 1 Checklist
-- [ ] Update mocha to 10.x
-- [ ] Update supertest to 7.x  
-- [ ] Update nyc to 17.x
-- [ ] Fix any callback → Promise migrations
-- [ ] Verify all API tests pass
-- [ ] Update CI configuration if needed
-
-### Phase 2 Checklist
-- [ ] Install Jest and jest-environment-jsdom
-- [ ] Create jest.config.js
-- [ ] Create tests/jest.setup.js with mocks (use CommonJS, NOT ESM)
-- [ ] Implement bundle loading strategy (load pre-built bundle via eval)
-- [ ] Add pretest:client script to build bundle before tests
-- [ ] Verify window.Nightscout is available in Jest environment
-- [ ] Migrate careportal.test.js
-- [ ] Migrate hashauth.test.js
-- [ ] Migrate profileeditor.test.js
-- [ ] Migrate pluginbase.test.js
-- [ ] Migrate admintools.test.js
-- [ ] Migrate reports.test.js
-- [ ] Migrate adminnotifies.test.js
-- [ ] Review and potentially restore client.test.js
-- [ ] Remove benv dependency
-- [ ] Update jsdom to use Jest's version
-- [ ] Update package.json scripts
-
-### Phase 3 Checklist (Optional)
-- [ ] Evaluate need for E2E tests
-- [ ] Install Playwright if needed
-- [ ] Create critical path E2E tests
-- [ ] Set up CI for E2E tests
+- Jest migration (not needed with unified Mocha approach)
+- Playwright (revisit after UI stabilizes)
 
 ---
 
@@ -331,12 +366,11 @@ tests/
 ```json
 {
   "scripts": {
-    "test": "npm run test:api && npm run test:client",
-    "test:api": "env-cmd -f ./my.test.env mocha --timeout 5000 --exit ./tests/api/**/*.test.js ./tests/plugins/**/*.test.js",
-    "test:client": "jest --config jest.config.js",
-    "test:e2e": "playwright test",
-    "test:ci": "npm run test:api -- --reporter mocha-junit-reporter && npm run test:client -- --ci",
-    "test:coverage": "nyc npm run test:api && jest --coverage"
+    "test": "npm run test:api",
+    "test:api": "env-cmd -f ./my.test.env mocha --timeout 5000 --exit ./tests/*.test.js",
+    "test:core": "mocha --timeout 5000 ./tests/client-core/**/*.test.js",
+    "test:ci": "env-cmd -f ./tests/ci.test.env nyc --reporter=lcov mocha --timeout 5000 --exit ./tests/*.test.js",
+    "test:all": "npm run test:api && npm run test:core"
   }
 }
 ```
@@ -345,25 +379,36 @@ tests/
 
 ## Risk Assessment
 
-| Phase | Risk | Mitigation |
+| Track | Risk | Mitigation |
 |-------|------|------------|
-| Phase 1 | Test failures from API changes | Run tests incrementally, fix as needed |
-| Phase 2 | Incomplete mocking in Jest | Document all mocked globals, test thoroughly |
-| Phase 2 | Bundle loading in Jest fails | Use Option A (load pre-built bundle via eval), ensure `npm run bundle` runs before tests |
-| Phase 2 | `window.Nightscout` undefined | Verify bundle exposes globals correctly, add fallback error messages |
-| Phase 2 | ESM/CommonJS mismatch | Use CommonJS syntax in jest.setup.js (require, not import) |
-| Phase 3 | CI time increase | Run E2E only on main branch |
+| T1 | Dependency updates break tests | Run incrementally, fix as needed |
+| T1 | jsdom network isolation incomplete | Use NoNetworkLoader + override fetch/XHR |
+| T2 | Difficult to separate logic from DOM | Start with clear wins (hashauth, statistics) |
+| T2 | Breaks existing functionality | Maintain adapters, run existing tests |
+| T3 | Scope creep during discovery | Strict exit criteria, out-of-scope log |
+| T3 | Technology decision paralysis | Time-boxed evaluation, decision deadline |
 
 ---
 
 ## Success Criteria
 
-1. **All existing server tests pass** with updated dependencies
-2. **All client tests migrated** to Jest and passing
-3. **No unmaintained dependencies** in test infrastructure
-4. **CI/CD pipeline updated** and green
-5. **Test execution time** remains under 5 minutes
-6. **Code coverage** maintained or improved
+### Track 1 (Testing Foundation)
+- [ ] All API tests pass with updated dependencies
+- [ ] hashauth tests pass with secure jsdom harness
+- [ ] CI pipeline green
+- [ ] Test execution under 5 minutes
+
+### Track 2 (Logic/DOM Separation)
+- [ ] `lib/client-core/` established with extracted modules
+- [ ] 80% coverage on extracted pure logic
+- [ ] No regressions in existing functionality
+- [ ] Clear guidelines for new code placement
+
+### Track 3 (UI Discovery)
+- [ ] Technology decision documented
+- [ ] Statistics API contracts defined
+- [ ] Migration roadmap approved
+- [ ] Stakeholder buy-in achieved
 
 ---
 
@@ -397,34 +442,55 @@ tests/
 }
 ```
 
-## Appendix B: Proposed Updated Dependencies
+---
 
-```json
-{
-  "devDependencies": {
-    "jest": "^29.7.0",
-    "jest-environment-jsdom": "^29.7.0",
-    "mocha": "^10.7.0",
-    "supertest": "^7.0.0",
-    "nyc": "^17.1.0",
-    "@playwright/test": "^1.48.0"
-  }
-}
-```
+## Appendix B: Client Module Inventory Template
 
-Note: `benv` removed, `jsdom` managed by jest-environment-jsdom
+Use this template during Track 2 to classify modules:
+
+| Module | Type | DOM Dependencies | Extraction Complexity | Priority |
+|--------|------|------------------|----------------------|----------|
+| hashauth.js | Mixed | jQuery, localStorage | Low | High |
+| statistics.js | Pure | None | Low | High |
+| careportal.js | DOM-heavy | jQuery, d3 | High | Low |
+| ... | | | | |
 
 ---
 
-## Appendix C: Files Requiring Migration
+## Appendix C: UI Technology Evaluation Criteria
 
-| File | Priority | Complexity | Notes |
-|------|----------|------------|-------|
-| `careportal.test.js` | High | Medium | Core functionality |
-| `hashauth.test.js` | High | Low | Security critical |
-| `profileeditor.test.js` | Medium | High | Complex UI mocking |
-| `pluginbase.test.js` | Medium | Low | Plugin infrastructure |
-| `admintools.test.js` | Medium | Medium | Admin features |
-| `reports.test.js` | Low | High | Complex rendering |
-| `adminnotifies.test.js` | Low | Low | Notifications |
-| `client.test.js` | High | High | Currently disabled, needs review |
+For Track 3 Discovery phase:
+
+1. **Performance**
+   - Initial bundle size
+   - Runtime performance
+   - Mobile device support
+
+2. **Developer Experience**
+   - Learning curve for team
+   - Tooling quality
+   - Documentation
+
+3. **Accessibility**
+   - ARIA support
+   - Screen reader compatibility
+   - Keyboard navigation
+
+4. **Migration Path**
+   - Incremental adoption possible?
+   - jQuery interop
+   - Estimated effort
+
+5. **Long-term Viability**
+   - Community size
+   - Corporate backing
+   - Release cadence
+
+---
+
+## Revision History
+
+| Date | Version | Changes |
+|------|---------|---------|
+| Jan 2026 | 1.0 | Initial draft |
+| Jan 2026 | 2.0 | Revised based on stakeholder interviews; three-track approach; added Logic/DOM separation; added UI Discovery track; added network isolation requirements; added scope guardrails |
