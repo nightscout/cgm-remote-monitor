@@ -182,30 +182,32 @@ Located in `docs/proposals/schemas/`:
 - **Bridge Mode** - Synthesize events from legacy devicestatus uploads
 - **MDI as First-Class** - Manual injections are always valid
 
-## Testing Modernization Proposal
+## Testing & Architecture Modernization Proposal
 
-A proposal for updating test infrastructure from unmaintained benv/jsdom to modern Jest.
+A revised proposal aligning test modernization with broader UI and architecture goals.
 
 | Document | Description |
 |----------|-------------|
-| `docs/proposals/testing-modernization-proposal.md` | Full proposal with phases, checklists, and migration strategy |
+| `docs/proposals/testing-modernization-proposal.md` | Three-track modernization plan with scope guardrails |
 
-### Key Points
-- **Phase 1:** Update server-side test dependencies (mocha, supertest, nyc)
-- **Phase 2:** Migrate client tests from benv to Jest with jsdom
-- **Phase 3:** Optional Playwright E2E testing
+### Three-Track Approach
+- **Track 1 (2 weeks):** Testing Foundation - Update mocha/supertest/nyc, migrate hashauth tests with secure jsdom harness
+- **Track 2 (3 weeks):** Logic/DOM Separation - Extract pure logic to `lib/client-core/` for fast, DOM-free testing
+- **Track 3 (4 weeks):** UI Modernization Discovery - Technology evaluation, server-side stats API contracts, migration roadmap
 
-### Critical Dependencies to Update
-| Package | Current | Target | Priority |
-|---------|---------|--------|----------|
-| jsdom | 11.11.0 (pinned) | Via Jest | Critical |
-| benv | 3.3.0 | Remove | Critical |
-| axios | 0.21.1 | 1.7.x | High |
-| express | 4.17.1 | 4.22.x | High |
-| supertest | 3.4.2 | 7.x | Medium |
+### Key Decisions
+- Keep hashauth tests (security-critical)
+- Skip/defer other client tests (UI code may be rewritten)
+- Unified Mocha test runner (no Jest migration needed)
+- Strict network isolation in test harness (NoNetworkLoader pattern)
+
+### Scope Guardrails
+- Milestone exit reviews before proceeding
+- Out-of-scope items logged and deferred
+- No new UI module without test strategy
 
 ## Recent Changes
-- 2026-01-13: Added Testing Modernization Proposal
+- 2026-01-13: Revised Testing Modernization Proposal with three-track approach, Logic/DOM separation, and UI Discovery track
 - 2026-01-01: Added Agentic Control Plane RFC and JSON schemas
 - 2025-12-31: Updated to version 15.0.4 (dev branch)
 - Configured for Replit with INSECURE_USE_HTTP=true
