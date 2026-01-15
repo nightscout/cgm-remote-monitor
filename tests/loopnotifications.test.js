@@ -71,7 +71,7 @@ describe('iOS Loop push notifications', function() {
       .send({
         // iOS loop integration requires these are configured in the user profile.
         // Presumably the Loop app uploads them to Nightscout automatically?
-        loopSettings: { deviceToken: "fakedevicetoken", bundleIdentifier: "fakebundleid" }
+        loopSettings: { deviceToken: 'fakedevicetoken', bundleIdentifier: 'fakebundleid' }
       , })
       .expect(200);
 
@@ -135,23 +135,23 @@ describe('iOS Loop push notifications', function() {
 
   it('Sends carb entry with ', async function() {
     await postLoopNotification({
-      eventType: "Remote Carbs Entry"
+      eventType: 'Remote Carbs Entry'
       , remoteCarbs: 5
       , remoteAbsorption: 2
-      , otp: "fakeotp"
+      , otp: 'fakeotp'
       , created_at: '2020-01-01T10:10:10'
     });
 
     const { json } = await capturedApnRequest;
     json['carbs-entry'].should.equal(5);
     json['absorption-time'].should.equal(2);
-    json['otp'].should.equal("fakeotp");
-    json['start-time'].should.equal("2020-01-01T10:10:10");
+    json['otp'].should.equal('fakeotp');
+    json['start-time'].should.equal('2020-01-01T10:10:10');
   });
 
   it('Sends payload with absorption-time after Remote Carbs Entry', async function() {
     await postLoopNotification({
-      eventType: "Remote Carbs Entry"
+      eventType: 'Remote Carbs Entry'
       , remoteCarbs: 5
     });
 
@@ -161,7 +161,7 @@ describe('iOS Loop push notifications', function() {
 
   it('Sends payload with bolus-entry field after Remote Bolus Entry', async function() {
     await postLoopNotification({
-      eventType: "Remote Bolus Entry"
+      eventType: 'Remote Bolus Entry'
       , remoteBolus: 2.5
     });
 
@@ -171,27 +171,27 @@ describe('iOS Loop push notifications', function() {
 
   it('Sends payload with cancel-temporary-override after Temporary Override Cancel', async function() {
     await postLoopNotification({
-      eventType: "Temporary Override Cancel"
+      eventType: 'Temporary Override Cancel'
     });
 
     const { json } = await capturedApnRequest;
-    json['cancel-temporary-override'].should.equal("true");
+    json['cancel-temporary-override'].should.equal('true');
   });
 
   it('Sends payload with override-name after Temporary Override', async function() {
     await postLoopNotification({
-      eventType: "Temporary Override"
+      eventType: 'Temporary Override'
       , duration: 5
-      , reason: "stress"
+      , reason: 'stress'
     });
 
     const { json } = await capturedApnRequest;
-    json['override-name'].should.equal("stress");
+    json['override-name'].should.equal('stress');
   });
 
   it('Sends valid JWT Bearer token in Authorization header', async function() {
     await postLoopNotification({
-      eventType: "Remote Bolus Entry"
+      eventType: 'Remote Bolus Entry'
       , remoteBolus: 2.5
     });
 
@@ -201,17 +201,17 @@ describe('iOS Loop push notifications', function() {
     should(headers).have.property('authorization');
     should(headers.authorization).match(/\s*[Bb]earer\s+/);
 
-    const rawJwt = headers['authorization'].replace(/\s*[Bb]earer\s+/, "");
-    const jwtComponents = rawJwt.split(".");
+    const rawJwt = headers['authorization'].replace(/\s*[Bb]earer\s+/, '');
+    const jwtComponents = rawJwt.split('.');
     should(jwtComponents.length).equal(3);
 
     const jwtHeader = JSON.parse(Buffer.from(jwtComponents[0], 'base64url').toString());
     const jwtPayload = JSON.parse(Buffer.from(jwtComponents[1], 'base64url').toString());
 
-    jwtHeader.alg.should.equal("ES256");
-    jwtHeader.typ.should.equal("JWT");
-    jwtHeader.kid.should.equal("fake_apns_key_id");
-    jwtPayload.iss.should.equal("fake_12345");
+    jwtHeader.alg.should.equal('ES256');
+    jwtHeader.typ.should.equal('JWT');
+    jwtHeader.kid.should.equal('fake_apns_key_id');
+    jwtPayload.iss.should.equal('fake_12345');
   });
 
 });
