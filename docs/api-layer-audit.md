@@ -488,9 +488,44 @@ GET /api/v3/entries?token=eyJhbGciOiJIUzI1NiI...
 
 ---
 
-## 11. Related Documents
+## 11. Data Shape Handling
+
+**See Also:** [Data Shape Requirements](./requirements/data-shape-requirements.md), [Shape Handling Test Spec](./test-specs/shape-handling-test-spec.md)
+
+### 11.1 Input Shape Flexibility
+
+API v1 endpoints accept both single objects and arrays for most collections. This flexibility is critical for client compatibility with AAPS, Loop, and xDrip.
+
+| Collection | Single Object | Array Input | Notes |
+|------------|---------------|-------------|-------|
+| treatments | Supported | Supported | Normalized to array internally |
+| entries | Supported | Supported | xDrip uses for batch backfill |
+| devicestatus | Supported | Supported | AAPS sends batches via WebSocket |
+
+### 11.2 Known Issues (Fixed)
+
+1. **devicestatus.js race condition** - Array inputs could lose data due to async loop variable capture. Fixed with `async.eachSeries()`.
+
+2. **WebSocket insertOne with arrays** - MongoDB's `insertOne([a,b])` creates single document. Fixed with sequential processing.
+
+### 11.3 Test Coverage
+
+Shape handling is validated by 38 tests across:
+- `tests/api.shape-handling.test.js`
+- `tests/websocket.shape-handling.test.js`
+- `tests/storage.shape-handling.test.js`
+
+---
+
+## 12. Related Documents
 
 - [Architecture Overview](./architecture-overview.md)
 - [Security Audit](./security-audit.md)
 - [Real-Time Systems Audit](./realtime-systems-audit.md)
 - [Modernization Roadmap](./modernization-roadmap.md)
+
+### Requirements & Specifications
+
+- [Data Shape Requirements](./requirements/data-shape-requirements.md) - Formal requirements for input/output shapes
+- [API v1 Compatibility Spec](./requirements/api-v1-compatibility-spec.md) - Client compatibility requirements
+- [Shape Handling Test Spec](./test-specs/shape-handling-test-spec.md) - Test case specifications

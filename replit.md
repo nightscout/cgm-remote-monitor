@@ -206,6 +206,17 @@ A revised proposal aligning test modernization with broader UI and architecture 
 - Out-of-scope items logged and deferred
 - No new UI module without test strategy
 
+## Documentation Structure
+
+### Requirements & Specifications
+Located in `docs/requirements/` and `docs/test-specs/`:
+
+| Document | Description |
+|----------|-------------|
+| `requirements/data-shape-requirements.md` | Formal requirements for single vs array input handling |
+| `requirements/api-v1-compatibility-spec.md` | Client compatibility requirements (AAPS, Loop, xDrip) |
+| `test-specs/shape-handling-test-spec.md` | Test case specifications with requirement traceability |
+
 ## Comprehensive System Audit Documentation
 
 A complete audit of the Nightscout codebase covering all major subsystems, created to support system understanding and modernization planning.

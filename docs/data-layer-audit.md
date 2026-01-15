@@ -665,9 +665,51 @@ db.entries.aggregate([
 
 ---
 
-## 11. Related Documents
+## 11. Data Shape Handling in Storage Layer
+
+**See Also:** [Data Shape Requirements](./requirements/data-shape-requirements.md), [Shape Handling Test Spec](./test-specs/shape-handling-test-spec.md)
+
+### 11.1 Storage Create Methods
+
+Each storage module has specific input shape requirements:
+
+| Module | File | Single Object | Array Input |
+|--------|------|---------------|-------------|
+| treatments | `lib/server/treatments.js` | Supported | Supported |
+| devicestatus | `lib/server/devicestatus.js` | Supported | Supported |
+| entries | `lib/server/entries.js` | Supported | Supported |
+| profile | `lib/server/profile.js` | Supported | Not used |
+| food | `lib/server/food.js` | Supported | Not used |
+| activity | `lib/server/activity.js` | NOT supported | Required |
+
+### 11.2 Timestamp Normalization
+
+Storage modules automatically add `created_at` if missing:
+
+```javascript
+if (!doc.created_at) {
+  doc.created_at = new Date().toISOString();
+}
+```
+
+### 11.3 MongoDB 5.x Migration Notes
+
+During driver upgrade testing, these issues were identified and fixed:
+
+1. **devicestatus.create() race condition** - Closure variable capture in async loop caused data loss with arrays
+2. **Sequential processing** - All array inputs now use `async.eachSeries()` for reliable processing
+
+---
+
+## 12. Related Documents
 
 - [Architecture Overview](./architecture-overview.md)
 - [API Layer Audit](./api-layer-audit.md)
 - [Real-Time Systems Audit](./realtime-systems-audit.md)
 - [Modernization Roadmap](./modernization-roadmap.md)
+
+### Requirements & Specifications
+
+- [Data Shape Requirements](./requirements/data-shape-requirements.md) - Formal requirements for input/output shapes
+- [API v1 Compatibility Spec](./requirements/api-v1-compatibility-spec.md) - Client compatibility requirements
+- [Shape Handling Test Spec](./test-specs/shape-handling-test-spec.md) - Test case specifications
