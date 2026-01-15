@@ -37,6 +37,29 @@ The frontend utilizes Webpack for asset bundling and features charting with D3/j
 - **Monorepo structure** for managing various components.
 - **Environment variables** for flexible configuration, including `PORT`, `MONGO_CONNECTION`, `API_SECRET`, and `DISPLAY_UNITS`.
 
+## Data Schema Documentation
+
+New schema documentation has been added based on code analysis and domain expert interviews:
+
+- **`docs/data-schemas/treatments-schema.md`** - Comprehensive documentation of the treatments collection, including:
+  - Field inventory (eventType, created_at, glucose, carbs, insulin, etc.)
+  - 20+ event types from careportal and controller plugins
+  - Timestamp semantics (created_at vs srvCreated)
+  - Client compatibility notes (AAPS, Loop, xDrip sync identity patterns)
+  - Known bugs (basal slice display, override duration issues)
+
+- **`docs/data-schemas/profiles-schema.md`** - Profile structure documentation including:
+  - Store-based profile organization
+  - Time-value pair format for basal/carbratio/sens/targets
+  - Loop-specific loopSettings and overridePresets
+  - Profile switch treatment embedding (AAPS pattern)
+  - Timezone handling quirks
+
+Key insights from schema documentation:
+- Different controllers use different fields for sync deduplication (AAPS: `identifier`, Loop: pump fields, xDrip: `uuid`)
+- The `eventType` field is essentially free-form - controllers can send any value
+- Report plugins serve as implicit schema documentation by revealing which fields are actually used
+
 ## External Dependencies
 - **MongoDB:** Primary database for data storage.
 - **Socket.IO:** For real-time data communication.
