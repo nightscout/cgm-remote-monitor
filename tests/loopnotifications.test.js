@@ -59,7 +59,6 @@ describe('iOS Loop push notifications', function() {
     inst = await instance.create({
       apiSecret: process.env.API_SECRET
     , });
-    // require('../lib')
     const api = require('../lib/api')(inst.env, inst.ctx);
     const api2 = require('../lib/api2')(inst.env, inst.ctx, api);
 
