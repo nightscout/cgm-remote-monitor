@@ -15,8 +15,8 @@ const request = require('supertest');
 const instance = require('./fixtures/api/instance');
 
 const fakeServerOpts = {
-  key: fs.readFileSync('./tests/fixtures/api3/localhost.key')
-  , cert: fs.readFileSync('./tests/fixtures/api3/localhost.crt')
+  key: fs.readFileSync('./tests/fixtures/localhost.key')
+  , cert: fs.readFileSync('./tests/fixtures/localhost.crt')
 , };
 
 const TEST_PORT = 1338;
