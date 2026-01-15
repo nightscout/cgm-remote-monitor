@@ -238,7 +238,49 @@ Located in `docs/`:
 - Ory Hydra/Kratos as identity backend option
 - Aligns with Control Plane RFC authority model (Human > Agent > Controller)
 
+## MongoDB Driver 5.x Migration Testing (PR #8314)
+
+### Critical Findings - Multi-Document Write Support
+
+**Test Suite:** `tests/api.shape-handling.test.js`, `tests/websocket.shape-handling.test.js`, `tests/storage.shape-handling.test.js`
+
+#### Issue 1: devicestatus.js Race Condition (FIXED)
+- **Problem:** `create()` function had a closure variable capture bug in async for-loop causing data loss with array inputs
+- **Root Cause:** Loop variable captured by reference in callback, race condition between iterations
+- **Fix:** Refactored to use `async.eachSeries()` for sequential processing
+- **File:** `lib/server/devicestatus.js`
+
+#### Issue 2: WebSocket dbAdd Array Handling (FIXED)
+- **Problem:** `insertOne()` with array creates single document containing the array, NOT multiple documents
+- **Root Cause:** MongoDB driver behavior - `insertOne([a,b])` stores `{0: a, 1: b}` as one document
+- **Fix:** Added `processSingleDbAdd()` helper that iterates array items and processes each sequentially
+- **File:** `lib/server/websocket.js`
+
+### Shape Handling Behavior Matrix
+
+| Interface | Single Object | Array Input | Status |
+|-----------|---------------|-------------|--------|
+| REST API v1 treatments | ✅ | ✅ | Works correctly |
+| REST API v1 entries | ✅ | ✅ | Works correctly |
+| REST API v1 devicestatus | ✅ | ✅ | Fixed (was race condition) |
+| WebSocket dbAdd | ✅ | ✅ | Fixed (was insertOne issue) |
+| Storage treatments.create | ✅ | ✅ | Works correctly |
+| Storage devicestatus.create | ✅ | ✅ | Fixed |
+| Storage entries.create | ✅ | ✅ | Works correctly |
+| Storage activity.create | ❌ | ✅ | Expects array only |
+
+### Test Results
+- 38 passing tests documenting all shape handling behaviors
+- Tests cover API v1, WebSocket storage namespace, and direct storage layer
+
+### Key Implementation Details
+- UPDATE_THROTTLE (15 seconds) in `bootevent.js` intentionally debounces data updates
+- AAPS/Loop clients may send batch arrays via WebSocket - now properly supported
+- All changes preserve backward compatibility with single-object inputs
+
 ## Recent Changes
+- 2026-01-15: Fixed devicestatus.js race condition and WebSocket array handling for MongoDB 5.x compatibility
+- 2026-01-15: Added comprehensive shape-handling test suite (38 tests) for multi-document write validation
 - 2026-01-13: Updated audit docs with accurate rate limiting info (delaylist.js) and OIDC/gateway architecture direction
 - 2026-01-13: Created comprehensive 9-document system audit with security findings and modernization roadmap
 - 2026-01-13: Revised Testing Modernization Proposal with three-track approach, Logic/DOM separation, and UI Discovery track
