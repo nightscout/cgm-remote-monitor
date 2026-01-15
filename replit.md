@@ -215,7 +215,9 @@ Located in `docs/requirements/` and `docs/test-specs/`:
 |----------|-------------|
 | `requirements/data-shape-requirements.md` | Formal requirements for single vs array input handling |
 | `requirements/api-v1-compatibility-spec.md` | Client compatibility requirements (AAPS, Loop, xDrip) |
+| `requirements/authorization-security-spec.md` | Auth requirements: API_SECRET, JWT, Shiro permissions, brute-force protection |
 | `test-specs/shape-handling-test-spec.md` | Test case specifications with requirement traceability |
+| `test-specs/authorization-test-spec.md` | Security test cases mapped to auth requirements, coverage gaps identified |
 
 ## Comprehensive System Audit Documentation
 
@@ -290,6 +292,7 @@ Located in `docs/`:
 - All changes preserve backward compatibility with single-object inputs
 
 ## Recent Changes
+- 2026-01-15: Added authorization-security-spec.md and authorization-test-spec.md with formal requirements and test traceability for auth subsystem
 - 2026-01-15: Fixed devicestatus.js race condition and WebSocket array handling for MongoDB 5.x compatibility
 - 2026-01-15: Added comprehensive shape-handling test suite (38 tests) for multi-document write validation
 - 2026-01-13: Updated audit docs with accurate rate limiting info (delaylist.js) and OIDC/gateway architecture direction
