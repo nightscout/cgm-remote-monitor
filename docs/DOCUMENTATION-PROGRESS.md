@@ -18,6 +18,8 @@ This document tracks the ongoing effort to produce comprehensive product require
 | Data Shape Handling | `requirements/data-shape-requirements.md` | `test-specs/shape-handling-test-spec.md` | ✅ Complete | MongoDB 5.x migration work, 38 tests |
 | API v1 Compatibility | `requirements/api-v1-compatibility-spec.md` | (integrated) | ✅ Complete | Client compatibility (AAPS, Loop, xDrip) |
 | Authorization/Security | `requirements/authorization-security-spec.md` | `test-specs/authorization-test-spec.md` | ✅ Complete | 21 tests mapped, coverage gaps identified |
+| Treatments Schema | `data-schemas/treatments-schema.md` | N/A | ✅ Complete | Field inventory, eventTypes, client conventions, known bugs |
+| Profiles Schema | `data-schemas/profiles-schema.md` | N/A | ✅ Complete | Store structure, Loop settings, override presets, timezone quirks |
 
 ### System Audits (Reference Documents)
 
@@ -87,6 +89,12 @@ These audits provide the foundation for requirements extraction:
 | Access token = SHA-1(apiKeySHA1 + subject._id) | Not direct API_SECRET derivative | `lib/server/enclave.js:getSubjectHash()` |
 | devicestatus.js had race condition with arrays | Fixed in PR #8314 | `lib/server/devicestatus.js` |
 | WebSocket insertOne() with array creates single doc | MongoDB driver behavior, not intuitive | `lib/server/websocket.js` |
+| eventType defaults to `<none>` if missing | Treatments always have eventType | `lib/server/websocket.js:357-358` |
+| Different controllers use different sync identity fields | AAPS uses `identifier`, Loop uses pump fields, xDrip uses `uuid` | Domain expert + code review |
+| Loop sends non-ISO timezone strings (`ETC/GMT+8`) | Requires workaround in `profilefunctions.js` | `lib/profilefunctions.js:179-181` |
+| Profile switches can embed full JSON profiles | AAPS pattern with `profileJson` field | `lib/profilefunctions.js:272-287` |
+| `@@@@@` separator used for inline profile names | Hack to prevent name collisions | `lib/profilefunctions.js:273-274` |
+| Report plugins reveal field usage patterns | Alternative to formal schema docs | `lib/report_plugins/treatments.js` |
 
 ### Process Improvements
 
@@ -113,6 +121,8 @@ These audits provide the foundation for requirements extraction:
 2. **Rate limiting addition** - Security audit identified missing general rate limiting. Priority?
 
 3. **OIDC/OAuth2 integration** - Modernization roadmap mentions this. Does it supersede current auth model?
+
+4. **Schema registration for controllers** - AAPS, Loop, xDrip use different sync identity fields. Should controllers register their schema conventions? (Domain expert suggested inversion of control pattern.)
 
 ### Requiring More Investigation
 
@@ -184,3 +194,4 @@ Good luck, and thank you for contributing!
 |------|--------|---------|
 | 2026-01-15 | Agent | Initial document, completed auth/security specs |
 | 2026-01-15 | Agent | Added lessons learned, open questions, priority queue |
+| 2026-01-15 | Agent | Added data-schemas/treatments-schema.md and profiles-schema.md from domain expert interview |

@@ -262,6 +262,31 @@ Then adds it back manually. This suggests special handling is needed for temp ba
 
 ---
 
+## Other Observed Fields
+
+The following fields have been observed in treatment records but are less commonly used or controller-specific. This list is **not exhaustive** - custom controllers can add any fields they need.
+
+| Field | Type | Description | Source |
+|-------|------|-------------|--------|
+| `utcOffset` | Number | UTC offset in minutes for the client timezone | Various clients |
+| `durationInMillis` | Number | Alternative to `duration` in milliseconds | Some pumps |
+| `insulinInjections` | Array | Detailed injection records from some pumps | Pump-specific |
+| `splitNow` / `splitExt` | Number | Combo bolus split percentages | Careportal |
+| `targetBottom` / `targetTop` | Number | Alternative naming for target range bounds | Some clients |
+| `timestamp` | String | Alternative to `created_at` in some contexts | Legacy |
+| `isAnnouncement` | Boolean | Flags announcement type | Some clients |
+| `pumpId`, `pumpType`, `pumpSerial` | String | Pump identification for deduplication | Loop/pumps |
+
+**Note on glucoseType:** Beyond `Sensor`, `Finger`, and `Manual`, some clients may send other values. The core system treats these as display strings without validation.
+
+---
+
+## Server-Side Defaults Scope
+
+The defaults documented (eventType defaulting to `<none>`, created_at defaulting to current time) are applied in **WebSocket ingestion** (`lib/server/websocket.js`). The REST API v1 treatment endpoint (`lib/server/treatments.js`) may have different or no defaults - always verify behavior for your ingestion path.
+
+---
+
 ## Validation Constraints Summary
 
 | Constraint | Fields Affected | Enforcement |
