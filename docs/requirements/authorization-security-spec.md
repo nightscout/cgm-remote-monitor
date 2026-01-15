@@ -470,7 +470,24 @@ Valid authentication with insufficient permissions MUST return HTTP 403 Forbidde
 | Token expiration | Add expiration to access tokens | Medium |
 | Refresh tokens | Add JWT refresh mechanism | Low |
 | Audit logging | Log all auth events for compliance | Medium |
-| OIDC support | External identity provider integration | Low |
+| **OIDC Actor Identity** | External identity provider integration with verified actor tracking | **High** |
+
+#### OIDC Actor Identity Proposal
+
+A comprehensive RFC has been created for integrating OpenID Connect and OAuth 2.0 identity management into Nightscout Core. This enables:
+
+- **Verified actor tracking** - Replace freeform `enteredBy` with cryptographically-verified identities
+- **Care coordination** - Know exactly who performed each action (Mom, Dad, school nurse)
+- **Delegation support** - Track when actions are performed on behalf of others
+- **Audit trails** - HIPAA-grade compliance for clinical settings
+- **Automation safety** - Distinguish human decisions from automated actions (Loop, OpenAPS)
+
+See [OIDC Actor Identity Proposal](../proposals/oidc-actor-identity-proposal.md) for:
+- Full architecture and protocol flows
+- JWT claims specification
+- Actor lookup collection schema
+- Migration path for `enteredBy`
+- Test plan and implementation readiness
 
 ---
 

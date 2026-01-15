@@ -290,6 +290,8 @@ CGM Device → Uploader → REST API → MongoDB → Data Loader
    - Integration with Ory Hydra/Kratos for consent management
    - nightscout-roles-gateway for delegation and data rights
    - Claims mapped to Shiro permissions
+   - Verified actor identity for all data mutations
+   - See [OIDC Actor Identity Proposal](./proposals/oidc-actor-identity-proposal.md) for implementation details
 
 ### 8.2 Authorization Model
 
@@ -371,9 +373,11 @@ IP-based progressive delay for failed authentication attempts:
 ### 10.3 Authentication Modernization (Medium Effort)
 
 1. **OIDC/OAuth2 Plugin:** Vendor-agnostic identity integration
+   - See [OIDC Actor Identity Proposal](./proposals/oidc-actor-identity-proposal.md) for full RFC
 2. **nightscout-roles-gateway:** Consent and delegation management
 3. **Ory Hydra/Kratos:** Identity backend for multi-user deployments
-4. Maintain backward compatibility with API_SECRET auth
+4. **Actor Identity:** Replace freeform `enteredBy` with verified actor claims
+5. Maintain backward compatibility with API_SECRET auth
 
 ### 10.4 UI Modernization (High Effort)
 
