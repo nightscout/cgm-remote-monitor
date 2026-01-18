@@ -27,7 +27,7 @@
   },
   "scripts": {
     "start": "node lib/server/server.js",
-    "test": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js -exit ./tests/*.test.js",
+    "test": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit ./tests/*.test.js",
     "test-single": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit ./tests/$TEST.test.js",
     "test-ci": "env-cmd -f ./tests/ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --timeout 5000 --require ./tests/hooks.js --exit ./tests/*.test.js",
     "env": "env",
@@ -40,7 +40,10 @@
     "dev": "env-cmd -f ./my.env nodemon --inspect lib/server/server.js 0.0.0.0",
     "dev-test": "env-cmd -f ./my.devtest.env nodemon --inspect lib/server/server.js 0.0.0.0",
     "prod": "env-cmd -f ./my.prod.env node lib/server/server.js 0.0.0.0",
-    "lint": "eslint lib"
+    "lint": "eslint lib",
+    "test:flaky": "node scripts/flaky-test-runner.js",
+    "test:flaky:quick": "FLAKY_TEST_ITERATIONS=3 node scripts/flaky-test-runner.js",
+    "test:flaky:thorough": "FLAKY_TEST_ITERATIONS=20 node scripts/flaky-test-runner.js"
   },
   "main": "lib/server/server.js",
   "nodemonConfig": {
