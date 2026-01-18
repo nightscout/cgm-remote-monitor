@@ -67,6 +67,35 @@ Key insights from schema documentation:
 - The `eventType` field is essentially free-form - controllers can send any value
 - Report plugins serve as implicit schema documentation by revealing which fields are actually used
 
+## Shape Handling Test Coverage
+
+Comprehensive test coverage for single document vs array input handling across all APIs. See `docs/test-specs/shape-handling-spec.md` for full specification.
+
+### Test Files
+| File | Coverage Area |
+|------|---------------|
+| `tests/api.shape-handling.test.js` | API v1 treatments, devicestatus, entries - single/array input, response shapes |
+| `tests/api3.shape-handling.test.js` | API v3 all collections - single object only (arrays rejected) |
+| `tests/storage.shape-handling.test.js` | Storage layer direct tests, MongoDB insertOne vs insertMany |
+| `tests/websocket.shape-handling.test.js` | WebSocket dbAdd/dbUpdate/dbRemove operations |
+| `tests/concurrent-writes.test.js` | Race conditions, concurrent access, MongoDB 5.x compatibility |
+
+### API Behavior Summary
+| Interface | Single Object | Array Input | Response Format |
+|-----------|---------------|-------------|-----------------|
+| API v1 `/api/treatments/` | Supported | Supported | Always Array |
+| API v1 `/api/devicestatus/` | Supported | Supported | Always Array |
+| API v1 `/api/entries/` | Supported | Supported | Always Array |
+| API v3 `/api/v3/{collection}` | Supported | Rejected (400) | Single Object |
+| WebSocket `dbAdd` | Supported | Supported | Always Array |
+
+### Running Shape Handling Tests
+```bash
+npm test -- --grep "Shape Handling"
+npm test -- tests/api.shape-handling.test.js
+npm test -- tests/concurrent-writes.test.js
+```
+
 ## External Dependencies
 - **MongoDB:** Primary database for data storage.
 - **Socket.IO:** For real-time data communication.

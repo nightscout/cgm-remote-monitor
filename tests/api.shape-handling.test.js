@@ -347,4 +347,170 @@ describe('API Shape Handling - Single Object vs Array Input', function () {
         });
     });
   });
+
+  describe('Entries API - /api/entries/', function () {
+    
+    beforeEach(function (done) {
+      self.ctx.entries().deleteMany({}, function () {
+        done();
+      });
+    });
+
+    afterEach(function (done) {
+      self.ctx.entries().deleteMany({}, function () {
+        done();
+      });
+    });
+
+    it('POST accepts single SGV entry object', function (done) {
+      var now = Date.now();
+      request(self.app)
+        .post('/api/entries/')
+        .set('api-secret', known)
+        .send({ type: 'sgv', sgv: 120, date: now, dateString: new Date(now).toISOString() })
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array);
+          res.body.length.should.be.greaterThanOrEqual(1);
+          res.body[0].sgv.should.equal(120);
+          done();
+        });
+    });
+
+    it('POST accepts array with single SGV entry', function (done) {
+      var now = Date.now();
+      request(self.app)
+        .post('/api/entries/')
+        .set('api-secret', known)
+        .send([{ type: 'sgv', sgv: 115, date: now, dateString: new Date(now).toISOString() }])
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array);
+          res.body.length.should.be.greaterThanOrEqual(1);
+          res.body[0].sgv.should.equal(115);
+          done();
+        });
+    });
+
+    it('POST accepts array with multiple SGV entries', function (done) {
+      var now = Date.now();
+      request(self.app)
+        .post('/api/entries/')
+        .set('api-secret', known)
+        .send([
+          { type: 'sgv', sgv: 100, date: now, dateString: new Date(now).toISOString() },
+          { type: 'sgv', sgv: 110, date: now + 300000, dateString: new Date(now + 300000).toISOString() },
+          { type: 'sgv', sgv: 120, date: now + 600000, dateString: new Date(now + 600000).toISOString() }
+        ])
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array);
+          res.body.length.should.equal(3);
+          done();
+        });
+    });
+
+    it('POST accepts single MBG entry object', function (done) {
+      var now = Date.now();
+      request(self.app)
+        .post('/api/entries/')
+        .set('api-secret', known)
+        .send({ type: 'mbg', mbg: 95, date: now, dateString: new Date(now).toISOString() })
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array);
+          res.body.length.should.be.greaterThanOrEqual(1);
+          res.body[0].mbg.should.equal(95);
+          done();
+        });
+    });
+
+    it('POST accepts mixed entry types in array', function (done) {
+      var now = Date.now();
+      request(self.app)
+        .post('/api/entries/')
+        .set('api-secret', known)
+        .send([
+          { type: 'sgv', sgv: 110, date: now, dateString: new Date(now).toISOString() },
+          { type: 'mbg', mbg: 100, date: now + 60000, dateString: new Date(now + 60000).toISOString() }
+        ])
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array);
+          res.body.length.should.equal(2);
+          done();
+        });
+    });
+
+    it('POST handles large batch of entries', function (done) {
+      var entries = [];
+      var baseTime = Date.now();
+      for (var i = 0; i < 10; i++) {
+        entries.push({
+          type: 'sgv',
+          sgv: 100 + i,
+          date: baseTime + i * 300000,
+          dateString: new Date(baseTime + i * 300000).toISOString()
+        });
+      }
+      request(self.app)
+        .post('/api/entries/')
+        .set('api-secret', known)
+        .send(entries)
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array);
+          res.body.length.should.equal(10);
+          done();
+        });
+    });
+
+    it('POST with empty array returns empty array', function (done) {
+      request(self.app)
+        .post('/api/entries/')
+        .set('api-secret', known)
+        .send([])
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array);
+          res.body.length.should.equal(0);
+          done();
+        });
+    });
+
+    it('single entry input returns array response', function (done) {
+      var now = Date.now();
+      request(self.app)
+        .post('/api/entries/')
+        .set('api-secret', known)
+        .send({ type: 'sgv', sgv: 105, date: now, dateString: new Date(now).toISOString() })
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array);
+          done();
+        });
+    });
+
+    it('array input returns array response', function (done) {
+      var now = Date.now();
+      request(self.app)
+        .post('/api/entries/')
+        .set('api-secret', known)
+        .send([{ type: 'sgv', sgv: 108, date: now, dateString: new Date(now).toISOString() }])
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array);
+          done();
+        });
+    });
+  });
 });
