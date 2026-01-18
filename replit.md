@@ -102,6 +102,25 @@ npm test -- --grep "Security"
 npm test -- tests/concurrent-writes.test.js
 ```
 
+### Flaky Test Detection
+A flaky test runner is available to identify tests that pass inconsistently:
+
+```bash
+npm run test:flaky           # Run 10 iterations (default)
+npm run test:flaky:quick     # Run 3 iterations (quick check)
+npm run test:flaky:thorough  # Run 20 iterations (thorough analysis)
+```
+
+Configuration via environment variables:
+- `FLAKY_TEST_ITERATIONS` - Number of test runs (default: 10)
+- `FLAKY_TEST_TIMEOUT` - Timeout per run in ms (default: 300000)
+- `FLAKY_OUTPUT_DIR` - Output directory (default: ./flaky-test-results)
+
+Reports are generated in `flaky-test-results/` including:
+- Markdown report with flaky tests sorted by failure rate
+- JSON data file with detailed per-test run history
+- Individual iteration JSON results for debugging
+
 See `docs/test-specs/coverage-gaps.md` for aggregated coverage gaps across all areas.
 
 ## External Dependencies
