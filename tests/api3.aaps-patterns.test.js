@@ -262,7 +262,7 @@ describe('API3 AAPS Patterns - Deduplication and Real-world Scenarios', function
       const firstSrvModified = res1.body.lastModified;
       self.cache.clear();
 
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       let res2 = await self.instance.post(url, self.jwt.update)
         .send(doc)
@@ -270,10 +270,11 @@ describe('API3 AAPS Patterns - Deduplication and Real-world Scenarios', function
       res2.body.status.should.equal(200);
       res2.body.identifier.should.equal(doc.identifier);
       const secondSrvModified = res2.body.lastModified;
-      secondSrvModified.should.be.greaterThanOrEqual(firstSrvModified);
+      secondSrvModified.should.be.greaterThan(firstSrvModified,
+        'Second srvModified should be strictly greater than first');
       self.cache.clear();
 
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       let res3 = await self.instance.post(url, self.jwt.update)
         .send(doc)
@@ -281,25 +282,32 @@ describe('API3 AAPS Patterns - Deduplication and Real-world Scenarios', function
       res3.body.status.should.equal(200);
       res3.body.identifier.should.equal(doc.identifier);
       const thirdSrvModified = res3.body.lastModified;
-      thirdSrvModified.should.be.greaterThanOrEqual(secondSrvModified);
+      thirdSrvModified.should.be.greaterThan(secondSrvModified,
+        'Third srvModified should be strictly greater than second');
       self.cache.clear();
 
       const persisted = await getDoc(doc.identifier);
       persisted.identifier.should.equal(doc.identifier);
       persisted.pumpId.should.equal(8888);
-      persisted.srvModified.should.be.greaterThanOrEqual(persisted.srvCreated);
+      persisted.srvModified.should.be.greaterThan(persisted.srvCreated,
+        'Persisted srvModified should be strictly greater than srvCreated after updates');
 
-      const lastResponseTime = new Date(thirdSrvModified).getTime();
-      const persistedModTime = persisted.srvModified;
-      persistedModTime.should.be.approximately(lastResponseTime, 1000);
+      persisted.srvModified.should.equal(thirdSrvModified,
+        'Persisted srvModified must exactly match the lastModified from the final API response');
 
-      let searchRes = await self.instance.get(`${url}?identifier=${doc.identifier}`, self.jwt.read)
+      let searchByIdentifier = await self.instance.get(`${url}?identifier=${doc.identifier}`, self.jwt.read)
         .expect(200);
-      searchRes.body.result.length.should.equal(1);
+      searchByIdentifier.body.result.length.should.equal(1,
+        'Exactly one document should exist when searching by identifier');
+      searchByIdentifier.body.result[0].identifier.should.equal(doc.identifier);
+      searchByIdentifier.body.result[0].srvModified.should.equal(thirdSrvModified);
 
-      let broadSearch = await self.instance.get(`${url}?device=${device}&date$eq=${baseTime}`, self.jwt.read)
+      let searchByDeviceDate = await self.instance.get(`${url}?device=${device}&date$eq=${baseTime}`, self.jwt.read)
         .expect(200);
-      broadSearch.body.result.length.should.equal(1);
+      searchByDeviceDate.body.result.length.should.equal(1,
+        'Exactly one document should exist when searching by device + date');
+      searchByDeviceDate.body.result[0].identifier.should.equal(doc.identifier);
+      searchByDeviceDate.body.result[0].srvModified.should.equal(thirdSrvModified);
 
       await deleteDoc(doc.identifier);
     });

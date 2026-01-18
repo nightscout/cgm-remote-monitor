@@ -98,6 +98,16 @@ The server calculates identifiers from `device + date + eventType`. Important fi
 - "Multiple document handling" concerns are about rapid sequential requests during sync catch-up
 - Fallback dedup fields per collection: treatments=`[created_at, eventType]`, entries=`[date, type]`
 
+### Deduplication Test Coverage (Enhanced)
+The test `rapid duplicate submissions result in single persisted document with latest srvModified` in `tests/api3.aaps-patterns.test.js` provides comprehensive verification:
+
+1. **srvModified Timestamp Progression**: Uses strict `greaterThan` assertions to verify timestamps increase after each update (not just `greaterThanOrEqual`)
+2. **Persisted srvModified Matches API Response**: Exact equality check ensures the persisted `srvModified` exactly matches the `lastModified` from the final API response
+3. **Document Uniqueness**: Verifies exactly one document exists via both:
+   - Identifier-based search (`?identifier=...`)
+   - Device + date combination search (`?device=...&date$eq=...`)
+4. **Cross-validation**: Both search methods return the same document with matching srvModified timestamps
+
 ### Running Shape Handling Tests
 ```bash
 npm test -- --grep "Shape Handling"
