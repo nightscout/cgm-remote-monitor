@@ -605,7 +605,7 @@ describe('myplugin', function() {
 
 ## 13. Related Documents
 
-- [Architecture Overview](./architecture-overview.md)
+- [Architecture Overview](../meta/architecture-overview.md)
 - [Dashboard UI Audit](./dashboard-ui-audit.md)
 - [Real-Time Systems Audit](./realtime-systems-audit.md)
-- [Modernization Roadmap](./modernization-roadmap.md)
+- [Modernization Roadmap](../meta/modernization-roadmap.md)

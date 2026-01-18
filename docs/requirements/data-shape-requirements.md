@@ -3,7 +3,7 @@
 **Document Version:** 1.0  
 **Last Updated:** January 2026  
 **Status:** Draft  
-**Related Audits:** [API Layer Audit](../api-layer-audit.md), [Data Layer Audit](../data-layer-audit.md)
+**Related Audits:** [API Layer Audit](../audits/api-layer-audit.md), [Data Layer Audit](../audits/data-layer-audit.md)
 
 ---
 
@@ -224,7 +224,7 @@ The `data-received` event triggering data updates is throttled to 15 seconds (`U
 
 ## 8. References
 
-- [API Layer Audit](../api-layer-audit.md) - Endpoint inventory and response formats
-- [Data Layer Audit](../data-layer-audit.md) - MongoDB collection schemas
+- [API Layer Audit](../audits/api-layer-audit.md) - Endpoint inventory and response formats
+- [Data Layer Audit](../audits/data-layer-audit.md) - MongoDB collection schemas
 - [Shape Handling Tests](../test-specs/shape-handling-tests.md) - Detailed test cases
 - [API v1 Compatibility Requirements](./api-v1-compatibility-requirements.md) - Client compatibility requirements

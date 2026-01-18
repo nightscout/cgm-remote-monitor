@@ -744,10 +744,10 @@ async function sendNotification(notify) {
 ## 8. Related Documents
 
 - [Architecture Overview](./architecture-overview.md)
-- [Security Audit](./security-audit.md)
-- [API Layer Audit](./api-layer-audit.md)
-- [Data Layer Audit](./data-layer-audit.md)
-- [Real-Time Systems Audit](./realtime-systems-audit.md)
-- [Plugin Architecture Audit](./plugin-architecture-audit.md)
-- [Dashboard UI Audit](./dashboard-ui-audit.md)
-- [Messaging Subsystem Audit](./messaging-subsystem-audit.md)
+- [Security Audit](../audits/security-audit.md)
+- [API Layer Audit](../audits/api-layer-audit.md)
+- [Data Layer Audit](../audits/data-layer-audit.md)
+- [Real-Time Systems Audit](../audits/realtime-systems-audit.md)
+- [Plugin Architecture Audit](../audits/plugin-architecture-audit.md)
+- [Dashboard UI Audit](../audits/dashboard-ui-audit.md)
+- [Messaging Subsystem Audit](../audits/messaging-subsystem-audit.md)

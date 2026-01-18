@@ -519,13 +519,13 @@ Shape handling is validated by 38 tests across:
 
 ## 12. Related Documents
 
-- [Architecture Overview](./architecture-overview.md)
+- [Architecture Overview](../meta/architecture-overview.md)
 - [Security Audit](./security-audit.md)
 - [Real-Time Systems Audit](./realtime-systems-audit.md)
-- [Modernization Roadmap](./modernization-roadmap.md)
+- [Modernization Roadmap](../meta/modernization-roadmap.md)
 
 ### Requirements & Specifications
 
-- [Data Shape Requirements](./requirements/data-shape-requirements.md) - Formal requirements for input/output shapes
-- [API v1 Compatibility Requirements](./requirements/api-v1-compatibility-requirements.md) - Client compatibility requirements
-- [Shape Handling Tests](./test-specs/shape-handling-tests.md) - Test case specifications
+- [Data Shape Requirements](../requirements/data-shape-requirements.md) - Formal requirements for input/output shapes
+- [API v1 Compatibility Requirements](../requirements/api-v1-compatibility-requirements.md) - Client compatibility requirements
+- [Shape Handling Tests](../test-specs/shape-handling-tests.md) - Test case specifications

@@ -67,6 +67,23 @@ Key insights from schema documentation:
 - The `eventType` field is essentially free-form - controllers can send any value
 - Report plugins serve as implicit schema documentation by revealing which fields are actually used
 
+## Documentation Structure
+
+Documentation is organized into purpose-specific folders. Start at `docs/INDEX.md` for navigation.
+
+| Folder | Purpose |
+|--------|---------|
+| `docs/meta/` | Project-level navigation: architecture overview, modernization roadmap, documentation progress |
+| `docs/audits/` | System analysis: API, data layer, security, real-time, plugin, messaging, dashboard audits |
+| `docs/requirements/` | Formal requirements by area (shape handling, authorization, API v1 compatibility) |
+| `docs/test-specs/` | Test specifications with progress tracking; each area tracks its own gaps |
+| `docs/proposals/` | RFC-style proposals for new features (OIDC, control plane, testing modernization) |
+| `docs/data-schemas/` | Collection and field documentation (treatments, profiles) |
+| `docs/plugins/` | Plugin-specific documentation |
+
+### For AI Agents
+Each test area is self-contained with requirements, test specs, progress tracking, and priority gaps. This enables focused iteration on one topical area at a time. See `docs/INDEX.md` for the full taxonomy.
+
 ## Test Documentation
 
 Test specifications and requirements are organized in `docs/test-specs/` and `docs/requirements/`. Each test area tracks its own progress, discoveries, and coverage gaps.

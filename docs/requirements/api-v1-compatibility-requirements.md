@@ -3,7 +3,7 @@
 **Document Version:** 1.0  
 **Last Updated:** January 2026  
 **Status:** Draft  
-**Related Documents:** [Data Shape Requirements](./data-shape-requirements.md), [API Layer Audit](../api-layer-audit.md)
+**Related Documents:** [Data Shape Requirements](./data-shape-requirements.md), [API Layer Audit](../audits/api-layer-audit.md)
 
 ---
 
@@ -341,4 +341,4 @@ The shape-handling test suite validates these requirements:
 - [Loop Documentation](https://loopkit.github.io/loopdocs/)
 - [xDrip+ Documentation](https://xdrip.readthedocs.io/)
 - [Data Shape Requirements](./data-shape-requirements.md)
-- [API Layer Audit](../api-layer-audit.md)
+- [API Layer Audit](../audits/api-layer-audit.md)

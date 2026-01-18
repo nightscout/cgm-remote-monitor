@@ -520,6 +520,6 @@ Per `docs/proposals/testing-modernization-proposal.md`:
 ## 13. References
 
 - [Authorization Security Requirements](../requirements/authorization-security-requirements.md)
-- [Security Audit](../security-audit.md)
+- [Security Audit](../audits/security-audit.md)
 - [Testing Modernization Proposal](../proposals/testing-modernization-proposal.md)
 - Test files in `tests/` directory

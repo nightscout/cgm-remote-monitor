@@ -669,7 +669,7 @@ Consider adding support for:
 
 ## 13. Related Documents
 
-- [Architecture Overview](./architecture-overview.md)
+- [Architecture Overview](../meta/architecture-overview.md)
 - [Plugin Architecture Audit](./plugin-architecture-audit.md)
 - [Real-Time Systems Audit](./realtime-systems-audit.md)
-- [Modernization Roadmap](./modernization-roadmap.md)
+- [Modernization Roadmap](../meta/modernization-roadmap.md)

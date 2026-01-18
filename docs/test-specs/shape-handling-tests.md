@@ -363,5 +363,5 @@ The test `rapid duplicate submissions result in single persisted document with l
 
 - [Data Shape Requirements](../requirements/data-shape-requirements.md)
 - [API v1 Compatibility Requirements](../requirements/api-v1-compatibility-requirements.md)
-- [API Layer Audit](../api-layer-audit.md)
+- [API Layer Audit](../audits/api-layer-audit.md)
 - Test files in `tests/` directory

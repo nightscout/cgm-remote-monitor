@@ -77,4 +77,4 @@ When addressing a gap:
 
 - [Shape Handling Tests](shape-handling-tests.md)
 - [Authorization Tests](authorization-tests.md)
-- [Documentation Progress](../DOCUMENTATION-PROGRESS.md)
+- [Documentation Progress](../meta/DOCUMENTATION-PROGRESS.md)

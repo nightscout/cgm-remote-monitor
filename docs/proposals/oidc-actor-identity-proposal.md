@@ -803,9 +803,9 @@ To ensure this proposal aligns with Nightscout Core maintainer expectations:
 ### Internal Documents
 
 - [Authorization and Security Requirements](../requirements/authorization-security-requirements.md)
-- [Architecture Overview](../architecture-overview.md)
-- [Security Audit](../security-audit.md)
-- [Modernization Roadmap](../modernization-roadmap.md)
+- [Architecture Overview](../meta/architecture-overview.md)
+- [Security Audit](../audits/security-audit.md)
+- [Modernization Roadmap](../meta/modernization-roadmap.md)
 
 ### External Standards
 

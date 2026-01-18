@@ -4,7 +4,7 @@
 **Authors:** Nightscout Community  
 **Created:** 2026-01-13  
 **Priority:** HIGH  
-**Related:** [API Layer Audit](../api-layer-audit.md), [Security Audit](../security-audit.md)
+**Related:** [API Layer Audit](../audits/api-layer-audit.md), [Security Audit](../audits/security-audit.md)
 
 ---
 
@@ -740,10 +740,10 @@ If significant issues detected:
 
 ## 17. Related Documents
 
-- [API Layer Audit](../api-layer-audit.md) - Documents the issues this proposal addresses
-- [Security Audit](../security-audit.md) - Related security concerns
+- [API Layer Audit](../audits/api-layer-audit.md) - Documents the issues this proposal addresses
+- [Security Audit](../audits/security-audit.md) - Related security concerns
 - [Agent Control Plane RFC](./agent-control-plane-rfc.md) - Future API direction
-- [Modernization Roadmap](../modernization-roadmap.md) - Overall modernization context
+- [Modernization Roadmap](../meta/modernization-roadmap.md) - Overall modernization context
 
 ---
 

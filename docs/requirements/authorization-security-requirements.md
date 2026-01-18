@@ -3,7 +3,7 @@
 **Document Version:** 1.0  
 **Last Updated:** January 2026  
 **Status:** Draft  
-**Related Documents:** [Security Audit](../security-audit.md), [API Layer Audit](../api-layer-audit.md)
+**Related Documents:** [Security Audit](../audits/security-audit.md), [API Layer Audit](../audits/api-layer-audit.md)
 
 ---
 
@@ -501,7 +501,7 @@ See [OIDC Actor Identity Proposal](../proposals/oidc-actor-identity-proposal.md)
 
 ## 12. References
 
-- [Security Audit](../security-audit.md) - Security analysis and recommendations
-- [API Layer Audit](../api-layer-audit.md) - API endpoint inventory
-- [Modernization Roadmap](../modernization-roadmap.md) - OIDC/OAuth2 plans
+- [Security Audit](../audits/security-audit.md) - Security analysis and recommendations
+- [API Layer Audit](../audits/api-layer-audit.md) - API endpoint inventory
+- [Modernization Roadmap](../meta/modernization-roadmap.md) - OIDC/OAuth2 plans
 - `lib/authorization/` - Implementation source code

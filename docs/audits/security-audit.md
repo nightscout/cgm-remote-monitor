@@ -470,6 +470,6 @@ For EU users:
 
 ## 11. Related Documents
 
-- [Architecture Overview](./architecture-overview.md)
+- [Architecture Overview](../meta/architecture-overview.md)
 - [API Layer Audit](./api-layer-audit.md)
-- [Modernization Roadmap](./modernization-roadmap.md)
+- [Modernization Roadmap](../meta/modernization-roadmap.md)
