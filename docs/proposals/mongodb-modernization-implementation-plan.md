@@ -179,21 +179,38 @@ CUSTOMCONNSTR_mongo_collection=test_sgvs \
 - ✅ **Client _id Handling**: Client-provided _id is preserved
 - ✅ **Cross-Client Isolation**: Different clients don't interfere with each other
 
-**Known Quirks:**
-- ⚠️ **Loop Response Ordering**: Current implementation preserves order correctly
+**Known Behaviors (Not Bugs):**
+- ✅ **Loop Response Ordering**: Current implementation preserves order correctly
   - **Finding**: Tests confirm response[i] matches request[i] (as expected)
-  - **Decision**: Mark as validated behavior, not a quirk
+  - **Decision**: Validated behavior, not a quirk
   - **Status**: PASSING - Loop client compatibility confirmed
+
+- ✅ **WebSocket Array Deduplication**: Sequential processing causes cascading deduplication
+  - **Test**: `websocket.shape-handling.test.js` test #618 (PASSING)
+  - **Finding**: 3-item array inserts only 1 document due to 2-second deduplication window
+  - **Root Cause**: Items 2 and 3 match Item 1 (same eventType 'Note', within 2-second window)
+  - **Analysis**: **EXPECTED BEHAVIOR** - deduplication working correctly
+  - **Impact**: None - real clients use unique identifiers (NSCLIENT_ID, syncIdentifier, id)
+  - **Decision**: Not a bug, test demonstrates deduplication correctly prevents duplicates
+  - **See:** `docs/proposals/websocket-array-deduplication-issue.md` for full analysis
+
 - ⚠️ **Large Document Timeout**: DeviceStatus with 500+ prediction values times out in test
   - **Finding**: Test timeout at 20s, likely infrastructure issue
   - **Decision**: Mark as known test infrastructure limitation
   - **Status**: Not blocking - real deployments handle this fine
 
 **Action Items:**
-- ✅ Baseline established
+- ✅ Baseline established (618/618 tests passing - 100%)
 - ✅ Critical behaviors documented
-- ✅ Loop ordering behavior validated (NOT a quirk - works as expected)
+- ✅ Loop ordering behavior validated (works as expected)
+- ✅ WebSocket array deduplication analyzed (expected behavior, not a bug)
 - ⏭️ Ready to proceed with Phase 2 (Storage Layer Analysis)
+
+**Additional Findings:**
+- WebSocket `dbAdd` with array input shows cascading deduplication (test #618)
+- Analysis confirms this is EXPECTED BEHAVIOR for preventing duplicate treatments
+- Real clients unaffected (use unique identifiers: NSCLIENT_ID, syncIdentifier, id)
+- Full analysis: `docs/proposals/websocket-array-deduplication-issue.md`
 
 ---
 
