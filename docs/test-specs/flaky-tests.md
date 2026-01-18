@@ -30,7 +30,7 @@ Flaky tests are tests that pass sometimes and fail other times without any code 
 - Database state pollution from previous test runs
 - Missing proper test isolation and setup fixtures
 
-**Flakiness Rate:** ~20% (1 in 5 runs on clean database state)
+**Observed Flakiness:** Failed 4/19 tests on initial run, passed all 19 on subsequent runs (observed during manual testing session - actual flakiness rate may vary based on database state)
 
 **Harness:** `npm run test:flaky:entries`
 
@@ -53,7 +53,7 @@ Flaky tests are tests that pass sometimes and fail other times without any code 
 - Event emission timing is non-deterministic
 - Server may not be fully ready when socket connects
 
-**Flakiness Rate:** ~10-15% (sporadic failures)
+**Observed Flakiness:** 2/8 tests failed in one run out of five consecutive runs (observed during manual testing - sporadic failures)
 
 **Harness:** `npm run test:flaky:socket`
 
@@ -76,7 +76,7 @@ Flaky tests are tests that pass sometimes and fail other times without any code 
 - Database connection pooling affects timing
 - Server response time variability
 
-**Flakiness Rate:** ~10% (sporadic timeouts)
+**Observed Flakiness:** 1/11 tests failed in one observed run (sporadic timeouts)
 
 **Harness:** `npm run test:flaky:partial-failures`
 
@@ -125,7 +125,7 @@ The following npm scripts are available to run flaky tests in isolation:
 | `npm run test:flaky:entries` | Run entries tests in isolation |
 | `npm run test:flaky:socket` | Run socket tests in isolation |
 | `npm run test:flaky:partial-failures` | Run partial-failures tests in isolation |
-| `npm run test:flaky:isolate TEST=testname` | Run specific test file in isolation |
+| `TEST=testname npm run test:flaky:isolate` | Run any test file in isolation |
 
 ### Using the Flaky Test Runner
 
@@ -157,15 +157,25 @@ For debugging specific flaky tests, use the isolation harnesses:
 # Run entries tests 10 times in isolation
 npm run test:flaky:entries
 
+# Run socket tests 10 times
+npm run test:flaky:socket
+
+# Run any test file in isolation
+TEST=api.entries npm run test:flaky:isolate
+TEST=api3.socket npm run test:flaky:isolate
+
 # Run with custom iterations
 FLAKY_ITERATIONS=5 npm run test:flaky:entries
+FLAKY_ITERATIONS=5 TEST=api.entries npm run test:flaky:isolate
 ```
 
 These harnesses:
-1. Run tests in complete isolation from other test files
-2. Reset database state before each iteration
+1. Run the specified test file in isolation from other test files
+2. Execute multiple iterations sequentially and track pass/fail rates
 3. Capture detailed timing and error information
-4. Generate focused reports for the specific test file
+4. Generate JSON reports for the specific test file
+
+**Note:** The harnesses rely on the existing Mocha test hooks (`tests/hooks.js`) for any test cleanup. They do not perform additional database resets between iterations. Database state from one iteration may affect subsequent iterations, which can help identify state-dependent flakiness.
 
 ---
 
@@ -175,11 +185,12 @@ These harnesses:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `FLAKY_TEST_ITERATIONS` | 10 | Number of test iterations |
+| `FLAKY_TEST_ITERATIONS` | 10 | Number of test iterations (main runner) |
 | `FLAKY_TEST_TIMEOUT` | 300000 | Timeout per iteration (ms) |
 | `FLAKY_OUTPUT_DIR` | ./flaky-test-results | Output directory |
 | `FLAKY_TEST_ENV_FILE` | ./my.test.env | Test environment file |
 | `FLAKY_ITERATIONS` | 10 | Iterations for isolation harnesses |
+| `TEST` | (required for isolate) | Test file name for generic isolate runner |
 
 ---
 
@@ -198,15 +209,12 @@ done
 
 ### Method 2: Fresh Database State
 
-Flaky tests often fail on clean database state. To reproduce:
+Flaky tests often fail on clean database state. To reproduce state-dependent failures:
 
-1. Clear the test database
+1. Clear the test database manually
 2. Run tests immediately after
 
-```bash
-# Reset database state and run tests
-npm run test:flaky:entries
-```
+This exposes tests that incorrectly assume pre-existing data.
 
 ### Method 3: Stress Testing
 
@@ -223,9 +231,9 @@ npm test & npm test
 
 ### Priority Order
 
-1. **High Impact**: Tests that fail frequently (>20% failure rate)
-2. **Medium Impact**: Tests that occasionally fail (5-20%)
-3. **Low Impact**: Rare failures (<5%)
+1. **High Impact**: Tests that fail frequently (>20% failure rate in observed runs)
+2. **Medium Impact**: Tests that occasionally fail (5-20% in observed runs)
+3. **Low Impact**: Rare failures (<5% in observed runs)
 
 ### General Fixes
 
@@ -266,4 +274,5 @@ Monitor flaky test trends over time by:
 - [Mocha Documentation](https://mochajs.org/)
 - [Testing Best Practices](https://github.com/goldbergyoni/javascript-testing-best-practices)
 - Main test runner: `scripts/flaky-test-runner.js`
+- Isolation harnesses: `scripts/flaky-harnesses/`
 - Existing test specs: `docs/test-specs/`
