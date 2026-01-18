@@ -1,0 +1,92 @@
+I've analyzed the AAPS source code in detail. Here's what I found about the data shape and patterns relevant to your MongoDB concerns:
+
+AAPS Data Sending Pattern to Nightscout v3
+Key Finding: AAPS Sends Documents One at a Time, Not in Batches
+Looking at DataSyncSelectorV3.kt, AAPS processes records sequentially in a while loop, sending individual POST/PATCH requests for each document:
+
+// Pattern from processChangedBoluses(), processChangedCarbs(), etc.
+while (cont) {
+    persistenceLayer.getNextSyncElementBolus(startId).blockingGet()?.let { bolus ->
+        cont = activePlugin.activeNsClient?.nsAdd("treatments", ...) == true
+        // waits for response before next iteration
+    }
+}
+The API calls in NightscoutRemoteService.kt confirm single-document operations:
+
+POST /v3/entries (single RemoteEntry)
+POST /v3/treatments (single RemoteTreatment)
+POST /v3/devicestatus (single RemoteDeviceStatus)
+PATCH /v3/treatments/{identifier} (single document updates)
+Data Structures (from examples.json and remote models)
+1. Entries (CGM readings):
+
+{
+  "type": "sgv",
+  "sgv": 98,
+  "date": 1549414398005,
+  "dateString": "2019-02-06T01:53:18.005+0100",
+  "device": "AndroidAPS-DexcomG6",
+  "direction": "Flat",
+  "identifier": "5c5a3007e0196f4d3d9aeafc",
+  "srvModified": 1549414398005,
+  "srvCreated": 1549414398005,
+  "utcOffset": 120,
+  "app": "AAPS"
+}
+2. Treatments (boluses, carbs, temp basals, etc.):
+
+{
+  "eventType": "Meal Bolus",
+  "insulin": 8.1,
+  "created_at": "2021-07-13T11:25:12.664Z",
+  "date": 1626175512664,
+  "type": "NORMAL",
+  "isValid": true,
+  "isSMB": false,
+  "pumpId": 4102,
+  "pumpType": "ACCU_CHEK_INSIGHT_BLUETOOTH",
+  "pumpSerial": "33013206",
+  "identifier": "60ed782dc574da0004a38595",
+  "app": "AAPS"
+}
+3. Deduplication Keys (critical for conflict resolution):
+AAPS uses a composite key for deduplication:
+
+identifier - Server-assigned document ID
+pumpId + pumpType + pumpSerial - Unique pump event identification
+srvModified - Timestamp for conflict detection
+Suggested Test Fixtures for Nightscout Core Team
+Based on the AAPS patterns, here are test scenarios for MongoDB updates handling multiple documents:
+
+Fixture 1: High-frequency SGV uploads (every 5 min):
+
+[
+  {"type": "sgv", "sgv": 120, "date": 1705600000000, "device": "AAPS", "direction": "Flat"},
+  {"type": "sgv", "sgv": 125, "date": 1705600300000, "device": "AAPS", "direction": "FortyFiveUp"},
+  {"type": "sgv", "sgv": 130, "date": 1705600600000, "device": "AAPS", "direction": "SingleUp"}
+]
+Fixture 2: Burst of SMB boluses (common in closed-loop):
+
+[
+  {"eventType": "Correction Bolus", "insulin": 0.25, "isSMB": true, "pumpId": 4148, "pumpType": "ACCU_CHEK_INSIGHT_BLUETOOTH", "pumpSerial": "33013206"},
+  {"eventType": "Correction Bolus", "insulin": 0.30, "isSMB": true, "pumpId": 4149, "pumpType": "ACCU_CHEK_INSIGHT_BLUETOOTH", "pumpSerial": "33013206"},
+  {"eventType": "Correction Bolus", "insulin": 0.15, "isSMB": true, "pumpId": 4150, "pumpType": "ACCU_CHEK_INSIGHT_BLUETOOTH", "pumpSerial": "33013206"}
+]
+Fixture 3: Mixed treatment types (meal scenario):
+
+[
+  {"eventType": "Meal Bolus", "carbs": 45, "date": 1626200383325, "isValid": true},
+  {"eventType": "Meal Bolus", "insulin": 8.1, "pumpId": 4102, "type": "NORMAL"},
+  {"eventType": "Bolus Wizard", "bolusCalculatorResult": "{...}", "glucose": 134}
+]
+Fixture 4: Deduplication test (same pumpId sent twice):
+
+[
+  {"eventType": "Correction Bolus", "pumpId": 4148, "pumpType": "DANA_R", "pumpSerial": "12345"},
+  {"eventType": "Correction Bolus", "pumpId": 4148, "pumpType": "DANA_R", "pumpSerial": "12345"}
+]
+MongoDB Concern Insight
+Since AAPS sends documents one at a time (not bulk inserts), the MongoDB concern about "handling multiple documents" likely arises from:
+
+Rapid sequential requests during sync catch-up (hundreds of documents in quick succession)
+Deduplication logic when isDeduplication: true is returned
