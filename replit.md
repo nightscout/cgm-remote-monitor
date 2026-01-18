@@ -67,54 +67,25 @@ Key insights from schema documentation:
 - The `eventType` field is essentially free-form - controllers can send any value
 - Report plugins serve as implicit schema documentation by revealing which fields are actually used
 
-## Shape Handling Test Coverage
+## Test Documentation
 
-Comprehensive test coverage for single document vs array input handling across all APIs. See `docs/test-specs/shape-handling-spec.md` for full specification.
+Test specifications and requirements are organized in `docs/test-specs/` and `docs/requirements/`. Each test area tracks its own progress, discoveries, and coverage gaps.
 
-### Test Files
-| File | Coverage Area |
-|------|---------------|
-| `tests/api.shape-handling.test.js` | API v1 treatments, devicestatus, entries - single/array input, response shapes |
-| `tests/api3.shape-handling.test.js` | API v3 all collections - single object only (arrays rejected) |
-| `tests/api3.aaps-patterns.test.js` | API v3 AAPS-realistic patterns - deduplication, SMB bursts, meal scenarios |
-| `tests/storage.shape-handling.test.js` | Storage layer direct tests, MongoDB insertOne vs insertMany |
-| `tests/websocket.shape-handling.test.js` | WebSocket dbAdd/dbUpdate/dbRemove operations |
-| `tests/concurrent-writes.test.js` | Race conditions, concurrent access, MongoDB 5.x, AAPS sync catch-up |
-| `tests/fixtures/aaps-patterns.json` | AAPS-realistic test fixtures (SGV, SMB, meals, deduplication) |
+### Test Spec Files
+| Area | Test Spec | Requirements |
+|------|-----------|--------------|
+| Shape Handling | `docs/test-specs/shape-handling-tests.md` | `docs/requirements/data-shape-requirements.md` |
+| Authorization | `docs/test-specs/authorization-tests.md` | `docs/requirements/authorization-security-requirements.md` |
+| API v1 Compatibility | (integrated) | `docs/requirements/api-v1-compatibility-requirements.md` |
 
-### API Behavior Summary
-| Interface | Single Object | Array Input | Response Format |
-|-----------|---------------|-------------|-----------------|
-| API v1 `/api/treatments/` | Supported | Supported | Always Array |
-| API v1 `/api/devicestatus/` | Supported | Supported | Always Array |
-| API v1 `/api/entries/` | Supported | Supported | Always Array |
-| API v3 `/api/v3/{collection}` | Supported | Rejected (400) | Single Object |
-| WebSocket `dbAdd` | Supported | Supported | Always Array |
-
-### API v3 Deduplication Logic
-The server calculates identifiers from `device + date + eventType`. Important findings:
-- `pumpId`, `pumpType`, `pumpSerial` are stored but NOT used in identifier calculation
-- AAPS sends documents one-at-a-time (not in batches) to API v3
-- "Multiple document handling" concerns are about rapid sequential requests during sync catch-up
-- Fallback dedup fields per collection: treatments=`[created_at, eventType]`, entries=`[date, type]`
-
-### Deduplication Test Coverage (Enhanced)
-The test `rapid duplicate submissions result in single persisted document with latest srvModified` in `tests/api3.aaps-patterns.test.js` provides comprehensive verification:
-
-1. **srvModified Timestamp Progression**: Uses strict `greaterThan` assertions to verify timestamps increase after each update (not just `greaterThanOrEqual`)
-2. **Persisted srvModified Matches API Response**: Exact equality check ensures the persisted `srvModified` exactly matches the `lastModified` from the final API response
-3. **Document Uniqueness**: Verifies exactly one document exists via both:
-   - Identifier-based search (`?identifier=...`)
-   - Device + date combination search (`?device=...&date$eq=...`)
-4. **Cross-validation**: Both search methods return the same document with matching srvModified timestamps
-
-### Running Shape Handling Tests
+### Quick Test Commands
 ```bash
 npm test -- --grep "Shape Handling"
-npm test -- tests/api.shape-handling.test.js
+npm test -- --grep "Security"
 npm test -- tests/concurrent-writes.test.js
-npm test -- tests/api3.aaps-patterns.test.js
 ```
+
+See `docs/test-specs/coverage-gaps.md` for aggregated coverage gaps across all areas.
 
 ## External Dependencies
 - **MongoDB:** Primary database for data storage.

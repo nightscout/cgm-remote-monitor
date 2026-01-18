@@ -1,9 +1,50 @@
 # Authorization and Security Test Specification
 
-**Document Version:** 1.0  
+**Document Version:** 1.1  
 **Last Updated:** January 2026  
-**Status:** Draft  
-**Related Requirements:** [Authorization Security Spec](../requirements/authorization-security-spec.md)
+**Status:** Active  
+**Related Requirements:** [Authorization Security Requirements](../requirements/authorization-security-requirements.md)
+
+---
+
+## Progress & Coverage Status
+
+### Current State
+
+| Metric | Value |
+|--------|-------|
+| Total Tests | 21 |
+| Coverage Status | Core paths covered, gaps in WebSocket/API v3 |
+| Last Test Run | January 2026 |
+| Known Regressions | None |
+
+### Recent Discoveries
+
+| Date | Discovery | Impact | Source |
+|------|-----------|--------|--------|
+| 2026-01-15 | JWT uses dedicated signing key, not API_SECRET | Corrected security model understanding | `lib/server/enclave.js` |
+| 2026-01-15 | Brute-force cleanup is one-shot setTimeout | Potential long-running server issue | `lib/authorization/delaylist.js` |
+| 2026-01-15 | Both SHA-1 and SHA-512 accepted for API_SECRET | Migration path but potential confusion | `lib/hashauth.js` |
+| 2026-01-15 | Access token = SHA-1(apiKeySHA1 + subject._id) | Not direct API_SECRET derivative | `lib/server/enclave.js:getSubjectHash()` |
+
+### Priority Gaps Summary
+
+| Gap | Priority | Status |
+|-----|----------|--------|
+| WebSocket Auth (`/storage` subscription) | High | Not Covered |
+| JWT Expiration rejection | High | Not Covered |
+| Permission Wildcards (Shiro patterns) | High | Not Covered |
+| API v3 Security model | High | Separate spec needed |
+| Subject CRUD operations | Medium | Not Covered |
+| Role Management | Medium | Not Covered |
+| Audit Events | Low | Not Covered |
+
+### Test Execution
+
+```bash
+npm test -- --grep "API_SECRET\|Security\|hashauth\|verifyauth"
+npm test -- --grep "Security of REST API V1"
+```
 
 ---
 
@@ -478,7 +519,7 @@ Per `docs/proposals/testing-modernization-proposal.md`:
 
 ## 13. References
 
-- [Authorization Security Spec](../requirements/authorization-security-spec.md)
+- [Authorization Security Requirements](../requirements/authorization-security-requirements.md)
 - [Security Audit](../security-audit.md)
 - [Testing Modernization Proposal](../proposals/testing-modernization-proposal.md)
 - Test files in `tests/` directory

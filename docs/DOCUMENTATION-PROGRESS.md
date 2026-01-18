@@ -13,13 +13,13 @@ This document tracks the ongoing effort to produce comprehensive product require
 
 ### Completed Documentation
 
-| Area | Requirements Doc | Test Spec | Status | Notes |
-|------|------------------|-----------|--------|-------|
-| Data Shape Handling | `requirements/data-shape-requirements.md` | `test-specs/shape-handling-test-spec.md` | ✅ Complete | MongoDB 5.x migration work, 38 tests |
-| API v1 Compatibility | `requirements/api-v1-compatibility-spec.md` | (integrated) | ✅ Complete | Client compatibility (AAPS, Loop, xDrip) |
-| Authorization/Security | `requirements/authorization-security-spec.md` | `test-specs/authorization-test-spec.md` | ✅ Complete | 21 tests mapped, coverage gaps identified |
-| Treatments Schema | `data-schemas/treatments-schema.md` | N/A | ✅ Complete | Field inventory, eventTypes, client conventions, known bugs |
-| Profiles Schema | `data-schemas/profiles-schema.md` | N/A | ✅ Complete | Store structure, Loop settings, override presets, timezone quirks |
+| Area | Requirements Doc | Test Spec | Status |
+|------|------------------|-----------|--------|
+| Data Shape Handling | `requirements/data-shape-requirements.md` | `test-specs/shape-handling-tests.md` | Complete |
+| API v1 Compatibility | `requirements/api-v1-compatibility-requirements.md` | (integrated) | Complete |
+| Authorization/Security | `requirements/authorization-security-requirements.md` | `test-specs/authorization-tests.md` | Complete |
+| Treatments Schema | `data-schemas/treatments-schema.md` | N/A | Complete |
+| Profiles Schema | `data-schemas/profiles-schema.md` | N/A | Complete |
 
 ### System Audits (Reference Documents)
 
@@ -28,13 +28,13 @@ These audits provide the foundation for requirements extraction:
 | Audit Document | Subsystem | Req/Test Status |
 |----------------|-----------|-----------------|
 | `architecture-overview.md` | System-wide | Reference only |
-| `security-audit.md` | Auth, brute-force, JWT | ✅ Extracted to specs |
+| `security-audit.md` | Auth, brute-force, JWT | Extracted to specs |
 | `api-layer-audit.md` | REST v1/v2/v3, WebSocket | Partial (v1 done, v3 needed) |
-| `data-layer-audit.md` | MongoDB, collections, sync | ✅ Shape handling extracted |
-| `realtime-systems-audit.md` | Socket.IO, event bus | ❌ Not started |
-| `plugin-architecture-audit.md` | 38 plugins, Pebble | ❌ Not started |
-| `dashboard-ui-audit.md` | Client bundle, D3/jQuery | ❌ Not started (may defer) |
-| `messaging-subsystem-audit.md` | Pushover, IFTTT, notifications | ❌ Not started |
+| `data-layer-audit.md` | MongoDB, collections, sync | Shape handling extracted |
+| `realtime-systems-audit.md` | Socket.IO, event bus | Not started |
+| `plugin-architecture-audit.md` | 38 plugins, Pebble | Not started |
+| `dashboard-ui-audit.md` | Client bundle, D3/jQuery | Not started (may defer) |
+| `messaging-subsystem-audit.md` | Pushover, IFTTT, notifications | Not started |
 | `modernization-roadmap.md` | Tech debt, refactoring | Reference only |
 
 ---
@@ -45,17 +45,17 @@ These audits provide the foundation for requirements extraction:
 
 | Area | Why Important | Estimated Effort | Blocking Issues |
 |------|---------------|------------------|-----------------|
-| **API v3 Security** | Distinct auth model from v1/v2, health data access | Medium | Need to review `lib/api3/security.js` and `tests/api3.*.test.js` |
-| **WebSocket Auth** | Real-time data streams need auth coverage | Medium | Currently identified as coverage gap in auth-test-spec |
+| **API v3 Security** | Distinct auth model from v1/v2, health data access | Medium | Need to review `lib/api3/security.js` |
+| **WebSocket Auth** | Real-time data streams need auth coverage | Medium | Identified as coverage gap |
 | **Core Calculations (IOB/COB)** | Critical for diabetes management decisions | High | Complex algorithms, requires domain expertise |
 
 ### Tier 2: Medium Priority (Functional Coverage)
 
 | Area | Why Important | Estimated Effort | Blocking Issues |
 |------|---------------|------------------|-----------------|
-| **Plugin System** | 38 plugins, extensibility foundation | High | Large surface area, many plugins undocumented |
+| **Plugin System** | 38 plugins, extensibility foundation | High | Large surface area |
 | **Real-time Event Bus** | Data synchronization between components | Medium | Need to trace event flows |
-| **Notification/Messaging** | Alerts for dangerous glucose levels | Medium | Multiple providers (Pushover, IFTTT, etc.) |
+| **Notification/Messaging** | Alerts for dangerous glucose levels | Medium | Multiple providers |
 
 ### Tier 3: Lower Priority (UI/UX or Deferred)
 
@@ -71,30 +71,15 @@ These audits provide the foundation for requirements extraction:
 
 ### Documentation Patterns That Work
 
-1. **Start with code, not assumptions** - Every requirement must cite a source file and line number. Initial assumptions about JWT using API_SECRET were wrong; code review revealed dedicated signing key.
+1. **Start with code, not assumptions** - Every requirement must cite a source file and line number.
 
-2. **Separate requirements from implementation details** - Requirements state "what" and "why"; implementation notes explain "how" the code does it. This distinction helps future refactoring.
+2. **Separate requirements from implementation details** - Requirements state "what" and "why"; implementation notes explain "how" the code does it.
 
 3. **Test ID conventions** - Using prefixed IDs (SEC-001, HASH-002, etc.) makes traceability matrices scannable and enables automated coverage checks.
 
 4. **Coverage gaps are as valuable as coverage** - Documenting what's NOT tested is critical for security audits and prioritization.
 
-### Technical Discoveries
-
-| Discovery | Impact | Source |
-|-----------|--------|--------|
-| JWT uses dedicated signing key, not API_SECRET | Corrected security model understanding | `lib/server/enclave.js` |
-| Brute-force cleanup is one-shot setTimeout | Potential long-running server issue | `lib/authorization/delaylist.js` |
-| Both SHA-1 and SHA-512 accepted for API_SECRET | Migration path but potential confusion | `lib/hashauth.js` |
-| Access token = SHA-1(apiKeySHA1 + subject._id) | Not direct API_SECRET derivative | `lib/server/enclave.js:getSubjectHash()` |
-| devicestatus.js had race condition with arrays | Fixed in PR #8314 | `lib/server/devicestatus.js` |
-| WebSocket insertOne() with array creates single doc | MongoDB driver behavior, not intuitive | `lib/server/websocket.js` |
-| eventType defaults to `<none>` if missing | Treatments always have eventType | `lib/server/websocket.js:357-358` |
-| Different controllers use different sync identity fields | AAPS uses `identifier`, Loop uses pump fields, xDrip uses `uuid` | Domain expert + code review |
-| Loop sends non-ISO timezone strings (`ETC/GMT+8`) | Requires workaround in `profilefunctions.js` | `lib/profilefunctions.js:179-181` |
-| Profile switches can embed full JSON profiles | AAPS pattern with `profileJson` field | `lib/profilefunctions.js:272-287` |
-| `@@@@@` separator used for inline profile names | Hack to prevent name collisions | `lib/profilefunctions.js:273-274` |
-| Report plugins reveal field usage patterns | Alternative to formal schema docs | `lib/report_plugins/treatments.js` |
+5. **Each area tracks its own progress** - Technical discoveries and coverage gaps are documented in the relevant test spec, not centrally. See `test-specs/coverage-gaps.md` for aggregated view.
 
 ### Process Improvements
 
@@ -122,7 +107,7 @@ These audits provide the foundation for requirements extraction:
 
 3. **OIDC/OAuth2 integration** - Modernization roadmap mentions this. Does it supersede current auth model?
 
-4. **Schema registration for controllers** - AAPS, Loop, xDrip use different sync identity fields. Should controllers register their schema conventions? (Domain expert suggested inversion of control pattern.)
+4. **Schema registration for controllers** - AAPS, Loop, xDrip use different sync identity fields. Should controllers register their schema conventions?
 
 ### Requiring More Investigation
 
@@ -140,11 +125,11 @@ Welcome! If you're picking up this documentation effort, here's how to get start
 
 ### Quick Start
 
-1. **Read the audits first** - The `docs/*.audit.md` files provide system understanding before diving into specs
+1. **Read the audits first** - The `docs/*-audit.md` files provide system understanding before diving into specs
 2. **Pick from the priority queue** - Tier 1 items are most impactful
 3. **Follow the established pattern**:
-   - Create `docs/requirements/<area>-spec.md` for formal requirements
-   - Create `docs/test-specs/<area>-test-spec.md` for test mappings
+   - Create `docs/requirements/<area>-requirements.md` for formal requirements
+   - Create `docs/test-specs/<area>-tests.md` for test mappings
    - Update this progress document when done
 
 ### Template Structure
@@ -157,10 +142,10 @@ Requirements documents should include:
 - Security considerations
 
 Test specifications should include:
+- **Progress & Coverage Status** section at top (current state, recent discoveries, priority gaps)
 - Existing test inventory with unique IDs
 - Test case descriptions with expected behavior
 - Requirement traceability matrix
-- Coverage gaps (high/medium/low priority)
 - Discovered quirks and barriers
 
 ### Key Files to Understand
@@ -180,8 +165,8 @@ This effort is documentation-only. Do not:
 
 ### Communication
 
-- Update `replit.md` with significant discoveries
-- Add findings to Lessons Learned section
+- Update `replit.md` with significant general discoveries
+- Add findings to relevant test spec's Progress section
 - Note any blocking issues in the priority queue
 
 Good luck, and thank you for contributing!
@@ -192,6 +177,7 @@ Good luck, and thank you for contributing!
 
 | Date | Author | Changes |
 |------|--------|---------|
+| 2026-01-18 | Agent | Reorganized: moved technical discoveries to individual test specs, standardized file naming |
 | 2026-01-15 | Agent | Initial document, completed auth/security specs |
 | 2026-01-15 | Agent | Added lessons learned, open questions, priority queue |
 | 2026-01-15 | Agent | Added data-schemas/treatments-schema.md and profiles-schema.md from domain expert interview |

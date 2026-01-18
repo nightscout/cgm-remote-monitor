@@ -490,7 +490,7 @@ GET /api/v3/entries?token=eyJhbGciOiJIUzI1NiI...
 
 ## 11. Data Shape Handling
 
-**See Also:** [Data Shape Requirements](./requirements/data-shape-requirements.md), [Shape Handling Test Spec](./test-specs/shape-handling-test-spec.md)
+**See Also:** [Data Shape Requirements](./requirements/data-shape-requirements.md), [Shape Handling Tests](./test-specs/shape-handling-tests.md)
 
 ### 11.1 Input Shape Flexibility
 
@@ -527,5 +527,5 @@ Shape handling is validated by 38 tests across:
 ### Requirements & Specifications
 
 - [Data Shape Requirements](./requirements/data-shape-requirements.md) - Formal requirements for input/output shapes
-- [API v1 Compatibility Spec](./requirements/api-v1-compatibility-spec.md) - Client compatibility requirements
-- [Shape Handling Test Spec](./test-specs/shape-handling-test-spec.md) - Test case specifications
+- [API v1 Compatibility Requirements](./requirements/api-v1-compatibility-requirements.md) - Client compatibility requirements
+- [Shape Handling Tests](./test-specs/shape-handling-tests.md) - Test case specifications

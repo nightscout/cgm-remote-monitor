@@ -802,7 +802,7 @@ To ensure this proposal aligns with Nightscout Core maintainer expectations:
 
 ### Internal Documents
 
-- [Authorization and Security Requirements](../requirements/authorization-security-spec.md)
+- [Authorization and Security Requirements](../requirements/authorization-security-requirements.md)
 - [Architecture Overview](../architecture-overview.md)
 - [Security Audit](../security-audit.md)
 - [Modernization Roadmap](../modernization-roadmap.md)

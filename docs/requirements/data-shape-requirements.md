@@ -226,5 +226,5 @@ The `data-received` event triggering data updates is throttled to 15 seconds (`U
 
 - [API Layer Audit](../api-layer-audit.md) - Endpoint inventory and response formats
 - [Data Layer Audit](../data-layer-audit.md) - MongoDB collection schemas
-- [Shape Handling Test Spec](../test-specs/shape-handling-test-spec.md) - Detailed test cases
-- [API v1 Compatibility Spec](./api-v1-compatibility-spec.md) - Client compatibility requirements
+- [Shape Handling Tests](../test-specs/shape-handling-tests.md) - Detailed test cases
+- [API v1 Compatibility Requirements](./api-v1-compatibility-requirements.md) - Client compatibility requirements
