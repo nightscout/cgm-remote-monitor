@@ -306,7 +306,7 @@ describe('API3 Shape Handling - Single Object vs Array Input', function() {
 
       const updatedDoc = Object.assign({}, doc, { notes: 'updated note' });
 
-      let res2 = await self.instance.post(treatmentsUrl, self.jwt.create)
+      let res2 = await self.instance.post(treatmentsUrl, self.jwt.all)
         .send(updatedDoc)
         .expect(200);
 
