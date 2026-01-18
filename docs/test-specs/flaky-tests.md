@@ -242,6 +242,48 @@ npm test & npm test
 3. **Add retry logic**: For event-based tests
 4. **Improve isolation**: Each test should be independent
 5. **Clean up resources**: Proper `afterEach` cleanup
+6. **Use warning timeouts**: Replace arbitrary delays with polling + warning pattern (see below)
+
+### Warning Timeout Pattern
+
+Instead of using `setTimeout` with arbitrary delays to wait for async operations, use a polling pattern with warning timeouts. This approach:
+
+1. **Completes tests as fast as possible** - polls immediately and frequently
+2. **Surfaces slow operations** - logs warnings when operations take longer than expected
+3. **Has a hard timeout** - fails cleanly if the expected state is never reached
+
+**Anti-pattern (don't do this):**
+```javascript
+// Arbitrary 500ms delay - may be too short under load, wastes time when fast
+setTimeout(function() {
+  checkDatabaseState();
+  done();
+}, 500);
+```
+
+**Recommended pattern:**
+```javascript
+waitForConditionWithWarning({
+  condition: function(cb) {
+    ctx.treatments.list({}, cb);
+  },
+  assertion: function(list) {
+    list.length.should.be.greaterThanOrEqual(3);
+  },
+  done: done,
+  operationName: 'verify treatments created',
+  warningThreshold: 200,  // Warn if taking >200ms
+  maxTimeout: 5000        // Fail if >5s
+});
+```
+
+The `waitForConditionWithWarning` helper is available in `tests/websocket.shape-handling.test.js` and can be extracted into a shared test utility if needed.
+
+**Benefits:**
+- Tests complete in ~50ms when operations are fast (vs. fixed 500ms delay)
+- Warnings help identify operations that are becoming slower over time
+- Hard timeout prevents infinite hangs
+- No arbitrary timing assumptions
 
 ---
 

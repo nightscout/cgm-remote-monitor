@@ -3,6 +3,75 @@
 var should = require('should');
 var language = require('../lib/language')();
 
+/**
+ * Helper function to wait for a condition with warning timeout.
+ * Instead of using arbitrary setTimeout delays, this function:
+ * 1. Polls for a condition to be true
+ * 2. Warns if the operation is taking longer than expected
+ * 3. Fails hard only after a maximum timeout
+ * 
+ * @param {Object} options
+ * @param {Function} options.condition - Function that checks if expected state is reached, receives callback(err, result)
+ * @param {Function} options.assertion - Function to run assertions on result
+ * @param {Function} options.done - Mocha done callback
+ * @param {number} [options.warningThreshold=200] - ms before warning is logged
+ * @param {number} [options.pollInterval=50] - ms between polls
+ * @param {number} [options.maxTimeout=5000] - ms before hard failure
+ * @param {string} [options.operationName='Operation'] - Name for logging
+ */
+function waitForConditionWithWarning(options) {
+  var startTime = Date.now();
+  var warningIssued = false;
+  var warningTimer = null;
+  
+  var warningThreshold = options.warningThreshold || 200;
+  var pollInterval = options.pollInterval || 50;
+  var maxTimeout = options.maxTimeout || 5000;
+  var operationName = options.operationName || 'Operation';
+  
+  // Set up warning timer
+  warningTimer = setTimeout(function() {
+    warningIssued = true;
+    console.warn('[SLOW TEST WARNING] ' + operationName + ' taking longer than ' + warningThreshold + 'ms');
+  }, warningThreshold);
+  
+  function poll() {
+    var elapsed = Date.now() - startTime;
+    
+    if (elapsed > maxTimeout) {
+      clearTimeout(warningTimer);
+      options.done(new Error(operationName + ' timed out after ' + maxTimeout + 'ms'));
+      return;
+    }
+    
+    options.condition(function(err, result) {
+      if (err) {
+        clearTimeout(warningTimer);
+        options.done(err);
+        return;
+      }
+      
+      try {
+        // Try to run the assertion - if it passes, we're done
+        options.assertion(result);
+        clearTimeout(warningTimer);
+        
+        if (warningIssued) {
+          console.log('[SLOW TEST INFO] ' + operationName + ' completed after ' + elapsed + 'ms');
+        }
+        
+        options.done();
+      } catch (assertionError) {
+        // Assertion failed - poll again if we have time
+        setTimeout(poll, pollInterval);
+      }
+    });
+  }
+  
+  // Start polling immediately
+  poll();
+}
+
 describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
   this.timeout(15000);
   var self = this;
@@ -385,14 +454,20 @@ describe('WebSocket dbAdd Array Handling Investigation', function () {
           console.log('Array input result type:', typeof result);
           console.log('Array input result:', JSON.stringify(result, null, 2));
           
-          setTimeout(function () {
-            self.ctx.treatments.list({}, function (err, list) {
+          waitForConditionWithWarning({
+            condition: function(cb) {
+              self.ctx.treatments.list({}, cb);
+            },
+            assertion: function(list) {
               console.log('Total treatments in DB after array dbAdd:', list.length);
               console.log('Treatments:', JSON.stringify(list, null, 2));
-              
-              done();
-            });
-          }, 500);
+              list.length.should.be.greaterThanOrEqual(1);
+            },
+            done: done,
+            operationName: 'dbAdd array treatments verification',
+            warningThreshold: 200,
+            maxTimeout: 5000
+          });
         });
       });
     });
@@ -417,13 +492,19 @@ describe('WebSocket dbAdd Array Handling Investigation', function () {
             results.push(result);
             count++;
             if (count === 3) {
-              setTimeout(function () {
-                self.ctx.treatments.list({}, function (err, list) {
+              waitForConditionWithWarning({
+                condition: function(cb) {
+                  self.ctx.treatments.list({}, cb);
+                },
+                assertion: function(list) {
                   console.log('Total treatments after 3 individual dbAdd calls:', list.length);
                   list.length.should.be.greaterThanOrEqual(3);
-                  done();
-                });
-              }, 500);
+                },
+                done: done,
+                operationName: 'individual dbAdd calls verification',
+                warningThreshold: 200,
+                maxTimeout: 5000
+              });
             }
           });
         }
