@@ -422,18 +422,27 @@ describe('API3 AAPS Patterns - Deduplication and Real-world Scenarios', function
       self.cache.clear();
     }
 
-    it('creates all meal-related treatments with unique identifiers', async () => {
+    async function getDoc(identifier) {
+      let res = await self.instance.get(`${url}/${identifier}`, self.jwt.read)
+        .expect(200);
+      return res.body.result;
+    }
+
+    it('creates all meal-related treatments with full AAPS payloads and verifies persisted fields', async () => {
       const baseTime = Date.now();
       const device = 'test-device-meal-' + baseTime;
       const identifiers = [];
+      const mealFixtures = aapsPatterns.MEAL_SCENARIO;
 
+      const carbsFixture = mealFixtures.CARB_ENTRY;
       const carbs = {
         device: device,
         date: baseTime,
+        created_at: new Date(baseTime).toISOString(),
         app: testConst.TEST_APP,
-        eventType: 'Carb Correction',
-        carbs: 45,
-        isValid: true
+        eventType: carbsFixture.eventType,
+        carbs: carbsFixture.carbs,
+        isValid: carbsFixture.isValid
       };
       carbs.identifier = opTools.calculateIdentifier(carbs);
 
@@ -443,15 +452,23 @@ describe('API3 AAPS Patterns - Deduplication and Real-world Scenarios', function
       identifiers.push(res1.body.identifier);
       self.cache.clear();
 
+      const persistedCarbs = await getDoc(res1.body.identifier);
+      persistedCarbs.carbs.should.equal(carbsFixture.carbs);
+      persistedCarbs.eventType.should.equal(carbsFixture.eventType);
+      persistedCarbs.should.have.property('srvCreated');
+      self.cache.clear();
+
+      const wizardFixture = mealFixtures.BOLUS_WIZARD;
       const wizard = {
         device: device,
         date: baseTime + 1000,
+        created_at: new Date(baseTime + 1000).toISOString(),
         app: testConst.TEST_APP,
-        eventType: 'Bolus Wizard',
-        glucose: 134,
-        glucoseType: 'Sensor',
-        carbs: 45,
-        insulin: 8.1
+        eventType: wizardFixture.eventType,
+        glucose: wizardFixture.glucose,
+        glucoseType: wizardFixture.glucoseType,
+        carbs: wizardFixture.carbs,
+        insulin: wizardFixture.insulin
       };
       wizard.identifier = opTools.calculateIdentifier(wizard);
 
@@ -461,15 +478,23 @@ describe('API3 AAPS Patterns - Deduplication and Real-world Scenarios', function
       identifiers.push(res2.body.identifier);
       self.cache.clear();
 
+      const persistedWizard = await getDoc(res2.body.identifier);
+      persistedWizard.glucose.should.equal(wizardFixture.glucose);
+      persistedWizard.insulin.should.equal(wizardFixture.insulin);
+      persistedWizard.should.have.property('srvCreated');
+      self.cache.clear();
+
+      const bolusFixture = mealFixtures.MEAL_BOLUS;
       const bolus = {
         device: device,
         date: baseTime + 2000,
+        created_at: new Date(baseTime + 2000).toISOString(),
         app: testConst.TEST_APP,
-        eventType: 'Meal Bolus',
-        insulin: 8.1,
-        pumpId: 4102,
-        pumpType: aapsPatterns.PUMP_IDENTIFIERS.ACCU_CHEK_INSIGHT.pumpType,
-        pumpSerial: aapsPatterns.PUMP_IDENTIFIERS.ACCU_CHEK_INSIGHT.pumpSerial
+        eventType: bolusFixture.eventType,
+        insulin: bolusFixture.insulin,
+        pumpId: bolusFixture.pumpId,
+        pumpType: bolusFixture.pumpType,
+        pumpSerial: bolusFixture.pumpSerial
       };
       bolus.identifier = opTools.calculateIdentifier(bolus);
 
@@ -477,6 +502,14 @@ describe('API3 AAPS Patterns - Deduplication and Real-world Scenarios', function
         .send(bolus)
         .expect(201);
       identifiers.push(res3.body.identifier);
+      self.cache.clear();
+
+      const persistedBolus = await getDoc(res3.body.identifier);
+      persistedBolus.pumpId.should.equal(bolusFixture.pumpId);
+      persistedBolus.pumpType.should.equal(bolusFixture.pumpType);
+      persistedBolus.pumpSerial.should.equal(bolusFixture.pumpSerial);
+      persistedBolus.insulin.should.equal(bolusFixture.insulin);
+      persistedBolus.should.have.property('srvCreated');
       self.cache.clear();
 
       const uniqueIds = [...new Set(identifiers)];
@@ -499,19 +532,29 @@ describe('API3 AAPS Patterns - Deduplication and Real-world Scenarios', function
       self.cache.clear();
     }
 
-    it('handles rapid sequential SGV entries with unique identifiers', async () => {
+    async function getDoc(identifier) {
+      let res = await self.instance.get(`${url}/${identifier}`, self.jwt.read)
+        .expect(200);
+      return res.body.result;
+    }
+
+    it('handles rapid sequential SGV entries with full AAPS payloads and verifies persisted fields', async () => {
       const baseTime = Date.now();
       const device = 'test-device-sgv-' + baseTime;
       const identifiers = [];
+      const sgvFixtures = aapsPatterns.SGV_ENTRIES.HIGH_FREQUENCY_BATCH;
 
       for (let i = 0; i < 3; i++) {
+        const fixtureEntry = sgvFixtures[i];
         const sgv = {
           device: device,
           date: baseTime + (i * 300000),
+          dateString: new Date(baseTime + (i * 300000)).toISOString(),
           app: testConst.TEST_APP,
-          type: 'sgv',
-          sgv: 120 + (i * 5),
-          direction: ['Flat', 'FortyFiveUp', 'SingleUp'][i]
+          type: fixtureEntry.type,
+          sgv: fixtureEntry.sgv,
+          direction: fixtureEntry.direction,
+          utcOffset: fixtureEntry.utcOffset
         };
         sgv.identifier = opTools.calculateIdentifier(sgv);
 
@@ -521,6 +564,13 @@ describe('API3 AAPS Patterns - Deduplication and Real-world Scenarios', function
 
         res.body.status.should.equal(201);
         identifiers.push(res.body.identifier);
+        self.cache.clear();
+
+        const persisted = await getDoc(res.body.identifier);
+        persisted.sgv.should.equal(fixtureEntry.sgv);
+        persisted.direction.should.equal(fixtureEntry.direction);
+        persisted.should.have.property('srvCreated');
+        persisted.should.have.property('srvModified');
         self.cache.clear();
       }
 
