@@ -4,6 +4,8 @@ var request = require('supertest');
 var should = require('should');
 var language = require('../lib/language')();
 
+var aapsPatterns = require('./fixtures/aaps-patterns.json');
+
 describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
   this.timeout(30000);
   var self = this;
@@ -596,6 +598,193 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
         .then(function (results) {
           results.forEach(function (result) {
             result.received.should.equal(result.sent);
+          });
+          done();
+        })
+        .catch(done);
+    });
+  });
+
+  describe('AAPS Sync Catch-up Simulation', function () {
+
+    beforeEach(function (done) {
+      self.ctx.treatments.remove({ find: { eventType: { '$regex': '^Correction Bolus' } } }, function () {
+        done();
+      });
+    });
+
+    afterEach(function (done) {
+      self.ctx.treatments.remove({ find: { eventType: { '$regex': '^Correction Bolus' } } }, function () {
+        done();
+      });
+    });
+
+    it('handles 50 rapid sequential SMB-style POSTs (AAPS offline recovery simulation)', function (done) {
+      this.timeout(60000);
+      var baseTime = Date.now();
+      var successCount = 0;
+      var errorCount = 0;
+      var totalRequests = 50;
+      var completed = 0;
+
+      function makeRequest(index) {
+        var smb = {
+          eventType: 'Correction Bolus',
+          insulin: 0.1 + (Math.random() * 0.4),
+          isSMB: true,
+          pumpId: 10000 + index,
+          pumpType: aapsPatterns.PUMP_IDENTIFIERS.ACCU_CHEK_INSIGHT.pumpType,
+          pumpSerial: aapsPatterns.PUMP_IDENTIFIERS.ACCU_CHEK_INSIGHT.pumpSerial,
+          created_at: new Date(baseTime + index * 300000).toISOString(),
+          notes: 'AAPS sync catch-up ' + index
+        };
+
+        request(self.app)
+          .post('/api/treatments/')
+          .set('api-secret', known)
+          .send(smb)
+          .end(function (err, res) {
+            completed++;
+            if (err || res.status !== 200) {
+              errorCount++;
+            } else {
+              successCount++;
+            }
+
+            if (completed === totalRequests) {
+              successCount.should.equal(totalRequests);
+              errorCount.should.equal(0);
+
+              self.ctx.treatments.list({ find: { eventType: 'Correction Bolus' } }, function (listErr, list) {
+                should.not.exist(listErr);
+                list.length.should.be.greaterThanOrEqual(totalRequests);
+                done();
+              });
+            }
+          });
+      }
+
+      for (var i = 0; i < totalRequests; i++) {
+        setTimeout(makeRequest.bind(null, i), i * 5);
+      }
+    });
+
+    it('handles 100 rapid sequential SGV-style POSTs to entries', function (done) {
+      this.timeout(90000);
+      var baseTime = Date.now();
+      var successCount = 0;
+      var errorCount = 0;
+      var totalRequests = 100;
+      var completed = 0;
+
+      function makeRequest(index) {
+        var sgv = {
+          type: 'sgv',
+          sgv: 80 + Math.floor(Math.random() * 100),
+          date: baseTime + index * 300000,
+          dateString: new Date(baseTime + index * 300000).toISOString(),
+          device: 'AndroidAPS-DexcomG6',
+          direction: ['Flat', 'FortyFiveUp', 'SingleUp', 'FortyFiveDown'][index % 4]
+        };
+
+        request(self.app)
+          .post('/api/entries/')
+          .set('api-secret', known)
+          .send(sgv)
+          .end(function (err, res) {
+            completed++;
+            if (err || res.status !== 200) {
+              errorCount++;
+            } else {
+              successCount++;
+            }
+
+            if (completed === totalRequests) {
+              successCount.should.equal(totalRequests);
+              errorCount.should.equal(0);
+
+              self.ctx.entries.list({ find: { device: 'AndroidAPS-DexcomG6' } }, function (listErr, list) {
+                should.not.exist(listErr);
+                list.length.should.be.greaterThanOrEqual(totalRequests);
+                done();
+              });
+            }
+          });
+      }
+
+      for (var i = 0; i < totalRequests; i++) {
+        setTimeout(makeRequest.bind(null, i), i * 3);
+      }
+    });
+
+    it('handles concurrent cross-collection sync (treatments + entries + devicestatus)', function (done) {
+      this.timeout(60000);
+      var baseTime = Date.now();
+      var promises = [];
+
+      for (var i = 0; i < 10; i++) {
+        promises.push(
+          new Promise(function (resolve, reject) {
+            var idx = i;
+            request(self.app)
+              .post('/api/treatments/')
+              .set('api-secret', known)
+              .send({
+                eventType: 'Correction Bolus',
+                insulin: 0.2,
+                created_at: new Date(baseTime + idx * 60000).toISOString(),
+                notes: 'cross-collection treatment ' + idx
+              })
+              .end(function (err, res) {
+                if (err) return reject(err);
+                resolve({ type: 'treatment', status: res.status });
+              });
+          })
+        );
+
+        promises.push(
+          new Promise(function (resolve, reject) {
+            var idx = i;
+            request(self.app)
+              .post('/api/entries/')
+              .set('api-secret', known)
+              .send({
+                type: 'sgv',
+                sgv: 100 + idx * 5,
+                date: baseTime + idx * 60000,
+                device: 'cross-collection-test'
+              })
+              .end(function (err, res) {
+                if (err) return reject(err);
+                resolve({ type: 'entry', status: res.status });
+              });
+          })
+        );
+
+        promises.push(
+          new Promise(function (resolve, reject) {
+            var idx = i;
+            request(self.app)
+              .post('/api/devicestatus/')
+              .set('api-secret', known)
+              .send({
+                device: 'cross-collection-device-' + idx,
+                created_at: new Date(baseTime + idx * 60000).toISOString(),
+                uploaderBattery: 90
+              })
+              .end(function (err, res) {
+                if (err) return reject(err);
+                resolve({ type: 'devicestatus', status: res.status });
+              });
+          })
+        );
+      }
+
+      Promise.all(promises)
+        .then(function (results) {
+          results.length.should.equal(30);
+          results.forEach(function (result) {
+            result.status.should.equal(200);
           });
           done();
         })

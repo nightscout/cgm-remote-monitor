@@ -76,9 +76,11 @@ Comprehensive test coverage for single document vs array input handling across a
 |------|---------------|
 | `tests/api.shape-handling.test.js` | API v1 treatments, devicestatus, entries - single/array input, response shapes |
 | `tests/api3.shape-handling.test.js` | API v3 all collections - single object only (arrays rejected) |
+| `tests/api3.aaps-patterns.test.js` | API v3 AAPS-realistic patterns - deduplication, SMB bursts, meal scenarios |
 | `tests/storage.shape-handling.test.js` | Storage layer direct tests, MongoDB insertOne vs insertMany |
 | `tests/websocket.shape-handling.test.js` | WebSocket dbAdd/dbUpdate/dbRemove operations |
-| `tests/concurrent-writes.test.js` | Race conditions, concurrent access, MongoDB 5.x compatibility |
+| `tests/concurrent-writes.test.js` | Race conditions, concurrent access, MongoDB 5.x, AAPS sync catch-up |
+| `tests/fixtures/aaps-patterns.json` | AAPS-realistic test fixtures (SGV, SMB, meals, deduplication) |
 
 ### API Behavior Summary
 | Interface | Single Object | Array Input | Response Format |
@@ -89,11 +91,19 @@ Comprehensive test coverage for single document vs array input handling across a
 | API v3 `/api/v3/{collection}` | Supported | Rejected (400) | Single Object |
 | WebSocket `dbAdd` | Supported | Supported | Always Array |
 
+### API v3 Deduplication Logic
+The server calculates identifiers from `device + date + eventType`. Important findings:
+- `pumpId`, `pumpType`, `pumpSerial` are stored but NOT used in identifier calculation
+- AAPS sends documents one-at-a-time (not in batches) to API v3
+- "Multiple document handling" concerns are about rapid sequential requests during sync catch-up
+- Fallback dedup fields per collection: treatments=`[created_at, eventType]`, entries=`[date, type]`
+
 ### Running Shape Handling Tests
 ```bash
 npm test -- --grep "Shape Handling"
 npm test -- tests/api.shape-handling.test.js
 npm test -- tests/concurrent-writes.test.js
+npm test -- tests/api3.aaps-patterns.test.js
 ```
 
 ## External Dependencies

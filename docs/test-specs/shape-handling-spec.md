@@ -244,8 +244,53 @@ The MongoDB 5.x driver has stricter typing. Key behaviors:
 | Cross-collection concurrent writes | Medium | ✅ Covered |
 | Unique _id after concurrent inserts | High | ✅ Covered |
 | Response count matches request count | High | ✅ Covered |
+| AAPS sync catch-up (50 SMB POSTs) | High | ✅ Covered |
+| AAPS sync catch-up (100 SGV POSTs) | High | ✅ Covered |
+| Cross-collection concurrent sync | Medium | ✅ Covered |
 | WebSocket + API concurrent writes | Medium | ⬜ Not covered |
 | Duplicate identifier handling under load | Medium | ⬜ Not covered |
+
+---
+
+## AAPS-Realistic Pattern Tests
+
+Based on analysis of AndroidAPS source code. See `tests/fixtures/aaps-patterns.json` for fixture data.
+
+### API v3 Deduplication Tests
+
+The identifier is calculated from `device + date + eventType`. Note: `pumpId`, `pumpType`, `pumpSerial` are stored but NOT used in identifier calculation.
+
+| Test Case | Status |
+|-----------|--------|
+| New treatment returns 201 | ✅ Covered |
+| Duplicate (same device+date+eventType) returns 200 | ✅ Covered |
+| Different pumpId, same identifier triggers dedup | ✅ Covered |
+| Different date creates new treatment (201) | ✅ Covered |
+| Different eventType creates new treatment (201) | ✅ Covered |
+
+### SMB Burst Pattern Tests
+
+Tests rapid sequential Super Micro Bolus insertions (common in closed-loop systems).
+
+| Test Case | Status |
+|-----------|--------|
+| Sequential SMB corrections with unique identifiers | ✅ Covered |
+
+### Meal Scenario Tests
+
+Tests typical meal-related treatments: carb entry, bolus wizard, meal bolus.
+
+| Test Case | Status |
+|-----------|--------|
+| All meal treatments have unique identifiers | ✅ Covered |
+
+### SGV Entry Pattern Tests
+
+Tests high-frequency glucose readings (5-minute intervals).
+
+| Test Case | Status |
+|-----------|--------|
+| Sequential SGV entries with unique identifiers | ✅ Covered |
 
 ### Expected Behavior
 - All writes should succeed or fail atomically
