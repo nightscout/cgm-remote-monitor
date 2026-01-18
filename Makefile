@@ -29,6 +29,14 @@ DOCKER_IMAGE=nightscout/cgm-remote-monitor
 
 all: test
 
+my.test.env:
+	@echo "Creating my.test.env from Makefile defaults..."
+	@echo "MONGO_CONNECTION=${MONGO_CONNECTION}" > my.test.env
+	@echo "CUSTOMCONNSTR_mongo_collection=${CUSTOMCONNSTR_mongo_collection}" >> my.test.env
+	@echo "CUSTOMCONNSTR_mongo_settings_collection=${CUSTOMCONNSTR_mongo_settings_collection}" >> my.test.env
+	@echo "API_SECRET=test-secret-key" >> my.test.env
+	@echo "INSECURE_USE_HTTP=true" >> my.test.env
+
 coverage:
 	NODE_ENV=test ${MONGO_SETTINGS} \
 	${ISTANBUL} cover ${MOCHA} -- --timeout 15000 -R tap ${TESTS}
