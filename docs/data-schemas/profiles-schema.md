@@ -1,5 +1,12 @@
 # Profiles Schema Documentation
 
+**Document Version:** 1.0  
+**Last Updated:** January 2026  
+**Status:** Active (2025 Standard)  
+**Source:** Code analysis and domain expert interview
+
+---
+
 ## Overview
 
 The `profile` collection stores therapy settings that define how the system calculates insulin dosing, carb ratios, target ranges, and basal rates. Profiles can change over time (e.g., different settings for weekdays vs weekends) and can be switched dynamically via Profile Switch treatments.

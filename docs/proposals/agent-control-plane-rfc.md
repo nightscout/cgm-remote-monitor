@@ -1,9 +1,10 @@
 # RFC: Agentic Control Plane for Automated Insulin Delivery Systems
 
-**Status:** Draft  
+**Document Version:** 1.0  
+**Last Updated:** January 2026  
+**Status:** Draft (2026 Proposal)  
 **Authors:** Nightscout Community  
-**Created:** 2026-01-01  
-**Last Updated:** 2026-01-01
+**Created:** 2026-01-01
 
 ---
 

@@ -1,6 +1,15 @@
 # Multi-Writer Semantics & Conflict Resolution
 
-**Purpose:** Define rules for handling concurrent inputs from multiple sources (controllers, caregivers, agents, manual UI) to the Nightscout control plane.
+**Document Version:** 1.0  
+**Last Updated:** January 2026  
+**Status:** Draft (2026 Proposal)  
+**Related:** [Agent Control Plane RFC](./agent-control-plane-rfc.md), [Bridge Rules](./bridge-rules.md)
+
+---
+
+## Purpose
+
+Define rules for handling concurrent inputs from multiple sources (controllers, caregivers, agents, manual UI) to the Nightscout control plane.
 
 ---
 

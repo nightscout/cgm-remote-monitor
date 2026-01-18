@@ -1,7 +1,8 @@
 # RFC: OpenID Connect Actor Identity Plugin for Nightscout Core
 
-**Status:** DRAFT  
-**Date:** January 2026  
+**Document Version:** 1.0  
+**Last Updated:** January 2026  
+**Status:** Draft (2026 Proposal)  
 **Authors:** NRG Team  
 **Target Audience:** Nightscout Core Maintainers, Community Contributors  
 **Source:** [nightscout-roles-gateway proposal](https://github.com/t1pal/nightscout-roles-gateway/blob/replit/docs/proposals/oidc-actor-identity-proposal.md)

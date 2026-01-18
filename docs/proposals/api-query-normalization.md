@@ -1,9 +1,10 @@
 # Proposal: API Query Normalization & Protection
 
-**Status:** Draft  
-**Authors:** Nightscout Community  
-**Created:** 2026-01-13  
+**Document Version:** 1.0  
+**Last Updated:** January 2026  
+**Status:** Draft (2026 Proposal)  
 **Priority:** HIGH  
+**Authors:** Nightscout Community  
 **Related:** [API Layer Audit](../audits/api-layer-audit.md), [Security Audit](../audits/security-audit.md)
 
 ---

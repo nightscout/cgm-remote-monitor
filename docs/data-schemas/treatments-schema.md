@@ -1,5 +1,12 @@
 # Treatments Schema Documentation
 
+**Document Version:** 1.0  
+**Last Updated:** January 2026  
+**Status:** Active (2025 Standard)  
+**Source:** Code analysis and domain expert interview
+
+---
+
 ## Overview
 
 The `treatments` collection stores all user interventions and system events related to diabetes management. This includes insulin doses, carbohydrate intake, temp basals, profile switches, CGM sensor events, and free-form notes.

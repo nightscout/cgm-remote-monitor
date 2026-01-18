@@ -1,8 +1,9 @@
 # Testing & Architecture Modernization Proposal
 
-**Date:** January 2026  
-**Status:** Draft (Revised)  
-**Author:** Nightscout Development Team
+**Document Version:** 1.1  
+**Last Updated:** January 2026  
+**Status:** Draft (2026 Proposal - Revised)  
+**Authors:** Nightscout Development Team
 
 ---
 

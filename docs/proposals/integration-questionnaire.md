@@ -1,6 +1,15 @@
 # Integration Questionnaire for Loop/AAPS/Trio Implementers
 
-**Purpose:** This questionnaire helps determine how well existing AID controllers can support the proposed event-driven control plane architecture. Answers will inform bridge mode implementation and native event adoption roadmaps.
+**Document Version:** 1.0  
+**Last Updated:** January 2026  
+**Status:** Draft (2026 Proposal)  
+**Related:** [Agent Control Plane RFC](./agent-control-plane-rfc.md), [Bridge Rules](./bridge-rules.md)
+
+---
+
+## Purpose
+
+This questionnaire helps determine how well existing AID controllers can support the proposed event-driven control plane architecture. Answers will inform bridge mode implementation and native event adoption roadmaps.
 
 ---
 

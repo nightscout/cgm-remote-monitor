@@ -1,6 +1,15 @@
 # Bridge Mode: Legacy devicestatus to Event Synthesis
 
-**Purpose:** Define rules for synthesizing canonical control plane events from legacy `devicestatus` uploads, enabling backward compatibility while controllers transition to native event emission.
+**Document Version:** 1.0  
+**Last Updated:** January 2026  
+**Status:** Draft (2026 Proposal)  
+**Related:** [Agent Control Plane RFC](./agent-control-plane-rfc.md), [Integration Questionnaire](./integration-questionnaire.md)
+
+---
+
+## Purpose
+
+Define rules for synthesizing canonical control plane events from legacy `devicestatus` uploads, enabling backward compatibility while controllers transition to native event emission.
 
 ---
 
