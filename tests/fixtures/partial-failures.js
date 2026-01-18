@@ -3,10 +3,10 @@
 module.exports = {
   batchWithDuplicateKeyInMiddle: {
     input: [
-      { eventType: 'Note', created_at: '2024-01-18T12:00:00.000Z', notes: 'First note', id: 'note-unique-1' },
-      { eventType: 'Note', created_at: '2024-01-18T12:01:00.000Z', notes: 'Second note', id: 'note-duplicate' },
-      { eventType: 'Note', created_at: '2024-01-18T12:02:00.000Z', notes: 'Third note', id: 'note-duplicate' },
-      { eventType: 'Note', created_at: '2024-01-18T12:03:00.000Z', notes: 'Fourth note', id: 'note-unique-2' }
+      { eventType: 'Note', created_at: new Date().toISOString(), notes: 'First note', id: 'note-unique-1' },
+      { eventType: 'Note', created_at: new Date(Date.now() + 60000).toISOString(), notes: 'Second note', id: 'note-duplicate' },
+      { eventType: 'Note', created_at: new Date(Date.now() + 120000).toISOString(), notes: 'Third note', id: 'note-duplicate' },
+      { eventType: 'Note', created_at: new Date(Date.now() + 180000).toISOString(), notes: 'Fourth note', id: 'note-unique-2' }
     ],
     orderedBehavior: {
       expectedInserted: 2,
@@ -40,9 +40,9 @@ module.exports = {
 
   loopResponseOrderingScenario: {
     input: [
-      { eventType: 'Carb Correction', carbs: 15, syncIdentifier: 'loop-sync-1', created_at: '2024-01-18T12:00:00.000Z' },
-      { eventType: 'Carb Correction', carbs: 20, syncIdentifier: 'loop-sync-2', created_at: '2024-01-18T12:01:00.000Z' },
-      { eventType: 'Carb Correction', carbs: 25, syncIdentifier: 'loop-sync-3', created_at: '2024-01-18T12:02:00.000Z' }
+      { eventType: 'Carb Correction', carbs: 15, syncIdentifier: 'loop-sync-1', created_at: new Date().toISOString() },
+      { eventType: 'Carb Correction', carbs: 20, syncIdentifier: 'loop-sync-2', created_at: new Date(Date.now() + 60000).toISOString() },
+      { eventType: 'Carb Correction', carbs: 25, syncIdentifier: 'loop-sync-3', created_at: new Date(Date.now() + 120000).toISOString() }
     ],
     expectedResponseFormat: {
       v1Api: [
@@ -61,9 +61,9 @@ module.exports = {
 
   loopBatchWithSomeDeduplicated: {
     input: [
-      { eventType: 'Carb Correction', carbs: 15, syncIdentifier: 'loop-sync-new', created_at: '2024-01-18T12:00:00.000Z' },
-      { eventType: 'Carb Correction', carbs: 20, syncIdentifier: 'loop-sync-exists', created_at: '2024-01-18T12:01:00.000Z' },
-      { eventType: 'Carb Correction', carbs: 25, syncIdentifier: 'loop-sync-new2', created_at: '2024-01-18T12:02:00.000Z' }
+      { eventType: 'Carb Correction', carbs: 15, syncIdentifier: 'loop-sync-new', created_at: new Date().toISOString() },
+      { eventType: 'Carb Correction', carbs: 20, syncIdentifier: 'loop-sync-exists', created_at: new Date(Date.now() + 60000).toISOString() },
+      { eventType: 'Carb Correction', carbs: 25, syncIdentifier: 'loop-sync-new2', created_at: new Date(Date.now() + 120000).toISOString() }
     ],
     preExisting: [
       { _id: 'existing-objectId', syncIdentifier: 'loop-sync-exists', carbs: 20 }
@@ -86,7 +86,7 @@ module.exports = {
         eventType: 'Carb Correction', 
         _id: 'client-provided-id-123',
         carbs: 15, 
-        created_at: '2024-01-18T12:00:00.000Z' 
+        created_at: new Date().toISOString() 
       },
       expectedBehavior: 'MongoDB should use client-provided _id if valid ObjectId format',
       riskNote: 'Driver changes may alter _id handling behavior'
@@ -96,7 +96,7 @@ module.exports = {
         eventType: 'Meal Bolus',
         id: 'trio-uuid-abc',
         insulin: 5.0,
-        created_at: '2024-01-18T12:00:00.000Z'
+        created_at: new Date().toISOString()
       },
       expectedBehavior: 'id field is separate from _id, used for deduplication queries',
       note: 'Trio uses id (not _id) for its own tracking'

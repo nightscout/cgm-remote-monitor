@@ -34,8 +34,8 @@ module.exports = {
     first: {
       type: 'sgv',
       sgv: 120,
-      date: 1705579200000,
-      dateString: '2024-01-18T12:00:00.000Z',
+      date: Date.now(),
+      dateString: new Date().toISOString(),
       device: 'AndroidAPS-DexcomG6',
       direction: 'Flat',
       app: 'AAPS'
@@ -43,8 +43,8 @@ module.exports = {
     duplicate: {
       type: 'sgv',
       sgv: 120,
-      date: 1705579200000,
-      dateString: '2024-01-18T12:00:00.000Z',
+      date: Date.now(),
+      dateString: new Date().toISOString(),
       device: 'AndroidAPS-DexcomG6',
       direction: 'Flat',
       app: 'AAPS'
@@ -56,14 +56,14 @@ module.exports = {
       eventType: 'Carb Correction',
       carbs: 15,
       syncIdentifier: 'loop-sync-abc123',
-      created_at: '2024-01-18T12:00:00.000Z',
+      created_at: new Date().toISOString(),
       enteredBy: 'loop://iPhone'
     },
     duplicate: {
       eventType: 'Carb Correction',
       carbs: 15,
       syncIdentifier: 'loop-sync-abc123',
-      created_at: '2024-01-18T12:00:00.000Z',
+      created_at: new Date().toISOString(),
       enteredBy: 'loop://iPhone'
     }
   },
@@ -75,7 +75,7 @@ module.exports = {
       rate: 1.5,
       absolute: 1.5,
       syncIdentifier: 'loop-dose-xyz789',
-      created_at: '2024-01-18T12:00:00.000Z',
+      created_at: new Date().toISOString(),
       enteredBy: 'loop://iPhone'
     },
     duplicate: {
@@ -84,7 +84,7 @@ module.exports = {
       rate: 1.5,
       absolute: 1.5,
       syncIdentifier: 'loop-dose-xyz789',
-      created_at: '2024-01-18T12:00:00.000Z',
+      created_at: new Date().toISOString(),
       enteredBy: 'loop://iPhone'
     }
   },
@@ -95,7 +95,7 @@ module.exports = {
       id: 'trio-uuid-abc123',
       insulin: 5.0,
       carbs: 45,
-      created_at: '2024-01-18T12:00:00.000Z',
+      created_at: new Date().toISOString(),
       enteredBy: 'Trio'
     },
     duplicate: {
@@ -103,7 +103,7 @@ module.exports = {
       id: 'trio-uuid-abc123',
       insulin: 5.0,
       carbs: 45,
-      created_at: '2024-01-18T12:00:00.000Z',
+      created_at: new Date().toISOString(),
       enteredBy: 'Trio'
     }
   },
@@ -116,7 +116,7 @@ module.exports = {
       targetTop: 110,
       targetBottom: 110,
       reason: 'Eating Soon',
-      created_at: '2024-01-18T12:00:00.000Z',
+      created_at: new Date().toISOString(),
       enteredBy: 'Trio'
     },
     duplicate: {
@@ -126,7 +126,7 @@ module.exports = {
       targetTop: 110,
       targetBottom: 110,
       reason: 'Eating Soon',
-      created_at: '2024-01-18T12:00:00.000Z',
+      created_at: new Date().toISOString(),
       enteredBy: 'Trio'
     }
   },
@@ -147,10 +147,10 @@ module.exports = {
   },
 
   batchWithDuplicates: [
-    { eventType: 'Note', created_at: '2024-01-18T12:00:00.000Z', notes: 'First note', id: 'note-1' },
-    { eventType: 'Note', created_at: '2024-01-18T12:01:00.000Z', notes: 'Second note', id: 'note-2' },
-    { eventType: 'Note', created_at: '2024-01-18T12:00:00.000Z', notes: 'First note', id: 'note-1' },
-    { eventType: 'Note', created_at: '2024-01-18T12:02:00.000Z', notes: 'Third note', id: 'note-3' }
+    { eventType: 'Note', created_at: new Date().toISOString(), notes: 'First note', id: 'note-1' },
+    { eventType: 'Note', created_at: new Date(Date.now() + 60000).toISOString(), notes: 'Second note', id: 'note-2' },
+    { eventType: 'Note', created_at: new Date().toISOString(), notes: 'First note', id: 'note-1' },
+    { eventType: 'Note', created_at: new Date(Date.now() + 120000).toISOString(), notes: 'Third note', id: 'note-3' }
   ],
 
   crossClientDuplicates: {
