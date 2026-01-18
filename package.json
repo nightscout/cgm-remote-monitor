@@ -43,7 +43,10 @@
     "lint": "eslint lib",
     "test:flaky": "node scripts/flaky-test-runner.js",
     "test:flaky:quick": "FLAKY_TEST_ITERATIONS=3 node scripts/flaky-test-runner.js",
-    "test:flaky:thorough": "FLAKY_TEST_ITERATIONS=20 node scripts/flaky-test-runner.js"
+    "test:flaky:thorough": "FLAKY_TEST_ITERATIONS=20 node scripts/flaky-test-runner.js",
+    "test:flaky:entries": "node scripts/flaky-harnesses/run-entries-isolation.js",
+    "test:flaky:socket": "node scripts/flaky-harnesses/run-socket-isolation.js",
+    "test:flaky:partial-failures": "node scripts/flaky-harnesses/run-partial-failures-isolation.js"
   },
   "main": "lib/server/server.js",
   "nodemonConfig": {
