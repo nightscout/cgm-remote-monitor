@@ -47,7 +47,10 @@
     "test:flaky:entries": "node scripts/flaky-harnesses/run-entries-isolation.js",
     "test:flaky:socket": "node scripts/flaky-harnesses/run-socket-isolation.js",
     "test:flaky:partial-failures": "node scripts/flaky-harnesses/run-partial-failures-isolation.js",
-    "test:flaky:isolate": "node scripts/flaky-harnesses/run-isolate.js"
+    "test:flaky:isolate": "node scripts/flaky-harnesses/run-isolate.js",
+    "test:timing": "ENABLE_TIMING_WARNINGS=true env-cmd -f ./my.test.env mocha --timeout 10000 --require ./tests/hooks.js --exit ./tests/*.test.js",
+    "test:timing:single": "ENABLE_TIMING_WARNINGS=true env-cmd -f ./my.test.env mocha --timeout 10000 --require ./tests/hooks.js --exit ./tests/$TEST.test.js",
+    "test:slow": "SLOW_TEST_THRESHOLD=1000 env-cmd -f ./my.test.env mocha --timeout 10000 --require ./tests/hooks.js --exit ./tests/*.test.js"
   },
   "main": "lib/server/server.js",
   "nodemonConfig": {

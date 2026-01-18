@@ -277,13 +277,88 @@ waitForConditionWithWarning({
 });
 ```
 
-The `waitForConditionWithWarning` helper is available in `tests/websocket.shape-handling.test.js` and can be extracted into a shared test utility if needed.
+The `waitForConditionWithWarning` helper is now available in the shared test helper module: `tests/lib/test-helpers.js`.
+
+**Usage:**
+```javascript
+var testHelpers = require('./lib/test-helpers');
+var waitForConditionWithWarning = testHelpers.waitForConditionWithWarning;
+
+// For async/await tests:
+var waitForConditionAsync = testHelpers.waitForConditionAsync;
+```
 
 **Benefits:**
 - Tests complete in ~50ms when operations are fast (vs. fixed 500ms delay)
 - Warnings help identify operations that are becoming slower over time
 - Hard timeout prevents infinite hangs
 - No arbitrary timing assumptions
+
+---
+
+## Timing Instrumentation
+
+The test suite includes built-in timing instrumentation to help identify slow tests and setTimeout anti-patterns.
+
+### Available Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run test:timing` | Run all tests with setTimeout anti-pattern detection enabled |
+| `npm run test:timing:single` | Run single test file with timing warnings (use `TEST=filename`) |
+| `npm run test:slow` | Run tests with slow test threshold set to 1000ms |
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENABLE_TIMING_WARNINGS` | false | Enable setTimeout anti-pattern warnings |
+| `SLOW_TEST_THRESHOLD` | 2000 | Threshold (ms) for slow test warnings |
+
+### What the Instrumentation Detects
+
+1. **setTimeout Anti-Patterns**: Warns when tests use `setTimeout` with delays ≥100ms
+   - Output: `[SETTIMEOUT ANTI-PATTERN] Long delay of 500ms detected. This may cause flaky tests.`
+   
+2. **Slow Tests**: Warns when individual tests take longer than the threshold
+   - Output: `[SLOW TEST] "test name" took 3500ms (threshold: 2000ms)`
+
+3. **Timing Summary**: After all tests complete, shows:
+   - List of slow tests with their durations
+   - Total setTimeout call count
+   - Average test duration
+
+### Example Output
+
+```
+[TIMING INSTRUMENTATION] Enabled - will warn on setTimeout anti-patterns
+...
+[SETTIMEOUT ANTI-PATTERN #42] Long delay of 200ms detected. This may cause flaky tests.
+[SLOW TEST] "socket test" took 3500ms (threshold: 2000ms)
+...
+
+[TIMING INSTRUMENTATION] Disabled - detected 84 setTimeout calls
+
+[SLOW TEST SUMMARY] 5 slow test(s) detected:
+  1. WebSocket dbAdd test (3668ms)
+  2. Socket event test (2742ms)
+  ...
+
+[TIMING STATS] Total: 50 tests, Avg: 1200ms, Slow: 5
+```
+
+### Test Helper Module
+
+The `tests/lib/test-helpers.js` module provides additional utilities:
+
+| Function | Description |
+|----------|-------------|
+| `waitForConditionWithWarning(options)` | Callback-based polling with warnings |
+| `waitForConditionAsync(options)` | Promise-based polling with warnings |
+| `instrumentedSetTimeout(fn, delay, context)` | setTimeout wrapper with logging |
+| `trackedDelay(ms, reason)` | Promise delay with timing logs |
+| `startTestTimer(testName, warnThreshold, errThreshold)` | Manual test timing |
+| `enableSetTimeoutWarnings(options)` | Enable global setTimeout monitoring |
 
 ---
 
@@ -317,4 +392,6 @@ Monitor flaky test trends over time by:
 - [Testing Best Practices](https://github.com/goldbergyoni/javascript-testing-best-practices)
 - Main test runner: `scripts/flaky-test-runner.js`
 - Isolation harnesses: `scripts/flaky-harnesses/`
+- Test helper module: `tests/lib/test-helpers.js`
+- Test hooks (timing instrumentation): `tests/hooks.js`
 - Existing test specs: `docs/test-specs/`
