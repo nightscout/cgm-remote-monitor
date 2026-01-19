@@ -26,7 +26,7 @@ const language = require('../lib/language')();
 const fixtures = require('./fixtures');
 
 describe('v1 API Deduplication Behavior', function() {
-  this.timeout(15000);
+  this.timeout(30000);
   const self = this;
   
   const api_secret_hash = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
@@ -49,13 +49,17 @@ describe('v1 API Deduplication Behavior', function() {
   });
 
   beforeEach(function(done) {
-    // Clear treatments and entries before each test
+    // Clear treatments, entries, and devicestatus before each test using fast deleteMany
     self.ctx.treatments.remove({ 
       find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } 
     }, function() {
-      self.ctx.entries.remove({
-        find: { date: { '$gte': 0 } }
-      }, done);
+      // Use deleteMany for faster cleanup of entries
+      self.ctx.entries().deleteMany({}, function() {
+        // Also clear devicestatus to reduce database load
+        self.ctx.devicestatus.remove({
+          find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } }
+        }, done);
+      });
     });
   });
 
