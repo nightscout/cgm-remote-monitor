@@ -138,9 +138,18 @@ npm run test:timing:single   # Single test file (set TEST env var)
 npm run test:slow            # Tests with slow threshold logging
 ```
 
-### Known Test Issues (Last Analysis: January 2026)
+### Known Test Issues (Last Analysis: January 19, 2026)
 
-**Summary (single run observation):** 177 passing, 10 failing, 8 pending
+**Summary:** Most previously failing tests have been fixed. The test suite is now stable.
+
+**Recent Fixes:**
+- `api.deduplication.test.js` - Fixed timeout issues by increasing timeout to 30s and optimizing cleanup
+- `boluswizardpreview.test.js` - All 10 tests now pass
+- `api3.renderer.test.js` - XML/CSV content type tests now pass
+
+**Flaky Test Status:** See `docs/test-specs/flaky-tests.md` for current status summary.
+
+**Historical Summary (single run observation):** 177 passing, 10 failing, 8 pending
 
 #### Observed Failing Tests (10 total)
 

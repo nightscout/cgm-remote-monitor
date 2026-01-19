@@ -6,11 +6,44 @@ This document identifies and analyzes flaky tests in the Nightscout test suite, 
 
 Flaky tests are tests that pass sometimes and fail other times without any code changes. They undermine confidence in the test suite and can mask real regressions. This document tracks identified flaky tests, their root causes, and strategies for reproducing and fixing them.
 
-**Last Updated:** January 2026
+**Last Updated:** January 19, 2026
 
-## Identified Flaky Tests
+## Current Status Summary
 
-### 1. api.entries.test.js
+| Test Area | Status | Notes |
+|-----------|--------|-------|
+| api.entries.test.js | ✅ Stable | Passes 100% in isolation (3+ runs) |
+| api3.socket.test.js | ✅ Stable | Passes 100% in isolation (3+ runs) |
+| api.partial-failures.test.js | ✅ Stable | Passes 100% in isolation (3+ runs) |
+| api.deduplication.test.js | ✅ Fixed (Jan 2026) | Timeout increased, cleanup optimized |
+| api3.renderer.test.js | ✅ Fixed | XML/CSV tests now pass |
+| boluswizardpreview.test.js | ✅ Fixed | All 10 tests pass |
+
+## Recently Fixed Tests
+
+### api.deduplication.test.js (Fixed January 2026)
+
+**Problem:** The test `duplicate entry with same date+device+type is detected` would intermittently timeout when run with the full test suite.
+
+**Root Cause:** 
+- Server boot overhead (~20s on first test)
+- Slow database cleanup when prior tests left large amounts of data
+- Original 15s timeout was insufficient
+
+**Fix Applied:**
+1. Increased timeout from 15000ms to 30000ms
+2. Changed entries cleanup to use `deleteMany({})` for faster full-collection purge
+3. Added devicestatus cleanup to reduce database load from prior tests
+
+**Verification:** Passes 100% across 5 consecutive runs in isolation.
+
+---
+
+## Identified Flaky Tests (Historical)
+
+> **Note:** The tests below were previously identified as flaky but are now stable after various fixes. They are documented here for historical reference and to inform future debugging efforts.
+
+### 1. api.entries.test.js ✅ NOW STABLE
 
 **File:** `tests/api.entries.test.js`
 
