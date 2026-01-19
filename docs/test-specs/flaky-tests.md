@@ -45,6 +45,24 @@ Some tests are slow due to server boot overhead (2-3s per test):
 
 ## Recently Fixed Tests
 
+### boluswizardpreview.test.js - Floating-Point Precision Fix (Fixed January 19, 2026)
+
+**Problem:** Test `set a pill to the BWP with infos` would intermittently fail, expecting `'0.50U'` but receiving `'0.51U'`.
+
+**Root Cause:**
+- The `roundInsulinForDisplayFormat()` function in `lib/sandbox.js` used `Math.floor(insulin / 0.01) * 0.01`
+- Floating-point precision errors caused values like `0.50499999...` to sometimes be represented as `0.5050000001...`
+- The floor operation at this boundary could produce either `0.50` or `0.51` non-deterministically
+
+**Fix Applied:**
+1. Added epsilon (`1e-9`) before floor operation: `Math.floor(insulin * 100 + 1e-9) / 100`
+2. Applied same fix to medtronic rounding style for consistency
+3. The epsilon is small enough not to affect normal values but stabilizes boundary cases
+
+**Verification:** Test passes 100% across 5 consecutive runs.
+
+---
+
 ### api.shape-handling.test.js (Fixed January 19, 2026)
 
 **Problem:** Test file was slow and occasionally timed out during stress testing due to excessive server boot overhead.

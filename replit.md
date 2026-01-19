@@ -143,10 +143,13 @@ npm run test:slow            # Tests with slow threshold logging
 **Summary:** ✅ **TESTS STABLE** - Stress testing (3-5 iterations per test file) shows 100% pass rate across all test files including api.shape-handling (now optimized).
 
 **Recent Fixes:**
+- `boluswizardpreview.test.js` - Fixed floating-point precision issue in `roundInsulinForDisplayFormat()` by adding epsilon (1e-9) before floor operation; test "set a pill to the BWP with infos" now stable
 - `api.shape-handling.test.js` - Fixed by optimizing server boot (beforeEach→before); now runs in ~6s with 172ms/test avg
 - `api.deduplication.test.js` - Fixed timeout issues by increasing timeout to 30s and optimizing cleanup
-- `boluswizardpreview.test.js` - All 10 tests now pass
 - `api3.renderer.test.js` - XML/CSV content type tests now pass
+
+**Known Infrastructure Issue:**
+- Full test suite runs may hang during server teardown (tick cycles continue after tests complete). Individual test files pass when run in isolation. This is a test cleanup issue, not test flakiness.
 
 **Flaky Test Status:** See `docs/test-specs/flaky-tests.md` for current status summary and improvement roadmap.
 
