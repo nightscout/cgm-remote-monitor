@@ -10,14 +10,40 @@ Flaky tests are tests that pass sometimes and fail other times without any code 
 
 ## Current Status Summary
 
-| Test Area | Status | Notes |
-|-----------|--------|-------|
-| api.entries.test.js | ✅ Stable | Passes 100% in isolation (3+ runs) |
-| api3.socket.test.js | ✅ Stable | Passes 100% in isolation (3+ runs) |
-| api.partial-failures.test.js | ✅ Stable | Passes 100% in isolation (3+ runs) |
-| api.deduplication.test.js | ✅ Fixed (Jan 2026) | Timeout increased, cleanup optimized |
-| api3.renderer.test.js | ✅ Fixed | XML/CSV tests now pass |
-| boluswizardpreview.test.js | ✅ Fixed | All 10 tests pass |
+**Overall Status: ✅ TESTS STABLE**
+
+Stress testing was performed on key test files. All completed runs showed 100% pass rates with no flaky behavior detected.
+
+### Stress Test Results (January 19, 2026)
+
+| Test File | Iterations | Pass Rate | Status |
+|-----------|------------|-----------|--------|
+| api.entries.test.js | 3 | 100% | ✅ Stable |
+| api3.socket.test.js | 3 | 100% | ✅ Stable |
+| api.partial-failures.test.js | 3 | 100% | ✅ Stable |
+| api.deduplication.test.js | 5 | 100% | ✅ Fixed |
+| api3.renderer.test.js | 3 | 100% | ✅ Stable |
+| boluswizardpreview.test.js | 3 | 100% | ✅ Stable |
+| api.treatments.test.js | 5 | 100% | ✅ Stable |
+| api3.create.test.js | 5 | 100% | ✅ Stable |
+| api.aaps-client.test.js | 5 | 100% | ✅ Stable |
+| api.v1-batch-operations.test.js | 5 | 100% | ✅ Stable |
+| websocket.shape-handling.test.js | 5 | 100% | ✅ Stable |
+| concurrent-writes.test.js | 5 | 100% | ✅ Stable |
+| security.test.js | 5 | 100% | ✅ Stable |
+| storage.shape-handling.test.js | 5 | 100% | ✅ Stable |
+| verifyauth.test.js | 5 | 100% | ✅ Stable |
+| api3.security.test.js | 5 | 100% | ✅ Stable |
+| api3.generic.workflow.test.js | 3 | 100% | ✅ Stable |
+| api.devicestatus.test.js | 3 | 100% | ✅ Stable |
+
+### Slow Tests
+
+Some tests are slow due to server boot overhead (2-3s per test):
+- `api.shape-handling.test.js` - Slow due to per-test server boot; did not complete 5-iteration stress test within timeout
+- `concurrent-writes.test.js` - AAPS sync simulation tests are slow by design
+
+**Note:** api.shape-handling requires longer timeout for stress testing due to server boot overhead per test.
 
 ## Recently Fixed Tests
 
