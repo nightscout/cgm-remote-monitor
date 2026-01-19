@@ -121,6 +121,52 @@ Reports are generated in `flaky-test-results/` including:
 - JSON data file with detailed per-test run history
 - Individual iteration JSON results for debugging
 
+### Isolation Testing for Specific Test Files
+To run a single test file multiple times and detect flakiness:
+```bash
+TEST=api.entries npm run test:flaky:isolate      # Test entries API
+TEST=api3.socket npm run test:flaky:isolate      # Test socket API
+FLAKY_ITERATIONS=20 TEST=security npm run test:flaky:isolate  # 20 iterations
+```
+
+### Timing-Aware Testing
+Run tests with timing warnings enabled to identify slow operations:
+```bash
+npm run test:timing          # Full suite with timing warnings
+npm run test:timing:single   # Single test file (set TEST env var)
+npm run test:slow            # Tests with slow threshold logging
+```
+
+### Known Test Issues (Last Analysis: January 2026)
+
+**Summary:** 177 passing, 10 failing, 8 pending
+
+#### Consistently Failing Tests (10 total)
+
+| Category | Test Name | Root Cause Analysis |
+|----------|-----------|---------------------|
+| **API3 Renderers (5 tests)** | SEARCH/HISTORY xml/csv content type tests + mock cleanup | XML/CSV renderer implementation may be incomplete or broken |
+| **API3 Deduplication** | should deduplicate document by created_at+eventType | Deduplication logic timing or race condition |
+| **API v1 Partial Failures** | devicestatus with large prediction arrays | Large document handling or timeout issue |
+| **Treatment API** | post single treatments in zoned time format | Timezone parsing or format issue |
+| **Bolus Wizard Preview (2 tests)** | IOB calculation + BWP pill display | Plugin logic or test data issue |
+
+#### Slow Tests Detected
+Multiple tests in `v1 API Batch Operations` exceed the 2000ms threshold:
+- Batch insert semantics tests (Loop carbs, Loop dose, glucose batches)
+- Large batch operations (100-item batches)
+- Trio pipeline scenarios
+- Response format validation
+
+These slow tests are potential sources of timeout-related flakiness in CI environments.
+
+#### Test Helpers Available
+The `tests/lib/test-helpers.js` module provides utilities to reduce flakiness:
+- `waitForConditionWithWarning()` - Polling-based waits instead of setTimeout
+- `waitForConditionAsync()` - Promise-based version for async/await
+- `startTestTimer()` - Monitor test execution time
+- `enableSetTimeoutWarnings()` - Detect setTimeout anti-patterns
+
 See `docs/test-specs/coverage-gaps.md` for aggregated coverage gaps across all areas.
 
 ## External Dependencies
