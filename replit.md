@@ -139,17 +139,24 @@ npm run test:slow            # Tests with slow threshold logging
 
 ### Known Test Issues (Last Analysis: January 2026)
 
-**Summary:** 177 passing, 10 failing, 8 pending
+**Summary (single run observation):** 177 passing, 10 failing, 8 pending
 
-#### Consistently Failing Tests (10 total)
+#### Observed Failing Tests (10 total)
 
-| Category | Test Name | Root Cause Analysis |
-|----------|-----------|---------------------|
-| **API3 Renderers (5 tests)** | SEARCH/HISTORY xml/csv content type tests + mock cleanup | XML/CSV renderer implementation may be incomplete or broken |
-| **API3 Deduplication** | should deduplicate document by created_at+eventType | Deduplication logic timing or race condition |
-| **API v1 Partial Failures** | devicestatus with large prediction arrays | Large document handling or timeout issue |
-| **Treatment API** | post single treatments in zoned time format | Timezone parsing or format issue |
-| **Bolus Wizard Preview (2 tests)** | IOB calculation + BWP pill display | Plugin logic or test data issue |
+| # | Test File | Test Name | Notes |
+|---|-----------|-----------|-------|
+| 1 | api.partial-failures.test.js | devicestatus with large prediction arrays is inserted successfully | Large document handling |
+| 2 | api.treatments.test.js | post single treatments in zoned time format | Timezone format handling |
+| 3 | api3.create.test.js | should deduplicate document by created_at+eventType | Deduplication behavior |
+| 4 | api3.renderer.test.js | SEARCH should accept xml content type | XML renderer |
+| 5 | api3.renderer.test.js | SEARCH should accept csv content type | CSV renderer |
+| 6 | api3.renderer.test.js | HISTORY should accept xml content type | XML renderer |
+| 7 | api3.renderer.test.js | HISTORY should accept csv content type | CSV renderer |
+| 8 | api3.renderer.test.js | should remove mock documents | Test cleanup |
+| 9 | boluswizardpreview.test.js | should calculate IOB results correctly with 1.0 U IOB resulting in going low | IOB calculation |
+| 10 | boluswizardpreview.test.js | set a pill to the BWP with infos | BWP display |
+
+*Note: These failures were observed in a single test run. Run `npm run test:flaky` to determine if failures are consistent or intermittent.*
 
 #### Slow Tests Detected
 Multiple tests in `v1 API Batch Operations` exceed the 2000ms threshold:
