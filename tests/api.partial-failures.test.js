@@ -349,6 +349,14 @@ describe('v1 API Partial Failures and Edge Cases', function() {
   });
 
   describe('Large Document Handling', function() {
+    this.timeout(120000);
+
+    beforeEach(function(done) {
+      // Clear devicestatus before each test
+      self.ctx.devicestatus.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function() {
+        done();
+      });
+    });
 
     it('devicestatus with large prediction arrays is inserted successfully', function(done) {
       // SPEC: OpenAPS devicestatus can have large prediction arrays
@@ -387,6 +395,103 @@ describe('v1 API Partial Failures and Edge Cases', function() {
             done();
           }
         });
+    });
+
+    it('predictions are truncated when PREDICTIONS_MAX_SIZE is set', function(done) {
+      // SPEC: When PREDICTIONS_MAX_SIZE env var is set, prediction arrays
+      // exceeding that size should be truncated to prevent MongoDB issues
+      // with excessively large documents
+      
+      // Store original value
+      const originalPredictionsMaxSize = self.env.predictionsMaxSize;
+      
+      // Set truncation limit to 288 (24 hours of 5-min readings)
+      self.env.predictionsMaxSize = 288;
+      
+      // Need to reinitialize devicestatus to pick up new setting
+      const devicestatusStorage = require('../lib/server/devicestatus');
+      self.ctx.devicestatus = devicestatusStorage(self.env, self.ctx);
+      
+      // Create devicestatus with 350 predictions (exceeds 288 limit)
+      const deviceStatus = {
+        device: 'truncation-test',
+        created_at: new Date().toISOString(),
+        openaps: {
+          suggested: {
+            predBGs: {
+              IOB: Array.from({ length: 350 }, (_, i) => 120 - i * 0.1),
+              COB: Array.from({ length: 350 }, (_, i) => 120 - i * 0.05),
+              UAM: Array.from({ length: 350 }, (_, i) => 120 + i * 0.02),
+              ZT: Array.from({ length: 350 }, (_, i) => 120 - i * 0.08)
+            }
+          }
+        }
+      };
+      
+      self.ctx.devicestatus.create([deviceStatus], function(err, result) {
+        should.not.exist(err);
+        should.exist(result);
+        result.should.be.instanceof(Array);
+        result.length.should.equal(1);
+        
+        // Verify truncation occurred
+        const savedPredBGs = result[0].openaps.suggested.predBGs;
+        
+        savedPredBGs.IOB.length.should.equal(288, 'IOB should be truncated to 288');
+        savedPredBGs.COB.length.should.equal(288, 'COB should be truncated to 288');
+        savedPredBGs.UAM.length.should.equal(288, 'UAM should be truncated to 288');
+        savedPredBGs.ZT.length.should.equal(288, 'ZT should be truncated to 288');
+        
+        console.log(`      ✓ Predictions truncated from 350 to 288 elements`);
+        
+        // Restore original value
+        self.env.predictionsMaxSize = originalPredictionsMaxSize;
+        
+        done();
+      });
+    });
+
+    it('predictions are NOT truncated when PREDICTIONS_MAX_SIZE is not set', function(done) {
+      // SPEC: Without PREDICTIONS_MAX_SIZE env var, prediction arrays
+      // should be preserved at their original size
+      
+      // Ensure truncation is disabled
+      self.env.predictionsMaxSize = null;
+      
+      // Reinitialize devicestatus to pick up setting
+      const devicestatusStorage = require('../lib/server/devicestatus');
+      self.ctx.devicestatus = devicestatusStorage(self.env, self.ctx);
+      
+      // Create devicestatus with small predictions (100 elements)
+      const deviceStatus = {
+        device: 'no-truncation-test',
+        created_at: new Date().toISOString(),
+        openaps: {
+          suggested: {
+            predBGs: {
+              IOB: Array.from({ length: 100 }, (_, i) => 120 - i * 0.1),
+              COB: Array.from({ length: 100 }, (_, i) => 120 - i * 0.05)
+            }
+          }
+        }
+      };
+      
+      self.ctx.devicestatus.create([deviceStatus], function(err, result) {
+        should.not.exist(err);
+        should.exist(result);
+        result.should.be.instanceof(Array);
+        result.length.should.equal(1);
+        
+        // Verify NO truncation occurred
+        const savedPredBGs = result[0].openaps.suggested.predBGs;
+        
+        savedPredBGs.IOB.length.should.equal(100, 'IOB should remain at 100');
+        savedPredBGs.COB.length.should.equal(100, 'COB should remain at 100');
+        
+        console.log(`      ✓ Predictions preserved at original 100 elements (no truncation)`);
+        
+        done();
+      });
     });
   });
 

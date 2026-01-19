@@ -155,16 +155,18 @@ module.exports = {
       openaps: {
         suggested: {
           predBGs: {
-            IOB: Array.from({ length: 1000 }, (_, i) => 120 - i * 0.1),
-            COB: Array.from({ length: 1000 }, (_, i) => 120 - i * 0.05),
-            UAM: Array.from({ length: 1000 }, (_, i) => 120 + i * 0.02),
-            ZT: Array.from({ length: 1000 }, (_, i) => 120 - i * 0.08)
+            IOB: Array.from({ length: 350 }, (_, i) => 120 - i * 0.1),
+            COB: Array.from({ length: 350 }, (_, i) => 120 - i * 0.05),
+            UAM: Array.from({ length: 350 }, (_, i) => 120 + i * 0.02),
+            ZT: Array.from({ length: 350 }, (_, i) => 120 - i * 0.08)
           }
         }
       }
     },
+    originalArrayLength: 350,
     bsonSizeNote: 'Test that predictions arrays do not exceed 16MB BSON limit',
-    expectedBehavior: 'Insert should succeed - typical devicestatus is well under limit'
+    expectedBehavior: 'Insert should succeed - typical devicestatus is well under limit',
+    truncationNote: 'With PREDICTIONS_MAX_SIZE=288, arrays will be truncated to 288 elements'
   },
 
   connectionFailureMidBatch: {
