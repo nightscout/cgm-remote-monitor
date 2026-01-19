@@ -29,6 +29,7 @@ The frontend utilizes Webpack for asset bundling and features charting with D3/j
     3.  **UI Modernization Discovery:** Evaluate new UI technologies and define a migration roadmap.
 - **Security:** Brute-force protection for authentication is implemented via `delaylist.js` (IP-based progressive delay).
 - **MongoDB Driver 5.x Compatibility:** Updates to handle multi-document writes and race conditions, ensuring correct processing of array inputs for `devicestatus` and WebSocket `dbAdd` operations.
+- **Prediction Array Truncation:** Optional feature to truncate large prediction arrays (IOB, COB, UAM, ZT) in devicestatus documents before storage. Controlled by `PREDICTIONS_MAX_SIZE` environment variable. When set (e.g., `PREDICTIONS_MAX_SIZE=288`), prediction arrays exceeding this limit are truncated to prevent MongoDB issues with excessively large documents. The value 288 represents 24 hours of 5-minute readings. Truncation only occurs when the env var is explicitly set; unset means no truncation.
 - **OIDC Actor Identity (Proposed - High Priority):** OpenID Connect integration to replace freeform `enteredBy` with cryptographically-verified actor identities. Enables care coordination, audit trails, and delegation tracking. See `docs/proposals/oidc-actor-identity-proposal.md` for full RFC including:
     - OAuth2/OIDC protocol flows with NRG Gateway (Ory Hydra/Kratos)
     - JWT claims specification with actor and delegation support
