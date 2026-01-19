@@ -437,9 +437,10 @@ npm list mongodb mongodb-legacy > mongodb-versions-baseline.txt
 **Key Question:** Where are arrays being handled?
 
 **Finding (from code review):**
-- ✅ `lib/server/treatments.js` line 18-30: Handles arrays with `async.eachSeries` (sequential iteration)
-- ✅ `lib/server/entries.js` line 92-135: Handles arrays with `forEach` (parallel iteration)
-- ⚠️ **CRITICAL:** Both use `replaceOne` per item, NOT `insertMany`
+- ✅ `lib/server/treatments.js`: Now uses `bulkWrite` with `replaceOne` + `upsert: true` for batch operations
+- ✅ `lib/server/entries.js`: Now uses `bulkWrite` with `updateOne` + `$set` + `upsert: true`
+- ✅ `lib/server/devicestatus.js`: Now uses `insertMany` for batch inserts
+- ✅ **COMPLETED (January 2026):** All batch operations migrated to bulk MongoDB operations (commit e9417af5)
 
 #### Task 2.1.2: Identify v1 vs v3 API Data Flow
 **Diagram to create:**
@@ -449,7 +450,7 @@ POST /api/v1/treatments (array)
   → lib/api/treatments/index.js:post_response (line 104-145)
   → ctx.treatments.create(array) 
   → lib/server/treatments.js:create (line 11-38)
-  → async.eachSeries → replaceOne per item ⚠️ ISSUE: Should be insertMany
+  → bulkWrite with replaceOne + upsert ✅ FIXED
 
 V3 API Flow:  
 POST /api/v3/treatments (single object)
@@ -473,19 +474,20 @@ res.json(created);  // where created is array of objects from storage layer
 
 ### 2.2 Identify Critical Changes Needed
 
-#### Issue 1: v1 API Must Use insertMany for Arrays
-**Current:** `async.eachSeries` with individual `replaceOne` calls  
-**Required:** Single `insertMany` call for batch semantics  
-**Impact:** Loop and Trio depend on batch insert behavior
+#### Issue 1: v1 API Must Use insertMany for Arrays ✅ COMPLETED
+**Previous:** `async.eachSeries` with individual `replaceOne` calls  
+**Implemented:** `bulkWrite` with batch operations (commit e9417af5)
+**Impact:** Loop and Trio batch insert behavior now properly supported
 
-**Affected Files:**
-- `lib/server/treatments.js` - create() and upsert() functions
-- `lib/server/entries.js` - create() function
+**Updated Files:**
+- `lib/server/treatments.js` - create() now uses bulkWrite
+- `lib/server/entries.js` - create() now uses bulkWrite
+- `lib/server/devicestatus.js` - create() now uses insertMany
 
-#### Issue 2: Response Ordering Must Be Preserved
-**Current:** Results accumulated in callback order (might not match submission order)  
-**Required:** Response array must match submission array indices  
-**Impact:** Loop's syncIdentifier→objectId cache mapping will break if order changes
+#### Issue 2: Response Ordering Must Be Preserved ✅ COMPLETED
+**Previous:** Results accumulated in callback order (might not match submission order)  
+**Implemented:** All bulk operations use `ordered: true`
+**Impact:** Response array indices now guaranteed to match submission array indices
 
 #### Issue 3: Write Result Format Translation
 **Current:** Direct MongoDB write result exposed to clients?  

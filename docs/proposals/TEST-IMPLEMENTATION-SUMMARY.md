@@ -124,11 +124,15 @@
 
 **Requirement:** When an array is POSTed to `/api/treatments`, use `insertMany`
 
-**Current Status:** Arrays create multiple documents (validated by tests)
+**Current Status:** ✅ COMPLETED (January 2026)
 
-**Note:** Current implementation uses `async.eachSeries` with individual `replaceOne` calls. While this creates multiple documents correctly, it's not using `insertMany` or `bulkWrite` as recommended.
+**Implementation:**
+- `lib/server/treatments.js` now uses `bulkWrite` with `replaceOne` + `upsert: true`
+- `lib/server/entries.js` now uses `bulkWrite` with `updateOne` + `$set` + `upsert: true`
+- `lib/server/devicestatus.js` now uses `insertMany`
+- All batch operations use `ordered: true` for response ordering guarantees
 
-**Action Required:** Refactor to use `bulkWrite` for better performance and ordering guarantees.
+**Commit:** e9417af5
 
 ### Section 6.1.2: Response Format ✅
 

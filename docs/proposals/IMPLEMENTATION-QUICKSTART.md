@@ -20,24 +20,28 @@ The MongoDB modernization requires ensuring that v1 API batch endpoints use `ins
 - Impact assessment is complete
 - We know exactly what clients expect
 
-### ⚠️ Issues to Fix
+### ✅ Issues Fixed (January 2026)
 
-1. **lib/server/treatments.js (line 18-30)**
-   - Currently uses `async.eachSeries` with individual `replaceOne` per item
-   - **Need:** Use `bulkWrite` for batch upsert semantics
-   - **Impact:** Loop and Trio send arrays, expect batch insert behavior
+1. **lib/server/treatments.js** ✅ COMPLETED
+   - Now uses `bulkWrite` with `replaceOne` + `upsert: true` for batch operations
+   - Falls back to sequential processing for `preBolus` treatments (which create additional records)
+   - **Commit:** e9417af5
 
-2. **lib/server/entries.js (line 92-135)**  
-   - Currently uses `forEach` with individual `replaceOne` per item
-   - **Need:** Use `bulkWrite` for batch upsert semantics
-   - **Impact:** Loop and Trio send glucose arrays
+2. **lib/server/entries.js** ✅ COMPLETED
+   - Now uses `bulkWrite` with `updateOne` + `$set` + `upsert: true`
+   - **Commit:** e9417af5
 
-3. **Response Ordering**
-   - Current async callbacks may not preserve submission order
-   - **Need:** Guarantee response array indices match submission indices
-   - **Impact:** Loop's syncIdentifier→objectId cache mapping breaks otherwise
+3. **lib/server/devicestatus.js** ✅ COMPLETED
+   - Now uses `insertMany` for batch inserts
+   - **Commit:** e9417af5
 
-4. **Write Result Format**
+4. **Response Ordering** ✅ RESOLVED
+   - All batch operations use `ordered: true` to preserve submission order
+   - Response array indices match submission array indices
+
+### ⚠️ Remaining Issues
+
+1. **Write Result Format**
    - MongoDB driver version differences in `insertedIds` format
    - **Need:** Translator utility to normalize across driver versions
    - **Impact:** Driver upgrades could break response format
@@ -179,10 +183,11 @@ Understand the current flow:
 - [ ] Handle MongoDB 3.x, 4.x, 5.x differences
 - [ ] Unit tests for translator
 
-### Priority 3: Update Storage Layer
-- [ ] Update `lib/server/treatments.js` to use bulkWrite
-- [ ] Update `lib/server/entries.js` to use bulkWrite  
-- [ ] Ensure response ordering preserved
+### Priority 3: Update Storage Layer ✅ COMPLETED
+- [x] Update `lib/server/treatments.js` to use bulkWrite
+- [x] Update `lib/server/entries.js` to use bulkWrite
+- [x] Update `lib/server/devicestatus.js` to use insertMany
+- [x] Ensure response ordering preserved (using `ordered: true`)
 
 ---
 
