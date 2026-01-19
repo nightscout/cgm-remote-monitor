@@ -103,7 +103,23 @@ Some tests are slow due to server boot overhead (2-3s per test):
 
 This section tracks planned improvements to reduce test cycle time and flakiness. Progress is tracked across improvement cycles.
 
-### Current Cycle: Server Boot Optimization (January 2026)
+### Current Cycle: MongoDB Pool Size Optimization (January 2026)
+
+**Goal:** Reduce MongoDB connection pool size for tests to minimize resource usage and improve determinism.
+
+**Status:** ✅ Complete
+
+**Changes Applied:**
+- Test environment now uses `MONGO_POOL_SIZE=2` (configured in `my.test.env`)
+- Pool size 1 caused timeouts due to request queuing on concurrent operations
+- Pool size 2 is the minimum that handles concurrent-writes.test.js (5 parallel requests)
+- Production default remains 5 for headroom
+
+**Verification:** All test files pass including concurrent-writes.test.js (13 tests, 100% pass rate across 3 iterations).
+
+---
+
+### Previous Cycle: Server Boot Optimization (January 2026)
 
 **Goal:** Reduce test execution time by eliminating redundant server boots.
 

@@ -39,6 +39,8 @@ The frontend utilizes Webpack for asset bundling and features charting with D3/j
   | `MONGO_POOL_DEBUG` | (unset) | Set to `true` to enable connection pool event logging |
 
   To restore legacy behavior: `MONGO_POOL_SIZE=100`
+  
+  Test environment uses `MONGO_POOL_SIZE=2` (configured in `my.test.env`) - the minimum that handles concurrent operations without timeouts.
 
 - **Prediction Array Truncation:** Optional feature to truncate large prediction arrays (IOB, COB, UAM, ZT) in devicestatus documents before storage. Controlled by `PREDICTIONS_MAX_SIZE` environment variable. When set (e.g., `PREDICTIONS_MAX_SIZE=288`), prediction arrays exceeding this limit are truncated to prevent MongoDB issues with excessively large documents. The value 288 represents 24 hours of 5-minute readings. Truncation only occurs when the env var is explicitly set; unset means no truncation.
 - **OIDC Actor Identity (Proposed - High Priority):** OpenID Connect integration to replace freeform `enteredBy` with cryptographically-verified actor identities. Enables care coordination, audit trails, and delegation tracking. See `docs/proposals/oidc-actor-identity-proposal.md` for full RFC including:
