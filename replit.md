@@ -40,7 +40,7 @@ The frontend utilizes Webpack for asset bundling and features charting with D3/j
 
   To restore legacy behavior: `MONGO_POOL_SIZE=100`
   
-  Test environment uses `MONGO_POOL_SIZE=2` (configured in `my.test.env`) - the minimum that handles concurrent operations without timeouts.
+  Test environment uses `MONGO_POOL_SIZE=5` (configured in `my.test.env`) - increased from 2 to improve stability during parallel test runs.
 
 - **Prediction Array Truncation:** Prediction arrays (IOB, COB, UAM, ZT) in devicestatus documents are automatically truncated to 288 elements (24 hours of 5-minute readings) before storage. This prevents MongoDB issues with excessively large documents. Controlled by `PREDICTIONS_MAX_SIZE` environment variable:
   - **Default:** 288 (truncation enabled)
