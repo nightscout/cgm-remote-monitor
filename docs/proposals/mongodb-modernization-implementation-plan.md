@@ -42,7 +42,7 @@ All fixtures are already created:
 - Batch with some deduplicated items returns correct IDs
 - Large batch (100+ items) succeeds
 - Partial failure handling (ordered vs unordered)
-- Response format: [{_id, ok: 1}, ...]
+- Response format: [{_id}, ...] (ok/n fields optional, not required by Loop)
 ```
 
 **Implemented Test Coverage:**
@@ -50,7 +50,7 @@ All fixtures are already created:
 - ✅ Response array ordering preservation (CRITICAL for Loop)
 - ✅ Batch with deduplicated items (response completeness)
 - ✅ Client-provided _id handling (Loop/Trio/AAPS patterns)
-- ✅ Write result format translation verification
+- ✅ Write result format verification (array length, ordering, _id presence)
 - ✅ Large BSON document handling (devicestatus predictions)
 - ✅ Validation error in batch (partial failure behavior)
 - ✅ Large batch processing (50+ items)
@@ -103,7 +103,7 @@ All fixtures are already created:
 **Implemented Test Coverage:**
 - ✅ Response order matches request order (CRITICAL for Loop)
 - ✅ Batch with duplicate in middle preserves all response positions
-- ✅ Write result format includes _id and ok fields (v1 API compat)
+- ✅ Write result format includes _id field (ok/n fields optional per 2026-01-19 analysis)
 - ✅ Large batch ordering (50+ items)
 - ✅ Deduplication preserves response array length
 
@@ -175,7 +175,7 @@ CUSTOMCONNSTR_mongo_collection=test_sgvs \
 **Documented Behaviors:**
 - ✅ **Response Ordering**: Response array matches request order (CRITICAL for Loop)
 - ✅ **Deduplication Logic**: All client patterns work correctly (AAPS, Loop, Trio)
-- ✅ **Write Result Format**: v1 API returns `[{_id, ok: 1}, ...]` format
+- ✅ **Write Result Format**: v1 API returns `[{_id}, ...]` format (ok/n fields optional per 2026-01-19 analysis)
 - ✅ **Ordered Insert**: Batch operations stop at first error (expected behavior)
 - ✅ **Client _id Handling**: Client-provided _id is preserved
 - ✅ **Cross-Client Isolation**: Different clients don't interfere with each other
@@ -283,6 +283,49 @@ CUSTOMCONNSTR_mongo_collection=test_sgvs \
 - Batch Behavior: Expects N responses for N requests (even if some deduplicated)
 - **Test Coverage**: `api.partial-failures.test.js`, `api.deduplication.test.js`
 
+##### Loop Client Actual Requirements (from NightscoutKit/NightscoutClient.swift)
+
+**Source Code Analysis (2026-01-19):**
+```swift
+// From NightscoutKit/NightscoutClient.swift - postToNS function
+guard let insertedEntries = postResponse as? [[String: Any]], 
+      insertedEntries.count == json.count else {
+    completion(.failure(NightscoutError.invalidResponse(...)))
+    return
+}
+let ids = insertedEntries.map({ (entry: [String: Any]) -> String in
+    if let id = entry["_id"] as? String {
+        return id
+    } else {
+        // Upload still succeeded; likely that this is an old version of NS
+        // Instead of failing, we just mark this entry as having id of 'NA'
+        return "NA"
+    }
+})
+```
+
+**Actual Requirements (verified from source):**
+
+| Requirement | Required? | Notes |
+|-------------|-----------|-------|
+| Response array length == request length | **YES (CRITICAL)** | Validated with `insertedEntries.count == json.count` |
+| Each item has `_id` field | Preferred, graceful fallback | Returns "NA" if missing |
+| `ok: 1` field | **NO** | Not checked by Loop |
+| `n: 1` field | **NO** | Not checked by Loop |
+| Response ordering preserved | **YES (CRITICAL)** | Maps directly via array index |
+
+**Minimum Viable Response:**
+```javascript
+[{ _id: 'id1' }, { _id: 'id2' }, { _id: 'id3' }]
+```
+
+**NOT required (previously over-specified):**
+```javascript
+[{ _id: 'id1', ok: 1, n: 1 }, { _id: 'id2', ok: 1, n: 1 }, ...]
+```
+
+**Migration Risk Assessment:** LOWER than originally documented - Loop only validates array length and ordering, with graceful `_id` fallback.
+
 #### Trio
 - Deduplication: `id` field (UUID, separate from _id)
 - Field Isolation: `id` must not interfere with MongoDB `_id`
@@ -314,8 +357,20 @@ CUSTOMCONNSTR_mongo_collection=test_sgvs \
 }
 ```
 
-**v1 API Expected Format:**
+**v1 API Expected Format (UPDATED 2026-01-19):**
+
+Based on NightscoutKit source code analysis, the actual minimum viable format is:
 ```javascript
+[
+  { _id: 'id1' },
+  { _id: 'id2' },
+  { _id: 'id3' }
+]
+```
+
+~~Previously documented (over-specified):~~
+```javascript
+// These fields are NOT required by Loop client:
 [
   { _id: 'id1', ok: 1, n: 1 },
   { _id: 'id2', ok: 1, n: 1 },
@@ -323,7 +378,13 @@ CUSTOMCONNSTR_mongo_collection=test_sgvs \
 ]
 ```
 
-**Impact**: API layer MUST translate driver response to v1 expected format  
+**Critical Requirements:**
+1. Response MUST be an array
+2. Array length MUST match request length (Loop validates this)
+3. Array ordering MUST match request ordering (Loop maps by index)
+4. Each item SHOULD have `_id` field (graceful fallback to "NA" if missing)
+
+**Impact**: Lower migration risk than originally assessed - only `_id` field is significant  
 **Test Coverage**: `api.partial-failures.test.js` - "v1 API response format"
 
 ### Action Items Before Migration
@@ -431,13 +492,30 @@ res.json(created);  // where created is array of objects from storage layer
 **Required:** Translate to consistent Nightscout format  
 **Impact:** Driver upgrades change result format, breaking clients
 
+**UPDATE (2026-01-19):** Risk assessment revised based on NightscoutKit source analysis:
+- Loop client only requires `_id` field (not `ok: 1, n: 1`)
+- Current implementation already returns original documents with `_id` populated
+- No translation layer needed - current behavior is compatible
+- See "Loop Client Actual Requirements" section for details
+
 ---
 
 ## Phase 3: Core Implementation (Week 2-3)
 
-### 3.1 Create Write Result Translator Utility
+> **UPDATE (2026-01-19):** Based on NightscoutKit source code analysis, the write result translator 
+> and response formatter middleware described below are **OPTIONAL for legacy compatibility**, 
+> not required for Loop client support. Current implementation already returns correct format.
+> 
+> **Minimum Required:** Response array with `_id` fields, matching request length and order.
+> **Optional Legacy Fields:** `ok: 1`, `n: 1` - not validated by Loop.
+> 
+> These utilities may still be useful for future-proofing against MongoDB driver changes,
+> but are lower priority than originally assessed.
+
+### 3.1 Create Write Result Translator Utility (OPTIONAL)
 
 **File to Create:** `lib/storage/write-result-translator.js`
+**Priority:** LOW - Current implementation is already Loop-compatible
 
 ```javascript
 'use strict';
@@ -448,14 +526,14 @@ res.json(created);  // where created is array of objects from storage layer
  */
 
 function toV1Response(mongoResult, submittedDocs) {
-  // Expected v1 format: [{_id: "...", ok: 1, n: 1}, ...]
+  // Expected v1 format: [{_id: "..."}, ...] - UPDATED 2026-01-19
+  // NOTE: Loop client only requires _id field (ok, n are NOT checked)
   // Must preserve order matching submittedDocs array
   
   const insertedIds = extractInsertedIds(mongoResult);
   return submittedDocs.map((doc, index) => ({
-    _id: insertedIds[index] || doc._id,
-    ok: 1,
-    n: 1
+    _id: insertedIds[index] || doc._id
+    // ok: 1, n: 1 - NOT REQUIRED by Loop client (verified from NightscoutKit source)
   }));
 }
 
@@ -580,9 +658,10 @@ function batchUpsert (docs, fn) {
 
 **Similar changes for batch operations**
 
-### 3.4 Add Response Format Middleware
+### 3.4 Add Response Format Middleware (OPTIONAL)
 
 **File to Create:** `lib/api/middleware/response-formatter.js`
+**Priority:** LOW - Current implementation is already Loop-compatible
 
 ```javascript
 'use strict';
@@ -591,15 +670,16 @@ const translator = require('../../storage/write-result-translator');
 
 function formatV1BatchResponse(req, res, next) {
   // Intercept response and ensure v1 format
+  // NOTE (2026-01-19): Loop client only requires _id field
+  // ok/n fields are optional legacy fields, not validated by Loop
   const originalJson = res.json.bind(res);
   
   res.json = function(data) {
     if (Array.isArray(data)) {
-      // Ensure proper format for v1 API
+      // Ensure proper format for v1 API (minimum: _id field)
       const formatted = data.map(item => ({
-        _id: item._id,
-        ok: 1,
-        n: 1
+        _id: item._id
+        // ok: 1, n: 1 - optional, not required by Loop (verified from NightscoutKit)
       }));
       return originalJson(formatted);
     }
@@ -927,10 +1007,15 @@ describe('Write Result Translation', function() {
     const submittedDocs = [{}, {}];
     
     const v1Response = translator.toV1Response(mongoResult, submittedDocs);
+    // NOTE (2026-01-19): Loop only requires _id field
+    // Minimum viable response - ok/n fields are optional
     v1Response.should.eql([
-      { _id: 'id1', ok: 1, n: 1 },
-      { _id: 'id2', ok: 1, n: 1 }
+      { _id: 'id1' },
+      { _id: 'id2' }
     ]);
+    // Critical assertions per NightscoutKit analysis:
+    v1Response.length.should.equal(submittedDocs.length); // Array length must match
+    v1Response[0]._id.should.exist; // _id should be present (graceful fallback if not)
   });
 });
 ```
