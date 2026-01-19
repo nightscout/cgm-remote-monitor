@@ -11,7 +11,9 @@ describe('API Shape Handling - Single Object vs Array Input', function () {
 
   var api = require('../lib/api/');
   
-  beforeEach(function (done) {
+  // Use before() instead of beforeEach() for server boot - boots once for all tests
+  // Data cleanup happens in nested beforeEach() hooks to maintain test isolation
+  before(function (done) {
     process.env.API_SECRET = 'this is my long pass phrase';
     self.env = require('../lib/server/env')();
     self.env.settings.authDefaultRoles = 'readable';

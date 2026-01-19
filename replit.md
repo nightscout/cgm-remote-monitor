@@ -140,18 +140,18 @@ npm run test:slow            # Tests with slow threshold logging
 
 ### Known Test Issues (Last Analysis: January 19, 2026)
 
-**Summary:** ✅ **TESTS STABLE** - Stress testing (3-5 iterations per test file) shows 100% pass rate across completed runs. One test file (api.shape-handling) timed out during stress testing due to slow server boot overhead.
+**Summary:** ✅ **TESTS STABLE** - Stress testing (3-5 iterations per test file) shows 100% pass rate across all test files including api.shape-handling (now optimized).
 
 **Recent Fixes:**
+- `api.shape-handling.test.js` - Fixed by optimizing server boot (beforeEach→before); now runs in ~6s with 172ms/test avg
 - `api.deduplication.test.js` - Fixed timeout issues by increasing timeout to 30s and optimizing cleanup
 - `boluswizardpreview.test.js` - All 10 tests now pass
 - `api3.renderer.test.js` - XML/CSV content type tests now pass
 
-**Flaky Test Status:** See `docs/test-specs/flaky-tests.md` for current status summary.
+**Flaky Test Status:** See `docs/test-specs/flaky-tests.md` for current status summary and improvement roadmap.
 
 #### Slow Tests
 Some tests are slow due to server boot overhead (2-3s per test):
-- `api.shape-handling.test.js` - Slow; stress test timed out before completion (needs longer timeout)
 - `concurrent-writes.test.js` - AAPS sync simulation tests are slow by design but pass consistently
 - `v1 API Batch Operations` - Large batch operations take longer but pass consistently
 

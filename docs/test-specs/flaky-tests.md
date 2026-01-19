@@ -36,16 +36,32 @@ Stress testing was performed on key test files. All completed runs showed 100% p
 | api3.security.test.js | 5 | 100% | ✅ Stable |
 | api3.generic.workflow.test.js | 3 | 100% | ✅ Stable |
 | api.devicestatus.test.js | 3 | 100% | ✅ Stable |
+| api.shape-handling.test.js | 5 | 100% | ✅ Fixed (boot optimization) |
 
 ### Slow Tests
 
 Some tests are slow due to server boot overhead (2-3s per test):
-- `api.shape-handling.test.js` - Slow due to per-test server boot; did not complete 5-iteration stress test within timeout
 - `concurrent-writes.test.js` - AAPS sync simulation tests are slow by design
 
-**Note:** api.shape-handling requires longer timeout for stress testing due to server boot overhead per test.
-
 ## Recently Fixed Tests
+
+### api.shape-handling.test.js (Fixed January 19, 2026)
+
+**Problem:** Test file was slow and occasionally timed out during stress testing due to excessive server boot overhead.
+
+**Root Cause:**
+- Used `beforeEach()` for server boot, causing 26 boots (one per test)
+- Each boot takes 2-3 seconds, resulting in ~60-80 seconds of boot overhead
+- Stress tests would timeout before completion
+
+**Fix Applied:**
+1. Changed `beforeEach()` to `before()` for one-time server boot
+2. Kept data cleanup in nested `beforeEach()` hooks for test isolation
+3. Test execution time reduced from timeout-prone to ~6 seconds (avg 172ms/test)
+
+**Verification:** Passes 100% across 5 consecutive stress test iterations.
+
+---
 
 ### api.deduplication.test.js (Fixed January 2026)
 
@@ -62,6 +78,84 @@ Some tests are slow due to server boot overhead (2-3s per test):
 3. Added devicestatus cleanup to reduce database load from prior tests
 
 **Verification:** Passes 100% across 5 consecutive runs in isolation.
+
+---
+
+## Test Infrastructure Improvement Roadmap
+
+This section tracks planned improvements to reduce test cycle time and flakiness. Progress is tracked across improvement cycles.
+
+### Current Cycle: Server Boot Optimization (January 2026)
+
+**Goal:** Reduce test execution time by eliminating redundant server boots.
+
+**Status:** ✅ Complete
+
+| Test File | Before | After | Improvement |
+|-----------|--------|-------|-------------|
+| api.shape-handling.test.js | Timeout (~80s boot overhead) | 6s (172ms/test avg) | ~93% faster |
+
+**Pattern Applied:** Change `beforeEach()` to `before()` for server boot; keep data cleanup in nested `beforeEach()` hooks.
+
+---
+
+### Next Cycle 1: Apply Boot Optimization to Remaining Test Files
+
+**Goal:** Identify and optimize other test files using `beforeEach()` for server boot.
+
+**Status:** 🔲 Pending
+
+**Candidates for optimization:**
+- `api.devicestatus.test.js` - Uses `beforeEach()` for bootevent
+- `api.profiles.test.js` - Uses `beforeEach()` for bootevent
+- `api.food.js` - Uses `beforeEach()` for bootevent
+- `api.activity.js` - Uses `beforeEach()` for bootevent
+
+**Acceptance Criteria:**
+- [ ] Identify all test files with `beforeEach()` bootevent pattern
+- [ ] Refactor to `before()` with data cleanup in `beforeEach()`
+- [ ] Verify 100% pass rate with 5-iteration stress test
+- [ ] Document timing improvements
+
+---
+
+### Next Cycle 2: Timeout Standardization
+
+**Goal:** Standardize test timeouts based on actual execution needs.
+
+**Status:** 🔲 Pending
+
+**Current timeout variations:**
+- Default: 2000ms (Mocha default)
+- Shape handling tests: 15000ms
+- Security tests: 7000ms
+- Reports tests: 80000ms
+- Deduplication tests: 30000ms
+
+**Proposed actions:**
+- [ ] Audit actual test execution times across all test files
+- [ ] Establish tiered timeout standards (fast: 5s, medium: 15s, slow: 60s)
+- [ ] Add timeout justification comments for non-standard timeouts
+- [ ] Remove excessive timeouts that mask slow tests
+
+---
+
+### Next Cycle 3: Test Isolation Audit
+
+**Goal:** Ensure all tests are self-contained and don't depend on execution order.
+
+**Status:** 🔲 Pending
+
+**Known issues to address:**
+- Some tests assume data from prior tests (state-dependent)
+- Database cleanup inconsistencies between test files
+- Module caching affecting test isolation
+
+**Proposed actions:**
+- [ ] Run each test file in isolation and compare results to full suite
+- [ ] Identify tests that fail when run in different order
+- [ ] Add proper fixtures in `beforeEach()` for tests requiring specific data
+- [ ] Standardize cleanup patterns (prefer `deleteMany({})` for full purge)
 
 ---
 
