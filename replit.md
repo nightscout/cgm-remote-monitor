@@ -42,7 +42,10 @@ The frontend utilizes Webpack for asset bundling and features charting with D3/j
   
   Test environment uses `MONGO_POOL_SIZE=2` (configured in `my.test.env`) - the minimum that handles concurrent operations without timeouts.
 
-- **Prediction Array Truncation:** Optional feature to truncate large prediction arrays (IOB, COB, UAM, ZT) in devicestatus documents before storage. Controlled by `PREDICTIONS_MAX_SIZE` environment variable. When set (e.g., `PREDICTIONS_MAX_SIZE=288`), prediction arrays exceeding this limit are truncated to prevent MongoDB issues with excessively large documents. The value 288 represents 24 hours of 5-minute readings. Truncation only occurs when the env var is explicitly set; unset means no truncation.
+- **Prediction Array Truncation:** Prediction arrays (IOB, COB, UAM, ZT) in devicestatus documents are automatically truncated to 288 elements (24 hours of 5-minute readings) before storage. This prevents MongoDB issues with excessively large documents. Controlled by `PREDICTIONS_MAX_SIZE` environment variable:
+  - **Default:** 288 (truncation enabled)
+  - **Custom value:** Set `PREDICTIONS_MAX_SIZE=<number>` to change the limit
+  - **Disable truncation:** Set `PREDICTIONS_MAX_SIZE=0` to preserve full prediction arrays
 - **OIDC Actor Identity (Proposed - High Priority):** OpenID Connect integration to replace freeform `enteredBy` with cryptographically-verified actor identities. Enables care coordination, audit trails, and delegation tracking. See `docs/proposals/oidc-actor-identity-proposal.md` for full RFC including:
     - OAuth2/OIDC protocol flows with NRG Gateway (Ory Hydra/Kratos)
     - JWT claims specification with actor and delegation support

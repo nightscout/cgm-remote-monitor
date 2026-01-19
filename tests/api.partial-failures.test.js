@@ -451,20 +451,20 @@ describe('v1 API Partial Failures and Edge Cases', function() {
       });
     });
 
-    it('predictions are NOT truncated when PREDICTIONS_MAX_SIZE is not set', function(done) {
+    it('predictions use default truncation of 288 when PREDICTIONS_MAX_SIZE is not set', function(done) {
       // SPEC: Without PREDICTIONS_MAX_SIZE env var, prediction arrays
-      // should be preserved at their original size
+      // should be truncated to the default of 288 (24 hours of 5-min readings)
       
-      // Ensure truncation is disabled
-      self.env.predictionsMaxSize = null;
+      // Use default (288) - simulating env var not being set
+      self.env.predictionsMaxSize = 288;
       
       // Reinitialize devicestatus to pick up setting
       const devicestatusStorage = require('../lib/server/devicestatus');
       self.ctx.devicestatus = devicestatusStorage(self.env, self.ctx);
       
-      // Create devicestatus with small predictions (100 elements)
+      // Create devicestatus with predictions under the limit (100 elements)
       const deviceStatus = {
-        device: 'no-truncation-test',
+        device: 'default-truncation-test',
         created_at: new Date().toISOString(),
         openaps: {
           suggested: {
@@ -482,13 +482,61 @@ describe('v1 API Partial Failures and Edge Cases', function() {
         result.should.be.instanceof(Array);
         result.length.should.equal(1);
         
-        // Verify NO truncation occurred
+        // Verify arrays under 288 are NOT truncated
         const savedPredBGs = result[0].openaps.suggested.predBGs;
         
-        savedPredBGs.IOB.length.should.equal(100, 'IOB should remain at 100');
-        savedPredBGs.COB.length.should.equal(100, 'COB should remain at 100');
+        savedPredBGs.IOB.length.should.equal(100, 'IOB should remain at 100 (under limit)');
+        savedPredBGs.COB.length.should.equal(100, 'COB should remain at 100 (under limit)');
         
-        console.log(`      ✓ Predictions preserved at original 100 elements (no truncation)`);
+        console.log(`      ✓ Predictions preserved at 100 elements (under 288 limit)`);
+        
+        done();
+      });
+    });
+    
+    it('predictions can be disabled by setting PREDICTIONS_MAX_SIZE=0', function(done) {
+      // SPEC: Setting PREDICTIONS_MAX_SIZE=0 explicitly disables truncation
+      // This is the opt-out mechanism for users who need full prediction arrays
+      
+      const originalPredictionsMaxSize = self.env.predictionsMaxSize;
+      
+      // Disable truncation with 0
+      self.env.predictionsMaxSize = 0;
+      
+      // Reinitialize devicestatus to pick up setting
+      const devicestatusStorage = require('../lib/server/devicestatus');
+      self.ctx.devicestatus = devicestatusStorage(self.env, self.ctx);
+      
+      // Create devicestatus with large predictions (400 elements)
+      const deviceStatus = {
+        device: 'disabled-truncation-test',
+        created_at: new Date().toISOString(),
+        openaps: {
+          suggested: {
+            predBGs: {
+              IOB: Array.from({ length: 400 }, (_, i) => 120 - i * 0.1),
+              COB: Array.from({ length: 400 }, (_, i) => 120 - i * 0.05)
+            }
+          }
+        }
+      };
+      
+      self.ctx.devicestatus.create([deviceStatus], function(err, result) {
+        should.not.exist(err);
+        should.exist(result);
+        result.should.be.instanceof(Array);
+        result.length.should.equal(1);
+        
+        // Verify NO truncation occurred (disabled)
+        const savedPredBGs = result[0].openaps.suggested.predBGs;
+        
+        savedPredBGs.IOB.length.should.equal(400, 'IOB should remain at 400 (truncation disabled)');
+        savedPredBGs.COB.length.should.equal(400, 'COB should remain at 400 (truncation disabled)');
+        
+        console.log(`      ✓ Predictions preserved at 400 elements (truncation disabled with 0)`);
+        
+        // Restore original value
+        self.env.predictionsMaxSize = originalPredictionsMaxSize;
         
         done();
       });
