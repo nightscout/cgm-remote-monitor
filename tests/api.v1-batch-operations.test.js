@@ -32,7 +32,8 @@ describe('v1 API Batch Operations - MongoDB Modernization', function() {
   
   const api_secret_hash = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
 
-  beforeEach(function(done) {
+  // Use before() instead of beforeEach() for app setup - boots once for all tests
+  before(function(done) {
     process.env.API_SECRET = 'this is my long pass phrase';
     self.env = require('../lib/server/env')();
     self.env.settings.authDefaultRoles = 'readable';

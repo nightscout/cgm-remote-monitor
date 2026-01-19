@@ -12,7 +12,8 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
   var http = require('http');
   var io = require('socket.io-client');
 
-  beforeEach(function (done) {
+  // Use before() instead of beforeEach() for app setup - boots once for all tests
+  before(function (done) {
     process.env.API_SECRET = 'this is my long pass phrase';
     self.env = require('../lib/server/env')();
     self.env.settings.authDefaultRoles = 'readable';
@@ -37,15 +38,20 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
     });
   });
 
-  afterEach(function (done) {
-    if (self.socket) {
-      self.socket.disconnect();
-    }
+  after(function (done) {
     if (self.server) {
       self.server.close(done);
     } else {
       done();
     }
+  });
+
+  afterEach(function (done) {
+    if (self.socket) {
+      self.socket.disconnect();
+      self.socket = null;
+    }
+    done();
   });
 
   function connectAndAuthorize(callback) {

@@ -4,6 +4,7 @@ var testHelpers = require('./lib/test-helpers');
 
 var slowTestThreshold = parseInt(process.env.SLOW_TEST_THRESHOLD, 10) || 2000;
 var enableTimingWarnings = process.env.ENABLE_TIMING_WARNINGS === 'true';
+var enableRequireCacheClear = process.env.CLEAR_REQUIRE_CACHE === 'true';
 var restoreSetTimeout = null;
 var testTimings = [];
 
@@ -21,6 +22,9 @@ exports.mochaHooks = {
         warnOnLongDelays: true,
         longDelayThreshold: 100
       });
+    }
+    if (enableRequireCacheClear) {
+      console.log('[CACHE CLEAR] Enabled - will clear require cache after each test (slower but more isolated)');
     }
     done();
   },
@@ -46,7 +50,9 @@ exports.mochaHooks = {
       }
     }
     
-    clearRequireCache();
+    if (enableRequireCacheClear) {
+      clearRequireCache();
+    }
     done();
   },
 

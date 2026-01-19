@@ -7,7 +7,8 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
   this.timeout(15000);
   var self = this;
 
-  beforeEach(function (done) {
+  // Use before() instead of beforeEach() for app setup - boots once for all tests
+  before(function (done) {
     process.env.API_SECRET = 'this is my long pass phrase';
     self.env = require('../lib/server/env')();
     self.env.settings.authDefaultRoles = 'readable';
