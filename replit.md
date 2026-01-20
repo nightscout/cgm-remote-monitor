@@ -1,217 +1,45 @@
 # Nightscout CGM Remote Monitor
 
 ## Overview
-Nightscout is a web-based Continuous Glucose Monitor (CGM) system designed to allow caregivers to remotely view a patient's glucose data in real-time. The project aims to provide robust, real-time glucose monitoring, data visualization, and alert capabilities, supporting both patient care and clinical research. Key capabilities include multiple API versions for data access, comprehensive data storage, and a plugin-based architecture for extensibility. Future ambitions include enhanced AI agent collaboration through a dedicated control plane, modernized testing frameworks, and advanced authentication mechanisms.
+Nightscout is a web-based Continuous Glucose Monitor (CGM) system enabling remote, real-time viewing of patient glucose data. Its core purpose is to provide robust glucose monitoring, data visualization, and alert capabilities for patient care and clinical research. The project supports multiple API versions and features a plugin-based architecture for extensibility. Future ambitions include enhanced AI agent collaboration via a dedicated control plane, modernized testing, and advanced authentication mechanisms.
 
 ## User Preferences
 I want iterative development. Ask before making major architectural changes. Provide detailed explanations for complex technical decisions.
 
 ## System Architecture
-The Nightscout system is built around a Node.js server with a MongoDB database. It features a modular structure, separating server core, API versions (v1, v2, v3), authorization, plugins, and client-side code.
+The Nightscout system is a modular Node.js application backed by MongoDB. It separates server core, API versions (v1, v2, v3), authorization, plugins, and client-side components.
 
 ### UI/UX Decisions
-The frontend utilizes Webpack for asset bundling and features charting with D3/jQuery, providing a dynamic dashboard experience.
+The frontend uses Webpack for asset bundling and D3/jQuery for dynamic charting, delivering a comprehensive dashboard experience.
 
 ### Technical Implementations
 - **API Versions:**
-    - **API v1 (`/api/v1`):** Provides core CGM data, treatments, profiles, and device status. Uses `API_SECRET` for basic authentication.
-    - **API v2 (`/api/v2`):** Extends v1 with advanced authorization, including JWT tokens, roles, subjects, and permissions management.
-    - **API v3 (`/api/v3`):** A modern REST API based on OpenAPI 3.0, offering comprehensive CRUD operations for collections like entries, treatments, and devicestatus. Swagger UI is available at `/api3-docs`.
+    - **API v1 (`/api/v1`):** Core CGM data, treatments, profiles, device status with `API_SECRET` authentication.
+    - **API v2 (`/api/v2`):** Extends v1 with JWT-based authorization, roles, and permissions.
+    - **API v3 (`/api/v3`):** Modern OpenAPI 3.0 REST API for comprehensive CRUD operations; Swagger UI available at `/api3-docs`.
 - **Authentication:**
-    - **API v1:** SHA1 hash of `API_SECRET` in headers or as a query parameter.
-    - **API v2/v3:** JWT-based authentication with `Bearer` tokens, managed through an authorization subsystem that defines subjects, roles, and fine-grained permissions (e.g., `api:entries:read`).
-- **Real-time Data:** Implemented using Socket.IO for real-time updates on data storage and alarm notifications.
-- **Plugin Architecture:** A robust plugin system (e.g., ar2, basal, bolus, cob, iob) allows for extending functionality.
-- **Agentic Control Plane (Proposed):** A clean separation between control plane (policy, configuration, intent) and data plane (observations, telemetry, delivery) to facilitate AI agent collaboration with AID systems. This includes JSON schemas for event envelopes, profile definitions, override instances, and delivery requests/observations. Key concepts include event-driven architecture, authority hierarchy (Human > Agent > Controller), and bridge modes for legacy data.
-- **Testing & Modernization (Proposed):** A three-track approach for modernizing testing:
-    1.  **Testing Foundation:** Update core testing libraries (Mocha, Supertest, NYC) and secure existing tests.
-    2.  **Logic/DOM Separation:** Extract pure logic into `lib/client-core/` for isolated, DOM-free testing.
-    3.  **UI Modernization Discovery:** Evaluate new UI technologies and define a migration roadmap.
-- **Security:** Brute-force protection for authentication is implemented via `delaylist.js` (IP-based progressive delay).
-- **MongoDB Driver 5.x Compatibility:** Updates to handle multi-document writes and race conditions, ensuring correct processing of array inputs for `devicestatus` and WebSocket `dbAdd` operations.
-- **MongoDB Connection Pool Configuration:** Connection pool size reduced from driver default of 100 to 5 to prevent socket exhaustion. Configurable via environment variables:
-
-  | Variable | Default | Description |
-  |----------|---------|-------------|
-  | `MONGO_POOL_SIZE` | 5 | Maximum connections per server (set to 100 for legacy behavior) |
-  | `MONGO_MIN_POOL_SIZE` | 0 | Minimum connections kept warm |
-  | `MONGO_MAX_IDLE_TIME_MS` | 30000 | Close idle connections after 30 seconds |
-  | `MONGO_POOL_DEBUG` | (unset) | Set to `true` to enable connection pool event logging |
-
-  To restore legacy behavior: `MONGO_POOL_SIZE=100`
-  
-  Test environment uses `MONGO_POOL_SIZE=5` (configured in `my.test.env`) - increased from 2 to improve stability during parallel test runs.
-
-- **Prediction Array Truncation:** Prediction arrays (IOB, COB, UAM, ZT) in devicestatus documents are automatically truncated to 288 elements (24 hours of 5-minute readings) before storage. This prevents MongoDB issues with excessively large documents. Controlled by `PREDICTIONS_MAX_SIZE` environment variable:
-  - **Default:** 288 (truncation enabled)
-  - **Custom value:** Set `PREDICTIONS_MAX_SIZE=<number>` to change the limit
-  - **Disable truncation:** Set `PREDICTIONS_MAX_SIZE=0` to preserve full prediction arrays
-- **OIDC Actor Identity (Proposed - High Priority):** OpenID Connect integration to replace freeform `enteredBy` with cryptographically-verified actor identities. Enables care coordination, audit trails, and delegation tracking. See `docs/proposals/oidc-actor-identity-proposal.md` for full RFC including:
-    - OAuth2/OIDC protocol flows with NRG Gateway (Ory Hydra/Kratos)
-    - JWT claims specification with actor and delegation support
-    - Actor lookup collection schema
-    - Nightscout Core plugin requirements
-    - Migration path from `enteredBy` to verified `actor_ref`
-    - Comprehensive test plan (unit/integration/E2E/security)
+    - **API v1:** SHA1 hash of `API_SECRET`.
+    - **API v2/v3:** JWT `Bearer` tokens with fine-grained permissions.
+- **Real-time Data:** Socket.IO for live data updates and alarms.
+- **Plugin Architecture:** Extensible system supporting various plugins (e.g., ar2, basal, bolus).
+- **Agentic Control Plane (Proposed):** A clean separation of control plane (policy, configuration) and data plane (telemetry, delivery) to facilitate AI agent collaboration using event-driven architecture and JSON schemas for event envelopes.
+- **Testing & Modernization (Proposed):** Strategy to update testing libraries, separate logic from DOM for isolated testing, and evaluate new UI technologies.
+- **Security:** IP-based brute-force protection for authentication.
+- **MongoDB Compatibility:** Updates for MongoDB Driver 5.x, addressing multi-document writes, race conditions, and optimized connection pooling (default `MONGO_POOL_SIZE=5`).
+- **Prediction Array Truncation:** Automatic truncation of prediction arrays to 288 elements by default to prevent oversized MongoDB documents, configurable via `PREDICTIONS_MAX_SIZE`.
+- **OIDC Actor Identity (Proposed):** OpenID Connect integration for cryptographically-verified actor identities, replacing `enteredBy` for enhanced audit trails and delegation tracking.
 
 ### System Design Choices
-- **Event-driven architecture** for control plane interactions.
-- **Append-only event streams** with cursor-based synchronization.
-- **Config vs Runtime vs Computed** separation for clarity and maintainability.
-- **Monorepo structure** for managing various components.
-- **Environment variables** for flexible configuration, including `PORT`, `MONGO_CONNECTION`, `API_SECRET`, and `DISPLAY_UNITS`.
-
-## Data Schema Documentation
-
-New schema documentation has been added based on code analysis and domain expert interviews:
-
-- **`docs/data-schemas/treatments-schema.md`** - Comprehensive documentation of the treatments collection, including:
-  - Field inventory (eventType, created_at, glucose, carbs, insulin, etc.)
-  - 20+ event types from careportal and controller plugins
-  - Timestamp semantics (created_at vs srvCreated)
-  - Client compatibility notes (AAPS, Loop, xDrip sync identity patterns)
-  - Known bugs (basal slice display, override duration issues)
-
-- **`docs/data-schemas/profiles-schema.md`** - Profile structure documentation including:
-  - Store-based profile organization
-  - Time-value pair format for basal/carbratio/sens/targets
-  - Loop-specific loopSettings and overridePresets
-  - Profile switch treatment embedding (AAPS pattern)
-  - Timezone handling quirks
-
-Key insights from schema documentation:
-- Different controllers use different fields for sync deduplication (AAPS: `identifier`, Loop: pump fields, xDrip: `uuid`)
-- The `eventType` field is essentially free-form - controllers can send any value
-- Report plugins serve as implicit schema documentation by revealing which fields are actually used
-
-## Documentation Structure
-
-Documentation is organized into purpose-specific folders. Start at `docs/INDEX.md` for navigation.
-
-| Folder | Purpose |
-|--------|---------|
-| `docs/meta/` | Project-level navigation: architecture overview, modernization roadmap, documentation progress |
-| `docs/audits/` | System analysis: API, data layer, security, real-time, plugin, messaging, dashboard audits |
-| `docs/requirements/` | Formal requirements by area (shape handling, authorization, API v1 compatibility) |
-| `docs/test-specs/` | Test specifications with progress tracking; each area tracks its own gaps |
-| `docs/proposals/` | RFC-style proposals for new features (OIDC, control plane, testing modernization) |
-| `docs/data-schemas/` | Collection and field documentation (treatments, profiles) |
-| `docs/plugins/` | Plugin-specific documentation |
-
-### For AI Agents
-Each test area is self-contained with requirements, test specs, progress tracking, and priority gaps. This enables focused iteration on one topical area at a time. See `docs/INDEX.md` for the full taxonomy.
-
-## Test Documentation
-
-Test specifications and requirements are organized in `docs/test-specs/` and `docs/requirements/`. Each test area tracks its own progress, discoveries, and coverage gaps.
-
-### Test Spec Files
-| Area | Test Spec | Requirements |
-|------|-----------|--------------|
-| Shape Handling | `docs/test-specs/shape-handling-tests.md` | `docs/requirements/data-shape-requirements.md` |
-| Authorization | `docs/test-specs/authorization-tests.md` | `docs/requirements/authorization-security-requirements.md` |
-| API v1 Compatibility | (integrated) | `docs/requirements/api-v1-compatibility-requirements.md` |
-
-### Test Organization (Updated January 2026)
-
-Tests are organized for efficient execution in resource-constrained environments:
-
-| Script | Purpose | Tests | Execution |
-|--------|---------|-------|-----------|
-| `npm run test:unit` | Pure unit tests (no DB) | 240 tests / 43 files | Parallel (2 workers) |
-| `npm run test:integration` | DB/API tests | 335+ tests / 62 files | Serial |
-| `npm run test:all` | Complete suite | Both | Unit then Integration |
-| `npm run test:unit:ci` | CI unit tests | Same as unit | Uses ci.test.env |
-| `npm run test:integration:ci` | CI integration | Same as integration | Uses ci.test.env |
-
-**Resource Configuration:**
-- Replit: `MONGO_POOL_SIZE=3` (fits 15 socket limit with 2 workers)
-- CI: `MONGO_POOL_SIZE=5` (more resources available)
-- Parallel jobs reduced from 4 to 2 workers
-
-**Environment Files:**
-- `my.test.env` - Local/Replit development (uses shared test MongoDB, requires remote connection since Replit has no local MongoDB)
-- `tests/ci.test.env` - GitHub Actions CI (uses localhost MongoDB service container)
-
-### Quick Test Commands
-```bash
-npm run test:unit              # Fast parallel unit tests
-npm run test:integration       # Serial integration tests
-npm run test:all               # Complete test suite
-npm test -- --grep "Shape Handling"
-npm test -- --grep "Security"
-npm test -- tests/concurrent-writes.test.js
-```
-
-### Flaky Test Detection
-A flaky test runner is available to identify tests that pass inconsistently:
-
-```bash
-npm run test:flaky           # Run 10 iterations (default)
-npm run test:flaky:quick     # Run 3 iterations (quick check)
-npm run test:flaky:thorough  # Run 20 iterations (thorough analysis)
-```
-
-Configuration via environment variables:
-- `FLAKY_TEST_ITERATIONS` - Number of test runs (default: 10)
-- `FLAKY_TEST_TIMEOUT` - Timeout per run in ms (default: 300000)
-- `FLAKY_OUTPUT_DIR` - Output directory (default: ./flaky-test-results)
-
-Reports are generated in `flaky-test-results/` including:
-- Markdown report with flaky tests sorted by failure rate
-- JSON data file with detailed per-test run history
-- Individual iteration JSON results for debugging
-
-### Isolation Testing for Specific Test Files
-To run a single test file multiple times and detect flakiness:
-```bash
-TEST=api.entries npm run test:flaky:isolate      # Test entries API
-TEST=api3.socket npm run test:flaky:isolate      # Test socket API
-FLAKY_ITERATIONS=20 TEST=security npm run test:flaky:isolate  # 20 iterations
-```
-
-### Timing-Aware Testing
-Run tests with timing warnings enabled to identify slow operations:
-```bash
-npm run test:timing          # Full suite with timing warnings
-npm run test:timing:single   # Single test file (set TEST env var)
-npm run test:slow            # Tests with slow threshold logging
-```
-
-### Known Test Issues (Last Analysis: January 19, 2026)
-
-**Summary:** ✅ **TESTS STABLE** - Stress testing (3-5 iterations per test file) shows 100% pass rate across all test files including api.shape-handling (now optimized).
-
-**Recent Fixes:**
-- `boluswizardpreview.test.js` - Fixed floating-point precision issue in `roundInsulinForDisplayFormat()` by adding epsilon (1e-9) before floor operation; test "set a pill to the BWP with infos" now stable
-- `api.shape-handling.test.js` - Fixed by optimizing server boot (beforeEach→before); now runs in ~6s with 172ms/test avg
-- `api.deduplication.test.js` - Fixed timeout issues by increasing timeout to 30s and optimizing cleanup
-- `api3.renderer.test.js` - XML/CSV content type tests now pass
-
-**Known Infrastructure Issue:**
-- Full test suite runs may hang during server teardown (tick cycles continue after tests complete). Individual test files pass when run in isolation. This is a test cleanup issue, not test flakiness.
-
-**Flaky Test Status:** See `docs/test-specs/flaky-tests.md` for current status summary and improvement roadmap.
-
-#### Slow Tests
-Some tests are slow due to server boot overhead (2-3s per test):
-- `concurrent-writes.test.js` - AAPS sync simulation tests are slow by design but pass consistently
-- `v1 API Batch Operations` - Large batch operations take longer but pass consistently
-
-#### Test Helpers Available
-The `tests/lib/test-helpers.js` module provides utilities to reduce flakiness:
-- `waitForConditionWithWarning()` - Polling-based waits instead of setTimeout
-- `waitForConditionAsync()` - Promise-based version for async/await
-- `startTestTimer()` - Monitor test execution time
-- `enableSetTimeoutWarnings()` - Detect setTimeout anti-patterns
-
-See `docs/test-specs/coverage-gaps.md` for aggregated coverage gaps across all areas.
+- **Event-driven architecture** for control plane.
+- **Append-only event streams**.
+- **Monorepo structure**.
+- **Environment variables** for flexible configuration (`PORT`, `MONGO_CONNECTION`, `API_SECRET`).
 
 ## External Dependencies
-- **MongoDB:** Primary database for data storage.
-- **Socket.IO:** For real-time data communication.
-- **Webpack:** For bundling frontend assets.
-- **Nodemon:** For development server auto-restarts.
+- **MongoDB:** Primary database.
+- **Socket.IO:** Real-time communication.
+- **Webpack:** Frontend asset bundling.
+- **Nodemon:** Development server.
 - **Mocha, Supertest, NYC:** Testing frameworks.
-- **Pushover, IFTTT Maker:** Messaging and notification services.
-- **Alexa, Google Home:** Integrations for voice assistant interaction.
+- **Pushover, IFTTT Maker:** Messaging and notifications.
+- **Alexa, Google Home:** Voice assistant integrations.
