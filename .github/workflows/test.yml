@@ -23,10 +23,7 @@ jobs:
         run: npm ci --ignore-scripts
       
       - name: Run unit tests (parallel)
-        run: npm run test:unit
-        env:
-          API_SECRET: testingsecret123
-          INSECURE_USE_HTTP: true
+        run: npm run test:unit:ci
 
   integration-tests:
     name: Integration Tests
@@ -57,15 +54,7 @@ jobs:
         run: npm ci --ignore-scripts
       
       - name: Run integration tests (serial)
-        run: npm run test:integration
-        env:
-          CUSTOMCONNSTR_mongo: mongodb://127.0.0.1:27017/nightscout_test
-          API_SECRET: testingsecret123
-          HOSTNAME: localhost
-          INSECURE_USE_HTTP: true
-          PORT: 1337
-          MONGO_POOL_SIZE: 5
-          MONGO_MIN_POOL_SIZE: 1
+        run: npm run test:integration:ci
 
   full-test-suite:
     name: Full Test Suite with Coverage

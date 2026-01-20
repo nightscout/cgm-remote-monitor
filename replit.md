@@ -112,8 +112,32 @@ Test specifications and requirements are organized in `docs/test-specs/` and `do
 | Authorization | `docs/test-specs/authorization-tests.md` | `docs/requirements/authorization-security-requirements.md` |
 | API v1 Compatibility | (integrated) | `docs/requirements/api-v1-compatibility-requirements.md` |
 
+### Test Organization (Updated January 2026)
+
+Tests are organized for efficient execution in resource-constrained environments:
+
+| Script | Purpose | Tests | Execution |
+|--------|---------|-------|-----------|
+| `npm run test:unit` | Pure unit tests (no DB) | 240 tests / 43 files | Parallel (2 workers) |
+| `npm run test:integration` | DB/API tests | 335+ tests / 62 files | Serial |
+| `npm run test:all` | Complete suite | Both | Unit then Integration |
+| `npm run test:unit:ci` | CI unit tests | Same as unit | Uses ci.test.env |
+| `npm run test:integration:ci` | CI integration | Same as integration | Uses ci.test.env |
+
+**Resource Configuration:**
+- Replit: `MONGO_POOL_SIZE=3` (fits 15 socket limit with 2 workers)
+- CI: `MONGO_POOL_SIZE=5` (more resources available)
+- Parallel jobs reduced from 4 to 2 workers
+
+**Environment Files:**
+- `my.test.env` - Local/Replit development (uses shared test MongoDB, requires remote connection since Replit has no local MongoDB)
+- `tests/ci.test.env` - GitHub Actions CI (uses localhost MongoDB service container)
+
 ### Quick Test Commands
 ```bash
+npm run test:unit              # Fast parallel unit tests
+npm run test:integration       # Serial integration tests
+npm run test:all               # Complete test suite
 npm test -- --grep "Shape Handling"
 npm test -- --grep "Security"
 npm test -- tests/concurrent-writes.test.js
