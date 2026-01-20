@@ -13,7 +13,9 @@ describe('Treatment API', function ( ) {
   var api_secret_hash = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
 
   var api = require('../lib/api/');
-  beforeEach(function (done) {
+  
+  // Use before() instead of beforeEach() for app setup - boots once for all tests
+  before(function (done) {
     process.env.API_SECRET = 'this is my long pass phrase';
     self.env = require('../lib/server/env')();
     self.env.settings.authDefaultRoles = 'readable';
@@ -35,7 +37,7 @@ describe('Treatment API', function ( ) {
 
   it('post single treatments', function (done) {
 
-    self.ctx.treatments().remove({ }, function ( ) {
+    self.ctx.treatments.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function ( ) {
       var now = (new Date()).toISOString();
       request(self.app)
         .post('/api/treatments/')
@@ -88,8 +90,8 @@ describe('Treatment API', function ( ) {
    
     var current_time = Date.now();
     console.log('Testing date with local format: ', _moment(current_time).format("YYYY-MM-DDTHH:mm:ss.SSSZZ"));
-      
-    self.ctx.treatments().remove({ }, function ( ) {
+
+    self.ctx.treatments.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function ( ) {
       request(self.app)
         .post('/api/treatments/')
         .set('api-secret', api_secret_hash || '')
@@ -122,7 +124,7 @@ describe('Treatment API', function ( ) {
 
 
   it('post a treatment array', function (done) {
-    self.ctx.treatments().remove({ }, function ( ) {
+    self.ctx.treatments.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function ( ) {
       var now = (new Date()).toISOString();
       request(self.app)
         .post('/api/treatments/')
@@ -149,7 +151,7 @@ describe('Treatment API', function ( ) {
   });
 
   it('post a treatment array and dedupe', function (done) {
-    self.ctx.treatments().remove({ }, function ( ) {
+    self.ctx.treatments.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function ( ) {
       var now = (new Date()).toISOString();
       request(self.app)
         .post('/api/treatments/')
