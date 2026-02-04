@@ -193,7 +193,7 @@ Want to help with development, or just see how Nightscout works? Great! See [CON
 
 # Usage
 
-The data being uploaded from the server to the client is from a MongoDB server such as [MongoDB Atlas][https://www.mongodb.com].
+The data being uploaded from the server to the client is from a MongoDB server such as [MongoDB Atlas](https://www.mongodb.com).
 
 [autoconfigure]: https://nightscout.github.io/pages/configure/
 [mongostring]: https://nightscout.github.io/pages/mongostring/
