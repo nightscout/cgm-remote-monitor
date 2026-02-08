@@ -15,7 +15,8 @@ services:
     logging: *default-logging
 
   nightscout:
-    image: nightscout/cgm-remote-monitor:latest
+    build: .
+    image: ubiquitousmoofy/nightscout:local
     container_name: nightscout
     restart: always
     depends_on:
@@ -53,7 +54,7 @@ services:
       ### Features
       # ENABLE - Used to enable optional features, expects a space delimited list, such as: careportal rawbg iob
       # See https://github.com/nightscout/cgm-remote-monitor#plugins for details
-      ENABLE: careportal rawbg iob
+      ENABLE: careportal rawbg iob connect
 
       # AUTH_DEFAULT_ROLES (readable) - possible values readable, denied, or any valid role name.
       # When readable, anyone can view Nightscout without a token. Setting it to denied will require
