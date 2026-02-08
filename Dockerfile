@@ -5,6 +5,9 @@ LABEL maintainer="Nightscout Contributors"
 WORKDIR /opt/app
 ADD . /opt/app
 
+# Required for npm git-based dependencies (e.g. github:user/repo#branch)
+RUN apk add --no-cache git
+
 # TODO: We should be able to do `RUN npm install --only=production`.
 # For this to work, we need to copy only package.json and things needed for `npm`'s to succeed.
 # TODO: Do we need to re-add `npm audit fix`? Or should that be part of a development process/stage?
