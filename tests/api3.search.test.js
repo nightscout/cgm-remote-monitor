@@ -10,6 +10,7 @@ describe('API3 SEARCH', function() {
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
     , opTools = require('../lib/api3/shared/operationTools')
+    , utils = require('./fixtures/api3/utils')
     ;
 
   self.docs = testConst.SAMPLE_ENTRIES;
@@ -66,7 +67,8 @@ describe('API3 SEARCH', function() {
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.ctx.bus.teardown();
   });
 
@@ -96,7 +98,7 @@ describe('API3 SEARCH', function() {
       .expect(200);
 
     res.body.status.should.equal(200);
-    res.body.result.length.should.be.aboveOrEqual(self.docs.length);
+    res.body.result.length.should.equal(self.docs.length);
   });
 
 
@@ -105,7 +107,7 @@ describe('API3 SEARCH', function() {
       .expect(200);
 
     res.body.status.should.equal(200);
-    res.body.result.length.should.be.aboveOrEqual(self.docs.length);
+    res.body.result.length.should.equal(self.docs.length);
   });
 
 
@@ -185,7 +187,7 @@ describe('API3 SEARCH', function() {
     res.body.status.should.equal(200);
     const ascending = res.body.result;
     const length = ascending.length;
-    length.should.be.aboveOrEqual(self.docs.length);
+    length.should.equal(self.docs.length);
 
     res = await self.instance.get(`${self.urlTest}&sort$desc=date`, self.jwt.read)
       .expect(200);

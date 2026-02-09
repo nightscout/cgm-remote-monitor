@@ -9,6 +9,7 @@ describe('API3 output renderers', function() {
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
     , opTools = require('../lib/api3/shared/operationTools')
+    , utils = require('./fixtures/api3/utils')
     , _ = require('lodash')
     , xml2js = require('xml2js')
     , csvParse = require('csv-parse/lib/sync')
@@ -56,7 +57,8 @@ describe('API3 output renderers', function() {
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.server.close();
   });
 
@@ -114,7 +116,7 @@ describe('API3 output renderers', function() {
     xml.items.should.not.be.empty();
     let items = xml.items.item;
     items.should.be.Array();
-    items.length.should.be.aboveOrEqual(arrModel.length);
+    items.length.should.equal(arrModel.length);
 
     self.checkItems(arrModel, items);
   };
@@ -133,7 +135,7 @@ describe('API3 output renderers', function() {
 
     const items = csvParse(csvText, self.csvParserOptions);
     items.should.be.Array();
-    items.length.should.be.aboveOrEqual(arrModel.length);
+    items.length.should.equal(arrModel.length);
 
     self.checkItems(arrModel, items);
   };
