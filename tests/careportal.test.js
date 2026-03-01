@@ -2,6 +2,7 @@
 
 require('should');
 var benv = require('benv');
+const moment = require("moment/moment");
 
 var nowData = {
   sgvs: [
@@ -96,6 +97,19 @@ describe('careportal', function ( ) {
 
     client.careportal.save();
 
+  });
+
+  it('uses local timezone date, not UTC (8304) ', async () =>{
+    const client = window.Nightscout.client;
+    client.init();
+    // sleep(50);
+
+    const fakeNow = moment.parseZone('2024-10-25T23:00:00-05:00');
+    client.ctx.moment = () => (fakeNow);
+
+    client.careportal.prepare();
+
+    $('#eventDateValue').val().should.equal('2024-10-25');
   });
 
 });
