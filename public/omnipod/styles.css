@@ -1,0 +1,28 @@
+:root { --green:#00A36C; --amber:#FFB000; --red:#D7263D; --band:rgba(100,100,140,.12); }
+* { box-sizing:border-box; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+html, body { margin:0; background:#fafafa; color:#111; }
+header { position:sticky; top:0; display:flex; align-items:center; justify-content:space-between;
+         padding:12px 16px; background:#fff; border-bottom:1px solid #eee; }
+h1 { margin:0; font-size:18px; }
+.badge { display:none; padding:4px 8px; border-radius:999px; background:#e8e8ff; color:#333; font-size:12px; }
+main { padding:14px 16px; }
+#sleepBand.sleep { background:var(--band); transition: background .3s; }
+.cards { display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; }
+.card { background:#fff; border:1px solid #eee; border-radius:16px; padding:12px; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+.label { font-size:12px; color:#666; margin-bottom:6px; }
+.big { font-size:40px; font-weight:800; line-height:1.05; letter-spacing:-.02em; }
+.sub { margin-top:6px; font-size:12px; color:#555; display:flex; gap:8px; align-items:baseline; }
+.k { padding:2px 6px; border-radius:999px; background:#eee; font-size:12px; margin-right:6px; }
+.k.green { background: color-mix(in srgb, var(--green) 22%, #eee); }
+.k.amber { background: color-mix(in srgb, var(--amber) 28%, #eee); }
+.k.red { background: color-mix(in srgb, var(--red) 28%, #eee); }
+.val-green { color:var(--green); }
+.val-amber { color:var(--amber); }
+.val-red { color:var(--red); }
+.notes { margin-top:14px; font-size:12px; color:#444; }
+footer { padding:10px 16px 28px; display:flex; gap:12px; align-items:center; color:#666; }
+button#refresh { padding:8px 12px; border:1px solid #ddd; border-radius:10px; background:#fff; cursor:pointer; }
+@media (max-width: 820px) {
+  .cards { grid-template-columns: 1fr; }
+  .big { font-size:48px; }
+}
