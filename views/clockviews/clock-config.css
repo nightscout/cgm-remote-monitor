@@ -1,39 +1,62 @@
 #config-form {
-    position: fixed;
-    top: 10px;
-    left: 10px;
-    width: 250px;
-    min-width: 220px;
-    background: white;
-    color: black;
-    opacity: 0.8;
-    padding: 1%;
-    font-size: 10px;
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  width: 250px;
+  min-width: 220px;
+  background: rgba(255, 255, 255, 0.5);
+  color: black;
+  opacity: 1;
+  padding: 1%;
+  font-size: 10px;
 }
-#config-form p {
-    margin: 15px;
-    text-align: left;
+#config-form form > div {
+  margin: 0px;
+  padding: 7px 5px;
+  text-align: left;
 }
-input.elmt {
-    width: 120px;
+#config-form form > div:nth-child(even):not(#facename) {
+  background-color: rgba(190,190,190,0.5);
+}
+#config-form form > div:nth-child(odd){
+  background-color: rgba(230,230,230,0.5);
+}
+input.elmt,
+input.undo {
+  margin: 0px 5px;
+  width: calc(100% - 10px);
+}
+input.size {
+  max-width: 50%;
 }
 select {
-    width: 100%;
+  width: 100%;
+}
+.size_color {
+  align-items: center;
+  display: flex;
+  justify-content: space-evenly;
+  margin-bottom: 3px;
 }
 #facename {
-    font-size: 7px;
+  font-size: 7px;
+  text-align: center !important;
 }
 #clocklink {
-    font-size: 18px;
+  font-size: 18px;
 }
 #clocklink:link, #clocklink:visited {
-    background-color: #f44336;
-    color: white;
-    padding: 14px 25px;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
+  background-color: #f44336;
+  color: white;
+  padding: 14px 25px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  
+  margin: 10px 0px;
+  border-radius: 5px;
+  border: 1px solid #b51818;
 }
 #clocklink:hover, #clocklink:active {
-    background-color: red;
+  background-color: red;
 }
