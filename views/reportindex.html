@@ -41,15 +41,51 @@
       <tr>
         <td><input type="checkbox" id="rp_enabledate" checked></td>
         <td>
-          <span class="translate">From</span>: <input type="date" id="rp_from">
-          <span class="translate">To</span>: <input type="date" id="rp_to">
-          <a href="#" days="1" class="presetdates"><span class="translate">Today</span></a>
-          <a href="#" days="2" class="presetdates"><span class="translate">Last 2 days</span></a>
-          <a href="#" days="3" class="presetdates"><span class="translate">Last 3 days</span></a>
-          <a href="#" days="7" class="presetdates"><span class="translate">Last week</span></a>
-          <a href="#" days="14" class="presetdates"><span class="translate">Last 2 weeks</span></a>
-          <a href="#" days="31" class="presetdates"><span class="translate">Last month</span></a>
-          <a href="#" days="90" class="presetdates"><span class="translate">Last 3 months</span></a>
+          <table>
+            <tr><td>
+              <span class="translate">From</span>: <input type="date" id="rp_from">
+              <span class="translate">To</span>: <input type="date" id="rp_to">
+	    </td><td>
+              <a href="#" days="1" class="presetdates"><span class="translate">Today</span></a>
+	    </td><td>
+	      <span class="translate">Last</span>:
+              <a href="#" days="2" class="presetdates">2&nbsp;<span class="translate">days</span></a>
+	    </td><td>
+              <a href="#" days="3" class="presetdates">3&nbsp;<span class="translate">days</span></a>
+	    </td><td>
+              <a href="#" days="7" class="presetdates"><span class="translate">week</span></a>
+	    </td><td>
+              <a href="#" days="14" class="presetdates">2&nbsp;<span class="translate">weeks</span></a>
+	    </td><td>
+              <a href="#" days="21" class="presetdates">3&nbsp;<span class="translate">weeks</span></a>
+	    </td><td>
+              <a href="#" days="30" class="presetdates">30&nbsp;<span class="translate">days</span></a>
+	    </td><td>
+              <a href="#" days="60" class="presetdates">60&nbsp;<span class="translate">days</span></a>
+	    </td><td>
+              <a href="#" days="90" class="presetdates">90&nbsp;<span class="translate">days</span></a>
+	    </td></tr>
+	    <tr><td></td><td>
+              <a href="#" days="1" class="prevdates"><span class="translate">Yesterday</span></a>
+	    </td><td>
+	      <span class="translate">Prev</span>:
+              <a href="#" days="2" class="prevdates">2&nbsp;<span class="translate">days</span></a>
+	    </td><td>
+              <a href="#" days="3" class="prevdates">3&nbsp;<span class="translate">days</span></a>
+	    </td><td>
+              <a href="#" days="7" class="prevdates"><span class="translate">week</span></a>
+	    </td><td>
+              <a href="#" days="14" class="prevdates">2&nbsp;<span class="translate">weeks</span></a>
+	    </td><td>
+              <a href="#" days="21" class="prevdates">3&nbsp;<span class="translate">weeks</span></a>
+	    </td><td>
+              <a href="#" days="30" class="prevdates">30&nbsp;<span class="translate">days</span></a>
+	    </td><td>
+              <a href="#" days="60" class="prevdates">60&nbsp;<span class="translate">days</span></a>
+	    </td><td>
+              <a href="#" days="90" class="prevdates">90&nbsp;<span class="translate">days</span></a>
+	    </td></tr>
+          </table>
         </td>
       </tr>
       <tr class="rp_foodgui" style="display:none">
@@ -95,10 +131,19 @@
         </tr>
         <tr>
           <td colspan="2">
-            <span class="translate">Target BG range bottom</span>:
+            <span class="translate">Goal BG range bottom</span>:
             <input type="number" size="3" step="0.1" id="rp_targetlow">
             <span class="translate">top</span>:
             <input type="number" size="3" step="0.1" id="rp_targethigh">
+          </td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <span class="translate">Outer BG range bottom</span>:
+            <input type="number" size="3" step="0.1" id="rp_superlow">
+            <span class="translate">top</span>:
+            <input type="number" size="3" step="0.1" id="rp_superhigh">
           </td>
           <td></td>
         </tr>
