@@ -659,7 +659,7 @@
     "Admin messages in queue": "Admin messages in queue",
     "Queue empty": "Queue empty",
     "There are no admin messages in queue": "There are no admin messages in queue",
-    "Please sign in using the API_SECRET to see your administration messages": "Please sign in using the API_SECRET to see your administration messages",
+    "Please sign in using the API_SECRET to see your administration messages": "관리 메시지를 보려면 API_SECRET을 사용하여 로그인하십시오",
     "Reads enabled in default permissions": "Reads enabled in default permissions",
     "Data reads enabled": "Data reads enabled",
     "Data writes enabled": "Data writes enabled",
