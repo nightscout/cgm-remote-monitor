@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
 
 require('should');
 
@@ -38,6 +39,24 @@ describe('language', function ( ) {
     language.set('cs');
     language.loadLocalization(fs);
     language.translate('carbs', { ci: true }).should.equal('Sacharidy');
+  });
+
+  it('parse every translation file as valid JSON', function () {
+    function parseTranslationTree (dirPath) {
+      fs.readdirSync(dirPath, { withFileTypes: true }).forEach(function(entry) {
+        var entryPath = path.join(dirPath, entry.name);
+        if (entry.isDirectory()) {
+          parseTranslationTree(entryPath);
+          return;
+        }
+
+        if (path.extname(entry.name) === '.json') {
+          JSON.parse(fs.readFileSync(entryPath, 'utf8'));
+        }
+      });
+    }
+
+    parseTranslationTree(path.join(__dirname, '..', 'translations'));
   });
 
 });
