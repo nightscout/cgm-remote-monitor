@@ -41,6 +41,18 @@ describe('language', function ( ) {
     language.translate('carbs', { ci: true }).should.equal('Sacharidy');
   });
 
+  it('translate to Traditional Chinese', function () {
+    var language = require('../lib/language')();
+    language.set('zh_tw');
+    language.loadLocalization(fs);
+    language.translate('Carbs').should.equal('碳水');
+  });
+
+  it('fallback to English filename for unsupported language codes', function () {
+    var language = require('../lib/language')();
+    language.getFilename('unknown_language').should.equal('en/en.json');
+  });
+
   it('parse every translation file as valid JSON', function () {
     function parseTranslationTree (dirPath) {
       fs.readdirSync(dirPath, { withFileTypes: true }).forEach(function(entry) {
