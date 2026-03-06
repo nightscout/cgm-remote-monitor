@@ -75,6 +75,10 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
     });
   }
 
+  function treatmentsCollection() {
+    return self.ctx.store.collection(self.env.treatments_collection);
+  }
+
   describe('dbAdd with treatments collection', function () {
     
     beforeEach(function (done) {
@@ -261,6 +265,97 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
         });
       });
     });
+
+    it('dbUpdate supports custom string _id values', function (done) {
+      connectAndAuthorize(function (err, socket) {
+        if (err) return done(err);
+
+        var legacyId = 'legacy-string-id-update';
+        var createdAt = new Date().toISOString();
+
+        treatmentsCollection().insertOne({
+          _id: legacyId,
+          eventType: 'Note',
+          created_at: createdAt,
+          notes: 'legacy original'
+        }, function (insertErr) {
+          if (insertErr) return done(insertErr);
+
+          socket.emit('dbUpdate', {
+            collection: 'treatments',
+            _id: legacyId,
+            data: {
+              notes: 'legacy updated'
+            }
+          }, function (updateResult) {
+            should.exist(updateResult);
+            updateResult.result.should.equal('success');
+
+            waitForConditionWithWarning({
+              condition: function (cb) {
+                treatmentsCollection().findOne({ _id: legacyId }, cb);
+              },
+              assertion: function (doc) {
+                should.exist(doc);
+                doc.notes.should.equal('legacy updated');
+              },
+              done: done,
+              operationName: 'verify websocket dbUpdate with custom string _id'
+            });
+          });
+        });
+      });
+    });
+  });
+
+  describe('dbUpdateUnset operations', function () {
+
+    beforeEach(function (done) {
+      self.ctx.treatments.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function () {
+        done();
+      });
+    });
+
+    it('dbUpdateUnset supports custom string _id values', function (done) {
+      connectAndAuthorize(function (err, socket) {
+        if (err) return done(err);
+
+        var legacyId = 'legacy-string-id-unset';
+        var createdAt = new Date().toISOString();
+
+        treatmentsCollection().insertOne({
+          _id: legacyId,
+          eventType: 'Note',
+          created_at: createdAt,
+          notes: 'remove me'
+        }, function (insertErr) {
+          if (insertErr) return done(insertErr);
+
+          socket.emit('dbUpdateUnset', {
+            collection: 'treatments',
+            _id: legacyId,
+            data: {
+              notes: 1
+            }
+          }, function (updateResult) {
+            should.exist(updateResult);
+            updateResult.result.should.equal('success');
+
+            waitForConditionWithWarning({
+              condition: function (cb) {
+                treatmentsCollection().findOne({ _id: legacyId }, cb);
+              },
+              assertion: function (doc) {
+                should.exist(doc);
+                should.not.exist(doc.notes);
+              },
+              done: done,
+              operationName: 'verify websocket dbUpdateUnset with custom string _id'
+            });
+          });
+        });
+      });
+    });
   });
 
   describe('dbRemove operations', function () {
@@ -296,6 +391,97 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
             should.exist(removeResult);
             removeResult.result.should.equal('success');
             done();
+          });
+        });
+      });
+    });
+
+    it('dbRemove supports custom string _id values', function (done) {
+      connectAndAuthorize(function (err, socket) {
+        if (err) return done(err);
+
+        var legacyId = 'legacy-string-id-remove';
+        var createdAt = new Date().toISOString();
+
+        treatmentsCollection().insertOne({
+          _id: legacyId,
+          eventType: 'Note',
+          created_at: createdAt,
+          notes: 'delete me'
+        }, function (insertErr) {
+          if (insertErr) return done(insertErr);
+
+          socket.emit('dbRemove', {
+            collection: 'treatments',
+            _id: legacyId
+          }, function (removeResult) {
+            should.exist(removeResult);
+            removeResult.result.should.equal('success');
+
+            waitForConditionWithWarning({
+              condition: function (cb) {
+                treatmentsCollection().findOne({ _id: legacyId }, cb);
+              },
+              assertion: function (doc) {
+                should.not.exist(doc);
+              },
+              done: done,
+              operationName: 'verify websocket dbRemove with custom string _id'
+            });
+          });
+        });
+      });
+    });
+  });
+
+  describe('dbAdd dedupe operations', function () {
+
+    beforeEach(function (done) {
+      self.ctx.treatments.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function () {
+        done();
+      });
+    });
+
+    it('dbAdd dedupe updates custom string _id records without ObjectId conversion', function (done) {
+      connectAndAuthorize(function (err, socket) {
+        if (err) return done(err);
+
+        var legacyId = 'legacy-string-id-dedupe';
+        var originalCreatedAt = new Date().toISOString();
+        var dedupedCreatedAt = new Date(Date.now() + 1000).toISOString();
+
+        treatmentsCollection().insertOne({
+          _id: legacyId,
+          eventType: 'Note',
+          created_at: originalCreatedAt,
+          notes: 'existing legacy note'
+        }, function (insertErr) {
+          if (insertErr) return done(insertErr);
+
+          socket.emit('dbAdd', {
+            collection: 'treatments',
+            data: {
+              eventType: 'Note',
+              created_at: dedupedCreatedAt,
+              notes: 'incoming legacy note'
+            }
+          }, function (result) {
+            should.exist(result);
+            result.should.be.instanceof(Array);
+            result.length.should.equal(1);
+            result[0]._id.should.equal(legacyId);
+
+            waitForConditionWithWarning({
+              condition: function (cb) {
+                treatmentsCollection().findOne({ _id: legacyId }, cb);
+              },
+              assertion: function (doc) {
+                should.exist(doc);
+                doc.created_at.should.equal(dedupedCreatedAt);
+              },
+              done: done,
+              operationName: 'verify websocket dbAdd dedupe with custom string _id'
+            });
           });
         });
       });
