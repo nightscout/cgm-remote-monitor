@@ -322,20 +322,36 @@ describe('API3 SEARCH', function() {
     });
 
 
-    it('should sort by date', async () => {
-      let res = await self.instance.get(`${endpoint}?sort=date`, self.jwt[jwtToUse])
-        .expect(200);
+    it('should sort by the given property', async () => {
+      // Test sorting by every property. A regular for loop is used to avoid
+      // the complexity of promise composition.
+      // Because Javascript sorts aren't stable, and some properties may have
+      // repeated values,  we check that the resulting sort is valid instead
+      // of checking against an exact sort
+      for (let i = 0; i < allProperties.length; i++) {
+        const property = allProperties[i];
 
-      res.body.status.should.equal(200);
+        let res = await self.instance.get(`${endpoint}?sort=${property}`, self.jwt[jwtToUse])
+          .expect(200);
 
-      membersAreEqual(res.body.result, testDocs, commonProperties);
+        res.body.status.should.equal(200);
 
-      res = await self.instance.get(`${endpoint}?sort$desc=date`, self.jwt[jwtToUse])
-        .expect(200);
+        res.body.result.length.should.equal(testDocs.length);
+        containsMembers(res.body.result, testDocs, commonProperties);
 
-      res.body.status.should.equal(200);
+        // Make sure the sort is valid, skipping the first idx
+        (res.body.result.every((value, idx, arr) => !idx || arr[idx - 1][property] <= value[property])).should.be.true();
 
-      membersAreEqual(res.body.result, testDocs.slice().reverse(), commonProperties);
+        res = await self.instance.get(`${endpoint}?sort$desc=${property}`, self.jwt[jwtToUse])
+          .expect(200);
+
+        res.body.status.should.equal(200);
+
+        res.body.result.length.should.equal(testDocs.length);
+        containsMembers(res.body.result, testDocs, commonProperties);
+
+        (res.body.result.every((value, idx, arr) => !idx || arr[idx - 1][property] >= value[property])).should.be.true();
+      }
     });
   }
 
