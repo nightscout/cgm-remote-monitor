@@ -1,4 +1,5 @@
 /* eslint require-atomic-updates: 0 */
+/* global should */
 'use strict';
 
 require('should');
@@ -17,11 +18,11 @@ describe('API3 output renderers', function() {
 
   self.historyFrom = (new Date()).getTime() - 1000; // starting timestamp for HISTORY operations
 
-  self.doc1 = testConst.SAMPLE_ENTRIES[0];
+  self.doc1 = structuredClone(testConst.SAMPLE_ENTRIES[0]);
   self.doc1.date = (new Date()).getTime() - (5 * 60 * 1000);
   self.doc1.identifier = opTools.calculateIdentifier(self.doc1);
 
-  self.doc2 = testConst.SAMPLE_ENTRIES[1];
+  self.doc2 = structuredClone(testConst.SAMPLE_ENTRIES[1]);
   self.doc2.date = (new Date()).getTime();
   self.doc2.identifier = opTools.calculateIdentifier(self.doc2);
 
