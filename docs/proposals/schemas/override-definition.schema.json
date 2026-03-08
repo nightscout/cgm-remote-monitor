@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nightscout.github.io/schemas/override-definition.schema.json",
+  "title": "OverrideDefinition",
+  "description": "User-authored reusable template for therapy overrides (exercise, sleep, illness, etc.)",
+  "type": "object",
+  "required": ["definitionId", "overrideType", "title", "createdBy", "createdAt"],
+  "properties": {
+    "definitionId": {
+      "type": "string",
+      "description": "Unique identifier for this override definition"
+    },
+    "overrideType": {
+      "type": "string",
+      "enum": ["exercise", "sleep", "preMeal", "illness", "highActivity", "hormones", "stress", "travel", "custom"],
+      "description": "Category of override"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "Human-readable name for this override"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Optional longer description of when to use this override"
+    },
+    "defaultDuration": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Default duration in seconds; null means indefinite until manually ended"
+    },
+    "effects": {
+      "type": "object",
+      "description": "Therapy adjustments when this override is active",
+      "properties": {
+        "targetRange": {
+          "type": "object",
+          "description": "Absolute target range override",
+          "properties": {
+            "low": {
+              "type": "number",
+              "minimum": 60,
+              "description": "Lower target bound in configured units"
+            },
+            "high": {
+              "type": "number",
+              "minimum": 60,
+              "description": "Upper target bound in configured units"
+            }
+          }
+        },
+        "targetDelta": {
+          "type": "number",
+          "description": "Relative adjustment to existing target (positive = raise target)"
+        },
+        "basalMultiplier": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "Multiplier for basal rate (1.0 = no change, 0.5 = 50%, 1.5 = 150%)"
+        },
+        "maxBasalCeiling": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum basal rate cap in U/hr"
+        },
+        "sensitivityMultiplier": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 5,
+          "description": "Multiplier for ISF (>1 = more sensitive, <1 = more resistant)"
+        },
+        "carbRatioMultiplier": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 5,
+          "description": "Multiplier for carb ratio"
+        },
+        "automationAggressiveness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Scaling factor for automation aggressiveness if controller supports"
+        }
+      }
+    },
+    "createdBy": {
+      "type": "object",
+      "required": ["issuerType", "issuerId"],
+      "properties": {
+        "issuerType": {
+          "type": "string",
+          "enum": ["human", "controller", "agent", "caregiver"]
+        },
+        "issuerId": {
+          "type": "string"
+        }
+      }
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "isArchived": {
+      "type": "boolean",
+      "default": false,
+      "description": "Soft delete - archived definitions cannot be instantiated"
+    }
+  }
+}
