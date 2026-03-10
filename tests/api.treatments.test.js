@@ -365,4 +365,155 @@ describe('Treatment API', function ( ) {
         });
     });
   });
+
+  // ============================================================
+  // REQ-SYNC-072: identifier-based CRUD (AAPS pattern)
+  // AAPS sends explicit `identifier` field, not UUID as `_id`
+  // ============================================================
+
+  it('supports identifier field for AAPS-style treatments', function (done) {
+    var identifier = 'AAPS-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    var now = new Date();
+    var createdAt = new Date(now.getTime() - 3600000).toISOString();
+
+    self.ctx.treatments.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function () {
+      // POST with explicit identifier (AAPS pattern)
+      request(self.app)
+        .post('/api/treatments/')
+        .set('api-secret', api_secret_hash || '')
+        .send({
+          identifier: identifier,
+          eventType: 'Bolus',
+          insulin: 2.5,
+          created_at: createdAt
+        })
+        .expect(200)
+        .end(function (err, res) {
+          if (err) {
+            return done(err);
+          }
+
+          var createdTreatment = res.body[0];
+          createdTreatment.identifier.should.equal(identifier);
+          createdTreatment._id.should.match(/^[0-9a-f]{24}$/);  // Server-assigned ObjectId
+          createdTreatment.insulin.should.equal(2.5);
+
+          // Query by identifier
+          self.ctx.treatments.list({ find: { identifier: identifier } }, function (err, list) {
+            if (err) {
+              return done(err);
+            }
+
+            list.length.should.equal(1);
+            list[0].identifier.should.equal(identifier);
+            done();
+          });
+        });
+    });
+  });
+
+  it('deduplicates by identifier on re-upload', function (done) {
+    var identifier = 'DEDUP-' + Date.now();
+    var now = new Date();
+    var createdAt = new Date(now.getTime() - 3600000).toISOString();
+
+    self.ctx.treatments.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function () {
+      // First POST
+      request(self.app)
+        .post('/api/treatments/')
+        .set('api-secret', api_secret_hash || '')
+        .send({
+          identifier: identifier,
+          eventType: 'Carb Correction',
+          carbs: 30,
+          created_at: createdAt
+        })
+        .expect(200)
+        .end(function (err, res) {
+          if (err) {
+            return done(err);
+          }
+
+          var firstId = res.body[0]._id;
+
+          // Second POST with same identifier - should upsert
+          request(self.app)
+            .post('/api/treatments/')
+            .set('api-secret', api_secret_hash || '')
+            .send({
+              identifier: identifier,
+              eventType: 'Carb Correction',
+              carbs: 45,  // Updated value
+              created_at: createdAt
+            })
+            .expect(200)
+            .end(function (err, res) {
+              if (err) {
+                return done(err);
+              }
+
+              var secondId = res.body[0]._id;
+
+              // Should be same document (upserted)
+              secondId.should.equal(firstId);
+              res.body[0].carbs.should.equal(45);
+
+              // Verify only one document exists
+              self.ctx.treatments.list({ find: { identifier: identifier } }, function (err, list) {
+                if (err) {
+                  return done(err);
+                }
+
+                list.length.should.equal(1);
+                done();
+              });
+            });
+        });
+    });
+  });
+
+  it('supports batch upload with identifiers', function (done) {
+    var identifiers = [
+      'BATCH-1-' + Date.now(),
+      'BATCH-2-' + Date.now(),
+      'BATCH-3-' + Date.now()
+    ];
+    var now = new Date();
+
+    self.ctx.treatments.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function () {
+      var treatments = identifiers.map(function (id, idx) {
+        return {
+          identifier: id,
+          eventType: 'Bolus',
+          insulin: 1.0 + idx * 0.5,
+          created_at: new Date(now.getTime() - (3 - idx) * 3600000).toISOString()
+        };
+      });
+
+      request(self.app)
+        .post('/api/treatments/')
+        .set('api-secret', api_secret_hash || '')
+        .send(treatments)
+        .expect(200)
+        .end(function (err, res) {
+          if (err) {
+            return done(err);
+          }
+
+          res.body.length.should.equal(3);
+
+          // Verify identifiers preserved in order
+          res.body[0].identifier.should.equal(identifiers[0]);
+          res.body[1].identifier.should.equal(identifiers[1]);
+          res.body[2].identifier.should.equal(identifiers[2]);
+
+          // All should have ObjectId _id
+          res.body.forEach(function (t) {
+            t._id.should.match(/^[0-9a-f]{24}$/);
+          });
+
+          done();
+        });
+    });
+  });
 });
