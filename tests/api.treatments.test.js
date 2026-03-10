@@ -249,9 +249,11 @@ describe('Treatment API', function ( ) {
 
   it('supports UUID treatment ids for post, put, and delete', function (done) {
     var treatmentId = '69F15FD2-8075-4DEB-AEA3-4352F455840D';
-    var originalCreatedAt = '2026-02-17T02:00:16.000Z';
-    var repostedCreatedAt = '2026-02-17T02:05:16.000Z';
-    var updatedCreatedAt = '2026-02-17T02:10:16.000Z';
+    // Use recent dates to avoid default query time filter (4 days window)
+    var now = new Date();
+    var originalCreatedAt = new Date(now.getTime() - 3600000).toISOString();  // 1 hour ago
+    var repostedCreatedAt = new Date(now.getTime() - 1800000).toISOString();  // 30 min ago
+    var updatedCreatedAt = new Date(now.getTime() - 900000).toISOString();    // 15 min ago
 
     self.ctx.treatments.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function () {
       request(self.app)
@@ -267,10 +269,16 @@ describe('Treatment API', function ( ) {
           reason: 'test override'
         })
         .expect(200)
-        .end(function (err) {
+        .end(function (err, res) {
           if (err) {
             return done(err);
           }
+
+          // REQ-SYNC-072: UUID _id is moved to identifier, _id is server-generated ObjectId
+          var createdTreatment = res.body[0];
+          createdTreatment.identifier.should.equal(treatmentId);
+          createdTreatment._id.should.match(/^[0-9a-f]{24}$/);  // ObjectId format
+          var serverId = createdTreatment._id;
 
           request(self.app)
             .post('/api/treatments/')
@@ -290,13 +298,14 @@ describe('Treatment API', function ( ) {
                 return done(err);
               }
 
-              self.ctx.treatments.list({ find: { _id: treatmentId } }, function (err, list) {
+              // REQ-SYNC-072: Lookup by identifier
+              self.ctx.treatments.list({ find: { identifier: treatmentId } }, function (err, list) {
                 if (err) {
                   return done(err);
                 }
 
                 list.length.should.equal(1);
-                list[0]._id.should.equal(treatmentId);
+                list[0].identifier.should.equal(treatmentId);
                 list[0].created_at.should.equal(repostedCreatedAt);
                 list[0].duration.should.equal(60);
                 should.not.exist(list[0].durationType);
@@ -319,19 +328,20 @@ describe('Treatment API', function ( ) {
                       return done(err);
                     }
 
-                    self.ctx.treatments.list({ find: { _id: treatmentId } }, function (err, updatedList) {
+                    self.ctx.treatments.list({ find: { identifier: treatmentId } }, function (err, updatedList) {
                       if (err) {
                         return done(err);
                       }
 
                       updatedList.length.should.equal(1);
-                      updatedList[0]._id.should.equal(treatmentId);
+                      updatedList[0].identifier.should.equal(treatmentId);
                       updatedList[0].created_at.should.equal(updatedCreatedAt);
                       updatedList[0].duration.should.equal(30);
                       updatedList[0].reason.should.equal('updated override');
 
+                      // Delete by server-assigned _id (or could use identifier)
                       request(self.app)
-                        .delete('/api/treatments/' + encodeURIComponent(treatmentId))
+                        .delete('/api/treatments/' + encodeURIComponent(serverId))
                         .set('api-secret', api_secret_hash || '')
                         .expect(200)
                         .end(function (err) {
@@ -339,7 +349,7 @@ describe('Treatment API', function ( ) {
                             return done(err);
                           }
 
-                          self.ctx.treatments.list({ find: { _id: treatmentId } }, function (err, deletedList) {
+                          self.ctx.treatments.list({ find: { identifier: treatmentId } }, function (err, deletedList) {
                             if (err) {
                               return done(err);
                             }
