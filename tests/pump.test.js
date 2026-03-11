@@ -6,7 +6,6 @@ const helper = require('./inithelper')();
 const moment = helper.ctx.moment;
 
 var top_ctx = helper.getctx();
-top_ctx.settings = require('../lib/settings')();
 top_ctx.language.set('en');
 
 var env = require('../lib/server/env')();
