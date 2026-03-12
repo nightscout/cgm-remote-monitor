@@ -2,6 +2,14 @@
 
 var testHelpers = require('./lib/test-helpers');
 
+// GAP-SYNC-046: Safety check to prevent tests running against production
+if (process.env.NODE_ENV !== 'test') {
+  console.error('\n⚠️  SAFETY WARNING: NODE_ENV is not "test" (current: ' + (process.env.NODE_ENV || '(not set)') + ')');
+  console.error('   Tests use deleteMany({}) which could destroy production data.');
+  console.error('   Set NODE_ENV=test in your test environment.\n');
+  // Allow tests to continue with warning, but guarded operations will fail
+}
+
 var slowTestThreshold = parseInt(process.env.SLOW_TEST_THRESHOLD, 10) || 2000;
 var enableTimingWarnings = process.env.ENABLE_TIMING_WARNINGS === 'true';
 var enableRequireCacheClear = process.env.CLEAR_REQUIRE_CACHE === 'true';
