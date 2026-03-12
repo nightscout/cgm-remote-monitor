@@ -21,6 +21,9 @@ static/bower_components/
 # istanbul output
 coverage/
 
+# flaky test results
+flaky-test-results/
+
 npm-debug.log
 *.heapsnapshot
 
@@ -34,3 +37,5 @@ npm-debug.log
 # directories created by docker-compose.yml
 mongo-data/
 letsencrypt/
+.replit
+attached_assets/
