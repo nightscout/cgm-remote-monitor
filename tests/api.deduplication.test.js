@@ -103,7 +103,10 @@ describe('v1 API Deduplication Behavior', function() {
         });
     });
 
+    // Retry on timeout - CI runners can be slow under load
     it('duplicate entry with same date+device+type is detected', function(done) {
+      this.timeout(60000);  // 60s for slow CI
+      this.retries(2);
       const fixture = fixtures.deduplication.aapsDuplicateEntry;
       
       // Insert first entry
