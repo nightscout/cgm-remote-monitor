@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: nightscout
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: MONGO_CONNECTION
+        value: mongodb+srv://nightscout_user:2$W-T33gG$G-KM2@cluster0.wevnwkc.mongodb.net/nightscout?retryWrites=true&w=majority&appName=Cluster0
+      - key: API_SECRET
+        value: SecretShahak
+      - key: DISPLAY_UNITS
+        value: mg/dl
+      - key: ENABLE
+        value: careportal devicestatus rawbg bgnow basal bolus profile dbsize direction delta upbat entries glucose mgdl bg
+      - key: PORT
+        value: $PORT
