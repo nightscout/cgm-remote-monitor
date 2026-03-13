@@ -1,0 +1,56 @@
+cat > static/omnipod/index.html <<'HTML'
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Omnipod Overlay — Yarinka</title>
+  <link rel="stylesheet" href="styles.css" />
+  <meta name="theme-color" content="#ffffff" />
+</head>
+<body>
+  <header>
+    <h1>Yarinka — Omnipod Overlay</h1>
+    <div id="sleepBadge" class="badge">Sleep Mode</div>
+  </header>
+
+  <main id="sleepBand">
+    <section class="cards">
+      <div class="card">
+        <div class="label">BG</div>
+        <div id="bg" class="big">—</div>
+        <div class="sub">
+          <span id="arrow">→</span>
+          <span id="delta">±0 mg/dL/5m</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="label">IOB</div>
+        <div id="iob" class="big">—</div>
+        <div class="sub">COB: <span id="cob">—</span> g</div>
+      </div>
+
+      <div class="card">
+        <div class="label">Basal now</div>
+        <div id="basal" class="big">—</div>
+        <div class="sub">Last bolus: <span id="bolus">—</span><span id="bolus_meta"></span></div>
+      </div>
+    </section>
+
+    <section class="notes">
+      <div>Color gates: <span class="k green">90–120</span> <span class="k amber">70–180</span> <span class="k red">&lt;70 or &gt;180</span></div>
+      <div>Sleep window: <strong>22:00–07:30</strong></div>
+      <div id="updated">—</div>
+    </section>
+  </main>
+
+  <footer>
+    <button id="refresh">Refresh</button>
+    <small>Reads local Nightscout API (mirrors T1Pal via connect). No tokens in page.</small>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
+HTML
