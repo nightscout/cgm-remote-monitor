@@ -36,8 +36,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 [![Coverage Status](https://coveralls.io/repos/github/nightscout/cgm-remote-monitor/badge.svg?branch=master)](https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=master)
 
-[build-img]: https://img.shields.io/travis/nightscout/cgm-remote-monitor.svg
-[build-url]: https://travis-ci.org/nightscout/cgm-remote-monitor
+
+
+[build-img]: https://img.shields.io/github/actions/workflow/status/nightscout/cgm-remote-monitor/main.yml
+[build-url]: https://github.com/nightscout/cgm-remote-monitor/actions/workflows/main.yml
 [dependency-img]: https://img.shields.io/david/nightscout/cgm-remote-monitor.svg
 [dependency-url]: https://david-dm.org/nightscout/cgm-remote-monitor
 [coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/dev.svg
