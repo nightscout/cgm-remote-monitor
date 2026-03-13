@@ -186,6 +186,7 @@ Also if you can't code, it's possible to contribute by improving the documentati
 [@viderehh]: https://github.com/viderehh
 [@OpossumGit]: https://github.com/OpossumGit
 [@Bartlomiejsz]: https://github.com/Bartlomiejsz
+[@inventor96]: https://github.com/inventor96
 
 | Contribution area                     | List of contributors |
 | ------------------------------------- | ---------------------------------- |
