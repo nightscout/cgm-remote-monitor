@@ -300,6 +300,7 @@ autonomy for your data:
 ### Predefined values for your browser settings (optional)
 
   * `TIME_FORMAT` (`12`)- possible values `12` or `24`
+  * `SHOW_SECONDS` (`off`) - possible values `on` or `off`
   * `DAY_START` (`7.0`) - time for start of day (0.0 - 24.0) for features using day time / night time options
   * `DAY_END` (`21.0`) - time for end of day (0.0 - 24.0) for features using day time / night time options
   * `NIGHT_MODE` (`off`) - possible values `on` or `off`
