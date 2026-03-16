@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nightscout.github.io/schemas/capability-snapshot.schema.json",
+  "title": "CapabilitySnapshot",
+  "description": "Point-in-time snapshot of what the controller can actually do right now",
+  "type": "object",
+  "required": ["snapshotId", "controllerInstanceId", "snapshotAt"],
+  "properties": {
+    "snapshotId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this snapshot"
+    },
+    "controllerInstanceId": {
+      "type": "string",
+      "description": "Reference to ControllerInstanceRegistration"
+    },
+    "connectivity": {
+      "type": "object",
+      "description": "Current connectivity status",
+      "properties": {
+        "pumpConnected": {
+          "type": "boolean",
+          "description": "Is pump currently connected"
+        },
+        "pumpLastContact": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last successful communication with pump"
+        },
+        "pumpRSSI": {
+          "type": "integer",
+          "description": "Pump radio signal strength"
+        },
+        "cgmConnected": {
+          "type": "boolean",
+          "description": "Is CGM currently connected"
+        },
+        "cgmLastReading": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of last CGM reading"
+        },
+        "internetConnected": {
+          "type": "boolean",
+          "description": "Is device online"
+        }
+      }
+    },
+    "automationState": {
+      "type": "object",
+      "description": "Current automation status",
+      "properties": {
+        "closedLoopEnabled": {
+          "type": "boolean",
+          "description": "Is closed-loop automation active"
+        },
+        "suspended": {
+          "type": "boolean",
+          "description": "Is insulin delivery suspended"
+        },
+        "suspendReason": {
+          "type": "string",
+          "description": "Why suspended (if applicable)"
+        },
+        "lastLoopTime": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When loop algorithm last ran"
+        },
+        "lastEnactTime": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When last delivery was enacted"
+        }
+      }
+    },
+    "effectiveLimits": {
+      "type": "object",
+      "description": "Current safety limits in effect",
+      "properties": {
+        "maxBasal": {
+          "type": "number",
+          "description": "Maximum basal rate allowed (U/hr)"
+        },
+        "maxBolus": {
+          "type": "number",
+          "description": "Maximum bolus allowed (U)"
+        },
+        "maxIOB": {
+          "type": "number",
+          "description": "Maximum IOB allowed (U)"
+        },
+        "minBG": {
+          "type": "number",
+          "description": "Minimum target BG"
+        }
+      }
+    },
+    "health": {
+      "type": "object",
+      "description": "Device health indicators",
+      "properties": {
+        "reservoirUnits": {
+          "type": "number",
+          "description": "Remaining insulin units in reservoir"
+        },
+        "reservoirLevel": {
+          "type": "string",
+          "enum": ["full", "adequate", "low", "critical"],
+          "description": "Reservoir level category"
+        },
+        "batteryPercent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Pump battery percentage"
+        },
+        "phoneBatteryPercent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Controller device battery"
+        },
+        "podAge": {
+          "type": "integer",
+          "description": "Hours since pod was activated (for pod pumps)"
+        },
+        "podExpires": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When pod expires"
+        },
+        "cgmCalibrationStatus": {
+          "type": "string",
+          "enum": ["ok", "needed", "overdue", "na"],
+          "description": "CGM calibration status"
+        },
+        "sensorAge": {
+          "type": "integer",
+          "description": "Hours since sensor was started"
+        },
+        "timeSyncHealth": {
+          "type": "string",
+          "enum": ["good", "drift", "unknown"],
+          "description": "Clock synchronization status"
+        }
+      }
+    },
+    "degradedCapabilities": {
+      "type": "array",
+      "description": "Capabilities that are currently degraded or unavailable",
+      "items": {
+        "type": "object",
+        "properties": {
+          "capability": {
+            "type": "string",
+            "description": "Which capability is affected"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why it's degraded"
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "snapshotAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this snapshot was taken"
+    },
+    "validFor": {
+      "type": "integer",
+      "description": "How long this snapshot is valid (seconds)"
+    }
+  }
+}
