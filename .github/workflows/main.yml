@@ -16,8 +16,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20, 22]
+        node-version: [20, 22, 24]
         mongodb-version: [4.4, 5.0, 6.0]
+    env:
+      # Temporary: Allow Node 20 until branch protection rules are updated
+      # See: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
     steps:
       - name: Git Checkout

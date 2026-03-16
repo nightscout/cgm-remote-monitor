@@ -21,6 +21,7 @@ describe('Security of REST API V1', function() {
     process.env.API_SECRET = 'this is my long pass phrase';
     self.env = require('../lib/server/env')();
     self.env.settings.authDefaultRoles = 'denied';
+    self.env.settings.authFailDelay = 50;
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
     self.app.enable('api');
