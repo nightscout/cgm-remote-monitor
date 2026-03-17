@@ -194,15 +194,15 @@ These variables control test behavior and MongoDB connection pooling:
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `NODE_ENV=test` | **Required** - Enables test mode, prevents production DB access | - |
-| `MONGO_POOL_SIZE` | MongoDB connection pool size | 10 |
-| `MONGO_MIN_POOL_SIZE` | Minimum pool connections to keep open | 1 |
-| `MONGO_MAX_IDLE_TIME_MS` | Max idle time (ms) before closing connection | 10000 |
+| `MONGO_POOL_SIZE` | MongoDB connection pool size | 5 |
+| `MONGO_MIN_POOL_SIZE` | Minimum pool connections to keep open | 0 |
+| `MONGO_MAX_IDLE_TIME_MS` | Max idle time (ms) before closing connection | 30000 |
 | `AUTH_FAIL_DELAY` | Delay (ms) after auth failure (test speedup) | 5000 |
 
-For CI or resource-constrained environments, reduce pool size:
+For CI or resource-constrained environments, adjust pool size:
 
 ```bash
-MONGO_POOL_SIZE=5 MONGO_MIN_POOL_SIZE=1 npm test
+MONGO_POOL_SIZE=3 MONGO_MIN_POOL_SIZE=1 npm test
 ```
 
 ## Other Dev Tips
