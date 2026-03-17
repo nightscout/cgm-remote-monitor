@@ -55,6 +55,10 @@ describe('API3 output renderers', function() {
     self.subject = authResult.subject;
     self.jwt = authResult.jwt;
     self.cache = self.instance.cacheMonitor;
+    
+    // Clean up ALL entries to ensure test isolation from previous test files
+    const col = self.instance.ctx.store.collection(self.instance.env.entries_collection || 'entries');
+    await col.deleteMany({});
   });
 
 

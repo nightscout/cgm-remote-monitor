@@ -575,5 +575,113 @@ describe('API3 CREATE', function() {
     self.cache.nextShouldDeleteLast(self.col)
   });
 
+
+  // TEST-V3-ID-001: Null identifier generates ObjectId, copies to identifier
+  it('should generate identifier from ObjectId when null (TEST-V3-ID-001)', async () => {
+    const doc = {
+      date: (new Date()).getTime(),
+      app: testConst.TEST_APP,
+      device: testConst.TEST_DEVICE + ' V3-ID-001',
+      eventType: 'Note',
+      notes: 'Test null identifier'
+    };
+    // Don't send identifier at all (simulates null)
+
+    let res = await self.instance.post(self.url, self.jwt.all)
+      .send(doc)
+      .expect(201);
+
+    res.body.status.should.equal(201);
+    // Server should have generated an identifier
+    res.body.identifier.should.be.a.String();
+    res.body.identifier.length.should.be.greaterThan(0);
+
+    // Track cache operation - server generated identifier
+    const docWithId = Object.assign({}, doc, { identifier: res.body.identifier });
+    self.cache.nextShouldEql(self.col, docWithId);
+
+    // Verify stored doc has identifier
+    let body = await self.get(res.body.identifier);
+    body.identifier.should.equal(res.body.identifier);
+    body.notes.should.equal('Test null identifier');
+
+    await self.delete(res.body.identifier);
+    self.cache.nextShouldDeleteLast(self.col);
+  });
+
+
+  // TEST-V3-ID-002: ObjectId string as identifier uses it directly
+  it('should use ObjectId string as identifier (TEST-V3-ID-002)', async () => {
+    // Valid 24-char hex ObjectId format
+    const objectIdIdentifier = '507f1f77bcf86cd799439011';
+    const doc = {
+      date: (new Date()).getTime(),
+      app: testConst.TEST_APP,
+      device: testConst.TEST_DEVICE + ' V3-ID-002',
+      eventType: 'Note',
+      notes: 'Test ObjectId identifier',
+      identifier: objectIdIdentifier
+    };
+
+    let res = await self.instance.post(self.url, self.jwt.all)
+      .send(doc)
+      .expect(201);
+
+    res.body.status.should.equal(201);
+    res.body.identifier.should.equal(objectIdIdentifier);
+    self.cache.nextShouldEql(self.col, doc);
+
+    // Verify stored doc
+    let body = await self.get(objectIdIdentifier);
+    body.identifier.should.equal(objectIdIdentifier);
+    body.notes.should.equal('Test ObjectId identifier');
+
+    await self.delete(objectIdIdentifier);
+    self.cache.nextShouldDeleteLast(self.col);
+  });
+
+
+  // TEST-V3-ID-003: UUID identifier preserved, _id is separate ObjectId
+  it('should preserve UUID identifier (TEST-V3-ID-003)', async () => {
+    const uuidIdentifier = 'E1F2A3B4-C5D6-7890-ABCD-EF1234567890';
+    const doc = {
+      date: (new Date()).getTime(),
+      app: testConst.TEST_APP,
+      device: testConst.TEST_DEVICE + ' V3-ID-003',
+      eventType: 'Temporary Override',
+      reason: 'Test UUID identifier',
+      identifier: uuidIdentifier
+    };
+
+    let res = await self.instance.post(self.url, self.jwt.all)
+      .send(doc)
+      .expect(201);
+
+    res.body.status.should.equal(201);
+    res.body.identifier.should.equal(uuidIdentifier);
+    self.cache.nextShouldEql(self.col, doc);
+
+    // Verify stored doc preserves UUID
+    let body = await self.get(uuidIdentifier);
+    body.identifier.should.equal(uuidIdentifier);
+    body.reason.should.equal('Test UUID identifier');
+
+    // Verify can dedup by same identifier
+    const doc2 = Object.assign({}, doc, { reason: 'Updated reason' });
+    let res2 = await self.instance.post(self.url, self.jwt.all)
+      .send(doc2)
+      .expect(200);
+
+    res2.body.status.should.equal(200);
+    res2.body.isDeduplication.should.equal(true);
+    self.cache.nextShouldEql(self.col, doc2);
+
+    let body2 = await self.get(uuidIdentifier);
+    body2.reason.should.equal('Updated reason');
+
+    await self.delete(uuidIdentifier);
+    self.cache.nextShouldDeleteLast(self.col);
+  });
+
 });
 

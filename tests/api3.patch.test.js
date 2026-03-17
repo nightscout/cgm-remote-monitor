@@ -237,5 +237,44 @@ describe('API3 PATCH', function() {
     self.cache.nextShouldEql(self.col, body)
   });
 
-});
 
+  it('should normalize endmills when patching durationInMilliseconds', async () => {
+    const tempBasalDoc = {
+      date: self.validDoc.date + 1,
+      utcOffset: -180,
+      app: testConst.TEST_APP,
+      device: testConst.TEST_DEVICE + ' API3 PATCH duration',
+      eventType: 'Temp Basal',
+      absolute: 1.2,
+      duration: 30
+    };
+    tempBasalDoc.identifier = opTools.calculateIdentifier(tempBasalDoc);
+
+    let res = await self.instance.post(`${self.url}`, self.jwt.create)
+      .send(tempBasalDoc)
+      .expect(201);
+
+    res.body.status.should.equal(201);
+    self.cache.nextShouldEql(self.col, tempBasalDoc)
+
+    res = await self.instance.patch(`${self.url}/${tempBasalDoc.identifier}`, self.jwt.update)
+      .send({
+        absolute: 0.7,
+        duration: 0,
+        durationInMilliseconds: 26584
+      })
+      .expect(200);
+
+    res.body.status.should.equal(200);
+
+    const body = await self.get(tempBasalDoc.identifier);
+    body.absolute.should.equal(0.7);
+    body.duration.should.equal(0);
+    body.durationInMilliseconds.should.equal(26584);
+    body.endmills.should.equal(tempBasalDoc.date + 26584);
+    body.modifiedBy.should.equal(self.subject.apiUpdate.name);
+
+    self.cache.nextShouldEql(self.col, body)
+  });
+
+});

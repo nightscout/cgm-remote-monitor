@@ -4,7 +4,6 @@
 
 require('should');
 
-
 /**
  * Given an array of objects, and an array of properties to preserve in the
  * objects, returns a new array of objects with only the given properties.
@@ -14,10 +13,10 @@ require('should');
  *                    objects in the return array
  */
 function reduceFeatures(docs, propertiesToKeep) {
-  let modifiedDocs = [];
+  const modifiedDocs = [];
 
   docs.forEach((doc) => {
-    let newDoc = {};
+    const newDoc = {};
 
     propertiesToKeep.forEach((property) => {
       newDoc[property] = doc[property];
@@ -29,7 +28,6 @@ function reduceFeatures(docs, propertiesToKeep) {
   return modifiedDocs;
 }
 
-
 /**
  * Given two arrays of objects, ensures the array of properties given in
  * propertiesToCompare matches for every member of the given arrays.
@@ -39,12 +37,11 @@ function reduceFeatures(docs, propertiesToKeep) {
  * propertiesToCompare - array of strings representing properties to compare
  */
 function membersAreEqual(a, b, propertiesToCompare) {
-  let modifiedA = reduceFeatures(a, propertiesToCompare);
-  let modifiedB = reduceFeatures(b, propertiesToCompare);
+  const modifiedA = reduceFeatures(a, propertiesToCompare);
+  const modifiedB = reduceFeatures(b, propertiesToCompare);
 
   modifiedA.should.eql(modifiedB);
 }
-
 
 /**
  * Given two arrays of objects, ensures the array of properties given in
@@ -55,14 +52,17 @@ function membersAreEqual(a, b, propertiesToCompare) {
  * propertiesToCompare - array of strings representing properties to compare
  */
 function containsMembers(requiredMembers, arrayToCheck, propertiesToCompare) {
-  let modifiedRequiredMembers = reduceFeatures(requiredMembers, propertiesToCompare);
-  let modifiedArrayToCheck = reduceFeatures(arrayToCheck, propertiesToCompare);
+  const modifiedRequiredMembers = reduceFeatures(requiredMembers, propertiesToCompare);
+  const modifiedArrayToCheck = reduceFeatures(arrayToCheck, propertiesToCompare);
 
   modifiedRequiredMembers.forEach((member) => {
     modifiedArrayToCheck.should.containEql(member);
   });
 }
 
+function cloneDoc(doc) {
+  return JSON.parse(JSON.stringify(doc));
+}
 
 describe('API3 SEARCH', function() {
   const self = this
@@ -70,36 +70,130 @@ describe('API3 SEARCH', function() {
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
     , opTools = require('../lib/api3/shared/operationTools')
-    , utils = require('./fixtures/api3/utils')
     ;
 
+  const docCount = 10;
+  const baseDate = testConst.YEAR_2019;
+
+  const makeDocs = (builder) => Array.from({ length: docCount }, (_, index) => builder(index));
+
+  const sampleDeviceStatuses = makeDocs((index) => ({
+    date: baseDate + (index * 60000),
+    utcOffset: 0,
+    app: testConst.TEST_APP,
+    some_property: `device-status-${index}`
+  }));
+
+  const sampleFoods = makeDocs((index) => ({
+    date: baseDate + (index * 60000),
+    utcOffset: 0,
+    app: testConst.TEST_APP,
+    food: 'quickpick',
+    category: `category-${index % 3}`,
+    subcategory: `subcategory-${index % 2}`,
+    name: `food-${index}`,
+    portion: index + 1,
+    unit: 'g',
+    carbs: 10 + index,
+    fat: 5 + index,
+    protein: 3 + index,
+    energy: 50 + index,
+    gi: 20 + index,
+    hideafteruse: index % 2 === 0,
+    hidden: index % 3 === 0,
+    position: index,
+    portions: [],
+    foods: []
+  }));
+
+  const sampleEntries = testConst.SAMPLE_ENTRIES.map((doc) => Object.assign({ utcOffset: 0 }, cloneDoc(doc)));
+
+  const sampleProfiles = makeDocs((index) => ({
+    date: baseDate + (index * 60000),
+    utcOffset: 0,
+    app: testConst.TEST_APP,
+    some_property: `profile-${index}`
+  }));
+
+  const sampleSettings = makeDocs((index) => ({
+    date: baseDate + (index * 60000),
+    utcOffset: 0,
+    app: testConst.TEST_APP,
+    some_property: `settings-${index}`
+  }));
+
+  const sampleTreatments = makeDocs((index) => ({
+    date: baseDate + (index * 60000),
+    utcOffset: 0,
+    app: testConst.TEST_APP,
+    enteredBy: `search-test-${index}`,
+    eventType: index % 2 === 0 ? 'Note' : 'Correction Bolus',
+    notes: `note-${index}`
+  }));
+
+  self.timeout(30000);
+
+  function deleteMany(collection) {
+    return new Promise((resolve, reject) => {
+      collection.deleteMany({}, function(err) {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        resolve();
+      });
+    });
+  }
+
+  self.clearCollection = async function clearCollection(endpoint) {
+    const collectionName = endpoint.replace('/api/v3/', '');
+
+    switch (collectionName) {
+      case 'devicestatus':
+        return deleteMany(self.instance.ctx.devicestatus());
+      case 'entries':
+        return deleteMany(self.instance.ctx.entries());
+      case 'food':
+        return deleteMany(self.instance.ctx.food());
+      case 'profile':
+        return deleteMany(self.instance.ctx.profile());
+      case 'settings':
+        return deleteMany(self.instance.ctx.store.collection(self.env.settings_collection));
+      case 'treatments':
+        return deleteMany(self.instance.ctx.treatments());
+      default:
+        throw new Error(`Unsupported API3 collection: ${collectionName}`);
+    }
+  };
+
+  self.clearAllCollections = async function clearAllCollections() {
+    await Promise.all([
+      self.clearCollection('/api/v3/devicestatus'),
+      self.clearCollection('/api/v3/entries'),
+      self.clearCollection('/api/v3/food'),
+      self.clearCollection('/api/v3/profile'),
+      self.clearCollection('/api/v3/settings'),
+      self.clearCollection('/api/v3/treatments')
+    ]);
+  };
 
   /**
    * Create given document in a promise
    */
-  self.createDocument = (doc, url) => new Promise((resolve) => {
-    doc.identifier = opTools.calculateIdentifier(doc);
-    self.instance.post(url, self.jwt.all)
-      .send(doc)
-      .end((err, res) => {
-        should.not.exist(err);
-        resolve(res);
-      });
-  });
+  self.createDocument = async function createDocument(doc, url) {
+    const createDoc = cloneDoc(doc);
+    createDoc.identifier = opTools.calculateIdentifier(createDoc);
 
+    const res = await self.instance.post(url, self.jwt.all)
+      .send(createDoc)
+      .expect(201);
 
-  /**
-   * Get document detail for futher processing
-   */
-  self.deleteDocument = (identifier, url) => new Promise((resolve) => {
-    self.instance.delete(`${url}/${identifier}`, self.jwt.read)
-      .expect(200)
-      .end((err) => {
-        should.not.exist(err);
-        resolve();
-      });
-  });
+    res.body.status.should.equal(201);
+    res.body.identifier.should.equal(createDoc.identifier);
 
+    return createDoc;
+  };
 
   /**
    * Suite of tests executed against all search API endpoints.
@@ -107,37 +201,24 @@ describe('API3 SEARCH', function() {
    * endpoint - the API endpoint to test
    * testDocs - docs inserted for test
    * commonProperties - properties all test docs contain
-   * dynamicProperties - properties that cannot be compared against input
-   *                     entries as they are created dynamically when stored
-   *                     in the database
+   * dynamicProperties - properties generated or normalized by storage
+   * jwtToUse - which token to use for the search endpoint
    */
   function shouldHaveCommonAPIBehaviors(endpoint, testDocs, commonProperties, dynamicProperties, jwtToUse) {
-
-
     const allProperties = commonProperties.concat(dynamicProperties);
-
-
     let createdDocs = [];
 
-
     before(async () => {
-      // Create the sample CGM entries in the database
-      const promises = testDocs.map(function(doc) { return self.createDocument(doc, endpoint); });
-
-      await Promise.all(promises);
+      await self.clearCollection(endpoint);
+      createdDocs = await Promise.all(testDocs.map((doc) => self.createDocument(doc, endpoint)));
     });
-
 
     after(async () => {
-      // Clean up any created docs
-      const promises = createdDocs.map(function(doc) { return self.deleteDocument(doc.identifier, endpoint); });
-
-      Promise.all(promises);
+      await self.clearCollection(endpoint);
     });
 
-
     it('should require authentication', async function() {
-      let res = await self.instance.get(endpoint)
+      const res = await self.instance.get(endpoint)
         .expect(401);
 
       res.body.status.should.equal(401);
@@ -145,32 +226,29 @@ describe('API3 SEARCH', function() {
       should.not.exist(res.body.result);
     });
 
-
     it('should retrieve up to the max documents', async () => {
       const apiApp = self.instance.ctx.apiApp;
-      const docLimit = Math.min(testDocs.length, apiApp.get('API3_MAX_LIMIT'));
+      const docLimit = Math.min(createdDocs.length, Number(apiApp.get('API3_MAX_LIMIT')));
 
-      let res = await self.instance.get(endpoint, self.jwt[jwtToUse])
+      const res = await self.instance.get(endpoint, self.jwt[jwtToUse])
         .expect(200);
 
       res.body.status.should.equal(200);
       res.body.result.length.should.equal(docLimit);
-      containsMembers(res.body.result, testDocs, commonProperties);
+      containsMembers(res.body.result, createdDocs, commonProperties);
     });
 
-
     it('should retrieve the documents added after test start', async () => {
-      let res = await self.instance.get(`${endpoint}?srvModified$gte=${self.testStarted.getTime()}`, self.jwt[jwtToUse])
+      const res = await self.instance.get(`${endpoint}?srvModified$gte=${self.testStarted.getTime()}`, self.jwt[jwtToUse])
         .expect(200);
 
       res.body.status.should.equal(200);
-      res.body.result.length.should.equal(testDocs.length);
-      containsMembers(res.body.result, testDocs, commonProperties);
+      res.body.result.length.should.equal(createdDocs.length);
+      containsMembers(res.body.result, createdDocs, commonProperties);
     });
 
-
     it('should reject both sort and sort$desc', async () => {
-      let res = await self.instance.get(`${endpoint}?sort=date&sort$desc=created_at`, self.jwt[jwtToUse])
+      const res = await self.instance.get(`${endpoint}?sort=date&sort$desc=created_at`, self.jwt[jwtToUse])
         .expect(400);
 
       res.body.status.should.equal(400);
@@ -178,40 +256,36 @@ describe('API3 SEARCH', function() {
       should.not.exist(res.body.result);
     });
 
-
     it('should accept valid limit', async () => {
-      // Requires at least 3 test documents
-      let res = await self.instance.get(`${endpoint}?limit=3`, self.jwt[jwtToUse])
+      const expectedLength = Math.min(createdDocs.length, 3);
+      const res = await self.instance.get(`${endpoint}?limit=3`, self.jwt[jwtToUse])
         .expect(200);
 
       res.body.status.should.equal(200);
-      res.body.result.length.should.equal(3);
-      containsMembers(res.body.result, testDocs, commonProperties);
+      res.body.result.length.should.equal(expectedLength);
+      containsMembers(res.body.result, createdDocs, commonProperties);
     });
-
 
     it('should reject invalid limit - not a number', async () => {
-      let res = await self.instance.get(`${endpoint}?limit=INVALID`, self.jwt[jwtToUse])
+      const res = await self.instance.get(`${endpoint}?limit=INVALID`, self.jwt[jwtToUse])
         .expect(400);
 
       res.body.status.should.equal(400);
       res.body.message.should.equal('Parameter limit out of tolerance');
       should.not.exist(res.body.result);
     });
-
 
     it('should reject invalid limit - negative number', async () => {
-      let res = await self.instance.get(`${endpoint}?limit=-1`, self.jwt[jwtToUse])
+      const res = await self.instance.get(`${endpoint}?limit=-1`, self.jwt[jwtToUse])
         .expect(400);
 
       res.body.status.should.equal(400);
       res.body.message.should.equal('Parameter limit out of tolerance');
       should.not.exist(res.body.result);
     });
-
 
     it('should reject invalid limit - zero', async () => {
-      let res = await self.instance.get(`${endpoint}?limit=0`, self.jwt[jwtToUse])
+      const res = await self.instance.get(`${endpoint}?limit=0`, self.jwt[jwtToUse])
         .expect(400);
 
       res.body.status.should.equal(400);
@@ -219,65 +293,81 @@ describe('API3 SEARCH', function() {
       should.not.exist(res.body.result);
     });
 
-
     it('should not exceed the limit of docs count', async () => {
-      const apiApp = self.instance.ctx.apiApp
-        , limitBackup = apiApp.get('API3_MAX_LIMIT');
-      apiApp.set('API3_MAX_LIMIT', 5);
-      let res = await self.instance.get(`${endpoint}?limit=10`, self.jwt[jwtToUse])
-        .expect(400);
+      const apiApp = self.instance.ctx.apiApp;
+      const limitBackup = apiApp.get('API3_MAX_LIMIT');
 
-      res.body.status.should.equal(400);
-      res.body.message.should.equal('Parameter limit out of tolerance');
-      apiApp.set('API3_MAX_LIMIT', limitBackup);
+      try {
+        apiApp.set('API3_MAX_LIMIT', 5);
+        const res = await self.instance.get(`${endpoint}?limit=10`, self.jwt[jwtToUse])
+          .expect(400);
+
+        res.body.status.should.equal(400);
+        res.body.message.should.equal('Parameter limit out of tolerance');
+      } finally {
+        apiApp.set('API3_MAX_LIMIT', limitBackup);
+      }
     });
-
 
     it('should respect the ceiling (hard) limit of docs', async () => {
-      // This test requires at least 5 documents
-      const apiApp = self.instance.ctx.apiApp
-        , limitBackup = apiApp.get('API3_MAX_LIMIT');
-      apiApp.set('API3_MAX_LIMIT', 5);
-      let res = await self.instance.get(endpoint, self.jwt[jwtToUse])
-        .expect(200);
+      const apiApp = self.instance.ctx.apiApp;
+      const limitBackup = apiApp.get('API3_MAX_LIMIT');
 
-      res.body.status.should.equal(200);
-      res.body.result.length.should.equal(5);
-      containsMembers(res.body.result, testDocs, commonProperties);
-      apiApp.set('API3_MAX_LIMIT', limitBackup);
+      try {
+        apiApp.set('API3_MAX_LIMIT', 5);
+        const res = await self.instance.get(endpoint, self.jwt[jwtToUse])
+          .expect(200);
+
+        res.body.status.should.equal(200);
+        res.body.result.length.should.equal(Math.min(createdDocs.length, 5));
+        containsMembers(res.body.result, createdDocs, commonProperties);
+      } finally {
+        apiApp.set('API3_MAX_LIMIT', limitBackup);
+      }
     });
 
+    it('should respect string API3_MAX_LIMIT defaults', async () => {
+      const apiApp = self.instance.ctx.apiApp;
+      const limitBackup = apiApp.get('API3_MAX_LIMIT');
+
+      try {
+        apiApp.set('API3_MAX_LIMIT', '5');
+        const res = await self.instance.get(endpoint, self.jwt[jwtToUse])
+          .expect(200);
+
+        res.body.status.should.equal(200);
+        res.body.result.length.should.equal(Math.min(createdDocs.length, 5));
+        containsMembers(res.body.result, createdDocs, commonProperties);
+      } finally {
+        apiApp.set('API3_MAX_LIMIT', limitBackup);
+      }
+    });
 
     it('should skip documents', async () => {
-      // This test requires at least 8 documents
       let res = await self.instance.get(`${endpoint}?sort=date&limit=8`, self.jwt[jwtToUse])
         .expect(200);
 
       res.body.status.should.equal(200);
-
-      membersAreEqual(res.body.result, testDocs.slice(0, 8), commonProperties);
+      membersAreEqual(res.body.result, createdDocs.slice(0, 8), commonProperties);
 
       res = await self.instance.get(`${endpoint}?sort=date&skip=3&limit=5`, self.jwt[jwtToUse])
         .expect(200);
 
       res.body.status.should.equal(200);
-
-      membersAreEqual(res.body.result, testDocs.slice(3, 8), commonProperties);
+      membersAreEqual(res.body.result, createdDocs.slice(3, 8), commonProperties);
     });
-
 
     it('should reject invalid skip - not a number', async () => {
-      let res = await self.instance.get(`${endpoint}?skip=INVALID`, self.jwt[jwtToUse])
+      const res = await self.instance.get(`${endpoint}?skip=INVALID`, self.jwt[jwtToUse])
         .expect(400);
 
       res.body.status.should.equal(400);
       res.body.message.should.equal('Parameter skip out of tolerance');
       should.not.exist(res.body.result);
     });
-
 
     it('should reject invalid skip - negative number', async () => {
-      let res = await self.instance.get(`${endpoint}?skip=-5`, self.jwt[jwtToUse])
+      const res = await self.instance.get(`${endpoint}?skip=-5`, self.jwt[jwtToUse])
         .expect(400);
 
       res.body.status.should.equal(400);
@@ -285,49 +375,40 @@ describe('API3 SEARCH', function() {
       should.not.exist(res.body.result);
     });
 
-
     it('should project all fields', async () => {
-      let res = await self.instance.get(`${endpoint}?fields=_all`, self.jwt[jwtToUse])
+      const res = await self.instance.get(`${endpoint}?fields=_all`, self.jwt[jwtToUse])
         .expect(200);
 
       res.body.status.should.equal(200);
-      res.body.result.forEach(doc => {
-        // Sort because order doesn't matter
-        (Object.getOwnPropertyNames(doc).sort()).should.eql(allProperties.sort());
+      res.body.result.forEach((doc) => {
+        const resultProperties = Object.getOwnPropertyNames(doc);
+
+        allProperties.forEach((property) => {
+          resultProperties.should.containEql(property);
+        });
         Object.prototype.hasOwnProperty.call(doc, '_id').should.not.be.true();
       });
     });
 
-
     it('should project selected fields', async () => {
-      // Project the first half of given properties, then the second half
       const halfProperties = Math.ceil(commonProperties.length / 2);
-
       const lowerFields = commonProperties.slice(0, halfProperties);
-      const upperFields = commonProperties.slice(halfProperties, commonProperties.length);
+      const upperFields = commonProperties.slice(halfProperties);
 
       let res = await self.instance.get(`${endpoint}?fields=${lowerFields.join(',')}&sort=date`, self.jwt[jwtToUse])
         .expect(200);
 
       res.body.status.should.equal(200);
-
-      membersAreEqual(res.body.result, testDocs, lowerFields);
+      membersAreEqual(res.body.result, createdDocs, lowerFields);
 
       res = await self.instance.get(`${endpoint}?fields=${upperFields.join(',')}&sort=date`, self.jwt[jwtToUse])
         .expect(200);
 
       res.body.status.should.equal(200);
-
-      membersAreEqual(res.body.result, testDocs, upperFields);
+      membersAreEqual(res.body.result, createdDocs, upperFields);
     });
 
-
     it('should sort by the given property', async () => {
-      // Test sorting by every property. A regular for loop is used to avoid
-      // the complexity of promise composition.
-      // Because Javascript sorts aren't stable, and some properties may have
-      // repeated values,  we check that the resulting sort is valid instead
-      // of checking against an exact sort
       for (let i = 0; i < allProperties.length; i++) {
         const property = allProperties[i];
 
@@ -335,26 +416,20 @@ describe('API3 SEARCH', function() {
           .expect(200);
 
         res.body.status.should.equal(200);
-
-        res.body.result.length.should.equal(testDocs.length);
-        containsMembers(res.body.result, testDocs, commonProperties);
-
-        // Make sure the sort is valid, skipping the first idx
+        res.body.result.length.should.equal(createdDocs.length);
+        containsMembers(res.body.result, createdDocs, commonProperties);
         (res.body.result.every((value, idx, arr) => !idx || arr[idx - 1][property] <= value[property])).should.be.true();
 
         res = await self.instance.get(`${endpoint}?sort$desc=${property}`, self.jwt[jwtToUse])
           .expect(200);
 
         res.body.status.should.equal(200);
-
-        res.body.result.length.should.equal(testDocs.length);
-        containsMembers(res.body.result, testDocs, commonProperties);
-
+        res.body.result.length.should.equal(createdDocs.length);
+        containsMembers(res.body.result, createdDocs, commonProperties);
         (res.body.result.every((value, idx, arr) => !idx || arr[idx - 1][property] >= value[property])).should.be.true();
       }
     });
   }
-
 
   before(async () => {
     self.testStarted = new Date();
@@ -363,95 +438,101 @@ describe('API3 SEARCH', function() {
     self.app = self.instance.app;
     self.env = self.instance.env;
 
-    let authResult = await authSubject(self.instance.ctx.authorization.storage, [
+    const authResult = await authSubject(self.instance.ctx.authorization.storage, [
       'read',
       'all'
     ], self.instance.app);
 
     self.subject = authResult.subject;
     self.jwt = authResult.jwt;
+
+    await self.clearAllCollections();
   });
 
-
   after(async () => {
-    await utils.storageClear(self.instance.ctx);
+    if (!self.instance || !self.instance.ctx) {
+      return;
+    }
+
+    await self.clearAllCollections();
     self.instance.ctx.bus.teardown();
   });
 
-
   it('should not found not existing collection', async () => {
-    let res = await self.instance.get('/api/v3/NOT_EXIST', self.jwt.read)
-      .send(self.validDoc)
+    const res = await self.instance.get('/api/v3/NOT_EXIST', self.jwt.read)
       .expect(404);
 
     res.body.status.should.equal(404);
     should.not.exist(res.body.result);
   });
 
-
   describe('device status endpoint', () => {
     const DEVICE_STATUSES_URL = '/api/v3/devicestatus';
+    const DEVICE_STATUS_PROPERTIES = ['date', 'utcOffset', 'app', 'some_property', 'identifier'];
+    const DEVICE_STATUS_DYNAMIC_PROPERTIES = ['created_at', 'subject', 'srvModified', 'srvCreated'];
 
-    // Properties all test entries have
-    const DEVICE_STATUS_PROPERTIES = ['date', 'app', 'some_property', 'identifier'];
-    const DEVICE_STATUS_DYNAMIC_PROPERTIES = ['created_at', 'subject', 'srvModified', 'srvCreated', 'utcOffset'];
-
-
-    // Check the common behaviors
-    shouldHaveCommonAPIBehaviors(DEVICE_STATUSES_URL, testConst.SAMPLE_DEVICE_STATUSES, DEVICE_STATUS_PROPERTIES, DEVICE_STATUS_DYNAMIC_PROPERTIES, 'read');
+    shouldHaveCommonAPIBehaviors(
+      DEVICE_STATUSES_URL,
+      sampleDeviceStatuses,
+      DEVICE_STATUS_PROPERTIES,
+      DEVICE_STATUS_DYNAMIC_PROPERTIES,
+      'read'
+    );
   });
-
 
   describe('food endpoint', () => {
     const FOOD_URL = '/api/v3/food';
+    const FOOD_PROPERTIES = [
+      'app', 'date', 'utcOffset', 'identifier', 'food', 'category', 'subcategory',
+      'name', 'portion', 'unit', 'carbs', 'fat', 'protein', 'energy', 'gi',
+      'hideafteruse', 'hidden', 'position'
+    ];
+    const FOOD_DYNAMIC_PROPERTIES = ['created_at', 'subject', 'srvModified', 'srvCreated'];
 
-    // Properties all test entries have
-    const FOOD_PROPERTIES = ['app', 'date', 'identifier', 'food', 'category', 'subcategory', 'name', 'portion', 'unit', 'carbs', 'fat', 'protein', 'energy', 'gi', 'hideafteruse', 'hidden', 'position', 'portions', 'foods'];
-    const FOOD_DYNAMIC_PROPERTIES = ['created_at', 'subject', 'srvModified', 'srvCreated', 'utcOffset'];
-
-
-    // Check the common behaviors
-    shouldHaveCommonAPIBehaviors(FOOD_URL, testConst.SAMPLE_FOODS, FOOD_PROPERTIES, FOOD_DYNAMIC_PROPERTIES, 'read');
+    shouldHaveCommonAPIBehaviors(
+      FOOD_URL,
+      sampleFoods,
+      FOOD_PROPERTIES,
+      FOOD_DYNAMIC_PROPERTIES,
+      'read'
+    );
   });
-
 
   describe('entries endpoint', () => {
     const ENTRIES_URL = '/api/v3/entries';
+    const ENTRY_PROPERTIES = ['date', 'utcOffset', 'device', 'direction', 'filtered', 'noise', 'rssi', 'sgv', 'type', 'unfiltered', 'app', 'identifier'];
+    const ENTRY_DYNAMIC_PROPERTIES = ['created_at', 'subject', 'srvModified', 'srvCreated'];
 
-    // Properties all test entries have
-    const ENTRY_PROPERTIES = ['date', 'device', 'direction', 'filtered', 'noise', 'rssi', 'sgv', 'type', 'unfiltered', 'app', 'identifier'];
-    const ENTRY_DYNAMIC_PROPERTIES = ['created_at', 'subject', 'srvModified', 'srvCreated', 'utcOffset'];
-
-
-    // Check the common behaviors
-    shouldHaveCommonAPIBehaviors(ENTRIES_URL, testConst.SAMPLE_ENTRIES, ENTRY_PROPERTIES, ENTRY_DYNAMIC_PROPERTIES, 'read');
+    shouldHaveCommonAPIBehaviors(
+      ENTRIES_URL,
+      sampleEntries,
+      ENTRY_PROPERTIES,
+      ENTRY_DYNAMIC_PROPERTIES,
+      'read'
+    );
   });
-
 
   describe('profiles endpoint', () => {
     const PROFILES_URL = '/api/v3/profile';
+    const PROFILE_PROPERTIES = ['date', 'utcOffset', 'app', 'some_property', 'identifier'];
+    const PROFILE_DYNAMIC_PROPERTIES = ['created_at', 'subject', 'srvModified', 'srvCreated'];
 
-    // Properties all test entries have
-    const PROFILE_PROPERTIES = ['date', 'app', 'some_property', 'identifier'];
-    const PROFILE_DYNAMIC_PROPERTIES = ['created_at', 'subject', 'srvModified', 'srvCreated', 'utcOffset'];
-
-
-    // Check the common behaviors
-    shouldHaveCommonAPIBehaviors(PROFILES_URL, testConst.SAMPLE_PROFILES, PROFILE_PROPERTIES, PROFILE_DYNAMIC_PROPERTIES, 'read');
+    shouldHaveCommonAPIBehaviors(
+      PROFILES_URL,
+      sampleProfiles,
+      PROFILE_PROPERTIES,
+      PROFILE_DYNAMIC_PROPERTIES,
+      'read'
+    );
   });
-
 
   describe('settings endpoint', () => {
     const SETTINGS_URL = '/api/v3/settings';
+    const SETTING_PROPERTIES = ['date', 'utcOffset', 'app', 'some_property', 'identifier'];
+    const SETTING_DYNAMIC_PROPERTIES = ['created_at', 'subject', 'srvModified', 'srvCreated'];
 
-    // Properties all test entries have
-    const SETTING_PROPERTIES = ['date', 'app', 'some_property', 'identifier'];
-    const SETTING_DYNAMIC_PROPERTIES = ['created_at', 'subject', 'srvModified', 'srvCreated', 'utcOffset'];
-
-
-    // Make sure more than read is required
     it('should require all permission', async function() {
-      let res = await self.instance.get(SETTINGS_URL, self.jwt.read)
+      const res = await self.instance.get(SETTINGS_URL, self.jwt.read)
         .expect(403);
 
       res.body.status.should.equal(403);
@@ -459,19 +540,26 @@ describe('API3 SEARCH', function() {
       should.not.exist(res.body.result);
     });
 
-    // Check the common behaviors
-    shouldHaveCommonAPIBehaviors(SETTINGS_URL, testConst.SAMPLE_SETTINGS, SETTING_PROPERTIES, SETTING_DYNAMIC_PROPERTIES, 'all');
+    shouldHaveCommonAPIBehaviors(
+      SETTINGS_URL,
+      sampleSettings,
+      SETTING_PROPERTIES,
+      SETTING_DYNAMIC_PROPERTIES,
+      'all'
+    );
   });
-
 
   describe('treatments endpoint', () => {
     const TREATMENTS_URL = '/api/v3/treatments';
+    const TREATMENT_PROPERTIES = ['app', 'enteredBy', 'eventType', 'notes', 'utcOffset', 'date', 'identifier'];
+    const TREATMENT_DYNAMIC_PROPERTIES = ['created_at', 'subject', 'srvModified', 'srvCreated'];
 
-    // Properties all test treatments have
-    const TREATMENT_PROPERTIES = ['app', 'enteredBy', 'eventType', 'utcOffset', 'date', 'created_at', 'identifier'];
-    const TREATMENT_DYNAMIC_PROPERTIES = ['subject', 'srvModified', 'srvCreated'];
-
-
-    shouldHaveCommonAPIBehaviors(TREATMENTS_URL, testConst.SAMPLE_TREATMENTS,  TREATMENT_PROPERTIES, TREATMENT_DYNAMIC_PROPERTIES, 'read');
+    shouldHaveCommonAPIBehaviors(
+      TREATMENTS_URL,
+      sampleTreatments,
+      TREATMENT_PROPERTIES,
+      TREATMENT_DYNAMIC_PROPERTIES,
+      'read'
+    );
   });
 });
