@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nightscout.github.io/schemas/override-instance.schema.json",
+  "title": "OverrideInstance",
+  "description": "A concrete activation of an override, representing runtime intent to modify therapy parameters",
+  "type": "object",
+  "required": ["instanceId", "start", "status", "requestedBy"],
+  "properties": {
+    "instanceId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this override activation"
+    },
+    "definitionId": {
+      "type": ["string", "null"],
+      "description": "Reference to OverrideDefinition if using a template; null for ad-hoc overrides"
+    },
+    "start": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this override becomes active"
+    },
+    "duration": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Duration in seconds; null means indefinite"
+    },
+    "end": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "When this override ends (computed from start+duration or explicit)"
+    },
+    "effectiveEffects": {
+      "type": "object",
+      "description": "Resolved effects for this instance (may differ from definition due to overrides)",
+      "properties": {
+        "targetRange": {
+          "type": "object",
+          "properties": {
+            "low": { "type": "number" },
+            "high": { "type": "number" }
+          }
+        },
+        "basalMultiplier": { "type": "number" },
+        "sensitivityMultiplier": { "type": "number" },
+        "carbRatioMultiplier": { "type": "number" },
+        "maxBasalCeiling": { "type": "number" }
+      }
+    },
+    "requestedBy": {
+      "type": "object",
+      "required": ["issuerType", "issuerId", "authority"],
+      "properties": {
+        "issuerType": {
+          "type": "string",
+          "enum": ["human", "controller", "agent", "caregiver"]
+        },
+        "issuerId": {
+          "type": "string"
+        },
+        "authority": {
+          "type": "string",
+          "enum": ["primary", "delegated", "automated"],
+          "description": "Authority level of the requester"
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "active", "ended", "canceled", "superseded"],
+      "description": "Current status of this override instance"
+    },
+    "supersededBy": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "If superseded, the instanceId of the override that replaced this one"
+    },
+    "endedBy": {
+      "type": "object",
+      "description": "Who ended this override (if manually ended)",
+      "properties": {
+        "issuerType": {
+          "type": "string",
+          "enum": ["human", "controller", "agent", "caregiver"]
+        },
+        "issuerId": { "type": "string" },
+        "endedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Why this override was activated"
+    },
+    "annotations": {
+      "type": "object",
+      "description": "Extensible metadata",
+      "properties": {
+        "externalContext": {
+          "type": "object",
+          "description": "External data that informed this override",
+          "properties": {
+            "hormoneCycleDay": { "type": "integer" },
+            "activityLevel": { "type": "string" },
+            "geolocation": { "type": "string" },
+            "stressIndicator": { "type": "number" }
+          }
+        },
+        "agentReasoning": {
+          "type": "string",
+          "description": "If agent-initiated, explanation of reasoning"
+        }
+      }
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
