@@ -45,13 +45,13 @@ function clearModuleCache() {
   });
 }
 
-describe('UUID_HANDLING=false (default)', function() {
+describe('UUID_HANDLING=false (explicit)', function() {
   var self = this;
   this.timeout(10000);
   
   before(function(done) {
-    // Ensure UUID_HANDLING is OFF
-    delete process.env.UUID_HANDLING;
+    // Explicitly set UUID_HANDLING OFF (default changed to true in 15.0.7)
+    process.env.UUID_HANDLING = 'false';
     clearModuleCache();
     
     process.env.API_SECRET = 'this is my long pass phrase';
