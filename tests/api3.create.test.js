@@ -82,7 +82,8 @@ describe('API3 CREATE', function() {
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.ctx.bus.teardown();
   });
 
