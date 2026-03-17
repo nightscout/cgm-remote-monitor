@@ -166,6 +166,24 @@ You can create a `my.test.env` file based on `ci.test.env` for local testing:
 source my.test.env && npm test
 ```
 
+### Test Environment Variables
+
+These variables control test behavior and MongoDB connection pooling:
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `NODE_ENV=test` | **Required** - Enables test mode, prevents production DB access | - |
+| `MONGO_POOL_SIZE` | MongoDB connection pool size | 10 |
+| `MONGO_MIN_POOL_SIZE` | Minimum pool connections to keep open | 1 |
+| `MONGO_MAX_IDLE_TIME_MS` | Max idle time (ms) before closing connection | 10000 |
+| `AUTH_FAIL_DELAY` | Delay (ms) after auth failure (test speedup) | 5000 |
+
+For CI or resource-constrained environments, reduce pool size:
+
+```bash
+MONGO_POOL_SIZE=5 MONGO_MIN_POOL_SIZE=1 npm test
+```
+
 ## Other Dev Tips
 
 * Join the [Discord chat][discord-url].
