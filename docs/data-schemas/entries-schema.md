@@ -52,13 +52,14 @@ The `entries` collection stores CGM (Continuous Glucose Monitor) sensor readings
 
 ### Identifier Field Normalization (REQ-SYNC-072)
 
-As of v15.0.7, the server **automatically normalizes** client sync identities into the `identifier` field:
+As of v15.0.7, the server **always** normalizes certain client sync identities into the `identifier` field on write:
 
 | Client | Sends | Server Action |
 |--------|-------|---------------|
-| **Trio** | UUID in `_id` | Extract to `identifier`, assign server ObjectId |
-| **xDrip+** | `uuid` or `identifier` | Copy to `identifier` if present |
-| **Loop** | ObjectId (from cache) | Normal ObjectId behavior |
+| **Trio** | UUID in `_id` | Move to `identifier`, assign server ObjectId |
+| **Loop** (entries) | ObjectId (from cache) | Normal ObjectId behavior |
+
+**Note**: The write-path normalization happens **always**. The `UUID_HANDLING` env var only controls the **read path** (GET/DELETE by UUID).
 
 **Important**: For entries, `sysTime + type` is ALWAYS the primary deduplication key. The `identifier` field is for client sync tracking only - it does NOT override the dedup logic.
 
@@ -93,19 +94,23 @@ This prevents the MongoDB "immutable field '_id'" error while preserving client 
 
 ## UUID_HANDLING Feature Flag
 
-When `UUID_HANDLING=true` environment variable is set:
+The `UUID_HANDLING` environment variable controls **read path** behavior (GET/DELETE by UUID). It does NOT affect write normalization, which always happens.
+
+When `UUID_HANDLING=true` (default):
 
 | Operation | Behavior |
 |-----------|----------|
 | GET by UUID | Searches by `identifier` field |
 | DELETE by UUID | Deletes by `identifier` field |
 
-When `UUID_HANDLING=false` (default):
+When `UUID_HANDLING=false` (strict mode):
 
 | Operation | Behavior |
 |-----------|----------|
 | GET by UUID | Returns empty (no crash) |
 | DELETE by UUID | Deletes nothing (no crash) |
+
+**Note**: This only affects cases where a UUID is passed as the `_id` parameter in API calls (e.g., `GET /api/v1/entries/{uuid}`).
 
 See [uuid-identifier-lookup specification](../../docs/backlogs/uuid-identifier-lookup.md) for details.
 

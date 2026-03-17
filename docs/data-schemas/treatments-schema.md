@@ -123,14 +123,16 @@ The `treatments` collection stores all user interventions and system events rela
 
 ### Identifier Field Normalization (REQ-SYNC-072)
 
-As of v15.0.7, the server **automatically normalizes** client sync identities into the `identifier` field:
+As of v15.0.7, the server **always** normalizes client sync identities into the `identifier` field on write:
 
 | Client | Client Field | Server Action |
 |--------|--------------|---------------|
-| **Loop** (overrides) | UUID in `_id` | Extract to `identifier`, assign server ObjectId |
+| **Loop** (overrides) | UUID in `_id` | Move to `identifier`, assign server ObjectId |
 | **Loop** (carbs/doses) | `syncIdentifier` | Copy to `identifier` |
 | **AAPS** | `identifier` | Unchanged (already correct) |
 | **xDrip+** | `uuid` | Copy to `identifier` |
+
+**Note**: This write-path normalization happens **always**, regardless of the `UUID_HANDLING` env var. The flag only controls **read path** behavior (GET/DELETE by UUID).
 
 **Deduplication Priority:** The server uses `identifier` for upsert matching when present, falling back to `created_at + eventType` for legacy records.
 
