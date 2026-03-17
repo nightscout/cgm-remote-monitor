@@ -123,22 +123,22 @@ The `treatments` collection stores all user interventions and system events rela
 
 ### Identifier Field Normalization (REQ-SYNC-072)
 
-As of v15.0.7, the server normalizes **UUID values in the `_id` field** to the `identifier` field:
+As of v15.0.7, the server normalizes **UUID values in the `_id` field** when `UUID_HANDLING=true` (default):
 
-| Client | Client Field | Server Action |
-|--------|--------------|---------------|
-| **Loop** (overrides) | UUID in `_id` | Move to `identifier`, assign server ObjectId |
-| **Loop** (carbs/doses) | `syncIdentifier` | Preserved as-is (no server-side dedup) |
-| **AAPS** | `identifier` | Unchanged (already correct) |
-| **xDrip+** | `uuid` | Preserved as-is (no server-side dedup) |
+| Client | Client Field | UUID_HANDLING=true | UUID_HANDLING=false |
+|--------|--------------|---------------------|----------------------|
+| **Loop** (overrides) | UUID in `_id` | Move to `identifier`, assign ObjectId | Strip `_id`, assign ObjectId (UUID not preserved) |
+| **Loop** (carbs/doses) | `syncIdentifier` | Preserved as-is | Preserved as-is |
+| **AAPS** | `identifier` | Unchanged (already correct) | Unchanged (already correct) |
+| **xDrip+** | `uuid` | Preserved as-is | Preserved as-is |
 
 **Scope:** Only UUID values in the `_id` field are affected. Other client identity fields (`syncIdentifier`, `uuid`) are preserved but NOT copied to `identifier`.
 
-**Note:** `UUID_HANDLING` env var controls both read and write paths for UUID `_id` handling.
+**UUID_HANDLING controls both write-path normalization and read-path queries** (GET/DELETE by UUID `_id`).
 
 **Deduplication Priority:** The server uses `identifier` or `_id` for upsert matching when present, falling back to `created_at + eventType` for legacy records.
 
-**Example - Loop Override Upload:**
+**Example - Loop Override Upload (UUID_HANDLING=true):**
 
 ```javascript
 // Client sends:
