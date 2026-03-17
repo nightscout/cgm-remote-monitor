@@ -112,8 +112,6 @@ When `UUID_HANDLING=false` (strict mode):
 
 **Note**: This only affects cases where a UUID is passed as the `_id` parameter in API calls (e.g., `GET /api/v1/entries/{uuid}`).
 
-See [uuid-identifier-lookup specification](../../docs/backlogs/uuid-identifier-lookup.md) for details.
-
 ---
 
 ## Example Entry Document

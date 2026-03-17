@@ -114,27 +114,29 @@ The `treatments` collection stores all user interventions and system events rela
 |-------|------|--------|-------------|
 | `srvCreated` | String (ISO 8601) | Server | When the server first received this record |
 | `srvModified` | String (ISO 8601) | Server | When the server last modified this record |
-| `identifier` | String | Server-normalized | **Unified client sync identity** (see below) |
-| `syncIdentifier` | String | Loop | Loop carbs/doses sync identity (promoted to `identifier`) |
-| `uuid` | String | xDrip+ | xDrip+ sync identity (promoted to `identifier`) |
+| `identifier` | String | Server/Client | Unified sync identity (see below) |
+| `syncIdentifier` | String | Loop | Loop carbs/doses sync identity (preserved, not copied) |
+| `uuid` | String | xDrip+ | xDrip+ sync identity (preserved, not copied) |
 | `pumpId` | String | Loop/pumps | Pump-assigned identifier |
 | `pumpType` | String | Loop/pumps | Type of pump that created this treatment |
 | `pumpSerial` | String | Loop/pumps | Serial number of the pump |
 
 ### Identifier Field Normalization (REQ-SYNC-072)
 
-As of v15.0.7, the server **always** normalizes client sync identities into the `identifier` field on write:
+As of v15.0.7, the server normalizes **UUID values in the `_id` field** to the `identifier` field:
 
 | Client | Client Field | Server Action |
 |--------|--------------|---------------|
 | **Loop** (overrides) | UUID in `_id` | Move to `identifier`, assign server ObjectId |
-| **Loop** (carbs/doses) | `syncIdentifier` | Copy to `identifier` |
+| **Loop** (carbs/doses) | `syncIdentifier` | Preserved as-is (no server-side dedup) |
 | **AAPS** | `identifier` | Unchanged (already correct) |
-| **xDrip+** | `uuid` | Copy to `identifier` |
+| **xDrip+** | `uuid` | Preserved as-is (no server-side dedup) |
 
-**Note**: This write-path normalization happens **always**, regardless of the `UUID_HANDLING` env var. The flag only controls **read path** behavior (GET/DELETE by UUID).
+**Scope:** Only UUID values in the `_id` field are affected. Other client identity fields (`syncIdentifier`, `uuid`) are preserved but NOT copied to `identifier`.
 
-**Deduplication Priority:** The server uses `identifier` for upsert matching when present, falling back to `created_at + eventType` for legacy records.
+**Note:** `UUID_HANDLING` env var controls both read and write paths for UUID `_id` handling.
+
+**Deduplication Priority:** The server uses `identifier` or `_id` for upsert matching when present, falling back to `created_at + eventType` for legacy records.
 
 **Example - Loop Override Upload:**
 
@@ -146,10 +148,7 @@ As of v15.0.7, the server **always** normalizes client sync identities into the 
 { "_id": ObjectId("..."), "identifier": "A1B2C3D4-E5F6-7890-ABCD-EF1234567890", "eventType": "Temporary Override", ... }
 ```
 
-**Benefits:**
-- Re-uploading the same treatment (even after app reinstall/cache clear) updates the existing record
-- All client systems now have consistent deduplication behavior
-- Existing `_id`-based references continue to work
+**Note:** Loop carbs/doses (which use `syncIdentifier`) rely on Loop's local ObjectIdCache for dedup, not server-side logic.
 
 ---
 
