@@ -142,6 +142,30 @@ Once `dev` has been reviewed and people feel it's time to release, we follow the
 
 Every commit is tested by travis.  We encourage adding tests to validate your design.  We encourage discussing your use cases to help everyone get a better understanding of your design.
 
+## Running Tests Locally
+
+Tests **require** `NODE_ENV=test` to protect production databases from accidental destruction. If this variable is not set, tests will refuse to run and exit with an error.
+
+```bash
+# Run all tests
+NODE_ENV=test npm test
+
+# Run only unit tests (parallel, fast)
+NODE_ENV=test npm run test:unit
+
+# Run only integration tests (sequential, needs MongoDB)
+NODE_ENV=test npm run test:integration
+
+# Run specific test files
+NODE_ENV=test npm test -- --grep "treatments"
+```
+
+You can create a `my.test.env` file based on `ci.test.env` for local testing:
+
+```bash
+source my.test.env && npm test
+```
+
 ## Other Dev Tips
 
 * Join the [Discord chat][discord-url].
