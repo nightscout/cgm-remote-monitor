@@ -7,14 +7,14 @@ All notable changes to cgm-remote-monitor are documented in this file.
 ### Added
 
 #### UUID/Identifier Handling (REQ-SYNC-072)
-- **Treatments API**: Server now normalizes client sync identities into a unified `identifier` field
+- **Treatments API**: UUID values in `_id` field are now extracted to `identifier`
   - Loop overrides: UUID in `_id` → extracted to `identifier`
-  - Loop carbs/doses: `syncIdentifier` → copied to `identifier`
-  - xDrip+: `uuid` → copied to `identifier`
+  - Loop carbs/doses: `syncIdentifier` field used for dedup (not copied)
+  - xDrip+: `uuid` field used for dedup (not copied)
   - AAPS: `identifier` unchanged (already correct)
 - **Entries API**: CGM entries with UUID `_id` now handled correctly (GAP-SYNC-045)
-- **Deduplication**: Server uses `identifier` for upsert matching when present
-- **Benefits**: Re-uploading treatments after app reinstall/cache clear updates existing records
+- **Deduplication**: Server uses `identifier`, `syncIdentifier`, or `uuid` for upsert matching
+- **Scope**: Only UUID values in `_id` field trigger normalization; other fields preserved
 
 #### Test Infrastructure
 - **NODE_ENV=test safety check**: Tests now refuse to run without `NODE_ENV=test`, preventing accidental production database destruction (GAP-SYNC-046)
