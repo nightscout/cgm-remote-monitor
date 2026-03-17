@@ -114,18 +114,40 @@ The `treatments` collection stores all user interventions and system events rela
 |-------|------|--------|-------------|
 | `srvCreated` | String (ISO 8601) | Server | When the server first received this record |
 | `srvModified` | String (ISO 8601) | Server | When the server last modified this record |
-| `identifier` | String | AAPS | AAPS-specific unique identifier for sync |
-| `uuid` | String | Various | Client-assigned unique identifier |
+| `identifier` | String | Server-normalized | **Unified client sync identity** (see below) |
+| `syncIdentifier` | String | Loop | Loop carbs/doses sync identity (promoted to `identifier`) |
+| `uuid` | String | xDrip+ | xDrip+ sync identity (promoted to `identifier`) |
 | `pumpId` | String | Loop/pumps | Pump-assigned identifier |
 | `pumpType` | String | Loop/pumps | Type of pump that created this treatment |
 | `pumpSerial` | String | Loop/pumps | Serial number of the pump |
 
-**Important:** Different controller systems use different field names for duplicate detection:
-- **AAPS:** Uses `identifier` field
-- **Loop:** Uses `_id` or pump-related fields
-- **xDrip:** Uses `uuid` field
+### Identifier Field Normalization (REQ-SYNC-072)
 
-This inconsistency suggests that **schema registration / inversion of control** would be valuable - controllers should register their sync identity field conventions.
+As of v15.0.7, the server **automatically normalizes** client sync identities into the `identifier` field:
+
+| Client | Client Field | Server Action |
+|--------|--------------|---------------|
+| **Loop** (overrides) | UUID in `_id` | Extract to `identifier`, assign server ObjectId |
+| **Loop** (carbs/doses) | `syncIdentifier` | Copy to `identifier` |
+| **AAPS** | `identifier` | Unchanged (already correct) |
+| **xDrip+** | `uuid` | Copy to `identifier` |
+
+**Deduplication Priority:** The server uses `identifier` for upsert matching when present, falling back to `created_at + eventType` for legacy records.
+
+**Example - Loop Override Upload:**
+
+```javascript
+// Client sends:
+{ "_id": "A1B2C3D4-E5F6-7890-ABCD-EF1234567890", "eventType": "Temporary Override", ... }
+
+// Server stores:
+{ "_id": ObjectId("..."), "identifier": "A1B2C3D4-E5F6-7890-ABCD-EF1234567890", "eventType": "Temporary Override", ... }
+```
+
+**Benefits:**
+- Re-uploading the same treatment (even after app reinstall/cache clear) updates the existing record
+- All client systems now have consistent deduplication behavior
+- Existing `_id`-based references continue to work
 
 ---
 
@@ -349,4 +371,5 @@ The defaults documented (eventType defaulting to `<none>`, created_at defaulting
 
 | Date | Author | Changes |
 |------|--------|---------|
+| 2026-03-17 | Agent | Added identifier field normalization (REQ-SYNC-072) |
 | 2026-01-15 | Agent | Initial schema documentation from code analysis and domain expert interview |
