@@ -255,6 +255,64 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
         done();
       });
     });
+
+    it('save() updates an existing profile by _id', function (done) {
+      var original = {
+        defaultProfile: 'Default',
+        store: {
+          Default: {
+            dia: 3,
+            carbratio: [{ time: '00:00', value: 30 }],
+            sens: [{ time: '00:00', value: 100 }],
+            basal: [{ time: '00:00', value: 0.5 }],
+            target_low: [{ time: '00:00', value: 80 }],
+            target_high: [{ time: '00:00', value: 120 }],
+            units: 'mg/dl'
+          }
+        },
+        startDate: '2024-10-19T23:00:00.000Z',
+        created_at: '2024-10-26T20:32:49.173Z',
+        units: 'mg/dl'
+      };
+
+      self.ctx.profile.save(original, function (err, savedProfile) {
+        should.not.exist(err);
+        should.exist(savedProfile);
+        should.exist(savedProfile._id);
+
+        var savedId = savedProfile._id;
+        var updated = {
+          _id: savedId.toString(),
+          defaultProfile: 'Default',
+          store: {
+            Default: {
+              dia: 4,
+              carbratio: [{ time: '00:00', value: 30 }],
+              sens: [{ time: '00:00', value: 100 }],
+              basal: [{ time: '00:00', value: 0.5 }],
+              target_low: [{ time: '00:00', value: 80 }],
+              target_high: [{ time: '00:00', value: 120 }],
+              units: 'mg/dl'
+            }
+          },
+          startDate: '2024-10-19T23:00:00.000Z',
+          created_at: '2024-10-26T21:32:49.173Z',
+          units: 'mg/dl'
+        };
+
+        self.ctx.profile.save(updated, function (saveErr) {
+          should.not.exist(saveErr);
+
+          self.ctx.profile().find({ _id: savedId }).toArray(function (findErr, docs) {
+            should.not.exist(findErr);
+            docs.length.should.equal(1);
+            docs[0].store.Default.dia.should.equal(4);
+            docs[0].created_at.should.equal('2024-10-26T21:32:49.173Z');
+            done();
+          });
+        });
+      });
+    });
   });
 
   describe('Food Storage - lib/server/food.js', function () {
