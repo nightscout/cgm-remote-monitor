@@ -115,7 +115,7 @@ See [uuid-identifier-lookup specification](../../docs/backlogs/uuid-identifier-l
 
 ```json
 {
-  "_id": {"$oid": "507f1f77bcf86cd799439011"},
+  "_id": "507f1f77bcf86cd799439011",
   "type": "sgv",
   "sgv": 120,
   "direction": "Flat",
