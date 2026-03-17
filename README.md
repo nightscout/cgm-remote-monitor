@@ -289,6 +289,9 @@ autonomy for your data:
   * `MONGO_PROFILE_COLLECTION`(`profile`) - The collection used to store your profiles
   * `MONGO_FOOD_COLLECTION`(`food`) - The collection used to store your food database
   * `MONGO_ACTIVITY_COLLECTION`(`activity`) - The collection used to store activity data
+  * `MONGO_POOL_SIZE` (`10`) - MongoDB connection pool size. Reduce for resource-constrained environments.
+  * `MONGO_MIN_POOL_SIZE` (`1`) - Minimum pool connections to keep open.
+  * `MONGO_MAX_IDLE_TIME_MS` (`10000`) - Max idle time (ms) before closing a connection.
   * `PORT` (`1337`) - The port that the node.js application will listen on.
   * `HOSTNAME` - The hostname that the node.js application will listen on, null by default for any hostname for IPv6 you may need to use `::`.
   * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to your privkey.pem file (private key).

@@ -160,6 +160,27 @@ NODE_ENV=test npm run test:integration
 NODE_ENV=test npm test -- --grep "treatments"
 ```
 
+### Advanced Test Scripts
+
+For diagnosing test issues and ensuring reliability:
+
+```bash
+# Run stress tests for concurrent write operations
+NODE_ENV=test npm run test:stress
+
+# Detect flaky tests by running multiple iterations
+NODE_ENV=test npm run test:flaky           # Default iterations
+NODE_ENV=test npm run test:flaky:quick     # 3 iterations
+NODE_ENV=test npm run test:flaky:thorough  # 20 iterations
+
+# Run specific flaky test harnesses
+NODE_ENV=test npm run test:flaky:entries   # Entries isolation tests
+NODE_ENV=test npm run test:flaky:socket    # Socket isolation tests
+
+# Enable timing warnings to find slow tests
+NODE_ENV=test npm run test:timing
+```
+
 You can create a `my.test.env` file based on `ci.test.env` for local testing:
 
 ```bash
