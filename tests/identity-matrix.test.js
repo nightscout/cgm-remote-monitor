@@ -146,16 +146,17 @@ describe('Identity Field Test Matrix', function() {
           
           const created = res.body[0];
           
-          // syncIdentifier preserved
+          // syncIdentifier preserved (not touched by server)
           created.syncIdentifier.should.equal(syncId);
           
           // _id generated as ObjectId
           created._id.should.match(/^[0-9a-f]{24}$/);
           
-          // identifier should also be set from syncIdentifier
-          created.identifier.should.equal(syncId);
+          // identifier should NOT be set from syncIdentifier (scope fix)
+          // Server only handles UUID _id, not syncIdentifier field
+          should.not.exist(created.identifier);
           
-          console.log('      ✓ syncIdentifier → identifier, ObjectId generated');
+          console.log('      ✓ syncIdentifier preserved, identifier NOT copied (scope fix)');
           done();
         });
     });
@@ -362,7 +363,7 @@ describe('Identity Field Test Matrix', function() {
         });
     });
 
-    it('TEST-V1-ID-004: syncIdentifier copied to identifier', function(done) {
+    it('TEST-V1-ID-004: syncIdentifier NOT copied to identifier (scope fix)', function(done) {
       const syncId = 'sync-id-' + Date.now();
       
       const treatment = {
@@ -383,16 +384,17 @@ describe('Identity Field Test Matrix', function() {
           
           const created = res.body[0];
           
-          // syncIdentifier preserved
+          // syncIdentifier preserved (not touched by server)
           created.syncIdentifier.should.equal(syncId);
           
-          // identifier should match
-          created.identifier.should.equal(syncId);
+          // identifier should NOT be set from syncIdentifier (scope fix)
+          // Server only handles UUID _id, not syncIdentifier field
+          should.not.exist(created.identifier);
           
           // _id generated
           created._id.should.match(/^[0-9a-f]{24}$/);
           
-          console.log('      ✓ syncIdentifier → identifier');
+          console.log('      ✓ syncIdentifier preserved, identifier NOT copied (scope fix)');
           done();
         });
     });
