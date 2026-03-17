@@ -12,21 +12,23 @@ const fs = require('fs');
 const http2 = require('http2');
 const should = require('should');
 const request = require('supertest');
+const apn = require('@parse/node-apn');
+
 const instance = require('./fixtures/api/instance');
+const { guardedDrop } = require('./fixtures/test-guard');
 
 const fakeServerOpts = {
   key: fs.readFileSync('./tests/fixtures/localhost.key')
   , cert: fs.readFileSync('./tests/fixtures/localhost.crt')
 , };
 
-const TEST_PORT = 1338;
+const API_SECRET_PLAINTEXT = 'this is my long pass phrase'
 const API_SECRET_HASH = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
 
 describe('iOS Loop push notifications', function() {
   this.timeout(10000);
 
   let fakeAPNServer;
-  let fakeAPNServerSessions; // Must track these for server cleanup. Otherwise it hangs.
 
   /**
    * Let's capture the HTTP request sent to APNs via "@parse/node-apn" npm package.
@@ -35,67 +37,68 @@ describe('iOS Loop push notifications', function() {
   let inst;
   let OriginalApnProviderClass
 
-  before(async function() {
-    // Monkey patch apn.Provider to route traffic to our local fake server
-    const apn = require('@parse/node-apn')
-    class PatchedApnProvider extends apn.Provider {
-      constructor(options) {
-        options.address = 'localhost';
-        options.port = TEST_PORT;
-        options.rejectUnauthorized = false;
-        super(options);
-      }
-    }
-    OriginalApnProviderClass = apn.Provider;
-    apn.Provider = PatchedApnProvider
-
-    // Generated with "openssl ecparam -name prime256v1 -genkey -noout -out dummy_private_key.pem"
-    process.env.LOOP_APNS_KEY = './tests/fixtures/dummy_private_key.pem';
-
-    process.env.LOOP_APNS_KEY_ID = 'fake_apns_key_id';
-    process.env.LOOP_DEVELOPER_TEAM_ID = 'fake_12345';
-    process.env.ENABLE = 'loop';
-
-    inst = await instance.create({
-      apiSecret: process.env.API_SECRET
-    , });
-    const api = require('../lib/api')(inst.env, inst.ctx);
-    const api2 = require('../lib/api2')(inst.env, inst.ctx, api);
-
-    inst.app.use('/api/v1', api);
-    inst.app.use('/api/v2', api2);
-
-    await request(inst.app)
-      .put('/api/v1/profile')
-      .set('api-secret', API_SECRET_HASH)
-      .send({
-        // iOS loop integration requires these are configured in the user profile.
-        // Presumably the Loop app uploads them to Nightscout automatically?
-        loopSettings: { deviceToken: 'fakedevicetoken', bundleIdentifier: 'fakebundleid' }
-      , })
-      .expect(200);
-
-    return new Promise((resolve, reject) => {
-      inst.ctx.dataloader.update(inst.ctx.ddata, (err) => {
-        if (err) {
-          reject(err)
-        } else {
-          resolve();
-        }
-      });
-    });
-  });
-
-  beforeEach(function(done) {
-    fakeAPNServerSessions = new Set();
+  before(function(done) {
+    // Use http2+tls since APNs and the @parse/node-apn only supports them.
     fakeAPNServer = http2.createSecureServer(fakeServerOpts);
 
-    fakeAPNServer.on('session', (session) => {
-      fakeAPNServerSessions.add(session);
-    });
+    fakeAPNServer.on('listening', () => {
+      // More info about dynamic port: https://nodejs.org/docs/latest-v22.x/api/net.html#serverlistenport-host-backlog-callback
+      const dynamicPort = fakeAPNServer.address().port
 
+      class PatchedApnProvider extends apn.Provider {
+        constructor(options) {
+          options.address = 'localhost';
+          options.port = dynamicPort;
+          options.rejectUnauthorized = false;
+          super(options);
+        }
+      }
+      OriginalApnProviderClass = apn.Provider;
+      apn.Provider = PatchedApnProvider
+
+      // Generated with "openssl ecparam -name prime256v1 -genkey -noout -out dummy_private_key.pem"
+      process.env.LOOP_APNS_KEY = './tests/fixtures/dummy_private_key.pem';
+      process.env.LOOP_APNS_KEY_ID = 'fake_apns_key_id';
+      process.env.LOOP_DEVELOPER_TEAM_ID = 'fake_12345';
+      process.env.ENABLE = 'loop';
+
+      instance.create({ apiSecret: API_SECRET_PLAINTEXT }).then((createdInstance) => {
+        inst = createdInstance
+        const api = require('../lib/api')(inst.env, inst.ctx);
+        const api2 = require('../lib/api2')(inst.env, inst.ctx, api);
+
+        inst.app.use('/api/v1', api);
+        inst.app.use('/api/v2', api2);
+
+        request(inst.app)
+          .put('/api/v1/profile')
+          .set('api-secret', API_SECRET_HASH)
+          .send({
+            // iOS loop integration requires these are configured in the user profile.
+            // Presumably the Loop app uploads them to Nightscout automatically?
+            loopSettings: { deviceToken: 'fakedevicetoken', bundleIdentifier: 'fakebundleid' }
+          , })
+          .expect(200)
+          .end(err => {
+            if (err) return done(err)
+
+            inst.ctx.dataloader.update(inst.ctx.ddata, (err) => {
+              if (err) {
+                done(err)
+              } else {
+                done();
+              }
+            });
+          })
+      }).catch(err => done(err))
+    })
+
+    fakeAPNServer.listen(0);
+  });
+
+  beforeEach(function() {
     capturedApnRequest = new Promise((resolve) => {
-      fakeAPNServer.on('stream', (stream, headers) => {
+      fakeAPNServer.once('stream', (stream, headers) => {
         let body = '';
         stream.on('data', chunk => (body += chunk));
         stream.on('end', () => {
@@ -108,21 +111,24 @@ describe('iOS Loop push notifications', function() {
         });
       });
     });
-
-    fakeAPNServer.listen(TEST_PORT, done);
   });
 
-  afterEach(function(done) {
-    for (const session of fakeAPNServerSessions) {
-      session.destroy();
-    }
+  after(function(done) {
+    inst.server.close();
+    inst.ctx.bus.teardown();
 
-    fakeAPNServer.close(done);
-  });
+    delete process.env.LOOP_APNS_KEY;
+    delete process.env.LOOP_APNS_KEY_ID;
+    delete process.env.LOOP_DEVELOPER_TEAM_ID;
+    delete process.env.ENABLE;
 
-  after(function() {
-    const apn = require('@parse/node-apn')
     apn.Provider = OriginalApnProviderClass;
+
+    guardedDrop(inst.ctx.profile(), err => {
+      if (err) return done(err)
+
+      fakeAPNServer.close(done);
+    });
   });
 
   function postLoopNotification (jsonBody) {
