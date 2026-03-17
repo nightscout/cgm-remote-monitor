@@ -59,7 +59,8 @@ describe('API3 UPDATE', function() {
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.ctx.bus.teardown();
   });
 
@@ -69,7 +70,7 @@ describe('API3 UPDATE', function() {
   });
 
 
-  afterEach(() => {
+  afterEach(async () => {
     self.cache.shouldBeEmpty();
   });
 
@@ -297,6 +298,47 @@ describe('API3 UPDATE', function() {
   });
 
 
+  it('should normalize endmills when replacing durationInMilliseconds', async () => {
+    const tempBasalDoc = {
+      identifier: utils.randomString('32', 'aA#'),
+      date: (new Date()).getTime() + 1,
+      utcOffset: -180,
+      app: testConst.TEST_APP,
+      device: testConst.TEST_DEVICE + ' API3 UPDATE duration',
+      eventType: 'Temp Basal',
+      absolute: 1.2,
+      duration: 30
+    };
+
+    let res = await self.instance.put(`${self.url}/${tempBasalDoc.identifier}`, self.jwt.all)
+      .send(tempBasalDoc)
+      .expect(201);
+
+    res.body.status.should.equal(201);
+    self.cache.nextShouldEql(self.col, tempBasalDoc)
+
+    const replacedDoc = Object.assign({}, tempBasalDoc, {
+      absolute: 0.7,
+      duration: 0,
+      durationInMilliseconds: 26584
+    });
+
+    res = await self.instance.put(`${self.url}/${tempBasalDoc.identifier}`, self.jwt.update)
+      .send(replacedDoc)
+      .expect(200);
+
+    res.body.status.should.equal(200);
+    self.cache.nextShouldEql(self.col, replacedDoc)
+
+    const body = await self.get(tempBasalDoc.identifier);
+    body.absolute.should.equal(0.7);
+    body.duration.should.equal(0);
+    body.durationInMilliseconds.should.equal(26584);
+    body.endmills.should.equal(tempBasalDoc.date + 26584);
+    body.subject.should.equal(self.subject.apiUpdate.name);
+  });
+
+
   it('should not update deleted document', async () => {
     let res = await self.instance.delete(self.urlIdent, self.jwt.delete)
       .expect(200);
@@ -312,4 +354,3 @@ describe('API3 UPDATE', function() {
   });
 
 });
-

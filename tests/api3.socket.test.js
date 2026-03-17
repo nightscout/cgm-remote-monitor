@@ -50,10 +50,11 @@ describe('Socket.IO in REST API3', function() {
   });
 
 
-  after(() => {
+  after(async () => {
     if(self.instance && self.instance.clientSocket && self.instance.clientSocket.connected) {
       self.instance.clientSocket.disconnect();
     }
+    await utils.storageClear(self.instance.ctx);
     self.instance.ctx.bus.teardown();
   });
 

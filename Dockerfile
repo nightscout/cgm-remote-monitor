@@ -1,14 +1,11 @@
-#######################################
-# Full build - inc devDependencies
-#######################################
-FROM node:16.16.0-alpine AS builder
+FROM node:22-alpine AS builder
 
 LABEL maintainer="Nightscout Contributors"
 
 WORKDIR /opt/app
 
-# Copy package files and source files needed for postinstall script
-COPY package.json package-lock.json .npmrc .babelrc ./
+# Copy only the files needed to install dependencies and build the webpack bundle.
+COPY package.json package-lock.json .babelrc ./
 COPY bundle/ ./bundle/
 COPY webpack/ ./webpack/
 COPY bin/generateRandomString.js ./bin/
@@ -18,39 +15,29 @@ COPY views/ ./views/
 COPY translations/ ./translations/
 COPY server.js ./
 
-# Install all dependencies (including devDependencies needed for webpack)
-RUN npm ci --legacy-peer-deps --cache /tmp/empty-cache || \
-  (rm package-lock.json && npm install --legacy-peer-deps --cache /tmp/empty-cache) && \
+# Install the full dependency tree, run the existing postinstall bundle build,
+# then prune dev-only packages before copying artifacts into the runtime image.
+RUN npm ci --cache /tmp/empty-cache --omit=optional --force && \
+  npm prune --omit=dev --omit=optional && \
   rm -rf /tmp/*
 
-#######################################
-# Clean build for final image.
-#######################################
-FROM node:16.16.0-alpine AS production
+FROM node:22-alpine AS runtime
 
 LABEL maintainer="Nightscout Contributors"
 
+ENV NODE_ENV=production
+
 WORKDIR /opt/app
 
-# Copy package files and application.
-COPY package.json package-lock.json .npmrc ./
-COPY lib/ ./lib/
-COPY static/ ./static/
-COPY views/ ./views/
-COPY translations/ ./translations/
-COPY server.js ./
-
-# Install only production dependencies from clean build in builder stage.
-# Use --ignore-scripts since postinstall (webpack) already ran in builder stage
-# Use fallback if package-lock.json has version mismatch.
-RUN npm ci --only=production --ignore-scripts --legacy-peer-deps --cache /tmp/empty-cache || \
-  (rm package-lock.json && npm install --only=production --ignore-scripts --legacy-peer-deps --cache /tmp/empty-cache) && \
-  rm -rf /tmp/*
-
-COPY --from=builder /opt/app/node_modules/.cache/ ./node_modules/.cache/
+COPY --chown=node:node package.json package-lock.json ./
+COPY --chown=node:node lib/ ./lib/
+COPY --chown=node:node static/ ./static/
+COPY --chown=node:node views/ ./views/
+COPY --chown=node:node translations/ ./translations/
+COPY --chown=node:node server.js ./
+COPY --chown=node:node --from=builder /opt/app/node_modules ./node_modules
 
 USER node
-
 EXPOSE 1337
 
 CMD ["node", "lib/server/server.js"]

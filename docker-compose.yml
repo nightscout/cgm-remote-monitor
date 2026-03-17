@@ -8,7 +8,7 @@ x-logging: &default-logging
 
 services:
   mongo:
-    image: mongo:4.4
+    image: mongo:5.0.32
     restart: always
     volumes:
       - ${NS_MONGO_DATA_DIR:-./mongo-data}:/data/db:cached

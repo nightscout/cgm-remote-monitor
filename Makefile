@@ -2,9 +2,10 @@
 # Nightscout tests/builds/analysis
 TESTS=tests/*.js
 MONGO_CONNECTION?=mongodb://localhost:27017/test_db
+AUTH_FAIL_DELAY?=50
 CUSTOMCONNSTR_mongo_settings_collection?=test_settings
 CUSTOMCONNSTR_mongo_collection?=test_sgvs
-MONGO_SETTINGS=MONGO_CONNECTION=${MONGO_CONNECTION} \
+MONGO_SETTINGS=AUTH_FAIL_DELAY=${AUTH_FAIL_DELAY} MONGO_CONNECTION=${MONGO_CONNECTION} \
 	CUSTOMCONNSTR_mongo_collection=${CUSTOMCONNSTR_mongo_collection}
 
 # XXX.bewest: Mocha is an odd process, and since things are being
@@ -28,6 +29,15 @@ ANALYZED=./coverage/lcov.info
 DOCKER_IMAGE=nightscout/cgm-remote-monitor
 
 all: test
+
+my.test.env:
+	@echo "Creating my.test.env from Makefile defaults..."
+	@echo "MONGO_CONNECTION=${MONGO_CONNECTION}" > my.test.env
+	@echo "CUSTOMCONNSTR_mongo_collection=${CUSTOMCONNSTR_mongo_collection}" >> my.test.env
+	@echo "CUSTOMCONNSTR_mongo_settings_collection=${CUSTOMCONNSTR_mongo_settings_collection}" >> my.test.env
+	@echo "API_SECRET=test-secret-key" >> my.test.env
+	@echo "AUTH_FAIL_DELAY=${AUTH_FAIL_DELAY}" >> my.test.env
+	@echo "INSECURE_USE_HTTP=true" >> my.test.env
 
 coverage:
 	NODE_ENV=test ${MONGO_SETTINGS} \
