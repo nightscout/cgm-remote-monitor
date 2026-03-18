@@ -157,4 +157,96 @@ describe('Activity API', function ( ) {
         }
       });
   });
+
+  // ============================================================
+  // Single object input tests - validates array normalization
+  // ============================================================
+
+  it('post single activity returns array with one item', function (done) {
+    var now = (new Date()).toISOString();
+    var sample_activity = {
+      created_at: now,
+      heartrate: 85,
+      steps: 1500,
+      activitylevel: 'moderate'
+    };
+
+    request(self.app)
+      .post('/api/activity/')
+      .set('api-secret', known || '')
+      .send(sample_activity)
+      .expect(200)
+      .end(function (err, res) {
+        if (err) {
+          return done(err);
+        }
+        // Response should be an array even for single object input
+        res.body.should.be.an.Array();
+        res.body.length.should.equal(1);
+        res.body[0].should.have.property('_id');
+        res.body[0].heartrate.should.equal(85);
+        res.body[0].steps.should.equal(1500);
+        res.body[0].activitylevel.should.equal('moderate');
+
+        // Clean up
+        request(self.app)
+          .delete('/api/activity/' + res.body[0]._id)
+          .set('api-secret', known || '')
+          .expect(200)
+          .end(done);
+      });
+  });
+
+  it('post activity array returns array', function (done) {
+    var now = (new Date()).toISOString();
+    request(self.app)
+      .post('/api/activity/')
+      .set('api-secret', known || '')
+      .send([
+        { created_at: now, heartrate: 70, steps: 500, activitylevel: 'low' },
+        { created_at: now, heartrate: 150, steps: 3000, activitylevel: 'high' }
+      ])
+      .expect(200)
+      .end(function (err, res) {
+        if (err) {
+          return done(err);
+        }
+        res.body.should.be.an.Array();
+        res.body.length.should.equal(2);
+        res.body[0].should.have.property('_id');
+        res.body[1].should.have.property('_id');
+        res.body[0].heartrate.should.equal(70);
+        res.body[1].heartrate.should.equal(150);
+
+        // Clean up
+        request(self.app)
+          .delete('/api/activity/' + res.body[0]._id)
+          .set('api-secret', known || '')
+          .expect(200)
+          .end(function (err) {
+            if (err) return done(err);
+            request(self.app)
+              .delete('/api/activity/' + res.body[1]._id)
+              .set('api-secret', known || '')
+              .expect(200)
+              .end(done);
+          });
+      });
+  });
+
+  it('post empty array returns empty array', function (done) {
+    request(self.app)
+      .post('/api/activity/')
+      .set('api-secret', known || '')
+      .send([])
+      .expect(200)
+      .end(function (err, res) {
+        if (err) {
+          return done(err);
+        }
+        res.body.should.be.an.Array();
+        res.body.length.should.equal(0);
+        done();
+      });
+  });
 });
