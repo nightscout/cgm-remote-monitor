@@ -107,7 +107,10 @@ describe('_id Validation API Tests', function() {
         .send({ "name": "Banana", "type": "food", "carbs": 27 })
         .expect(200)
         .expect(function(response) {
-          response.body.should.have.property('_id');
+          // Food API returns array (consistent with treatments pattern)
+          response.body.should.be.an.Array();
+          response.body.length.should.equal(1);
+          response.body[0].should.have.property('name', 'Banana');
         })
         .end(done);
     });

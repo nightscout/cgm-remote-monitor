@@ -324,10 +324,12 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
         fat: 5
       };
       
-      self.ctx.food.create(food, function (err, doc) {
+      self.ctx.food.create(food, function (err, docs) {
         should.not.exist(err);
-        should.exist(doc);
-        doc.name.should.equal('Test Food');
+        should.exist(docs);
+        // Storage normalizes to array internally
+        docs.should.be.an.Array();
+        docs[0].name.should.equal('Test Food');
         done();
       });
     });
