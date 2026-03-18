@@ -213,31 +213,40 @@ describe('Profiles API', function ( ) {
     });
 
     it('should accept POST with valid 24-hex _id', function(done) {
+      // Use a unique ID that doesn't conflict with other tests
+      var testId = 'aaaaaaaaaaaaaaaaaaaaaaaa';
       var profile_valid_id = {
-        "_id": "507f1f77bcf86cd799439011",
+        "_id": testId,
         "defaultProfile": "Default",
         "store": { "Default": { "dia": 3 } },
         "startDate": "2024-10-19T23:00:00.000Z"
       };
 
+      // First, try to delete any existing document with this _id (cleanup from previous runs)
       request(self.app)
-        .post('/api/profile/')
+        .delete('/api/profile/' + testId)
         .set('api-secret', known || '')
-        .send(profile_valid_id)
-        .expect(200)
-        .expect(function(response) {
-          response.body.should.be.an.Array();
-          response.body.length.should.equal(1);
-          response.body[0]._id.should.equal('507f1f77bcf86cd799439011');
-        })
-        .end(function(err) {
-          if (err) return done(err);
-          // Clean up: delete the profile we just created
+        .end(function() {
+          // Ignore errors (document may not exist)
           request(self.app)
-            .delete('/api/profile/507f1f77bcf86cd799439011')
+            .post('/api/profile/')
             .set('api-secret', known || '')
+            .send(profile_valid_id)
             .expect(200)
-            .end(done);
+            .expect(function(response) {
+              response.body.should.be.an.Array();
+              response.body.length.should.equal(1);
+              response.body[0]._id.should.equal(testId);
+            })
+            .end(function(err) {
+              if (err) return done(err);
+              // Clean up: delete the profile we just created
+              request(self.app)
+                .delete('/api/profile/' + testId)
+                .set('api-secret', known || '')
+                .expect(200)
+                .end(done);
+            });
         });
     });
 
