@@ -147,4 +147,146 @@ describe('Profiles API', function ( ) {
         }
       });
   });
+
+  // _id validation tests (prevent 500 errors from invalid ObjectId)
+  describe('_id validation', function() {
+
+    it('should return 400 for POST with invalid UUID _id', function(done) {
+      var profile_with_uuid = {
+        "_id": "my-uuid-12345",
+        "defaultProfile": "Default",
+        "store": { "Default": { "dia": 3 } },
+        "startDate": "2024-10-19T23:00:00.000Z"
+      };
+
+      request(self.app)
+        .post('/api/profile/')
+        .set('api-secret', known || '')
+        .send(profile_with_uuid)
+        .expect(400)
+        .expect(function(response) {
+          response.body.should.have.property('status', 400);
+          response.body.should.have.property('message');
+          response.body.message.should.match(/Invalid _id format/i);
+        })
+        .end(done);
+    });
+
+    it('should return 400 for POST with short _id', function(done) {
+      var profile_short_id = {
+        "_id": "abc",
+        "defaultProfile": "Default",
+        "store": { "Default": { "dia": 3 } },
+        "startDate": "2024-10-19T23:00:00.000Z"
+      };
+
+      request(self.app)
+        .post('/api/profile/')
+        .set('api-secret', known || '')
+        .send(profile_short_id)
+        .expect(400)
+        .end(done);
+    });
+
+    it('should return 400 for PUT with invalid _id', function(done) {
+      var profile_invalid = {
+        "_id": "not-a-valid-object-id",
+        "defaultProfile": "Default",
+        "store": { "Default": { "dia": 3 } },
+        "startDate": "2024-10-19T23:00:00.000Z"
+      };
+
+      request(self.app)
+        .put('/api/profile/')
+        .set('api-secret', known || '')
+        .send(profile_invalid)
+        .expect(400)
+        .end(done);
+    });
+
+    it('should return 400 for DELETE with invalid _id', function(done) {
+      request(self.app)
+        .delete('/api/profile/invalid-uuid-here')
+        .set('api-secret', known || '')
+        .expect(400)
+        .end(done);
+    });
+
+    it('should accept POST with valid 24-hex _id', function(done) {
+      var profile_valid_id = {
+        "_id": "507f1f77bcf86cd799439011",
+        "defaultProfile": "Default",
+        "store": { "Default": { "dia": 3 } },
+        "startDate": "2024-10-19T23:00:00.000Z"
+      };
+
+      request(self.app)
+        .post('/api/profile/')
+        .set('api-secret', known || '')
+        .send(profile_valid_id)
+        .expect(200)
+        .expect(function(response) {
+          response.body.should.be.an.Array();
+          response.body.length.should.equal(1);
+          response.body[0]._id.should.equal('507f1f77bcf86cd799439011');
+        })
+        .end(function(err) {
+          if (err) return done(err);
+          // Clean up: delete the profile we just created
+          request(self.app)
+            .delete('/api/profile/507f1f77bcf86cd799439011')
+            .set('api-secret', known || '')
+            .expect(200)
+            .end(done);
+        });
+    });
+
+    it('should accept POST without _id (auto-generate)', function(done) {
+      var profile_no_id = {
+        "defaultProfile": "Default",
+        "store": { "Default": { "dia": 3 } },
+        "startDate": "2024-10-20T23:00:00.000Z"
+      };
+
+      request(self.app)
+        .post('/api/profile/')
+        .set('api-secret', known || '')
+        .send(profile_no_id)
+        .expect(200)
+        .expect(function(response) {
+          response.body.should.be.an.Array();
+          response.body.length.should.equal(1);
+          response.body[0].should.have.property('_id');
+          // Verify auto-generated _id is valid format
+          response.body[0]._id.toString().should.match(/^[a-fA-F0-9]{24}$/);
+        })
+        .end(function(err, res) {
+          if (err) return done(err);
+          // Clean up
+          var createdId = res.body[0]._id;
+          request(self.app)
+            .delete('/api/profile/' + createdId)
+            .set('api-secret', known || '')
+            .expect(200)
+            .end(done);
+        });
+    });
+
+    it('should return 400 for array POST with one invalid _id', function(done) {
+      var profiles_mixed = [
+        { "defaultProfile": "Default1", "store": { "Default": { "dia": 3 } }, "startDate": "2024-10-19T23:00:00.000Z" },
+        { "_id": "bad-uuid", "defaultProfile": "Default2", "store": { "Default": { "dia": 3 } }, "startDate": "2024-10-20T23:00:00.000Z" }
+      ];
+
+      request(self.app)
+        .post('/api/profile/')
+        .set('api-secret', known || '')
+        .send(profiles_mixed)
+        .expect(400)
+        .expect(function(response) {
+          response.body.message.should.match(/Invalid _id format/i);
+        })
+        .end(done);
+    });
+  });
 });
