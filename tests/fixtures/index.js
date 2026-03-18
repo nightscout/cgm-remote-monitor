@@ -8,5 +8,6 @@ module.exports = {
   deduplication: require('./deduplication'),
   edgeCases: require('./edge-cases'),
   partialFailures: require('./partial-failures'),
-  nightscoutkitProfiles: require('./nightscoutkit-profiles')
+  nightscoutkitProfiles: require('./nightscoutkit-profiles'),
+  nightscoutkitDevicestatus: require('./nightscoutkit-devicestatus')
 };
