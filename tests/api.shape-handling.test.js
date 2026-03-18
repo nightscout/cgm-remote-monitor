@@ -515,4 +515,331 @@ describe('API Shape Handling - Single Object vs Array Input', function () {
         });
     });
   });
+
+  describe('Profile API - /api/profile/', function () {
+    var profileFixtures = require('./fixtures/nightscoutkit-profiles.js');
+    
+    // Profile uses unique mills/startDate for each test, so cleanup not strictly needed
+    // but we'll clean up via direct collection access for good practice
+
+    it('POST accepts single profile object', function (done) {
+      var profile = profileFixtures.generateUniqueProfile('single-obj');
+      request(self.app)
+        .post('/api/profile/')
+        .set('api-secret', known)
+        .send(profile)
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array);
+          res.body.length.should.equal(1);
+          res.body[0].defaultProfile.should.equal('Default');
+          res.body[0].should.have.property('_id');
+          done();
+        });
+    });
+
+    it('POST accepts array with single profile (NightscoutKit format)', function (done) {
+      var profile = profileFixtures.generateUniqueProfile('array-single');
+      request(self.app)
+        .post('/api/profile/')
+        .set('api-secret', known)
+        .send([profile])
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array);
+          res.body.length.should.equal(1);
+          res.body[0].defaultProfile.should.equal('Default');
+          res.body[0].should.have.property('_id');
+          done();
+        });
+    });
+
+    it('POST accepts array with multiple profiles (batch upload)', function (done) {
+      var profiles = [
+        profileFixtures.generateUniqueProfile('batch-1'),
+        profileFixtures.generateUniqueProfile('batch-2'),
+        profileFixtures.generateUniqueProfile('batch-3')
+      ];
+      request(self.app)
+        .post('/api/profile/')
+        .set('api-secret', known)
+        .send(profiles)
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array);
+          res.body.length.should.equal(3);
+          res.body.forEach(function(profile) {
+            profile.should.have.property('_id');
+          });
+          done();
+        });
+    });
+
+    it('POST response count equals input count', function (done) {
+      var profiles = [
+        profileFixtures.generateUniqueProfile('count-1'),
+        profileFixtures.generateUniqueProfile('count-2')
+      ];
+      request(self.app)
+        .post('/api/profile/')
+        .set('api-secret', known)
+        .send(profiles)
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.length.should.equal(profiles.length);
+          done();
+        });
+    });
+
+    it('POST with empty array returns empty array', function (done) {
+      request(self.app)
+        .post('/api/profile/')
+        .set('api-secret', known)
+        .send([])
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array);
+          res.body.length.should.equal(0);
+          done();
+        });
+    });
+
+    it('single profile input returns array response', function (done) {
+      var profile = profileFixtures.generateUniqueProfile('response-shape');
+      request(self.app)
+        .post('/api/profile/')
+        .set('api-secret', known)
+        .send(profile)
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array);
+          done();
+        });
+    });
+
+    it('array input returns array response', function (done) {
+      var profile = profileFixtures.generateUniqueProfile('array-response');
+      request(self.app)
+        .post('/api/profile/')
+        .set('api-secret', known)
+        .send([profile])
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array);
+          done();
+        });
+    });
+  });
+
+  describe('NightscoutKit Fixtures Integration', function () {
+    var treatmentFixtures = require('./fixtures/nightscoutkit-treatments.js');
+    var devicestatusFixtures = require('./fixtures/nightscoutkit-devicestatus.js');
+    var profileFixtures = require('./fixtures/nightscoutkit-profiles.js');
+
+    beforeEach(function (done) {
+      self.ctx.treatments.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function () {
+        self.ctx.devicestatus.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function () {
+          done();
+        });
+      });
+    });
+
+    afterEach(function (done) {
+      self.ctx.treatments.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function () {
+        self.ctx.devicestatus.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function () {
+          done();
+        });
+      });
+    });
+
+    describe('Treatments with NightscoutKit fixtures', function () {
+      it('accepts single bolus array', function (done) {
+        var bolus = treatmentFixtures.helpers.bolusTreatment(
+          new Date().toISOString(), 1.5, 
+          { syncIdentifier: 'test-bolus-' + Date.now() }
+        );
+        request(self.app)
+          .post('/api/treatments/')
+          .set('api-secret', known)
+          .send([bolus])
+          .expect(200)
+          .end(function (err, res) {
+            if (err) return done(err);
+            res.body.should.be.instanceof(Array);
+            res.body.length.should.equal(1);
+            res.body[0].insulin.should.equal(1.5);
+            res.body[0].eventType.should.equal('Correction Bolus');
+            done();
+          });
+      });
+
+      it('accepts carb entry with syncIdentifier', function (done) {
+        var carb = treatmentFixtures.helpers.carbTreatment(
+          new Date().toISOString(), 45,
+          { syncIdentifier: 'test-carb-' + Date.now(), absorptionTime: 180 }
+        );
+        request(self.app)
+          .post('/api/treatments/')
+          .set('api-secret', known)
+          .send([carb])
+          .expect(200)
+          .end(function (err, res) {
+            if (err) return done(err);
+            res.body.should.be.instanceof(Array);
+            res.body[0].carbs.should.equal(45);
+            res.body[0].eventType.should.equal('Carb Correction');
+            done();
+          });
+      });
+
+      it('accepts temp basal array', function (done) {
+        var tempBasal = treatmentFixtures.helpers.tempBasalTreatment(
+          new Date().toISOString(), 1.2, 30,
+          { syncIdentifier: 'test-tb-' + Date.now() }
+        );
+        request(self.app)
+          .post('/api/treatments/')
+          .set('api-secret', known)
+          .send([tempBasal])
+          .expect(200)
+          .end(function (err, res) {
+            if (err) return done(err);
+            res.body.should.be.instanceof(Array);
+            res.body[0].rate.should.equal(1.2);
+            res.body[0].duration.should.equal(30);
+            res.body[0].eventType.should.equal('Temp Basal');
+            done();
+          });
+      });
+
+      it('accepts mixed batch array', function (done) {
+        var now = Date.now();
+        var batch = [
+          treatmentFixtures.helpers.bolusTreatment(
+            new Date(now).toISOString(), 2.0,
+            { syncIdentifier: 'batch-bolus-' + now }
+          ),
+          treatmentFixtures.helpers.carbTreatment(
+            new Date(now + 1000).toISOString(), 30,
+            { syncIdentifier: 'batch-carb-' + now }
+          ),
+          treatmentFixtures.helpers.tempBasalTreatment(
+            new Date(now + 2000).toISOString(), 0.8, 30,
+            { syncIdentifier: 'batch-tb-' + now }
+          )
+        ];
+        request(self.app)
+          .post('/api/treatments/')
+          .set('api-secret', known)
+          .send(batch)
+          .expect(200)
+          .end(function (err, res) {
+            if (err) return done(err);
+            res.body.should.be.instanceof(Array);
+            res.body.length.should.equal(3);
+            done();
+          });
+      });
+    });
+
+    describe('DeviceStatus with NightscoutKit fixtures', function () {
+      it('accepts Loop devicestatus array', function (done) {
+        var status = devicestatusFixtures.helpers.deviceStatus(
+          'loop://iPhone-test', new Date().toISOString(),
+          {
+            identifier: 'test-ds-' + Date.now(),
+            uploader: devicestatusFixtures.helpers.uploaderStatus('iPhone', new Date().toISOString(), 85),
+            loop: devicestatusFixtures.helpers.loopStatus('Loop', '3.4.1', new Date().toISOString(), {
+              iob: devicestatusFixtures.helpers.iobStatus(new Date().toISOString(), 2.5, 0.8),
+              cob: devicestatusFixtures.helpers.cobStatus(new Date().toISOString(), 25)
+            })
+          }
+        );
+        request(self.app)
+          .post('/api/devicestatus/')
+          .set('api-secret', known)
+          .send([status])
+          .expect(200)
+          .end(function (err, res) {
+            if (err) return done(err);
+            res.body.should.be.instanceof(Array);
+            res.body.length.should.equal(1);
+            res.body[0].loop.iob.iob.should.equal(2.5);
+            res.body[0].loop.cob.cob.should.equal(25);
+            done();
+          });
+      });
+
+      it('accepts batch devicestatus array', function (done) {
+        var now = Date.now();
+        var batch = [
+          devicestatusFixtures.helpers.deviceStatus('loop://iPhone-1', new Date(now).toISOString(), {
+            identifier: 'batch-ds-1-' + now
+          }),
+          devicestatusFixtures.helpers.deviceStatus('loop://iPhone-2', new Date(now + 1000).toISOString(), {
+            identifier: 'batch-ds-2-' + now
+          })
+        ];
+        request(self.app)
+          .post('/api/devicestatus/')
+          .set('api-secret', known)
+          .send(batch)
+          .expect(200)
+          .end(function (err, res) {
+            if (err) return done(err);
+            res.body.should.be.instanceof(Array);
+            res.body.length.should.equal(2);
+            done();
+          });
+      });
+    });
+
+    describe('Profile with NightscoutKit fixtures', function () {
+      it('accepts Loop profile array', function (done) {
+        var profile = profileFixtures.generateUniqueProfile('loop-test');
+        request(self.app)
+          .post('/api/profile/')
+          .set('api-secret', known)
+          .send([profile])
+          .expect(200)
+          .end(function (err, res) {
+            if (err) return done(err);
+            res.body.should.be.instanceof(Array);
+            res.body.length.should.equal(1);
+            res.body[0].defaultProfile.should.equal('Default');
+            res.body[0].loopSettings.dosingEnabled.should.equal(true);
+            done();
+          });
+      });
+
+      it('accepts batch profile array (historical sync)', function (done) {
+        var batch = [
+          profileFixtures.generateUniqueProfile('hist-1'),
+          profileFixtures.generateUniqueProfile('hist-2'),
+          profileFixtures.generateUniqueProfile('hist-3')
+        ];
+        request(self.app)
+          .post('/api/profile/')
+          .set('api-secret', known)
+          .send(batch)
+          .expect(200)
+          .end(function (err, res) {
+            if (err) return done(err);
+            res.body.should.be.instanceof(Array);
+            res.body.length.should.equal(3);
+            res.body.forEach(function(p) {
+              p.should.have.property('_id');
+            });
+            done();
+          });
+      });
+    });
+  });
 });
