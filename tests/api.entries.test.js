@@ -414,4 +414,62 @@ describe('Entries REST api', function ( ) {
       });
   });
 
+  // ============================================================
+  // Single object input tests - validates response format
+  // ============================================================
+
+  it('post single entry returns array with one item', function (done) {
+    var now = Date.now();
+    var dateString = new Date(now).toISOString();
+    
+    request(self.app)
+      .post('/entries/')
+      .set('api-secret', known || '')
+      .send({
+        type: 'sgv',
+        sgv: 142,
+        date: now,
+        dateString: dateString,
+        device: 'test-device',
+        direction: 'Flat'
+      })
+      .expect(200)
+      .end(function (err, res) {
+        if (err) {
+          return done(err);
+        }
+        // Response should be an array even for single object input
+        res.body.should.be.instanceof(Array);
+        res.body.length.should.be.above(0);
+        res.body[0].should.have.property('_id');
+        res.body[0].sgv.should.equal(142);
+        res.body[0].type.should.equal('sgv');
+        res.body[0].direction.should.equal('Flat');
+
+        // Clean up
+        request(self.app)
+          .delete('/entries.json?find[date]=' + now)
+          .set('api-secret', known || '')
+          .expect(200)
+          .end(done);
+      });
+  });
+
+  it('post empty array returns empty result', function (done) {
+    request(self.app)
+      .post('/entries/')
+      .set('api-secret', known || '')
+      .send([])
+      .expect(200)
+      .end(function (err, res) {
+        if (err) {
+          return done(err);
+        }
+        // Empty input should return success with empty or minimal response
+        res.body.should.be.instanceof(Array);
+        res.body.length.should.equal(0);
+        done();
+      });
+  });
+
 });
