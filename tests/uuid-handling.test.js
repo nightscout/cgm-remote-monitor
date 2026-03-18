@@ -149,6 +149,7 @@ describe('UUID_HANDLING=false (explicit)', function() {
       });
     });
   });
+});
 
 describe('UUID_HANDLING=true', function() {
   var self = this;
