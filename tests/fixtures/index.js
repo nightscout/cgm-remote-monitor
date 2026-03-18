@@ -7,5 +7,6 @@ module.exports = {
   trio: require('./trio-pipeline'),
   deduplication: require('./deduplication'),
   edgeCases: require('./edge-cases'),
-  partialFailures: require('./partial-failures')
+  partialFailures: require('./partial-failures'),
+  nightscoutkitProfiles: require('./nightscoutkit-profiles')
 };
