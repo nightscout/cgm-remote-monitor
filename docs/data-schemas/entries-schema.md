@@ -52,14 +52,14 @@ The `entries` collection stores CGM (Continuous Glucose Monitor) sensor readings
 
 ### Identifier Field Normalization (REQ-SYNC-072)
 
-As of v15.0.7, the server **always** normalizes certain client sync identities into the `identifier` field on write:
+As of v15.0.7, the server normalizes UUID values in `_id` into the `identifier` field when `UUID_HANDLING=true` (default):
 
-| Client | Sends | Server Action |
-|--------|-------|---------------|
-| **Trio** | UUID in `_id` | Move to `identifier`, assign server ObjectId |
-| **Loop** (entries) | ObjectId (from cache) | Normal ObjectId behavior |
+| Client | Sends | Server Action (UUID_HANDLING=true) | Server Action (UUID_HANDLING=false) |
+|--------|-------|-------------------------------------|--------------------------------------|
+| **Trio** | UUID in `_id` | Move to `identifier`, assign server ObjectId | Strip `_id`, assign ObjectId (UUID not preserved) |
+| **Loop** (entries) | ObjectId (from cache) | Normal ObjectId behavior | Normal ObjectId behavior |
 
-**Note**: The write-path normalization happens **always**. The `UUID_HANDLING` env var only controls the **read path** (GET/DELETE by UUID).
+**Note**: The `UUID_HANDLING` env var controls **both** write-path normalization (identifier extraction) and read-path queries (GET/DELETE by UUID).
 
 **Important**: For entries, `sysTime + type` is ALWAYS the primary deduplication key. The `identifier` field is for client sync tracking only - it does NOT override the dedup logic.
 
@@ -83,34 +83,36 @@ This means:
 
 When a client sends a UUID as `_id`:
 
-1. **Extract**: UUID is copied to `identifier` field
+1. **Extract**: UUID is copied to `identifier` field (when `UUID_HANDLING=true`)
 2. **Strip**: Non-ObjectId `_id` is removed before database operation
 3. **Upsert**: Server uses `sysTime + type` for matching
 4. **Assign**: Server-generated ObjectId becomes final `_id`
 
-This prevents the MongoDB "immutable field '_id'" error while preserving client sync identity.
+This prevents the MongoDB "immutable field '_id'" error while preserving client sync identity (when enabled).
 
 ---
 
 ## UUID_HANDLING Feature Flag
 
-The `UUID_HANDLING` environment variable controls **read path** behavior (GET/DELETE by UUID). It does NOT affect write normalization, which always happens.
+The `UUID_HANDLING` environment variable controls both **write-path** normalization (identifier extraction) and **read-path** queries (GET/DELETE by UUID).
 
 When `UUID_HANDLING=true` (default):
 
 | Operation | Behavior |
 |-----------|----------|
+| POST/PUT with UUID `_id` | UUID moved to `identifier`, server assigns ObjectId |
 | GET by UUID | Searches by `identifier` field |
 | DELETE by UUID | Deletes by `identifier` field |
 
-When `UUID_HANDLING=false` (strict mode):
+When `UUID_HANDLING=false`:
 
 | Operation | Behavior |
 |-----------|----------|
+| POST/PUT with UUID `_id` | UUID `_id` stripped, ObjectId assigned (UUID not preserved) |
 | GET by UUID | Returns empty (no crash) |
 | DELETE by UUID | Deletes nothing (no crash) |
 
-**Note**: This only affects cases where a UUID is passed as the `_id` parameter in API calls (e.g., `GET /api/v1/entries/{uuid}`).
+**Note**: This only affects cases where a UUID is passed as the `_id` field (writes) or as the `_id` parameter in API calls (reads), e.g., `GET /api/v1/entries/{uuid}`.
 
 ---
 

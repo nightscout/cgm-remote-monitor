@@ -129,7 +129,26 @@ describe('UUID_HANDLING=false (explicit)', function() {
         });
     });
   });
-});
+
+  it('UUID-OFF-003: POST with UUID _id strips UUID, does not copy to identifier', function(done) {
+    // When UUID_HANDLING=false, UUID in _id is stripped but NOT preserved as identifier
+    self.ctx.treatments.create([{
+      _id: TEST_UUID,
+      eventType: 'Note',
+      notes: 'UUID stripped write test',
+      created_at: new Date().toISOString()
+    }], function(err) {
+      should.not.exist(err);
+      // Treatment was created (no crash), but UUID was not preserved as identifier
+      self.ctx.treatments.list({}, function(err, results) {
+        should.not.exist(err);
+        results.length.should.equal(1);
+        // identifier should NOT be set from the UUID _id when flag is false
+        should.not.exist(results[0].identifier);
+        done();
+      });
+    });
+  });
 
 describe('UUID_HANDLING=true', function() {
   var self = this;
@@ -269,6 +288,26 @@ describe('UUID_HANDLING=true', function() {
           res.body.length.should.equal(0);
           done();
         });
+    });
+  });
+
+  it('UUID-ON-005: POST with UUID _id extracts UUID to identifier', function(done) {
+    // When UUID_HANDLING=true, UUID in _id is extracted to identifier
+    self.ctx.treatments.create([{
+      _id: TEST_UUID,
+      eventType: 'Note',
+      notes: 'UUID write test',
+      created_at: new Date().toISOString()
+    }], function(err) {
+      should.not.exist(err);
+      // UUID should have been moved to identifier
+      self.ctx.treatments.list({}, function(err, results) {
+        should.not.exist(err);
+        results.length.should.equal(1);
+        // identifier should be set from the UUID _id
+        results[0].identifier.should.equal(TEST_UUID);
+        done();
+      });
     });
   });
 });
