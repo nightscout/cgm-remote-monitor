@@ -142,6 +142,69 @@ Once `dev` has been reviewed and people feel it's time to release, we follow the
 
 Every commit is tested by travis.  We encourage adding tests to validate your design.  We encourage discussing your use cases to help everyone get a better understanding of your design.
 
+## Running Tests Locally
+
+Tests **require** `NODE_ENV=test` to protect production databases from accidental destruction. If this variable is not set, tests will refuse to run and exit with an error.
+
+```bash
+# Run all tests
+NODE_ENV=test npm test
+
+# Run only unit tests (parallel, fast)
+NODE_ENV=test npm run test:unit
+
+# Run only integration tests (sequential, needs MongoDB)
+NODE_ENV=test npm run test:integration
+
+# Run specific test files
+NODE_ENV=test npm test -- --grep "treatments"
+```
+
+### Advanced Test Scripts
+
+For diagnosing test issues and ensuring reliability:
+
+```bash
+# Run stress tests for concurrent write operations
+NODE_ENV=test npm run test:stress
+
+# Detect flaky tests by running multiple iterations
+NODE_ENV=test npm run test:flaky           # Default iterations
+NODE_ENV=test npm run test:flaky:quick     # 3 iterations
+NODE_ENV=test npm run test:flaky:thorough  # 20 iterations
+
+# Run specific flaky test harnesses
+NODE_ENV=test npm run test:flaky:entries   # Entries isolation tests
+NODE_ENV=test npm run test:flaky:socket    # Socket isolation tests
+
+# Enable timing warnings to find slow tests
+NODE_ENV=test npm run test:timing
+```
+
+You can create a `my.test.env` file based on `ci.test.env` for local testing:
+
+```bash
+source my.test.env && npm test
+```
+
+### Test Environment Variables
+
+These variables control test behavior and MongoDB connection pooling:
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `NODE_ENV=test` | **Required** - Enables test mode, prevents production DB access | - |
+| `MONGO_POOL_SIZE` | MongoDB connection pool size | 5 |
+| `MONGO_MIN_POOL_SIZE` | Minimum pool connections to keep open | 0 |
+| `MONGO_MAX_IDLE_TIME_MS` | Max idle time (ms) before closing connection | 30000 |
+| `AUTH_FAIL_DELAY` | Delay (ms) after auth failure (test speedup) | 5000 |
+
+For CI or resource-constrained environments, adjust pool size:
+
+```bash
+MONGO_POOL_SIZE=3 MONGO_MIN_POOL_SIZE=1 npm test
+```
+
 ## Other Dev Tips
 
 * Join the [Discord chat][discord-url].

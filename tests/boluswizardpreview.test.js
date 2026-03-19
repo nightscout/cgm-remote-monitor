@@ -274,6 +274,9 @@ describe('boluswizardpreview', function ( ) {
   });
 
   it('set a pill to the BWP with infos', function (done) {
+    // BWP-TIME-001: Use fixed timestamp for deterministic IOB calculation
+    // Using `now` instead of `Date.now()` prevents timing drift between
+    // when data timestamps are set and when sandbox is initialized
     var ctx = {
       settings: {}
       , pluginBase: {
@@ -297,7 +300,8 @@ describe('boluswizardpreview', function ( ) {
       , profile: loadedProfile
     };
 
-    var sbx = require('../lib/sandbox')().clientInit(ctx, Date.now(), data);
+    // Use `now` (same as data timestamps) instead of Date.now() for determinism
+    var sbx = require('../lib/sandbox')().clientInit(ctx, now, data);
 
     iob.setProperties(sbx);
     boluswizardpreview.setProperties(sbx);

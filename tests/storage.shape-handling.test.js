@@ -248,10 +248,54 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
         units: 'mg/dl'
       };
       
-      self.ctx.profile.create(profile, function (err, doc) {
+      self.ctx.profile.create(profile, function (err, docs) {
         should.not.exist(err);
-        should.exist(doc);
-        doc.defaultProfile.should.equal('Default');
+        should.exist(docs);
+        // create() now always returns an array
+        docs.should.be.an.Array();
+        docs.length.should.equal(1);
+        docs[0].defaultProfile.should.equal('Default');
+        done();
+      });
+    });
+
+    it('create() accepts array of profiles', function (done) {
+      var profiles = [
+        {
+          defaultProfile: 'Default',
+          store: {
+            Default: { dia: 3, carbratio: [{ time: '00:00', value: 30 }] }
+          },
+          startDate: new Date().toISOString(),
+          units: 'mg/dl'
+        },
+        {
+          defaultProfile: 'Profile2',
+          store: {
+            Profile2: { dia: 4, carbratio: [{ time: '00:00', value: 25 }] }
+          },
+          startDate: new Date().toISOString(),
+          units: 'mg/dl'
+        }
+      ];
+      
+      self.ctx.profile.create(profiles, function (err, docs) {
+        should.not.exist(err);
+        should.exist(docs);
+        docs.should.be.an.Array();
+        docs.length.should.equal(2);
+        docs[0].defaultProfile.should.equal('Default');
+        docs[1].defaultProfile.should.equal('Profile2');
+        done();
+      });
+    });
+
+    it('create() handles empty array', function (done) {
+      self.ctx.profile.create([], function (err, docs) {
+        should.not.exist(err);
+        should.exist(docs);
+        docs.should.be.an.Array();
+        docs.length.should.equal(0);
         done();
       });
     });
@@ -280,10 +324,12 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
         fat: 5
       };
       
-      self.ctx.food.create(food, function (err, doc) {
+      self.ctx.food.create(food, function (err, docs) {
         should.not.exist(err);
-        should.exist(doc);
-        doc.name.should.equal('Test Food');
+        should.exist(docs);
+        // Storage normalizes to array internally
+        docs.should.be.an.Array();
+        docs[0].name.should.equal('Test Food');
         done();
       });
     });
