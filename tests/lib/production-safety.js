@@ -126,9 +126,12 @@ async function checkProductionSafety(ctx, env) {
   // Report errors and fail
   if (errors.length > 0) {
     console.error('\n' + '='.repeat(70));
-    console.error('❌ PRODUCTION SAFETY CHECK FAILED');
+    console.error('🛡️  PRODUCTION SAFETY CHECK ACTIVATED');
     console.error('='.repeat(70));
-    console.error('\nTests use deleteMany({}) which could DESTROY PRODUCTION DATA.\n');
+    console.error('\nThis database appears to contain real data.');
+    console.error('Running the test suite WILL DELETE all data in this database.');
+    console.error('\nThis safety check exists to prevent accidental destruction of');
+    console.error('production data. If this is truly a test database, you can override.\n');
     
     errors.forEach((e, i) => {
       console.error(`${i + 1}. ${e.check}:`);
@@ -136,10 +139,13 @@ async function checkProductionSafety(ctx, env) {
       console.error(`   💡 ${e.hint}\n`);
     });
     
-    console.error('To bypass ALL checks (dangerous): TEST_SAFETY_SKIP=true');
+    console.error('Override options:');
+    console.error('  • Set TEST_SAFETY_MAX_ENTRIES to a higher value (e.g., 1000)');
+    console.error('  • Set TEST_SAFETY_REQUIRE_TEST_DB=false to allow any DB name');
+    console.error('  • Set TEST_SAFETY_SKIP=true to bypass ALL checks (dangerous!)');
     console.error('='.repeat(70) + '\n');
     
-    throw new Error('Production safety check failed: ' + errors.map(e => e.check).join(', '));
+    throw new Error('Production safety check activated: ' + errors.map(e => e.check).join(', '));
   }
 
   console.log('[SAFETY] ✅ All production safety checks passed');

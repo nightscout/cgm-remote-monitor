@@ -46,7 +46,7 @@ describe('00 Production Safety Check', function() {
       .catch(function(err) {
         // Fail the test suite immediately
         console.error('\n\n' + '!'.repeat(70));
-        console.error('ABORTING TEST SUITE - PRODUCTION DATABASE DETECTED');
+        console.error('TEST SUITE HALTED - Production safety check activated');
         console.error('!'.repeat(70) + '\n');
         process.exit(1);
       });
