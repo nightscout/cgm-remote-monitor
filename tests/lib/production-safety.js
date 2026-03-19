@@ -88,10 +88,12 @@ async function checkProductionSafety(ctx, env) {
   // Check 2: Entry count threshold
   const maxEntries = parseInt(process.env.TEST_SAFETY_MAX_ENTRIES || String(DEFAULT_MAX_ENTRIES), 10);
   
-  if (maxEntries > 0 && ctx.entries && ctx.entries.collection) {
+  if (maxEntries > 0 && ctx.store && ctx.store.db) {
     try {
+      // Access entries collection directly via store
+      const entriesCol = ctx.store.db.collection('entries');
       // Use limit+1 pattern for efficiency - we only need to know if it exceeds threshold
-      const count = await ctx.entries.collection.countDocuments({}, { 
+      const count = await entriesCol.countDocuments({}, { 
         limit: maxEntries + 1,
         maxTimeMS: 5000 // Don't hang on slow connections
       });
