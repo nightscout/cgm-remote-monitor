@@ -4,8 +4,10 @@
  * cache-objectid-compat.test.js
  *
  * Regression test: MongoDB driver 5.x ObjectId has no enumerable properties,
- * so _.isEmpty(new ObjectId()) returns true.  This breaks cache.js
- * filterForAge() which uses `!_.isEmpty(object._id)` as the hasId check.
+ * so _.isEmpty(new ObjectId()) returns true.  This broke cache.js
+ * filterForAge() which used `!_.isEmpty(object._id)` as the hasId check.
+ *
+ * Fix: replaced `!_.isEmpty(object._id)` with `object._id != null && object._id !== ''`
  *
  * On mongodb driver 3.x (v15.0.6), Object.keys(new ObjectID()) returned
  * ['_bsontype','id'], making _.isEmpty return false (correct).
@@ -15,9 +17,6 @@
  * ObjectId _id as empty).
  *
  * Affects: lib/server/cache.js filterForAge()
- * Affects: Any code path that puts ObjectId _id documents into the cache
- *   without first converting _id to a string via processRawDataForRuntime().
- *
  * Related: AAPS backfill display bug (entries in MongoDB but invisible on chart)
  */
 
@@ -27,11 +26,11 @@ const should = require('should');
 
 describe('Cache ObjectId compatibility', function () {
 
-  describe('_.isEmpty behavioral change with new ObjectId', function () {
+  describe('_.isEmpty behavioral change with new ObjectId (root cause)', function () {
 
-    it('REGRESSION: _.isEmpty(ObjectId) returns true on driver 5.x', function () {
+    it('_.isEmpty(ObjectId) returns true on driver 5.x (regression)', function () {
       const oid = new ObjectId();
-      // This is the root cause: driver 5.x ObjectId has no enumerable keys
+      // driver 5.x ObjectId has no enumerable keys
       Object.keys(oid).should.have.length(0);
       _.isEmpty(oid).should.equal(true);
       // But the ObjectId IS valid and non-null
@@ -44,20 +43,19 @@ describe('Cache ObjectId compatibility', function () {
       _.isEmpty(stringId).should.equal(false);
     });
 
-    it('processRawDataForRuntime converts ObjectId to string (mitigation)', function () {
+    it('processRawDataForRuntime converts ObjectId to string (existing mitigation)', function () {
       const ddata = require('../lib/data/ddata')();
       const doc = { _id: new ObjectId(), type: 'sgv', sgv: 120, date: Date.now() };
       const processed = ddata.processRawDataForRuntime([doc]);
-      // After processing, _id should be a string
       (typeof processed[0]._id).should.equal('string');
       _.isEmpty(processed[0]._id).should.equal(false);
     });
   });
 
-  describe('filterForAge hasId check', function () {
+  describe('filterForAge fix verification', function () {
 
-    // Reproduce the exact filterForAge logic from cache.js
-    function filterForAge (data, ageLimit) {
+    // Reproduce the OLD (broken) logic for comparison
+    function filterForAgeOLD (data, ageLimit) {
       return _.filter(data, function (object) {
         var hasId = !_.isEmpty(object._id);
         var age = object.mills || object.date;
@@ -66,88 +64,135 @@ describe('Cache ObjectId compatibility', function () {
       });
     }
 
+    // The FIXED logic (matches cache.js after the fix)
+    function filterForAgeFIXED (data, ageLimit) {
+      return _.filter(data, function (object) {
+        var hasId = object._id != null && object._id !== '';
+        var age = object.mills || object.date;
+        var isFresh = typeof age === 'number' && age >= ageLimit;
+        return isFresh && hasId;
+      });
+    }
+
     const TWO_DAYS = 172800000;
 
-    it('FAILS: ObjectId _id is filtered out by hasId check', function () {
+    it('OLD: ObjectId _id is rejected (confirms the bug existed)', function () {
       var ageLimit = Date.now() - TWO_DAYS;
-      var doc = {
-        _id: new ObjectId(),
-        type: 'sgv',
-        sgv: 120,
-        mills: Date.now() - 3600000
-      };
-      var result = filterForAge([doc], ageLimit);
-      // BUG: entry with valid ObjectId _id is rejected
-      result.should.have.length(0);
+      var doc = { _id: new ObjectId(), type: 'sgv', sgv: 120, mills: Date.now() - 3600000 };
+      filterForAgeOLD([doc], ageLimit).should.have.length(0);
     });
 
-    it('PASSES: string _id passes hasId check', function () {
+    it('FIXED: ObjectId _id is accepted', function () {
       var ageLimit = Date.now() - TWO_DAYS;
-      var doc = {
-        _id: new ObjectId().toString(),
-        type: 'sgv',
-        sgv: 120,
-        mills: Date.now() - 3600000
-      };
-      var result = filterForAge([doc], ageLimit);
-      result.should.have.length(1);
+      var doc = { _id: new ObjectId(), type: 'sgv', sgv: 120, mills: Date.now() - 3600000 };
+      filterForAgeFIXED([doc], ageLimit).should.have.length(1);
     });
 
-    it('proposed fix: check _id != null instead of _.isEmpty', function () {
-      function filterForAgeFix (data, ageLimit) {
-        return _.filter(data, function (object) {
-          // Fix: use truthiness check instead of _.isEmpty
-          var hasId = object._id != null && object._id !== '';
-          var age = object.mills || object.date;
-          var isFresh = typeof age === 'number' && age >= ageLimit;
-          return isFresh && hasId;
-        });
-      }
-
+    it('FIXED: string _id still accepted', function () {
       var ageLimit = Date.now() - TWO_DAYS;
-      var doc = {
-        _id: new ObjectId(),
-        type: 'sgv',
-        sgv: 120,
-        mills: Date.now() - 3600000
-      };
-      var result = filterForAgeFix([doc], ageLimit);
-      // With the fix, ObjectId _id passes
-      result.should.have.length(1);
+      var doc = { _id: new ObjectId().toString(), type: 'sgv', sgv: 120, mills: Date.now() - 3600000 };
+      filterForAgeFIXED([doc], ageLimit).should.have.length(1);
+    });
+
+    it('FIXED: null _id still rejected', function () {
+      var ageLimit = Date.now() - TWO_DAYS;
+      var doc = { _id: null, type: 'sgv', sgv: 120, mills: Date.now() - 3600000 };
+      filterForAgeFIXED([doc], ageLimit).should.have.length(0);
+    });
+
+    it('FIXED: undefined _id still rejected', function () {
+      var ageLimit = Date.now() - TWO_DAYS;
+      var doc = { type: 'sgv', sgv: 120, mills: Date.now() - 3600000 };
+      filterForAgeFIXED([doc], ageLimit).should.have.length(0);
+    });
+
+    it('FIXED: empty string _id still rejected', function () {
+      var ageLimit = Date.now() - TWO_DAYS;
+      var doc = { _id: '', type: 'sgv', sgv: 120, mills: Date.now() - 3600000 };
+      filterForAgeFIXED([doc], ageLimit).should.have.length(0);
+    });
+
+    it('FIXED: stale entries (older than retention) still rejected', function () {
+      var ageLimit = Date.now() - TWO_DAYS;
+      var doc = { _id: new ObjectId(), type: 'sgv', sgv: 120, mills: Date.now() - (TWO_DAYS + 60000) };
+      filterForAgeFIXED([doc], ageLimit).should.have.length(0);
     });
   });
 
-  describe('mongoCachedCollection data-update path (API3)', function () {
+  describe('actual cache.js integration', function () {
 
-    it('REGRESSION: API3 insertOne emits data-update with ObjectId _id', function () {
-      // Simulates what mongoCachedCollection.updateInCache does
-      // It passes raw documents (ObjectId _id) to data-update
-      // WITHOUT going through processRawDataForRuntime
+    var env, ctx, cache;
 
-      var doc = {
-        _id: new ObjectId(),
-        type: 'sgv',
-        sgv: 120,
-        date: Date.now() - 7200000, // 2 hours ago
-        mills: Date.now() - 7200000
+    beforeEach(function () {
+      env = require('../lib/server/env')();
+      // Minimal ctx with bus and ddata for cache initialization
+      var EventEmitter = require('events');
+      ctx = {
+        bus: new EventEmitter(),
+        ddata: require('../lib/data/ddata')()
       };
+      cache = require('../lib/server/cache')(env, ctx);
+    });
 
-      // Simulate cache.dataChanged with mergeCacheArrays
-      var TWO_DAYS = 172800000;
-      var ageLimit = Date.now() - TWO_DAYS;
+    it('cache accepts ObjectId _id entries via insertData', function () {
+      var entries = [
+        { _id: new ObjectId(), type: 'sgv', sgv: 120, date: Date.now() - 3600000, mills: Date.now() - 3600000 },
+        { _id: new ObjectId(), type: 'sgv', sgv: 130, date: Date.now() - 3000000, mills: Date.now() - 3000000 }
+      ];
+      var result = cache.insertData('entries', entries);
+      result.should.have.length(2);
+    });
 
-      function filterForAge (data, ageLimit) {
-        return _.filter(data, function (object) {
-          var hasId = !_.isEmpty(object._id);
-          var age = object.mills || object.date;
-          var isFresh = typeof age === 'number' && age >= ageLimit;
-          return isFresh && hasId;
-        });
-      }
+    it('cache accepts string _id entries via insertData', function () {
+      var entries = [
+        { _id: new ObjectId().toString(), type: 'sgv', sgv: 120, date: Date.now() - 3600000, mills: Date.now() - 3600000 }
+      ];
+      var result = cache.insertData('entries', entries);
+      result.should.have.length(1);
+    });
 
-      var filteredNew = filterForAge([doc], ageLimit);
-      // BUG: the ObjectId entry is dropped
-      filteredNew.should.have.length(0);
+    it('cache preserves ObjectId entries across data-update events', function () {
+      // Simulate mongoCachedCollection emitting data-update with ObjectId _id
+      var doc = { _id: new ObjectId(), type: 'sgv', sgv: 120, date: Date.now() - 3600000, mills: Date.now() - 3600000 };
+      ctx.bus.emit('data-update', { type: 'entries', op: 'update', changes: [doc] });
+      var result = cache.getData('entries');
+      result.should.have.length(1);
+      result[0].sgv.should.equal(120);
+    });
+
+    it('cache preserves mixed ObjectId and string _id entries', function () {
+      var entries = [
+        { _id: new ObjectId(), type: 'sgv', sgv: 120, date: Date.now() - 3600000, mills: Date.now() - 3600000 },
+        { _id: 'abc123string', type: 'sgv', sgv: 130, date: Date.now() - 3000000, mills: Date.now() - 3000000 }
+      ];
+      var result = cache.insertData('entries', entries);
+      result.should.have.length(2);
+    });
+
+    it('cache rejects entries without _id', function () {
+      var entries = [
+        { type: 'sgv', sgv: 120, date: Date.now() - 3600000, mills: Date.now() - 3600000 }
+      ];
+      var result = cache.insertData('entries', entries);
+      result.should.have.length(0);
+    });
+
+    it('data-update with ObjectId _id does not evict existing cache entries', function () {
+      // Pre-populate cache with string _id entries (via dataloader path)
+      var existing = [
+        { _id: new ObjectId().toString(), type: 'sgv', sgv: 100, date: Date.now() - 7200000, mills: Date.now() - 7200000 },
+        { _id: new ObjectId().toString(), type: 'sgv', sgv: 110, date: Date.now() - 3600000, mills: Date.now() - 3600000 }
+      ];
+      cache.insertData('entries', existing);
+      cache.getData('entries').should.have.length(2);
+
+      // Now simulate API3 data-update with ObjectId _id
+      var newDoc = { _id: new ObjectId(), type: 'sgv', sgv: 140, date: Date.now() - 1800000, mills: Date.now() - 1800000 };
+      ctx.bus.emit('data-update', { type: 'entries', op: 'update', changes: [newDoc] });
+
+      var result = cache.getData('entries');
+      // All 3 entries should be present (2 existing + 1 new)
+      result.should.have.length(3);
     });
   });
 });
