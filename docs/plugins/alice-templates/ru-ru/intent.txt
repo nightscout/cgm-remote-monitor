@@ -1,0 +1,31 @@
+root:
+    [($Prefix)* $MetricItem]
+    [($Prefix)* $StatusItem] 
+    [($Prefix)* $LastLoopItem] 
+
+slots:
+    metricnow:
+        type: Metric
+        source: $MetricItem
+    nsstatus:
+        type: Status
+        source: $StatusItem
+    lastloop:
+        type: LastLoop
+        source: $LastLoopItem
+
+filler:
+    $Prefix
+
+$Prefix:
+    %lemma
+    мой | какой | уровень | показатель | у меня | когда | была 
+
+$MetricItem:
+    $Metric
+
+$StatusItem:
+    $Status
+
+$LastLoopItem:
+    $LastLoop
