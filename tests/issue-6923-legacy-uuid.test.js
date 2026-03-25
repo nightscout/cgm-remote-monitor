@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Legacy UUID Data Test: Issue #6923 Reproduction
+ * Legacy UUID Data Test: Issue #6923 Regression
  * 
  * ISSUE: https://github.com/nightscout/cgm-remote-monitor/issues/6923
  * 
@@ -11,10 +11,11 @@
  * 
  * The test inserts a legacy-shaped document directly into MongoDB
  * (bypassing normalizeTreatmentId) and then exercises the API
- * DELETE and PUT paths that a user would trigger from Reports > Treatments.
+ * DELETE, PUT, and GET paths that a user would trigger from Reports > Treatments.
  * 
- * EXPECTED RESULT: These tests FAIL, proving the legacy data bug.
- * When all tests pass, the bug is fixed.
+ * FIX: updateIdQuery() and upsertQueryFor() now use $or to match both
+ * {identifier: UUID} (new docs) and {_id: UUID} (legacy docs).
+ * All 3 tests pass, confirming Loop can manage pre-existing overrides.
  */
 
 const request = require('supertest');
