@@ -385,4 +385,172 @@ describe('Profile', function ( ) {
       curProfile.carbs_hr.should.equal(30);
   });
 
+  // Timezone normalization tests (Issue #8461)
+  var timezoneProfileData = {
+    'timezone': 'GMT+4'
+    , 'dia': 3
+    , 'carbs_hr': 30
+    , 'carbratio': 7
+    , 'sens': 35
+    , 'target_low': 95
+    , 'target_high': 120
+  };
+
+  var tzProfile = require('../lib/profilefunctions')([timezoneProfileData], helper.ctx);
+
+  it('should normalize GMT+N to Etc/GMT-N (IANA format)', function () {
+    var tz = tzProfile.getTimezone();
+    tz.should.equal('Etc/GMT-4');
+  });
+
+  it('should normalize UTC+N to Etc/GMT-N', function () {
+    var utcProfileData = {
+      'timezone': 'UTC+2'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var utcProfile = require('../lib/profilefunctions')([utcProfileData], helper.ctx);
+    var tz = utcProfile.getTimezone();
+    tz.should.equal('Etc/GMT-2');
+  });
+
+  it('should normalize GMT-5 to Etc/GMT+5 (sign inversion)', function () {
+    var negProfileData = {
+      'timezone': 'GMT-5'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var negProfile = require('../lib/profilefunctions')([negProfileData], helper.ctx);
+    var tz = negProfile.getTimezone();
+    tz.should.equal('Etc/GMT+5');
+  });
+
+  it('should leave valid IANA timezones unchanged', function () {
+    var ianaProfileData = {
+      'timezone': 'America/Toronto'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var ianaProfile = require('../lib/profilefunctions')([ianaProfileData], helper.ctx);
+    var tz = ianaProfile.getTimezone();
+    tz.should.equal('America/Toronto');
+  });
+
+  it('should fix ETC case to Etc', function () {
+    var etcProfileData = {
+      'timezone': 'ETC/GMT+5'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var etcProfile = require('../lib/profilefunctions')([etcProfileData], helper.ctx);
+    var tz = etcProfile.getTimezone();
+    tz.should.equal('Etc/GMT+5');
+  });
+
+  it('should normalize GMT+0 to Etc/GMT-0', function () {
+    var zeroProfileData = {
+      'timezone': 'GMT+0'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var zeroProfile = require('../lib/profilefunctions')([zeroProfileData], helper.ctx);
+    var tz = zeroProfile.getTimezone();
+    tz.should.equal('Etc/GMT-0');
+  });
+
+  it('should normalize GMT-0 to Etc/GMT+0', function () {
+    var negZeroData = {
+      'timezone': 'GMT-0'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var negZeroProfile = require('../lib/profilefunctions')([negZeroData], helper.ctx);
+    var tz = negZeroProfile.getTimezone();
+    tz.should.equal('Etc/GMT+0');
+  });
+
+  it('should normalize double-digit offsets like GMT+12', function () {
+    var gmt12ProfileData = {
+      'timezone': 'GMT+12'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var gmt12Profile = require('../lib/profilefunctions')([gmt12ProfileData], helper.ctx);
+    var tz = gmt12Profile.getTimezone();
+    tz.should.equal('Etc/GMT-12');
+  });
+
+  it('should leave bare UTC unchanged', function () {
+    var bareUtcData = {
+      'timezone': 'UTC'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var bareUtcProfile = require('../lib/profilefunctions')([bareUtcData], helper.ctx);
+    var tz = bareUtcProfile.getTimezone();
+    tz.should.equal('UTC');
+  });
+
+  it('should leave half-hour offsets unchanged (not supported by Etc/GMT)', function () {
+    var halfHourData = {
+      'timezone': 'GMT+5:30'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var halfHourProfile = require('../lib/profilefunctions')([halfHourData], helper.ctx);
+    var tz = halfHourProfile.getTimezone();
+    tz.should.equal('GMT+5:30');
+  });
+
+  it('should leave bare GMT unchanged', function () {
+    var bareGmtData = {
+      'timezone': 'GMT'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var bareGmtProfile = require('../lib/profilefunctions')([bareGmtData], helper.ctx);
+    var tz = bareGmtProfile.getTimezone();
+    tz.should.equal('GMT');
+  });
+
 });
