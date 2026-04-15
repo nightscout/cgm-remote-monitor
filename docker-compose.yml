@@ -25,9 +25,9 @@ services:
       - 'traefik.enable=true'
       # Change the below Host from `localhost` to be the web address where Nightscout is running.
       # Also change the email address in the `traefik` service below.
-      - 'traefik.http.routers.nightscout.rule=Host(`localhost`)'
+      - 'traefik.http.routers.nightscout.rule=Host(`Jasons-MacBook-Pro.local`) || Host(`192.168.1.67`) || Host(`localhost`)'
       - 'traefik.http.routers.nightscout.entrypoints=websecure'
-      - 'traefik.http.routers.nightscout.tls.certresolver=le'
+      - 'traefik.http.routers.nightscout.tls=true'
     logging: *default-logging
     environment:
       ### Variables for the container
@@ -74,15 +74,12 @@ services:
       - '--entrypoints.web.address=:80'
       - '--entrypoints.web.http.redirections.entrypoint.to=websecure'
       - '--entrypoints.websecure.address=:443'
-      - "--certificatesresolvers.le.acme.httpchallenge=true"
-      - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
-      - '--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json'
-      # Change the below to match your email address
-      - '--certificatesresolvers.le.acme.email=example@example.com'
+      - '--providers.file.directory=/etc/traefik/dynamic'
     ports:
       - '443:443'
       - '80:80'
     volumes:
-      - './letsencrypt:/letsencrypt'
+      - './certs:/certs:ro'
+      - './traefik/dynamic:/etc/traefik/dynamic:ro'
       - '/var/run/docker.sock:/var/run/docker.sock:ro'
     logging: *default-logging
