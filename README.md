@@ -1,3 +1,11 @@
+Hilljb's Notes on Local Docker Version of Nightscout
+====================================================
+
+This was an attempt to get a Dockerized version running locally for testing purposes. While it is possible to run
+the app locally, xDrip+ won't connect due to requiring a system SSL cert. The app runs and you can create a user
+cert and get it installed on both Android and iPhone devices, but xDrip+ enforces a stronger cert and won't connect.
+For now, I'll leave this as is and come back here for notes.
+
 Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 ==================================================
 
