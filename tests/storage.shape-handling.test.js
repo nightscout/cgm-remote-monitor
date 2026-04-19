@@ -299,6 +299,153 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
         done();
       });
     });
+
+    it('save() updates an existing profile by _id', function (done) {
+      var original = {
+        defaultProfile: 'Default',
+        store: {
+          Default: {
+            dia: 3,
+            carbratio: [{ time: '00:00', value: 30 }],
+            sens: [{ time: '00:00', value: 100 }],
+            basal: [{ time: '00:00', value: 0.5 }],
+            target_low: [{ time: '00:00', value: 80 }],
+            target_high: [{ time: '00:00', value: 120 }],
+            units: 'mg/dl'
+          }
+        },
+        startDate: '2024-10-19T23:00:00.000Z',
+        created_at: '2024-10-26T20:32:49.173Z',
+        units: 'mg/dl'
+      };
+
+      self.ctx.profile.save(original, function (err, savedProfile) {
+        should.not.exist(err);
+        should.exist(savedProfile);
+        should.exist(savedProfile._id);
+
+        var savedId = savedProfile._id;
+        var updated = {
+          _id: savedId.toString(),
+          defaultProfile: 'Default',
+          store: {
+            Default: {
+              dia: 4,
+              carbratio: [{ time: '00:00', value: 30 }],
+              sens: [{ time: '00:00', value: 100 }],
+              basal: [{ time: '00:00', value: 0.5 }],
+              target_low: [{ time: '00:00', value: 80 }],
+              target_high: [{ time: '00:00', value: 120 }],
+              units: 'mg/dl'
+            }
+          },
+          startDate: '2024-10-19T23:00:00.000Z',
+          created_at: '2024-10-26T21:32:49.173Z',
+          units: 'mg/dl'
+        };
+
+        self.ctx.profile.save(updated, function (saveErr) {
+          should.not.exist(saveErr);
+
+          self.ctx.profile().find({ _id: savedId }).toArray(function (findErr, docs) {
+            should.not.exist(findErr);
+            docs.length.should.equal(1);
+            docs[0].store.Default.dia.should.equal(4);
+            docs[0].created_at.should.equal('2024-10-26T21:32:49.173Z');
+            done();
+          });
+        });
+      });
+    });
+
+    it('save() generates _id when none provided', function (done) {
+      var profile = {
+        defaultProfile: 'Default',
+        store: {
+          Default: {
+            dia: 3,
+            carbratio: [{ time: '00:00', value: 30 }],
+            sens: [{ time: '00:00', value: 100 }],
+            basal: [{ time: '00:00', value: 0.5 }],
+            target_low: [{ time: '00:00', value: 80 }],
+            target_high: [{ time: '00:00', value: 120 }],
+            units: 'mg/dl'
+          }
+        },
+        startDate: '2024-10-19T23:00:00.000Z',
+        units: 'mg/dl'
+      };
+
+      self.ctx.profile.save(profile, function (err, saved) {
+        should.not.exist(err);
+        should.exist(saved);
+        should.exist(saved._id);
+        saved._id.constructor.name.should.equal('ObjectId');
+        done();
+      });
+    });
+
+    it('save() generates _id when invalid _id provided', function (done) {
+      var profile = {
+        _id: 'not-a-valid-objectid',
+        defaultProfile: 'Default',
+        store: {
+          Default: {
+            dia: 3,
+            carbratio: [{ time: '00:00', value: 30 }],
+            sens: [{ time: '00:00', value: 100 }],
+            basal: [{ time: '00:00', value: 0.5 }],
+            target_low: [{ time: '00:00', value: 80 }],
+            target_high: [{ time: '00:00', value: 120 }],
+            units: 'mg/dl'
+          }
+        },
+        startDate: '2024-10-19T23:00:00.000Z',
+        units: 'mg/dl'
+      };
+
+      self.ctx.profile.save(profile, function (err, saved) {
+        should.not.exist(err);
+        should.exist(saved);
+        should.exist(saved._id);
+        saved._id.constructor.name.should.equal('ObjectId');
+        // Should not be the invalid string
+        saved._id.toString().should.not.equal('not-a-valid-objectid');
+        done();
+      });
+    });
+
+    it('save() preserves explicit created_at and does not overwrite it', function (done) {
+      var profile = {
+        defaultProfile: 'Default',
+        store: {
+          Default: {
+            dia: 3,
+            carbratio: [{ time: '00:00', value: 30 }],
+            sens: [{ time: '00:00', value: 100 }],
+            basal: [{ time: '00:00', value: 0.5 }],
+            target_low: [{ time: '00:00', value: 80 }],
+            target_high: [{ time: '00:00', value: 120 }],
+            units: 'mg/dl'
+          }
+        },
+        startDate: '2024-10-19T23:00:00.000Z',
+        created_at: '2020-01-01T00:00:00.000Z',
+        units: 'mg/dl'
+      };
+
+      self.ctx.profile.save(profile, function (err, saved) {
+        should.not.exist(err);
+        saved.created_at.should.equal('2020-01-01T00:00:00.000Z');
+
+        self.ctx.profile().find({ _id: saved._id }).toArray(function (findErr, docs) {
+          should.not.exist(findErr);
+          docs.length.should.equal(1);
+          docs[0].created_at.should.equal('2020-01-01T00:00:00.000Z');
+          done();
+        });
+      });
+    });
   });
 
   describe('Food Storage - lib/server/food.js', function () {
