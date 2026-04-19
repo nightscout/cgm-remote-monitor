@@ -79,6 +79,10 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
     return self.ctx.store.collection(self.env.treatments_collection);
   }
 
+  function foodCollection() {
+    return self.ctx.food();
+  }
+
   describe('dbAdd with treatments collection', function () {
     
     beforeEach(function (done) {
@@ -278,8 +282,7 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
           eventType: 'Note',
           created_at: createdAt,
           notes: 'legacy original'
-        }, function (insertErr) {
-          if (insertErr) return done(insertErr);
+        }).then(function () {
 
           socket.emit('dbUpdate', {
             collection: 'treatments',
@@ -293,7 +296,9 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
 
             waitForConditionWithWarning({
               condition: function (cb) {
-                treatmentsCollection().findOne({ _id: legacyId }, cb);
+                treatmentsCollection().findOne({ _id: legacyId })
+                  .then(function (doc) { cb(null, doc); })
+                  .catch(cb);
               },
               assertion: function (doc) {
                 should.exist(doc);
@@ -303,7 +308,7 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
               operationName: 'verify websocket dbUpdate with custom string _id'
             });
           });
-        });
+        }).catch(done);
       });
     });
   });
@@ -328,8 +333,7 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
           eventType: 'Note',
           created_at: createdAt,
           notes: 'remove me'
-        }, function (insertErr) {
-          if (insertErr) return done(insertErr);
+        }).then(function () {
 
           socket.emit('dbUpdateUnset', {
             collection: 'treatments',
@@ -343,7 +347,9 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
 
             waitForConditionWithWarning({
               condition: function (cb) {
-                treatmentsCollection().findOne({ _id: legacyId }, cb);
+                treatmentsCollection().findOne({ _id: legacyId })
+                  .then(function (doc) { cb(null, doc); })
+                  .catch(cb);
               },
               assertion: function (doc) {
                 should.exist(doc);
@@ -353,7 +359,7 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
               operationName: 'verify websocket dbUpdateUnset with custom string _id'
             });
           });
-        });
+        }).catch(done);
       });
     });
   });
@@ -408,8 +414,7 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
           eventType: 'Note',
           created_at: createdAt,
           notes: 'delete me'
-        }, function (insertErr) {
-          if (insertErr) return done(insertErr);
+        }).then(function () {
 
           socket.emit('dbRemove', {
             collection: 'treatments',
@@ -420,7 +425,9 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
 
             waitForConditionWithWarning({
               condition: function (cb) {
-                treatmentsCollection().findOne({ _id: legacyId }, cb);
+                treatmentsCollection().findOne({ _id: legacyId })
+                  .then(function (doc) { cb(null, doc); })
+                  .catch(cb);
               },
               assertion: function (doc) {
                 should.not.exist(doc);
@@ -429,7 +436,7 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
               operationName: 'verify websocket dbRemove with custom string _id'
             });
           });
-        });
+        }).catch(done);
       });
     });
   });
@@ -455,8 +462,7 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
           eventType: 'Note',
           created_at: originalCreatedAt,
           notes: 'existing legacy note'
-        }, function (insertErr) {
-          if (insertErr) return done(insertErr);
+        }).then(function () {
 
           socket.emit('dbAdd', {
             collection: 'treatments',
@@ -473,7 +479,9 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
 
             waitForConditionWithWarning({
               condition: function (cb) {
-                treatmentsCollection().findOne({ _id: legacyId }, cb);
+                treatmentsCollection().findOne({ _id: legacyId })
+                  .then(function (doc) { cb(null, doc); })
+                  .catch(cb);
               },
               assertion: function (doc) {
                 should.exist(doc);
@@ -483,7 +491,131 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
               operationName: 'verify websocket dbAdd dedupe with custom string _id'
             });
           });
+        }).catch(done);
+      });
+    });
+  });
+
+  describe('generic collection raw write watchpoints', function () {
+
+    beforeEach(async function () {
+      await foodCollection().deleteMany({});
+    });
+
+    it('dbAdd preserves custom string _id values for generic collections', function (done) {
+      connectAndAuthorize(function (err, socket, authResult) {
+        if (err) return done(err);
+
+        authResult.write.should.equal(true);
+
+        var legacyId = 'legacy-food-id-add';
+        socket.emit('dbAdd', {
+          collection: 'food',
+          data: {
+            _id: legacyId,
+            name: 'ws food',
+            carbs: 15
+          }
+        }, function (result) {
+          should.exist(result);
+          result.should.be.instanceof(Array);
+          result.length.should.equal(1);
+          result[0]._id.should.equal(legacyId);
+
+          waitForConditionWithWarning({
+            condition: function (cb) {
+              foodCollection().findOne({ _id: legacyId })
+                .then(function (doc) { cb(null, doc); })
+                .catch(cb);
+            },
+            assertion: function (doc) {
+              should.exist(doc);
+              doc.name.should.equal('ws food');
+              doc.carbs.should.equal(15);
+            },
+            done: done,
+            operationName: 'verify websocket dbAdd generic collection custom string _id'
+          });
         });
+      });
+    });
+
+    it('dbUpdate supports custom string _id values for generic collections', function (done) {
+      connectAndAuthorize(function (err, socket, authResult) {
+        if (err) return done(err);
+
+        authResult.write.should.equal(true);
+
+        var legacyId = 'legacy-food-id-update';
+        foodCollection().insertOne({
+          _id: legacyId,
+          name: 'original food',
+          carbs: 10,
+          protein: 2
+        }).then(function () {
+          socket.emit('dbUpdate', {
+            collection: 'food',
+            _id: legacyId,
+            data: {
+              carbs: 18,
+              protein: 4
+            }
+          }, function (updateResult) {
+            should.exist(updateResult);
+            updateResult.result.should.equal('success');
+
+            waitForConditionWithWarning({
+              condition: function (cb) {
+                foodCollection().findOne({ _id: legacyId })
+                  .then(function (doc) { cb(null, doc); })
+                  .catch(cb);
+              },
+              assertion: function (doc) {
+                should.exist(doc);
+                doc.carbs.should.equal(18);
+                doc.protein.should.equal(4);
+              },
+              done: done,
+              operationName: 'verify websocket dbUpdate generic collection custom string _id'
+            });
+          });
+        }).catch(done);
+      });
+    });
+
+    it('dbRemove supports custom string _id values for generic collections', function (done) {
+      connectAndAuthorize(function (err, socket, authResult) {
+        if (err) return done(err);
+
+        authResult.write.should.equal(true);
+
+        var legacyId = 'legacy-food-id-remove';
+        foodCollection().insertOne({
+          _id: legacyId,
+          name: 'remove food',
+          carbs: 9
+        }).then(function () {
+          socket.emit('dbRemove', {
+            collection: 'food',
+            _id: legacyId
+          }, function (removeResult) {
+            should.exist(removeResult);
+            removeResult.result.should.equal('success');
+
+            waitForConditionWithWarning({
+              condition: function (cb) {
+                foodCollection().findOne({ _id: legacyId })
+                  .then(function (doc) { cb(null, doc); })
+                  .catch(cb);
+              },
+              assertion: function (doc) {
+                should.not.exist(doc);
+              },
+              done: done,
+              operationName: 'verify websocket dbRemove generic collection custom string _id'
+            });
+          });
+        }).catch(done);
       });
     });
   });

@@ -55,12 +55,14 @@ describe('v1 API Deduplication Behavior', function() {
       find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } 
     }, function() {
       // Use deleteMany for faster cleanup of entries
-      self.ctx.entries().deleteMany({}, function() {
-        // Also clear devicestatus to reduce database load
-        self.ctx.devicestatus.remove({
-          find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } }
-        }, done);
-      });
+      self.ctx.entries().deleteMany({})
+        .then(function() {
+          // Also clear devicestatus to reduce database load
+          self.ctx.devicestatus.remove({
+            find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } }
+          }, done);
+        })
+        .catch(done);
     });
   });
 

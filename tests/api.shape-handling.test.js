@@ -352,16 +352,12 @@ describe('API Shape Handling - Single Object vs Array Input', function () {
 
   describe('Entries API - /api/entries/', function () {
     
-    beforeEach(function (done) {
-      self.ctx.entries().deleteMany({}, function () {
-        done();
-      });
+    beforeEach(async function () {
+      await self.ctx.entries().deleteMany({});
     });
 
-    afterEach(function (done) {
-      self.ctx.entries().deleteMany({}, function () {
-        done();
-      });
+    afterEach(async function () {
+      await self.ctx.entries().deleteMany({});
     });
 
     it('POST accepts single SGV entry object', function (done) {
@@ -838,7 +834,95 @@ describe('API Shape Handling - Single Object vs Array Input', function () {
               p.should.have.property('_id');
             });
             done();
-          });
+        });
+      });
+    });
+
+    describe('Legacy PUT update semantics', function () {
+      beforeEach(async function () {
+        await self.ctx.food().deleteMany({});
+        await self.ctx.activity().deleteMany({});
+      });
+
+      afterEach(async function () {
+        await self.ctx.food().deleteMany({});
+        await self.ctx.activity().deleteMany({});
+      });
+
+      it('PUT /api/food/ updates an existing record by _id when created_at changes', function (done) {
+        self.ctx.food.create({
+          name: 'API shape food',
+          category: 'Test',
+          carbs: 20,
+          protein: 10,
+          fat: 5
+        }, function (createErr, docs) {
+          if (createErr) return done(createErr);
+
+          var created = docs[0];
+          request(self.app)
+            .put('/api/food/')
+            .set('api-secret', known)
+            .send({
+              _id: created._id.toString(),
+              name: 'API shape food',
+              category: 'Test',
+              carbs: 25,
+              protein: 10,
+              fat: 5,
+              created_at: '2024-10-26T21:32:49.173Z'
+            })
+            .expect(200)
+            .end(function (err) {
+              if (err) return done(err);
+
+              self.ctx.food().find({ _id: created._id }).toArray()
+                .then(function (updatedDocs) {
+                  updatedDocs.length.should.equal(1);
+                  updatedDocs[0].carbs.should.equal(25);
+                  updatedDocs[0].created_at.should.equal('2024-10-26T21:32:49.173Z');
+                  done();
+                })
+                .catch(done);
+            });
+        });
+      });
+
+      it('PUT /api/activity/ updates an existing record by _id', function (done) {
+        self.ctx.activity.create([{
+          created_at: '2024-10-26T20:32:49.173Z',
+          heartrate: 80,
+          steps: 100,
+          activitylevel: 'walking'
+        }], function (createErr, docs) {
+          if (createErr) return done(createErr);
+
+          var created = docs[0];
+          request(self.app)
+            .put('/api/activity/')
+            .set('api-secret', known)
+            .send({
+              _id: created._id.toString(),
+              created_at: '2024-10-26T21:32:49.173Z',
+              heartrate: 95,
+              steps: 250,
+              activitylevel: 'running'
+            })
+            .expect(200)
+            .end(function (err) {
+              if (err) return done(err);
+
+              self.ctx.activity().find({ _id: created._id }).toArray()
+                .then(function (updatedDocs) {
+                  updatedDocs.length.should.equal(1);
+                  updatedDocs[0].heartrate.should.equal(95);
+                  updatedDocs[0].steps.should.equal(250);
+                  updatedDocs[0].activitylevel.should.equal('running');
+                  done();
+                })
+                .catch(done);
+            });
+        });
       });
     });
   });

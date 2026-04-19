@@ -306,16 +306,12 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
 
   describe('Simultaneous POST requests to entries', function () {
 
-    beforeEach(function (done) {
-      self.ctx.entries().deleteMany({}, function () {
-        done();
-      });
+    beforeEach(async function () {
+      await self.ctx.entries().deleteMany({});
     });
 
-    afterEach(function (done) {
-      self.ctx.entries().deleteMany({}, function () {
-        done();
-      });
+    afterEach(async function () {
+      await self.ctx.entries().deleteMany({});
     });
 
     it('handles 5 simultaneous single entry POSTs', function (done) {
@@ -422,9 +418,11 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
     beforeEach(function (done) {
       self.ctx.treatments.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function () {
         self.ctx.devicestatus.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function () {
-          self.ctx.entries().deleteMany({}, function () {
-            done();
-          });
+          self.ctx.entries().deleteMany({})
+            .then(function () {
+              done();
+            })
+            .catch(done);
         });
       });
     });
@@ -432,9 +430,11 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
     afterEach(function (done) {
       self.ctx.treatments.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function () {
         self.ctx.devicestatus.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function () {
-          self.ctx.entries().deleteMany({}, function () {
-            done();
-          });
+          self.ctx.entries().deleteMany({})
+            .then(function () {
+              done();
+            })
+            .catch(done);
         });
       });
     });

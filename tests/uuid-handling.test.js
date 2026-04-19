@@ -12,6 +12,7 @@
 
 var request = require('supertest');
 var should = require('should');
+var ObjectID = require('mongodb').ObjectId;
 var language = require('../lib/language')();
 var api = require('../lib/api/');
 
@@ -243,7 +244,6 @@ describe('UUID_HANDLING=true', function() {
   });
   
   it('UUID-ON-003: ObjectId still works normally', function(done) {
-    var ObjectID = require('mongodb').ObjectId;
     var testId = new ObjectID();
     
     // Insert treatment with ObjectId
@@ -491,7 +491,6 @@ describe('UUID Edge Cases', function() {
   });
   
   it('UUID-EDGE-007: Valid ObjectId still works normally', function(done) {
-    var ObjectID = require('mongodb').ObjectId;
     var testId = new ObjectID();
     
     self.ctx.treatments.create([{

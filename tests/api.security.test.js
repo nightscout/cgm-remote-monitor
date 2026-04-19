@@ -15,6 +15,22 @@ describe('Security of REST API V1', function() {
 
   var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
 
+  function rolesCollection() {
+    return self.ctx.store.collection(self.env.authentication_collections_prefix + 'roles');
+  }
+
+  function subjectsCollection() {
+    return self.ctx.store.collection(self.env.authentication_collections_prefix + 'subjects');
+  }
+
+  async function getBearerToken(accessToken) {
+    const res = await request(self.app)
+      .get('/api/v2/authorization/request/' + accessToken)
+      .expect(200);
+
+    return res.body.token;
+  }
+
   before(function(done) {
     var api = require('../lib/api/');
     delete process.env.API_SECRET;
@@ -26,6 +42,7 @@ describe('Security of REST API V1', function() {
     self.app = require('express')();
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(async function booted (ctx) {
+      self.ctx = ctx;
       self.app.use('/api/v1', api(self.env, ctx));
       self.app.use('/api/v2/authorization', ctx.authorization.endpoints);
       let authResult = await authSubject(ctx.authorization.storage);
@@ -156,6 +173,142 @@ describe('Security of REST API V1', function() {
         res.body.message.isAdmin.should.equal(true);
         done();
       });
+    });
+  });
+
+  describe('Authorization admin save endpoints', function () {
+    beforeEach(async function () {
+      await rolesCollection().deleteMany({ name: /^api-security-role/ });
+      await subjectsCollection().deleteMany({ name: /^api-security-subject/ });
+    });
+
+    afterEach(async function () {
+      await rolesCollection().deleteMany({ name: /^api-security-role/ });
+      await subjectsCollection().deleteMany({ name: /^api-security-subject/ });
+    });
+
+    it('PUT /api/v2/authorization/subjects updates an existing subject by _id', async function () {
+      const insertResult = await subjectsCollection().insertOne({
+        name: 'api-security-subject-update',
+        roles: ['readable'],
+        notes: 'original',
+        created_at: '2024-10-26T20:32:49.173Z'
+      });
+      const token = await getBearerToken(self.token.adminAll);
+
+      await request(self.app)
+        .put('/api/v2/authorization/subjects')
+        .set('Authorization', 'Bearer ' + token)
+        .send({
+          _id: insertResult.insertedId.toString(),
+          name: 'api-security-subject-update',
+          roles: ['admin'],
+          notes: 'updated',
+          created_at: '2024-10-26T21:32:49.173Z'
+        })
+        .expect(200);
+
+      const docs = await subjectsCollection().find({ name: 'api-security-subject-update' }).toArray();
+      docs.length.should.equal(1);
+      docs[0].roles.should.deepEqual(['admin']);
+      docs[0].notes.should.equal('updated');
+    });
+
+    it('PUT /api/v2/authorization/roles updates an existing role by _id', async function () {
+      const insertResult = await rolesCollection().insertOne({
+        name: 'api-security-role-update',
+        permissions: ['api:entries:read'],
+        notes: 'original',
+        created_at: '2024-10-26T20:32:49.173Z'
+      });
+      const token = await getBearerToken(self.token.adminAll);
+
+      await request(self.app)
+        .put('/api/v2/authorization/roles')
+        .set('Authorization', 'Bearer ' + token)
+        .send({
+          _id: insertResult.insertedId.toString(),
+          name: 'api-security-role-update',
+          permissions: ['api:entries:update'],
+          notes: 'updated',
+          created_at: '2024-10-26T21:32:49.173Z'
+        })
+        .expect(200);
+
+      const docs = await rolesCollection().find({ name: 'api-security-role-update' }).toArray();
+      docs.length.should.equal(1);
+      docs[0].permissions.should.deepEqual(['api:entries:update']);
+      docs[0].notes.should.equal('updated');
+    });
+
+    it('PUT /api/v2/authorization/subjects fails when _id is missing', async function () {
+      const token = await getBearerToken(self.token.adminAll);
+
+      await request(self.app)
+        .put('/api/v2/authorization/subjects')
+        .set('Authorization', 'Bearer ' + token)
+        .send({
+          name: 'api-security-subject-missing-id',
+          roles: ['readable'],
+          notes: 'should fail'
+        })
+        .expect(500);
+
+      const docs = await subjectsCollection().find({ name: 'api-security-subject-missing-id' }).toArray();
+      docs.length.should.equal(0);
+    });
+
+    it('PUT /api/v2/authorization/subjects fails when _id is invalid', async function () {
+      const token = await getBearerToken(self.token.adminAll);
+
+      await request(self.app)
+        .put('/api/v2/authorization/subjects')
+        .set('Authorization', 'Bearer ' + token)
+        .send({
+          _id: 'not-a-valid-objectid',
+          name: 'api-security-subject-invalid-id',
+          roles: ['readable'],
+          notes: 'should fail'
+        })
+        .expect(500);
+
+      const docs = await subjectsCollection().find({ name: 'api-security-subject-invalid-id' }).toArray();
+      docs.length.should.equal(0);
+    });
+
+    it('PUT /api/v2/authorization/roles fails when _id is missing', async function () {
+      const token = await getBearerToken(self.token.adminAll);
+
+      await request(self.app)
+        .put('/api/v2/authorization/roles')
+        .set('Authorization', 'Bearer ' + token)
+        .send({
+          name: 'api-security-role-missing-id',
+          permissions: ['api:entries:read'],
+          notes: 'should fail'
+        })
+        .expect(500);
+
+      const docs = await rolesCollection().find({ name: 'api-security-role-missing-id' }).toArray();
+      docs.length.should.equal(0);
+    });
+
+    it('PUT /api/v2/authorization/roles fails when _id is invalid', async function () {
+      const token = await getBearerToken(self.token.adminAll);
+
+      await request(self.app)
+        .put('/api/v2/authorization/roles')
+        .set('Authorization', 'Bearer ' + token)
+        .send({
+          _id: 'not-a-valid-objectid',
+          name: 'api-security-role-invalid-id',
+          permissions: ['api:entries:read'],
+          notes: 'should fail'
+        })
+        .expect(500);
+
+      const docs = await rolesCollection().find({ name: 'api-security-role-invalid-id' }).toArray();
+      docs.length.should.equal(0);
     });
   });
 

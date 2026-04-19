@@ -75,7 +75,14 @@ function guardedDeleteMany(collection, filter, callback) {
   }
   
   // Safe to proceed
-  return collection.deleteMany(filter, callback);
+  const promise = collection.deleteMany(filter);
+  if (callback) {
+    promise.then(
+      function onSuccess(result) { callback(null, result); },
+      function onError(err) { callback(err); }
+    );
+  }
+  return promise;
 }
 
 /**
@@ -95,7 +102,14 @@ function guardedDrop(collection, callback) {
     throw err;
   }
   
-  return collection.drop(callback);
+  const promise = collection.drop();
+  if (callback) {
+    promise.then(
+      function onSuccess(result) { callback(null, result); },
+      function onError(err) { callback(err); }
+    );
+  }
+  return promise;
 }
 
 /**
