@@ -71,41 +71,28 @@ async function checkProductionSafety(ctx, env) {
   const errors = [];
   const warnings = [];
 
-  // Check 1: Database name should indicate test
-  const requireTestDb = process.env.TEST_SAFETY_REQUIRE_TEST_DB !== 'false';
-  const dbName = extractDbName(env.storageURI || env.mongo_connection || '');
-  
-  if (requireTestDb && !isTestDatabaseName(dbName)) {
-    errors.push({
-      check: 'Database Name',
-      message: `Database "${dbName}" doesn't contain "test" in its name`,
-      hint: 'Use a database name like "nightscout_test" or set TEST_SAFETY_REQUIRE_TEST_DB=false'
-    });
-  } else if (isTestDatabaseName(dbName)) {
-    console.log(`[SAFETY] ✅ Database name "${dbName}" looks like a test database`);
-  }
-
-  // Check 2: Entry count threshold
+  // Check 1: Entry count threshold (run first — an empty DB is always safe)
   const maxEntries = parseInt(process.env.TEST_SAFETY_MAX_ENTRIES || String(DEFAULT_MAX_ENTRIES), 10);
+  let entryCount = 0;
+  let entryCountChecked = false;
   
   if (maxEntries > 0 && ctx.store && ctx.store.db) {
     try {
-      // Access entries collection directly via store
       const entriesCol = ctx.store.db.collection('entries');
-      // Use limit+1 pattern for efficiency - we only need to know if it exceeds threshold
-      const count = await entriesCol.countDocuments({}, { 
+      entryCount = await entriesCol.countDocuments({}, { 
         limit: maxEntries + 1,
-        maxTimeMS: 5000 // Don't hang on slow connections
+        maxTimeMS: 5000
       });
+      entryCountChecked = true;
       
-      if (count > maxEntries) {
+      if (entryCount > maxEntries) {
         errors.push({
           check: 'Entry Count',
-          message: `Database has ${count}+ entries (threshold: ${maxEntries})`,
-          hint: `This looks like a production database. Set TEST_SAFETY_MAX_ENTRIES=${count + 100} to override`
+          message: `Database has ${entryCount}+ entries (threshold: ${maxEntries})`,
+          hint: `This looks like a production database. Set TEST_SAFETY_MAX_ENTRIES=${entryCount + 100} to override`
         });
       } else {
-        console.log(`[SAFETY] ✅ Database has ${count} entries (threshold: ${maxEntries})`);
+        console.log(`[SAFETY] ✅ Database has ${entryCount} entries (threshold: ${maxEntries})`);
       }
     } catch (err) {
       warnings.push({
@@ -118,6 +105,31 @@ async function checkProductionSafety(ctx, env) {
     console.log('[SAFETY] ⚠️  Entry count check disabled (TEST_SAFETY_MAX_ENTRIES=0)');
   }
 
+  // Check 2: Database name should indicate test
+  // If entry count is within threshold, the DB is safe regardless of name — downgrade to warning
+  const requireTestDb = process.env.TEST_SAFETY_REQUIRE_TEST_DB !== 'false';
+  const dbName = extractDbName(env.storageURI || env.mongo_connection || '');
+  const entryCountSafe = entryCountChecked && entryCount <= maxEntries;
+  
+  if (requireTestDb && !isTestDatabaseName(dbName)) {
+    if (entryCountSafe) {
+      console.log(`[SAFETY] ✅ Database "${dbName}" has ${entryCount} entries (within threshold) — safe to test`);
+      warnings.push({
+        check: 'Database Name',
+        message: `Database "${dbName}" doesn't contain "test" in its name (allowed because entry count is within threshold)`,
+        hint: 'Consider renaming: set CUSTOMCONNSTR_mongo=mongodb://localhost/nightscout_test in my.test.env'
+      });
+    } else {
+      errors.push({
+        check: 'Database Name',
+        message: `Database "${dbName}" doesn't contain "test" in its name`,
+        hint: 'Set the database name in CUSTOMCONNSTR_mongo (e.g., mongodb://localhost/nightscout_test)\n         Note: CUSTOMCONNSTR_mongo_collection sets the entries collection, not the DB name.\n         Or set TEST_SAFETY_REQUIRE_TEST_DB=false to allow any DB name'
+      });
+    }
+  } else if (isTestDatabaseName(dbName)) {
+    console.log(`[SAFETY] ✅ Database name "${dbName}" looks like a test database`);
+  }
+
   // Report warnings
   warnings.forEach(w => {
     console.warn(`[SAFETY] ⚠️  ${w.check}: ${w.message}`);
@@ -125,11 +137,19 @@ async function checkProductionSafety(ctx, env) {
 
   // Report errors and fail
   if (errors.length > 0) {
+    const hasEntryCountError = errors.some(e => e.check === 'Entry Count');
+    const hasDbNameError = errors.some(e => e.check === 'Database Name');
+
     console.error('\n' + '='.repeat(70));
     console.error('🛡️  PRODUCTION SAFETY CHECK ACTIVATED');
     console.error('='.repeat(70));
-    console.error('\nThis database appears to contain real data.');
-    console.error('Running the test suite WILL DELETE all data in this database.');
+    if (hasEntryCountError) {
+      console.error('\nThis database appears to contain real data.');
+      console.error('Running the test suite WILL DELETE all data in this database.');
+    } else {
+      console.error('\nThis database does not look like a test database.');
+      console.error('Running the test suite WILL DELETE all data in this database.');
+    }
     console.error('\nThis safety check exists to prevent accidental destruction of');
     console.error('production data. If this is truly a test database, you can override.\n');
     
@@ -140,8 +160,13 @@ async function checkProductionSafety(ctx, env) {
     });
     
     console.error('Override options:');
-    console.error('  • Set TEST_SAFETY_MAX_ENTRIES to a higher value (e.g., 1000)');
-    console.error('  • Set TEST_SAFETY_REQUIRE_TEST_DB=false to allow any DB name');
+    if (hasDbNameError) {
+      console.error('  • Rename your test DB: set CUSTOMCONNSTR_mongo=mongodb://localhost/nightscout_test in my.test.env');
+      console.error('  • Or set TEST_SAFETY_REQUIRE_TEST_DB=false to allow any DB name');
+    }
+    if (hasEntryCountError) {
+      console.error('  • Set TEST_SAFETY_MAX_ENTRIES to a higher value if entries are expected');
+    }
     console.error('  • Set TEST_SAFETY_SKIP=true to bypass ALL checks (dangerous!)');
     console.error('='.repeat(70) + '\n');
     
