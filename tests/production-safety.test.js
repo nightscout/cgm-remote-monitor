@@ -85,4 +85,227 @@ describe('Production Safety Module', function() {
       // If we got here, it passed
     });
   });
+
+  describe('checkProductionSafety messaging', function() {
+    var savedEnv;
+
+    beforeEach(function() {
+      savedEnv = {
+        TEST_SAFETY_SKIP: process.env.TEST_SAFETY_SKIP,
+        TEST_SAFETY_REQUIRE_TEST_DB: process.env.TEST_SAFETY_REQUIRE_TEST_DB,
+        TEST_SAFETY_MAX_ENTRIES: process.env.TEST_SAFETY_MAX_ENTRIES
+      };
+    });
+
+    afterEach(function() {
+      // Restore env
+      Object.keys(savedEnv).forEach(function(k) {
+        if (savedEnv[k] === undefined) delete process.env[k];
+        else process.env[k] = savedEnv[k];
+      });
+    });
+
+    it('should pass when database is empty even if name lacks "test"', function(done) {
+      process.env.TEST_SAFETY_REQUIRE_TEST_DB = 'true';
+      delete process.env.TEST_SAFETY_MAX_ENTRIES;
+      delete process.env.TEST_SAFETY_SKIP;
+
+      var mockCtx = {
+        store: {
+          db: {
+            collection: function() {
+              return {
+                countDocuments: function(query, opts) {
+                  return Promise.resolve(0);
+                }
+              };
+            }
+          }
+        }
+      };
+      var mockEnv = { storageURI: 'mongodb://localhost:27017/nightscout' };
+
+      var output = [];
+      var originalLog = console.log;
+      var originalWarn = console.warn;
+      console.log = function() {
+        output.push(Array.prototype.join.call(arguments, ' '));
+      };
+      console.warn = function() {
+        output.push(Array.prototype.join.call(arguments, ' '));
+      };
+
+      productionSafety.checkProductionSafety(mockCtx, mockEnv)
+        .then(function() {
+          console.log = originalLog;
+          console.warn = originalWarn;
+          var fullOutput = output.join('\n');
+          fullOutput.should.match(/within threshold.*safe to test/);
+          fullOutput.should.match(/doesn't contain "test"/);
+          done();
+        })
+        .catch(function(err) {
+          console.log = originalLog;
+          console.warn = originalWarn;
+          done(err);
+        });
+    });
+
+    it('should pass when entries are below threshold even if name lacks "test"', function(done) {
+      process.env.TEST_SAFETY_REQUIRE_TEST_DB = 'true';
+      delete process.env.TEST_SAFETY_MAX_ENTRIES; // default 100
+      delete process.env.TEST_SAFETY_SKIP;
+
+      var mockCtx = {
+        store: {
+          db: {
+            collection: function() {
+              return {
+                countDocuments: function() {
+                  return Promise.resolve(50);
+                }
+              };
+            }
+          }
+        }
+      };
+      var mockEnv = { storageURI: 'mongodb://localhost:27017/nightscout' };
+
+      var output = [];
+      var originalLog = console.log;
+      var originalWarn = console.warn;
+      console.log = function() {
+        output.push(Array.prototype.join.call(arguments, ' '));
+      };
+      console.warn = function() {
+        output.push(Array.prototype.join.call(arguments, ' '));
+      };
+
+      productionSafety.checkProductionSafety(mockCtx, mockEnv)
+        .then(function() {
+          console.log = originalLog;
+          console.warn = originalWarn;
+          var fullOutput = output.join('\n');
+          fullOutput.should.match(/50 entries.*within threshold.*safe to test/);
+          done();
+        })
+        .catch(function(err) {
+          console.log = originalLog;
+          console.warn = originalWarn;
+          done(err);
+        });
+    });
+
+    it('should say "contains real data" when entry count exceeds threshold', function(done) {
+      process.env.TEST_SAFETY_REQUIRE_TEST_DB = 'false';
+      process.env.TEST_SAFETY_MAX_ENTRIES = '10';
+      delete process.env.TEST_SAFETY_SKIP;
+
+      var mockCtx = {
+        store: {
+          db: {
+            collection: function() {
+              return {
+                countDocuments: function() {
+                  return Promise.resolve(500);
+                }
+              };
+            }
+          }
+        }
+      };
+      var mockEnv = { storageURI: 'mongodb://localhost:27017/nightscout' };
+
+      var output = [];
+      var originalError = console.error;
+      console.error = function() {
+        output.push(Array.prototype.join.call(arguments, ' '));
+      };
+
+      productionSafety.checkProductionSafety(mockCtx, mockEnv)
+        .then(function() {
+          console.error = originalError;
+          should.fail('should have thrown');
+        })
+        .catch(function(err) {
+          console.error = originalError;
+          err.message.should.match(/Entry Count/);
+          var fullOutput = output.join('\n');
+          fullOutput.should.match(/appears to contain real data/);
+          fullOutput.should.match(/TEST_SAFETY_MAX_ENTRIES/);
+          done();
+        });
+    });
+
+    it('hint should mention CUSTOMCONNSTR_mongo not mongo_collection', function(done) {
+      process.env.TEST_SAFETY_REQUIRE_TEST_DB = 'true';
+      process.env.TEST_SAFETY_MAX_ENTRIES = '0'; // disable entry check
+      delete process.env.TEST_SAFETY_SKIP;
+
+      var mockCtx = { store: { db: null } };
+      var mockEnv = { storageURI: 'mongodb://localhost:27017/production_db' };
+
+      var output = [];
+      var originalError = console.error;
+      console.error = function() {
+        output.push(Array.prototype.join.call(arguments, ' '));
+      };
+
+      productionSafety.checkProductionSafety(mockCtx, mockEnv)
+        .then(function() {
+          console.error = originalError;
+          should.fail('should have thrown');
+        })
+        .catch(function(err) {
+          console.error = originalError;
+          var fullOutput = output.join('\n');
+          // Should guide user to the correct env var
+          fullOutput.should.match(/CUSTOMCONNSTR_mongo/);
+          fullOutput.should.match(/mongo_collection sets the entries collection, not the DB name/);
+          done();
+        });
+    });
+
+    it('should block non-test DB name when entries exceed threshold', function(done) {
+      process.env.TEST_SAFETY_REQUIRE_TEST_DB = 'true';
+      process.env.TEST_SAFETY_MAX_ENTRIES = '10';
+      delete process.env.TEST_SAFETY_SKIP;
+
+      var mockCtx = {
+        store: {
+          db: {
+            collection: function() {
+              return {
+                countDocuments: function() {
+                  return Promise.resolve(50);
+                }
+              };
+            }
+          }
+        }
+      };
+      var mockEnv = { storageURI: 'mongodb://localhost:27017/nightscout' };
+
+      var output = [];
+      var originalError = console.error;
+      console.error = function() {
+        output.push(Array.prototype.join.call(arguments, ' '));
+      };
+
+      productionSafety.checkProductionSafety(mockCtx, mockEnv)
+        .then(function() {
+          console.error = originalError;
+          should.fail('should have thrown');
+        })
+        .catch(function(err) {
+          console.error = originalError;
+          // Both checks should fail
+          err.message.should.match(/Entry Count/);
+          err.message.should.match(/Database Name/);
+          var fullOutput = output.join('\n');
+          fullOutput.should.match(/appears to contain real data/);
+          done();
+        });
+    });
+  });
 });
