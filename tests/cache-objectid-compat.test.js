@@ -12,7 +12,7 @@
  * On mongodb driver 3.x (v15.0.6), Object.keys(new ObjectID()) returned
  * ['_bsontype','id'], making _.isEmpty return false (correct).
  *
- * On mongodb driver 5.x / mongodb-legacy (dev), Object.keys(new ObjectId())
+ * On mongodb driver 5.x, Object.keys(new ObjectId())
  * returns [], making _.isEmpty return true (incorrect – treats valid
  * ObjectId _id as empty).
  *
@@ -21,7 +21,7 @@
  */
 
 const _ = require('lodash');
-const { ObjectId } = require('mongodb-legacy');
+const { ObjectId } = require('mongodb');
 const should = require('should');
 
 describe('Cache ObjectId compatibility', function () {

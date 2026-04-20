@@ -43,12 +43,12 @@ describe('Entry sysTime+type dedup (Baseline)', function() {
     });
   });
   
-  afterEach(function(done) {
-    self.archive().deleteMany({}, done);
+  afterEach(async function() {
+    await self.archive().deleteMany({});
   });
   
-  after(function(done) {
-    self.archive().deleteMany({}, done);
+  after(async function() {
+    await self.archive().deleteMany({});
   });
   
   /**
@@ -98,14 +98,14 @@ describe('Entry sysTime+type dedup (Baseline)', function() {
             if (err2) return done(err2);
             
             // Verify: only 1 entry exists with updated sgv 125
-            self.archive().find({ date: timestamp }).toArray(function(err3, docs) {
-              if (err3) return done(err3);
-              
-              docs.should.have.lengthOf(1);
-              docs[0].sgv.should.equal(125);
-              docs[0].direction.should.equal('FortyFiveUp');
-              done();
-            });
+            self.archive().find({ date: timestamp }).toArray()
+              .then(function(docs) {
+                docs.should.have.lengthOf(1);
+                docs[0].sgv.should.equal(125);
+                docs[0].direction.should.equal('FortyFiveUp');
+                done();
+              })
+              .catch(done);
           });
       });
   });
@@ -155,14 +155,14 @@ describe('Entry sysTime+type dedup (Baseline)', function() {
             if (err2) return done(err2);
             
             // Verify: 2 entries exist (different types)
-            self.archive().find({ date: timestamp }).toArray(function(err3, docs) {
-              if (err3) return done(err3);
-              
-              docs.should.have.lengthOf(2);
-              var types = docs.map(d => d.type).sort();
-              types.should.eql(['mbg', 'sgv']);
-              done();
-            });
+            self.archive().find({ date: timestamp }).toArray()
+              .then(function(docs) {
+                docs.should.have.lengthOf(2);
+                var types = docs.map(d => d.type).sort();
+                types.should.eql(['mbg', 'sgv']);
+                done();
+              })
+              .catch(done);
           });
       });
   });
@@ -213,12 +213,12 @@ describe('Entry sysTime+type dedup (Baseline)', function() {
             if (err2) return done(err2);
             
             // Verify: 2 entries exist
-            self.archive().find({ type: 'sgv', date: { $in: [timestamp1, timestamp2] } }).toArray(function(err3, docs) {
-              if (err3) return done(err3);
-              
-              docs.should.have.lengthOf(2);
-              done();
-            });
+            self.archive().find({ type: 'sgv', date: { $in: [timestamp1, timestamp2] } }).toArray()
+              .then(function(docs) {
+                docs.should.have.lengthOf(2);
+                done();
+              })
+              .catch(done);
           });
       });
   });
@@ -249,12 +249,12 @@ describe('Entry UUID _id handling (GAP-SYNC-045)', function() {
     });
   });
   
-  afterEach(function(done) {
-    self.archive().deleteMany({}, done);
+  afterEach(async function() {
+    await self.archive().deleteMany({});
   });
   
-  after(function(done) {
-    self.archive().deleteMany({}, done);
+  after(async function() {
+    await self.archive().deleteMany({});
   });
   
   /**
@@ -286,14 +286,14 @@ describe('Entry UUID _id handling (GAP-SYNC-045)', function() {
         if (err) return done(err);
         
         // Entry should be created (may have ObjectId _id, UUID in identifier)
-        self.archive().find({ date: timestamp }).toArray(function(err2, docs) {
-          if (err2) return done(err2);
-          
-          docs.should.have.lengthOf(1);
-          docs[0].sgv.should.equal(120);
-          // Note: After fix, expect docs[0].identifier === uuid
-          done();
-        });
+        self.archive().find({ date: timestamp }).toArray()
+          .then(function(docs) {
+            docs.should.have.lengthOf(1);
+            docs[0].sgv.should.equal(120);
+            // Note: After fix, expect docs[0].identifier === uuid
+            done();
+          })
+          .catch(done);
       });
   });
   
@@ -347,13 +347,13 @@ describe('Entry UUID _id handling (GAP-SYNC-045)', function() {
             if (err2) return done(err2);
             
             // Verify: single entry, updated value
-            self.archive().find({ date: timestamp }).toArray(function(err3, docs) {
-              if (err3) return done(err3);
-              
-              docs.should.have.lengthOf(1);
-              docs[0].sgv.should.equal(125);
-              done();
-            });
+            self.archive().find({ date: timestamp }).toArray()
+              .then(function(docs) {
+                docs.should.have.lengthOf(1);
+                docs[0].sgv.should.equal(125);
+                done();
+              })
+              .catch(done);
           });
       });
   });
@@ -412,13 +412,13 @@ describe('Entry UUID _id handling (GAP-SYNC-045)', function() {
             if (err2) return done(err2);
             
             // Verify: single entry (dedup by sysTime+type, not UUID)
-            self.archive().find({ date: timestamp }).toArray(function(err3, docs) {
-              if (err3) return done(err3);
-              
-              docs.should.have.lengthOf(1);
-              docs[0].sgv.should.equal(125);
-              done();
-            });
+            self.archive().find({ date: timestamp }).toArray()
+              .then(function(docs) {
+                docs.should.have.lengthOf(1);
+                docs[0].sgv.should.equal(125);
+                done();
+              })
+              .catch(done);
           });
       });
   });
@@ -469,14 +469,14 @@ describe('Entry UUID _id handling (GAP-SYNC-045)', function() {
         if (err) return done(err);
         
         // Verify: all 3 entries created
-        self.archive().find({ date: { $in: [timestamp1, timestamp2, timestamp3] } }).toArray(function(err2, docs) {
-          if (err2) return done(err2);
-          
-          docs.should.have.lengthOf(3);
-          var sgvValues = docs.map(d => d.sgv).sort();
-          sgvValues.should.eql([120, 125, 130]);
-          done();
-        });
+        self.archive().find({ date: { $in: [timestamp1, timestamp2, timestamp3] } }).toArray()
+          .then(function(docs) {
+            docs.should.have.lengthOf(3);
+            var sgvValues = docs.map(d => d.sgv).sort();
+            sgvValues.should.eql([120, 125, 130]);
+            done();
+          })
+          .catch(done);
       });
   });
   
@@ -500,9 +500,7 @@ describe('Entry UUID _id handling (GAP-SYNC-045)', function() {
       dateString: sysTime,
       sysTime: sysTime,
       device: 'Trio'
-    }, function(err) {
-      if (err) return done(err);
-      
+    }).then(function() {
       // POST via API with same timestamp
       var entry = {
         _id: uuid,
@@ -513,7 +511,7 @@ describe('Entry UUID _id handling (GAP-SYNC-045)', function() {
         dateString: sysTime,
         device: 'Trio'
       };
-      
+
       request(self.app)
         .post('/entries/')
         .set('api-secret', self.known)
@@ -521,17 +519,17 @@ describe('Entry UUID _id handling (GAP-SYNC-045)', function() {
         .expect(200)
         .end(function(err2, res) {
           if (err2) return done(err2);
-          
+
           // Verify: single entry, updated value
-          self.archive().find({ date: timestamp }).toArray(function(err3, docs) {
-            if (err3) return done(err3);
-            
-            docs.should.have.lengthOf(1);
-            docs[0].sgv.should.equal(125);
-            done();
-          });
+          self.archive().find({ date: timestamp }).toArray()
+            .then(function(docs) {
+              docs.should.have.lengthOf(1);
+              docs[0].sgv.should.equal(125);
+              done();
+            })
+            .catch(done);
         });
-    });
+    }).catch(done);
   });
   
   /**
@@ -563,15 +561,15 @@ describe('Entry UUID _id handling (GAP-SYNC-045)', function() {
         if (err) return done(err);
         
         // Verify: entry has identifier field with UUID
-        self.archive().find({ date: timestamp }).toArray(function(err2, docs) {
-          if (err2) return done(err2);
-          
-          docs.should.have.lengthOf(1);
-          docs[0].should.have.property('identifier', uuid);
-          // _id should be ObjectId, not UUID
-          docs[0]._id.should.not.equal(uuid);
-          done();
-        });
+        self.archive().find({ date: timestamp }).toArray()
+          .then(function(docs) {
+            docs.should.have.lengthOf(1);
+            docs[0].should.have.property('identifier', uuid);
+            // _id should be ObjectId, not UUID
+            docs[0]._id.should.not.equal(uuid);
+            done();
+          })
+          .catch(done);
       });
   });
 });

@@ -63,10 +63,8 @@ describe('Issue #6923: Legacy UUID override edit/delete', function () {
     return self.ctx.store.collection(self.env.treatments_collection);
   }
 
-  beforeEach(function (done) {
-    rawCollection().deleteMany({}, function () {
-      done();
-    });
+  beforeEach(async function () {
+    await rawCollection().deleteMany({});
   });
 
   /**
@@ -75,16 +73,19 @@ describe('Issue #6923: Legacy UUID override edit/delete', function () {
    */
   function insertLegacyDoc (callback) {
     var doc = Object.assign({}, LEGACY_OVERRIDE);
-    rawCollection().insertOne(doc, function (err) {
-      should.not.exist(err);
-      rawCollection().findOne({ _id: LEGACY_UUID }, function (err, stored) {
-        should.not.exist(err);
+    rawCollection().insertOne(doc)
+      .then(function () {
+        return rawCollection().findOne({ _id: LEGACY_UUID });
+      })
+      .then(function (stored) {
         should.exist(stored, 'Legacy doc should exist after direct insert');
         stored._id.should.equal(LEGACY_UUID);
         should.not.exist(stored.identifier, 'Legacy doc must NOT have identifier field');
         callback(stored);
+      })
+      .catch(function (err) {
+        should.not.exist(err);
       });
-    });
   }
 
   describe('DELETE legacy UUID override via API', function () {
@@ -130,10 +131,8 @@ describe('Issue #6923: Legacy UUID override edit/delete', function () {
 
         // Check the database after the server has had time to process the upsert
         setTimeout(function () {
-          rawCollection().find({ eventType: 'Temporary Override' }).toArray(function (err, docs) {
-            try {
-              should.not.exist(err);
-
+          rawCollection().find({ eventType: 'Temporary Override' }).toArray()
+            .then(function (docs) {
               docs.length.should.equal(1,
                 'PUT should update the existing legacy override, not create a duplicate. '
                 + 'Found ' + docs.length + ' documents. '
@@ -143,10 +142,8 @@ describe('Issue #6923: Legacy UUID override edit/delete', function () {
               );
 
               done();
-            } catch (e) {
-              done(e);
-            }
-          });
+            })
+            .catch(done);
         }, 5000);
       });
     });

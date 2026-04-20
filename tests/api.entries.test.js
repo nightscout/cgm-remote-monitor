@@ -62,12 +62,12 @@ describe('Entries REST api', function ( ) {
 
   });
 
-  afterEach(function (done) {
-    self.archive( ).deleteMany({ }, done);
+  afterEach(async function () {
+    await self.archive( ).deleteMany({ });
   });
 
-  after(function (done) {
-    self.archive( ).deleteMany({ }, done);
+  after(async function () {
+    await self.archive( ).deleteMany({ });
   });
 
   // keep this test pinned at or near the top in order to validate all

@@ -173,16 +173,12 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
 
   describe('Entries Storage - lib/server/entries.js', function () {
     
-    beforeEach(function (done) {
-      self.ctx.entries().deleteMany({}, function () {
-        done();
-      });
+    beforeEach(async function () {
+      await self.ctx.entries().deleteMany({});
     });
 
-    afterEach(function (done) {
-      self.ctx.entries().deleteMany({}, function () {
-        done();
-      });
+    afterEach(async function () {
+      await self.ctx.entries().deleteMany({});
     });
 
     it('create() accepts single entry in array', function (done) {
@@ -218,16 +214,12 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
 
   describe('Profile Storage - lib/server/profile.js', function () {
     
-    beforeEach(function (done) {
-      self.ctx.profile().deleteMany({}, function () {
-        done();
-      });
+    beforeEach(async function () {
+      await self.ctx.profile().deleteMany({});
     });
 
-    afterEach(function (done) {
-      self.ctx.profile().deleteMany({}, function () {
-        done();
-      });
+    afterEach(async function () {
+      await self.ctx.profile().deleteMany({});
     });
 
     it('create() accepts single profile object', function (done) {
@@ -347,13 +339,14 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
         self.ctx.profile.save(updated, function (saveErr) {
           should.not.exist(saveErr);
 
-          self.ctx.profile().find({ _id: savedId }).toArray(function (findErr, docs) {
-            should.not.exist(findErr);
-            docs.length.should.equal(1);
-            docs[0].store.Default.dia.should.equal(4);
-            docs[0].created_at.should.equal('2024-10-26T21:32:49.173Z');
-            done();
-          });
+          self.ctx.profile().find({ _id: savedId }).toArray()
+            .then(function (docs) {
+              docs.length.should.equal(1);
+              docs[0].store.Default.dia.should.equal(4);
+              docs[0].created_at.should.equal('2024-10-26T21:32:49.173Z');
+              done();
+            })
+            .catch(done);
         });
       });
     });
@@ -438,28 +431,25 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
         should.not.exist(err);
         saved.created_at.should.equal('2020-01-01T00:00:00.000Z');
 
-        self.ctx.profile().find({ _id: saved._id }).toArray(function (findErr, docs) {
-          should.not.exist(findErr);
-          docs.length.should.equal(1);
-          docs[0].created_at.should.equal('2020-01-01T00:00:00.000Z');
-          done();
-        });
+        self.ctx.profile().find({ _id: saved._id }).toArray()
+          .then(function (docs) {
+            docs.length.should.equal(1);
+            docs[0].created_at.should.equal('2020-01-01T00:00:00.000Z');
+            done();
+          })
+          .catch(done);
       });
     });
   });
 
   describe('Food Storage - lib/server/food.js', function () {
     
-    beforeEach(function (done) {
-      self.ctx.food().deleteMany({}, function () {
-        done();
-      });
+    beforeEach(async function () {
+      await self.ctx.food().deleteMany({});
     });
 
-    afterEach(function (done) {
-      self.ctx.food().deleteMany({}, function () {
-        done();
-      });
+    afterEach(async function () {
+      await self.ctx.food().deleteMany({});
     });
 
     it('create() accepts single food object', function (done) {
@@ -480,20 +470,59 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
         done();
       });
     });
+
+    it('save() updates an existing food by _id when created_at changes', function (done) {
+      self.ctx.food.create({
+        name: 'Test Food',
+        category: 'Test',
+        carbs: 20,
+        protein: 10,
+        fat: 5
+      }, function (err, createdDocs) {
+        should.not.exist(err);
+        should.exist(createdDocs);
+        createdDocs.should.be.an.Array();
+        createdDocs.length.should.equal(1);
+
+        var savedId = createdDocs[0]._id;
+        var updated = {
+          _id: savedId.toString(),
+          name: 'Updated Food',
+          category: 'Test',
+          carbs: 25,
+          protein: 10,
+          fat: 5,
+          created_at: '2024-10-26T21:32:49.173Z'
+        };
+
+        self.ctx.food.save(updated, function (saveErr, savedDocs) {
+          should.not.exist(saveErr);
+          should.exist(savedDocs);
+          savedDocs.should.be.an.Array();
+          savedDocs.length.should.equal(1);
+
+          self.ctx.food().find({ _id: savedId }).toArray()
+            .then(function (docs) {
+              docs.length.should.equal(1);
+              docs[0].name.should.equal('Updated Food');
+              docs[0].carbs.should.equal(25);
+              docs[0].created_at.should.equal('2024-10-26T21:32:49.173Z');
+              done();
+            })
+            .catch(done);
+        });
+      });
+    });
   });
 
   describe('Activity Storage - lib/server/activity.js', function () {
     
-    beforeEach(function (done) {
-      self.ctx.activity().deleteMany({}, function () {
-        done();
-      });
+    beforeEach(async function () {
+      await self.ctx.activity().deleteMany({});
     });
 
-    afterEach(function (done) {
-      self.ctx.activity().deleteMany({}, function () {
-        done();
-      });
+    afterEach(async function () {
+      await self.ctx.activity().deleteMany({});
     });
 
     it('create() accepts array of activity objects (single object not supported)', function (done) {
@@ -510,6 +539,124 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
         docs.length.should.equal(1);
         done();
       });
+    });
+
+    it('save() updates an existing activity by _id', function (done) {
+      self.ctx.activity.create([{
+        created_at: '2024-10-26T20:32:49.173Z',
+        heartrate: 80,
+        steps: 100,
+        activitylevel: 'walking'
+      }], function (err, createdDocs) {
+        should.not.exist(err);
+        should.exist(createdDocs);
+        createdDocs.length.should.equal(1);
+        should.exist(createdDocs[0]._id);
+
+        var savedId = createdDocs[0]._id;
+        var updated = {
+          _id: savedId.toString(),
+          created_at: '2024-10-26T21:32:49.173Z',
+          heartrate: 95,
+          steps: 250,
+          activitylevel: 'running'
+        };
+
+        self.ctx.activity.save(updated, function (saveErr, savedDoc) {
+          should.not.exist(saveErr);
+          should.exist(savedDoc);
+          savedDoc._id.toString().should.equal(savedId.toString());
+
+          self.ctx.activity().find({ _id: savedId }).toArray()
+            .then(function (docs) {
+              docs.length.should.equal(1);
+              docs[0].heartrate.should.equal(95);
+              docs[0].steps.should.equal(250);
+              docs[0].activitylevel.should.equal('running');
+              docs[0].created_at.should.equal('2024-10-26T21:32:49.173Z');
+              done();
+            })
+            .catch(done);
+        });
+      });
+    });
+  });
+
+  describe('Authorization Storage - lib/authorization/storage.js', function () {
+    function rolesCollection() {
+      return self.ctx.store.collection(self.env.authentication_collections_prefix + 'roles');
+    }
+
+    function subjectsCollection() {
+      return self.ctx.store.collection(self.env.authentication_collections_prefix + 'subjects');
+    }
+
+    beforeEach(async function () {
+      await rolesCollection().deleteMany({ name: 'mongo-save-role' });
+      await subjectsCollection().deleteMany({ name: 'mongo-save-subject' });
+    });
+
+    afterEach(async function () {
+      await rolesCollection().deleteMany({ name: 'mongo-save-role' });
+      await subjectsCollection().deleteMany({ name: 'mongo-save-subject' });
+    });
+
+    it('saveRole() updates an existing role without duplicating it', function (done) {
+      rolesCollection().insertOne({
+        name: 'mongo-save-role',
+        permissions: ['api:entries:read'],
+        notes: 'original',
+        created_at: '2024-10-26T20:32:49.173Z'
+      }).then(function (result) {
+        self.ctx.authorization.storage.saveRole({
+          _id: result.insertedId.toString(),
+          name: 'mongo-save-role',
+          permissions: ['api:entries:update'],
+          notes: 'updated',
+          created_at: '2024-10-26T21:32:49.173Z'
+        }, function (saveErr) {
+          should.not.exist(saveErr);
+
+          rolesCollection().find({ name: 'mongo-save-role' }).toArray()
+            .then(function (docs) {
+              docs.length.should.equal(1);
+              docs[0].permissions.should.deepEqual(['api:entries:update']);
+              docs[0].notes.should.equal('updated');
+              docs[0].created_at.should.equal('2024-10-26T21:32:49.173Z');
+              done();
+            })
+            .catch(done);
+        });
+      }).catch(done);
+    });
+
+    it('saveSubject() updates an existing subject without duplicating it', function (done) {
+      subjectsCollection().insertOne({
+        name: 'mongo-save-subject',
+        roles: ['readable'],
+        notes: 'original',
+        created_at: '2024-10-26T20:32:49.173Z'
+      }).then(function (result) {
+        self.ctx.authorization.storage.saveSubject({
+          _id: result.insertedId.toString(),
+          name: 'mongo-save-subject',
+          roles: ['admin'],
+          notes: 'updated',
+          created_at: '2024-10-26T21:32:49.173Z'
+        }, function (saveErr) {
+          should.not.exist(saveErr);
+
+          subjectsCollection().find({ name: 'mongo-save-subject' }).toArray()
+            .then(function (docs) {
+              docs.length.should.equal(1);
+              docs[0].roles.should.deepEqual(['admin']);
+              docs[0].notes.should.equal('updated');
+              docs[0].created_at.should.equal('2024-10-26T21:32:49.173Z');
+              done();
+            })
+            .catch(done);
+        });
+      }).catch(done);
     });
   });
 });
@@ -533,71 +680,61 @@ describe('MongoDB insertOne vs insertMany Behavior', function () {
 
   describe('Direct MongoDB operations - testing insertOne with array data', function () {
     
-    it('insertOne with object inserts correctly', function (done) {
+    it('insertOne with object inserts correctly', async function () {
       var testCollection = self.ctx.store.collection('test_shape_handling');
-      
-      testCollection.deleteMany({}, function () {
-        testCollection.insertOne({ type: 'test', value: 42 }, function (err, result) {
-          should.not.exist(err);
-          should.exist(result);
-          result.insertedId.should.be.ok();
-          
-          testCollection.find({}).toArray(function (err, docs) {
-            docs.length.should.equal(1);
-            docs[0].value.should.equal(42);
-            testCollection.deleteMany({}, done);
-          });
-        });
-      });
+
+      await testCollection.deleteMany({});
+      var result = await testCollection.insertOne({ type: 'test', value: 42 });
+      should.exist(result);
+      result.insertedId.should.be.ok();
+
+      var docs = await testCollection.find({}).toArray();
+      docs.length.should.equal(1);
+      docs[0].value.should.equal(42);
+      await testCollection.deleteMany({});
     });
 
-    it('insertOne with array creates single document containing array (NOT multiple docs)', function (done) {
+    it('insertOne with array creates single document containing array (NOT multiple docs)', async function () {
       var testCollection = self.ctx.store.collection('test_shape_handling');
-      
-      testCollection.deleteMany({}, function () {
-        var arrayData = [
-          { type: 'test', value: 1 },
-          { type: 'test', value: 2 },
-          { type: 'test', value: 3 }
-        ];
-        
-        testCollection.insertOne(arrayData, function (err, result) {
-          if (err) {
-            console.log('insertOne with array error:', err.message);
-            done();
-          } else {
-            testCollection.find({}).toArray(function (err, docs) {
-              console.log('Documents after insertOne with array:', JSON.stringify(docs, null, 2));
-              console.log('Number of documents:', docs.length);
-              
-              testCollection.deleteMany({}, done);
-            });
-          }
-        });
-      });
+
+      await testCollection.deleteMany({});
+      var arrayData = [
+        { type: 'test', value: 1 },
+        { type: 'test', value: 2 },
+        { type: 'test', value: 3 }
+      ];
+
+      try {
+        await testCollection.insertOne(arrayData);
+      } catch (err) {
+        console.log('insertOne with array error:', err.message);
+        await testCollection.deleteMany({});
+        return;
+      }
+
+      var docs = await testCollection.find({}).toArray();
+      console.log('Documents after insertOne with array:', JSON.stringify(docs, null, 2));
+      console.log('Number of documents:', docs.length);
+      await testCollection.deleteMany({});
     });
 
-    it('insertMany with array creates multiple documents', function (done) {
+    it('insertMany with array creates multiple documents', async function () {
       var testCollection = self.ctx.store.collection('test_shape_handling');
-      
-      testCollection.deleteMany({}, function () {
-        var arrayData = [
-          { type: 'test', value: 1 },
-          { type: 'test', value: 2 },
-          { type: 'test', value: 3 }
-        ];
-        
-        testCollection.insertMany(arrayData, function (err, result) {
-          should.not.exist(err);
-          should.exist(result);
-          result.insertedCount.should.equal(3);
-          
-          testCollection.find({}).toArray(function (err, docs) {
-            docs.length.should.equal(3);
-            testCollection.deleteMany({}, done);
-          });
-        });
-      });
+
+      await testCollection.deleteMany({});
+      var arrayData = [
+        { type: 'test', value: 1 },
+        { type: 'test', value: 2 },
+        { type: 'test', value: 3 }
+      ];
+
+      var result = await testCollection.insertMany(arrayData);
+      should.exist(result);
+      result.insertedCount.should.equal(3);
+
+      var docs = await testCollection.find({}).toArray();
+      docs.length.should.equal(3);
+      await testCollection.deleteMany({});
     });
   });
 });

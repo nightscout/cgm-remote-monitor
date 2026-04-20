@@ -37,8 +37,8 @@ describe('Loop SGV Entry Upload Tests', function() {
     });
   });
 
-  beforeEach(function(done) {
-    self.ctx.entries().deleteMany({}, done);
+  beforeEach(async function() {
+    await self.ctx.entries().deleteMany({});
   });
 
   describe('TEST-SGV-001: Single SGV entry', function() {
