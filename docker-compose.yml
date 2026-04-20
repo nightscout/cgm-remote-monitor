@@ -1,5 +1,3 @@
-version: '3'
-
 x-logging:
   &default-logging
   options:
