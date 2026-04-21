@@ -496,6 +496,142 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
     });
   });
 
+  describe('dbAdd profile collection (AAPS V1 sync)', function () {
+
+    function profileCollection() {
+      return self.ctx.store.collection(self.env.profile_collection);
+    }
+
+    beforeEach(async function () {
+      await profileCollection().deleteMany({ defaultProfile: 'aaps-test' });
+    });
+
+    function aapsProfile(startDateMs, overrides) {
+      var iso = new Date(startDateMs).toISOString();
+      return Object.assign({
+        defaultProfile: 'aaps-test',
+        date: startDateMs,
+        created_at: iso,
+        startDate: iso,
+        units: 'mg/dl',
+        store: {
+          'aaps-test': {
+            dia: 5,
+            carbratio: [{ time: '00:00', value: 10 }],
+            sens: [{ time: '00:00', value: 50 }],
+            basal: [{ time: '00:00', value: 0.5 }],
+            target_low: [{ time: '00:00', value: 100 }],
+            target_high: [{ time: '00:00', value: 120 }],
+            timezone: 'UTC'
+          }
+        }
+      }, overrides || {});
+    }
+
+    it('first AAPS-shaped profile dbAdd inserts a new document', function (done) {
+      connectAndAuthorize(function (err, socket) {
+        if (err) return done(err);
+
+        var profile = aapsProfile(Date.now());
+        socket.emit('dbAdd', { collection: 'profile', data: profile }, function (result) {
+          should.exist(result);
+          result.should.be.instanceof(Array);
+          result.length.should.equal(1);
+          should.exist(result[0]._id);
+
+          waitForConditionWithWarning({
+            condition: function (cb) {
+              profileCollection().find({ defaultProfile: 'aaps-test' }).toArray()
+                .then(function (docs) { cb(null, docs); }).catch(cb);
+            },
+            assertion: function (docs) {
+              docs.length.should.equal(1);
+              docs[0].startDate.should.equal(profile.startDate);
+            },
+            done: done,
+            operationName: 'verify first AAPS profile insert'
+          });
+        });
+      });
+    });
+
+    it('repeated AAPS profile dbAdd with same startDate REPLACES instead of duplicating', function (done) {
+      connectAndAuthorize(function (err, socket) {
+        if (err) return done(err);
+
+        var ts = Date.now();
+        var first = aapsProfile(ts);
+        // second send: same startDate (e.g. user re-saves quickly), edited carb ratio
+        var second = aapsProfile(ts);
+        second.store['aaps-test'].carbratio[0].value = 12;
+
+        socket.emit('dbAdd', { collection: 'profile', data: first }, function (firstResult) {
+          should.exist(firstResult);
+          firstResult.length.should.equal(1);
+          var firstId = firstResult[0]._id;
+
+          socket.emit('dbAdd', { collection: 'profile', data: second }, function (secondResult) {
+            should.exist(secondResult);
+            secondResult.length.should.equal(1);
+            // The dedup branch returns the EXISTING _id so AAPS sees a stable id
+            String(secondResult[0]._id).should.equal(String(firstId));
+
+            waitForConditionWithWarning({
+              condition: function (cb) {
+                profileCollection().find({ defaultProfile: 'aaps-test' }).toArray()
+                  .then(function (docs) { cb(null, docs); }).catch(cb);
+              },
+              assertion: function (docs) {
+                docs.length.should.equal(1);
+                docs[0].store['aaps-test'].carbratio[0].value.should.equal(12);
+              },
+              done: done,
+              operationName: 'verify AAPS profile dedup replaces in place'
+            });
+          });
+        });
+      });
+    });
+
+    it('AAPS profile dbAdd with different startDate inserts a new document and last() returns newest', function (done) {
+      connectAndAuthorize(function (err, socket) {
+        if (err) return done(err);
+
+        var older = aapsProfile(Date.now() - 60000);
+        older.store['aaps-test'].carbratio[0].value = 8;
+        var newer = aapsProfile(Date.now());
+        newer.store['aaps-test'].carbratio[0].value = 14;
+
+        socket.emit('dbAdd', { collection: 'profile', data: older }, function (r1) {
+          should.exist(r1);
+          socket.emit('dbAdd', { collection: 'profile', data: newer }, function (r2) {
+            should.exist(r2);
+
+            waitForConditionWithWarning({
+              condition: function (cb) {
+                profileCollection().find({ defaultProfile: 'aaps-test' }).toArray()
+                  .then(function (docs) { cb(null, docs); }).catch(cb);
+              },
+              assertion: function (docs) {
+                docs.length.should.equal(2);
+              },
+              done: function (err) {
+                if (err) return done(err);
+                self.ctx.profile.last(function (lastErr, lastDocs) {
+                  if (lastErr) return done(lastErr);
+                  lastDocs.length.should.equal(1);
+                  lastDocs[0].store['aaps-test'].carbratio[0].value.should.equal(14);
+                  done();
+                });
+              },
+              operationName: 'verify AAPS profile distinct startDate inserts and last() returns newest'
+            });
+          });
+        });
+      });
+    });
+  });
+
   describe('generic collection raw write watchpoints', function () {
 
     beforeEach(async function () {
