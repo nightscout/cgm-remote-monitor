@@ -10,6 +10,7 @@ bundle/bundle.out.js
 my.env
 my.*.env
 *.pem
+!/tests/fixtures/dummy_private_key.pem
 
 static/bower_components/
 .*.sw?
