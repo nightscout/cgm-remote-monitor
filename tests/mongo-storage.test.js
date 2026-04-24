@@ -3,6 +3,8 @@
 var should = require('should');
 var assert = require('assert');
 
+var productionSafety = require('./lib/production-safety');
+
 describe('mongo storage', function () {
   var env = require('../lib/server/env')();
 
@@ -38,7 +40,7 @@ describe('mongo storage', function () {
       should.exist(db.client);
 
       db.client.db().databaseName.should.equal(db.db.databaseName);
-      db.db.databaseName.should.equal('testdb');
+      productionSafety.isTestDatabaseName(db.db.databaseName).should.be.true();
       done();
     });
   });
