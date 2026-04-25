@@ -523,7 +523,7 @@ describe('Profile', function ( ) {
     tz.should.equal('UTC');
   });
 
-  it('should leave half-hour offsets unchanged (not supported by Etc/GMT)', function () {
+  it('should normalize GMT+5:30 to fixed offset +05:30', function () {
     var halfHourData = {
       'timezone': 'GMT+5:30'
       , 'dia': 3
@@ -535,7 +535,131 @@ describe('Profile', function ( ) {
     };
     var halfHourProfile = require('../lib/profilefunctions')([halfHourData], helper.ctx);
     var tz = halfHourProfile.getTimezone();
-    tz.should.equal('GMT+5:30');
+    tz.should.equal('+05:30');
+  });
+
+  it('should normalize GMT-3:30 to fixed offset -03:30', function () {
+    var nlData = {
+      'timezone': 'GMT-3:30'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var nlProfile = require('../lib/profilefunctions')([nlData], helper.ctx);
+    var tz = nlProfile.getTimezone();
+    tz.should.equal('-03:30');
+  });
+
+  it('should normalize GMT+5:45 to fixed offset +05:45 (Nepal)', function () {
+    var nepalData = {
+      'timezone': 'UTC+5:45'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var nepalProfile = require('../lib/profilefunctions')([nepalData], helper.ctx);
+    var tz = nepalProfile.getTimezone();
+    tz.should.equal('+05:45');
+  });
+
+  it('should normalize GMT+9:30 to fixed offset +09:30 (Adelaide)', function () {
+    var adelaideData = {
+      'timezone': 'GMT+9:30'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var adelaideProfile = require('../lib/profilefunctions')([adelaideData], helper.ctx);
+    var tz = adelaideProfile.getTimezone();
+    tz.should.equal('+09:30');
+  });
+
+  it('should treat GMT+5:00 as whole-hour and route to Etc/GMT-5', function () {
+    var explicitWholeHourData = {
+      'timezone': 'GMT+5:00'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var explicitWholeHourProfile = require('../lib/profilefunctions')([explicitWholeHourData], helper.ctx);
+    var tz = explicitWholeHourProfile.getTimezone();
+    tz.should.equal('Etc/GMT-5');
+  });
+
+  it('applyTimezone should produce +05:30 offset for GMT+5:30 profile', function () {
+    var indiaData = {
+      'timezone': 'GMT+5:30'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var indiaProfile = require('../lib/profilefunctions')([indiaData], helper.ctx);
+    var moment = helper.ctx.moment;
+    var t = indiaProfile.applyTimezone(moment.utc('2026-01-15T00:00:00Z'));
+    t.format('Z').should.equal('+05:30');
+  });
+
+  it('parseInTimezone should parse a date as midnight in +05:30', function () {
+    var indiaData = {
+      'timezone': 'GMT+5:30'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var indiaProfile = require('../lib/profilefunctions')([indiaData], helper.ctx);
+    var t = indiaProfile.parseInTimezone('2026-01-15');
+    t.format('Z').should.equal('+05:30');
+    t.toISOString().should.equal('2026-01-14T18:30:00.000Z');
+  });
+
+  it('should leave invalid sub-hour minutes (>=60) unchanged for UTC fallback', function () {
+    var invalidData = {
+      'timezone': 'GMT+5:60'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var invalidProfile = require('../lib/profilefunctions')([invalidData], helper.ctx);
+    var tz = invalidProfile.getTimezone();
+    tz.should.equal('GMT+5:60');
+  });
+
+  it('applyTimezone should still work for IANA zones', function () {
+    var ianaData = {
+      'timezone': 'America/Toronto'
+      , 'dia': 3
+      , 'carbs_hr': 30
+      , 'carbratio': 7
+      , 'sens': 35
+      , 'target_low': 95
+      , 'target_high': 120
+    };
+    var ianaProfile = require('../lib/profilefunctions')([ianaData], helper.ctx);
+    var moment = helper.ctx.moment;
+    var t = ianaProfile.applyTimezone(moment.utc('2026-07-15T12:00:00Z'));
+    // Toronto is UTC-4 in summer (EDT)
+    t.format('Z').should.equal('-04:00');
   });
 
   it('should leave bare GMT unchanged', function () {
