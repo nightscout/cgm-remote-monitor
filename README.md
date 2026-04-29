@@ -161,8 +161,8 @@ Older versions or other browsers might work, but are untested and unsupported. W
 
 ## Installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node v14 or v16 LTS. Node versions that do not have the latest security patches will not be supported. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
-- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 4.2 or 4.4.
+- [Node.js](http://nodejs.org/) Node v20 LTS or later (v22, v24 also supported). Node versions that do not have the latest security patches will not be supported. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 4.4 or later (5.0, 6.0 also supported).
 
 As a non-root user clone this repo then install dependencies into the root of the project:
 
@@ -252,6 +252,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
     Setting it to `denied` will require a token from every visit, using `status-only` will enable api-secret based login.
   * `IMPORT_CONFIG` - Used to import settings and extended settings from a url such as a gist.  Structure of file should be something like: `{"settings": {"theme": "colors"}, "extendedSettings": {"upbat": {"enableAlerts": true}}}`
   * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. Deprecated, if set to `off` the `careportal` role will be added to `AUTH_DEFAULT_ROLES`
+  * `UUID_HANDLING` (`true`) - Controls how UUID `_id` values are handled for treatments and entries. When `true` (default), if a client sends a UUID string as the `_id` field, it is extracted to the `identifier` field (for sync deduplication) and the server generates a proper ObjectId for `_id`. Queries by UUID (`GET`/`DELETE`) are also routed through the `identifier` field. When `false`, UUID `_id` values are silently stripped on write (no identifier is preserved) and UUID-based queries return empty results. This only affects the specific case where a UUID is sent as `_id` (e.g., Loop overrides, Trio CGM entries).
 
 #### Data Rights
 
@@ -288,6 +289,9 @@ autonomy for your data:
   * `MONGO_PROFILE_COLLECTION`(`profile`) - The collection used to store your profiles
   * `MONGO_FOOD_COLLECTION`(`food`) - The collection used to store your food database
   * `MONGO_ACTIVITY_COLLECTION`(`activity`) - The collection used to store activity data
+  * `MONGO_POOL_SIZE` (`5`) - MongoDB connection pool size. Adjust for your deployment needs.
+  * `MONGO_MIN_POOL_SIZE` (`0`) - Minimum pool connections to keep open.
+  * `MONGO_MAX_IDLE_TIME_MS` (`30000`) - Max idle time (ms) before closing a connection.
   * `PORT` (`1337`) - The port that the node.js application will listen on.
   * `HOSTNAME` - The hostname that the node.js application will listen on, null by default for any hostname for IPv6 you may need to use `::`.
   * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to your privkey.pem file (private key).

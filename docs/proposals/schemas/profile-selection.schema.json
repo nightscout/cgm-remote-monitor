@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nightscout.github.io/schemas/profile-selection.schema.json",
+  "title": "ProfileSelection",
+  "description": "Runtime event indicating which profile is intended to be active",
+  "type": "object",
+  "required": ["selectionId", "selectedProfileId", "effectiveAt", "selectedBy"],
+  "properties": {
+    "selectionId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this selection event"
+    },
+    "selectedProfileId": {
+      "type": "string",
+      "description": "ID of the ProfileDefinition being activated"
+    },
+    "selectedProfileHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Content hash of the selected profile for verification"
+    },
+    "effectiveAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this profile selection takes effect"
+    },
+    "selectedBy": {
+      "type": "object",
+      "required": ["issuerType", "issuerId", "authority"],
+      "properties": {
+        "issuerType": {
+          "type": "string",
+          "enum": ["human", "controller", "agent", "caregiver"]
+        },
+        "issuerId": {
+          "type": "string"
+        },
+        "authority": {
+          "type": "string",
+          "enum": ["primary", "delegated", "automated"],
+          "description": "Authority level of the selector"
+        }
+      }
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Optional annotation explaining why this profile was selected"
+    },
+    "previousSelectionId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ID of the selection this replaces, for audit chain"
+    }
+  }
+}
