@@ -1,0 +1,121 @@
+[
+  {
+    "_id": {"$oid": "6783c31d748bf2ff9a89c6a3"},
+    "created_at": "2025-01-12T13:26:53.937Z",
+    "device": "Trio",
+    "openaps": {
+      "iob": {
+        "bolusiob": 4.184,
+        "lastTemp": {
+          "rate": 0,
+          "timestamp": "2025-01-12T13:11:46.761Z",
+          "started_at": "2025-01-12T13:11:46.761Z",
+          "date": 1736687506761,
+          "duration": 15.84
+        },
+        "lastBolusTime": 1736686907187,
+        "basaliob": -0.59,
+        "netbasalinsulin": -1.3,
+        "bolusinsulin": 9.9,
+        "time": "2025-01-12T13:26:37.086Z",
+        "activity": 0.0245,
+        "iob": 3.594,
+        "iobWithZeroTemp": {
+          "basaliob": -0.59,
+          "bolusinsulin": 9.9,
+          "activity": 0.0245,
+          "iob": 3.594,
+          "netbasalinsulin": -1.3,
+          "bolusiob": 4.184,
+          "time": "2025-01-12T13:26:37.086Z"
+        }
+      },
+      "version": "0.7.1",
+      "suggested": {
+        "temp": "absolute",
+        "expectedDelta": -5,
+        "reservoir": 170.2,
+        "reason": "Autosens ratio: 1.49, ISF: 4.5→3, COB: 0, Dev: 1.9, BGI: -0.4, CR: 8→5.4, Target: 5.5→4.8, minPredBG 2.7, minGuardBG 1.2, IOBpredBG 2.6, UAMpredBG 2.2, TDD: 31.2 U, 81% Bolus 19% Basal, Dynamic ISF/CR: On/On, Sigmoid function, AF: 0.7, Basal ratio: 1; minGuardBG 1.2&lt;3.5",
+        "deliverAt": "2025-01-12T13:26:45.570Z",
+        "insulin": {
+          "scheduled_basal": 0,
+          "temp_basal": 5.9,
+          "TDD": 31.2,
+          "bolus": 25.3
+        },
+        "sensitivityRatio": 1.485721936996895,
+        "duration": 120,
+        "IOB": 3.594,
+        "minDelta": -1,
+        "timestamp": "2025-01-12T13:26:45.570Z",
+        "eventualBG": 46,
+        "ISF": 3,
+        "TDD": 31.2,
+        "threshold": 3.5,
+        "COB": 0,
+        "bg": 208,
+        "insulinReq": 0,
+        "manualBolusErrorString": 2,
+        "current_target": 86,
+        "insulinForManualBolus": -0.73,
+        "minGuardBG": 22,
+        "rate": 0
+      },
+      "enacted": {
+        "reason": "Autosens ratio: 1.49, ISF: 4.5→3, COB: 0, Dev: 1.9, BGI: -0.4, CR: 8→5.4, Target: 5.5→4.8, minPredBG 2.7, minGuardBG 1.2, IOBpredBG 2.6, UAMpredBG 2.2, TDD: 31.2 U, 81% Bolus 19% Basal, Dynamic ISF/CR: On/On, Sigmoid function, AF: 0.7, Basal ratio: 1; minGuardBG 1.2&lt;3.5",
+        "minDelta": -1,
+        "TDD": 31.2,
+        "eventualBG": 46,
+        "threshold": 3.5,
+        "temp": "absolute",
+        "manualBolusErrorString": 2,
+        "bg": 208,
+        "IOB": 3.594,
+        "current_target": 86,
+        "recieved": true,
+        "predBGs": {
+          "ZT": [208, 201, 195, 188, 181, 174, 167, 160, 154, 147, 141, 135, 130, 124, 119, 114, 109, 105, 101, 97, 93, 90, 87, 85, 82, 80, 78, 77, 75, 74, 73, 72, 72, 71, 71, 71, 71, 71, 72, 72, 73, 74, 75, 76, 77, 78, 80, 81],
+          "UAM": [208, 205, 201, 195, 188, 181, 174, 167, 160, 153, 147, 140, 134, 128, 122, 116, 111, 105, 100, 95, 90, 86, 81, 77, 73, 70, 66, 63, 60, 57, 54, 51, 48, 46, 44, 41, 39],
+          "IOB": [208, 207, 204, 202, 199, 195, 191, 186, 181, 176, 170, 164, 158, 152, 146, 140, 135, 129, 124, 119, 114, 110, 106, 101, 98, 94, 90, 87, 84, 81, 78, 75, 73, 70, 68, 66, 63, 61, 60, 58, 56, 55, 53, 52, 51, 49, 48, 47]
+        },
+        "rate": 0,
+        "insulinReq": 0,
+        "insulinForManualBolus": -0.73,
+        "ISF": 3,
+        "expectedDelta": -5,
+        "deliverAt": "2025-01-12T13:26:45.570Z",
+        "duration": 120,
+        "reservoir": 170.2,
+        "insulin": {
+          "scheduled_basal": 0,
+          "bolus": 25.3,
+          "temp_basal": 5.9,
+          "TDD": 31.2
+        },
+        "COB": 0,
+        "minGuardBG": 22,
+        "timestamp": "2025-01-12T13:26:51.167Z",
+        "sensitivityRatio": 1.485721936996895
+      }
+    },
+    "pump": {
+      "status": {
+        "bolusing": false,
+        "timestamp": "2025-01-12T13:26:49.736Z",
+        "suspended": false,
+        "status": "normal"
+      },
+      "clock": "2025-01-12T13:26:53.477Z",
+      "reservoir": 170.2,
+      "battery": {
+        "string": "normal",
+        "display": true,
+        "percent": 100
+      }
+    },
+    "uploader": {
+      "battery": 100
+    },
+    "utcOffset": 60
+  }
+]
