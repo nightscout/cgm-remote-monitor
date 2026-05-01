@@ -3,7 +3,7 @@ servers:
   - url: /api/v1
 info:
   title: Nightscout API
-  description: Own your DData with the Nightscout API
+  description: Own your Data with the Nightscout API
   version: 14.2.3
   license:
     name: AGPL 3
@@ -13,6 +13,114 @@ security:
     token_in_url: []
     jwtoken: []
 paths:
+  /entries:
+    get:
+      summary: All Entries matching query
+      description: The Entries endpoint returns information about the Nightscout entries.
+      parameters:
+        - name: find
+          in: query
+          description: >-
+            The query used to find entries, support nested query syntax, for
+            example `find[dateString][$gte]=2015-08-27`.  All find parameters
+            are interpreted as strings.
+          required: false
+          schema:
+            type: string
+        - name: count
+          in: query
+          description: Number of entries to return.
+          required: false
+          schema:
+            type: number
+      tags:
+        - Entries
+      responses:
+        '200':
+          description: An array of entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entries'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Entries
+      summary: Add new entries.
+      description: ''
+      operationId: addEntries
+      responses:
+        '200':
+          description: Rejected list of entries.  Empty list is success.
+        '405':
+          description: Invalid input
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Entries'
+          text/plain:
+            schema:
+              $ref: '#/components/schemas/Entries'
+        description: Entries to be uploaded.
+        required: true
+    delete:
+      tags:
+        - Entries
+      summary: Delete entries matching query.
+      description: 'Remove entries, same search syntax as GET.'
+      operationId: remove
+      parameters:
+        - name: find
+          in: query
+          description: >-
+            The query used to find entries, support nested query syntax, for
+            example `find[dateString][$gte]=2015-08-27`.  All find parameters
+            are interpreted as strings.
+          required: false
+          schema:
+            type: string
+        - name: count
+          in: query
+          description: Number of entries to return.
+          required: false
+          schema:
+            type: number
+      responses:
+        '200':
+          description: Empty list is success.
+  /entries/current:
+    get:
+      summary: Get the current entry.
+      description: Get the latest entry.
+      tags:
+        - Entries
+      responses:
+        '200':
+          description: The current entry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entry'
+  /entries/preview:
+    post:
+      summary: Preview new entries.
+      description: Preview entries before adding them.
+      tags:
+        - Entries
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Entries'
+      responses:
+        '200':
+          description: The previewed entries.
   '/entries/{spec}':
     get:
       summary: All Entries matching query
@@ -307,87 +415,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /entries:
+  '/count/{storage}/where':
     get:
-      summary: All Entries matching query
-      description: The Entries endpoint returns information about the Nightscout entries.
-      parameters:
-        - name: find
-          in: query
-          description: >-
-            The query used to find entries, support nested query syntax, for
-            example `find[dateString][$gte]=2015-08-27`.  All find parameters
-            are interpreted as strings.
-          required: false
-          schema:
-            type: string
-        - name: count
-          in: query
-          description: Number of entries to return.
-          required: false
-          schema:
-            type: number
+      summary: Count of records
+      description: Get the count of records matching a query.
       tags:
         - Entries
+      parameters:
+        - name: storage
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: find
+          in: query
+          schema:
+            type: string
       responses:
         '200':
-          description: An array of entries
+          description: Count of records.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Entries'
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-    post:
-      tags:
-        - Entries
-      summary: Add new entries.
-      description: ''
-      operationId: addEntries
-      responses:
-        '200':
-          description: Rejected list of entries.  Empty list is success.
-        '405':
-          description: Invalid input
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Entries'
-          text/plain:
-            schema:
-              $ref: '#/components/schemas/Entries'
-        description: Entries to be uploaded.
-        required: true
-    delete:
-      tags:
-        - Entries
-      summary: Delete entries matching query.
-      description: 'Remove entries, same search syntax as GET.'
-      operationId: remove
-      parameters:
-        - name: find
-          in: query
-          description: >-
-            The query used to find entries, support nested query syntax, for
-            example `find[dateString][$gte]=2015-08-27`.  All find parameters
-            are interpreted as strings.
-          required: false
-          schema:
-            type: string
-        - name: count
-          in: query
-          description: Number of entries to return.
-          required: false
-          schema:
-            type: number
-      responses:
-        '200':
-          description: Empty list is success.
+                type: array
+                items:
+                  type: object
   /treatments:
     get:
       summary: Treatments
@@ -444,12 +496,28 @@ paths:
               $ref: '#/components/schemas/Treatments'
         description: Treatments to be uploaded.
         required: true
+    put:
+      tags:
+        - Treatments
+      summary: Modify treatments.
+      description: ''
+      operationId: updateTreatments
+      responses:
+        '200':
+          description: The modified treatment document.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Treatment'
+        description: Treatment to be updated.
+        required: true
     delete:
       tags:
         - Treatments
       summary: Delete treatments matching query.
       description: 'Remove treatments, same search syntax as GET.'
-      operationId: remove
+      operationId: removeTreatments
       parameters:
         - name: find
           in: query
@@ -508,7 +576,7 @@ paths:
         - Profile
       responses:
         '200':
-          description: An array of treatments
+          description: An array of profile objects
           content:
             application/json:
               schema:
@@ -519,6 +587,79 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+    post:
+      summary: Add a new profile
+      tags:
+        - Profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Profile'
+      responses:
+        '200':
+          description: The created profile.
+    put:
+      summary: Update a profile
+      tags:
+        - Profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Profile'
+      responses:
+        '200':
+          description: The updated profile.
+  '/profile/{id}':
+    delete:
+      summary: Delete a profile
+      tags:
+        - Profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Empty object on success.
+  /profile/current:
+    get:
+      summary: Get current profile
+      description: Get the currently active profile.
+      tags:
+        - Profile
+      responses:
+        '200':
+          description: The current profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+  /profiles:
+    get:
+      summary: List profiles
+      description: List profiles matching query.
+      tags:
+        - Profile
+      parameters:
+        - name: find
+          in: query
+          schema:
+            type: string
+        - name: count
+          in: query
+          schema:
+            type: number
+      responses:
+        '200':
+          description: An array of profile objects
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profiles'
   /status:
     get:
       summary: Status
@@ -538,7 +679,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /devicestatus/:
+  /devicestatus:
     get:
       summary: All Devicestatuses matching query
       description: >-
@@ -652,6 +793,323 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /activity:
+    get:
+      summary: All activity matching query
+      description: The Activity endpoint returns information about the Nightscout activity records.
+      parameters:
+        - name: find
+          in: query
+          description: The query used to find entries, support nested query syntax.
+          required: false
+          schema:
+            type: string
+        - name: count
+          in: query
+          description: Number of entries to return.
+          required: false
+          schema:
+            type: number
+      tags:
+        - Activity
+      responses:
+        '200':
+          description: An array of activity entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activities'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Activity
+      summary: Add new activity records.
+      responses:
+        '200':
+          description: Uploaded activity record.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Activity'
+        description: Activity to be uploaded.
+        required: true
+    put:
+      tags:
+        - Activity
+      summary: Modify activity records.
+      responses:
+        '200':
+          description: Uploaded activity record.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Activity'
+        description: Activity to be uploaded.
+        required: true
+  '/activity/{id}':
+    delete:
+      summary: Delete activity record with id
+      parameters:
+        - name: id
+          in: path
+          description: id of record to delete
+          required: true
+          schema:
+            type: string
+      tags:
+        - Activity
+      responses:
+        '200':
+          description: A status record of the delete.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteStatus'
+  /adminnotifies:
+    get:
+      summary: Get admin notifications
+      description: Get notifications for admin users.
+      tags:
+        - Status
+      responses:
+        '200':
+          description: Admin notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notifies:
+                    type: array
+                    items:
+                      type: object
+                  notifyCount:
+                    type: number
+  /alexa:
+    post:
+      summary: Endpoint for Amazon Alexa Skill.
+      description: ''
+      tags:
+        - Integrations
+      responses:
+        '200':
+          description: Response for Alexa.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+        description: Request from Alexa.
+        required: true
+  /googlehome:
+    post:
+      summary: Endpoint for Google Home Action.
+      description: ''
+      tags:
+        - Integrations
+      responses:
+        '200':
+          description: Response for Google Home.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+        description: Request from Google Home.
+        required: true
+  /food:
+    get:
+      summary: Get food entries
+      description: Get food entries.
+      tags:
+        - Food
+      responses:
+        '200':
+          description: An array of food entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Foods'
+    post:
+      summary: Add a food entry
+      description: Add a new food entry.
+      tags:
+        - Food
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Food'
+      responses:
+        '200':
+          description: The created food entry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Food'
+    put:
+      summary: Update a food entry
+      description: Update an existing food entry.
+      tags:
+        - Food
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Food'
+      responses:
+        '200':
+          description: The updated food entry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Food'
+  '/food/{id}':
+    delete:
+      summary: Delete a food entry
+      description: Delete a food entry by its ID.
+      tags:
+        - Food
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Empty object on success.
+          content:
+            application/json:
+              schema:
+                type: object
+  /food/quickpicks:
+    get:
+      summary: Get quickpick food entries
+      description: Get food entries that are marked as quickpicks.
+      tags:
+        - Food
+      responses:
+        '200':
+          description: An array of food entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Foods'
+  /food/regular:
+    get:
+      summary: Get regular food entries
+      description: Get food entries that are not marked as quickpicks.
+      tags:
+        - Food
+      responses:
+        '200':
+          description: An array of food entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Foods'
+  /notifications/ack:
+    get:
+      summary: Acknowledge a notification
+      description: Acknowledge a notification.
+      tags:
+        - Notifications
+      parameters:
+        - name: level
+          in: query
+          schema:
+            type: number
+        - name: group
+          in: query
+          schema:
+            type: string
+        - name: time
+          in: query
+          schema:
+            type: number
+      responses:
+        '200':
+          description: OK
+  /notifications/pushovercallback:
+    post:
+      summary: Pushover callback
+      description: Callback for pushover notifications.
+      tags:
+        - Notifications
+      responses:
+        '200':
+          description: OK
+  /verifyauth:
+    get:
+      summary: Verify authentication token
+      description: >-
+        Verify that the token (API secret) is valid.
+      tags:
+        - Status
+      responses:
+        '200':
+          description: Status of the token.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  canRead:
+                    type: boolean
+                  canWrite:
+                    type: boolean
+                  isAdmin:
+                    type: boolean
+                  message:
+                    type: string
+                  rolefound:
+                    type: string
+                  permissions:
+                    type: string
+  /versions:
+    get:
+      summary: Get API versions
+      description: Get available API versions.
+      tags:
+        - Status
+      responses:
+        '200':
+          description: Available API versions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    version:
+                      type: string
+                    url:
+                      type: string
+  /experiments/test:
+    get:
+      summary: Experiments - Test endpoint
+      description: Test endpoint for experiments.
+      tags:
+        - Debug
+      responses:
+        '200':
+          description: Status ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
 components:
   securitySchemes:
     api_secret:
@@ -924,6 +1382,10 @@ components:
         _id:
           type: string
           description: Internally assigned id
+    Profiles:
+      type: array
+      items:
+        $ref: '#/components/schemas/Profile'
     Status:
       properties:
         apiEnabled:
@@ -1082,3 +1544,43 @@ components:
           type: integer
           format: int32
           description: Time the operation took to complete
+    Activity:
+      properties:
+        duration:
+          type: number
+          description: 'Duration of activity in minutes'
+        activityType:
+          type: string
+          description: 'Type of activity'
+        notes:
+          type: string
+          description: 'Notes about the activity'
+        created_at:
+          type: string
+          description: 'dateString, MUST be ISO `8601` format date parseable by Javascript Date()'
+    Activities:
+      type: array
+      items:
+        $ref: '#/components/schemas/Activity'
+    Food:
+      properties:
+        _id:
+          type: string
+        food:
+          type: string
+        amount:
+          type: number
+        unit:
+          type: string
+        carbs:
+          type: number
+        fat:
+          type: number
+        protein:
+          type: number
+        quickPick:
+          type: boolean
+    Foods:
+      type: array
+      items:
+        $ref: '#/components/schemas/Food'
