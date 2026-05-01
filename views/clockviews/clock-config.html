@@ -17,14 +17,29 @@
         </p>
         <p>SGV age threshold: <input type="number" class="threshold" id="threshold" name="threshold" min="1" max="99" value="10"> minutes</p>
         <p><input type="button" class="elmt" id="cfg_nl" name="nl" value="Add line break"></p>
+        <p><input type="button" class="elmt" id="cfg_tb" name="tb" value="Add tab"></p>
         <p><input type="button" class="elmt" id="cfg_sg" name="sg" value="Add SGV"> Size: <input type="number" class="size" id="cfg_sg_size" name="cfg_sg_size" min="1" max="99" value="40"></p>
         <p><input type="button" class="elmt" id="cfg_ag" name="ag" value="Add SGV age"> Size: <input type="number" class="size" id="cfg_ag_size" name="cfg_ag_size" min="1" max="99" value="6"></p>
         <p><input type="button" class="elmt" id="cfg_dt" name="dt" value="Add SGV delta"> Size: <input type="number" class="size" id="cfg_dt_size" name="cfg_dt_size" min="1" max="99" value="14"></p>
         <p><input type="button" class="elmt" id="cfg_ar" name="ar" value="Add trend arrow"> Size: <input type="number" class="size" id="cfg_ar_size" name="cfg_ar_size" min="1" max="99" value="30"></p>
         <p><input type="button" class="elmt" id="cfg_tm" name="tm" value="Add time"> Size: <input type="number" class="size" id="cfg_tm_size" name="cfg_tm_size" min="1" max="99" value="10"></p>
+        <p><input type="button" class="elmt" id="cfg_da" name="da" value="Add date"> Size: <input type="number" class="size" id="cfg_da_size" name="cfg_da_size" min="1" max="99" value="10"></p>
         <p><input type="button" class="undo" id="cfg_undo" name="undo" value="Remove last element"></p>
         <a id="clocklink" target=”_blank” href="/clock/cy10">Open my clock view!</a>
         <div id="facename">cy10</div>
+        <p>Advanced:</p>
+        <p><input type="button" class="elmt" id="cfg_pl" name="pl" value="Add plugins"> Size: <input type="number" class="size" id="cfg_pl_size" name="cfg_pl_size" min="1" max="99" value="6"></p>
+        <p><input type="button" class="graph" id="cfg_gr" name="gr" value="Add graph"><br> Width: <input type="number" class="width" id="cfg_gr_width" name="cfg_gr_width" min="1" value="350"
+                                                                                     > Height: <input type="number" class="height" id="cfg_gr_height" name="cfg_gr_height" min="1" value="150"
+                                                                                     > Radius: <input type="number" class="radius" id="cfg_gr_radius" name="cfg_gr_radius" min="1" max="999" value="10"
+                                                                                     > Hours: <input type="number" class="hours" id="cfg_gr_hours" name="cfg_gr_hours" min="1" max="99" value="3"></p>
+        <p><input type="button" class="elmt" id="cfg_gl" name="gl" value="Add graph labels"> Size: <input type="number" class="size" id="cfg_gl_size" name="cfg_gl_size" min="1" max="99" value="3"></p>
+        <p><input type="button" class="elmt" id="cfg_gt" name="gt" value="Add graph info"> Size: <input type="number" class="size" id="cfg_gt_size" name="cfg_gt_size" min="1" max="99" value="2"></p>
+        <p><input type="button" class="owm" id="cfg_ow" name="ow" value="Add weather"> Size: <input type="number" class="size" id="cfg_ow_size" name="cfg_ow_size" min="1" max="99" value="10"><br
+                                                                                     > Units: <input type="radio" class="units" id="cfg_ow_units_f" name="cfg_ow_units" value="F"><label for="cfg_ow_units_f">F</label
+                                                                                             ><input type="radio" class="units" id="cfg_ow_units_c" name="cfg_ow_units" value="C"><label for="cfg_ow_units_c">C</label><br
+                                                                                     > ZIP[,country]: <input type="text" class="zip" id="cfg_ow_zip" name="cfg_ow_zip" value=""><br
+                                                                                     > Openweathermap.org API-key <input type="text" class="key" id="cfg_ow_key" name="cfg_ow_key" value=""></p>
     </form>
 </div>
 <script type="text/javascript">
@@ -51,6 +66,26 @@
             $facename.text(this.value + $facename.text().substring(1));
             $facename.change();
         } );
+        $( "input.graph" ).click( function() {
+            let width = $("input#" + this.id + "_width").val();
+            let height = $("input#" + this.id + "_height").val();
+            let radius = $("input#" + this.id + "_radius").val();
+            let hours = $("input#" + this.id + "_hours").val();
+            let append = '-' + this.name + width + ":" + height + ":" + radius + ":" + hours;
+            let $facename = $( "#facename" );
+            $facename.text($facename.text() + append);
+            $facename.change();
+        } );
+        $( "input.owm" ).click( function() {
+            let size = $("input#" + this.id + "_size").val();
+            let units = $("input[name=cfg_ow_units]:checked").val();
+            let zip = $("input#" + this.id + "_zip").val();
+            let key = $("input#" + this.id + "_key").val();
+            let append = '-' + this.name + size + ":" + units + ":" + zip + ":" + key;
+            let $facename = $( "#facename" );
+            $facename.text($facename.text() + append);
+            $facename.change();
+        } );
         $( "input.undo" ).click( function() {
             let $facename = $( "#facename" );
             $facename.text($facename.text().substring(0, $facename.text().lastIndexOf('-') < 0 ? $facename.text().length: $facename.text().lastIndexOf('-')));
@@ -59,7 +94,9 @@
         $( "#facename" ).change(function() {
             $( "#inner" ).attr('data-face-config', $(this).text());
             $( "#clocklink" ).attr('href', ('/clock/' + $(this).text()));
+            window.Nightscout.client.updateParams();
             window.Nightscout.client.query();
+            window.Nightscout.client.queryOWM();
         } );
     } );
 </script>
