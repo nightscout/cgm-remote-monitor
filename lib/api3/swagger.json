@@ -21,7 +21,7 @@
   "tags": [
     {
       "name": "generic",
-      "description": "Generic operations with each database collection (devicestatus, entries, food, profile, settings, treatments)"
+      "description": "Generic operations with each database collection (devicestatus, entries, food, heartrate, profile, settings, treatments)"
     },
     {
       "name": "other",
@@ -1334,6 +1334,7 @@
           "devicestatus",
           "entries",
           "food",
+          "heartrate",
           "profile",
           "settings",
           "treatments"
