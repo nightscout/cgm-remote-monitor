@@ -326,6 +326,24 @@ describe('reports', function ( ) {
   var headless = require('./fixtures/headless')(benv, this);
   this.timeout(80000);
 
+  function normalizeText (value) {
+    return value.replace(/\s+/g, ' ').trim();
+  }
+
+  function cellTexts (selector) {
+    return $(selector).find('td, th').map(function () {
+      return normalizeText($(this).text());
+    }).get();
+  }
+
+  function hasCellSequence (cells, expected) {
+    return cells.some(function (_, index) {
+      return expected.every(function (value, offset) {
+        return cells[index + offset] === value;
+      });
+    });
+  }
+
   before(function (done) {
     done( );
   });
@@ -423,8 +441,14 @@ describe('reports', function ( ) {
       result.indexOf('Milk now').should.be.greaterThan(-1); // daytoday
       result.indexOf('50 g').should.be.greaterThan(-1); // daytoday
       result.indexOf('TDD average:</b> 2.9U').should.be.greaterThan(-1); // daytoday
-      result.indexOf('<td class="tdborder">0%</td><td class="tdborder">100%</td><td class="tdborder">0%</td><td class="tdborder">2</td>').should.be.greaterThan(-1); //dailystats
-      result.indexOf('<td class="tdborder" style="background-color:#8f8"><strong>In Range: </strong></td><td class="tdborder">47.6%</td><td class="tdborder">10</td>').should.be.greaterThan(-1); // distribution
+      var dailyStatsCells = cellTexts('#dailystats-report');
+      var dailyStatsText = normalizeText($('#dailystats-report').text());
+      dailyStatsText.should.containEql('Lowish'); // dailystats
+      dailyStatsText.should.containEql('Highish'); // dailystats
+      hasCellSequence(dailyStatsCells, ['0.0%', '0.0%', '100.0%', '0.0%', '0.0%', '2']).should.equal(true); // dailystats
+      normalizeText($('#glucosedistribution-report').text()).should.containEql('Overall'); // distribution
+      normalizeText($('#glucosedistribution-preds').text()).should.containEql('GMI'); // distribution
+      normalizeText($('#glucosedistribution-stability').text()).should.containEql('Out of Range RMS'); // distribution
       result.indexOf('<td>16 (100%)</td>').should.be.greaterThan(-1); // hourlystats
       result.indexOf('<div id="success-grid">').should.be.greaterThan(-1); //success
       result.indexOf('<b style="padding-left:4em">CAL</b>:  Scale: 1.10 Intercept: 31102 Slope: 776.91').should.be.greaterThan(-1); //calibrations
