@@ -1,9 +1,7 @@
 'use strict';
 
 require('should');
-var _ = require('lodash');
 var benv = require('benv');
-var read = require('fs').readFileSync;
 
 var nowData = require('../lib/data/ddata')();
 nowData.sgvs.push({ mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' });
@@ -117,65 +115,75 @@ describe('Profile editor', function ( ) {
        return true;
      };
 
-    window.Nightscout.profileclient();
+    var originalStructuredClone = global.structuredClone;
+    var originalWindowStructuredClone = window.structuredClone;
+    global.structuredClone = undefined;
+    window.structuredClone = undefined;
 
-    client.init();
-    client.dataUpdate(nowData);
-    
-    // var result = $('body').html();
-    // console.log(result);
-    //var filesys = require('fs');
-    //var logfile = filesys.createWriteStream('out.html', { flags: 'a'} )
-    //logfile.write($('body').html());
-    
-    // database records manipulation
-    $('#pe_databaserecords option').length.should.be.equal(1);
-    $('#pe_records_add').click();
-    $('#pe_databaserecords option').length.should.be.equal(2);
-    $('#pe_records_remove').click();
-    $('#pe_databaserecords option').length.should.be.equal(1);
-    $('#pe_records_clone').click();
-    $('#pe_databaserecords option').length.should.be.equal(2);
-    $('#pe_databaserecords option').val(0);
+    try {
+      window.Nightscout.profileclient();
 
-    //console.log($('#pe_databaserecords').html());
-    //console.log($('#pe_databaserecords').val());
+      client.init();
+      client.dataUpdate(nowData);
 
-    // database records manipulation
-    $('#pe_profiles option').length.should.be.equal(1);
-    $('#pe_profile_add').click();
-    $('#pe_profiles option').length.should.be.equal(2);
-    $('#pe_profile_name').val('Test');
-    $('#pe_profiles option').val('Default');
-    $('#pe_profiles option').val('Test');
-    $('#pe_profile_remove').click();
-    $('#pe_profiles option').length.should.be.equal(1);
-    $('#pe_profile_clone').click();
-    $('#pe_profiles option').length.should.be.equal(2);
-    $('#pe_profiles option').val('Default');
+      // var result = $('body').html();
+      // console.log(result);
+      //var filesys = require('fs');
+      //var logfile = filesys.createWriteStream('out.html', { flags: 'a'} )
+      //logfile.write($('body').html());
 
-    //console.log($('#pe_profiles').html());
-    //console.log($('#pe_profiles').val());
+      // database records manipulation
+      $('#pe_databaserecords option').length.should.be.equal(1);
+      $('#pe_records_add').click();
+      $('#pe_databaserecords option').length.should.be.equal(2);
+      $('#pe_records_remove').click();
+      $('#pe_databaserecords option').length.should.be.equal(1);
+      $('#pe_records_clone').click();
+      $('#pe_databaserecords option').length.should.be.equal(2);
+      $('#pe_databaserecords option').val(0);
 
+      //console.log($('#pe_databaserecords').html());
+      //console.log($('#pe_databaserecords').val());
 
-    // I:C range
-    $('#pe_ic_val_0').val().should.be.equal('30');
-    $('#pe_ic_placeholder').find('img.addsingle').click();
-    $('#pe_ic_val_0').val().should.be.equal('0');
-    $('#pe_ic_val_1').val().should.be.equal('30');
-    $('#pe_ic_placeholder').find('img.delsingle').click();
-    $('#pe_ic_val_0').val().should.be.equal('30');
+      // database records manipulation
+      $('#pe_profiles option').length.should.be.equal(1);
+      $('#pe_profile_add').click();
+      $('#pe_profiles option').length.should.be.equal(2);
+      $('#pe_profile_name').val('Test');
+      $('#pe_profiles option').val('Default');
+      $('#pe_profiles option').val('Test');
+      $('#pe_profile_remove').click();
+      $('#pe_profiles option').length.should.be.equal(1);
+      $('#pe_profile_clone').click();
+      $('#pe_profiles option').length.should.be.equal(2);
+      $('#pe_profiles option').val('Default');
 
-    // traget bg range
-    $('#pe_targetbg_low_0').val().should.be.equal('100');
-    $('#pe_targetbg_placeholder').find('img.addtargetbg').click();
-    $('#pe_targetbg_low_0').val().should.be.equal('0');
-    $('#pe_targetbg_low_1').val().should.be.equal('100');
-    $('#pe_targetbg_placeholder').find('img.deltargetbg').click();
-    $('#pe_targetbg_low_0').val().should.be.equal('100');
+      //console.log($('#pe_profiles').html());
+      //console.log($('#pe_profiles').val());
 
 
-    $('#pe_submit').click();
+      // I:C range
+      $('#pe_ic_val_0').val().should.be.equal('30');
+      $('#pe_ic_placeholder').find('img.addsingle').click();
+      $('#pe_ic_val_0').val().should.be.equal('0');
+      $('#pe_ic_val_1').val().should.be.equal('30');
+      $('#pe_ic_placeholder').find('img.delsingle').click();
+      $('#pe_ic_val_0').val().should.be.equal('30');
+
+      // traget bg range
+      $('#pe_targetbg_low_0').val().should.be.equal('100');
+      $('#pe_targetbg_placeholder').find('img.addtargetbg').click();
+      $('#pe_targetbg_low_0').val().should.be.equal('0');
+      $('#pe_targetbg_low_1').val().should.be.equal('100');
+      $('#pe_targetbg_placeholder').find('img.deltargetbg').click();
+      $('#pe_targetbg_low_0').val().should.be.equal('100');
+
+
+      $('#pe_submit').click();
+    } finally {
+      global.structuredClone = originalStructuredClone;
+      window.structuredClone = originalWindowStructuredClone;
+    }
     done();
   });
 

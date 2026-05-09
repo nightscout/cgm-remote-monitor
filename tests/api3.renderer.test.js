@@ -1,4 +1,5 @@
 /* eslint require-atomic-updates: 0 */
+/* global should */
 'use strict';
 
 require('should');
@@ -9,18 +10,18 @@ describe('API3 output renderers', function() {
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
     , opTools = require('../lib/api3/shared/operationTools')
-    , _ = require('lodash')
+    , utils = require('./fixtures/api3/utils')
     , xml2js = require('xml2js')
     , csvParse = require('csv-parse/lib/sync')
     ;
 
   self.historyFrom = (new Date()).getTime() - 1000; // starting timestamp for HISTORY operations
 
-  self.doc1 = testConst.SAMPLE_ENTRIES[0];
+  self.doc1 = structuredClone(testConst.SAMPLE_ENTRIES[0]);
   self.doc1.date = (new Date()).getTime() - (5 * 60 * 1000);
   self.doc1.identifier = opTools.calculateIdentifier(self.doc1);
 
-  self.doc2 = testConst.SAMPLE_ENTRIES[1];
+  self.doc2 = structuredClone(testConst.SAMPLE_ENTRIES[1]);
   self.doc2.date = (new Date()).getTime();
   self.doc2.identifier = opTools.calculateIdentifier(self.doc2);
 
@@ -53,10 +54,15 @@ describe('API3 output renderers', function() {
     self.subject = authResult.subject;
     self.jwt = authResult.jwt;
     self.cache = self.instance.cacheMonitor;
+    
+    // Clean up ALL entries to ensure test isolation from previous test files
+    const col = self.instance.ctx.store.collection(self.instance.env.entries_collection || 'entries');
+    await col.deleteMany({});
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.server.close();
   });
 
@@ -90,9 +96,9 @@ describe('API3 output renderers', function() {
    * @param arrModel
    * @param arr
    */
-  self.checkItems = function checkItems (arrModel, arr) {
+  self.checkItems = function checkItems(arrModel, arr) {
     for (let itemModel of arrModel) {
-      const item = _.find(arr, (doc) => doc.identifier === itemModel.identifier);
+      const item = arr.find(doc => doc.identifier === itemModel.identifier);
       item.should.not.be.empty();
       self.checkProps(itemModel, item);
     }
@@ -114,7 +120,7 @@ describe('API3 output renderers', function() {
     xml.items.should.not.be.empty();
     let items = xml.items.item;
     items.should.be.Array();
-    items.length.should.be.aboveOrEqual(arrModel.length);
+    items.length.should.equal(arrModel.length);
 
     self.checkItems(arrModel, items);
   };
@@ -133,7 +139,7 @@ describe('API3 output renderers', function() {
 
     const items = csvParse(csvText, self.csvParserOptions);
     items.should.be.Array();
-    items.length.should.be.aboveOrEqual(arrModel.length);
+    items.length.should.equal(arrModel.length);
 
     self.checkItems(arrModel, items);
   };
@@ -289,4 +295,3 @@ describe('API3 output renderers', function() {
     await deleteDoc(self.doc2.identifier);
   });
 });
-

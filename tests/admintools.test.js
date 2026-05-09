@@ -1,7 +1,6 @@
 'use strict';
 
 require('should');
-var _ = require('lodash');
 var benv = require('benv');
 var read = require('fs').readFileSync;
 var serverSettings = require('./fixtures/default-server-settings');
@@ -30,7 +29,7 @@ var someData = {
     }
   ],
   '/api/v1/devicestatus/?find[created_at][$lte]=': {
-    n: 1
+    deletedCount: 1
   },
   '/api/v1/treatments.json?&find[created_at][$gte]=': [
       {
@@ -42,7 +41,7 @@ var someData = {
       }
     ],
   '/api/v1/treatments/?find[created_at][$lte]=': {
-    n: 1
+    deletedCount: 1
   },
   '/api/v1/entries.json?&find[date][$gte]=': [
       {
@@ -59,9 +58,31 @@ var someData = {
       }
     ],
   '/api/v1/entries/?find[date][$lte]=': {
-    n: 1
+    deletedCount: 1
+  },
+  '/api/v1/profile/?keep=': {
+    deletedCount: 2
   },
 };
+
+
+describe('delete status compatibility', function () {
+  var normalizeDeleteStatus = require('../lib/api/shared/delete-status');
+
+  it('should preserve legacy n count for MongoDB deletedCount results', function () {
+    normalizeDeleteStatus({deletedCount: 1}).should.eql({
+      deletedCount: 1
+      , n: 1
+    });
+  });
+
+  it('should preserve deletedCount for legacy n results', function () {
+    normalizeDeleteStatus({n: 1}).should.eql({
+      n: 1
+      , deletedCount: 1
+    });
+  });
+});
 
 
 describe('admintools', function ( ) {
@@ -70,10 +91,10 @@ describe('admintools', function ( ) {
   before(function (done) {
     benv.setup(function() {
 
-	  benv.require(__dirname + '/../node_modules/.cache/_ns_cache/public/js/bundle.app.js');
-          
+      benv.require(__dirname + '/../node_modules/.cache/_ns_cache/public/js/bundle.app.js');
+
       self.$ = $;
-      
+
       self.localCookieStorage = self.localStorage = self.$.localStorage = require('./fixtures/localstorage');
 
       self.$.fn.tooltip = function mockTooltip ( ) { };
@@ -87,7 +108,7 @@ describe('admintools', function ( ) {
         }
         maybeCall('open', opts);
 
-        _.forEach(opts.buttons, function (button) {
+        opts.buttons.forEach(function (button) {
           maybeCall('click', button);
         });
       };
@@ -97,7 +118,7 @@ describe('admintools', function ( ) {
 
       //var filesys = require('fs');
       //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
-      
+
       self.$.ajax = function mockAjax (url, opts) {
         if (url && url.url) {
           url = url.url;
@@ -115,6 +136,8 @@ describe('admintools', function ( ) {
             url = '/api/v1/treatments/?find[created_at][$lte]=';
           } else if (url.indexOf('/api/v1/entries/?find[date][$lte]=')===0) {
             url = '/api/v1/entries/?find[date][$lte]=';
+          } else if (url.indexOf('/api/v1/profile/?keep=')===0) {
+            url = '/api/v1/profile/?keep=';
           }
           return {
             done: function mockDone (fn) {
@@ -156,8 +179,6 @@ describe('admintools', function ( ) {
       //d3.timer = function mockTimer() { };
       let timer = d3.timer(function mockTimer() { });
       timer.stop();
-      
-      var cookieStorageType = self.localStorage._type
 
       benv.expose({
         $: self.$
@@ -166,7 +187,7 @@ describe('admintools', function ( ) {
         , serverSettings: serverSettings
         , localCookieStorage: self.localStorage
         , cookieStorageType: self.localStorage
-		, localStorage: self.localStorage
+        , localStorage: self.localStorage
         , io: {
           connect: function mockConnect ( ) {
             return {
@@ -219,19 +240,19 @@ describe('admintools', function ( ) {
      };
 
     client.init();
-    
+
     client.dataUpdate(nowData);
-    
+
     //var result = $('body').html();
     //var filesys = require('fs');
     //var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
     //logfile.write($('body').html());
-    
+
     //console.log(result);
 
     $('#admin_cleanstatusdb_0_html + button').text().should.equal('Delete all documents'); // devicestatus button
     $('#admin_cleanstatusdb_0_status').text().should.equal('Database contains 2 records'); // devicestatus init result
-    
+
     $('#admin_cleanstatusdb_0_html + button').click();
     $('#admin_cleanstatusdb_0_status').text().should.equal('All records removed ...'); // devicestatus code result
 
@@ -243,13 +264,13 @@ describe('admintools', function ( ) {
 
     $('#admin_futureitems_0_html + button').text().should.equal('Remove treatments in the future'); // futureitems button 0
     $('#admin_futureitems_0_status').text().should.equal('Database contains 1 future records'); // futureitems init result 0
-    
+
     $('#admin_futureitems_0_html + button').click();
     $('#admin_futureitems_0_status').text().should.equal('Record 5609a9203c8104a8195b1c1e removed ...'); // futureitems code result 0
 
     $('#admin_futureitems_1_html + button').text().should.equal('Remove entries in the future'); // futureitems button 1
     $('#admin_futureitems_1_status').text().should.equal('Database contains 1 future records'); // futureitems init result 1
-    
+
     $('#admin_futureitems_1_html + button').click();
     $('#admin_futureitems_1_status').text().should.equal('Record 560983f326c5a592d9b9ae0c removed ...'); // futureitems code result 1
 
@@ -264,6 +285,12 @@ describe('admintools', function ( ) {
 
     $('#admin_cleanentriesdb_0_html + button').click();
     $('#admin_cleanentriesdb_0_status').text().should.equal('1 records deleted'); // entries code result
+
+    $('#admin_cleanprofiledb_0_html + button').text().should.equal('Delete old profile records'); // profile button
+    $('#admin_cleanprofiledb_0_status').text().should.equal(''); // profile init result
+
+    $('#admin_cleanprofiledb_0_html + button').click();
+    $('#admin_cleanprofiledb_0_status').text().should.equal('2 records deleted'); // profile code result
 
     done();
   });

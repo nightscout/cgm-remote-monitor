@@ -1,21 +1,41 @@
-FROM node:16.16.0-alpine
+FROM node:22-alpine AS builder
 
 LABEL maintainer="Nightscout Contributors"
 
 WORKDIR /opt/app
-ADD . /opt/app
 
-# TODO: We should be able to do `RUN npm install --only=production`.
-# For this to work, we need to copy only package.json and things needed for `npm`'s to succeed.
-# TODO: Do we need to re-add `npm audit fix`? Or should that be part of a development process/stage?
-RUN npm install --cache /tmp/empty-cache && \
-  npm run postinstall && \
-  npm run env && \
+# Copy only the files needed to install dependencies and build the webpack bundle.
+COPY package.json package-lock.json .babelrc ./
+COPY bundle/ ./bundle/
+COPY webpack/ ./webpack/
+COPY bin/generateRandomString.js ./bin/
+COPY lib/ ./lib/
+COPY static/ ./static/
+COPY views/ ./views/
+COPY translations/ ./translations/
+COPY server.js ./
+
+# Install the full dependency tree, run the existing postinstall bundle build,
+# then prune dev-only packages before copying artifacts into the runtime image.
+RUN npm ci --cache /tmp/empty-cache --omit=optional --force && \
+  npm prune --omit=dev --omit=optional && \
   rm -rf /tmp/*
-  # TODO: These should be added in the future to correctly cache express-minify content to disk
-  # Currently, doing this breaks the browser cache.
-  # mkdir /tmp/public && \
-  # chown node:node /tmp/public
+
+FROM node:22-alpine AS runtime
+
+LABEL maintainer="Nightscout Contributors"
+
+ENV NODE_ENV=production
+
+WORKDIR /opt/app
+
+COPY --chown=node:node package.json package-lock.json ./
+COPY --chown=node:node lib/ ./lib/
+COPY --chown=node:node static/ ./static/
+COPY --chown=node:node views/ ./views/
+COPY --chown=node:node translations/ ./translations/
+COPY --chown=node:node server.js ./
+COPY --chown=node:node --from=builder /opt/app/node_modules ./node_modules
 
 USER node
 EXPOSE 1337

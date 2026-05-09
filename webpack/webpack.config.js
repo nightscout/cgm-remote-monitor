@@ -54,6 +54,7 @@ pluginArray.push(new webpack.ProvidePlugin({
 
 pluginArray.push(new webpack.ProvidePlugin({
   process: 'process/browser',
+  Buffer: ['buffer', 'Buffer'],
 }));
 
 // limit Timezone data from Moment
@@ -163,11 +164,13 @@ module.exports = {
   resolve: {
     fallback: {
       'process/browser': require.resolve('process/browser'),
-      events: require.resolve('events/')
+      events: require.resolve('events/'),
+      buffer: require.resolve('buffer/'),
+      crypto: false,
+      vm: false
     },
     alias: {
       stream: 'stream-browserify',
-      crypto: 'crypto-browserify',
       buffer: 'buffer',
     }
   }

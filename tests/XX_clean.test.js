@@ -1,6 +1,5 @@
 'use strict';
 
-var _ = require('lodash');
 var language = require('../lib/language')();
 
 describe('Clean MONGO after tests', function ( ) {
@@ -8,7 +7,9 @@ describe('Clean MONGO after tests', function ( ) {
   var self = this;
 
   var api = require('../lib/api/');
-  beforeEach(function (done) {
+  
+  // Use before() instead of beforeEach() for app setup - boots once for all tests
+  before(function (done) {
     process.env.API_SECRET = 'this is my long pass phrase';
     self.env = require('../lib/server/env')();
     self.env.settings.authDefaultRoles = 'readable';
@@ -24,16 +25,12 @@ describe('Clean MONGO after tests', function ( ) {
     });
   });
 
-  it('wipe treatment data', function (done) {
-    self.ctx.treatments().remove({ }, function ( ) {
-        done();
-    });
+  it('wipe treatment data', async function () {
+    await self.ctx.treatments().deleteMany({ });
   });
 
-  it('wipe entries data', function (done) {
-    self.ctx.entries().remove({ }, function ( ) {
-        done();
-    });
+  it('wipe entries data', async function () {
+    await self.ctx.entries().deleteMany({ });
   });
-  
+
 });
