@@ -277,5 +277,17 @@ describe('API3 SEARCH', function() {
     apiApp.set('API3_MAX_LIMIT', limitBackup);
   });
 
-});
 
+  it('should respect string API3_MAX_LIMIT defaults', async () => {
+    const apiApp = self.instance.ctx.apiApp
+      , limitBackup = apiApp.get('API3_MAX_LIMIT');
+    apiApp.set('API3_MAX_LIMIT', '5');
+    let res = await self.instance.get(`${self.url}`, self.jwt.read)
+      .expect(200);
+
+    res.body.status.should.equal(200);
+    res.body.result.length.should.equal(5);
+    apiApp.set('API3_MAX_LIMIT', limitBackup);
+  });
+
+});
