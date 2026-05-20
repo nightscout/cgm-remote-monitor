@@ -322,6 +322,7 @@ autonomy for your data:
     * The default `log` (logarithmic) option will let you see more detail towards the lower range, while still showing the full CGM range.
     * The `linear` option has equidistant tick marks; the range used is dynamic so that space at the top of chart isn't wasted.
     * The `log-dynamic` is similar to the default `log` options, but uses the same dynamic range and the `linear` scale.
+  * `FOCUS_RANGE_LOW` and `FOCUS_RANGE_HIGH` - optional Y-axis range (in mg/dL) for the main chart. When both are set (with `FOCUS_RANGE_LOW` < `FOCUS_RANGE_HIGH`), the main chart's Y-axis defaults to that window so in-range readings are easier to read, and automatically expands to keep any reading outside the window visible. Unset (the default) keeps the standard behavior. Applies to the main chart only.
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enables the icon allowing for editing of treatments in the main view.
 
 ### Predefined values for your server settings (optional)
