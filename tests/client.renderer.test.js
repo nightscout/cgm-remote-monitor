@@ -69,4 +69,52 @@ describe('renderer', () => {
       });
     });
   });
+
+  describe('glucoseLineSegments', () => {
+    const MIN = 5 * 60 * 1000;   // 5 minutes in ms
+    const GAP = 15 * 60 * 1000;  // 15-minute split threshold in ms
+
+    function sgv (mills) {
+      return { type: 'sgv', mills: mills };
+    }
+
+    it('returns no segments for empty input', () => {
+      renderer({}, {}).glucoseLineSegments([], GAP).should.eql([]);
+    });
+
+    it('returns no segments when entries is undefined', () => {
+      renderer({}, {}).glucoseLineSegments(undefined, GAP).should.eql([]);
+    });
+
+    it('ignores entries that are not sgv readings', () => {
+      let entries = [
+        { type: 'mbg', mills: 0 }
+        , { type: 'rawbg', mills: MIN }
+        , { type: 'forecast', mills: 2 * MIN }
+      ];
+      renderer({}, {}).glucoseLineSegments(entries, GAP).should.eql([]);
+    });
+
+    it('keeps closely-spaced readings in a single segment', () => {
+      let entries = [sgv(0), sgv(MIN), sgv(2 * MIN), sgv(3 * MIN)];
+      let segments = renderer({}, {}).glucoseLineSegments(entries, GAP);
+      segments.length.should.equal(1);
+      segments[0].length.should.equal(4);
+    });
+
+    it('splits into separate segments where a gap exceeds the threshold', () => {
+      let entries = [sgv(0), sgv(MIN), sgv(MIN + 30 * 60 * 1000), sgv(MIN + 35 * 60 * 1000)];
+      let segments = renderer({}, {}).glucoseLineSegments(entries, GAP);
+      segments.length.should.equal(2);
+      segments[0].length.should.equal(2);
+      segments[1].length.should.equal(2);
+    });
+
+    it('sorts unordered readings by time before segmenting', () => {
+      let entries = [sgv(2 * MIN), sgv(0), sgv(MIN)];
+      let segments = renderer({}, {}).glucoseLineSegments(entries, GAP);
+      segments.length.should.equal(1);
+      segments[0].map(d => d.mills).should.eql([0, MIN, 2 * MIN]);
+    });
+  });
 });
