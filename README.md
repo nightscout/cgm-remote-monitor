@@ -192,7 +192,7 @@ The data being uploaded from the server to the client is from a MongoDB server s
 
 ## Updating my version
 
-The easiest way to update your version of cgm-remote-monitor to the latest version is to use the [update tool][update-fork]. A step-by-step guide is available [here](https://nightscout.github.io/update/update/).
+The easiest way to update your version of cgm-remote-monitor to the latest version is to use the [update tool][update-fork]. A step-by-step update guide is available [here](https://nightscout.github.io/update/update/).
 To downgrade to an older version, follow [this guide](https://nightscout.github.io/update/downgrade/).
 
 ## Configure my uploader to match
