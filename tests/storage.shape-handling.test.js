@@ -440,6 +440,136 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
           .catch(done);
       });
     });
+
+    it('prune() deletes older profiles while keeping the newest records', function (done) {
+      var profiles = [];
+
+      for (var i = 0; i < 12; i++) {
+        profiles.push({
+          defaultProfile: 'Profile' + i,
+          store: {
+            Default: {
+              dia: 3,
+              carbratio: [{ time: '00:00', value: 30 }],
+              sens: [{ time: '00:00', value: 100 }],
+              basal: [{ time: '00:00', value: 0.5 }],
+              target_low: [{ time: '00:00', value: 80 }],
+              target_high: [{ time: '00:00', value: 120 }],
+              units: 'mg/dl'
+            }
+          },
+          startDate: new Date(Date.UTC(2025, 0, i + 1)).toISOString(),
+          units: 'mg/dl'
+        });
+      }
+
+      self.ctx.profile.create(profiles, function (err) {
+        should.not.exist(err);
+
+        self.ctx.profile.prune(10, function (pruneErr, stat) {
+          should.not.exist(pruneErr);
+          stat.deletedCount.should.equal(2);
+
+          self.ctx.profile.list(function (listErr, docs) {
+            should.not.exist(listErr);
+            docs.length.should.equal(10);
+            docs[0].defaultProfile.should.equal('Profile11');
+            docs[9].defaultProfile.should.equal('Profile2');
+            done();
+          }, 20);
+        });
+      });
+    });
+
+    it('prune() uses _id as a tie-breaker when profile startDate values match', function (done) {
+      var profiles = [];
+
+      for (var i = 0; i < 3; i++) {
+        profiles.push({
+          defaultProfile: 'TieProfile' + i,
+          store: {
+            Default: {
+              dia: 3,
+              carbratio: [{ time: '00:00', value: 30 }],
+              sens: [{ time: '00:00', value: 100 }],
+              basal: [{ time: '00:00', value: 0.5 }],
+              target_low: [{ time: '00:00', value: 80 }],
+              target_high: [{ time: '00:00', value: 120 }],
+              units: 'mg/dl'
+            }
+          },
+          startDate: '2025-01-01T00:00:00.000Z',
+          units: 'mg/dl'
+        });
+      }
+
+      self.ctx.profile.create(profiles, function (err) {
+        should.not.exist(err);
+
+        self.ctx.profile.prune(1, function (pruneErr, stat) {
+          should.not.exist(pruneErr);
+          stat.deletedCount.should.equal(2);
+
+          self.ctx.profile.list(function (listErr, docs) {
+            should.not.exist(listErr);
+            docs.length.should.equal(1);
+            docs[0].defaultProfile.should.equal('TieProfile2');
+            done();
+          }, 10);
+        });
+      });
+    });
+
+    it('prune() removes profiles missing startDate after dated profiles', function (done) {
+      var profiles = [
+        {
+          defaultProfile: 'MissingStartDate',
+          store: { Default: { dia: 3 } },
+          units: 'mg/dl'
+        },
+        {
+          defaultProfile: 'NullStartDate',
+          store: { Default: { dia: 3 } },
+          startDate: null,
+          units: 'mg/dl'
+        },
+        {
+          defaultProfile: 'OldProfile',
+          store: { Default: { dia: 3 } },
+          startDate: '2024-01-01T00:00:00.000Z',
+          units: 'mg/dl'
+        },
+        {
+          defaultProfile: 'NewProfile',
+          store: { Default: { dia: 3 } },
+          startDate: '2025-01-01T00:00:00.000Z',
+          units: 'mg/dl'
+        }
+      ];
+
+      self.ctx.profile.create(profiles, function (err) {
+        should.not.exist(err);
+
+        self.ctx.profile.prune(1, function (pruneErr, stat) {
+          should.not.exist(pruneErr);
+          stat.deletedCount.should.equal(3);
+
+          self.ctx.profile.list(function (listErr, docs) {
+            should.not.exist(listErr);
+            docs.length.should.equal(1);
+            docs[0].defaultProfile.should.equal('NewProfile');
+            done();
+          }, 10);
+        });
+      });
+    });
+
+    it('declares indexes used by profile loading and websocket deduplication', function () {
+      self.ctx.profile.indexedFields.should.containEql('startDate');
+      self.ctx.profile.indexedFields.should.containEql('created_at');
+      self.ctx.profile.indexedFields.should.containEql('NSCLIENT_ID');
+      self.ctx.profile.indexedFields.should.containEql({ startDate: -1, _id: -1 });
+    });
   });
 
   describe('Food Storage - lib/server/food.js', function () {

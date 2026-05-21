@@ -16,6 +16,15 @@ function randomString (length, chars) {
 }
 
 
+// Used to ensure documents do not persist between tests
+function storageClear(ctx) {
+  return new Promise((resolve) => {
+    resolve(ctx.store.db.dropDatabase());
+  });
+}
+
+
 module.exports = {
-  randomString
+  randomString,
+  storageClear
 };

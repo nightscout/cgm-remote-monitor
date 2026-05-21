@@ -6,6 +6,7 @@ var Stream = require('stream');
 
 var levels = require('../lib/levels');
 var notificationsAPI = require('../lib/api/notifications-api');
+var language = require('../lib/language')(); // Import the language module
 
 function examplePlugin () {}
 
@@ -31,6 +32,7 @@ describe('Notifications API', function ( ) {
         }
       }
       , levels: levels
+      , language: language
     };
 
     ctx.authorization = require('../lib/authorization')(env, ctx);

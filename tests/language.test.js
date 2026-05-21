@@ -41,11 +41,16 @@ describe('language', function ( ) {
     language.translate('carbs', { ci: true }).should.equal('Sacharidy');
   });
 
-  it('translate to Traditional Chinese', function () {
+  it('translate to Taiwan Traditional Chinese', function () {
     var language = require('../lib/language')();
     language.set('zh_tw');
     language.loadLocalization(fs);
-    language.translate('Carbs').should.equal('碳水');
+    language.translate('Carbs').should.equal('碳水化合物');
+  });
+
+  it('labels zh_tw as Taiwan Traditional Chinese', function () {
+    var language = require('../lib/language')();
+    language.get('zh_tw').language.should.equal('繁體中文（台灣）');
   });
 
   it('fallback to English filename for unsupported language codes', function () {
