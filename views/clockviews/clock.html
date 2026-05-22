@@ -92,6 +92,25 @@
     window.addEventListener('click', function() {
       showClose();
     });
+
+    // This fixes the issue of a "stale" CGM value displaying indefinately.
+    // It displays "Internet offline." until internet is restored.
+    function uOffline() { 
+      document.body.innerHTML =
+        'Internet offline.'
+    }
+    // Return to normal as soon as internet connectivity is restored.              
+    function uOnline() { 
+    	location.reload()
+    }
+    if(window.addEventListener) { 
+      window.addEventListener('offline', uOffline);
+      window.addEventListener('online', uOnline);
+    } else {
+      document.body.attachEvent('onoffline', uOffline);
+      document.body.attachEvent('ononline', uOnline);
+    }
+
     <% } %>
   </script>
   <%if (face == 'config') { %>

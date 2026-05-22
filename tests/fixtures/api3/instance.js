@@ -36,6 +36,7 @@ function configure () {
 
     env.settings.authDefaultRoles = authDefaultRoles;
     env.settings.enable = enable;
+    env.settings.authFailDelay = 0;
 
     return env;
   };

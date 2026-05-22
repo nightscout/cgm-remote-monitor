@@ -297,6 +297,34 @@ describe('openaps', function ( ) {
 
   });
 
+  it('format OpenAPS pill BG in mmol when display units are mmol', function (done) {
+    var ctx = {
+      settings: {
+        units: 'mmol'
+      }
+      , pluginBase: {
+        updatePillText: function mockedUpdatePillText (plugin, options) {
+          var bgEvent = _.find(options.info, function(entry) {
+            return entry.value.indexOf('BG: ') === 0;
+          });
+
+          should.exist(bgEvent);
+          bgEvent.value.should.startWith('BG: 8.2');
+          bgEvent.value.should.not.startWith('BG: 147');
+        }
+        , addForecastPoints: function mockAddForecastPoints () {
+          done();
+        }
+      }
+      , language: language
+    };
+
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
+
+    openaps.setProperties(sbx);
+    openaps.updateVisualisation(sbx);
+  });
+
   it('check the recieved flag to see if it was received', function (done) {
     var ctx = {
       settings: {
