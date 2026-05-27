@@ -34,4 +34,22 @@ describe('Data', function ( ) {
     ddata.treatments[4].mgdl.should.equal(90);
   });
 
+  it('resolves treatment glucose unit from value when units field is missing', function () {
+    var ddata = require('../lib/data/ddata')();
+    ddata.sgvs = [{mgdl: 90, mills: before}, {mgdl: 100, mills: now}];
+    ddata.treatments = [
+      {_id: 'no_unit_high',      mills: before, glucose: 120}   // >= 40, no units → mgdl
+      , {_id: 'no_unit_low',     mills: before, glucose: 6.5}   // <= 25, no units → mmol
+      , {_id: 'no_unit_ambig',   mills: before, glucose: 35}    // 26-39, ref ~90 mg/dL → mgdl
+      , {_id: 'invalid_glucose', mills: before, glucose: 'abc'} // isNaN → skipped
+    ];
+    fitTreatmentsToBGCurve(ddata, { settings: settings }, { language: require('../lib/language')() });
+
+    ddata.treatments[0].mgdl.should.equal(120);
+    ddata.treatments[1].mmol.should.equal(6.5);
+    ddata.treatments[2].mgdl.should.equal(35);  // proximity to ~90 mg/dL → mgdl
+    (ddata.treatments[3].mgdl === undefined).should.be.true();
+    (ddata.treatments[3].mmol === undefined).should.be.true();
+  });
+
 });
