@@ -1,6 +1,9 @@
 'use strict';
 
 require('should');
+var fs = require('fs');
+var path = require('path');
+var normalizeDirection = require('../lib/direction-normalizer').normalizeDirection;
 
 describe('BG direction', function ( ) {
 
@@ -98,6 +101,29 @@ describe('BG direction', function ( ) {
 
     direction.info({mills: now, direction: 'RATE OUT OF RANGE'}).label.should.equal('⇕');
     direction.info({mills: now, direction: 'RATE OUT OF RANGE'}).entity.should.equal('&#8661;');
+  });
+
+  it('normalizes legacy direction aliases before display', function () {
+    var direction = require('../lib/plugins/direction')();
+
+    direction.info({mills: now, direction: 'Up'}).value.should.equal('SingleUp');
+    direction.info({mills: now, direction: 'Up'}).label.should.equal('↑');
+
+    direction.info({mills: now, direction: 'Down'}).value.should.equal('SingleDown');
+    direction.info({mills: now, direction: 'Down'}).label.should.equal('↓');
+
+    direction.info({mills: now, direction: 'Slide up'}).value.should.equal('FortyFiveUp');
+    direction.info({mills: now, direction: 'Slide up'}).label.should.equal('↗');
+
+    direction.info({mills: now, direction: 'Slide down'}).value.should.equal('FortyFiveDown');
+    direction.info({mills: now, direction: 'Slide down'}).label.should.equal('↘');
+  });
+
+  it('normalizes legacy direction aliases to existing clock assets', function () {
+    ['Up', 'Down', 'Slide up', 'Slide down'].forEach(function assertAssetExists(direction) {
+      var asset = path.join(__dirname, '..', 'static', 'images', normalizeDirection(direction) + '.svg');
+      fs.existsSync(asset).should.equal(true);
+    });
   });
 
 

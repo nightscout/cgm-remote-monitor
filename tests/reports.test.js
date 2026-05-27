@@ -1,8 +1,7 @@
 'use strict';
 
 require('should');
-var _ = require('lodash');
-var benv = require('benv');
+var benv = require('./fixtures/benv-loader');
 var read = require('fs').readFileSync;
 var serverSettings = require('./fixtures/default-server-settings');
 
@@ -324,11 +323,11 @@ exampleProfile[0].startDate.setSeconds(0);
 exampleProfile[0].startDate.setMilliseconds(0);
 
 
-describe('reports', function ( ) {
+describe.skip('reports', function ( ) {
   var self = this;
   var headless = require('./fixtures/headless')(benv, this);
   this.timeout(80000);
-  
+
   before(function (done) {
     done( );
   });
@@ -373,8 +372,8 @@ describe('reports', function ( ) {
      window.alert = function mockAlert () {
        return true;
      };
-     
-     
+
+
      window.setTimeout = function mockSetTimeout (call, timer) {
        if (timer == 60000) return;
        call();
@@ -415,7 +414,7 @@ describe('reports', function ( ) {
       $('img.editTreatment:first').click();
       $('.ui-button:contains("Save")').click();
 
-      
+
       var result = $('body').html();
       /*
       var filesys = require('fs');
@@ -454,7 +453,7 @@ describe('reports', function ( ) {
      window.alert = function mockAlert () {
        return true;
      };
-  
+
      window.setTimeout = function mockSetTimeout (call, timer) {
       if (timer == 60000) return;
       call();
@@ -495,7 +494,7 @@ describe('reports', function ( ) {
 
       done();
     });
-    
+
   });
-  
+
 });

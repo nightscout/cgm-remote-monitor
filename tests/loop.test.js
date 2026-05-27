@@ -1,7 +1,7 @@
 'use strict';
 
-const _ = require('lodash');
 const should = require('should');
+const cloneDeep = require('../lib/utils/clone');
 const helper = require('./inithelper')();
 
 var ctx_top = helper.getctx();
@@ -104,7 +104,7 @@ var statuses = [
 
 var now = ctx_top.moment(statuses[0].created_at);
 
-_.forEach(statuses, function updateMills (status) {
+statuses.forEach(function updateMills (status) {
   status.mills = ctx_top.moment(status.created_at).valueOf();
 });
 
@@ -119,7 +119,7 @@ describe('loop', function ( ) {
         updatePillText: function mockedUpdatePillText (plugin, options) {
           options.label.should.equal('Loop ⌁');
           options.value.should.equal('1m ago ↝ 147');
-          var first = _.first(options.info);
+          var first = options.info?.[0];
           first.label.should.equal('1m ago');
           first.value.should.equal('<b>Temp Basal Started</b> 0.88U/hour for 30m, IOB: 0.17U, Predicted Min-Max BG: 147-149, Eventual BG: 147');
         }
@@ -159,7 +159,7 @@ describe('loop', function ( ) {
         updatePillText: function mockedUpdatePillText (plugin, options) {
           options.label.should.equal('Loop x');
           options.value.should.equal('1m ago');
-          var first = _.first(options.info);
+          var first = options.info?.[0];
           first.label.should.equal('1m ago');
           first.value.should.equal('Error: SomeError');
           done();
@@ -204,7 +204,7 @@ describe('loop', function ( ) {
 
     ctx.notifications.initRequests();
 
-    var notStatuses = _.cloneDeep(statuses);
+    var notStatuses = cloneDeep(statuses);
     notStatuses[0].loop.enacted.received = false;
     var sbx = require('../lib/sandbox')().clientInit(ctx, now, {devicestatus: notStatuses});
 
