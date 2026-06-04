@@ -30,6 +30,42 @@ describe('mongo storage', function () {
     });
   });
 
+  it('Uses the default database from the connection string via the public client API', function (done) {
+    var store = require('../lib/storage/mongo-storage');
+    store(env, function (err, db) {
+      should.not.exist(err);
+      should.exist(db.db);
+      should.exist(db.client);
+
+      db.client.db().databaseName.should.equal(db.db.databaseName);
+      db.db.databaseName.should.equal('testdb');
+      done();
+    });
+  });
+
+  it('ensureIndexes uses createIndex without the legacy background option', function (done) {
+    var store = require('../lib/storage/mongo-storage');
+    var calls = [];
+
+    store(env, function (err, db) {
+      should.not.exist(err);
+
+      db.ensureIndexes({
+        collectionName: 'entries',
+        createIndex: function (field, options) {
+          calls.push({ field: field, options: options });
+          return Promise.resolve();
+        }
+      }, ['date']);
+
+      calls.length.should.equal(1);
+      calls[0].field.should.equal('date');
+      should.not.exist(calls[0].options);
+
+      done();
+    });
+  });
+
   it('When no connection-string is given the storage-class should throw an error.', function (done) {
     delete env.storageURI;
     should.not.exist(env.storageURI);
@@ -58,4 +94,3 @@ describe('mongo storage', function () {
   });
 
 });
-

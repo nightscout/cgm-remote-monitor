@@ -35,4 +35,18 @@ describe('query', function ( ) {
 
     (typeof opts.date).should.equal('undefined')
   });
+
+  it('should keep non-ObjectId _id queries as strings', function ( ) {
+    var uuid = '69F15FD2-8075-4DEB-AEA3-4352F455840D';
+    var opts = query({ find: { _id: uuid } });
+
+    opts._id.should.equal(uuid);
+  });
+
+  it('should convert ObjectId-shaped _id queries', function ( ) {
+    var objectId = '55cbd4e47e726599048a3f91';
+    var opts = query({ find: { _id: objectId } });
+
+    opts._id.toString().should.equal(objectId);
+  });
 }); 
