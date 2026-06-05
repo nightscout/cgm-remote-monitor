@@ -1,7 +1,7 @@
 'use strict';
 
 var should = require('should');
-var benv = require('benv');
+var benv = require('./fixtures/benv-loader');
 var _ = require('lodash');
 var moment = require('moment-timezone');
 
@@ -231,6 +231,49 @@ describe('daterangedelete admin plugin (TZ aware)', function() {
       $.ajax = originalAjax;
       window.confirm = originalConfirm;
       global.setTimeout = originalSetTimeout;
+    }
+  });
+
+  it('should reject unexpected collection values', function() {
+    var originalAjax = $.ajax;
+    var originalAlert = window.alert;
+    var originalGlobalAlert = global.alert;
+    var ajaxCalled = false;
+    var alertMessage = '';
+    var callbackCalled = false;
+
+    $.ajax = function() {
+      ajaxCalled = true;
+      return originalAjax.apply(this, arguments);
+    };
+
+    window.alert = function(message) {
+      alertMessage = message;
+    };
+    global.alert = window.alert;
+
+    try {
+      $('#admin_daterange_collection').append('<option value="unknown">Unknown</option>').val('unknown');
+      $('#admin_daterange_start').val('2025-01-01');
+      $('#admin_daterange_end').val('2025-01-02');
+
+      $('.daterangePreviewButton').click();
+
+      ajaxCalled.should.equal(false);
+      $('#admin_daterangedelete_info').text().should.equal('Please select a valid collection');
+
+      daterangedelete.actions[0].code(client, function() {
+        callbackCalled = true;
+      });
+
+      callbackCalled.should.equal(true);
+      alertMessage.should.equal('Please select a valid collection');
+    } finally {
+      $.ajax = originalAjax;
+      window.alert = originalAlert;
+      global.alert = originalGlobalAlert;
+      $('#admin_daterange_collection option[value="unknown"]').remove();
+      $('#admin_daterange_collection').val('all');
     }
   });
 });

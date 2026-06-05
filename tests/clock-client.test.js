@@ -1,7 +1,7 @@
 'use strict';
 
 var should = require('should');
-var benv = require('benv');
+var benv = require('./fixtures/benv-loader');
 
 describe('clock client units', function() {
   var $, clockClient;
