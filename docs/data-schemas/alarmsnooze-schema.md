@@ -79,6 +79,6 @@ Aggregation-pipeline updates (`updateOne` with a `[{$set: ...}]` array) require 
 
 ## Related
 
-- [`lib/notifications.js`](../../lib/notifications.js) — consumes `alarmStorage` for ack write-through and first-emit-per-process refresh
-- [`lib/server/bootevent.js`](../../lib/server/bootevent.js) — wires `ctx.alarmStorage` and creates the TTL index
-- nightscout/cgm-remote-monitor#8194 — original issue
+- [`lib/notifications.js`](../../lib/notifications.js) -- consumes `alarmStorage` for ack write-through and first-emit-per-process refresh
+- [`lib/server/bootevent.js`](../../lib/server/bootevent.js) -- wires `ctx.alarmStorage` and creates the TTL index
+- nightscout/cgm-remote-monitor#8194 -- original issue

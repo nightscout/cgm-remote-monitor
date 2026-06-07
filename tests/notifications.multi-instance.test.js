@@ -116,7 +116,7 @@ describe('notifications multi-instance', function () {
     instanceA.ack(2, 'default', 60 * 60 * 1000); // 60 min on A
     setImmediate(function () {
       setImmediate(function () {
-        // Attempt to apply 5-min snooze on B — this would shorten the window
+        // Attempt to apply 5-min snooze on B -- this would shorten the window
         // if the conditional pipeline were absent. The shared-storage mock mirrors
         // production by keeping the larger expiresAt.
         instanceB.ack(2, 'default', 5 * 60 * 1000);
