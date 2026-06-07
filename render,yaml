@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: nightscout
+    env: node
+    plan: free
+    region: singapore
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+
+      - key: MONGODB_URI
+        sync: false
+
+      - key: API_SECRET
+        sync: false
+
+      - key: DISPLAY_UNITS
+        value: mg/dl
+
+      - key: TZ
+        value: Asia/Singapore
+
+      - key: ENABLE
+        value: careportal rawbg iob
+
+      - key: AUTH_DEFAULT_ROLES
+        value: readable
