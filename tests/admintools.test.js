@@ -151,7 +151,10 @@ describe('admintools', function ( ) {
       self.$.plot = function mockPlot () {
       };
 
-      var d3 = require('d3');
+      // Reuse the bundle's window.d3 (loaded above) rather than require('d3'):
+      // d3 v7's package entry is ESM-only and Node's CommonJS require cannot
+      // load it on Node < 25.
+      var d3 = (typeof window !== 'undefined' && window.d3) || (global.window && global.window.d3) || global.d3;
       //disable all d3 transitions so most of the other code can run with jsdom
       //d3.timer = function mockTimer() { };
       let timer = d3.timer(function mockTimer() { });
