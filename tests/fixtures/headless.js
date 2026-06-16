@@ -40,9 +40,15 @@ function headless (benv, binding) {
 
       console.log('HTML set', Date.now() - t);
 
-      var d3 = require('d3');
+      // Reuse the d3 instance the webpack bundle exposes as window.d3 (loaded
+      // above) rather than require('d3'): d3 v7's package entry is ESM-only and
+      // Node's CommonJS require cannot load it on Node < 25 (it throws
+      // "Unexpected token 'export'"). The bundled copy is plain compiled JS.
+      var d3 = (typeof window !== 'undefined' && window.d3)
+        || (global.window && global.window.d3)
+        || global.d3;
       //disable all d3 transitions so most of the other code can run with jsdom
-      d3.timer = function mockTimer() { };
+      if (d3 && d3.timer) { d3.timer = function mockTimer() { }; }
       
       if (opts.mockProfileEditor) {
         self.$.plot = function mockPlot () {
