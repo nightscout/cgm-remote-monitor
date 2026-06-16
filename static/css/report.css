@@ -9,9 +9,11 @@ html, body {
   padding: 0;
 }
 body {
-  font-family: 'Open Sans', Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Rounded', system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background: white;
-  color: black;
+  color: #1a1a1a;
+  line-height: 1.5;
+  font-size: 15px;
 }
 
 .centeraligned {
@@ -24,37 +26,44 @@ body {
 
 #tabnav {
   text-align: left;
-  margin: 1em 0 0;
-  font: bold 11pt verdana, arial, sans-serif;
-  border-bottom: 1px solid #6c6;
+  margin: 1em 0 1.25em;
+  font-weight: 600;
+  font-size: 14px;
   list-style-type: none;
-  padding: 0 0 0 15px;
+  padding: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  background-color: #f1f3f5;
+  border-radius: 12px;
 }
 
 #tabnav li {
   display: inline-block;
-  padding: 10px 15px;
-  border-top: 1px solid #6c6;
-  border-right: 1px solid #6c6;
-  border-bottom: none;
-  background-color: #cfc;
-  color: #666;
-  margin: 0 0 -1px 0;
+  padding: 8px 16px;
+  border: none;
+  background-color: transparent;
+  color: #4a5563;
+  margin: 0;
   text-decoration: none;
+  border-radius: 8px;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-#tabnav li:first-child {
-  border-left: 1px solid #6c6;
-}
-
-#tabnav .selected  {
-  background: #fff;
-  border-bottom: 1px solid #fff;
+#tabnav .selected {
+  background: #1f6fc4;
+  color: #fff;
 }
 
 #tabnav li:hover {
-  background: #9f9;
-  cursor:pointer;
+  background: #e3f0fb;
+  color: #1f6fc4;
+  cursor: pointer;
+}
+
+#tabnav .selected:hover {
+  background: #1f6fc4;
+  color: #fff;
 }
 
 .tooltip {
@@ -82,7 +91,22 @@ input[type=date],
 input[type=text],
 input[type=number],
 select {
-  font: 13px verdana, arial, sans-serif;
+  font-family: inherit;
+  font-size: 14px;
+  padding: 6px 9px;
+  border: 1px solid #d4d9de;
+  border-radius: 8px;
+  background: #fff;
+  color: #1a1a1a;
+}
+
+input[type=date]:focus,
+input[type=text]:focus,
+input[type=number]:focus,
+select:focus {
+  outline: none;
+  border-color: #1f6fc4;
+  box-shadow: 0 0 0 3px rgba(31, 111, 196, 0.15);
 }
 
 label {
@@ -102,11 +126,141 @@ label {
 }
 
 #rp_show {
-  background-color: #cfc;
-  border: 1px solid #6c6;
-  color: #666;
-  padding: 10px;
-  font-weight: bold;
-  font-size: 12pt;
-  text-transform: uppercase;
+  background-color: #1f6fc4;
+  border: none;
+  color: #fff;
+  padding: 10px 22px;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 15px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+#rp_show:hover {
+  background-color: #1a5da6;
+}
+
+#rp_show:active {
+  background-color: #164f8e;
+}
+
+/* ==========================================================================
+   2026 modernization
+   Light, print-friendly refresh layered on top of the rules above.
+   Only restyles existing selectors / structure — no HTML or JS changes.
+   ========================================================================== */
+
+/* --- Options panel ------------------------------------------------------- */
+/* The options form is the first <table> inside <main> (date range, target
+   inputs, checkboxes, day-of-week filters). Give it a light card treatment. */
+main > table {
+  background: #fff;
+  border: 1px solid #e4e7eb;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  padding: 16px;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-bottom: 1.25em;
+}
+
+main > table td {
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+
+/* Day-of-week and sort labels: comfortable spacing */
+label {
+  gap: 5px;
+}
+
+.presetdates {
+  color: #1f6fc4;
+  text-decoration: none;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+
+.presetdates:hover {
+  background: #e3f0fb;
+}
+
+/* Status line under the Show button */
+#info {
+  margin: 0.75em 0;
+  color: #4a5563;
+  font-size: 14px;
+}
+
+/* --- Report output cards ------------------------------------------------- */
+/* Frame each visible report (.tabplaceholder lives in #pluginchartplaceholders). */
+#pluginchartplaceholders .tabplaceholder {
+  background: #fff;
+  border: 1px solid #e4e7eb;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+/* --- Headings ------------------------------------------------------------ */
+#pluginchartplaceholders h2,
+main h2 {
+  font-weight: 600;
+  font-size: 20px;
+  color: #263238;
+  margin: 0.4em 0 0.6em;
+  letter-spacing: -0.01em;
+}
+
+/* --- Tables -------------------------------------------------------------- */
+/* Modernize report tables. KEEP inline background-color set by plugins
+   (TIR band colors, good/bad #cfc/#fcc) — we only soften the default look
+   and never use !important, so inline styles always win. */
+.centeraligned {
+  border-collapse: collapse;
+  margin: 0.5em auto;
+}
+
+.centeraligned td,
+.centeraligned th,
+.tdborder {
+  padding: 7px 10px;
+  border: 1px solid #e7ebef;
+}
+
+/* Clean header row */
+.centeraligned th,
+.centeraligned thead td {
+  background: #f5f7f9;
+  color: #2c3a47;
+  font-weight: 600;
+  border-bottom: 1px solid #e0e5ea;
+}
+
+/* Subtle zebra striping on body rows (inline plugin colors still override) */
+.centeraligned tbody tr:nth-child(even) td,
+.centeraligned tr:nth-child(even) td.tdborder {
+  background: #fafbfc;
+}
+
+/* --- Print --------------------------------------------------------------- */
+@media print {
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Flatten cards: drop shadows, keep light borders, avoid clipping */
+  main > table,
+  #pluginchartplaceholders .tabplaceholder {
+    box-shadow: none;
+    overflow: visible;
+    break-inside: avoid;
+  }
+  /* Hide the interactive options/tab chrome when printing the report */
+  #tabnav {
+    background: transparent;
+  }
 }
