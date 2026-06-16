@@ -18,11 +18,11 @@
   text-decoration: none;
   white-space: nowrap;
   width: auto;
-  background: #BBBBBB;
-  color: #24313C;
+  background: var(--color-menu-bg, #BBBBBB);
+  color: var(--color-menu-text, #24313C);
   padding: 2px 10px;
 }
 
 .dropdown-menu li a:hover {
-  background: #EEEEFF;
+  background: var(--color-menu-hover, #EEEEFF);
 }

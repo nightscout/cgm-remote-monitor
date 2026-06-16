@@ -93,9 +93,23 @@ html, body {
 }
 
 body {
-  font-family: 'Ubuntu', sans-serif;
-  background: #000;
-  color: #bdbdbd;
+  font-family: var(--font-family-base, 'Ubuntu', sans-serif);
+  background: var(--color-bg, #021C37);
+  color: var(--color-text, #cdd9e5);
+}
+
+/* ---------------------------------------------------------------------------
+ * Trio theme: dark blue vertical gradient app background. Fixed attachment so
+ * it covers the whole viewport regardless of scroll/content height.
+ * ------------------------------------------------------------------------- */
+body,
+#container.container {
+  background: linear-gradient(
+    180deg,
+    var(--trio-bg-top, #0A2235) 0%,
+    var(--trio-bg-bottom, #021C37) 100%
+  );
+  background-attachment: fixed;
 }
 
 .container {
@@ -121,24 +135,24 @@ button {
 }
 
 a, a:visited, a:link {
-  color: #2196f3;
+  color: var(--color-accent, #2196f3);
   text-decoration: none;
 }
 
 #container.announcing .customTitle {
-  color: orange;
+  color: var(--color-announce, orange);
 }
 
 #container.alarming.urgent .customTitle {
-  color: red;
+  color: var(--color-bg-urgent, red);
 }
 
 #container.alarming.warning .customTitle {
-  color: yellow;
+  color: var(--color-bg-warn, yellow);
 }
 
 .primary {
-  font-family: 'Ubuntu', Verdana, Helvetica, Arial, sans-serif;
+  font-family: var(--font-family-primary, 'Ubuntu', Verdana, Helvetica, Arial, sans-serif);
   vertical-align: middle;
   clear: both;
   white-space: nowrap;
@@ -152,15 +166,15 @@ a, a:visited, a:link {
 }
 
 .urgent .bgButton {
-  color: red;
+  color: var(--color-bg-urgent, red);
 }
 
 .warning .bgButton {
-  color: yellow;
+  color: var(--color-bg-warn, yellow);
 }
 
 .inrange .bgButton {
-  color: #4cff00;
+  color: var(--color-bg-inrange, #4cff00);
 }
 
 .bgStatus .bgSpan {
@@ -172,6 +186,9 @@ a, a:visited, a:link {
   line-height: 100px;
   text-decoration: line-through;
   vertical-align: middle;
+  /* Trio: bold, tightly-spaced glucose number (size logic untouched). */
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .bgStatus .currentBG.bg-limit, .bgStatus .currentBG.icon-hourglass {
@@ -210,12 +227,13 @@ a, a:visited, a:link {
 
 .pill {
   white-space: nowrap;
-  border-radius: 5px;
-  border: 2px solid #808080;
-  background: #808080;
+  /* Trio: rounded translucent chip on the dark bg. */
+  border-radius: 12px;
+  border: var(--trio-card-border, 1px solid rgba(255, 255, 255, 0.07));
+  background: var(--trio-pill-bg, rgba(255, 255, 255, 0.06));
   display: inline-block;
   margin-bottom: 4px;
-  padding: 2px 0;
+  padding: 2px 4px;
 }
 
 .pill em, .pill label {
@@ -226,34 +244,34 @@ a, a:visited, a:link {
 .pill em {
   font-style: normal;
   font-weight: bold;
-  background: #000;
+  background: var(--color-pill-bg, #000);
   border-radius: 3px;
 }
 
 .pill label {
-  color: #000;
+  color: var(--color-text-inverse, #000);
 }
 
 .container .pill.warn em {
-  color: yellow;
+  color: var(--color-bg-warn, yellow);
 }
 
 .container .pill.urgent em {
-  color: red;
+  color: var(--color-bg-urgent, red);
 }
 
 .alarming-timeago .timeago.pill.warn {
-  border-color: yellow;
+  border-color: var(--color-bg-warn, yellow);
 }
 .alarming-timeago .timeago.pill.warn label {
-  background: yellow;
+  background: var(--color-bg-warn, yellow);
 }
 
 .alarming-timeago .timeago.pill.urgent {
-  border-color: red;
+  border-color: var(--color-bg-urgent, red);
 }
 .alarming-timeago .timeago.pill.urgent label {
-  background: red;
+  background: var(--color-bg-urgent, red);
 }
 
 .bgStatus.current .currentBG {
@@ -265,7 +283,7 @@ a, a:visited, a:link {
 }
 
 .status {
-  color: #808080;
+  color: var(--color-text-muted, #808080);
   font-size: 100px;
   white-space: normal;
 }
@@ -284,13 +302,13 @@ a, a:visited, a:link {
 }
 
 .statusPills .pill {
-  background: #808080;
-  border-color: #808080;
+  background: var(--trio-pill-bg, rgba(255, 255, 255, 0.06));
+  border-color: rgba(255, 255, 255, 0.07);
   margin-right: 5px;
 }
 
 .statusPills .pill em {
-  color: #bdbdbd;
+  color: var(--color-text, #bdbdbd);
 }
 
 #chartContainer {
@@ -299,10 +317,15 @@ a, a:visited, a:link {
   bottom: 0;
   height: auto;
   font-size: 20px;
-  background: #111;
+  background: var(--color-surface, #212330);
   display: block;
   position: absolute;
-  margin: 2px;
+  /* Trio: a little margin + rounded corners so the chart reads as a card.
+     overflow:hidden is safe - d3 tooltips are appended to <body>, not here. */
+  margin: 8px;
+  border-radius: var(--radius-card, 15px);
+  border: var(--trio-card-border, 1px solid rgba(255, 255, 255, 0.07));
+  box-shadow: var(--trio-card-shadow, 0 2px 8px rgba(2, 12, 24, 0.45));
   overflow: hidden;
 }
 
@@ -316,7 +339,7 @@ a, a:visited, a:link {
 #silenceBtn, #viewMenu {
   z-index: 99;
   border-radius: 5px;
-  border: 2px solid #bdbdbd;
+  border: 2px solid var(--color-text, #bdbdbd);
 }
 
 #viewMenu {
@@ -336,7 +359,7 @@ a, a:visited, a:link {
 
 .bgButton {
   margin: 10px;
-  border: 2px solid #000;
+  border: 2px solid var(--color-bg, #000);
   border-radius: 5px;
   display: inline-block;
   width: 360px;
@@ -349,13 +372,13 @@ a, a:visited, a:link {
 .pill.rawbg {
   display: inline-block;
   border-radius: 2px;
-  border: 1px solid #808080;
+  border: 1px solid var(--color-text-muted, #808080);
   padding: 0;
 }
 
 .pill.rawbg em {
   color: white;
-  background-color: black;
+  background-color: var(--color-pill-bg, black);
   display: block;
   font-size: 20px;
   border-radius: 0;
@@ -369,21 +392,21 @@ a, a:visited, a:link {
 }
 
 .alarming .bgButton {
-  border-color: #bdbdbd;
-  color: #000;
+  border-color: var(--color-text, #bdbdbd);
+  color: #000; /* stays black on the warn/urgent alarm background in every scheme */
   box-shadow: 2px 2px 0 #ddd;
 }
 
 .alarming.urgent .bgButton {
-  background-color: red;
+  background-color: var(--color-bg-urgent, red);
 }
 
 .alarming.warning .bgButton {
-  background-color: yellow;
+  background-color: var(--color-bg-warn, yellow);
 }
 
 .alarming .bgButton:active {
-  border: 2px solid #bdbdbd;
+  border: 2px solid var(--color-text, #bdbdbd);
   box-shadow: none;
   -moz-box-shadow: none;
   -webkit-box-shadow: none;
@@ -425,7 +448,7 @@ a, a:visited, a:link {
   list-style: none;
   margin: 4px;
   padding: 0;
-  color: #808080;
+  color: var(--color-text-muted, #808080);
   width: 40%;
   text-align: center;
 }
@@ -434,15 +457,19 @@ a, a:visited, a:link {
   display: inline-block;
   font-size: 18px;
   white-space: nowrap;
-  border-radius: 5px;
-  border: 2px solid #000;
+  /* Trio: small rounded chips. */
+  border-radius: 12px;
+  border: var(--trio-card-border, 1px solid rgba(255, 255, 255, 0.07));
+  background: var(--trio-pill-bg, rgba(255, 255, 255, 0.06));
+  padding: 2px 10px;
+  margin: 0 2px;
   cursor: pointer;
 }
 
 .focus-range .selected {
-  border-color: #808080;
-  color: #000;
-  background: #808080;
+  border-color: var(--trio-accent, #56AAEC);
+  color: var(--color-text-inverse, #fff);
+  background: var(--trio-accent, #56AAEC);
 }
 
 .pill.hidden {
@@ -464,11 +491,11 @@ a, a:visited, a:link {
 
 .authentication-status {
   padding: 10px;
-  border-top: 1px solid #bdbdbd;
+  border-top: 1px solid var(--color-text, #bdbdbd);
 }
 
 .authentication-status a {
-  color: #2196f3;
+  color: var(--color-accent, #2196f3);
   text-decoration: underline;
 }
 
@@ -823,5 +850,63 @@ a, a:visited, a:link {
     margin-left: auto;
     font-size: 12px;
     line-height: 13px;
+  }
+}
+/* ---------------------------------------------------------------------------
+ * TIR widget - last 7 days Time in Range summary (lib/client/tir-widget.js).
+ * Fixed to the bottom-left of the main monitor view; sits below the settings
+ * drawer (z-index: 99 in drawer.css) so it never covers drawers or dialogs.
+ * ------------------------------------------------------------------------- */
+#tirWidget {
+  position: fixed;
+  left: 8px;
+  bottom: 8px;
+  max-width: 170px;
+  padding: 6px 8px;
+  /* Trio card treatment to match the rest of the monitor view. */
+  background: var(--trio-card-bg, rgba(10, 34, 68, 0.55));
+  border: var(--trio-card-border, 1px solid rgba(255, 255, 255, 0.07));
+  border-radius: var(--radius-card, 15px);
+  box-shadow: var(--trio-card-shadow, 0 2px 8px rgba(2, 12, 24, 0.45));
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--color-text, #cdd9e5);
+  z-index: 50;
+}
+
+#tirWidget.hidden {
+  display: none;
+}
+
+#tirWidget .tir-headline {
+  margin-left: 5px;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+#tirWidget .tir-bar {
+  display: flex;
+  width: 140px;
+  height: 8px;
+  margin: 4px 0 2px 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--color-surface-alt, #333);
+}
+
+#tirWidget .tir-bar .tir-band {
+  display: inline-block;
+  height: 8px;
+}
+
+#tirWidget .tir-titr {
+  font-size: 11px;
+  color: #bbb;
+}
+
+/* Too little vertical room on short screens - keep the chart clear */
+@media (max-height: 480px) {
+  #tirWidget {
+    display: none;
   }
 }

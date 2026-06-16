@@ -1,0 +1,81 @@
+/* ---------------------------------------------------------------------------
+ * Nightscout design tokens.
+ *
+ * Trio theme (2026 UI modernization): dark-only, card-based, modelled on the
+ * Trio iOS app. A single dark color scheme is used regardless of the OS
+ * prefers-color-scheme setting (Nightscout has always rendered dark).
+ *
+ * main.css / drawer.css / dropdown.css consume these via var(--token, fallback).
+ * Re-theme by changing the VALUES here; literal fallbacks are kept in the
+ * var() usages in the consumer files.
+ *
+ * NOTE: the BG-status colors (--color-bg-inrange / --color-bg-warn /
+ * --color-bg-urgent) are safety-critical color semantics. They remain clearly
+ * distinct (green vs amber vs red) for safety - only softened to Trio tones.
+ * This file must be loaded as the FIRST stylesheet on every page.
+ * ------------------------------------------------------------------------- */
+
+:root {
+  /* --- Trio palette (new) ----------------------------------------------- */
+  --trio-bg-top: #0A2235;       /* app background gradient, top              */
+  --trio-bg-bottom: #021C37;    /* app background gradient, bottom           */
+  --trio-accent: #56AAEC;       /* Trio blue accent (selected chips, focus)  */
+  --trio-chart-bg: #212330;     /* Trio chart dark surface                   */
+
+  /* Trio card / surface treatment */
+  --trio-card-bg: rgba(10, 34, 68, 0.55);
+  --trio-card-border: 1px solid rgba(255, 255, 255, 0.07);
+  --trio-card-shadow: 0 2px 8px rgba(2, 12, 24, 0.45);
+  --trio-pill-bg: rgba(255, 255, 255, 0.06);     /* little chip backdrop     */
+  --trio-field-bg: rgba(255, 255, 255, 0.06);    /* dark form fields         */
+
+  --radius-card: 15px;          /* Trio uses 15pt rounded corners            */
+
+  /* --- Color palette (dark, Trio-toned) -------------------------------- */
+  --color-bg: #021C37;          /* page background (body) base under gradient */
+  --color-surface: #212330;     /* chart container background (Trio chart)   */
+  --color-surface-alt: rgba(2, 18, 38, 0.85); /* toolbar / widget bar bg     */
+  --color-surface-raised: #0A1E33; /* drawers (settings, treatments, wizard) */
+  --color-border: rgba(255, 255, 255, 0.07); /* drawer / toolbar borders     */
+
+  --color-text: #cdd9e5;        /* default body text                        */
+  --color-text-soft: #aab8c5;   /* toolbar title / button bar icons         */
+  --color-text-bright: #ffffff; /* drawer text                              */
+  --color-text-muted: #8497a8;  /* secondary text, pill chrome              */
+  --color-text-inverse: #ffffff;/* text placed on accent/colored surfaces   */
+
+  --color-accent: #56AAEC;      /* links (Trio blue)                        */
+
+  /* --- BG status colors (safety-critical, Trio-toned) ------------------ */
+  --color-bg-inrange: #6FD099;  /* in-range green (Trio)                     */
+  --color-bg-warn: #FFBF45;     /* warning amber (Trio)                      */
+  --color-bg-urgent: #EC5756;   /* urgent red (Trio)                         */
+  --color-announce: #FF9500;    /* announcement highlight (Trio orange)     */
+  --color-pill-bg: rgba(0, 0, 0, 0.35); /* backdrop behind status values;
+                                   dark so warn/urgent text stays readable   */
+
+  /* --- Dropdown menus --------------------------------------------------- */
+  --color-menu-bg: #0A1E33;
+  --color-menu-text: #cdd9e5;
+  --color-menu-hover: #15324f;
+
+  /* --- Spacing scale ----------------------------------------------------- */
+  --space-2xs: 2px;
+  --space-xs: 4px;
+  --space-sm: 5px;
+  --space-md: 10px;
+  --space-lg: 15px;
+  --space-xl: 20px;
+
+  /* --- Radii ------------------------------------------------------------- */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+
+  /* --- Typography -------------------------------------------------------- */
+  --font-family-base: -apple-system, BlinkMacSystemFont, 'SF Pro Rounded',
+    'SF Pro Display', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-family-primary: -apple-system, BlinkMacSystemFont, 'SF Pro Rounded',
+    'SF Pro Display', system-ui, 'Segoe UI', Roboto, sans-serif;
+}
