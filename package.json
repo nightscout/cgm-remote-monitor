@@ -64,6 +64,13 @@
     "test:slow": "SLOW_TEST_THRESHOLD=1000 env-cmd -f ./my.test.env mocha --timeout 10000 --require ./tests/hooks.js --exit ./tests/*.test.js"
   },
   "main": "lib/server/server.js",
+  "browserslist": [
+    "Chrome >= 80",
+    "Firefox >= 78",
+    "Safari >= 13.1",
+    "iOS >= 13.4",
+    "Edge >= 80"
+  ],
   "nodemonConfig": {
     "ignore": [
       "tests/*",
