@@ -836,3 +836,12 @@ License
 
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+### Third party Assets
+
+The folder `static/font/ubuntu/` contains a modified version of Ubuntu Font 0.83 and is licensed under Ubuntu Font License Version 1.0.
+
+The folder `static/font/open-sans/` contains a modified version of Open Sans and is licensed under SIL Open Font License 1.1.
+
+These assets have been modified by converting each ttf file into woff2 format using the tool [woff2_compress](https://github.com/google/woff2).
+
