@@ -839,7 +839,7 @@ License
 
 ### Third party Assets
 
-The folder `static/font/ubuntu/` contains a modified version of Ubuntu Font 0.83 and is licensed under Ubuntu Font License Version 1.0.
+The folder `static/font/ubuntu/` contains Ubuntu Font Family Derivative Woff2 and is licensed under Ubuntu Font License Version 1.0.
 
 The folder `static/font/open-sans/` contains a modified version of Open Sans and is licensed under SIL Open Font License 1.1.
 
