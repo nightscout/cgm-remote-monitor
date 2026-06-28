@@ -79,6 +79,10 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
     return self.ctx.store.collection(self.env.treatments_collection);
   }
 
+  function foodCollection() {
+    return self.ctx.food();
+  }
+
   describe('dbAdd with treatments collection', function () {
     
     beforeEach(function (done) {
@@ -278,8 +282,7 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
           eventType: 'Note',
           created_at: createdAt,
           notes: 'legacy original'
-        }, function (insertErr) {
-          if (insertErr) return done(insertErr);
+        }).then(function () {
 
           socket.emit('dbUpdate', {
             collection: 'treatments',
@@ -293,7 +296,9 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
 
             waitForConditionWithWarning({
               condition: function (cb) {
-                treatmentsCollection().findOne({ _id: legacyId }, cb);
+                treatmentsCollection().findOne({ _id: legacyId })
+                  .then(function (doc) { cb(null, doc); })
+                  .catch(cb);
               },
               assertion: function (doc) {
                 should.exist(doc);
@@ -303,7 +308,7 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
               operationName: 'verify websocket dbUpdate with custom string _id'
             });
           });
-        });
+        }).catch(done);
       });
     });
   });
@@ -328,8 +333,7 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
           eventType: 'Note',
           created_at: createdAt,
           notes: 'remove me'
-        }, function (insertErr) {
-          if (insertErr) return done(insertErr);
+        }).then(function () {
 
           socket.emit('dbUpdateUnset', {
             collection: 'treatments',
@@ -343,7 +347,9 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
 
             waitForConditionWithWarning({
               condition: function (cb) {
-                treatmentsCollection().findOne({ _id: legacyId }, cb);
+                treatmentsCollection().findOne({ _id: legacyId })
+                  .then(function (doc) { cb(null, doc); })
+                  .catch(cb);
               },
               assertion: function (doc) {
                 should.exist(doc);
@@ -353,7 +359,7 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
               operationName: 'verify websocket dbUpdateUnset with custom string _id'
             });
           });
-        });
+        }).catch(done);
       });
     });
   });
@@ -408,8 +414,7 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
           eventType: 'Note',
           created_at: createdAt,
           notes: 'delete me'
-        }, function (insertErr) {
-          if (insertErr) return done(insertErr);
+        }).then(function () {
 
           socket.emit('dbRemove', {
             collection: 'treatments',
@@ -420,7 +425,9 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
 
             waitForConditionWithWarning({
               condition: function (cb) {
-                treatmentsCollection().findOne({ _id: legacyId }, cb);
+                treatmentsCollection().findOne({ _id: legacyId })
+                  .then(function (doc) { cb(null, doc); })
+                  .catch(cb);
               },
               assertion: function (doc) {
                 should.not.exist(doc);
@@ -429,7 +436,7 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
               operationName: 'verify websocket dbRemove with custom string _id'
             });
           });
-        });
+        }).catch(done);
       });
     });
   });
@@ -455,8 +462,7 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
           eventType: 'Note',
           created_at: originalCreatedAt,
           notes: 'existing legacy note'
-        }, function (insertErr) {
-          if (insertErr) return done(insertErr);
+        }).then(function () {
 
           socket.emit('dbAdd', {
             collection: 'treatments',
@@ -473,7 +479,9 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
 
             waitForConditionWithWarning({
               condition: function (cb) {
-                treatmentsCollection().findOne({ _id: legacyId }, cb);
+                treatmentsCollection().findOne({ _id: legacyId })
+                  .then(function (doc) { cb(null, doc); })
+                  .catch(cb);
               },
               assertion: function (doc) {
                 should.exist(doc);
@@ -483,7 +491,267 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
               operationName: 'verify websocket dbAdd dedupe with custom string _id'
             });
           });
+        }).catch(done);
+      });
+    });
+  });
+
+  describe('dbAdd profile collection (AAPS V1 sync)', function () {
+
+    function profileCollection() {
+      return self.ctx.store.collection(self.env.profile_collection);
+    }
+
+    beforeEach(async function () {
+      await profileCollection().deleteMany({ defaultProfile: 'aaps-test' });
+    });
+
+    function aapsProfile(startDateMs, overrides) {
+      var iso = new Date(startDateMs).toISOString();
+      return Object.assign({
+        defaultProfile: 'aaps-test',
+        date: startDateMs,
+        created_at: iso,
+        startDate: iso,
+        units: 'mg/dl',
+        store: {
+          'aaps-test': {
+            dia: 5,
+            carbratio: [{ time: '00:00', value: 10 }],
+            sens: [{ time: '00:00', value: 50 }],
+            basal: [{ time: '00:00', value: 0.5 }],
+            target_low: [{ time: '00:00', value: 100 }],
+            target_high: [{ time: '00:00', value: 120 }],
+            timezone: 'UTC'
+          }
+        }
+      }, overrides || {});
+    }
+
+    it('first AAPS-shaped profile dbAdd inserts a new document', function (done) {
+      connectAndAuthorize(function (err, socket) {
+        if (err) return done(err);
+
+        var profile = aapsProfile(Date.now());
+        socket.emit('dbAdd', { collection: 'profile', data: profile }, function (result) {
+          should.exist(result);
+          result.should.be.instanceof(Array);
+          result.length.should.equal(1);
+          should.exist(result[0]._id);
+
+          waitForConditionWithWarning({
+            condition: function (cb) {
+              profileCollection().find({ defaultProfile: 'aaps-test' }).toArray()
+                .then(function (docs) { cb(null, docs); }).catch(cb);
+            },
+            assertion: function (docs) {
+              docs.length.should.equal(1);
+              docs[0].startDate.should.equal(profile.startDate);
+            },
+            done: done,
+            operationName: 'verify first AAPS profile insert'
+          });
         });
+      });
+    });
+
+    it('repeated AAPS profile dbAdd with same startDate REPLACES instead of duplicating', function (done) {
+      connectAndAuthorize(function (err, socket) {
+        if (err) return done(err);
+
+        var ts = Date.now();
+        var first = aapsProfile(ts);
+        // second send: same startDate (e.g. user re-saves quickly), edited carb ratio
+        var second = aapsProfile(ts);
+        second.store['aaps-test'].carbratio[0].value = 12;
+
+        socket.emit('dbAdd', { collection: 'profile', data: first }, function (firstResult) {
+          should.exist(firstResult);
+          firstResult.length.should.equal(1);
+          var firstId = firstResult[0]._id;
+
+          socket.emit('dbAdd', { collection: 'profile', data: second }, function (secondResult) {
+            should.exist(secondResult);
+            secondResult.length.should.equal(1);
+            // The dedup branch returns the EXISTING _id so AAPS sees a stable id
+            String(secondResult[0]._id).should.equal(String(firstId));
+
+            waitForConditionWithWarning({
+              condition: function (cb) {
+                profileCollection().find({ defaultProfile: 'aaps-test' }).toArray()
+                  .then(function (docs) { cb(null, docs); }).catch(cb);
+              },
+              assertion: function (docs) {
+                docs.length.should.equal(1);
+                docs[0].store['aaps-test'].carbratio[0].value.should.equal(12);
+              },
+              done: done,
+              operationName: 'verify AAPS profile dedup replaces in place'
+            });
+          });
+        });
+      });
+    });
+
+    it('AAPS profile dbAdd with different startDate inserts a new document and last() returns newest', function (done) {
+      connectAndAuthorize(function (err, socket) {
+        if (err) return done(err);
+
+        var older = aapsProfile(Date.now() - 60000);
+        older.store['aaps-test'].carbratio[0].value = 8;
+        var newer = aapsProfile(Date.now());
+        newer.store['aaps-test'].carbratio[0].value = 14;
+
+        socket.emit('dbAdd', { collection: 'profile', data: older }, function (r1) {
+          should.exist(r1);
+          socket.emit('dbAdd', { collection: 'profile', data: newer }, function (r2) {
+            should.exist(r2);
+
+            waitForConditionWithWarning({
+              condition: function (cb) {
+                profileCollection().find({ defaultProfile: 'aaps-test' }).toArray()
+                  .then(function (docs) { cb(null, docs); }).catch(cb);
+              },
+              assertion: function (docs) {
+                docs.length.should.equal(2);
+              },
+              done: function (err) {
+                if (err) return done(err);
+                self.ctx.profile.last(function (lastErr, lastDocs) {
+                  if (lastErr) return done(lastErr);
+                  lastDocs.length.should.equal(1);
+                  lastDocs[0].store['aaps-test'].carbratio[0].value.should.equal(14);
+                  done();
+                });
+              },
+              operationName: 'verify AAPS profile distinct startDate inserts and last() returns newest'
+            });
+          });
+        });
+      });
+    });
+  });
+
+  describe('generic collection raw write watchpoints', function () {
+
+    beforeEach(async function () {
+      await foodCollection().deleteMany({});
+    });
+
+    it('dbAdd preserves custom string _id values for generic collections', function (done) {
+      connectAndAuthorize(function (err, socket, authResult) {
+        if (err) return done(err);
+
+        authResult.write.should.equal(true);
+
+        var legacyId = 'legacy-food-id-add';
+        socket.emit('dbAdd', {
+          collection: 'food',
+          data: {
+            _id: legacyId,
+            name: 'ws food',
+            carbs: 15
+          }
+        }, function (result) {
+          should.exist(result);
+          result.should.be.instanceof(Array);
+          result.length.should.equal(1);
+          result[0]._id.should.equal(legacyId);
+
+          waitForConditionWithWarning({
+            condition: function (cb) {
+              foodCollection().findOne({ _id: legacyId })
+                .then(function (doc) { cb(null, doc); })
+                .catch(cb);
+            },
+            assertion: function (doc) {
+              should.exist(doc);
+              doc.name.should.equal('ws food');
+              doc.carbs.should.equal(15);
+            },
+            done: done,
+            operationName: 'verify websocket dbAdd generic collection custom string _id'
+          });
+        });
+      });
+    });
+
+    it('dbUpdate supports custom string _id values for generic collections', function (done) {
+      connectAndAuthorize(function (err, socket, authResult) {
+        if (err) return done(err);
+
+        authResult.write.should.equal(true);
+
+        var legacyId = 'legacy-food-id-update';
+        foodCollection().insertOne({
+          _id: legacyId,
+          name: 'original food',
+          carbs: 10,
+          protein: 2
+        }).then(function () {
+          socket.emit('dbUpdate', {
+            collection: 'food',
+            _id: legacyId,
+            data: {
+              carbs: 18,
+              protein: 4
+            }
+          }, function (updateResult) {
+            should.exist(updateResult);
+            updateResult.result.should.equal('success');
+
+            waitForConditionWithWarning({
+              condition: function (cb) {
+                foodCollection().findOne({ _id: legacyId })
+                  .then(function (doc) { cb(null, doc); })
+                  .catch(cb);
+              },
+              assertion: function (doc) {
+                should.exist(doc);
+                doc.carbs.should.equal(18);
+                doc.protein.should.equal(4);
+              },
+              done: done,
+              operationName: 'verify websocket dbUpdate generic collection custom string _id'
+            });
+          });
+        }).catch(done);
+      });
+    });
+
+    it('dbRemove supports custom string _id values for generic collections', function (done) {
+      connectAndAuthorize(function (err, socket, authResult) {
+        if (err) return done(err);
+
+        authResult.write.should.equal(true);
+
+        var legacyId = 'legacy-food-id-remove';
+        foodCollection().insertOne({
+          _id: legacyId,
+          name: 'remove food',
+          carbs: 9
+        }).then(function () {
+          socket.emit('dbRemove', {
+            collection: 'food',
+            _id: legacyId
+          }, function (removeResult) {
+            should.exist(removeResult);
+            removeResult.result.should.equal('success');
+
+            waitForConditionWithWarning({
+              condition: function (cb) {
+                foodCollection().findOne({ _id: legacyId })
+                  .then(function (doc) { cb(null, doc); })
+                  .catch(cb);
+              },
+              assertion: function (doc) {
+                should.not.exist(doc);
+              },
+              done: done,
+              operationName: 'verify websocket dbRemove generic collection custom string _id'
+            });
+          });
+        }).catch(done);
       });
     });
   });

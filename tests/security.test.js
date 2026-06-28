@@ -176,3 +176,37 @@ describe('API_SECRET', function() {
   */
 
 });
+
+describe('purifier', function() {
+
+  it('sanitizes nested strings and leaves primitive non-strings alone', function() {
+    var purifier = require('../lib/server/purifier')({}, {});
+    var record = {
+      note: '<script>alert(1)</script>safe'
+      , nested: {
+        html: '<img src=x onerror="alert(1)"><strong>ok</strong>'
+      }
+      , count: 5
+    };
+
+    purifier.purifyObject(record);
+
+    record.note.should.equal('safe');
+    record.nested.html.should.not.containEql('onerror');
+    record.nested.html.should.containEql('<strong>ok</strong>');
+    record.count.should.equal(5);
+  });
+
+  it('removes unsafe URL attributes from HTML strings', function() {
+    var purifier = require('../lib/server/purifier')({}, {});
+    var record = {
+      note: '<a href="javascript:alert(1)">open</a>'
+    };
+
+    purifier.purifyObject(record);
+
+    record.note.should.not.containEql('javascript:');
+    record.note.should.containEql('open');
+  });
+
+});

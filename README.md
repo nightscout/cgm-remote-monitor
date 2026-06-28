@@ -4,9 +4,7 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 ![nightscout horizontal](https://cloud.githubusercontent.com/assets/751143/8425633/93c94dc0-1ebc-11e5-99e7-71a8f464caac.png)
 
 [![Build Status][build-img]][build-url]
-[![Dependency Status][dependency-img]][dependency-url]
 [![Coverage Status][coverage-img]][coverage-url]
-[![Codacy Badge][codacy-img]][codacy-url]
 [![Discord chat][discord-img]][discord-url]
 
 This acts as a web-based CGM (Continuous Glucose Monitor) to allow
@@ -34,16 +32,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## [#WeAreNotWaiting](https://twitter.com/hashtag/wearenotwaiting?src=hash&vertical=default&f=images) and [this](https://vimeo.com/109767890) is why.
 
-[![Coverage Status](https://coveralls.io/repos/github/nightscout/cgm-remote-monitor/badge.svg?branch=master)](https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=master)
-
-[build-img]: https://img.shields.io/travis/nightscout/cgm-remote-monitor.svg
-[build-url]: https://travis-ci.org/nightscout/cgm-remote-monitor
-[dependency-img]: https://img.shields.io/david/nightscout/cgm-remote-monitor.svg
-[dependency-url]: https://david-dm.org/nightscout/cgm-remote-monitor
+[build-img]: https://img.shields.io/github/actions/workflow/status/nightscout/cgm-remote-monitor/main.yml
+[build-url]: https://github.com/nightscout/cgm-remote-monitor/actions/workflows/main.yml
 [coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/dev.svg
-[coverage-url]: https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=master
-[codacy-img]: https://www.codacy.com/project/badge/f79327216860472dad9afda07de39d3b
-[codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
+[coverage-url]: https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=dev
 [discord-img]: https://img.shields.io/discord/629952586895851530?label=discord%20chat
 [discord-url]: https://discord.gg/rTKhrqz
 [heroku-img]: https://www.herokucdn.com/deploy/button.png
@@ -161,8 +153,8 @@ Older versions or other browsers might work, but are untested and unsupported. W
 
 ## Installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node v14 or v16 LTS. Node versions that do not have the latest security patches will not be supported. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
-- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 4.2 or 4.4.
+- [Node.js](http://nodejs.org/) Node v20 LTS or later (v22, v24 also supported). Node versions that do not have the latest security patches will not be supported. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 4.4 or later (5.0, 6.0 also supported).
 
 As a non-root user clone this repo then install dependencies into the root of the project:
 
@@ -238,7 +230,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 ### Required
 
   * `MONGODB_URI` - The connection string for your Mongo database. Something like `mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout`.
-  * `API_SECRET` - A secret passphrase that must be at least 12 characters long.
+  * `API_SECRET` - A secret passphrase that must be at least 12 characters long. Alternatively, if `API_SECRET_FILE` is defined, the secret passphrase will be read from the specified file.
   * `MONGODB_COLLECTION` (`entries`) - The Mongo collection where CGM entries are stored.
   * `DISPLAY_UNITS` (`mg/dl`) - Options are `mg/dl` or `mmol/L` (or just `mmol`).  Setting to `mmol/L` puts the entire server into `mmol/L` mode by default, no further settings needed.
 
@@ -252,6 +244,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
     Setting it to `denied` will require a token from every visit, using `status-only` will enable api-secret based login.
   * `IMPORT_CONFIG` - Used to import settings and extended settings from a url such as a gist.  Structure of file should be something like: `{"settings": {"theme": "colors"}, "extendedSettings": {"upbat": {"enableAlerts": true}}}`
   * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. Deprecated, if set to `off` the `careportal` role will be added to `AUTH_DEFAULT_ROLES`
+  * `UUID_HANDLING` (`true`) - Controls how UUID `_id` values are handled for treatments and entries. When `true` (default), if a client sends a UUID string as the `_id` field, it is extracted to the `identifier` field (for sync deduplication) and the server generates a proper ObjectId for `_id`. Queries by UUID (`GET`/`DELETE`) are also routed through the `identifier` field. When `false`, UUID `_id` values are silently stripped on write (no identifier is preserved) and UUID-based queries return empty results. This only affects the specific case where a UUID is sent as `_id` (e.g., Loop overrides, Trio CGM entries).
 
 #### Data Rights
 
@@ -288,8 +281,11 @@ autonomy for your data:
   * `MONGO_PROFILE_COLLECTION`(`profile`) - The collection used to store your profiles
   * `MONGO_FOOD_COLLECTION`(`food`) - The collection used to store your food database
   * `MONGO_ACTIVITY_COLLECTION`(`activity`) - The collection used to store activity data
+  * `MONGO_POOL_SIZE` (`5`) - MongoDB connection pool size. Adjust for your deployment needs.
+  * `MONGO_MIN_POOL_SIZE` (`0`) - Minimum pool connections to keep open.
+  * `MONGO_MAX_IDLE_TIME_MS` (`30000`) - Max idle time (ms) before closing a connection.
   * `PORT` (`1337`) - The port that the node.js application will listen on.
-  * `HOSTNAME` - The hostname that the node.js application will listen on, null by default for any hostname for IPv6 you may need to use `::`.
+  * `NIGHTSCOUT_HOSTNAME` - The hostname or address that the node.js application will listen on. Leave unset to listen on all interfaces. Docker users can set this to `0.0.0.0` when Nightscout is reached through another container or reverse proxy. The older `HOSTNAME` setting is still accepted for compatibility, but should not be used for new installs because container platforms often set it automatically.
   * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to your privkey.pem file (private key).
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to fullchain.pem file (cert + ca).
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to chain.pem file (chain).

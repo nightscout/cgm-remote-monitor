@@ -590,4 +590,99 @@ describe('API3 AAPS Patterns - Deduplication and Real-world Scenarios', function
       }
     });
   });
+
+  describe('Profile sync via REST (V3) - AAPS createProfileStore behavior', function() {
+    const url = '/api/v3/profile';
+
+    function profileCollection() {
+      return self.instance.ctx.store.collection(self.env.profile_collection);
+    }
+
+    function aapsV3Profile(dateMs, overrides) {
+      const iso = new Date(dateMs).toISOString();
+      return Object.assign({
+        app: 'AAPS',
+        date: dateMs,
+        created_at: iso,
+        startDate: iso,
+        defaultProfile: 'aaps-v3-test',
+        units: 'mg/dl',
+        store: {
+          'aaps-v3-test': {
+            dia: 5,
+            carbratio: [{ time: '00:00', value: 10 }],
+            sens: [{ time: '00:00', value: 50 }],
+            basal: [{ time: '00:00', value: 0.5 }],
+            target_low: [{ time: '00:00', value: 100 }],
+            target_high: [{ time: '00:00', value: 120 }],
+            timezone: 'UTC'
+          }
+        }
+      }, overrides || {});
+    }
+
+    async function cleanupTestProfiles() {
+      await profileCollection().deleteMany({ defaultProfile: 'aaps-v3-test' });
+    }
+
+    beforeEach(cleanupTestProfiles);
+    after(cleanupTestProfiles);
+
+    it('first AAPS V3 profile POST returns 201 and inserts a new doc', async () => {
+      const profile = aapsV3Profile(Date.now());
+      const res = await self.instance.post(url, self.jwt.create).send(profile);
+      res.status.should.equal(201);
+
+      const docs = await profileCollection().find({ defaultProfile: 'aaps-v3-test' }).toArray();
+      docs.length.should.equal(1);
+    });
+
+    it('resending the SAME profile (same date) returns 200 and dedups in place', async () => {
+      const profile = aapsV3Profile(Date.now());
+      const res1 = await self.instance.post(url, self.jwt.create).send(profile);
+      res1.status.should.equal(201);
+      self.cache.clear();
+
+      // resend identical payload (e.g. retry after network failure)
+      const res2 = await self.instance.post(url, self.jwt.update).send(profile);
+      res2.status.should.equal(200);
+      res2.body.identifier.should.equal(res1.body.identifier);
+
+      const docs = await profileCollection().find({ defaultProfile: 'aaps-v3-test' }).toArray();
+      docs.length.should.equal(1);
+    });
+
+    it('AAPS edit (new date from LocalProfileLastChange) creates a SECOND doc, not an update', async () => {
+      // Simulates: user edits profile in AAPS twice -> two distinct LocalProfileLastChange values
+      const t1 = Date.now() - 60000;
+      const first = aapsV3Profile(t1);
+      first.store['aaps-v3-test'].carbratio[0].value = 8;
+      const second = aapsV3Profile(Date.now());
+      second.store['aaps-v3-test'].carbratio[0].value = 14;
+
+      const res1 = await self.instance.post(url, self.jwt.create).send(first);
+      res1.status.should.equal(201);
+      self.cache.clear();
+
+      const res2 = await self.instance.post(url, self.jwt.create).send(second);
+      // V3 inserts a NEW doc because identifier (uuidv5 of "undefined_<date>") differs
+      res2.status.should.equal(201);
+      res2.body.identifier.should.not.equal(res1.body.identifier);
+
+      const docs = await profileCollection().find({ defaultProfile: 'aaps-v3-test' }).toArray();
+      docs.length.should.equal(2);
+
+      // Verify ctx.profile.last() returns the newer profile (post-fix sort: startDate desc, _id desc)
+      await new Promise((resolve, reject) => {
+        self.instance.ctx.profile.last((err, lastDocs) => {
+          if (err) return reject(err);
+          try {
+            lastDocs.length.should.equal(1);
+            lastDocs[0].store['aaps-v3-test'].carbratio[0].value.should.equal(14);
+            resolve();
+          } catch (e) { reject(e); }
+        });
+      });
+    });
+  });
 });
