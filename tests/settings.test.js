@@ -113,6 +113,30 @@ describe('settings', function ( ) {
 
   });
 
+  it('support setting numbered camel-case env vars', function () {
+    var userSetting = {
+      SHOW_RAWBG: 'always'
+      , SECURE_CSP: 'true'
+    };
+
+    for (var i = 1; i <= 8; i++) {
+      userSetting['FRAME_URL_' + i] = 'https://example' + i + '.com';
+      userSetting['FRAME_NAME_' + i] = 'Site ' + i;
+    }
+
+    var fresh = require('../lib/settings')();
+    fresh.eachSettingAsEnv(function (name) {
+      return userSetting[name];
+    });
+
+    for (var frameIndex = 1; frameIndex <= 8; frameIndex++) {
+      fresh['frameUrl' + frameIndex].should.equal('https://example' + frameIndex + '.com');
+      fresh['frameName' + frameIndex].should.equal('Site ' + frameIndex);
+    }
+    fresh.showRawbg.should.equal('always');
+    fresh.secureCsp.should.equal(true);
+  });
+
   it('have default features', function () {
     var fresh = require('../lib/settings')();
     fresh.eachSettingAsEnv(function () {
