@@ -491,6 +491,8 @@ Connect common diabetes cloud resources to Nightscout.
 Include the keyword `connect` in the `ENABLE` list.
 Nightscout connection uses extended settings using the environment variable prefix `CONNECT_`.
   * `CONNECT_SOURCE` - The name for the source of one of the supported inputs.  one of `nightscout`, `dexcomshare`, etc...
+  * `CONNECT_SOURCE_COLLECTIONS` - For Nightscout source sync, a comma-separated list of collections. Default: `entries,treatments,devicestatus,profiles`.
+  * `CONNECT_SOURCE_MAX_COUNT` - For Nightscout source sync, maximum records per collection request. Default: `1000`.
 ###### Nightscout
 
 > Work in progress
@@ -510,6 +512,10 @@ the site is readable by default.
 
 Select this driver by setting `CONNECT_SOURCE` equal to `nightscout`.
 
+The Nightscout source copies entries, treatments, devicestatus, and profiles by
+default. Set `CONNECT_SOURCE_COLLECTIONS` to a comma-separated subset if you
+only want specific collections.
+
 
 
 ###### Dexcom Share
@@ -524,6 +530,9 @@ Optional, `CONNECT_SHARE_REGION` and `CONNECT_SHARE_SERVER` do the same thing, o
   Selecting `ous` here sets `CONNECT_SHARE_SERVER` to `shareous1.dexcom.com`.
 * `CONNECT_SHARE_SERVER=` set the server domain to use.
 
+Dexcom Share supports newer G7-era account responses that return
+`{ accountId: "..." }` as well as older bare account IDs.
+
 
 ###### Glooko
 
@@ -533,16 +542,27 @@ To synchronize from Glooko use the following variables.
 * `CONNECT_SOURCE=glooko`
 * `CONNECT_GLOOKO_EMAIL=`
 * `CONNECT_GLOOKO_PASSWORD=`
+* `CONNECT_GLOOKO_TIMEZONE_OFFSET=0`
+* `CONNECT_GLOOKO_DEVICE_ID=` optional stable device identity
+* `CONNECT_GLOOKO_SERIAL_NUMBER=` optional stable serial number
+* `CONNECT_GLOOKO_WEB_ORIGIN=` optional web origin override for regional/custom hosts
+* `CONNECT_GLOOKO_AUTH_MODE=api` optional auth mode: `api`, `web`, or `auto`
+* `CONNECT_GLOOKO_USE_V3_GRAPH=true` optional v3 graph CGM fallback when v2 returns no readings
 
 By default, `CONNECT_GLOOKO_SERVER` is set to `api.glooko.com` because the
 default value for `CONNECT_GLOOKO_ENV` is `default`.
 * `CONNECT_GLOOKO_ENV` is the word `default` by defalt.  Other values are
-  `development`, `production`, for `api.glooko.work`, and
+  `eu`, `ca`, `development`, `production`, for `api.glooko.work`, and
   `externalapi.glooko.com`, respectively.
-* `CONNECT_GLOOKO_SERVER` the hostname server to use - `api.glooko.com` by `default`.
+* `CONNECT_GLOOKO_SERVER` the hostname server to use - `api.glooko.com` by `default`, `eu.api.glooko.com` for EU users, or a more specific regional host such as `de-fr.api.glooko.com`.
 
 If both, `CONNECT_GLOOKO_SERVER` and `CONNECT_GLOOKO_ENV` are set, only
 `CONNECT_GLOOKO_SERVER` will be used.
+
+`CONNECT_GLOOKO_AUTH_MODE=web` uses Glooko's web sign-in form with CSRF token
+handling; `auto` tries API login first and falls back to web login on a 422
+response. The optional v3 graph fallback fetches `cgmHigh`, `cgmNormal`, and
+`cgmLow` series when v2 CGM readings are empty.
 
 ###### Libre Link Up
 To synchronize from Libre Link Up use the following variables.
@@ -553,7 +573,9 @@ To synchronize from Libre Link Up use the following variables.
 By default, `CONNECT_LINK_UP_SERVER` is set to `api-eu.libreview.io` because the
 default value for `CONNECT_LINK_UP_REGION` is `EU`.
 Other available values for `CONNECT_LINK_UP_REGION`:
-  * `US`, `EU`, `DE`, `FR`, `JP`, `AP`, `AU`, `AE`
+  * `US`, `EU`, `EU2`, `DE`, `FR`, `JP`, `AP`, `AU`, `AE`, `CA`
+* `CONNECT_LINK_UP_SERVER` may be used to override the region mapping with an explicit LibreView API host.
+* `CONNECT_LINK_UP_VERSION` and `CONNECT_LINK_UP_PRODUCT` may be used when LibreLinkUp requires a newer client version or product identifier.
 
 For folks connected to many patients, you can provide the patient ID by setting
 the `CONNECT_LINK_UP_PATIENT_ID` variable.
@@ -585,6 +607,7 @@ Fetch glucose reading directly from the Dexcom Share service, uses these extende
   * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
   * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (the default value is one day in minutes).
   * `BRIDGE_SERVER` (``) - The default blank value is used to fetch data from Dexcom servers in the US. Set to (`EU`) to fetch from European servers instead.
+  * `DEXCOM_BRIDGE_USE_LEGACY` (`false`) - Set to `true` to force the legacy `share2nightscout-bridge` module. By default, compatible `BRIDGE_*` Dexcom settings are mapped to the `connect` plugin's Dexcom Share source because it has newer G7-era compatibility.
 
 ##### `mmconnect` (MiniMed Connect bridge)
 
