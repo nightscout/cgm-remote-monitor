@@ -183,6 +183,14 @@
       ],
       "defaultValue": "off"
     },
+    "show_seconds": {
+      "type": "string",
+      "allowedValues": [
+        "on",
+        "off"
+      ],
+      "defaultValue": "off"
+    },
     "show_plugins": {
       "type": "string",
       "defaultValue": "careportal dbsize"
@@ -300,6 +308,9 @@
           }, {
             "name": "NIGHT_MODE",
             "value": "[parameters('night_mode')]"
+          }, {
+            "name": "SHOW_SECONDS",
+            "value": "[parameters('show_seconds')]"
           }, {
             "name": "SHOW_PLUGINS",
             "value": "[parameters('show_plugins')]"
