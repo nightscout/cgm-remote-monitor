@@ -1,0 +1,227 @@
+{
+  "fixture": "trio",
+  "time": 1778284860000,
+  "pills": {
+    "rawbg": [
+      {
+        "hide": true
+      }
+    ],
+    "iob": [
+      {
+        "info": [
+          {
+            "label": "Basal IOB",
+            "value": "-2.22"
+          },
+          {
+            "label": "Source",
+            "value": "OpenAPS"
+          },
+          {
+            "label": "Device",
+            "value": "Trio"
+          },
+          {
+            "label": "------------",
+            "value": ""
+          },
+          {
+            "label": "Careportal IOB",
+            "value": "2.93"
+          }
+        ],
+        "label": "IOB",
+        "value": "2.78U"
+      }
+    ],
+    "direction": [
+      {
+        "hide": true
+      }
+    ],
+    "upbat": [
+      {
+        "hide": false,
+        "info": null,
+        "labelClass": "icon-battery-75",
+        "pillClass": "current",
+        "value": "60%"
+      }
+    ],
+    "delta": [
+      {
+        "info": null,
+        "label": "mg/dl"
+      }
+    ],
+    "cage": [
+      {
+        "info": [
+          {
+            "label": "Inserted",
+            "value": "12/31/1969, 4:00:00 PM"
+          }
+        ],
+        "label": "CAGE",
+        "pillClass": null,
+        "value": "n/a "
+      }
+    ],
+    "iage": [
+      {
+        "info": [
+          {
+            "label": "Changed",
+            "value": "12/31/1969, 4:00:00 PM"
+          }
+        ],
+        "label": "IAGE",
+        "pillClass": null
+      }
+    ],
+    "sage": [
+      {
+        "info": [],
+        "label": "SAGE",
+        "pillClass": null
+      }
+    ],
+    "bage": [
+      {
+        "info": [
+          {
+            "label": "Inserted",
+            "value": "12/31/1969, 4:00:00 PM"
+          }
+        ],
+        "label": "BAGE",
+        "pillClass": null,
+        "value": "n/a "
+      }
+    ],
+    "bwp": [
+      {
+        "info": [
+          {
+            "label": "Notice",
+            "value": "required info missing"
+          },
+          {
+            "label": "  • ",
+            "value": "Missing need a treatment profile"
+          },
+          {
+            "label": "  • ",
+            "value": "Data isn't current"
+          }
+        ],
+        "label": "BWP",
+        "value": "0U"
+      }
+    ],
+    "loop": [
+      {
+        "info": [],
+        "label": "Loop ⚠",
+        "pillClass": "current",
+        "value": null
+      }
+    ],
+    "openaps": [
+      {
+        "info": [
+          {
+            "label": "1m ago",
+            "value": "Trio ⌁ Enacted"
+          },
+          {
+            "label": "1m ago",
+            "value": "BG: 156, <b>Temp Basal Canceled</b>, Autosens ratio: 1.17, ISF: 100→86, COB: 61, Dev: 71, BGI: -8, CR: 11, Target: 150, minPredBG 169, minGuardBG 65, IOBpredBG 39, COBpredBG 403, UAMpredBG 39, TDD: 46.8 U; minGuardBG 65&lt;95 84m left and 0 ~ req 0U/hr: no temp required, IOB: 2.77U, Basal IOB -2.22U, Bolus IOB 4.99U"
+          }
+        ],
+        "label": "OpenAPS ⌁",
+        "pillClass": "current",
+        "value": "1m ago"
+      }
+    ],
+    "override": [
+      {
+        "hide": true,
+        "info": [],
+        "label": "",
+        "value": ""
+      }
+    ],
+    "pump": [
+      {
+        "info": [
+          {
+            "label": "Battery",
+            "value": "100%"
+          },
+          {
+            "label": "Last Clock",
+            "value": "1m ago"
+          },
+          {
+            "label": "Status",
+            "value": "normal"
+          },
+          {
+            "label": "Device",
+            "value": "Trio"
+          }
+        ],
+        "label": "Pump",
+        "pillClass": "current",
+        "value": "18.6U"
+      }
+    ],
+    "timeago": [
+      {
+        "label": "time ago",
+        "pillClass": "current"
+      }
+    ],
+    "dbsize": [
+      {
+        "hide": true,
+        "info": [
+          {
+            "label": "Data size",
+            "value": "0 MiB of 496 MiB (0%)"
+          }
+        ],
+        "labelClass": "plugicon-database",
+        "pillClass": "current",
+        "value": "0%"
+      }
+    ]
+  },
+  "forecastSummary": [
+    {
+      "count": 0,
+      "first": null,
+      "last": null
+    },
+    {
+      "count": 156,
+      "first": {
+        "mgdl": 156,
+        "color": "#1e88e5",
+        "mills": 1778284801472,
+        "noFade": true,
+        "forecastType": "IOB"
+      },
+      "last": {
+        "mgdl": 39,
+        "color": "#c9bd60",
+        "mills": 1778293208138,
+        "noFade": true,
+        "forecastType": "UAM"
+      }
+    }
+  ],
+  "errors": {}
+}

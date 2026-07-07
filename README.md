@@ -4,9 +4,7 @@ Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
 ![nightscout horizontal](https://cloud.githubusercontent.com/assets/751143/8425633/93c94dc0-1ebc-11e5-99e7-71a8f464caac.png)
 
 [![Build Status][build-img]][build-url]
-[![Dependency Status][dependency-img]][dependency-url]
 [![Coverage Status][coverage-img]][coverage-url]
-[![Codacy Badge][codacy-img]][codacy-url]
 [![Discord chat][discord-img]][discord-url]
 
 This acts as a web-based CGM (Continuous Glucose Monitor) to allow
@@ -34,16 +32,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## [#WeAreNotWaiting](https://twitter.com/hashtag/wearenotwaiting?src=hash&vertical=default&f=images) and [this](https://vimeo.com/109767890) is why.
 
-[![Coverage Status](https://coveralls.io/repos/github/nightscout/cgm-remote-monitor/badge.svg?branch=master)](https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=master)
-
-[build-img]: https://img.shields.io/travis/nightscout/cgm-remote-monitor.svg
-[build-url]: https://travis-ci.org/nightscout/cgm-remote-monitor
-[dependency-img]: https://img.shields.io/david/nightscout/cgm-remote-monitor.svg
-[dependency-url]: https://david-dm.org/nightscout/cgm-remote-monitor
+[build-img]: https://img.shields.io/github/actions/workflow/status/nightscout/cgm-remote-monitor/main.yml
+[build-url]: https://github.com/nightscout/cgm-remote-monitor/actions/workflows/main.yml
 [coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/dev.svg
-[coverage-url]: https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=master
-[codacy-img]: https://www.codacy.com/project/badge/f79327216860472dad9afda07de39d3b
-[codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
+[coverage-url]: https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=dev
 [discord-img]: https://img.shields.io/discord/629952586895851530?label=discord%20chat
 [discord-url]: https://discord.gg/rTKhrqz
 [heroku-img]: https://www.herokucdn.com/deploy/button.png
@@ -238,7 +230,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 ### Required
 
   * `MONGODB_URI` - The connection string for your Mongo database. Something like `mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout`.
-  * `API_SECRET` - A secret passphrase that must be at least 12 characters long.
+  * `API_SECRET` - A secret passphrase that must be at least 12 characters long. Alternatively, if `API_SECRET_FILE` is defined, the secret passphrase will be read from the specified file.
   * `MONGODB_COLLECTION` (`entries`) - The Mongo collection where CGM entries are stored.
   * `DISPLAY_UNITS` (`mg/dl`) - Options are `mg/dl` or `mmol/L` (or just `mmol`).  Setting to `mmol/L` puts the entire server into `mmol/L` mode by default, no further settings needed.
 
@@ -293,7 +285,7 @@ autonomy for your data:
   * `MONGO_MIN_POOL_SIZE` (`0`) - Minimum pool connections to keep open.
   * `MONGO_MAX_IDLE_TIME_MS` (`30000`) - Max idle time (ms) before closing a connection.
   * `PORT` (`1337`) - The port that the node.js application will listen on.
-  * `HOSTNAME` - The hostname that the node.js application will listen on, null by default for any hostname for IPv6 you may need to use `::`.
+  * `NIGHTSCOUT_HOSTNAME` - The hostname or address that the node.js application will listen on. Leave unset to listen on all interfaces. Docker users can set this to `0.0.0.0` when Nightscout is reached through another container or reverse proxy. The older `HOSTNAME` setting is still accepted for compatibility, but should not be used for new installs because container platforms often set it automatically.
   * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to your privkey.pem file (private key).
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to fullchain.pem file (cert + ca).
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to chain.pem file (chain).
@@ -499,6 +491,8 @@ Connect common diabetes cloud resources to Nightscout.
 Include the keyword `connect` in the `ENABLE` list.
 Nightscout connection uses extended settings using the environment variable prefix `CONNECT_`.
   * `CONNECT_SOURCE` - The name for the source of one of the supported inputs.  one of `nightscout`, `dexcomshare`, etc...
+  * `CONNECT_SOURCE_COLLECTIONS` - For Nightscout source sync, a comma-separated list of collections. Default: `entries,treatments,devicestatus,profiles`.
+  * `CONNECT_SOURCE_MAX_COUNT` - For Nightscout source sync, maximum records per collection request. Default: `1000`.
 ###### Nightscout
 
 > Work in progress
@@ -518,6 +512,10 @@ the site is readable by default.
 
 Select this driver by setting `CONNECT_SOURCE` equal to `nightscout`.
 
+The Nightscout source copies entries, treatments, devicestatus, and profiles by
+default. Set `CONNECT_SOURCE_COLLECTIONS` to a comma-separated subset if you
+only want specific collections.
+
 
 
 ###### Dexcom Share
@@ -532,6 +530,9 @@ Optional, `CONNECT_SHARE_REGION` and `CONNECT_SHARE_SERVER` do the same thing, o
   Selecting `ous` here sets `CONNECT_SHARE_SERVER` to `shareous1.dexcom.com`.
 * `CONNECT_SHARE_SERVER=` set the server domain to use.
 
+Dexcom Share supports newer G7-era account responses that return
+`{ accountId: "..." }` as well as older bare account IDs.
+
 
 ###### Glooko
 
@@ -541,16 +542,27 @@ To synchronize from Glooko use the following variables.
 * `CONNECT_SOURCE=glooko`
 * `CONNECT_GLOOKO_EMAIL=`
 * `CONNECT_GLOOKO_PASSWORD=`
+* `CONNECT_GLOOKO_TIMEZONE_OFFSET=0`
+* `CONNECT_GLOOKO_DEVICE_ID=` optional stable device identity
+* `CONNECT_GLOOKO_SERIAL_NUMBER=` optional stable serial number
+* `CONNECT_GLOOKO_WEB_ORIGIN=` optional web origin override for regional/custom hosts
+* `CONNECT_GLOOKO_AUTH_MODE=api` optional auth mode: `api`, `web`, or `auto`
+* `CONNECT_GLOOKO_USE_V3_GRAPH=true` optional v3 graph CGM fallback when v2 returns no readings
 
 By default, `CONNECT_GLOOKO_SERVER` is set to `api.glooko.com` because the
 default value for `CONNECT_GLOOKO_ENV` is `default`.
 * `CONNECT_GLOOKO_ENV` is the word `default` by defalt.  Other values are
-  `development`, `production`, for `api.glooko.work`, and
+  `eu`, `ca`, `development`, `production`, for `api.glooko.work`, and
   `externalapi.glooko.com`, respectively.
-* `CONNECT_GLOOKO_SERVER` the hostname server to use - `api.glooko.com` by `default`.
+* `CONNECT_GLOOKO_SERVER` the hostname server to use - `api.glooko.com` by `default`, `eu.api.glooko.com` for EU users, or a more specific regional host such as `de-fr.api.glooko.com`.
 
 If both, `CONNECT_GLOOKO_SERVER` and `CONNECT_GLOOKO_ENV` are set, only
 `CONNECT_GLOOKO_SERVER` will be used.
+
+`CONNECT_GLOOKO_AUTH_MODE=web` uses Glooko's web sign-in form with CSRF token
+handling; `auto` tries API login first and falls back to web login on a 422
+response. The optional v3 graph fallback fetches `cgmHigh`, `cgmNormal`, and
+`cgmLow` series when v2 CGM readings are empty.
 
 ###### Libre Link Up
 To synchronize from Libre Link Up use the following variables.
@@ -561,7 +573,9 @@ To synchronize from Libre Link Up use the following variables.
 By default, `CONNECT_LINK_UP_SERVER` is set to `api-eu.libreview.io` because the
 default value for `CONNECT_LINK_UP_REGION` is `EU`.
 Other available values for `CONNECT_LINK_UP_REGION`:
-  * `US`, `EU`, `DE`, `FR`, `JP`, `AP`, `AU`, `AE`
+  * `US`, `EU`, `EU2`, `DE`, `FR`, `JP`, `AP`, `AU`, `AE`, `CA`
+* `CONNECT_LINK_UP_SERVER` may be used to override the region mapping with an explicit LibreView API host.
+* `CONNECT_LINK_UP_VERSION` and `CONNECT_LINK_UP_PRODUCT` may be used when LibreLinkUp requires a newer client version or product identifier.
 
 For folks connected to many patients, you can provide the patient ID by setting
 the `CONNECT_LINK_UP_PATIENT_ID` variable.
@@ -593,6 +607,7 @@ Fetch glucose reading directly from the Dexcom Share service, uses these extende
   * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
   * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (the default value is one day in minutes).
   * `BRIDGE_SERVER` (``) - The default blank value is used to fetch data from Dexcom servers in the US. Set to (`EU`) to fetch from European servers instead.
+  * `DEXCOM_BRIDGE_USE_LEGACY` (`false`) - Set to `true` to force the legacy `share2nightscout-bridge` module. By default, compatible `BRIDGE_*` Dexcom settings are mapped to the `connect` plugin's Dexcom Share source because it has newer G7-era compatibility.
 
 ##### `mmconnect` (MiniMed Connect bridge)
 

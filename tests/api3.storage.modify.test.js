@@ -57,7 +57,7 @@ describe('API3 mongoCollection promise-based helpers', function () {
         },
         deleteMany: function (filter) {
           arguments.length.should.equal(1);
-          filter.should.eql({ $or: [{ kind: 'sgv' }, { kind: 'mbg' }] });
+          filter.should.eql({ $or: [{ kind: { $eq: 'sgv' } }, { kind: { $eq: 'mbg' } }] });
           return Promise.resolve({ deletedCount: 2 });
         }
       };
