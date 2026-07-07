@@ -32,8 +32,8 @@
     "test:core": "mocha --timeout 5000 --exit ./tests/client-core/**/*.test.js",
     "test-ci": "env-cmd -f ./tests/ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --timeout 5000 --require ./tests/hooks.js --exit ./tests/*.test.js",
     "test:fast": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit --reporter min ./tests/*.test.js",
-    "test:unit": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit --parallel --jobs 2 ./tests/{admintools,ar2,basalprofileplugin,bgnow,boluswizardpreview,bridge,cannulaage,careportal,cob,data.*,ddata,direction,env,errorcodes,expressextensions,hashauth,insulinage,iob,language,levels,loop,maker,mmconnect,mongo-pool-config,pluginbase,plugins,profile,profileeditor,pushover,query,sandbox,security,sensorage,settings,simplealarms,timeago,times,treatmentnotify,units,upbat,utils,verifyauth}.test.js",
-    "test:unit:ci": "env-cmd -f ./tests/ci.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit --parallel --jobs 2 ./tests/{admintools,ar2,basalprofileplugin,bgnow,boluswizardpreview,bridge,cannulaage,careportal,cob,data.*,ddata,direction,env,errorcodes,expressextensions,hashauth,insulinage,iob,language,levels,loop,maker,mmconnect,mongo-pool-config,pluginbase,plugins,profile,profileeditor,pushover,query,sandbox,security,sensorage,settings,simplealarms,timeago,times,treatmentnotify,units,upbat,utils,verifyauth}.test.js",
+    "test:unit": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit --parallel --jobs 2 ./tests/{admintools,ar2,basalprofileplugin,bgnow,boluswizardpreview,bridge,bridge-connect-compat,cannulaage,careportal,cob,data.*,ddata,direction,env,errorcodes,expressextensions,hashauth,insulinage,iob,language,levels,loop,maker,mmconnect,mongo-pool-config,pluginbase,plugins,profile,profileeditor,pushover,query,sandbox,security,sensorage,settings,simplealarms,timeago,times,treatmentnotify,units,upbat,utils,verifyauth}.test.js",
+    "test:unit:ci": "env-cmd -f ./tests/ci.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit --parallel --jobs 2 ./tests/{admintools,ar2,basalprofileplugin,bgnow,boluswizardpreview,bridge,bridge-connect-compat,cannulaage,careportal,cob,data.*,ddata,direction,env,errorcodes,expressextensions,hashauth,insulinage,iob,language,levels,loop,maker,mmconnect,mongo-pool-config,pluginbase,plugins,profile,profileeditor,pushover,query,sandbox,security,sensorage,settings,simplealarms,timeago,times,treatmentnotify,units,upbat,utils,verifyauth}.test.js",
     "test:integration": "env-cmd -f ./my.test.env mocha --timeout 15000 --require ./tests/hooks.js --exit ./tests/{adminnotifies,api,api3,client.renderer,dbsize,fail,flakiness-control,mongo-storage,notifications,notifications-api,openaps,pebble,pump,pushnotify,rawbg,reports,reportstorage,storage,websocket,XX_clean}*.test.js",
     "test:integration:ci": "env-cmd -f ./tests/ci.test.env mocha --timeout 15000 --require ./tests/hooks.js --exit ./tests/{adminnotifies,api,api3,client.renderer,dbsize,fail,flakiness-control,mongo-storage,notifications,notifications-api,openaps,pebble,pump,pushnotify,rawbg,reports,reportstorage,storage,websocket,XX_clean}*.test.js",
     "test:stress": "env-cmd -f ./my.test.env mocha --timeout 60000 --require ./tests/hooks.js --exit ./tests/concurrent*.test.js",
@@ -135,7 +135,7 @@
     "mongo-url-parser": "^1.0.2",
     "mongodb": "^5.9.2",
     "mongomock": "^0.1.2",
-    "nightscout-connect": "^0.0.12",
+    "nightscout-connect": "github:nightscout/nightscout-connect#v0.0.13",
     "node-cache": "^4.2.1",
     "process": "^0.11.10",
     "pushover-notifications": "^1.2.2",
@@ -167,13 +167,13 @@
     "eslint-plugin-security": "^1.4.0",
     "eslint-webpack-plugin": "^2.7.0",
     "jsdom": "^24.1.3",
-    "mocha": "^8.4.0",
-    "nodemon": "^2.0.19",
-    "nyc": "^14.1.1",
+    "mocha": "^11.7.5",
+    "nodemon": "^3.1.14",
+    "nyc": "^18.0.0",
     "should": "^13.2.3",
-    "supertest": "^3.4.2",
+    "supertest": "^7.2.2",
     "webpack-bundle-analyzer": "^4.5.0",
-    "webpack-dev-middleware": "^4.3.0",
+    "webpack-dev-middleware": "^8.0.3",
     "webpack-hot-middleware": "^2.25.2",
     "xml2js": "^0.5.0",
     "xss": "^1.0.15"
@@ -187,8 +187,9 @@
     "qs": "6.15.1",
     "flatted": "3.4.2",
     "picomatch": "2.3.2",
+    "ajv@^6.0.0": "6.12.6",
+    "ajv@^8.0.0": "8.18.0",
     "socket.io-parser": "4.2.6",
-    "terser-webpack-plugin": "5.3.17",
     "filelist": {
       "minimatch": "5.1.8"
     },
@@ -198,6 +199,11 @@
     "ajv-formats": {
       "ajv": "8.18.0"
     },
+    "mocha": {
+      "diff": "8.0.3",
+      "serialize-javascript": "7.0.5"
+    },
+    "terser-webpack-plugin": "5.6.0",
     "minimed-connect-to-nightscout": {
       "axios": "0.31.1",
       "tough-cookie": "4.1.4"
