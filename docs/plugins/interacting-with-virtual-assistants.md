@@ -12,14 +12,14 @@
 Interacting with Virtual Assistants
 ===================================
 
-# Alexa vs. Google Home
+# Alexa vs. Alice vs. Google Home
 
-Although these example phrases reference Alexa, the exact same questions could be asked of Google.
-Just replace "Alexa, ask Nightscout ..." with "Hey Google, ask *your action's name* ..."
+Although these example phrases reference Alexa, the exact same questions could be asked of Alice or Google.
+Just replace "Alexa, ask Nightscout ..." with "Alice, ask *your action's name* ..." or "Hey Google, ask *your action's name* ..."
 
 # What questions can you ask it?
 
-This list is not meant to be comprehensive, nor does it include every way you can ask the questions. To get the full picture, in the respective console for your virtual assistant, check the example phrases for each `intent`, and the values (including synonyms) of the "metric" `slot` (Alexa) or `entity` (Google Home). You can also just experiement with asking different questions to see what works.
+This list is not meant to be comprehensive, nor does it include every way you can ask the questions. To get the full picture, in the respective console for your virtual assistant, check the example phrases for each `intent`, and the values (including synonyms) of the "metric" `slot` (Alexa and Alice) or `entity` (Google Home). You can also just experiement with asking different questions to see what works.
 
 *Forecast:*
 
