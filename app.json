@@ -152,6 +152,11 @@
       "value": "12",
       "required": false 
     },
+    "SHOW_SECONDS": {
+      "description": "Default setting for new browser views, for whether to show seconds in the clock display. ('on' or 'off')",
+      "value": "off",
+      "required": false
+    },
     "USE_NPM_INSTALL": {
       "description": "You need to have this set for deployment to work in Heroku",
       "value": "true",

@@ -38,6 +38,7 @@ describe('settings', function ( ) {
       , 'DISABLE'
       , 'UNITS'
       , 'TIME_FORMAT'
+      , 'SHOW_SECONDS'
       , 'NIGHT_MODE'
       , 'SHOW_RAWBG'
       , 'CUSTOM_TITLE'
