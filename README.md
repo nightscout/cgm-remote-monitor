@@ -843,5 +843,5 @@ The folder `static/font/ubuntu/` contains Ubuntu Font Family Derivative Nightsco
 
 The folder `static/font/open-sans/` contains a modified version of Open Sans and is licensed under SIL Open Font License 1.1.
 
-The above assets have been modified by converting each file ending in `.ttf` into woff2 format using the tool [woff2_compress](https://github.com/google/woff2).
+The above assets have been modified by converting each file ending in `.ttf` into woff2 format using the tool [woff2_compress](https://github.com/google/woff2). No other modifications have been made.
 
