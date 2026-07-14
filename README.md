@@ -839,7 +839,7 @@ License
 
 ### Third party Assets
 
-The following assets have been modified by converting each file ending in `.ttf` into woff2 format using the tool [woff2_compress](https://github.com/google/woff2). No other modifications have been made. Cgm-remote-monitor does not relicense these assets.
+The following assets have been modified by converting each file ending in `.ttf` into woff2 format using the tool [woff2_compress](https://github.com/google/woff2). No other modifications have been made. This project does not relicense these assets.
 
 - The folder `static/font/ubuntu/` contains Ubuntu Font Family Derivative Nightscout and is licensed under Ubuntu Font License Version 1.0.
 
