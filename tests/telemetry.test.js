@@ -2,6 +2,7 @@
 
 const should = require('should');
 const request = require('supertest');
+const express = require('express');
 const language = require('../lib/language')();
 
 const allowlists = require('../lib/telemetry/allowlists');
@@ -10,6 +11,7 @@ const createCounters = require('../lib/telemetry/counters');
 const id = require('../lib/telemetry/id');
 const payload = require('../lib/telemetry/payload');
 const createTelemetry = require('../lib/telemetry');
+const routeCounters = require('../lib/telemetry/route-counters');
 
 describe('telemetry', function () {
   function withEnv (values, fn) {
@@ -127,6 +129,59 @@ describe('telemetry', function () {
     snapshot.health.http_4xx.should.equal(1);
     snapshot.health.http_5xx.should.equal(1);
     snapshot.health.websocket_connections.should.equal(1);
+  });
+
+  it('classifies only reviewed route families', function () {
+    routeCounters.classify({ method: 'GET', originalUrl: '/api/v1/entries.json?count=10' }).should.equal('api.v1.entries.read');
+    routeCounters.classify({ method: 'POST', originalUrl: '/api/v1/entries.json?secret=hidden' }).should.equal('api.v1.entries.write');
+    should.not.exist(routeCounters.classify({ method: 'GET', originalUrl: '/api/v1/treatments.json' }));
+    routeCounters.classify({ method: 'GET', originalUrl: '/api/v1/profile.json' }).should.equal('api.v1.profile.read');
+    should.not.exist(routeCounters.classify({ method: 'POST', originalUrl: '/api/v1/profile.json' }));
+    routeCounters.classify({ method: 'GET', originalUrl: '/api/v3/version' }).should.equal('api.v3.version.read');
+    routeCounters.classify({ method: 'GET', originalUrl: '/report' }).should.equal('reports.opened');
+  });
+
+  it('counts route families and status classes without retaining request metadata', function (done) {
+    var telemetry = createTelemetry({
+      version: '15.0.8',
+      telemetry: { mode: 'aggregate' },
+      settings: { enable: [] }
+    }, {});
+    var app = express();
+    app.use(telemetry.routeCounters());
+    app.get('/api/v1/entries.json', function (req, res) {
+      res.json({ ok: true });
+    });
+    app.get('/api/v1/treatments.json', function (req, res) {
+      res.json({ ok: true });
+    });
+    app.get('/fail', function (req, res) {
+      res.status(503).json({ ok: false });
+    });
+
+    request(app)
+      .get('/api/v1/entries.json?find[secret]=hidden')
+      .expect(200)
+      .end(function (err) {
+        if (err) return done(err);
+        request(app)
+          .get('/api/v1/treatments.json')
+          .expect(200)
+          .end(function (err) {
+            if (err) return done(err);
+            request(app)
+              .get('/fail?token=hidden')
+              .expect(503)
+              .end(function (err) {
+                if (err) return done(err);
+                var snapshot = telemetry.counters.snapshot();
+                snapshot.used.should.eql({ 'api.v1.entries.read': 1 });
+                snapshot.health.http_2xx.should.equal(2);
+                snapshot.health.http_5xx.should.equal(1);
+                done();
+              });
+          });
+      });
   });
 
   it('builds a schema-shaped aggregate payload without prohibited fields', function () {
