@@ -16,6 +16,7 @@ const createCounters = require('../lib/telemetry/counters');
 const id = require('../lib/telemetry/id');
 const payload = require('../lib/telemetry/payload');
 const createTelemetry = require('../lib/telemetry');
+const createStore = require('../lib/telemetry/store');
 const routeCounters = require('../lib/telemetry/route-counters');
 const schedule = require('../lib/telemetry/schedule');
 
@@ -78,6 +79,7 @@ describe('telemetry', function () {
       env.telemetry.scheduledSend.should.equal(true);
       env.telemetry.idRotation.should.equal('monthly');
       env.telemetry.storeDir.should.startWith(os.tmpdir());
+      env.telemetry.collection.should.equal('telemetry');
       should.not.exist(env.telemetry.secret);
     });
   });
@@ -116,10 +118,86 @@ describe('telemetry', function () {
     var second = createTelemetry(env, {});
     var secondPreview = second.preview({ now: new Date('2026-07-16T12:00:00Z') });
 
-    first.secretSource.should.equal('generated');
-    second.secretSource.should.equal('generated');
+    firstPreview.secretSource.should.equal('generated');
+    secondPreview.secretSource.should.equal('generated');
     firstPreview.payload.installation_id.should.equal(secondPreview.payload.installation_id);
     fs.existsSync(path.join(storeDir, 'telemetrySecret')).should.equal(true);
+  });
+
+  it('uses Mongo-backed telemetry state when ctx.store is available', function (done) {
+    var saved = null;
+    var fakeCollection = {
+      findOne: function findOne () {
+        return Promise.resolve(null);
+      },
+      replaceOne: function replaceOne (query, doc, options) {
+        query._id.should.equal(createStore.DOC_ID);
+        options.upsert.should.equal(true);
+        saved = doc;
+        return Promise.resolve({ acknowledged: true });
+      }
+    };
+    var fakeStore = {
+      collection: function collection (name) {
+        name.should.equal('telemetry');
+        return fakeCollection;
+      }
+    };
+
+    var store = createStore({ mongoStore: fakeStore });
+    store.ready.then(function ready () {
+      var telemetry = createTelemetry({
+        version: '15.0.8',
+        telemetry: { mode: 'aggregate' },
+        settings: { enable: [] }
+      }, {}, { store });
+
+      telemetry.preview({ now: new Date('2026-07-16T12:00:00Z') });
+      telemetry.counters.increment('api.v1.entries.read');
+      setTimeout(function waitForAsyncWrite () {
+        should.exist(saved);
+        saved._id.should.equal(createStore.DOC_ID);
+        saved.secret.should.be.a.String();
+        saved.counters.used.should.eql({ 'api.v1.entries.read': 1 });
+        done();
+      }, 20);
+    }).catch(done);
+  });
+
+  it('loads existing Mongo-backed telemetry state', function (done) {
+    var fakeCollection = {
+      findOne: function findOne () {
+        return Promise.resolve({
+          _id: createStore.DOC_ID,
+          secret: 'mongo-secret',
+          counters: {
+            since: '2026-07-16T00:00:00.000Z',
+            used: { 'reports.opened': 2 },
+            health: { http_2xx: 3 }
+          },
+          schedule: {
+            next_due_at: '2026-07-23T00:00:00.000Z'
+          }
+        });
+      },
+      replaceOne: function replaceOne () {
+        return Promise.resolve({ acknowledged: true });
+      }
+    };
+    var store = createStore({
+      mongoStore: {
+        collection: function collection () {
+          return fakeCollection;
+        }
+      }
+    });
+
+    store.ready.then(function ready () {
+      store.readOrCreateSecret().should.equal('mongo-secret');
+      store.readCounters().used.should.eql({ 'reports.opened': 2 });
+      store.readSchedule().next_due_at.should.equal('2026-07-23T00:00:00.000Z');
+      done();
+    }).catch(done);
   });
 
   it('normalizes invalid config to disabled monthly telemetry', function () {
@@ -629,7 +707,7 @@ describe('telemetry', function () {
         },
         settings: { enable: [] }
       };
-      var telemetry = createTelemetry(env, { bus });
+      var telemetry = createTelemetry(env, { bus }, { random: () => 0 });
       telemetry.schedulePreview({ now: new Date('2026-07-16T11:00:00Z'), random: () => 0 });
       telemetry.start().should.equal(true);
       bus.emit('tick', { now: new Date('2026-07-16T12:00:00Z') });
