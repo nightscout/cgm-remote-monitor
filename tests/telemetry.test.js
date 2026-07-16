@@ -1,6 +1,8 @@
 'use strict';
 
 const should = require('should');
+const request = require('supertest');
+const language = require('../lib/language')();
 
 const allowlists = require('../lib/telemetry/allowlists');
 const config = require('../lib/telemetry/config');
@@ -173,5 +175,54 @@ describe('telemetry', function () {
     });
     preview.enabled.should.equal(true);
     preview.payload.features.used.should.eql({ 'reports.opened': 1 });
+  });
+
+  describe('preview endpoint', function () {
+    var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
+    var app;
+
+    before(function (done) {
+      withEnv({
+        API_SECRET: 'this is my long pass phrase',
+        MONGODB_URI: 'mongodb://localhost/nightscout',
+        NIGHTSCOUT_TELEMETRY: 'aggregate'
+      }, function bootApp () {
+        var env = require('../lib/server/env')();
+        env.settings.authDefaultRoles = 'denied';
+        app = require('express')();
+        app.enable('api');
+        require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
+          app.use('/api', require('../lib/api/')(env, ctx));
+          done();
+        });
+      });
+    });
+
+    it('requires admin authorization', function (done) {
+      request(app)
+        .get('/api/telemetry/preview.json')
+        .expect(401)
+        .end(done);
+    });
+
+    it('returns the exact pending aggregate payload for admins', function (done) {
+      request(app)
+        .get('/api/telemetry/preview.json')
+        .set('api-secret', known)
+        .expect(200)
+        .end(function (err, res) {
+          if (err) {
+            done(err);
+            return;
+          }
+          res.body.message.enabled.should.equal(true);
+          res.body.message.mode.should.equal('aggregate');
+          res.body.message.payload.product.should.equal('cgm-remote-monitor');
+          res.body.message.payload.installation_id.should.startWith('monthly_');
+          should.not.exist(res.body.message.payload.url);
+          should.not.exist(res.body.message.payload.token);
+          done();
+        });
+    });
   });
 });
