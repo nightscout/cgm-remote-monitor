@@ -185,7 +185,11 @@ describe('telemetry', function () {
   });
 
   it('filters enabled features and rejects unallowlisted counters', function () {
-    allowlists.filterFeatures(['careportal', 'token', 'bridge', 'url']).should.eql(['bridge', 'careportal']);
+    allowlists.filterFeatures(['careportal', 'token', 'bridge', 'url', 'connect.dexcomshare']).should.eql(['bridge', 'careportal', 'connect.dexcomshare']);
+    allowlists.connectFeature('dexcomshare').should.equal('connect.dexcomshare');
+    should.not.exist(allowlists.connectFeature('unknownvendor'));
+    allowlists.connectCounter('dexcomshare').should.equal('connect.source.dexcomshare.active');
+    should.not.exist(allowlists.connectCounter('unknownvendor'));
     allowlists.isAllowedCounter('api.v1.entries.read').should.equal(true);
     allowlists.isAllowedCounter('api.v1.treatments.write').should.equal(false);
     allowlists.isAllowedCounter('plugins.token.active').should.equal(false);
@@ -302,8 +306,15 @@ describe('telemetry', function () {
     var env = {
       version: '15.0.8',
       storageURI: 'mongodb+srv://example.mongodb.net/nightscout',
+      extendedSettings: {
+        connect: {
+          source: 'dexcomshare',
+          shareAccountName: 'do-not-send',
+          sharePassword: 'do-not-send'
+        }
+      },
       settings: {
-        enable: ['careportal', 'iob', 'token', 'bridge']
+        enable: ['careportal', 'iob', 'token', 'bridge', 'connect']
       }
     };
     var counters = {
@@ -333,7 +344,7 @@ describe('telemetry', function () {
     built.installation_id.should.startWith('monthly_');
     built.runtime.node_major.should.be.a.Number();
     built.runtime.database_family.should.equal('mongodb-atlas');
-    built.features.enabled.should.eql(['bridge', 'careportal', 'iob']);
+    built.features.enabled.should.eql(['bridge', 'careportal', 'connect', 'connect.dexcomshare', 'iob']);
     built.features.used.should.eql({ 'api.v1.entries.read': 4 });
     built.health.http_2xx.should.equal(10);
     built.health.websocket_connections.should.equal(1);
@@ -343,6 +354,7 @@ describe('telemetry', function () {
     should.not.exist(built.url);
     should.not.exist(built.token);
     should.not.exist(built.logs);
+    JSON.stringify(built).should.not.containEql('do-not-send');
   });
 
   it('creates a no-network telemetry facade with preview payload', function () {
