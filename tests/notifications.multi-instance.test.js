@@ -112,6 +112,61 @@ describe('notifications multi-instance', function () {
     });
   });
 
+  it('warm instance refreshes stale snooze state before re-emitting', function (done) {
+    instanceB.initRequests();
+    instanceB.requestNotify({
+      level: 2, group: 'default',
+      title: 'High', message: 'High BG',
+      plugin: { name: 'test' }
+    });
+    instanceB.process();
+
+    setImmediate(function () {
+      setImmediate(function () {
+        var firstNotify = instanceB.__emits.some(function (e) {
+          return e.evt === 'notification' && !e.data.clear;
+        });
+        firstNotify.should.equal(true, 'warm-up alarm should emit when storage has no snooze');
+
+        instanceA.ack(2, 'default', 60 * 60 * 1000);
+
+        setImmediate(function () {
+          setImmediate(function () {
+            instanceB.__emits.length = 0;
+            var warmAlarm = instanceB.getAlarmForTests(2, 'default');
+            warmAlarm.lastRefreshTime = Date.now() - 30001;
+
+            instanceB.__ctx.ddata.lastUpdated = Date.now();
+            instanceB.initRequests();
+            instanceB.requestNotify({
+              level: 2, group: 'default',
+              title: 'High', message: 'High BG',
+              plugin: { name: 'test' }
+            });
+            instanceB.process();
+
+            var synchronousNotify = instanceB.__emits.some(function (e) {
+              return e.evt === 'notification' && !e.data.clear;
+            });
+            synchronousNotify.should.equal(false,
+              'stale warm instance must defer while reloading shared snooze state');
+
+            setImmediate(function () {
+              setImmediate(function () {
+                var emittedNotify = instanceB.__emits.some(function (e) {
+                  return e.evt === 'notification' && !e.data.clear;
+                });
+                emittedNotify.should.equal(false,
+                  'warm instance emitted despite a newer ack in shared storage');
+                done();
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+
   it('shorter snooze on instance B does not clobber longer snooze from instance A', function (done) {
     instanceA.ack(2, 'default', 60 * 60 * 1000); // 60 min on A
     setImmediate(function () {

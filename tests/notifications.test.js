@@ -252,6 +252,11 @@ describe('notifications snooze state externalization (#8194)', function () {
     notifications.resetStateForTests();
   });
 
+  afterEach(function () {
+    delete process.env.ALARM_REFRESH_TIMEOUT_MS;
+    delete process.env.ALARM_REFRESH_STALE_MS;
+  });
+
   it('ack writes through to alarmStorage.setSnooze for URGENT and cascaded WARN', function (done) {
     notifications.ack(2, 'default', 60000);
     setImmediate(function () {
@@ -380,6 +385,35 @@ describe('notifications snooze state externalization (#8194)', function () {
     });
   });
 
+  it('invalid stored snooze data is ignored and alarm delivery fails open', function (done) {
+    ctx.alarmStorage = {
+      getSnooze: function () {
+        return Promise.resolve({ lastAckTime: 8640000000000001, silenceTime: 1 });
+      },
+      setSnooze: function () { return Promise.resolve(); }
+    };
+    delete require.cache[require.resolve('../lib/notifications')];
+    var notifs = require('../lib/notifications')({ testMode: true }, ctx);
+    notifs.resetStateForTests();
+
+    ctx.ddata.lastUpdated = Date.now();
+    var emitCount = 0;
+    ctx.bus.emit = function (evt, data) {
+      if (evt === 'notification' && !data.clear) emitCount++;
+    };
+
+    notifs.initRequests();
+    notifs.requestNotify({
+      level: 2, group: 'default', title: 'Test', message: 'msg', plugin: { name: 'test' }
+    });
+    notifs.process();
+
+    setImmediate(function () {
+      emitCount.should.equal(1, 'invalid stored snooze must not suppress the alarm');
+      done();
+    });
+  });
+
   it('does not gate INFO alarms on storage refresh', function (done) {
     ctx.ddata.lastUpdated = Date.now();
     var emitCount = 0;
@@ -403,7 +437,7 @@ describe('notifications snooze state externalization (#8194)', function () {
     done();
   });
 
-  it('refresh timeout clears refreshPending so emit can proceed even on storage stall', function (done) {
+  it('refresh timeout emits pending alarm without waiting for another process cycle', function (done) {
     // Replace storage with one that hangs; configure a tight timeout via env
     ctx.alarmStorage = {
       getSnooze: function () { return new Promise(function () {}); },
@@ -428,14 +462,229 @@ describe('notifications snooze state externalization (#8194)', function () {
     emitCount.should.equal(0);
 
     setTimeout(function () {
-      notifications.initRequests();
-      notifications.requestNotify({
-        level: 2, group: 'default', title: 'Test', message: 'msg', plugin: { name: 'test' }
-      });
-      notifications.process();
-      emitCount.should.equal(1);
+      emitCount.should.equal(1, 'timeout must fail open and emit the pending alarm');
       delete process.env.ALARM_REFRESH_TIMEOUT_MS;
       done();
     }, 100);
+  });
+
+  it('rejects timeout values above the Node timer limit', function () {
+    process.env.ALARM_REFRESH_TIMEOUT_MS = '2147483648';
+    delete require.cache[require.resolve('../lib/notifications')];
+    var notifs = require('../lib/notifications')({ testMode: true }, ctx);
+    notifs.resetStateForTests();
+
+    var alarm = notifs.getAlarmForTests(2, 'default');
+    (alarm.refreshDeadline - alarm.lastRefreshTime).should.equal(5000);
+    notifs.resetStateForTests();
+  });
+
+  it('refreshes when the wall clock moves behind lastRefreshTime', function (done) {
+    var readCount = 0;
+    ctx.alarmStorage = {
+      getSnooze: function () {
+        readCount++;
+        return Promise.resolve(null);
+      },
+      setSnooze: function () { return Promise.resolve(); }
+    };
+    delete require.cache[require.resolve('../lib/notifications')];
+    var notifs = require('../lib/notifications')({ testMode: true }, ctx);
+    notifs.resetStateForTests();
+
+    var alarm = notifs.getAlarmForTests(2, 'default');
+    setImmediate(function () {
+      alarm.lastRefreshTime = Date.now() + 60000;
+      ctx.ddata.lastUpdated = Date.now();
+      notifs.initRequests();
+      notifs.requestNotify({
+        level: 2, group: 'default', title: 'Test', message: 'msg', plugin: { name: 'test' }
+      });
+      notifs.process();
+      readCount.should.equal(2, 'clock rollback must trigger a new storage read');
+      setImmediate(function () {
+        notifs.resetStateForTests();
+        done();
+      });
+    });
+  });
+
+  it('explicit ack cancels a pending refresh timeout', function (done) {
+    ctx.alarmStorage = {
+      getSnooze: function () { return new Promise(function () {}); },
+      setSnooze: function () { return Promise.resolve(); }
+    };
+    process.env.ALARM_REFRESH_TIMEOUT_MS = '30';
+    delete require.cache[require.resolve('../lib/notifications')];
+    var notifs = require('../lib/notifications')({ testMode: true }, ctx);
+    notifs.resetStateForTests();
+
+    ctx.ddata.lastUpdated = Date.now();
+    var emitCount = 0;
+    ctx.bus.emit = function (evt, data) {
+      if (evt === 'notification' && !data.clear) emitCount++;
+    };
+
+    notifs.initRequests();
+    notifs.requestNotify({
+      level: 2, group: 'default', title: 'Test', message: 'msg', plugin: { name: 'test' }
+    });
+    notifs.process();
+    notifs.ack(2, 'default', 60000);
+
+    setTimeout(function () {
+      emitCount.should.equal(0, 'ack must prevent the pending timeout from emitting');
+      delete process.env.ALARM_REFRESH_TIMEOUT_MS;
+      done();
+    }, 60);
+  });
+
+  it('cleared condition cancels its refresh and recurrence starts a fresh read', function (done) {
+    var resolvers = [];
+    ctx.alarmStorage = {
+      getSnooze: function () {
+        return new Promise(function (resolve) { resolvers.push(resolve); });
+      },
+      setSnooze: function () { return Promise.resolve(); }
+    };
+    delete require.cache[require.resolve('../lib/notifications')];
+    var notifs = require('../lib/notifications')({ testMode: true }, ctx);
+    notifs.resetStateForTests();
+
+    ctx.ddata.lastUpdated = Date.now();
+    var emitCount = 0;
+    ctx.bus.emit = function (evt, data) {
+      if (evt === 'notification' && !data.clear) emitCount++;
+    };
+
+    notifs.initRequests();
+    notifs.requestNotify({
+      level: 2, group: 'default', title: 'Test', message: 'msg', plugin: { name: 'test' }
+    });
+    notifs.process();
+
+    notifs.initRequests();
+    notifs.process();
+    resolvers.length.should.equal(2, 'clear cycle probes both snoozeable alarm levels');
+
+    notifs.initRequests();
+    notifs.requestNotify({
+      level: 2, group: 'default', title: 'Test', message: 'returned', plugin: { name: 'test' }
+    });
+    notifs.process();
+    resolvers.length.should.equal(3, 'returning condition must start a fresh storage read');
+
+    resolvers[0](null);
+    resolvers[1](null);
+
+    setImmediate(function () {
+      emitCount.should.equal(0, 'old reads must not settle the returning condition');
+      resolvers[2]({ lastAckTime: Date.now(), silenceTime: 60000 });
+      setImmediate(function () {
+        emitCount.should.equal(0, 'fresh stored snooze must suppress the returning condition');
+        done();
+      });
+    });
+  });
+
+  it('coalesces refresh reads and emits only the latest pending notification', function (done) {
+    var resolveRead;
+    var readCount = 0;
+    ctx.alarmStorage = {
+      getSnooze: function () {
+        readCount++;
+        return new Promise(function (resolve) { resolveRead = resolve; });
+      },
+      setSnooze: function () { return Promise.resolve(); }
+    };
+    delete require.cache[require.resolve('../lib/notifications')];
+    var notifs = require('../lib/notifications')({ testMode: true }, ctx);
+    notifs.resetStateForTests();
+
+    ctx.ddata.lastUpdated = Date.now();
+    var emittedMessages = [];
+    ctx.bus.emit = function (evt, data) {
+      if (evt === 'notification' && !data.clear) emittedMessages.push(data.message);
+    };
+
+    notifs.initRequests();
+    notifs.requestNotify({
+      level: 2, group: 'default', title: 'Test', message: 'first', plugin: { name: 'test' }
+    });
+    notifs.process();
+    notifs.initRequests();
+    notifs.requestNotify({
+      level: 2, group: 'default', title: 'Test', message: 'latest', plugin: { name: 'test' }
+    });
+    notifs.process();
+
+    readCount.should.equal(1, 'rapid calls should share one in-flight storage read');
+    resolveRead(null);
+    setImmediate(function () {
+      emittedMessages.should.deepEqual(['latest']);
+      done();
+    });
+  });
+
+  it('uses the later snooze expiry when storage has an older, longer ack', function (done) {
+    var storedDoc = { lastAckTime: 1000, silenceTime: 60000 };
+    ctx.alarmStorage = {
+      getSnooze: function () { return Promise.resolve(storedDoc); },
+      setSnooze: function () { return Promise.resolve(); }
+    };
+    delete require.cache[require.resolve('../lib/notifications')];
+    var notifs = require('../lib/notifications')({ testMode: true }, ctx);
+    notifs.resetStateForTests();
+
+    var alarm = notifs.getAlarmForTests(2, 'default');
+    alarm.lastAckTime = 2000;
+    alarm.silenceTime = 1000;
+    ctx.ddata.lastUpdated = 50000;
+    var emitCount = 0;
+    ctx.bus.emit = function (evt, data) {
+      if (evt === 'notification' && !data.clear) emitCount++;
+    };
+
+    notifs.initRequests();
+    notifs.requestNotify({
+      level: 2, group: 'default', title: 'Test', message: 'msg', plugin: { name: 'test' }
+    });
+    notifs.process();
+
+    setImmediate(function () {
+      alarm.lastAckTime.should.equal(1000);
+      alarm.silenceTime.should.equal(60000);
+      emitCount.should.equal(0, 'persisted later expiry must keep the alarm silenced');
+      done();
+    });
+  });
+
+  it('resetStateForTests cancels pending refresh timers', function (done) {
+    ctx.alarmStorage = {
+      getSnooze: function () { return new Promise(function () {}); },
+      setSnooze: function () { return Promise.resolve(); }
+    };
+    process.env.ALARM_REFRESH_TIMEOUT_MS = '20';
+    delete require.cache[require.resolve('../lib/notifications')];
+    var notifs = require('../lib/notifications')({ testMode: true }, ctx);
+    notifs.resetStateForTests();
+
+    ctx.ddata.lastUpdated = Date.now();
+    var emitCount = 0;
+    ctx.bus.emit = function (evt, data) {
+      if (evt === 'notification' && !data.clear) emitCount++;
+    };
+
+    notifs.initRequests();
+    notifs.requestNotify({
+      level: 2, group: 'default', title: 'Test', message: 'msg', plugin: { name: 'test' }
+    });
+    notifs.process();
+    notifs.resetStateForTests();
+
+    setTimeout(function () {
+      emitCount.should.equal(0, 'reset must prevent orphaned timer emission');
+      done();
+    }, 50);
   });
 });

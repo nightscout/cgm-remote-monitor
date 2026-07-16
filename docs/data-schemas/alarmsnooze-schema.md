@@ -69,7 +69,7 @@ Where `winner = { $gt: [newExpiresAt, { $ifNull: ['$expiresAt', new Date(0)] }] 
 
 ## Fallback Behavior
 
-If `ctx.store` is unavailable (Mongo down at boot, or the operator runs in a degraded mode), `alarmStorage` methods are no-ops that resolve to `null`. `notifications.js` falls back to in-memory-only behavior, matching pre-fix semantics. Single-instance deploys without Mongo connectivity continue to work.
+If `ctx.store` is unavailable, `alarmStorage` methods are no-ops that resolve to `null`. If a Mongo read fails or stalls, `notifications.js` fails open after `ALARM_REFRESH_TIMEOUT_MS`, preserving alarm delivery from in-memory state.
 
 ---
 
@@ -79,6 +79,6 @@ Aggregation-pipeline updates (`updateOne` with a `[{$set: ...}]` array) require 
 
 ## Related
 
-- [`lib/notifications.js`](../../lib/notifications.js) -- consumes `alarmStorage` for ack write-through and first-emit-per-process refresh
+- [`lib/notifications.js`](../../lib/notifications.js) -- consumes `alarmStorage` for ack write-through plus cold-start and staleness-bounded warm-instance refresh
 - [`lib/server/bootevent.js`](../../lib/server/bootevent.js) -- wires `ctx.alarmStorage` and creates the TTL index
 - nightscout/cgm-remote-monitor#8194 -- original issue
