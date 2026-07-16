@@ -3,6 +3,7 @@
 const should = require('should');
 const request = require('supertest');
 const express = require('express');
+const http = require('http');
 const language = require('../lib/language')();
 
 const allowlists = require('../lib/telemetry/allowlists');
@@ -248,6 +249,90 @@ describe('telemetry', function () {
     preview.enabled.should.equal(true);
     preview.secretSource.should.equal('ephemeral');
     preview.payload.features.used.should.eql({ 'reports.opened': 1 });
+  });
+
+  it('does not send when telemetry is disabled', function (done) {
+    var telemetry = createTelemetry({
+      version: '15.0.8',
+      telemetry: { mode: 'off', endpoint: 'http://127.0.0.1:1/v1/nightscout/checkin' },
+      settings: { enable: [] }
+    }, {});
+
+    telemetry.sendOnce(function sent (err, result) {
+      should.not.exist(err);
+      result.sent.should.equal(false);
+      result.reason.should.equal('disabled');
+      done();
+    });
+  });
+
+  it('manually posts the preview-equivalent aggregate payload when enabled', function (done) {
+    var received = null;
+    var server = http.createServer(function receiver (req, res) {
+      req.method.should.equal('POST');
+      req.url.should.equal('/v1/nightscout/checkin');
+      req.headers['content-type'].should.equal('application/json');
+      var chunks = [];
+      req.on('data', function chunk (data) {
+        chunks.push(data);
+      });
+      req.on('end', function end () {
+        received = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        res.statusCode = 204;
+        res.end();
+      });
+    });
+
+    server.listen(0, '127.0.0.1', function listening () {
+      var address = server.address();
+      var telemetry = createTelemetry({
+        version: '15.0.8',
+        telemetry: {
+          mode: 'aggregate',
+          endpoint: 'http://127.0.0.1:' + address.port + '/v1/nightscout/checkin',
+          secret: 'local sender secret'
+        },
+        settings: { enable: ['careportal'] }
+      }, {});
+
+      telemetry.counters.increment('reports.opened');
+      telemetry.sendOnce({
+        now: new Date('2026-07-16T12:00:00Z')
+      }, function sent (err, result) {
+        server.close(function closed () {
+          should.not.exist(err);
+          result.sent.should.equal(true);
+          result.statusCode.should.equal(204);
+          received.product.should.equal('cgm-remote-monitor');
+          received.reporting_period.should.equal('2026-07-16');
+          received.features.enabled.should.eql(['careportal']);
+          received.features.used.should.eql({ 'reports.opened': 1 });
+          should.not.exist(received.url);
+          should.not.exist(received.token);
+          should.not.exist(received.logs);
+          done();
+        });
+      });
+    });
+  });
+
+  it('reports sender failures without throwing', function (done) {
+    var telemetry = createTelemetry({
+      version: '15.0.8',
+      telemetry: {
+        mode: 'aggregate',
+        endpoint: 'file:///tmp/nope',
+        secret: 'local sender secret'
+      },
+      settings: { enable: [] }
+    }, {});
+
+    telemetry.sendOnce(function sent (err, result) {
+      should.not.exist(err);
+      result.sent.should.equal(false);
+      result.error.should.equal('unsupported-protocol');
+      done();
+    });
   });
 
   describe('preview endpoint', function () {
