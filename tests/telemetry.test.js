@@ -63,6 +63,7 @@ describe('telemetry', function () {
       NIGHTSCOUT_TELEMETRY_ENDPOINT: 'https://example.invalid/checkin',
       NIGHTSCOUT_TELEMETRY_PREVIEW: 'off',
       NIGHTSCOUT_TELEMETRY_MANUAL_SEND: 'on',
+      NIGHTSCOUT_TELEMETRY_SCHEDULED_SEND: 'on',
       NIGHTSCOUT_TELEMETRY_ID_ROTATION: 'monthly',
       NIGHTSCOUT_TELEMETRY_STORE: tempStore(),
       API_SECRET: 'this is my long pass phrase',
@@ -73,6 +74,7 @@ describe('telemetry', function () {
       env.telemetry.endpoint.should.equal('https://example.invalid/checkin');
       env.telemetry.preview.should.equal(false);
       env.telemetry.manualSend.should.equal(true);
+      env.telemetry.scheduledSend.should.equal(true);
       env.telemetry.idRotation.should.equal('monthly');
       env.telemetry.storeDir.should.startWith(os.tmpdir());
       should.not.exist(env.telemetry.secret);
@@ -501,6 +503,87 @@ describe('telemetry', function () {
       result.sent.should.equal(false);
       result.error.should.equal('unsupported-protocol');
       done();
+    });
+  });
+
+  it('does not run scheduled send unless explicitly enabled', function (done) {
+    var telemetry = createTelemetry({
+      version: '15.0.8',
+      telemetry: {
+        mode: 'aggregate',
+        scheduledSend: false,
+        endpoint: 'http://127.0.0.1:1/v1/nightscout/checkin',
+        storeDir: tempStore()
+      },
+      settings: { enable: [] }
+    }, {});
+
+    telemetry.runDue(function ran (err, result) {
+      should.not.exist(err);
+      result.sent.should.equal(false);
+      result.reason.should.equal('scheduled-disabled');
+      done();
+    });
+  });
+
+  it('initializes scheduled send without sending before due time', function (done) {
+    var now = new Date('2026-07-16T12:00:00Z');
+    var telemetry = createTelemetry({
+      version: '15.0.8',
+      telemetry: {
+        mode: 'aggregate',
+        scheduledSend: true,
+        endpoint: 'http://127.0.0.1:1/v1/nightscout/checkin',
+        storeDir: tempStore()
+      },
+      settings: { enable: [] }
+    }, {});
+
+    telemetry.runDue({ now, random: () => 0 }, function ran (err, result) {
+      should.not.exist(err);
+      result.sent.should.equal(false);
+      result.reason.should.equal('not-due');
+      result.next_due_at.should.equal('2026-07-16T12:05:00.000Z');
+      done();
+    });
+  });
+
+  it('runs scheduled send when due and records success state', function (done) {
+    var now = new Date('2026-07-16T12:00:00Z');
+    var storeDir = tempStore();
+    var server = http.createServer(function receiver (req, res) {
+      req.resume();
+      res.statusCode = 204;
+      res.end();
+    });
+
+    server.listen(0, '127.0.0.1', function listening () {
+      var address = server.address();
+      var env = {
+        version: '15.0.8',
+        telemetry: {
+          mode: 'aggregate',
+          scheduledSend: true,
+          endpoint: 'http://127.0.0.1:' + address.port + '/v1/nightscout/checkin',
+          secret: 'scheduled secret',
+          storeDir
+        },
+        settings: { enable: [] }
+      };
+      var telemetry = createTelemetry(env, {});
+      telemetry.schedulePreview({ now: new Date('2026-07-16T11:00:00Z'), random: () => 0 });
+      telemetry.runDue({ now, random: () => 0 }, function ran (err, result) {
+        server.close(function closed () {
+          should.not.exist(err);
+          result.sent.should.equal(true);
+          result.statusCode.should.equal(204);
+          var reloaded = createTelemetry(env, {});
+          var state = reloaded.schedulePreview({ now: new Date('2026-07-16T12:01:00Z') });
+          state.next_due_at.should.equal('2026-07-23T12:00:00.000Z');
+          state.last_success_at.should.equal('2026-07-16T12:00:00.000Z');
+          done();
+        });
+      });
     });
   });
 
