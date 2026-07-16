@@ -16,6 +16,7 @@ const id = require('../lib/telemetry/id');
 const payload = require('../lib/telemetry/payload');
 const createTelemetry = require('../lib/telemetry');
 const routeCounters = require('../lib/telemetry/route-counters');
+const schedule = require('../lib/telemetry/schedule');
 
 describe('telemetry', function () {
   function withEnv (values, fn) {
@@ -137,6 +138,48 @@ describe('telemetry', function () {
     julyA.should.equal(julyB);
     julyA.should.not.equal(august);
     julyA.should.startWith('monthly_');
+  });
+
+  it('calculates jittered schedule windows without fixed herd times', function () {
+    var now = new Date('2026-07-16T12:00:00Z');
+    schedule.initialDueAt(now, () => 0).getTime().should.equal(now.getTime() + 5 * schedule.MS.minute);
+    schedule.initialDueAt(now, () => 1).getTime().should.equal(now.getTime() + 7 * schedule.MS.day);
+
+    schedule.nextSuccessDueAt(now, () => 0).getTime().should.equal(now.getTime() + 7 * schedule.MS.day);
+    schedule.nextSuccessDueAt(now, () => 1).getTime().should.equal(now.getTime() + 8 * schedule.MS.day);
+
+    schedule.nextFailureDueAt(now, () => 0).getTime().should.equal(now.getTime() + 6 * schedule.MS.hour);
+    schedule.nextFailureDueAt(now, () => 1).getTime().should.equal(now.getTime() + 24 * schedule.MS.hour);
+  });
+
+  it('checks due state only when telemetry is enabled', function () {
+    var now = new Date('2026-07-16T12:00:00Z');
+    schedule.isDue({}, now, false).should.equal(false);
+    schedule.isDue({}, now, true).should.equal(false);
+    schedule.isDue({ next_due_at: '2026-07-16T11:00:00.000Z' }, now, true).should.equal(true);
+    schedule.isDue({ next_due_at: '2026-07-16T13:00:00.000Z' }, now, true).should.equal(false);
+  });
+
+  it('initializes missing schedule state with first-run jitter', function () {
+    var now = new Date('2026-07-16T12:00:00Z');
+    var initialized = schedule.initializeState({}, now, () => 0);
+    initialized.next_due_at.should.equal('2026-07-16T12:05:00.000Z');
+    schedule.isDue(initialized, now, true).should.equal(false);
+  });
+
+  it('updates next due time after success and failure attempts', function () {
+    var now = new Date('2026-07-16T12:00:00Z');
+    var success = schedule.afterAttempt({}, now, { sent: true, statusCode: 204 }, () => 0);
+    success.last_attempt_at.should.equal('2026-07-16T12:00:00.000Z');
+    success.last_success_at.should.equal('2026-07-16T12:00:00.000Z');
+    success.last_status.should.equal(204);
+    success.next_due_at.should.equal('2026-07-23T12:00:00.000Z');
+
+    var failure = schedule.afterAttempt({}, now, { sent: false, statusCode: 500 }, () => 0);
+    failure.last_attempt_at.should.equal('2026-07-16T12:00:00.000Z');
+    should.not.exist(failure.last_success_at);
+    failure.last_status.should.equal(500);
+    failure.next_due_at.should.equal('2026-07-16T18:00:00.000Z');
   });
 
   it('filters enabled features and rejects unallowlisted counters', function () {
