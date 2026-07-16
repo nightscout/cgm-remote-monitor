@@ -207,7 +207,7 @@ describe('telemetry', function () {
     snapshot.health.websocket_connections.should.equal(1);
   });
 
-  it('persists counters and resets them on day boundaries', function () {
+  it('persists counters across day boundaries until successful send reset', function () {
     var day = new Date('2026-07-16T12:00:00Z');
     var storeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-telemetry-counters-'));
     var env = {
@@ -231,6 +231,14 @@ describe('telemetry', function () {
     reloaded.counters.snapshot().health.http_2xx.should.equal(1);
 
     day = new Date('2026-07-17T00:00:00Z');
+    reloaded.counters.increment('reports.opened');
+    reloaded.counters.snapshot().used.should.eql({
+      'api.v1.entries.read': 2,
+      'reports.opened': 1
+    });
+    reloaded.counters.snapshot().health.http_2xx.should.equal(1);
+
+    reloaded.counters.reset(day);
     reloaded.counters.snapshot().used.should.eql({});
     reloaded.counters.snapshot().health.http_2xx.should.equal(0);
   });
@@ -414,6 +422,48 @@ describe('telemetry', function () {
           should.not.exist(received.url);
           should.not.exist(received.token);
           should.not.exist(received.logs);
+          telemetry.counters.snapshot().used.should.eql({});
+          done();
+        });
+      });
+    });
+  });
+
+  it('persists send schedule state after attempts', function (done) {
+    var storeDir = tempStore();
+    var now = new Date('2026-07-16T12:00:00Z');
+    var server = http.createServer(function receiver (req, res) {
+      req.resume();
+      res.statusCode = 204;
+      res.end();
+    });
+
+    server.listen(0, '127.0.0.1', function listening () {
+      var address = server.address();
+      var env = {
+        version: '15.0.8',
+        telemetry: {
+          mode: 'aggregate',
+          endpoint: 'http://127.0.0.1:' + address.port + '/v1/nightscout/checkin',
+          secret: 'schedule secret',
+          storeDir
+        },
+        settings: { enable: [] }
+      };
+      var telemetry = createTelemetry(env, {});
+      var initialized = telemetry.schedulePreview({ now, random: () => 0 });
+      initialized.due.should.equal(false);
+      initialized.next_due_at.should.equal('2026-07-16T12:05:00.000Z');
+
+      telemetry.sendOnce({ now, random: () => 0 }, function sent (err, result) {
+        server.close(function closed () {
+          should.not.exist(err);
+          result.sent.should.equal(true);
+          var reloaded = createTelemetry(env, {});
+          var persisted = reloaded.schedulePreview({ now: new Date('2026-07-16T12:01:00Z'), random: () => 0 });
+          persisted.last_success_at.should.equal('2026-07-16T12:00:00.000Z');
+          persisted.last_status.should.equal(204);
+          persisted.next_due_at.should.equal('2026-07-23T12:00:00.000Z');
           done();
         });
       });
