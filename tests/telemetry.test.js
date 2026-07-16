@@ -7,6 +7,7 @@ const http = require('http');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const EventEmitter = require('events');
 const language = require('../lib/language')();
 
 const allowlists = require('../lib/telemetry/allowlists');
@@ -584,6 +585,63 @@ describe('telemetry', function () {
           done();
         });
       });
+    });
+  });
+
+  it('starts scheduled tick listener only when explicitly enabled', function () {
+    var bus = new EventEmitter();
+    var disabled = createTelemetry({
+      version: '15.0.8',
+      telemetry: { mode: 'aggregate', scheduledSend: false, storeDir: tempStore() },
+      settings: { enable: [] }
+    }, { bus });
+    disabled.start().should.equal(false);
+
+    var enabled = createTelemetry({
+      version: '15.0.8',
+      telemetry: { mode: 'aggregate', scheduledSend: true, storeDir: tempStore() },
+      settings: { enable: [] }
+    }, { bus });
+    enabled.start().should.equal(true);
+    enabled.start().should.equal(false);
+    enabled.stop().should.equal(true);
+  });
+
+  it('sends on tick only when scheduled state is due', function (done) {
+    var bus = new EventEmitter();
+    var storeDir = tempStore();
+    var server = http.createServer(function receiver (req, res) {
+      req.resume();
+      res.statusCode = 204;
+      res.end();
+    });
+
+    server.listen(0, '127.0.0.1', function listening () {
+      var address = server.address();
+      var env = {
+        version: '15.0.8',
+        telemetry: {
+          mode: 'aggregate',
+          scheduledSend: true,
+          endpoint: 'http://127.0.0.1:' + address.port + '/v1/nightscout/checkin',
+          secret: 'tick secret',
+          storeDir
+        },
+        settings: { enable: [] }
+      };
+      var telemetry = createTelemetry(env, { bus });
+      telemetry.schedulePreview({ now: new Date('2026-07-16T11:00:00Z'), random: () => 0 });
+      telemetry.start().should.equal(true);
+      bus.emit('tick', { now: new Date('2026-07-16T12:00:00Z') });
+      setTimeout(function waitForSend () {
+        server.close(function closed () {
+          var reloaded = createTelemetry(env, { bus: new EventEmitter() });
+          var state = reloaded.schedulePreview({ now: new Date('2026-07-16T12:01:00Z') });
+          state.last_success_at.should.equal('2026-07-16T12:00:00.000Z');
+          state.next_due_at.should.startWith('2026-07-23T');
+          done();
+        });
+      }, 50);
     });
   });
 
