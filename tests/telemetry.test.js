@@ -520,6 +520,10 @@ describe('telemetry', function () {
         app = require('express')();
         app.enable('api');
         require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
+          app.get('/report', function report (req, res) {
+            ctx.telemetry.counters.increment('reports.opened');
+            res.status(200).send('report');
+          });
           app.use('/api', require('../lib/api/')(env, ctx));
           done();
         });
@@ -531,6 +535,24 @@ describe('telemetry', function () {
         .get('/api/telemetry/preview.json')
         .expect(401)
         .end(done);
+    });
+
+    it('counts report page opens in preview payload', function (done) {
+      request(app)
+        .get('/report')
+        .expect(200)
+        .end(function (err) {
+          if (err) return done(err);
+          request(app)
+            .get('/api/telemetry/preview.json')
+            .set('api-secret', known)
+            .expect(200)
+            .end(function (err, res) {
+              if (err) return done(err);
+              res.body.message.payload.features.used['reports.opened'].should.equal(1);
+              done();
+            });
+        });
     });
 
     it('returns the exact pending aggregate payload for admins', function (done) {
