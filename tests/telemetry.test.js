@@ -60,6 +60,24 @@ describe('telemetry', function () {
       env.telemetry.endpoint.should.equal('https://example.invalid/checkin');
       env.telemetry.preview.should.equal(false);
       env.telemetry.idRotation.should.equal('monthly');
+      should.not.exist(env.telemetry.secret);
+    });
+  });
+
+  it('parses an explicit telemetry secret without exposing it in payload', function () {
+    withEnv({
+      NIGHTSCOUT_TELEMETRY: 'aggregate',
+      NIGHTSCOUT_TELEMETRY_SECRET: 'operator-provided-telemetry-secret',
+      API_SECRET: 'this is my long pass phrase',
+      MONGODB_URI: 'mongodb://localhost/nightscout'
+    }, function checkEnv () {
+      var env = require('../lib/server/env')();
+      env.telemetry.secret.should.equal('operator-provided-telemetry-secret');
+      var telemetry = createTelemetry(env, {});
+      var preview = telemetry.preview({ now: new Date('2026-07-16T12:00:00Z') });
+      preview.secretSource.should.equal('configured');
+      should.not.exist(preview.payload.secret);
+      should.not.exist(preview.payload.api_secret);
     });
   });
 
@@ -170,10 +188,10 @@ describe('telemetry', function () {
 
     telemetry.counters.increment('reports.opened');
     var preview = telemetry.preview({
-      now: new Date('2026-07-16T12:00:00Z'),
-      installationSecret: 'local random secret'
+      now: new Date('2026-07-16T12:00:00Z')
     });
     preview.enabled.should.equal(true);
+    preview.secretSource.should.equal('ephemeral');
     preview.payload.features.used.should.eql({ 'reports.opened': 1 });
   });
 
