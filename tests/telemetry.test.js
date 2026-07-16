@@ -62,6 +62,7 @@ describe('telemetry', function () {
       NIGHTSCOUT_TELEMETRY: 'aggregate',
       NIGHTSCOUT_TELEMETRY_ENDPOINT: 'https://example.invalid/checkin',
       NIGHTSCOUT_TELEMETRY_PREVIEW: 'off',
+      NIGHTSCOUT_TELEMETRY_MANUAL_SEND: 'on',
       NIGHTSCOUT_TELEMETRY_ID_ROTATION: 'monthly',
       NIGHTSCOUT_TELEMETRY_STORE: tempStore(),
       API_SECRET: 'this is my long pass phrase',
@@ -71,6 +72,7 @@ describe('telemetry', function () {
       env.telemetry.mode.should.equal('aggregate');
       env.telemetry.endpoint.should.equal('https://example.invalid/checkin');
       env.telemetry.preview.should.equal(false);
+      env.telemetry.manualSend.should.equal(true);
       env.telemetry.idRotation.should.equal('monthly');
       env.telemetry.storeDir.should.startWith(os.tmpdir());
       should.not.exist(env.telemetry.secret);
@@ -536,6 +538,88 @@ describe('telemetry', function () {
           should.not.exist(res.body.message.payload.url);
           should.not.exist(res.body.message.payload.token);
           done();
+        });
+    });
+
+    describe('manual send endpoint', function () {
+        var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
+
+        function bootWithReceiver (manualSend, done) {
+          var received = null;
+          var receiver = http.createServer(function receive (req, res) {
+            var chunks = [];
+            req.on('data', function chunk (data) {
+              chunks.push(data);
+            });
+            req.on('end', function end () {
+              received = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+              res.statusCode = 204;
+              res.end();
+            });
+          });
+
+          receiver.listen(0, '127.0.0.1', function listening () {
+            var address = receiver.address();
+            withEnv({
+              API_SECRET: 'this is my long pass phrase',
+              MONGODB_URI: 'mongodb://localhost/nightscout',
+              NIGHTSCOUT_TELEMETRY: 'aggregate',
+              NIGHTSCOUT_TELEMETRY_ENDPOINT: 'http://127.0.0.1:' + address.port + '/v1/nightscout/checkin',
+              NIGHTSCOUT_TELEMETRY_SECRET: 'manual endpoint secret',
+              NIGHTSCOUT_TELEMETRY_MANUAL_SEND: manualSend ? 'on' : 'off',
+              NIGHTSCOUT_TELEMETRY_STORE: tempStore()
+            }, function bootApp () {
+              var env = require('../lib/server/env')();
+              env.settings.authDefaultRoles = 'denied';
+              var localApp = require('express')();
+              localApp.enable('api');
+              require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
+                localApp.use(ctx.telemetry.routeCounters());
+                localApp.use('/api', require('../lib/api/')(env, ctx));
+                done(localApp, receiver, function getReceived () { return received; });
+              });
+            });
+          });
+        }
+
+        it('is disabled unless explicitly enabled', function (done) {
+          bootWithReceiver(false, function booted (localApp, receiver) {
+            request(localApp)
+              .post('/api/telemetry/send.json')
+              .set('api-secret', known)
+              .expect(400)
+              .end(function end (err) {
+                receiver.close(function closed () {
+                  done(err);
+                });
+              });
+          });
+        });
+
+        it('posts cgm payload to configured local endpoint when explicitly enabled', function (done) {
+          bootWithReceiver(true, function booted (localApp, receiver, getReceived) {
+            request(localApp)
+              .get('/api/v1/entries.json?count=1')
+              .set('api-secret', known)
+              .end(function () {
+                request(localApp)
+                  .post('/api/telemetry/send.json')
+                  .set('api-secret', known)
+                  .expect(200)
+                  .end(function end (err, res) {
+                    receiver.close(function closed () {
+                      if (err) return done(err);
+                      res.body.message.sent.should.equal(true);
+                      res.body.message.statusCode.should.equal(204);
+                      getReceived().product.should.equal('cgm-remote-monitor');
+                      getReceived().features.used['api.v1.entries.read'].should.equal(1);
+                      should.not.exist(getReceived().url);
+                      should.not.exist(getReceived().token);
+                      done();
+                    });
+                  });
+              });
+          });
         });
     });
   });
