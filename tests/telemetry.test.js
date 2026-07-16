@@ -4,6 +4,9 @@ const should = require('should');
 const request = require('supertest');
 const express = require('express');
 const http = require('http');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const language = require('../lib/language')();
 
 const allowlists = require('../lib/telemetry/allowlists');
@@ -41,6 +44,10 @@ describe('telemetry', function () {
     }
   }
 
+  function tempStore () {
+    return fs.mkdtempSync(path.join(os.tmpdir(), 'ns-telemetry-test-'));
+  }
+
   it('defaults to disabled config', function () {
     var normalized = config.normalize();
     normalized.mode.should.equal('off');
@@ -55,6 +62,7 @@ describe('telemetry', function () {
       NIGHTSCOUT_TELEMETRY_ENDPOINT: 'https://example.invalid/checkin',
       NIGHTSCOUT_TELEMETRY_PREVIEW: 'off',
       NIGHTSCOUT_TELEMETRY_ID_ROTATION: 'monthly',
+      NIGHTSCOUT_TELEMETRY_STORE: tempStore(),
       API_SECRET: 'this is my long pass phrase',
       MONGODB_URI: 'mongodb://localhost/nightscout'
     }, function checkEnv () {
@@ -63,6 +71,7 @@ describe('telemetry', function () {
       env.telemetry.endpoint.should.equal('https://example.invalid/checkin');
       env.telemetry.preview.should.equal(false);
       env.telemetry.idRotation.should.equal('monthly');
+      env.telemetry.storeDir.should.startWith(os.tmpdir());
       should.not.exist(env.telemetry.secret);
     });
   });
@@ -71,6 +80,7 @@ describe('telemetry', function () {
     withEnv({
       NIGHTSCOUT_TELEMETRY: 'aggregate',
       NIGHTSCOUT_TELEMETRY_SECRET: 'operator-provided-telemetry-secret',
+      NIGHTSCOUT_TELEMETRY_STORE: tempStore(),
       API_SECRET: 'this is my long pass phrase',
       MONGODB_URI: 'mongodb://localhost/nightscout'
     }, function checkEnv () {
@@ -82,6 +92,28 @@ describe('telemetry', function () {
       should.not.exist(preview.payload.secret);
       should.not.exist(preview.payload.api_secret);
     });
+  });
+
+  it('persists a generated telemetry secret separate from auth material', function () {
+    var storeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-telemetry-'));
+    var env = {
+      version: '15.0.8',
+      telemetry: {
+        mode: 'aggregate',
+        storeDir
+      },
+      settings: { enable: [] }
+    };
+
+    var first = createTelemetry(env, {});
+    var firstPreview = first.preview({ now: new Date('2026-07-16T12:00:00Z') });
+    var second = createTelemetry(env, {});
+    var secondPreview = second.preview({ now: new Date('2026-07-16T12:00:00Z') });
+
+    first.secretSource.should.equal('generated');
+    second.secretSource.should.equal('generated');
+    firstPreview.payload.installation_id.should.equal(secondPreview.payload.installation_id);
+    fs.existsSync(path.join(storeDir, 'telemetrySecret')).should.equal(true);
   });
 
   it('normalizes invalid config to disabled monthly telemetry', function () {
@@ -132,6 +164,34 @@ describe('telemetry', function () {
     snapshot.health.websocket_connections.should.equal(1);
   });
 
+  it('persists counters and resets them on day boundaries', function () {
+    var day = new Date('2026-07-16T12:00:00Z');
+    var storeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-telemetry-counters-'));
+    var env = {
+      version: '15.0.8',
+      telemetry: {
+        mode: 'aggregate',
+        storeDir
+      },
+      settings: { enable: [] }
+    };
+    var telemetry = createTelemetry(env, {}, {
+      dateProvider: function () { return day; }
+    });
+    telemetry.counters.increment('api.v1.entries.read', 2);
+    telemetry.counters.recordStatus(200);
+
+    var reloaded = createTelemetry(env, {}, {
+      dateProvider: function () { return day; }
+    });
+    reloaded.counters.snapshot().used.should.eql({ 'api.v1.entries.read': 2 });
+    reloaded.counters.snapshot().health.http_2xx.should.equal(1);
+
+    day = new Date('2026-07-17T00:00:00Z');
+    reloaded.counters.snapshot().used.should.eql({});
+    reloaded.counters.snapshot().health.http_2xx.should.equal(0);
+  });
+
   it('classifies only reviewed route families', function () {
     routeCounters.classify({ method: 'GET', originalUrl: '/api/v1/entries.json?count=10' }).should.equal('api.v1.entries.read');
     routeCounters.classify({ method: 'POST', originalUrl: '/api/v1/entries.json?secret=hidden' }).should.equal('api.v1.entries.write');
@@ -145,7 +205,7 @@ describe('telemetry', function () {
   it('counts route families and status classes without retaining request metadata', function (done) {
     var telemetry = createTelemetry({
       version: '15.0.8',
-      telemetry: { mode: 'aggregate' },
+      telemetry: { mode: 'aggregate', storeDir: tempStore() },
       settings: { enable: [] }
     }, {});
     var app = express();
@@ -235,7 +295,7 @@ describe('telemetry', function () {
   it('creates a no-network telemetry facade with preview payload', function () {
     var env = {
       version: '15.0.8',
-      telemetry: { mode: 'aggregate' },
+      telemetry: { mode: 'aggregate', storeDir: tempStore() },
       settings: { enable: ['careportal'] }
     };
     var telemetry = createTelemetry(env, {});
@@ -247,14 +307,14 @@ describe('telemetry', function () {
       now: new Date('2026-07-16T12:00:00Z')
     });
     preview.enabled.should.equal(true);
-    preview.secretSource.should.equal('ephemeral');
+    preview.secretSource.should.equal('generated');
     preview.payload.features.used.should.eql({ 'reports.opened': 1 });
   });
 
   it('does not send when telemetry is disabled', function (done) {
     var telemetry = createTelemetry({
       version: '15.0.8',
-      telemetry: { mode: 'off', endpoint: 'http://127.0.0.1:1/v1/nightscout/checkin' },
+      telemetry: { mode: 'off', endpoint: 'http://127.0.0.1:1/v1/nightscout/checkin', storeDir: tempStore() },
       settings: { enable: [] }
     }, {});
 
@@ -290,7 +350,8 @@ describe('telemetry', function () {
         telemetry: {
           mode: 'aggregate',
           endpoint: 'http://127.0.0.1:' + address.port + '/v1/nightscout/checkin',
-          secret: 'local sender secret'
+          secret: 'local sender secret',
+          storeDir: tempStore()
         },
         settings: { enable: ['careportal'] }
       }, {});
@@ -322,7 +383,8 @@ describe('telemetry', function () {
       telemetry: {
         mode: 'aggregate',
         endpoint: 'file:///tmp/nope',
-        secret: 'local sender secret'
+        secret: 'local sender secret',
+        storeDir: tempStore()
       },
       settings: { enable: [] }
     }, {});
@@ -343,7 +405,8 @@ describe('telemetry', function () {
       withEnv({
         API_SECRET: 'this is my long pass phrase',
         MONGODB_URI: 'mongodb://localhost/nightscout',
-        NIGHTSCOUT_TELEMETRY: 'aggregate'
+        NIGHTSCOUT_TELEMETRY: 'aggregate',
+        NIGHTSCOUT_TELEMETRY_STORE: tempStore()
       }, function bootApp () {
         var env = require('../lib/server/env')();
         env.settings.authDefaultRoles = 'denied';
