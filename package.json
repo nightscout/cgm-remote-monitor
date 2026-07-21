@@ -162,7 +162,7 @@
   },
   "devDependencies": {
     "@types/tough-cookie": "^4.0.0",
-    "axios": "^0.21.1",
+    "axios": "^0.33.0",
     "babel-eslint": "^10.1.0",
     "benv": "^3.3.0",
     "csv-parse": "^4.12.0",
