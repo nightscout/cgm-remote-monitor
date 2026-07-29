@@ -75,7 +75,7 @@ If `ctx.store` is unavailable, `alarmStorage` methods are no-ops that resolve to
 
 ## Compatibility
 
-Aggregation-pipeline updates (`updateOne` with a `[{$set: ...}]` array) require MongoDB 4.2 or later. Verified locally against MongoDB 4.4, 5.0, and 6.0 with Node 20.
+Aggregation-pipeline updates (`updateOne` with a `[{$set: ...}]` array) require MongoDB 4.2 or later.
 
 ## Related
 
