@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nightscout.github.io/schemas/controller-instance-registration.schema.json",
+  "title": "ControllerInstanceRegistration",
+  "description": "Registration of a specific controller instance (this phone/device running right now)",
+  "type": "object",
+  "required": ["instanceId", "kindId", "version", "device", "registeredAt"],
+  "properties": {
+    "instanceId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this controller instance"
+    },
+    "kindId": {
+      "type": "string",
+      "description": "Reference to ControllerKindDefinition"
+    },
+    "version": {
+      "type": "string",
+      "description": "Specific version/build of the controller app"
+    },
+    "device": {
+      "type": "object",
+      "required": ["deviceId", "platform"],
+      "description": "Device information",
+      "properties": {
+        "deviceId": {
+          "type": "string",
+          "description": "Unique device identifier"
+        },
+        "platform": {
+          "type": "string",
+          "enum": ["ios", "android", "linux", "macos", "windows"],
+          "description": "Operating system platform"
+        },
+        "model": {
+          "type": "string",
+          "description": "Device model (iPhone 14, Pixel 7, etc.)"
+        },
+        "osVersion": {
+          "type": "string",
+          "description": "OS version"
+        },
+        "appBuild": {
+          "type": "string",
+          "description": "App build number"
+        }
+      }
+    },
+    "pumpBinding": {
+      "type": "object",
+      "description": "Currently bound pump",
+      "properties": {
+        "pumpKind": {
+          "type": "string",
+          "description": "Type of pump (omnipod, omnipod-dash, medtronic-x23, etc.)"
+        },
+        "pumpSerial": {
+          "type": "string",
+          "description": "Pump serial number (may be partial/hashed)"
+        },
+        "pumpFirmware": {
+          "type": "string",
+          "description": "Pump firmware version"
+        },
+        "connectedSince": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When pump was connected"
+        }
+      }
+    },
+    "cgmBinding": {
+      "type": "object",
+      "description": "Currently bound CGM",
+      "properties": {
+        "cgmKind": {
+          "type": "string",
+          "description": "Type of CGM (dexcom-g6, dexcom-g7, libre-3, etc.)"
+        },
+        "cgmId": {
+          "type": "string",
+          "description": "CGM identifier (transmitter ID, sensor ID)"
+        },
+        "cgmFirmware": {
+          "type": "string"
+        },
+        "sensorStarted": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "sensorExpires": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "registeredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this instance was first registered"
+    },
+    "lastSeenAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this instance last communicated"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "inactive", "deregistered"],
+      "description": "Current status of this registration"
+    },
+    "deregisteredAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
