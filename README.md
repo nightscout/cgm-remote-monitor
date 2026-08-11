@@ -110,6 +110,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
       - [Extended Settings](#extended-settings)
       - [Pushover](#pushover)
       - [IFTTT Maker](#ifttt-maker)
+      - [Custom Notification WebHooks](#custom-notification-webhooks)
     - [Treatment Profile](#treatment-profile)
   - [Setting environment variables](#setting-environment-variables)
     - [Vagrant install](#vagrant-install)
@@ -772,6 +773,55 @@ For remote overrides, the following extended settings must be configured:
   * `ns-warning` - Alarms at the warning level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
   * `ns-urgent` - Alarms at the urgent level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
   * see the [full list of events](docs/plugins/maker-setup.md#events)
+
+#### Custom Notification WebHooks
+
+ Custom notification webhooks deliver Nightscout alarms and notifications straight to an endpoint you control, instead of relaying them through IFTTT. Because the request goes directly to your endpoint, it is not subject to IFTTT's throttling, which makes this a better fit for automations that need to react immediately (a local Home Assistant instance, a Raspberry Pi, a chat webhook, or your own service).
+
+ This is completely independent of the IFTTT Maker integration described above. Custom webhooks require no `MAKER_KEY` and work whether or not Maker is configured; if you configure both, each delivers on its own and neither affects the other.
+
+ Configure up to four destinations using numbered pairs of environment variables. Each destination needs both a URL and the event name it should receive:
+
+  * `CUSTOM_WEBHOOK_URL_1` - The full `http://` or `https://` URL to send the notification to. Any other scheme is rejected.
+  * `CUSTOM_WEBHOOK_EVENT_1` - The Nightscout event name this destination should receive, for example `ns-urgent`.
+  * `CUSTOM_WEBHOOK_URL_2` / `CUSTOM_WEBHOOK_EVENT_2`, and so on up to `_4`.
+
+ For example, to send urgent alarms to your own service and use a second destination as a catch all log:
+
+ ```
+ CUSTOM_WEBHOOK_URL_1="https://my-endpoint.example.com/nightscout?token=abc123"
+ CUSTOM_WEBHOOK_EVENT_1="ns-urgent"
+ CUSTOM_WEBHOOK_URL_2="http://192.168.1.50:3000/nightscout"
+ CUSTOM_WEBHOOK_EVENT_2="ns-event"
+ ```
+
+ **Event matching.** The event names are the same ones the Maker integration uses, so `ns-event`, `ns-allclear`, `ns-info`, `ns-warning`, `ns-urgent` and the more specific `ns-<level>-<name>` form such as `ns-urgent-simplealarms` all work. For each notification Nightscout works out which names apply and delivers to every destination configured for one of them. Unlike Maker, which deliberately sends several events per notification to work around IFTTT's name-only filtering, a custom destination receives **exactly one** request per notification even if more than one of its configured event names matches.
+
+ **Request format.** Each delivery is an HTTP `POST` with a JSON body:
+
+ ```json
+ {
+   "source": "nightscout",
+   "event": "ns-urgent",
+   "name": "simplealarms",
+   "level": "urgent",
+   "title": "Urgent LOW",
+   "message": "BG 51",
+   "isAnnouncement": false,
+   "mills": 1731000000000,
+   "iso": "2024-11-07T18:40:00.000Z"
+ }
+ ```
+
+ Notes:
+
+  * Numbering does not have to be contiguous; configuring only `_1` and `_3` is fine.
+  * A pair that is missing either half, or a URL that is not a valid `http`/`https` URL, is skipped with a warning at startup rather than preventing Nightscout from starting.
+  * Requests time out after 5 seconds and any `2xx` response counts as success. A failing endpoint is logged and never blocks or breaks alarm delivery.
+  * Because a webhook URL can contain a token, these URLs are treated as secure settings: they are not published in `/api/v1/status`, and logs record only the destination host, never the full URL or the notification contents.
+  * Anyone who can set these variables can make your Nightscout server issue requests to any address it can reach, including hosts on your private network. Only point them at endpoints you trust.
+
+ This feature is separate from the SGV `webhook` plugin, which posts every new glucose reading to a single endpoint rather than routing notification events.
 
 
 ### Treatment Profile
