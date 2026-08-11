@@ -795,7 +795,9 @@ For remote overrides, the following extended settings must be configured:
  CUSTOM_WEBHOOK_EVENT_2="ns-event"
  ```
 
- **Event matching.** The event names are the same ones the Maker integration uses, so `ns-event`, `ns-allclear`, `ns-info`, `ns-warning`, `ns-urgent` and the more specific `ns-<level>-<name>` form such as `ns-urgent-simplealarms` all work. For each notification Nightscout works out which names apply and delivers to every destination configured for one of them. Unlike Maker, which deliberately sends several events per notification to work around IFTTT's name-only filtering, a custom destination receives **exactly one** request per notification even if more than one of its configured event names matches.
+ **Event matching.** The event names are the same ones the Maker integration uses, so `ns-event`, `ns-allclear`, `ns-info`, `ns-warning`, `ns-urgent` and the more specific `ns-<level>-<name>` form such as `ns-urgent-low` all work. For each notification Nightscout works out which names apply and delivers to every destination configured for one of them. Unlike Maker, which deliberately sends several events per notification to work around IFTTT's name-only filtering, a custom destination receives **exactly one** request per notification even if more than one of its configured event names matches.
+
+ Note that low and high BG alarms use the level qualified form, so a low alarm is `ns-urgent-low` when the `BG_LOW` threshold is crossed and `ns-warning-low` when `BG_TARGET_BOTTOM` is crossed, with `ns-urgent-high` and `ns-warning-high` as the equivalents for high alarms. There is no bare `ns-low` event. If you want a destination to receive every low alarm regardless of severity, configure one entry for each of the two names, or use `ns-event` to receive everything. See the [full list of events](docs/plugins/maker-setup.md#events) for the complete vocabulary.
 
  **Request format.** Each delivery is an HTTP `POST` with a JSON body:
 
