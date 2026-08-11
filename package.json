@@ -170,7 +170,7 @@
     "eslint": "^7.19.0",
     "eslint-plugin-security": "^1.4.0",
     "eslint-webpack-plugin": "^2.7.0",
-    "mocha": "^8.4.0",
+    "mocha": "^11.8.0",
     "nodemon": "^2.0.19",
     "nyc": "^14.1.1",
     "should": "^13.2.3",
