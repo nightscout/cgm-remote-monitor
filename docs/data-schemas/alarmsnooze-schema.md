@@ -71,6 +71,8 @@ Where `winner = { $gt: [newExpiresAt, { $ifNull: ['$expiresAt', new Date(0)] }] 
 
 If `ctx.store` is unavailable, `alarmStorage` methods are no-ops that resolve to `null`. If a Mongo read fails or stalls, `notifications.js` fails open after `ALARM_REFRESH_TIMEOUT_MS`, preserving alarm delivery from in-memory state.
 
+This isn't a one-time startup cost. A warm instance re-checks storage every `ALARM_REFRESH_STALE_MS` (default 30s) while an alarm condition stays active, so a degraded Mongo can add up to `ALARM_REFRESH_TIMEOUT_MS` of delay to alarm delivery on a recurring basis, not just at process start.
+
 ---
 
 ## Compatibility

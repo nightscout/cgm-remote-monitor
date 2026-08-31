@@ -167,6 +167,59 @@ describe('notifications multi-instance', function () {
     });
   });
 
+  it('a refresh read resolving after a local auto-ack does not resurrect the pre-clear snooze', function (done) {
+    // Deferred storage: getSnooze() for a given key doesn't resolve until we
+    // call its resolver explicitly, so we can interleave a local auto-ack
+    // while the read from an earlier refresh generation is still in flight.
+    var resolvers = {};
+    var deferredStorage = {
+      getSnooze: function (level, group) {
+        var key = level + '-' + (group || 'default');
+        return new Promise(function (resolve) { resolvers[key] = resolve; });
+      },
+      setSnooze: async function () { return null; }
+    };
+    var inst = makeInstance(deferredStorage);
+
+    // Cold path: creates the alarm, kicks off a refresh (generation 1), read
+    // pending. First emit defers while that read is outstanding.
+    inst.initRequests();
+    inst.requestNotify({
+      level: 2, group: 'default',
+      title: 'High', message: 'High BG',
+      plugin: { name: 'test' }
+    });
+    inst.process();
+
+    var alarm = inst.getAlarmForTests(2, 'default');
+    alarm.lastEmitTime = Date.now(); // actively alerting, unacked
+
+    // Condition clears before the generation-1 read resolves. autoAckAlarms
+    // invalidates the in-flight refresh (generation -> 2+) and auto-acks to
+    // a ~0 silence window so the alarm can re-fire immediately if the
+    // condition returns.
+    inst.initRequests();
+    inst.process();
+
+    var expiryAfterAutoAck = alarm.lastAckTime + alarm.silenceTime;
+
+    // The generation-1 read now resolves, carrying another instance's still-
+    // valid 60-minute snooze from 5 minutes ago -- data that predates the
+    // local auto-ack but arrives after it.
+    resolvers['2-default']({
+      lastAckTime: Date.now() - 5 * 60 * 1000,
+      silenceTime: 60 * 60 * 1000
+    });
+
+    setImmediate(function () {
+      setImmediate(function () {
+        (alarm.lastAckTime + alarm.silenceTime).should.equal(expiryAfterAutoAck,
+          'stale refresh resurrected a pre-auto-ack snooze -- regression on the generation gate');
+        done();
+      });
+    });
+  });
+
   it('shorter snooze on instance B does not clobber longer snooze from instance A', function (done) {
     instanceA.ack(2, 'default', 60 * 60 * 1000); // 60 min on A
     setImmediate(function () {
