@@ -129,4 +129,26 @@ describe('utils', function ( ) {
     arrayResult[0].should.equal(list[0]);
   });
 
+  describe('escapeHtml', function () {
+    it('escapes markup-significant characters', function () {
+      utils.escapeHtml('<img src=x onerror="alert(1)">\'quoted\' & more')
+        .should.equal('&lt;img src=x onerror=&quot;alert(1)&quot;&gt;&#39;quoted&#39; &amp; more');
+    });
+
+    it('neutralizes a script tag payload', function () {
+      var escaped = utils.escapeHtml('<script>alert(document.domain)</script>');
+      escaped.should.not.containEql('<script>');
+      escaped.should.equal('&lt;script&gt;alert(document.domain)&lt;/script&gt;');
+    });
+
+    it('returns an empty string for null/undefined', function () {
+      utils.escapeHtml(null).should.equal('');
+      utils.escapeHtml(undefined).should.equal('');
+    });
+
+    it('coerces non-string primitives', function () {
+      utils.escapeHtml(5).should.equal('5');
+    });
+  });
+
 });
