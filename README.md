@@ -323,6 +323,7 @@ autonomy for your data:
   * `SECURE_HSTS_HEADER_PRELOAD` (`false`) - ask for preload in browsers for HSTS. Possible values `false`, or `true`.
   * `SECURE_CSP` (`false`) - Add Content Security Policy headers. Possible values `false`, or `true`.
   * `SECURE_CSP_REPORT_ONLY` (`false`) - If set to `true` allows to experiment with policies by monitoring (but not enforcing) their effects. Possible values `false`, or `true`.
+  * `ALLOW_UNRESTRICTED_FRAME_EMBEDDING` (`true`) - Allow other origins to embed this Nightscout site in an iframe. The default `true` preserves compatibility with existing dashboards and split-view installations, but allows clickjacking attacks against users who are already authorized in the embedded browser. Set this to `false` to send `X-Frame-Options: SAMEORIGIN` and an enforced CSP `frame-ancestors 'self'` policy. The default is temporarily `true` for compatibility and is expected to become `false` in a future release. Existing cross-origin embedding installations can set it explicitly to `true` to preserve their intended behavior when that default changes.
 
 ### Views
 
@@ -354,6 +355,8 @@ autonomy for your data:
   Some users will need easy access to multiple Nightscout views at the same time. We have a special view for this case, accessed on /split path on your Nightscout URL. The view supports any number of sites between 1 to 8 way split, where the content for the screen can be loaded from multiple Nightscout instances. Note you still need to host separate instances for each Nightscout being monitored including the one that hosts the split view page - these variables only add the ability to load multiple views into one browser page. To set the URLs from which the content is loaded, set:
   * `FRAME_URL_1` - URL where content is loaded, for the first view (increment the number up to 8 to get more views)
   * `FRAME_NAME_1` - Name for the first split view portion of the screen (increment the number to name more views)
+
+  When `SECURE_CSP=true`, the valid HTTP(S) origins configured in `FRAME_URL_1` through `FRAME_URL_8` are allowed by the CSP `frame-src` directive so the split page can load them. `FRAME_URL_n` controls what the split page may embed; it does not grant another site permission to embed this Nightscout instance. That inbound permission is controlled independently on each instance by `ALLOW_UNRESTRICTED_FRAME_EMBEDDING`. Setting it to `false` on the split-view host does not prevent that host from loading its configured frames, but a cross-origin Nightscout instance displayed inside the split view must allow cross-origin embedding.
 
 ### Plugins
 
