@@ -117,6 +117,23 @@ describe('API3 write path purification (Stored XSS regression)', function() {
     stored.enteredBy.should.containEql('attacker');
   });
 
+  it('purifies the route-derived identifier before PUT upsert persistence', async () => {
+    const doc = treatmentDoc('route identifier')
+      , routeIdentifier = '<discarded>put-route-id</discarded>'
+      , expectedIdentifier = 'put-route-id'
+      ;
+
+    const res = await self.instance
+      .put(`/api/v3/treatments/${encodeURIComponent(routeIdentifier)}`, self.jwt.all)
+      .send(doc)
+      .expect(201);
+
+    res.body.identifier.should.equal(expectedIdentifier);
+
+    const stored = await get('treatments', expectedIdentifier);
+    stored.identifier.should.equal(expectedIdentifier);
+  });
+
   it('sanitizes malicious HTML when patching a treatment', async () => {
     const doc = treatmentDoc('patch');
 
