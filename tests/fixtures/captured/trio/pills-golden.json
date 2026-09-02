@@ -137,7 +137,7 @@
           },
           {
             "label": "1m ago",
-            "value": "BG: 156, <b>Temp Basal Canceled</b>, Autosens ratio: 1.17, ISF: 100→86, COB: 61, Dev: 71, BGI: -8, CR: 11, Target: 150, minPredBG 169, minGuardBG 65, IOBpredBG 39, COBpredBG 403, UAMpredBG 39, TDD: 46.8 U; minGuardBG 65&lt;95 84m left and 0 ~ req 0U/hr: no temp required, IOB: 2.77U, Basal IOB -2.22U, Bolus IOB 4.99U"
+            "value": "BG: 156, Temp Basal Canceled, Autosens ratio: 1.17, ISF: 100→86, COB: 61, Dev: 71, BGI: -8, CR: 11, Target: 150, minPredBG 169, minGuardBG 65, IOBpredBG 39, COBpredBG 403, UAMpredBG 39, TDD: 46.8 U; minGuardBG 65&lt;95 84m left and 0 ~ req 0U/hr: no temp required, IOB: 2.77U, Basal IOB -2.22U, Bolus IOB 4.99U"
           }
         ],
         "label": "OpenAPS ⌁",
