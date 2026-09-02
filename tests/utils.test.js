@@ -5,6 +5,7 @@ require('should');
 const helper = require('./inithelper')();
 const cloneDeep = require('../lib/utils/clone');
 const cloneShallow = require('../lib/utils/cloneShallow');
+const html = require('../lib/utils/html');
 
 describe('utils', function ( ) {
 
@@ -129,25 +130,32 @@ describe('utils', function ( ) {
     arrayResult[0].should.equal(list[0]);
   });
 
-  describe('escapeHtml', function () {
-    it('escapes markup-significant characters', function () {
-      utils.escapeHtml('<img src=x onerror="alert(1)">\'quoted\' & more')
-        .should.equal('&lt;img src=x onerror=&quot;alert(1)&quot;&gt;&#39;quoted&#39; &amp; more');
+  describe('HTML text helpers', function () {
+    it('exports the helpers through utils', function () {
+      utils.escapeHtml('"\'&<>').should.equal('&quot;&#39;&amp;&lt;&gt;');
+      utils.toTextContent.should.equal(html.toTextContent);
+      utils.textAsHtml.should.equal(html.textAsHtml);
     });
 
-    it('neutralizes a script tag payload', function () {
-      var escaped = utils.escapeHtml('<script>alert(document.domain)</script>');
-      escaped.should.not.containEql('<script>');
-      escaped.should.equal('&lt;script&gt;alert(document.domain)&lt;/script&gt;');
+    it('converts nullish and numeric values to text', function () {
+      html.toTextContent(null).should.equal('');
+      html.toTextContent(undefined).should.equal('');
+      html.toTextContent(5).should.equal('5');
+      html.textAsHtml(null).should.equal('');
+      html.textAsHtml(undefined).should.equal('');
+      html.textAsHtml(5).should.equal('5');
     });
 
-    it('returns an empty string for null/undefined', function () {
-      utils.escapeHtml(null).should.equal('');
-      utils.escapeHtml(undefined).should.equal('');
+    it('decodes sanitizer-serialized text for text-only DOM APIs', function () {
+      html.toTextContent('Fish &amp; Chips &lt; 70').should.equal('Fish & Chips < 70');
+      html.toTextContent('<img src=x onerror="alert(1)">').should.equal('<img src=x onerror="alert(1)">');
     });
 
-    it('coerces non-string primitives', function () {
-      utils.escapeHtml(5).should.equal('5');
+    it('decodes one layer before escaping for an HTML text-node context', function () {
+      html.textAsHtml('Already &#60;tag&#62; & raw').should.equal('Already &lt;tag&gt; &amp; raw');
+      html.textAsHtml('&amp;lt;script&amp;gt;').should.equal('&amp;lt;script&amp;gt;');
+      html.textAsHtml('<script>alert(document.domain)</script>')
+        .should.equal('&lt;script&gt;alert(document.domain)&lt;/script&gt;');
     });
   });
 
