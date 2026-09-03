@@ -24,7 +24,7 @@ const fakeServerOpts = {
 const API_SECRET_PLAINTEXT = 'this is my long pass phrase'
 const API_SECRET_HASH = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
 
-describe('iOS Loop push notifications', function() {
+describe('API tests for iOS Loop push notifications', function() {
   this.timeout(10000);
 
   let fakeAPNServer;
@@ -221,7 +221,7 @@ describe('iOS Loop push notifications', function() {
 
 });
 
-describe('server loop notifications', function () {
+describe('Mocked tests for iOS Loop push notifications', function () {
   var OriginalProvider = apn.Provider;
   var OriginalNotification = apn.Notification;
 
