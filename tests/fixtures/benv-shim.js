@@ -18,10 +18,8 @@
  *   The legacy `benv` package was removed after the Phase 1 parity work.
  *
  * Notes:
- *   - Webpack browser bundles are evaluated in the active jsdom window. This
- *     lets each fresh DOM receive its own `window.Nightscout` and jQuery
- *     bindings without depending on Node's CommonJS cache.
- *   - Ordinary CommonJS fixture modules are loaded with cache-busted require.
+ *   - Browser modules are reloaded through Node's CommonJS loader after
+ *     wiring the active jsdom window onto the Node global object.
  *   - All existing call sites pass absolute paths via `__dirname + '...'`,
  *     so we drop benv's deprecated `module.parent.filename` resolution magic.
  */
@@ -66,17 +64,15 @@ function setGlobal (name, value) {
 }
 
 function setup (callback, options) {
-  // Every setup owns a fresh window. Some legacy callers use teardown(false),
-  // and reusing that window would retain the previously evaluated bundle and
-  // jQuery state when a later browser suite starts.
+  // Each setup owns a fresh window so callers cannot inherit DOM or global
+  // state left behind by another browser-oriented suite.
   if (activeEnv) {
     activeEnv.cleanup();
     activeEnv = null;
   }
 
   const html = (options && options.html) || '<!DOCTYPE html><html><body></body></html>';
-  const domOptions = Object.assign({ runScripts: 'outside-only' }, options || {});
-  activeEnv = createSecureDOM(html, domOptions);
+  activeEnv = createSecureDOM(html, options);
 
   setGlobal('window', activeEnv.window);
   DOM_GLOBALS.forEach(function (name) {
@@ -126,15 +122,10 @@ function shimRequire (filename /*, globalVarName */) {
   if (!fs.existsSync(filename)) {
     throw new Error('benv-shim.require: file not found: ' + filename);
   }
-  let result;
-  if (/^bundle\.(?:app|clock)\.js$/.test(path.basename(filename))) {
-    result = activeEnv.window.eval(fs.readFileSync(filename, 'utf8'));
-  } else {
-    // Bust Node's CommonJS cache so fixture modules are evaluated for the
-    // current test state.
-    delete require.cache[filename];
-    result = require(filename);
-  }
+  // Bust Node's CommonJS cache so each setup() can re-evaluate browser
+  // modules against the (potentially fresh) jsdom window.
+  delete require.cache[filename];
+  const result = require(filename);
 
   // Webpack UMD bundles attach `$`, `jQuery`, etc. to `window` at module
   // load. The previous benv (and its `rewire` execution wrapper) used to
