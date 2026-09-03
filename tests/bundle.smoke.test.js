@@ -2,14 +2,10 @@
 
 // Phase 5c — bundle smoke test.
 //
-// The skipped tests/reports.test.js asserted that a freshly-built
-// bundle would boot Nightscout's report client end-to-end through
-// jsdom and render plugin HTML. Per-plugin stats math is already
-// exercised by dedicated suites (basalprofileplugin.test.js,
-// daytodayplugin.test.js, foodstatsplugin.test.js, etc.), so the
-// remaining gap is purely structural: "did webpack produce a bundle
-// that exposes Nightscout.client / .reportclient / .profileclient
-// without throwing on first execute?".
+// This complements tests/reports.test.js: that suite exercises report
+// rendering with fixture data, while this one gives a fast, structural
+// signal that webpack produced a bundle exposing Nightscout.client,
+// .reportclient, and .profileclient without throwing on first execute.
 //
 // This suite skips cleanly when the build artifact is missing so it
 // does not break a fresh checkout that has not yet run `npm install`
