@@ -1,23 +1,21 @@
 # Manual smoke checklist (Nightscout UI)
 
-This checklist replaces the end-to-end coverage that the bundle-driven
-`tests/reports.test.js` and `tests/profileeditor.test.js` used to provide
-through jsdom + jQuery + the minified webpack bundle. Both legacy tests
-were retired in Track 2 of the testing-modernization effort because:
+This checklist supplements automated browser coverage with checks that need
+a real human and browser. Automated coverage now includes:
 
-1. They booted the entire 2.1 MB `bundle.app.js` to assert on jQuery
-   selectors. Real failures (e.g. a stats-math regression) were already
-   covered by per-plugin Node tests; what the bundle tests uniquely
-   exercised was the wiring between modules.
-2. Wiring is now covered structurally by `tests/bundle.smoke.test.js`,
-   which boots the bundle in jsdom and asserts the public globals
-   exist (`Nightscout.client`, `.reportclient`, `.profileclient`,
-   `.units`).
-3. Pure logic (record/profile/range CRUD, treatment normalization,
-   confirm-text generation) is now covered by Node-only suites under
-   `tests/client-core/`.
+1. `tests/reports.test.js` boots the bundle in modern jsdom, renders standard
+   and week-to-week reports from fixture data, and checks representative
+   plugin output.
+2. `tests/bundle.smoke.test.js` provides a faster structural check that the
+   bundle exposes `Nightscout.client`, `.reportclient`, `.profileclient`, and
+   `.units`.
+3. Node-only suites under `tests/client-core/` cover extracted pure logic such
+   as record/profile/range CRUD, treatment normalization, and confirm-text
+   generation. The legacy `tests/profileeditor.test.js` browser suite remains
+   retired while that functionality is covered by these focused tests and
+   this checklist.
 
-What is not covered automatically: a real human eyeballing the chart,
+What is not covered automatically is a real human eyeballing the chart,
 clicking around the profile editor, and submitting a report. Run this
 checklist before tagging a release or merging a UI-touching PR.
 

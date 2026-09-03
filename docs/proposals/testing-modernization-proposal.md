@@ -54,7 +54,7 @@ The following context informed the revised strategy:
 | `profileeditor.test.js` | Skip/Defer | Complex UI mocking, low ROI |
 | `pluginbase.test.js` | Skip/Defer | Review after logic extraction |
 | `admintools.test.js` | Skip/Defer | UI code may be rewritten |
-| `reports.test.js` | Skip/Defer | Stats moving to server API |
+| `reports.test.js` | **Retain** | Bundle renderer is covered in modern jsdom; stats may later move to a server API |
 | `adminnotifies.test.js` | Skip/Defer | Low priority |
 
 ### Architectural Problem: Bundle Conflation
@@ -407,10 +407,10 @@ Note: `benv` removed; direct jsdom usage with secure harness.
     `tests/profileeditor.records.test.js` plus 44 Node-only tests
     under `tests/client-core/profile-editor-*.test.js`
     (Phase 5b, commit `55968ff3`).
-  - `reports.test.js` — `describe.skip` retained with a pointer to
-    `tests/bundle.smoke.test.js` (wiring), per-plugin stats suites
-    (math), and `docs/test-specs/manual-smoke-checklist.md` §3
-    (rendering). See `docs/test-specs/coverage-gaps.md`.
+  - `reports.test.js` — restored under the modern jsdom harness in
+    September 2026. It complements `tests/bundle.smoke.test.js`
+    (wiring) and `docs/test-specs/manual-smoke-checklist.md` (visual
+    browser verification). See `docs/test-specs/coverage-gaps.md`.
 
 ### Track 2 (Logic/DOM Separation)
 - [x] `lib/client-core/` established with extracted modules
@@ -583,28 +583,32 @@ Vue) inherits the inert-by-default property automatically.
 profile-editor failure under `USE_BENV_SHIM=1`: jsdom 24 returns `null`
 where jsdom 11 returned `""` for some absent attribute, surfacing as a
 `Cannot read properties of null` deep inside the minified bundle's jQuery
-click handler chain. The strategic decision to **retire bundle-coupled
-tests rather than bisect** was vindicated. This is now lived experience
-that backs the broader principle: **testing through a minified bundle
-in a polyfilled DOM is brittle to silent host-environment drift**, and
-that brittleness compounds with every dependency upgrade.
+click handler chain. The decision to retire the profile-editor bundle test
+rather than bisect it was vindicated. The reports suite was later restored by
+giving each test a fresh jsdom window and evaluating the bundle in that
+window. Together these are lived examples of the broader principle:
+**testing through a minified bundle in a polyfilled DOM is brittle to silent
+host-environment drift**, and that brittleness compounds with every
+dependency upgrade.
 
 **Implication for the Playwright proposal:** real-browser E2E avoids the
 polyfill-drift class entirely. The trade-off (slower, harder to debug)
 is the right one for the small set of workflows where bundle-level
 wiring matters and per-module pure tests cannot reach.
 
-### L6. Three-legged-stool replaces bundle-driven integration tests
+### L6. Layered coverage limits bundle-driven integration tests
 
-Phase 5c established a successful coverage shape for retired bundle tests
-(`reports.test.js`, `profileeditor.test.js`):
+Phase 5c established a layered coverage shape for bundle-heavy UI behavior.
+The profile-editor bundle test remains retired, while `reports.test.js` was
+restored in September 2026 after its harness was made deterministic:
 
 1. **Pure logic** → Node-only `tests/client-core/*` suites (~70 ms).
 2. **Bundle wiring** → `tests/bundle.smoke.test.js` (asserts
    `window.Nightscout.{client,reportclient,profileclient,units}`).
-3. **End-to-end rendering** → `docs/test-specs/manual-smoke-checklist.md`.
+3. **Automated report rendering** → `tests/reports.test.js` under jsdom.
+4. **Visual browser behavior** → `docs/test-specs/manual-smoke-checklist.md`.
 
-The unautomated layer (3) is where a future Playwright suite belongs —
+The unautomated layer (4) is where a future Playwright suite belongs —
 and only there. This bounding is the right way to size any browser-E2E
 investment: a small enumerated workflow set, not a sprawling
 "replace all UI tests" effort.
@@ -627,13 +631,12 @@ This is a follow-up worth a sweep: any test file with N tests and a
 
 ### L9. Statistics API has become a precondition for Track 3
 
-`reports.test.js` was retired with the explicit assumption "stats moving
-to server API". This means the statistics-API design (currently a
-proposal in `rag-nightscout-ecosystem-alignment/docs/sdqctl-proposals/
-statistics-api-proposal.md`) is no longer optional — it is **blocking**
-any new UI shell from re-implementing stats client-side, which would
-re-import the legacy code path we just retired. Track 3 framework
-discovery should not start until the stats-API contract exists.
+Although `reports.test.js` is active again, report statistics are still
+calculated in the legacy client bundle. The statistics-API design (currently
+a proposal in `rag-nightscout-ecosystem-alignment/docs/sdqctl-proposals/
+statistics-api-proposal.md`) remains a precondition for a new UI shell so it
+does not re-implement that client-side path. Track 3 framework discovery
+should not start until the stats-API contract exists.
 
 ---
 
@@ -646,3 +649,4 @@ discovery should not start until the stats-API contract exists.
 | May 2026 | 1.2 | Added Lessons Learned section (L1–L9) capturing empirical findings from Phases 0–5e: captured-fixture library leverage, domain corpus principle, jsdom-free production tree, render-path inertia, jsdom semantic drift, three-legged-stool pattern, bundler hygiene, boot-amortization, statistics-API as Track 3 precondition. |
 | May 2026 | 1.3 | Phase 5f: extracted OpenAPS pill math to `lib/client-core/devicestatus/openaps.js`; closes the last devicestatus pure-logic gap. Pill-output goldens (aaps/loop/trio/phone-uploader) byte-identical pre/post — extraction verified end-to-end. |
 | May 2026 | 1.4 | Phase 5g: Trio (oref1) captured-fixture coverage hardened. Sanitizer extended to time-shift inner `openaps.{enacted,suggested,iob,mmtune}` timestamps so the `recent` window stays meaningful against the time-anchored fixture; added `DS_KEY_BY_LABEL` diverse-slice for devicestatus. Trio fixtures regenerated from a Trio-only Nightscout source (every record carries `enacted.received=true`), exercising the previously-untested oref1 enacted-selection branches. Plugin-wiring tests added for `loop` and `pump` plugins (mirrors the existing `openaps` wiring test) — all four extracted modules now have explicit delegation contracts. |
+| Sep 2026 | 1.5 | Restored `reports.test.js` under the modern jsdom harness and updated the layered coverage guidance. |

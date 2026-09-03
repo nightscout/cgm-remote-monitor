@@ -2,7 +2,6 @@
 
 require('should');
 var benv = require('./fixtures/benv-loader');
-var read = require('fs').readFileSync;
 var serverSettings = require('./fixtures/default-server-settings');
 
 var nowData = {
@@ -23,7 +22,6 @@ var someData = {
   '/api/v1/treatments.json?find[created_at][$gte]=2015-08-11T00:00:00.000Z&find[created_at][$lt]=2015-08-12T00:00:00.000Z&count=1000': [{'created_at':'2015-08-11T23:37:00.000Z','eventType':'Snack Bolus','carbs':18,'_id':'55ca8644ca3c57683d19c211'},{'enteredBy':'Mom ','eventType':'Snack Bolus','glucose':203,'glucoseType':'Sensor','insulin':1,'preBolus':15,'units':'mg/dl','created_at':'2015-08-11T23:22:00.000Z','_id':'55ca8644ca3c57683d19c210'}],
   '/api/v1/entries.json?find[date][$gte]=1439337600000&find[date][$lt]=1439424000000&count=10000': [{'_id':'55cbddee38a8d88ad1b48647','unfiltered':165760,'filtered':167488,'direction':'Flat','device':'dexcom','rssi':165,'sgv':157,'dateString':'Wed Aug 12 16:58:28 PDT 2015','type':'sgv','date':1439423908000,'noise':1},{'_id':'55cbdccc38a8d88ad1b48644','unfiltered':167456,'filtered':169312,'direction':'Flat','device':'dexcom','rssi':168,'sgv':159,'dateString':'Wed Aug 12 16:53:28 PDT 2015','type':'sgv','date':1439423608000,'noise':1}],
   '/api/v1/treatments.json?find[created_at][$gte]=2015-08-12T00:00:00.000Z&find[created_at][$lt]=2015-08-14T23:59:59.999Z&count=1000': [{'enteredBy':'Dad','eventType':'Correction Bolus','insulin':0.8,'created_at':'2015-08-12T23:21:08.907Z','_id':'55cbd4e47e726599048a3f91'},{'enteredBy':'Dad','eventType':'Note','notes':'Milk now','created_at':'2015-08-12T21:23:00.000Z','_id':'55cbba4e7e726599048a3f79'}],
-  '/api/v1/treatments.json?find[created_at][$gte]=2015-08-12T00:00:00.000Z&find[created_at][$lt]=2015-08-13T00:00:00.000Z&count=1000': [{'enteredBy':'Dad','eventType':'Correction Bolus','insulin':0.8,'created_at':'2015-08-12T23:21:08.907Z','_id':'55cbd4e47e726599048a3f91'},{'enteredBy':'Dad','eventType':'Note','notes':'Milk now','created_at':'2015-08-12T21:23:00.000Z','_id':'55cbba4e7e726599048a3f79'}],
   '/api/v1/treatments.json?find[created_at][$gte]=2015-08-12T00:00:00.000Z&find[created_at][$lt]=2015-08-13T00:00:00.000Z&count=1000': [{'enteredBy':'Dad','eventType':'Correction Bolus','insulin':0.8,'created_at':'2015-08-12T23:21:08.907Z','_id':'55cbd4e47e726599048a3f91'},{'enteredBy':'Dad','eventType':'Note','notes':'Milk now','created_at':'2015-08-12T21:23:00.000Z','_id':'55cbba4e7e726599048a3f79'}],
   '/api/v1/entries.json?find[date][$gte]=1439424000000&find[date][$lt]=1439510400000&count=10000': [{'_id':'55cd2f6738a8d88ad1b48ca1','unfiltered':209792,'filtered':229344,'direction':'SingleDown','device':'dexcom','rssi':436,'sgv':205,'dateString':'Thu Aug 13 16:58:24 PDT 2015','type':'sgv','date':1439510304000,'noise':1},{'_id':'55cd2e3b38a8d88ad1b48c95','unfiltered':220928,'filtered':237472,'direction':'FortyFiveDown','device':'dexcom','rssi':418,'sgv':219,'dateString':'Thu Aug 13 16:53:24 PDT 2015','type':'sgv','date':1439510004000,'noise':1}],
   '/api/v1/treatments.json?find[created_at][$gte]=2015-08-13T00:00:00.000Z&find[created_at][$lt]=2015-08-14T00:00:00.000Z&count=1000': [{'enteredBy':'Mom ','eventType':'Correction Bolus','glucose':250,'glucoseType':'Sensor','insulin':0.75,'units':'mg/dl','created_at':'2015-08-13T23:45:56.927Z','_id':'55cd2c3497fa97ac5d8bc53b'},{'enteredBy':'Mom ','eventType':'Correction Bolus','glucose':198,'glucoseType':'Sensor','insulin':1.1,'units':'mg/dl','created_at':'2015-08-13T23:11:00.293Z','_id':'55cd240497fa97ac5d8bc535'}],
@@ -322,9 +320,23 @@ var exampleProfile = [
 exampleProfile[0].startDate.setSeconds(0);
 exampleProfile[0].startDate.setMilliseconds(0);
 
+function runImmediateReportTimers (win) {
+  var nativeSetTimeout = win.setTimeout.bind(win);
+  win.setTimeout = function reportSetTimeout (callback, delay) {
+    // reportclient deliberately defers rendering with an explicit zero delay.
+    // Keep other timers asynchronous so jQuery's scheduler cannot recurse.
+    if (delay === 0 && typeof callback === 'function') {
+      callback();
+      return 0;
+    }
+    return nativeSetTimeout.apply(win, arguments);
+  };
+}
 
-describe.skip('reports', function ( ) {
-  var self = this;
+
+// Keep the end-to-end report renderer covered under the modern jsdom harness.
+// This suite previously had a temporary describe.skip while benv was removed.
+describe('reports', function ( ) {
   var headless = require('./fixtures/headless')(benv, this);
   this.timeout(80000);
 
@@ -350,7 +362,7 @@ describe.skip('reports', function ( ) {
   });
 
   afterEach(function (done) {
-    headless.teardown( );
+    benv.teardown(true);
     done( );
   });
 
@@ -373,11 +385,7 @@ describe.skip('reports', function ( ) {
        return true;
      };
 
-
-     window.setTimeout = function mockSetTimeout (call, timer) {
-       if (timer == 60000) return;
-       call();
-     };
+     runImmediateReportTimers(window);
 
      window.Nightscout.reportclient();
 
@@ -414,14 +422,7 @@ describe.skip('reports', function ( ) {
       $('img.editTreatment:first').click();
       $('.ui-button:contains("Save")').click();
 
-
       var result = $('body').html();
-      /*
-      var filesys = require('fs');
-      var logfile = filesys.createWriteStream('out.txt', { flags: 'a'} )
-      logfile.write(result);
-      console.log('RESULT', result);
-      */
       result.indexOf('Milk now').should.be.greaterThan(-1); // daytoday
       result.indexOf('50 g').should.be.greaterThan(-1); // daytoday
       result.indexOf('TDD average:</b> 2.9U').should.be.greaterThan(-1); // daytoday
@@ -454,10 +455,7 @@ describe.skip('reports', function ( ) {
        return true;
      };
 
-     window.setTimeout = function mockSetTimeout (call, timer) {
-      if (timer == 60000) return;
-      call();
-     };
+     runImmediateReportTimers(window);
 
      window.Nightscout.reportclient();
 

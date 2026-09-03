@@ -14,20 +14,16 @@
  * modern jsdom (>= 24) AND no-network resource isolation for free.
  *
  * Activation:
- *   `tests/fixtures/headless.js` chooses between this shim and the real
- *   `benv` package via the `USE_BENV_SHIM` env var. Both modes are run
- *   in CI during Phase 1 to prove parity, then default flips in Phase 2.
+ *   `tests/fixtures/benv-loader.js` unconditionally exports this shim.
+ *   The legacy `benv` package was removed after the Phase 1 parity work.
  *
  * Notes:
- *   - rewire is used by real benv to load non-CommonJS browser bundles.
- *     The bundles (webpack UMD output) attach to a `window` global, which
- *     they pick up from the Node global namespace once we set it.
- *     We replicate that exactly: set global.window/document/etc, then
- *     `rewire(absPath)` so the bundle executes top-level and binds to
- *     our jsdom window.
+ *   - Webpack browser bundles are evaluated in the active jsdom window. This
+ *     lets each fresh DOM receive its own `window.Nightscout` and jQuery
+ *     bindings without depending on Node's CommonJS cache.
+ *   - Ordinary CommonJS fixture modules are loaded with cache-busted require.
  *   - All existing call sites pass absolute paths via `__dirname + '...'`,
- *     so we drop benv's `module.parent.filename` resolution magic
- *     (deprecated in modern Node) and require absolute paths.
+ *     so we drop benv's deprecated `module.parent.filename` resolution magic.
  */
 
 const fs = require('fs');
@@ -70,14 +66,17 @@ function setGlobal (name, value) {
 }
 
 function setup (callback, options) {
-  // Idempotent: real benv short-circuits if `window` is already set.
-  if (typeof global.window !== 'undefined') {
-    if (callback) callback();
-    return;
+  // Every setup owns a fresh window. Some legacy callers use teardown(false),
+  // and reusing that window would retain the previously evaluated bundle and
+  // jQuery state when a later browser suite starts.
+  if (activeEnv) {
+    activeEnv.cleanup();
+    activeEnv = null;
   }
 
   const html = (options && options.html) || '<!DOCTYPE html><html><body></body></html>';
-  activeEnv = createSecureDOM(html, options);
+  const domOptions = Object.assign({ runScripts: 'outside-only' }, options || {});
+  activeEnv = createSecureDOM(html, domOptions);
 
   setGlobal('window', activeEnv.window);
   DOM_GLOBALS.forEach(function (name) {
@@ -127,10 +126,15 @@ function shimRequire (filename /*, globalVarName */) {
   if (!fs.existsSync(filename)) {
     throw new Error('benv-shim.require: file not found: ' + filename);
   }
-  // Bust Node's CommonJS cache so each setup() can re-evaluate browser
-  // modules against the (potentially fresh) jsdom window.
-  delete require.cache[filename];
-  const result = require(filename);
+  let result;
+  if (/^bundle\.(?:app|clock)\.js$/.test(path.basename(filename))) {
+    result = activeEnv.window.eval(fs.readFileSync(filename, 'utf8'));
+  } else {
+    // Bust Node's CommonJS cache so fixture modules are evaluated for the
+    // current test state.
+    delete require.cache[filename];
+    result = require(filename);
+  }
 
   // Webpack UMD bundles attach `$`, `jQuery`, etc. to `window` at module
   // load. The previous benv (and its `rewire` execution wrapper) used to
