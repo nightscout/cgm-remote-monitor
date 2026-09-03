@@ -131,6 +131,22 @@ describe('hashauth (modern jsdom)', function () {
     hashauth.isAuthenticated().should.equal(true);
   });
 
+  it('renders authorization subject names as inert text', function () {
+    var payload = '<img src=x onerror="window.__subjectXss = true">';
+
+    [payload, '&lt;img src=x onerror="window.__subjectXss = true"&gt;'].forEach(function (subject) {
+      client.authorized = {sub: subject};
+      hashauth.init(client, $stub);
+
+      var container = env.document.createElement('div');
+      container.innerHTML = hashauth.inlineCode();
+
+      should(container.querySelector('#authorizationstatus img')).equal(null);
+      container.querySelector('#authorizationstatus').textContent.should.containEql(payload);
+      should(env.window.__subjectXss).equal(undefined);
+    });
+  });
+
   it('stores sha1 in localStorage when storeapisecret=true, then clears on remove', function (done) {
     env.window.localStorage.removeItem('apisecrethash');
 

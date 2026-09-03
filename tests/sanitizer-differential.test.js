@@ -3,8 +3,8 @@
 /**
  * Sanitizer differential test
  * ----------------------------
- * Compares the current production sanitizer (DOMPurify + jsdom) against two
- * lighter, no-DOM candidates (xss, sanitize-html) on the inputs Nightscout
+ * Compares the current production sanitizer against the legacy DOMPurify
+ * behavior and two strict, no-DOM alternatives on the inputs Nightscout
  * actually sees in `lib/server/purifier.js#purifyObject`.
  *
  * Goals:
@@ -28,7 +28,7 @@
  *     truncates `"Hypo: BG < 70 needed sugar"` to `"Hypo: BG "` because it
  *     parses `<` as a tag start. Diabetes users routinely write `BG < 70`
  *     or `> 250` in notes — disqualifying without a different xss config.
- *   - `sanitize-html` with `{allowedTags:[], allowedAttributes:{}}` matches
+ *   - `sanitize-html` with `{allowedTags:[], allowedAttributes:{}}` matched
  *     DOMPurify on every benign input and is MORE aggressive than DOMPurify
  *     on attack payloads (collapses `<a>click</a>` -> `click`, kills inert
  *     `<svg></svg>` shells). It HTML-entity-escapes `<` and `&` correctly.
@@ -42,7 +42,7 @@
 
 const should = require('should');
 
-// Current production stack
+// Legacy stack and alternatives retained for behavior comparison.
 const createDOMPurify = require('dompurify');
 const { JSDOM } = require('jsdom');
 const dompurify = createDOMPurify(new JSDOM('').window);
@@ -50,6 +50,7 @@ const dompurify = createDOMPurify(new JSDOM('').window);
 // Candidate replacements (no DOM dependency)
 const xss = require('xss');
 const sanitizeHtml = require('sanitize-html');
+const productionSanitizer = require('../lib/server/purifier')().sanitizeString;
 
 // Strict empty-allowlist config — closest semantic match to DOMPurify's
 // default of "strip everything that's not safe text".
@@ -156,6 +157,7 @@ const CORPUS = [
 ];
 
 const SANITIZERS = [
+  { name: 'production', fn: productionSanitizer },
   { name: 'dompurify', fn: (s) => dompurify.sanitize(s) },
   { name: 'xss',       fn: xssStrip },
   { name: 'sanitize-html-strict', fn: sanitizeHtmlStrict }

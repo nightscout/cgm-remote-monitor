@@ -15,6 +15,7 @@ describe('boluswizardpreview', function ( ) {
   var ar2 = require('../lib/plugins/ar2')(ctx);
   var iob = require('../lib/plugins/iob')(ctx);
   var bgnow = require('../lib/plugins/bgnow')(ctx);
+  var simplealarms = require('../lib/plugins/simplealarms')(ctx);
 
   function prepareSandbox ( ) {
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
@@ -295,6 +296,46 @@ describe('boluswizardpreview', function ( ) {
     boluswizardpreview.checkNotifications(sbx);
     ctx.notifications.process();
 
+  });
+
+  it('does not snooze a high alarm with no IOB when the BG sits below the profile high target', function (done) {
+    // Faithful to #6348: a complete profile whose target_high is above the
+    // current high reading leaves bolusEstimate at 0 even though calc succeeds.
+    // With no insulin on board that must not be read as "enough IOB".
+    ctx.notifications.resetStateForTests();
+    ctx.notifications.initRequests();
+    ctx.ddata.sgvs = [{mills: before, mgdl: 270}, {mills: now, mgdl: 273}];
+    ctx.ddata.treatments = []; // no insulin -> no IOB
+    ctx.ddata.profiles = [{ dia: 3, units: ctx.settings.units, sens: 100, target_high: 280, target_low: 100 }];
+
+    var sbx = prepareSandbox();
+
+    simplealarms.checkNotifications(sbx);
+    boluswizardpreview.checkNotifications(sbx);
+
+    var highest = ctx.notifications.findHighestAlarm('default');
+    should.exist(highest);
+    should(ctx.notifications.snoozedBy(highest)).not.be.ok();
+
+    done();
+  });
+
+  it('still snoozes a high alarm when real IOB covers it', function (done) {
+    // Contract contrast for #6348: the guard discriminates on iob > 0, so a
+    // genuine "enough IOB" high is still snoozed.
+    ctx.notifications.resetStateForTests();
+    ctx.notifications.initRequests();
+    ctx.ddata.sgvs = [{mills: before, mgdl: 295}, {mills: now, mgdl: 300}];
+    ctx.ddata.treatments = [{mills: before, insulin: '5.0'}];
+    ctx.ddata.profiles = [profile];
+
+    var sbx = prepareSandbox();
+    var prop = sbx.properties.bwp;
+
+    prop.iob.should.be.greaterThan(0);
+    boluswizardpreview.highSnoozedByIOB(prop, {snoozeBWP: 0.10}, sbx).should.equal(true);
+
+    done();
   });
 
   it('set a pill to the BWP with infos', function (done) {
