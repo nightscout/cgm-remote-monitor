@@ -15,7 +15,6 @@ const request = require('supertest');
 const apn = require('@parse/node-apn');
 
 const instance = require('./fixtures/api/instance');
-const { guardedDrop } = require('./fixtures/test-guard');
 
 const fakeServerOpts = {
   key: fs.readFileSync('./tests/fixtures/localhost.key')
@@ -70,26 +69,28 @@ describe('iOS Loop push notifications', function() {
         inst.app.use('/api/v1', api);
         inst.app.use('/api/v2', api2);
 
-        request(inst.app)
-          .put('/api/v1/profile')
-          .set('api-secret', API_SECRET_HASH)
-          .send({
-            // iOS loop integration requires these are configured in the user profile.
-            // Presumably the Loop app uploads them to Nightscout automatically?
-            loopSettings: { deviceToken: 'fakedevicetoken', bundleIdentifier: 'fakebundleid' }
-          , })
-          .expect(200)
-          .end(err => {
-            if (err) return done(err)
+        inst.ctx.profile().deleteMany({}).then(() => {
+          request(inst.app)
+            .put('/api/v1/profile')
+            .set('api-secret', API_SECRET_HASH)
+            .send({
+              // iOS loop integration requires these are configured in the user profile.
+              // Presumably the Loop app uploads them to Nightscout automatically?
+              loopSettings: { deviceToken: 'fakedevicetoken', bundleIdentifier: 'fakebundleid' }
+            , })
+            .expect(200)
+            .end(err => {
+              if (err) return done(err)
 
-            inst.ctx.dataloader.update(inst.ctx.ddata, (err) => {
-              if (err) {
-                done(err)
-              } else {
-                done();
-              }
-            });
-          })
+              inst.ctx.dataloader.update(inst.ctx.ddata, (err) => {
+                if (err) {
+                  done(err)
+                } else {
+                  done();
+                }
+              });
+            })
+        }).catch(err => done(err));
       }).catch(err => done(err))
     })
 
@@ -124,11 +125,9 @@ describe('iOS Loop push notifications', function() {
 
     apn.Provider = OriginalApnProviderClass;
 
-    guardedDrop(inst.ctx.profile(), err => {
-      if (err) return done(err)
-
+    inst.ctx.profile().deleteMany({}).then(() => {
       fakeAPNServer.close(done);
-    });
+    }).catch(err => done(err));
   });
 
   function postLoopNotification (jsonBody) {
