@@ -1,23 +1,23 @@
 # Manual smoke checklist (Nightscout UI)
 
-This checklist supplements automated browser coverage with checks that need
-a real human and browser. Automated coverage now includes:
+This checklist covers browser behavior that automated tests do not currently
+exercise end-to-end. Current automated coverage includes:
 
-1. `tests/reports.test.js` boots the bundle in modern jsdom, renders standard
-   and week-to-week reports from fixture data, and checks representative
-   plugin output.
-2. `tests/bundle.smoke.test.js` provides a faster structural check that the
-   bundle exposes `Nightscout.client`, `.reportclient`, `.profileclient`, and
-   `.units`.
-3. Node-only suites under `tests/client-core/` cover extracted pure logic such
-   as record/profile/range CRUD, treatment normalization, and confirm-text
-   generation. The legacy `tests/profileeditor.test.js` browser suite remains
-   retired while that functionality is covered by these focused tests and
-   this checklist.
+1. `tests/bundle.smoke.test.js`, a structural check that the built bundle
+   executes and exposes `Nightscout.client`, `.reportclient`, `.profileclient`,
+   and `.units`.
+2. `tests/reportstorage.test.js`, which covers persisted report preferences,
+   plus selected output-safety checks in `tests/stored-output-sinks.test.js`
+   and `tests/profile-sinks.test.js`.
+3. Node-only suites under `tests/client-core/`, which cover already-extracted
+   business logic.
 
-What is not covered automatically is a real human eyeballing the chart,
-clicking around the profile editor, and submitting a report. Run this
-checklist before tagging a release or merging a UI-touching PR.
+The legacy full-bundle report suite remains intentionally skipped, and the
+profile-editor suite remains retired, because their jsdom-based assertions
+were brittle and did not faithfully represent a real browser. Report
+calculations are not yet comprehensively covered by deterministic DOM-free
+tests. Run this checklist before tagging a release or merging a UI- or
+report-related change.
 
 ## Setup
 
@@ -87,16 +87,17 @@ your equivalent) before `node lib/server/server.js`.
 
 ## When this checklist fails
 
-If a step fails, the regression is in adapter glue (jQuery, ajax,
-`bundle.app.js` wiring), not in the pure core. Check:
+A failure may be in data loading, report calculations, bundle wiring, or
+browser rendering. Record the selected date range and inspect:
 
-- `tests/bundle.smoke.test.js` — does the bundle still expose the
-  expected globals?
-- `tests/client-core/careportal-*.test.js` — do the pure transforms
-  still produce the expected output? (If they do, the bug is in
-  `lib/client/careportal.js` or `lib/profile/profileeditor.js`.)
-- Browser DevTools network tab — is the page hitting `/api/v1/...`
-  with the right payloads?
+- Browser DevTools console and network tabs.
+- `tests/bundle.smoke.test.js` for bundle entry-point failures.
+- `tests/reportstorage.test.js` for preference persistence.
+- Relevant `tests/client-core/` suites for already-extracted logic.
+
+Because report calculations are not yet comprehensively covered outside the
+legacy client bundle, add a focused unit or contract test when affected logic
+is extracted.
 
 See `docs/proposals/testing-modernization-proposal.md` for the full
 test pyramid layout and Track 2 rationale.

@@ -6,17 +6,6 @@ This document aggregates coverage gaps from all test specifications to provide a
 
 ---
 
-## Recently Closed (September 2026)
-
-- **Report rendering end-to-end coverage** — `tests/reports.test.js` is active
-  again under the modern jsdom harness. Its two scenarios render the standard
-  reports and the week-to-week view from fixture data and assert representative
-  output from the report plugins. `tests/bundle.smoke.test.js` retains the
-  faster structural bundle check, and `manual-smoke-checklist.md` remains the
-  release check for behavior that requires a real browser and visual review.
-
----
-
 ## Recently Closed (Phase 5c, May 2026)
 
 - **Loop devicestatus pill math** — extracted to
@@ -108,6 +97,7 @@ These gaps represent functional coverage that should be addressed after high pri
 | Shape Handling | Cross-API consistency (v1 vs v3 storage) | `shape-handling-tests.md` | Cross-read verification tests |
 | Authorization | Subject CRUD operations | `authorization-tests.md` | Add API tests for admin endpoints |
 | Authorization | Role Management | `authorization-tests.md` | Test role creation and permission assignment |
+| Reports | Deterministic report-statistics and browser-rendering coverage | `testing-modernization-proposal.md` | Extract calculations behind DOM-free modules or API contracts; add unit/contract tests and retain manual browser smoke checks meanwhile |
 
 ---
 
@@ -150,14 +140,28 @@ When addressing a gap:
 
 ---
 
-## Track 1 / Phase 4 — `reports.test.js` restored (2026-09)
+## Open — report statistics and browser rendering
 
-The report-rendering suite was temporarily skipped in May 2026 while the
-legacy benv/jsdom-11 dependency was removed. Subsequent modern-harness work
-made the original scenarios reliable under jsdom 24, so the suite is enabled
-again. It now covers the standard multi-plugin report output and week-to-week
-rendering on every full test run. The manual report checklist is retained for
-visual behavior that jsdom cannot verify.
+`tests/reports.test.js` remains intentionally skipped. It loads the complete
+webpack bundle into jsdom, replaces browser and data-loading behavior with
+mocks, and asserts generated markup. That harness has been brittle across
+jsdom versions and does not provide enough browser fidelity to justify
+maintaining it as a release gate.
+
+Current automated coverage is narrower:
+
+- `tests/bundle.smoke.test.js` checks that the built bundle executes and
+  exposes the expected Nightscout entry points.
+- `tests/reportstorage.test.js` checks report-preference persistence.
+- `tests/stored-output-sinks.test.js` and `tests/profile-sinks.test.js`
+  exercise selected report output-safety paths.
+
+These tests do not comprehensively validate report calculations or
+end-to-end browser behavior. Until report statistics are extracted into
+DOM-free modules or exposed through a reproducible server API, use section 3
+of `manual-smoke-checklist.md` before releases and report-related changes.
+Add deterministic unit or contract tests as calculations are extracted;
+evaluate a small real-browser suite only after the UI direction is settled.
 
 ---
 

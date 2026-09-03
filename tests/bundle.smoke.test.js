@@ -1,11 +1,13 @@
 'use strict';
 
-// Phase 5c — bundle smoke test.
+// Phase 5c — structural bundle smoke test.
 //
-// This complements tests/reports.test.js: that suite exercises report
-// rendering with fixture data, while this one gives a fast, structural
-// signal that webpack produced a bundle exposing Nightscout.client,
-// .reportclient, and .profileclient without throwing on first execute.
+// This checks that webpack produced a bundle which executes and exposes
+// Nightscout.client, .reportclient, .profileclient, and .units. It does not
+// render report workflows or validate report statistics. Browser-level report
+// behavior is currently covered by the manual smoke checklist; calculations
+// should gain DOM-free unit or contract tests as they are extracted from the
+// legacy client bundle.
 //
 // This suite skips cleanly when the build artifact is missing so it
 // does not break a fresh checkout that has not yet run `npm install`
