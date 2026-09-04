@@ -148,7 +148,7 @@
         "info": [
           {
             "label": "future",
-            "value": "<b>Temp Basal Canceled</b>, IOB: 1.43U, COB: 0g, Predicted Min-Max BG: 94.61-141, Eventual BG: 102.3"
+            "value": "Temp Basal Canceled, IOB: 1.43U, COB: 0g, Predicted Min-Max BG: 94.61-141, Eventual BG: 102.3"
           }
         ],
         "label": "TestLoop ↻",
