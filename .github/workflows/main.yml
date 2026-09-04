@@ -41,6 +41,8 @@ jobs:
         run: npm install
       - name: Run Tests
         run: npm run-script test-ci
+      - name: Run client-core tests
+        run: npm run-script test:core
       - name: Send Coverage
         run: npm run-script coverage
 
