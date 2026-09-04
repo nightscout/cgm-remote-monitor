@@ -153,38 +153,43 @@ it('should not work short', function() {
 | HASH-002 | Should make module authorized | N/A (UI state) | Status shows "Admin authorized" |
 | HASH-003 | Should store hash and remove authentication | REQ-AUTH-002a (client-side) | Hash matches expected SHA-1 |
 | HASH-004 | Should not store hash | REQ-AUTH-002a (client-side) | Hash computed but not persisted |
-| HASH-005 | Should report secret too short | REQ-AUTH-001b (client validation) | Alert shows "Too short API secret" |
+| HASH-005 | Should hash without browser subtle crypto | REQ-AUTH-002a (client-side) | Fallback hash matches expected SHA-1 |
+| HASH-006 | Should report secret too short | REQ-AUTH-001b (client validation) | Alert shows "Too short API secret" |
 
-**Note:** These tests validate client-side hash computation and UI state management, not server-side authentication. They verify that the client correctly hashes the API_SECRET before transmission.
+**Note:** These tests validate client-side hash computation and UI state management, not server-side authentication. They verify that the client correctly hashes the API_SECRET before transmission, including when browser `crypto.subtle` is unavailable in non-secure contexts.
 
 #### Test Case Details
 
 **HASH-003: Should store hash and then remove authentication**
 ```javascript
-it('should store hash and the remove authentication', function () {
+it('should store hash and the remove authentication', function (done) {
   var client = require('../lib/client');
   var hashauth = require('../lib/client/hashauth');
-  var localStorage = require('./fixtures/localstorage');   
-  
+  var localStorage = require('./fixtures/localstorage');
+
   localStorage.remove('apisecrethash');
-  
+
   hashauth.init(client,$);
-  hashauth.verifyAuthentication = function mockVerifyAuthentication(next) { 
+  hashauth.verifyAuthentication = function mockVerifyAuthentication(next) {
     hashauth.authenticated = true;
-    next(true); 
+    next(true);
   };
   hashauth.updateSocketAuth = function mockUpdateSocketAuth() {};
 
   client.init();
 
-  hashauth.processSecret('this is my long pass phrase', true);
-  
-  hashauth.hash().should.equal('b723e97aa97846eb92d5264f084b2823f57c4aa1');
-  localStorage.get('apisecrethash').should.equal('b723e97aa97846eb92d5264f084b2823f57c4aa1');
-  hashauth.isAuthenticated().should.equal(true);
-  
-  hashauth.removeAuthentication();
-  hashauth.isAuthenticated().should.equal(false);
+  hashauth.processSecret('this is my long pass phrase', true, function(success) {
+    if (!success) {
+      return done(new Error('processSecret failed during store hash and remove authentication test'));
+    }
+    hashauth.hash().should.equal('b723e97aa97846eb92d5264f084b2823f57c4aa1');
+    localStorage.get('apisecrethash').should.equal('b723e97aa97846eb92d5264f084b2823f57c4aa1');
+    hashauth.isAuthenticated().should.equal(true);
+
+    hashauth.removeAuthentication();
+    hashauth.isAuthenticated().should.equal(false);
+    done();
+  });
 });
 ```
 
@@ -193,7 +198,7 @@ it('should store hash and the remove authentication', function () {
 **Browser Environment Simulation:**
 - Tests use `benv` package to simulate browser DOM
 - `headless.js` fixture provides secure jsdom harness
-- Tests mock `localStorage`, `window.alert`, and jQuery plugins
+- Tests mock `localStorage`, `window.alert`, Web Crypto, and jQuery plugins
 
 **Network Isolation:**
 - `mockAjax: true` prevents actual network requests

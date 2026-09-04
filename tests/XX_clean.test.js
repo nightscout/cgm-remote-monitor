@@ -1,6 +1,5 @@
 'use strict';
 
-var _ = require('lodash');
 var language = require('../lib/language')();
 
 describe('Clean MONGO after tests', function ( ) {
@@ -33,5 +32,5 @@ describe('Clean MONGO after tests', function ( ) {
   it('wipe entries data', async function () {
     await self.ctx.entries().deleteMany({ });
   });
-  
+
 });
