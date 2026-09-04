@@ -1,9 +1,9 @@
 'use strict';
 
 var should = require('should');
-var benv = require('benv');
+var benv = require('./fixtures/benv-loader');
 
-describe('clock client units', function() {
+describe('clock client', function() {
   var $, clockClient;
 
   function setupClockClient(done) {
@@ -83,6 +83,36 @@ describe('clock client units', function() {
 
   beforeEach(setupClockClient);
   afterEach(teardownClockClient);
+
+  it('constructs every supported face component with bounded numeric sizing', function() {
+    $('#inner').attr('data-face', 'bn0-sg40-dt14-nl-ar25-ag6-tm10-em40');
+
+    renderProperties('mg/dl', 'mg/dl', propertiesWithUnits('100', '+5'));
+
+    $('#inner').children().map(function() {
+      return this.className;
+    }).get().should.deepEqual(['sg', 'dt', 'nl', 'ar', 'ag', 'tm', 'em']);
+    $('.sg')[0].style.fontSize.should.equal('40vmin');
+    $('.dt')[0].style.fontSize.should.equal('14vmin');
+    $('.nl')[0].style.fontSize.should.equal('');
+    $('.ar')[0].style.height.should.equal('25vmin');
+  });
+
+  it('does not interpret face configuration as markup, classes, or styles', function() {
+    $('#inner')
+      .attr('data-face', 'config')
+      .attr('data-face-config', 'cy10-sg40-xx99-sg40" onclick="alert(1)-ar25;background:red-<img src=x onerror=alert(1)>-tm10');
+
+    renderProperties('mg/dl', 'mg/dl', propertiesWithUnits('100', '+5'));
+
+    $('#inner').children().map(function() {
+      return this.className;
+    }).get().should.deepEqual(['sg', 'tm']);
+    $('#inner').find('img, script, [onclick], [onerror]').length.should.equal(0);
+    $('.sg')[0].style.fontSize.should.equal('40vmin');
+    $('.tm')[0].style.fontSize.should.equal('10vmin');
+    $('#inner').text().should.not.match(/alert|onerror|onclick/);
+  });
 
   it('should render browser mmol preference when server units are mg/dl', function() {
     renderProperties('mg/dl', 'mmol', propertiesWithUnits(100, '+5'));

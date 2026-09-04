@@ -1,7 +1,15 @@
 const path = require('path');
 const webpack = require('webpack');
 const pluginArray = [];
-const sourceMapType = 'source-map';
+// In dev mode, webpack-hot-middleware injects the HMR client into both
+// entries (app + clock). With devtool='source-map' the shared modules
+// emit .map files keyed by [name] and collide ("Multiple assets emit
+// different content to the same filename js/bundle.app.js.map").
+// eval-cheap-module-source-map embeds maps in eval()s so nothing is
+// written to js/bundle.[name].js.map. Production keeps real .map files.
+const sourceMapType = process.env.NODE_ENV === 'development'
+  ? 'eval-cheap-module-source-map'
+  : 'source-map';
 const MomentTimezoneDataPlugin = require('moment-timezone-data-webpack-plugin');
 const projectRoot = path.resolve(__dirname, '..');
 
@@ -154,6 +162,7 @@ module.exports = {
     publicPath,
     filename: 'js/bundle.[name].js',
     sourceMapFilename: 'js/bundle.[name].js.map',
+    clean: true,
   },
   devtool: sourceMapType,
   optimization,
