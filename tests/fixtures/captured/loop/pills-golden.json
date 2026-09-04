@@ -25,7 +25,16 @@
     ],
     "cob": [
       {
-        "info": [],
+        "info": [
+          {
+            "label": "Source",
+            "value": "Loop"
+          },
+          {
+            "label": "Device",
+            "value": "loop://test-device"
+          }
+        ],
         "label": "COB",
         "value": "0g"
       }
