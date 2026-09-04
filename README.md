@@ -284,6 +284,7 @@ autonomy for your data:
   * `MONGO_POOL_SIZE` (`5`) - MongoDB connection pool size. Adjust for your deployment needs.
   * `MONGO_MIN_POOL_SIZE` (`0`) - Minimum pool connections to keep open.
   * `MONGO_MAX_IDLE_TIME_MS` (`30000`) - Max idle time (ms) before closing a connection.
+  * `ALARM_REFRESH_TIMEOUT_MS` (`5000`) - Maximum milliseconds the first alarm-emit per process waits for the cross-instance snooze refresh to load before emitting from in-memory state. Lower for low-RTT databases; raise for cold-start paths against distant primaries.
   * `PORT` (`1337`) - The port that the node.js application will listen on.
   * `NIGHTSCOUT_HOSTNAME` - The hostname or address that the node.js application will listen on. Leave unset to listen on all interfaces. Docker users can set this to `0.0.0.0` when Nightscout is reached through another container or reverse proxy. The older `HOSTNAME` setting is still accepted for compatibility, but should not be used for new installs because container platforms often set it automatically.
   * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to your privkey.pem file (private key).
