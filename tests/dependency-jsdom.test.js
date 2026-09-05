@@ -13,6 +13,12 @@ describe('jsdom dependency compatibility', function () {
   let env;
   afterEach(function () { if (env) env.cleanup(); env = null; });
 
+  it('keeps scripted window prototypes inside their own realm', function () {
+    env = createSecureDOM('', {runScripts: 'outside-only'});
+    assert.strictEqual(Object.getPrototypeOf(env.window.EventTarget.prototype), env.window.Object.prototype);
+    assert.notStrictEqual(env.window.Object.prototype, Object.prototype);
+    assert.strictEqual(env.window.eval('window instanceof Object'), true);
+  });
   it('isolates authentication storage between windows and retains it during DOM updates', function () {
     env = createSecureDOM('<main></main>');
     for (let cycle = 0; cycle < 2; cycle++) {

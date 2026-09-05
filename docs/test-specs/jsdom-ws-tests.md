@@ -12,7 +12,7 @@ repository: canvas is not installed or used by these fixtures.
 
 `tests/dependency-jsdom.test.js` runs the four existing secure-jsdom isolation
 tests in normal CI, where the nested fixture path was previously not discovered.
-It also covers storage lifetime, selectors and delegated form events, SVG
+It also covers scripted-window realm isolation, storage lifetime, selectors and delegated form events, SVG
 interfaces/viewport relationships, indexed form controls, composed abort
 signals, entities/template content and repeated XHR multipart uploads. Network
 requests use an explicit local HTTP fixture; ordinary DOM fixtures remain
