@@ -30,7 +30,7 @@
     "test": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit ./tests/*.test.js",
     "test-single": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit ./tests/$TEST.test.js",
     "test:core": "mocha --timeout 5000 --exit ./tests/client-core/**/*.test.js",
-    "test:dependencies": "npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws --all && mocha --timeout 5000 --exit ./tests/dependency-*.test.js",
+    "test:dependencies": "npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios --all && mocha --timeout 5000 --exit ./tests/dependency-*.test.js",
     "test-ci": "env-cmd -f ./tests/ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --timeout 5000 --require ./tests/hooks.js --exit ./tests/*.test.js",
     "test:fast": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit --reporter min ./tests/*.test.js",
     "test:unit": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit --parallel --jobs 2 ./tests/{admintools,ar2,basalprofileplugin,bgnow,boluswizardpreview,bridge,bridge-connect-compat,cannulaage,careportal,cob,data.*,ddata,direction,env,errorcodes,expressextensions,hashauth,insulinage,iob,language,levels,loop,maker,mmconnect,mongo-pool-config,pluginbase,plugins,profile,profileeditor,pushover,query,sandbox,security,sensorage,settings,simplealarms,timeago,times,treatmentnotify,units,upbat,utils,verifyauth}.test.js",
@@ -160,7 +160,7 @@
   },
   "devDependencies": {
     "@types/tough-cookie": "^4.0.0",
-    "axios": "^0.31.1",
+    "axios": "^0.33.0",
     "babel-eslint": "^10.1.0",
     "csv-parse": "^4.12.0",
     "dompurify": "^3.4.14",
@@ -207,11 +207,11 @@
     },
     "terser-webpack-plugin": "5.6.0",
     "minimed-connect-to-nightscout": {
-      "axios": "0.31.1",
+      "axios": "0.33.0",
       "tough-cookie": "4.1.4"
     },
     "nightscout-connect": {
-      "axios": "1.16.0"
+      "axios": "1.20.0"
     },
     "request": {
       "form-data": "2.5.5",
