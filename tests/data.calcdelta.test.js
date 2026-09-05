@@ -75,4 +75,79 @@ describe('Data', function ( ) {
     delta.profiles.bar.should.equal(true);
   });
 
+  it('should not report a treatment update when only object key order changes', function() {
+    var ddata = require('../lib/data/ddata')();
+    ddata.sgvs = [{mgdl: 100, mills: before}];
+    ddata.treatments = [{
+      _id: 'someid_1',
+      mills: before,
+      eventType: 'Note',
+      details: {source: 'manual', values: {first: 1, second: 2}}
+    }];
+    var newData = ddata.clone();
+    newData.treatments = [{
+      details: {values: {second: 2, first: 1}, source: 'manual'},
+      eventType: 'Note',
+      mills: before,
+      _id: 'someid_1'
+    }];
+
+    calcDelta(ddata, newData).should.equal(newData);
+  });
+
+  it('should report a treatment update when a nested value changes', function() {
+    var ddata = require('../lib/data/ddata')();
+    ddata.sgvs = [{mgdl: 100, mills: before}];
+    ddata.treatments = [{
+      _id: 'someid_1',
+      mills: before,
+      details: {source: 'manual', values: {first: 1, second: 2}}
+    }];
+    var newData = ddata.clone();
+    newData.treatments = [{
+      _id: 'someid_1',
+      mills: before,
+      details: {source: 'manual', values: {first: 1, second: 3}}
+    }];
+
+    var delta = calcDelta(ddata, newData);
+    delta.treatments.should.have.length(1);
+    delta.treatments[0].action.should.equal('update');
+    delta.treatments[0].details.values.second.should.equal(3);
+  });
+
+  it('should not report a profile update when only object key order changes', function() {
+    var ddata = require('../lib/data/ddata')();
+    ddata.sgvs = [{mgdl: 100, mills: before}];
+    ddata.profiles = {
+      defaultProfile: 'Default',
+      store: {Default: {dia: 3, units: 'mg/dl', basal: {first: 1, second: 2}}}
+    };
+    var newData = ddata.clone();
+    newData.profiles = {
+      store: {Default: {basal: {second: 2, first: 1}, units: 'mg/dl', dia: 3}},
+      defaultProfile: 'Default'
+    };
+
+    calcDelta(ddata, newData).should.equal(newData);
+  });
+
+  it('should report a profile update when a nested value changes', function() {
+    var ddata = require('../lib/data/ddata')();
+    ddata.sgvs = [{mgdl: 100, mills: before}];
+    ddata.profiles = {
+      defaultProfile: 'Default',
+      store: {Default: {dia: 3, basal: {first: 1, second: 2}}}
+    };
+    var newData = ddata.clone();
+    newData.profiles = {
+      defaultProfile: 'Default',
+      store: {Default: {dia: 3, basal: {first: 1, second: 3}}}
+    };
+
+    var delta = calcDelta(ddata, newData);
+    delta.profiles.should.equal(newData.profiles);
+    delta.profiles.store.Default.basal.second.should.equal(3);
+  });
+
 });
