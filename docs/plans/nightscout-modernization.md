@@ -23,7 +23,7 @@ The [85-declaration audit inventory](../audits/dependency-inventory-2026-09-05.c
 
 The browser experiments are independent build-only results, without interaction validation. Cold-load figures are medians from seven fresh Node 22.21.1 processes with forced GC, not enabled providers or whole-server workloads. Neither set of estimates is additive. Installed-file estimates exclude compression and do not establish Docker image or RAM savings. The packaging estimate originally also removed `@types/tough-cookie`; subsequent Docker-style install validation showed that peer declaration must stay under the current install policy, so remeasure that scenario before implementation. Rebaseline against each PR's parent before claiming a benefit.
 
-Completed foundations on this baseline: D3 7.9.0, jsdom-backed test tooling replacing `benv`, Node 22 Docker/`.nvmrc`, and CI on Node 20/22/24. The minimum remains Node 20 in package/installer/docs; `lib/server/bootevent.js` still has a stale Node 16 boot check. Updating #8328's public checklist is a separate tracking action, not part of this code PR.
+At the audit baseline, completed foundations were: D3 7.9.0, jsdom-backed test tooling replacing `benv`, Node 22 Docker/`.nvmrc`, and CI on Node 20/22/24. At that baseline the minimum was Node 20 in package/installer/docs; `lib/server/bootevent.js` had a stale Node 16 boot check. M07 below records the implemented replacement. Updating #8328's public checklist is a separate tracking action, not part of this code PR.
 
 ## Shared merge and release gates
 
@@ -63,9 +63,9 @@ Completed foundations on this baseline: D3 7.9.0, jsdom-backed test tooling repl
 
 ## Phase 2 — retire Node 20 and unblock maintained releases
 
-- [ ] **M07 — One supported runtime policy** (after M01; can run alongside M02–M06).
+- [x] **M07 — One supported runtime policy** (after M01; can run alongside M02–M06).
   Files: `package.json`/lockfile engines, `lib/server/bootevent.js`, `bin/setup.sh`, `.nvmrc`, `Dockerfile`, `.github/workflows/*.yml`, README, Azure setup instructions and release notes.
-  Proposal: patched Node 22 minimum **22.23.2**, support patched Node 24 and recommend it for new source installations. As of this document, Node 24 is **24.20.0**; candidate engine policy is `^22.23.2 || ^24.20.0`. Recheck release/security and hosting availability before implementation. Keep Docker on 22 initially; do not silently advertise EOL odd-numbered releases or untested Node 26 through an unrestricted range.
+  Implemented policy: patched Node 22 minimum **22.23.2**, support patched Node 24 and recommend it for new source installations. As of this document, Node 24 is **24.20.0**; engine policy is `^22.23.2 || ^24.20.0`. Recheck release/security and hosting availability before release. Keep Docker on 22 initially; do not silently advertise EOL odd-numbered releases or untested Node 26 through an unrestricted range.
   Make the boot gate derive from the declared requirement, with a clear actionable error before initializing services. Keep `semver` if it avoids duplicating version/range parsing. Align installer/docs/npm policy; remove Node 20 from supported CI only in this PR.
   Acceptance: test exact floors plus latest patches of Node 22/24 against the current Mongo 4.4/5/6 test matrix (the README defines supported deployment versions separately); explicitly reject Node 20, below-floor and prerelease versions. Keep npm 12 clean-install/build coverage on a compatible Node 24. Verify Docker runtime version/start on amd64 and arm64, source install, development, Windows/Azure and Heroku build/prune behavior. Document any unverified host path as a release blocker or explicitly retire it in a separate decision.
   Release gate: document operator upgrade instructions and test upgrading the runtime before Nightscout; no UI/data-format change. Schedule reassessment before Node 22 EOL, 2027-04-30; Node 24 is supported until 2028-04-30. [Official schedule](https://github.com/nodejs/Release#release-schedule), [release index](https://nodejs.org/dist/index.json).
@@ -145,7 +145,7 @@ For every completed item, replace its checkbox with a checked box and append: PR
 
 The user confirmed on 2026-09-05 that all implementation PRs target `chore/nightscout-modernization`, and may be merged there after validation. #8605 remains the only PR into dev. CI and CodeQL explicitly include the integration branch as a pull-request target; container publishing remains limited to dev/master.
 
-- M07: [#8606](https://github.com/nightscout/cgm-remote-monitor/pull/8606), runtime policy; revalidate against integration before merge.
+- M07: [#8606](https://github.com/nightscout/cgm-remote-monitor/pull/8606) merged as `dd90c19b` (head `1250f6c0`, parent `b1837c13`). [Integration-target CI](https://github.com/nightscout/cgm-remote-monitor/actions/runs/33981221755) passed all 12 Node/MongoDB jobs, npm 12, CodeQL and amd64/arm64 Docker startup. Local main suites passed 1,968 tests on both exact Node floors; core 283 and dependency 317. Azure/Heroku staging and release promotion remain gated in `docs/runtime-upgrade.md`.
 - M02: [#8607](https://github.com/nightscout/cgm-remote-monitor/pull/8607), tooltip retention; revalidate against integration before merge.
 - M03: [#8608](https://github.com/nightscout/cgm-remote-monitor/pull/8608), lazy CONNECT loading and shutdown; CI in progress.
 - M06: native cachebuster implementation in progress.
