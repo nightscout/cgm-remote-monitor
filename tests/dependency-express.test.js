@@ -90,7 +90,7 @@ describe('Express and body-parser dependency compatibility', function () {
     const payload = JSON.stringify([{type: 'sgv', sgv: 123, device: 'x'.repeat(MiB + 1)}]);
     for (const limit of ['50Mb', 1048576 * 50]) {
       const app = appWithParser(bodyParser.json({limit: limit}), (req, res) => {
-        assert.ok(Array.isArray(req.body));
+        if (!Array.isArray(req.body)) return res.sendStatus(400);
         res.json({count: req.body.length, sgv: req.body[0].sgv});
       });
       const response = await post(app, 'application/json', payload).expect(200);
