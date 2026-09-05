@@ -6,6 +6,11 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ### Fixed
 
+- **Socket.IO parser:** Update the server and Node client parser to 4.2.7.
+  Honor `toJSON()` when encoding binary packets and reject malformed binary
+  packets with zero attachments. Add CI coverage for live updates, binary
+  acknowledgements and reconnects over polling and WebSocket, including the
+  browser client served to Nightscout pages. No configuration changes required.
 - **Sanitizer test reference:** Update the development-only DOMPurify dependency
   to 3.4.14. Add regression coverage for nested template sanitization, note text
   and SVG presentation attributes. Production sanitization still uses
