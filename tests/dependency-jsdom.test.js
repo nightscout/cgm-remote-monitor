@@ -120,3 +120,62 @@ describe('jsdom dependency compatibility', function () {
     }
   });
 });
+
+// Transitional coverage until the remaining jsdom consumers are migrated.
+describe('remaining DOM fixture jQuery isolation', function () {
+  const {installDomGlobals, restoreDomGlobals} = require('./fixtures/dom-globals');
+  function preserveGlobals(run) {
+    const names = ['window', 'document', 'navigator', '$', 'jQuery'];
+    const saved = names.map(name => [name, Object.getOwnPropertyDescriptor(global, name)]);
+    const jqueryPath = require.resolve('jquery');
+    const cached = require.cache[jqueryPath];
+    try {
+      run();
+    } finally {
+      for (const [name, descriptor] of saved) {
+        if (descriptor) Object.defineProperty(global, name, descriptor);
+        else delete global[name];
+      }
+      if (cached) require.cache[jqueryPath] = cached;
+      else delete require.cache[jqueryPath];
+    }
+  }
+  it('binds jQuery to each fresh window when a foreign window already exists', function () {
+    preserveGlobals(() => {
+      const foreign = createSecureDOM('<main id="target">foreign</main>');
+      try {
+        for (let cycle = 0; cycle < 2; cycle++) {
+          Object.defineProperty(global, 'window', {configurable: true, writable: true, value: foreign.window});
+          delete global.document;
+          const fresh = createSecureDOM('<main id="target">fresh</main>');
+          let state;
+          try {
+            state = installDomGlobals(fresh);
+            assert.strictEqual(typeof fresh.window.$, 'function');
+            assert.strictEqual(fresh.window.$('#target')[0].ownerDocument, fresh.document);
+            fresh.window.$('#target').text('cycle-' + cycle);
+            assert.strictEqual(fresh.document.querySelector('#target').textContent, 'cycle-' + cycle);
+            assert.strictEqual(foreign.document.querySelector('#target').textContent, 'foreign');
+          } finally {
+            restoreDomGlobals(state);
+            fresh.cleanup();
+          }
+        }
+      } finally { foreign.cleanup(); }
+    });
+  });
+  it('restores prior window and document descriptors when jQuery setup throws', function () {
+    preserveGlobals(() => {
+      const foreign = createSecureDOM();
+      try {
+        for (let cycle = 0; cycle < 2; cycle++) {
+          const descriptors = {window: {configurable: true, get: () => foreign.window}, document: {configurable: true, get: () => foreign.document}};
+          Object.defineProperties(global, descriptors);
+          const before = Object.fromEntries(['window', 'document'].map(name => [name, Object.getOwnPropertyDescriptor(global, name)]));
+          assert.throws(() => installDomGlobals({window: {}}), /jQuery requires a window with a document/);
+          for (const name of ['window', 'document']) assert.deepStrictEqual(Object.getOwnPropertyDescriptor(global, name), before[name]);
+        }
+      } finally { foreign.cleanup(); }
+    });
+  });
+});
