@@ -26,8 +26,8 @@ function configure () {
 
     if (useHttps) {
       env.ssl = {
-        key: fs.readFileSync(path.join(__dirname, '../api3/localhost.key')),
-        cert: fs.readFileSync(path.join(__dirname, '../api3/localhost.crt'))
+        key: fs.readFileSync(path.join(__dirname, '../localhost.key')),
+        cert: fs.readFileSync(path.join(__dirname, '../localhost.crt'))
       };
     }
 

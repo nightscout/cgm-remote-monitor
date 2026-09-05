@@ -1,6 +1,7 @@
 'use strict';
 
 var fs = require('fs')
+  , path = require('path')
   , language = require('../../../lib/language')()
   , api = require('../../../lib/api3/')
   , http = require('http')
@@ -29,8 +30,8 @@ function configure () {
 
     if (useHttps) {
       env.ssl = {
-        key: fs.readFileSync(__dirname + '/localhost.key'),
-        cert: fs.readFileSync(__dirname + '/localhost.crt')
+        key: fs.readFileSync(path.join(__dirname, '../localhost.key')),
+        cert: fs.readFileSync(path.join(__dirname, '../localhost.crt'))
       };
     }
 
