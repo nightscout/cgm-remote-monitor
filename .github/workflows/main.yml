@@ -39,8 +39,8 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-      - name: Validate brace-expansion dependency resolution
-        run: npm ls brace-expansion --all
+      - name: Validate dependency resolution
+        run: npm ls brace-expansion postcss --all
       - name: Run Tests
         run: npm run-script test-ci
       - name: Run client-core tests

@@ -6,6 +6,11 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ### Fixed
 
+- **PostCSS:** Update to 8.5.28 and its required Nano ID 3.3.18 dependency.
+  This includes CSS parsing fixes and tighter restrictions on loading source
+  maps referenced by CSS. CI now checks stylesheet output, source-map
+  boundaries and sanitizer compatibility. No Nightscout configuration changes
+  are required.
 - **Dependency security:** Update all `brace-expansion` copies to the latest
   compatible releases (1.1.18, 2.1.4 and 5.0.9), including nested tooling
   dependencies. Keep overrides scoped by major version because older
