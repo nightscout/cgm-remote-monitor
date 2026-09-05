@@ -28,7 +28,7 @@ Parent `756fca7c` versus candidate runtime sources `c7fe0213`, macOS arm64, Node
 
 Disabled post-GC heap decreases by 3,757,168 bytes (about 3.58 MiB), with 136 fewer loaded modules. Enabled heap decreases by 54,768 bytes in this short fixture; the repeated-send client retention fix is the significant lifecycle result. RSS medians differ by 8.69 MiB disabled and 4.5 MiB enabled, but allocator/platform behavior makes those figures less portable than the heap/retainer evidence. No installed-package saving is claimed.
 
-Observed event-listener counts and referenced resource counts are unchanged. Startup medians are 330/305 ms disabled and 335/331 ms enabled. Status-request latency medians are 0.94/1.03 ms disabled and 0.96/1.13 ms enabled; per-process median ranges overlap (0.84–1.14/0.79–1.34 ms disabled, 0.87–1.26/0.85–1.20 ms enabled). These short local timings do not establish a throughput or latency improvement.
+Observed event-listener counts and referenced resource counts are unchanged. Elapsed-time medians through boot and the configured-send fixture are 330/305 ms disabled and 335/331 ms enabled; the enabled figure includes the 20 APN and 20 Pushover operations, so it is not a pure startup measurement. Status-request latency medians are 0.94/1.03 ms disabled and 0.96/1.13 ms enabled; per-process median ranges overlap (0.84–1.14/0.79–1.34 ms disabled, 0.87–1.26/0.85–1.20 ms enabled). These short local timings do not establish a throughput or latency improvement.
 
 Reproduce using disposable checkouts/databases only:
 
