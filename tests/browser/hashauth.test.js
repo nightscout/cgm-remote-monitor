@@ -37,35 +37,39 @@ describe('hashauth in a real browser', function () {
     if (server) await new Promise(resolve => server.close(resolve));
   });
 
+  async function loadAuth(page, fallback = false) {
+    assert.equal(await page.evaluate(() => document.characterSet), 'UTF-8');
+    await page.addScriptTag({url: origin + '/bundle.js'});
+    await page.evaluate(fallback => {
+      const auth = window.Nightscout.client.hashauth;
+      window.authFixture = {reloads: 0, digestCalls: 0};
+      const client = {
+        headers: () => ({'api-secret': auth.hash() || ''}),
+        translate: text => text,
+        browserUtils: {reload: () => { window.authFixture.reloads++; }}
+      };
+      auth.init(client, window.$);
+      window.authFixture.client = client;
+      if (fallback) {
+        Object.defineProperty(window.crypto, 'subtle', {configurable: true, value: undefined});
+        window.TextEncoder = undefined;
+      } else {
+        if (!window.crypto.subtle || !window.TextEncoder) throw new Error('Native crypto fixture unavailable');
+        const digest = window.crypto.subtle.digest.bind(window.crypto.subtle);
+        window.crypto.subtle.digest = function (...args) {
+          window.authFixture.digestCalls++;
+          return digest(...args);
+        };
+      }
+    }, fallback);
+  }
+
   async function withAuth(run, {allow = true, fallback = false} = {}) {
     authorized = allow;
     requests = [];
     return withPage(origin, async ({page}) => {
       await page.goto(origin);
-      assert.equal(await page.evaluate(() => document.characterSet), 'UTF-8');
-      await page.addScriptTag({url: origin + '/bundle.js'});
-      await page.evaluate(fallback => {
-        const auth = window.Nightscout.client.hashauth;
-        window.authFixture = {reloads: 0, digestCalls: 0};
-        const client = {
-          headers: () => ({'api-secret': auth.hash() || ''}),
-          translate: text => text,
-          browserUtils: {reload: () => { window.authFixture.reloads++; }}
-        };
-        auth.init(client, window.$);
-        window.authFixture.client = client;
-        if (fallback) {
-          Object.defineProperty(window.crypto, 'subtle', {configurable: true, value: undefined});
-          window.TextEncoder = undefined;
-        } else {
-          if (!window.crypto.subtle || !window.TextEncoder) throw new Error('Native crypto fixture unavailable');
-          const digest = window.crypto.subtle.digest.bind(window.crypto.subtle);
-          window.crypto.subtle.digest = function (...args) {
-            window.authFixture.digestCalls++;
-            return digest(...args);
-          };
-        }
-      }, fallback);
+      await loadAuth(page, fallback);
       const result = await run(page);
       for (const request of requests) {
         assert.equal(request.method, 'GET');
@@ -155,6 +159,26 @@ describe('hashauth in a real browser', function () {
         assert.deepEqual(await remove(page), {hash: null, stored: null, authenticated: false, reloads: cycle});
       }
       assert.deepEqual(requests.map(request => request.hash), [expectedHash, expectedHash]);
+    });
+  });
+
+  it('restores saved authentication after two page reloads', async function () {
+    await withAuth(async page => {
+      assert.equal((await processSecret(page, true)).stored, expectedHash);
+      for (let cycle = 0; cycle < 2; cycle++) {
+        await page.reload();
+        await loadAuth(page);
+        const result = await page.evaluate(() => new Promise(resolve => {
+          const auth = window.Nightscout.client.hashauth;
+          auth.initAuthentication(() => resolve({
+            hash: auth.hash(), stored: localStorage.getItem('apisecrethash'),
+            authenticated: auth.isAuthenticated(), digestCalls: window.authFixture.digestCalls
+          }));
+        }));
+        assert.deepEqual(result, {hash: expectedHash, stored: expectedHash, authenticated: true, digestCalls: 0});
+      }
+      assert.deepEqual(requests.map(request => request.hash), [expectedHash, expectedHash, expectedHash]);
+      assert.deepEqual(await remove(page), {hash: null, stored: null, authenticated: false, reloads: 1});
     });
   });
 
