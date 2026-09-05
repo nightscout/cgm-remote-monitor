@@ -57,6 +57,7 @@ describe('native cachebuster compatibility', function () {
     const handlers = {}, removed = [];
     const legacy = 'AbCDefG123456789';
     vm.runInNewContext(response.text, {
+      URL, Request, Response,
       self: {addEventListener(name, handler) { handlers[name] = handler; }},
       caches: {
         keys: async () => [legacy, current.locals.cachebuster],
@@ -76,6 +77,7 @@ describe('native cachebuster compatibility', function () {
     let fetched, completion;
     const resource = {url: 'https://fixture.example/images/launch.png', method: 'GET'};
     vm.runInNewContext(response.text, {
+      URL, Request, Response,
       self: {location: {origin: 'https://fixture.example'}, addEventListener(name, handler) { handlers[name] = handler; }},
       fetch: async request => { fetched = request; return 'network'; },
       caches: {open() { throw new Error('Development worker accessed the cache'); }}

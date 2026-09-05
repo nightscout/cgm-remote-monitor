@@ -11,8 +11,13 @@ describe('admin actions in a real browser', function () {
   let server, origin, routes, requests;
   before(async function () {
     const bundle = fs.readFileSync(path.resolve(__dirname, '../../node_modules/.cache/_ns_cache/public/js/bundle.app.js'));
+    const pageBundle = fs.readFileSync(path.resolve(__dirname, '../../node_modules/.cache/_ns_cache/public/js/bundle.admin.js'));
     server = http.createServer((request, response) => {
       const url = new URL(request.url, 'http://127.0.0.1');
+      if (url.pathname === '/page.js') {
+        response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        response.end(pageBundle); return;
+      }
       if (url.pathname === '/bundle.js') {
         response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
         response.end(bundle);
@@ -45,6 +50,7 @@ describe('admin actions in a real browser', function () {
       await page.goto(origin);
       assert.equal(await page.evaluate(() => document.characterSet), 'UTF-8');
       await page.addScriptTag({url: origin + '/bundle.js'});
+      await page.addScriptTag({url: origin + '/page.js'});
       await page.evaluate(name => {
         const plugin = window.Nightscout.admin_plugins(name);
         const client = {

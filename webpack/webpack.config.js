@@ -122,6 +122,8 @@ const rules = [
 
 const appEntry = ['./bundle/bundle.source.js'];
 const clockEntry = ['./bundle/bundle.clocks.source.js'];
+const pageEntries = Object.fromEntries(['reports', 'admin', 'profile', 'food'].map(name =>
+  [name, ['./bundle/bundle.' + name + '.source.js']]));
 
 let mode = 'production';
 let publicPath = '/bundle/';
@@ -136,6 +138,7 @@ if (process.env.NODE_ENV === 'development') {
 
   appEntry.unshift(hot);
   clockEntry.unshift(hot);
+  Object.values(pageEntries).forEach(entry => entry.unshift(hot));
 }
 
 const optimization = {};
@@ -147,7 +150,9 @@ module.exports = {
   context: projectRoot,
   entry: {
     app: appEntry,
-    clock: clockEntry
+    clock: clockEntry,
+    ...Object.fromEntries(Object.entries(pageEntries).map(([name, entry]) =>
+      [name, {import: entry, dependOn: 'app'}]))
   },
   output: {
     path: path.resolve(projectRoot, './node_modules/.cache/_ns_cache/public'),
