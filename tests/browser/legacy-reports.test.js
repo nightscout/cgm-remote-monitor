@@ -69,6 +69,7 @@ describe('legacy reports in a real browser', function () {
         document.body.replaceChildren(...parsed.body.childNodes);
       }, markup);
       await page.addScriptTag({url: origin + '/bundle/js/bundle.app.js'});
+      await page.addScriptTag({url: origin + '/bundle/js/bundle.reports.js'});
       await page.addScriptTag({url: origin + '/report/js/flotcandle.js'});
       await page.addScriptTag({url: origin + '/report/js/loopalyzer.js'});
       await page.evaluate(() => {

@@ -26,8 +26,13 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
   before(async function () {
     const app = fs.readFileSync(path.resolve(__dirname, '../../node_modules/.cache/_ns_cache/public/js/bundle.app.js'));
     const modules = await buildModules();
+    const pageBundle = fs.readFileSync(path.resolve(__dirname, '../../node_modules/.cache/_ns_cache/public/js/bundle.reports.js'));
     server = http.createServer((request, response) => {
       const url = new URL(request.url, 'http://127.0.0.1');
+      if (url.pathname === '/page.js') {
+        response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        response.end(pageBundle); return;
+      }
       if (url.pathname === '/bundle.js' || url.pathname === '/modules.js') {
         response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
         response.end(url.pathname === '/bundle.js' ? app : modules);
@@ -61,6 +66,7 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
     return withPage(origin, async ({page}) => {
       await page.goto(origin);
       await page.addScriptTag({url: origin + '/bundle.js'});
+      await page.addScriptTag({url: origin + '/page.js'});
       await page.addScriptTag({url: origin + '/modules.js'});
       await run(page);
     });

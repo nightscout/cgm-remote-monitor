@@ -2,7 +2,8 @@ import '../static/css/drawer.css';
 import '../static/css/dropdown.css';
 import '../static/css/sgv.css';
 
-$ = require("jquery");
+// expose-loader initializes window.$ for page scripts and plugins.
+require('jquery');
 
 require('jquery-ui-bundle');
 
@@ -12,10 +13,6 @@ require('jquery.tooltips');
 
 window.Storage = require('js-storage');
 
-require('flot');
-require('../node_modules/flot/jquery.flot.time');
-require('../node_modules/flot/jquery.flot.pie');
-require('../node_modules/flot/jquery.flot.fillbetween');
 
 const moment = require('moment-timezone');
 
@@ -23,21 +20,11 @@ window.moment = moment;
 
 window.Nightscout = window.Nightscout || {};
 
-var ctx = {
-    moment: moment
-};
-
 window.Nightscout = {
     client: require('../lib/client'),
-    units: require('../lib/units')(),
-    admin_plugins: require('../lib/admin_plugins/')(ctx)
+    units: require('../lib/units')()
 };
 
-window.Nightscout.report_plugins_preinit = require('../lib/report_plugins/');
-window.Nightscout.predictions = require('../lib/report/predictions');
-window.Nightscout.reportclient = require('../lib/report/reportclient');
-window.Nightscout.profileclient = require('../lib/profile/profileeditor');
-window.Nightscout.foodclient = require('../lib/food/food');
 
 console.info('Nightscout bundle ready');
 

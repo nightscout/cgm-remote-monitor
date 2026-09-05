@@ -25,8 +25,14 @@ describe('profile and settings components in a real browser', function () {
   before(async function () {
     const app = fs.readFileSync(path.resolve(__dirname, '../../node_modules/.cache/_ns_cache/public/js/bundle.app.js'));
     const modules = await buildModules();
+    const pageBundles = new Map(['profile', 'reports'].map(name => ['/page-' + name + '.js',
+      fs.readFileSync(path.resolve(__dirname, '../../node_modules/.cache/_ns_cache/public/js/bundle.' + name + '.js'))]));
     server = http.createServer((request, response) => {
       const url = new URL(request.url, 'http://127.0.0.1');
+      if (pageBundles.has(url.pathname)) {
+        response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        response.end(pageBundles.get(url.pathname)); return;
+      }
       if (url.pathname === '/bundle.js' || url.pathname === '/modules.js') {
         response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
         response.end(url.pathname === '/bundle.js' ? app : modules);
@@ -47,19 +53,24 @@ describe('profile and settings components in a real browser', function () {
     if (server) await new Promise(resolve => server.close(resolve));
   });
 
-  async function withProfile(markup, run, profileRecords = []) {
+  async function withProfile(markup, run, profileRecords = [], pageEntry = 'profile') {
     html = markup;
     records = profileRecords;
     requests = [];
     await withPage(origin, async ({page}) => {
       await page.goto(origin);
       await page.addScriptTag({url: origin + '/bundle.js'});
+      await page.addScriptTag({url: origin + '/page-' + pageEntry + '.js'});
       await page.addScriptTag({url: origin + '/modules.js'});
       await page.evaluate(({names, profile}) => {
         window.profileFixture = {names, profile, scripts: Array.from(document.scripts)};
       }, {names: profileNames, profile: makeProfile()});
       await run(page);
     });
+  }
+
+  async function withReport(markup, run, profileRecords = []) {
+    return withProfile(markup, run, profileRecords, 'reports');
   }
 
   async function assertOptions(page, selector, offset = 0) {
@@ -133,7 +144,7 @@ describe('profile and settings components in a real browser', function () {
     });
 
     it('renders profile report names and values as text', async function () {
-      await withProfile('<select id="profiles-databaserecords"></select><span id="profiles-default"></span><div id="profiles-chart"></div>', async page => {
+      await withReport('<select id="profiles-databaserecords"></select><span id="profiles-default"></span><div id="profiles-chart"></div>', async page => {
         const unsafeTime = '<svg onload="window.profileInjected=true">00:00</svg>';
         await page.evaluate(unsafeTime => {
           const {names, profile} = window.profileFixture;
@@ -154,7 +165,7 @@ describe('profile and settings components in a real browser', function () {
     });
 
     it('renders loopalyzer profile names and range times as text', async function () {
-      await withProfile('<div id="loopalyzer-profiles"></div>', async page => {
+      await withReport('<div id="loopalyzer-profiles"></div>', async page => {
         const unsafeTime = '<img src=x onerror="window.profileInjected=true">00:00';
         await page.evaluate(unsafeTime => {
           const {names, profile} = window.profileFixture;
@@ -174,7 +185,7 @@ describe('profile and settings components in a real browser', function () {
     });
 
     it('keeps treatment editor profile option values exact while rendering names as text', async function () {
-      await withProfile('', async page => {
+      await withReport('', async page => {
         await page.evaluate(() => {
           const client = {
             careportal: {events: [], resolveEventName: value => value},

@@ -1,6 +1,6 @@
 # Nightscout dependency and runtime modernization
 
-Updated: 2026-09-05. Baseline: `dev` commit `9205ea300b9a6981ad8f16223c69620dd3c1c830` (15.0.9).
+Updated: 2026-09-06. Baseline: `dev` commit `9205ea300b9a6981ad8f16223c69620dd3c1c830` (15.0.9).
 Tracking issue: [#8328](https://github.com/nightscout/cgm-remote-monitor/issues/8328).
 
 This is the execution plan for reducing dependency maintenance, installation size, unnecessary server allocations and browser cost. Deliver each numbered item as a small PR targeting `chore/nightscout-modernization`. After review and green checks against the current integration branch, merge it there and update its status/evidence here. **#8605 is the single integration PR targeting dev** and stays draft until the complete modernization and release gates are satisfied. Do not merge individual implementation PRs into dev. Implementation checkboxes do not waive outstanding release validation.
@@ -109,7 +109,8 @@ At the audit baseline, completed foundations were: D3 7.9.0, jsdom-backed test t
 
 - [ ] **M15 — Load code by page** (after M13/M14; begin with reports, then admin/profile/food).
   Files: `bundle/bundle*.source.js`, webpack entries/chunks, page templates, `views/service-worker.js`, report/client initialization. The existing reports entry imports the entire common bundle and is not a current webpack entry; create real boundaries.
-  Startup prerequisite in progress: preserve page initialization callbacks across loading/offline retries, schedule offline retries after five seconds and retain immediate authentication recovery. Parent/candidate real-browser evidence is described in [startup recovery contracts](../test-specs/client-startup-retries.md). This prerequisite does not complete page splitting.
+  Startup prerequisite completed in #8634 (merged `6e11941a`, all required CI passed and actual merge tree verified): preserve page initialization callbacks across loading/offline retries, schedule offline retries after five seconds and retain immediate authentication recovery. Parent/candidate real-browser evidence is described in [startup recovery contracts](../test-specs/client-startup-retries.md). This prerequisite does not complete page splitting.
+  Page-entry/cache implementation is in progress in draft #8635: shared app plus four page entries, versioned bundle requests and on-demand worker caching. Full-template browser cases now exercise direct startup, real authentication, navigation and two reconnect cycles, exposing and correcting pre-existing admin/food initialization duplication. See [page-bundle evidence and remaining gates](../test-specs/page-bundles.md). Application cache/offline/loading recovery, per-entry HMR and performance budgets remain open; M15 is not complete.
   Acceptance: directly opened URLs, navigation, auth, reconnect, lazy-load failures, offline/cache upgrades and development HMR work on every affected page. Dashboard requests must exclude report-only Flot/statistics chunks; measure initial/all-pages gzip, request count, startup time and browser heap. Establish numeric budgets from the first working prototype, not a speculative saving.
 
 ## Phase 4 — replace narrow helpers with tested local/native behavior

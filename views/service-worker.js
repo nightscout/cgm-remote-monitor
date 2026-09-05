@@ -2,7 +2,7 @@
 
 var CACHE = '<%= locals.cachebuster %>';
 
-const CACHE_LIST = [
+const PRECACHE_LIST = [
     '/images/launch.png',
     '/images/apple-touch-icon-57x57.png',
     '/images/apple-touch-icon-60x60.png',
@@ -27,148 +27,93 @@ const CACHE_LIST = [
     '/css/ui-darkness/images/ui-bg_inset-soft_25_000000_1x100.png',
     '/css/ui-darkness/images/ui-bg_gloss-wave_25_333333_500x100.png',
     '/css/main.css',
-    '/bundle/js/bundle.app.js',
-    '/bundle/js/bundle.clock.js',
+    bundleURL('app'),
+    bundleURL('clock'),
     '/socket.io/socket.io.js',
     '/js/client.js',
     '/images/logo2.png'
 ];
 
-function returnRangeRequest(request) {
-  return caches
-    .open(CACHE)
-    .then((cache) => {
-      return cache.match(request.url);
-    })
-    .then((res) => {
-      if (!res) {
-        return fetch(request)
-          .then(res => {
-            const clonedRes = res.clone();
-            return caches
-              .open(CACHE)
-              .then(cache => cache.put(request, clonedRes))
-              .then(() => res);
-          })
-          .then(res => {
-            return res.arrayBuffer();
-          });
-      }
-      return res.arrayBuffer();
-    })
-    .then((arrayBuffer) => {
-      const bytes = /^bytes=(\d+)-(\d+)?$/g.exec(
-        request.headers.get('range')
-      );
-      if (bytes) {
-        const start = Number(bytes[1]);
-        const end = Number(bytes[2]) || arrayBuffer.byteLength - 1;
-        return new Response(arrayBuffer.slice(start, end + 1), {
-          status: 206,
-          statusText: 'Partial Content',
-          headers: [
-            ['Content-Range', `bytes ${start}-${end}/${arrayBuffer.byteLength}`]
-          ]
-        });
-      } else {
-        return new Response(null, {
-          status: 416,
-          statusText: 'Range Not Satisfiable',
-          headers: [['Content-Range', `*/${arrayBuffer.byteLength}`]]
-        });
-      }
-    });
+// Page code is cached only when visited, never downloaded by dashboard install.
+function bundleURL(name) {
+  return '/bundle/js/bundle.' + name + '.js?v=' + encodeURIComponent(CACHE);
+}
+const PAGE_ASSETS = ['reports', 'admin', 'profile', 'food'].map(bundleURL);
+const CACHE_LIST = PRECACHE_LIST.concat(PAGE_ASSETS);
+
+// Fulfill the worker event with a network-error response on connection failure.
+// Page fetch/script consumers still fail normally, without an unhandled worker rejection.
+function network(request) {
+  return fetch(request).catch(() => Response.error());
 }
 
-// Open a cache and `put()` the assets to the cache.
-// Return a promise resolving when all the assets are added.
-function precache() {
-  return caches.open(CACHE)
-    .then((cache) => {
-    // if any cache requests fail, don't interrupt other requests in progress
-    return Promise.allSettled(
-      CACHE_LIST.map((url) => {
-        // `no-store` in case of partial content responses and
-        // because we're making our own cache
-        let request = new Request(url, { cache: 'no-store' });
-        return fetch(request).then((response) => {
-          // console.log('Caching response', url, response);
-          cache.put(url, response);
-        }).catch((err) => {
-          console.log('Could not precache asset', url, err);
-        });
-      })
-    );
-  });
+async function returnRangeRequest(request) {
+  let response;
+  try {response = await (await caches.open(CACHE)).match(request.url);}
+  catch (error) {console.log('Could not read cached range', error);}
+  // A network 206 already contains the requested range; do not slice it again
+  // or attempt to store it as a full asset.
+  if (!response || response.status !== 200) return network(request);
+  const buffer = await response.arrayBuffer();
+  const bytes = /^bytes=(\d+)-(\d*)$/.exec(request.headers.get('range'));
+  const start = bytes && Number(bytes[1]);
+  const end = bytes && bytes[2] !== '' ? Number(bytes[2]) : buffer.byteLength - 1;
+  if (!bytes || start > end || start >= buffer.byteLength) {
+    return new Response(null, {status: 416, headers: {'Content-Range': 'bytes */' + buffer.byteLength}});
+  }
+  const last = Math.min(end, buffer.byteLength - 1);
+  return new Response(buffer.slice(start, last + 1), {status: 206, headers: {
+    'Content-Range': 'bytes ' + start + '-' + last + '/' + buffer.byteLength,
+    'Content-Type': response.headers.get('Content-Type') || 'application/octet-stream'
+  }});
 }
 
-// Try to read the requested resource from cache.
-// If the requested resource does not exist in the cache, fetch it from
-// network and cache the response.
-function fromCache(request) {
-  return caches.open(CACHE).then((cache) => {
-    return cache.match(request).then((matching) => {
-      console.log(matching);
-      if(matching){
-        return matching;
-      }
-
-      return fetch(request).then((response) => {
-        // console.log('Response from network is:', response);
-        cache.put(request, response.clone());
-        return response;
-      }).catch((error) => {
-        // This catch() will handle exceptions thrown from the fetch() operation.
-        // Note that a HTTP error response (e.g. 404) will NOT trigger an exception.
-        // It will return a normal response object that has the appropriate error code set.
-        console.error('Fetching failed:', error);
-
-        throw error;
-      });
-    });
-  });
+async function precache() {
+  try {
+    const cache = await caches.open(CACHE);
+    await Promise.allSettled(PRECACHE_LIST.map(async url => {
+      const response = await fetch(new Request(url, {cache: 'no-store'}));
+      if (response.status === 200) await cache.put(url, response);
+    }));
+  } catch (error) {console.log('Could not precache assets', error);}
 }
 
-// On install, cache some resources.
-self.addEventListener('install', (evt) => {
-  // console.log('The service worker is being installed.');
+async function fromCache(request) {
+  let cache;
+  try {
+    cache = await caches.open(CACHE);
+    const matching = await cache.match(request);
+    if (matching && matching.status === 200) return matching;
+  } catch (error) {console.log('Could not read asset cache', error);}
+
+  const response = await network(request);
+  if (cache && response.status === 200) {
+    try {await cache.put(request, response.clone());}
+    catch (error) {console.log('Could not cache asset', error);}
+  }
+  return response;
+}
+
+self.addEventListener('install', event => {
   self.skipWaiting();
-  evt.waitUntil(precache());
+  event.waitUntil(precache());
 });
 
 function inCache(request) {
-  let found = false;
-  CACHE_LIST.forEach((e) => {
-    if (request.url.endsWith(e)) {
-      found = true;
-    }
-  });
-  return found;
+  return CACHE_LIST.some(asset => request.url === new URL(asset, self.location.origin).href);
 }
 
-self.addEventListener('fetch', (evt) => {
-  if (!evt.request.url.startsWith(self.location.origin) || CACHE === 'developmentMode' || !inCache(evt.request) || evt.request.method !== 'GET') {
-    //console.log('Skipping cache for ',  evt.request.url);
-    return void evt.respondWith(fetch(evt.request));
+self.addEventListener('fetch', event => {
+  const request = event.request;
+  if (new URL(request.url).origin !== self.location.origin || CACHE === 'developmentMode' ||
+      request.method !== 'GET' || !inCache(request)) {
+    return event.respondWith(network(request));
   }
-  if (evt.request.headers.get('range')) {
-    evt.respondWith(returnRangeRequest(evt.request));
-  } else {
-    evt.respondWith(fromCache(evt.request));
-  }
+  event.respondWith(request.headers.get('range') ? returnRangeRequest(request) : fromCache(request));
 });
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE) {
-            // console.log('Deleting out of date cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }));
-
+self.addEventListener('activate', event => {
+  event.waitUntil(caches.keys().then(names => Promise.all(names
+    .filter(name => name !== CACHE).map(name => caches.delete(name))))
+    .catch(error => console.log('Could not retire old asset caches', error)));
 });
