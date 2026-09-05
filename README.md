@@ -154,7 +154,8 @@ Older versions or other browsers might work, but are untested and unsupported. W
 ## Installation software requirements:
 
 - [Node.js](http://nodejs.org/) Node v20 LTS or later (v22, v24 also supported). Node versions that do not have the latest security patches will not be supported. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
-- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 4.4 or later (5.0, 6.0 also supported).
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 5.0.32 or later, 6.0.27 or later 
+  NOTE: MongoDB 4.4 or lower is *not supported*. Nightscout 15.0.7 is the latest version that works with Mongo 4.4.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
 
@@ -434,7 +435,7 @@ autonomy for your data:
   Adds the IOB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with insulin doses and the `dia` and `sens` fields from the [treatment profile](#treatment-profile).
 
 ##### `cob` (Carbs-on-Board)
-  Adds the COB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with carb doses and the `carbs_hr`, `carbratio`, and `sens` fields from the [treatment profile](#treatment-profile).
+  Adds the COB pill visualization in the client and calculates values that used by other plugins.  Shows the carbs-on-board reported by the uploading system (Loop's `loop.cob`, or `openaps.suggested`/`openaps.enacted` for OpenAPS, AndroidAPS and Trio) when the most recent device status is less than 10 minutes old; the pill tooltip names the source and device. Otherwise it derives COB from treatments with carb doses and the `carbs_hr`, `carbratio`, and `sens` fields from the [treatment profile](#treatment-profile), which are not needed for the device-reported value.
 
 ##### `bwp` (Bolus Wizard Preview)
   This plugin in intended for the purpose of automatically snoozing alarms when the CGM indicates high blood sugar but there is also insulin on board (IOB) and secondly, alerting to user that it might be beneficial to measure the blood sugar using a glucometer and dosing insulin as calculated by the pump or instructed by trained medicare professionals. ***The values provided by the plugin are provided as a reference based on CGM data and insulin sensitivity you have configured, and are not intended to be used as a reference for bolus calculation.*** The plugin calculates the bolus amount when above your target, generates alarms when you should consider checking and bolusing, and snoozes alarms when there is enough IOB to cover a high BG. Uses the results of the `iob` plugin and `sens`, `target_high`, and `target_low` fields from the [treatment profile](#treatment-profile). Defaults that can be adjusted with [extended setting](#extended-settings)
@@ -673,6 +674,17 @@ For remote overrides, the following extended settings must be configured:
   * `LOOP_APNS_KEY_ID` - The Key ID for the above key.
   * `LOOP_DEVELOPER_TEAM_ID` - Your Apple developer team ID.
   * `LOOP_PUSH_SERVER_ENVIRONMENT` - (optional) Set this to `production` if you are using a provisioning profile that specifies production aps-environment, such as when distributing builds via TestFlight.
+
+If a Loop remote command fails, Careportal keeps the form open and displays the reason with a suggested next step:
+
+  * Missing APNs configuration identifies the setting to check, such as `LOOP_APNS_KEY` or `LOOP_DEVELOPER_TEAM_ID`, without exposing its value.
+  * Missing Loop settings, device tokens, or app identifiers direct you to check the profile upload from Loop.
+  * Invalid carbs or bolus entries explain that the amount must be a number greater than zero. Unsupported commands are reported explicitly.
+  * Recognized APNs failures retain the reason code and explain it. For example, `InvalidProviderToken` identifies a provider authentication problem and directs the Nightscout administrator to check the APNs signing key, key ID, and developer team ID. See [Apple's APNs error reference](https://developer.apple.com/documentation/usernotifications/handling-notification-responses-from-apns) for details.
+  * Authorization failures ask you to reauthorize Nightscout access or have the administrator check your Loop command permissions.
+  * Connection failures, timeouts, and empty error responses keep the form open with an explanation. If delivery cannot be confirmed, check Loop before submitting the command again. Commands are not automatically retried.
+
+When APNs provides no failure details, the message says so. Unexpected failures direct you to the Nightscout administrator and server logs. Full diagnostics remain in those logs; user-facing messages omit raw error objects, credentials, device tokens, filesystem paths, and other untrusted error text.
 
 ##### `override` (Override Mode)
   Additional monitoring for DIY automated insulin delivery systems to display real-time overrides such as Eating Soon or Exercise Mode:
