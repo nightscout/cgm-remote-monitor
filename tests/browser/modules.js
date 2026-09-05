@@ -13,6 +13,9 @@ exports.buildModules = function () {
     const output = path.resolve(__dirname, '../../node_modules/.cache/nightscout-browser-tests');
     const compiler = webpack({
       ...config,
+      // Private modules and application components must share jQuery's event
+      // registry; a second copy can retain handlers across repeated updates.
+      externals: {jquery: 'window $'},
       entry: {modules: path.resolve(__dirname, 'modules.source.js')},
       output: {...config.output, path: output, publicPath: '/', filename: 'modules.js', sourceMapFilename: 'modules.js.map'}
     });
