@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const playwright = require('playwright');
+const playwright = require('playwright-core');
 let browser;
 
 exports.getBrowser = () => {

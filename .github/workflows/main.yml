@@ -73,7 +73,7 @@ jobs:
       - name: Install dependencies and build production bundle
         run: npm ci
       - name: Install the pinned browser and system dependencies
-        run: npx --no-install playwright install --with-deps ${{ matrix.browser }}
+        run: npx --no-install playwright-core install --with-deps ${{ matrix.browser }}
       - name: Run isolated browser tests
         env:
           NIGHTSCOUT_TEST_BROWSER: ${{ matrix.browser }}

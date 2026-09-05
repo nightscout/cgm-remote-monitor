@@ -150,7 +150,7 @@ maintaining it as a release gate.
 
 Current automated coverage is narrower:
 
-- `tests/bundle.smoke.test.js` checks that the built bundle executes and
+- `tests/browser/bundle.test.js` checks that the built bundle executes and
   exposes the expected Nightscout entry points.
 - `tests/reportstorage.test.js` checks report-preference persistence.
 - `tests/stored-output-sinks.test.js` and `tests/profile-sinks.test.js`
