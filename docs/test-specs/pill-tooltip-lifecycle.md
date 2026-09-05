@@ -6,7 +6,7 @@ The fix replaces only the `pillTooltip` namespace on every update. Both callback
 
 ## Automated regression
 
-`tests/pluginbase.modern.test.js` uses real jQuery and jsdom. It exercises 1, 2, and 100 repeated updates, one visible render per hover, current values, mouseout, info removal while visible, re-addition, jQuery element removal, preservation of unrelated listeners, and independent pills. The added repeated-update test fails against parent `9205ea30` because one hover renders twice already after the first replacement update. It passes with the fix.
+`tests/browser/pill-tooltips.test.js` uses the actual plugin factory, application jQuery and native browser events. It replaces the former `tests/pluginbase.modern.test.js` as part of M08. It exercises 1, 2, and 100 repeated updates, one visible render per hover, current values, mouseout, info removal while visible, re-addition, jQuery element removal, preservation of unrelated listeners, and independent pills. The added repeated-update test fails against parent `9205ea30` because one hover renders twice already after the first replacement update. It passes with the fix.
 
 ## Browser and retention probe
 

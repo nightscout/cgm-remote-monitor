@@ -5,7 +5,7 @@
 **Status:** Tracks 1+2 substantially complete; Track 3 pending
 **Authors:** Nightscout Development Team
 
-**Current execution decision (2026-09-05):** Complete the remaining test-only jsdom removal through the [retirement plan](../plans/jsdom-retirement.md). Production is already jsdom-free. The historical jsdom foundation and deferred-Playwright sections below describe earlier stages; they do not supersede the current decision to evaluate a small real-browser CI suite while moving pure logic to Node-only tests.
+**Current execution decision (2026-09-05):** M08 removes the remaining test-only jsdom package/harness after moving browser contracts into required Chromium/Firefox/WebKit tests. Both report quarantines now have active replacements. See the [retirement plan](../plans/jsdom-retirement.md) and [browser specification](../test-specs/browser-tests.md). The jsdom examples, compatibility notes and deferred-Playwright proposals below are historical records, not current setup instructions. Production was already jsdom-free; browser-tool costs are measured separately.
 
 ---
 

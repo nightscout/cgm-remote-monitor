@@ -177,18 +177,29 @@ js-yaml 4.2 and later treat numbers containing underscores as strings.
 CI also runs `NODE_ENV=development npm run bundle-dev` to validate the webpack
 lint integration.
 
-DOMPurify is a development-only reference in the sanitizer comparison suite;
-production sanitization uses `sanitize-html`. Dependency tests exercise its
-default string API with our jsdom version, including nested template security,
-visible note text and supported SVG attributes. These tests inspect inert DOM
-trees; they do not execute payloads or emulate newer browser template expansion.
+DOMPurify is a development-only reference in the real-browser sanitizer
+comparison suite; production sanitization uses `sanitize-html`. jsdom and
+its old test harness have been removed. Browser parsing, output safety,
+authentication, forms, charts and reports run against actual browser APIs.
 
-Socket.IO dependency checks start temporary loopback servers without MongoDB.
-They cover parser validation, binary serialization and both polling and
-WebSocket connections using the Node client and the actual served browser
-client in jsdom. Each transport check reconnects twice. The parser override
-updates installed Node packages; it does not rewrite Socket.IO's prebuilt
-browser distribution, so both client paths need compatibility checks.
+After `npm ci`, install the pinned browser explicitly and run:
+
+```sh
+npx --no-install playwright-core install chromium
+npm run test:browser
+```
+
+Use `NIGHTSCOUT_TEST_BROWSER=firefox` or `webkit` after installing that engine.
+CI requires all three engines on both Node floors. Browser downloads are
+separate from ordinary npm installs and production deployment. See the
+[browser test specification](docs/test-specs/browser-tests.md) for isolation,
+coverage boundaries and the additional test-tool disk/RAM costs.
+
+Socket.IO checks use disposable loopback servers without MongoDB. Node-client
+and parser checks run in `test:dependencies`; actual served-browser clients
+run in `test:browser`, with both polling/WebSocket transports and repeated
+reconnection. The parser override does not rewrite the prebuilt browser
+client, so both paths remain required.
 
 The fast-uri dependency checks resolve Ajv through each installed consumer
 (webpack, webpack-dev-middleware, terser-webpack-plugin, ajv-formats and table).
