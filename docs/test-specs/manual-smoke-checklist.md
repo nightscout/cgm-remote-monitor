@@ -3,37 +3,31 @@
 This checklist covers browser behavior that automated tests do not currently
 exercise end-to-end. Current automated coverage includes:
 
-1. `tests/browser/bundle.test.js`, a structural check that the built bundle
-   executes and exposes `Nightscout.client`, `.reportclient`, `.profileclient`,
-   and `.units`.
-2. `tests/reportstorage.test.js`, which covers persisted report preferences,
-   plus selected output-safety checks in `tests/stored-output-sinks.test.js`
-   and `tests/profile-sinks.test.js`.
-3. `tests/uniqsgv.test.js`, which covers the report's one-minute SGV filter,
-   including cascading rejection, millisecond boundaries, dense series with
-   timing jitter, duplicates and input preservation.
-4. `tests/report-sgv-pipeline.test.js`, which drives the report's Show action
-   with newest-first API fixtures and checks retained chart data, Daily Stats
-   reading counts, range percentages and estimated A1c in mg/dL and mmol/L.
-   Multi-day fixtures cover separate daily averages, empty days and repeated
-   rendering from cached data. These tests use the real loading, filtering,
-   unit conversion and table renderer; network responses and canvas drawing
-   are mocked, so they do not replace browser smoke checks.
-5. `tests/dependency-d3.test.js` drives the real chart/renderer with mouse and
-   touch events: glucose and forecast hovers in both units, brush centering,
-   clamping and dragging, treatment move/remove/split confirmation and cleanup,
-   plus bounded color parsing. `stored-output-sinks.test.js` also checks the
-   Day to Day OpenAPS tooltip. CommonJS fixtures load D3's official UMD build
-   via `tests/fixtures/d3.js`; production webpack resolves its ES modules.
-6. Node-only suites under `tests/client-core/`, which cover already-extracted
-   business logic.
+1. The required `tests/browser/` suite runs actual built assets in Chromium,
+   Firefox and WebKit on both Node floors. It covers bundle wiring, served
+   Socket.IO transports/reconnect, authentication/storage, care portal forms,
+   profile/admin controls, output-safety corpora and tooltip lifecycle.
+2. `tests/browser/report-sgv-pipeline.test.js` covers real loading, filtering,
+   conversion, Flot and Daily Stats in both glucose units, including empty
+   days, cache reuse and repeated initialization. `legacy-reports.test.js`
+   restores both former report quarantines with native HTTP/charts/dialogs
+   and the original historical output expectations.
+3. `tests/browser/chart-interactions.test.js` exercises mouse hit-testing,
+   native DOM touch events, glucose/forecast hovers, brush clamping and
+   repeated treatment confirmation/cancellation. `stored-outputs.test.js`
+   covers day-to-day annotation/forecast output; `profile-settings.test.js`
+   covers actual profile forms and treatment dialogs.
+4. Node suites retain report preferences (`reportstorage.test.js`), SGV
+   filtering (`uniqsgv.test.js`), D3 color/security checks and the extracted
+   business logic under `tests/client-core/`.
 
-The legacy full-bundle report suite remains intentionally skipped, and the
-profile-editor suite remains retired, because their jsdom-based assertions
-were brittle and did not faithfully represent a real browser. Report
-calculations are not yet comprehensively covered by deterministic DOM-free
-tests. Run this checklist before tagging a release or merging a UI- or
-report-related change.
+The older retired profile-editor integration suite is not reinstated wholesale;
+the new profile cases cover the specific form/output contracts listed above.
+The old jsdom harness is removed. Native fixtures improve browser fidelity,
+but finite backend responses do not prove production persistence, every
+uploader/report calculation, physical-device gesture handling or older iOS
+compatibility. See [browser coverage](browser-tests.md) for those boundaries.
+Run this checklist before tagging a release or merging a UI/report change.
 
 ## Setup
 
