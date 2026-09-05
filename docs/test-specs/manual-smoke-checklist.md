@@ -14,8 +14,8 @@ exercise end-to-end. Current automated coverage includes:
    timing jitter, duplicates and input preservation.
 4. `tests/report-sgv-pipeline.test.js`, which drives the report's Show action
    with newest-first API fixtures and checks retained chart data, Daily Stats
-   reading counts and range percentages in mg/dL and mmol/L. It uses the real
-   loading, filtering, unit conversion and table renderer; network responses
+   reading counts, range percentages and estimated A1c in mg/dL and mmol/L. It
+   uses the real loading, filtering, unit conversion and table renderer; network responses
    and canvas drawing are mocked, so it does not replace browser smoke checks.
 5. Node-only suites under `tests/client-core/`, which cover already-extracted
    business logic.
@@ -94,10 +94,25 @@ fixtures so cached historical data is loaded again.
       removed and **2 readings** remain. At **0s / 60s / 120s**, all **3 readings**
       remain, confirming the cutoff includes exactly one minute.
 - [ ] With readings at **0s / 300s / 600s**, all **3 readings** remain and the
-      chart and statistics match the same five-minute fixture before the fix.
+      chart, reading count and range percentages match the same five-minute
+      fixture before the filtering fix.
 
 These checks validate filtering and the resulting sample-based percentages;
 they do not change the target-band rules or introduce time-weighted statistics.
+
+### Daily Stats estimated A1c
+
+Use the same local test instance and select a day containing only the synthetic
+readings. Reload Reports after changing fixtures or display units.
+
+- [ ] With a single **150 mg/dL** reading, Daily Stats shows an average of
+      **150.0 mg/dL**, estimated A1c **6.9% DCCT** and **51 mmol/mol IFCC**.
+- [ ] Switch to mmol/L display. The average shows **8.3 mmol/L**, while the A1c
+      estimates remain **6.9%** and **51**. They are calculated from the original
+      mg/dL reading, before glucose is rounded for display.
+- [ ] Repeat with **100 and 200 mg/dL** readings five minutes apart. Both unit
+      modes show **2 readings** and the same **6.9% / 51** A1c estimates, using
+      the mean glucose rather than averaging rounded A1c values per reading.
 
 ## 4. Care portal (treatment entry)
 

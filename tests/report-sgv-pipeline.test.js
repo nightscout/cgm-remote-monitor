@@ -57,8 +57,7 @@ describe('report SGV loading and Daily Stats', function () {
     });
   });
 
-  function renderReport (offsets, units) {
-    const values = [100, 50, 200];
+  function renderReport (offsets, units, values = [100, 50, 200]) {
     // The API returns newest first. Freeze it to catch accidental in-place sorting.
     const entries = Object.freeze(offsets.map(function (seconds, index) {
       return Object.freeze({
@@ -152,7 +151,19 @@ describe('report SGV loading and Daily Stats', function () {
         assert.deepEqual([result.table.Low, result.table.Normal, result.table.High], fixture.bands);
         assert.deepEqual(result.pie.map(band => band.label), ['Low', 'In Range', 'High']);
         assert.deepEqual(result.pie.map(band => band.data), fixture.pie);
+        assert.equal(result.table['A1c est* %DCCT'], fixture.name === 'dense' ? '6.9%' : '5.7%');
+        assert.equal(result.table['A1c est* IFCC'], fixture.name === 'dense' ? '51' : '39');
       });
+    });
+
+    it('calculates estimated A1c before rounding glucose for display (' + units + ')', async function () {
+      // 150 mg/dL displays as 8.3 mmol/L. Converting that rounded display value
+      // back to mg/dL would incorrectly round the A1c estimate down to 6.8%.
+      const result = await renderReport([0], units, [150]);
+      assert.equal(result.table.Readings, '1');
+      assert.equal(result.table.Average, units === 'mg/dl' ? '150.0' : '8.3');
+      assert.equal(result.table['A1c est* %DCCT'], '6.9%');
+      assert.equal(result.table['A1c est* IFCC'], '51');
     });
   });
 });
