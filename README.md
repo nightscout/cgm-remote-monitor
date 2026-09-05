@@ -675,6 +675,8 @@ For remote overrides, the following extended settings must be configured:
   * `LOOP_DEVELOPER_TEAM_ID` - Your Apple developer team ID.
   * `LOOP_PUSH_SERVER_ENVIRONMENT` - (optional) Set this to `production` if you are using a provisioning profile that specifies production aps-environment, such as when distributing builds via TestFlight.
 
+If a Loop remote command fails, Careportal displays a recognized APNs reason when available, for example `Error: Failed to send notification (APNs: InvalidProviderToken)`. See [Apple's APNs error reference](https://developer.apple.com/documentation/usernotifications/handling-notification-responses-from-apns) for the meaning of each reason. Unknown errors and local configuration failures display `Error: Failed to send notification`; check the Nightscout server logs for details. These failure messages omit raw error details, credentials, and device tokens.
+
 ##### `override` (Override Mode)
   Additional monitoring for DIY automated insulin delivery systems to display real-time overrides such as Eating Soon or Exercise Mode:
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set
