@@ -5,6 +5,8 @@
 **Status:** Tracks 1+2 substantially complete; Track 3 pending
 **Authors:** Nightscout Development Team
 
+**Current execution decision (2026-09-05):** Complete the remaining test-only jsdom removal through the [retirement plan](../plans/jsdom-retirement.md). Production is already jsdom-free. The historical jsdom foundation and deferred-Playwright sections below describe earlier stages; they do not supersede the current decision to evaluate a small real-browser CI suite while moving pure logic to Node-only tests.
+
 ---
 
 ## Executive Summary
