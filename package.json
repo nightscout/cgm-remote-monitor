@@ -164,7 +164,7 @@
     "eslint": "^7.19.0",
     "eslint-plugin-security": "^1.4.0",
     "eslint-webpack-plugin": "^2.7.0",
-    "jsdom": "^26.1.0",
+    "jsdom": "^30.0.1",
     "mocha": "^11.8.0",
     "nodemon": "^3.1.14",
     "nyc": "^18.0.0",

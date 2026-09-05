@@ -1,7 +1,11 @@
 'use strict';
 
 const should = require('should');
-const { createSecureDOM, NoNetworkLoader } = require('./secure-jsdom');
+const { createSecureDOM } = require('./secure-jsdom');
+const assert = require('assert');
+const http = require('http');
+const {once} = require('events');
+const {VirtualConsole} = require('jsdom');
 
 describe('tests/fixtures/secure-jsdom', function () {
 
@@ -34,12 +38,52 @@ describe('tests/fixtures/secure-jsdom', function () {
     (function () { xhr.send(); }).should.throw(/disabled/);
   });
 
-  it('NoNetworkLoader rejects network fetches', function () {
-    const loader = new NoNetworkLoader();
-    return loader.fetch('http://example.com/').then(
-      function () { throw new Error('should not resolve'); },
-      function (err) { err.message.should.match(/network access blocked/); }
-    );
+  it('blocks actual stylesheet, iframe and script loads over repeated DOM lifecycles', async function () {
+    let requests = 0;
+    const server = http.createServer((req, res) => { requests++; res.end('unexpected request'); });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    const origin = 'http://127.0.0.1:' + server.address().port;
+    try {
+      for (let cycle = 0; cycle < 2; cycle++) {
+        const errors = [];
+        const virtualConsole = new VirtualConsole();
+        virtualConsole.on('jsdomError', error => errors.push(error));
+        env = createSecureDOM('<link rel="stylesheet" href="/fixture.css"><iframe src="/fixture.html"></iframe><script src="/fixture.js"></script>', {
+          url: origin, runScripts: 'dangerously', virtualConsole
+        });
+        if (env.document.readyState !== 'complete') await once(env.window, 'load');
+        assert.strictEqual(requests, 0);
+        assert.strictEqual(errors.length, 3, 'every attempted resource load is rejected');
+        assert.ok(errors.every(error => String(error.cause || error.detail).includes('network access blocked')));
+        env.cleanup();
+        env = null;
+      }
+    } finally {
+      server.closeAllConnections();
+      await new Promise(resolve => server.close(resolve));
+    }
+  });
+
+  it('blocks WebSocket handshakes without contacting the fixture server', async function () {
+    let requests = 0;
+    const server = http.createServer((req, res) => { requests++; res.end(); });
+    server.on('upgrade', (req, socket) => { requests++; socket.destroy(); });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    try {
+      for (let cycle = 0; cycle < 2; cycle++) {
+        env = createSecureDOM();
+        const socket = new env.window.WebSocket('ws://127.0.0.1:' + server.address().port);
+        await once(socket, 'error');
+        assert.strictEqual(requests, 0);
+        env.cleanup();
+        env = null;
+      }
+    } finally {
+      server.closeAllConnections();
+      await new Promise(resolve => server.close(resolve));
+    }
   });
 
 });

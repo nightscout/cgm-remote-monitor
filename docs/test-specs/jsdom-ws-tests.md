@@ -1,22 +1,20 @@
 # jsdom and analyzer WebSocket regression tests
 
-This update uses jsdom 26.1.0 and the bundle analyzer's ws 7.5.13. The application
-transport packages already use Socket.IO 4.8.3, engine.io-client 6.6.6 and ws
-8.21.3. Keep the two WebSocket consumer lines distinct when checking resolution.
+The modernization branch uses **jsdom 30.0.1**. Its required Node range (`^22.22.2 || ^24.15.0 || >=26.0.0`) is covered by Nightscout's supported Node 22.23.2/24.20.0 floors. Earlier jsdom 26.1 compatibility with Node 20 is no longer a constraint after M07.
 
-jsdom 26.1.0 preserves the existing Node support. Newer jsdom releases require
-higher Node patch versions, and jsdom 30 drops Node 20. Upstream recommends 26.1.0
-for older Node environments. Moving to the newest major needs a separate Node
-support decision. The canvas v3 peer change in jsdom 26 does not affect this
-repository: canvas is not installed or used by these fixtures.
+The bundle analyzer still uses ws 7.5.13; application transports use Socket.IO 4.8.3, engine.io-client 6.6.6 and ws 8.21.3. Keep those WebSocket consumers distinct from jsdom's new undici transport when checking resolution.
 
-`tests/dependency-jsdom.test.js` runs the four existing secure-jsdom isolation
+The jsdom 27–30 review covers changed selectors/computed styles, PointerEvent clicks, localhost Secure-cookie handling, VirtualConsole API renaming, resource loading and Node floors. No VirtualConsole `sendTo` consumer needed migration. The only ResourceLoader subclass was the blocked-network test fixture; it now uses jsdom's public `requestInterceptor` API while preserving explicit resource overrides and the fetch/XHR throwers.
+
+The first full run exposed a legacy fixture bug: `benv-shim.teardown(true)` deleted Node's native `Event`, breaking undici WebSockets later in the suite. The shim now restores original property descriptors, including native constructors and accessor globals. A fresh-process regression exercises replacement windows and partial/full/repeated teardown twice; it fails with the old shim and verifies native EventTarget dispatch after cleanup. Existing Socket.IO tests continue to exercise real served-browser reconnects.
+
+`tests/dependency-jsdom.test.js` runs the secure-jsdom isolation
 tests in normal CI, where the nested fixture path was previously not discovered.
 It also covers scripted-window realm isolation, storage lifetime, selectors and delegated form events, SVG
 interfaces/viewport relationships, indexed form controls, composed abort
 signals, entities/template content and repeated XHR multipart uploads. Network
 requests use an explicit local HTTP fixture; ordinary DOM fixtures remain
-network-blocked.
+network-blocked. Actual stylesheet, iframe, script and WebSocket attempts are tested against a local server over two DOM lifecycles, asserting zero requests.
 
 `tests/dependency-ws-analyzer.test.js` exercises the actual ws copy resolved by
 webpack-bundle-analyzer. Small explicit receiver caps check bounded fragments and
@@ -33,9 +31,14 @@ authentication suite runs under `test-ci`. CI verifies jsdom and both ws version
 with `npm ls`. Existing DOMPurify, chart, report, profile and served Socket.IO
 client tests continue to exercise jsdom.
 
+The jsdom graph adds 17 locked paths and removes seven, with 15 retained entries updated. All 673 production-marked lock entries remain identical to the parent; no server-memory or production-package saving is claimed for this maintained test-tool upgrade.
+
 These are development/test dependencies. No user configuration or visual changes
 are required, and production browser bundles should remain unchanged.
 
-References: [jsdom 26.1](https://github.com/jsdom/jsdom/releases/tag/26.1.0),
-[jsdom Node compatibility](https://github.com/jsdom/jsdom/releases/tag/27.0.1),
+References: [jsdom 30.0.1](https://github.com/jsdom/jsdom/releases/tag/v30.0.1),
+[jsdom major release notes](https://github.com/jsdom/jsdom/releases),
+[resource-loading API](https://github.com/jsdom/jsdom/blob/v30.0.1/README.md#loading-subresources),
 [ws 7.5.13](https://github.com/websockets/ws/releases/tag/7.5.13).
+
+Rollback: revert the jsdom/harness upgrade together and perform a clean locked install. No application data, configuration or browser storage migration is involved. The native-global restoration can be retained independently; the resource-interceptor migration must be reverted with the dependency.

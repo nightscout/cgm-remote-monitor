@@ -3,9 +3,9 @@
 /*
  * secure-jsdom.js
  *
- * Modern (jsdom >= 24) replacement for the benv-driven harness.
+ * jsdom 30 fixture using its request-interceptor API.
  * Provides a hermetic DOM:
- *   - blocks ALL network resource loads via NoNetworkLoader
+ *   - blocks ALL network resource loads via a jsdom request interceptor
  *   - replaces window.fetch with a thrower
  *   - replaces window.XMLHttpRequest.send with a thrower
  *
@@ -16,14 +16,10 @@
  * § Track 1 / Network Isolation.
  */
 
-const { JSDOM, ResourceLoader } = require('jsdom');
+const { JSDOM, requestInterceptor } = require('jsdom');
 
-class NoNetworkLoader extends ResourceLoader {
-  fetch (url /*, options */) {
-    return Promise.reject(new Error(
-      'secure-jsdom: network access blocked (' + url + ')'
-    ));
-  }
+function blockResourceRequest (request) {
+  throw new Error('secure-jsdom: network access blocked (' + request.url + ')');
 }
 
 function disableNetworkAPIs (window) {
@@ -55,14 +51,14 @@ function disableNetworkAPIs (window) {
  * @param {string} [html] Initial HTML document. Defaults to an empty body.
  * @param {object} [options] Forwarded to JSDOM constructor (url, runScripts, ...).
  *                           Caller-supplied `resources` is honored; otherwise we
- *                           install NoNetworkLoader.
+ *                           install a blocking request interceptor.
  * @returns {{ dom: JSDOM, window: Window, document: Document, cleanup: function }}
  */
 function createSecureDOM (html, options) {
   const opts = Object.assign({
     url: 'http://localhost/',
     pretendToBeVisual: true,
-    resources: new NoNetworkLoader()
+    resources: { interceptors: [requestInterceptor(blockResourceRequest)] }
   }, options || {});
 
   const dom = new JSDOM(html || '<!DOCTYPE html><html><body></body></html>', opts);
@@ -82,6 +78,5 @@ function createSecureDOM (html, options) {
 
 module.exports = {
   createSecureDOM: createSecureDOM,
-  NoNetworkLoader: NoNetworkLoader,
   disableNetworkAPIs: disableNetworkAPIs
 };

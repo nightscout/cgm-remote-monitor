@@ -11,7 +11,7 @@
  *   benv.teardown(clearDOM?)
  *
  * Implementation rests on `tests/fixtures/secure-jsdom.js` so we get
- * modern jsdom (>= 24) AND no-network resource isolation for free.
+ * modern jsdom AND no-network resource isolation for free.
  *
  * Activation:
  *   `tests/fixtures/benv-loader.js` unconditionally exports this shim.
@@ -46,11 +46,15 @@ const DOM_GLOBALS = [
 
 let activeEnv = null;        // { dom, window, cleanup } from createSecureDOM
 let exposedKeys = new Set(); // tracked for teardown
+const originalGlobals = new Map();
 
 function setGlobal (name, value) {
+  if (!originalGlobals.has(name)) {
+    originalGlobals.set(name, Object.getOwnPropertyDescriptor(global, name));
+  }
   // Node >= 21 makes some globals (notably `navigator`) getter-only on the
   // global object. Use defineProperty with configurable:true so we can both
-  // override now and delete during teardown.
+  // override now and restore the original descriptor during teardown.
   try {
     Object.defineProperty(global, name, {
       configurable: true,
@@ -61,6 +65,14 @@ function setGlobal (name, value) {
   } catch (e) {
     global[name] = value;
   }
+}
+
+function restoreGlobal (name) {
+  if (!originalGlobals.has(name)) return;
+  const descriptor = originalGlobals.get(name);
+  if (descriptor) Object.defineProperty(global, name, descriptor);
+  else delete global[name];
+  originalGlobals.delete(name);
 }
 
 function setup (callback, options) {
@@ -125,6 +137,10 @@ function shimRequire (filename /*, globalVarName */) {
   // Bust Node's CommonJS cache so each setup() can re-evaluate browser
   // modules against the (potentially fresh) jsdom window.
   delete require.cache[filename];
+  // The bundle can assign these globals before setGlobal sees them.
+  ['$', 'jQuery'].forEach(function (key) {
+    if (!originalGlobals.has(key)) originalGlobals.set(key, Object.getOwnPropertyDescriptor(global, key));
+  });
   const result = require(filename);
 
   // Webpack UMD bundles attach `$`, `jQuery`, etc. to `window` at module
@@ -153,15 +169,12 @@ function shimRequire (filename /*, globalVarName */) {
 
 function teardown (clearDOM) {
   exposedKeys.forEach(function (key) {
-    delete global[key];
+    restoreGlobal(key);
   });
   exposedKeys = new Set();
 
   if (clearDOM === true) {
-    DOM_GLOBALS.forEach(function (name) {
-      delete global[name];
-    });
-    delete global.window;
+    Array.from(originalGlobals.keys()).forEach(restoreGlobal);
     if (activeEnv) {
       activeEnv.cleanup();
       activeEnv = null;
