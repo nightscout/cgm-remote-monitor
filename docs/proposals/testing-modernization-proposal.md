@@ -439,7 +439,7 @@ Note: `benv` removed; direct jsdom usage with secure harness.
 - [x] Clear guidelines for new code placement
   (`lib/client-core/index.js` doc-comment: no `$`, `window`,
   `document`, or `ajax` allowed)
-- [x] Bundle wiring smoke test (`tests/bundle.smoke.test.js`)
+- [x] Bundle wiring smoke test (`tests/browser/bundle.test.js`)
   asserts `window.Nightscout.{client,reportclient,profileclient,units}`
   shape; skips cleanly when bundle absent.
 
@@ -603,7 +603,7 @@ wiring matters and per-module pure tests cannot reach.
 Phase 5c established a layered coverage shape for bundle-heavy UI behavior:
 
 1. **Extracted pure logic** → Node-only `tests/client-core/*` suites.
-2. **Bundle wiring** → `tests/bundle.smoke.test.js` (asserts
+2. **Bundle wiring** → `tests/browser/bundle.test.js` (asserts
    `window.Nightscout.{client,reportclient,profileclient,units}`).
 3. **Real-browser behavior** →
    `docs/test-specs/manual-smoke-checklist.md`.

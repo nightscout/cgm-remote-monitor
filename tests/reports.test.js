@@ -322,7 +322,7 @@ exampleProfile[0].startDate.setMilliseconds(0);
 
 // Intentionally quarantined: this legacy suite drives the full webpack bundle
 // through a heavily mocked jsdom environment that does not faithfully represent
-// a browser. Bundle wiring remains covered by bundle.smoke.test.js; report
+// a browser. Bundle wiring remains covered by tests/browser/bundle.test.js; report
 // behavior is covered by the manual smoke checklist until report statistics can
 // be tested independently of the DOM.
 describe.skip('reports', function ( ) {
