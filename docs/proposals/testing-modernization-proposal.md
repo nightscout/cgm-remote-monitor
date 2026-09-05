@@ -550,7 +550,7 @@ device pre-filters whenever a new uploader class enters the cohort.
 
 ### L2. Domain-specific test corpora are non-negotiable for security libs
 
-The `tests/sanitizer-differential.test.js` work (commits `c8d880d1`,
+The `tests/browser/sanitizer-differential.test.js` work (commits `c8d880d1`,
 `61e2e582`) revealed that the popular `xss` library silently truncates
 `"Hypo: BG < 70 needed sugar"` to `"Hypo: BG "` because `<` parses as a
 tag start. Generic benchmarks would have rated `xss` as "smaller, faster,
