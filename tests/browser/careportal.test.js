@@ -24,18 +24,14 @@ const connectionFailureMessage = 'Could not confirm whether Loop received this c
 const authorizationFailureMessage = 'Authorization failed. Reauthorize Nightscout access or ask the administrator to check your Loop command permissions.';
 
 describe('careportal in a real browser', function () {
-  let server, origin, requests, loopResponse;
+  let server, origin, requests, loopResponse, markup;
   before(async function () {
     const root = path.resolve(__dirname, '../..');
     const file = path.join(root, 'views/index.html');
-    const rendered = ejs.render(fs.readFileSync(file, 'utf8'), {type: 'index', title: '', bundle: '/bundle'}, {filename: file});
-    // Keep the actual form/toolbar markup. Boot manually after installing the
-    // same finite socket boundary as the old harness; service workers and audio
-    // playback are outside this form suite.
-    const body = rendered.match(/<body\b[^>]*>([\s\S]*)<\/body>/i)[1]
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/preload="auto"/g, 'preload="none"');
-    const html = '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/css/main.css"></head><body>' + body + '</body></html>';
+    markup = ejs.render(fs.readFileSync(file, 'utf8'), {type: 'index', title: '', bundle: '/bundle'}, {filename: file});
+    const html = '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/css/main.css"></head><body></body></html>';
+    const css = fs.readFileSync(path.join(root, 'static/css/main.css'), 'utf8')
+      .replace("@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');", '');
     const settings = structuredClone(require('../fixtures/default-server-settings'));
     settings.settings.showPlugins = 'iob careportal boluscalc';
     settings.settings.enable += ' boluscalc';
@@ -61,8 +57,7 @@ describe('careportal in a real browser', function () {
         response.once('close', () => clearTimeout(timer));
       } else send();
     });
-    app.get('/css/main.css', (request, response) => response.type('css').send(fs.readFileSync(path.join(root, 'static/css/main.css'), 'utf8')
-      .replace("@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');", '')));
+    app.get('/css/main.css', (request, response) => response.type('css').send(css));
     app.use('/bundle', express.static(path.join(root, 'node_modules/.cache/_ns_cache/public')));
     app.use(express.static(path.join(root, 'static')));
     server = http.createServer(app);
@@ -85,6 +80,15 @@ describe('careportal in a real browser', function () {
       });
       await page.clock.setFixedTime(new Date(now));
       await page.goto(origin);
+      await page.evaluate(markup => {
+        // Parse the trusted production template inertly, then move its body
+        // nodes into the fixture. Boot manually after installing finite socket
+        // responses; service workers and audio are outside this form suite.
+        const parsed = new DOMParser().parseFromString(markup, 'text/html');
+        parsed.querySelectorAll('script').forEach(script => script.remove());
+        parsed.querySelectorAll('audio').forEach(audio => {audio.preload = 'none';});
+        document.body.replaceChildren(...parsed.body.childNodes);
+      }, markup);
       await page.addScriptTag({url: origin + '/bundle/js/bundle.app.js'});
       await page.evaluate(() => {
         const state = window.careportalFixture = {sockets: [], emitted: [], posts: [], closed: [], failures: []};
