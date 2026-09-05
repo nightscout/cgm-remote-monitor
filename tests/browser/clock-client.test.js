@@ -13,14 +13,14 @@ describe('clock client in a real browser', function () {
     const source = fs.readFileSync(path.resolve(__dirname, '../../node_modules/.cache/_ns_cache/public/js/bundle.clock.js'));
     server = http.createServer((request, response) => {
       if (request.url === '/clock.js') {
-        response.setHeader('Content-Type', 'application/javascript');
+        response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
         response.end(source);
       } else if (request.url.startsWith('/api/')) {
         requests.push({method: request.method, url: request.url});
         response.setHeader('Content-Type', 'application/json');
         response.end(JSON.stringify(properties));
       } else if (request.url === '/') {
-        response.setHeader('Content-Type', 'text/html');
+        response.setHeader('Content-Type', 'text/html; charset=utf-8');
         response.end('<!doctype html><html><body><div id="inner"></div></body></html>');
       } else {
         response.writeHead(404).end();
@@ -39,6 +39,7 @@ describe('clock client in a real browser', function () {
     requests = [];
     return withPage(origin, async ({page}) => {
       await page.goto(origin);
+      assert.equal(await page.evaluate(() => document.characterSet), 'UTF-8');
       await page.addScriptTag({url: origin + '/clock.js'});
       await page.evaluate(({serverUnits, browserUnits, options}) => {
         const inner = document.getElementById('inner');
@@ -68,6 +69,7 @@ describe('clock client in a real browser', function () {
             nlSize: style('.nl')?.fontSize, arHeight: style('.ar')?.height, tmSize: style('.tm')?.fontSize,
             unsafe: inner.querySelectorAll('img, script, [onclick], [onerror]').length,
             text: inner.textContent,
+            em: inner.querySelector('.em')?.textContent,
             sg: inner.querySelector('.sg')?.innerHTML, dt: inner.querySelector('.dt')?.innerHTML
           };
         }));
@@ -84,6 +86,7 @@ describe('clock client in a real browser', function () {
       assert.equal(result.dtSize, '14vmin');
       assert.equal(result.nlSize, '');
       assert.equal(result.arHeight, '25vmin');
+      assert.equal(result.em, '🦄');
     }
   });
 
