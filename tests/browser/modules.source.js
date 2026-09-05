@@ -3,6 +3,7 @@
 // Private production modules needed by component tests. Keep these out of the
 // production bundle's public interface; webpack uses the same loader rules.
 window.NightscoutTestModules = {
+  makeBus: require('../../lib/bus'),
   utils: require('../../lib/utils'),
   browserSettings: require('../../lib/client/browser-settings'),
   careportal: require('../../lib/client/careportal'),

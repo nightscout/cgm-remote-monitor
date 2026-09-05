@@ -72,7 +72,8 @@ describe('legacy reports in a real browser', function () {
       await page.addScriptTag({url: origin + '/report/js/flotcandle.js'});
       await page.addScriptTag({url: origin + '/report/js/loopalyzer.js'});
       await page.evaluate(() => {
-        window.reportFixture = {emitted: [], failures: [], errors: []};
+        window.reportFixture = {emitted: [], failures: [], errors: [], completed: 0};
+        window.$(document).on('ajaxComplete.reportFixture', () => window.reportFixture.completed++);
         window.addEventListener('error', event => window.reportFixture.errors.push(event.message));
         window.$.ajaxPrefilter((options, original, xhr) => xhr.fail((response, status) => {
           window.reportFixture.failures.push({url: options.url, status, httpStatus: response.status});
@@ -115,14 +116,27 @@ describe('legacy reports in a real browser', function () {
   async function idle(page) {
     const started = Date.now();
     try {
-      // Rendering a month of all report plugins includes synchronous profile
-      // requests and chart work. Give the condition a bounded render budget;
-      // retain diagnostics if a request/render fails to finish.
-      await page.waitForFunction(() => window.$.active === 0 && window.$('#rp_show').is(':visible') && window.$('#info').text() === '', null, {timeout: 15000});
+      // A month requires many batches of real HTTP requests. Bound total work
+      // separately from a stalled request: completed AJAX calls prove progress.
+      await page.evaluate(() => {
+        window.reportFixture.progress = {completed: window.reportFixture.completed, at: performance.now()};
+      });
+      const result = await page.waitForFunction(() => {
+        if (window.$.active === 0 && window.$('#rp_show').is(':visible') && window.$('#info').text() === '') return 'ready';
+        const state = window.reportFixture, progress = state.progress;
+        if (state.completed !== progress.completed) {
+          progress.completed = state.completed;
+          progress.at = performance.now();
+        }
+        return performance.now() - progress.at >= 15000 ? 'stalled' : false;
+      }, null, {timeout: 60000});
+      try {assert.equal(await result.jsonValue(), 'ready', 'Report made no HTTP completion progress for 15 seconds');}
+      finally {await result.dispose();}
     } catch (error) {
       const state = await page.evaluate(() => ({active: window.$.active, info: window.$('#info').text(),
         showVisible: window.$('#rp_show').is(':visible'), errors: window.reportFixture.errors,
-        failures: window.reportFixture.failures.slice(-5)}));
+        failures: window.reportFixture.failures.slice(-5), completed: window.reportFixture.completed,
+        stalledForMs: performance.now() - window.reportFixture.progress.at}));
       error.message += '\nReport state: ' + JSON.stringify(state);
       throw error;
     }
