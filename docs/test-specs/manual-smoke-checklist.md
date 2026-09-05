@@ -3,7 +3,7 @@
 This checklist covers browser behavior that automated tests do not currently
 exercise end-to-end. Current automated coverage includes:
 
-1. `tests/bundle.smoke.test.js`, a structural check that the built bundle
+1. `tests/browser/bundle.test.js`, a structural check that the built bundle
    executes and exposes `Nightscout.client`, `.reportclient`, `.profileclient`,
    and `.units`.
 2. `tests/reportstorage.test.js`, which covers persisted report preferences,
@@ -158,7 +158,7 @@ A failure may be in data loading, report calculations, bundle wiring, or
 browser rendering. Record the selected date range and inspect:
 
 - Browser DevTools console and network tabs.
-- `tests/bundle.smoke.test.js` for bundle entry-point failures.
+- `tests/browser/bundle.test.js` for bundle entry-point failures.
 - `tests/reportstorage.test.js` for preference persistence.
 - `tests/uniqsgv.test.js` for SGV filtering and
   `tests/report-sgv-pipeline.test.js` for loading-to-statistics regressions.

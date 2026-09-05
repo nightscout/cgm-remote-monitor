@@ -63,7 +63,8 @@
     "test:flaky:isolate": "node scripts/flaky-harnesses/run-isolate.js",
     "test:timing": "ENABLE_TIMING_WARNINGS=true env-cmd -f ./my.test.env mocha --timeout 10000 --require ./tests/hooks.js --exit ./tests/*.test.js",
     "test:timing:single": "ENABLE_TIMING_WARNINGS=true env-cmd -f ./my.test.env mocha --timeout 10000 --require ./tests/hooks.js --exit ./tests/$TEST.test.js",
-    "test:slow": "SLOW_TEST_THRESHOLD=1000 env-cmd -f ./my.test.env mocha --timeout 10000 --require ./tests/hooks.js --exit ./tests/*.test.js"
+    "test:slow": "SLOW_TEST_THRESHOLD=1000 env-cmd -f ./my.test.env mocha --timeout 10000 --require ./tests/hooks.js --exit ./tests/*.test.js",
+    "test:browser": "mocha --timeout 30000 --require ./tests/browser/hooks.js ./tests/browser/*.test.js"
   },
   "main": "lib/server/server.js",
   "nodemonConfig": {
@@ -167,6 +168,7 @@
     "mocha": "^11.8.0",
     "nodemon": "^3.1.14",
     "nyc": "^18.0.0",
+    "playwright-core": "1.63.0",
     "should": "^13.2.3",
     "supertest": "^7.2.2",
     "webpack-bundle-analyzer": "^4.5.0",

@@ -51,6 +51,34 @@ jobs:
       - name: Send Coverage
         run: npm run-script coverage
 
+  browser-test:
+    name: Browser tests (${{ matrix.node-version }}, ${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['22.23.2', '24.20.0']
+        browser: [chromium, firefox, webkit]
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node-version }}
+          package-manager-cache: false
+      - name: Install dependencies and build production bundle
+        run: npm ci
+      - name: Install the pinned browser and system dependencies
+        run: npx --no-install playwright-core install --with-deps ${{ matrix.browser }}
+      - name: Run isolated browser tests
+        env:
+          NIGHTSCOUT_TEST_BROWSER: ${{ matrix.browser }}
+        run: npm run test:browser
+
   npm12-build:
     name: Validate npm 12 install and build
     runs-on: ubuntu-latest
@@ -76,7 +104,7 @@ jobs:
 
   docker-build-pr:
     name: Validate Docker image (${{ matrix.arch }})
-    needs: test
+    needs: [test, browser-test]
     if: github.event_name == 'pull_request'
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -125,7 +153,7 @@ jobs:
 
   docker-build:
     name: Build Docker image (${{ matrix.arch }})
-    needs: test
+    needs: [test, browser-test]
     if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
     runs-on: ${{ matrix.runner }}
     strategy:
