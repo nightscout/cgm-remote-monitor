@@ -92,7 +92,7 @@ describe('Socket.IO transport and served browser client compatibility', function
 
   beforeEach(async function () {
     const server = http.createServer();
-    io = new Server(server, { allowEIO3: true });
+    io = new Server(server, { allowEIO3: true, perMessageDeflate: {threshold: 512}, httpCompression: {threshold: 512} });
     io.on('connection', peer => {
       peer.on('echo', (data, acknowledge) => acknowledge(data));
       peer.on('snapshot', acknowledge => {
@@ -135,7 +135,7 @@ describe('Socket.IO transport and served browser client compatibility', function
   }
 
   ['node', 'served browser'].forEach(function (clientKind) {
-    ['polling', 'websocket'].forEach(function (transport) {
+    ['polling', 'websocket', 'upgrade'].forEach(function (transport) {
       it(clientKind + ' exchanges updates and acknowledgements across two reconnects over ' + transport, async function () {
         let client = ioClient;
         if (clientKind === 'served browser') {
@@ -145,15 +145,21 @@ describe('Socket.IO transport and served browser client compatibility', function
           dom.window.eval(await response.text());
           client = dom.window.io;
         }
-        socket = client(url, { autoConnect: false, forceNew: true, reconnection: false, transports: [transport] });
+        socket = client(url, { autoConnect: false, forceNew: true, reconnection: false, transports: transport === 'upgrade' ? ['polling', 'websocket'] : [transport] });
         for (let cycle = 0; cycle < 3; cycle++) {
           await connect(socket);
-          assert.strictEqual(socket.io.engine.transport.name, transport);
+          if (transport === 'upgrade' && socket.io.engine.transport.name !== 'websocket') {
+            await once(socket.io.engine, 'upgrade', {signal: AbortSignal.timeout(3000)});
+          }
+          assert.strictEqual(socket.io.engine.transport.name, transport === 'upgrade' ? 'websocket' : transport);
           const update = once(socket, 'dataUpdate');
           assert.strictEqual((await acknowledge('snapshot')).ok, true);
           assert.deepStrictEqual(JSON.parse(JSON.stringify((await update)[0])), {
             sgvs: [{ sgv: 123 }], treatments: [{ notes: 'Fish & Chips' }]
           });
+          const large = {notes: 'Café 💉'.repeat(2048)};
+          const largeReply = await acknowledge('echo', large);
+          assert.strictEqual(largeReply.notes, large.notes);
           const bytes = dom ? new dom.window.Uint8Array([0, 127, 255]) : Buffer.from([0, 127, 255]);
           const reply = await acknowledge('echo', { notes: 'Café 💉', binary: bytes });
           assert.strictEqual(reply.notes, 'Café 💉');
@@ -161,6 +167,30 @@ describe('Socket.IO transport and served browser client compatibility', function
           socket.disconnect();
         }
       });
+    });
+  });
+
+  ['node', 'served browser'].forEach(function (clientKind) {
+    it(clientKind + ' automatically reconnects and receives updates after two network drops', async function () {
+      let client = ioClient;
+      if (clientKind === 'served browser') {
+        const response = await fetch(url + '/socket.io/socket.io.js');
+        dom = new JSDOM('', {url, runScripts: 'outside-only'});
+        dom.window.eval(await response.text());
+        client = dom.window.io;
+      }
+      socket = client(url, {autoConnect: false, forceNew: true, reconnectionDelay: 10,
+        reconnectionDelayMax: 20, randomizationFactor: 0, transports: ['polling', 'websocket']});
+      await connect(socket);
+      for (let cycle = 0; cycle < 2; cycle++) {
+        const reconnected = once(socket, 'connect', {signal: AbortSignal.timeout(3000)});
+        socket.io.engine.close();
+        await reconnected;
+        const update = once(socket, 'dataUpdate', {signal: AbortSignal.timeout(3000)});
+        assert.strictEqual((await acknowledge('snapshot')).ok, true);
+        assert.strictEqual((await update)[0].sgvs[0].sgv, 123);
+        assert.strictEqual(io.of('/').sockets.size, 1);
+      }
     });
   });
 
