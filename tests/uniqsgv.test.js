@@ -30,6 +30,34 @@ describe('report sgv de-duplication', () => {
     seconds(uniqSgv(at(0, 60, 120))).should.eql([0, 60, 120]);
   });
 
+  [59999, 60000, 60001].forEach(function (gap) {
+    it('applies the one-minute cutoff at a ' + gap + 'ms gap', () => {
+      const entries = [{ mills: BASE }, { mills: BASE + gap }];
+      const expected = gap < 60000 ? [entries[0]] : entries;
+      uniqSgv(entries).should.eql(expected);
+    });
+  });
+
+  it('continues retaining readings throughout a dense series with timing jitter', () => {
+    // Alternating 29s/30s gaps must not starve the report after its first point.
+    // Every third reading is 88s or 89s after the previous retained reading.
+    const entries = Array.from({ length: 120 }, function (_, index) {
+      return { mills: BASE + (Math.floor(index / 2) * 59000) + (index % 2 * 29000) };
+    });
+    const retainedIndexes = Array.from({ length: 40 }, function (_, index) { return index * 3; });
+    uniqSgv(entries).should.eql(retainedIndexes.map(function (index) { return entries[index]; }));
+  });
+
+  it('preserves the input array and retained entry objects', () => {
+    const entries = Object.freeze(at(0, 58, 116).map(Object.freeze));
+    const result = uniqSgv(entries);
+    result.should.not.equal(entries);
+    result.length.should.equal(2);
+    result[0].should.equal(entries[0]);
+    result[1].should.equal(entries[2]);
+    seconds(entries).should.eql([0, 58, 116]);
+  });
+
   it('drops a true duplicate but keeps the next valid entry', () => {
     seconds(uniqSgv(at(0, 0, 60))).should.eql([0, 60]);
   });
