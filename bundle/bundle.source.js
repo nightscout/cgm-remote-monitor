@@ -6,7 +6,7 @@ $ = require("jquery");
 
 require('jquery-ui-bundle');
 
-window.d3 = require('d3');
+window.d3 = require('../lib/d3.mjs');
 
 require('jquery.tooltips');
 
