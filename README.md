@@ -154,8 +154,8 @@ Older versions or other browsers might work, but are untested and unsupported. W
 ## Installation software requirements:
 
 - [Node.js](http://nodejs.org/) Node 22.23.2+ or 24.20.0+ within those LTS major lines. Node 24 is recommended for new source installations; Node 20 and non-LTS major lines are not supported. Node versions that do not have the latest security patches will not be supported. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
-- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 5.0.32 or later, 6.0.27 or later 
-  NOTE: MongoDB 4.4 or lower is *not supported*. Nightscout 15.0.7 is the latest version that works with Mongo 4.4.
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 5.0.32+ within the 5.0 series, or 6.0.27+ within the 6.0 series, retained during the modernization migration.
+  MongoDB 4.4 and earlier are unsupported and no longer tested. MongoDB 5/6 are also upstream end-of-life; validation of maintained 7/8 releases is planned. See the [MongoDB support and upgrade notice](docs/runtime-upgrade.md#mongodb-support-during-modernization) before upgrading an existing deployment.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
 
