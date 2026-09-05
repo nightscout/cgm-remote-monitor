@@ -11,12 +11,12 @@ function permitted(url, origin) {
   return !parsed.username && !parsed.password && parsed.origin === origin;
 }
 
-exports.withPage = async function (origin, run, {expectBlocked = false, hasTouch = false} = {}) {
+exports.withPage = async function (origin, run, {expectBlocked = false, hasTouch = false, timezoneId} = {}) {
   const target = new URL(origin);
   assert.equal(target.protocol, 'http:');
   assert.equal(target.hostname, '127.0.0.1');
   assert.equal(target.origin, origin);
-  const context = await getBrowser().newContext({serviceWorkers: 'block', acceptDownloads: false, hasTouch});
+  const context = await getBrowser().newContext({serviceWorkers: 'block', acceptDownloads: false, hasTouch, timezoneId});
   const blocked = [], errors = [];
   try {
     // Fulfilled documents have no network address. Chromium's local-network
