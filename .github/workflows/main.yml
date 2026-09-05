@@ -40,7 +40,7 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Validate dependency resolution
-        run: npm ls brace-expansion postcss --all
+        run: npm ls brace-expansion postcss mocha nanoid --all
       - name: Run Tests
         run: npm run-script test-ci
       - name: Run client-core tests

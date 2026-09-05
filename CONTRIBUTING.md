@@ -162,6 +162,12 @@ NODE_ENV=test npm test -- --grep "treatments"
 
 ### Advanced Test Scripts
 
+Run `npm run test:dependencies` to check dependency resolution and compatibility
+without MongoDB. This includes Mocha subprocess checks for serial and parallel
+execution, root hooks, timeouts, assertion diffs and failure exit codes. The
+fixtures deliberately fail in child processes; the parent checks that those
+failures are reported correctly.
+
 For diagnosing test issues and ensuring reliability:
 
 ```bash
