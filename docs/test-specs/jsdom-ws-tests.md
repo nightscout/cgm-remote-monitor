@@ -31,14 +31,16 @@ authentication suite runs under `test-ci`. CI verifies jsdom and both ws version
 with `npm ls`. Existing DOMPurify, chart, report, profile and served Socket.IO
 client tests continue to exercise jsdom.
 
-The jsdom graph adds 17 locked paths and removes seven, with 15 retained entries updated. All 673 production-marked lock entries remain identical to the parent; no server-memory or production-package saving is claimed for this maintained test-tool upgrade.
+The jsdom graph adds 17 locked paths and removes seven, with 15 retained entries updated. All 672 production-marked lock entries remain identical to modernization parent `756fca7c`; no server-memory or production-package saving is claimed for this maintained test-tool upgrade.
 
 These are development/test dependencies. No user configuration or visual changes
-are required, and production browser bundles should remain unchanged.
+are required, and both production browser bundles are byte-identical to the parent (app: 1,761,400 bytes; clock: 152,131 bytes).
 
 References: [jsdom 30.0.1](https://github.com/jsdom/jsdom/releases/tag/v30.0.1),
 [jsdom major release notes](https://github.com/jsdom/jsdom/releases),
 [resource-loading API](https://github.com/jsdom/jsdom/blob/v30.0.1/README.md#loading-subresources),
 [ws 7.5.13](https://github.com/websockets/ws/releases/tag/7.5.13).
+
+Validation: clean locked installs and production/development builds passed. Node 22.23.2 main suite passed 1,981 tests before the cachebuster integration; Node 24.20.0 passed 1,986 on refreshed parent `756fca7c`, both with three existing pending. Focused DOM/native-global/Socket.IO tests passed 35 cases on both exact Node floors; client-core passed 283 and dependency compatibility 318. Final integration-target CI remains required.
 
 Rollback: revert the jsdom/harness upgrade together and perform a clean locked install. No application data, configuration or browser storage migration is involved. The native-global restoration can be retained independently; the resource-interceptor migration must be reverted with the dependency.
