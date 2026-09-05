@@ -6,6 +6,12 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ### Fixed
 
+- **Dependency security:** Update all `brace-expansion` copies to the latest
+  compatible releases (1.1.18, 2.1.4 and 5.0.9), including nested tooling
+  dependencies. Keep overrides scoped by major version because older
+  `minimatch` consumers require the function export from 1.x/2.x; 5.x uses a
+  named `expand` export. CI checks dependency resolution, normal glob matching
+  and resource limits to prevent vulnerable or incompatible copies returning.
 - **Daily Stats estimated A1c:** Calculate both estimates from the original
   mg/dL readings, correcting inflated results in mg/dL mode. A mean glucose of
   150 mg/dL now displays 6.9% (DCCT) and 51 mmol/mol (IFCC). Switching glucose
