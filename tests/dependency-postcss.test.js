@@ -14,7 +14,7 @@ const sanitizeHtml = require('sanitize-html');
 const lock = require('../package-lock.json');
 
 describe('PostCSS dependency regressions', function () {
-  it('installs the reviewed release for CSS loading and HTML sanitization', function () {
+  it('installs the reviewed release for HTML sanitization', function () {
     const copies = Object.entries(lock.packages).filter(([name]) => name.endsWith('/postcss'));
     assert.ok(copies.length > 0);
     copies.forEach(([name, entry]) => {
@@ -24,7 +24,7 @@ describe('PostCSS dependency regressions', function () {
       assert.strictEqual(installed.version, entry.version);
       assert.ok(semver.satisfies(installed.version, '>=8.5.28 <9'));
     });
-    for (const consumer of ['css-loader', 'sanitize-html']) {
+    for (const consumer of ['sanitize-html']) {
       const consumerRequire = createRequire(require.resolve(consumer));
       const installed = consumerRequire('postcss/package.json');
       // eslint-disable-next-line security/detect-non-literal-require

@@ -60,7 +60,7 @@ describe('Treatment API', function ( ) {
               // AND the security invariants (no javascript:, no alert,
               // no XSS, no surviving src attribute) so any future
               // sanitizer swap that still satisfies the invariants is
-              // accepted. See tests/sanitizer-differential.test.js for
+              // accepted. See tests/browser/sanitizer-differential.test.js for
               // the cross-sanitizer behavior matrix.
               sorted[0].notes.should.equal('<img />');
               sorted[0].notes.should.not.match(/javascript:/i);
