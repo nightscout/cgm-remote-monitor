@@ -1,0 +1,117 @@
+[
+  {
+    "_id": {"$oid": "6783c443748bf2ff9a89c6a5"},
+    "created_at": "2025-01-12T13:31:47.933Z",
+    "device": "Trio",
+    "openaps": {
+      "version": "0.7.1",
+      "iob": {
+        "iobWithZeroTemp": {
+          "time": "2025-01-12T13:31:41.557Z",
+          "activity": 0.025,
+          "netbasalinsulin": -1.35,
+          "bolusinsulin": 9.9,
+          "basaliob": -0.616,
+          "bolusiob": 4.035,
+          "iob": 3.42
+        },
+        "iob": 3.42,
+        "bolusiob": 4.035,
+        "lastTemp": {
+          "rate": 0,
+          "timestamp": "2025-01-12T13:26:49.693Z",
+          "started_at": "2025-01-12T13:26:49.693Z",
+          "duration": 5.86,
+          "date": 1736688409693
+        },
+        "time": "2025-01-12T13:31:41.557Z",
+        "basaliob": -0.616,
+        "netbasalinsulin": -1.35,
+        "lastBolusTime": 1736686907187,
+        "activity": 0.025,
+        "bolusinsulin": 9.9
+      },
+      "suggested": {
+        "sensitivityRatio": 1.4833613770052834,
+        "timestamp": "2025-01-12T13:31:45.550Z",
+        "temp": "absolute",
+        "reason": "Autosens ratio: 1.48, ISF: 4.5→3, COB: 0, Dev: 0.9, BGI: -0.4, CR: 8→5.4, Target: 5.5→4.8, minPredBG 2.7, minGuardBG 1.1, IOBpredBG 2.2, UAMpredBG 2.2, TDD: 31.1 U, 81% Bolus 19% Basal, Dynamic ISF/CR: On/On, Sigmoid function, AF: 0.7, Basal ratio: 1; minGuardBG 1.1&lt;3.5 115m left and 0 ~ req 0U/hr: no temp required",
+        "insulinReq": 0,
+        "COB": 0,
+        "current_target": 86,
+        "manualBolusErrorString": 2,
+        "ISF": 3,
+        "reservoir": 170.2,
+        "expectedDelta": -4.7,
+        "threshold": 3.5,
+        "bg": 204,
+        "insulinForManualBolus": -0.86,
+        "minDelta": -4,
+        "eventualBG": 39,
+        "insulin": {
+          "temp_basal": 5.9,
+          "scheduled_basal": 0,
+          "TDD": 31.1,
+          "bolus": 25.2
+        },
+        "minGuardBG": 20,
+        "TDD": 31.1,
+        "deliverAt": "2025-01-12T13:31:45.550Z",
+        "IOB": 3.42
+      },
+      "enacted": {
+        "temp": "absolute",
+        "sensitivityRatio": 1.4833613770052834,
+        "TDD": 31.1,
+        "current_target": 86,
+        "insulinForManualBolus": -0.86,
+        "expectedDelta": -4.7,
+        "timestamp": "2025-01-12T13:31:47.779Z",
+        "bg": 204,
+        "recieved": true,
+        "reservoir": 170.2,
+        "insulin": {
+          "bolus": 25.2,
+          "TDD": 31.1,
+          "temp_basal": 5.9,
+          "scheduled_basal": 0
+        },
+        "manualBolusErrorString": 2,
+        "insulinReq": 0,
+        "predBGs": {
+          "IOB": [204, 200, 195, 190, 185, 180, 174, 169, 163, 157, 151, 145, 139, 133, 128, 122, 117, 112, 107, 102, 98, 93, 89, 85, 82, 78, 75, 72, 69, 66, 63, 61, 59, 56, 54, 52, 50, 48, 47, 45, 43, 42, 41, 39],
+          "UAM": [204, 198, 191, 184, 177, 170, 164, 157, 150, 144, 137, 131, 125, 119, 113, 108, 103, 97, 93, 88, 83, 79, 75, 71, 67, 64, 61, 58, 55, 52, 49, 47, 44, 42, 40, 39],
+          "ZT": [204, 197, 190, 183, 176, 170, 163, 156, 150, 144, 138, 132, 127, 121, 116, 112, 107, 103, 99, 95, 92, 89, 86, 84, 82, 80, 78, 77, 75, 74, 73, 73, 72, 72, 72, 72, 72, 72, 73, 74, 74, 75, 76, 77, 79, 80, 82, 83]
+        },
+        "ISF": 3,
+        "reason": "Autosens ratio: 1.48, ISF: 4.5→3, COB: 0, Dev: 0.9, BGI: -0.4, CR: 8→5.4, Target: 5.5→4.8, minPredBG 2.7, minGuardBG 1.1, IOBpredBG 2.2, UAMpredBG 2.2, TDD: 31.1 U, 81% Bolus 19% Basal, Dynamic ISF/CR: On/On, Sigmoid function, AF: 0.7, Basal ratio: 1; minGuardBG 1.1&lt;3.5 115m left and 0 ~ req 0U/hr: no temp required",
+        "IOB": 3.42,
+        "COB": 0,
+        "deliverAt": "2025-01-12T13:31:45.550Z",
+        "eventualBG": 39,
+        "minDelta": -4,
+        "minGuardBG": 20,
+        "threshold": 3.5
+      }
+    },
+    "pump": {
+      "battery": {
+        "display": true,
+        "percent": 100,
+        "string": "normal"
+      },
+      "reservoir": 170.2,
+      "status": {
+        "status": "normal",
+        "bolusing": false,
+        "suspended": false,
+        "timestamp": "2025-01-12T13:26:49.736Z"
+      },
+      "clock": "2025-01-12T13:31:47.884Z"
+    },
+    "uploader": {
+      "battery": 100
+    },
+    "utcOffset": 60
+  }
+]

@@ -148,12 +148,22 @@ describe('Security of REST API V1', function() {
       });
   });
 
-  it('Data load fail succeed with a false bearer token', function(done) {
+  it('Data load should fail with a false bearer token without logging a JWT TypeError', function(done) {
+    const originalError = console.error;
+    const errors = [];
+    console.error = function captureConsoleError () {
+      errors.push(Array.prototype.slice.call(arguments).join(' '));
+      return originalError.apply(console, arguments);
+    };
+
     request(self.app)
       .get('/api/v1/entries.json')
       .set('Authorization', 'Bearer 1234567890')
       .expect(401)
-      .end(function(err, res) {
+      .end(function(err) {
+        console.error = originalError;
+        if (err) return done(err);
+        errors.join('\n').should.not.containEql('Cannot read properties of null');
         done();
       });
   });
