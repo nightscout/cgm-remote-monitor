@@ -108,7 +108,7 @@ jobs:
           IMAGE: nightscout/cgm-remote-monitor:pr-${{ github.event.pull_request.number }}
         run: |
           docker run --rm "$IMAGE" node -e "require('./lib/server/runtime-policy')(); console.log(process.version)"
-          docker run --detach --name nightscout-smoke -p 127.0.0.1:1337:1337 "$IMAGE"
+          docker run --detach --name nightscout-smoke -e INSECURE_USE_HTTP=true -p 127.0.0.1:1337:1337 "$IMAGE"
           trap 'docker logs nightscout-smoke; docker rm -f nightscout-smoke' EXIT
           # With no database credentials the application must serve its setup/error page.
           for attempt in {1..60}; do
