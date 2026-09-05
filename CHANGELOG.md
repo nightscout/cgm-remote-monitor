@@ -2,6 +2,22 @@
 
 All notable changes to cgm-remote-monitor are documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- **Daily Stats estimated A1c:** Calculate both estimates from the original
+  mg/dL readings, correcting inflated results in mg/dL mode. A mean glucose of
+  150 mg/dL now displays 6.9% (DCCT) and 51 mmol/mol (IFCC). Switching glucose
+  display units gives the same estimates; mmol/L results can change slightly
+  because the calculation no longer uses rounded display values.
+- **Reports (#8588):** Closely spaced CGM readings no longer cause later valid
+  readings to be discarded in a chain. The one-minute filter now compares each
+  reading with the last retained reading. Regenerating reports from the same
+  historical data may show more readings and different charts, averages and
+  range percentages. Five-minute series are unaffected. Range percentages
+  continue to count retained readings rather than weight elapsed time.
+
 ## [15.0.7] - 2026-03-XX (Unreleased)
 
 ### Added

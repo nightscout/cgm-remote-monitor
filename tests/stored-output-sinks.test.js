@@ -101,6 +101,85 @@ describe('stored-data browser output encoding', function () {
     should(env.window.injected).equal(undefined);
   });
 
+  it('filters treatment report rows without retaining empty day headings', function () {
+    function translate (value, options) {
+      if (!options || !options.params) { return value; }
+      return options.params.reduce(function replaceParam (text, param, index) {
+        return text.replace('%' + (index + 1), param);
+      }, value);
+    }
+
+    var client = {
+      careportal: {
+        resolveEventName: function (value) { return value; }
+      }
+      , profilefunctions: {
+        listBasalProfiles: function () { return []; }
+      }
+      , sbx: {
+        data: {
+          profile: {
+            applyTimezone: function (value) { return moment(value); }
+          }
+        }
+      }
+      , settings: {timeFormat: 24, units: 'mg/dl'}
+      , translate: translate
+      , utils: {}
+    };
+    var reportPlugins = {
+      consts: {ORDER_NEWESTONTOP: 'newest'}
+      , utils: {localeDate: function (value) { return value; }}
+    };
+    env.window.Nightscout = {client: client, report_plugins: reportPlugins};
+
+    var plugin = require('../lib/report_plugins/treatments')();
+    $('body').append(plugin.html(client));
+    var data = {
+      '2025-01-01': {
+        treatments: [
+          {_id: 'exercise-1', created_at: '2025-01-01T01:00:00.000Z', eventType: 'Exercise'}
+          , {_id: 'exercise-2', created_at: '2025-01-01T02:00:00.000Z', eventType: 'Exercise'}
+          , {_id: 'untyped', created_at: '2025-01-01T03:00:00.000Z'}
+        ]
+      }
+      , '2025-01-02': {
+        treatments: [
+          {_id: 'note', created_at: '2025-01-02T01:00:00.000Z', eventType: 'Note &amp; More'}
+        ]
+      }
+    };
+
+    plugin.report(data, ['2025-01-01', '2025-01-02'], {order: 'oldest', units: 'mg/dl'});
+
+    $('#treatments-report tr.border_bottom').length.should.equal(4);
+    $('#treatments-report td[colspan="12"]').length.should.equal(2);
+    $('#treatments-eventtype option').length.should.equal(4);
+    $('#treatments-eventtype option').filter(function hasDecodedLabel () {
+      return $(this).text() === 'Note & More (1)';
+    }).length.should.equal(1);
+    $('#treatments-report .recordcount').text().should.equal('Showing 4 of 4 records');
+
+    $('#treatments-eventtype').val('Exercise').trigger('change');
+    $('#treatments-report tr.border_bottom').length.should.equal(2);
+    $('#treatments-report td[colspan="12"]').length.should.equal(1);
+    $('#treatments-report td[colspan="12"]').text().should.equal('2025-01-01');
+    $('#treatments-report .recordcount').text().should.equal('Showing 2 of 4 records');
+
+    var noneValue = $('#treatments-eventtype option').filter(function hasNoType () {
+      return $(this).text() === '(none) (1)';
+    }).val();
+    $('#treatments-eventtype').val(noneValue).trigger('change');
+    $('#treatments-report tr.border_bottom').length.should.equal(1);
+    $('#treatments-report td[colspan="12"]').text().should.equal('2025-01-01');
+
+    $('#treatments-eventtype').val('Exercise').trigger('change');
+    plugin.report({'2025-01-02': data['2025-01-02']}, ['2025-01-02'], {order: 'oldest', units: 'mg/dl'});
+    $('#treatments-eventtype').val().should.equal('\u0000all');
+    $('#treatments-report tr.border_bottom').length.should.equal(1);
+    $('#treatments-report .recordcount').text().should.equal('Showing 1 of 1 records');
+  });
+
   it('renders admin notification fields as literal text', function () {
     $('body').append('<button id="adminnotifies"></button><div id="adminNotifiesDrawer"></div>');
     env.window.setTimeout = function () {};

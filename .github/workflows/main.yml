@@ -41,8 +41,29 @@ jobs:
         run: npm install
       - name: Run Tests
         run: npm run-script test-ci
+      - name: Run client-core tests
+        run: npm run-script test:core
       - name: Send Coverage
         run: npm run-script coverage
+
+  npm12-build:
+    name: Validate npm 12 install and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Use Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Use npm 12
+        run: npm install --global npm@12
+      - name: Install dependencies and build production bundle
+        run: npm ci
 
   docker-build-pr:
     name: Validate Docker image
