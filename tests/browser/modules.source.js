@@ -7,5 +7,6 @@ window.NightscoutTestModules = {
   browserSettings: require('../../lib/client/browser-settings'),
   careportal: require('../../lib/client/careportal'),
   boluscalc: require('../../lib/client/boluscalc'),
-  makeChart: require('./chart.source')
+  makeChart: require('./chart.source'),
+  pluginbase: require('../../lib/plugins/pluginbase')
 };
