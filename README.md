@@ -675,7 +675,14 @@ For remote overrides, the following extended settings must be configured:
   * `LOOP_DEVELOPER_TEAM_ID` - Your Apple developer team ID.
   * `LOOP_PUSH_SERVER_ENVIRONMENT` - (optional) Set this to `production` if you are using a provisioning profile that specifies production aps-environment, such as when distributing builds via TestFlight.
 
-If a Loop remote command fails, Careportal displays a recognized APNs reason when available, for example `Error: Failed to send notification (APNs: InvalidProviderToken)`. See [Apple's APNs error reference](https://developer.apple.com/documentation/usernotifications/handling-notification-responses-from-apns) for the meaning of each reason. Unknown errors and local configuration failures display `Error: Failed to send notification`; check the Nightscout server logs for details. These failure messages omit raw error details, credentials, and device tokens.
+If a Loop remote command fails, Careportal keeps the form open and displays the reason with a suggested next step:
+
+  * Missing APNs configuration identifies the setting to check, such as `LOOP_APNS_KEY` or `LOOP_DEVELOPER_TEAM_ID`, without exposing its value.
+  * Missing Loop settings, device tokens, or app identifiers direct you to check the profile upload from Loop.
+  * Invalid carbs or bolus entries identify which amount to check. Unsupported commands are reported explicitly.
+  * Recognized APNs failures retain the reason code and explain it. For example, `InvalidProviderToken` identifies a provider authentication problem and directs the Nightscout administrator to check the APNs signing key, key ID, and developer team ID. See [Apple's APNs error reference](https://developer.apple.com/documentation/usernotifications/handling-notification-responses-from-apns) for details.
+
+When APNs provides no failure details, the message says so. Unexpected failures direct you to the Nightscout administrator and server logs. Full diagnostics remain in those logs; user-facing messages omit raw error objects, credentials, device tokens, filesystem paths, and other untrusted error text.
 
 ##### `override` (Override Mode)
   Additional monitoring for DIY automated insulin delivery systems to display real-time overrides such as Eating Soon or Exercise Mode:
