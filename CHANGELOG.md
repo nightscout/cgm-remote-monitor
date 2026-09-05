@@ -6,6 +6,12 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ### Fixed
 
+- **Test tooling:** Update Mocha to 11.8.0, the latest 11.x release, preserving
+  the existing Node.js compatibility range. Mocha 12 requires newer Node.js
+  versions and a separate runner migration review. Add CI coverage for serial
+  and parallel execution, root hooks, timeout handling and failure reporting.
+  Nano ID remains at the latest compatible 3.3.18 release for PostCSS; no
+  production dependencies or Nightscout configuration change.
 - **PostCSS:** Update to 8.5.28 and its required Nano ID 3.3.18 dependency.
   This includes CSS parsing fixes and tighter restrictions on loading source
   maps referenced by CSS. CI now checks stylesheet output, source-map
