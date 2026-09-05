@@ -8,5 +8,6 @@ window.NightscoutTestModules = {
   careportal: require('../../lib/client/careportal'),
   boluscalc: require('../../lib/client/boluscalc'),
   makeChart: require('./chart.source'),
-  pluginbase: require('../../lib/plugins/pluginbase')
+  pluginbase: require('../../lib/plugins/pluginbase'),
+  adminnotifies: require('../../lib/client/adminnotifiesclient')
 };
