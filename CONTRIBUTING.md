@@ -183,6 +183,13 @@ default string API with our jsdom version, including nested template security,
 visible note text and supported SVG attributes. These tests inspect inert DOM
 trees; they do not execute payloads or emulate newer browser template expansion.
 
+Socket.IO dependency checks start temporary loopback servers without MongoDB.
+They cover parser validation, binary serialization and both polling and
+WebSocket connections using the Node client and the actual served browser
+client in jsdom. Each transport check reconnects twice. The parser override
+updates installed Node packages; it does not rewrite Socket.IO's prebuilt
+browser distribution, so both client paths need compatibility checks.
+
 For diagnosing test issues and ensuring reliability:
 
 ```bash

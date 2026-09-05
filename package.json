@@ -30,7 +30,7 @@
     "test": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit ./tests/*.test.js",
     "test-single": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit ./tests/$TEST.test.js",
     "test:core": "mocha --timeout 5000 --exit ./tests/client-core/**/*.test.js",
-    "test:dependencies": "npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify --all && mocha --timeout 5000 --exit ./tests/dependency-*.test.js",
+    "test:dependencies": "npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser --all && mocha --timeout 5000 --exit ./tests/dependency-*.test.js",
     "test-ci": "env-cmd -f ./tests/ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --timeout 5000 --require ./tests/hooks.js --exit ./tests/*.test.js",
     "test:fast": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit --reporter min ./tests/*.test.js",
     "test:unit": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit --parallel --jobs 2 ./tests/{admintools,ar2,basalprofileplugin,bgnow,boluswizardpreview,bridge,bridge-connect-compat,cannulaage,careportal,cob,data.*,ddata,direction,env,errorcodes,expressextensions,hashauth,insulinage,iob,language,levels,loop,maker,mmconnect,mongo-pool-config,pluginbase,plugins,profile,profileeditor,pushover,query,sandbox,security,sensorage,settings,simplealarms,timeago,times,treatmentnotify,units,upbat,utils,verifyauth}.test.js",
@@ -191,7 +191,7 @@
     "picomatch": "2.3.2",
     "ajv@^6.0.0": "6.12.6",
     "ajv@^8.0.0": "8.18.0",
-    "socket.io-parser": "4.2.6",
+    "socket.io-parser": "4.2.7",
     "filelist": {
       "minimatch": "5.1.8"
     },
