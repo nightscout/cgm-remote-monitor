@@ -24,14 +24,14 @@ describe('Browser fixture isolation', function () {
     outside = 'http://127.0.0.1:' + denied.address().port;
     allowed = http.createServer((request, response) => {
       if (request.url === '/worker.js') {
-        response.setHeader('Content-Type', 'application/javascript');
+        response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
         response.end('onmessage = async event => { try { await fetch(event.data); postMessage("allowed"); } catch { postMessage("blocked"); } };');
       } else if (request.url === '/redirect') {
         response.writeHead(302, {location: outside + '/redirect-target'});
         response.end();
       } else {
-        response.setHeader('Content-Type', 'text/html');
-        response.end('<!doctype html><html><body></body></html>');
+        response.setHeader('Content-Type', 'text/html; charset=utf-8');
+        response.end('<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>');
       }
     });
     allowed.listen(0, '127.0.0.1');

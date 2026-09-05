@@ -15,11 +15,11 @@ describe('Built application in a real browser', function () {
     const source = fs.readFileSync(bundlePath);
     server = http.createServer((request, response) => {
       if (request.url === '/bundle.js') {
-        response.setHeader('Content-Type', 'application/javascript');
+        response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
         response.end(source);
       } else {
-        response.setHeader('Content-Type', 'text/html');
-        response.end('<!doctype html><html><head></head><body></body></html>');
+        response.setHeader('Content-Type', 'text/html; charset=utf-8');
+        response.end('<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>');
       }
     });
     server.listen(0, '127.0.0.1');
