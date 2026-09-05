@@ -35,6 +35,22 @@
         "value": "2.78U"
       }
     ],
+    "cob": [
+      {
+        "info": [
+          {
+            "label": "Source",
+            "value": "OpenAPS"
+          },
+          {
+            "label": "Device",
+            "value": "Trio"
+          }
+        ],
+        "label": "COB",
+        "value": "61g"
+      }
+    ],
     "direction": [
       {
         "hide": true
