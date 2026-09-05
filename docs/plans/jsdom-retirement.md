@@ -4,7 +4,7 @@ Decision: 2026-09-05, part of M08 and integration PR [#8605](https://github.com/
 
 The goal is to remove the remaining test dependency while preserving observable regression coverage. The earlier production removal is already complete: `lib/server/purifier.js` uses `sanitize-html`, jsdom is a devDependency, and `npm ls jsdom --omit=dev` returns an empty tree at integration commit `8b57b7b8`. There is no further production heap or pruned-image saving to claim from deleting this test dependency. Measure developer/CI installation and test-process costs separately.
 
-The jsdom 30 upgrade [#8613](https://github.com/nightscout/cgm-remote-monitor/pull/8613) is on hold as a draft fallback. Its native-global restoration fix and network-isolation tests are useful evidence; they do not establish a requirement to upgrade before removal. Evaluate any interim fix independently against the currently installed jsdom 26.1.0. Do not merge the major upgrade simply because its checks pass.
+The jsdom 30 upgrade [#8613](https://github.com/nightscout/cgm-remote-monitor/pull/8613) was held as a draft fallback and is now closed without merging (verified 2026-09-05). Its native-global restoration fix and network-isolation tests are useful evidence; they do not establish a requirement to upgrade before removal. Evaluate any interim fix independently against the currently installed jsdom 26.1.0. Do not merge the major upgrade simply because its checks pass.
 
 ## Inventory and replacement boundaries
 
@@ -36,3 +36,11 @@ Node 22/24 provide useful web APIs, but neither supplies the browser document, H
 Bundle/Socket.IO (#8615), DOMPurify reference (#8617), sanitizer corpus/production reparsing (#8618) and clock (#8619) are merged. The authentication candidate maps eight original cases to the actual bundle and adds two-reload persistence coverage, with no replacement package. It also aligns the remaining raw HTTP fixtures with UTF-8 production encoding.
 
 A fresh syntax-based traversal of literal local `require()` calls in this candidate finds 14 test files still reaching jsdom: `admintools.modern`, `browser-settings`, `careportal`, `daterangedelete`, `dependency-d3`, `dependency-jsdom`, `pluginbase.modern`, `profile-sinks`, `report-reconnect`, `report-sgv-pipeline`, `reports`, `stored-output-sinks`, plus `fixtures/benv-shim` and `fixtures/secure-jsdom`. This includes the existing report quarantine and harness compatibility tests; it is not a count of active test cases or proof that dynamic imports are absent. All remaining consumers and harness references must be checked again before removing the package.
+
+## Admin and date-range candidate
+
+Authentication #8620 is now merged. This candidate replaces the seven modern admin cases and three timezone-aware date-range cases with 13 real-browser cases: all ten original contracts, two fixed-boundary daylight-saving dates and native confirmation cancellation. The test uses actual bundled admin plugins, real jQuery requests and isolated local fixture responses; no production deletion is performed.
+
+Removing the old admin setup exposed a pre-existing jQuery fixture ordering dependency in the remaining Node D3 suite. The transitional helper now hides both global `window` and `document` while loading the jQuery factory and restores their descriptors even if setup throws. Two regression cases exercise foreign-window isolation and failure restoration twice; both fail against the previous helper. This fix supports incremental removal and does not require a jsdom upgrade.
+
+A fresh syntax-based literal-require traversal finds 12 remaining test files: `browser-settings`, `careportal`, `dependency-d3`, `dependency-jsdom`, `pluginbase.modern`, `profile-sinks`, `report-reconnect`, `report-sgv-pipeline`, `reports`, `stored-output-sinks`, plus `fixtures/benv-shim` and `fixtures/secure-jsdom`. The two added helper regressions live in the existing dependency test file. Quarantined and harness tests remain included; this inventory is not an active-case count or proof that no dynamic consumer exists.

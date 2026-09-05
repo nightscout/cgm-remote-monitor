@@ -13,7 +13,9 @@
  *   2. The `jquery` package's CommonJS entry inspects global.document
  *      AT FIRST require to decide whether to return a callable $ or a
  *      `factory(window)`. We need the factory form, so we must require
- *      jquery BEFORE installing global.document. That ordering quirk
+ *      jquery with neither global.window nor global.document visible. The
+ *      UMD entry checks window first, including a foreign legacy window.
+ *      That ordering quirk
  *      tripped up the first conversion; centralizing it here keeps
  *      every Phase 3.x test consistent.
  *
@@ -45,11 +47,19 @@ function installDomGlobals (env, opts) {
 
   if (options.jquery) {
     delete require.cache[require.resolve('jquery')];
-    const priorDocument = global.document;
-    delete global.document;
-    const jqueryFactory = require('jquery');
-    if (priorDocument !== undefined) global.document = priorDocument;
-    jqueryFactory(env.window);
+    const priorWindow = Object.getOwnPropertyDescriptor(global, 'window');
+    const priorDocument = Object.getOwnPropertyDescriptor(global, 'document');
+    try {
+      delete global.window;
+      delete global.document;
+      const jqueryFactory = require('jquery');
+      jqueryFactory(env.window);
+    } finally {
+      for (const [name, descriptor] of [['window', priorWindow], ['document', priorDocument]]) {
+        if (descriptor) Object.defineProperty(global, name, descriptor);
+        else delete global[name];
+      }
+    }
   }
 
   defineConfigurable(global, 'window', env.window);
