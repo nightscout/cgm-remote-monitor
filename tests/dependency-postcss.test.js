@@ -100,7 +100,8 @@ describe('PostCSS dependency regressions', function () {
     const asyncResult = await postcss([plugin(asyncOrder)]).process(css, options);
     assert.strictEqual(asyncResult.css, sync);
     assert.deepStrictEqual(asyncOrder, syncOrder);
-    assert.ok(syncOrder.indexOf('.widget .value span') < syncOrder.indexOf('exit'));
+    const nestedVisit = syncOrder.indexOf('.widget .value span');
+    assert.ok(nestedVisit >= 0 && nestedVisit < syncOrder.indexOf('exit'));
     assert.ok(sync.includes('.widget .value span'));
   });
 
