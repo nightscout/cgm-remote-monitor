@@ -72,7 +72,11 @@ describe('legacy reports in a real browser', function () {
       await page.addScriptTag({url: origin + '/report/js/flotcandle.js'});
       await page.addScriptTag({url: origin + '/report/js/loopalyzer.js'});
       await page.evaluate(() => {
-        window.reportFixture = {emitted: []};
+        window.reportFixture = {emitted: [], failures: [], errors: []};
+        window.addEventListener('error', event => window.reportFixture.errors.push(event.message));
+        window.$.ajaxPrefilter((options, original, xhr) => xhr.fail((response, status) => {
+          window.reportFixture.failures.push({url: options.url, status, httpStatus: response.status});
+        }));
         window.io = {connect() {
           const socket = {
             on(event, callback) {if (event === 'connect') queueMicrotask(callback); return socket;},
@@ -109,10 +113,24 @@ describe('legacy reports in a real browser', function () {
   }
 
   async function idle(page) {
-    await page.waitForFunction(() => window.$.active === 0 && window.$('#rp_show').is(':visible') && window.$('#info').text() === '');
+    const started = Date.now();
+    try {
+      // Rendering a month of all report plugins includes synchronous profile
+      // requests and chart work. Give the condition a bounded render budget;
+      // retain diagnostics if a request/render fails to finish.
+      await page.waitForFunction(() => window.$.active === 0 && window.$('#rp_show').is(':visible') && window.$('#info').text() === '', null, {timeout: 15000});
+    } catch (error) {
+      const state = await page.evaluate(() => ({active: window.$.active, info: window.$('#info').text(),
+        showVisible: window.$('#rp_show').is(':visible'), errors: window.reportFixture.errors,
+        failures: window.reportFixture.failures.slice(-5)}));
+      error.message += '\nReport state: ' + JSON.stringify(state);
+      throw error;
+    }
+    console.log('Report idle after', Date.now() - started, 'ms');
   }
 
   it('should produce some html', async function () {
+    this.timeout(90000);
     await withReports(async page => {
       await page.locator('#daytoday').click();
       await page.locator('#rp_optionsnotes').check();
