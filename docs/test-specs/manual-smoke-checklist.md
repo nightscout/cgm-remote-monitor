@@ -14,9 +14,11 @@ exercise end-to-end. Current automated coverage includes:
    timing jitter, duplicates and input preservation.
 4. `tests/report-sgv-pipeline.test.js`, which drives the report's Show action
    with newest-first API fixtures and checks retained chart data, Daily Stats
-   reading counts, range percentages and estimated A1c in mg/dL and mmol/L. It
-   uses the real loading, filtering, unit conversion and table renderer; network responses
-   and canvas drawing are mocked, so it does not replace browser smoke checks.
+   reading counts, range percentages and estimated A1c in mg/dL and mmol/L.
+   Multi-day fixtures cover separate daily averages, empty days and repeated
+   rendering from cached data. These tests use the real loading, filtering,
+   unit conversion and table renderer; network responses and canvas drawing
+   are mocked, so they do not replace browser smoke checks.
 5. Node-only suites under `tests/client-core/`, which cover already-extracted
    business logic.
 
