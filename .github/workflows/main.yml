@@ -12,6 +12,7 @@ on:
     branches:
       - master
       - dev
+      - chore/nightscout-modernization
 
 jobs:
   test:
@@ -19,7 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20, 22, 24]
+        # Exact floors catch patch-level requirements; major aliases catch future patches.
+        node-version: ['22.23.2', '22', '24.20.0', '24']
         mongodb-version: [4.4, 5.0, 6.0]
 
     steps:
@@ -38,7 +40,7 @@ jobs:
           mongodb-version: ${{ matrix.mongodb-version }}
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Validate dependency resolution
         run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader jsdom uuid --all
       - name: Run Tests
@@ -72,10 +74,20 @@ jobs:
         run: NODE_ENV=development npm run bundle-dev
 
   docker-build-pr:
-    name: Validate Docker image
+    name: Validate Docker image (${{ matrix.arch }})
     needs: test
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
     steps:
       - name: Git Checkout
         uses: actions/checkout@v5
@@ -88,8 +100,27 @@ jobs:
         with:
           context: .
           push: false
-          platforms: linux/amd64
+          load: true
+          platforms: ${{ matrix.platform }}
           tags: nightscout/cgm-remote-monitor:pr-${{ github.event.pull_request.number }}
+
+      - name: Validate pruned runtime and startup
+        env:
+          IMAGE: nightscout/cgm-remote-monitor:pr-${{ github.event.pull_request.number }}
+        run: |
+          docker run --rm "$IMAGE" node -e "require('./lib/server/runtime-policy')(); console.log(process.version)"
+          docker run --detach --name nightscout-smoke -e INSECURE_USE_HTTP=true -p 127.0.0.1:1337:1337 "$IMAGE"
+          trap 'docker logs nightscout-smoke; docker rm -f nightscout-smoke' EXIT
+          # With no database credentials the application must serve its setup/error page.
+          for attempt in {1..60}; do
+            status=$(curl --silent --output /tmp/nightscout-smoke.html --write-out '%{http_code}' http://127.0.0.1:1337/ || true)
+            if [[ "$status" == "200" || "$status" == "500" || "$status" == "503" ]]; then
+              grep -qi nightscout /tmp/nightscout-smoke.html
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
 
   docker-build:
     name: Build Docker image (${{ matrix.arch }})

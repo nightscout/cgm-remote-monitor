@@ -1,0 +1,151 @@
+# Nightscout dependency and runtime modernization
+
+Updated: 2026-09-05. Baseline: `dev` commit `9205ea300b9a6981ad8f16223c69620dd3c1c830` (15.0.9).
+Tracking issue: [#8328](https://github.com/nightscout/cgm-remote-monitor/issues/8328).
+
+This is the execution plan for reducing dependency maintenance, installation size, unnecessary server allocations and browser cost. Deliver each numbered item as a small PR targeting `chore/nightscout-modernization`. After review and green checks against the current integration branch, merge it there and update its status/evidence here. **#8605 is the single integration PR targeting dev** and stays draft until the complete modernization and release gates are satisfied. Do not merge individual implementation PRs into dev. Implementation checkboxes do not waive outstanding release validation.
+
+This plan supersedes the dated Node/dependency recommendations and unmeasured size estimates in the [January architecture roadmap](../meta/modernization-roadmap.md). Use that document for broader ideas, the [testing proposal](../proposals/testing-modernization-proposal.md) for logic/DOM separation, and the [MongoDB plan](../proposals/mongodb-modernization-implementation-plan.md) for database compatibility work. Revalidate their historical checklists before starting work. A new framework, TypeScript conversion, Redis, identity system or database migration is not a prerequisite for dependency reduction.
+
+## Baseline and measurement rules
+
+The [85-declaration audit inventory](../audits/dependency-inventory-2026-09-05.csv) records observed consumers, actions and risks. A direct declaration, installed package path, installed byte, browser transfer byte and retained heap byte are different measures. Direct declarations may decrease while required transitive packages remain.
+
+| Metric | Audited baseline | First cleanup | Further feasibility evidence |
+| --- | ---: | ---: | --- |
+| Direct declarations | 85 (65 production, 20 development) | 81 (61 production, 20 development) | Count again per PR; no arbitrary minimum target |
+| Lockfile package paths | 1,033 | 1,030 | Retained versions unchanged |
+| Production-marked paths | 677 | 673 | Build/runtime separation simulation: 415 |
+| Production installed file contents | Not a complete image measurement | Small reduction | Combined cleanup/separation excludes 32.14 MiB from baseline installation |
+| Main production app | 1,761,284 bytes; 496,535 gzip | Expect unchanged | EventEmitter experiment: 20,662 gzip bytes less; narrow D3: 69,363 less |
+| Optional module cold-load heap | Connector 7.93 MiB; APN 4.97 MiB | No claimed saving | Isolated require probes only; measure whole server in M03/M04 |
+| Pill hover handlers after 10 updates | 10 mouseover + 10 mouseout | Unchanged | M02 target: one of each, then zero on removal |
+
+The browser experiments are independent build-only results, without interaction validation. Cold-load figures are medians from seven fresh Node 22.21.1 processes with forced GC, not enabled providers or whole-server workloads. Neither set of estimates is additive. Installed-file estimates exclude compression and do not establish Docker image or RAM savings. The packaging estimate originally also removed `@types/tough-cookie`; subsequent Docker-style install validation showed that peer declaration must stay under the current install policy, so remeasure that scenario before implementation. Rebaseline against each PR's parent before claiming a benefit.
+
+At the audit baseline, completed foundations were: D3 7.9.0, jsdom-backed test tooling replacing `benv`, Node 22 Docker/`.nvmrc`, and CI on Node 20/22/24. At that baseline the minimum was Node 20 in package/installer/docs; `lib/server/bootevent.js` had a stale Node 16 boot check. M07 below records the implemented replacement. Updating #8328's public checklist is a separate tracking action, not part of this code PR.
+
+## Shared merge and release gates
+
+- Record the parent/head commits, runtime/npm versions and exact commands. Use a clean locked install; investigate any retained-version drift rather than accepting an unrelated lockfile refresh.
+- Run applicable focused tests, `npm run test-ci`, **separately** `npm run test:core`, and `npm run test:dependencies`; run production/development builds for dependency or bundler changes. Preserve the three existing quarantines visibly and investigate new failures against the same parent/environment.
+- Require current GitHub CI, CodeQL and Docker validation on each proposed merge with the current modernization branch, then validate the complete #8605 merge against fresh `dev` before promotion. Add regression tests for changed behavior, with a failing-before/passing-after demonstration when fixing a bug; avoid tests that merely repeat manifest contents.
+- For browser changes, exercise dashboard, reports, profile, food, administration, clock and API docs as applicable; include `mg/dL`/`mmol/L`, current browser targets, touch/keyboard, login/storage, repeated reconnect and service-worker upgrades. A newer server Node version does not change browser support.
+- For server memory claims, compare at least seven matched fresh processes on the same Node/npm/build, fixture database and feature configuration. Record startup, post-GC heap, RSS, loaded modules, event/timer counts and request latency after warmup and repeated operations. Include disabled and enabled integrations. Publish medians/ranges and heap-retainer evidence; reject unexplained regression outside baseline variation.
+- Keep persistence formats, deterministic identifiers, API response/error contracts, units/timezones and notification acknowledgement/snooze behavior stable. Use mocked notification transports; never send duplicate real alarms for a comparison experiment.
+- Each PR includes a rollback command/commit and deployment notes. Keep a known-good artifact; smoke-test a staging upgrade and rollback with the same database/configuration, browser storage and API credentials. Do not introduce schema changes in these cleanup PRs. Announce Node 20 retirement before its release and verify supported deployment paths before promotion.
+
+## Phase 1 — establish the baseline and remove waste
+
+- [x] **M01 — Remove four unused declarations and one unused import** (implemented on the integration branch in `6a6dd7a5`; [initial #8605 CI](https://github.com/nightscout/cgm-remote-monitor/actions/runs/33979863812) passed all applicable checks).
+  Files: `package.json`, `package-lock.json`, `lib/api2/summary/basaldataprocessor.js`, this plan and the audit inventory. Remove `mongomock`, `moment-locales-webpack-plugin`, `acorn`, `acorn-jsx` after source/config/asset verification, plus the summary processor's unused jQuery import. Browser jQuery remains required. Remove the redundant function-scoped loop-index redeclaration in that same module so its existing lint warning is cleared without changing loop behavior.
+  Acceptance: clean install and both builds; shared CI gates and summary tests; 81 declarations, 1,030 package paths, 673 production paths; no retained version changes or browser asset changes. Acorn/Acorn JSX remain transitively required. Retain `@types/tough-cookie`: removing it passed a local legacy-peer-deps simulation but broke Docker-style `npm ci` without the repository `.npmrc`, where the cookie wrapper requires its peer lock entry. Retain `@mongodb-js/saslprep` for Mongo authentication with optional packages omitted, and `swagger-ui-dist` for assets and major-version policy. No new behavior test or RAM claim is needed for an unused declaration/import.
+
+- [ ] **M02 — Stop pill tooltip handler accumulation** (after M01; independent of Node policy).
+  Files: `lib/plugins/pluginbase.js`, `tests/pluginbase.modern.test.js` and appropriate DOM fixtures. Use a stable/namespaced binding that reads the latest options, removing both handlers when tooltip info disappears.
+  Acceptance: after 1, 2 and 100 updates, one hover invokes one handler using the latest value; info removal/teardown leaves zero handlers; re-add works. Compare retained closures and verify mouse, touch and keyboard behavior. This fixes observed growth; it is not a package removal.
+
+- [ ] **M03 — Defer disabled connector loading** (after M01).
+  Files: `lib/server/bootevent.js`, connector/bridge boot tests. Check configuration **after** `migrateBridgeToConnect()` so legacy BRIDGE settings still activate the connector.
+  Acceptance: disabled boot never loads the connector graph; configured CONNECT and migrated BRIDGE initialize once; invalid config, fallback, shutdown and two reconnect cycles remain correct. Measure disabled/enabled full-server heap and startup. Keep the package installed; separately consider upstream lazy source imports.
+
+- [ ] **M04 — Defer APN and Pushover loading** (after M01; separate commits or PRs per provider).
+  Files: `lib/server/loop.js`, `lib/plugins/pushover.js`, Loop/Pushover tests. Load providers only after relevant configuration validation.
+  Acceptance: disabled startup does not import providers; configured send, cancellation, receipt, errors and shutdown work with mocks. Measure idle and enabled workloads; no claimed removal of protocol dependencies.
+
+- [ ] **M05 — Reduce notification-cache values** (after M01).
+  Files: `lib/server/pushnotify.js`, push-notification tests. Store a presence marker for recently-sent deduplication; keep acknowledgement fields in receipt records.
+  Acceptance: duplicate suppression, expiry, TTL extension after successful send, failed send, acknowledgement, snooze and repeated cycles match baseline. Compare retained bytes and allocation rate using large notification fixtures. Do not combine this behavior change with a cache-library rewrite.
+
+- [ ] **M06 — Replace the cache-buster helper** (after M01).
+  Files: `lib/server/app.js`, `bin/generateCacheBuster.js`, manifests.
+  Use `node:crypto` `randomBytes(8).toString('hex')` in both random-token consumers. Acceptance: 16 URL-safe characters, distinct generated cache-busters and unchanged development sentinel; builds and relevant tests pass. Target: one direct package removed. Already works before Node 22.
+
+## Phase 2 — retire Node 20 and unblock maintained releases
+
+- [x] **M07 — One supported runtime policy** (after M01; can run alongside M02–M06).
+  Files: `package.json`/lockfile engines, `lib/server/bootevent.js`, `bin/setup.sh`, `.nvmrc`, `Dockerfile`, `.github/workflows/*.yml`, README, Azure setup instructions and release notes.
+  Implemented policy: patched Node 22 minimum **22.23.2**, support patched Node 24 and recommend it for new source installations. As of this document, Node 24 is **24.20.0**; engine policy is `^22.23.2 || ^24.20.0`. Recheck release/security and hosting availability before release. Keep Docker on 22 initially; do not silently advertise EOL odd-numbered releases or untested Node 26 through an unrestricted range.
+  Make the boot gate derive from the declared requirement, with a clear actionable error before initializing services. Keep `semver` if it avoids duplicating version/range parsing. Align installer/docs/npm policy; remove Node 20 from supported CI only in this PR.
+  Acceptance: test exact floors plus latest patches of Node 22/24 against the current Mongo 4.4/5/6 test matrix (the README defines supported deployment versions separately); explicitly reject Node 20, below-floor and prerelease versions. Keep npm 12 clean-install/build coverage on a compatible Node 24. Verify Docker runtime version/start on amd64 and arm64, source install, development, Windows/Azure and Heroku build/prune behavior. Document any unverified host path as a release blocker or explicitly retire it in a separate decision.
+  Release gate: document operator upgrade instructions and test upgrading the runtime before Nightscout; no UI/data-format change. Schedule reassessment before Node 22 EOL, 2027-04-30; Node 24 is supported until 2028-04-30. [Official schedule](https://github.com/nodejs/Release#release-schedule), [release index](https://nodejs.org/dist/index.json).
+
+- [ ] **M08 — Revisit runtime-blocked dependency majors** (after M07; one PR per package family).
+  Files: manifests, `.babelrc`, webpack rules and `tests/dependency-{babel,jsdom,uuid}.test.js` as applicable. Review the then-current Babel/preset/loader, jsdom and UUID releases, engine ranges, CommonJS/ESM loading and API changes before installing them.
+  Acceptance: Babel preserves supported-browser transforms/build output; jsdom preserves isolated realms, storage/auth and test-harness network isolation; UUID preserves deterministic v5 vectors, persisted identifiers and duplicate upload/update cycles. Native random UUID v4 is not a replacement. Test exact supported runtime floors and full CI. A higher Node floor enables review, not automatic major-version compatibility.
+
+- [ ] **M09 — Review remaining maintained releases and security overrides** (after M07 where runtime requires it; ongoing).
+  Files: manifests, each actual consumer and `tests/dependency-*.test.js`. Re-run production/full audits and `npm explain`; track each finding as reachable, build/test-only, mitigated or awaiting upstream work, with evidence. Prioritize reachable issues and unmaintained transitive chains; review Express/Helmet, MongoDB, loaders/lint/build tools and providers independently.
+  Acceptance: highest compatible release per consumer, focused exploit/API regression where relevant, full CI and explicit engine/browser/DB compatibility. Remove an override only after every affected parent resolves safely. Do not use forced audit fixes or a bulk latest-version update; keep Dependabot's current target configuration.
+
+## Phase 3 — reduce production installation and browser cost
+
+- [ ] **M10 — Separate build from runtime dependencies** (after M01; coordinate with M07 and M11 to avoid lockfile overlap).
+  Files: `package.json`, lockfile, `Dockerfile`, `bin/azure-deploy.sh`, package/build scripts, `lib/server/app.js` development branch and deployment docs. Move the surviving build-only roots to devDependencies: Babel core/preset/loader, css/expose/file/style loaders, timezone-data plugin, webpack/CLI.
+  First make install → build → prune explicit. Current `postinstall` requires webpack; Azure currently installs production-only packages and global webpack. Preserve generated assets and runtime keys in the shipped artifact. Fix root Axios's accidental dev-only classification while IMPORT_CONFIG needs it, or complete M19 first; account for `npm run prod` using env-cmd. Independently classify direct `socket.io-client`, after proving browser assets are supplied by Socket.IO server.
+  Acceptance: full-dependency development/HMR works; pruned artifact starts with `npm start`, serves all assets and imports config without build tools; Docker, source/Heroku and Azure follow the tested build path. Compare production paths, installed bytes, image bytes and build time. Reference feasibility target: 673 → 415 production paths after M01, before subsequent version/classification changes; remeasure, do not promise the exact count or a heap saving.
+
+- [ ] **M11 — Use built-in assets and the existing lint parser** (after M01; two small PRs).
+  Files: `webpack/webpack.config.js`, `.eslintrc.js`, manifests, CSS image fixtures. Replace `file-loader` with webpack `asset/resource`; replace `babel-eslint` with existing Espree only if actual lint/security-rule parity holds.
+  Acceptance: emitted image filenames/public paths, CSS URL loading, source maps and development HMR match; lint result differences are explained and no syntax/rule coverage is lost. Audit parsing succeeded for all 214 lib JS files, which is feasibility evidence, not lint parity. Target: remove two direct declarations without new replacement packages. Babel browser transpilation remains.
+
+- [ ] **M12 — Remove ineffective late minification** (after M01).
+  Files: `lib/server/app.js`, manifests and HTTP tests. First remove ignored `cssmin` configuration/import; remove `express-minify` only after proving response parity across actual routes.
+  Acceptance: production/development/custom static files, bundles, API docs, APIs, views, 404/error responses, compression, content/cache headers and DEBUG_MINIFY handling are covered. Middleware is currently mounted after successful routes and ignores the supplied cssmin option. Target: remove two direct declarations and remeasure graph/startup; do not infer full route parity from the isolated probe.
+
+- [ ] **M13 — EventEmitter bus and browser shim cleanup** (after M01/M02).
+  Files: `lib/bus.js`, webpack fallbacks/ProvidePlugin, manifests, bus and client-core tests. Use native EventEmitter on the server and explicitly declare browser `events`; remove stream/Buffer shims only when no browser consumer remains. Keep `process` while plugins consume it.
+  Acceptance: heartbeat count/payload, listener order/once/removal, error behavior, repeated teardown/reconnect and all-page startup match. Target: net one fewer direct dependency and reproduce the approximately 20 KiB gzip build saving; inspect final issuer graph and browser heap rather than assuming both savings.
+
+- [ ] **M14 — Narrow D3's browser exports** (after M13 to obtain a new baseline).
+  Files: `bundle/bundle.source.js`, a small D3 facade, chart/report consumers and dependency tests. Export only consumed APIs while preserving transition/selection side effects and documented plugin contracts.
+  Acceptance: D3 dependency tests plus hover, drag, brush, touch, chart/report outputs, both glucose units and timezone cases. Reproduce an actual bundle reduction against the new parent; the independent audit estimate was approximately 68 KiB gzip. Keep D3 installed initially; replacing its umbrella declaration with components is a separate graph review.
+
+- [ ] **M15 — Load code by page** (after M13/M14; begin with reports, then admin/profile/food).
+  Files: `bundle/bundle*.source.js`, webpack entries/chunks, page templates, `views/service-worker.js`, report/client initialization. The existing reports entry imports the entire common bundle and is not a current webpack entry; create real boundaries.
+  Acceptance: directly opened URLs, navigation, auth, reconnect, lazy-load failures, offline/cache upgrades and development HMR work on every affected page. Dashboard requests must exclude report-only Flot/statistics chunks; measure initial/all-pages gzip, request count, startup time and browser heap. Establish numeric budgets from the first working prototype, not a speculative saving.
+
+## Phase 4 — replace narrow helpers with tested local/native behavior
+
+Each row is a separate candidate PR after M01; entries marked M07 also need the runtime policy. A candidate may end in a documented retain decision if a replacement is more complex or cannot preserve behavior.
+
+| Status / ID | Change and principal files | Acceptance and measurable outcome |
+| --- | --- | --- |
+| [ ] **M16** | `js-storage` → local adapter; `lib/client/{browser-settings,hashauth,index,boluscalc,careportal}.js`, reportstorage, bundle export | Preserve legacy raw-string tokens, JSON objects/booleans, missing/null/malformed data, blocked storage, key behavior and clock's raw `apisecrethash` read. Test existing saved settings/auth, repeated set/remove, reports and clock. Remove one declaration; measure final bundle. |
+| [ ] **M17** | `event-stream` → array transforms/native streams; `lib/server/entries.js`, `lib/api/entries/index.js` | Current flows already materialize arrays. Preserve type/default mutation, date offsets, JSON/CSV/text/SVG output, batch ordering/partial failures and callback-once semantics, including empty/large input. Remove one declaration; measure request allocations/latency. |
+| [ ] **M18** | `async`, then `bootevent` → bounded/ordered local helpers; dataloader, treatments, Alexa/Google Home/Maker, `lib/server/bootevent.js` | Preserve serial writes/sends, 10-task concurrency cap, boot stage order, error propagation and callback timing/contracts. Test two boot/teardown or load cycles and no duplicated pre-bolus writes. Remove separately; avoid unbounded Promise.all and unnecessary promise adapters. |
+| [ ] **M19** | IMPORT_CONFIG Axios → native fetch; `lib/server/bootevent.js` (after M07) | Specify non-2xx, timeout/cancellation, redirects, proxy support, auth/header redaction and JSON behavior using existing Axios fixtures. Keep connector cookie-wrapper compatibility. Root removal does not eliminate transitive Axios; fix runtime classification if this migration is deferred. |
+| [ ] **M20** | `body-parser` direct use → Express parsers; wares, API and app modules | Preserve options, compression, limits, malformed body and inherited-option protections. Express currently exposes identical functions. Remove a declaration only; package and runtime memory remain through Express. |
+| [ ] **M21** | `mongo-url-parser` → existing driver parsing; `lib/server/env.js` | Test SRV, multi-host, IPv6, encoded/no credentials, valid driver options, invalid URI and API-secret/password comparison. Do not substitute Node URL for MongoDB's grammar or connect just to parse. Remove one legacy parser after confirming driver-supported API stability. |
+| [ ] **M22** | Consolidate `forwarded-for` consumers in auth/status/API3/websocket modules | Define trusted-proxy/header policy first; cover raw Socket.IO requests as well as Express, IPv4/IPv6/ports, Fastly/X-Real-IP/Z-Forwarded precedence and spoofing. Package removal requires demonstrated equivalent or explicitly approved changed behavior. |
+| [ ] **M23** | Narrow `traverse` operations; `lib/server/query.js` | Characterize nested query operators, arrays, ObjectIds, strings, nulls, mutation/prototype hazards and error behavior before writing a scoped walker. Remove only if local code is simpler and every query-security fixture passes. |
+| [ ] **M24** | `env-cmd`/`nodemon` → Node CLI capabilities; package scripts and developer docs (after M07) | Preserve or explicitly document env-file precedence: env-cmd overrides inherited env, native --env-file does the reverse. Test quoting/multiline values and Mocha/nyc children. Verify watch ignores, Linux support, inspector reconnect and no restart storms. Separate PRs; no production RAM claim. |
+| [ ] **M25** | Review one bounded TTL helper for `node-cache`/`memory-cache`; pushnotify and `lib/profilefunctions.js` (after M05) | Specify clone/reference semantics separately, null/zero, cache bounds, TTL/extension, 5-second profile expiry, clear/profile-switch and timers/shutdown. Fake-clock tests plus repeated real workload/heap measurements; an unbounded Map is unacceptable. Retain a maintained cache if local complexity grows. |
+| [ ] **M26** | Avoid repeated percentile sorts, then consider local statistics; `lib/report_plugins/{percentile,dailystats,hourlystats,success,glucosedistribution}.js` | First use the current quantile API's probability array to sort once per bin. Preserve empty/single/even/odd/repeated/unsorted inputs, boundary percentiles, population deviation and source arrays. `[1,2,3,4]` q25 must remain 1.5 and population deviation approximately 1.118; D3 defaults differ. Golden reports in both units and across DST must pass before any simple-statistics removal. Record sort/allocation/time reduction separately from package count. |
+
+## Phase 5 — larger decisions, not compulsory rewrites
+
+- [ ] **M27 — Moment/timezone decision.** Map `moment`/`moment-timezone` use across profile/IOB/COB, therapy schedules, dates, reports and locale data. Establish golden outputs for DST gaps/overlaps, local midnight, timezone changes, historical data, duration and both glucose units. Compare native Intl plus scoped helpers and maintained alternatives for API complexity, bundle/CPU and browser coverage. Choose retain/narrow/replace with evidence; do not assume a library swap is low effort or promise an old roadmap's 200 KB estimate. Coordinate with the testing proposal's DOM-free report boundary.
+
+- [ ] **M28 — jQuery/UI/Flot and tooltip decision.** Inventory actual widgets, global plugin contracts and touch/accessibility behavior. First consider `jquery.tooltips`' two browser-utils initializers with a small delegated, escaped tooltip component; native title alone is not equivalent. After page splitting, compare retaining isolated jQuery UI/Flot against removing one widget/chart at a time. Require hover/focus/touch dismissal, keyboard/screen-reader checks, translated content, repeated initialization and report/chart goldens. Choose a framework only through a separate proposal with measured maintenance/size benefits.
+
+- [ ] **M29 — Legacy integration and MongoDB support decisions.** Determine usage and migration paths before retiring MiniMed/Dexcom bridges or MongoDB versions. Legacy adapters already load lazily; deletion does not save disabled-instance heap. Reuse the existing MongoDB proposal's Loop/Trio/AAPS, partial-failure and identifier fixtures, verifying their current status. Provide configuration mapping, release notice and rollback before feature removal; update connector ownership/upstream issues as appropriate.
+
+- [ ] **M30 — Close the loop on #8328.** Once agreed runtime policy, dependency reviews and retain/migrate decisions are complete, update this checklist with PRs and measured results, reconcile older roadmap/proposal statuses and publish before/after package, image, server and browser figures. Keep periodic audit/update work in normal maintenance. Close the tracker only when remaining Moment and other long-term decisions are explicit, not merely because the declaration count fell.
+
+Security/escaping, JWT/permissions, MongoDB, Socket.IO/APN and CSV/XML implementations remain maintained-library responsibilities unless a separate correctness review establishes a better alternative. Persisted UUID v5 identifiers remain unchanged. Avoid adding infrastructure or homegrown generic frameworks to achieve a smaller dependency manifest.
+
+## Working order and completion record
+
+Start with **M01 → M07**, with **M02–M06** available as independent small PRs. Then take **M10–M14** for installation/browser wins, **M08/M09** one dependency family at a time, and **M15–M26** by measured benefit. M27–M29 require explicit design/compatibility decisions. Rebase each PR on current `dev`; do not stack all implementation changes on the initial cleanup branch.
+
+For every completed item, replace its checkbox with a checked box and append: PR link, tested parent/head, resulting dependency/path counts, applicable installed/image/browser bytes, workload memory/latency results, UI/deployment checks and any retained limitation. Mark an accepted retain decision as such, with rationale and review trigger. Do not claim regression-free behavior beyond the tests and environments actually exercised.
+
+## Integration workflow and current child PRs
+
+The user confirmed on 2026-09-05 that all implementation PRs target `chore/nightscout-modernization`, and may be merged there after validation. #8605 remains the only PR into dev. CI and CodeQL explicitly include the integration branch as a pull-request target; container publishing remains limited to dev/master.
+
+- M07: [#8606](https://github.com/nightscout/cgm-remote-monitor/pull/8606) merged as `dd90c19b` (head `1250f6c0`, parent `b1837c13`). [Integration-target CI](https://github.com/nightscout/cgm-remote-monitor/actions/runs/33981221755) passed all 12 Node/MongoDB jobs, npm 12, CodeQL and amd64/arm64 Docker startup. Local main suites passed 1,968 tests on both exact Node floors; core 283 and dependency 317. Azure/Heroku staging and release promotion remain gated in `docs/runtime-upgrade.md`.
+- M02: [#8607](https://github.com/nightscout/cgm-remote-monitor/pull/8607), tooltip retention; revalidate against integration before merge.
+- M03: [#8608](https://github.com/nightscout/cgm-remote-monitor/pull/8608), lazy CONNECT loading and shutdown; CI in progress.
+- M06: native cachebuster implementation in progress.
