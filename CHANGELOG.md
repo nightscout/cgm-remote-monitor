@@ -2,6 +2,17 @@
 
 All notable changes to cgm-remote-monitor are documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- **Reports (#8588):** Closely spaced CGM readings no longer cause later valid
+  readings to be discarded in a chain. The one-minute filter now compares each
+  reading with the last retained reading. Regenerating reports from the same
+  historical data may show more readings and different charts, averages and
+  range percentages. Five-minute series are unaffected. Range percentages
+  continue to count retained readings rather than weight elapsed time.
+
 ## [15.0.7] - 2026-03-XX (Unreleased)
 
 ### Added
