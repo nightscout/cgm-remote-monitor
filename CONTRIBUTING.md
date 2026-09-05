@@ -168,6 +168,15 @@ execution, root hooks, timeouts, assertion diffs and failure exit codes. The
 fixtures deliberately fail in child processes; the parent checks that those
 failures are reported correctly.
 
+The dependency checks also exercise YAML configuration loading in ESLint, nyc
+and Mocha, plus parser resource limits. Custom tooling YAML files must keep
+each merge sequence (`<<: [...]`) to at most 100 entries; the default merge-work
+budget is 10,000 across a parse call, counting source mappings and their keys.
+For Mocha YAML configuration, write numeric options as `5000`, not `5_000`:
+js-yaml 4.2 and later treat numbers containing underscores as strings.
+CI also runs `NODE_ENV=development npm run bundle-dev` to validate the webpack
+lint integration.
+
 For diagnosing test issues and ensuring reliability:
 
 ```bash
