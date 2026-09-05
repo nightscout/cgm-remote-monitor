@@ -104,6 +104,7 @@ At the audit baseline, completed foundations were: D3 7.9.0, jsdom-backed test t
 
 - [ ] **M14 — Narrow D3's browser exports** (after M13 to obtain a new baseline).
   Files: `bundle/bundle.source.js`, a small D3 facade, chart/report consumers and dependency tests. Export only consumed APIs while preserving transition/selection side effects and documented plugin contracts.
+  Candidate implementation adds a shared explicit D3 facade, retaining transition initialization and all repository chart/report APIs. No manifest changes. Initial production savings against M13 are 275,571 raw app bytes and 70,090 gzip bytes (level 9); the clock is unchanged. See [D3 browser contracts](../test-specs/d3-browser-surface.md), including the migration requirement for custom scripts using other upstream global exports. Validation and child merge remain pending.
   Acceptance: D3 dependency tests plus hover, drag, brush, touch, chart/report outputs, both glucose units and timezone cases. Reproduce an actual bundle reduction against the new parent; the independent audit estimate was approximately 68 KiB gzip. Keep D3 installed initially; replacing its umbrella declaration with components is a separate graph review.
 
 - [ ] **M15 — Load code by page** (after M13/M14; begin with reports, then admin/profile/food).
