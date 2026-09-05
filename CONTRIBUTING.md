@@ -190,6 +190,13 @@ client in jsdom. Each transport check reconnects twice. The parser override
 updates installed Node packages; it does not rewrite Socket.IO's prebuilt
 browser distribution, so both client paths need compatibility checks.
 
+The fast-uri dependency checks resolve Ajv through each installed consumer
+(webpack, webpack-dev-middleware, terser-webpack-plugin, ajv-formats and table).
+They exercise external references, escaped JSON pointers and case-sensitive
+schema IDs, as well as URI security boundaries. Keep the fast-uri override
+scoped to 3.x while these consumers require it; a 4.x migration changes Unicode
+encoding and removes deprecated TypeScript aliases.
+
 For diagnosing test issues and ensuring reliability:
 
 ```bash

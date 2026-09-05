@@ -6,6 +6,11 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ### Fixed
 
+- **Build dependency security:** Update fast-uri to 3.1.7, the latest release
+  supported by the installed Ajv 8 consumers. Add CI coverage for malformed
+  authorities, safe serialization and schema-reference resolution. Keep 3.x
+  compatibility; fast-uri 4 changes Unicode encoding and removes deprecated
+  types. No Nightscout configuration or UI changes are required.
 - **Socket.IO parser:** Update the server and Node client parser to 4.2.7.
   Honor `toJSON()` when encoding binary packets and reject malformed binary
   packets with zero attachments. Add CI coverage for live updates, binary
