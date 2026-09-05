@@ -24,13 +24,11 @@ module.exports = function (d3, window, units) {
       if (client.chart) client.chart.xScale.domain(client.chart.createAdjustedRange());
     }
   };
-  window.document.body.innerHTML = '<div style="width:900px"><div><div id="tooltip"></div></div></div><div id="chartContainer"></div>';
-  window.document.querySelector('#chartContainer').getBoundingClientRect = () => ({width: 900, height: 600});
+  window.document.body.style.margin = '0';
+  window.document.body.innerHTML = '<div style="width:900px"><div><div id="tooltip" style="position:absolute"></div></div></div><div id="chartContainer" style="width:900px;height:600px"></div>';
   client.tooltip = d3.select('#tooltip');
   client.renderer = require('../../lib/client/renderer')(client, d3);
   client.chart = require('../../lib/client/chart')(client, d3, window.$);
-  // jsdom has no SVG animated width/height; provide the same explicit chart extent.
-  client.chart.brush.extent([[0, 0], [900, 171]]);
   client.chart.update(true);
   return client;
 };
