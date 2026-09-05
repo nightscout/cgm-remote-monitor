@@ -177,6 +177,12 @@ js-yaml 4.2 and later treat numbers containing underscores as strings.
 CI also runs `NODE_ENV=development npm run bundle-dev` to validate the webpack
 lint integration.
 
+DOMPurify is a development-only reference in the sanitizer comparison suite;
+production sanitization uses `sanitize-html`. Dependency tests exercise its
+default string API with our jsdom version, including nested template security,
+visible note text and supported SVG attributes. These tests inspect inert DOM
+trees; they do not execute payloads or emulate newer browser template expansion.
+
 For diagnosing test issues and ensuring reliability:
 
 ```bash
