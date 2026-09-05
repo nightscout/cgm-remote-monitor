@@ -140,28 +140,28 @@ When addressing a gap:
 
 ---
 
-## Open — report statistics and browser rendering
+## Partial — report statistics and browser rendering
 
-`tests/reports.test.js` remains intentionally skipped. It loads the complete
-webpack bundle into jsdom, replaces browser and data-loading behavior with
-mocks, and asserts generated markup. That harness has been brittle across
-jsdom versions and does not provide enough browser fidelity to justify
-maintaining it as a release gate.
+The two formerly quarantined `tests/reports.test.js` cases now run in
+`tests/browser/legacy-reports.test.js` against the actual report page and
+browser components. Historical output assertions are preserved, with native
+edit/delete dialogs, exact request payloads and plotted-reading checks.
+The [browser specification](browser-tests.md#legacy-report-quarantine-replacement)
+records fixture boundaries and validation. No generic jsdom/browser mocks
+replace the report components.
 
-Current automated coverage is narrower:
+Additional automated coverage includes `tests/browser/report-sgv-pipeline.test.js`
+for both unit modes, Daily Stats, caching and repeated initialization;
+`tests/browser/stored-outputs.test.js` and `profile-settings.test.js` for output
+safety; and `tests/reportstorage.test.js` for preference persistence.
 
-- `tests/browser/bundle.test.js` checks that the built bundle executes and
-  exposes the expected Nightscout entry points.
-- `tests/reportstorage.test.js` checks report-preference persistence.
-- `tests/stored-output-sinks.test.js` and `tests/profile-sinks.test.js`
-  exercise selected report output-safety paths.
-
-These tests do not comprehensively validate report calculations or
-end-to-end browser behavior. Until report statistics are extracted into
-DOM-free modules or exposed through a reproducible server API, use section 3
-of `manual-smoke-checklist.md` before releases and report-related changes.
-Add deterministic unit or contract tests as calculations are extracted;
-evaluate a small real-browser suite only after the UI direction is settled.
+This closes the two historical quarantines, not every report coverage gap.
+The broad historical fixture is mg/dL/UTC and uses finite backend responses;
+it does not verify MongoDB persistence or every uploader's OpenAPS data.
+Keep section 3 of `manual-smoke-checklist.md` as a release check. Add
+independent calculation/unit/timezone contracts as modernization extracts
+report logic (M14/M26/M27), including the distribution cleaning/interpolation
+boundary separately from raw reading counts.
 
 ---
 
