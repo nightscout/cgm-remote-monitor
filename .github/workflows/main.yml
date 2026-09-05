@@ -40,7 +40,7 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Validate dependency resolution
-        run: npm ls brace-expansion postcss mocha nanoid --all
+        run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc --all
       - name: Run Tests
         run: npm run-script test-ci
       - name: Run client-core tests
@@ -68,6 +68,8 @@ jobs:
         run: npm ci
       - name: Test dependency compatibility
         run: npm run test:dependencies
+      - name: Build development bundle with ESLint integration
+        run: NODE_ENV=development npm run bundle-dev
 
   docker-build-pr:
     name: Validate Docker image

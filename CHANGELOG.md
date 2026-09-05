@@ -6,6 +6,12 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ### Fixed
 
+- **YAML dependency security:** Update js-yaml to the latest compatible 3.15.2
+  and 4.3.2 releases. Preserve the APIs used by ESLint, nyc and Mocha while
+  adding merge-work limits and the ordered-map CPU fix. CI checks YAML
+  configuration loading and the development webpack/ESLint integration.
+  Production dependencies are unchanged; see CONTRIBUTING.md for custom
+  tooling YAML configuration limits.
 - **Test tooling:** Update Mocha to 11.8.0, the latest 11.x release, preserving
   the existing Node.js compatibility range. Mocha 12 requires newer Node.js
   versions and a separate runner migration review. Add CI coverage for serial
