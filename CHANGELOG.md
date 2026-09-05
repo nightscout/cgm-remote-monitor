@@ -6,6 +6,10 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ### Fixed
 
+- **Sanitizer test reference:** Update the development-only DOMPurify dependency
+  to 3.4.14. Add regression coverage for nested template sanitization, note text
+  and SVG presentation attributes. Production sanitization still uses
+  `sanitize-html`; stored data and UI behavior are unchanged.
 - **YAML dependency security:** Update js-yaml to the latest compatible 3.15.2
   and 4.3.2 releases. Preserve the APIs used by ESLint, nyc and Mocha while
   adding merge-work limits and the ordered-map CPU fix. CI checks YAML
