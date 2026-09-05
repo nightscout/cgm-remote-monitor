@@ -3,7 +3,7 @@
 Updated: 2026-09-05. Baseline: `dev` commit `9205ea300b9a6981ad8f16223c69620dd3c1c830` (15.0.9).
 Tracking issue: [#8328](https://github.com/nightscout/cgm-remote-monitor/issues/8328).
 
-This is the execution plan for reducing dependency maintenance, installation size, unnecessary server allocations and browser cost. Deliver each numbered item as a small PR targeting fresh `dev`; update its status and evidence here when it merges. The first PR removes unused declarations and records this plan. It does not change the runtime requirement or application behavior.
+This is the execution plan for reducing dependency maintenance, installation size, unnecessary server allocations and browser cost. Deliver each numbered item as a small PR targeting `chore/nightscout-modernization`. After review and green checks against the current integration branch, merge it there and update its status/evidence here. **#8605 is the single integration PR targeting dev** and stays draft until the complete modernization and release gates are satisfied. Do not merge individual implementation PRs into dev. Implementation checkboxes do not waive outstanding release validation.
 
 This plan supersedes the dated Node/dependency recommendations and unmeasured size estimates in the [January architecture roadmap](../meta/modernization-roadmap.md). Use that document for broader ideas, the [testing proposal](../proposals/testing-modernization-proposal.md) for logic/DOM separation, and the [MongoDB plan](../proposals/mongodb-modernization-implementation-plan.md) for database compatibility work. Revalidate their historical checklists before starting work. A new framework, TypeScript conversion, Redis, identity system or database migration is not a prerequisite for dependency reduction.
 
@@ -29,7 +29,7 @@ Completed foundations on this baseline: D3 7.9.0, jsdom-backed test tooling repl
 
 - Record the parent/head commits, runtime/npm versions and exact commands. Use a clean locked install; investigate any retained-version drift rather than accepting an unrelated lockfile refresh.
 - Run applicable focused tests, `npm run test-ci`, **separately** `npm run test:core`, and `npm run test:dependencies`; run production/development builds for dependency or bundler changes. Preserve the three existing quarantines visibly and investigate new failures against the same parent/environment.
-- Require current GitHub CI, CodeQL and Docker validation on the proposed merge with fresh `dev`. Add regression tests for changed behavior, with a failing-before/passing-after demonstration when fixing a bug; avoid tests that merely repeat manifest contents.
+- Require current GitHub CI, CodeQL and Docker validation on each proposed merge with the current modernization branch, then validate the complete #8605 merge against fresh `dev` before promotion. Add regression tests for changed behavior, with a failing-before/passing-after demonstration when fixing a bug; avoid tests that merely repeat manifest contents.
 - For browser changes, exercise dashboard, reports, profile, food, administration, clock and API docs as applicable; include `mg/dL`/`mmol/L`, current browser targets, touch/keyboard, login/storage, repeated reconnect and service-worker upgrades. A newer server Node version does not change browser support.
 - For server memory claims, compare at least seven matched fresh processes on the same Node/npm/build, fixture database and feature configuration. Record startup, post-GC heap, RSS, loaded modules, event/timer counts and request latency after warmup and repeated operations. Include disabled and enabled integrations. Publish medians/ranges and heap-retainer evidence; reject unexplained regression outside baseline variation.
 - Keep persistence formats, deterministic identifiers, API response/error contracts, units/timezones and notification acknowledgement/snooze behavior stable. Use mocked notification transports; never send duplicate real alarms for a comparison experiment.
@@ -37,7 +37,7 @@ Completed foundations on this baseline: D3 7.9.0, jsdom-backed test tooling repl
 
 ## Phase 1 — establish the baseline and remove waste
 
-- [ ] **M01 — Remove four unused declarations and one unused import** (implemented in the initial PR; complete after merge).
+- [x] **M01 — Remove four unused declarations and one unused import** (implemented on the integration branch in `6a6dd7a5`; [initial #8605 CI](https://github.com/nightscout/cgm-remote-monitor/actions/runs/33979863812) passed all applicable checks).
   Files: `package.json`, `package-lock.json`, `lib/api2/summary/basaldataprocessor.js`, this plan and the audit inventory. Remove `mongomock`, `moment-locales-webpack-plugin`, `acorn`, `acorn-jsx` after source/config/asset verification, plus the summary processor's unused jQuery import. Browser jQuery remains required. Remove the redundant function-scoped loop-index redeclaration in that same module so its existing lint warning is cleared without changing loop behavior.
   Acceptance: clean install and both builds; shared CI gates and summary tests; 81 declarations, 1,030 package paths, 673 production paths; no retained version changes or browser asset changes. Acorn/Acorn JSX remain transitively required. Retain `@types/tough-cookie`: removing it passed a local legacy-peer-deps simulation but broke Docker-style `npm ci` without the repository `.npmrc`, where the cookie wrapper requires its peer lock entry. Retain `@mongodb-js/saslprep` for Mongo authentication with optional packages omitted, and `swagger-ui-dist` for assets and major-version policy. No new behavior test or RAM claim is needed for an unused declaration/import.
 
@@ -46,7 +46,7 @@ Completed foundations on this baseline: D3 7.9.0, jsdom-backed test tooling repl
   Acceptance: after 1, 2 and 100 updates, one hover invokes one handler using the latest value; info removal/teardown leaves zero handlers; re-add works. Compare retained closures and verify mouse, touch and keyboard behavior. This fixes observed growth; it is not a package removal.
 
 - [ ] **M03 — Defer disabled connector loading** (after M01).
-  Files: `lib/server/bootevent.js`, connector/bridge boot tests. Check configuration **after** `migrateBridgeToConnect(ctx)` so legacy BRIDGE settings still activate the connector.
+  Files: `lib/server/bootevent.js`, connector/bridge boot tests. Check configuration **after** `migrateBridgeToConnect()` so legacy BRIDGE settings still activate the connector.
   Acceptance: disabled boot never loads the connector graph; configured CONNECT and migrated BRIDGE initialize once; invalid config, fallback, shutdown and two reconnect cycles remain correct. Measure disabled/enabled full-server heap and startup. Keep the package installed; separately consider upstream lazy source imports.
 
 - [ ] **M04 — Defer APN and Pushover loading** (after M01; separate commits or PRs per provider).
@@ -140,3 +140,12 @@ Security/escaping, JWT/permissions, MongoDB, Socket.IO/APN and CSV/XML implement
 Start with **M01 → M07**, with **M02–M06** available as independent small PRs. Then take **M10–M14** for installation/browser wins, **M08/M09** one dependency family at a time, and **M15–M26** by measured benefit. M27–M29 require explicit design/compatibility decisions. Rebase each PR on current `dev`; do not stack all implementation changes on the initial cleanup branch.
 
 For every completed item, replace its checkbox with a checked box and append: PR link, tested parent/head, resulting dependency/path counts, applicable installed/image/browser bytes, workload memory/latency results, UI/deployment checks and any retained limitation. Mark an accepted retain decision as such, with rationale and review trigger. Do not claim regression-free behavior beyond the tests and environments actually exercised.
+
+## Integration workflow and current child PRs
+
+The user confirmed on 2026-09-05 that all implementation PRs target `chore/nightscout-modernization`, and may be merged there after validation. #8605 remains the only PR into dev. CI and CodeQL explicitly include the integration branch as a pull-request target; container publishing remains limited to dev/master.
+
+- M07: [#8606](https://github.com/nightscout/cgm-remote-monitor/pull/8606), runtime policy; revalidate against integration before merge.
+- M02: [#8607](https://github.com/nightscout/cgm-remote-monitor/pull/8607), tooltip retention; revalidate against integration before merge.
+- M03: [#8608](https://github.com/nightscout/cgm-remote-monitor/pull/8608), lazy CONNECT loading and shutdown; CI in progress.
+- M06: native cachebuster implementation in progress.
