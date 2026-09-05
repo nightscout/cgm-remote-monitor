@@ -197,6 +197,12 @@ schema IDs, as well as URI security boundaries. Keep the fast-uri override
 scoped to 3.x while these consumers require it; a 4.x migration changes Unicode
 encoding and removes deprecated TypeScript aliases.
 
+The ip-address dependency checks exercise MongoDB's installed SOCKS client
+against a temporary loopback SOCKS5 fixture. They verify IPv4, IPv6 and hostname
+requests, fragmented IPv6 replies and data exchange over two connections.
+The fixture needs neither an external proxy nor MongoDB; the normal application
+suite separately exercises the database driver.
+
 For diagnosing test issues and ensuring reliability:
 
 ```bash

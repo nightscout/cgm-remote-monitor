@@ -6,6 +6,10 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ### Fixed
 
+- **MongoDB proxy dependency:** Update ip-address to 10.7.0. Add regression
+  coverage for IPv4/IPv6 conversion, malformed addresses and SOCKS5 connections
+  through MongoDB's installed proxy client. No MongoDB configuration or UI
+  changes are required.
 - **Build dependency security:** Update fast-uri to 3.1.7, the latest release
   supported by the installed Ajv 8 consumers. Add CI coverage for malformed
   authorities, safe serialization and schema-reference resolution. Keep 3.x
