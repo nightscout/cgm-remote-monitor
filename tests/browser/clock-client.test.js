@@ -21,7 +21,7 @@ describe('clock client in a real browser', function () {
         response.end(JSON.stringify(properties));
       } else if (request.url === '/') {
         response.setHeader('Content-Type', 'text/html; charset=utf-8');
-        response.end('<!doctype html><html><body><div id="inner"></div></body></html>');
+        response.end('<!doctype html><html><head><meta charset="utf-8"></head><body><div id="inner"></div></body></html>');
       } else {
         response.writeHead(404).end();
       }
