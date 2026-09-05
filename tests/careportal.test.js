@@ -257,7 +257,8 @@ describe('careportal', function ( ) {
     mocks.treatment.boluscalc.eventTime.should.not.equal(utcShiftedEventTime);
   });
 
-  function checkLoopSubmission (eventType, failureMessage) {
+  function checkLoopSubmission (eventType, failureResponse, expectedMessage, textStatus) {
+    var failed = failureResponse !== undefined;
     var client = window.Nightscout.client;
     client.init();
     var loop = require('../lib/plugins/loop')(client.ctx);
@@ -299,9 +300,9 @@ describe('careportal', function ( ) {
       $.ajax = function (options) {
         requests.push(options);
         return {
-          done: function (callback) { if (!failureMessage) { callback(); } return this; },
+          done: function (callback) { if (!failed) { callback(); } return this; },
           fail: function (callback) {
-            if (failureMessage) { callback({ status: 500, responseText: failureMessage }); }
+            if (failed) { callback(failureResponse, textStatus || 'error'); }
             return this;
           }
         };
@@ -312,8 +313,8 @@ describe('careportal', function ( ) {
       assert.equal(requests.length, 1);
       assert.equal(requests[0].url, '/api/v2/notifications/loop');
       assert.equal(requests[0].data.eventType, eventType);
-      if (failureMessage) {
-        assert.deepEqual(alerts, ['Error: ' + failureMessage]);
+      if (failed) {
+        assert.deepEqual(alerts, ['Error: ' + expectedMessage]);
         assert.deepEqual(closedDrawers, []);
         assert.equal($('#eventType').val(), eventType);
         assert.equal($('#notes').val(), 'Keep these notes');
@@ -346,7 +347,39 @@ describe('careportal', function ( ) {
   ].forEach(function (testCase) {
     it('shows the actionable failure and preserves the form for ' + testCase[0], function () {
       var errorMessage = require('../lib/api2/loop-notification-errors')(testCase[1]);
-      checkLoopSubmission(testCase[0], errorMessage);
+      checkLoopSubmission(testCase[0], { status: 500, responseText: errorMessage }, errorMessage);
+    });
+  });
+
+  var emptyFailureMessage = 'Nightscout returned an error without details. Check Loop before submitting again, and ask the Nightscout administrator to check the server logs.';
+  var connectionFailureMessage = 'Could not confirm whether Loop received this command. Check your connection and Loop before submitting it again.';
+  var authorizationFailureMessage = 'Authorization failed. Reauthorize Nightscout access or ask the administrator to check your Loop command permissions.';
+
+  ['Temporary Override', 'Temporary Override Cancel', 'Remote Carbs Entry', 'Remote Bolus Entry'].forEach(function (eventType) {
+    it('keeps an empty error response from being treated as success for ' + eventType, function () {
+      checkLoopSubmission(eventType, { status: 500, responseText: '' }, emptyFailureMessage);
+    });
+  });
+
+  [undefined, {}, '   \n  '].forEach(function (responseText) {
+    it('shows a fallback for an unusable error body: ' + JSON.stringify(responseText), function () {
+      checkLoopSubmission('Remote Carbs Entry', { status: 502, responseText: responseText }, emptyFailureMessage);
+    });
+  });
+
+  it('explains uncertain delivery after a connection failure and preserves the bolus form', function () {
+    checkLoopSubmission('Remote Bolus Entry', { status: 0, responseText: '' }, connectionFailureMessage);
+  });
+
+  it('explains uncertain delivery after a timeout and preserves the carbs form', function () {
+    checkLoopSubmission('Remote Carbs Entry', { status: 0 }, connectionFailureMessage, 'timeout');
+  });
+
+  [401, 403].forEach(function (status) {
+    ['', JSON.stringify({ status: status, message: 'Unauthorized' })].forEach(function (responseText) {
+      it('explains HTTP ' + status + ' authorization failures with body ' + JSON.stringify(responseText), function () {
+        checkLoopSubmission('Temporary Override', { status: status, responseText: responseText }, authorizationFailureMessage);
+      });
     });
   });
 

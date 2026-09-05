@@ -239,7 +239,7 @@ describe('Loop notifications API v2', function () {
         var body = { eventType: testCase.event, [testCase.field]: amount };
         var response = await post(fixture, body);
         assert.equal(response.status, 500);
-        assert.equal(response.text, 'Loop remote ' + testCase.label + ' failed: invalid ' + testCase.label + ' entry. Check the ' + testCase.check + ' amount entered.');
+        assert.equal(response.text, 'Loop remote ' + testCase.label + ' failed: invalid ' + testCase.label + ' entry. The ' + testCase.check + ' amount must be a number greater than zero.');
         assert.equal(fixture.calls.length, 0);
       });
     });
