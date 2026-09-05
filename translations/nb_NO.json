@@ -515,6 +515,7 @@
     "Changed": "Byttet",
     "IOB": "Aktivt insulin",
     "Careportal IOB": "Aktivt insulin i Careportal",
+    "Careportal COB": "Careportal COB",
     "Last Bolus": "Siste Bolus",
     "Basal IOB": "Basal Aktivt Insulin",
     "Source": "Kilde",
