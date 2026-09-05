@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
-      <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
+      <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       <meta name="apple-mobile-web-app-capable" content="yes">
       <title>Food Editor</title>
       <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
@@ -24,6 +24,7 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
+      <link rel="stylesheet" href="/css/tokens.css">
       <link rel="preload" href="/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
       <link rel="preload" href="/css/dropdown.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
       <link rel="preload" href="/css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -35,7 +36,7 @@
   <body>
     <%- include('partials/toolbar') %>
 
-    <div id="fe_form">
+    <div id="fe_form" role="main">
       <fieldset class="browserSettings">
         <legend class="translate">Your database</legend>
         <fieldset class="browserSettings">

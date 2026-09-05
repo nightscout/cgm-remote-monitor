@@ -15,9 +15,11 @@ for (let i = 0; i <= 8; i++) {
 const sitesPerRow = urlArray.length > 3 ? Math.round(urlArray.length / 2) : urlArray.length;
 const rows = urlArray.length > 3 ? 2 : 1;
 
-%><html>
+%><html lang="en">
 <head>
   <title>Nightscout multiframe view</title>
+  <meta name="theme-color" content="#333333">
+  <link rel="stylesheet" href="/css/tokens.css">
   <link rel="preload" href="/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <style media="screen" type="text/css">
   html, body, table, tr, td {

@@ -1,19 +1,21 @@
 #drawer button, #treatmentDrawer button, #boluscalcDrawer button{
   font-size: 18px;
   font-weight: bolder;
-  background-color: #ccc;
-  padding: 5px 10px;
-  border-radius: 5px;
-  border: 2px solid #aaa;
-  box-shadow: 2px 2px 0 #eee;
+  /* Trio: rounded accent buttons on the dark drawer surface. */
+  background-color: var(--trio-accent, #56AAEC);
+  color: var(--color-text-inverse, #fff);
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--trio-card-shadow, 0 2px 8px rgba(2, 12, 24, 0.45));
   width: 100%;
 }
 
 #drawer {
-  background-color: #666;
-  border-left: 1px solid #999;
+  background-color: var(--color-surface-raised, #666);
+  border-left: 1px solid var(--color-border, #999);
   box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
-  color: #eee;
+  color: var(--color-text-bright, #eee);
   display: none;
   font-size: 16px;
   overflow-y: scroll;
@@ -50,10 +52,10 @@ input[type=number]:invalid {
 }
 
 #treatmentDrawer, #adminNotifiesDrawer {
-  background-color: #666;
-  border-left: 1px solid #999;
+  background-color: var(--color-surface-raised, #666);
+  border-left: 1px solid var(--color-border, #999);
   box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
-  color: #eee;
+  color: var(--color-text-bright, #eee);
   display: none;
   font-size: 16px;
   overflow-y: scroll;
@@ -227,13 +229,14 @@ h1, legend,
   padding: 0 15px 0 40px;
   position: relative;
   align-items: center;
-  background: url("../images/logo2.png") no-repeat 3px center #333;
-  border-bottom: 1px solid #999;
+  /* Trio: dark translucent toolbar with a subtle bottom border. */
+  background: url("../images/logo2.png") no-repeat 3px center var(--color-surface-alt, rgba(2, 18, 38, 0.85));
+  border-bottom: var(--trio-card-border, 1px solid rgba(255, 255, 255, 0.07));
   justify-content: space-between;
 }
 
 #toolbar .customTitle {
-  color: #ccc;
+  color: var(--color-text-soft, #ccc);
   font-size: 16px;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -267,20 +270,27 @@ h1, legend,
 
 #buttonbar a,
 #buttonbar i {
-  color: #ccc;
+  color: var(--color-text-soft, #ccc);
   font-size: 16px;
   height: 44px;
   line-height: 44px;
 }
 
 #buttonbar .selected {
-  color: red;
+  color: var(--color-bg-urgent, red);
 }
 
 #buttonbar a {
   float: right;
   text-decoration: none;
   width: 34px;
+  /* Trio: rounded hover state. */
+  border-radius: 10px;
+  transition: background-color 0.15s ease;
+}
+
+#buttonbar a:hover {
+  background-color: rgba(255, 255, 255, 0.10);
 }
 
 #buttonbar i {
@@ -357,7 +367,7 @@ ul.navigation {
 
 .navigation a {
   text-decoration: none;
-  background-color: #808080;
+  background-color: var(--color-text-muted, #808080);
   display: block;
   padding: 5px;
   margin: 10px 0;
@@ -374,10 +384,10 @@ ul.navigation {
 }
 
 #boluscalcDrawer {
-    background-color: #666;
-    border-left: 1px solid #999;
+    background-color: var(--color-surface-raised, #666);
+    border-left: 1px solid var(--color-border, #999);
     box-shadow: inset 4px 4px 5px 0 rgba(50, 50, 50, 0.75);
-    color: #eee;
+    color: var(--color-text-bright, #eee);
     display: none;
     font-size: 16px;
     overflow-y: scroll;
@@ -411,4 +421,36 @@ ul.navigation {
 #boluscalcDrawer .foodinput {
    background: #505050;
    margin: 10px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Trio theme: dark card-styled drawers with rounded inner edge and dark
+ * form fields. The drawer surface / border / text already come from the
+ * (re-themed) tokens above; these rules add the Trio rounding and inputs.
+ * ------------------------------------------------------------------------- */
+#drawer,
+#treatmentDrawer,
+#adminNotifiesDrawer,
+#boluscalcDrawer {
+  background-color: rgba(10, 30, 51, 0.97);
+  border-top-left-radius: var(--radius-card, 15px);
+  border-bottom-left-radius: var(--radius-card, 15px);
+}
+
+/* Dark, rounded, light-text form fields inside the drawers. */
+#drawer input, #drawer select, #drawer textarea,
+#treatmentDrawer input, #treatmentDrawer select, #treatmentDrawer textarea,
+#boluscalcDrawer input, #boluscalcDrawer select, #boluscalcDrawer textarea {
+  background-color: var(--trio-field-bg, rgba(255, 255, 255, 0.06));
+  color: var(--color-text-bright, #fff);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+
+/* Keep the invalid-number warning legible on the dark field. */
+#drawer input[type=number]:invalid,
+#treatmentDrawer input[type=number]:invalid,
+#boluscalcDrawer input[type=number]:invalid {
+  background-color: rgba(236, 87, 86, 0.35);
 }

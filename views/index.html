@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-  <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=0.9, user-scalable=0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="apple-touch-startup-image" href="images/launch.png">
   <meta name="apple-mobile-web-app-title" content="Nightscout">
@@ -28,6 +28,7 @@
   <meta name="msapplication-TileImage" content="/images/mstile-144x144.png">
   <meta name="msapplication-config" content="/browserconfig.xml">
   <meta name="theme-color" content="#333333">
+  <link rel="stylesheet" href="css/tokens.css">
   <link rel="preload" href="css/ui-darkness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="css/jquery.tooltips.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -117,11 +118,11 @@
       </div>
     </div>
   </div>
-  <div class="container loading" id="container">
+  <div class="container loading" id="container" role="main">
     <%- include('partials/toolbar') %>
 
     <div id="notification" role="region" aria-label="Notification">
-      <a href="#" aria-label="cancel"><span></span><i class="icon-cancel-circled"></i></a>
+      <a href="#" aria-label="cancel"><span></span><i class="icon-cancel-circled" aria-hidden="true"></i></a>
     </div>
     <div class="primary">
       <div class="bgStatus current">
@@ -132,7 +133,7 @@
             <span class="pill direction"></span>
           </span>
         </div>
-        <ul class="dropdown-menu" id="silenceBtn"></ul>
+        <ul class="dropdown-menu" id="silenceBtn" aria-label="Silence alarm menu"></ul>
         <div class="majorPills"></div>
         <div class="minorPills"></div>
       </div>
@@ -146,7 +147,7 @@
       </div>
       <div></div>
 
-      <ul class="focus-range">
+      <ul class="focus-range" role="toolbar" aria-label="Chart time range">
         <li data-hours="1" class="translate">Hours:</li>
         <li data-hours="2">2</li>
         <li data-hours="3">3</li>
@@ -157,11 +158,12 @@
         <li>...</li>
       </ul>
     </div>
-    <ul class="dropdown-menu" id="viewMenu"></ul>
+    <ul class="dropdown-menu" id="viewMenu" aria-label="View menu"></ul>
   </div>
   <div class="row-fluid section1">
     <div id="chartContainer" role="region" aria-label="Chart"></div>
   </div>
+  <div id="tirWidget" role="complementary" aria-label="Time in range, last 7 days" class="hidden"></div>
   </div>
 
   <div id="drawer">
@@ -248,7 +250,7 @@
         </dl>
 
         <dl class="toggle">
-          <dt><span class="translate">Enable Alarms</span> <a class="tip" original-title="When enabled an alarm may sound."><i class="icon-help-circled"></i></a></dt>
+          <dt><span class="translate">Enable Alarms</span> <a class="tip" original-title="When enabled an alarm may sound."><i class="icon-help-circled" aria-hidden="true"></i></a></dt>
           <dd><input type="checkbox" id="alarm-urgenthigh-browser"><label for="alarm-urgenthigh-browser" class="translate">Urgent High Alarm</label></dd>
           <dd><input type="checkbox" id="alarm-high-browser"><label for="alarm-high-browser" class="translate">High Alarm</label></dd>
           <dd><input type="checkbox" id="alarm-low-browser"><label for="alarm-low-browser" class="translate">Low Alarm</label></dd>
@@ -266,15 +268,15 @@
           <dd><input type="checkbox" id="alarm-pumpbatterylow-browser"><label for="alarm-pumpbatterylow-browser" class="translate">Pump Battery Low Alarm</label></dd>
         </dl>
         <dl class="toggle">
-          <dt><span class="translate">Night Mode</span> <a class="tip" original-title="When enabled the page will be dimmed from 10pm - 6am."><i class="icon-help-circled"></i></a></dt>
+          <dt><span class="translate">Night Mode</span> <a class="tip" original-title="When enabled the page will be dimmed from 10pm - 6am."><i class="icon-help-circled" aria-hidden="true"></i></a></dt>
           <dd><input type="checkbox" name="nightmode-browser" id="nightmode-browser"><label for="nightmode-browser" class="translate">Enable</label></dd>
         </dl>
         <dl class="toggle">
-          <dt><span class="translate">Edit Mode</span> <a class="tip" original-title="When enabled icon to start edit mode is visible"><i class="icon-help-circled"></i></a></dt>
+          <dt><span class="translate">Edit Mode</span> <a class="tip" original-title="When enabled icon to start edit mode is visible"><i class="icon-help-circled" aria-hidden="true"></i></a></dt>
           <dd><input type="checkbox" name="editmode-browser" id="editmode-browser"><label for="editmode-browser" class="translate">Enable</label></dd>
         </dl>
         <dl id="show-rawbg-option" class="toggle">
-          <dt><span class="translate">Show Raw BG Data</span> <a class="tip" original-title="When enabled small white dots will be displayed for raw BG data"><i class="icon-help-circled"></i></a></dt>
+          <dt><span class="translate">Show Raw BG Data</span> <a class="tip" original-title="When enabled small white dots will be displayed for raw BG data"><i class="icon-help-circled" aria-hidden="true"></i></a></dt>
           <dd><input type="radio" name="show-rawbg" id="show-rawbg-never" value="never"><label for="show-rawbg-never" class="translate">Never</label></dd>
           <dd><input type="radio" name="show-rawbg" id="show-rawbg-always" value="always"><label for="show-rawbg-always" class="translate">Always</label></dd>
           <dd><input type="radio" name="show-rawbg" id="show-rawbg-noise" value="noise"><label for="show-rawbg-noise" class="translate">When there is noise</label></dd>
