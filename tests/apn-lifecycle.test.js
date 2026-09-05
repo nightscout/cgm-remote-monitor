@@ -108,4 +108,38 @@ describe('APN provider loading and lifecycle', function () {
     }
   });
 
+  it('closes real APN client heartbeat timers after two compiled notifications', async function () {
+    const apn = require('@parse/node-apn');
+    const {privateKey} = require('crypto').generateKeyPairSync('ec', {namedCurve: 'prime256v1'});
+    const fixture = configuration();
+    fixture.env.extendedSettings.loop.apnsKey = privateKey.export({type: 'pkcs8', format: 'pem'});
+    const clients = [];
+    let sends = 0;
+    const loop = loadLoop(() => ({...apn, Provider: function (options) {
+      const provider = new apn.Provider(options);
+      clients.push(provider.client);
+      provider.client.write = async (notification, device) => {
+        assert.strictEqual(JSON.parse(notification.body)['cancel-temporary-override'], 'true');
+        assert.strictEqual(device, 'fixture-token');
+        sends++;
+        return {device};
+      };
+      return provider;
+    }}))(fixture.env, fixture.ctx);
+    try {
+      for (let cycle = 1; cycle <= 2; cycle++) {
+        await new Promise((resolve, reject) => loop.sendNotification(
+          {eventType: 'Temporary Override Cancel'}, '127.0.0.1', error => error ? reject(new Error(error)) : resolve()
+        ));
+        await new Promise(resolve => setImmediate(resolve));
+        assert.strictEqual(sends, cycle);
+        assert.strictEqual(clients.length, cycle);
+        assert.strictEqual(clients[cycle - 1].isDestroyed, true);
+        assert.strictEqual(clients[cycle - 1].healthCheckInterval, null);
+      }
+    } finally {
+      clients.forEach(client => client.shutdown());
+    }
+  });
+
 });
