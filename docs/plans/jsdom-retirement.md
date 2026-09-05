@@ -4,7 +4,7 @@ Decision: 2026-09-05, part of M08 and integration PR [#8605](https://github.com/
 
 The goal is to remove the remaining test dependency while preserving observable regression coverage. The earlier production removal is already complete: `lib/server/purifier.js` uses `sanitize-html`, jsdom is a devDependency, and `npm ls jsdom --omit=dev` returns an empty tree at integration commit `8b57b7b8`. There is no further production heap or pruned-image saving to claim from deleting this test dependency. Measure developer/CI installation and test-process costs separately.
 
-The jsdom 30 upgrade [#8613](https://github.com/nightscout/cgm-remote-monitor/pull/8613) is on hold as a draft fallback. Its native-global restoration fix and network-isolation tests are useful evidence; they do not establish a requirement to upgrade before removal. Evaluate any interim fix independently against the currently installed jsdom 26.1.0. Do not merge the major upgrade simply because its checks pass.
+The jsdom 30 upgrade [#8613](https://github.com/nightscout/cgm-remote-monitor/pull/8613) was held as a draft fallback and is now closed without merging (verified 2026-09-05). Its native-global restoration fix and network-isolation tests are useful evidence; they do not establish a requirement to upgrade before removal. Evaluate any interim fix independently against the currently installed jsdom 26.1.0. Do not merge the major upgrade simply because its checks pass.
 
 ## Inventory and replacement boundaries
 
