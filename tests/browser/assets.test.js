@@ -73,7 +73,7 @@ describe('Webpack image and CSS update contracts', function () {
   for (const template of ['index', 'adminindex', 'profileindex', 'foodindex', 'reportindex']) {
     it('preserves the static stylesheet cascade for ' + template, async function () {
       const file = path.join(root, 'views', template + '.html');
-      const markup = ejs.render(fs.readFileSync(file, 'utf8'), {type: template, title: '', bundle: '/bundle'}, {filename: file});
+      const markup = ejs.render(fs.readFileSync(file, 'utf8'), {type: template === 'index' ? 'index' : template.replace(/index$/, ''), title: '', bundle: '/bundle'}, {filename: file});
       await serve(path.join(root, 'node_modules/.cache/_ns_cache/public'), '/bundle', async (page, origin) => {
         await page.goto(origin);
         const sheets = await page.evaluate(markup => {
@@ -128,6 +128,7 @@ describe('Webpack image and CSS update contracts', function () {
         await page.addScriptTag({url: origin + '/devbundle/js/bundle.fixture.js'});
         await assertImage(page, origin, '/devbundle');
         assert.equal(await page.evaluate(() => window.assetBoots), 1);
+        assert.equal(await page.locator('style[data-webpack]').count(), 1);
         await page.evaluate(() => {window.pageState = 'retained';});
         for (const [color, expected] of [['#123456', 'rgb(18, 52, 86)'], ['#654321', 'rgb(101, 67, 33)']]) {
           const next = await build(worker, {color});
@@ -137,6 +138,7 @@ describe('Webpack image and CSS update contracts', function () {
           assert.ok(updated.length > 0);
           assert.equal(await page.locator('#toolbar').evaluate(node => getComputedStyle(node).backgroundColor), expected);
           await assertImage(page, origin, '/devbundle');
+          assert.equal(await page.locator('style[data-webpack]').count(), 1, 'CSS updates must reuse the owned style element');
           assert.deepEqual(await page.evaluate(() => [window.assetBoots, window.pageState, window.assetHot.status()]), [1, 'retained', 'idle']);
           assert.ok(requests.some(url => url.includes(previous.hash) && url.endsWith('.hot-update.json')));
           previous = next;
