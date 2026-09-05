@@ -109,6 +109,7 @@ At the audit baseline, completed foundations were: D3 7.9.0, jsdom-backed test t
 
 - [ ] **M15 — Load code by page** (after M13/M14; begin with reports, then admin/profile/food).
   Files: `bundle/bundle*.source.js`, webpack entries/chunks, page templates, `views/service-worker.js`, report/client initialization. The existing reports entry imports the entire common bundle and is not a current webpack entry; create real boundaries.
+  Startup prerequisite in progress: preserve page initialization callbacks across loading/offline retries, schedule offline retries after five seconds and retain immediate authentication recovery. Parent/candidate real-browser evidence is described in [startup recovery contracts](../test-specs/client-startup-retries.md). This prerequisite does not complete page splitting.
   Acceptance: directly opened URLs, navigation, auth, reconnect, lazy-load failures, offline/cache upgrades and development HMR work on every affected page. Dashboard requests must exclude report-only Flot/statistics chunks; measure initial/all-pages gzip, request count, startup time and browser heap. Establish numeric budgets from the first working prototype, not a speculative saving.
 
 ## Phase 4 — replace narrow helpers with tested local/native behavior
