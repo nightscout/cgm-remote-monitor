@@ -12,6 +12,7 @@ on:
     branches:
       - master
       - dev
+      - chore/nightscout-modernization
 
 jobs:
   test:
