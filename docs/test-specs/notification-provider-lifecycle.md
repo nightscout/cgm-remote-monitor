@@ -10,6 +10,8 @@ APN previously created a new provider for each send without closing it. Each rea
 - `tests/pushover-lifecycle.test.js`: absent/invalid configuration without imports, recipient selection and receipts, disabled alarm recipients, send errors, cancellation success/failure and two independent setup/call cycles. Five disabled-import cases fail against the parent.
 - Existing Loop, Pushover, push-notification and API v2 privacy/permission tests remain required. The combined focused set passes 79 tests. All transports use fixture credentials/mocks; no real notification is sent.
 
+On the current integration parent, the clean locked installation/production build and full Node 22.23.2 suite pass **2,008 tests with three existing pending**. Client-core passes 283 and dependency compatibility 317; final GitHub checks remain required before merging.
+
 ## Matched whole-server measurements
 
 Parent `756fca7c` versus candidate runtime sources `c7fe0213`, macOS arm64, Node 22.23.2, MongoDB 6.0.27, clean identical lockfiles and production builds. Seven fresh processes per revision/configuration use an isolated empty database, ten status requests and forced GC. In the enabled configuration, both real provider modules load: 20 APN notifications are compiled with an ephemeral fixture key and mocked client delivery; Pushover initializes with fixture settings and completes 20 mocked sends. This is a controlled startup/send fixture, not a representative patient workload or live-provider soak test.
