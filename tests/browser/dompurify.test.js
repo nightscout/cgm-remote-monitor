@@ -14,8 +14,8 @@ describe('DOMPurify reference in a real browser', function () {
   before(async function () {
     const source = fs.readFileSync(path.join(path.dirname(require.resolve('dompurify')), 'purify.js'));
     server = http.createServer((request, response) => {
-      response.setHeader('Content-Type', request.url === '/purify.js' ? 'application/javascript' : 'text/html');
-      response.end(request.url === '/purify.js' ? source : '<!doctype html><html><body></body></html>');
+      response.setHeader('Content-Type', request.url === '/purify.js' ? 'application/javascript; charset=utf-8' : 'text/html; charset=utf-8');
+      response.end(request.url === '/purify.js' ? source : '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>');
     });
     server.listen(0, '127.0.0.1');
     await once(server, 'listening');

@@ -11,8 +11,8 @@ describe('Served Socket.IO client in a real browser', function () {
   let io, origin;
   beforeEach(async function () {
     const server = http.createServer((request, response) => {
-      response.setHeader('Content-Type', 'text/html');
-      response.end('<!doctype html><html><body></body></html>');
+      response.setHeader('Content-Type', 'text/html; charset=utf-8');
+      response.end('<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>');
     });
     io = new Server(server, {allowEIO3: true, perMessageDeflate: {threshold: 512}, httpCompression: {threshold: 512}});
     io.on('connection', peer => {

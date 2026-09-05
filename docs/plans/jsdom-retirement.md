@@ -10,7 +10,7 @@ The jsdom 30 upgrade [#8613](https://github.com/nightscout/cgm-remote-monitor/pu
 
 A literal `require()` traversal at `8b57b7b8` found 19 top-level test files and two fixture test files reaching jsdom. This includes the already-quarantined reports suite; it is not a count of active tests. Classify individual cases, because some files mix pure Node and browser checks.
 
-| Current consumers | Replacement and constraints |
+| Original consumers at `8b57b7b8` | Replacement and constraints |
 | --- | --- |
 | `hashauth.modern`, `browser-settings`, `clock-client`, `daterangedelete`, `careportal` | Move pure state, sorting, validation and storage-adapter contracts to Node tests. Keep real browser coverage for actual localStorage/origin behavior, saved authentication, dialogs/form wiring and cross-page settings. Coordinate with M16 and existing `tests/client-core/`. Small interface fakes are appropriate for isolated logic; a new generic DOM implementation is not. |
 | `dependency-d3`, `pluginbase.modern`, `admintools.modern`, `report-sgv-pipeline`, `report-reconnect` | Preserve actual selectors, DOM writes, chart hover/drag/brush, tooltip cleanup, admin actions and repeated report reconnection in the browser. Extract calculations/state transitions where that simplifies application code. Coordinate with M14/M15/M26/M28. |
@@ -30,3 +30,9 @@ First slice: [#8615](https://github.com/nightscout/cgm-remote-monitor/pull/8615)
 5. **Publish measured results and rollback.** Record net npm paths/bytes, browser-tool download/cache cost, CI duration and peak memory. Verify unchanged production dependency graph and user-facing behavior rather than promising additional server savings. Preserve a known-good test artifact; rollback a migration together with its harness/manifest changes, without altering application data. Close this item only after replacement coverage and removal are both complete.
 
 Node 22/24 provide useful web APIs, but neither supplies the browser document, HTML parser, layout/event integration and window lifecycle used by these tests. Upgrading Node alone therefore cannot complete this removal. Avoid substituting another general DOM emulator merely to remove the jsdom name from the manifest.
+
+## Remaining inventory after the authentication candidate
+
+Bundle/Socket.IO (#8615), DOMPurify reference (#8617), sanitizer corpus/production reparsing (#8618) and clock (#8619) are merged. The authentication candidate maps eight original cases to the actual bundle and adds two-reload persistence coverage, with no replacement package. It also aligns the remaining raw HTTP fixtures with UTF-8 production encoding.
+
+A fresh syntax-based traversal of literal local `require()` calls in this candidate finds 14 test files still reaching jsdom: `admintools.modern`, `browser-settings`, `careportal`, `daterangedelete`, `dependency-d3`, `dependency-jsdom`, `pluginbase.modern`, `profile-sinks`, `report-reconnect`, `report-sgv-pipeline`, `reports`, `stored-output-sinks`, plus `fixtures/benv-shim` and `fixtures/secure-jsdom`. This includes the existing report quarantine and harness compatibility tests; it is not a count of active test cases or proof that dynamic imports are absent. All remaining consumers and harness references must be checked again before removing the package.
