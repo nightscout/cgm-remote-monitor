@@ -12,20 +12,20 @@ The local source fixture validates activation/authentication and shutdown, not a
 
 ## Matched whole-server measurements
 
-Measured on macOS arm64, Node 22.23.2, MongoDB 6.0.27, identical locked dependencies and production bundles, empty isolated database, ten local status requests, and forced GC after startup. Seven fresh processes per revision/configuration; both disabled CONNECT and enabled CONNECT against a loopback source were exercised. Other integrations were disabled. This is a startup fixture, not a representative patient-data soak test.
+Measured on macOS arm64, Node 22.23.2, MongoDB 6.0.27, identical locked dependencies and production bundles, empty isolated database, ten local status requests, and forced GC after startup. Final implementation `78141628` versus parent `9205ea30`, seven fresh processes per revision/configuration; both disabled CONNECT and enabled CONNECT against a loopback source were exercised. Other integrations were disabled. This is a startup fixture, not a representative patient-data soak test.
 
 | Configuration / metric | Parent median (range) | Updated median (range) |
 | --- | --- | --- |
-| Disabled: post-GC heap bytes | 45,613,680 (45,610,152–45,615,696) | 41,425,208 (41,424,504–41,427,704) |
-| Disabled: RSS bytes | 164,184,064 (162,185,216–164,265,984) | 151,027,712 (150,700,032–152,010,752) |
+| Disabled: post-GC heap bytes | 45,613,576 (45,613,536–45,618,040) | 41,427,928 (41,423,800–41,430,672) |
+| Disabled: RSS bytes | 163,807,232 (162,119,680–164,282,368) | 150,683,648 (150,110,208–152,125,440) |
 | Disabled: loaded modules | 1,263 | 1,169 |
-| Enabled: post-GC heap bytes | 46,598,760 (46,589,920–46,602,704) | 46,576,920 (46,573,816–46,588,696) |
-| Enabled: RSS bytes | 164,872,192 (163,151,872–165,560,320) | 164,380,672 (158,924,800–165,756,928) |
+| Enabled: post-GC heap bytes | 46,601,768 (46,593,976–46,606,632) | 46,585,320 (46,576,368–46,589,520) |
+| Enabled: RSS bytes | 164,069,376 (162,693,120–165,036,032) | 164,315,136 (161,431,552–165,101,568) |
 | Enabled: loaded modules | 1,263 | 1,263 |
 
-Disabled post-GC heap decreases by 4,188,472 bytes (about 4 MiB); RSS medians differ by about 12.55 MiB, with allocator/platform variability. Enabled results show no material memory reduction. Disabled listener/timer counts are unchanged; enabled startup adds one intentional teardown listener. The real actor stays running after baseline teardown and stops after updated teardown. Packages remain installed, so no package-size saving is claimed.
+Disabled post-GC heap decreases by 4,185,648 bytes (about 4 MiB); RSS medians differ by about 12.52 MiB, with allocator/platform variability. Enabled results show no material memory reduction. Disabled listener/timer counts are unchanged; enabled startup adds one intentional teardown listener. The real actor stays running after baseline teardown and stops after updated teardown. Packages remain installed, so no package-size saving is claimed.
 
-Startup medians were 367/341 ms disabled and 393/389 ms enabled. These short local timings are diagnostic only, not a performance guarantee. The probe records every latency, memory sample, module count, active resource, and event-listener count in JSON.
+Startup medians were 386/344 ms disabled and 382/384 ms enabled. These short local timings are diagnostic only, not a performance guarantee. The probe records every latency, memory sample, module count, active resource, and event-listener count in JSON.
 
 Reproduce with both checkouts installed and production-built, a disposable MongoDB database, and Python 3 plus Node with `--expose-gc` support:
 
