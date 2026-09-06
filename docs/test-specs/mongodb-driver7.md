@@ -225,3 +225,18 @@ still passes but the new unsupported-filter rejection fails as expected.
 Alert 106 has not been dismissed; the code change must be verified by fresh
 CodeQL and the full CI matrix. Alert 107 for the public entries API remains
 a separate review. No public endpoint query contract changes in this slice.
+
+## Entries predicate review
+
+Three new HTTP cases use actual entries routing, authorization/Shiro and a real
+owned MongoDB collection. Across two cycles, absent/unrelated permissions return
+401 before cache or database reads; entries-read permits ordinary broad filters
+while executable JavaScript fails before MongoDB; the same reader cannot POST
+or DELETE even with a broad predicate. Removing the router's entries-read gate
+makes the denial regression fail. These cases pass on both Node floors.
+
+This supports distinguishing intentional predicates from operator injection into
+a scalar lookup. Alert 107 remains open pending integration of the separate
+selected-storage permission fix (#8667) and final route review. The fixture's
+error assertion verifies rejection without claiming that legacy HTTP error
+statuses are redesigned. Query resource bounds remain separate work.
