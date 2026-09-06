@@ -63,5 +63,14 @@ commit 9fa2c3c in nightscout-connect. All nine new logging regressions fail agai
 upstream main and pass with the patch; all 56 upstream tests pass on both Node
 floors. It covers startup, Dexcom errors and shared actor context/event logging.
 Other source drivers and CLI capture output are outside that patch's privacy
-claim. The patch is not yet published or consumed by this PR, so the logging
-integration gate remains open.
+claim. The patch is published as [Connect PR #64](https://github.com/nightscout/nightscout-connect/pull/64).
+This draft pins its full commit 9fa2c3c19ecf5cd6e0908ab28d3d9b111774810c;
+upstream review remains open. No other dependency package records change.
+
+A clean Node 22 install/production build succeeds with the fixed package. The
+packaged Connect startup and HTTPS actor tests fail with the old dependency's
+credential/session logging and pass with the pinned fix on both Node floors.
+All 17 combined compatibility/lifecycle/isolated-transport cases pass on each
+floor (the isolated case contains four owned checks). These tests capture actual
+startup console output and the actor logger rather than suppressing logging in
+production. Full current-head CI and current-base verification remain required.
