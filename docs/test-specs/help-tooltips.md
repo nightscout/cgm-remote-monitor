@@ -36,3 +36,21 @@ Firefox, screen-reader QA, target touch devices, and the rest of M28's widget/
 chart inventory. Do not mark M28 complete or merge from these isolated tests.
 Rollback restores the manifest/lock import and old initialization together,
 then removes the native helper/style and its main-page/service-worker entries.
+
+## Application-page follow-up
+
+Four additional cases load the production EJS template, real styles and compiled
+app bundle, with finite owned HTTP/Socket.IO fixtures. Each opens and dismisses
+French drawer help twice in mg/dL and mmol/L, using keyboard and touch, and
+checks translated accessible names and tooltip placement beside the trigger.
+All ten component/application cases pass in Chromium/Node 22 and WebKit/Node 24.
+The updated application screenshot was inspected. This covers real page
+composition, not a live deployment or a screen reader's spoken output.
+
+The first screenshot exposed a placement defect when switching from a short
+toolbar label to longer drawer help: measuring at the previous horizontal
+position constrained wrapping. The new spacing assertion failed in both
+keyboard unit cases (over 50px gap). Resetting the measurement position before
+placement fixes it; the assertion now passes. The size comparison is refreshed
+with hashes of the changed production sources. Hosted validation and final
+screen-reader/target-device checks remain open.

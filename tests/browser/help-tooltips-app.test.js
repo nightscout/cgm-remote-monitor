@@ -1,0 +1,77 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const http = require('node:http');
+const {once} = require('node:events');
+const express = require('express');
+const ejs = require('ejs');
+const {withPage} = require('./fixture');
+
+describe('Help tooltips on the application page', function () {
+  let server, origin, units;
+  before(async function () {
+    const root=path.resolve(__dirname,'../..'), file=path.join(root,'views/index.html');
+    // Keep the real template/styles; boot manually with finite owned socket data.
+    const html=ejs.render(fs.readFileSync(file,'utf8'),{type:'index',title:'Tooltip fixture',bundle:'/bundle'},{filename:file})
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
+    const css=fs.readFileSync(path.join(root,'static/css/main.css'),'utf8')
+      .replace("@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');",'');
+    const app=express();
+    app.get('/',(req,res)=>res.type('html').send(html));
+    app.get('/css/main.css',(req,res)=>res.type('css').send(css));
+    app.get('/api/v1/status.json',(req,res)=>{
+      const settings=structuredClone(require('../fixtures/default-server-settings'));
+      settings.settings.units=units; settings.settings.language='fr';
+      res.json(settings);
+    });
+    app.get('/api/v1/verifyauth',(req,res)=>res.json({message:'OK'}));
+    app.get('/api/v1/adminnotifies',(req,res)=>res.json({message:{notifies:[],notifyCount:0}}));
+    app.get('/translations/*',(req,res)=>res.json({'Settings':'Réglages','When enabled an alarm may sound.':'Une alarme peut sonner.'}));
+    app.use('/bundle',express.static(path.join(root,'node_modules/.cache/_ns_cache/public')));
+    app.use(express.static(path.join(root,'static')));
+    server=http.createServer(app);server.listen(0,'127.0.0.1');await once(server,'listening');
+    origin='http://127.0.0.1:'+server.address().port;
+  });
+  after(async function(){if(server)await new Promise(resolve=>server.close(resolve));});
+  for(const value of ['mg/dl','mmol']) for(const touch of [false,true]) {
+    it('opens and dismisses translated drawer help with '+value+(touch?' touch':' keyboard'),async function(){
+      units=value;
+      await withPage(origin,async({page})=>{
+        await page.clock.setFixedTime(new Date('2024-10-26T04:00:00Z'));
+        await page.goto(origin);
+        await page.addScriptTag({url:origin+'/bundle/js/bundle.app.js'});
+        await page.evaluate(()=>{
+          window.io={connect(){const socket={on(event,callback){if(event==='connect')queueMicrotask(callback);return socket;},
+            emit(event,data,callback){if(callback)callback({read:true});return socket;}};return socket;}};
+          return new Promise(resolve=>window.Nightscout.client.init(resolve));
+        });
+        await page.waitForFunction(()=>window.$.active===0 && window.Nightscout.client.hashauth.isAuthenticated());
+        await page.evaluate(()=>window.Nightscout.client.dataUpdate({sgvs:[{mgdl:100,mills:Date.now(),direction:'Flat',type:'sgv'}],treatments:[]}));
+        for(let cycle=0;cycle<2;cycle++) {
+          if(touch)await page.locator('#drawerToggle').tap();
+          else {await page.locator('#drawerToggle').focus();await page.keyboard.press('Enter');}
+          await page.locator('#drawer').waitFor({state:'visible'});
+          const help=page.locator('#drawer .tip').first();
+          if(touch)await help.tap();else await help.focus();
+          const tooltip=page.locator('.ns-help-tooltip');
+          assert.equal(await tooltip.isVisible(),true);
+          assert.equal(await tooltip.textContent(),'Une alarme peut sonner.');
+          const tipBox=await tooltip.boundingBox(), helpBox=await help.boundingBox();
+          const gap=Math.min(Math.abs(tipBox.y-(helpBox.y+helpBox.height)),Math.abs(helpBox.y-(tipBox.y+tipBox.height)));
+          assert(gap<=8, 'Tooltip must stay adjacent to its current trigger: '+gap);
+          assert.equal(await help.getAttribute('aria-describedby'),'ns-help-tooltip');
+          assert.equal(await help.getAttribute('aria-label'),'Une alarme peut sonner.');
+          if(process.env.NIGHTSCOUT_TOOLTIP_APP_SCREENSHOT && !touch && cycle===0)
+            await page.screenshot({path:process.env.NIGHTSCOUT_TOOLTIP_APP_SCREENSHOT});
+          if(touch)await tooltip.tap();else await page.keyboard.press('Escape');
+          assert.equal(await tooltip.isVisible(),false);
+          await page.evaluate(()=>window.Nightscout.client.browserUtils.closeDrawer('#drawer'));
+          await page.locator('#drawer').waitFor({state:'hidden'});
+        }
+        assert.equal(await page.locator('.ns-help-tooltip').count(),1);
+      },{hasTouch:touch});
+    });
+  }
+});
