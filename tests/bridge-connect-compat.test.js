@@ -110,4 +110,17 @@ describe('bridge connect compatibility', function () {
     }
   });
 
+  it('maps the legacy US selector to the real US region over repeated migration', function () {
+    const source = require('nightscout-connect/lib/sources/dexcomshare');
+    for (const server of ['US', 'us', 'Us']) {
+      const env = {extendedSettings: {bridge: {userName: 'owned-user', password: 'owned-password', server}}};
+      for (let cycle = 0; cycle < 2; cycle++) {
+        compat.applyBridgeToConnectCompatibility(env).migrated.should.equal(true);
+        env.extendedSettings.connect.shareRegion.should.equal('us');
+        should.not.exist(env.extendedSettings.connect.shareServer);
+        source.validate(env.extendedSettings.connect).config.baseURL.should.equal('https://share2.dexcom.com');
+      }
+    }
+  });
+
 });

@@ -74,3 +74,10 @@ All 17 combined compatibility/lifecycle/isolated-transport cases pass on each
 floor (the isolated case contains four owned checks). These tests capture actual
 startup console output and the actor logger rather than suppressing logging in
 production. Full current-head CI and current-base verification remain required.
+
+Final region review adds an explicit case-insensitive US selector mapping. The
+legacy engine treated `BRIDGE_SERVER=US` as its default US endpoint; the older
+compatibility helper incorrectly treated it as a hostname. The new repeated
+regression verifies the actual Connect validator resolves share2.dexcom.com.
+It fails before this fix and passes on both Node floors; the combined focused
+suite now has 18 cases. Explicit Connect-region/server settings retain precedence.
