@@ -62,9 +62,9 @@ describe('legacy reports in a real browser', function () {
 
   async function withReports(run) {
     requests = [];
-    await withPage(origin, async ({page}) => {
+    await withPage(origin, async ({page, routed}) => {
       const pending = new Map(), failures = [];
-      networkDiagnostics.set(page, {pending, failures});
+      networkDiagnostics.set(page, {pending, failures, routed});
       page.on('request', request => pending.set(request, Date.now()));
       page.on('requestfinished', request => pending.delete(request));
       page.on('requestfailed', request => {
@@ -155,6 +155,7 @@ describe('legacy reports in a real browser', function () {
         pending: Array.from(network.pending, ([request, at]) => ({path: new URL(request.url()).pathname,
           elapsedMs: Date.now() - at})),
         failures: network.failures.slice(-10),
+        routed: Array.from(network.routed.values(), state => ({...state, elapsedMs: Date.now() - state.since})),
         received: requests.length,
         unfinished: requests.filter(request => !request.finished).map(request => new URL(request.url, origin).pathname)
       });

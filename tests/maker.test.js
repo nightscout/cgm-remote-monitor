@@ -67,24 +67,20 @@ describe('maker', function ( ) {
 describe('multi announcement maker', function ( ) {
   var maker = require('../lib/plugins/maker')({extendedSettings: {maker: {key: 'use announcementKey instead', announcementKey: '12345 6789'}}});
 
-  it('send 2 requests for the 2 keys', function (done) {
-
-    var key1Found = false;
-    var key2Found = false;
-
-    maker.makeKeyRequest = function expect2Keys (key, event, eventName, callback) {
-      if (callback) { callback(); }
-
-      key1Found = key1Found || key === '12345';
-      key2Found = key2Found || key === '6789';
-
-      if (eventName === 'ns-warning-test' && key1Found && key2Found) {
-        done();
-      }
+  it('sends both announcement keys at every stage and completes once', function (done) {
+    const sent = [];
+    maker.makeKeyRequest = function (key, event, eventName, callback) {
+      sent.push(eventName + ':' + key);
+      callback(null, {statusCode: 200});
     };
-
-    maker.sendEvent({name: 'test', level: levels.toLowerCase(levels.WARN), isAnnouncement: true}, function sendCallback (err) {
-      should.not.exist(err);
+    maker.sendEvent({name: 'test', level: levels.toLowerCase(levels.WARN), isAnnouncement: true}, function (err) {
+      if (err) return done(err);
+      sent.should.eql([
+        'ns-event:12345', 'ns-event:6789',
+        'ns-warning:12345', 'ns-warning:6789',
+        'ns-warning-test:12345', 'ns-warning-test:6789'
+      ]);
+      done();
     });
   });
 
