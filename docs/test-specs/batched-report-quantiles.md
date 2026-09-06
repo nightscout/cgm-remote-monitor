@@ -23,11 +23,10 @@ runs against the same installed library. The checked-in raw samples in
 The checksums match. This measures quantile computation only, not full report
 rendering, server RSS or retained browser memory. No package is removed.
 
-Validation is in progress. Eight numeric cases pass on Node 22 and 24; the
-final browser pipeline/legacy checks pass twelve cases with all four report
-changes. Full browser checks, explicit percentile/hourly chart
-and DST golden coverage, full backend and hosted CI remain required. This
-slice does not complete the broader M26 statistics assessment.
+Eight numeric cases pass on Node 22 and 24. The earlier full backend run
+passed 1,642 cases with one existing pending. Validation of the combined
+integration head and hosted CI remain required; this slice does not complete
+the broader M26 statistics assessment.
 
 The browser pipeline now also renders the real percentile and hourly plugins.
 Goldens cover all five percentile bands, empty half-hour bins, hourly candle
@@ -36,4 +35,10 @@ second renders in both glucose units. All 12 pipeline cases pass against the
 unchanged scalar-quantile parent in Chromium, against batching in Chromium on
 Node 22.23.2, and against batching in WebKit on Node 24.20.0. This retains
 existing hourly display rounding, including its floored mean. The separate
-DST day-boundary fix is #8645; combined validation remains required.
+DST day-boundary fix #8645 is now merged and included. All 18 combined
+pipeline/legacy cases pass in Chromium/Node 22 and WebKit/Node 24. The four DST
+cases also render the real percentile and hourly plugins: repeated fall-back
+readings share the correct local bin, the final hour is retained, spring-forward
+bins match local time, and cached chart/table outputs are stable. All 16 pipeline
+cases pass against the corrected-DST scalar parent as well. No output formula,
+rounding or test assertion was relaxed for batching.

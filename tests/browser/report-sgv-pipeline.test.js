@@ -19,7 +19,9 @@ const HTML = '<!doctype html><html><head><meta charset="utf-8"></head><body>' +
   '<input id="rp_oldestontop" type="radio" checked>' +
   '<input id="rp_enabledate" type="checkbox" checked>' +
   '<input id="rp_mo" type="checkbox" checked><input id="rp_tu" type="checkbox" checked>' +
-  '<input id="rp_we" type="checkbox" checked><div id="info"></div></body></html>';
+  '<input id="rp_we" type="checkbox" checked><input id="rp_th" type="checkbox" checked>' +
+  '<input id="rp_fr" type="checkbox" checked><input id="rp_sa" type="checkbox" checked>' +
+  '<input id="rp_su" type="checkbox" checked><div id="info"></div></body></html>';
 
 describe('report SGV loading and Daily Stats in a real browser', function () {
   let server, origin, entries, requests;
@@ -62,28 +64,28 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
     if (server) await new Promise(resolve => server.close(resolve));
   });
 
-  async function withReportPage(run) {
+  async function withReportPage(run, timezoneId = 'UTC') {
     return withPage(origin, async ({page}) => {
       await page.goto(origin);
       await page.addScriptTag({url: origin + '/bundle.js'});
       await page.addScriptTag({url: origin + '/page.js'});
       await page.addScriptTag({url: origin + '/modules.js'});
       await run(page);
-    });
+    }, {timezoneId});
   }
 
-  async function withReport(offsets, units, values, endDay, run, charts = false) {
-    entries = offsets.map((seconds, index) => ({type: 'sgv', date: BASE + seconds * 1000, sgv: values[index], device: 'report-test'})).reverse();
+  async function withReport(offsets, units, values, endDay, run, {day = DAY, base = BASE, timezone = 'UTC', dayHours = 24, charts = false} = {}) {
+    entries = offsets.map((seconds, index) => ({type: 'sgv', date: base + seconds * 1000, sgv: values[index], device: 'report-test'})).reverse();
     requests = [];
     await withReportPage(async page => {
-      await page.evaluate(({units, day, endDay, charts}) => {
+      await page.evaluate(({units, day, endDay, timezone, charts}) => {
         const $ = window.$, moment = window.moment, Nightscout = window.Nightscout;
         const ctx = {moment, settings: {units}, language: {translate: value => value}};
         const client = {
           ctx, settings: {units, scaleY: 'linear', thresholds: {bgTargetBottom: 80, bgTargetTop: 180}},
           careportal: {events: []}, headers: () => ({}), init: callback => callback(),
           translate: ctx.language.translate, utils: window.NightscoutTestModules.utils(ctx),
-          sbx: {data: {profile: {parseInTimezone: value => moment.utc(value), applyTimezone: value => value.utc()}}},
+          sbx: {data: {profile: {parseInTimezone: value => moment.tz(value, timezone), applyTimezone: value => value.tz(timezone)}}},
           ddata: {processDurations: treatments => treatments}
         };
         // Preserve the original immutable API-response guarantee, while using
@@ -143,7 +145,7 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
         $('#rp_from').val(day);
         $('#rp_to').val(endDay);
         window.resetReportResult = () => { window.reportResult = null; pies = {}; };
-      }, {units, day: DAY, endDay, charts});
+      }, {units, day, endDay, timezone, charts});
       await page.waitForFunction(() => window.$.active === 0);
       async function show() {
         await page.evaluate(() => window.resetReportResult());
@@ -156,14 +158,14 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
         for (const {url} of cgmRequests) {
           const from = Number(url.searchParams.get('find[date][$gte]'));
           const to = Number(url.searchParams.get('find[date][$lt]'));
-          assert.ok(from >= BASE && from <= Date.parse(endDay + 'T00:00:00.000Z'));
-          assert.equal(to - from, DAY_SECONDS * 1000);
+          assert.ok(from >= base && from <= (endDay === day ? base : Date.parse(endDay + 'T00:00:00.000Z')));
+          assert.equal(to - from, dayHours * 60 * 60 * 1000);
           assert.equal(url.searchParams.get('count'), '10000');
         }
         return {...result, entriesRequests: cgmRequests.length, showAgain: show};
       }
       await run(await show());
-    });
+    }, timezone);
   }
 
   ['mg/dl', 'mmol'].forEach(function (units) {
@@ -189,7 +191,7 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
         assert.deepEqual(again.chartSeries, result.chartSeries);
         assert.deepEqual(again.hourlyRows, result.hourlyRows);
         assert.equal(again.entriesRequests, 1);
-      }, true);
+      }, {charts: true});
     });
 
     [
@@ -217,6 +219,40 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
         });
       });
     });
+
+    for (const fixture of [
+      {day: '2025-03-09', base: Date.parse('2025-03-09T05:00:00Z'), dayHours: 23, offsets: [0, 7200, 82500, 82800]},
+      {day: '2025-11-02', base: Date.parse('2025-11-02T04:00:00Z'), dayHours: 25, offsets: [3600, 7200, 89700, 90000]}
+    ]) {
+      it('retains quartiles across the ' + fixture.dayHours + '-hour DST day (' + units + ')', async function () {
+        await withReport(fixture.offsets, units, [100, 200, 300, 999], fixture.day, async result => {
+          assert.deepEqual(result.days, [fixture.day]);
+          assert.equal(result.table.Readings, '3');
+          const bounds = result.data.sgv.filter(record => record.type === 'rawbg' && record.color === 'transparent')
+            .map(record => record.date).sort();
+          assert.deepEqual(bounds, [new Date(fixture.base).toISOString(),
+            new Date(fixture.base + fixture.dayHours * 3600000).toISOString()]);
+          assert.deepEqual([result.table['25%'], result.table.Median, result.table['75%']],
+            units === 'mg/dl' ? ['100.0', '200.0', '300.0'] : ['5.6', '11.1', '16.7']);
+          assert.deepEqual(result.stats[0].map(record => record.bgValue), [100, 200, 300]);
+          const mmol = units === 'mmol';
+          const medians = result.chartSeries['#percentile-chart'].find(series => series.id === 'c50').data;
+          const expected = fixture.dayHours === 23
+            ? {0: mmol ? 5.6 : 100, 6: mmol ? 11.1 : 200, 47: mmol ? 16.7 : 300}
+            : {2: mmol ? 8.35 : 150, 47: mmol ? 16.7 : 300};
+          medians.forEach((point, bin) => assert.equal(point[0], expected[bin] ?? null));
+          const counts = result.hourlyRows.map(row => Number(row[1].split(' ')[0]));
+          assert.deepEqual(counts, Array.from({length: 24}, (_, hour) =>
+            fixture.dayHours === 23 ? ([0, 3, 23].includes(hour) ? 1 : 0) : (hour === 1 ? 2 : hour === 23 ? 1 : 0)));
+          assert.ok(result.statisticsCanvases >= 2);
+          const repeated = await result.showAgain();
+          assert.equal(repeated.entriesRequests, 1);
+          assert.deepEqual(repeated.rows, result.rows);
+          assert.deepEqual(repeated.chartSeries, result.chartSeries);
+          assert.deepEqual(repeated.hourlyRows, result.hourlyRows);
+        }, {...fixture, timezone: 'America/New_York', charts: true});
+      });
+    }
 
     it('calculates estimated A1c before rounding glucose for display (' + units + ')', async function () {
       // 150 mg/dL displays as 8.3 mmol/L. Converting that rounded display value
