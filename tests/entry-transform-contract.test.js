@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 const express = require('express');
 const request = require('supertest');
 const EventEmitter = require('node:events');
+const path = require('node:path');
+const implementation = process.env.NIGHTSCOUT_ENTRIES_ORACLE_ROOT || path.resolve(__dirname, '..');
 
 // Real entries router/storage code with an owned in-memory collection boundary.
 // Authentication is outside this format/batch fixture; real API tests cover it.
@@ -12,16 +14,17 @@ function fixture(rows = [], deNormalizeDates = true) {
   const env = {settings: {deNormalizeDates}, entries_collection: 'entry_transform_test'};
   const collection = {bulkWrite: async (ops, options) => {
     state.writes.push({ops, options});
+    if (state.failure) throw state.failure;
     return {upsertedIds: {}};
   }};
   const ctx = {store: {collection: () => collection}, bus: new EventEmitter(),
     purifier: {purifyObject: () => state.purifications++},
     ddata: {sgvs: [], processRawDataForRuntime: docs => docs}, cache: {entries: [], getData: () => []},
     authorization: {isPermitted: () => (req, res, next) => next()}};
-  ctx.entries = require('../lib/server/entries')(env, ctx);
+  ctx.entries = require(path.join(implementation, 'lib/server/entries'))(env, ctx);
   ctx.entries.list = (query, done) => done(null, structuredClone(rows));
   const app = express(); app.enable('api');
-  app.use(require('../lib/api/entries')(app, require('../lib/middleware')(env), ctx, env));
+  app.use(require(path.join(implementation, 'lib/api/entries'))(app, require(path.join(implementation, 'lib/middleware'))(env), ctx, env));
   return {app, state, entries: ctx.entries};
 }
 
@@ -89,4 +92,63 @@ describe('Entry transform and batch contracts', function () {
     for (const input of [[], {sgv: 100}]) assert.deepEqual((await request(app).post('/entries').send(input).expect(200)).body, []);
     assert.equal(state.writes.length, 0);
   });
+  it('preserves the 10,000-entry boundary as one ordered storage call', async function () {
+    const {app, state} = fixture();
+    const batch = Array.from({length: 10000}, (_, i) => ({date: rows[0].date + i * 300000, sgv: 100 + i % 20, type: 'sgv'}));
+    const response = await request(app).post('/entries').send(batch).expect(200);
+    assert.equal(response.body.length, 10000);
+    assert.equal(state.writes.length, 1);
+    assert.deepEqual(state.writes[0].ops.map(op => op.updateOne.update.$set.date), batch.map(row => row.date));
+    await request(app).post('/entries').send([...batch, batch[0]]).expect(400);
+    assert.equal(state.writes.length, 1, 'Oversized batch must not reach storage');
+  });
+  it('reports ordered partial-batch failures without retrying the batch', async function () {
+    const {app, state} = fixture();
+    state.failure = Object.assign(new Error('Owned partial batch failure'), {code: 11000, result: {upsertedCount: 1}});
+    const response = await request(app).post('/entries').send(rows).expect(500);
+    assert.equal(response.body.message, 'Mongo Error');
+    assert.equal(state.writes.length, 1);
+    assert.deepEqual(state.writes[0].options, {ordered: true});
+  });
+  for (const failure of [false, true]) {
+    it('calls the writable persistence callback once on ' + (failure ? 'failure' : 'success'), async function () {
+      const {entries, state} = fixture();
+      if (failure) state.failure = new Error('Owned storage failure');
+      let calls = 0;
+      const result = await new Promise(resolve => {
+        const sink = entries.persist((error, result) => {calls++; resolve({error, result});});
+        rows.forEach(row => sink.write(structuredClone(row)));
+        sink.end();
+      });
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(calls, 1);
+      assert.equal(state.writes.length, 1);
+      assert.equal(Boolean(result.error), failure);
+      assert.deepEqual(result.result.map(row => row.sgv), [100, 110]);
+    });
+  }
+  it('reports destruction before end once without writing the partial input', async function () {
+    const {entries, state} = fixture();
+    let calls = 0;
+    const result = await new Promise(resolve => {
+      const sink = entries.persist((error, result) => {calls++; resolve({error, result});});
+      sink.write(structuredClone(rows[0])); sink.destroy(); sink.destroy();
+    });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.match(result.error.message, /destroyed before end/);
+    assert.equal(calls, 1);
+    assert.equal(result.result.length, 1);
+    assert.equal(state.writes.length, 0);
+  });
+  it('keeps the map stream as an ordered identity transform', async function () {
+    const {entries} = fixture(), received = [];
+    await new Promise((resolve, reject) => {
+      const stream = entries.map();
+      stream.on('data', row => received.push(row)); stream.on('error', reject); stream.on('end', resolve);
+      rows.forEach(row => stream.write(row)); stream.end();
+    });
+    assert.deepEqual(received, rows);
+    assert.equal(received[0], rows[0]);
+  });
+
 });
