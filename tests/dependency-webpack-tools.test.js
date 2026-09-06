@@ -45,14 +45,29 @@ describe('Webpack command-line and analyzer compatibility', function () {
       assert(html.includes('<html'));
     });
   }
-  it('loads YAML configuration through the compatible optional parser', function () {
-    // CLI resolves optional parsers beside the config, so expose its actual
-    // installed consumer resolution to this otherwise isolated fixture.
-    const yamlPackage = createRequire(cli).resolve('js-yaml/package.json');
-    fs.mkdirSync(path.join(directory, 'node_modules'));
-    fs.symlinkSync(path.dirname(yamlPackage), path.join(directory, 'node_modules/js-yaml'), 'dir');
+  it('handles YAML configuration with and without its optional parser', function () {
     fs.writeFileSync(path.join(directory, 'webpack.config.yaml'),
       'entry: ./entry.js\noutput:\n  filename: yaml-fixture.js\n');
+    // Optional parsers resolve beside the config. This isolated fixture starts
+    // without one and must fail clearly, rather than claim a successful build.
+    const missing = spawnSync(process.execPath, [cli, '--mode', 'production', '--config', 'webpack.config.yaml'], {
+      cwd: directory, encoding: 'utf8', timeout: 20000
+    });
+    assert.ifError(missing.error);
+    assert.notStrictEqual(missing.status, 0);
+    assert(missing.stderr.includes("'js-yaml' package, which is not installed"));
+    let yamlPackage;
+    try {
+      yamlPackage = createRequire(cli).resolve('js-yaml/package.json');
+    } catch (error) {
+      assert.strictEqual(error.code, 'MODULE_NOT_FOUND');
+      assert.strictEqual(require('webpack-cli/package.json').peerDependenciesMeta['js-yaml'].optional, true);
+      return;
+    }
+    // When the install includes the optional peer, validate the success path
+    // using that actual consumer resolution, without adding a root dependency.
+    fs.mkdirSync(path.join(directory, 'node_modules'));
+    fs.symlinkSync(path.dirname(yamlPackage), path.join(directory, 'node_modules/js-yaml'), 'dir');
     const stats = JSON.parse(run(cli, ['--mode', 'production', '--config', 'webpack.config.yaml', '--json']));
     assert.strictEqual(stats.errorsCount, 0);
     assert(stats.assets.some(asset => asset.name === 'yaml-fixture.js' && asset.size > 0));

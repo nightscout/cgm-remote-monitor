@@ -23,9 +23,11 @@ Mocha now resolves js-yaml 5.4.1. Its default YAML 1.2 schema treats `<<` as an
 ordinary property, not a merge directive, and rejects ordered-map/executable
 tags. Nightscout's test scripts do not rely on YAML merge configuration.
 Contributors with private .mocharc.yml files should flatten inherited YAML
-values or use a JavaScript configuration before upgrading. NYC retains js-yaml
-3.15.2 and webpack CLI retains 4.3.2, with their original merge/ordered-map
-security contracts. Tests resolve each parser through its actual consumer.
+values or use a JavaScript configuration before upgrading. NYC retains required js-yaml 3.15.2. With peer resolution enabled, webpack
+CLI receives optional 4.3.2; legacy-peer-deps installations omit that optional
+parser because Mocha no longer requires v4. Nightscout builds use JavaScript
+configuration and do not require the optional YAML loader. Retain the original
+merge/ordered-map security contracts for every installed parser. Tests resolve each parser through its actual consumer.
 The v5 compatibility-tag tests explicitly enable those tags solely to retain
 merge-work/ordered-map resource tests; separate tests protect the actual default
 schema and real Mocha YAML configuration loading.
@@ -38,7 +40,7 @@ prototype keys, executable tags, duplicates, alias limits, and bounded merge
 work. Dependency-test totals change when duplicate package copies disappear;
 the dynamically generated duplicate-copy cases are not manually removed.
 
-Matched clean Node 22 installations: 832 -> 792 package paths and
+Matched clean Node 22 installations with peer resolution enabled: 832 -> 792 package paths and
 202,324,614 -> 192,961,958 package-owned regular file bytes, excluding nested
 node_modules and symlinks (**9,362,656 bytes removed from the development tree**).
 All 276 production lock entries and all six production JavaScript bundles are
@@ -48,7 +50,13 @@ or build-time savings. No Nightscout user-facing UI change is intended.
 Local validation: clean Node 22 install/build without legacy peer mode; valid
 full npm dependency tree and no known audit advisories. Node 22 full backend
 passed 2,081 tests before the final two runner cases; final Node 24 backend
-passed 2,083, each with one existing pending case and nyc coverage. Node 24
+passed 2,083, each with one existing pending case and nyc coverage. Before the XML retention cases, Node 24
 passed all 290 dependency tests and 283 client-core cases; Node 22 Chromium
-passed all 574 browser cases. Final hosted CI remains required before integration. Roll back manifest, lockfile and consumer-version tests
+passed all 574 browser cases. The subsequent hosted run exposed the omitted optional CLI parser. The corrected
+tests exercise a clear failed YAML-config build when it is absent and a real
+successful build when installed; no dependency is added merely for testing.
+Final local dependency coverage passes 294 cases on Node 22 with peers enabled
+and 285 on Node 24 with legacy peer mode, which omits nine optional-parser
+cases. Both include the four added XML retention tests. Hosted CI on this
+corrected head remains required before integration. Roll back manifest, lockfile and consumer-version tests
 together. This review does not complete the remaining M09 work.
