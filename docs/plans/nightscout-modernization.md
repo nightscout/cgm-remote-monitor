@@ -194,11 +194,13 @@ The user confirmed on 2026-09-05 that all implementation PRs target `chore/night
 
 - M11 native assets/CSS: [#8630](https://github.com/nightscout/cgm-remote-monitor/pull/8630) merged as `53e279ca` (head `37b6f077`, parent `ce806e5b`). [CI](https://github.com/nightscout/cgm-remote-monitor/actions/runs/33994068828) passed all eight backend jobs, six browser jobs, npm 12, CodeQL and both native Docker checks; actual merge tree verified. Three direct loaders and 22 lock paths are removed with no replacements or retained version upgrades. Main/core/dependency totals: 1,580 / 283 / 264, one unrelated pending Node case; browser total: 433. The app bundle is 18,979 bytes smaller, clock/logo bytes are unchanged, and seven new image/source-map/cascade/HMR cases pass across all engines.
 
-### M18 callback helper work in progress
+### M18 callback and boot sequence work in progress
 
-The first slice removes direct `async` usage from dataloader, treatments and three notification/voice plugins. [Contracts and validation](../test-specs/callback-tasks.md) document ordering, bounded concurrency, repeated uploads and the remaining full-suite investigation. `bootevent` replacement and boot lifecycle validation remain separate, unfinished M18 work.
+The first slice, #8639, merged as `a92d0882` after all required CI passed and the actual merge tree matched verification. It removes direct `async` usage from dataloader, treatments and three notification/voice plugins. [Callback contracts and validation](../test-specs/callback-tasks.md) cover ordering, bounded concurrency and repeated uploads.
 
-- M17 completed in #8637, merged as `c75bead0`. All required CI passed on `b39a98ab`; actual merge tree `fb05920f` matched verification. Native entry transforms retain response/write contracts with paired allocation/latency evidence. The earlier unrelated Firefox report stall remains unexplained and instrumented.
+The second slice, #8640, replaces bootevent and its nested chain with a local fourteen-stage queue. [Boot contracts and validation](../test-specs/boot-sequence.md) cover deferred execution, stage gating, context/error retention and two successful and failed real boot/teardown cycles. Validation against the updated integration branch remains required before M18 is complete.
+
+- M17 completed in #8637, merged as `c75bead0`. All required CI passed on `b39a98ab`; actual merge tree `fb05920f` matched verification. Native entry transforms retain response/write contracts with paired allocation/latency evidence. Browser transport diagnostics and the fixture connection-close mitigation were integrated in #8639; the earlier intermittent stall's cause remains unproven.
 
 ### M23 query leaf conversion in progress
 
