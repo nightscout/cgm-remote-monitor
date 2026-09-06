@@ -43,3 +43,25 @@ The source logs validated.config and, for invalid configuration, validated.
 No live credentials or network request were used. Resolve this in the Connect
 dependency before integrating the forced legacy migration; do not suppress
 global console output or claim that TLS checks resolve credential logging.
+
+The hosted backend run exposed process-wide TLS bypass inherited from the older
+API fixtures (`NODE_TLS_REJECT_UNAUTHORIZED=0`). The transport checks now run in
+an owned child process with that override removed, leaving the parent environment
+untouched. They pass on both Node floors even when launched from a parent with
+TLS verification disabled. This checks the connector's normal TLS defaults rather
+than forcing an HTTPS-agent policy into the implementation under test.
+
+The same HTTPS fixture now also exercises the actual Connect builder/poller with
+its simulated clock. Across two complete actor lifecycles it reuses an active
+session, authenticates again after the configured 24-hour expiry, uses the newly
+issued session token for the next glucose request, persists both cycles and
+removes all actor timers on stop. This remains owned-server evidence, not a live
+Dexcom or deployment validation.
+
+A separate upstream source patch for the logging finding is prepared locally at
+commit 9fa2c3c in nightscout-connect. All nine new logging regressions fail against
+upstream main and pass with the patch; all 56 upstream tests pass on both Node
+floors. It covers startup, Dexcom errors and shared actor context/event logging.
+Other source drivers and CLI capture output are outside that patch's privacy
+claim. The patch is not yet published or consumed by this PR, so the logging
+integration gate remains open.
