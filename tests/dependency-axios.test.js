@@ -13,13 +13,12 @@ const modernAxios = connectRequire('axios');
 // Capture the real boot stage without starting storage, timers or remote bridges.
 function importSettings(env, ctx) {
   const boot = require('../lib/server/bootevent');
-  const id = require.resolve('bootevent');
+  const id = require.resolve('../lib/utils/boot-sequence');
   require(id);
   const original = require.cache[id].exports;
   const stages = [];
-  const chain = {acquire(stage) { stages.push(stage); return chain; }};
   try {
-    require.cache[id].exports = () => chain;
+    require.cache[id].exports = registered => {stages.push(...registered); return {};};
     boot(env, {});
   } finally {
     require.cache[id].exports = original;
