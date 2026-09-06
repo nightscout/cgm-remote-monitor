@@ -12,7 +12,7 @@ patterns = {
     'ui_global': re.compile(r'\$\.ui\b|jQuery\.ui\b'),
     'flot': re.compile(r'\$\.plot\b|plothover|plotclick'),
     'ui_stylesheet': re.compile(r'jquery-ui(?:\.min)?\.css'),
-    'package_import': re.compile(r'require\([\'\"](?:jquery(?:-ui-bundle|\.tooltips)?|flot)(?:/[\w.\-/]+)?[\'\"]\)'),
+    'package_import': re.compile(r'require\([\'\"](?:jquery(?:-ui(?:-bundle)?|\.tooltips)?|flot)(?:/[\w.\-/]+)?[\'\"]\)'),
 }
 files = subprocess.check_output(['git', 'ls-files', '-z'], cwd=root).decode().split('\0')
 records = []
@@ -31,6 +31,7 @@ lock = json.loads((root / 'package-lock.json').read_text())['packages']
 print(json.dumps({
     'baseline': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
     'scope': 'Tracked JS/EJS/HTML under lib, bundle, static/report/js and views. Lexical matches include comments and omit dynamic/aliased calls; review the source before treating a match as a consumer.',
-    'installedVersions': {name: lock['node_modules/' + name]['version'] for name in ['jquery', 'jquery-ui-bundle', 'jquery.tooltips', 'flot']},
+    'versionNote': 'null means the package is absent from the current lockfile.',
+    'installedVersions': {name: lock.get('node_modules/' + name, {}).get('version') for name in ['jquery', 'jquery-ui-bundle', 'jquery-ui', 'jquery.tooltips', 'flot']},
     'files': records,
 }, indent=2))

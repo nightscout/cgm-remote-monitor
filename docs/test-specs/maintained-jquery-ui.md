@@ -68,3 +68,19 @@ on this candidate with Chromium/Node 22 and WebKit/Node 24. Touch and keyboard
 alternatives, server round-trip reloads and full device/accessibility evidence
 remain open. #8673 has now merged into integration; this candidate is refreshed
 onto that merge before its next CI run.
+
+## Hot update and cached navigation follow-up
+
+The actual page-entry HMR test now checks all six selected widget methods and
+positive button padding after each of two updates to every page entry and the
+shared app. The cached-navigation test checks the same widget/style contract on
+all five pages while origin bundle downloads are blocked. The temporary button
+probe destroys its widget and removes its node after each check.
+
+All 29 HMR/page-startup cases pass on Chromium/Node 22.23.2 and WebKit/Node
+24.20.0 against the candidate refreshed onto integration 28f4ea4a. These checks
+cover inline UI styles surviving hot updates and cached JS, not arbitrary theme
+CSS outages or full offline database functionality. The inventory tool also now
+recognizes selected jquery-ui imports and reports absent old packages as null
+instead of failing after removal. Remaining application-dialog, persistence,
+full CI and device/accessibility gates are unchanged.
