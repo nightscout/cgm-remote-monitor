@@ -120,7 +120,7 @@ Each row is a separate candidate PR after M01; entries marked M07 also need the 
 | Status / ID | Change and principal files | Acceptance and measurable outcome |
 | --- | --- | --- |
 | [x] **M16** | `js-storage` → local adapter; `lib/client/{browser-settings,hashauth,index,boluscalc,careportal}.js`, reportstorage, bundle export | Preserve legacy raw-string tokens, JSON objects/booleans, missing/null/malformed data, blocked storage, key behavior and clock's raw `apisecrethash` read. Test existing saved settings/auth, repeated set/remove, reports and clock. Remove one declaration; measure final bundle. |
-| [ ] **M17** | `event-stream` → array transforms/native streams; `lib/server/entries.js`, `lib/api/entries/index.js` | Current flows already materialize arrays. Preserve type/default mutation, date offsets, JSON/CSV/text/SVG output, batch ordering/partial failures and callback-once semantics, including empty/large input. Remove one declaration; measure request allocations/latency. |
+| [x] **M17** | `event-stream` → array transforms/native streams; `lib/server/entries.js`, `lib/api/entries/index.js` | Current flows already materialize arrays. Preserve type/default mutation, date offsets, JSON/CSV/text/SVG output, batch ordering/partial failures and callback-once semantics, including empty/large input. Remove one declaration; measure request allocations/latency. |
 | [ ] **M18** | `async`, then `bootevent` → bounded/ordered local helpers; dataloader, treatments, Alexa/Google Home/Maker, `lib/server/bootevent.js` | Preserve serial writes/sends, 10-task concurrency cap, boot stage order, error propagation and callback timing/contracts. Test two boot/teardown or load cycles and no duplicated pre-bolus writes. Remove separately; avoid unbounded Promise.all and unnecessary promise adapters. |
 | [ ] **M19** | IMPORT_CONFIG Axios → native fetch; `lib/server/bootevent.js` (after M07) | Specify non-2xx, timeout/cancellation, redirects, proxy support, auth/header redaction and JSON behavior using existing Axios fixtures. Keep connector cookie-wrapper compatibility. Root removal does not eliminate transitive Axios; fix runtime classification if this migration is deferred. |
 | [ ] **M20** | `body-parser` direct use → Express parsers; wares, API and app modules | Preserve options, compression, limits, malformed body and inherited-option protections. Express currently exposes identical functions. Remove a declaration only; package and runtime memory remain through Express. |
@@ -197,3 +197,9 @@ The user confirmed on 2026-09-05 that all implementation PRs target `chore/night
 ### M20 Express parser ownership in progress
 
 Application parser imports now use Express's public parser functions, retaining the existing options and middleware order. [Validation notes](../test-specs/express-parsers.md) cover the shared implementations and regression suite. Only the direct declaration is removed; the transitive package and runtime memory remain. Full backend and hosted validation are still open.
+
+### M18 callback helper work in progress
+
+The first slice removes direct `async` usage from dataloader, treatments and three notification/voice plugins. [Contracts and validation](../test-specs/callback-tasks.md) document ordering, bounded concurrency, repeated uploads and the remaining full-suite investigation. `bootevent` replacement and boot lifecycle validation remain separate, unfinished M18 work.
+
+- M17 completed in #8637, merged as `c75bead0`. All required CI passed on `b39a98ab`; actual merge tree `fb05920f` matched verification. Native entry transforms retain response/write contracts with paired allocation/latency evidence. The earlier unrelated Firefox report stall remains unexplained and instrumented.
