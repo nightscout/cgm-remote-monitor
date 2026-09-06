@@ -127,7 +127,7 @@ Each row is a separate candidate PR after M01; entries marked M07 also need the 
 | [x] **M21** | `mongo-url-parser` → existing driver parsing; `lib/server/env.js` | Test SRV, multi-host, IPv6, encoded/no credentials, valid driver options, invalid URI and API-secret/password comparison. Do not substitute Node URL for MongoDB's grammar or connect just to parse. Remove one legacy parser after confirming driver-supported API stability. |
 | [ ] **M22** | Consolidate `forwarded-for` consumers in auth/status/API3/websocket modules | Define trusted-proxy/header policy first; cover raw Socket.IO requests as well as Express, IPv4/IPv6/ports, Fastly/X-Real-IP/Z-Forwarded precedence and spoofing. Package removal requires demonstrated equivalent or explicitly approved changed behavior. |
 | [x] **M23** | Narrow `traverse` operations; `lib/server/query.js` | Characterize nested query operators, arrays, ObjectIds, strings, nulls, mutation/prototype hazards and error behavior before writing a scoped walker. Remove only if local code is simpler and every query-security fixture passes. |
-| [ ] **M24** | `env-cmd`/`nodemon` → Node CLI capabilities; package scripts and developer docs (after M07) | Preserve or explicitly document env-file precedence: env-cmd overrides inherited env, native --env-file does the reverse. Test quoting/multiline values and Mocha/nyc children. Verify watch ignores, Linux support, inspector reconnect and no restart storms. Separate PRs; no production RAM claim. |
+| [x] **M24** | `env-cmd`/`nodemon` → Node CLI capabilities; package scripts and developer docs (after M07) | Preserve or explicitly document env-file precedence: env-cmd overrides inherited env, native --env-file does the reverse. Test quoting/multiline values and Mocha/nyc children. Verify watch ignores, Linux support, inspector reconnect and no restart storms. Separate PRs; no production RAM claim. |
 | [ ] **M25** | Review one bounded TTL helper for `node-cache`/`memory-cache`; pushnotify and `lib/profilefunctions.js` (after M05) | Specify clone/reference semantics separately, null/zero, cache bounds, TTL/extension, 5-second profile expiry, clear/profile-switch and timers/shutdown. Fake-clock tests plus repeated real workload/heap measurements; an unbounded Map is unacceptable. Retain a maintained cache if local complexity grows. |
 | [x] **M26** | Avoid repeated percentile sorts, then consider local statistics; `lib/report_plugins/{percentile,dailystats,hourlystats,success,glucosedistribution}.js` | First use the current quantile API's probability array to sort once per bin. Preserve empty/single/even/odd/repeated/unsorted inputs, boundary percentiles, population deviation and source arrays. `[1,2,3,4]` q25 must remain 1.5 and population deviation approximately 1.118; D3 defaults differ. Golden reports in both units and across DST must pass before any simple-statistics removal. Record sort/allocation/time reduction separately from package count. |
 
@@ -234,7 +234,7 @@ After the #8644 batching change, a scoped three-operation statistics module can 
 
 ### M24 compatible Node runner in progress
 
-Native --env-file changes both precedence and parsing of existing values, so the first slice uses a scoped Node runner with the existing .env grammar and file-wins policy. [Process contracts and validation](../test-specs/env-runner.md) cover startup flags, nyc/Mocha children and repeated signal handling. Two installed package paths are removed; nodemon/watch remains a separate unfinished slice.
+Native --env-file changes both precedence and parsing of existing values, so the first slice uses a scoped Node runner with the existing .env grammar and file-wins policy. [Process contracts and validation](../test-specs/env-runner.md) cover startup flags, nyc/Mocha children and repeated signal handling. Two installed package paths are removed; the nodemon/watch retain decision is recorded below.
 
 ### M19 completed import client retain decision
 
@@ -260,12 +260,17 @@ six-page/bundle/static/Socket.IO checks on both supported Node floors. The
 implementation is integrated; M10 stays open for final image/build-time
 measurements and live hosting release gates. See the build/runtime specification.
 
-### M24 watch decision proposal
+### M24 watch retain decision
 
-The [watch review](../test-specs/development-watch.md) proposes retaining nodemon
-3.1.14. Owned probes on both Node floors show native watch changes unimported
-application-file coverage and imported-dependency ignore behavior. Both watchers
-restart imported application code and expose a fresh inspector target twice.
-A reproducible probe and POSIX CI regression record these contracts. Hosted Linux
-and Windows/IDE validation or explicit release gating remain; M24 is not yet
-complete. No package or production runtime change is made by this proposal.
+The [watch review](../test-specs/development-watch.md) retains nodemon 3.1.14.
+Owned probes on both Node floors show native watch changes unimported application
+file coverage and imported-dependency ignore behavior. Both watchers restart
+application code twice; the strengthened probe attaches to each new inspector
+and evaluates its PID. The original policy comparison passed the complete hosted
+matrix, including Linux. Fresh checks for this strengthened candidate and current
+integration base are required before merge. Windows watch behavior and scripts
+are unchanged; overall Node hosting release gates remain separate. Together with
+the merged env-cmd replacement, this completes the M24 implementation decision.
+Revisit when Node provides equivalent portable watch/ignore behavior or the
+project explicitly changes its development restart contract. No production
+runtime or memory improvement is claimed for retaining a development tool.

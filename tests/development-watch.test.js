@@ -28,6 +28,7 @@ const {promisify} = require('node:util');
         for (const cycle of variant.cycles) {
           for (const [file, count] of Object.entries(expected)) assert.equal(cycle[file], count, mode + ': ' + file);
           assert.equal(cycle.debuggerAfterRestart.inspectorReachable, true);
+          assert.equal(cycle.debuggerAfterRestart.inspectorEvaluatedPid, cycle.debuggerAfterRestart.pid);
           assert.notEqual(cycle.debuggerAfterRestart.pid, previous);
           previous = cycle.debuggerAfterRestart.pid;
         }

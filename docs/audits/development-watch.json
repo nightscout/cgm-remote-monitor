@@ -278,5 +278,154 @@
         }
       }
     }
-  ]
+  ],
+  "debuggerFollowup": {
+    "sourceSHA256": "31d2d38dab61215b82ba862d9dbdc15ad8fcfafa355afc2eae53a97afddcbac9",
+    "scope": "Actual WebSocket inspector attachment and process.pid evaluation after each restart. Node 22 Mocha regression passed; Node 24 raw probe follows. Final source additionally isolates the inspector client environment; local samples had no injected NODE_OPTIONS.",
+    "node22Regression": "1 passing, two update cycles per watcher",
+    "node24": {
+      "node": "v24.20.0",
+      "platform": "Darwin",
+      "nodemon": "3.1.14",
+      "configuration": {
+        "ignore": [
+          "tests/*",
+          "node_modules/*",
+          "bin/*"
+        ]
+      },
+      "variants": {
+        "nodemon": {
+          "initial": {
+            "pid": 93032,
+            "inspectorReachable": true,
+            "inspectorEvaluatedPid": 93032
+          },
+          "cycles": [
+            {
+              "tests/ignored.js": 0,
+              "bin/ignored.js": 0,
+              "static/unimported.js": 1,
+              "node_modules/owned-watch-dep/index.js": 0,
+              "lib/loaded.js": 1,
+              "debuggerAfterRestart": {
+                "pid": 93121,
+                "inspectorReachable": true,
+                "inspectorEvaluatedPid": 93121
+              }
+            },
+            {
+              "tests/ignored.js": 0,
+              "bin/ignored.js": 0,
+              "static/unimported.js": 1,
+              "node_modules/owned-watch-dep/index.js": 0,
+              "lib/loaded.js": 1,
+              "debuggerAfterRestart": {
+                "pid": 93205,
+                "inspectorReachable": true,
+                "inspectorEvaluatedPid": 93205
+              }
+            }
+          ],
+          "boots": [
+            {
+              "boot": true,
+              "pid": 93032,
+              "node": "v24.20.0",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 93080,
+              "node": "v24.20.0",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 93121,
+              "node": "v24.20.0",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 93169,
+              "node": "v24.20.0",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 93205,
+              "node": "v24.20.0",
+              "value": 2
+            }
+          ]
+        },
+        "native": {
+          "initial": {
+            "pid": 93223,
+            "inspectorReachable": true,
+            "inspectorEvaluatedPid": 93223
+          },
+          "cycles": [
+            {
+              "tests/ignored.js": 0,
+              "bin/ignored.js": 0,
+              "static/unimported.js": 0,
+              "node_modules/owned-watch-dep/index.js": 1,
+              "lib/loaded.js": 1,
+              "debuggerAfterRestart": {
+                "pid": 93238,
+                "inspectorReachable": true,
+                "inspectorEvaluatedPid": 93238
+              }
+            },
+            {
+              "tests/ignored.js": 0,
+              "bin/ignored.js": 0,
+              "static/unimported.js": 0,
+              "node_modules/owned-watch-dep/index.js": 1,
+              "lib/loaded.js": 1,
+              "debuggerAfterRestart": {
+                "pid": 93259,
+                "inspectorReachable": true,
+                "inspectorEvaluatedPid": 93259
+              }
+            }
+          ],
+          "boots": [
+            {
+              "boot": true,
+              "pid": 93223,
+              "node": "v24.20.0",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 93233,
+              "node": "v24.20.0",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 93238,
+              "node": "v24.20.0",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 93254,
+              "node": "v24.20.0",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 93259,
+              "node": "v24.20.0",
+              "value": 2
+            }
+          ]
+        }
+      }
+    }
+  }
 }

@@ -1,6 +1,6 @@
 # Development watch review (M24)
 
-Proposal: retain nodemon 3.1.14 for `dev` and `dev-test` in this modernization
+Decision: retain nodemon 3.1.14 for `dev` and `dev-test` in this modernization
 release. The registry reports that version as current on 2026-09-06. The native
 environment runner has already removed env-cmd; npm start never invokes nodemon,
 so removing this development tool would not reduce server runtime memory.
@@ -16,9 +16,10 @@ fixtures on Node 22.23.2 and 24.20.0, two update cycles show:
 | Imported node_modules dependency | 0 | 1 |
 | Imported lib module | 1 | 1 |
 
-Both restart the application module with updated exports and expose a new live
-Node inspector target after each cycle. This verifies inspector discovery, not
-an actual VS Code debugger reconnect. No unexpected extra restart occurred in
+Both restart the application module with updated exports. The strengthened
+probe connects to each new inspector over its WebSocket protocol and evaluates
+process.pid, verifying the reply identifies the restarted child. This tests
+debugger attachment after restart, not VS Code UI automation. No unexpected extra restart occurred in
 the bounded 1.5-second observation windows; this is not a general stress or
 network-filesystem guarantee. Initial probes without explicit child-runtime
 pinning were discarded; recorded probes assert each child uses the chosen Node.
@@ -35,11 +36,15 @@ limits; a drop-in switch cannot be assumed to preserve our Linux workflow or
 ignore policy. [Nodemon's documented configuration](https://github.com/remy/nodemon)
 supports those ignores and broader application-file watching. Reimplementing
 that policy, process lifecycle and platform behavior locally would add a watcher
-framework to remove one development dependency. Retaining it is the simpler
-proposal until native watch can meet these contracts on every supported platform.
+framework to remove one development dependency. Retaining it preserves the existing workflow with less local code until native
+watch can meet these contracts on every supported platform.
 
-Remaining before closing M24: hosted Linux comparison, explicit Windows/IDE
-validation or a documented release gate, and final review of the retain decision.
+The previous head passed every hosted check, including the Linux watch-policy
+comparison. Fresh hosted checks are required for the strengthened debugger probe
+and integration refresh before merging. No Windows watch implementation or
+package script changes are introduced by retaining nodemon; the overall Node
+runtime rollout still has its separate hosting/Windows release gates.
 Revisit when Node supports the required ignore/watch policy portably or the
-project explicitly changes its development restart contract. No package/runtime
-change is made by this review, and M24 remains unchecked pending those gates.
+project explicitly changes its development restart contract. No package/runtime change is made by retaining nodemon. Together with the
+merged environment-runner work, this completes the M24 implementation decision;
+the candidate must pass its fresh CI before integration.
