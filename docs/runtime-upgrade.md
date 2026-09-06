@@ -148,3 +148,64 @@ Rollback requires a previous Nightscout artifact with the legacy engine plus
 its known configuration; flipping the removed override on 15.0.9 cannot restore
 it. Retaining an old artifact does not resolve the legacy TLS defect. No MongoDB
 binary/FCV or schema change is part of this retirement.
+
+
+## Legacy MiniMed mmconnect retirement in 15.0.9
+
+The local `mmconnect` plugin and `minimed-connect-to-nightscout` package are
+retired in favour of Nightscout Connect. Configure:
+
+```text
+CONNECT_SOURCE=minimedcarelink
+CONNECT_CARELINK_USERNAME=<CareLink account username>
+CONNECT_CARELINK_PASSWORD=<CareLink account password>
+CONNECT_COUNTRY_CODE=<two-letter country where the account was created>
+CONNECT_CARELINK_REGION=eu
+```
+
+Use `us` instead of `eu` for the US service. `CONNECT_CARELINK_SERVER` can select
+a custom endpoint; preserve an existing explicit setting. Carepartners following
+a patient can set `CONNECT_CARELINK_PATIENT_USERNAME` explicitly.
+
+Complete legacy `MMCONNECT_USER_NAME` and `MMCONNECT_PASSWORD` values are accepted
+as a migration convenience, with explicit Connect settings taking precedence.
+Legacy `MMCONNECT_SERVER` values EU/US (case-insensitive) map to eu/us; a custom
+server maps to `CONNECT_CARELINK_SERVER`. You must supply `CONNECT_COUNTRY_CODE`:
+a service region is not an account country. No replacement starts if that value
+is missing. After validating ingestion, remove obsolete MMCONNECT variables.
+
+Connect supports one configured source. Legacy MiniMed credentials alongside a
+different Connect source, or alongside legacy Dexcom credentials, produce a boot
+error rather than silently starting only one feed. Select the intended Connect
+source and remove obsolete credentials, or migrate the additional feed to a
+separately configured uploader before upgrading.
+
+`MMCONNECT_INTERVAL`, `MMCONNECT_MAX_RETRY_DURATION`, `MMCONNECT_SGV_LIMIT`,
+`MMCONNECT_VERBOSE` and `MMCONNECT_STORE_RAW_DATA` no longer control ingestion.
+Connect uses its own scheduling, session refresh and retry behavior. It does not
+continue the old optional `carelink_raw` storage feature. Existing database
+records and historical glucose/pump data are not deleted or rewritten.
+
+The candidate pins Connect commit `c962a13fee9a7a5ca160ab5e3fb231d35cadf294`,
+including the logging fix in upstream PR #64 and data fixes in #65 (both open for review).
+Provider operation labels replace raw credential, cookie, token and patient-data
+logs. CLI capture output and other providers are outside that logging fix.
+
+Before release, validate the actual account/service region, authentication,
+session refresh, glucose timestamps/trends, pump battery/reservoir/IOB, duplicate
+handling across cutover and reconnect behavior. Owned configuration/logging
+fixtures do not prove live CareLink compatibility. Retain the previous release
+artifact and configuration plus a database backup for rollback; do not run both
+local engines against the same feed. Never downgrade MongoDB as a proxy for an
+application rollback.
+
+
+Connect may backfill older glucose readings instead of applying the retired
+engine's 20-minute stale-response cutoff. Measurement timestamps are preserved;
+old pump status must not be relabelled with fetch time. The pinned data fix also
+preserves valid readings when trend metadata is absent or mismatched, restores
+legacy nested IOB/uploader fields and avoids repeated status across cutover.
+Device identifiers change from `connect-<family>` to
+`nightscout-connect://minimedcarelink/<family>`; filters that match the old device
+name need updating. Owned regression fixtures cover these changes; verify actual
+account/device behavior before release.
