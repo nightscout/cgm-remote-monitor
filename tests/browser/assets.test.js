@@ -62,10 +62,19 @@ describe('Webpack image and CSS update contracts', function () {
       await assertImage(page, origin, '/bundle');
       assert.ok(requests.includes('/bundle' + imagePath));
       const map = JSON.parse(fs.readFileSync(path.join(root, 'node_modules/.cache/_ns_cache/public/js/bundle.app.js.map'), 'utf8'));
+      // Webpack may attach CSS maps to the injected styles instead of the JS
+      // map. Validate the original sources actually shipped to the browser.
+      const maps = [map];
+      for (const style of await page.locator('style[data-webpack]').allTextContents()) {
+        for (const match of style.matchAll(/sourceMappingURL=data:application\/json;charset=utf-8;base64,([A-Za-z0-9+/=]+)/g)) {
+          maps.push(JSON.parse(Buffer.from(match[1], 'base64').toString('utf8')));
+        }
+      }
       for (const file of ['drawer.css', 'dropdown.css', 'sgv.css']) {
-        const index = map.sources.findIndex(source => source.includes('static/css/' + file));
-        assert.ok(index >= 0, 'Missing CSS source map: ' + file);
-        assert.equal(map.sourcesContent[index], fs.readFileSync(path.join(root, 'static/css', file), 'utf8'));
+        const original = fs.readFileSync(path.join(root, 'static/css', file), 'utf8');
+        assert.ok(maps.some(sourceMap => sourceMap.mappings && sourceMap.sources.some((source, index) =>
+          source.includes('static/css/' + file) && sourceMap.sourcesContent[index] === original)),
+        'Missing original CSS source/mapping: ' + file);
       }
     });
   });

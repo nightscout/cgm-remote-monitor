@@ -79,6 +79,7 @@ At the audit baseline, completed foundations were: D3 7.9.0, jsdom-backed test t
 - [ ] **M09 — Review remaining maintained releases and security overrides** (after M07 where runtime requires it; ongoing).
   Files: manifests, each actual consumer and `tests/dependency-*.test.js`. Re-run production/full audits and `npm explain`; track each finding as reachable, build/test-only, mitigated or awaiting upstream work, with evidence. Prioritize reachable issues and unmaintained transitive chains; review Express/Helmet, MongoDB, loaders/lint/build tools and providers independently.
   Acceptance: highest compatible release per consumer, focused exploit/API regression where relevant, full CI and explicit engine/browser/DB compatibility. Remove an override only after every affected parent resolves safely. Do not use forced audit fixes or a bulk latest-version update; keep Dependabot's current target configuration.
+  The [webpack/HMR refresh](../test-specs/webpack-refresh.md) removes a separate hot-middleware dependency using the maintained development middleware, with repeated update/error recovery coverage and explicit installed/browser size costs. It does not complete the remaining dependency reviews.
 
 ## Phase 3 — reduce production installation and browser cost
 

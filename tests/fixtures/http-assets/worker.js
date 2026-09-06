@@ -155,7 +155,7 @@ async function run() {
       assert.match(built.headers['content-type'], /javascript/);
       if (entry === 'app') {
         assert.ok(built.text.includes('Nightscout bundle ready'));
-        assert.ok(built.text.includes('webpack-hot-middleware'));
+        assert.ok(built.text.includes('webpack-dev-middleware/client'));
       }
     }
     results.push('actual webpack development middleware');
