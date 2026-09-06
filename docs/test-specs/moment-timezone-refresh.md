@@ -60,9 +60,13 @@ shrink by 33,124 bytes; app JS grows by 182 bytes / 21 gzip bytes. The other fiv
 JS bundles are byte-identical. No server-memory saving is claimed.
 
 Full local Node 22/MongoDB 6.0.27 backend validation passes 1,960 cases with one
-existing pending case. The complete browser run and current-base hosted CI
-remain outstanding at this checkpoint.
+existing pending case. The full Node 24 Chromium suite passes 547 cases on the pre-refresh tree. The
+branch subsequently incorporated #8689; clean installation and focused browser
+validation cover that refresh, with current-head hosted CI still required.
 
 The gzip comparison above uses Node 22 on both artifacts. An initial exploratory
 compression run used the default Node 25 executable and produced a 19-byte
 delta; it is superseded by the recorded Node 22 result.
+The refreshed tree passes a clean Node 22 install/production build and all 25
+focused timezone/DOMPurify browser cases. Only the root Moment Timezone range
+and its own lock record differ from the current modernization dependency graph.
