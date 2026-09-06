@@ -1,5 +1,6 @@
 'use strict';
 
+const assert = require('assert');
 const path = require('path');
 const should = require('should');
 
@@ -21,6 +22,42 @@ describe('tests/fixtures/benv-shim', function () {
       should.exist(global.document);
       should.exist(global.navigator);
       done();
+    });
+  });
+
+  it('setup() replaces a foreign jsdom window', function (done) {
+    const foreignWindow = { foreign: true };
+    Object.defineProperty(global, 'window', {
+      configurable: true,
+      writable: true,
+      value: foreignWindow
+    });
+
+    benv.setup(function () {
+      assert.notStrictEqual(global.window, foreignWindow);
+      should.exist(global.document);
+      assert.strictEqual(global.document, global.window.document);
+      done();
+    });
+  });
+
+  it('setup() creates a fresh window after another suite replaces it', function (done) {
+    benv.setup(function () {
+      const ownedWindow = global.window;
+      benv.teardown();
+      const foreignWindow = { foreign: true };
+      Object.defineProperty(global, 'window', {
+        configurable: true,
+        writable: true,
+        value: foreignWindow
+      });
+
+      benv.setup(function () {
+        assert.notStrictEqual(global.window, ownedWindow);
+        assert.notStrictEqual(global.window, foreignWindow);
+        assert.strictEqual(global.document, global.window.document);
+        done();
+      });
     });
   });
 

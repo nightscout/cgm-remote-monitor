@@ -76,6 +76,27 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
       });
     });
 
+    it('sanitizes documents written directly through the storage adapter', function (done) {
+      var now = new Date().toISOString();
+      self.ctx.treatments.create({
+        eventType: 'Note',
+        created_at: now,
+        notes: '<img src=x onerror=alert(1)>direct import',
+        enteredBy: '<script>alert(1)</script>bridge'
+      }, function (err, result) {
+        should.not.exist(err);
+        result[0].notes.should.not.match(/onerror/i);
+        result[0].enteredBy.should.equal('bridge');
+
+        self.ctx.treatments.list({ find: { created_at: { $eq: now } } }, function (listErr, stored) {
+          should.not.exist(listErr);
+          stored[0].notes.should.not.match(/onerror/i);
+          stored[0].enteredBy.should.equal('bridge');
+          done();
+        });
+      });
+    });
+
     it('create() handles large batch', function (done) {
       var treatments = [];
       var baseTime = Date.now();

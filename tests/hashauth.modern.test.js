@@ -26,7 +26,6 @@ const path = require('path');
 const { createSecureDOM } = require('./fixtures/secure-jsdom');
 
 const HASHAUTH_PATH = path.resolve(__dirname, '../lib/client/hashauth');
-const JS_STORAGE_PATH = require.resolve('js-storage');
 
 describe('hashauth (modern jsdom)', function () {
 
@@ -131,6 +130,22 @@ describe('hashauth (modern jsdom)', function () {
     hashauth.isAuthenticated().should.equal(true);
   });
 
+  it('renders authorization subject names as inert text', function () {
+    var payload = '<img src=x onerror="window.__subjectXss = true">';
+
+    [payload, '&lt;img src=x onerror="window.__subjectXss = true"&gt;'].forEach(function (subject) {
+      client.authorized = {sub: subject};
+      hashauth.init(client, $stub);
+
+      var container = env.document.createElement('div');
+      container.innerHTML = hashauth.inlineCode();
+
+      should(container.querySelector('#authorizationstatus img')).equal(null);
+      container.querySelector('#authorizationstatus').textContent.should.containEql(payload);
+      should(env.window.__subjectXss).equal(undefined);
+    });
+  });
+
   it('stores sha1 in localStorage when storeapisecret=true, then clears on remove', function (done) {
     env.window.localStorage.removeItem('apisecrethash');
 
@@ -157,6 +172,24 @@ describe('hashauth (modern jsdom)', function () {
         done(err);
       }
     });
+  });
+
+  it('stores and removes authentication across two complete cycles', async function () {
+    hashauth.init(client, $stub);
+    hashauth.verifyAuthentication = function (next) {
+      hashauth.authenticated = true;
+      next(true);
+    };
+    hashauth.updateSocketAuth = function () {};
+    for (let cycle = 0; cycle < 2; cycle++) {
+      const success = await new Promise(resolve => hashauth.processSecret('this is my long pass phrase', true, resolve));
+      success.should.equal(true);
+      env.window.localStorage.getItem('apisecrethash').should.equal('b723e97aa97846eb92d5264f084b2823f57c4aa1');
+      hashauth.removeAuthentication();
+      should(env.window.localStorage.getItem('apisecrethash')).equal(null);
+      should(hashauth.hash()).equal(null);
+      hashauth.isAuthenticated().should.equal(false);
+    }
   });
 
   it('does not store sha1 when storeapisecret=false', function (done) {

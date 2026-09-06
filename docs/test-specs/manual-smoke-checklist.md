@@ -1,25 +1,39 @@
 # Manual smoke checklist (Nightscout UI)
 
-This checklist replaces the end-to-end coverage that the bundle-driven
-`tests/reports.test.js` and `tests/profileeditor.test.js` used to provide
-through jsdom + jQuery + the minified webpack bundle. Both legacy tests
-were retired in Track 2 of the testing-modernization effort because:
+This checklist covers browser behavior that automated tests do not currently
+exercise end-to-end. Current automated coverage includes:
 
-1. They booted the entire 2.1 MB `bundle.app.js` to assert on jQuery
-   selectors. Real failures (e.g. a stats-math regression) were already
-   covered by per-plugin Node tests; what the bundle tests uniquely
-   exercised was the wiring between modules.
-2. Wiring is now covered structurally by `tests/bundle.smoke.test.js`,
-   which boots the bundle in jsdom and asserts the public globals
-   exist (`Nightscout.client`, `.reportclient`, `.profileclient`,
-   `.units`).
-3. Pure logic (record/profile/range CRUD, treatment normalization,
-   confirm-text generation) is now covered by Node-only suites under
-   `tests/client-core/`.
+1. `tests/bundle.smoke.test.js`, a structural check that the built bundle
+   executes and exposes `Nightscout.client`, `.reportclient`, `.profileclient`,
+   and `.units`.
+2. `tests/reportstorage.test.js`, which covers persisted report preferences,
+   plus selected output-safety checks in `tests/stored-output-sinks.test.js`
+   and `tests/profile-sinks.test.js`.
+3. `tests/uniqsgv.test.js`, which covers the report's one-minute SGV filter,
+   including cascading rejection, millisecond boundaries, dense series with
+   timing jitter, duplicates and input preservation.
+4. `tests/report-sgv-pipeline.test.js`, which drives the report's Show action
+   with newest-first API fixtures and checks retained chart data, Daily Stats
+   reading counts, range percentages and estimated A1c in mg/dL and mmol/L.
+   Multi-day fixtures cover separate daily averages, empty days and repeated
+   rendering from cached data. These tests use the real loading, filtering,
+   unit conversion and table renderer; network responses and canvas drawing
+   are mocked, so they do not replace browser smoke checks.
+5. `tests/dependency-d3.test.js` drives the real chart/renderer with mouse and
+   touch events: glucose and forecast hovers in both units, brush centering,
+   clamping and dragging, treatment move/remove/split confirmation and cleanup,
+   plus bounded color parsing. `stored-output-sinks.test.js` also checks the
+   Day to Day OpenAPS tooltip. CommonJS fixtures load D3's official UMD build
+   via `tests/fixtures/d3.js`; production webpack resolves its ES modules.
+6. Node-only suites under `tests/client-core/`, which cover already-extracted
+   business logic.
 
-What is not covered automatically: a real human eyeballing the chart,
-clicking around the profile editor, and submitting a report. Run this
-checklist before tagging a release or merging a UI-touching PR.
+The legacy full-bundle report suite remains intentionally skipped, and the
+profile-editor suite remains retired, because their jsdom-based assertions
+were brittle and did not faithfully represent a real browser. Report
+calculations are not yet comprehensively covered by deterministic DOM-free
+tests. Run this checklist before tagging a release or merging a UI- or
+report-related change.
 
 ## Setup
 
@@ -41,6 +55,20 @@ your equivalent) before `node lib/server/server.js`.
 - [ ] BG chart renders with axis ticks and at least one data point.
 - [ ] hashauth login (PIN icon, top-right) accepts a valid PIN and the
       "Authentication Status" indicator turns green.
+
+### D3 chart interactions
+
+- [ ] Hover glucose, forecast, treatment, profile and annotation points; verify
+      values, tooltip placement near the right edge, and hiding on pointer exit.
+- [ ] In both mg/dL and mmol/L, compare axes, threshold lines, basal paths and
+      treatment bubbles at desktop and mobile widths.
+- [ ] Click/tap and drag the context chart twice; the focus window keeps its
+      selected duration and stays within the available range.
+- [ ] With editing enabled, drag a treatment to move/remove it, or move/remove
+      only its insulin or carbs. Check both Cancel and Confirm with disposable
+      test data. Drop targets disappear and basals return after each operation.
+- [ ] In Day to Day reports, hover OpenAPS points and check reason text and
+      tooltip position. Check Week to Week and calibration chart rendering.
 
 ## 2. Profile editor (`/profile`)
 
@@ -71,6 +99,43 @@ your equivalent) before `node lib/server/server.js`.
 - [ ] Per-plugin spot check: open Distribution / TIR — the percentages
       add to ~100% and BG bands look right for the selected window.
 
+### Closely spaced SGV readings (#8588)
+
+Use synthetic readings on a dedicated day in a local test instance. The offsets
+below are relative to a timestamp within that day, not the Unix epoch. Select
+that day in Reports and enable its weekday. Reload the report page after changing
+fixtures so cached historical data is loaded again.
+
+- [ ] Load readings at offsets **0s / 58s / 116s**, with values **100 / 50 / 200
+      mg/dL** respectively. With target thresholds **80–180 mg/dL**, Day to Day
+      shows the readings at 0s and 116s. Daily Stats shows **2 readings**, **0%
+      Low**, **50% Normal** and **50% High**; its pie chart agrees with the table.
+- [ ] Repeat in mmol/L using the equivalent target thresholds (4.4–10 mmol/L).
+      Retained timestamps, reading count and range percentages agree with mg/dL.
+- [ ] Check equal-value readings at **0s / 0s / 60s**: the true duplicate is
+      removed and **2 readings** remain. At **0s / 60s / 120s**, all **3 readings**
+      remain, confirming the cutoff includes exactly one minute.
+- [ ] With readings at **0s / 300s / 600s**, all **3 readings** remain and the
+      chart, reading count and range percentages match the same five-minute
+      fixture before the filtering fix.
+
+These checks validate filtering and the resulting sample-based percentages;
+they do not change the target-band rules or introduce time-weighted statistics.
+
+### Daily Stats estimated A1c
+
+Use the same local test instance and select a day containing only the synthetic
+readings. Reload Reports after changing fixtures or display units.
+
+- [ ] With a single **150 mg/dL** reading, Daily Stats shows an average of
+      **150.0 mg/dL**, estimated A1c **6.9% DCCT** and **51 mmol/mol IFCC**.
+- [ ] Switch to mmol/L display. The average shows **8.3 mmol/L**, while the A1c
+      estimates remain **6.9%** and **51**. They are calculated from the original
+      mg/dL reading, before glucose is rounded for display.
+- [ ] Repeat with **100 and 200 mg/dL** readings five minutes apart. Both unit
+      modes show **2 readings** and the same **6.9% / 51** A1c estimates, using
+      the mean glucose rather than averaging rounded A1c values per reading.
+
 ## 4. Care portal (treatment entry)
 
 - [ ] Open Care Portal, choose **Snack Bolus** as the event type.
@@ -89,16 +154,19 @@ your equivalent) before `node lib/server/server.js`.
 
 ## When this checklist fails
 
-If a step fails, the regression is in adapter glue (jQuery, ajax,
-`bundle.app.js` wiring), not in the pure core. Check:
+A failure may be in data loading, report calculations, bundle wiring, or
+browser rendering. Record the selected date range and inspect:
 
-- `tests/bundle.smoke.test.js` — does the bundle still expose the
-  expected globals?
-- `tests/client-core/careportal-*.test.js` — do the pure transforms
-  still produce the expected output? (If they do, the bug is in
-  `lib/client/careportal.js` or `lib/profile/profileeditor.js`.)
-- Browser DevTools network tab — is the page hitting `/api/v1/...`
-  with the right payloads?
+- Browser DevTools console and network tabs.
+- `tests/bundle.smoke.test.js` for bundle entry-point failures.
+- `tests/reportstorage.test.js` for preference persistence.
+- `tests/uniqsgv.test.js` for SGV filtering and
+  `tests/report-sgv-pipeline.test.js` for loading-to-statistics regressions.
+- Relevant `tests/client-core/` suites for already-extracted logic.
+
+Because report calculations are not yet comprehensively covered outside the
+legacy client bundle, add a focused unit or contract test when affected logic
+is extracted.
 
 See `docs/proposals/testing-modernization-proposal.md` for the full
 test pyramid layout and Track 2 rationale.

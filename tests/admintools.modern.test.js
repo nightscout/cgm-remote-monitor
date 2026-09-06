@@ -8,7 +8,7 @@
  * Same 14 status-text assertions as the legacy test, organized per plugin.
  */
 
-require('should');
+const should = require('should');
 const moment = require('moment');
 const { createSecureDOM } = require('./fixtures/secure-jsdom');
 const { installDomGlobals, restoreDomGlobals } = require('./fixtures/dom-globals');
@@ -139,6 +139,38 @@ describe('admintools (modern jsdom)', function () {
 
       plugin.actions[0].code(client);
       $('#admin_futureitems_0_status').text().should.equal('Record 5609a9203c8104a8195b1c1e removed ...');
+    });
+
+    it('action[0]: renders stored treatment fields as literal text', function () {
+      $.ajax = makeAjax({
+        '/api/v1/treatments.json?&find[created_at][$gte]=': [
+          {
+            _id: 'future-treatment',
+            eventType: '<img src=x onerror="window.injected=true">Event',
+            glucose: '<svg onload="window.injected=true">Glucose</svg>',
+            glucoseType: '<script>window.injected=true</script>Type',
+            insulin: '<img src=x onerror="window.injected=true">Insulin',
+            carbs: 'Fish &amp; Chips',
+            enteredBy: '<b>Uploader</b>',
+            notes: '<script>window.injected=true</script>Notes',
+            created_at: '2025-09-28T20:54:00.000Z'
+          }
+        ]
+      });
+
+      plugin.actions[0].init(client);
+
+      const table = $('#admin_futureitems_0_html table');
+      const cells = table.find('tr').eq(1).find('td');
+      cells.length.should.equal(7);
+      cells.eq(1).text().should.equal('<img src=x onerror="window.injected=true">Event');
+      cells.eq(2).text().should.equal('<svg onload="window.injected=true">Glucose</svg> (<script>window.injected=true</script>Type)');
+      cells.eq(3).text().should.equal('<img src=x onerror="window.injected=true">Insulin');
+      cells.eq(4).text().should.equal('Fish & Chips');
+      cells.eq(5).text().should.equal('<b>Uploader</b>');
+      cells.eq(6).text().should.equal('<script>window.injected=true</script>Notes');
+      table.find('img, script, svg, [onerror], [onload]').length.should.equal(0);
+      should(env.window.injected).equal(undefined);
     });
 
     it('action[1]: lists future entries then reports removal on code()', function () {

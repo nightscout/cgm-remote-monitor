@@ -71,9 +71,9 @@ describe('mmconnect', function () {
         , 'type': 'carelink_raw'
       });
       entry.data.should.have.properties({
-        'firstName': '<redacted>'
-        , 'lastName': '<redacted>'
-        , 'medicalDeviceSerialNumber': '<redacted>'
+        'firstName': '[redacted]'
+        , 'lastName': '[redacted]'
+        , 'medicalDeviceSerialNumber': '[redacted]'
       });
       entry.data.sgs.length.should.equal(6);
     });

@@ -14,20 +14,14 @@
  * modern jsdom (>= 24) AND no-network resource isolation for free.
  *
  * Activation:
- *   `tests/fixtures/headless.js` chooses between this shim and the real
- *   `benv` package via the `USE_BENV_SHIM` env var. Both modes are run
- *   in CI during Phase 1 to prove parity, then default flips in Phase 2.
+ *   `tests/fixtures/benv-loader.js` unconditionally exports this shim.
+ *   The legacy `benv` package was removed after the Phase 1 parity work.
  *
  * Notes:
- *   - rewire is used by real benv to load non-CommonJS browser bundles.
- *     The bundles (webpack UMD output) attach to a `window` global, which
- *     they pick up from the Node global namespace once we set it.
- *     We replicate that exactly: set global.window/document/etc, then
- *     `rewire(absPath)` so the bundle executes top-level and binds to
- *     our jsdom window.
+ *   - Browser modules are reloaded through Node's CommonJS loader after
+ *     wiring the active jsdom window onto the Node global object.
  *   - All existing call sites pass absolute paths via `__dirname + '...'`,
- *     so we drop benv's `module.parent.filename` resolution magic
- *     (deprecated in modern Node) and require absolute paths.
+ *     so we drop benv's deprecated `module.parent.filename` resolution magic.
  */
 
 const fs = require('fs');
@@ -70,10 +64,11 @@ function setGlobal (name, value) {
 }
 
 function setup (callback, options) {
-  // Idempotent: real benv short-circuits if `window` is already set.
-  if (typeof global.window !== 'undefined') {
-    if (callback) callback();
-    return;
+  // Each setup owns a fresh window so callers cannot inherit DOM or global
+  // state left behind by another browser-oriented suite.
+  if (activeEnv) {
+    activeEnv.cleanup();
+    activeEnv = null;
   }
 
   const html = (options && options.html) || '<!DOCTYPE html><html><body></body></html>';
