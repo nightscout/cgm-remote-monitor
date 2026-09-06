@@ -170,6 +170,11 @@ MongoDB distinguishes [query predicates](https://www.mongodb.com/docs/manual/ref
 from [server-side JavaScript](https://www.mongodb.com/docs/manual/core/server-side-javascript/).
 The merged guard rejects `$where`, `$function` and `$accumulator` in executable
 contexts. This review supports treating the remaining generic object-flow
-warning separately from that fixed executable-query defect. It does not prove
-query resource bounds or change authorization policy, and no alert dismissal
-is made by this test change. CodeQL remains an open review gate.
+warning separately from that fixed executable-query defect. After confirming
+that the refreshed analysis reports this same flow, alert 105 was triaged as a
+false positive: operator selection is intentional within the caller's profile
+read permission, with no per-document authorization predicate being bypassed.
+The GitHub dismissal points to these tests and applies only to this alert.
+No rule, path or general sanitizer exemption was added. This does not prove
+query resource bounds or change authorization policy. Fresh CodeQL analysis
+and every other CI/migration gate remain required before merging the driver.
