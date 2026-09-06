@@ -212,3 +212,7 @@ The second slice, #8640, replaces bootevent and its nested chain with a local fo
 ### M24 compatible Node runner in progress
 
 Native --env-file changes both precedence and parsing of existing values, so the first slice uses a scoped Node runner with the existing .env grammar and file-wins policy. [Process contracts and validation](../test-specs/env-runner.md) cover startup flags, nyc/Mocha children and repeated signal handling. Two installed package paths are removed; nodemon/watch remains a separate unfinished slice.
+
+### M19 import client retain decision in progress
+
+Native fetch's default proxy behavior differs on both supported Node floors. The candidate retains Axios, corrects its production dependency declaration and prevents import credentials/settings from entering diagnostics. [Decision and regression evidence](../test-specs/import-config-client.md) cover the owned proxy comparison, repeated import contracts and validation limits. No dependency-count or server-memory saving is claimed; completion awaits full validation and merge.
