@@ -36,6 +36,27 @@ No deployment platform is retired by this change. An unavailable or unverified p
 
 This change removes CI jobs and updates the support policy. It does not change the MongoDB driver, schema, connection protocol, or startup behavior, and does not migrate or delete data. An existing 4.4 connection may still work; that does not make it supported. There is no new startup version query or database permission requirement.
 
+### Docker Compose default in Nightscout 15.0.9
+
+The bundled `docker-compose.yml` now selects **mongo:6.0.27**, replacing the
+**mongo:5.0.32** default shipped in 15.0.8. MongoDB 5 remains supported during
+migration; changing the example default does not require externally managed
+MongoDB 5 deployments to upgrade immediately.
+
+For an existing Compose deployment, this is a database major-version upgrade,
+not just a Nightscout image update. Back up and rehearse against a restored copy
+before recreating the Mongo service. Follow MongoDB's standalone 5-to-6 upgrade
+procedure (or the matching replica/sharded procedure), including the required
+5.0 feature compatibility version before starting 6.0. Retain the existing
+`NS_MONGO_DATA_DIR`/data mount; do not delete the data directory or volume.
+Verify Nightscout reads, uploads, profiles and settings after the upgrade before
+raising FCV to 6.0. An application rollback does not downgrade MongoDB or FCV;
+use the documented database recovery procedure and your verified backup.
+
+See MongoDB's [archived 6.0 standalone upgrade procedure](https://github.com/mongodb/docs/blob/v6.0/source/release-notes/6.0-upgrade-standalone.txt)
+and [legacy documentation](https://www.mongodb.com/docs/legacy/). The existing
+MongoDB end-of-life and final upgrade/restore validation gates above still apply.
+
 Before deploying the modernization release on a database currently running 4.4:
 
 1. Record the database version, feature compatibility version (FCV), topology, authentication settings, Nightscout artifact and configuration. Take a consistent backup and verify restoration into an isolated environment.
