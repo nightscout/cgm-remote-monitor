@@ -709,5 +709,8 @@
     "Security issue": "Problema de seguridad",
     "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "Detectada API_SECRET débil. Por favor, utilice una mezcla de letras en minúscula y en mayúscula, números y caracteres no alfanuméricos como !#%&/ para reducir el riesgo de acceso no autorizado. La longitud mínima de la API_SECRET es de 12 caracteres.",
     "less than 1": "menos de 1",
+    "Authorization failed. Reauthorize Nightscout access or ask the administrator to check your Loop command permissions.": "Authorization failed. Reauthorize Nightscout access or ask the administrator to check your Loop command permissions.",
+    "Could not confirm whether Loop received this command. Check your connection and Loop before submitting it again.": "Could not confirm whether Loop received this command. Check your connection and Loop before submitting it again.",
+    "Nightscout returned an error without details. Check Loop before submitting again, and ask the Nightscout administrator to check the server logs.": "Nightscout returned an error without details. Check Loop before submitting again, and ask the Nightscout administrator to check the server logs.",
     "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "La contraseña de MongoDB y la API_SECRET coinciden. Esto es una muy mala idea. Por favor, cambie ambas contraseñas y no reutilice contraseñas en el sistema."
 }
