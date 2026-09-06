@@ -25,13 +25,14 @@ cleanup, invalid syntax rejection, actual duration/unit calculations in both
 build modes, source maps and two cache-invalidating edits. The production
 bundle succeeds. The full Node 22/MongoDB 6 backend suite passes 1,656 tests
 with one existing pending; separate core/dependency suites pass 283/267.
-Chromium on Node 22 passes all 509 browser cases. WebKit and hosted validation
-remain in progress; this candidate is not yet merge-ready. Development/HMR
+Chromium on Node 22 and WebKit on Node 24 each pass all 509 browser cases.
+The branch now includes the env-runner merge #8648; refreshed hosted validation
+remains in progress; this candidate is not yet merge-ready. Development/HMR
 builds pass on parent and candidate with the same two warnings, including the
 existing unused convertToRanges function in profileeditor.js.
 
 The lockfile adds 69 package paths and removes 19 (net +50), including the
-compiler dependency split; this is a maintained-compiler migration rather
+compiler dependency split (NYC still needs its private Babel 7 compiler); this is a maintained-compiler migration rather
 than a package-count reduction. Matched production builds on Node 22 have
 779 fewer raw JavaScript bytes and 64 fewer Python gzip bytes across six
 entries. See [raw measurements](../audits/babel8-bundle-delta.json). App,
