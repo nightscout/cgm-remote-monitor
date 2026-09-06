@@ -26,3 +26,7 @@ and WebKit/Node 24: over two browser lifecycles it verifies a live acknowledgeme
 emits its clear event, then teardown discards pending requests and blocks late
 requests/acknowledgements without further events. This covers the browser bus
 integration; the full browser matrix remains a merge gate.
+
+The complete Node 24 Chromium suite passes all 549 cases on the refreshed
+candidate. Current-head hosted CI, including Firefox/WebKit and both Docker
+architectures, remains required before merge.
