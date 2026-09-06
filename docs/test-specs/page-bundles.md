@@ -34,7 +34,7 @@ The served Socket.IO client now uses `closeOnBeforeunload: true` for both namesp
 - Chromium also runs with Playwright offline emulation. On the local WebKit 26.6 build, that emulation blocks even a minimal worker which returns a constant response without accessing the network; the same control works in Chromium 153. WebKit therefore uses actual origin connection failure. One exact WebKit network-error diagnostic is allowed only for the deliberately requested unavailable asset; other page errors fail the fixture. Hosted Firefox coverage remains required.
 - Fully booted HTTP contracts verify all six versioned production bundles (bytes, gzip/identity, HEAD, ETag/Last-Modified/304), each template's shared/page URLs, and all six development middleware assets.
 
-Still required before M15 completion: finish the actual-page worker lifecycle case and full-suite validation, final source graph and numeric transfer/request/startup/heap budgets, and the complete hosted matrix/Docker checks on the final head. The first draft head passed all hosted checks, but that does not validate subsequent changes or the remaining gates. No M15 merge-ready claim has been made.
+Still required before M15 completion: total navigation traffic and populated-page startup/heap measurements with numeric acceptance limits, and the complete hosted matrix/Docker checks on the final head. Actual-page worker lifecycle, source isolation and artifact gzip/chunk budgets now have the evidence described below. The first draft head passed all hosted checks, but that does not validate subsequent changes or the remaining gates. No M15 merge-ready claim has been made.
 
 ## Current transfer measurement
 
@@ -53,3 +53,23 @@ The new full-application worker test exposed a fixture lifecycle race: an activa
 A live-traffic update regression was also identified: forwarding uncached requests through `respondWith(fetch(...))` kept the old worker's fetch event alive while a poll remained open, delaying replacement activation. Uncached navigation, APIs, polling, external requests and new-version assets now use the browser's network path without worker interception. A dedicated native-browser case keeps a polling response open, requires the replacement worker to activate, and then completes the same poll successfully. The focused open-poll case fails against the previous handler and passes with the corrected handler in Chromium and WebKit. This preserves active requests during updates and avoids extending worker events for unrelated traffic. Dashboard update handling reloads exactly once after control changes, while first installation does not reload the starting application.
 
 Final local backend validation on Node 22 with a fresh uniquely named test database passes 1,598 cases, with one existing pending case. This includes all three production/development HTTP asset contracts. Changed-file lint has no errors (seven warnings). These results validate the lifecycle follow-up locally; final hosted results and performance acceptance remain open.
+
+## Transfer budgets and issuer graph
+
+The checked-in [baseline](../audits/page-bundle-baseline.json) records the production `d79b8a74` artifact hashes, compiler module counts and measured limits. An isolated production webpack build emitted byte-identical JavaScript to the tested build. Its complete dependent-module/issuer output places all 21 report module records in reports and zero in app, clock, admin, profile or food. Both Flot and the report-plugin registry are directly imported by `bundle.reports.source.js`. Module records include runtime/nested entries and are not dependency-package counts.
+
+Run `node tools/measure-page-bundles.js` after the normal production build to reproduce the measurements, including Node/zlib versions. The same artifact bytes produce different gzip sizes with different compressor builds: the earlier Python gzip measurements above remain a historical comparison; CI uses Node's zlib at level 9. Both validated Node floors produce these sizes:
+
+| Entry | Measured gzip bytes | CI maximum |
+| --- | ---: | ---: |
+| app | 332,151 | 340,000 |
+| reports | 53,156 | 55,000 |
+| admin | 7,923 | 8,500 |
+| profile | 6,665 | 7,100 |
+| food | 5,306 | 5,700 |
+| clock | 61,784 | 63,000 |
+| All application entries including shared code, excluding clock | 405,201 | 410,000 |
+
+The matched parent's monolithic app is 402,808 Node gzip bytes, so the app saves 70,657 bytes and the all-application total grows by 2,393 bytes. The 340,000-byte app limit rejects that prior monolithic artifact. Limits leave room for small fixes while requiring review of material growth; do not automatically regenerate them from whatever a build produces.
+
+`tests/page-bundle-budget.test.js` runs in the existing backend CI glob. It enforces the six per-entry limits, combined limit, absence of extra JavaScript chunks and report source-map isolation. Existing actual-template browser cases enforce one document bundle for dashboard and two for each secondary page, with exact request counts and separately checked script order. These counts exclude Socket.IO, startup scripts, CSS, images, APIs and service-worker precaching. The worker still precaches app and clock; first-install traffic is not the sum of unique document bundles alone. Populated-page timing/heap and total navigation traffic measurement remain open and must not be inferred from these artifact budgets.
