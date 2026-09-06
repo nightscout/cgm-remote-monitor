@@ -55,3 +55,24 @@ The baseline installation is the preceding integration tree `ad4a8cd5`;
 `07b4389e` changed only documentation. These are uncompressed package-file
 bytes, not filesystem allocation, Docker image, browser transfer or runtime
 memory measurements. No server RAM saving is claimed.
+
+## Browser resource tradeoff
+
+A fresh production build on Node 22.23.2 compared the unchanged baseline with
+this upgrade. Direct property imports in `lib/utils/html.js` let webpack retain
+only the used ESM exports; destructuring after Babel otherwise retained unused
+decoder exports and exceeded the clock budget. Existing resource limits remain
+unchanged.
+
+| Entry | Baseline gzip bytes | Candidate gzip bytes | Change |
+| --- | ---: | ---: | ---: |
+| App | 303,816 | 305,212 | +1,396 |
+| Clock | 61,301 | 62,703 | +1,402 |
+| All application entries (excluding independent clock) | 374,508 | 375,904 | +1,396 |
+
+Reports, admin, profile and food entry sizes are unchanged. Accept this bounded
+browser transfer increase for package consolidation; do not describe this change
+as a browser-size reduction. Validate output and startup with the real-browser
+suite, including existing page-resource checks. The first local browser run and
+first backend run overlapped an unrelated development build and are not accepted
+as final production validation; final checks use stable production assets.
