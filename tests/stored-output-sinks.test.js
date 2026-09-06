@@ -9,8 +9,11 @@ describe('stored-data browser output encoding', function () {
   var env;
   var state;
   var $;
+  var priorD3;
 
   beforeEach(function () {
+    priorD3 = global.d3;
+    global.d3 = require('./fixtures/d3');
     delete global.window;
     delete global.document;
     env = createSecureDOM('<!DOCTYPE html><html><body></body></html>');
@@ -30,6 +33,8 @@ describe('stored-data browser output encoding', function () {
     ].forEach(function (moduleName) {
       delete require.cache[require.resolve(moduleName)];
     });
+    if (priorD3 === undefined) delete global.d3;
+    else global.d3 = priorD3;
     domGlobals.restoreDomGlobals(state);
   });
 
@@ -216,7 +221,7 @@ describe('stored-data browser output encoding', function () {
   });
 
   it('encodes legacy treatment glucose in the chart tooltip', function () {
-    var d3 = require('d3');
+    var d3 = require('./fixtures/d3');
     var root = d3.select(env.document.body).append('div');
     var tooltip = root.append('div').append('div').attr('id', 'tooltip');
     var chartSvg = d3.select(env.document.body).append('svg');
@@ -263,7 +268,7 @@ describe('stored-data browser output encoding', function () {
   });
 
   it('renders stored annotations as literal text in chart tooltips', function () {
-    var d3 = require('d3');
+    var d3 = require('./fixtures/d3');
     var tooltip = d3.select(env.document.body).append('div').append('div').attr('id', 'tooltip');
     var chartSvg = d3.select(env.document.body).append('svg');
     var treatment = {
@@ -307,7 +312,7 @@ describe('stored-data browser output encoding', function () {
 
   it('renders stored annotations as literal SVG text in the day-to-day report', function () {
     $('body').append('<div id="daytodaycharts"></div>');
-    var d3 = require('d3');
+    var d3 = require('./fixtures/d3');
     var day = '2025-01-01';
     var firstTime = Date.parse(day + 'T00:00:00.000Z');
     var rawPayload = '<img src=x onerror="window.injected=true">Notes';
@@ -328,7 +333,7 @@ describe('stored-data browser output encoding', function () {
       , ticks: function () { return []; }
       , tooltip: d3.select(env.document.body).append('div')
       , translate: function (value) { return value; }
-      , utils: {scaleMgdl: function (value) { return value; }}
+      , utils: {scaleMgdl: function (value) { return value; }, roundBGForDisplay: function (value) { return value; }}
     };
     var reportPlugins = {
       consts: {SCALE_LOG: 'log'}
@@ -343,7 +348,7 @@ describe('stored-data browser output encoding', function () {
       , dailyProtein: 0
       , devicestatus: []
       , sgv: [
-        {color: 'green', date: new Date(firstTime), mills: firstTime, sgv: 100, type: 'sgv'}
+        {color: 'green', date: new Date(firstTime), mills: firstTime, sgv: 100, type: 'sgv', openaps: {suggested: {bg: 100, reason: rawPayload}}}
         , {color: 'green', date: new Date(firstTime + 60000), mills: firstTime + 60000, sgv: 110, type: 'sgv'}
       ]
       , treatments: [
@@ -382,7 +387,7 @@ describe('stored-data browser output encoding', function () {
       , maxDailyCarbsValue: 1
       , maxInsulinValue: 1
       , notes: true
-      , openAps: false
+      , openAps: true
       , othertreatments: false
       , predicted: false
       , raw: false
@@ -391,6 +396,15 @@ describe('stored-data browser output encoding', function () {
       , targetLow: 80
       , width: 800
     });
+
+    var forecastDot = env.document.querySelector('#daytodaycharts circle');
+    forecastDot.dispatchEvent(new env.window.MouseEvent('mouseover', {bubbles: true, clientX: 120, clientY: 80}));
+    client.tooltip.text().should.containEql(rawPayload);
+    client.tooltip.style('left').should.equal('120px');
+    client.tooltip.style('top').should.equal('95px');
+    client.tooltip.selectAll('img, script').size().should.equal(0);
+    forecastDot.dispatchEvent(new env.window.MouseEvent('mouseout', {bubbles: true}));
+    client.tooltip.style('display').should.equal('none');
 
     var noteTexts = Array.from(env.document.querySelectorAll('#daytodaycharts svg text'))
       .map(function (node) { return node.textContent; });

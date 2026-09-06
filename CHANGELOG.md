@@ -6,6 +6,24 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ### Fixed
 
+- **MongoDB proxy dependency:** Update ip-address to 10.7.0. Add regression
+  coverage for IPv4/IPv6 conversion, malformed addresses and SOCKS5 connections
+  through MongoDB's installed proxy client. No MongoDB configuration or UI
+  changes are required.
+- **Build dependency security:** Update fast-uri to 3.1.7, the latest release
+  supported by the installed Ajv 8 consumers. Add CI coverage for malformed
+  authorities, safe serialization and schema-reference resolution. Keep 3.x
+  compatibility; fast-uri 4 changes Unicode encoding and removes deprecated
+  types. No Nightscout configuration or UI changes are required.
+- **Socket.IO parser:** Update the server and Node client parser to 4.2.7.
+  Honor `toJSON()` when encoding binary packets and reject malformed binary
+  packets with zero attachments. Add CI coverage for live updates, binary
+  acknowledgements and reconnects over polling and WebSocket, including the
+  browser client served to Nightscout pages. No configuration changes required.
+- **Sanitizer test reference:** Update the development-only DOMPurify dependency
+  to 3.4.14. Add regression coverage for nested template sanitization, note text
+  and SVG presentation attributes. Production sanitization still uses
+  `sanitize-html`; stored data and UI behavior are unchanged.
 - **YAML dependency security:** Update js-yaml to the latest compatible 3.15.2
   and 4.3.2 releases. Preserve the APIs used by ESLint, nyc and Mocha while
   adding merge-work limits and the ordered-map CPU fix. CI checks YAML

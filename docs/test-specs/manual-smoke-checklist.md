@@ -19,7 +19,13 @@ exercise end-to-end. Current automated coverage includes:
    rendering from cached data. These tests use the real loading, filtering,
    unit conversion and table renderer; network responses and canvas drawing
    are mocked, so they do not replace browser smoke checks.
-5. Node-only suites under `tests/client-core/`, which cover already-extracted
+5. `tests/dependency-d3.test.js` drives the real chart/renderer with mouse and
+   touch events: glucose and forecast hovers in both units, brush centering,
+   clamping and dragging, treatment move/remove/split confirmation and cleanup,
+   plus bounded color parsing. `stored-output-sinks.test.js` also checks the
+   Day to Day OpenAPS tooltip. CommonJS fixtures load D3's official UMD build
+   via `tests/fixtures/d3.js`; production webpack resolves its ES modules.
+6. Node-only suites under `tests/client-core/`, which cover already-extracted
    business logic.
 
 The legacy full-bundle report suite remains intentionally skipped, and the
@@ -49,6 +55,20 @@ your equivalent) before `node lib/server/server.js`.
 - [ ] BG chart renders with axis ticks and at least one data point.
 - [ ] hashauth login (PIN icon, top-right) accepts a valid PIN and the
       "Authentication Status" indicator turns green.
+
+### D3 chart interactions
+
+- [ ] Hover glucose, forecast, treatment, profile and annotation points; verify
+      values, tooltip placement near the right edge, and hiding on pointer exit.
+- [ ] In both mg/dL and mmol/L, compare axes, threshold lines, basal paths and
+      treatment bubbles at desktop and mobile widths.
+- [ ] Click/tap and drag the context chart twice; the focus window keeps its
+      selected duration and stays within the available range.
+- [ ] With editing enabled, drag a treatment to move/remove it, or move/remove
+      only its insulin or carbs. Check both Cancel and Confirm with disposable
+      test data. Drop targets disappear and basals return after each operation.
+- [ ] In Day to Day reports, hover OpenAPS points and check reason text and
+      tooltip position. Check Week to Week and calibration chart rendering.
 
 ## 2. Profile editor (`/profile`)
 
