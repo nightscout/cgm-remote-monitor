@@ -19,7 +19,9 @@ recorded errors across two sequences, and empty completion. The native-only
 case rejects duplicate advancement. `tests/boot-sequence-integration.test.js`
 executes two real failed Nightscout boots and tears down each heartbeat bus;
 it checks that neither storage nor connectors start after a configuration
-error. Existing connect lifecycle and Axios settings-import tests now capture
+error. It also executes two successful boot/load/teardown cycles against a
+disposable MongoDB database and checks independent contexts and one data listener
+per event. Existing connect lifecycle and Axios settings-import tests now capture
 the registered stage array instead of mocking the removed package's chain.
 
 Validation in progress:
