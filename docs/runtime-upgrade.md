@@ -119,6 +119,7 @@ settings cannot re-enable it. MiniMed is not retired by this change.
 | --- | --- |
 | `BRIDGE_USER_NAME` | Fallback for `CONNECT_SHARE_ACCOUNT_NAME` |
 | `BRIDGE_PASSWORD` | Fallback for `CONNECT_SHARE_PASSWORD` |
+| `BRIDGE_SERVER=US` | Fallback `CONNECT_SHARE_REGION=us` |
 | `BRIDGE_SERVER=EU` | Fallback `CONNECT_SHARE_REGION=ous` |
 | Custom `BRIDGE_SERVER` hostname | Fallback `CONNECT_SHARE_SERVER` |
 | No server override | Connect's default US endpoint |
