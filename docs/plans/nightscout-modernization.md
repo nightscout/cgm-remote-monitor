@@ -200,6 +200,10 @@ The user confirmed on 2026-09-05 that all implementation PRs target `chore/night
 
 Replace mongo-url-parser with the public connection-string parser already used by the installed MongoDB driver. [Contracts and validation](../test-specs/mongo-uri-credentials.md) cover driver grammar, decoded password comparisons and the no-connection requirement. The direct declaration count is unchanged; one installed legacy package is removed. Completed in #8642, merged as `79bb2f5e`, after all required CI passed on `228964ce` and actual merge tree `ac1be291` matched verification.
 
+### M26 report quantile batching in progress
+
+The first slice batches probability requests through the existing simple-statistics API in four report plugins and reuses hourly reading arrays. [Validation and measurements](../test-specs/batched-report-quantiles.md) record the sort reduction and paired computation samples. Cross-unit and DST chart goldens pass against both the scalar and batching implementations. The library remains installed; refreshed hosted validation and the separate local-statistics candidate #8647 remain open.
+
 ### M20 completed Express parser ownership
 
 M20 completed in #8641, merged as `09af1869`, after all required checks passed and merge tree `a869bac6` matched verification. Application imports use Express's public parser functions with existing options and middleware order. [Validation notes](../test-specs/express-parsers.md) cover the shared implementations and regression suite. Only the direct declaration is removed; the transitive package and runtime memory remain.
@@ -223,6 +227,10 @@ UUID major review found only one production v5 call. A scoped node:crypto implem
 ### M23 query leaf conversion in progress
 
 Nine characterization cases now cover the old and scoped local query walker, including mutation, BSON values, prototype-like keys and errors. The replacement removes `traverse` and 70 exclusive transitive package paths without changing retained lock entries. [Contracts and measurements](../test-specs/query-leaves.md) distinguish installed-file savings from unmeasured server heap. Full backend and hosted validation remain required before completion.
+
+### M26 local statistics candidate
+
+After the #8644 batching change, a scoped three-operation statistics module can remove simple-statistics while preserving its numeric definitions. [Recorded-oracle validation and bundle measurements](../test-specs/local-report-statistics.md) cover 109 baseline samples, both units and DST chart cases. This candidate depends on the batching work and remains unmerged pending complete validation; M26 is not yet complete.
 
 ### M24 compatible Node runner in progress
 

@@ -134,7 +134,6 @@
     "semver": "^6.3.0",
     "share2nightscout-bridge": "^0.2.12",
     "shiro-trie": "^0.4.9",
-    "simple-statistics": "^0.7.0",
     "socket.io": "~4.8.3",
     "socket.io-client": "^4.8.3",
     "swagger-ui-dist": "^4.13.2",
