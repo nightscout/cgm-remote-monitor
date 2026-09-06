@@ -13,7 +13,7 @@ let ctx;
     fixtureEnv;
   Module._load = function (name, ...args) {
     const value = originalLoad.call(this, name, ...args);
-    if (name === "pushover-notifications") {
+    if ((name === "pushover-notifications" || name === "../server/pushover-client")) {
       if (!wrappers.has(value)) {
         wrappers.set(value, function (options) {
           const provider = new value(options);
@@ -153,7 +153,7 @@ let ctx;
     providerSends: sends,
     pushoverSends: pushes,
     pushoverLoaded: Object.keys(require.cache).some((p) =>
-      p.includes("/pushover-notifications/"),
+      p.includes("/pushover-notifications/") || p.endsWith("/lib/server/pushover-client.js"),
     ),
     apnLoaded: Object.keys(require.cache).some((p) =>
       p.includes("/@parse/node-apn/"),
