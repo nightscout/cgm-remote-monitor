@@ -45,6 +45,10 @@ All 276 production lock entries and all six production JavaScript bundles are
 unchanged. These are installed package measurements, not server RAM, image-size
 or build-time savings. No Nightscout user-facing UI change is intended.
 
-Full current-head CI, browser hooks and coverage validation remain required
-before integration. Roll back manifest, lockfile and consumer-version tests
+Local validation: clean Node 22 install/build without legacy peer mode; valid
+full npm dependency tree and no known audit advisories. Node 22 full backend
+passed 2,081 tests before the final two runner cases; final Node 24 backend
+passed 2,083, each with one existing pending case and nyc coverage. Node 24
+passed all 290 dependency tests and 283 client-core cases; Node 22 Chromium
+passed all 574 browser cases. Final hosted CI remains required before integration. Roll back manifest, lockfile and consumer-version tests
 together. This review does not complete the remaining M09 work.
