@@ -206,3 +206,6 @@ The second slice, #8640, replaces bootevent and its nested chain with a local fo
 
 - M17 completed in #8637, merged as `c75bead0`. All required CI passed on `b39a98ab`; actual merge tree `fb05920f` matched verification. Native entry transforms retain response/write contracts with paired allocation/latency evidence. Browser transport diagnostics and the fixture connection-close mitigation were integrated in #8639; the earlier intermittent stall's cause remains unproven.
 
+### M08 Babel compiler migration in progress
+
+The isolated Babel 8/preset 8/loader 10 candidate preserves the configured browser targets. [Migration review and validation](../test-specs/babel-8.md) cover ESM loading on both supported Node floors, project iOS transforms, compiler semantics, source maps and cache invalidation. Full combined validation remains open; M08 is not yet complete.

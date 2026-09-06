@@ -34,6 +34,18 @@ describe('Babel compiler compatibility', function () {
     assert.ok(semver.satisfies(compiler.version, loader.peerDependencies['@babel/core']));
     assert.ok(semver.satisfies(require('webpack/package.json').version, loader.peerDependencies.webpack));
   });
+  it('retains the configured iOS 9.3 target and project-configured transforms', function () {
+    const options = {filename: path.join(projectRoot, 'lib/client.js')};
+    const config = babel.loadOptionsSync(options);
+    assert.strictEqual(config.targets.ios, '9.3.0');
+    const code = babel.transformSync(`
+      const original = {value: 0, label: 'Glucose 🍬'};
+      const {label, ...reading} = original;
+      module.exports = [reading?.value ?? 99, label];
+    `, options).code;
+    assert.strictEqual(JSON.stringify(evaluate(code)), '[0,"Glucose 🍬"]');
+    assert.ok(!code.includes('?.') && !code.includes('??') && !code.includes('...reading'));
+  });
   it('preserves lexical this, nullish zero and optional chaining on an older browser target', function () {
     const result = evaluate(transform(`
       const model = { value: 7, calculate() { return [1, 2].map(n => n + this.value); } };
