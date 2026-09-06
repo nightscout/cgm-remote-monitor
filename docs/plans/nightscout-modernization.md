@@ -239,3 +239,7 @@ Native --env-file changes both precedence and parsing of existing values, so the
 ### M19 import client retain decision in progress
 
 Native fetch's default proxy behavior differs on both supported Node floors. The candidate retains Axios, corrects its production dependency declaration and prevents import credentials/settings from entering diagnostics. [Decision and regression evidence](../test-specs/import-config-client.md) cover the owned proxy comparison, repeated import contracts and validation limits. No dependency-count or server-memory saving is claimed; completion awaits full validation and merge.
+
+### Combined cleanup validation
+
+The remaining M08, M19, M23 and M26 candidates are assembled into one verification branch to test interactions and avoid serial CI/base-refresh churn. [Inputs and merge checks](../test-specs/cleanup-integration.md) identify the exact source heads. Source PRs stay reviewable; their tasks remain incomplete until the combined checks pass and the verified tree is merged into chore/nightscout-modernization.
