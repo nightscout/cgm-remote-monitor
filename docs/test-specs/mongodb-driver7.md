@@ -240,3 +240,37 @@ a scalar lookup. Alert 107 remains open pending integration of the separate
 selected-storage permission fix (#8667) and final route review. The fixture's
 error assertion verifies rejection without claiming that legacy HTTP error
 statuses are redesigned. Query resource bounds remain separate work.
+
+## Entries CodeQL disposition after permission integration
+
+At `2eb14831`, #8667 is incorporated. Alert 107 traces the caller's `find`
+object through `lib/server/query.js` to `entries.list`/MongoDB find. The public
+entries router first requires `api:entries:read`; selected count/slice storage
+also requires its own collection read grant. Write routes have separate create/
+delete grants. The current-entry route uses a fixed count, ID lookup uses its
+separate identifier path, and internal dataloader/virtual-assistant calls do not
+expand a caller's authorization. Collections come from configured adapters,
+not an untrusted collection name in this find predicate.
+
+[CodeQL's rule](https://codeql.github.com/codeql-query-help/javascript/js-sql-injection/)
+correctly flags user-controlled query objects for review. Its literal-equality
+remedy applies when an input is intended as a scalar. Here the public API
+intentionally accepts predicates from callers authorized to read the collection.
+Converting every predicate into `$eq` would break that contract. Executable
+JavaScript predicates are separately rejected by #8663; arbitrary count pipelines
+are rejected by #8664. The 11 combined HTTP/permission/reload cases pass on
+Node 24/MongoDB 8 after a clean install, including #8667's repeated denied and
+allowed selected-storage reads. Earlier permission-gate mutations fail.
+
+The disposition is a narrow false positive for alert 107's intentional authorized
+entries predicate flow, not a general sanitizer exemption or acceptance of
+unauthorized query execution. No CodeQL model, rule or path exclusion is added.
+Alert 106 is verified fixed in current analysis; alert 105 has its separate
+recorded disposition. Reopen this review if collection selection, permissions,
+query execution capabilities or caller contracts change.
+
+The entries-cache selection defect is separately reproduced and being fixed in
+#8669; it can return incorrect entries data to a caller who already requires
+entries read permission. This disposition does not declare that behavior correct.
+Query cost/resource limits, backup/restore, remaining URI/TLS compatibility and
+live deployment gates are also not proved by this review. M09/M29 remain open.
