@@ -37,7 +37,10 @@ exports.withPage = async function (origin, run, {expectBlocked = false, hasTouch
       const request = route.request();
       const state = {path: new URL(url).pathname, phase: 'fetch', since: Date.now()};
       routed.set(request, state);
-      const response = await route.fetch({maxRedirects: 0, timeout: 5000});
+      // Keep intercepted fixture requests independent: hosted runs have
+      // stalled in fetch before reaching the server when reusing connections.
+      const response = await route.fetch({maxRedirects: 0, timeout: 5000,
+        headers: {...await request.allHeaders(), connection: 'close'}});
       try {
         const location = response.headers().location;
         if (response.status() >= 300 && response.status() < 400 && location) {
