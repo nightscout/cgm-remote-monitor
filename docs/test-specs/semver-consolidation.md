@@ -9,8 +9,9 @@ The Node floor is compatible (upstream requires Node >=10); Nightscout's accepte
 Node versions and package.json engine range do not change. The used CommonJS APIs
 remain available. Review reference: [upstream changelog](https://github.com/npm/node-semver/blob/main/CHANGELOG.md).
 
-This allows twelve private 7.x copies to use the root instance. One private 6.3.1
-copy remains for make-dir's declared 6.x range; do not force it across a major.
+This allows twelve private 7.x copies to use the root instance. A new private
+6.3.1 copy serves make-dir's declared 6.x range; two existing private 6.3.1 copies
+remain under Istanbul's Babel consumers. Do not force these across a major.
 No unrelated retained package version changes. The net reduction is eleven
 installed paths and two production semver copies.
 
