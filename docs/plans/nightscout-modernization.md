@@ -199,3 +199,7 @@ The user confirmed on 2026-09-05 that all implementation PRs target `chore/night
 The first slice removes direct `async` usage from dataloader, treatments and three notification/voice plugins. [Contracts and validation](../test-specs/callback-tasks.md) document ordering, bounded concurrency, repeated uploads and the remaining full-suite investigation. `bootevent` replacement and boot lifecycle validation remain separate, unfinished M18 work.
 
 - M17 completed in #8637, merged as `c75bead0`. All required CI passed on `b39a98ab`; actual merge tree `fb05920f` matched verification. Native entry transforms retain response/write contracts with paired allocation/latency evidence. The earlier unrelated Firefox report stall remains unexplained and instrumented.
+
+### M23 query leaf conversion in progress
+
+Nine characterization cases now cover the old and scoped local query walker, including mutation, BSON values, prototype-like keys and errors. The replacement removes `traverse` and 70 exclusive transitive package paths without changing retained lock entries. [Contracts and measurements](../test-specs/query-leaves.md) distinguish installed-file savings from unmeasured server heap. Full backend and hosted validation remain required before completion.
