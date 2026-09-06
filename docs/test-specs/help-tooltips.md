@@ -111,7 +111,16 @@ passes a clean Node 22 install/build. Fresh hosted validation remains required.
 
 ## Integration refresh
 
-The candidate incorporates integration 28f4ea4a. A clean Node 22 install/build
+Before the jQuery UI integration, the candidate incorporated 28f4ea4a. A clean Node 22 install/build
 and all 21 focused tooltip/admin cases pass in Chromium/Node 22 and WebKit/Node 24.
 The widget inventory now tolerates removed packages and recognizes selective
 jquery-ui imports. Fresh hosted CI is required for the resulting head.
+
+The subsequent refresh incorporates #8674 at 987e3804. Adjacent manifest/lock
+conflicts were resolved by retaining jquery-ui 1.14.2 and removing only
+jquery.tooltips; every retained lock package record matches the integration base.
+The clean combined Node 22 install/build and 25 tooltip/admin/widget/food cases
+pass in Chromium/Node 22 and WebKit/Node 24. Fresh hosted CI remains required.
+The refreshed matched comparison uses the maintained-UI baseline: app gzip
+increases by 147 bytes, all other JS entries match, and the new help CSS adds
+256 gzip bytes. This removes one dependency but does not save transfer or RAM.

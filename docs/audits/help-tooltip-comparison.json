@@ -1,6 +1,6 @@
 {
-  "baselineCommit": "42fd9a148a72488688730970f293e86486373461",
-  "scope": "Matched Node 22 production builds; gzip measured independently per asset, not a browser network trace. Shared legacy tooltip CSS retained.",
+  "baselineCommit": "987e38040c4a2923a27362a2a829521067202eb2",
+  "scope": "Matched Node 22 production builds with maintained jQuery UI and food-copy fix on both sides. Baseline assets match the hashes recorded in jquery-ui-bundle-comparison.json; subsequent baseline commits change tests/docs only. Gzip is measured independently per asset, not a browser network trace. Shared legacy tooltip CSS retained.",
   "removedPackages": [
     "jquery.tooltips"
   ],
@@ -9,45 +9,57 @@
   "javascript": [
     {
       "entry": "app",
-      "beforeBytes": 1155137,
-      "afterBytes": 1154857,
-      "beforeGzip": 329930,
-      "afterGzip": 330032
+      "beforeBytes": 1028918,
+      "afterBytes": 1029121,
+      "beforeGzip": 295592,
+      "afterGzip": 295739,
+      "beforeSHA256": "2173b65eaee6bf5f864b51a4a02899221553485ad1c7d39e21958dfdaf4619a6",
+      "afterSHA256": "e44ec78db0f93aab3ae8b1e7809855404dffdb059fe686ce7596d86beabf910e"
     },
     {
       "entry": "admin",
-      "beforeBytes": 32025,
-      "afterBytes": 32025,
-      "beforeGzip": 7921,
-      "afterGzip": 7921
+      "beforeBytes": 32069,
+      "afterBytes": 32069,
+      "beforeGzip": 7933,
+      "afterGzip": 7933,
+      "beforeSHA256": "91f37a01345dabd5332ab6b96fb2209c11bc7e0628ae6ae597a626b183ab9f8d",
+      "afterSHA256": "91f37a01345dabd5332ab6b96fb2209c11bc7e0628ae6ae597a626b183ab9f8d"
     },
     {
       "entry": "profile",
       "beforeBytes": 18498,
       "afterBytes": 18498,
       "beforeGzip": 6649,
-      "afterGzip": 6649
+      "afterGzip": 6649,
+      "beforeSHA256": "fb20a691e908237df9da308668e24ca913aebe37e9d6a7cdbfcbc8ebb0a4a6dd",
+      "afterSHA256": "fb20a691e908237df9da308668e24ca913aebe37e9d6a7cdbfcbc8ebb0a4a6dd"
     },
     {
       "entry": "food",
-      "beforeBytes": 15854,
-      "afterBytes": 15854,
-      "beforeGzip": 5303,
-      "afterGzip": 5303
+      "beforeBytes": 15868,
+      "afterBytes": 15868,
+      "beforeGzip": 5316,
+      "afterGzip": 5316,
+      "beforeSHA256": "feb53c9785c02af477d5aa192fa8ea6a3068b8de016fd6ac5176db6703226d92",
+      "afterSHA256": "feb53c9785c02af477d5aa192fa8ea6a3068b8de016fd6ac5176db6703226d92"
     },
     {
       "entry": "reports",
-      "beforeBytes": 170609,
+      "beforeBytes": 170351,
       "afterBytes": 170351,
-      "beforeGzip": 50441,
-      "afterGzip": 50414
+      "beforeGzip": 50414,
+      "afterGzip": 50414,
+      "beforeSHA256": "a00623517a6b6d1f6a4163ff07335f6342adac35f43b7de0e260df3671197494",
+      "afterSHA256": "a00623517a6b6d1f6a4163ff07335f6342adac35f43b7de0e260df3671197494"
     },
     {
       "entry": "clock",
-      "beforeBytes": 150676,
+      "beforeBytes": 150640,
       "afterBytes": 150640,
-      "beforeGzip": 61209,
-      "afterGzip": 61213
+      "beforeGzip": 61213,
+      "afterGzip": 61213,
+      "beforeSHA256": "9c1d2234972ea045712a683565714525f6da32bcde44b2624ddb5965cb8fa310",
+      "afterSHA256": "9c1d2234972ea045712a683565714525f6da32bcde44b2624ddb5965cb8fa310"
     }
   ],
   "newCss": {
@@ -60,8 +72,9 @@
     "lib/client/help-tooltips.js": "e85064fe39e4735b4835e2cccc9c54152e98b0fda444b299a3efc286e85f102d",
     "lib/client/browser-utils.js": "be6f8a28b9ccf13aca86a3266f2047a2f35e28216a4a4990e14a72e194d36e2b",
     "static/css/help-tooltips.css": "505697c281a17b95475006fe86e1d09140be82af66be593c21036e81fbc8889f",
-    "bundle/bundle.source.js": "340a2176624bdca3fb7773d9d97e40ea395395d73822369d78c9dfef17ba44af",
+    "bundle/bundle.source.js": "acef604069d6d82497cc66fcc81e2a84bb45001a7bae1ae0f3650fec7dcec172",
     "views/index.html": "1606ba614f39f5d00aeed62a73a24cd977668cf5ff0a94a44ff9f05d54f46dce",
     "views/service-worker.js": "c8d9a12bacd4d83cf04e7dc5239f6836ab20fa7b01d637e005a45af874fe6b1c"
-  }
+  },
+  "baselineBuildSource": "cb4774adfae487accb27584fc902e19736bdda5b"
 }
