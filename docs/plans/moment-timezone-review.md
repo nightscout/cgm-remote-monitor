@@ -132,8 +132,10 @@ Build with `npm run bundle`, then run
 The probe boots the real app through the owned page-startup fixture, waits for its
 fixture glucose data, and uses `window.moment` from the production app bundle.
 It allows only fixture-origin requests, disconnects both sockets, closes the
-browser/context/server, and fails on uncaught browser errors. This is a manual
-research tool; the normal browser test glob does not execute it.
+browser/context/server, and fails on uncaught browser errors. The normal browser test glob does not execute this research tool. An explicit
+step in each existing browser CI job runs it and saves its JSON output as an
+artifact, without adding a job or environment. Probe failure fails that job;
+recorded formatting differences are evidence, not an assertion of equivalence.
 
 [Browser results](../audits/browser-intl-editor-comparison.json) record bundle and
 probe hashes, browser versions, exact instants and every mismatch. Chromium and

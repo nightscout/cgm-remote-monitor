@@ -206,6 +206,15 @@ jobs:
         env:
           NIGHTSCOUT_TEST_BROWSER: ${{ matrix.browser }}
         run: npm run test:browser
+      - name: Record editor time formatting comparison
+        run: node tools/audits/browser-intl-editor-probe.cjs ${{ matrix.browser }} > editor-time-comparison.json
+      - name: Save editor time formatting evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-time-${{ matrix.node-version }}-${{ matrix.browser }}
+          path: editor-time-comparison.json
+          if-no-files-found: error
+          retention-days: 14
 
   npm12-build:
     name: Validate npm 12 install and build
