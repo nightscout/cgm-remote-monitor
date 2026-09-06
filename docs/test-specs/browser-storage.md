@@ -1,4 +1,4 @@
-# Browser storage migration (M16)
+# Browser storage migration (M16, completed)
 
 The adapter in `lib/client/storage.js` replaces js-storage 1.1.0 for application callers and the shared `window.Storage` export. It uses native local/session storage. Nightscout does not load the optional `Cookies` global used by the old library's cookie fallback; this migration does not add cookies or another persistence backend.
 
@@ -25,3 +25,7 @@ Normal CI leaves that variable unset and exercises the checked-in adapter. Full 
 The expanded compatibility adapter removes one lockfile package entry and changes no retained entries. Against the clean tree-equivalent parent at `6e11941a`, production app and clock each shrink by 1,455 raw bytes. With Node 22.23.2 gzip level 9, app changes from 402,808 to 402,787 bytes and clock from 61,784 to 61,426. The small compressed savings reflect the cost of retaining the public API; the earlier narrow prototype's larger savings are superseded. Clock imports storage indirectly through browser-settings.
 
 After incorporating M15 (`378a33e9`) without conflicts, the shared app is 1,153,108 raw bytes / 331,946 Node gzip bytes, compared with 1,154,563 / 332,151 in the parent. Clock is 150,676 / 61,426, compared with 152,131 / 61,784. All application entries total 404,994 gzip bytes versus 405,201 (207 fewer); clock is separate. Existing M15 bundle/heap/startup budgets remain unchanged. The combined implementation is undergoing fresh validation. No server RSS saving is established. Rollback restores the manifest/lock entry and caller imports together; the persisted browser format remains readable by the previous release.
+
+## Final integration validation
+
+Merged in #8636 as `06e986bb`. All eight backend jobs, six browser jobs, npm 12, CodeQL and both Docker architectures passed on `b00f5b3b`; the actual merge tree matched the verified tree. Local combined Chromium passed 505 cases. An initial local backend run returned an isolated 401 in a profile test; a diagnostic run passed all 1,616 tests with one existing pending, and 1,000 additional cache/auth requests passed with matching owned-server markers. The initial anomaly remains unexplained, not claimed fixed. No server authorization code changed. Earlier pending-gate notes above describe the intermediate implementation.
