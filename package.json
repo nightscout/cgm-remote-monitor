@@ -129,7 +129,7 @@
     "node-cache": "^4.2.1",
     "process": "^0.11.10",
     "pushover-notifications": "^1.2.2",
-    "sanitize-html": "2.17.5",
+    "sanitize-html": "2.17.7",
     "semver": "^6.3.0",
     "share2nightscout-bridge": "^0.2.12",
     "shiro-trie": "^0.4.9",
@@ -165,7 +165,7 @@
     "lodash": "4.18.1",
     "ip-address": "10.7.0",
     "postcss": "8.5.28",
-    "qs": "6.15.1",
+    "qs": "6.16.0",
     "flatted": "3.4.2",
     "picomatch": "2.3.2",
     "ajv@^6.0.0": "6.12.6",
@@ -193,8 +193,8 @@
       "axios": "1.20.0"
     },
     "request": {
-      "form-data": "2.5.5",
-      "qs": "6.15.1",
+      "form-data": "2.5.6",
+      "qs": "6.16.0",
       "tough-cookie": "4.1.4"
     },
     "mongodb": {
