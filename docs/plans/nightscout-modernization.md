@@ -138,6 +138,17 @@ and adds real command/report regression coverage. Production lock entries and
 application bundles are unchanged; development package bytes increase despite
 six fewer paths. Remaining dependency and override reviews keep M09 open.
 
+The [Mocha 12 review](../test-specs/mocha12-modernization.md) adopts native Node
+argument parsing, removes two redundant runner overrides and 40 package paths.
+Runner failure/reporting, YAML defaults and retained parser security contracts
+have consumer coverage; production dependencies and bundles remain unchanged.
+Other M09 dependency and override reviews remain open.
+
+The [XML parser review](../test-specs/xml-parser-review.md) retains test-only
+xml2js 0.5.0: latest 0.6.2 inserts inherited objects/functions into prototype-named
+XML fields on Node 22/24. New regression coverage records the required data
+contract; reconsider a published fix or separately evaluated replacement.
+
 ## Phase 3 — reduce production installation and browser cost
 
 - [ ] **M10 — Separate build from runtime dependencies** (after M01; coordinate with M07 and M11 to avoid lockfile overlap).
