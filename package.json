@@ -102,7 +102,7 @@
     "d3": "^7.9.0",
     "easyxml": "^2.0.1",
     "ejs": "6.0.1",
-    "entities": "^6.0.1",
+    "entities": "8.0.0",
     "errorhandler": "^1.5.1",
     "events": "^3.3.0",
     "express": "^5.2.1",

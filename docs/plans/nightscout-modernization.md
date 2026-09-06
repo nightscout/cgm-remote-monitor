@@ -108,6 +108,12 @@ follow-redirects overrides. Explicit redaction, actual import authentication and
 client isolation have regression coverage; measured installed production files
 shrink by approximately 1 MB, with no measured RAM-saving claim.
 
+The [entities consolidation](../test-specs/entities-consolidation.md) upgrades the
+shared decoder to 8.0.0 and consolidates three installed copies into one, without
+an override. HTML decoding/escaping and sanitization remain required; measured
+package files shrink by 776,553 bytes, with no runtime memory-saving claim.
+This scoped review does not complete M09.
+
 ## Phase 3 — reduce production installation and browser cost
 
 - [ ] **M10 — Separate build from runtime dependencies** (after M01; coordinate with M07 and M11 to avoid lockfile overlap).
