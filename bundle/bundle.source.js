@@ -21,7 +21,6 @@ require('jquery-ui/ui/widgets/sortable');
 
 window.d3 = require('../lib/d3.mjs');
 
-require('jquery.tooltips');
 
 window.Storage = require('../lib/client/storage');
 

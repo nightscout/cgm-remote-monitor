@@ -29,7 +29,7 @@ are served from the actual source assets in the owned fixture. The two theme
 cases also drag and resize a dialog, reopen it twice and check focus restoration.
 These component screenshots/checks are not full application visual equivalence.
 
-## Evidence and remaining gates
+## Initial evidence (superseded by follow-ups below)
 
 Based on #8673 (d48be5e5), so its authorization-editor fix and eight regressions
 must integrate first. Initial clean Node 22 install/build passed. After the
@@ -49,9 +49,10 @@ regular-file bytes: this is a browser-transfer reduction and maintained-package
 migration, not an installed-disk or server-memory saving. The lock replaces one
 package path with one; no retained dependency record/version changes.
 
-M28 remains open. Selective maintained modules are a candidate step toward the
-final retain/narrow/replace decision; food interaction coverage, native-dialog
-comparisons, Flot review and whole-browser cost/compatibility evidence remain.
+M28 remains open. Selective maintained modules are an intermediate step toward
+the final retain/narrow/replace decision. Native-dialog comparisons, Flot review
+and whole-browser cost/compatibility evidence remain; food interaction and API
+storage coverage are recorded in the follow-ups below.
 
 ## Food drag/drop and sorting follow-up
 
@@ -130,3 +131,13 @@ full-page authentication and eight admin-dialog regressions, each of the five
 dialog creation sites now has executable interaction coverage. This does not
 prove every possible failure path, display unit, screen-reader/device or visual
 state. Fresh hosted CI and the recorded accessibility/device review remain open.
+
+## Integration status
+
+#8674 merged into the modernization branch at 987e3804 after all required checks
+passed on 1b89da5b, including six browser jobs and both Docker architectures.
+The actual merged tree matched the reviewed current-base merge tree. The
+initial remaining implementation checks above were addressed by the follow-ups.
+Physical **iPhone Safari with VoiceOver** remains an unperformed final #8605
+release gate before dev; use [the device checklist](iphone-voiceover.md). Child
+integration does not complete M28 or establish spoken accessibility behavior.

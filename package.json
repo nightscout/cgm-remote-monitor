@@ -113,7 +113,6 @@
     "helmet": "^4.0.0",
     "jquery": "^3.5.1",
     "jquery-ui": "^1.14.2",
-    "jquery.tooltips": "^1.0.0",
     "jsonwebtoken": "^9.0.0",
     "mime": "^2.4.6",
     "minimed-connect-to-nightscout": "^1.5.8",
