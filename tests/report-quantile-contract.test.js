@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
-const ss = require('simple-statistics');
+const ss = require('../lib/report/statistics');
 
 describe('Report quantile contracts', function () {
   for (const values of [[], [7], [4, 1, 3, 2], [5, 1, 3], [2, 2, 2, 2], [8.3, 2.8, 5.6, 11.1]]) {

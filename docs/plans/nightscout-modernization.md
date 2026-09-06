@@ -203,3 +203,7 @@ The first slice batches probability requests through the existing simple-statist
 The first slice removes direct `async` usage from dataloader, treatments and three notification/voice plugins. [Contracts and validation](../test-specs/callback-tasks.md) document ordering, bounded concurrency, repeated uploads and the remaining full-suite investigation. `bootevent` replacement and boot lifecycle validation remain separate, unfinished M18 work.
 
 - M17 completed in #8637, merged as `c75bead0`. All required CI passed on `b39a98ab`; actual merge tree `fb05920f` matched verification. Native entry transforms retain response/write contracts with paired allocation/latency evidence. The earlier unrelated Firefox report stall remains unexplained and instrumented.
+
+### M26 local statistics candidate
+
+After the #8644 batching change, a scoped three-operation statistics module can remove simple-statistics while preserving its numeric definitions. [Recorded-oracle validation and bundle measurements](../test-specs/local-report-statistics.md) cover 109 baseline samples, both units and DST chart cases. This candidate depends on the batching work and remains unmerged pending complete validation; M26 is not yet complete.
