@@ -79,3 +79,48 @@ Do not silently carry this result into a replacement as a correctness oracle.
 
 The remaining historical, browser-data-range, locale, duration, output and
 performance comparisons above are still required.
+
+## Isolated native editor-format prototype
+
+`tools/audits/intl-editor-format-probe.cjs` now compares the `YYYY-MM-DD` and
+`HH:mm` shapes used by careportal, bolus calculator and treatment editors.
+It constructs one cached Gregorian/Latin-digit `Intl.DateTimeFormat` per zone
+and assembles named `formatToParts` fields. The explicit hour cycle prevents
+midnight from becoming `24:00`. This is an experiment, not application wiring.
+The API is specified in [ECMA-402](https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.formattoparts).
+
+Run `node tools/audits/intl-editor-format-probe.cjs` after installing the locked
+dependencies. [Recorded comparison](../audits/intl-editor-format-comparison.json)
+includes runtime/ICU/timezone-data versions, source hash, all five alternating
+benchmark rounds, mismatch counts and examples. Each runtime covers 325 cases:
+five zones, five locales and thirteen instants including gap/overlap boundaries,
+1900 history, the 2015/2035 browser-data boundaries and 2036. These runs use full
+server timezone data, so they do not validate the actual clipped browser data.
+
+Both Node 22.23.2 and 24.20.0 match all English/German/French cases. Each records
+130 differences for Arabic/Persian: Moment's locale postformat emits localized
+digits, while this candidate deliberately emits Latin digits. Deciding which
+representation is correct for an HTML input requires actual locale-aware editor
+validation; neither silent normalization nor copying the old output is justified
+by this formatting-only comparison.
+
+Median milliseconds for 5,000 date-and-time pairs across five alternating rounds:
+
+| Runtime | Moment | Cached Intl | New Intl formatter per call |
+| --- | ---: | ---: | ---: |
+| Node 22.23.2 | 5.38 | 12.55 | 149.26 |
+| Node 24.20.0 | 6.10 | 10.77 | 144.38 |
+
+The candidate function is 508 source bytes / 319 gzip bytes. Those are standalone
+source sizes, not a production bundle delta. Moment remains required elsewhere,
+so adopting this helper alone removes no package. This process loads both paths;
+no retained heap, allocation or server RSS saving is established. The benchmark
+uses pre-parsed instants and includes Moment zone conversion plus both formatting
+calls. It does not compare parsing, application throughput or therapy outputs.
+
+Decision for this prototype: do not replace editor formatting yet. It has no
+measured package saving, is slower in this bounded run and changes locale output.
+This is not a final decision to retain Moment everywhere. The shared browser
+corpus, fixed-offset profiles, translated report labels, durations, therapy
+outputs, maintained alternative and final retain/narrow/replace decision remain
+required before M27 is complete.
