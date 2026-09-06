@@ -111,3 +111,22 @@ fixture change. The bundle comparison includes the resulting food-page change.
 
 Fresh full CI and the remaining application-dialog/device/accessibility checks
 are still required before merging this candidate.
+
+## Remaining dialog interaction follow-up
+
+The production report treatment editor now has repeated focus-on-open, Cancel,
+Escape, no-write-on-dismissal and saved-value restoration assertions alongside
+its existing exact treatment-save payload checks. The bolus food picker gains
+a two-cycle case for initial focus, default portions, zero-portion rejection,
+Escape without selection, independent repeated food selections and no implicit
+treatment submission.
+
+The careportal fixture enables the actual food feature and loads its UI theme.
+Food enters through the production dataUpdate path; direct sandbox assignment
+was racy because normal client refreshes replace that data. No expected widget
+behavior was relaxed to resolve the fixture issue. All 25 report/careportal cases
+pass on Chromium/Node 22.23.2 and WebKit/Node 24.20.0. Together with existing
+full-page authentication and eight admin-dialog regressions, each of the five
+dialog creation sites now has executable interaction coverage. This does not
+prove every possible failure path, display unit, screen-reader/device or visual
+state. Fresh hosted CI and the recorded accessibility/device review remain open.
