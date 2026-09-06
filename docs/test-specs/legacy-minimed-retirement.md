@@ -25,10 +25,24 @@ including its obsolete request stack. Migration is described in
   floors; all 14 new MiniMed logging regressions fail against the old provider.
   These use the actual Axios client with an owned adapter, not vendor traffic.
 
+- Owned HTTPS fixture through the installed package passes on both Node floors:
+  rejected untrusted certificates transmit no credentials; successful SSO uses
+  real redirects and cookies, fetches data, refreshes tokens, reuses sessions,
+  reauthenticates after expiry and clears actor timers across two lifecycles.
+  Run `tests/connect-minimed-transport.test.js`; its isolated child process
+  loads only the owned CA and never disables certificate verification.
+- Full local Node 24/MongoDB 8 suite on the original candidate: 1,910 passing,
+  one existing pending. Later transport fixtures and integration-base changes
+  require current-head CI.
+
 ## Outstanding before integration
 
-- Owned HTTPS authentication/consent/cookie/refresh fixture through the installed
-  Connect package, including certificate rejection and reconnect/teardown.
+- Data review found provider regressions: unmatched/missing lastSG drops the
+  latest reading, status uses fetch time and duplicates on repeated polls,
+  legacy IOB/uploader fields differ, and a UTC conduit offset can be invalid.
+  A separate local Connect patch has seven failing-before/passing-after cases
+  and all 77 upstream tests pass on both Node floors. Publication authorization
+  is pending; the retirement still pins the logging-only fix.
 - Old/new glucose and pump payload comparisons, trend/timestamp handling and
   duplicate behavior across cutover, including the intentional retirement of
   raw CareLink storage. Verify normal pump presentation with replacement data.
