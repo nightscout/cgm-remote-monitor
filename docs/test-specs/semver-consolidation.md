@@ -32,7 +32,9 @@ Validation:
   algorithms and mismatched EC curves. These exercise semver-dependent key
   validation paths with owned keys and no network/provider traffic.
 - Existing dependency tests cover the build/test consumers now sharing semver.
-  Full current-head CI remains required before integration.
+- Full local Node 22.23.2/MongoDB 6 backend coverage run passes 1,947 tests with
+  one existing pending case. Full current-head hosted CI remains required
+  before integration.
 
 There is no visual UI change or user configuration migration. Authentication and
 runtime startup behavior are relevant regression boundaries. Revert the root
