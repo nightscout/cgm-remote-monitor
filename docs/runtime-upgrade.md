@@ -61,3 +61,9 @@ storage is selected, in addition to the existing `api:entries:read` gate.
 An entries-only token can no longer read those other collections through these
 routes. Grant the specific additional read permission to clients that need it.
 Entries reads and the existing unknown-storage fallback remain unchanged.
+
+### Slice responses use the requested collection
+
+Type-only treatment/device-status slice requests no longer return entries-cache
+records. These requests now read the selected collection. Entries slices keep
+their existing cache path; selected-storage permission requirements still apply.
