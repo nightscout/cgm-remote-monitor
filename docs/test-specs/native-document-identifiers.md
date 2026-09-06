@@ -28,7 +28,9 @@ package rather than adding ESM interoperability for a single v5 call. The
 lockfile removes one package path with no additions or retained entry changes.
 Removed installed regular-file contents total 134,222 bytes. Clean npm ci and
 production build pass; all six browser bundles match the DST parent build.
-Full API/duplicate-upload/update validation and hosted checks remain required.
+The full backend/API suite passes 1,658 tests with one existing pending on
+Node 22.23.2/MongoDB 6, including duplicate upload/update and identity cases.
+The branch is refreshed to include M20; hosted combined checks remain required.
 No server heap saving is claimed from this file-size measurement.
 
 No database migration or identifier rewrite is allowed. Rollback restores the

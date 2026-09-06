@@ -206,3 +206,6 @@ The second slice, #8640, replaces bootevent and its nested chain with a local fo
 
 - M17 completed in #8637, merged as `c75bead0`. All required CI passed on `b39a98ab`; actual merge tree `fb05920f` matched verification. Native entry transforms retain response/write contracts with paired allocation/latency evidence. Browser transport diagnostics and the fixture connection-close mitigation were integrated in #8639; the earlier intermittent stall's cause remains unproven.
 
+### M08 native identifier candidate
+
+UUID major review found only one production v5 call. A scoped node:crypto implementation preserves the persisted namespace, key, UUID bits and malformed-Unicode rejection. [Reference vectors and validation](../test-specs/native-document-identifiers.md) cover fixed IDs, 264 old/new comparisons, repeat processing and full API validation. The candidate removes the direct UUID package; it remains unmerged pending hosted validation. Babel/preset/loader review remains open.
