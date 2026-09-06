@@ -156,3 +156,17 @@ could not be found, including a retry using `/private/tmp`. Firefox comparison
 remains outstanding; passing Chromium/WebKit results cannot substitute for it.
 These are formatting-shape checks, not locale-aware editor input/save, historical
 report, therapy or screen-reader validation. M27 remains open.
+
+## Hosted Firefox comparison completed
+
+The [hosted comparison evidence](../audits/hosted-intl-editor-comparison.json)
+now includes all four existing browser jobs, including Firefox. Each artifact's
+recorded checkout commit was resolved to a tree and verified against tested head
+`adb348f6`. All four runs report 65 cases and the same three historical
+differences; Firefox therefore agrees with Chromium/WebKit for this corpus.
+The earlier local Firefox launch failure remains a local tooling limitation,
+not an outstanding cross-engine comparison for these formatting cases.
+
+These artifacts precede the subsequent refresh with #8689 and documentation
+changes. Current-head CI/artifact validation is still required before merging
+this PR. They do not complete editor interactions or the broader M27 decision.
