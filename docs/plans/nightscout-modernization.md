@@ -144,6 +144,11 @@ Runner failure/reporting, YAML defaults and retained parser security contracts
 have consumer coverage; production dependencies and bundles remain unchanged.
 Other M09 dependency and override reviews remain open.
 
+The [XML parser review](../test-specs/xml-parser-review.md) retains test-only
+xml2js 0.5.0: latest 0.6.2 inserts inherited objects/functions into prototype-named
+XML fields on Node 22/24. New regression coverage records the required data
+contract; reconsider a published fix or separately evaluated replacement.
+
 ## Phase 3 — reduce production installation and browser cost
 
 - [ ] **M10 — Separate build from runtime dependencies** (after M01; coordinate with M07 and M11 to avoid lockfile overlap).
