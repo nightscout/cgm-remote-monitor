@@ -16,6 +16,7 @@ describe('Status REST api', function ( ) {
     env.api_secret = 'this is my long pass phrase';
     this.wares = require('../lib/middleware/')(env);
     this.app = require('express')( );
+    require('../lib/middleware/configure-request')(this.app);
     this.app.enable('api');
     var self = this;
     require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {

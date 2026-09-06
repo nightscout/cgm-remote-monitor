@@ -12,6 +12,7 @@ function raw (peer, headers = {}) { return { socket: { remoteAddress: peer }, he
 
 function appFor (trustProxy) {
   const app = express();
+  require('../lib/middleware/configure-request')(app);
   const trust = compileTrust(trustProxy);
   app.set('trust proxy', trust);
   app.get('/', (req, res) => res.json({ ip: getClientIP(req, trust), expressIP: req.ip, secure: req.secure, hostname: req.hostname }));
