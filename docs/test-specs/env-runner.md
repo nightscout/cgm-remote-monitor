@@ -36,3 +36,12 @@ to retained entries. Removed regular-file contents total 139,284 bytes, counting
 the nested commander files only once. The runner is not a server-memory optimization: npm start
 already invokes the server directly. Rollback restores package scripts and the
 manifest/lockfile together, then removes the helper.
+
+The first full covered run exposed a real signal-exit race: the new wrapper
+could exit naturally with code zero after its child closed, before its own
+SIGTERM was delivered. The old runner retained SIGTERM under the same probe.
+The signal path now holds the event loop briefly until delivery, matching the
+usual foreground-child pattern. Both old and new now report SIGTERM under
+coverage. The unchanged 12 native cases pass under nyc on Node 22 and 24;
+the normal old/new comparison has 19 cases. The full covered suite is rerun
+before considering the candidate ready.

@@ -58,8 +58,12 @@ if (require.main === module) {
   child.once('error', error => {cleanup(); console.error(error.message); process.exitCode = 1;});
   child.once('exit', (code, signal) => {
     cleanup();
-    if (requestedSignal || signal) process.kill(process.pid, requestedSignal || signal);
-    else process.exitCode = code;
+    if (requestedSignal || signal) {
+      // Keep the loop alive until the signal is delivered. Exit hooks such
+      // as coverage can otherwise let a natural zero exit win this race.
+      setTimeout(() => {}, 2000);
+      process.kill(process.pid, requestedSignal || signal);
+    } else process.exitCode = code;
   });
 }
 module.exports = parseEnv;
