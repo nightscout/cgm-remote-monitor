@@ -124,3 +124,33 @@ This is not a final decision to retain Moment everywhere. The shared browser
 corpus, fixed-offset profiles, translated report labels, durations, therapy
 outputs, maintained alternative and final retain/narrow/replace decision remain
 required before M27 is complete.
+
+## Actual production browser-bundle comparison
+
+Build with `npm run bundle`, then run
+`node tools/audits/browser-intl-editor-probe.cjs chromium` (or `webkit`/`firefox`).
+The probe boots the real app through the owned page-startup fixture, waits for its
+fixture glucose data, and uses `window.moment` from the production app bundle.
+It allows only fixture-origin requests, disconnects both sockets, closes the
+browser/context/server, and fails on uncaught browser errors. This is a manual
+research tool; the normal browser test glob does not execute it.
+
+[Browser results](../audits/browser-intl-editor-comparison.json) record bundle and
+probe hashes, browser versions, exact instants and every mismatch. Chromium and
+WebKit expose only `en` in the built Moment locale registry: the German, French,
+Arabic and Persian modules explicitly loaded in the server experiment are absent.
+The 130 locale differences from that experiment therefore do not demonstrate a
+regression in this browser bundle. App/D3 translations are a separate contract.
+
+For the actual available locale, both engines agree on 62 of 65 cases. Three
+1900-01-01 instants differ: Lord Howe is 11:00 in bundled Moment versus 10:00 in
+Intl; Kathmandu is 05:45 versus 05:41; Gaza is 02:00 versus 02:17. Full server
+Moment matched Intl on those cases, while the browser build clips timezone data
+to 2015–2035. The historical display discrepancy must be decided explicitly; this
+probe does not establish clinical correctness or authorize changing old records.
+
+Local Firefox failed before page execution because its temporary profile folder
+could not be found, including a retry using `/private/tmp`. Firefox comparison
+remains outstanding; passing Chromium/WebKit results cannot substitute for it.
+These are formatting-shape checks, not locale-aware editor input/save, historical
+report, therapy or screen-reader validation. M27 remains open.

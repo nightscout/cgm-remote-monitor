@@ -28,6 +28,7 @@ const instants = [
   '2024-10-05T15:29:00Z', '2024-10-05T15:30:00Z',
   '2035-12-31T23:59:00Z', '2036-01-01T00:00:00Z'
 ].map(value => Date.parse(value));
+function run() {
 const rows = [];
 for (const zone of zones) {
   const format = createFormatter(zone);
@@ -70,3 +71,7 @@ console.log(JSON.stringify({
   cases: rows.length, mismatches: rows.filter(row => !row.equal), timings,
   caveats: 'Formatter size is standalone source, not a bundled delta. Both libraries remain loaded in this process. No retained heap, allocation or server RSS saving is established.'
 }, null, 2));
+
+}
+module.exports = {createFormatter, zones, instants};
+if (require.main === module) run();
