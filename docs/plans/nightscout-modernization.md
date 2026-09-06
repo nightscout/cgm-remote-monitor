@@ -198,7 +198,11 @@ The user confirmed on 2026-09-05 that all implementation PRs target `chore/night
 
 The first slice batches probability requests through the existing simple-statistics API in four report plugins and reuses hourly reading arrays. [Validation and measurements](../test-specs/batched-report-quantiles.md) record the sort reduction and paired computation samples. Cross-unit and DST chart goldens pass against both the scalar and batching implementations. The library remains installed; refreshed hosted validation and the separate local-statistics candidate #8647 remain open.
 
-### M18 callback and boot sequence work in progress
+### M20 Express parser ownership in progress
+
+Application parser imports now use Express's public parser functions, retaining the existing options and middleware order. [Validation notes](../test-specs/express-parsers.md) cover the shared implementations and regression suite. Only the direct declaration is removed; the transitive package and runtime memory remain. Validation against the refreshed integration branch remains required.
+
+### M18 callback and boot sequence work
 
 The first slice, #8639, merged as `a92d0882` after all required CI passed and the actual merge tree matched verification. It removes direct `async` usage from dataloader, treatments and three notification/voice plugins. [Callback contracts and validation](../test-specs/callback-tasks.md) cover ordering, bounded concurrency and repeated uploads.
 
