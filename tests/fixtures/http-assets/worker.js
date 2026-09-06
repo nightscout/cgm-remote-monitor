@@ -83,6 +83,13 @@ async function run() {
   const app = createApp(env, ctx);
   app.locals.cachebuster = 'http-contract';
   const client = await serve(app);
+  for (const [route, apiPath] of [['/api-docs/', '/api/v1'], ['/api3-docs/', '/api/v3']]) {
+    await client.get(route).expect(200).expect('Content-Type', /text\/html/);
+    const init = await client.get(route + 'swagger-ui-init.js').expect(200);
+    assert.ok(init.text.includes('"url": "' + apiPath + '"'), route + ' keeps its own API schema');
+  }
+  await client.get('/swagger-ui-dist/').expect(307).expect('Location', '/api-docs');
+  await client.get('/api/v3/swagger-ui-dist/').expect(307).expect('Location', '../../../api3-docs');
   const bundlePrefix = development ? '/devbundle' : '/bundle';
   const results = [];
   const sources = [

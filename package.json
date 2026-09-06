@@ -127,8 +127,8 @@
     "shiro-trie": "^0.4.9",
     "socket.io": "~4.8.3",
     "socks": "2.8.10",
-    "swagger-ui-dist": "^4.13.2",
-    "swagger-ui-express": "^4.5.0"
+    "swagger-ui-dist": "5.32.15",
+    "swagger-ui-express": "5.0.1"
   },
   "devDependencies": {
     "@babel/core": "^8.0.1",
@@ -178,5 +178,8 @@
     "js-yaml@^3.0.0": "3.15.2",
     "js-yaml@^4.0.0": "4.3.2",
     "fast-uri@^3.0.0": "3.1.7"
+  },
+  "scarfSettings": {
+    "enabled": false
   }
 }
