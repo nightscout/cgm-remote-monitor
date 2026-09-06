@@ -202,7 +202,7 @@ reconnection. The parser override does not rewrite the prebuilt browser
 client, so both paths remain required.
 
 The fast-uri dependency checks resolve Ajv through each installed consumer
-(webpack, webpack-dev-middleware, minimizer-webpack-plugin, ajv-formats and table).
+(webpack, webpack-dev-middleware, minimizer-webpack-plugin and ajv-formats).
 They exercise external references, escaped JSON pointers and case-sensitive
 schema IDs, as well as URI security boundaries. Keep the fast-uri override
 scoped to 3.x while these consumers require it; a 4.x migration changes Unicode
@@ -360,3 +360,8 @@ Development hot updates use webpack-dev-middleware for both assets and the
 preserve unsaved input without automatic reload fallback. See the
 [webpack/HMR review](docs/test-specs/webpack-refresh.md) for migration and
 regression coverage.
+
+Lint configuration is maintained in `eslint.config.cjs`. `npm run lint` reports
+CLI rule severities; development webpack builds display the same diagnostics as
+non-blocking warnings. Existing lint debt and the public-API integration are
+documented in the [ESLint modernization review](docs/test-specs/eslint-modernization.md).
