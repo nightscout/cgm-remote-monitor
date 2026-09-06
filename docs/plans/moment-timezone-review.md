@@ -152,8 +152,8 @@ to 2015–2035. The historical display discrepancy must be decided explicitly; t
 probe does not establish clinical correctness or authorize changing old records.
 
 Local Firefox failed before page execution because its temporary profile folder
-could not be found, including a retry using `/private/tmp`. Firefox comparison
-remains outstanding; passing Chromium/WebKit results cannot substitute for it.
+could not be found, including a retry using `/private/tmp`. The hosted results
+below provide the missing Firefox comparison for this corpus.
 These are formatting-shape checks, not locale-aware editor input/save, historical
 report, therapy or screen-reader validation. M27 remains open.
 
@@ -170,3 +170,8 @@ not an outstanding cross-engine comparison for these formatting cases.
 These artifacts precede the subsequent refresh with #8689 and documentation
 changes. Current-head CI/artifact validation is still required before merging
 this PR. They do not complete editor interactions or the broader M27 decision.
+
+The [Luxon contract comparison](luxon-contract-review.md) adds a maintained
+alternative on the same server formatting corpus. It records explicit overlap
+selection and mutation incompatibilities, a bounded compatibility adapter, and
+CPU measurements. It does not complete the remaining migration decision.
