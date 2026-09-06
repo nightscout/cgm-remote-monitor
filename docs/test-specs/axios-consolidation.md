@@ -60,6 +60,9 @@ This is not a Docker-image or runtime-memory measurement.
 
 After pruning development and optional dependencies, the full runtime startup,
 config import, six page/bundle and static/Socket.IO asset checks pass on both
+Node versions. After refreshing onto SASLprep merge `8bd5ab4a`, a fresh
+install/build, all 40 combined Axios/Connect/SASLprep tests, and the complete
+pruned runtime checks (including Unicode SCRAM authentication) pass on both
 Node versions. Hosted current-base CI remains required before merge.
 
 Upstream: [Axios 1.20.0 release](https://github.com/axios/axios/releases/tag/v1.20.0).

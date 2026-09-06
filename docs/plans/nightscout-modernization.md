@@ -98,6 +98,12 @@ The [SASLprep review](../test-specs/saslprep-modernization.md) removes its redun
 root declaration because driver 7.6 declares it as required, resolves 1.5.0,
 and adds Unicode SCRAM authentication checks to existing runtime CI jobs.
 
+The [Axios consolidation](../test-specs/axios-consolidation.md) upgrades config
+imports to the same 1.20 client used by Connect and removes redundant Axios and
+follow-redirects overrides. Explicit redaction, actual import authentication and
+client isolation have regression coverage; measured installed production files
+shrink by approximately 1 MB, with no measured RAM-saving claim.
+
 ## Phase 3 — reduce production installation and browser cost
 
 - [ ] **M10 — Separate build from runtime dependencies** (after M01; coordinate with M07 and M11 to avoid lockfile overlap).
