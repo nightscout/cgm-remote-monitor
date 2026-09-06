@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const {randomUUID} = require('node:crypto');
+const {EventEmitter} = require('node:events');
 const {MongoClient} = require('mongodb');
 const express = require('express');
 const request = require('supertest');
@@ -10,7 +11,7 @@ const qs = require('qs');
 describe('Entries predicate permission boundary', function () {
   this.timeout(15000);
   const name = 'owned_entries_query_' + randomUUID().replaceAll('-', '');
-  let client, collection, server, authorization, reads = 0, cacheReads = 0;
+  let client, collection, server, authorization, reads = 0, cacheReads = 0, deletes = 0;
   before(async function () {
     client = new MongoClient(process.env.CUSTOMCONNSTR_mongo || 'mongodb://127.0.0.1:27017/test', {monitorCommands:true});
     await client.connect();
@@ -19,9 +20,10 @@ describe('Entries predicate permission boundary', function () {
     await collection.insertMany([1, 2, 3].map(i => ({date:1700000000000 + i * 300000, sgv:100 + i, type:'sgv'})));
     client.on('commandStarted', event => {
       if (event.commandName === 'find' && event.command.find === name) reads++;
+      if (event.commandName === 'delete' && event.command.delete === name) deletes++;
     });
     const env = {settings:{authDefaultRoles:'owned-role', authFailDelay:0}, authentication_collections_prefix:name + '_auth_'};
-    const ctx = Object.assign({}, require('./inithelper')().ctx, {store:db,
+    const ctx = Object.assign({}, require('./inithelper')().ctx, {store:db, bus:new EventEmitter(),
       cache:{entries:[], getData:() => {cacheReads++; return [];}}, ddata:{sgvs:[]}});
     authorization = ctx.authorization = require('../lib/authorization')(env, ctx);
     authorization.storage.roles = [{name:'owned-role', permissions:[]}];
@@ -74,4 +76,24 @@ describe('Entries predicate permission boundary', function () {
       assert.equal(await collection.countDocuments(), 3);
     }
   });
+  it('guards executable delete filters while preserving authorized predicate deletion twice', async function () {
+    authorization.storage.roles[0].permissions = ['api:entries:read', 'api:entries:delete'];
+    for (let cycle = 0; cycle < 2; cycle++) {
+      for (const find of [{$where:'true'}, {$or:[{$where:'true'}]},
+        {$expr:{$function:{body:'function(){return true}',args:[],lang:'js'}}}]) {
+        const before = deletes;
+        const result = await request(server).delete(url(find));
+        assert(result.status >= 400 && result.status < 600);
+        assert.notEqual(result.status, 401, 'Authorized requests must reach query validation');
+        assert.equal(deletes, before, 'No executable predicate reaches MongoDB');
+        assert.equal(await collection.countDocuments(), 3);
+      }
+      await collection.insertOne({date:1700000000000, sgv:250, type:'sgv'});
+      const before = deletes;
+      await request(server).delete(url({date:{$gte:0}, sgv:{$gte:250}})).expect(200);
+      assert.equal(deletes, before + 1);
+      assert.equal(await collection.countDocuments(), 3);
+    }
+  });
+
 });
