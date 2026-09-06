@@ -614,21 +614,25 @@ Legacy polling/retry settings no longer configure ingestion. Mixed legacy Dexcom
 and non-Dexcom Connect configurations require operator migration.
 
 See the [15.0.9 migration guide](docs/runtime-upgrade.md#legacy-dexcom-bridge-retirement-in-1509)
-for settings, changed behavior and rollback. MiniMed support is separate.
+for settings, changed behavior and rollback. MiniMed migration is described below.
 
-##### `mmconnect` (MiniMed Connect bridge)
+##### `mmconnect` (retired in 15.0.9)
 
-> **Deprecated** Please consider using the `connect` plugin instead.
+Use Nightscout Connect with `CONNECT_SOURCE=minimedcarelink`,
+`CONNECT_CARELINK_USERNAME`, `CONNECT_CARELINK_PASSWORD` and
+`CONNECT_COUNTRY_CODE` (the two-letter country where the account was created).
+The bundled `minimed-connect-to-nightscout` engine is removed.
 
-  Transfer real-time MiniMed Connect data from the Medtronic CareLink server into Nightscout ([read more](https://github.com/mddub/minimed-connect-to-nightscout))
-  * `MMCONNECT_USER_NAME` - Your user name for CareLink Connect.
-  * `MMCONNECT_PASSWORD` - Your password for CareLink Connect.
-  * `MMCONNECT_INTERVAL` (`60000` *1 minute*) - Number of milliseconds to wait between requests to the CareLink server.
-  * `MMCONNECT_MAX_RETRY_DURATION` (`32`) - Maximum number of total seconds to spend retrying failed requests before giving up.
-  * `MMCONNECT_SGV_LIMIT` (`24`) - Maximum number of recent sensor glucose values to send to Nightscout on each request.
-  * `MMCONNECT_VERBOSE` - Set this to "true" to log CareLink request information to the console.
-  * `MMCONNECT_STORE_RAW_DATA` - Set this to "true" to store raw data returned from CareLink as `type: "carelink_raw"` database entries (useful for development).
-  * `MMCONNECT_SERVER` - Set this to `EU` if you're using the European Medtronic services
+Complete `MMCONNECT_USER_NAME`/`MMCONNECT_PASSWORD` credentials map to Connect
+when `CONNECT_COUNTRY_CODE` is supplied; explicit Connect values take precedence.
+`MMCONNECT_SERVER=EU`/`US` maps to the corresponding Connect region. The country
+cannot be inferred from that region, so missing country configuration prevents
+the replacement from starting and produces migration instructions.
+
+Legacy interval, retry, SGV-limit, verbose and raw-data storage flags are retired.
+Connect owns scheduling and ingestion. Existing `carelink_raw` records are not
+deleted. See the [MiniMed migration guide](docs/runtime-upgrade.md#legacy-minimed-mmconnect-retirement-in-1509)
+for configuration, changed behavior and validation before upgrading.
 
 ##### `pump` (Pump Monitoring)
   Generic Pump Monitoring for OpenAPS, MiniMed Connect, RileyLink, t:slim, with more on the way
