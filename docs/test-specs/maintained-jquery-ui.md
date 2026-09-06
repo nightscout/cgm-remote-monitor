@@ -52,3 +52,19 @@ package path with one; no retained dependency record/version changes.
 M28 remains open. Selective maintained modules are a candidate step toward the
 final retain/narrow/replace decision; food interaction coverage, native-dialog
 comparisons, Flot review and whole-browser cost/compatibility evidence remain.
+
+## Food drag/drop and sorting follow-up
+
+`tests/browser/food-widget-interactions.test.js` opens the production food page
+with owned food/quick-pick records. Over two cycles it drags the original food
+into different quick picks, changes portions, checks displayed carbohydrate
+totals, drags the quick-pick ordering and checks each serialized PUT's identifier,
+position, food identifier, portions and carbohydrate total. It requires exactly
+one update per quick pick and preserves the source food row. These assertions
+cover the browser/API boundary; they do not claim MongoDB persistence.
+
+The same case passes on the old UI bundle at d48be5e5 with Chromium/Node 22 and
+on this candidate with Chromium/Node 22 and WebKit/Node 24. Touch and keyboard
+alternatives, server round-trip reloads and full device/accessibility evidence
+remain open. #8673 has now merged into integration; this candidate is refreshed
+onto that merge before its next CI run.
