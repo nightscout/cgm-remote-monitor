@@ -36,7 +36,9 @@ valid full npm dependency tree, 286 dependency cases on Node 22 and eight
 focused CLI/WebSocket cases on Node 24. The actual Node 24 development build
 produces reports for all six bundles; the standalone HTML renders in Chromium
 without JavaScript errors. Full/production audits report zero known advisories.
-Full current-head hosted CI remains required before merge.
+The final Node 24 backend run passes 2,079 tests with one existing pending case;
+the earlier Node 22 run passed 2,078 before the added YAML case and peer-layout
+correction. Hosted Node 22/24 checks remain required on the final head before merge.
 
 Matched clean Node 22 installations have 838 -> 832 lockfile package paths.
 Summing regular package-owned files (excluding nested node_modules and symlinks)
