@@ -289,8 +289,9 @@ removes the local plugin and its dependency chain, provides explicit account
 country/conflicting-feed migration errors, and pins the MiniMed logging fix from
 Connect PR #64. Configuration/lifecycle and active-consumer dependency tests are
 in place. Owned HTTPS/session/cookie/teardown fixtures pass on both Node floors.
-Data-contract fixes and cutover fixtures, full current-head CI and live
-vendor/hosting migration validation remain outstanding; M29 is still open.
+Data-contract fixes are pinned from Connect #65 and owned cutover fixtures pass.
+Full current-head CI and live vendor/hosting migration validation remain
+outstanding; M29 is still open.
 
 ### M22 explicit trusted-proxy policy
 

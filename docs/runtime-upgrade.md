@@ -186,8 +186,8 @@ Connect uses its own scheduling, session refresh and retry behavior. It does not
 continue the old optional `carelink_raw` storage feature. Existing database
 records and historical glucose/pump data are not deleted or rewritten.
 
-The candidate pins Connect commit `5349d479f84fe455c4a0412dc9df53e84cd2582d`,
-including the MiniMed logging fix in upstream PR #64 (still open for review).
+The candidate pins Connect commit `c962a13fee9a7a5ca160ab5e3fb231d35cadf294`,
+including the logging fix in upstream PR #64 and data fixes in #65 (both open for review).
 Provider operation labels replace raw credential, cookie, token and patient-data
 logs. CLI capture output and other providers are outside that logging fix.
 
@@ -198,3 +198,14 @@ fixtures do not prove live CareLink compatibility. Retain the previous release
 artifact and configuration plus a database backup for rollback; do not run both
 local engines against the same feed. Never downgrade MongoDB as a proxy for an
 application rollback.
+
+
+Connect may backfill older glucose readings instead of applying the retired
+engine's 20-minute stale-response cutoff. Measurement timestamps are preserved;
+old pump status must not be relabelled with fetch time. The pinned data fix also
+preserves valid readings when trend metadata is absent or mismatched, restores
+legacy nested IOB/uploader fields and avoids repeated status across cutover.
+Device identifiers change from `connect-<family>` to
+`nightscout-connect://minimedcarelink/<family>`; filters that match the old device
+name need updating. Owned regression fixtures cover these changes; verify actual
+account/device behavior before release.

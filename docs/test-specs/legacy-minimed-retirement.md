@@ -13,15 +13,16 @@ including its obsolete request stack. Migration is described in
   missing country; one Connect instance and one teardown per lifecycle.
 - Removed obsolete request/HAR tests; preserved relevant qs and Axios consumer
   regressions through Express and Connect. Sixty-five focused compatibility and
-  dependency checks pass on Node 22.23.2 and 24.20.0 with the fixed package pin.
+  dependency checks plus seven transport/cutover checks (72 total) pass on Node
+  22.23.2 and 24.20.0 with the final package pin.
 - Clean install and production build on Node 22.
 - Lockfile removes 32 package paths, adds none. Remaining shared packages that
   lose their production consumer become dev-only; no unrelated retained package
   versions change. Connect is updated to immutable commit
-  5349d479f84fe455c4a0412dc9df53e84cd2582d.
+  c962a13fee9a7a5ca160ab5e3fb231d35cadf294.
 - Production npm audit on 2026-09-06 reports zero known vulnerabilities. This is
   registry evidence, not a guarantee that the application is vulnerability-free.
-- Upstream Connect PR #64 remains open. All 70 upstream tests pass on both Node
+- Upstream Connect PRs #64 and #65 remain open. All 78 upstream tests pass on both Node
   floors; all 14 new MiniMed logging regressions fail against the old provider.
   These use the actual Axios client with an owned adapter, not vendor traffic.
 
@@ -35,19 +36,25 @@ including its obsolete request stack. Migration is described in
   one existing pending. Later transport fixtures and integration-base changes
   require current-head CI.
 
+## Data cutover checks
+
+- The candidate now pins the data fixes in upstream Connect #65 (stacked on #64).
+  Seven data regressions fail against the prior provider; all 78 upstream tests
+  pass on both Node floors including the internal-output logging regression.
+- Six installed-package cutover cases compare glucose and pump/Guardian fields
+  against goldens captured from retired minimed-connect-to-nightscout 1.5.8 using
+  owned EU/UTC payloads. They preserve existing trends, timestamps, IOB, uploader
+  battery and pump selection values; repeated cutover batches emit no duplicate
+  status. A backfill case verifies old measurements retain their age rather than
+  appearing newly observed. Device identity deliberately changes to Connect's
+  source URI; raw
+  CareLink records are no longer produced. These are bounded fixtures, not a
+  claim covering every service/device/timezone payload.
+
 ## Outstanding before integration
 
-- Data review found provider regressions: unmatched/missing lastSG drops the
-  latest reading, status uses fetch time and duplicates on repeated polls,
-  legacy IOB/uploader fields differ, and a UTC conduit offset can be invalid.
-  A separate local Connect patch has seven failing-before/passing-after cases
-  and all 77 upstream tests pass on both Node floors. Publication authorization
-  is pending; the retirement still pins the logging-only fix.
-- Old/new glucose and pump payload comparisons, trend/timestamp handling and
-  duplicate behavior across cutover, including the intentional retirement of
-  raw CareLink storage. Verify normal pump presentation with replacement data.
-- Full current-head CI and exact merge-tree review. Keep the child PR draft until
-  implementation-level evidence is complete.
+- Full current-head CI and exact merge-tree review. Implementation fixtures are
+  complete; live vendor/hosting checks remain integration-release gates.
 
 ## Release validation
 
