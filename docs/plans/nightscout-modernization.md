@@ -76,24 +76,24 @@ At the audit baseline, completed foundations were: D3 7.9.0, jsdom-backed test t
 
   Other files: manifests, `.babelrc`, webpack rules and `tests/dependency-{babel,uuid}.test.js`. Review required Babel/preset/loader and UUID releases, engine ranges, CommonJS/ESM loading and API changes before installing them. Babel must preserve supported-browser transforms/build output; UUID must preserve deterministic v5 vectors, persisted identifiers and duplicate upload/update cycles. Native random UUID v4 is not a replacement. Test exact supported runtime floors and full CI. A higher Node floor enables review, not automatic major-version compatibility.
 
-- [ ] **M09 — Review remaining maintained releases and security overrides** (after M07 where runtime requires it; ongoing).
+- [x] **M09 — Review remaining maintained releases and security overrides** (review and compatible updates complete in the final integration tree).
   Files: manifests, each actual consumer and `tests/dependency-*.test.js`. Re-run production/full audits and `npm explain`; track each finding as reachable, build/test-only, mitigated or awaiting upstream work, with evidence. Prioritize reachable issues and unmaintained transitive chains; review Express/Helmet, MongoDB, loaders/lint/build tools and providers independently.
   Acceptance: highest compatible release per consumer, focused exploit/API regression where relevant, full CI and explicit engine/browser/DB compatibility. Remove an override only after every affected parent resolves safely. Do not use forced audit fixes or a bulk latest-version update; keep Dependabot's current target configuration.
-  The [remaining override review](../test-specs/m09-override-review.md) verifies parent ranges, reviews Ajv/flatted fixes and retains shiro-trie. Its child CI and final inventory reconciliation remain pending.
-  The [webpack/HMR refresh](../test-specs/webpack-refresh.md) removes a separate hot-middleware dependency using the maintained development middleware, with repeated update/error recovery coverage and explicit installed/browser size costs. It does not complete the remaining dependency reviews.
+  The [final compatible transitive review](../test-specs/m09-transitive-refresh.md) covers Day.js under launder, webpack's module lexer, APNs error formatting and Mocha serialization. Its final inventory records no further updates within declared consumer ranges and zero known full/production npm advisories. Final child CI and merge verification are required before accepting this completion update.
+  The [remaining override review](../test-specs/m09-override-review.md) verifies parent ranges, reviews Ajv/flatted fixes and retains shiro-trie. The lockfile preserves patched versions without forced resolution. Cache/date/widget migrations retain their separate M25/M27/M28 scope; xml2js remains an explicit compatibility hold.
+  The [webpack/HMR refresh](../test-specs/webpack-refresh.md) removes a separate hot-middleware dependency using the maintained development middleware, with repeated update/error recovery coverage and explicit installed/browser size costs.
   The [ESLint refresh](../test-specs/eslint-modernization.md) replaces the webpack wrapper with a scoped public-API integration, preserves the prior non-blocking development policy, and records the remaining CLI diagnostics for separate cleanup. Production dependencies and bundle bytes are unchanged.
   The [application lint cleanup](../test-specs/lint-cleanup.md) establishes a zero-error baseline and adds lint to one existing CI matrix job; sixteen security warnings remain for targeted review. The API3 alarm credential-log fix merged in #8688; it is no longer pending.
 
 The [MIME and jQuery exposure review](../test-specs/mime-jquery-exposure.md) consolidates
 API lookup on existing mime-types and replaces expose-loader with a browser
-bootstrap. M09 remains open for other dependency and override reviews.
+bootstrap.
 
 The [Helmet review](../test-specs/helmet-modernization.md) merged in #8696
 as `19bd2191`, with all required CI passing and an independently verified merge
 tree. Helmet 8.3 preserves existing CSP/HSTS/embedding policies; only obsolete
 Expect-CT is retired. The [Express 5 review](../test-specs/express5-modernization.md)
 covers request parsing, mutable filters, route syntax and MIME negotiation.
-Remaining dependency and override reviews keep M09 open.
 
 The [SASLprep review](../test-specs/saslprep-modernization.md) removes its redundant
 root declaration because driver 7.6 declares it as required, resolves 1.5.0,
@@ -113,7 +113,6 @@ The [entities consolidation](../test-specs/entities-consolidation.md) upgrades t
 shared decoder to 8.0.0 and consolidates three installed copies into one, without
 an override. HTML decoding/escaping and sanitization remain required; measured
 package files shrink by 776,553 bytes, with no runtime memory-saving claim.
-This scoped review does not complete M09.
 
 The [mime-types maintenance review](../test-specs/mime-types-upgrade.md) aligns
 direct lookup with Express's 3.0.2 release and preserves v1 JavaScript status
@@ -125,25 +124,23 @@ The [APNs provider review](../test-specs/apn-upgrade.md) moves to 8.1.0, removes
 five duplicate dependency paths and the redundant node-forge override. Owned
 TLS/HTTP2 tests cover actual signed Loop requests, retries, failure handling and
 session/timer cleanup. The published package files grow slightly; no RAM-saving
-claim is made. Remaining M09 reviews stay open.
+claim is made.
 
 The [native Pushover transport](../test-specs/pushover-native-transport.md) removes
 pushover-notifications and preserves message/receipt contracts using Node HTTPS.
 Owned TLS tests cover encoding, cancellation, failure classification, deadlines
 and cleanup. Package plus runtime source decreases by 22,575 bytes; no measured
-RAM saving is claimed. This does not complete the remaining M09 reviews.
+RAM saving is claimed.
 
 The [CLI/analyzer review](../test-specs/webpack-cli-analyzer.md) upgrades the
 build commands to CLI 7.2.3 and analyzer 5.3.2, preserves resource-limit tests
 and adds real command/report regression coverage. Production lock entries and
 application bundles are unchanged; development package bytes increase despite
-six fewer paths. Remaining dependency and override reviews keep M09 open.
-
+six fewer paths.
 The [Mocha 12 review](../test-specs/mocha12-modernization.md) adopts native Node
 argument parsing, removes two redundant runner overrides and 40 package paths.
 Runner failure/reporting, YAML defaults and retained parser security contracts
 have consumer coverage; production dependencies and bundles remain unchanged.
-Other M09 dependency and override reviews remain open.
 
 The [XML parser review](../test-specs/xml-parser-review.md) retains test-only
 xml2js 0.5.0: latest 0.6.2 inserts inherited objects/functions into prototype-named
@@ -154,7 +151,6 @@ The [Swagger review](../test-specs/swagger-modernization.md) upgrades the docs U
 fixes cross-schema initializer state and avoids evaluating browser bundles in
 Node. Isolated middleware retained heap falls about 9.5–9.7 MiB; package and
 documentation-download sizes increase. Installation analytics are disabled.
-Other M09 dependency/override audit work remains open.
 
 ## Phase 3 — reduce production installation and browser cost
 
