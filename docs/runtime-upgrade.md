@@ -60,3 +60,12 @@ gate; local challenge/metadata tests do not establish a deployment's IAM access.
 For application rollback, restore the driver, URI parser, SOCKS and AWS SDK
 manifest/lockfile plus the connection adapter together. No database binary,
 FCV or stored-data migration is performed by this adapter.
+
+## MongoDB query filters
+
+This release rejects `$where`, `$function` and `$accumulator` when used to
+submit JavaScript through Nightscout database queries. Replace such filters
+with ordinary MongoDB comparison, logical or aggregation operators. Explicit
+literal values containing these names remain data. Profile filter requests
+rejected by this validation return HTTP 400 with an explanatory message;
+other profile storage failures return a generic HTTP 500.

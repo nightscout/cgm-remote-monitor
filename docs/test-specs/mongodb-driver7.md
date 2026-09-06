@@ -131,7 +131,8 @@ describes the provider interface.
 Clean Node 24 installation/build passes. The first full AWS-enabled backend run
 found the existing source inventory parser cannot parse logical assignment;
 the helper now uses equivalent ordinary assignment, and its parser regression
-passes. Final full-suite validation is rerunning after that correction.
+passes. The corrected Node 24 / MongoDB 6 full backend run passes 1,854 tests with
+one pending before integration of the query boundary below.
 
 ## Query validation finding remains a merge blocker
 
@@ -139,5 +140,9 @@ CodeQL alert 105 flags the profile query path. A safe owned-database probe
 confirmed that `profile.list_query({find:{$where: ...}})` evaluates a supplied
 JavaScript predicate under both driver 5.9.2 and 7.6.0. This is an existing
 query-validation gap surfaced on a changed line, not caused by batch sizing.
-Keep the driver PR unmerged while query validation and its regression coverage
-are addressed; do not dismiss the alert based only on successful backend tests.
+#8663 now supplies the merged query boundary and regression coverage. The
+driver branch retains both its batch options and query validation after resolving
+the API v3 import conflict; both runtime documentation sections are retained.
+Thirty-seven combined AWS/batching/query-boundary cases pass on Node 24 /
+MongoDB 8. Keep the driver PR unmerged until fresh CodeQL and full hosted
+validation confirm this integration; the alert has not been dismissed.
