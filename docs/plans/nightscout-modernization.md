@@ -198,8 +198,10 @@ The user confirmed on 2026-09-05 that all implementation PRs target `chore/night
 
 Replace mongo-url-parser with the public connection-string parser already used by the installed MongoDB driver. [Contracts and validation](../test-specs/mongo-uri-credentials.md) cover driver grammar, decoded password comparisons and the no-connection requirement. The direct declaration count is unchanged; one installed legacy package is removed. Full validation remains open.
 
-### M18 callback helper work in progress
+### M18 callback and boot sequence work in progress
 
-The first slice removes direct `async` usage from dataloader, treatments and three notification/voice plugins. [Contracts and validation](../test-specs/callback-tasks.md) document ordering, bounded concurrency, repeated uploads and the remaining full-suite investigation. `bootevent` replacement and boot lifecycle validation remain separate, unfinished M18 work.
+The first slice, #8639, merged as `a92d0882` after all required CI passed and the actual merge tree matched verification. It removes direct `async` usage from dataloader, treatments and three notification/voice plugins. [Callback contracts and validation](../test-specs/callback-tasks.md) cover ordering, bounded concurrency and repeated uploads.
 
-- M17 completed in #8637, merged as `c75bead0`. All required CI passed on `b39a98ab`; actual merge tree `fb05920f` matched verification. Native entry transforms retain response/write contracts with paired allocation/latency evidence. The earlier unrelated Firefox report stall remains unexplained and instrumented.
+The second slice, #8640, replaces bootevent and its nested chain with a local fourteen-stage queue. [Boot contracts and validation](../test-specs/boot-sequence.md) cover deferred execution, stage gating, context/error retention and two successful and failed real boot/teardown cycles. Validation against the updated integration branch remains required before M18 is complete.
+
+- M17 completed in #8637, merged as `c75bead0`. All required CI passed on `b39a98ab`; actual merge tree `fb05920f` matched verification. Native entry transforms retain response/write contracts with paired allocation/latency evidence. Browser transport diagnostics and the fixture connection-close mitigation were integrated in #8639; the earlier intermittent stall's cause remains unproven.
