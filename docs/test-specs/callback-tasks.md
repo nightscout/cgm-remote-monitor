@@ -32,8 +32,10 @@ against a disposable MongoDB database.
 Validation so far: 20 focused cases pass on Node 22.23.2 and 24.20.0; the real
 treatment API suite passes all ten cases. The first full backend run had 1,627
 passing, one pending and three socket-hang-up failures in API shape tests. An
-instrumented full run is investigating those failures; this is not a green
-full-suite result. Hosted CI and final merge verification remain required.
+instrumented full run then passed 1,631 cases with one pending, including the
+new replay case. It did not reproduce the socket failures, so their cause is
+not established. Client-core passes all 283 cases on Node 24. Hosted CI and
+final merge verification remain required.
 
 The lockfile removes one installed package path and changes no retained paths.
 The removed package contains 91,385 regular-file bytes in the parent install.
