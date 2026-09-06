@@ -53,6 +53,25 @@ describe('language', function ( ) {
     language.get('zh_tw').language.should.equal('繁體中文（台灣）');
   });
 
+  it('preserves Traditional Chinese volume units and uploader battery labels', function () {
+    var language = require('../lib/language')();
+    language.set('zh_tw');
+    language.loadLocalization(fs);
+    language.translate('ml').should.equal('毫升');
+    language.translate('virtAsstTitleUploaderBattery').should.equal('當前上傳器電池');
+  });
+
+  it('preserves Swedish report filters and record count placeholders', function () {
+    var language = require('../lib/language')();
+    language.set('sv');
+    language.loadLocalization(fs);
+    language.translate('Days with food').should.equal('Dagar med mat');
+    language.translate('Days with notes containing').should.equal('Dagar med anteckningar som innehåller');
+    language.translate('Days with event type').should.equal('Dagar med händelsetyp');
+    language.translate('All event types').should.equal('Alla händelsetyper');
+    language.translate('Showing %1 of %2 records', '3', '10').should.equal('Visar 3 av 10 poster');
+  });
+
   it('fallback to English filename for unsupported language codes', function () {
     var language = require('../lib/language')();
     language.getFilename('unknown_language').should.equal('en/en.json');
