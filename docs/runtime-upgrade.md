@@ -209,3 +209,24 @@ Device identifiers change from `connect-<family>` to
 `nightscout-connect://minimedcarelink/<family>`; filters that match the old device
 name need updating. Owned regression fixtures cover these changes; verify actual
 account/device behavior before release.
+
+## Updated timezone rules
+
+The modernization candidate updates Moment Timezone to 0.6.3 with IANA timezone
+data 2026c. Local clock labels and profile-zone conversion can change where that
+data corrects historical rules or models new clock policies. Stored UTC timestamps
+are not rewritten by the dependency update.
+
+Affected zone groups include Morocco/Western Sahara, Alberta-related aliases,
+British Columbia, Moldova and historical Baja California. The
+[IANA release notes](https://github.com/eggert/tz/blob/2026c/NEWS) describe the
+modeled changes. The package's aliases follow their linked canonical zones;
+this is not an independent guarantee of current policy for every alias region.
+Verify the configured profile timezone and relevant local-time displays when
+upgrading an affected installation.
+
+Server timezone data includes historical corrections; the existing browser
+bundle retains only 2015–2035 data. This update does not broaden that browser
+range or resolve the separately tracked spring-DST schedule-selection issue.
+Application rollback restores the previous timezone rules without rewriting
+stored timestamps. See the [validation scope](test-specs/moment-timezone-refresh.md).

@@ -46,3 +46,19 @@ actual production bundle. They check every changed in-range alias twice. The
 1953 Baja California correction remains server-only because browser data begins
 in 2015. Client-core also passes all 283 cases on Node 24. Full backend and
 current-head hosted CI, including Firefox, remain required before merge.
+
+## Package, bundle and metadata comparison
+
+`node tools/audits/timezone-package-comparison.cjs /absolute/old/built/worktree`
+records country/link differences and package/bundle sizes and hashes. Both
+compared production builds use Node 22.23.2 and the same webpack dependencies.
+The old built app is the M27 prototype baseline (`6276c6ab`); its application
+inputs differ from this candidate only in the unrelated server alarm-logging
+fix and the timezone dependency. [Results](../audits/timezone-package-comparison.json)
+show no country-zone mapping or packed-link changes. Installed package files
+shrink by 33,124 bytes; app JS grows by 182 bytes / 19 gzip bytes. The other five
+JS bundles are byte-identical. No server-memory saving is claimed.
+
+Full local Node 22/MongoDB 6.0.27 backend validation passes 1,960 cases with one
+existing pending case. The complete browser run and current-base hosted CI
+remain outstanding at this checkpoint.
