@@ -283,3 +283,13 @@ runtime or memory improvement is claimed for retaining a development tool.
 ### M09 CSV dependency review
 
 The [CSV upgrade](../test-specs/csv-upgrade.md) uses maintained writer/parser CommonJS exports and adds byte-level export regressions independent of parser round trips. Installed package bytes increase; no server-memory saving is claimed. This is one scoped dependency review and does not complete M09.
+
+### M22 explicit trusted-proxy policy
+
+The maintainer approved requiring explicit trusted-proxy configuration for
+15.0.9. The candidate replaces all six `forwarded-for` consumers with a shared
+`proxy-addr` helper and applies the same policy to Express HTTPS/hostname
+handling, including removal of the direct `X-Forwarded-Proto` redirect bypass.
+Direct connections are the default. See the [deployment migration guide](../proposals/trusted-proxy-migration.md).
+M22 remains open until candidate CI and hosting migration validation complete;
+no generic Heroku/Azure proxy CIDR is assumed.
