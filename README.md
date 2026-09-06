@@ -213,6 +213,9 @@ You can get many more results, by using the `count`, `date`, `dateString`, and `
 
 Once you've installed Nightscout, you can access API documentation by loading `/api-docs/` URL in your instance.
 
+The `/api/v1/count/:storage/where` endpoint accepts `find` filters for counting records.
+Custom aggregation `pipeline` parameters are rejected with HTTP 400; they are not part of the public count API.
+
 #### Example Queries
 
 (replace `http://localhost:1337` with your own URL)
