@@ -164,6 +164,10 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
             .map(entry => (entry.mills - BASE) / 1000), fixture.kept);
           assert.deepEqual(result.data.statsrecords.map(entry => entry.sgv), expectedStats);
           assert.equal(result.table.Readings, String(fixture.kept.length));
+          const quartiles = units === 'mg/dl'
+            ? (fixture.name === 'dense' ? ['100.0', '150.0', '200.0'] : ['50.0', '100.0', '200.0'])
+            : (fixture.name === 'dense' ? ['5.6', '8.3', '11.1'] : ['2.8', '5.6', '11.1']);
+          assert.deepEqual([result.table['25%'], result.table.Median, result.table['75%']], quartiles);
           assert.deepEqual([result.table.Low, result.table.Normal, result.table.High], fixture.bands);
           assert.deepEqual(result.pie.map(band => band.label), ['Low', 'In Range', 'High']);
           assert.deepEqual(result.pie.map(band => band.data), fixture.pie);
