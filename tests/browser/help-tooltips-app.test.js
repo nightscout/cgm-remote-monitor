@@ -10,16 +10,15 @@ const ejs = require('ejs');
 const {withPage} = require('./fixture');
 
 describe('Help tooltips on the application page', function () {
-  let server, origin, units;
+  let server, origin, units, template;
   before(async function () {
     const root=path.resolve(__dirname,'../..'), file=path.join(root,'views/index.html');
     // Keep the real template/styles; boot manually with finite owned socket data.
-    const html=ejs.render(fs.readFileSync(file,'utf8'),{type:'index',title:'Tooltip fixture',bundle:'/bundle'},{filename:file})
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
+    template=ejs.render(fs.readFileSync(file,'utf8'),{type:'index',title:'Tooltip fixture',bundle:'/bundle'},{filename:file});
     const css=fs.readFileSync(path.join(root,'static/css/main.css'),'utf8')
       .replace("@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');",'');
     const app=express();
-    app.get('/',(req,res)=>res.type('html').send(html));
+    app.get('/',(req,res)=>res.type('html').send('<!doctype html><title>Owned tooltip fixture</title>'));
     app.get('/css/main.css',(req,res)=>res.type('css').send(css));
     app.get('/api/v1/status.json',(req,res)=>{
       const settings=structuredClone(require('../fixtures/default-server-settings'));
@@ -40,6 +39,14 @@ describe('Help tooltips on the application page', function () {
       units=value;
       await withPage(origin,async({page})=>{
         await page.clock.setFixedTime(new Date('2024-10-26T04:00:00Z'));
+        // Parse the trusted repository template with the browser's HTML parser.
+        // Remove boot scripts as DOM nodes, not with an HTML-filtering regexp.
+        const html=await page.evaluate(source=>{
+          const parsed=new DOMParser().parseFromString(source,'text/html');
+          for(const script of parsed.querySelectorAll('script'))script.remove();
+          return '<!doctype html>'+parsed.documentElement.outerHTML;
+        },template);
+        await page.route(origin+'/',route=>route.fulfill({contentType:'text/html',body:html}));
         await page.goto(origin);
         await page.addScriptTag({url:origin+'/bundle/js/bundle.app.js'});
         await page.evaluate(()=>{

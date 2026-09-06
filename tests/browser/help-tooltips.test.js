@@ -73,6 +73,29 @@ describe('Native help tooltip candidate', function () {
       assert.equal(await page.locator('[role=tooltip]').isVisible(),false);
     },true);
   });
+  it('dismisses a tooltip click regardless of reported pointer type twice', async function () {
+    await fixture(async page => {
+      for(let cycle=0;cycle<2;cycle++) {
+        await page.locator('#help').tap();
+        assert.equal(await page.locator('[role=tooltip]').isVisible(),true);
+        await page.locator('[role=tooltip]').click();
+        assert.equal(await page.locator('[role=tooltip]').isVisible(),false);
+      }
+    },true);
+  });
+  it('keeps keyboard-focused help visible through native scrolling twice', async function () {
+    await fixture(async page => {
+      await page.locator('#drawer').evaluate(el=>el.style.marginTop='1600px');
+      for(let cycle=0;cycle<2;cycle++) {
+        await page.locator('#outside').focus();
+        await page.locator('#help').focus();
+        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+        assert.equal(await page.locator('[role=tooltip]').isVisible(),true);
+        await page.keyboard.press('Escape');
+        assert.equal(await page.locator('[role=tooltip]').isVisible(),false);
+      }
+    });
+  });
   it('makes drawer help keyboard-operable with a translated accessible name', async function () {
     await fixture(async page => {
       await page.locator('#help').evaluate(el=>el.setAttribute('original-title','Aide traduite'));

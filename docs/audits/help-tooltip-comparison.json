@@ -10,9 +10,9 @@
     {
       "entry": "app",
       "beforeBytes": 1155137,
-      "afterBytes": 1154679,
+      "afterBytes": 1154708,
       "beforeGzip": 329930,
-      "afterGzip": 329997
+      "afterGzip": 330009
     },
     {
       "entry": "admin",
@@ -57,7 +57,7 @@
   "translatedTitleValuesExamined": 297,
   "translatedMarkupCandidates": [],
   "candidateSourceSHA256": {
-    "lib/client/help-tooltips.js": "6704234a78c229eeec3b9576cd5e8d3b37ae58a20ba6d16905a1f16d33185f46",
+    "lib/client/help-tooltips.js": "831b41b8203670abbf28c687e69d032f448d7fb7a801bfcc4e260ff7a68ae56f",
     "lib/client/browser-utils.js": "be6f8a28b9ccf13aca86a3266f2047a2f35e28216a4a4990e14a72e194d36e2b",
     "static/css/help-tooltips.css": "505697c281a17b95475006fe86e1d09140be82af66be593c21036e81fbc8889f",
     "bundle/bundle.source.js": "340a2176624bdca3fb7773d9d97e40ea395395d73822369d78c9dfef17ba44af",
