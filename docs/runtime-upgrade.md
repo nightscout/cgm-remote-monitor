@@ -22,7 +22,7 @@ The CI matrix tests 22.23.2, latest 22, 24.20.0, and latest 24 against MongoDB 5
 
 The following remain release checks until a maintainer records actual host evidence. Updating selectors alone does **not** establish hosted compatibility:
 
-- **Azure / Windows:** `azuredeploy.json` now selects `~24`. In the target App Service/Kudu environment, confirm this runtime is available and resolves to at least 24.20.0, then verify deployment, build, and application startup. Set `SCM_COMMAND_IDLE_TIMEOUT=300`. The legacy Azure deployment script's production-only install/global webpack behavior needs separate build/runtime cleanup; test that path before release. Do not assume legacy Windows versions in external tutorials are supported.
+- **Azure / Windows:** `azuredeploy.json` now selects `~24`. In the target App Service/Kudu environment, confirm this runtime is available and resolves to at least 24.20.0, then verify deployment, build, and application startup. Set `SCM_COMMAND_IDLE_TIMEOUT=300`. The Azure script now installs locked build dependencies with `npm ci --include=dev`, builds in postinstall, and prunes with `npm prune --omit=dev --ignore-scripts`; validate that complete path on the target host before release. Do not assume legacy Windows versions in external tutorials are supported.
 - **Heroku:** verify the buildpack resolves the engine range, builds with development dependencies, prunes correctly, and starts with persistent configuration. Record buildpack/stack versions and an upgrade/rollback exercise.
 - **Source and development:** verify a clean locked install and production startup, development/HMR startup, and upgrade/rollback with the same saved configuration and browser storage. The Linux setup helper selects NodeSource 24; validate it on the deployment's supported distribution.
 
@@ -52,3 +52,12 @@ with ordinary MongoDB comparison, logical or aggregation operators. Explicit
 literal values containing these names remain data. Profile filter requests
 rejected by this validation return HTTP 400 with an explanatory message;
 other profile storage failures return a generic HTTP 500.
+
+### Count and slice storage permissions
+
+The legacy `/api/v1/count/:storage/where` and `/api/v1/slice/:storage/...`
+routes now require `api:treatments:read` or `api:devicestatus:read` when that
+storage is selected, in addition to the existing `api:entries:read` gate.
+An entries-only token can no longer read those other collections through these
+routes. Grant the specific additional read permission to clients that need it.
+Entries reads and the existing unknown-storage fallback remain unchanged.
