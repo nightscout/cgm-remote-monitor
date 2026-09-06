@@ -9,7 +9,7 @@ const qs = require('qs');
 
 describe('Profile query JavaScript HTTP boundary', function () {
   this.timeout(15000);
-  let client, col, server, findCommands = 0;
+  let client, col, server, authorization, findCommands = 0;
   const collectionName = 'query_boundary_' + randomUUID().replaceAll('-', '');
   before(async function () {
     client = new MongoClient(process.env.CUSTOMCONNSTR_mongo || 'mongodb://127.0.0.1:27017/test', {monitorCommands:true});
@@ -26,18 +26,51 @@ describe('Profile query JavaScript HTTP boundary', function () {
     ]);
     const app = express();
     app.set('query parser', 'extended');
+    const env = {settings:{authDefaultRoles:'owned-profile-role', authFailDelay:0},
+      authentication_collections_prefix:collectionName + '_auth_'};
+    authorization = require('../lib/authorization')(env, {store:db,
+      settings:{units:'mg/dl'}, moment:require('moment-timezone'), language:require('../lib/language')()});
+    authorization.storage.roles = [{name:'owned-profile-role', permissions:['api:profile:read']}];
     const pass = (req, res, next) => next();
     app.use(require('../lib/api/profile')(app, {
-      sendJSONStatus:pass, rawParser:pass, jsonParser:express.json(), urlencodedParser:express.urlencoded({extended:true})
+      sendJSONStatus:require('../lib/middleware/send-json-status')(), rawParser:pass, jsonParser:express.json(), urlencodedParser:express.urlencoded({extended:true})
     }, {
       profile:require('../lib/server/profile')(collectionName, {store:db}),
-      authorization:{isPermitted:() => pass}
+      authorization
     }));
     server = await new Promise(resolve => {const listening = app.listen(0, '127.0.0.1', () => resolve(listening));});
   });
   after(async function () {
     if (server) await new Promise(resolve => server.close(resolve));
     try {if (col) await col.drop();} finally {if (client) await client.close();}
+  });
+
+  it('enforces actual profile-read permissions before broad or executable filters over two cycles', async function () {
+    try {
+      for (let cycle = 0; cycle < 2; cycle++) {
+        for (const permissions of [[], ['api:entries:read']]) {
+          authorization.storage.roles[0].permissions = permissions;
+          for (const find of [{}, {$or:[{score:{$ne:0}}, {score:{$exists:true}}]},
+            {$where:'this.score === 1'}]) {
+            const before = findCommands;
+            await request(server).get('/profiles/?' + qs.stringify({find})).expect(401);
+            assert.equal(findCommands, before);
+          }
+          for (const route of ['/profile/', '/profile/current']) {
+            const before = findCommands;
+            await request(server).get(route).expect(401);
+            assert.equal(findCommands, before);
+          }
+        }
+        authorization.storage.roles[0].permissions = ['api:profile:read'];
+        const result = await request(server).get('/profiles/?' + qs.stringify({
+          find:{$or:[{score:{$ne:0}}, {score:{$exists:true}}]}
+        })).expect(200);
+        assert.deepEqual(result.body.map(row => row.score), [3, 2, 1]);
+      }
+    } finally {
+      authorization.storage.roles[0].permissions = ['api:profile:read'];
+    }
   });
 
   it('rejects repeated direct and nested JavaScript predicates with 400 and no find', async function () {

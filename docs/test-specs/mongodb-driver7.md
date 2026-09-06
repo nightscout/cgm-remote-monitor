@@ -146,3 +146,30 @@ the API v3 import conflict; both runtime documentation sections are retained.
 Thirty-seven combined AWS/batching/query-boundary cases pass on Node 24 /
 MongoDB 8. Keep the driver PR unmerged until fresh CodeQL and full hosted
 validation confirm this integration; the alert has not been dismissed.
+
+## Profile filter alert review
+
+CodeQL alert 105 identifies the profile list's user-controlled filter object.
+The API intentionally accepts query predicates after `api:profile:read`; it
+does not use the supplied filter as an authentication credential or append a
+per-document access constraint. The collection comes from server configuration.
+Wrapping this entire filter in `$eq` would break the documented query API.
+
+The HTTP boundary fixture now uses the real authorization middleware and Shiro
+role resolution instead of an always-allow stub. Over two cycles, no permissions
+and entries-read-only permissions both produce 401 for empty, broad and
+JavaScript filters, with zero MongoDB find commands. The same denial holds for
+`/profile/` and `/profile/current`. A profile-read role can select all three
+owned profiles through ordinary operators. Removing the router's profile-read
+gate makes this regression fail (expected 401, received 200). The remaining
+JavaScript rejection and literal-data tests also run through real authorization.
+All four HTTP cases pass on Node 22/MongoDB 6 and Node 24/MongoDB 8; the combined
+Node 22 query-boundary suite has 16 passing cases.
+
+MongoDB distinguishes [query predicates](https://www.mongodb.com/docs/manual/reference/mql/query-predicates/)
+from [server-side JavaScript](https://www.mongodb.com/docs/manual/core/server-side-javascript/).
+The merged guard rejects `$where`, `$function` and `$accumulator` in executable
+contexts. This review supports treating the remaining generic object-flow
+warning separately from that fixed executable-query defect. It does not prove
+query resource bounds or change authorization policy, and no alert dismissal
+is made by this test change. CodeQL remains an open review gate.
