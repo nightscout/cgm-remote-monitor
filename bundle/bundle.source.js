@@ -10,8 +10,8 @@ import 'jquery-ui/themes/base/draggable.css';
 import 'jquery-ui/themes/base/resizable.css';
 import 'jquery-ui/themes/base/sortable.css';
 
-// expose-loader initializes window.$ for page scripts and plugins.
-require('jquery');
+// Initialize the shared browser global before widgets and page scripts.
+require('../lib/client/jquery-global');
 
 // Dialog includes its draggable/resizable dependencies. Food editing also
 // needs droppable and sortable; unused UI widgets are not bundled.
