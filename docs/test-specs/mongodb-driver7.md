@@ -206,3 +206,22 @@ certificate-related server-selection error. This establishes local server
 certificate trust behavior. It does not cover hostname mismatch, expired
 certificates, client-certificate authentication, SRV/Atlas TLS or hosted
 MongoDB 5/6/7 TLS. Those remain distinct compatibility/deployment work.
+
+## Authorization reload query boundary
+
+Alert 106 exposed a generic filter surface in authorization storage. Tracked
+source call sites use listRoles/listSubjects only for complete reloads with
+name sorting; the HTTP subject/role endpoints return cached arrays and do not
+forward request queries to these helpers. The lists now issue a fixed empty
+filter and reject an explicit find option through their existing callback/promise
+error contract. Sorting, count, batching, default roles and token processing stay
+in place. The unused shared query builder import/configuration is removed.
+
+Two real-MongoDB regressions exercise repeated rejected filters with zero find
+commands and repeated complete reloads after changing grants/subject roles.
+Both pass on Node 22/MongoDB 6 and Node 24/MongoDB 8; the combined Node 24
+reload/batch suite passes 12 cases. Against the previous helper, normal reload
+still passes but the new unsupported-filter rejection fails as expected.
+Alert 106 has not been dismissed; the code change must be verified by fresh
+CodeQL and the full CI matrix. Alert 107 for the public entries API remains
+a separate review. No public endpoint query contract changes in this slice.
