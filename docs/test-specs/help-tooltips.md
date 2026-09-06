@@ -6,7 +6,8 @@ is retained because other .tooltip elements share it. The new help stylesheet
 is loaded by the main page and included in service-worker precaching.
 
 The helper shows escaped text from the current translated original-title/title,
-adds a role=tooltip description, restores existing aria-describedby values on
+adds a role=tooltip description when the name does not already contain that text,
+restores existing aria-describedby values on
 hide, supports keyboard focus/Space/Enter/Escape and makes drawer help anchors
 focusable. Pointer hover can move onto the tooltip. Touch drawer tips open on
 tap and dismiss on another help tap, the tooltip itself or an outside tap;
@@ -14,7 +15,7 @@ toolbar touch activation is not intercepted. Repeated initialization installs
 one tooltip/listener set. Resize hides it; scrolling repositions keyboard-focused help and dismisses hover-only help; narrow-screen placement clamps
 horizontally and flips above a low trigger. It has no fade animation or arrow.
 
-Eight isolated real-browser cases pass in Chromium on Node 22 and WebKit on Node
+Nine isolated real-browser cases pass in Chromium on Node 22 and WebKit on Node
 24: repeated focus/Escape, translated text escaping and hover transfer, touch
 open/dismiss and toolbar activation, keyboard help names, narrow bounds and
 resize, repeated initialization/destruction with description restoration, pointer-independent click dismissal and native focus scrolling.
@@ -85,3 +86,23 @@ it is supporting context, not proof of this current failure's cause. Bounded
 pointer/touch/click/focus traces are attached to failed dismissal assertions.
 The original visibility assertions remain unchanged. Hosted confirmation is
 required; local macOS WebKit cannot establish Linux WebKit behavior.
+
+## Computed accessible-name/description follow-up
+
+The application accessibility-tree probe found the same French help sentence in
+both the button name and its description. The helper now omits the duplicate
+tooltip association when aria-label already contains the full help text, while
+retaining unrelated pre-existing descriptions. Toolbar tips whose label differs
+from the help text still receive the description. Visible content and interactions
+are unchanged.
+
+A new repeated-focus regression fails the previous helper: it adds
+`ns-help-tooltip` to an existing description despite already exposing that text
+as the name. The application cases now inspect Chromium's computed accessibility
+tree over both units and keyboard/touch cycles: the translated button name remains,
+it is not ignored, and there is no duplicate description. WebKit retains the
+attribute/content/interaction assertions. This is browser accessibility evidence,
+not a claim about every screen reader's speech or real target devices.
+
+The candidate incorporates driver integration cbbd4581 without conflicts and
+passes a clean Node 22 install/build. Fresh hosted validation remains required.

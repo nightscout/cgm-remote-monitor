@@ -77,8 +77,20 @@ describe('Help tooltips on the application page', function () {
           const tipBox=await tooltip.boundingBox(), helpBox=await help.boundingBox();
           const gap=Math.min(Math.abs(tipBox.y-(helpBox.y+helpBox.height)),Math.abs(helpBox.y-(tipBox.y+tipBox.height)));
           assert(gap<=8, 'Tooltip must stay adjacent to its current trigger: '+gap);
-          assert.equal(await help.getAttribute('aria-describedby'),'ns-help-tooltip');
+          assert.equal(await help.getAttribute('aria-describedby'),null);
           assert.equal(await help.getAttribute('aria-label'),'Une alarme peut sonner.');
+          if(page.context().browser().browserType().name()==='chromium') {
+            const cdp=await page.context().newCDPSession(page);
+            try {
+              const dom=await cdp.send('DOM.getDocument');
+              const match=await cdp.send('DOM.querySelector',{nodeId:dom.root.nodeId,selector:'#drawer .tip'});
+              const {nodes}=await cdp.send('Accessibility.getPartialAXTree',{nodeId:match.nodeId,fetchRelatives:false});
+              assert.equal(nodes[0].ignored,false);
+              assert.equal(nodes[0].role.value,'button');
+              assert.equal(nodes[0].name.value,'Une alarme peut sonner.');
+              assert.equal(nodes[0].description?.value || '', '', 'Help text must not be exposed twice for the focused control');
+            } finally {await cdp.detach();}
+          }
           if(process.env.NIGHTSCOUT_TOOLTIP_APP_SCREENSHOT && !touch && cycle===0)
             await page.screenshot({path:process.env.NIGHTSCOUT_TOOLTIP_APP_SCREENSHOT});
           if(touch)await tooltip.tap();else await page.keyboard.press('Escape');

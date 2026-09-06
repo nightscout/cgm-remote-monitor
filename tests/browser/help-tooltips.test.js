@@ -105,6 +105,21 @@ describe('Native help tooltip candidate', function () {
       }
     });
   });
+  it('avoids repeating a help label as its description and preserves existing descriptions twice', async function () {
+    await fixture(async page => {
+      const help=page.locator('#help');
+      await help.evaluate(el=>el.setAttribute('aria-describedby','existing'));
+      for(let cycle=0;cycle<2;cycle++) {
+        await page.locator('#outside').focus();
+        await help.focus();
+        assert.equal(await help.getAttribute('aria-label'),'Translated help');
+        assert.equal(await help.getAttribute('aria-describedby'),'existing');
+        assert.equal(await page.locator('[role=tooltip]').textContent(),'Translated help');
+        await page.keyboard.press('Escape');
+        assert.equal(await help.getAttribute('aria-describedby'),'existing');
+      }
+    });
+  });
   it('makes drawer help keyboard-operable with a translated accessible name', async function () {
     await fixture(async page => {
       await page.locator('#help').evaluate(el=>el.setAttribute('original-title','Aide traduite'));
