@@ -46,7 +46,8 @@ against a unique loopback-only MongoDB test database. It requires a loaded
 API state, imports configuration from an owned HTTP fixture, verifies six
 pages and byte-identical page bundles, checks Socket.IO/static/service-worker
 assets and preserves the runtime key. It passes on both Node floors with
-MongoDB 6. The backend CI matrix runs it after tests and production pruning.
+MongoDB 6. Both backend CI matrices run it after tests and production pruning: the eight
+retained MongoDB 5/6 combinations and four maintained MongoDB 7/8 combinations.
 It uses native APIs and production dependencies so missing test/build tools
 cannot be hidden by the validation harness. Live host gates remain open.
 

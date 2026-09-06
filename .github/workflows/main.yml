@@ -95,6 +95,14 @@ jobs:
       - name: Send Coverage
         run: npm run-script coverage
 
+      - name: Validate built and pruned runtime
+        env:
+          NODE_ENV: production
+          CUSTOMCONNSTR_mongo: mongodb://127.0.0.1:27017/testdb
+        run: |
+          npm prune --omit=dev --ignore-scripts
+          node tools/validate-pruned-runtime.js
+
   browser-test:
     name: Browser tests (${{ matrix.node-version }}, ${{ matrix.browser }})
     runs-on: ubuntu-latest
