@@ -72,18 +72,8 @@ pluginArray.push(new MomentTimezoneDataPlugin({
 }));
 
 if (process.env.NODE_ENV === 'development') {
-  const ESLintPlugin = require('eslint-webpack-plugin');
-  pluginArray.push(new ESLintPlugin({
-    emitWarning: true,
-    failOnError: false,
-    failOnWarning: false,
-    formatter: require('eslint').CLIEngine.getFormatter('stylish'),
-    overrideConfig: {
-      globals: {
-        '$': 'writeable'
-      }
-    }
-  }));
+  const DevelopmentLintPlugin = require('./lint-plugin');
+  pluginArray.push(new DevelopmentLintPlugin());
 }
 
 const rules = [
