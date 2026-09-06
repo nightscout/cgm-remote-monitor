@@ -7,7 +7,7 @@ const {once} = require('node:events');
 const {getBrowser} = require('./hooks');
 
 // Capture the persisted-data contract before changing the implementation.
-const source = fs.readFileSync(require.resolve('../../lib/client/storage'), 'utf8');
+const source = fs.readFileSync(process.env.NIGHTSCOUT_STORAGE_ORACLE || require.resolve('../../lib/client/storage'), 'utf8');
 const script = '(function () { const module = {exports: {}}; const exports = module.exports; ' + source + '; window.storageContract = module.exports; })();';
 
 describe('Browser storage persisted-data contract', function () {
@@ -117,6 +117,41 @@ describe('Browser storage persisted-data contract', function () {
       const store = window.storageContract.localStorage;
       return [store.get('fixture'), store.set('fixture', 'value'), store.remove('fixture')];
     }, 'quota'), [null, null, null]);
+  });
+
+  it('retains bulk, nested and selected-key operations on the public export', async function () {
+    assert.deepEqual(await check(() => {
+      const store = window.storageContract.localStorage;
+      store.set({plain: 'hello', list: [1, 2], object: {flag: false}});
+      store.set('nested', 'items', 0, 'value', 7);
+      const values = [store.get(['plain', 'list']), store.get('nested', 'items', 0, ['value']), store.keys('object')];
+      store.remove(['plain', 'list']); store.remove('object', ['flag']);
+      return [...values, store.get('object'), store.isSet(['plain', 'object']), store.isEmpty('object')];
+    }), [{plain: 'hello', list: '1,2'}, {value: 7}, ['flag'], {}, false, true]);
+  });
+
+  it('retains explicit JSON mode and boolean presence/emptiness distinctions', async function () {
+    assert.deepEqual(await check(() => {
+      const api = window.storageContract, store = api.localStorage;
+      api.alwaysUseJsonInStorage(true); store.set('string', 'false'); store.set('boolean', false);
+      const first = [localStorage.getItem('string'), store.get('string'), store.isSet('boolean'), store.isEmpty('boolean')];
+      api.alwaysUseJsonInStorage(false); store.set('string', 'false');
+      return [...first, store.get('string'), store.isEmpty('missing')];
+    }), ['"false"', 'false', true, false, false, true]);
+  });
+
+  it('retains isolated namespaces, enumeration and clear/reinitialize behavior', async function () {
+    assert.deepEqual(await check(() => {
+      const api = window.storageContract, group = api.initNamespaceStorage('fixture');
+      group.localStorage.set({a: 1, b: false}); group.sessionStorage.set('a', 2);
+      const first = [group.localStorage.get(), group.sessionStorage.get('a'), group.localStorage.keys().sort()];
+      group.localStorage.removeAll();
+      const cleared = group.localStorage.get();
+      api.localStorage.set('outside', 'value'); api.removeAllStorages(true);
+      const retained = [Object.keys(api.namespaceStorages), api.localStorage.get('fixture'), api.sessionStorage.get('fixture'), api.localStorage.get('outside')];
+      api.removeAllStorages();
+      return [...first, cleared, ...retained, Object.keys(api.namespaceStorages), localStorage.length, sessionStorage.length];
+    }), [{a: 1, b: false}, 2, ['a', 'b'], {}, ['fixture'], {}, {}, null, [], 0, 0]);
   });
 
 });
