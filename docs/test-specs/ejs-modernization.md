@@ -52,8 +52,8 @@ Socket.IO assets, and Unicode SCRAM authentication pass on both Node floors.
 The initial backend run passed 2,021 cases with one existing pending case; its
 only failure invoked the removed Jake dependency. That obsolete test is now
 removed and the 26 combined template/brace-expansion cases pass on both Node
-floors. A clean backend rerun and hosted final-head CI remain required before
-merge.
+floors. The subsequent clean backend run passes all 2,021 cases with one
+existing pending case. Hosted final-head CI remains required before merge.
 
 Sources: [EJS 6.0.1](https://github.com/mde/ejs/releases/tag/v6.0.1),
 [EJS 5 migration notes](https://github.com/mde/ejs/blob/main/RELEASE_NOTES_v5.md).
