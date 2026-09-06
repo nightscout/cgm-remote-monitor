@@ -28,3 +28,12 @@ final browser pipeline/legacy checks pass twelve cases with all four report
 changes. Full browser checks, explicit percentile/hourly chart
 and DST golden coverage, full backend and hosted CI remain required. This
 slice does not complete the broader M26 statistics assessment.
+
+The browser pipeline now also renders the real percentile and hourly plugins.
+Goldens cover all five percentile bands, empty half-hour bins, hourly candle
+quartiles/deviation, displayed hourly statistics, real canvases and cached
+second renders in both glucose units. All 12 pipeline cases pass against the
+unchanged scalar-quantile parent in Chromium, against batching in Chromium on
+Node 22.23.2, and against batching in WebKit on Node 24.20.0. This retains
+existing hourly display rounding, including its floored mean. The separate
+DST day-boundary fix is #8645; combined validation remains required.

@@ -72,18 +72,18 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
     });
   }
 
-  async function withReport(offsets, units, values, endDay, run) {
+  async function withReport(offsets, units, values, endDay, run, charts = false) {
     entries = offsets.map((seconds, index) => ({type: 'sgv', date: BASE + seconds * 1000, sgv: values[index], device: 'report-test'})).reverse();
     requests = [];
     await withReportPage(async page => {
-      await page.evaluate(({units, day, endDay}) => {
+      await page.evaluate(({units, day, endDay, charts}) => {
         const $ = window.$, moment = window.moment, Nightscout = window.Nightscout;
         const ctx = {moment, settings: {units}, language: {translate: value => value}};
         const client = {
           ctx, settings: {units, scaleY: 'linear', thresholds: {bgTargetBottom: 80, bgTargetTop: 180}},
           careportal: {events: []}, headers: () => ({}), init: callback => callback(),
           translate: ctx.language.translate, utils: window.NightscoutTestModules.utils(ctx),
-          sbx: {data: {profile: {parseInTimezone: value => moment.utc(value)}}},
+          sbx: {data: {profile: {parseInTimezone: value => moment.utc(value), applyTimezone: value => value.utc()}}},
           ddata: {processDurations: treatments => treatments}
         };
         // Preserve the original immutable API-response guarantee, while using
@@ -94,11 +94,14 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
             options.converters = {...options.converters, 'text json': text => Object.freeze(parse(text).map(Object.freeze))};
           }
         });
-        let pies = {};
+        let pies = {}, chartSeries = {};
         const plot = $.plot;
         $.plot = Object.assign(function (selector, series, options) {
-          if (!selector.startsWith('#dailystat-chart-')) throw new Error('Unexpected chart: ' + selector);
-          pies[selector.slice('#dailystat-chart-'.length)] = series.map(band => ({...band}));
+          if (selector.startsWith('#dailystat-chart-')) {
+            pies[selector.slice('#dailystat-chart-'.length)] = series.map(band => ({...band}));
+          } else if (charts && ['#percentile-chart', '#hourlystats-overviewchart'].includes(selector)) {
+            chartSeries[selector] = series.map(band => ({id: band.id, data: band.data.map(point => point.slice(1))}));
+          } else throw new Error('Unexpected chart: ' + selector);
           return plot.call(this, selector, series, options);
         }, plot);
         const registry = Nightscout.report_plugins_preinit;
@@ -108,6 +111,16 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
           // Preserve the real registry and report HTML; focus rendering on Daily Stats.
           plugins.eachPlugin = callback => callback({...daily, report(storage, days, options) {
             daily.report(storage, days, options);
+            if (charts) {
+              $('#owned-statistics-charts').remove();
+              const container = $('<div id="owned-statistics-charts" style="width:1000px">').appendTo('body');
+              for (const name of ['percentile', 'hourlystats']) {
+                const plugin = plugins(name);
+                container.append(plugin.html(client));
+                container.find('#percentile-chart, #hourlystats-overviewchart').css({height: '500px', width: '1000px'});
+                plugin.report(storage, days, options);
+              }
+            }
             // Flot adds nested legend tables; only inspect the report table's
             // own rows, preserving the original statistics assertions.
             const table = document.querySelector('#dailystats-report > table');
@@ -116,7 +129,10 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
               .map(row => Array.from(row.children, cell => cell.textContent));
             window.reportResult = JSON.parse(JSON.stringify({
               data: storage[day], table: Object.fromEntries(headers.map((name, index) => [name, rows[0][index]])),
-              pie: pies[day], rows, days: days.slice(), pies,
+              pie: pies[day], rows, days: days.slice(), pies, chartSeries,
+              hourlyRows: charts ? Array.from(document.querySelector('#hourlystats-report table').rows).slice(1)
+                .map(row => Array.from(row.cells, cell => cell.textContent)) : [],
+              statisticsCanvases: document.querySelectorAll('#owned-statistics-charts canvas').length,
               stats: days.map(day => storage[day].statsrecords),
               canvases: document.querySelectorAll('#dailystats-report canvas').length
             }));
@@ -127,7 +143,7 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
         $('#rp_from').val(day);
         $('#rp_to').val(endDay);
         window.resetReportResult = () => { window.reportResult = null; pies = {}; };
-      }, {units, day: DAY, endDay});
+      }, {units, day: DAY, endDay, charts});
       await page.waitForFunction(() => window.$.active === 0);
       async function show() {
         await page.evaluate(() => window.resetReportResult());
@@ -151,6 +167,31 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
   }
 
   ['mg/dl', 'mmol'].forEach(function (units) {
+    it('preserves percentile bands and hourly candle/table goldens (' + units + ')', async function () {
+      await withReport([0, 300], units, [100, 200], DAY, async result => {
+        const mmol = units === 'mmol';
+        const bands = Object.fromEntries(result.chartSeries['#percentile-chart'].filter(series => series.id).map(series => [series.id, series.data]));
+        for (const [id, expected] of Object.entries({c10: mmol ? 5.6 : 100, c25: mmol ? 5.6 : 100,
+          c50: mmol ? 8.35 : 150, c75: mmol ? 11.1 : 200, c90: mmol ? 11.1 : 200})) {
+          assert.equal(bands[id].length, 48);
+          assert.equal(bands[id][0][0], expected);
+          assert.ok(bands[id].slice(1).every(point => point[0] === null));
+        }
+        assert.deepEqual(result.hourlyRows[0].slice(1), mmol
+          ? ['2 (100%)', '8', '5.6', '5.6', '8.3', '11.1', '11.1', '2.7']
+          : ['2 (100%)', '150', '100', '100.0', '150.0', '200.0', '200', '50']);
+        const candles = result.chartSeries['#hourlystats-overviewchart'][0].data;
+        assert.equal(candles.length, 24);
+        assert.deepEqual(candles[0], mmol ? [5.6, 11.1, 5.25, 10.75] : [100, 200, 100, 200]);
+        assert.ok(candles.slice(1).every(point => point.every(value => value === null)));
+        assert.ok(result.statisticsCanvases >= 2);
+        const again = await result.showAgain();
+        assert.deepEqual(again.chartSeries, result.chartSeries);
+        assert.deepEqual(again.hourlyRows, result.hourlyRows);
+        assert.equal(again.entriesRequests, 1);
+      }, true);
+    });
+
     [
       { name: 'dense', offsets: [0, 58, 116], kept: [0, 116], bands: ['0%', '50%', '50%'], pie: [0, 50, 50] },
       { name: 'five-minute', offsets: [0, 300, 600], kept: [0, 300, 600], bands: ['33%', '33%', '33%'], pie: [33.3, 33.3, 33.3] }
