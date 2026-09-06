@@ -98,6 +98,10 @@ The [SASLprep review](../test-specs/saslprep-modernization.md) removes its redun
 root declaration because driver 7.6 declares it as required, resolves 1.5.0,
 and adds Unicode SCRAM authentication checks to existing runtime CI jobs.
 
+The [EJS review](../test-specs/ejs-modernization.md) upgrades the template engine
+to dependency-free 6.0.1, removes Jake/filelist and the unused filelist override,
+and covers actual rendered pages, escaping, cache freshness and inherited locals.
+
 The [Axios consolidation](../test-specs/axios-consolidation.md) upgrades config
 imports to the same 1.20 client used by Connect and removes redundant Axios and
 follow-redirects overrides. Explicit redaction, actual import authentication and

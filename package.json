@@ -101,7 +101,7 @@
     "csv-stringify": "^6.8.3",
     "d3": "^7.9.0",
     "easyxml": "^2.0.1",
-    "ejs": "^3.1.8",
+    "ejs": "6.0.1",
     "entities": "^6.0.1",
     "errorhandler": "^1.5.1",
     "events": "^3.3.0",
@@ -168,9 +168,6 @@
     "ajv@^6.0.0": "6.15.0",
     "ajv@^8.0.0": "8.18.0",
     "socket.io-parser": "4.2.7",
-    "filelist": {
-      "minimatch": "5.1.8"
-    },
     "schema-utils@^4.0.0": {
       "ajv": "8.18.0"
     },
