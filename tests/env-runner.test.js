@@ -71,7 +71,7 @@ describe('Native env runner process contract', function () {
     for (let cycle = 0; cycle < 2; cycle++) {
       const child = spawn(process.execPath, [runner, file, script], {stdio: ['ignore', 'pipe', 'pipe']});
       let output = '';
-      const exit = once(child, 'exit');
+      const exit = once(child, 'close');
       try {
         await deadline(new Promise((resolve, reject) => {
           child.once('error', reject);
