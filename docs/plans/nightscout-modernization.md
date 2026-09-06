@@ -39,7 +39,7 @@ At the audit baseline, completed foundations were: D3 7.9.0, jsdom-backed test t
 
 - [x] **M01 — Remove four unused declarations and one unused import** (implemented on the integration branch in `6a6dd7a5`; [initial #8605 CI](https://github.com/nightscout/cgm-remote-monitor/actions/runs/33979863812) passed all applicable checks).
   Files: `package.json`, `package-lock.json`, `lib/api2/summary/basaldataprocessor.js`, this plan and the audit inventory. Remove `mongomock`, `moment-locales-webpack-plugin`, `acorn`, `acorn-jsx` after source/config/asset verification, plus the summary processor's unused jQuery import. Browser jQuery remains required. Remove the redundant function-scoped loop-index redeclaration in that same module so its existing lint warning is cleared without changing loop behavior.
-  Acceptance: clean install and both builds; shared CI gates and summary tests; 81 declarations, 1,030 package paths, 673 production paths; no retained version changes or browser asset changes. Acorn/Acorn JSX remain transitively required. Retain `@types/tough-cookie`: removing it passed a local legacy-peer-deps simulation but broke Docker-style `npm ci` without the repository `.npmrc`, where the cookie wrapper requires its peer lock entry. Retain `@mongodb-js/saslprep` for Mongo authentication with optional packages omitted, and `swagger-ui-dist` for assets and major-version policy. No new behavior test or RAM claim is needed for an unused declaration/import.
+  Acceptance: clean install and both builds; shared CI gates and summary tests; 81 declarations, 1,030 package paths, 673 production paths; no retained version changes or browser asset changes. Acorn/Acorn JSX remain transitively required. Retain `@types/tough-cookie`: removing it passed a local legacy-peer-deps simulation but broke Docker-style `npm ci` without the repository `.npmrc`, where the cookie wrapper requires its peer lock entry. At this stage, retained `@mongodb-js/saslprep` for Mongo authentication with optional packages omitted (superseded by the M09 driver-owned SASLprep review below), and `swagger-ui-dist` for assets and major-version policy. No new behavior test or RAM claim is needed for an unused declaration/import.
 
 - [x] **M02 — Stop pill tooltip handler accumulation** (after M01; independent of Node policy).
   Files: `lib/plugins/pluginbase.js`, `tests/pluginbase.modern.test.js` and appropriate DOM fixtures. Use a stable/namespaced binding that reads the latest options, removing both handlers when tooltip info disappears.
@@ -86,6 +86,10 @@ At the audit baseline, completed foundations were: D3 7.9.0, jsdom-backed test t
 The [MIME and jQuery exposure review](../test-specs/mime-jquery-exposure.md) consolidates
 API lookup on existing mime-types and replaces expose-loader with a browser
 bootstrap. M09 remains open for other dependency and override reviews.
+
+The [SASLprep review](../test-specs/saslprep-modernization.md) removes its redundant
+root declaration because driver 7.6 declares it as required, resolves 1.5.0,
+and adds Unicode SCRAM authentication checks to existing runtime CI jobs.
 
 ## Phase 3 — reduce production installation and browser cost
 
