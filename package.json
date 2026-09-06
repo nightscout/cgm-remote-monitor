@@ -109,7 +109,7 @@
     "express": "4.22.2",
     "fast-password-entropy": "^1.1.1",
     "flot": "^0.8.3",
-    "helmet": "^4.0.0",
+    "helmet": "^8.3.0",
     "jquery": "^3.5.1",
     "jquery-ui": "^1.14.2",
     "jsonwebtoken": "^9.0.0",
